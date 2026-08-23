@@ -26,6 +26,7 @@ const localBindingConfig = {
     ? [
         {
           binding: r2,
+          bucket_name: "psipedia-sk-bucket",
         },
       ]
     : [],
