@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { PawMark } from "./icons";
@@ -22,30 +21,30 @@ export function AdminShell({
     <main id="obsah" className="admin-root">
       <div className="admin-shell shell">
         <header className="admin-topbar">
-          <Link href="/admin" className="admin-brand" aria-label="Psipedia redakcia – prehľad">
+          <a href="/admin" className="admin-brand" aria-label="Psipedia redakcia – prehľad">
             <span><PawMark size={23} /></span>
             <strong>Psipedia</strong>
             <small>redakcia</small>
-          </Link>
+          </a>
           <div className="admin-account">
             <span>
               <small>Prihlásený používateľ</small>
               <strong>{user.displayName}</strong>
             </span>
-            <Link href={chatGPTSignOutPath("/", user.authProvider)}>Odhlásiť</Link>
+            <a href={chatGPTSignOutPath("/", user.authProvider)}>Odhlásiť</a>
           </div>
         </header>
 
         <nav className="admin-section-nav" aria-label="Redakčné moduly">
-          <Link href="/admin">Články a novinky</Link>
-          <Link href="/admin/tipy">Tipy od čitateľov</Link>
-          <Link href="/admin/podujatia">Podujatia</Link>
-          <Link href="/admin/adresar">Adresár</Link>
-          <Link href="/admin/dopyty">Dopyty</Link>
-          <Link href="/admin/pomoc">Pomoc psom</Link>
-          <Link href="/admin/pravne">Právne centrum</Link>
-          <Link href="/adresar" target="_blank">Verejný adresár ↗</Link>
-          <Link href="/pomoc-psom" target="_blank">Verejná pomoc ↗</Link>
+          <a href="/admin">Články a novinky</a>
+          <a href="/admin/tipy">Tipy od čitateľov</a>
+          <a href="/admin/podujatia">Podujatia</a>
+          <a href="/admin/adresar">Adresár</a>
+          <a href="/admin/dopyty">Dopyty</a>
+          <a href="/admin/pomoc">Pomoc psom</a>
+          <a href="/admin/pravne">Právne centrum</a>
+          <a href="/adresar" target="_blank" rel="noreferrer">Verejný adresár ↗</a>
+          <a href="/pomoc-psom" target="_blank" rel="noreferrer">Verejná pomoc ↗</a>
         </nav>
 
         <div className="admin-heading">
@@ -61,7 +60,7 @@ export function AdminShell({
 
         <footer className="admin-footer">
           <span>Zmeny sa na verejnom webe ukážu až po publikovaní obsahu.</span>
-          <Link href="/" target="_blank">Otvoriť Psipedia.sk ↗</Link>
+          <a href="/" target="_blank" rel="noreferrer">Otvoriť Psipedia.sk ↗</a>
         </footer>
       </div>
     </main>
