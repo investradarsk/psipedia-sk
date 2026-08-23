@@ -1,4 +1,4 @@
-CREATE TABLE `legal_settings` (
+CREATE TABLE IF NOT EXISTS `legal_settings` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`operator_type` text DEFAULT 'individual' NOT NULL,
 	`legal_name` text DEFAULT '' NOT NULL,

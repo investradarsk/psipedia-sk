@@ -1,9 +1,10 @@
-CREATE TABLE `directory_inquiries` (
+CREATE TABLE IF NOT EXISTS `directory_inquiries` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`profile_id` integer,
 	`profile_name` text NOT NULL,
 	`profile_slug` text NOT NULL,
 	`profile_category` text NOT NULL,
+	`recipient_email` text,
 	`sender_name` text NOT NULL,
 	`sender_email` text NOT NULL,
 	`sender_phone` text DEFAULT '' NOT NULL,
@@ -15,10 +16,10 @@ CREATE TABLE `directory_inquiries` (
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `directory_inquiries_status_created_idx` ON `directory_inquiries` (`status`,`created_at`);--> statement-breakpoint
-CREATE INDEX `directory_inquiries_profile_idx` ON `directory_inquiries` (`profile_id`,`created_at`);--> statement-breakpoint
-CREATE INDEX `directory_inquiries_email_idx` ON `directory_inquiries` (`sender_email`,`created_at`);--> statement-breakpoint
-CREATE TABLE `directory_profiles` (
+CREATE INDEX IF NOT EXISTS `directory_inquiries_status_created_idx` ON `directory_inquiries` (`status`,`created_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `directory_inquiries_profile_idx` ON `directory_inquiries` (`profile_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `directory_inquiries_email_idx` ON `directory_inquiries` (`sender_email`,`created_at`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `directory_profiles` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`slug` text NOT NULL,
 	`name` text NOT NULL,
@@ -46,6 +47,6 @@ CREATE TABLE `directory_profiles` (
 	`updated_by` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `directory_profiles_category_slug_unique` ON `directory_profiles` (`category`,`slug`);--> statement-breakpoint
-CREATE INDEX `directory_profiles_public_idx` ON `directory_profiles` (`status`,`category`,`region`,`featured`);--> statement-breakpoint
-CREATE INDEX `directory_profiles_updated_idx` ON `directory_profiles` (`updated_at`);
+CREATE UNIQUE INDEX IF NOT EXISTS `directory_profiles_category_slug_unique` ON `directory_profiles` (`category`,`slug`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `directory_profiles_public_idx` ON `directory_profiles` (`status`,`category`,`region`,`featured`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `directory_profiles_updated_idx` ON `directory_profiles` (`updated_at`);

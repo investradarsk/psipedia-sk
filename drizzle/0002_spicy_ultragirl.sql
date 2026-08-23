@@ -1,4 +1,4 @@
-CREATE TABLE `managed_events` (
+CREATE TABLE IF NOT EXISTS `managed_events` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`slug` text NOT NULL,
 	`title` text NOT NULL,
@@ -28,6 +28,6 @@ CREATE TABLE `managed_events` (
 	`updated_by` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `managed_events_slug_unique` ON `managed_events` (`slug`);--> statement-breakpoint
-CREATE INDEX `managed_events_public_date_idx` ON `managed_events` (`status`,`start_date`,`start_time`);--> statement-breakpoint
-CREATE INDEX `managed_events_type_region_idx` ON `managed_events` (`event_type`,`region`,`start_date`);
+CREATE UNIQUE INDEX IF NOT EXISTS `managed_events_slug_unique` ON `managed_events` (`slug`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `managed_events_public_date_idx` ON `managed_events` (`status`,`start_date`,`start_time`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `managed_events_type_region_idx` ON `managed_events` (`event_type`,`region`,`start_date`);

@@ -1,4 +1,4 @@
-CREATE TABLE `news_tips` (
+CREATE TABLE IF NOT EXISTS `news_tips` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`topic` text NOT NULL,
 	`title` text NOT NULL,
@@ -15,5 +15,5 @@ CREATE TABLE `news_tips` (
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `news_tips_status_created_idx` ON `news_tips` (`status`,`created_at`);--> statement-breakpoint
-CREATE INDEX `news_tips_contact_created_idx` ON `news_tips` (`contact_email`,`created_at`);
+CREATE INDEX IF NOT EXISTS `news_tips_status_created_idx` ON `news_tips` (`status`,`created_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `news_tips_contact_created_idx` ON `news_tips` (`contact_email`,`created_at`);

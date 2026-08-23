@@ -1,4 +1,4 @@
-CREATE TABLE `help_cases` (
+CREATE TABLE IF NOT EXISTS `help_cases` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`slug` text NOT NULL,
 	`title` text NOT NULL,
@@ -32,6 +32,6 @@ CREATE TABLE `help_cases` (
 	`updated_by` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `help_cases_category_slug_unique` ON `help_cases` (`category`,`slug`);--> statement-breakpoint
-CREATE INDEX `help_cases_public_idx` ON `help_cases` (`status`,`category`,`resolved`,`urgent`,`updated_at`);--> statement-breakpoint
-CREATE INDEX `help_cases_region_idx` ON `help_cases` (`region`,`category`,`status`);
+CREATE UNIQUE INDEX IF NOT EXISTS `help_cases_category_slug_unique` ON `help_cases` (`category`,`slug`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `help_cases_public_idx` ON `help_cases` (`status`,`category`,`resolved`,`urgent`,`updated_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `help_cases_region_idx` ON `help_cases` (`region`,`category`,`status`);
