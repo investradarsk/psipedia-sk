@@ -1,0 +1,1 @@
+ALTER TABLE `directory_inquiries` ADD `recipient_email` text;

@@ -1,0 +1,2 @@
+ALTER TABLE `managed_articles` ADD `portal_section` text DEFAULT 'clanky' NOT NULL;--> statement-breakpoint
+CREATE INDEX `managed_articles_portal_status_idx` ON `managed_articles` (`portal_section`,`status`,`published_at`);

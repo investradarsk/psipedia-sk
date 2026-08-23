@@ -1,0 +1,21 @@
+CREATE TABLE `legal_settings` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`operator_type` text DEFAULT 'individual' NOT NULL,
+	`legal_name` text DEFAULT '' NOT NULL,
+	`business_name` text DEFAULT '' NOT NULL,
+	`address` text DEFAULT '' NOT NULL,
+	`ico` text DEFAULT '' NOT NULL,
+	`dic` text DEFAULT '' NOT NULL,
+	`vat_id` text DEFAULT '' NOT NULL,
+	`email` text DEFAULT '' NOT NULL,
+	`phone` text DEFAULT '' NOT NULL,
+	`registry_name` text DEFAULT '' NOT NULL,
+	`registry_number` text DEFAULT '' NOT NULL,
+	`media_registry_number` text DEFAULT '' NOT NULL,
+	`media_status` text DEFAULT 'not_submitted' NOT NULL,
+	`rpvs_status` text DEFAULT 'not_registered' NOT NULL,
+	`correction_email` text DEFAULT '' NOT NULL,
+	`privacy_email` text DEFAULT '' NOT NULL,
+	`updated_at` text NOT NULL,
+	`updated_by` text NOT NULL
+);
