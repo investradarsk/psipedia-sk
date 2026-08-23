@@ -21,6 +21,7 @@ const localBindingConfig = {
         },
       ]
     : [],
+  // Cloudflare provisions the R2 bucket on the first successful deployment.
   r2_buckets: r2
     ? [
         {
