@@ -11,17 +11,6 @@
     "directory": "./dist/client",
     "binding": "ASSETS"
   },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "migrations_dir": "./drizzle"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "BUCKET"
-    }
-  ],
   "images": {
     "binding": "IMAGES"
   },
