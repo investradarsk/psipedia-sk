@@ -7,8 +7,10 @@ Zdrojovým kódom je súkromný repozitár `investradarsk/psipedia-sk`. Súbor `
 1. V Cloudflare otvoriť **Workers & Pages** a vytvoriť Worker z GitHub repozitára.
 2. Vybrať repozitár `investradarsk/psipedia-sk` a vetvu `main`.
 3. Build command: `npm ci && npm run build`.
-4. Deploy command: `npx wrangler deploy`.
+4. Deploy command: `npm run deploy:cloudflare`.
 5. Cloudflare pri prvom deployi automaticky vytvorí samostatnú D1 databázu a R2 bucket pre staging.
+
+Príkaz `deploy:cloudflare` pred každým nasadením bezpečne aplikuje iba chýbajúce D1 migrácie a potom nasadí Worker. Vďaka tomu sa nové databázové tabuľky a stĺpce vytvoria automaticky spolu so zmenou kódu.
 
 ## Povinné premenné pred skúškou adminu
 
