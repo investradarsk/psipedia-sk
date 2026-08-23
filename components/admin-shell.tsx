@@ -32,7 +32,7 @@ export function AdminShell({
               <small>Prihlásený používateľ</small>
               <strong>{user.displayName}</strong>
             </span>
-            <Link href={chatGPTSignOutPath("/")}>Odhlásiť</Link>
+            <Link href={chatGPTSignOutPath("/", user.authProvider)}>Odhlásiť</Link>
           </div>
         </header>
 

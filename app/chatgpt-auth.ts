@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export type ChatGPTUser = {
+  authProvider: "chatgpt" | "cloudflare-access";
   displayName: string;
   email: string;
   fullName: string | null;
@@ -15,6 +16,7 @@ const PERCENT_ENCODED_UTF8 = "percent-encoded-utf-8";
 const SIGN_IN_PATH = "/signin-with-chatgpt";
 const SIGN_OUT_PATH = "/signout-with-chatgpt";
 const CALLBACK_PATH = "/callback";
+const AUTH_PROVIDER_HEADER = "x-psipedia-auth-provider";
 
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   const requestHeaders = await headers();
@@ -29,6 +31,10 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
       : null;
 
   return {
+    authProvider:
+      requestHeaders.get(AUTH_PROVIDER_HEADER) === "cloudflare-access"
+        ? "cloudflare-access"
+        : "chatgpt",
     displayName: fullName ?? email,
     email,
     fullName,
@@ -49,7 +55,11 @@ export function chatGPTSignInPath(returnTo: string): string {
   return `${SIGN_IN_PATH}?return_to=${encodeURIComponent(safeReturnTo)}`;
 }
 
-export function chatGPTSignOutPath(returnTo = "/"): string {
+export function chatGPTSignOutPath(
+  returnTo = "/",
+  provider: ChatGPTUser["authProvider"] = "chatgpt",
+): string {
+  if (provider === "cloudflare-access") return "/cdn-cgi/access/logout";
   const safeReturnTo = safeRelativeReturnPath(returnTo);
   return `${SIGN_OUT_PATH}?return_to=${encodeURIComponent(safeReturnTo)}`;
 }

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { chatGPTSignOutPath } from "@/app/chatgpt-auth";
+import { chatGPTSignOutPath, getChatGPTUser } from "@/app/chatgpt-auth";
 
-export default function AdminDeniedPage() {
+export default async function AdminDeniedPage() {
+  const user = await getChatGPTUser();
   return (
     <main id="obsah" className="admin-denied">
       <div>
@@ -10,7 +11,7 @@ export default function AdminDeniedPage() {
         <h1>Tento účet nemá prístup</h1>
         <p>Administrácia je dostupná iba schválenému redakčnému účtu Psipedia.sk.</p>
         <div>
-          <Link className="admin-primary-action" href={chatGPTSignOutPath("/admin")}>Prihlásiť sa iným účtom</Link>
+          <Link className="admin-primary-action" href={chatGPTSignOutPath("/admin", user?.authProvider)}>Prihlásiť sa iným účtom</Link>
           <Link href="/">Späť na web</Link>
         </div>
       </div>

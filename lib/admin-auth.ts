@@ -12,6 +12,7 @@ type AdminRuntimeEnv = {
 };
 
 const PREVIEW_USER: ChatGPTUser = {
+  authProvider: "chatgpt",
   displayName: "Martin – pracovný náhľad",
   email: "preview@psipedia.local",
   fullName: "Martin",
