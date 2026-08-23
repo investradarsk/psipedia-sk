@@ -17,7 +17,7 @@ const localBindingConfig = {
           binding: d1,
           database_name: "psipedia-sk-db",
           database_id: "8f7a0c3e-4d77-4a35-8192-a7bd57147950",
-          migrations_dir: "./drizzle",
+          migrations_dir: "../../drizzle",
         },
       ]
     : [],
