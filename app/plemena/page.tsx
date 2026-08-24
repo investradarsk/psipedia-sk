@@ -4,12 +4,13 @@ import { BreedBrowser } from "@/components/breed-browser";
 import { ArrowIcon } from "@/components/icons";
 import { breeds, fciGroups } from "@/lib/content";
 import { getPortalSection, portalSubpageHref } from "@/lib/portal";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Atlas plemien psov",
   description: "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, energia, starostlivosť a vhodnosť do rodiny.",
-  alternates: { canonical: "/plemena" },
-};
+  path: "/plemena",
+});
 
 export default function BreedsPage() {
   const portalSection = getPortalSection("plemena");

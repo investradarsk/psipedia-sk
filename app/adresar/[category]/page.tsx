@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DirectoryPage } from "@/components/directory-page";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
+import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string }> };
@@ -13,7 +14,11 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const category = getDirectoryCategory((await params).category);
-  return category ? { title: `${category.label} – adresár`, description: category.description, alternates: { canonical: `/adresar/${category.slug}` } } : {};
+  return category ? buildPageMetadata({
+    title: `${category.label} – adresár`,
+    description: category.description,
+    path: `/adresar/${category.slug}`,
+  }) : {};
 }
 
 export default async function DirectoryCategoryPage({ params }: Props) {

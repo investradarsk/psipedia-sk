@@ -8,7 +8,7 @@ import { getPublishedArticle, getPublishedArticles } from "@/lib/article-store";
 import { getPublishedEvent, getPublishedEvents } from "@/lib/event-store";
 import { eventHref, eventTypeFromPortalSlug } from "@/lib/events";
 import { articleHref, getPortalSection, getPortalSubpage, portalSections } from "@/lib/portal";
-import { searchResultTitle } from "@/lib/seo";
+import { buildPageMetadata, searchResultTitle } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -24,39 +24,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { section, slug } = await params;
   const portalTopic = getPortalSubpage(section, slug);
   if (portalTopic) {
-    return {
+    return buildPageMetadata({
       title: `${portalTopic.subpage.label} – ${portalTopic.section.label}`,
       description: portalTopic.subpage.description,
-      alternates: { canonical: `/${portalTopic.section.slug}/${portalTopic.subpage.slug}` },
-      openGraph: {
-        type: "website",
-        title: `${portalTopic.subpage.label} – ${portalTopic.section.label} | Psipedia.sk`,
-        description: portalTopic.subpage.description,
-        url: `/${portalTopic.section.slug}/${portalTopic.subpage.slug}`,
-      },
-    };
+      path: `/${portalTopic.section.slug}/${portalTopic.subpage.slug}`,
+    });
   }
 
   if (!getPortalSection(section)) return {};
   if (section === "podujatia") {
     const event = await getPublishedEvent(slug);
     if (event) {
-      return {
+      return buildPageMetadata({
         title: searchResultTitle(event.title),
         description: event.excerpt,
-        alternates: { canonical: eventHref(event) },
-        openGraph: event.imageUrl ? { images: [event.imageUrl] } : undefined,
-      };
+        path: eventHref(event),
+        image: event.imageUrl || null,
+        imageAlt: event.title,
+      });
     }
   }
   const article = await getPublishedArticle(slug);
   if (!article) return {};
-  return {
+  return buildPageMetadata({
     title: searchResultTitle(article.title),
     description: article.excerpt,
-    alternates: { canonical: articleHref(article) },
-    openGraph: article.image ? { type: "article", images: [article.image], publishedTime: article.dateIso } : { type: "article" },
-  };
+    path: articleHref(article),
+    image: article.image || null,
+    imageAlt: article.title,
+    type: "article",
+    publishedTime: article.dateIso,
+    modifiedTime: article.updatedDateIso,
+    authors: [article.author],
+    section: section === "novinky" ? article.newsCategory : article.category,
+  });
 }
 
 export default async function PortalContentPage({ params }: Props) {

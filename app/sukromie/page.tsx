@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLegalSettings } from "@/lib/legal-settings";
+import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Ochrana osobných údajov",
   description: "Ako Psipedia.sk spracúva osobné údaje, na aké účely a aké práva majú dotknuté osoby.",
-  alternates: { canonical: "/sukromie" },
-};
+  path: "/sukromie",
+});
 
 export default async function PrivacyPage() {
   const settings = await getLegalSettings();

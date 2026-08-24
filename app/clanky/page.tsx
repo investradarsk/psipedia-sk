@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import { ArticleBrowser } from "@/components/article-browser";
 import { getPublishedArticles } from "@/lib/article-store";
+import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Články o psoch",
   description: "Praktické články o výcviku, zdraví, výžive a každodennom živote so psom.",
-  alternates: { canonical: "/clanky" },
-};
+  path: "/clanky",
+});
 
 export default async function ArticlesPage({
   searchParams,

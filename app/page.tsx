@@ -15,10 +15,17 @@ import { getPublishedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { getNewsCategory, newsCategories } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSections, portalSubpageHref } from "@/lib/portal";
-import { ORGANIZATION_ID, serializeJsonLd, SITE_NAME, SITE_URL, WEBSITE_ID } from "@/lib/seo";
+import { buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_NAME, SITE_URL, WEBSITE_ID } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  alternates: { canonical: "/" },
+  ...buildPageMetadata({
+    title: "Psipedia.sk – rozumej svojmu psovi",
+    description: "Praktické a zrozumiteľné články o výcviku, zdraví, výžive, plemenách a živote so psom.",
+    path: "/",
+    image: "/images/hero-labrador.webp",
+    imageAlt: "Čierny labrador na lúke",
+  }),
+  title: { absolute: "Psipedia.sk – rozumej svojmu psovi" },
 };
 
 function CategoryIcon({ name }: { name: string }) {

@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLegalSettings } from "@/lib/legal-settings";
+import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Opravy a podnety",
   description: "Ako oznámiť chybu alebo požiadať Psipedia.sk o uverejnenie opravy.",
-  alternates: { canonical: "/opravy-a-podnety" },
-};
+  path: "/opravy-a-podnety",
+});
 
 export default async function CorrectionsPage() {
   const settings = await getLegalSettings();

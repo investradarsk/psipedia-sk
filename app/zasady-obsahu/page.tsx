@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Zásady obsahu",
   description: "Ako na Psipedia.sk pripravujeme a označujeme obsah.",
-  alternates: { canonical: "/zasady-obsahu" },
-};
+  path: "/zasady-obsahu",
+});
 
 export default function EditorialPolicyPage() {
   return (

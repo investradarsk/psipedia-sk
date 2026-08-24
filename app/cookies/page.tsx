@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PrivacyControls } from "@/components/privacy-controls";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Cookies a lokálne úložisko",
   description: "Aké technické údaje a lokálne úložisko používa Psipedia.sk.",
-  alternates: { canonical: "/cookies" },
-};
+  path: "/cookies",
+});
 
 export default function CookiesPage() {
   return (

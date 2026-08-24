@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { NewsTipForm } from "@/components/news-tip-form";
 import { CheckIcon } from "@/components/icons";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Pošli tip redakcii",
   description: "Pošli Psipedii tip na dôležitý príbeh, záchranu, výskum alebo udalosť zo sveta psov.",
-  alternates: { canonical: "/novinky/poslat-tip" },
-};
+  path: "/novinky/poslat-tip",
+});
 
 export default function SendNewsTipPage() {
   return (

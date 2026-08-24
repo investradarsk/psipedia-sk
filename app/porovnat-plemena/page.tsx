@@ -3,12 +3,13 @@ import Link from "next/link";
 import { BreedComparison } from "@/components/breed-comparison";
 import { ArrowIcon } from "@/components/icons";
 import { breeds } from "@/lib/content";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Porovnanie plemien psov",
   description: "Porovnajte dve plemená psov podľa veľkosti, energie, cvičiteľnosti, rodinného života a každodenných potrieb.",
-  alternates: { canonical: "/porovnat-plemena" },
-};
+  path: "/porovnat-plemena",
+});
 
 export default function CompareBreedsPage() {
   return (

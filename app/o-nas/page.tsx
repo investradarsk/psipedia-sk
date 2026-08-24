@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "O Psipedii",
   description: "Prečo vzniká Psipedia.sk a podľa akých zásad tvoríme obsah o psoch.",
-  alternates: { canonical: "/o-nas" },
-};
+  path: "/o-nas",
+});
 
 export default function AboutPage() {
   return (

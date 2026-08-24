@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { RatingDots } from "@/components/breed-card";
 import { ArrowIcon } from "@/components/icons";
 import { breeds, getBreed } from "@/lib/content";
-import { ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -15,18 +15,19 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const breed = getBreed(slug);
-  return breed ? {
+  return breed ? buildPageMetadata({
     title: breed.name,
     description: breed.intro,
-    alternates: { canonical: `/plemena/${breed.slug}` },
-    openGraph: {
-      type: "article",
-      url: `/plemena/${breed.slug}`,
-      title: `${breed.name} – povaha, potreby a profil plemena`,
-      description: breed.intro,
-      images: [{ url: breed.image, alt: `${breed.name} v prírodnom prostredí` }],
-    },
-  } : {};
+    path: `/plemena/${breed.slug}`,
+    image: breed.image,
+    imageAlt: `${breed.name} v prírodnom prostredí`,
+    type: "article",
+    publishedTime: "2026-08-17",
+    modifiedTime: "2026-08-17",
+    authors: ["Redakcia Psipedia"],
+    section: "Plemená psov",
+    tags: [breed.name, `FCI skupina ${breed.fciGroup}`, breed.origin],
+  }) : {};
 }
 
 export default async function BreedDetailPage({ params }: Props) {

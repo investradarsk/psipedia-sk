@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLegalSettings, legalReadiness } from "@/lib/legal-settings";
+import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Právne informácie a prevádzkovateľ",
   description: "Povinné údaje prevádzkovateľa, dohľad a právny režim portálu Psipedia.sk.",
-  alternates: { canonical: "/pravne-informacie" },
-};
+  path: "/pravne-informacie",
+});
 
 function valueOrPending(value: string) {
   return value || "Čaká na doplnenie prevádzkovateľom";

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Podmienky používania",
   description: "Pravidlá používania portálu Psipedia.sk, zodpovednosť a práva k obsahu.",
-  alternates: { canonical: "/podmienky-pouzivania" },
-};
+  path: "/podmienky-pouzivania",
+});
 
 export default function TermsPage() {
   return (

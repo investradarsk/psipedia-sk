@@ -11,6 +11,76 @@ export function absoluteUrl(path: string) {
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+type PageMetadataInput = {
+  title: string;
+  description: string;
+  path: string;
+  image?: string | null;
+  imageAlt?: string;
+  type?: "website" | "article";
+  publishedTime?: string;
+  modifiedTime?: string;
+  authors?: string[];
+  section?: string;
+  tags?: string[];
+  robots?: Metadata["robots"];
+};
+
+/** Build consistent indexable metadata with an absolute psipedia.sk canonical. */
+export function buildPageMetadata({
+  title,
+  description,
+  path,
+  image = "/images/hero-labrador.webp",
+  imageAlt = title,
+  type = "website",
+  publishedTime,
+  modifiedTime,
+  authors,
+  section,
+  tags,
+  robots,
+}: PageMetadataInput): Metadata {
+  const url = absoluteUrl(path);
+  const imageUrl = image ? absoluteUrl(image) : null;
+  const images = imageUrl ? [{ url: imageUrl, alt: imageAlt }] : [];
+  const socialTitle = title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`;
+  const openGraph = type === "article"
+    ? {
+        type: "article" as const,
+        title: socialTitle,
+        description,
+        url,
+        images,
+        publishedTime,
+        modifiedTime,
+        authors,
+        section,
+        tags,
+      }
+    : {
+        type: "website" as const,
+        title: socialTitle,
+        description,
+        url,
+        images,
+      };
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph,
+    twitter: {
+      card: "summary_large_image",
+      title: socialTitle,
+      description,
+      images: imageUrl ? [imageUrl] : [],
+    },
+    robots,
+  };
+}
+
 /**
  * Keep document titles useful in search results without changing the visible
  * article heading. The root layout adds " | Psipedia.sk" afterwards.
@@ -31,3 +101,4 @@ export function searchResultTitle(title: string, maxLength = 52) {
 export function serializeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
+import type { Metadata } from "next";

@@ -53,7 +53,6 @@ export const metadata: Metadata = {
     description: "Praktické návody pre lepší život so psom.",
     images: ["/images/hero-labrador.webp"],
   },
-  other: { "codex-preview": "development" },
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
 };
 
