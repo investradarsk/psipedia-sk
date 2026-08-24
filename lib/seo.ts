@@ -15,7 +15,7 @@ export function absoluteUrl(path: string) {
  * Keep document titles useful in search results without changing the visible
  * article heading. The root layout adds " | Psipedia.sk" afterwards.
  */
-export function searchResultTitle(title: string, maxLength = 64) {
+export function searchResultTitle(title: string, maxLength = 52) {
   const normalized = title.trim().replace(/\s+/g, " ");
   if (normalized.length <= maxLength) return normalized;
 
