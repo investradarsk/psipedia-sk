@@ -81,8 +81,6 @@ type RuntimeBindings = {
 const ARTICLE_CATEGORIES = ["Výcvik", "Zdravie", "Výživa", "Život so psom"] as const;
 const ARTICLE_ACCENTS = ["forest", "coral", "gold", "blue"] as const;
 
-let schemaReady: Promise<void> | null = null;
-
 function getD1Binding() {
   const runtime = env as unknown as RuntimeBindings;
   return runtime.DB && typeof runtime.DB.prepare === "function" ? runtime.DB : null;
@@ -96,129 +94,10 @@ function requireD1Binding() {
   return database;
 }
 
-async function ensureArticleStore(database: D1Database) {
-  // Wrangler applies the schema migrations during deployment. Do not write
-  // schema or seed data while rendering pages; concurrent writes can lock D1.
-  return;
-
-  if (schemaReady) return schemaReady;
-
-  schemaReady = (async () => {
-    await database.prepare(`
-        CREATE TABLE IF NOT EXISTS managed_articles (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          slug TEXT NOT NULL UNIQUE,
-          title TEXT NOT NULL,
-          excerpt TEXT NOT NULL,
-          category TEXT NOT NULL,
-          portal_section TEXT NOT NULL DEFAULT 'clanky',
-          news_category TEXT,
-          status TEXT NOT NULL DEFAULT 'draft',
-          accent TEXT NOT NULL DEFAULT 'forest',
-          author TEXT NOT NULL DEFAULT 'Redakcia Psipedia',
-          intro TEXT NOT NULL,
-          takeaway TEXT NOT NULL,
-          sections_json TEXT NOT NULL DEFAULT '[]',
-          sources_json TEXT NOT NULL DEFAULT '[]',
-          blocks_json TEXT NOT NULL DEFAULT '[]',
-          image_url TEXT,
-          image_key TEXT,
-          reading_minutes INTEGER NOT NULL DEFAULT 5,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
-          published_at TEXT,
-          created_by TEXT NOT NULL,
-          updated_by TEXT NOT NULL
-        )
-      `).run();
-
-    const tableInfo = await database
-      .prepare("PRAGMA table_info(managed_articles)")
-      .all<{ name: string }>();
-    if (!tableInfo.results.some((column) => column.name === "portal_section")) {
-      await database
-        .prepare("ALTER TABLE managed_articles ADD COLUMN portal_section TEXT NOT NULL DEFAULT 'clanky'")
-        .run();
-    }
-    if (!tableInfo.results.some((column) => column.name === "news_category")) {
-      await database
-        .prepare("ALTER TABLE managed_articles ADD COLUMN news_category TEXT")
-        .run();
-    }
-    if (!tableInfo.results.some((column) => column.name === "blocks_json")) {
-      await database
-        .prepare("ALTER TABLE managed_articles ADD COLUMN blocks_json TEXT NOT NULL DEFAULT '[]'")
-        .run();
-    }
-
-    await database.batch([
-      database.prepare(
-        "CREATE UNIQUE INDEX IF NOT EXISTS managed_articles_slug_unique ON managed_articles (slug)",
-      ),
-      database.prepare(
-        "CREATE INDEX IF NOT EXISTS managed_articles_status_published_idx ON managed_articles (status, published_at)",
-      ),
-      database.prepare(
-        "CREATE INDEX IF NOT EXISTS managed_articles_portal_status_idx ON managed_articles (portal_section, status, published_at)",
-      ),
-      database.prepare(
-        "CREATE INDEX IF NOT EXISTS managed_articles_news_category_idx ON managed_articles (news_category, status, published_at)",
-      ),
-    ]);
-
-    const seedStatements = seedArticles.map((article) => {
-      const createdAt = `${article.dateIso}T08:00:00.000Z`;
-      const updatedAt = `${article.updatedDateIso}T08:00:00.000Z`;
-      return database
-        .prepare(`
-          INSERT OR IGNORE INTO managed_articles (
-            slug, title, excerpt, category, portal_section, news_category, status, accent, author, intro,
-            takeaway, sections_json, sources_json, blocks_json, image_url, image_key,
-            reading_minutes, created_at, updated_at, published_at, created_by, updated_by
-          ) VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, '[]', ?, NULL, ?, ?, ?, ?, ?, ?)
-        `)
-        .bind(
-          article.slug,
-          article.title,
-          article.excerpt,
-          article.category,
-          article.portalSection ?? "clanky",
-          article.newsCategory ?? null,
-          article.accent,
-          article.author,
-          article.intro,
-          article.takeaway,
-          JSON.stringify(article.sections),
-          JSON.stringify(article.sources),
-          article.image ?? null,
-          parseReadingMinutes(article.readTime),
-          createdAt,
-          updatedAt,
-          createdAt,
-          "system@psipedia.sk",
-          "system@psipedia.sk",
-        );
-    });
-
-    if (seedStatements.length) await database.batch(seedStatements);
-
-    const routeStatements = seedArticles
-      .filter((article) => article.portalSection && article.portalSection !== "clanky")
-      .map((article) => database
-        .prepare(`
-          UPDATE managed_articles
-          SET portal_section = ?
-          WHERE slug = ? AND portal_section = 'clanky'
-            AND created_by = 'system@psipedia.sk' AND updated_by = 'system@psipedia.sk'
-        `)
-        .bind(article.portalSection, article.slug));
-    if (routeStatements.length) await database.batch(routeStatements);
-  })().catch((error) => {
-    schemaReady = null;
-    throw error;
-  });
-
-  return schemaReady;
+async function ensureArticleStore(_database: D1Database) {
+  // Production schema changes are applied by Wrangler migrations during
+  // deployment. Never mutate or probe the schema from a page request: an
+  // interrupted migration must not turn the whole admin into Worker 1101.
 }
 
 function parseJsonArray<T>(value: string, fallback: T[]) {
@@ -256,7 +135,15 @@ function formatSlovakDate(value: string) {
 }
 
 function rowToManagedArticle(row: ArticleRow): ManagedArticle {
-  const publishedAt = row.published_at ?? row.created_at;
+  const createdAt = typeof row.created_at === "string" && row.created_at
+    ? row.created_at
+    : new Date(0).toISOString();
+  const updatedAt = typeof row.updated_at === "string" && row.updated_at
+    ? row.updated_at
+    : createdAt;
+  const publishedAt = typeof row.published_at === "string" && row.published_at
+    ? row.published_at
+    : createdAt;
   const sections = parseJsonArray<ArticleSection>(row.sections_json, []);
   const sources = parseJsonArray<{ label: string; url: string }>(row.sources_json, []);
   const storedBlocks = parseJsonArray<ArticleBlock>(row.blocks_json ?? "[]", []);
@@ -271,8 +158,8 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
     newsCategory: row.news_category && isNewsCategory(row.news_category) ? row.news_category : undefined,
     date: formatSlovakDate(publishedAt),
     dateIso: publishedAt.slice(0, 10),
-    updatedDate: formatSlovakDate(row.updated_at),
-    updatedDateIso: row.updated_at.slice(0, 10),
+    updatedDate: formatSlovakDate(updatedAt),
+    updatedDateIso: updatedAt.slice(0, 10),
     readTime: `${row.reading_minutes} min`,
     image: row.image_url ?? undefined,
     accent: row.accent as Article["accent"],
@@ -285,8 +172,8 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
     status: row.status === "published" ? "published" : "draft",
     imageKey: row.image_key,
     readingMinutes: row.reading_minutes,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt,
+    updatedAt,
     publishedAt: row.published_at,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
@@ -437,7 +324,18 @@ export async function listManagedArticles() {
   const result = await database
     .prepare("SELECT * FROM managed_articles ORDER BY updated_at DESC, id DESC")
     .all<ArticleRow>();
-  return result.results.map(rowToManagedArticle);
+  return result.results.flatMap((row) => {
+    try {
+      return [rowToManagedArticle(row)];
+    } catch (error) {
+      console.error("Skipping an invalid managed article row", {
+        id: row.id,
+        slug: row.slug,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  });
 }
 
 export async function getManagedArticleById(id: number) {
