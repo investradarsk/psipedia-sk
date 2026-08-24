@@ -19,7 +19,7 @@ function CompareRating({ value, label }: { value: number; label: string }) {
 function BreedHeading({ breed }: { breed: Breed }) {
   return (
     <div className={`compare-breed-heading compare-breed-heading--${breed.accent}`}>
-      <img className="compare-breed-image" src={breed.image} alt="" aria-hidden="true" />
+      <img className="compare-breed-image" src={breed.image} alt={`${breed.name} – fotografia plemena`} />
       <span>FCI {breed.fciGroup} · {breed.fciSection}</span>
       <h2>{breed.name}</h2>
       <small>{breed.origin}</small>

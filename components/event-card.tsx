@@ -11,7 +11,7 @@ export function EventCard({ event }: { event: DogEvent }) {
   return (
     <article className={`event-card ${event.cancelled ? "is-cancelled" : ""}`}>
       <Link href={eventHref(event)} className="event-card-media" tabIndex={-1} aria-hidden="true">
-        {event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" /> : <PawMark size={64} />}
+        {event.imageUrl ? <img src={event.imageUrl} alt={`Podujatie: ${event.title}`} loading="lazy" decoding="async" /> : <PawMark size={64} />}
         <span className="event-date-badge"><strong>{day}</strong><small>{month}</small></span>
       </Link>
       <div className="event-card-body">

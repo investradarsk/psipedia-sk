@@ -15,7 +15,7 @@ export function HelpCard({ item }: { item: HelpCase }) {
   return (
     <article className={`help-card${item.urgent && !item.resolved ? " is-urgent" : ""}${item.resolved ? " is-resolved" : ""}`}>
       <Link className="help-card-media" href={helpCaseHref(item)} aria-label={`Otvoriť ${item.title}`}>
-        {item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}
+        {item.imageUrl ? <img src={item.imageUrl} alt={item.dogName ? `${item.dogName} – ${item.title}` : item.title} /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}
         <div>{item.resolved ? <b className="is-resolved">Vybavené</b> : item.urgent ? <b className="is-urgent">Urgentné</b> : null}</div>
       </Link>
       <div className="help-card-body">

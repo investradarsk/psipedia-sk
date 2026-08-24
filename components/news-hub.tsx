@@ -74,7 +74,7 @@ export function NewsHub({ articles }: { articles: Article[] }) {
             <div className="news-lead-grid">
               <article className={`news-lead-card news-lead-card--${lead.accent}`}>
                 <Link href={articleHref(lead)} className="news-lead-media" aria-label={lead.title}>
-                  {lead.image ? <img src={lead.image} alt="" decoding="async" /> : <span aria-hidden="true">{getNewsCategory(lead.newsCategory)?.icon ?? "🗞️"}</span>}
+                  {lead.image ? <img src={lead.image} alt={`Ilustračná fotografia k novinke: ${lead.title}`} decoding="async" /> : <span aria-hidden="true">{getNewsCategory(lead.newsCategory)?.icon ?? "🗞️"}</span>}
                 </Link>
                 <div className="news-lead-copy">
                   <span>{getNewsCategory(lead.newsCategory)?.label ?? "Zo sveta psov"} · {lead.date}</span>

@@ -15,7 +15,7 @@ export function ArticleCard({ article, large = false }: { article: Article; larg
     <article className={`article-card article-card--${article.accent} ${large ? "article-card--large" : ""}`}>
       <Link href={href} className="article-card-media" tabIndex={-1} aria-hidden="true">
         {article.image ? (
-          <img src={article.image} alt="" loading="lazy" decoding="async" />
+          <img src={article.image} alt={`Ilustračná fotografia k článku: ${article.title}`} loading="lazy" decoding="async" />
         ) : (
           <div className="article-placeholder"><PawMark size={large ? 76 : 58} /></div>
         )}

@@ -8,6 +8,7 @@ import { getPublishedArticle, getPublishedArticles } from "@/lib/article-store";
 import { getPublishedEvent, getPublishedEvents } from "@/lib/event-store";
 import { eventHref, eventTypeFromPortalSlug } from "@/lib/events";
 import { articleHref, getPortalSection, getPortalSubpage, portalSections } from "@/lib/portal";
+import { searchResultTitle } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const event = await getPublishedEvent(slug);
     if (event) {
       return {
-        title: event.title,
+        title: searchResultTitle(event.title),
         description: event.excerpt,
         alternates: { canonical: eventHref(event) },
         openGraph: event.imageUrl ? { images: [event.imageUrl] } : undefined,
@@ -51,7 +52,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = await getPublishedArticle(slug);
   if (!article) return {};
   return {
-    title: article.title,
+    title: searchResultTitle(article.title),
     description: article.excerpt,
     alternates: { canonical: articleHref(article) },
     openGraph: article.image ? { type: "article", images: [article.image], publishedTime: article.dateIso } : { type: "article" },

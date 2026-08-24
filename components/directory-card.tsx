@@ -7,7 +7,7 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
   return (
     <article className={`directory-card${profile.featured ? " is-featured" : ""}`}>
       <Link className="directory-card-media" href={directoryProfileHref(profile)} aria-label={`Otvoriť profil ${profile.name}`}>
-        {profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}
+        {profile.imageUrl ? <img src={profile.imageUrl} alt={`Profil ${profile.name}`} /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}
         {profile.featured && <b>Odporúčame</b>}
       </Link>
       <div className="directory-card-body">
