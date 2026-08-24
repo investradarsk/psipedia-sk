@@ -8,6 +8,7 @@ import {
   createArticleBlock,
   type ArticleBlock,
   type ArticleBlockImage,
+  type ArticleTextAlignment,
 } from "@/lib/article-blocks";
 import type { ManagedArticle } from "@/lib/article-store";
 import { articleHref } from "@/lib/portal";
@@ -27,7 +28,25 @@ function cloneBlock(block: ArticleBlock): ArticleBlock {
   return { ...structuredClone(block), id: crypto.randomUUID() };
 }
 
-function RichTextInput({ value, onChange, rows = 5, id, placeholder }: { value: string; onChange: (value: string) => void; rows?: number; id: string; placeholder?: string }) {
+function RichTextInput({
+  value,
+  onChange,
+  rows = 5,
+  id,
+  placeholder,
+  showLists = false,
+  alignment = "left",
+  onAlignmentChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+  id: string;
+  placeholder?: string;
+  showLists?: boolean;
+  alignment?: ArticleTextAlignment;
+  onAlignmentChange?: (alignment: ArticleTextAlignment) => void;
+}) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   function wrap(before: string, after = before, fallback = "text") {
@@ -50,15 +69,41 @@ function RichTextInput({ value, onChange, rows = 5, id, placeholder }: { value: 
     wrap("[", `](${url})`, "text odkazu");
   }
 
+  function formatSelectedLines(kind: "bullet" | "numbered") {
+    const field = ref.current;
+    if (!field) return;
+    const start = value.lastIndexOf("\n", Math.max(0, field.selectionStart - 1)) + 1;
+    const nextBreak = value.indexOf("\n", field.selectionEnd);
+    const end = nextBreak === -1 ? value.length : nextBreak;
+    const source = value.slice(start, end) || "Položka zoznamu";
+    const formatted = source.split("\n").map((line, index) => {
+      const clean = line.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "");
+      return kind === "bullet" ? `- ${clean}` : `${index + 1}. ${clean}`;
+    }).join("\n");
+    onChange(`${value.slice(0, start)}${formatted}${value.slice(end)}`);
+    requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(start, start + formatted.length);
+    });
+  }
+
   return (
     <div className="admin-rich-text">
       <div className="admin-rich-toolbar" aria-label="Formátovanie textu">
         <button type="button" onClick={() => wrap("**", "**", "tučný text")} title="Tučné"><strong>B</strong></button>
         <button type="button" onClick={() => wrap("_", "_", "kurzíva")} title="Kurzíva"><em>I</em></button>
         <button type="button" onClick={addLink} title="Vložiť odkaz">🔗 Odkaz</button>
+        {showLists && <button type="button" onClick={() => formatSelectedLines("bullet")} title="Odrážkový zoznam">• Zoznam</button>}
+        {showLists && <button type="button" onClick={() => formatSelectedLines("numbered")} title="Číslovaný zoznam">1. Zoznam</button>}
+        {onAlignmentChange && <span className="admin-rich-toolbar-separator" aria-hidden="true" />}
+        {onAlignmentChange && ([
+          ["left", "Vľavo"],
+          ["center", "Stred"],
+          ["right", "Vpravo"],
+        ] as const).map(([position, label]) => <button type="button" key={position} className={alignment === position ? "is-active" : ""} aria-pressed={alignment === position} onClick={() => onAlignmentChange(position)}>{label}</button>)}
       </div>
       <textarea ref={ref} id={id} rows={rows} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
-      <small>Označ text a použi B, I alebo Odkaz.</small>
+      <small>Označ text a použi formátovanie. Prázdny riadok vytvorí na webe nový odsek.</small>
     </div>
   );
 }
@@ -86,6 +131,18 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
     const [item] = next.splice(index, 1);
     next.splice(nextIndex, 0, item);
     onChange(next);
+  }
+
+  function moveGalleryImage(blockId: string, imageIndex: number, offset: number) {
+    update(blockId, (block) => {
+      if (block.type !== "gallery") return block;
+      const targetIndex = imageIndex + offset;
+      if (targetIndex < 0 || targetIndex >= block.images.length) return block;
+      const images = [...block.images];
+      const [image] = images.splice(imageIndex, 1);
+      images.splice(targetIndex, 0, image);
+      return { ...block, images };
+    });
   }
 
   function drop(targetIndex: number) {
@@ -127,7 +184,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
     try {
       const uploaded = await Promise.all(files.slice(0, 12).map(async (file): Promise<ArticleBlockImage> => {
         const data = await uploadAdminImage(file, "articles");
-        return { url: data.imageUrl, imageKey: data.imageKey, alt: file.name.replace(/\.[^.]+$/, ""), caption: "" };
+        return { url: data.imageUrl, imageKey: data.imageKey, alt: file.name.replace(/\.[^.]+$/, ""), caption: "", credit: "", size: "normal" };
       }));
       update(blockId, (block) => block.type === "gallery" ? { ...block, images: [...block.images, ...uploaded].slice(0, 24) } : block);
       onMessage(`Do galérie bolo nahraných ${uploaded.length} obrázkov. Ulož článok, aby sa zmena zachovala.`);
@@ -163,18 +220,42 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
               </div>
             </header>
 
-            {block.type === "text" && <RichTextInput id={`block-${block.id}`} value={block.content} onChange={(content) => update(block.id, (item) => item.type === "text" ? { ...item, content } : item)} placeholder="Napíš odsek článku…" />}
+            {block.type === "text" && <RichTextInput
+              id={`block-${block.id}`}
+              value={block.content}
+              showLists
+              alignment={block.alignment ?? "left"}
+              onAlignmentChange={(alignment) => update(block.id, (item) => item.type === "text" ? { ...item, alignment } : item)}
+              onChange={(content) => update(block.id, (item) => item.type === "text" ? { ...item, content } : item)}
+              placeholder="Napíš text článku… Prázdnym riadkom oddeľ odseky."
+            />}
             {(block.type === "h2" || block.type === "h3") && <div className="admin-field"><label htmlFor={`block-${block.id}`}>{block.type === "h2" ? "Hlavný medzititulok" : "Menší podnadpis"}</label><input id={`block-${block.id}`} value={block.text} onChange={(event) => update(block.id, (item) => item.type === block.type ? { ...item, text: event.target.value } : item)} placeholder={block.type === "h2" ? "Nadpis novej časti" : "Podnadpis v rámci časti"} /></div>}
 
             {block.type === "image" && <div className="admin-block-image-fields">
               {block.url ? <img src={block.url} alt={block.alt} /> : <div className="admin-block-image-placeholder">Obrázok ešte nie je vybraný</div>}
               <label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadSingle(event, block.id)} />{block.url ? "Vymeniť obrázok" : "Nahrať obrázok"}</label>
-              <div className="admin-field-grid"><div className="admin-field"><label>Alt text</label><input value={block.alt} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, alt: event.target.value } : item)} placeholder="Čo je na obrázku" /></div><div className="admin-field"><label>Popis pod obrázkom</label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, caption: event.target.value } : item)} /></div></div>
+              <div className="admin-field-grid">
+                <div className="admin-field"><label>Alt text</label><input value={block.alt} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, alt: event.target.value } : item)} placeholder="Stručne opíš, čo je na obrázku" /></div>
+                <div className="admin-field"><label>Popis pod obrázkom</label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, caption: event.target.value } : item)} /></div>
+                <div className="admin-field"><label>Kredit / zdroj fotografie</label><input value={block.credit ?? ""} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, credit: event.target.value } : item)} placeholder="Autor alebo zdroj" /></div>
+                <div className="admin-field"><label>Veľkosť na stránke</label><select value={block.size ?? "normal"} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, size: event.target.value === "wide" ? "wide" : "normal" } : item)}><option value="normal">Normálna</option><option value="wide">Široká</option></select></div>
+              </div>
             </div>}
 
             {block.type === "gallery" && <div className="admin-gallery-editor">
               <label className="admin-upload-button"><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadGallery(event, block.id)} />+ Nahrať obrázky do galérie</label>
-              <div className="admin-gallery-items">{block.images.map((image, imageIndex) => <div key={`${image.url}-${imageIndex}`}><img src={image.url} alt={image.alt} /><input value={image.alt} aria-label={`Alt text obrázka ${imageIndex + 1}`} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, alt: event.target.value } : entry) } : item)} placeholder="Alt text" /><button type="button" onClick={() => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.filter((_, entryIndex) => entryIndex !== imageIndex) } : item)}>Odstrániť</button></div>)}</div>
+              <div className="admin-gallery-items">{block.images.map((image, imageIndex) => <div className="admin-gallery-item" key={`${image.url}-${imageIndex}`}>
+                <img src={image.url} alt={image.alt} />
+                <label>Alt text<input value={image.alt} aria-label={`Alt text obrázka ${imageIndex + 1}`} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, alt: event.target.value } : entry) } : item)} placeholder="Čo je na obrázku" /></label>
+                <label>Popis pod obrázkom<input value={image.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, caption: event.target.value } : entry) } : item)} /></label>
+                <label>Kredit / zdroj<input value={image.credit ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, credit: event.target.value } : entry) } : item)} /></label>
+                <label>Veľkosť<select value={image.size ?? "normal"} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, size: event.target.value === "wide" ? "wide" : "normal" } : entry) } : item)}><option value="normal">Normálna</option><option value="wide">Široká</option></select></label>
+                <div className="admin-gallery-item-actions">
+                  <button type="button" onClick={() => moveGalleryImage(block.id, imageIndex, -1)} disabled={imageIndex === 0} aria-label={`Presunúť obrázok ${imageIndex + 1} doľava`}>←</button>
+                  <button type="button" onClick={() => moveGalleryImage(block.id, imageIndex, 1)} disabled={imageIndex === block.images.length - 1} aria-label={`Presunúť obrázok ${imageIndex + 1} doprava`}>→</button>
+                  <button type="button" className="is-danger" onClick={() => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.filter((_, entryIndex) => entryIndex !== imageIndex) } : item)}>Odstrániť</button>
+                </div>
+              </div>)}</div>
             </div>}
 
             {(block.type === "bullet-list" || block.type === "numbered-list") && <div className="admin-list-editor">

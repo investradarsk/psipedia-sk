@@ -5,10 +5,15 @@ export type ArticleBlockImage = {
   imageKey?: string | null;
   alt: string;
   caption?: string;
+  credit?: string;
+  size?: ArticleImageSize;
 };
 
+export type ArticleImageSize = "normal" | "wide";
+export type ArticleTextAlignment = "left" | "center" | "right";
+
 export type ArticleBlock =
-  | { id: string; type: "text"; content: string }
+  | { id: string; type: "text"; content: string; alignment?: ArticleTextAlignment }
   | { id: string; type: "h2" | "h3"; text: string }
   | ({ id: string; type: "image" } & ArticleBlockImage)
   | { id: string; type: "gallery"; images: ArticleBlockImage[] }
@@ -38,9 +43,9 @@ export const articleBlockLabels: Record<ArticleBlock["type"], string> = {
 };
 
 export function createArticleBlock(type: ArticleBlock["type"], id = crypto.randomUUID()): ArticleBlock {
-  if (type === "text") return { id, type, content: "" };
+  if (type === "text") return { id, type, content: "", alignment: "left" };
   if (type === "h2" || type === "h3") return { id, type, text: "" };
-  if (type === "image") return { id, type, url: "", imageKey: null, alt: "", caption: "" };
+  if (type === "image") return { id, type, url: "", imageKey: null, alt: "", caption: "", credit: "", size: "normal" };
   if (type === "gallery") return { id, type, images: [] };
   if (type === "bullet-list" || type === "numbered-list") return { id, type, items: [""] };
   if (type === "tip" || type === "warning") return { id, type, content: "" };
@@ -95,6 +100,14 @@ function safeUrl(value: unknown, allowInternal = false) {
   }
 }
 
+function safeAlignment(value: unknown): ArticleTextAlignment {
+  return value === "center" || value === "right" ? value : "left";
+}
+
+function safeImageSize(value: unknown): ArticleImageSize {
+  return value === "wide" ? "wide" : "normal";
+}
+
 function safeImage(value: unknown): ArticleBlockImage | null {
   if (!value || typeof value !== "object") return null;
   const image = value as Partial<ArticleBlockImage>;
@@ -105,6 +118,8 @@ function safeImage(value: unknown): ArticleBlockImage | null {
     imageKey: safeText(image.imageKey, 500) || null,
     alt: safeText(image.alt, 300),
     caption: safeText(image.caption, 500) || undefined,
+    credit: safeText(image.credit, 500) || undefined,
+    size: safeImageSize(image.size),
   };
 }
 
@@ -115,11 +130,11 @@ export function normalizeArticleBlocks(value: unknown): ArticleBlock[] {
     const block = raw as Record<string, unknown>;
     const id = safeId(block.id, index);
     const type = safeText(block.type, 30) as ArticleBlock["type"];
-    if (type === "text") return [{ id, type, content: safeText(block.content) }];
+    if (type === "text") return [{ id, type, content: safeText(block.content), alignment: safeAlignment(block.alignment) }];
     if (type === "h2" || type === "h3") return [{ id, type, text: safeText(block.text, 300) }];
     if (type === "image") {
       const image = safeImage(block);
-      return image ? [{ id, type, ...image }] : [{ id, type, url: "", imageKey: null, alt: "", caption: "" }];
+      return image ? [{ id, type, ...image }] : [{ id, type, url: "", imageKey: null, alt: "", caption: "", credit: "", size: "normal" }];
     }
     if (type === "gallery") {
       const images = Array.isArray(block.images) ? block.images.map(safeImage).filter((item): item is ArticleBlockImage => Boolean(item)).slice(0, 24) : [];
@@ -167,6 +182,8 @@ export function articleBlockPlainText(blocks: ArticleBlock[]) {
     if (block.type === "table") return [...block.headers, ...block.rows.flat()];
     if (block.type === "source") return [block.label, block.note ?? ""];
     if (block.type === "related") return [block.title, block.description ?? ""];
+    if (block.type === "image") return [block.alt, block.caption ?? "", block.credit ?? ""];
+    if (block.type === "gallery") return block.images.flatMap((image) => [image.alt, image.caption ?? "", image.credit ?? ""]);
     return [];
   }).join(" ").replace(/[\[\]_*`]/g, " ");
 }

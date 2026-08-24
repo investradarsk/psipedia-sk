@@ -22,11 +22,11 @@ export function AdminShell({
     <main id="obsah" className="admin-root">
       <div className="admin-shell shell">
         <header className="admin-topbar">
-          <a href="/admin" className="admin-brand" aria-label="Psipedia redakcia – prehľad">
+          <Link href="/admin" className="admin-brand" aria-label="Psipedia redakcia – prehľad">
             <span><PawMark size={23} /></span>
             <strong>Psipedia</strong>
             <small>redakcia</small>
-          </a>
+          </Link>
           <div className="admin-account">
             <span>
               <small>Prihlásený používateľ</small>
