@@ -12,7 +12,6 @@ type AdminRuntimeEnv = {
   AUTH_MODE?: string;
 };
 
-const ACCESS_EMAIL_HEADER = "cf-access-authenticated-user-email";
 const ACCESS_ASSERTION_HEADER = "cf-access-jwt-assertion";
 
 const PREVIEW_USER: ChatGPTUser = {
@@ -48,20 +47,13 @@ async function getCloudflareAccessUser(): Promise<ChatGPTUser | null> {
   if (!usesCloudflareAccess()) return null;
 
   const requestHeaders = await headers();
-  const email = requestHeaders.get(ACCESS_EMAIL_HEADER)?.trim() ?? "";
   const assertion = requestHeaders.get(ACCESS_ASSERTION_HEADER);
+  const user = await getChatGPTUser();
 
-  // Both headers are injected by Cloudflare Access after its policy check.
-  // Requiring the assertion prevents a lone, client-supplied email header from
-  // being treated as an authenticated administrator.
-  if (!email || !assertion) return null;
-
-  return {
-    authProvider: "cloudflare-access",
-    displayName: email.split("@")[0] || email,
-    email,
-    fullName: null,
-  };
+  // The Worker validates the Access JWT and injects the verified identity into
+  // the same internal headers used by the application auth bridge. Requiring
+  // both values prevents client-supplied identity headers from being trusted.
+  return assertion && user?.authProvider === "cloudflare-access" ? user : null;
 }
 
 function isConfiguredAdmin(user: ChatGPTUser) {

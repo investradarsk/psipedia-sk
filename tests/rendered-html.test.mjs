@@ -4,6 +4,42 @@ import test from "node:test";
 const developmentPreviewMeta =
   /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
 
+function encodeJwtPart(value) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+async function createAccessToken({ audience, email, issuer, keyId }) {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"],
+  );
+  const publicKey = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
+  const header = encodeJwtPart({ alg: "RS256", kid: keyId });
+  const payload = encodeJwtPart({
+    aud: [audience],
+    email,
+    exp: Math.floor(Date.now() / 1000) + 300,
+    iss: issuer,
+  });
+  const input = `${header}.${payload}`;
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    keyPair.privateKey,
+    new TextEncoder().encode(input),
+  );
+
+  return {
+    jwk: { ...publicKey, alg: "RS256", kid: keyId, use: "sig" },
+    token: `${input}.${Buffer.from(signature).toString("base64url")}`,
+  };
+}
+
 test("renders the portal homepage", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -43,6 +79,60 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Žiadna otvorená výzva/);
   assert.match(html, /Novinky zo sveta psov/);
   assert.match(html, /Prvé overené správy pripravujeme/);
+});
+
+test("passes a verified Cloudflare Access identity to the admin application", async () => {
+  const issuer = "https://psipedia-test.cloudflareaccess.com";
+  const audience = "psipedia-admin-test";
+  const email = "martin.zabransky@gmail.com";
+  const keyId = "psipedia-test-key";
+  const { jwk, token } = await createAccessToken({ audience, email, issuer, keyId });
+  const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
+  const previousRuntimeEnv = { ...runtimeEnv };
+  Object.assign(runtimeEnv, {
+    ADMIN_EMAILS: email,
+    AUTH_MODE: "cloudflare-access",
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url === `${issuer}/cdn-cgi/access/certs`) {
+      return Response.json({ keys: [jwk] });
+    }
+    return originalFetch(input, init);
+  };
+
+  try {
+    const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+    workerUrl.searchParams.set("access-test", `${process.pid}-${Date.now()}`);
+    const { default: worker } = await import(workerUrl.href);
+    const response = await worker.fetch(
+      new Request("http://localhost/api/admin/navigation", {
+        headers: {
+          accept: "application/json",
+          "cf-access-jwt-assertion": token,
+        },
+      }),
+      {
+        ACCESS_AUD: audience,
+        ACCESS_TEAM_DOMAIN: issuer,
+        ADMIN_EMAILS: email,
+        ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+        AUTH_MODE: "cloudflare-access",
+      },
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.ok(Array.isArray(payload.items));
+    assert.ok(payload.items.length > 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
+    Object.assign(runtimeEnv, previousRuntimeEnv);
+  }
 });
 
 test("renders the news portal and stable topic URLs without published news", async () => {
