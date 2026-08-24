@@ -3,15 +3,17 @@ import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminPuppyAreaEditor } from "@/components/admin-puppy-area-editor";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { listManagedArticles } from "@/lib/article-store";
+import { listManagedArticleSummaries } from "@/lib/article-store";
 import { listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPuppiesPage() {
+export default async function AdminPuppiesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await requireAdminPageUser("/admin/steniatka");
-  const [articles, sections] = await Promise.all([
-    listManagedArticles(),
+  const { page: rawPage } = await searchParams;
+  const page = Math.max(1, Number.parseInt(rawPage ?? "1", 10) || 1);
+  const [result, sections] = await Promise.all([
+    listManagedArticleSummaries({ page, portalSection: "steniatka" }),
     listManagedPortalSections(),
   ]);
   return (
@@ -23,7 +25,7 @@ export default async function AdminPuppiesPage() {
       actions={<Link className="admin-primary-action" href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link>}
     >
       <AdminPuppyAreaEditor initialSections={sections} />
-      <AdminDashboard initialArticles={articles} fixedPortalSection="steniatka" />
+      <AdminDashboard initialArticles={result.articles} initialCounts={result.counts} pagination={result.pagination} fixedPortalSection="steniatka" />
     </AdminShell>
   );
 }

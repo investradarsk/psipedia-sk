@@ -3,6 +3,7 @@ import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } f
 
 export type BreedStatus = "draft" | "published";
 export type ManagedBreed = Breed & { id: number; status: BreedStatus; imageKey: string | null; createdAt: string; updatedAt: string; publishedAt: string | null };
+export type ManagedBreedSummary = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "origin" | "group" | "accent">;
 export type ManagedBreedInput = Partial<Breed> & { status?: string; imageKey?: string | null };
 type Row = {
   id:number;slug:string;name:string;status:string;image_url:string;image_key:string|null;gallery_json:string;
@@ -11,8 +12,8 @@ type Row = {
   intro:string;character:string;needs:string;history:string;exercise:string;training:string;health:string;health_risks_json:string;
   good_for_json:string;consider_json:string;sources_json:string;accent:string;created_at:string;updated_at:string;published_at:string|null;
 };
+type SummaryRow = { id:number;slug:string;name:string;status:string;image_url:string;fci_group:number;origin:string;group_name:string;accent:string };
 type RuntimeBindings = { DB?: D1Database };
-let ready: Promise<void> | null = null;
 
 function db() { const value = (env as unknown as RuntimeBindings).DB; return value && typeof value.prepare === "function" ? value : null; }
 function requireDb() { const value = db(); if (!value) throw new Error("Databáza plemien nie je pripojená."); return value; }
@@ -22,34 +23,8 @@ function isBreedImage(value:unknown):value is BreedImage { return Boolean(value&
 function isBreedSource(value:unknown):value is BreedSource { return Boolean(value&&typeof value==="object"&&typeof (value as BreedSource).label==="string"&&typeof (value as BreedSource).url==="string"); }
 
 async function ensure(database:D1Database) {
-  if (ready) return ready;
-  ready=(async()=>{
-    await database.prepare(`CREATE TABLE IF NOT EXISTS managed_breeds (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'draft', image_url TEXT NOT NULL DEFAULT '', image_key TEXT, gallery_json TEXT NOT NULL DEFAULT '[]',
-      fci_group INTEGER NOT NULL, fci_section TEXT NOT NULL, origin TEXT NOT NULL, group_name TEXT NOT NULL,
-      size TEXT NOT NULL, weight TEXT NOT NULL, height TEXT NOT NULL DEFAULT '', lifespan TEXT NOT NULL, coat TEXT NOT NULL,
-      energy INTEGER NOT NULL DEFAULT 3, trainability INTEGER NOT NULL DEFAULT 3, family INTEGER NOT NULL DEFAULT 3,
-      children INTEGER NOT NULL DEFAULT 3, other_dogs INTEGER NOT NULL DEFAULT 3, apartment INTEGER NOT NULL DEFAULT 3,
-      grooming INTEGER NOT NULL DEFAULT 3, shedding INTEGER NOT NULL DEFAULT 3, prey_drive INTEGER NOT NULL DEFAULT 3,
-      intro TEXT NOT NULL, character TEXT NOT NULL, needs TEXT NOT NULL,
-      history TEXT NOT NULL DEFAULT '', exercise TEXT NOT NULL DEFAULT '', training TEXT NOT NULL DEFAULT '', health TEXT NOT NULL DEFAULT '',
-      health_risks_json TEXT NOT NULL DEFAULT '[]', good_for_json TEXT NOT NULL DEFAULT '[]', consider_json TEXT NOT NULL DEFAULT '[]',
-      sources_json TEXT NOT NULL DEFAULT '[]', accent TEXT NOT NULL DEFAULT 'forest', created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-      published_at TEXT, created_by TEXT NOT NULL, updated_by TEXT NOT NULL
-    )`).run();
-    await database.prepare("CREATE INDEX IF NOT EXISTS managed_breeds_public_idx ON managed_breeds (status,fci_group,name)").run();
-    const now=new Date().toISOString();
-    await database.batch(seedBreeds.map((breed)=>database.prepare(`INSERT OR IGNORE INTO managed_breeds
-      (slug,name,status,image_url,image_key,gallery_json,fci_group,fci_section,origin,group_name,size,weight,height,lifespan,coat,
-       energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,
-       training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,created_by,updated_by)
-      VALUES (?,?, 'published',?,NULL,'[]',?,?,?,?,?,?,'',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'','','','','[]',?,?,'[]',?,?,?,?,?)`)
-      .bind(breed.slug,breed.name,breed.image,breed.fciGroup,breed.fciSection,breed.origin,breed.group,breed.size,breed.weight,
-        breed.lifespan,breed.coat,breed.energy,breed.trainability,breed.family,breed.family,3,3,3,3,3,breed.intro,breed.character,
-        breed.needs,JSON.stringify(breed.goodFor),JSON.stringify(breed.consider),breed.accent,now,now,now,"system@psipedia.sk","system@psipedia.sk")));
-  })().catch((error)=>{ready=null;throw error;});
-  return ready;
+  void database;
+  // Schema and seed data are installed by deployment migrations.
 }
 
 function fromRow(row:Row):ManagedBreed { return {
@@ -63,10 +38,15 @@ function fromRow(row:Row):ManagedBreed { return {
   createdAt:row.created_at,updatedAt:row.updated_at,publishedAt:row.published_at,
 }; }
 
+function fromSummaryRow(row:SummaryRow):ManagedBreedSummary { return {
+  id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
+  fciGroup:row.fci_group,origin:row.origin,group:row.group_name,accent:row.accent as Breed["accent"],
+}; }
+
 const select=`SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_group,fci_section,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at FROM managed_breeds`;
-export async function listManagedBreeds(){const database=requireDb();await ensure(database);const result=await database.prepare(`${select} ORDER BY fci_group,name`).all<Row>();return result.results.map(fromRow);}
+export async function listManagedBreedSummaries(limit=100){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(200,Math.trunc(limit)));const result=await database.prepare("SELECT id,slug,name,status,image_url,fci_group,origin,group_name,accent FROM managed_breeds ORDER BY fci_group,name LIMIT ?").bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
 export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name`).all<Row>();return result.results.map(fromRow);}
 export async function listFeaturedBreeds(limit=3){const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));const database=db();if(!database)return seedBreeds.slice(0,safeLimit);const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<Row>();return result.results.map(fromRow);}
 export async function getManagedBreed(id:number){const database=requireDb();await ensure(database);const row=await database.prepare(`${select} WHERE id=?`).bind(id).first<Row>();return row?fromRow(row):null;}

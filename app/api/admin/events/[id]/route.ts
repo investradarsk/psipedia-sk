@@ -34,7 +34,7 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getManagedEventById(id);
     if (!before) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
-    const event = await updateManagedEvent(id, await request.json() as ManagedEventInput, user.email);
+    const event = await updateManagedEvent(id, await request.json() as ManagedEventInput, user.email, before);
     if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
     if (before.imageKey && before.imageKey !== event.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;

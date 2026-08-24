@@ -1,0 +1,2 @@
+CREATE INDEX `directory_profiles_admin_updated_idx` ON `directory_profiles` (`updated_at`,`id`);--> statement-breakpoint
+CREATE INDEX `managed_articles_admin_updated_idx` ON `managed_articles` (`updated_at`,`id`);

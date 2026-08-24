@@ -2,13 +2,20 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { AdminPagination } from "@/components/admin-pagination";
 import { SearchIcon } from "@/components/icons";
-import { directoryProfileHref, getDirectoryCategory, type ManagedDirectoryProfile } from "@/lib/directory";
+import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
+import type { ManagedDirectoryProfileSummary, ManagedDirectoryProfileSummaryPage } from "@/lib/directory-store";
 
 type StatusFilter = "all" | "published" | "draft";
 
-export function AdminDirectoryDashboard({ initialProfiles }: { initialProfiles: ManagedDirectoryProfile[] }) {
+export function AdminDirectoryDashboard({ initialProfiles, initialCounts, pagination }: {
+  initialProfiles: ManagedDirectoryProfileSummary[];
+  initialCounts: ManagedDirectoryProfileSummaryPage["counts"];
+  pagination: ManagedDirectoryProfileSummaryPage["pagination"];
+}) {
   const [profiles, setProfiles] = useState(initialProfiles);
+  const [counts, setCounts] = useState(initialCounts);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -20,9 +27,7 @@ export function AdminDirectoryDashboard({ initialProfiles }: { initialProfiles: 
       && (!needle || `${profile.name} ${profile.city} ${profile.region} ${getDirectoryCategory(profile.category)?.label} ${profile.services.join(" ")}`.toLocaleLowerCase("sk").includes(needle)));
   }, [profiles, query, status]);
 
-  const published = profiles.filter((profile) => profile.status === "published").length;
-
-  async function removeProfile(profile: ManagedDirectoryProfile) {
+  async function removeProfile(profile: ManagedDirectoryProfileSummary) {
     if (!window.confirm(`Naozaj chceš natrvalo odstrániť profil „${profile.name}“? Prijaté dopyty zostanú zachované.`)) return;
     setDeletingId(profile.id); setMessage("");
     try {
@@ -30,6 +35,11 @@ export function AdminDirectoryDashboard({ initialProfiles }: { initialProfiles: 
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Profil sa nepodarilo odstrániť.");
       setProfiles((current) => current.filter((item) => item.id !== profile.id));
+      setCounts((current) => ({
+        ...current,
+        total: Math.max(0, current.total - 1),
+        [profile.status]: Math.max(0, current[profile.status] - 1),
+      }));
       setMessage("Profil bol odstránený.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Profil sa nepodarilo odstrániť.");
@@ -39,9 +49,9 @@ export function AdminDirectoryDashboard({ initialProfiles }: { initialProfiles: 
   return (
     <>
       <section className="admin-stats" aria-label="Stav adresára">
-        <div><span>Všetky profily</span><strong>{profiles.length}</strong></div>
-        <div><span>Publikované</span><strong>{published}</strong></div>
-        <div><span>Koncepty</span><strong>{profiles.length - published}</strong></div>
+        <div><span>Všetky profily</span><strong>{counts.total}</strong></div>
+        <div><span>Publikované</span><strong>{counts.published}</strong></div>
+        <div><span>Koncepty</span><strong>{counts.draft}</strong></div>
       </section>
       <section className="admin-panel">
         <div className="admin-toolbar">
@@ -71,6 +81,7 @@ export function AdminDirectoryDashboard({ initialProfiles }: { initialProfiles: 
             })}
           </div>
         ) : <div className="admin-empty"><span>📍</span><h2>Žiadne profily</h2><p>Pridaj prvý profil alebo zmeň filter.</p></div>}
+        <AdminPagination pagination={pagination} basePath="/admin/adresar" />
       </section>
     </>
   );

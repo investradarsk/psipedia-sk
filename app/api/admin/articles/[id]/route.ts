@@ -58,7 +58,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const before = await getManagedArticleById(id);
     if (!before) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
     const payload = (await request.json()) as ManagedArticleInput;
-    const article = await updateManagedArticle(id, payload, user.email);
+    const article = await updateManagedArticle(id, payload, user.email, before);
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
 
     if (before.imageKey && before.imageKey !== article.imageKey) {

@@ -31,6 +31,37 @@ export type ManagedArticle = Article & {
   updatedBy: string;
 };
 
+export type ManagedArticleSummary = Pick<
+  ManagedArticle,
+  | "id"
+  | "slug"
+  | "title"
+  | "excerpt"
+  | "category"
+  | "portalSection"
+  | "newsCategory"
+  | "status"
+  | "accent"
+  | "image"
+  | "updatedAt"
+>;
+
+export type ManagedArticleSummaryPage = {
+  articles: ManagedArticleSummary[];
+  counts: {
+    total: number;
+    published: number;
+    scheduled: number;
+    draft: number;
+  };
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
 export type ManagedArticleInput = {
   slug?: string;
   title?: string;
@@ -102,6 +133,27 @@ type ArticleRow = {
   og_image_key: string | null;
 };
 
+type ArticleSummaryRow = {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  category: string;
+  portal_section: string;
+  news_category: string | null;
+  status: string;
+  accent: string;
+  image_url: string | null;
+  updated_at: string;
+};
+
+type ArticleCountRow = {
+  total: number;
+  published: number;
+  scheduled: number;
+  draft: number;
+};
+
 type RuntimeBindings = {
   DB?: D1Database;
 };
@@ -122,7 +174,8 @@ function requireD1Binding() {
   return database;
 }
 
-async function ensureArticleStore(_database: D1Database) {
+async function ensureArticleStore(database: D1Database) {
+  void database;
   // Production schema changes are applied by Wrangler migrations during
   // deployment. Never mutate or probe the schema from a page request: an
   // interrupted migration must not turn the whole admin into Worker 1101.
@@ -219,6 +272,22 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
       ogDescription: row.og_description || undefined,
       ogImage: row.og_image_url || undefined,
     },
+  };
+}
+
+function rowToManagedArticleSummary(row: ArticleSummaryRow): ManagedArticleSummary {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    excerpt: row.excerpt,
+    category: row.category as Article["category"],
+    portalSection: isArticlePortalSection(row.portal_section) ? row.portal_section : "clanky",
+    newsCategory: row.news_category && isNewsCategory(row.news_category) ? row.news_category : undefined,
+    status: row.status === "published" ? "published" : row.status === "scheduled" ? "scheduled" : "draft",
+    accent: row.accent as Article["accent"],
+    image: row.image_url ?? undefined,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -393,24 +462,52 @@ export async function getPublishedArticle(slug: string): Promise<Article | null>
   return row ? rowToManagedArticle(row) : null;
 }
 
-export async function listManagedArticles() {
+export async function listManagedArticleSummaries(options: {
+  page?: number;
+  pageSize?: number;
+  portalSection?: ArticlePortalSection;
+} = {}): Promise<ManagedArticleSummaryPage> {
   const database = requireD1Binding();
   await ensureArticleStore(database);
-  const result = await database
-    .prepare("SELECT * FROM managed_articles ORDER BY updated_at DESC, id DESC")
-    .all<ArticleRow>();
-  return result.results.flatMap((row) => {
-    try {
-      return [rowToManagedArticle(row)];
-    } catch (error) {
-      console.error("Skipping an invalid managed article row", {
-        id: row.id,
-        slug: row.slug,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return [];
-    }
-  });
+  const page = Math.max(1, Math.trunc(options.page ?? 1));
+  const pageSize = Math.max(1, Math.min(100, Math.trunc(options.pageSize ?? 50)));
+  const where = options.portalSection ? "WHERE portal_section = ?" : "";
+  const bindings = options.portalSection ? [options.portalSection] : [];
+  const listStatement = database.prepare(`
+    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, updated_at
+    FROM managed_articles
+    ${where}
+    ORDER BY updated_at DESC, id DESC
+    LIMIT ? OFFSET ?
+  `).bind(...bindings, pageSize, (page - 1) * pageSize);
+  const countStatement = database.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
+      COALESCE(SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END), 0) AS scheduled,
+      COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
+    FROM managed_articles
+    ${where}
+  `).bind(...bindings);
+  const [listResult, countResult] = await database.batch([listStatement, countStatement]);
+  const rows = (listResult.results ?? []) as unknown as ArticleSummaryRow[];
+  const rawCounts = (countResult.results?.[0] ?? null) as unknown as ArticleCountRow | null;
+  const counts = {
+    total: Number(rawCounts?.total ?? 0),
+    published: Number(rawCounts?.published ?? 0),
+    scheduled: Number(rawCounts?.scheduled ?? 0),
+    draft: Number(rawCounts?.draft ?? 0),
+  };
+  return {
+    articles: rows.map(rowToManagedArticleSummary),
+    counts,
+    pagination: {
+      page,
+      pageSize,
+      total: counts.total,
+      totalPages: Math.max(1, Math.ceil(counts.total / pageSize)),
+    },
+  };
 }
 
 export async function getManagedArticleById(id: number) {
@@ -487,22 +584,20 @@ export async function updateManagedArticle(
   id: number,
   payload: ManagedArticleInput,
   editorEmail: string,
+  existingArticle?: ManagedArticle,
 ) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
-  const existing = await database
-    .prepare("SELECT * FROM managed_articles WHERE id = ? LIMIT 1")
-    .bind(id)
-    .first<ArticleRow>();
+  const existing = existingArticle ?? await getManagedArticleById(id);
   if (!existing) return null;
 
   const input = normalizeInput(payload);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published"
-    ? input.publishedAt ?? existing.published_at ?? now
+    ? input.publishedAt ?? existing.publishedAt ?? now
     : input.status === "scheduled"
       ? input.publishedAt
-      : input.publishedAt ?? existing.published_at;
+      : input.publishedAt ?? existing.publishedAt;
   const result = await database
     .prepare(`
       UPDATE managed_articles SET

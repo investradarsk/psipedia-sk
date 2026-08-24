@@ -49,7 +49,6 @@ type LegalSettingsRow = {
 };
 
 type RuntimeBindings = { DB?: D1Database };
-let legalSchemaReady: Promise<void> | null = null;
 
 export const defaultLegalSettings: LegalSettings = {
   operatorType: "individual",
@@ -83,34 +82,8 @@ function requireD1Binding() {
 }
 
 async function ensureLegalSettingsStore(database: D1Database) {
-  if (legalSchemaReady) return legalSchemaReady;
-  legalSchemaReady = database.prepare(`
-    CREATE TABLE IF NOT EXISTS legal_settings (
-      id INTEGER PRIMARY KEY,
-      operator_type TEXT NOT NULL DEFAULT 'individual',
-      legal_name TEXT NOT NULL DEFAULT '',
-      business_name TEXT NOT NULL DEFAULT '',
-      address TEXT NOT NULL DEFAULT '',
-      ico TEXT NOT NULL DEFAULT '',
-      dic TEXT NOT NULL DEFAULT '',
-      vat_id TEXT NOT NULL DEFAULT '',
-      email TEXT NOT NULL DEFAULT '',
-      phone TEXT NOT NULL DEFAULT '',
-      registry_name TEXT NOT NULL DEFAULT '',
-      registry_number TEXT NOT NULL DEFAULT '',
-      media_registry_number TEXT NOT NULL DEFAULT '',
-      media_status TEXT NOT NULL DEFAULT 'not_submitted',
-      rpvs_status TEXT NOT NULL DEFAULT 'not_registered',
-      correction_email TEXT NOT NULL DEFAULT '',
-      privacy_email TEXT NOT NULL DEFAULT '',
-      updated_at TEXT NOT NULL,
-      updated_by TEXT NOT NULL
-    )
-  `).run().then(() => undefined).catch((error) => {
-    legalSchemaReady = null;
-    throw error;
-  });
-  return legalSchemaReady;
+  void database;
+  // Schema creation is handled by deployment migrations.
 }
 
 function isOperatorType(value: string): value is OperatorType {
@@ -187,7 +160,12 @@ export async function getLegalSettings() {
   const database = getD1Binding();
   if (!database) return defaultLegalSettings;
   await ensureLegalSettingsStore(database);
-  const row = await database.prepare("SELECT * FROM legal_settings WHERE id = 1 LIMIT 1").first<LegalSettingsRow>();
+  const row = await database.prepare(`
+    SELECT id, operator_type, legal_name, business_name, address, ico, dic, vat_id, email, phone,
+      registry_name, registry_number, media_registry_number, media_status, rpvs_status,
+      correction_email, privacy_email, updated_at, updated_by
+    FROM legal_settings WHERE id = 1 LIMIT 1
+  `).first<LegalSettingsRow>();
   return row ? rowToLegalSettings(row) : defaultLegalSettings;
 }
 

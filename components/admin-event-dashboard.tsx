@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { eventHref, formatEventDate, type DogEvent } from "@/lib/events";
+import { eventHref, formatEventDate } from "@/lib/events";
+import type { ManagedEventSummary } from "@/lib/event-store";
 import { SearchIcon } from "@/components/icons";
 
 type StatusFilter = "all" | "published" | "draft";
 
-export function AdminEventDashboard({ initialEvents }: { initialEvents: DogEvent[] }) {
+export function AdminEventDashboard({ initialEvents }: { initialEvents: ManagedEventSummary[] }) {
   const [events, setEvents] = useState(initialEvents);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -22,7 +23,7 @@ export function AdminEventDashboard({ initialEvents }: { initialEvents: DogEvent
 
   const published = events.filter((event) => event.status === "published").length;
 
-  async function removeEvent(event: DogEvent) {
+  async function removeEvent(event: ManagedEventSummary) {
     if (!window.confirm(`Naozaj chceš natrvalo odstrániť podujatie „${event.title}“?`)) return;
     setDeletingId(event.id);
     setMessage("");

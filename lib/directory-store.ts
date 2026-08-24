@@ -34,6 +34,36 @@ export type ManagedDirectoryProfileInput = {
   featured?: boolean;
 };
 
+export type ManagedDirectoryProfileSummary = Pick<
+  ManagedDirectoryProfile,
+  | "id"
+  | "slug"
+  | "name"
+  | "category"
+  | "status"
+  | "services"
+  | "city"
+  | "region"
+  | "imageUrl"
+  | "verified"
+  | "featured"
+>;
+
+export type ManagedDirectoryProfileSummaryPage = {
+  profiles: ManagedDirectoryProfileSummary[];
+  counts: {
+    total: number;
+    published: number;
+    draft: number;
+  };
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
 export type DirectoryInquiryInput = {
   profileId?: number;
   senderName?: string;
@@ -92,8 +122,27 @@ type DirectoryInquiryRow = {
   updated_at: string;
 };
 
+type DirectoryProfileSummaryRow = {
+  id: number;
+  slug: string;
+  name: string;
+  category: string;
+  status: string;
+  services_json: string;
+  city: string;
+  region: string;
+  image_url: string | null;
+  verified: number;
+  featured: number;
+};
+
+type DirectoryProfileCountRow = {
+  total: number;
+  published: number;
+  draft: number;
+};
+
 type RuntimeBindings = { DB?: D1Database };
-let directorySchemaReady: Promise<void> | null = null;
 
 function getD1Binding() {
   const database = (env as unknown as RuntimeBindings).DB;
@@ -107,83 +156,9 @@ function requireD1Binding() {
 }
 
 async function ensureDirectoryStore(database: D1Database) {
-  if (directorySchemaReady) return directorySchemaReady;
-  directorySchemaReady = (async () => {
-    await database.prepare(`
-      CREATE TABLE IF NOT EXISTS directory_profiles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        slug TEXT NOT NULL,
-        name TEXT NOT NULL,
-        category TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'draft',
-        excerpt TEXT NOT NULL,
-        description TEXT NOT NULL,
-        services_json TEXT NOT NULL DEFAULT '[]',
-        qualifications_json TEXT NOT NULL DEFAULT '[]',
-        city TEXT NOT NULL,
-        region TEXT NOT NULL,
-        address TEXT NOT NULL DEFAULT '',
-        online INTEGER NOT NULL DEFAULT 0,
-        price_note TEXT NOT NULL DEFAULT '',
-        website_url TEXT,
-        internal_email TEXT,
-        image_url TEXT,
-        image_key TEXT,
-        import_key TEXT,
-        source_data_json TEXT NOT NULL DEFAULT '{}',
-        verified INTEGER NOT NULL DEFAULT 0,
-        featured INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        published_at TEXT,
-        created_by TEXT NOT NULL,
-        updated_by TEXT NOT NULL
-      )
-    `).run();
-    const profileColumns = await database.prepare("PRAGMA table_info(directory_profiles)").all<{ name: string }>();
-    if (!profileColumns.results.some((column) => column.name === "import_key")) {
-      await database.prepare("ALTER TABLE directory_profiles ADD COLUMN import_key TEXT").run();
-    }
-    if (!profileColumns.results.some((column) => column.name === "source_data_json")) {
-      await database.prepare("ALTER TABLE directory_profiles ADD COLUMN source_data_json TEXT NOT NULL DEFAULT '{}'").run();
-    }
-    await database.prepare(`
-      CREATE TABLE IF NOT EXISTS directory_inquiries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        profile_id INTEGER,
-        profile_name TEXT NOT NULL,
-        profile_slug TEXT NOT NULL,
-        profile_category TEXT NOT NULL,
-        recipient_email TEXT,
-        sender_name TEXT NOT NULL,
-        sender_email TEXT NOT NULL,
-        sender_phone TEXT NOT NULL DEFAULT '',
-        dog_info TEXT NOT NULL DEFAULT '',
-        message TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'new',
-        consent INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `).run();
-    const inquiryColumns = await database.prepare("PRAGMA table_info(directory_inquiries)").all<{ name: string }>();
-    if (!inquiryColumns.results.some((column) => column.name === "recipient_email")) {
-      await database.prepare("ALTER TABLE directory_inquiries ADD COLUMN recipient_email TEXT").run();
-    }
-    await database.batch([
-      database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS directory_profiles_category_slug_unique ON directory_profiles (category, slug)"),
-      database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS directory_profiles_import_key_unique ON directory_profiles (import_key)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS directory_profiles_public_idx ON directory_profiles (status, category, region, featured)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS directory_profiles_updated_idx ON directory_profiles (updated_at)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS directory_inquiries_status_created_idx ON directory_inquiries (status, created_at)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS directory_inquiries_profile_idx ON directory_inquiries (profile_id, created_at)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS directory_inquiries_email_idx ON directory_inquiries (sender_email, created_at)"),
-    ]);
-  })().catch((error) => {
-    directorySchemaReady = null;
-    throw error;
-  });
-  return directorySchemaReady;
+  void database;
+  // The deployed migrations own the schema. Admin requests must never run DDL,
+  // PRAGMA probes or index creation before reading a list or saving a profile.
 }
 
 function safeList(value: string) {
@@ -239,6 +214,22 @@ function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile 
     publishedAt: row.published_at,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
+  };
+}
+
+function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDirectoryProfileSummary {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
+    status: row.status === "published" ? "published" : "draft",
+    services: safeList(row.services_json),
+    city: row.city,
+    region: (slovakRegions as readonly string[]).includes(row.region) ? row.region as SlovakRegion : "Online",
+    imageUrl: row.image_url,
+    verified: Boolean(row.verified),
+    featured: Boolean(row.featured),
   };
 }
 
@@ -354,11 +345,45 @@ export async function getPublishedDirectoryProfile(category: string, slug: strin
   return row ? rowToPublicProfile(row) : null;
 }
 
-export async function listManagedDirectoryProfiles() {
+export async function listManagedDirectoryProfileSummaries(options: {
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<ManagedDirectoryProfileSummaryPage> {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const result = await database.prepare("SELECT * FROM directory_profiles ORDER BY updated_at DESC, id DESC").all<DirectoryProfileRow>();
-  return result.results.map(rowToManagedProfile);
+  const page = Math.max(1, Math.trunc(options.page ?? 1));
+  const pageSize = Math.max(1, Math.min(100, Math.trunc(options.pageSize ?? 50)));
+  const listStatement = database.prepare(`
+    SELECT id, slug, name, category, status, services_json, city, region, image_url, verified, featured
+    FROM directory_profiles
+    ORDER BY updated_at DESC, id DESC
+    LIMIT ? OFFSET ?
+  `).bind(pageSize, (page - 1) * pageSize);
+  const countStatement = database.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
+      COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
+    FROM directory_profiles
+  `);
+  const [listResult, countResult] = await database.batch([listStatement, countStatement]);
+  const rows = (listResult.results ?? []) as unknown as DirectoryProfileSummaryRow[];
+  const rawCounts = (countResult.results?.[0] ?? null) as unknown as DirectoryProfileCountRow | null;
+  const counts = {
+    total: Number(rawCounts?.total ?? 0),
+    published: Number(rawCounts?.published ?? 0),
+    draft: Number(rawCounts?.draft ?? 0),
+  };
+  return {
+    profiles: rows.map(rowToManagedProfileSummary),
+    counts,
+    pagination: {
+      page,
+      pageSize,
+      total: counts.total,
+      totalPages: Math.max(1, Math.ceil(counts.total / pageSize)),
+    },
+  };
 }
 
 export async function getManagedDirectoryProfileById(id: number) {
@@ -390,14 +415,14 @@ export async function createManagedDirectoryProfile(payload: ManagedDirectoryPro
   return rowToManagedProfile(row);
 }
 
-export async function updateManagedDirectoryProfile(id: number, payload: ManagedDirectoryProfileInput, editorEmail: string) {
+export async function updateManagedDirectoryProfile(id: number, payload: ManagedDirectoryProfileInput, editorEmail: string, existingProfile?: ManagedDirectoryProfile) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const existing = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1").bind(id).first<DirectoryProfileRow>();
+  const existing = existingProfile ?? await getManagedDirectoryProfileById(id);
   if (!existing) return null;
   const input = normalizeProfileInput(payload);
   const now = new Date().toISOString();
-  const publishedAt = input.status === "published" ? existing.published_at ?? now : existing.published_at;
+  const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
     UPDATE directory_profiles SET
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
@@ -476,8 +501,13 @@ export async function createDirectoryInquiry(payload: DirectoryInquiryInput) {
 export async function listDirectoryInquiries() {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  await purgeExpiredDirectoryInquiries(database);
-  const result = await database.prepare("SELECT * FROM directory_inquiries ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, created_at DESC").all<DirectoryInquiryRow>();
+  const result = await database.prepare(`
+    SELECT id, profile_id, profile_name, profile_slug, profile_category, recipient_email,
+      sender_name, sender_email, sender_phone, dog_info, message, status, consent, created_at, updated_at
+    FROM directory_inquiries
+    ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, created_at DESC
+    LIMIT 200
+  `).all<DirectoryInquiryRow>();
   return result.results.map(rowToInquiry);
 }
 

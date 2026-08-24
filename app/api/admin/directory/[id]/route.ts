@@ -30,7 +30,7 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getManagedDirectoryProfileById(id);
     if (!before) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    const profile = await updateManagedDirectoryProfile(id, await request.json() as ManagedDirectoryProfileInput, user.email);
+    const profile = await updateManagedDirectoryProfile(id, await request.json() as ManagedDirectoryProfileInput, user.email, before);
     if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== profile.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;

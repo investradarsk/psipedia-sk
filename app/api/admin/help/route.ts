@@ -1,5 +1,5 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { createManagedHelpCase, isHelpCaseConflict, listManagedHelpCases, type ManagedHelpCaseInput } from "@/lib/help-store";
+import { createManagedHelpCase, isHelpCaseConflict, listManagedHelpCaseSummaries, type ManagedHelpCaseInput } from "@/lib/help-store";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ function errorResponse(error: unknown) {
 
 export async function GET() {
   const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
-  try { return Response.json({ items: await listManagedHelpCases() }); }
+  try { return Response.json({ items: await listManagedHelpCaseSummaries() }); }
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Prípady sa nepodarilo načítať." }, { status: 500 }); }
 }
 

@@ -1,5 +1,5 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { createManagedEvent, isEventSlugConflict, listManagedEvents, type ManagedEventInput } from "@/lib/event-store";
+import { createManagedEvent, isEventSlugConflict, listManagedEventSummaries, type ManagedEventInput } from "@/lib/event-store";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ function errorResponse(error: unknown) {
 export async function GET() {
   const user = await getAdminApiUser();
   if (!user) return unauthorizedAdminResponse();
-  try { return Response.json({ events: await listManagedEvents() }); }
+  try { return Response.json({ events: await listManagedEventSummaries() }); }
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Podujatia sa nepodarilo načítať." }, { status: 500 }); }
 }
 

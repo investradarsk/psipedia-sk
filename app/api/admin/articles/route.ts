@@ -1,7 +1,7 @@
 import {
   createManagedArticle,
   isArticleSlugConflict,
-  listManagedArticles,
+  listManagedArticleSummaries,
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
@@ -17,12 +17,16 @@ function errorResponse(error: unknown) {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getAdminApiUser();
   if (!user) return unauthorizedAdminResponse();
 
   try {
-    return Response.json({ articles: await listManagedArticles() });
+    const url = new URL(request.url);
+    const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.max(1, Math.min(100, Number.parseInt(url.searchParams.get("limit") ?? "50", 10) || 50));
+    const result = await listManagedArticleSummaries({ page, pageSize });
+    return Response.json(result);
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Články sa nepodarilo načítať." },

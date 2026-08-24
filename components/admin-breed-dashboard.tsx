@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { ManagedBreed } from "@/lib/breed-store";
+import type { ManagedBreedSummary } from "@/lib/breed-store";
 import { SearchIcon } from "./icons";
 
-export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedBreed[] }) {
+export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedBreedSummary[] }) {
   const [breeds, setBreeds] = useState(initialBreeds);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -14,7 +14,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
     return breeds.filter((breed) => !needle || `${breed.name} ${breed.slug} ${breed.group} ${breed.origin}`.toLocaleLowerCase("sk").includes(needle));
   }, [breeds, query]);
 
-  async function remove(breed: ManagedBreed) {
+  async function remove(breed: ManagedBreedSummary) {
     if (!window.confirm(`Naozaj chceš odstrániť plemeno „${breed.name}“?`)) return;
     const response = await fetch(`/api/admin/breeds/${breed.id}`, { method: "DELETE" });
     const data = await response.json() as { error?: string };

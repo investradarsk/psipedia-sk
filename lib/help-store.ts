@@ -38,6 +38,22 @@ export type ManagedHelpCaseInput = {
   resolved?: boolean;
 };
 
+export type ManagedHelpCaseSummary = Pick<
+  HelpCase,
+  | "id"
+  | "slug"
+  | "title"
+  | "category"
+  | "status"
+  | "organization"
+  | "dogName"
+  | "city"
+  | "imageUrl"
+  | "verified"
+  | "urgent"
+  | "resolved"
+>;
+
 type HelpCaseRow = {
   id: number;
   slug: string;
@@ -72,8 +88,22 @@ type HelpCaseRow = {
   updated_by: string;
 };
 
+type HelpCaseSummaryRow = {
+  id: number;
+  slug: string;
+  title: string;
+  category: string;
+  status: string;
+  organization: string;
+  dog_name: string;
+  city: string;
+  image_url: string | null;
+  verified: number;
+  urgent: number;
+  resolved: number;
+};
+
 type RuntimeBindings = { DB?: D1Database };
-let helpSchemaReady: Promise<void> | null = null;
 
 function getD1Binding() {
   const database = (env as unknown as RuntimeBindings).DB;
@@ -87,53 +117,8 @@ function requireD1Binding() {
 }
 
 async function ensureHelpStore(database: D1Database) {
-  if (helpSchemaReady) return helpSchemaReady;
-  helpSchemaReady = (async () => {
-    await database.prepare(`
-      CREATE TABLE IF NOT EXISTS help_cases (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        slug TEXT NOT NULL,
-        title TEXT NOT NULL,
-        category TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'draft',
-        excerpt TEXT NOT NULL,
-        description TEXT NOT NULL,
-        organization TEXT NOT NULL,
-        dog_name TEXT NOT NULL DEFAULT '',
-        breed TEXT NOT NULL DEFAULT '',
-        age_note TEXT NOT NULL DEFAULT '',
-        city TEXT NOT NULL,
-        region TEXT NOT NULL,
-        location_note TEXT NOT NULL DEFAULT '',
-        reported_date TEXT,
-        deadline_date TEXT,
-        action_label TEXT NOT NULL,
-        action_url TEXT,
-        contact_note TEXT NOT NULL DEFAULT '',
-        goal_amount INTEGER,
-        raised_amount INTEGER,
-        image_url TEXT,
-        image_key TEXT,
-        verified INTEGER NOT NULL DEFAULT 0,
-        urgent INTEGER NOT NULL DEFAULT 0,
-        resolved INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        published_at TEXT,
-        created_by TEXT NOT NULL,
-        updated_by TEXT NOT NULL
-      )
-    `).run();
-    await database.batch([
-      database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS help_cases_category_slug_unique ON help_cases (category, slug)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS help_cases_public_idx ON help_cases (status, category, resolved, urgent, updated_at)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS help_cases_region_idx ON help_cases (region, category, status)"),
-    ]);
-  })().catch((error) => {
-    helpSchemaReady = null;
-    throw error;
-  });
-  return helpSchemaReady;
+  void database;
+  // Schema creation and indexes are handled by deployment migrations.
 }
 
 function rowToHelpCase(row: HelpCaseRow): HelpCase {
@@ -169,6 +154,23 @@ function rowToHelpCase(row: HelpCaseRow): HelpCase {
     publishedAt: row.published_at,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
+  };
+}
+
+function rowToHelpCaseSummary(row: HelpCaseSummaryRow): ManagedHelpCaseSummary {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
+    status: row.status === "published" ? "published" : "draft",
+    organization: row.organization,
+    dogName: row.dog_name,
+    city: row.city,
+    imageUrl: row.image_url,
+    verified: Boolean(row.verified),
+    urgent: Boolean(row.urgent),
+    resolved: Boolean(row.resolved),
   };
 }
 
@@ -283,11 +285,17 @@ export async function getPublishedHelpCase(category: string, slug: string) {
   return row ? rowToHelpCase(row) : null;
 }
 
-export async function listManagedHelpCases() {
+export async function listManagedHelpCaseSummaries(limit = 100) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const result = await database.prepare("SELECT * FROM help_cases ORDER BY updated_at DESC, id DESC").all<HelpCaseRow>();
-  return result.results.map(rowToHelpCase);
+  const safeLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
+  const result = await database.prepare(`
+    SELECT id, slug, title, category, status, organization, dog_name, city, image_url, verified, urgent, resolved
+    FROM help_cases
+    ORDER BY updated_at DESC, id DESC
+    LIMIT ?
+  `).bind(safeLimit).all<HelpCaseSummaryRow>();
+  return result.results.map(rowToHelpCaseSummary);
 }
 
 export async function getManagedHelpCaseById(id: number) {
@@ -321,14 +329,14 @@ export async function createManagedHelpCase(payload: ManagedHelpCaseInput, edito
   return rowToHelpCase(row);
 }
 
-export async function updateManagedHelpCase(id: number, payload: ManagedHelpCaseInput, editorEmail: string) {
+export async function updateManagedHelpCase(id: number, payload: ManagedHelpCaseInput, editorEmail: string, existingItem?: HelpCase) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const existing = await database.prepare("SELECT * FROM help_cases WHERE id = ? LIMIT 1").bind(id).first<HelpCaseRow>();
+  const existing = existingItem ?? await getManagedHelpCaseById(id);
   if (!existing) return null;
   const input = normalizeInput(payload);
   const now = new Date().toISOString();
-  const publishedAt = input.status === "published" ? existing.published_at ?? now : existing.published_at;
+  const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
     UPDATE help_cases SET
       slug = ?, title = ?, category = ?, status = ?, excerpt = ?, description = ?, organization = ?,

@@ -41,7 +41,6 @@ type NewsTipRow = {
 };
 
 type RuntimeBindings = { DB?: D1Database };
-let newsTipsSchemaReady: Promise<void> | null = null;
 
 function getD1Binding() {
   const database = (env as unknown as RuntimeBindings).DB;
@@ -55,35 +54,8 @@ function requireD1Binding() {
 }
 
 async function ensureNewsTipsStore(database: D1Database) {
-  if (newsTipsSchemaReady) return newsTipsSchemaReady;
-  newsTipsSchemaReady = (async () => {
-    await database.prepare(`
-      CREATE TABLE IF NOT EXISTS news_tips (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        topic TEXT NOT NULL,
-        title TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        source_url TEXT,
-        location TEXT NOT NULL DEFAULT '',
-        event_date TEXT,
-        contact_name TEXT NOT NULL DEFAULT '',
-        contact_email TEXT,
-        status TEXT NOT NULL DEFAULT 'new',
-        internal_note TEXT NOT NULL DEFAULT '',
-        consent INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `).run();
-    await database.batch([
-      database.prepare("CREATE INDEX IF NOT EXISTS news_tips_status_created_idx ON news_tips (status, created_at)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS news_tips_contact_created_idx ON news_tips (contact_email, created_at)"),
-    ]);
-  })().catch((error) => {
-    newsTipsSchemaReady = null;
-    throw error;
-  });
-  return newsTipsSchemaReady;
+  void database;
+  // Schema creation and indexes are handled by deployment migrations.
 }
 
 function rowToNewsTip(row: NewsTipRow): NewsTip {
@@ -190,10 +162,12 @@ export async function createNewsTip(payload: NewsTipInput) {
 export async function listNewsTips() {
   const database = requireD1Binding();
   await ensureNewsTipsStore(database);
-  await purgeExpiredNewsTips(database);
   const result = await database.prepare(`
-    SELECT * FROM news_tips
+    SELECT id, topic, title, summary, source_url, location, event_date, contact_name,
+      contact_email, status, internal_note, consent, created_at, updated_at
+    FROM news_tips
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'reviewing' THEN 1 WHEN 'used' THEN 2 ELSE 3 END, created_at DESC
+    LIMIT 200
   `).all<NewsTipRow>();
   return result.results.map(rowToNewsTip);
 }

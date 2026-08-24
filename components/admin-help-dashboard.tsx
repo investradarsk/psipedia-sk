@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SearchIcon } from "@/components/icons";
-import { getHelpCategory, helpCaseHref, type HelpCase } from "@/lib/help";
+import { getHelpCategory, helpCaseHref } from "@/lib/help";
+import type { ManagedHelpCaseSummary } from "@/lib/help-store";
 
 type StatusFilter = "all" | "published" | "draft";
 
-export function AdminHelpDashboard({ initialItems }: { initialItems: HelpCase[] }) {
+export function AdminHelpDashboard({ initialItems }: { initialItems: ManagedHelpCaseSummary[] }) {
   const [items, setItems] = useState(initialItems);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -20,7 +21,7 @@ export function AdminHelpDashboard({ initialItems }: { initialItems: HelpCase[] 
       && (!needle || `${item.title} ${item.organization} ${item.dogName} ${item.city} ${getHelpCategory(item.category)?.label}`.toLocaleLowerCase("sk").includes(needle)));
   }, [items, query, status]);
 
-  async function removeItem(item: HelpCase) {
+  async function removeItem(item: ManagedHelpCaseSummary) {
     if (!window.confirm(`Naozaj chceš natrvalo odstrániť „${item.title}“?`)) return;
     setDeletingId(item.id); setMessage("");
     try {

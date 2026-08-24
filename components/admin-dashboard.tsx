@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { ManagedArticle } from "@/lib/article-store";
+import type { ManagedArticleSummary, ManagedArticleSummaryPage } from "@/lib/article-store";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, portalSectionLabel } from "@/lib/portal";
+import { AdminPagination } from "./admin-pagination";
 import { SearchIcon } from "./icons";
 
 type StatusFilter = "all" | "published" | "scheduled" | "draft";
@@ -17,8 +18,14 @@ function formattedDate(value: string) {
   return `${date.getUTCDate()}. ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${hour}:${minute}`;
 }
 
-export function AdminDashboard({ initialArticles, fixedPortalSection }: { initialArticles: ManagedArticle[]; fixedPortalSection?: ManagedArticle["portalSection"] }) {
+export function AdminDashboard({ initialArticles, initialCounts, pagination, fixedPortalSection }: {
+  initialArticles: ManagedArticleSummary[];
+  initialCounts: ManagedArticleSummaryPage["counts"];
+  pagination: ManagedArticleSummaryPage["pagination"];
+  fixedPortalSection?: ManagedArticleSummary["portalSection"];
+}) {
   const [articles, setArticles] = useState(initialArticles);
+  const [counts, setCounts] = useState(initialCounts);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -34,12 +41,7 @@ export function AdminDashboard({ initialArticles, fixedPortalSection }: { initia
     });
   }, [articles, fixedPortalSection, query, status]);
 
-  const scopedArticles = fixedPortalSection ? articles.filter((article) => article.portalSection === fixedPortalSection) : articles;
-  const published = scopedArticles.filter((article) => article.status === "published").length;
-  const scheduled = scopedArticles.filter((article) => article.status === "scheduled").length;
-  const drafts = scopedArticles.filter((article) => article.status === "draft").length;
-
-  async function removeArticle(article: ManagedArticle) {
+  async function removeArticle(article: ManagedArticleSummary) {
     const confirmed = window.confirm(`Naozaj chceš natrvalo odstrániť ${article.portalSection === "novinky" ? "novinku" : "článok"} „${article.title}“?`);
     if (!confirmed) return;
 
@@ -50,6 +52,11 @@ export function AdminDashboard({ initialArticles, fixedPortalSection }: { initia
       const data = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(data.error || "Článok sa nepodarilo odstrániť.");
       setArticles((current) => current.filter((item) => item.id !== article.id));
+      setCounts((current) => ({
+        ...current,
+        total: Math.max(0, current.total - 1),
+        [article.status]: Math.max(0, current[article.status] - 1),
+      }));
       setMessage("Článok bol odstránený.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Článok sa nepodarilo odstrániť.");
@@ -61,10 +68,10 @@ export function AdminDashboard({ initialArticles, fixedPortalSection }: { initia
   return (
     <>
       <section className="admin-stats" aria-label="Stav redakcie">
-        <div><span>Všetok obsah</span><strong>{scopedArticles.length}</strong></div>
-        <div><span>Publikované</span><strong>{published}</strong></div>
-        <div><span>Naplánované</span><strong>{scheduled}</strong></div>
-        <div><span>Koncepty</span><strong>{drafts}</strong></div>
+        <div><span>Všetok obsah</span><strong>{counts.total}</strong></div>
+        <div><span>Publikované</span><strong>{counts.published}</strong></div>
+        <div><span>Naplánované</span><strong>{counts.scheduled}</strong></div>
+        <div><span>Koncepty</span><strong>{counts.draft}</strong></div>
       </section>
 
       <section className="admin-panel">
@@ -126,6 +133,7 @@ export function AdminDashboard({ initialArticles, fixedPortalSection }: { initia
             <p>Skús zmeniť filter alebo vyhľadávanie.</p>
           </div>
         )}
+        <AdminPagination pagination={pagination} basePath={fixedPortalSection ? "/admin/steniatka" : "/admin"} />
       </section>
     </>
   );

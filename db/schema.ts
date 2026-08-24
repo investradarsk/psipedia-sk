@@ -43,6 +43,7 @@ export const managedArticles = sqliteTable(
     index("managed_articles_status_published_idx").on(table.status, table.publishedAt),
     index("managed_articles_portal_status_idx").on(table.portalSection, table.status, table.publishedAt),
     index("managed_articles_portal_subpage_idx").on(table.portalSection, table.portalSubpage, table.status, table.publishedAt),
+    index("managed_articles_admin_updated_idx").on(table.updatedAt, table.id),
   ],
 );
 
@@ -120,6 +121,7 @@ export const directoryProfiles = sqliteTable(
     uniqueIndex("directory_profiles_import_key_unique").on(table.importKey),
     index("directory_profiles_public_idx").on(table.status, table.category, table.region, table.featured),
     index("directory_profiles_updated_idx").on(table.updatedAt),
+    index("directory_profiles_admin_updated_idx").on(table.updatedAt, table.id),
   ],
 );
 

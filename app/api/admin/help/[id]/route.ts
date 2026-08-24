@@ -20,7 +20,7 @@ export async function PUT(request: Request, { params }: Props) {
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID prípadu." }, { status: 400 });
   try {
     const before = await getManagedHelpCaseById(id); if (!before) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
-    const item = await updateManagedHelpCase(id, await request.json() as ManagedHelpCaseInput, user.email); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
+    const item = await updateManagedHelpCase(id, await request.json() as ManagedHelpCaseInput, user.email, before); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== item.imageKey) { const bucket = (env as unknown as UploadBindings).BUCKET; if (bucket) await bucket.delete(before.imageKey).catch(() => undefined); }
     return Response.json({ item });
   } catch (error) { return errorResponse(error); }

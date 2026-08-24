@@ -10,7 +10,7 @@ import {
   type ArticleBlockImage,
   type ArticleTextAlignment,
 } from "@/lib/article-blocks";
-import type { ManagedArticle } from "@/lib/article-store";
+import type { ManagedArticleSummary } from "@/lib/article-store";
 import { articleHref } from "@/lib/portal";
 
 type Props = {
@@ -111,12 +111,12 @@ function RichTextInput({
 export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, onUploadingChange, onMessage, onError }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [articles, setArticles] = useState<ManagedArticle[]>([]);
+  const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
 
   useEffect(() => {
-    fetch("/api/admin/articles")
+    fetch("/api/admin/articles?limit=100")
       .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data: { articles?: ManagedArticle[] }) => setArticles((data.articles ?? []).filter((item) => item.id !== currentArticleId)))
+      .then((data: { articles?: ManagedArticleSummary[] }) => setArticles((data.articles ?? []).filter((item) => item.id !== currentArticleId)))
       .catch(() => undefined);
   }, [currentArticleId]);
 

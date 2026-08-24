@@ -26,7 +26,6 @@ type ArticleFeedbackRow = {
 };
 
 type RuntimeBindings = { DB?: D1Database };
-let schemaReady: Promise<void> | null = null;
 
 function requireDatabase() {
   const database = (env as unknown as RuntimeBindings).DB;
@@ -37,27 +36,8 @@ function requireDatabase() {
 }
 
 async function ensureArticleFeedbackStore(database: D1Database) {
-  if (schemaReady) return schemaReady;
-  schemaReady = (async () => {
-    await database.prepare(`
-      CREATE TABLE IF NOT EXISTS article_feedback (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        article_path TEXT NOT NULL,
-        article_title TEXT NOT NULL,
-        helpful INTEGER NOT NULL,
-        missing_text TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL
-      )
-    `).run();
-    await database.batch([
-      database.prepare("CREATE INDEX IF NOT EXISTS article_feedback_path_created_idx ON article_feedback (article_path, created_at)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS article_feedback_helpful_created_idx ON article_feedback (helpful, created_at)"),
-    ]);
-  })().catch((error) => {
-    schemaReady = null;
-    throw error;
-  });
-  return schemaReady;
+  void database;
+  // Schema creation and indexes are handled by deployment migrations.
 }
 
 function toFeedback(row: ArticleFeedbackRow): ArticleFeedback {
@@ -111,6 +91,6 @@ export async function createArticleFeedback(payload: ArticleFeedbackInput) {
 export async function listArticleFeedback() {
   const database = requireDatabase();
   await ensureArticleFeedbackStore(database);
-  const result = await database.prepare("SELECT * FROM article_feedback ORDER BY created_at DESC LIMIT 1000").all<ArticleFeedbackRow>();
+  const result = await database.prepare("SELECT id, article_path, article_title, helpful, missing_text, created_at FROM article_feedback ORDER BY created_at DESC LIMIT 250").all<ArticleFeedbackRow>();
   return result.results.map(toFeedback);
 }

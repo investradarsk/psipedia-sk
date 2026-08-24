@@ -40,6 +40,145 @@ async function createAccessToken({ audience, email, issuer, keyId }) {
   };
 }
 
+function createAdminMockDatabase() {
+  const now = "2026-08-25T12:00:00.000Z";
+  const articleRow = {
+    id: 7,
+    slug: "testovaci-clanok",
+    title: "Testovací článok",
+    excerpt: "Dostatočne dlhý perex testovacieho článku pre administráciu.",
+    category: "Výcvik",
+    portal_section: "clanky",
+    portal_subpage: null,
+    news_category: null,
+    status: "draft",
+    accent: "forest",
+    author: "Redakcia Psipedia",
+    intro: "Dostatočne dlhý úvod testovacieho článku pre administráciu.",
+    takeaway: "Hlavné posolstvo testovacieho článku.",
+    sections_json: "[]",
+    sources_json: "[]",
+    blocks_json: JSON.stringify([{ id: "text-1", type: "text", content: "Obsah testovacieho článku.", alignment: "left" }]),
+    image_url: null,
+    image_key: null,
+    reading_minutes: 5,
+    created_at: now,
+    updated_at: now,
+    published_at: null,
+    created_by: "martin.zabransky@gmail.com",
+    updated_by: "martin.zabransky@gmail.com",
+    content_updated_at: null,
+    show_updated_label: 0,
+    seo_title: "",
+    meta_description: "",
+    canonical_url: "",
+    noindex: 0,
+    focus_keyword: "",
+    og_title: "",
+    og_description: "",
+    og_image_url: null,
+    og_image_key: null,
+  };
+  const profileRow = {
+    id: 9,
+    slug: "testovaci-klub",
+    name: "Testovací kynologický klub",
+    category: "kynologicke-kluby",
+    status: "published",
+    excerpt: "Dostatočne dlhý krátky popis testovacieho kynologického klubu.",
+    description: "Dostatočne dlhý podrobný popis testovacieho kynologického klubu pre overenie detailu.",
+    services_json: JSON.stringify(["Výcvik", "Socializácia"]),
+    qualifications_json: JSON.stringify(["Skúsený tím"]),
+    city: "Bratislava",
+    region: "Bratislavský kraj",
+    address: "Testovacia 1",
+    online: 0,
+    price_note: "",
+    website_url: "https://example.com",
+    internal_email: "klub@example.com",
+    image_url: null,
+    image_key: null,
+    import_key: "test-klub-9",
+    source_data_json: JSON.stringify({ Zdroj: "test" }),
+    verified: 1,
+    featured: 0,
+    created_at: now,
+    updated_at: now,
+    published_at: now,
+    created_by: "martin.zabransky@gmail.com",
+    updated_by: "martin.zabransky@gmail.com",
+  };
+  const queries = [];
+
+  function rowsFor(sql) {
+    const normalized = sql.replace(/\s+/g, " ").trim();
+    if (/COUNT\(\*\) AS total/i.test(normalized) && /FROM managed_articles/i.test(normalized)) {
+      return [{ total: 1, published: 0, scheduled: 0, draft: 1 }];
+    }
+    if (/COUNT\(\*\) AS total/i.test(normalized) && /FROM directory_profiles/i.test(normalized)) {
+      return [{ total: 1, published: 1, draft: 0 }];
+    }
+    if (/SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, updated_at FROM managed_articles/i.test(normalized)) {
+      return [{
+        id: articleRow.id,
+        slug: articleRow.slug,
+        title: articleRow.title,
+        excerpt: articleRow.excerpt,
+        category: articleRow.category,
+        portal_section: articleRow.portal_section,
+        news_category: articleRow.news_category,
+        status: articleRow.status,
+        accent: articleRow.accent,
+        image_url: articleRow.image_url,
+        updated_at: articleRow.updated_at,
+      }];
+    }
+    if (/SELECT id, slug, name, category, status, services_json, city, region, image_url, verified, featured FROM directory_profiles/i.test(normalized)) {
+      return [{
+        id: profileRow.id,
+        slug: profileRow.slug,
+        name: profileRow.name,
+        category: profileRow.category,
+        status: profileRow.status,
+        services_json: profileRow.services_json,
+        city: profileRow.city,
+        region: profileRow.region,
+        image_url: profileRow.image_url,
+        verified: profileRow.verified,
+        featured: profileRow.featured,
+      }];
+    }
+    if (/SELECT \* FROM managed_articles WHERE id = \?/i.test(normalized)) return [articleRow];
+    if (/SELECT \* FROM directory_profiles WHERE id = \?/i.test(normalized)) return [profileRow];
+    if (/INSERT INTO managed_articles/i.test(normalized) || /UPDATE managed_articles SET/i.test(normalized)) return [articleRow];
+    return [];
+  }
+
+  function statement(sql, bindings = []) {
+    return {
+      bind(...values) { return statement(sql, values); },
+      async all() {
+        queries.push({ sql, bindings, operation: "all" });
+        return { success: true, results: rowsFor(sql), meta: {} };
+      },
+      async first() {
+        queries.push({ sql, bindings, operation: "first" });
+        return rowsFor(sql)[0] ?? null;
+      },
+      async run() {
+        queries.push({ sql, bindings, operation: "run" });
+        return { success: true, results: [], meta: { last_row_id: articleRow.id } };
+      },
+    };
+  }
+
+  return {
+    queries,
+    prepare(sql) { return statement(sql); },
+    async batch(statements) { return Promise.all(statements.map((item) => item.all())); },
+  };
+}
+
 test("renders the portal homepage", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -128,6 +267,114 @@ test("passes a verified Cloudflare Access identity to the admin application", as
     const payload = await response.json();
     assert.ok(Array.isArray(payload.items));
     assert.ok(payload.items.length > 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
+    Object.assign(runtimeEnv, previousRuntimeEnv);
+  }
+});
+
+test("uses light admin lists and loads full records only for detail and save", async () => {
+  const issuer = "https://psipedia-admin-performance.cloudflareaccess.com";
+  const audience = "psipedia-admin-performance";
+  const email = "martin.zabransky@gmail.com";
+  const keyId = "psipedia-admin-performance-key";
+  const { jwk, token } = await createAccessToken({ audience, email, issuer, keyId });
+  const database = createAdminMockDatabase();
+  const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
+  const previousRuntimeEnv = { ...runtimeEnv };
+  Object.assign(runtimeEnv, { DB: database, ADMIN_EMAILS: email, AUTH_MODE: "cloudflare-access" });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url === `${issuer}/cdn-cgi/access/certs`) return Response.json({ keys: [jwk] });
+    return originalFetch(input, init);
+  };
+
+  const bindings = {
+    ACCESS_AUD: audience,
+    ACCESS_TEAM_DOMAIN: issuer,
+    ADMIN_EMAILS: email,
+    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+    AUTH_MODE: "cloudflare-access",
+    DB: database,
+  };
+  const context = { waitUntil() {}, passThroughOnException() {} };
+  const adminRequest = (path, init = {}) => new Request(`http://localhost${path}`, {
+    ...init,
+    headers: { accept: "text/html", "cf-access-jwt-assertion": token, ...(init.headers ?? {}) },
+  });
+
+  try {
+    const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+    workerUrl.searchParams.set("admin-performance-test", `${process.pid}-${Date.now()}`);
+    const { default: worker } = await import(workerUrl.href);
+
+    const dashboard = await worker.fetch(adminRequest("/admin"), bindings, context);
+    assert.equal(dashboard.status, 200);
+    assert.match(await dashboard.text(), /Testovací článok/);
+
+    const directory = await worker.fetch(adminRequest("/admin/adresar"), bindings, context);
+    assert.equal(directory.status, 200);
+    assert.match(await directory.text(), /Testovací kynologický klub/);
+
+    const articleListQueries = database.queries.filter(({ sql }) => /FROM managed_articles/i.test(sql) && /LIMIT \?/i.test(sql));
+    assert.ok(articleListQueries.length > 0);
+    for (const { sql } of articleListQueries) {
+      assert.doesNotMatch(sql, /SELECT\s+\*/i);
+      assert.doesNotMatch(sql, /sections_json|blocks_json|sources_json|seo_title|meta_description/i);
+    }
+    const directoryListQueries = database.queries.filter(({ sql }) => /FROM directory_profiles/i.test(sql) && /LIMIT \?/i.test(sql));
+    assert.ok(directoryListQueries.length > 0);
+    for (const { sql } of directoryListQueries) {
+      assert.doesNotMatch(sql, /SELECT\s+\*/i);
+      assert.doesNotMatch(sql, /description|qualifications_json|source_data_json|internal_email/i);
+    }
+
+    const articleDetail = await worker.fetch(adminRequest("/admin/clanky/7"), bindings, context);
+    assert.equal(articleDetail.status, 200);
+    const articleDetailHtml = await articleDetail.text();
+    assert.match(articleDetailHtml, /Upraviť článok/);
+    assert.match(articleDetailHtml, /Testovací článok/);
+
+    const profileDetail = await worker.fetch(adminRequest("/admin/adresar/9"), bindings, context);
+    assert.equal(profileDetail.status, 200);
+    const profileDetailHtml = await profileDetail.text();
+    assert.match(profileDetailHtml, /Upraviť profil/);
+    assert.match(profileDetailHtml, /Testovací kynologický klub/);
+
+    const articlePayload = {
+      title: "Nový testovací článok",
+      slug: "novy-testovaci-clanok",
+      excerpt: "Dostatočne dlhý perex nového testovacieho článku.",
+      category: "Výcvik",
+      portalSection: "clanky",
+      status: "draft",
+      accent: "forest",
+      author: "Redakcia Psipedia",
+      intro: "Dostatočne dlhý úvod nového testovacieho článku.",
+      takeaway: "Dôležité posolstvo testovacieho článku.",
+      blocks: [{ id: "text-1", type: "text", content: "Obsah nového testovacieho článku.", alignment: "left" }],
+    };
+    const created = await worker.fetch(adminRequest("/api/admin/articles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(articlePayload),
+    }), bindings, context);
+    assert.equal(created.status, 201);
+    assert.equal((await created.json()).article.id, 7);
+
+    database.queries.length = 0;
+    const saved = await worker.fetch(adminRequest("/api/admin/articles/7", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(articlePayload),
+    }), bindings, context);
+    assert.equal(saved.status, 200);
+    assert.equal((await saved.json()).article.id, 7);
+    assert.equal(database.queries.filter(({ sql }) => /SELECT \* FROM managed_articles WHERE id = \?/i.test(sql)).length, 1);
+    assert.equal(database.queries.filter(({ sql }) => /UPDATE managed_articles SET/i.test(sql)).length, 1);
   } finally {
     globalThis.fetch = originalFetch;
     for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];

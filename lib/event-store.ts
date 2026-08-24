@@ -34,6 +34,22 @@ export type ManagedEventInput = {
   cancelled?: boolean;
 };
 
+export type ManagedEventSummary = Pick<
+  DogEvent,
+  | "id"
+  | "slug"
+  | "title"
+  | "eventType"
+  | "status"
+  | "startDate"
+  | "startTime"
+  | "endDate"
+  | "endTime"
+  | "city"
+  | "organizer"
+  | "cancelled"
+>;
+
 type EventRow = {
   id: number;
   slug: string;
@@ -64,8 +80,22 @@ type EventRow = {
   updated_by: string;
 };
 
+type EventSummaryRow = {
+  id: number;
+  slug: string;
+  title: string;
+  event_type: string;
+  status: string;
+  start_date: string;
+  start_time: string;
+  end_date: string | null;
+  end_time: string | null;
+  city: string;
+  organizer: string;
+  cancelled: number;
+};
+
 type RuntimeBindings = { DB?: D1Database };
-let eventSchemaReady: Promise<void> | null = null;
 
 function getD1Binding() {
   const database = (env as unknown as RuntimeBindings).DB;
@@ -79,49 +109,8 @@ function requireD1Binding() {
 }
 
 async function ensureEventStore(database: D1Database) {
-  if (eventSchemaReady) return eventSchemaReady;
-  eventSchemaReady = (async () => {
-    await database.prepare(`
-      CREATE TABLE IF NOT EXISTS managed_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        slug TEXT NOT NULL UNIQUE,
-        title TEXT NOT NULL,
-        excerpt TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'draft',
-        start_date TEXT NOT NULL,
-        start_time TEXT NOT NULL DEFAULT '',
-        end_date TEXT,
-        end_time TEXT,
-        venue TEXT NOT NULL DEFAULT '',
-        city TEXT NOT NULL,
-        region TEXT NOT NULL,
-        address TEXT NOT NULL DEFAULT '',
-        organizer TEXT NOT NULL,
-        description TEXT NOT NULL,
-        practical_info TEXT NOT NULL DEFAULT '',
-        website_url TEXT,
-        registration_url TEXT,
-        image_url TEXT,
-        image_key TEXT,
-        cancelled INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        published_at TEXT,
-        created_by TEXT NOT NULL,
-        updated_by TEXT NOT NULL
-      )
-    `).run();
-    await database.batch([
-      database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS managed_events_slug_unique ON managed_events (slug)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS managed_events_public_date_idx ON managed_events (status, start_date, start_time)"),
-      database.prepare("CREATE INDEX IF NOT EXISTS managed_events_type_region_idx ON managed_events (event_type, region, start_date)"),
-    ]);
-  })().catch((error) => {
-    eventSchemaReady = null;
-    throw error;
-  });
-  return eventSchemaReady;
+  void database;
+  // Schema creation and indexes are handled by deployment migrations.
 }
 
 function rowToEvent(row: EventRow): DogEvent {
@@ -153,6 +142,23 @@ function rowToEvent(row: EventRow): DogEvent {
     publishedAt: row.published_at,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
+  };
+}
+
+function rowToEventSummary(row: EventSummaryRow): ManagedEventSummary {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    eventType: (eventTypes as readonly string[]).includes(row.event_type) ? row.event_type as EventType : "Iné",
+    status: row.status === "published" ? "published" : "draft",
+    startDate: row.start_date,
+    startTime: row.start_time,
+    endDate: row.end_date,
+    endTime: row.end_time,
+    city: row.city,
+    organizer: row.organizer,
+    cancelled: Boolean(row.cancelled),
   };
 }
 
@@ -250,11 +256,17 @@ export async function getPublishedEvent(slug: string) {
   return row ? rowToEvent(row) : null;
 }
 
-export async function listManagedEvents() {
+export async function listManagedEventSummaries(limit = 100) {
   const database = requireD1Binding();
   await ensureEventStore(database);
-  const result = await database.prepare("SELECT * FROM managed_events ORDER BY start_date DESC, updated_at DESC, id DESC").all<EventRow>();
-  return result.results.map(rowToEvent);
+  const safeLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
+  const result = await database.prepare(`
+    SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, organizer, cancelled
+    FROM managed_events
+    ORDER BY start_date DESC, updated_at DESC, id DESC
+    LIMIT ?
+  `).bind(safeLimit).all<EventSummaryRow>();
+  return result.results.map(rowToEventSummary);
 }
 
 export async function getManagedEventById(id: number) {
@@ -287,14 +299,14 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
   return rowToEvent(row);
 }
 
-export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string) {
+export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string, existingEvent?: DogEvent) {
   const database = requireD1Binding();
   await ensureEventStore(database);
-  const existing = await database.prepare("SELECT * FROM managed_events WHERE id = ? LIMIT 1").bind(id).first<EventRow>();
+  const existing = existingEvent ?? await getManagedEventById(id);
   if (!existing) return null;
   const input = normalizeInput(payload);
   const now = new Date().toISOString();
-  const publishedAt = input.status === "published" ? existing.published_at ?? now : existing.published_at;
+  const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
     UPDATE managed_events SET
       slug = ?, title = ?, excerpt = ?, event_type = ?, status = ?, start_date = ?, start_time = ?,
