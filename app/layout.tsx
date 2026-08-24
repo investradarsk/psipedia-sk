@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { CookieConsent } from "@/components/cookie-consent";
 import { getHeaderSearchIndex } from "@/lib/portal-search";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
@@ -65,6 +66,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SiteHeader searchIndex={searchIndex} />
         {children}
         <SiteFooter />
+        <CookieConsent />
       </body>
     </html>
   );

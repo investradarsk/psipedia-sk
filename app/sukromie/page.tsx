@@ -36,7 +36,7 @@ export default async function PrivacyPage() {
       </div>
 
       <h2>Obľúbené články a cookies</h2>
-      <p>Zoznam obľúbených sa ukladá iba do lokálneho úložiska tvojho prehliadača a neposiela sa do používateľského účtu. Podrobnosti aj tlačidlo na vymazanie nájdeš na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>. V pilotnej verzii nepoužívame analytické, reklamné ani marketingové cookies.</p>
+      <p>Zoznam obľúbených sa ukladá iba do lokálneho úložiska tvojho prehliadača a neposiela sa do používateľského účtu. So súhlasom používame Google Analytics 4 na súhrnné meranie návštevnosti a interakcií; bez súhlasu sa analytika nenačíta. Nepoužívame Google Signals ani reklamné prispôsobovanie. Podrobnosti a možnosť zmeniť voľbu nájdeš na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>.</p>
 
       <h2>Komu môžu byť údaje sprístupnené</h2>
       <p>Údaje sprístupníme iba v nevyhnutnom rozsahu poskytovateľom hostingu, databázy, zabezpečenia a administratívnej autentifikácie; adresátovi konkrétneho dopytu; odbornému poradcovi viazanému mlčanlivosťou; alebo orgánu verejnej moci, ak to vyžaduje zákon. Údaje nepredávame.</p>
@@ -53,7 +53,7 @@ export default async function PrivacyPage() {
 
       <h2>Zmeny týchto informácií</h2>
       <p>Text aktualizujeme pred spustením novej funkcie, ktorá mení účel alebo rozsah spracúvania, a pri zmene právnych alebo technických podmienok.</p>
-      <p className="legal-updated">Účinné od 17. augusta 2026.</p>
+      <p className="legal-updated">Aktualizované 24. augusta 2026.</p>
     </main>
   );
 }

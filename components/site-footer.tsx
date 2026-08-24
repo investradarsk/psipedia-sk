@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PawMark } from "./icons";
+import { CookieSettingsButton } from "./cookie-consent";
 
 export function SiteFooter() {
   return (
@@ -40,6 +41,7 @@ export function SiteFooter() {
             <Link href="/pravne-informacie">Prevádzkovateľ</Link>
             <Link href="/sukromie">Ochrana údajov</Link>
             <Link href="/cookies">Cookies</Link>
+            <CookieSettingsButton />
             <Link href="/podmienky-pouzivania">Podmienky používania</Link>
             <Link href="/opravy-a-podnety">Opravy a podnety</Link>
           </div>
