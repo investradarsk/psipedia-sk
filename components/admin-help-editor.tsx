@@ -11,6 +11,7 @@ import {
   type HelpCaseStatus,
   type HelpCategorySlug,
 } from "@/lib/help";
+import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
@@ -62,11 +63,8 @@ export function AdminHelpEditor({ item }: { item?: HelpCase }) {
     const file = event.target.files?.[0]; if (!file) return;
     setUploading(true); setError(""); setMessage("");
     try {
-      const formData = new FormData(); formData.append("file", file); formData.append("folder", "help");
-      const response = await fetch("/api/admin/uploads", { method: "POST", body: formData });
-      const data = await response.json() as { imageUrl?: string; imageKey?: string; error?: string };
-      if (!response.ok || !data.imageUrl || !data.imageKey) throw new Error(data.error || "Obrázok sa nepodarilo nahrať.");
-      setImageUrl(data.imageUrl); setImageKey(data.imageKey); setMessage("Obrázok je nahratý. Ulož prípad.");
+      const data = await uploadAdminImage(file, "help");
+      setImageUrl(data.imageUrl); setImageKey(data.imageKey); setMessage(adminImageUploadMessage(data, "Ulož prípad."));
     } catch (uploadError) { setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať."); }
     finally { setUploading(false); event.target.value = ""; }
   }

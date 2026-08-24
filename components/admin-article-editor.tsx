@@ -9,6 +9,7 @@ import {
   type ArticlePortalSection,
 } from "@/lib/portal";
 import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/news";
+import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 
 type EditorSection = {
   heading: string;
@@ -103,14 +104,10 @@ export function AdminArticleEditor({ article }: { article?: ManagedArticle }) {
     setError("");
     setMessage("");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/admin/uploads", { method: "POST", body: formData });
-      const data = (await response.json()) as { imageUrl?: string; imageKey?: string; error?: string };
-      if (!response.ok || !data.imageUrl || !data.imageKey) throw new Error(data.error || "Obrázok sa nepodarilo nahrať.");
+      const data = await uploadAdminImage(file, "articles");
       setImageUrl(data.imageUrl);
       setImageKey(data.imageKey);
-      setMessage("Obrázok je nahratý. Ulož článok, aby sa zmena zachovala.");
+      setMessage(adminImageUploadMessage(data, "Ulož článok, aby sa zmena zachovala."));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
     } finally {

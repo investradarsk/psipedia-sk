@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChangeEvent, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
+import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
@@ -46,13 +47,8 @@ export function AdminEventEditor({ event }: { event?: DogEvent }) {
     if (!file) return;
     setUploading(true); setError(""); setMessage("");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "events");
-      const response = await fetch("/api/admin/uploads", { method: "POST", body: formData });
-      const data = await response.json() as { imageUrl?: string; imageKey?: string; error?: string };
-      if (!response.ok || !data.imageUrl || !data.imageKey) throw new Error(data.error || "Obrázok sa nepodarilo nahrať.");
-      setImageUrl(data.imageUrl); setImageKey(data.imageKey); setMessage("Obrázok je nahratý. Ulož podujatie.");
+      const data = await uploadAdminImage(file, "events");
+      setImageUrl(data.imageUrl); setImageKey(data.imageKey); setMessage(adminImageUploadMessage(data, "Ulož podujatie."));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
     } finally { setUploading(false); uploadEvent.target.value = ""; }
