@@ -1,0 +1,54 @@
+name: Hotfix admin 1101
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-admin-1101.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply runtime hotfix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          store = Path("lib/article-store.ts")
+          text = store.read_text(encoding="utf-8")
+          marker = "async function ensureArticleStore(database: D1Database) {\n  if (schemaReady) return schemaReady;"
+          replacement = "async function ensureArticleStore(database: D1Database) {\n  // Schema is applied by Wrangler migrations during deployment. Avoid repeated\n  // D1 writes on page requests, which can lock the database and throw Error 1101.\n  return;\n\n  if (schemaReady) return schemaReady;"
+          if marker not in text:
+              raise SystemExit("article store marker not found")
+          store.write_text(text.replace(marker, replacement, 1), encoding="utf-8")
+
+          blocks = Path("lib/article-blocks.ts")
+          text = blocks.read_text(encoding="utf-8")
+          changes = {
+              "  sections.forEach((section, sectionIndex) => {": "  (Array.isArray(sections) ? sections : []).forEach((section, sectionIndex) => {\n    if (!section || typeof section !== \\\"object\\\") return;",
+              "    section.paragraphs.forEach((paragraph, paragraphIndex) => {": "    (Array.isArray(section.paragraphs) ? section.paragraphs : []).forEach((paragraph, paragraphIndex) => {",
+              "    if (section.bullets?.length) {": "    if (Array.isArray(section.bullets) && section.bullets.length) {",
+              "  sources.forEach((source, index) => blocks.push({ id: `legacy-source-${index}`, type: \\\"source\\\", ...source }));": "  (Array.isArray(sources) ? sources : []).forEach((source, index) => {\n    if (source && typeof source === \\\"object\\\") {\n      blocks.push({ id: `legacy-source-${index}`, type: \\\"source\\\", ...source });\n    }\n  });",
+          }
+          for old, new in changes.items():
+              if old not in text:
+                  raise SystemExit(f"article blocks marker not found: {old}")
+              text = text.replace(old, new, 1)
+          blocks.write_text(text, encoding="utf-8")
+          PY
+      - name: Verify build
+        run: npm clean-install --progress=false && npm run build
+      - name: Commit hotfix
+        shell: bash
+        run: |
+          rm .github/workflows/hotfix-admin-1101.yml
+          git config user.name "Psipedia deployment bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/article-store.ts lib/article-blocks.ts .github/workflows/hotfix-admin-1101.yml
+          git commit -m "Fix admin Worker 1101 runtime exception"
+          git push
