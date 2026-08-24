@@ -59,11 +59,13 @@ export function PortalTopic({
 }) {
   const newsCategory = section.slug === "novinky" ? getNewsCategory(subpage.slug) : null;
   const sectionArticles = articles.filter((article) =>
-    articlePortalSection(article) === section.slug && (!newsCategory || article.newsCategory === newsCategory.slug),
+    articlePortalSection(article) === section.slug &&
+    (!newsCategory || article.newsCategory === newsCategory.slug) &&
+    (section.slug !== "steniatka" || article.portalSubpage === subpage.slug),
   );
   const note = specialNotes[`${section.slug}/${subpage.slug}`] ?? {
     title: `Praktický prehľad: ${subpage.label}`,
-    text: `${subpage.description} Obsah budeme rozširovať o overené informácie, konkrétne postupy a užitočné kontakty.`,
+    text: subpage.intro || `${subpage.description} Obsah budeme rozširovať o overené informácie, konkrétne postupy a užitočné kontakty.`,
     items: ["zrozumiteľné vysvetlenie", "praktické kroky a odporúčania", "súvisiace články na jednej adrese"],
   };
 
@@ -82,6 +84,7 @@ export function PortalTopic({
 
       <section className="section shell portal-topic-body">
         <div className="portal-topic-copy">
+          {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
           <span className="eyebrow">Čo tu nájdeš</span>
           <h2>{note.title}</h2>
           <p>{note.text}</p>

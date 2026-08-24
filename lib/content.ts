@@ -24,6 +24,7 @@ export type Article = {
   sections: ArticleSection[];
   blocks?: import("@/lib/article-blocks").ArticleBlock[];
   portalSection?: import("@/lib/portal").ArticlePortalSection;
+  portalSubpage?: string;
   newsCategory?: import("@/lib/news").NewsCategorySlug;
 };
 
@@ -31,6 +32,7 @@ export const articles: Article[] = [
   {
     slug: "prvy-rok-labradora-mesiac-po-mesiaci",
     portalSection: "steniatka",
+    portalSubpage: "rast-a-vyvoj",
     title: "Prvý rok labradora: čo vás čaká mesiac po mesiaci",
     excerpt:
       "Rast, výmena zubov, puberta aj prvé seriózne tréningy. Praktická mapa prvého roka bez zbytočného stresu.",

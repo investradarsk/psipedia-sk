@@ -9,6 +9,7 @@ export const managedArticles = sqliteTable(
     excerpt: text("excerpt").notNull(),
     category: text("category").notNull(),
     portalSection: text("portal_section").notNull().default("clanky"),
+    portalSubpage: text("portal_subpage"),
     status: text("status").notNull().default("draft"),
     accent: text("accent").notNull().default("forest"),
     author: text("author").notNull().default("Redakcia Psipedia"),
@@ -30,6 +31,7 @@ export const managedArticles = sqliteTable(
     uniqueIndex("managed_articles_slug_unique").on(table.slug),
     index("managed_articles_status_published_idx").on(table.status, table.publishedAt),
     index("managed_articles_portal_status_idx").on(table.portalSection, table.status, table.publishedAt),
+    index("managed_articles_portal_subpage_idx").on(table.portalSection, table.portalSubpage, table.status, table.publishedAt),
   ],
 );
 
@@ -154,6 +156,22 @@ export const newsTips = sqliteTable(
   (table) => [
     index("news_tips_status_created_idx").on(table.status, table.createdAt),
     index("news_tips_contact_created_idx").on(table.contactEmail, table.createdAt),
+  ],
+);
+
+export const articleFeedback = sqliteTable(
+  "article_feedback",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    articlePath: text("article_path").notNull(),
+    articleTitle: text("article_title").notNull(),
+    helpful: integer("helpful").notNull(),
+    missingText: text("missing_text").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("article_feedback_path_created_idx").on(table.articlePath, table.createdAt),
+    index("article_feedback_helpful_created_idx").on(table.helpful, table.createdAt),
   ],
 );
 

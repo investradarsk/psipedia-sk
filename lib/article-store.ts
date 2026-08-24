@@ -34,6 +34,7 @@ export type ManagedArticleInput = {
   excerpt?: string;
   category?: string;
   portalSection?: string;
+  portalSubpage?: string | null;
   newsCategory?: string | null;
   status?: string;
   accent?: string;
@@ -55,6 +56,7 @@ type ArticleRow = {
   excerpt: string;
   category: string;
   portal_section: string;
+  portal_subpage: string | null;
   news_category: string | null;
   status: string;
   accent: string;
@@ -155,6 +157,7 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
     excerpt: row.excerpt,
     category: row.category as Article["category"],
     portalSection: isArticlePortalSection(row.portal_section) ? row.portal_section : "clanky",
+    portalSubpage: row.portal_subpage || undefined,
     newsCategory: row.news_category && isNewsCategory(row.news_category) ? row.news_category : undefined,
     date: formatSlovakDate(publishedAt),
     dateIso: publishedAt.slice(0, 10),
@@ -204,6 +207,9 @@ function normalizeInput(payload: ManagedArticleInput) {
   const portalSection: ArticlePortalSection = payload.portalSection && isArticlePortalSection(payload.portalSection)
     ? payload.portalSection
     : "clanky";
+  const portalSubpage = portalSection === "steniatka" && payload.portalSubpage && getPortalSubpage("steniatka", payload.portalSubpage)
+    ? payload.portalSubpage
+    : null;
   const newsCategory: NewsCategorySlug | null = portalSection === "novinky"
     ? payload.newsCategory && isNewsCategory(payload.newsCategory) ? payload.newsCategory : "zo-sveta"
     : null;
@@ -231,6 +237,7 @@ function normalizeInput(payload: ManagedArticleInput) {
     throw new Error("Túto adresu už používa podsekcia portálu. Uprav adresu článku.");
   }
   if (!category) throw new Error("Vyber tému článku.");
+  if (portalSection === "steniatka" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Šteniatka.");
   if (excerpt.length < 20) throw new Error("Perex by mal mať aspoň 20 znakov.");
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
   if (takeaway.length < 10) throw new Error("Doplň hlavné posolstvo článku.");
@@ -280,6 +287,7 @@ function normalizeInput(payload: ManagedArticleInput) {
     excerpt,
     category,
     portalSection,
+    portalSubpage,
     newsCategory,
     status,
     accent,
@@ -358,10 +366,10 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
   const result = await database
     .prepare(`
       INSERT INTO managed_articles (
-        slug, title, excerpt, category, portal_section, news_category, status, accent, author, intro,
+        slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, intro,
         takeaway, sections_json, sources_json, blocks_json, image_url, image_key,
         reading_minutes, created_at, updated_at, published_at, created_by, updated_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `)
     .bind(
@@ -370,6 +378,7 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
       input.excerpt,
       input.category,
       input.portalSection,
+      input.portalSubpage,
       input.newsCategory,
       input.status,
       input.accent,
@@ -413,7 +422,7 @@ export async function updateManagedArticle(
   const result = await database
     .prepare(`
       UPDATE managed_articles SET
-        slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, news_category = ?, status = ?, accent = ?,
+        slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
         author = ?, intro = ?, takeaway = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
         image_url = ?, image_key = ?, reading_minutes = ?, updated_at = ?,
         published_at = ?, updated_by = ?
@@ -426,6 +435,7 @@ export async function updateManagedArticle(
       input.excerpt,
       input.category,
       input.portalSection,
+      input.portalSubpage,
       input.newsCategory,
       input.status,
       input.accent,

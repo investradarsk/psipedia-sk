@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArticleCard, categorySlug } from "@/components/article-card";
 import { ArticleBlocks } from "@/components/article-blocks";
+import { ArticleFeedback } from "@/components/article-feedback";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PawMark } from "@/components/icons";
 import { ShareButton } from "@/components/share-button";
@@ -102,6 +103,7 @@ export function ArticleDetail({ article, related }: { article: Article; related:
           <div className="takeaway-box"><strong>To najdôležitejšie</strong><p>{article.takeaway}</p></div>
           <ArticleBlocks blocks={blocks} />
           <p className="article-disclaimer">{section === "novinky" ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
+          <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
         </article>
         <aside className="article-aside" aria-label="Nástroje článku">
           <FavoriteButton slug={article.slug} />

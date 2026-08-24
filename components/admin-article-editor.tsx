@@ -8,6 +8,7 @@ import type { ManagedArticle } from "@/lib/article-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
   articlePortalSectionOptions,
+  getPortalSection,
   portalSectionLabel,
   type ArticlePortalSection,
 } from "@/lib/portal";
@@ -24,12 +25,27 @@ function slugify(value: string) {
     .slice(0, 90);
 }
 
-export function AdminArticleEditor({ article, defaultPortalSection = "steniatka" }: { article?: ManagedArticle; defaultPortalSection?: ArticlePortalSection }) {
+const puppyAreas = getPortalSection("steniatka")?.subpages.filter((subpage) => !subpage.href) ?? [];
+
+export function AdminArticleEditor({
+  article,
+  defaultPortalSection = "steniatka",
+  defaultPortalSubpage,
+}: {
+  article?: ManagedArticle;
+  defaultPortalSection?: ArticlePortalSection;
+  defaultPortalSubpage?: string;
+}) {
   const [title, setTitle] = useState(article?.title ?? "");
   const [slug, setSlug] = useState(article?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(article));
   const [category, setCategory] = useState(article?.category ?? "Výcvik");
   const [portalSection, setPortalSection] = useState<ArticlePortalSection>(article?.portalSection ?? defaultPortalSection);
+  const [portalSubpage, setPortalSubpage] = useState(
+    article?.portalSubpage ??
+    puppyAreas.find((area) => area.slug === defaultPortalSubpage)?.slug ??
+    puppyAreas[0]?.slug ?? "",
+  );
   const [newsCategory, setNewsCategory] = useState<NewsCategorySlug>(article?.newsCategory ?? "zo-sveta");
   const [accent, setAccent] = useState(article?.accent ?? "forest");
   const [author, setAuthor] = useState(article?.author ?? "Redakcia Psipedia");
@@ -60,6 +76,9 @@ export function AdminArticleEditor({ article, defaultPortalSection = "steniatka"
 
   function changePortalSection(value: ArticlePortalSection) {
     setPortalSection(value);
+    if (value === "steniatka" && !puppyAreas.some((area) => area.slug === portalSubpage)) {
+      setPortalSubpage(puppyAreas[0]?.slug ?? "");
+    }
     if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
   }
 
@@ -92,6 +111,7 @@ export function AdminArticleEditor({ article, defaultPortalSection = "steniatka"
       slug,
       category,
       portalSection,
+      portalSubpage: portalSection === "steniatka" ? portalSubpage : null,
       newsCategory: portalSection === "novinky" ? newsCategory : null,
       accent,
       author,
@@ -168,6 +188,15 @@ export function AdminArticleEditor({ article, defaultPortalSection = "steniatka"
                 <select id="article-category" value={category} onChange={(event) => setCategory(event.target.value as ManagedArticle["category"])}>
                   <option>Výcvik</option><option>Zdravie</option><option>Výživa</option><option>Život so psom</option>
                 </select>
+              </div>
+            )}
+            {portalSection === "steniatka" && (
+              <div className="admin-field">
+                <label htmlFor="article-puppy-area">Oblasť Šteniatok</label>
+                <select id="article-puppy-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  {puppyAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
+                </select>
+                <small>Článok sa zobrazí na samostatnej stránke vybranej oblasti.</small>
               </div>
             )}
             {portalSection === "novinky" && (

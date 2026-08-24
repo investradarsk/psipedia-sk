@@ -42,6 +42,7 @@ export function AdminShell({
           <Link href="/admin/plemena">Plemená</Link>
           <Link href="/admin/sekcie">Sekcie</Link>
           <Link href="/admin/tipy">Tipy od čitateľov</Link>
+          <Link href="/admin/hodnotenia">Hodnotenia článkov</Link>
           <Link href="/admin/podujatia">Podujatia</Link>
           <Link href="/admin/adresar">Adresár</Link>
           <Link href="/admin/dopyty">Dopyty</Link>

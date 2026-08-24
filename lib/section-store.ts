@@ -67,9 +67,13 @@ function cleanSubpages(value: unknown): PortalSubpage[] {
     const slug = String(item.slug ?? "").trim().replace(/^\/+|\/+$/g, "").slice(0, 80);
     const label = String(item.label ?? "").trim().slice(0, 100);
     const description = String(item.description ?? "").trim().slice(0, 400);
+    const intro = item.intro ? String(item.intro).trim().slice(0, 3000) : undefined;
+    const imageUrl = item.imageUrl ? String(item.imageUrl).trim().slice(0, 500) : undefined;
+    const imageAlt = item.imageAlt ? String(item.imageAlt).trim().slice(0, 220) : undefined;
     const href = item.href ? String(item.href).trim().slice(0, 240) : undefined;
     if (!slug || !label) throw new Error("Každá podsekcia musí mať názov a adresu.");
-    return { slug, label, description, ...(href ? { href } : {}) };
+    if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka oblasti nie je platná.");
+    return { slug, label, description, ...(intro ? { intro } : {}), ...(imageUrl ? { imageUrl } : {}), ...(imageAlt ? { imageAlt } : {}), ...(href ? { href } : {}) };
   });
 }
 

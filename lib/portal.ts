@@ -19,6 +19,9 @@ export type PortalSubpage = {
   slug: string;
   label: string;
   description: string;
+  intro?: string;
+  imageUrl?: string;
+  imageAlt?: string;
   href?: string;
 };
 
@@ -65,12 +68,17 @@ export const portalSections: PortalSection[] = [
     intro: "Prvé mesiace formujú zdravie, vzťah aj budúce správanie psa. Tu nájdeš postupy zoradené podľa toho, čo práve riešiš.",
     articleEnabled: true,
     subpages: [
-      { slug: "pred-prichodom", label: "Pred príchodom", description: "Výber psa, bezpečný domov a výbava bez zbytočností." },
+      { slug: "pred-kupou-psa", label: "Pred kúpou psa", description: "Rozhodnutie, pripravenosť domácnosti, čas, náklady a zodpovednosť." },
+      { slug: "vyber-plemena", label: "Výber plemena", description: "Povaha, veľkosť, aktivita a potreby plemena podľa tvojho života." },
+      { slug: "vyber-chovatela", label: "Výber chovateľa", description: "Ako spoznať zodpovedný chov, overiť zdravie rodičov a vyhnúť sa množiteľom." },
       { slug: "prve-dni", label: "Prvé dni doma", description: "Režim, spánok, čistotnosť a pokojné zoznámenie s domácnosťou." },
       { slug: "socializacia", label: "Socializácia", description: "Dobré skúsenosti s ľuďmi, psami, prostredím a manipuláciou." },
-      { slug: "vycvik", label: "Prvý výcvik", description: "Meno, privolanie, vodítko a základy spolupráce bez nátlaku." },
-      { slug: "zdravie", label: "Zdravie šteniatka", description: "Očkovanie, odčervenie, rast a situácie, keď volať veterinára." },
+      { slug: "hygiena", label: "Hygiena", description: "Čistotnosť, srsť, pazúry, zuby, uši a pokojná manipulácia." },
       { slug: "krmenie", label: "Kŕmenie", description: "Dávka, režim, zmena krmiva a sledovanie zdravej kondície." },
+      { slug: "ockovanie-a-zdravie", label: "Očkovanie a zdravie", description: "Očkovanie, odčervenie, prevencia a situácie, keď volať veterinára." },
+      { slug: "vycvik-steniatka", label: "Výcvik šteniatka", description: "Meno, privolanie, vodítko a základy spolupráce bez nátlaku." },
+      { slug: "rast-a-vyvoj", label: "Rast a vývoj", description: "Vývoj tela a správania, výmena zubov, pohyb a primerané zaťaženie." },
+      { slug: "puberta", label: "Puberta", description: "Zmeny správania, hranice, emócie a tréning počas dospievania." },
     ],
   },
   {

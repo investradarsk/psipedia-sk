@@ -78,6 +78,20 @@
       "when": 1787575229773,
       "tag": "0010_past_mantis",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1787595853909,
+      "tag": "0011_purple_morlocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1787596611358,
+      "tag": "0012_flawless_surge",
+      "breakpoints": true
     }
   ]
 }
