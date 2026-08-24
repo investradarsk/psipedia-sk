@@ -56,17 +56,22 @@ export function legacyArticleBlocks(
   sources: { label: string; url: string }[],
 ): ArticleBlock[] {
   const blocks: ArticleBlock[] = [];
-  sections.forEach((section, sectionIndex) => {
+  (Array.isArray(sections) ? sections : []).forEach((section, sectionIndex) => {
+    if (!section || typeof section !== "object") return;
     if (section.heading) blocks.push({ id: `legacy-h2-${sectionIndex}`, type: "h2", text: section.heading });
-    section.paragraphs.forEach((paragraph, paragraphIndex) => {
+    (Array.isArray(section.paragraphs) ? section.paragraphs : []).forEach((paragraph, paragraphIndex) => {
       blocks.push({ id: `legacy-text-${sectionIndex}-${paragraphIndex}`, type: "text", content: paragraph });
     });
-    if (section.bullets?.length) {
+    if (Array.isArray(section.bullets) && section.bullets.length) {
       blocks.push({ id: `legacy-list-${sectionIndex}`, type: "bullet-list", items: section.bullets });
     }
     if (section.tip) blocks.push({ id: `legacy-tip-${sectionIndex}`, type: "tip", content: section.tip });
   });
-  sources.forEach((source, index) => blocks.push({ id: `legacy-source-${index}`, type: "source", ...source }));
+  (Array.isArray(sources) ? sources : []).forEach((source, index) => {
+    if (source && typeof source === "object") {
+      blocks.push({ id: `legacy-source-${index}`, type: "source", ...source });
+    }
+  });
   return blocks;
 }
 
