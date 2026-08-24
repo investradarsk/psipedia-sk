@@ -2920,7 +2920,7 @@ h3 {
 
 .breed-facts {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -2968,6 +2968,22 @@ h3 {
   font-size: 1rem;
   line-height: 1.8;
 }
+
+.breed-copy p + p { margin-top: 1rem; }
+.breed-health-risks,
+.breed-source-list { display: grid; gap: 10px; color: var(--muted); line-height: 1.65; }
+.breed-source-list a { color: var(--forest); font-weight: 750; text-underline-offset: 3px; }
+
+.breed-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  padding-top: 30px;
+}
+.breed-gallery figure { margin: 0; overflow: hidden; border-radius: 18px; background: var(--paper); box-shadow: var(--shadow-sm); }
+.breed-gallery img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.breed-gallery figcaption { padding: 12px 15px; color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.breed-gallery figcaption span { font-weight: 700; }
 
 .breed-side {
   display: grid;
@@ -8837,6 +8853,33 @@ h3 {
 }
 .admin-breed-editor .admin-form-card > h2 { margin: 0 0 20px; font-size: 1.25rem; }
 .admin-breed-preview { width: min(100%, 440px); max-height: 280px; margin-top: 14px; border-radius: 14px; object-fit: cover; }
+.admin-field-help { margin: -10px 0 18px; color: #66746d; }
+.admin-breed-score-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.admin-breed-gallery-editor,
+.admin-breed-sources { display: grid; gap: 14px; margin-top: 18px; }
+.admin-breed-gallery-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 16px; align-items: start; padding: 14px; border: 1px solid #dfe7e1; border-radius: 14px; background: #fbfdfb; }
+.admin-breed-gallery-row > img { width: 150px; aspect-ratio: 4 / 3; border-radius: 10px; object-fit: cover; }
+.admin-breed-row-actions { display: flex; flex-direction: column; gap: 7px; }
+.admin-breed-row-actions button,
+.admin-source-row > button,
+.admin-secondary-button { padding: 8px 11px; border: 1px solid #c9d6cd; border-radius: 9px; color: #174b38; font-weight: 750; background: #edf4ef; cursor: pointer; }
+.admin-breed-row-actions button.is-danger,
+.admin-source-row > button { color: #a64c39; background: #fff5f2; }
+.admin-breed-row-actions button:disabled { opacity: .35; cursor: default; }
+.admin-source-row { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr) auto; gap: 12px; align-items: end; padding: 14px; border: 1px solid #dfe7e1; border-radius: 14px; }
+.admin-secondary-button { width: fit-content; }
+@media (max-width: 900px) {
+  .admin-breed-score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-breed-gallery-row { grid-template-columns: 120px minmax(0, 1fr); }
+  .admin-breed-gallery-row > img { width: 120px; }
+  .admin-breed-row-actions { grid-column: 1 / -1; flex-direction: row; }
+}
+@media (max-width: 620px) {
+  .admin-breed-score-grid,
+  .admin-breed-gallery-row,
+  .admin-source-row { grid-template-columns: 1fr; }
+  .admin-breed-gallery-row > img { width: 100%; max-height: 230px; }
+}
 
 .admin-section-manager,
 .admin-section-list { display: grid; gap: 14px; }

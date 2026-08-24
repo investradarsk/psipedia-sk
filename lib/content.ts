@@ -376,6 +376,19 @@ export const fciGroups: FciGroup[] = [
   { number: 10, slug: "chrty", label: "Chrty", description: "Rýchle, elegantné plemená orientované pri love najmä zrakom." },
 ];
 
+export type BreedImage = {
+  imageUrl: string;
+  imageKey?: string | null;
+  alt: string;
+  caption: string;
+  credit: string;
+};
+
+export type BreedSource = {
+  label: string;
+  url: string;
+};
+
 export type Breed = {
   slug: string;
   name: string;
@@ -386,16 +399,30 @@ export type Breed = {
   group: string;
   size: string;
   weight: string;
+  height?: string;
   lifespan: string;
   coat: string;
+  gallery?: BreedImage[];
   energy: number;
   trainability: number;
   family: number;
+  children?: number;
+  otherDogs?: number;
+  apartment?: number;
+  grooming?: number;
+  shedding?: number;
+  preyDrive?: number;
   intro: string;
   character: string;
   needs: string;
+  history?: string;
+  exercise?: string;
+  training?: string;
+  health?: string;
+  healthRisks?: string[];
   goodFor: string[];
   consider: string[];
+  sources?: BreedSource[];
   accent: "forest" | "coral" | "gold" | "blue";
 };
 
