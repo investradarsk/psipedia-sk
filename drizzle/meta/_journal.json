@@ -99,6 +99,13 @@
       "when": 1787602109321,
       "tag": "0013_condemned_chamber",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1787603723521,
+      "tag": "0014_material_enchantress",
+      "breakpoints": true
     }
   ]
 }
