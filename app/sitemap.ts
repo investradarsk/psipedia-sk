@@ -27,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: path === "" || path === "/novinky" ? "daily" as const : "weekly" as const,
       priority: path === "" ? 1 : path === "/novinky" ? 0.9 : 0.7,
     })),
-    ...articles.map((article) => ({
+    ...articles.filter((article) => !article.seo?.noindex).map((article) => ({
       url: `${SITE_URL}${articleHref(article)}`,
       lastModified: new Date(article.updatedDateIso),
       changeFrequency: "monthly" as const,

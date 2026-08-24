@@ -4,7 +4,7 @@ import test from "node:test";
 const developmentPreviewMeta =
   /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
 
-test("renders development preview metadata", async () => {
+test("renders the portal homepage", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
@@ -30,7 +30,9 @@ test("renders development preview metadata", async () => {
     /^text\/html\b/i,
   );
   const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
+  // The externally hosted Cloudflare build intentionally has no Sites-only
+  // development preview marker.
+  assert.doesNotMatch(html, developmentPreviewMeta);
   assert.match(html, /Psipedia je viac než magazín/);
   assert.match(html, /Šteniatka/);
   assert.match(html, /Pomoc psom/);
@@ -39,7 +41,7 @@ test("renders development preview metadata", async () => {
   assert.match(html, /Kalendár práve dopĺňame/);
   assert.match(html, /Vyber si, koho hľadáš/);
   assert.match(html, /Žiadna otvorená výzva/);
-  assert.match(html, /Čo sa deje vo svete psov/);
+  assert.match(html, /Novinky zo sveta psov/);
   assert.match(html, /Prvé overené správy pripravujeme/);
 });
 
@@ -104,6 +106,8 @@ test("searches the whole portal on a dedicated results URL", async () => {
   assert.match(html, /Výsledky pre/);
   assert.match(html, /Labradorský retriever/);
   assert.match(html, /Plemeno/);
+  assert.match(html, /Prvý rok labradora/);
+  assert.match(html, /Článok/);
 });
 
 test("renders article freshness and expert sources", async () => {
@@ -130,6 +134,8 @@ test("renders article freshness and expert sources", async () => {
   const html = await response.text();
   assert.match(html, /Aktualizované/);
   assert.match(html, /Odborné zdroje/);
+  assert.match(html, /Obsah článku/);
+  assert.match(html, /Súvisiace články/);
   assert.match(html, /WSAVA: Global Nutrition Guidelines/);
   assert.match(html, /"dateModified":"2026-08-16"/);
 });
@@ -168,7 +174,7 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const trainers = await worker.fetch(new Request("http://localhost/adresar/treneri", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(trainers.status, 200);
   const trainersHtml = await trainers.text();
-  assert.match(trainersHtml, /Adresár psieho sveta|Tréneri/);
+  assert.match(trainersHtml, /Služby pre psov|Psí tréneri/);
   assert.match(trainersHtml, /Kontakt cez Psipediu/);
   assert.match(trainersHtml, /Názov, mesto alebo služba/);
   assert.match(trainersHtml, /Prvé profily pripravujeme/);
@@ -176,9 +182,10 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const directory = await worker.fetch(new Request("http://localhost/adresar", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(directory.status, 200);
   const directoryHtml = await directory.text();
-  assert.match(directoryHtml, /Adresár psieho sveta/);
-  assert.match(directoryHtml, /Útulky a záchrana/);
-  assert.match(directoryHtml, /Salóny a služby/);
+  assert.match(directoryHtml, /Služby pre psov/);
+  assert.match(directoryHtml, /Veterinári/);
+  assert.match(directoryHtml, /Hotely a opatrovanie/);
+  assert.match(directoryHtml, /Fyzioterapia/);
 });
 
 test("renders the functional event calendar and type view", async () => {
@@ -211,13 +218,13 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.equal(help.status, 200);
   const helpHtml = await help.text();
   assert.match(helpHtml, /Pomôžme psom správne/);
-  assert.match(helpHtml, /Overené zbierky/);
+  assert.match(helpHtml, /Zbierky a výzvy/);
   assert.match(helpHtml, /Meno psa, mesto alebo organizácia/);
   assert.match(helpHtml, /Prvé overené prípady pripravujeme/);
 
   const adoption = await worker.fetch(new Request("http://localhost/pomoc-psom/adopcia", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(adoption.status, 200);
-  assert.match(await adoption.text(), /Adopcia/);
+  assert.match(await adoption.text(), /Psy na adopciu/);
 
   const guide = await worker.fetch(new Request("http://localhost/pomoc-psom/nahlasit-psa-v-nudzi", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(guide.status, 200);
@@ -314,7 +321,7 @@ test("renders the public legal centre and privacy controls", async () => {
   assert.equal(cookies.status, 200);
   const cookiesHtml = await cookies.text();
   assert.match(cookiesHtml, /Cookies a lokálne úložisko/);
-  assert.match(cookiesHtml, /nepoužíva analytické, reklamné ani marketingové cookies/i);
+  assert.match(cookiesHtml, /Google Analytics sa pred prijatím analytiky nenačíta/i);
 
   const terms = await worker.fetch(new Request("http://localhost/podmienky-pouzivania", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(terms.status, 200);

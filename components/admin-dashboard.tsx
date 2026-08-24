@@ -7,7 +7,7 @@ import { getNewsCategory } from "@/lib/news";
 import { articleHref, portalSectionLabel } from "@/lib/portal";
 import { SearchIcon } from "./icons";
 
-type StatusFilter = "all" | "published" | "draft";
+type StatusFilter = "all" | "published" | "scheduled" | "draft";
 
 function formattedDate(value: string) {
   const date = new Date(value);
@@ -36,7 +36,8 @@ export function AdminDashboard({ initialArticles, fixedPortalSection }: { initia
 
   const scopedArticles = fixedPortalSection ? articles.filter((article) => article.portalSection === fixedPortalSection) : articles;
   const published = scopedArticles.filter((article) => article.status === "published").length;
-  const drafts = scopedArticles.length - published;
+  const scheduled = scopedArticles.filter((article) => article.status === "scheduled").length;
+  const drafts = scopedArticles.filter((article) => article.status === "draft").length;
 
   async function removeArticle(article: ManagedArticle) {
     const confirmed = window.confirm(`Naozaj chceš natrvalo odstrániť ${article.portalSection === "novinky" ? "novinku" : "článok"} „${article.title}“?`);
@@ -62,6 +63,7 @@ export function AdminDashboard({ initialArticles, fixedPortalSection }: { initia
       <section className="admin-stats" aria-label="Stav redakcie">
         <div><span>Všetok obsah</span><strong>{scopedArticles.length}</strong></div>
         <div><span>Publikované</span><strong>{published}</strong></div>
+        <div><span>Naplánované</span><strong>{scheduled}</strong></div>
         <div><span>Koncepty</span><strong>{drafts}</strong></div>
       </section>
 
@@ -76,6 +78,7 @@ export function AdminDashboard({ initialArticles, fixedPortalSection }: { initia
             {([
               ["all", "Všetky"],
               ["published", "Publikované"],
+              ["scheduled", "Naplánované"],
               ["draft", "Koncepty"],
             ] as const).map(([value, label]) => (
               <button key={value} type="button" className={status === value ? "is-active" : ""} onClick={() => setStatus(value)}>
@@ -97,7 +100,7 @@ export function AdminDashboard({ initialArticles, fixedPortalSection }: { initia
                 <div className="admin-article-main">
                   <div className="admin-article-tags">
                     <span className={`admin-status admin-status--${article.status}`}>
-                      {article.status === "published" ? "Publikovaný" : "Koncept"}
+                      {article.status === "published" ? "Publikovaný" : article.status === "scheduled" ? "Naplánovaný" : "Koncept"}
                     </span>
                     <span>{article.category}</span>
                     <span>{portalSectionLabel(article.portalSection)}</span>

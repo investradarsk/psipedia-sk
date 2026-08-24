@@ -21,7 +21,7 @@ export default function TermsPage() {
       <h2>Presnosť a aktuálnosť</h2>
       <p>Usilujeme sa o presný a aktuálny obsah, no nemôžeme zaručiť, že každý údaj zostane bez zmeny. Pri článkoch uvádzame dátum zverejnenia a aktualizácie. Chyby a neúplné skutkové tvrdenia riešime podľa postupu <Link href="/opravy-a-podnety">Opravy a podnety</Link>.</p>
 
-      <h2>Adresár, podujatia a externé služby</h2>
+      <h2>Služby pre psov, podujatia a externé služby</h2>
       <p>Zverejnenie profilu, podujatia alebo odkazu nie je automaticky odporúčaním ani zárukou kvality. Za ponuku, odbornú spôsobilosť, cenu, dostupnosť a plnenie služby zodpovedá jej poskytovateľ. Pred objednaním si over aktuálne podmienky priamo u neho.</p>
 
       <h2>Pomoc psom a zbierky</h2>

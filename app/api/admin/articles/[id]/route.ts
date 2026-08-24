@@ -65,6 +65,10 @@ export async function PUT(request: Request, { params }: RouteProps) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
     }
+    if (before.ogImageKey && before.ogImageKey !== article.ogImageKey) {
+      const bucket = (env as unknown as UploadBindings).BUCKET;
+      if (bucket) await bucket.delete(before.ogImageKey).catch(() => undefined);
+    }
 
     const currentKeys = new Set(articleBlockImageKeys(article.blocks ?? []));
     const removedKeys = articleBlockImageKeys(before.blocks ?? []).filter((key) => !currentKeys.has(key));
@@ -90,7 +94,7 @@ export async function DELETE(_request: Request, { params }: RouteProps) {
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
     const bucket = (env as unknown as UploadBindings).BUCKET;
     if (bucket) {
-      const keys = [...new Set([article.imageKey, ...articleBlockImageKeys(article.blocks ?? [])].filter((key): key is string => Boolean(key)))];
+      const keys = [...new Set([article.imageKey, article.ogImageKey, ...articleBlockImageKeys(article.blocks ?? [])].filter((key): key is string => Boolean(key)))];
       await Promise.all(keys.map((key) => bucket.delete(key).catch(() => undefined)));
     }
     return Response.json({ deleted: true, id });

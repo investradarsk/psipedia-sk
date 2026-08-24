@@ -1,9 +1,10 @@
 import type { SlovakRegion } from "@/lib/events";
 
 export const directoryCategories = [
+  { slug: "veterinari", label: "Veterinári", singular: "Veterinárne pracovisko", icon: "🩺", description: "Ambulancie, kliniky, pohotovosti a špecializovaná starostlivosť." },
   {
     slug: "treneri",
-    label: "Tréneri",
+    label: "Psí tréneri",
     singular: "Tréner",
     icon: "🎯",
     description: "Individuálny výcvik, riešenie správania, šteniatka aj špecializované tréningy.",
@@ -30,13 +31,6 @@ export const directoryCategories = [
     description: "Kluby zastrešujúce plemená, ich chov, podmienky a členské aktivity.",
   },
   {
-    slug: "utulky-a-zachrana",
-    label: "Útulky a záchrana",
-    singular: "Útulok alebo organizácia",
-    icon: "❤️",
-    description: "Útulky, občianske združenia, záchranné organizácie a dočasné opatery.",
-  },
-  {
     slug: "chovatelske-stanice",
     label: "Chovateľské stanice",
     singular: "Chovateľská stanica",
@@ -44,22 +38,24 @@ export const directoryCategories = [
     description: "Preverené chovateľské stanice s jasnými informáciami o plemene a vrhoch.",
   },
   {
-    slug: "veterinari",
-    label: "Veterinári",
-    singular: "Veterinárne pracovisko",
-    icon: "🩺",
-    description: "Ambulancie, kliniky, pohotovosti a pracoviská so špecializovanou starostlivosťou.",
-  },
-  {
     slug: "salony-a-sluzby",
-    label: "Salóny a služby",
-    singular: "Psia služba",
+    label: "Salóny",
+    singular: "Psí salón",
     icon: "✂️",
-    description: "Úprava srsti, hotely, opatrovanie, venčenie, fyzioterapia a ďalšie služby.",
+    description: "Úprava srsti, kúpanie a ďalšia pravidelná starostlivosť.",
   },
+  { slug: "hotely-a-opatrovanie", label: "Hotely a opatrovanie", singular: "Hotel alebo opatrovanie", icon: "🛏️", description: "Ubytovanie a starostlivosť o psa počas tvojej neprítomnosti." },
+  { slug: "vencenie", label: "Venčenie", singular: "Venčenie psov", icon: "🦮", description: "Pravidelné aj jednorazové venčenie podľa potrieb psa." },
+  { slug: "fyzioterapia", label: "Fyzioterapia", singular: "Psia fyzioterapia", icon: "🐾", description: "Rehabilitácia, regenerácia a podpora zdravého pohybu." },
+  { slug: "dalsie-sluzby", label: "Ďalšie služby", singular: "Služba pre psov", icon: "➕", description: "Ďalšie praktické služby pre psov a ich ľudí." },
 ] as const;
 
-export type DirectoryCategorySlug = (typeof directoryCategories)[number]["slug"];
+const legacyDirectoryCategories = [
+  { slug: "utulky-a-zachrana", label: "Útulky a záchrana", singular: "Útulok alebo organizácia", icon: "❤️", description: "Pôvodná kategória zachovaná pre existujúce profily." },
+] as const;
+
+export const allDirectoryCategories = [...directoryCategories, ...legacyDirectoryCategories] as const;
+export type DirectoryCategorySlug = (typeof allDirectoryCategories)[number]["slug"];
 export type DirectoryProfileStatus = "draft" | "published";
 export type DirectoryInquiryStatus = "new" | "read" | "resolved";
 
@@ -114,11 +110,11 @@ export type DirectoryInquiry = {
 };
 
 export function getDirectoryCategory(slug: string) {
-  return directoryCategories.find((category) => category.slug === slug) ?? null;
+  return allDirectoryCategories.find((category) => category.slug === slug) ?? null;
 }
 
 export function isDirectoryCategory(value: string): value is DirectoryCategorySlug {
-  return directoryCategories.some((category) => category.slug === value);
+  return allDirectoryCategories.some((category) => category.slug === value);
 }
 
 export function directoryProfileHref(profile: Pick<PublicDirectoryProfile, "category" | "slug">) {
@@ -130,5 +126,5 @@ export function directoryCategoryHref(category: Pick<(typeof directoryCategories
 }
 
 export function directoryCategoryLabel(slug: DirectoryCategorySlug) {
-  return getDirectoryCategory(slug)?.label ?? "Adresár";
+  return getDirectoryCategory(slug)?.label ?? "Služby pre psov";
 }

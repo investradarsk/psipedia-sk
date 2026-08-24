@@ -15,12 +15,12 @@ export function DirectoryPage({ profiles, initialCategory = "all" }: { profiles:
     <main id="obsah">
       <header className="directory-hero">
         <div className="shell">
-          <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span>{active ? <><Link href="/adresar">Adresár</Link><span>/</span><span>{active.label}</span></> : <span>Adresár</span>}</nav>
+          <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span>{active ? <><Link href="/adresar">Služby pre psov</Link><span>/</span><span>{active.label}</span></> : <span>Služby pre psov</span>}</nav>
           <div className="directory-hero-grid">
             <div>
               <span className="eyebrow">{active ? active.singular : "Nájdi pomoc nablízku"}</span>
-              <h1>{active ? active.label : "Adresár psieho sveta"}</h1>
-              <p>{active?.description ?? "Tréneri, kluby, útulky, veterinári a ďalšie služby pre život so psom — prehľadne podľa kraja a zamerania."}</p>
+              <h1>{active ? active.label : "Služby pre psov"}</h1>
+              <p>{active?.description ?? "Veterinári, tréneri, školy, kluby a ďalšie služby — prehľadne podľa kraja a zamerania."}</p>
             </div>
             <div className="directory-hero-trust">
               <span aria-hidden="true">✓</span>

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { articles as seedArticles, type Article, type ArticleSection } from "@/lib/content";
+import { articles as seedArticles, type Article, type ArticleSection, type ArticleSource } from "@/lib/content";
 import {
   getPortalSubpage,
   isArticlePortalSection,
@@ -13,17 +13,20 @@ import {
   type ArticleBlock,
 } from "@/lib/article-blocks";
 
-export type ArticleStatus = "draft" | "published";
+export type ArticleStatus = "draft" | "scheduled" | "published";
 
 export type ManagedArticle = Article & {
   id: number;
   portalSection: ArticlePortalSection;
   status: ArticleStatus;
   imageKey: string | null;
+  ogImageKey: string | null;
   readingMinutes: number;
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
+  contentUpdatedAt: string | null;
+  showUpdated: boolean;
   createdBy: string;
   updatedBy: string;
 };
@@ -43,10 +46,22 @@ export type ManagedArticleInput = {
   takeaway?: string;
   sections?: ArticleSection[];
   blocks?: ArticleBlock[];
-  sources?: { label: string; url: string }[];
+  sources?: ArticleSource[];
   imageUrl?: string | null;
   imageKey?: string | null;
   readingMinutes?: number;
+  publishedAt?: string | null;
+  contentUpdatedAt?: string | null;
+  showUpdated?: boolean;
+  seoTitle?: string;
+  metaDescription?: string;
+  canonicalUrl?: string;
+  noindex?: boolean;
+  focusKeyword?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImageUrl?: string | null;
+  ogImageKey?: string | null;
 };
 
 type ArticleRow = {
@@ -74,6 +89,17 @@ type ArticleRow = {
   published_at: string | null;
   created_by: string;
   updated_by: string;
+  content_updated_at: string | null;
+  show_updated_label: number;
+  seo_title: string;
+  meta_description: string;
+  canonical_url: string;
+  noindex: number;
+  focus_keyword: string;
+  og_title: string;
+  og_description: string;
+  og_image_url: string | null;
+  og_image_key: string | null;
 };
 
 type RuntimeBindings = {
@@ -147,7 +173,7 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
     ? row.published_at
     : createdAt;
   const sections = parseJsonArray<ArticleSection>(row.sections_json, []);
-  const sources = parseJsonArray<{ label: string; url: string }>(row.sources_json, []);
+  const sources = parseJsonArray<ArticleSource>(row.sources_json, []);
   const storedBlocks = parseJsonArray<ArticleBlock>(row.blocks_json ?? "[]", []);
   const blocks = storedBlocks.length ? normalizeArticleBlocks(storedBlocks) : legacyArticleBlocks(sections, sources);
   return {
@@ -161,8 +187,8 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
     newsCategory: row.news_category && isNewsCategory(row.news_category) ? row.news_category : undefined,
     date: formatSlovakDate(publishedAt),
     dateIso: publishedAt.slice(0, 10),
-    updatedDate: formatSlovakDate(updatedAt),
-    updatedDateIso: updatedAt.slice(0, 10),
+    updatedDate: formatSlovakDate(row.content_updated_at || updatedAt),
+    updatedDateIso: (row.content_updated_at || updatedAt).slice(0, 10),
     readTime: `${row.reading_minutes} min`,
     image: row.image_url ?? undefined,
     accent: row.accent as Article["accent"],
@@ -172,14 +198,27 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
     sections,
     sources,
     blocks,
-    status: row.status === "published" ? "published" : "draft",
+    status: row.status === "published" ? "published" : row.status === "scheduled" ? "scheduled" : "draft",
     imageKey: row.image_key,
+    ogImageKey: row.og_image_key ?? null,
     readingMinutes: row.reading_minutes,
     createdAt,
     updatedAt,
     publishedAt: row.published_at,
+    contentUpdatedAt: row.content_updated_at ?? null,
+    showUpdated: Boolean(row.show_updated_label),
     createdBy: row.created_by,
     updatedBy: row.updated_by,
+    seo: {
+      title: row.seo_title || undefined,
+      description: row.meta_description || undefined,
+      canonicalUrl: row.canonical_url || undefined,
+      noindex: Boolean(row.noindex),
+      focusKeyword: row.focus_keyword || undefined,
+      ogTitle: row.og_title || undefined,
+      ogDescription: row.og_description || undefined,
+      ogImage: row.og_image_url || undefined,
+    },
   };
 }
 
@@ -200,7 +239,7 @@ function normalizeInput(payload: ManagedArticleInput) {
   const intro = payload.intro?.trim() ?? "";
   const takeaway = payload.takeaway?.trim() ?? "";
   const author = payload.author?.trim() || "Redakcia Psipedia";
-  const status: ArticleStatus = payload.status === "published" ? "published" : "draft";
+  const status: ArticleStatus = payload.status === "published" ? "published" : payload.status === "scheduled" ? "scheduled" : "draft";
   const category = ARTICLE_CATEGORIES.includes(payload.category as (typeof ARTICLE_CATEGORIES)[number])
     ? (payload.category as Article["category"])
     : null;
@@ -217,6 +256,8 @@ function normalizeInput(payload: ManagedArticleInput) {
     ? (payload.accent as Article["accent"])
     : "forest";
   const readingMinutes = Math.min(60, Math.max(1, Math.round(Number(payload.readingMinutes) || 5)));
+  const publishedAt = payload.publishedAt ? new Date(payload.publishedAt).toISOString() : null;
+  const contentUpdatedAt = payload.contentUpdatedAt ? new Date(payload.contentUpdatedAt).toISOString() : payload.showUpdated ? new Date().toISOString() : null;
   const sections = (payload.sections ?? [])
     .map((section) => ({
       heading: section.heading?.trim() ?? "",
@@ -228,7 +269,7 @@ function normalizeInput(payload: ManagedArticleInput) {
   const blocks = normalizeArticleBlocks(payload.blocks ?? []);
   const blockSources = articleBlockSources(blocks);
   const sources = (blockSources.length ? blockSources : payload.sources ?? [])
-    .map((source) => ({ label: source.label?.trim() ?? "", url: source.url?.trim() ?? "" }))
+    .map((source) => ({ label: source.label?.trim() ?? "", url: source.url?.trim() ?? "", ...(source.accessedAt ? { accessedAt: source.accessedAt } : {}) }))
     .filter((source) => source.label || source.url);
 
   if (!title) throw new Error("Doplň názov článku.");
@@ -242,9 +283,11 @@ function normalizeInput(payload: ManagedArticleInput) {
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
   if (takeaway.length < 10) throw new Error("Doplň hlavné posolstvo článku.");
   if (!blocks.length && !sections.length) throw new Error("Pridaj aspoň jeden obsahový blok.");
-  if (portalSection === "novinky" && status === "published" && !sources.length) {
+  if (portalSection === "novinky" && status !== "draft" && !sources.length) {
     throw new Error("Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj.");
   }
+  if (status === "scheduled" && (!publishedAt || new Date(publishedAt).getTime() <= Date.now())) throw new Error("Pre plánované publikovanie vyber budúci dátum a čas.");
+  if (status === "published" && publishedAt && new Date(publishedAt).getTime() > Date.now()) throw new Error("Budúci dátum použi cez tlačidlo Naplánovať publikovanie.");
 
   for (const source of sources) {
     if (!source.label || !source.url) throw new Error("Každý zdroj potrebuje názov aj odkaz.");
@@ -272,6 +315,7 @@ function normalizeInput(payload: ManagedArticleInput) {
   }
 
   const imageUrl = payload.imageUrl?.trim() || null;
+  const ogImageUrl = payload.ogImageUrl?.trim() || null;
   if (
     imageUrl &&
     !imageUrl.startsWith("/media/") &&
@@ -279,6 +323,16 @@ function normalizeInput(payload: ManagedArticleInput) {
     !/^https:\/\//i.test(imageUrl)
   ) {
     throw new Error("Adresa titulného obrázka nie je platná.");
+  }
+  if (ogImageUrl && !ogImageUrl.startsWith("/media/") && !ogImageUrl.startsWith("/images/") && !/^https:\/\//i.test(ogImageUrl)) throw new Error("Adresa Open Graph obrázka nie je platná.");
+  const canonicalUrl = payload.canonicalUrl?.trim() ?? "";
+  if (canonicalUrl) {
+    try {
+      const parsed = new URL(canonicalUrl);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error();
+    } catch {
+      throw new Error("Canonical URL musí byť úplná platná webová adresa.");
+    }
   }
 
   return {
@@ -300,6 +354,18 @@ function normalizeInput(payload: ManagedArticleInput) {
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
     readingMinutes,
+    publishedAt,
+    contentUpdatedAt,
+    showUpdated: Boolean(payload.showUpdated),
+    seoTitle: payload.seoTitle?.trim().slice(0, 180) ?? "",
+    metaDescription: payload.metaDescription?.trim().slice(0, 320) ?? "",
+    canonicalUrl,
+    noindex: Boolean(payload.noindex),
+    focusKeyword: payload.focusKeyword?.trim().slice(0, 160) ?? "",
+    ogTitle: payload.ogTitle?.trim().slice(0, 180) ?? "",
+    ogDescription: payload.ogDescription?.trim().slice(0, 320) ?? "",
+    ogImageUrl,
+    ogImageKey: payload.ogImageKey?.trim() || null,
   };
 }
 
@@ -309,8 +375,9 @@ export async function getPublishedArticles(): Promise<Article[]> {
   await ensureArticleStore(database);
   const result = await database
     .prepare(
-      "SELECT * FROM managed_articles WHERE status = 'published' ORDER BY published_at DESC, updated_at DESC, id DESC",
+      "SELECT * FROM managed_articles WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?) ORDER BY published_at DESC, updated_at DESC, id DESC",
     )
+    .bind(new Date().toISOString())
     .all<ArticleRow>();
   return result.results.map(rowToManagedArticle);
 }
@@ -320,8 +387,8 @@ export async function getPublishedArticle(slug: string): Promise<Article | null>
   if (!database) return seedArticles.find((article) => article.slug === slug) ?? null;
   await ensureArticleStore(database);
   const row = await database
-    .prepare("SELECT * FROM managed_articles WHERE slug = ? AND status = 'published' LIMIT 1")
-    .bind(slug)
+    .prepare("SELECT * FROM managed_articles WHERE slug = ? AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?)) LIMIT 1")
+    .bind(slug, new Date().toISOString())
     .first<ArticleRow>();
   return row ? rowToManagedArticle(row) : null;
 }
@@ -361,15 +428,17 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
   await ensureArticleStore(database);
   const input = normalizeInput(payload);
   const now = new Date().toISOString();
-  const publishedAt = input.status === "published" ? now : null;
+  const publishedAt = input.status === "published" ? input.publishedAt ?? now : input.status === "scheduled" ? input.publishedAt : null;
 
   const result = await database
     .prepare(`
       INSERT INTO managed_articles (
         slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, intro,
         takeaway, sections_json, sources_json, blocks_json, image_url, image_key,
-        reading_minutes, created_at, updated_at, published_at, created_by, updated_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        reading_minutes, created_at, updated_at, published_at, created_by, updated_by,
+        content_updated_at, show_updated_label, seo_title, meta_description, canonical_url, noindex,
+        focus_keyword, og_title, og_description, og_image_url, og_image_key
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `)
     .bind(
@@ -396,6 +465,17 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
       publishedAt,
       editorEmail,
       editorEmail,
+      input.contentUpdatedAt,
+      input.showUpdated ? 1 : 0,
+      input.seoTitle,
+      input.metaDescription,
+      input.canonicalUrl,
+      input.noindex ? 1 : 0,
+      input.focusKeyword,
+      input.ogTitle,
+      input.ogDescription,
+      input.ogImageUrl,
+      input.ogImageKey,
     )
     .first<ArticleRow>();
 
@@ -418,14 +498,20 @@ export async function updateManagedArticle(
 
   const input = normalizeInput(payload);
   const now = new Date().toISOString();
-  const publishedAt = input.status === "published" ? existing.published_at ?? now : existing.published_at;
+  const publishedAt = input.status === "published"
+    ? input.publishedAt ?? existing.published_at ?? now
+    : input.status === "scheduled"
+      ? input.publishedAt
+      : input.publishedAt ?? existing.published_at;
   const result = await database
     .prepare(`
       UPDATE managed_articles SET
         slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
         author = ?, intro = ?, takeaway = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
         image_url = ?, image_key = ?, reading_minutes = ?, updated_at = ?,
-        published_at = ?, updated_by = ?
+        published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
+        seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
+        og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
       WHERE id = ?
       RETURNING *
     `)
@@ -451,6 +537,17 @@ export async function updateManagedArticle(
       now,
       publishedAt,
       editorEmail,
+      input.contentUpdatedAt,
+      input.showUpdated ? 1 : 0,
+      input.seoTitle,
+      input.metaDescription,
+      input.canonicalUrl,
+      input.noindex ? 1 : 0,
+      input.focusKeyword,
+      input.ogTitle,
+      input.ogDescription,
+      input.ogImageUrl,
+      input.ogImageKey,
       id,
     )
     .first<ArticleRow>();

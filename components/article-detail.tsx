@@ -9,7 +9,7 @@ import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel } from "@/lib/portal";
 import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
-import { articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
+import { articleBlockHeadings, articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
 
 export function ArticleDetail({ article, related }: { article: Article; related: Article[] }) {
   const section = articlePortalSection(article);
@@ -17,11 +17,13 @@ export function ArticleDetail({ article, related }: { article: Article; related:
   const newsCategory = section === "novinky" ? getNewsCategory(article.newsCategory) : null;
   const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : `/tema/${categorySlug(article.category)}`;
   const topicLabel = newsCategory?.label ?? article.category;
-  const canonical = `${SITE_URL}${articleHref(article)}`;
+  const canonical = article.seo?.canonicalUrl || `${SITE_URL}${articleHref(article)}`;
   const image = article.image ? absoluteUrl(article.image) : undefined;
   const blocks = article.blocks?.length
     ? article.blocks
     : legacyArticleBlocks(article.sections, article.sources);
+  const headings = articleBlockHeadings(blocks);
+  const showUpdated = article.showUpdated ?? article.updatedDateIso !== article.dateIso;
   const wordCount = [article.intro, article.takeaway, articleBlockPlainText(blocks)]
     .join(" ")
     .trim()
@@ -42,7 +44,7 @@ export function ArticleDetail({ article, related }: { article: Article; related:
         inLanguage: "sk-SK",
         isAccessibleForFree: true,
         articleSection: topicLabel,
-        keywords: [portalSectionLabel(section), topicLabel, article.category, "psy"],
+        keywords: [article.seo?.focusKeyword, portalSectionLabel(section), topicLabel, article.category, "psy"].filter(Boolean),
         wordCount,
         author: { "@type": "Organization", name: article.author, url: `${SITE_URL}/o-nas` },
         publisher: {
@@ -85,7 +87,7 @@ export function ArticleDetail({ article, related }: { article: Article; related:
             <div className="article-byline">
               <strong>{article.author}</strong>
               <time dateTime={article.dateIso}>{article.date}</time>
-              <span>Aktualizované <time dateTime={article.updatedDateIso}>{article.updatedDate}</time></span>
+              {showUpdated && <span className="article-updated">Aktualizované <time dateTime={article.updatedDateIso}>{article.updatedDate}</time></span>}
               <span>{article.readTime} čítania</span>
             </div>
           </div>
@@ -99,6 +101,7 @@ export function ArticleDetail({ article, related }: { article: Article; related:
 
       <div className="article-content-wrap shell">
         <article className="article-prose">
+          {headings.length > 1 && <nav className="article-toc" aria-label="Obsah článku"><strong>Obsah článku</strong><ol>{headings.map((heading) => <li className={heading.level === 3 ? "is-h3" : undefined} key={heading.blockId}><a href={`#${heading.id}`}>{heading.text}</a></li>)}</ol></nav>}
           <p className="article-intro">{article.intro}</p>
           <div className="takeaway-box"><strong>To najdôležitejšie</strong><p>{article.takeaway}</p></div>
           <ArticleBlocks blocks={blocks} />
@@ -115,7 +118,7 @@ export function ArticleDetail({ article, related }: { article: Article; related:
       <section className="related-section">
         <div className="shell">
           <span className="eyebrow">Pokračuj v čítaní</span>
-          <h2>Mohlo by sa ti hodiť</h2>
+          <h2>Súvisiace články</h2>
           <div className="article-grid">{related.map((item) => <ArticleCard article={item} key={item.slug} />)}</div>
         </div>
       </section>

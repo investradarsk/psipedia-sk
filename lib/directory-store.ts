@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
-  directoryCategories,
+  allDirectoryCategories,
   isDirectoryCategory,
   type DirectoryCategorySlug,
   type DirectoryInquiry,
@@ -297,7 +297,7 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
   if (!name) throw new Error("Doplň názov profilu.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa profilu nie je platná.");
   if (!category) throw new Error("Vyber kategóriu adresára.");
-  if (directoryCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu profilu.");
+  if (allDirectoryCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu profilu.");
   if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
   if (description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
   if (!city) throw new Error("Doplň mesto alebo uveď Online.");

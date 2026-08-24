@@ -23,6 +23,11 @@ export default async function SearchPage({ searchParams }: Props) {
     groups.set(item.type, group);
     return groups;
   }, new Map<string, typeof results>());
+  const typeOrder = ["Plemeno", "Článok", "Novinka", "Veterinár", "Psí tréner", "Služba pre psov", "Podujatie", "Útulok", "Pomoc psom", "Sekcia"];
+  const orderedGroups = [...grouped.entries()].sort(([a], [b]) => {
+    const aIndex = typeOrder.indexOf(a); const bIndex = typeOrder.indexOf(b);
+    return (aIndex < 0 ? typeOrder.length : aIndex) - (bIndex < 0 ? typeOrder.length : bIndex) || a.localeCompare(b, "sk");
+  });
 
   return (
     <main id="obsah" className="portal-search-page">
@@ -42,12 +47,12 @@ export default async function SearchPage({ searchParams }: Props) {
 
       <section className="section shell portal-search-results" aria-live="polite">
         {query.length < 2 ? (
-          <div className="portal-search-start"><span aria-hidden="true">🔎</span><h2>Napíš aspoň dve písmená</h2><p>Vyhľadávame bez ohľadu na diakritiku v celom portáli.</p><div><Link href="/plemena">Atlas plemien</Link><Link href="/podujatia">Kalendár</Link><Link href="/adresar">Adresár</Link><Link href="/pomoc-psom">Pomoc psom</Link></div></div>
+          <div className="portal-search-start"><span aria-hidden="true">🔎</span><h2>Napíš aspoň dve písmená</h2><p>Vyhľadávame bez ohľadu na diakritiku v celom portáli.</p><div><Link href="/plemena">Atlas plemien</Link><Link href="/podujatia">Kalendár</Link><Link href="/adresar">Služby pre psov</Link><Link href="/pomoc-psom">Pomoc psom</Link></div></div>
         ) : results.length ? (
           <>
             <div className="portal-search-summary"><span>Výsledky pre</span><h2>„{query}“</h2><strong>{results.length} {results.length === 1 ? "výsledok" : results.length < 5 ? "výsledky" : "výsledkov"}</strong></div>
             <div className="portal-search-groups">
-              {[...grouped.entries()].map(([type, items]) => (
+              {orderedGroups.map(([type, items]) => (
                 <section className="portal-search-group" key={type}>
                   <header><span>{type}</span><b>{items.length}</b></header>
                   <div>{items.map((item) => <Link href={item.href} key={item.href}><span><strong>{item.title}</strong><small>{item.description}</small></span><ArrowIcon size={20} /></Link>)}</div>

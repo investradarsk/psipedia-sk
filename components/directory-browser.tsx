@@ -53,7 +53,7 @@ export function DirectoryBrowser({ profiles, initialCategory = "all" }: { profil
         <div className="directory-empty">
           <span aria-hidden="true">📍</span>
           <h2>{profiles.length ? "Nenašli sme zhodu" : "Prvé profily pripravujeme"}</h2>
-          <p>{profiles.length ? "Skús zmeniť kategóriu, kraj alebo hľadaný výraz." : "Adresár je funkčný a nové profily sa pridávajú po redakčnom overení."}</p>
+          <p>{profiles.length ? "Skús zmeniť kategóriu, kraj alebo hľadaný výraz." : "Sekciu postupne dopĺňame o nové overené profily."}</p>
           {profiles.length > 0 && <button type="button" onClick={reset}>Zrušiť filtre</button>}
         </div>
       )}

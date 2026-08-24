@@ -5,6 +5,7 @@ import { EventDetail } from "@/components/event-detail";
 import { EventsPage } from "@/components/events-page";
 import { PortalTopic } from "@/components/portal-topic";
 import { getPublishedArticle, getPublishedArticles } from "@/lib/article-store";
+import { buildArticleMetadata } from "@/lib/article-seo";
 import { getPublishedEvent, getPublishedEvents } from "@/lib/event-store";
 import { eventHref, eventTypeFromPortalSlug } from "@/lib/events";
 import { articleHref, portalSections } from "@/lib/portal";
@@ -47,22 +48,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   const article = await getPublishedArticle(slug);
   if (!article) return {};
-  return buildPageMetadata({
-    title: searchResultTitle(article.title),
-    description: article.excerpt,
-    path: articleHref(article),
-    image: article.image || null,
-    imageAlt: article.title,
-    type: "article",
-    publishedTime: article.dateIso,
-    modifiedTime: article.updatedDateIso,
-    authors: [article.author],
-    section: section === "novinky" ? article.newsCategory : article.category,
-  });
+  return buildArticleMetadata(article);
 }
 
 export default async function PortalContentPage({ params }: Props) {
   const { section, slug } = await params;
+  if (section === "recenzie" && slug === "vybava") redirect("/recenzie/postroje-a-vodidla");
   if (!(await getManagedPortalSection(section))?.visible) notFound();
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (section === "podujatia" && (slug === "kalendar" || eventTypeFromPortalSlug(slug))) {

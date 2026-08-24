@@ -1,4 +1,4 @@
-import type { ArticleSection } from "@/lib/content";
+import type { ArticleSection, ArticleSource } from "@/lib/content";
 
 export type ArticleBlockImage = {
   url: string;
@@ -21,7 +21,7 @@ export type ArticleBlock =
   | { id: string; type: "tip" | "warning"; content: string }
   | { id: string; type: "quote"; content: string; attribution?: string }
   | { id: string; type: "table"; headers: string[]; rows: string[][] }
-  | { id: string; type: "source"; label: string; url: string; note?: string }
+  | { id: string; type: "source"; label: string; url: string; accessedAt?: string; note?: string }
   | { id: string; type: "related"; title: string; href: string; description?: string }
   | { id: string; type: "embed"; url: string; title?: string };
 
@@ -58,7 +58,7 @@ export function createArticleBlock(type: ArticleBlock["type"], id = crypto.rando
 
 export function legacyArticleBlocks(
   sections: ArticleSection[],
-  sources: { label: string; url: string }[],
+  sources: ArticleSource[],
 ): ArticleBlock[] {
   const blocks: ArticleBlock[] = [];
   (Array.isArray(sections) ? sections : []).forEach((section, sectionIndex) => {
@@ -151,7 +151,7 @@ export function normalizeArticleBlocks(value: unknown): ArticleBlock[] {
       const rows = Array.isArray(block.rows) ? block.rows.slice(0, 100).map((row) => Array.isArray(row) ? row.slice(0, 12).map((item) => safeText(item, 2_000)) : []) : [];
       return [{ id, type, headers, rows }];
     }
-    if (type === "source") return [{ id, type, label: safeText(block.label, 500), url: safeUrl(block.url), note: safeText(block.note, 1_000) || undefined }];
+    if (type === "source") return [{ id, type, label: safeText(block.label, 500), url: safeUrl(block.url), accessedAt: /^\d{4}-\d{2}-\d{2}$/.test(safeText(block.accessedAt, 10)) ? safeText(block.accessedAt, 10) : undefined, note: safeText(block.note, 1_000) || undefined }];
     if (type === "related") return [{ id, type, title: safeText(block.title, 500), href: safeUrl(block.href, true), description: safeText(block.description, 1_000) || undefined }];
     if (type === "embed") return [{ id, type, url: safeUrl(block.url), title: safeText(block.title, 500) || undefined }];
     return [];
@@ -162,7 +162,22 @@ export function articleBlockSources(blocks: ArticleBlock[]) {
   return blocks
     .filter((block): block is Extract<ArticleBlock, { type: "source" }> => block.type === "source")
     .filter((block) => block.label && block.url)
-    .map(({ label, url }) => ({ label, url }));
+    .map(({ label, url, accessedAt }) => ({ label, url, ...(accessedAt ? { accessedAt } : {}) }));
+}
+
+function headingSlug(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70) || "cast";
+}
+
+export function articleBlockHeadings(blocks: ArticleBlock[]) {
+  const used = new Map<string, number>();
+  return blocks.flatMap((block) => {
+    if ((block.type !== "h2" && block.type !== "h3") || !block.text) return [];
+    const base = headingSlug(block.text);
+    const count = (used.get(base) ?? 0) + 1;
+    used.set(base, count);
+    return [{ blockId: block.id, id: count === 1 ? base : `${base}-${count}`, level: block.type === "h2" ? 2 as const : 3 as const, text: block.text }];
+  });
 }
 
 export function articleBlockImageKeys(blocks: ArticleBlock[]) {

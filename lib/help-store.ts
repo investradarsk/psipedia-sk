@@ -3,7 +3,7 @@ import { slugifyArticleTitle } from "@/lib/article-store";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import {
   defaultHelpActionLabel,
-  helpCategories,
+  allHelpCategories,
   isHelpCategory,
   type HelpCase,
   type HelpCaseStatus,
@@ -213,7 +213,7 @@ function normalizeInput(payload: ManagedHelpCaseInput) {
   if (!title) throw new Error("Doplň názov prípadu alebo výzvy.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa prípadu nie je platná.");
   if (!category) throw new Error("Vyber kategóriu pomoci.");
-  if (helpCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
+  if (allHelpCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
   if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
   if (description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
   if (!organization) throw new Error("Doplň zodpovednú organizáciu alebo osobu.");

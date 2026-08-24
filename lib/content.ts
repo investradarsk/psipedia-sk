@@ -5,6 +5,23 @@ export type ArticleSection = {
   tip?: string;
 };
 
+export type ArticleSource = {
+  label: string;
+  url: string;
+  accessedAt?: string;
+};
+
+export type ArticleSeo = {
+  title?: string;
+  description?: string;
+  canonicalUrl?: string;
+  noindex?: boolean;
+  focusKeyword?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+};
+
 export type Article = {
   slug: string;
   title: string;
@@ -20,12 +37,14 @@ export type Article = {
   author: string;
   intro: string;
   takeaway: string;
-  sources: { label: string; url: string }[];
+  sources: ArticleSource[];
   sections: ArticleSection[];
   blocks?: import("@/lib/article-blocks").ArticleBlock[];
   portalSection?: import("@/lib/portal").ArticlePortalSection;
   portalSubpage?: string;
   newsCategory?: import("@/lib/news").NewsCategorySlug;
+  seo?: ArticleSeo;
+  showUpdated?: boolean;
 };
 
 export const articles: Article[] = [

@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDirectoryPage() {
   const user = await requireAdminPageUser("/admin/adresar");
-  return <AdminShell user={user} eyebrow="Adresár psieho sveta" title="Profily a služby" description="Pridávaj trénerov, kluby, útulky a ďalšie služby. Verejné sú iba publikované profily." actions={<Link className="admin-primary-action" href="/admin/adresar/novy">+ Nový profil</Link>}><AdminDirectoryDashboard initialProfiles={await listManagedDirectoryProfiles()} /></AdminShell>;
+  return <AdminShell user={user} eyebrow="Služby pre psov" title="Profily a služby" description="Pridávaj veterinárov, trénerov, školy, kluby a ďalšie služby. Verejné sú iba publikované profily." actions={<Link className="admin-primary-action" href="/admin/adresar/novy">+ Nový profil</Link>}><AdminDirectoryDashboard initialProfiles={await listManagedDirectoryProfiles()} /></AdminShell>;
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
-import type { ArticleBlock } from "@/lib/article-blocks";
+import { articleBlockHeadings, type ArticleBlock } from "@/lib/article-blocks";
 
 function safeHref(value: string, allowInternal = false) {
   if (allowInternal && value.startsWith("/")) return value;
@@ -106,12 +106,15 @@ function embedUrl(value: string) {
 }
 
 export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBlock[]; preview?: boolean }) {
+  const headingIds = new Map(articleBlockHeadings(blocks).map((heading) => [heading.blockId, heading.id]));
+  const sources = blocks.filter((block): block is Extract<ArticleBlock, { type: "source" }> => block.type === "source" && Boolean(block.label && safeHref(block.url)));
+  const firstSourceId = sources[0]?.id;
   return (
     <div className={preview ? "article-blocks article-blocks--preview" : "article-blocks"}>
       {blocks.map((block) => {
         if (block.type === "text") return block.content ? <div className={`article-block-text article-block-text--${block.alignment ?? "left"}`} key={block.id}>{renderRichTextBlocks(block.content, block.id)}</div> : null;
-        if (block.type === "h2") return block.text ? <h2 key={block.id}>{block.text}</h2> : null;
-        if (block.type === "h3") return block.text ? <h3 key={block.id}>{block.text}</h3> : null;
+        if (block.type === "h2") return block.text ? <h2 id={headingIds.get(block.id)} key={block.id}>{block.text}</h2> : null;
+        if (block.type === "h3") return block.text ? <h3 id={headingIds.get(block.id)} key={block.id}>{block.text}</h3> : null;
         if (block.type === "image") return block.url ? (
           <figure className={`article-block-image article-block-image--${block.size ?? "normal"}`} key={block.id}>
             <img src={block.url} alt={block.alt} loading="lazy" decoding="async" />
@@ -141,8 +144,8 @@ export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBloc
           </div>
         ) : null;
         if (block.type === "source") {
-          const href = safeHref(block.url);
-          return block.label && href ? <aside className="article-block-source" key={block.id}><strong>Odborné zdroje</strong><a href={href} target="_blank" rel="noreferrer">{block.label} ↗</a>{block.note && <div className="article-block-rich-content">{renderRichTextBlocks(block.note, block.id)}</div>}</aside> : null;
+          if (block.id !== firstSourceId) return null;
+          return <aside className="article-block-source article-block-sources" key={block.id}><strong>Odborné zdroje</strong><ul>{sources.map((source) => <li key={source.id}><a href={safeHref(source.url)} target="_blank" rel="noreferrer">{source.label} ↗</a>{source.accessedAt && <small>Prístup: <time dateTime={source.accessedAt}>{new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${source.accessedAt}T12:00:00Z`))}</time></small>}{source.note && <div className="article-block-rich-content">{renderRichTextBlocks(source.note, source.id)}</div>}</li>)}</ul></aside>;
         }
         if (block.type === "related") {
           const href = safeHref(block.href, true);

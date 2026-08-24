@@ -25,9 +25,9 @@ export function SiteFooter() {
             <strong>Portál</strong>
             <Link href="/novinky">Novinky</Link>
             <Link href="/podujatia">Podujatia</Link>
-            <Link href="/adresar">Adresár</Link>
+            <Link href="/adresar">Služby pre psov</Link>
             <Link href="/pomoc-psom">Pomoc psom</Link>
-            <Link href="/recenzie">Recenzie</Link>
+            <Link href="/recenzie">Recenzie a testy</Link>
           </div>
           <div>
             <strong>Psipedia</strong>

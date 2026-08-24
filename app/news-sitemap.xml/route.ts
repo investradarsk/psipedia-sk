@@ -17,7 +17,7 @@ export async function GET() {
   const now = Date.now();
   const twoDays = 2 * 24 * 60 * 60 * 1000;
   const articles = (await getPublishedArticles()).filter((article) => {
-    if (articlePortalSection(article) !== "novinky") return false;
+    if (articlePortalSection(article) !== "novinky" || article.seo?.noindex) return false;
     const published = new Date(`${article.dateIso}T00:00:00.000Z`).getTime();
     return Number.isFinite(published) && published <= now && now - published <= twoDays;
   });

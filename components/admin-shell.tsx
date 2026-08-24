@@ -44,7 +44,7 @@ export function AdminShell({
           <Link href="/admin/tipy">Tipy od čitateľov</Link>
           <Link href="/admin/hodnotenia">Hodnotenia článkov</Link>
           <Link href="/admin/podujatia">Podujatia</Link>
-          <Link href="/admin/adresar">Adresár</Link>
+          <Link href="/admin/adresar">Služby pre psov</Link>
           <Link href="/admin/dopyty">Dopyty</Link>
           <Link href="/admin/pomoc">Pomoc psom</Link>
           <Link href="/admin/navigacia">Navigácia</Link>

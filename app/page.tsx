@@ -4,8 +4,7 @@ import { ArticleCard } from "@/components/article-card";
 import { BreedCard } from "@/components/breed-card";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
 import { HomePortalSearch, type HomeSearchItem } from "@/components/home-portal-search";
-import { ArrowIcon, BowlIcon, CheckIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
-import { categories } from "@/lib/content";
+import { ArrowIcon, CheckIcon, PawMark, SparkIcon } from "@/components/icons";
 import { getPublishedArticles } from "@/lib/article-store";
 import { listPublishedBreeds } from "@/lib/breed-store";
 import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
@@ -30,13 +29,6 @@ export const metadata: Metadata = {
   title: { absolute: "Psipedia.sk – rozumej svojmu psovi" },
 };
 
-function CategoryIcon({ name }: { name: string }) {
-  if (name === "whistle") return <WhistleIcon />;
-  if (name === "heart") return <HeartIcon />;
-  if (name === "bowl") return <BowlIcon />;
-  return <PawMark size={26} />;
-}
-
 const starterGuides = [
   { icon: "🐶", eyebrow: "Šteniatko", title: "Prvé dni doma bez chaosu", description: "Režim, spánok, čistotnosť a pokojný začiatok spoločného života.", href: "/steniatka/prve-dni" },
   { icon: "🩺", eyebrow: "Starostlivosť", title: "Zdravie a varovné signály", description: "Čo môžeš sledovať doma a kedy už patrí problém veterinárovi.", href: "/starostlivost/zdravie" },
@@ -53,10 +45,10 @@ export default async function Home() {
     listPublishedBreeds(),
   ]);
   const portalSections = managedSections.filter((section) => section.visible);
-  const heroArticle = publishedArticles[0];
-  const heroIsNews = heroArticle ? articlePortalSection(heroArticle) === "novinky" : false;
-  const featuredArticles = publishedArticles.slice(1, 4);
   const newsArticles = publishedArticles.filter((article) => articlePortalSection(article) === "novinky");
+  const guideArticles = publishedArticles.filter((article) => articlePortalSection(article) !== "novinky");
+  const heroArticle = guideArticles[0];
+  const featuredArticles = guideArticles.slice(1, 4);
   const newsLead = newsArticles[0];
   const nextEvents = publishedEvents.filter((event) => !event.cancelled && !eventIsPast(event)).slice(0, 2);
   const featuredProfiles = directoryProfiles.slice(0, 2);
@@ -69,7 +61,7 @@ export default async function Home() {
     ...breeds.map((breed) => ({ href: `/plemena/${breed.slug}`, title: breed.name, type: "Plemeno", keywords: `${breed.group} ${breed.intro}` })),
     ...publishedArticles.map((article) => ({ href: articleHref(article), title: article.title, type: articlePortalSection(article) === "novinky" ? "Novinka" : "Článok", keywords: `${article.excerpt} ${article.category} ${getNewsCategory(article.newsCategory)?.label ?? ""}` })),
     ...publishedEvents.map((event) => ({ href: eventHref(event), title: event.title, type: "Podujatie", keywords: `${event.eventType} ${event.city} ${event.region}` })),
-    ...directoryProfiles.map((profile) => ({ href: directoryProfileHref(profile), title: profile.name, type: "Adresár", keywords: `${profile.excerpt} ${profile.city} ${profile.region} ${profile.services.join(" ")}` })),
+    ...directoryProfiles.map((profile) => ({ href: directoryProfileHref(profile), title: profile.name, type: "Služby pre psov", keywords: `${profile.excerpt} ${profile.city} ${profile.region} ${profile.services.join(" ")}` })),
     ...publishedHelpCases.map((item) => ({ href: helpCaseHref(item), title: item.title, type: "Pomoc psom", keywords: `${item.excerpt} ${item.city} ${item.region} ${item.organization}` })),
   ];
   const schema = {
@@ -119,14 +111,14 @@ export default async function Home() {
           <div className="hero-copy">
             <span className="hero-kicker"><SparkIcon size={17} /> Slovenský portál pre psí život</span>
             <h1>Rozumej svojmu psovi.<br /><em>Každý deň o trochu viac.</em></h1>
-            <p>Od noviniek a šteniatok cez zdravie a šport až po podujatia, trénerov, recenzie a pomoc psom – všetko na jednom mieste.</p>
+            <p>Overené informácie, služby a pomoc pre každodenný život so psom.</p>
             <div className="hero-actions">
               <Link className="button button--coral" href="#portal">Objaviť portál <ArrowIcon /></Link>
               <Link className="button button--glass" href="/plemena">Nájsť plemeno</Link>
             </div>
           </div>
           <Link href={heroArticle ? articleHref(heroArticle) : "/steniatka/prve-dni"} className="hero-feature">
-            <span>{heroArticle ? `${heroIsNews ? "Novinka" : "Nový sprievodca"} · ${heroArticle.readTime}` : "Odporúčaný začiatok"}</span>
+            <span>{heroArticle ? `Nový sprievodca · ${heroArticle.readTime}` : "Odporúčaný začiatok"}</span>
             <strong>{heroArticle?.title ?? "Prvé dni so šteniatkom bez zbytočného chaosu"}</strong>
             <ArrowIcon />
           </Link>
@@ -146,7 +138,7 @@ export default async function Home() {
       <section className="section shell home-news-section">
         <div className="home-news-panel">
           <div className="home-news-heading">
-            <div><span className="home-news-live"><i aria-hidden="true" /> Novinky</span><h2>Čo sa deje vo svete psov</h2><p>Záchrana, hrdinské príbehy, veda, nové lieky, zákony aj psy pomáhajúce pri katastrofách — overené a vysvetlené v súvislostiach.</p></div>
+            <div><span className="home-news-live"><i aria-hidden="true" /> Aktuálne</span><h2>Novinky zo sveta psov</h2><p>Dôležité správy a príbehy overené a vysvetlené v súvislostiach.</p></div>
             <Link href="/novinky" className="button button--dark">Všetky novinky <ArrowIcon /></Link>
           </div>
           {newsLead ? (
@@ -180,7 +172,7 @@ export default async function Home() {
             <span className="eyebrow">Práve na Psipedii</span>
             <h2>Portál, ktorý sa hýbe s komunitou</h2>
           </div>
-          <p>Najnovšie termíny, overené profily a aktuálne výzvy nájdeš vždy v jednom prehľade.</p>
+          <p>Najbližšie termíny, profily a aktuálne výzvy.</p>
         </div>
         <div className="home-live-grid">
           <article className="home-live-card home-live-card--events">
@@ -198,7 +190,7 @@ export default async function Home() {
           </article>
 
           <article className="home-live-card home-live-card--directory">
-            <header><span aria-hidden="true">📍</span><div><small>Adresár</small><h3>Odborníci a služby</h3></div><b>{featuredProfiles.length}</b></header>
+            <header><span aria-hidden="true">📍</span><div><small>Služby pre psov</small><h3>Odborníci a služby</h3></div><b>{featuredProfiles.length}</b></header>
             <div className="home-live-list">
               {featuredProfiles.length ? featuredProfiles.map((profile) => (
                 <Link href={directoryProfileHref(profile)} key={profile.id}>
@@ -206,9 +198,9 @@ export default async function Home() {
                   <strong>{profile.name}</strong>
                   <small>{profile.verified ? "✓ Overený profil" : profile.excerpt}</small>
                 </Link>
-              )) : <div className="home-live-empty"><strong>Vyber si, koho hľadáš</strong><p>Tréneri, psie školy, kluby, veterinári aj útulky podľa kraja.</p><div><Link href="/adresar/treneri">Tréneri</Link><Link href="/adresar/kynologicke-kluby">Kluby</Link></div></div>}
+              )) : <div className="home-live-empty"><strong>Vyber si, koho hľadáš</strong><p>Veterinári, tréneri, školy a kluby podľa kraja.</p><div><Link href="/adresar/treneri">Tréneri</Link><Link href="/adresar/kynologicke-kluby">Kluby</Link></div></div>}
             </div>
-            <Link className="home-live-footer" href="/adresar">Prehľadať adresár <ArrowIcon size={18} /></Link>
+            <Link className="home-live-footer" href="/adresar">Nájsť službu <ArrowIcon size={18} /></Link>
           </article>
 
           <article className="home-live-card home-live-card--help">
@@ -228,12 +220,12 @@ export default async function Home() {
       </section>
 
       <section className="section shell" id="portal">
-        <div className="section-heading split-heading">
+        <div className="section-heading split-heading home-portal-heading">
           <div>
             <span className="eyebrow">Celý život so psom</span>
             <h2>Psipedia je viac než magazín</h2>
           </div>
-          <p>Každá sekcia má vlastnú adresu a jasné podsekcie. Vyber si, čo práve potrebuješ.</p>
+          <p>Vyber si, čo práve potrebuješ.</p>
         </div>
         <div className="portal-grid">
           {portalSections.map((section) => (
@@ -241,25 +233,6 @@ export default async function Home() {
               <span className="portal-gateway-icon" aria-hidden="true">{section.icon}</span>
               <div><span>{section.eyebrow}</span><h3>{section.label}</h3><p>{section.description}</p></div>
               <ArrowIcon size={21} />
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="section shell">
-        <div className="section-heading split-heading">
-          <div>
-            <span className="eyebrow">Začni témou</span>
-            <h2>Čo dnes riešiš?</h2>
-          </div>
-          <p>Vyber si oblasť a nájdi odpoveď bez nekonečného preklikávania.</p>
-        </div>
-        <div className="category-grid">
-          {categories.map((category, index) => (
-            <Link href={`/tema/${category.slug}`} className={`category-card category-card--${index + 1}`} key={category.slug}>
-              <span className="category-icon"><CategoryIcon name={category.icon} /></span>
-              <div><h3>{category.label}</h3><p>{category.description}</p></div>
-              <ArrowIcon />
             </Link>
           ))}
         </div>

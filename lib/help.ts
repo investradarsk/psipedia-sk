@@ -3,7 +3,7 @@ import type { SlovakRegion } from "@/lib/events";
 export const helpCategories = [
   {
     slug: "adopcia",
-    label: "Adopcia",
+    label: "Psy na adopciu",
     singular: "Pes na adopciu",
     icon: "🏠",
     description: "Psy, ktoré hľadajú bezpečný, zodpovedný a trvalý domov.",
@@ -16,27 +16,6 @@ export const helpCategories = [
     description: "Overené útulky, občianske združenia a ich aktuálne potreby.",
   },
   {
-    slug: "stratene-a-najdene",
-    label: "Stratené a nájdené",
-    singular: "Stratený alebo nájdený pes",
-    icon: "🔎",
-    description: "Rýchle zdieľanie presnej lokality, času a dôležitých znakov psa.",
-  },
-  {
-    slug: "urgentne-pripady",
-    label: "Urgentné prípady",
-    singular: "Urgentný prípad",
-    icon: "🚨",
-    description: "Overená pomoc, pri ktorej rozhoduje čas a konkrétna potreba.",
-  },
-  {
-    slug: "zbierky",
-    label: "Overené zbierky",
-    singular: "Overená zbierka",
-    icon: "💛",
-    description: "Transparentné výzvy so známym organizátorom, cieľom a odkazom.",
-  },
-  {
     slug: "docasna-opatera",
     label: "Dočasná opatera",
     singular: "Hľadá sa dočasná opatera",
@@ -44,15 +23,34 @@ export const helpCategories = [
     description: "Pomoc psovi na obmedzený čas, kým sa nájde trvalé riešenie.",
   },
   {
+    slug: "zbierky",
+    label: "Zbierky a výzvy",
+    singular: "Overená zbierka",
+    icon: "💛",
+    description: "Transparentné výzvy so známym organizátorom, cieľom a odkazom.",
+  },
+  {
+    slug: "stratene-a-najdene",
+    label: "Stratené a nájdené psy",
+    singular: "Stratený alebo nájdený pes",
+    icon: "🔎",
+    description: "Rýchle zdieľanie presnej lokality, času a dôležitých znakov psa.",
+  },
+  {
     slug: "dobrovolnictvo",
-    label: "Dobrovoľníctvo",
+    label: "Ako pomôcť",
     singular: "Dobrovoľnícka výzva",
     icon: "🐾",
     description: "Venčenie, prevoz, materiálna pomoc, fotografovanie a ďalšie možnosti.",
   },
 ] as const;
 
-export type HelpCategorySlug = (typeof helpCategories)[number]["slug"];
+const legacyHelpCategories = [
+  { slug: "urgentne-pripady", label: "Urgentné prípady", singular: "Urgentný prípad", icon: "🚨", description: "Pôvodná kategória zachovaná pre existujúce prípady." },
+] as const;
+
+export const allHelpCategories = [...helpCategories, ...legacyHelpCategories] as const;
+export type HelpCategorySlug = (typeof allHelpCategories)[number]["slug"];
 export type HelpCaseStatus = "draft" | "published";
 
 export type HelpCase = {
@@ -90,11 +88,11 @@ export type HelpCase = {
 };
 
 export function getHelpCategory(slug: string) {
-  return helpCategories.find((category) => category.slug === slug) ?? null;
+  return allHelpCategories.find((category) => category.slug === slug) ?? null;
 }
 
 export function isHelpCategory(value: string): value is HelpCategorySlug {
-  return helpCategories.some((category) => category.slug === value);
+  return allHelpCategories.some((category) => category.slug === value);
 }
 
 export function helpCategoryHref(category: Pick<(typeof helpCategories)[number], "slug">) {

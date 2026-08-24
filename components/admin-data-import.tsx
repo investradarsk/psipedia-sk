@@ -13,7 +13,7 @@ type ImportPayload = {
 
 const inputs = [
   { name: "articles", label: "Články a koncepty", sourceKey: "articles" },
-  { name: "profiles", label: "Adresár", sourceKey: "profiles" },
+  { name: "profiles", label: "Služby pre psov", sourceKey: "profiles" },
   { name: "events", label: "Podujatia", sourceKey: "events" },
   { name: "helpItems", label: "Pomoc psom", sourceKey: "items" },
   { name: "legal", label: "Právne nastavenia", sourceKey: "settings" },

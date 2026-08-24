@@ -26,6 +26,17 @@ async function ensure(db: D1Database) {
       (slug,label,eyebrow,description,intro,subpages_json,position,visible,updated_at,updated_by)
       VALUES (?,?,?,?,?,?,?,?,?,?)
     `).bind(section.slug, section.label, section.eyebrow, section.description, section.intro, JSON.stringify(section.subpages), position, 1, now, "system@psipedia.sk")));
+    const refreshedSections = portalSections.filter((section) => ["adresar", "pomoc-psom", "recenzie"].includes(section.slug));
+    await db.batch(refreshedSections.map((section) => db.prepare(`
+      UPDATE portal_section_settings
+      SET label=?, description=?, intro=?, subpages_json=?, updated_at=?, updated_by=?
+      WHERE slug=? AND (
+        label IN ('Adresár','Recenzie') OR
+        subpages_json LIKE '%"utulky-a-zachrana"%' OR
+        subpages_json LIKE '%"urgentne-pripady"%' OR
+        subpages_json LIKE '%"vybava"%'
+      )
+    `).bind(section.label, section.description, section.intro, JSON.stringify(section.subpages), now, "system@psipedia.sk", section.slug)));
   })().catch((error) => { ready = null; throw error; });
   return ready;
 }

@@ -10,6 +10,7 @@ import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSubpageHref, type PortalSection } from "@/lib/portal";
 import { listManagedPortalSections } from "@/lib/section-store";
+import { articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
 
 export type PortalSearchItem = {
   href: string;
@@ -51,7 +52,7 @@ function baseSearchItems(articles: Article[], sections: PortalSection[], breeds:
       title: article.title,
       type: articlePortalSection(article) === "novinky" ? "Novinka" : "Článok",
       description: article.excerpt,
-      keywords: `${article.category} ${getNewsCategory(article.newsCategory)?.label ?? ""} ${article.intro}`,
+      keywords: `${article.category} ${getNewsCategory(article.newsCategory)?.label ?? ""} ${article.intro} ${article.takeaway} ${article.seo?.focusKeyword ?? ""} ${articleBlockPlainText(article.blocks?.length ? article.blocks : legacyArticleBlocks(article.sections, article.sources))}`,
     })),
   ];
 }
@@ -61,8 +62,7 @@ function uniqueItems(items: PortalSearchItem[]) {
 }
 
 export async function getHeaderSearchIndex() {
-  const [articles, sections, breeds] = await Promise.all([getPublishedArticles(), listManagedPortalSections(), listPublishedBreeds()]);
-  return uniqueItems(baseSearchItems(articles, sections.filter((section) => section.visible), breeds));
+  return getPortalSearchIndex();
 }
 
 export async function getPortalSearchIndex() {
@@ -78,8 +78,11 @@ export async function getPortalSearchIndex() {
   const items: PortalSearchItem[] = [
     ...baseSearchItems(articles, sections.filter((section) => section.visible), breeds),
     ...events.map((event) => ({ href: eventHref(event), title: event.title, type: "Podujatie", description: `${formatEventDate(event)} · ${event.city}`, keywords: `${event.eventType} ${event.organizer} ${event.region} ${event.venue}` })),
-    ...profiles.map((profile) => ({ href: directoryProfileHref(profile), title: profile.name, type: getDirectoryCategory(profile.category)?.singular ?? "Adresár", description: `${profile.excerpt} · ${profile.city}`, keywords: `${profile.region} ${profile.services.join(" ")} ${profile.qualifications.join(" ")}` })),
-    ...helpCases.map((item) => ({ href: helpCaseHref(item), title: item.title, type: getHelpCategory(item.category)?.singular ?? "Pomoc psom", description: `${item.excerpt} · ${item.city}`, keywords: `${item.organization} ${item.region} ${item.dogName} ${item.breed}` })),
+    ...profiles.map((profile) => {
+      const type = profile.category === "veterinari" ? "Veterinár" : profile.category === "treneri" ? "Psí tréner" : profile.category === "utulky-a-zachrana" ? "Útulok" : "Služba pre psov";
+      return { href: directoryProfileHref(profile), title: profile.name, type, description: `${profile.excerpt} · ${profile.city}`, keywords: `${getDirectoryCategory(profile.category)?.label ?? ""} ${profile.region} ${profile.address} ${profile.description} ${profile.services.join(" ")} ${profile.qualifications.join(" ")}` };
+    }),
+    ...helpCases.map((item) => ({ href: helpCaseHref(item), title: item.title, type: item.category === "utulky" ? "Útulok" : "Pomoc psom", description: `${item.excerpt} · ${item.city}`, keywords: `${getHelpCategory(item.category)?.label ?? ""} ${item.organization} ${item.region} ${item.dogName} ${item.breed} ${item.description}` })),
   ];
 
   return uniqueItems(items);

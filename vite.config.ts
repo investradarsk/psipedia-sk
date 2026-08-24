@@ -10,7 +10,7 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const localBindingConfig = {
   main: "./worker/index.ts",
-  compatibility_flags: ["nodejs_compat"],
+  compatibility_date: "2026-05-22",
   d1_databases: d1
     ? [
         {
@@ -21,7 +21,6 @@ const localBindingConfig = {
         },
       ]
     : [],
-  // Cloudflare provisions the R2 bucket on the first successful deployment.
   r2_buckets: r2
     ? [
         {

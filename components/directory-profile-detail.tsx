@@ -49,7 +49,7 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
     <main id="obsah">
       <header className="directory-detail-hero">
         <div className="shell">
-          <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span><Link href="/adresar">Adresár</Link><span>/</span><Link href={`/adresar/${profile.category}`}>{category?.label}</Link><span>/</span><span>{profile.name}</span></nav>
+          <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span><Link href="/adresar">Služby pre psov</Link><span>/</span><Link href={`/adresar/${profile.category}`}>{category?.label}</Link><span>/</span><span>{profile.name}</span></nav>
           <div className="directory-detail-hero-grid">
             <div>
               <div className="directory-detail-tags"><span>{category?.singular}</span>{profile.verified && <b>✓ Overený profil</b>}{profile.featured && <b>Odporúčame</b>}</div>

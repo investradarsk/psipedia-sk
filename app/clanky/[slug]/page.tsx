@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
 import { getPublishedArticle, getPublishedArticles } from "@/lib/article-store";
+import { buildArticleMetadata } from "@/lib/article-seo";
 import { articles as seedArticles } from "@/lib/content";
 import { articleHref } from "@/lib/portal";
-import { buildPageMetadata, searchResultTitle } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -18,18 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const article = await getPublishedArticle(slug);
   if (!article) return {};
-  return buildPageMetadata({
-    title: searchResultTitle(article.title),
-    description: article.excerpt,
-    path: articleHref(article),
-    image: article.image || null,
-    imageAlt: article.title,
-    type: "article",
-    publishedTime: article.dateIso,
-    modifiedTime: article.updatedDateIso,
-    authors: [article.author],
-    section: article.category,
-  });
+  return buildArticleMetadata(article);
 }
 
 export default async function LegacyArticlePage({ params }: Props) {

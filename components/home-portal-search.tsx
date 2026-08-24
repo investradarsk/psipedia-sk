@@ -31,7 +31,7 @@ export function HomePortalSearch({ items }: { items: HomeSearchItem[] }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (matches[0]) window.location.assign(matches[0].href);
+    if (needle.length >= 2) window.location.assign(`/hladat?q=${encodeURIComponent(query.trim())}`);
   }
 
   return (
@@ -51,7 +51,7 @@ export function HomePortalSearch({ items }: { items: HomeSearchItem[] }) {
             placeholder="Skús „šteniatko“, „labrador“, „tréner“..."
             autoComplete="off"
           />
-          <button type="submit" disabled={!matches.length}>Nájsť</button>
+          <button type="submit" disabled={needle.length < 2}>Nájsť všetko</button>
         </form>
         {needle.length >= 2 && (
           <div className="home-search-results" aria-live="polite">
