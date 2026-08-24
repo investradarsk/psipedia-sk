@@ -94,6 +94,8 @@ export const directoryProfiles = sqliteTable(
     internalEmail: text("internal_email"),
     imageUrl: text("image_url"),
     imageKey: text("image_key"),
+    importKey: text("import_key"),
+    sourceDataJson: text("source_data_json").notNull().default("{}"),
     verified: integer("verified").notNull().default(0),
     featured: integer("featured").notNull().default(0),
     createdAt: text("created_at").notNull(),
@@ -104,6 +106,7 @@ export const directoryProfiles = sqliteTable(
   },
   (table) => [
     uniqueIndex("directory_profiles_category_slug_unique").on(table.category, table.slug),
+    uniqueIndex("directory_profiles_import_key_unique").on(table.importKey),
     index("directory_profiles_public_idx").on(table.status, table.category, table.region, table.featured),
     index("directory_profiles_updated_idx").on(table.updatedAt),
   ],

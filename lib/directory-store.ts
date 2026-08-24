@@ -63,6 +63,8 @@ type DirectoryProfileRow = {
   internal_email: string | null;
   image_url: string | null;
   image_key: string | null;
+  import_key: string | null;
+  source_data_json: string;
   verified: number;
   featured: number;
   created_at: string;
@@ -127,6 +129,8 @@ async function ensureDirectoryStore(database: D1Database) {
         internal_email TEXT,
         image_url TEXT,
         image_key TEXT,
+        import_key TEXT,
+        source_data_json TEXT NOT NULL DEFAULT '{}',
         verified INTEGER NOT NULL DEFAULT 0,
         featured INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
@@ -136,6 +140,13 @@ async function ensureDirectoryStore(database: D1Database) {
         updated_by TEXT NOT NULL
       )
     `).run();
+    const profileColumns = await database.prepare("PRAGMA table_info(directory_profiles)").all<{ name: string }>();
+    if (!profileColumns.results.some((column) => column.name === "import_key")) {
+      await database.prepare("ALTER TABLE directory_profiles ADD COLUMN import_key TEXT").run();
+    }
+    if (!profileColumns.results.some((column) => column.name === "source_data_json")) {
+      await database.prepare("ALTER TABLE directory_profiles ADD COLUMN source_data_json TEXT NOT NULL DEFAULT '{}'").run();
+    }
     await database.prepare(`
       CREATE TABLE IF NOT EXISTS directory_inquiries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -161,6 +172,7 @@ async function ensureDirectoryStore(database: D1Database) {
     }
     await database.batch([
       database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS directory_profiles_category_slug_unique ON directory_profiles (category, slug)"),
+      database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS directory_profiles_import_key_unique ON directory_profiles (import_key)"),
       database.prepare("CREATE INDEX IF NOT EXISTS directory_profiles_public_idx ON directory_profiles (status, category, region, featured)"),
       database.prepare("CREATE INDEX IF NOT EXISTS directory_profiles_updated_idx ON directory_profiles (updated_at)"),
       database.prepare("CREATE INDEX IF NOT EXISTS directory_inquiries_status_created_idx ON directory_inquiries (status, created_at)"),
@@ -180,6 +192,16 @@ function safeList(value: string) {
     return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim()).slice(0, 20) : [];
   } catch {
     return [];
+  }
+}
+
+function safeImportData(value: string) {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return Object.fromEntries(Object.entries(parsed).filter(([, item]) => item === null || typeof item === "string" || typeof item === "number"));
+  } catch {
+    return null;
   }
 }
 
@@ -203,6 +225,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
+    importData: safeImportData(row.source_data_json),
   };
 }
 
