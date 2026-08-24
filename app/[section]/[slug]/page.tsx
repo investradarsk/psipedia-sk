@@ -7,7 +7,8 @@ import { PortalTopic } from "@/components/portal-topic";
 import { getPublishedArticle, getPublishedArticles } from "@/lib/article-store";
 import { getPublishedEvent, getPublishedEvents } from "@/lib/event-store";
 import { eventHref, eventTypeFromPortalSlug } from "@/lib/events";
-import { articleHref, getPortalSection, getPortalSubpage, portalSections } from "@/lib/portal";
+import { articleHref, portalSections } from "@/lib/portal";
+import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-store";
 import { buildPageMetadata, searchResultTitle } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { section, slug } = await params;
-  const portalTopic = getPortalSubpage(section, slug);
+  const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic) {
     return buildPageMetadata({
       title: `${portalTopic.subpage.label} – ${portalTopic.section.label}`,
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     });
   }
 
-  if (!getPortalSection(section)) return {};
+  if (!(await getManagedPortalSection(section))?.visible) return {};
   if (section === "podujatia") {
     const event = await getPublishedEvent(slug);
     if (event) {
@@ -62,8 +63,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PortalContentPage({ params }: Props) {
   const { section, slug } = await params;
-  if (!getPortalSection(section)) notFound();
-  const portalTopic = getPortalSubpage(section, slug);
+  if (!(await getManagedPortalSection(section))?.visible) notFound();
+  const portalTopic = await getManagedPortalSubpage(section, slug);
   if (section === "podujatia" && (slug === "kalendar" || eventTypeFromPortalSlug(slug))) {
     return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} />;
   }

@@ -6,6 +6,12 @@ import {
   type ArticlePortalSection,
 } from "@/lib/portal";
 import { isNewsCategory, type NewsCategorySlug } from "@/lib/news";
+import {
+  articleBlockSources,
+  legacyArticleBlocks,
+  normalizeArticleBlocks,
+  type ArticleBlock,
+} from "@/lib/article-blocks";
 
 export type ArticleStatus = "draft" | "published";
 
@@ -35,6 +41,7 @@ export type ManagedArticleInput = {
   intro?: string;
   takeaway?: string;
   sections?: ArticleSection[];
+  blocks?: ArticleBlock[];
   sources?: { label: string; url: string }[];
   imageUrl?: string | null;
   imageKey?: string | null;
@@ -56,6 +63,7 @@ type ArticleRow = {
   takeaway: string;
   sections_json: string;
   sources_json: string;
+  blocks_json: string;
   image_url: string | null;
   image_key: string | null;
   reading_minutes: number;
@@ -108,6 +116,7 @@ async function ensureArticleStore(database: D1Database) {
           takeaway TEXT NOT NULL,
           sections_json TEXT NOT NULL DEFAULT '[]',
           sources_json TEXT NOT NULL DEFAULT '[]',
+          blocks_json TEXT NOT NULL DEFAULT '[]',
           image_url TEXT,
           image_key TEXT,
           reading_minutes INTEGER NOT NULL DEFAULT 5,
@@ -130,6 +139,11 @@ async function ensureArticleStore(database: D1Database) {
     if (!tableInfo.results.some((column) => column.name === "news_category")) {
       await database
         .prepare("ALTER TABLE managed_articles ADD COLUMN news_category TEXT")
+        .run();
+    }
+    if (!tableInfo.results.some((column) => column.name === "blocks_json")) {
+      await database
+        .prepare("ALTER TABLE managed_articles ADD COLUMN blocks_json TEXT NOT NULL DEFAULT '[]'")
         .run();
     }
 
@@ -155,9 +169,9 @@ async function ensureArticleStore(database: D1Database) {
         .prepare(`
           INSERT OR IGNORE INTO managed_articles (
             slug, title, excerpt, category, portal_section, news_category, status, accent, author, intro,
-            takeaway, sections_json, sources_json, image_url, image_key,
+            takeaway, sections_json, sources_json, blocks_json, image_url, image_key,
             reading_minutes, created_at, updated_at, published_at, created_by, updated_by
-          ) VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, '[]', ?, NULL, ?, ?, ?, ?, ?, ?)
         `)
         .bind(
           article.slug,
@@ -239,6 +253,10 @@ function formatSlovakDate(value: string) {
 
 function rowToManagedArticle(row: ArticleRow): ManagedArticle {
   const publishedAt = row.published_at ?? row.created_at;
+  const sections = parseJsonArray<ArticleSection>(row.sections_json, []);
+  const sources = parseJsonArray<{ label: string; url: string }>(row.sources_json, []);
+  const storedBlocks = parseJsonArray<ArticleBlock>(row.blocks_json ?? "[]", []);
+  const blocks = storedBlocks.length ? normalizeArticleBlocks(storedBlocks) : legacyArticleBlocks(sections, sources);
   return {
     id: row.id,
     slug: row.slug,
@@ -257,8 +275,9 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
     author: row.author,
     intro: row.intro,
     takeaway: row.takeaway,
-    sections: parseJsonArray<ArticleSection>(row.sections_json, []),
-    sources: parseJsonArray<{ label: string; url: string }>(row.sources_json, []),
+    sections,
+    sources,
+    blocks,
     status: row.status === "published" ? "published" : "draft",
     imageKey: row.image_key,
     readingMinutes: row.reading_minutes,
@@ -309,7 +328,9 @@ function normalizeInput(payload: ManagedArticleInput) {
       tip: section.tip?.trim() || undefined,
     }))
     .filter((section) => section.heading || section.paragraphs.length || section.bullets?.length || section.tip);
-  const sources = (payload.sources ?? [])
+  const blocks = normalizeArticleBlocks(payload.blocks ?? []);
+  const blockSources = articleBlockSources(blocks);
+  const sources = (blockSources.length ? blockSources : payload.sources ?? [])
     .map((source) => ({ label: source.label?.trim() ?? "", url: source.url?.trim() ?? "" }))
     .filter((source) => source.label || source.url);
 
@@ -322,10 +343,7 @@ function normalizeInput(payload: ManagedArticleInput) {
   if (excerpt.length < 20) throw new Error("Perex by mal mať aspoň 20 znakov.");
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
   if (takeaway.length < 10) throw new Error("Doplň hlavné posolstvo článku.");
-  if (!sections.length) throw new Error("Pridaj aspoň jednu obsahovú sekciu.");
-  if (sections.some((section) => !section.heading || !section.paragraphs.length)) {
-    throw new Error("Každá sekcia potrebuje nadpis a aspoň jeden odsek.");
-  }
+  if (!blocks.length && !sections.length) throw new Error("Pridaj aspoň jeden obsahový blok.");
   if (portalSection === "novinky" && status === "published" && !sources.length) {
     throw new Error("Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj.");
   }
@@ -340,6 +358,18 @@ function normalizeInput(payload: ManagedArticleInput) {
     }
     if (url.protocol !== "https:" && url.protocol !== "http:") {
       throw new Error(`Odkaz na zdroj „${source.label}“ musí začínať http:// alebo https://.`);
+    }
+  }
+
+  for (const block of blocks) {
+    if ((block.type === "image" && block.url && !block.alt) || (block.type === "gallery" && block.images.some((image) => !image.alt))) {
+      throw new Error("Každý obrázok v obsahu potrebuje alt text.");
+    }
+    if (block.type === "source" && (!block.label || !block.url)) {
+      throw new Error("Každý odborný zdroj potrebuje názov aj odkaz.");
+    }
+    if (block.type === "related" && (!block.title || !block.href)) {
+      throw new Error("Súvisiaci článok potrebuje názov aj odkaz.");
     }
   }
 
@@ -367,6 +397,7 @@ function normalizeInput(payload: ManagedArticleInput) {
     takeaway,
     sections,
     sources,
+    blocks,
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
     readingMinutes,
@@ -426,9 +457,9 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
     .prepare(`
       INSERT INTO managed_articles (
         slug, title, excerpt, category, portal_section, news_category, status, accent, author, intro,
-        takeaway, sections_json, sources_json, image_url, image_key,
+        takeaway, sections_json, sources_json, blocks_json, image_url, image_key,
         reading_minutes, created_at, updated_at, published_at, created_by, updated_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `)
     .bind(
@@ -445,6 +476,7 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
       input.takeaway,
       JSON.stringify(input.sections),
       JSON.stringify(input.sources),
+      JSON.stringify(input.blocks),
       input.imageUrl,
       input.imageKey,
       input.readingMinutes,
@@ -480,7 +512,7 @@ export async function updateManagedArticle(
     .prepare(`
       UPDATE managed_articles SET
         slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, news_category = ?, status = ?, accent = ?,
-        author = ?, intro = ?, takeaway = ?, sections_json = ?, sources_json = ?,
+        author = ?, intro = ?, takeaway = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
         image_url = ?, image_key = ?, reading_minutes = ?, updated_at = ?,
         published_at = ?, updated_by = ?
       WHERE id = ?
@@ -500,6 +532,7 @@ export async function updateManagedArticle(
       input.takeaway,
       JSON.stringify(input.sections),
       JSON.stringify(input.sources),
+      JSON.stringify(input.blocks),
       input.imageUrl,
       input.imageKey,
       input.readingMinutes,

@@ -3,26 +3,34 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { PortalSearchItem } from "@/lib/portal-search";
+import type { NavigationItem } from "@/lib/navigation";
 import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
-
-const nav = portalSections.map((section) => ({
-  href: `/${section.slug}`,
-  label: section.navLabel ?? section.label,
-  className: section.slug === "pomoc-psom" ? "nav-help" : section.slug === "novinky" ? "nav-news" : undefined,
-}));
 
 function normalizeSearch(value: string) {
   return value.toLocaleLowerCase("sk").normalize("NFD").replace(/\p{Diacritic}/gu, "");
 }
 
-export function SiteHeader({ searchIndex }: { searchIndex: PortalSearchItem[] }) {
+export function SiteHeader({ searchIndex, navigationItems }: { searchIndex: PortalSearchItem[]; navigationItems: NavigationItem[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [favoriteCount, setFavoriteCount] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const nav = useMemo(() => {
+    const visible = navigationItems.filter((item) => item.visible);
+    return visible.filter((item) => !item.parentId).map((item) => {
+      const slug = item.href.split("/").filter(Boolean)[0] ?? "";
+      const section = portalSections.find((candidate) => candidate.slug === slug);
+      return {
+        ...item,
+        className: slug === "pomoc-psom" ? "nav-help" : slug === "novinky" ? "nav-news" : undefined,
+        title: section?.description,
+        children: visible.filter((child) => child.parentId === item.id),
+      };
+    });
+  }, [navigationItems]);
 
   useEffect(() => {
     function updateCount() {
@@ -91,7 +99,12 @@ export function SiteHeader({ searchIndex }: { searchIndex: PortalSearchItem[] })
           </Link>
 
           <nav className="desktop-nav" aria-label="Hlavná navigácia">
-            {nav.map((item) => <Link href={item.href} className={item.className} key={item.href}>{item.label}</Link>)}
+            {nav.map((item) => item.children.length ? (
+              <div className="nav-group" key={item.id}>
+                <Link href={item.href} className={item.className} title={item.title}>{item.label}<span aria-hidden="true">⌄</span></Link>
+                <div className="nav-submenu">{item.children.map((child) => <Link href={child.href} key={child.id}>{child.label}</Link>)}</div>
+              </div>
+            ) : <Link href={item.href} className={item.className} title={item.title} key={item.id}>{item.label}</Link>)}
           </nav>
 
           <div className="header-actions">
@@ -118,7 +131,12 @@ export function SiteHeader({ searchIndex }: { searchIndex: PortalSearchItem[] })
 
         <div id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`}>
           <nav className="shell" aria-label="Mobilná navigácia">
-            {nav.map((item) => <Link href={item.href} className={item.className} key={item.href} onClick={() => setMenuOpen(false)}>{item.label}</Link>)}
+            {nav.map((item) => (
+              <div className="mobile-nav-group" key={item.id}>
+                <Link href={item.href} className={item.className} title={item.title} onClick={() => setMenuOpen(false)}>{item.label}</Link>
+                {item.children.length > 0 && <div className="mobile-nav-children">{item.children.map((child) => <Link href={child.href} key={child.id} onClick={() => setMenuOpen(false)}>{child.label}</Link>)}</div>}
+              </div>
+            ))}
             <button type="button" onClick={openSearch}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
         </div>

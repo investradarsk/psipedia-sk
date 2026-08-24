@@ -17,7 +17,7 @@ function formattedDate(value: string) {
   return `${date.getUTCDate()}. ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${hour}:${minute}`;
 }
 
-export function AdminDashboard({ initialArticles }: { initialArticles: ManagedArticle[] }) {
+export function AdminDashboard({ initialArticles, fixedPortalSection }: { initialArticles: ManagedArticle[]; fixedPortalSection?: ManagedArticle["portalSection"] }) {
   const [articles, setArticles] = useState(initialArticles);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -27,14 +27,16 @@ export function AdminDashboard({ initialArticles }: { initialArticles: ManagedAr
   const visibleArticles = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
     return articles.filter((article) => {
+      if (fixedPortalSection && article.portalSection !== fixedPortalSection) return false;
       const statusMatches = status === "all" || article.status === status;
       const queryMatches = !needle || `${article.title} ${article.category} ${portalSectionLabel(article.portalSection)} ${getNewsCategory(article.newsCategory)?.label ?? ""} ${article.slug}`.toLocaleLowerCase("sk").includes(needle);
       return statusMatches && queryMatches;
     });
-  }, [articles, query, status]);
+  }, [articles, fixedPortalSection, query, status]);
 
-  const published = articles.filter((article) => article.status === "published").length;
-  const drafts = articles.length - published;
+  const scopedArticles = fixedPortalSection ? articles.filter((article) => article.portalSection === fixedPortalSection) : articles;
+  const published = scopedArticles.filter((article) => article.status === "published").length;
+  const drafts = scopedArticles.length - published;
 
   async function removeArticle(article: ManagedArticle) {
     const confirmed = window.confirm(`Naozaj chceš natrvalo odstrániť ${article.portalSection === "novinky" ? "novinku" : "článok"} „${article.title}“?`);
@@ -58,7 +60,7 @@ export function AdminDashboard({ initialArticles }: { initialArticles: ManagedAr
   return (
     <>
       <section className="admin-stats" aria-label="Stav redakcie">
-        <div><span>Všetok obsah</span><strong>{articles.length}</strong></div>
+        <div><span>Všetok obsah</span><strong>{scopedArticles.length}</strong></div>
         <div><span>Publikované</span><strong>{published}</strong></div>
         <div><span>Koncepty</span><strong>{drafts}</strong></div>
       </section>

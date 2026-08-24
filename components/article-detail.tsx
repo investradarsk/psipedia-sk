@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArticleCard, categorySlug } from "@/components/article-card";
+import { ArticleBlocks } from "@/components/article-blocks";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PawMark } from "@/components/icons";
 import { ShareButton } from "@/components/share-button";
@@ -7,6 +8,7 @@ import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel } from "@/lib/portal";
 import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
 
 export function ArticleDetail({ article, related }: { article: Article; related: Article[] }) {
   const section = articlePortalSection(article);
@@ -16,7 +18,10 @@ export function ArticleDetail({ article, related }: { article: Article; related:
   const topicLabel = newsCategory?.label ?? article.category;
   const canonical = `${SITE_URL}${articleHref(article)}`;
   const image = article.image ? absoluteUrl(article.image) : undefined;
-  const wordCount = [article.intro, article.takeaway, ...article.sections.flatMap((item) => [item.heading, ...item.paragraphs, ...(item.bullets ?? []), item.tip ?? ""])]
+  const blocks = article.blocks?.length
+    ? article.blocks
+    : legacyArticleBlocks(article.sections, article.sources);
+  const wordCount = [article.intro, article.takeaway, articleBlockPlainText(blocks)]
     .join(" ")
     .trim()
     .split(/\s+/)
@@ -95,25 +100,7 @@ export function ArticleDetail({ article, related }: { article: Article; related:
         <article className="article-prose">
           <p className="article-intro">{article.intro}</p>
           <div className="takeaway-box"><strong>To najdôležitejšie</strong><p>{article.takeaway}</p></div>
-          {article.sections.map((contentSection) => (
-            <section className="article-section" key={contentSection.heading}>
-              <h2>{contentSection.heading}</h2>
-              {contentSection.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-              {contentSection.bullets && <ul>{contentSection.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>}
-              {contentSection.tip && <div className="article-tip"><strong>Tip z praxe:</strong> {contentSection.tip}</div>}
-            </section>
-          ))}
-          {article.sources.length > 0 && (
-            <section className="article-sources" aria-labelledby="article-sources-heading">
-              <h2 id="article-sources-heading">{section === "novinky" ? "Zdroje správy" : "Odborné zdroje"}</h2>
-              <p>{section === "novinky" ? "Informácie sme overovali z týchto pôvodných alebo dôveryhodných zdrojov:" : "Pri príprave článku sme vychádzali z odporúčaní týchto odborných organizácií:"}</p>
-              <ul>
-                {article.sources.map((source) => (
-                  <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer" aria-label={`${source.label} – otvorí sa v novom okne`}>{source.label}<span aria-hidden="true"> ↗</span></a></li>
-                ))}
-              </ul>
-            </section>
-          )}
+          <ArticleBlocks blocks={blocks} />
           <p className="article-disclaimer">{section === "novinky" ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
         </article>
         <aside className="article-aside" aria-label="Nástroje článku">

@@ -56,12 +56,19 @@ export function CookieConsent() {
   useEffect(() => {
     const stored = window.localStorage.getItem(CONSENT_KEY);
     const choice: ConsentChoice | null = stored === "analytics" || stored === "necessary" ? stored : null;
-    setSavedChoice(choice);
-    setIsOpen(choice === null);
-    setReady(true);
+    let mounted = true;
+    queueMicrotask(() => {
+      if (!mounted) return;
+      setSavedChoice(choice);
+      setIsOpen(choice === null);
+      setReady(true);
+    });
     if (choice === "analytics") enableAnalytics();
     window.addEventListener(SETTINGS_EVENT, openSettings);
-    return () => window.removeEventListener(SETTINGS_EVENT, openSettings);
+    return () => {
+      mounted = false;
+      window.removeEventListener(SETTINGS_EVENT, openSettings);
+    };
   }, [openSettings]);
 
   function saveChoice(choice: ConsentChoice) {

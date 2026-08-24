@@ -5,8 +5,9 @@ import { BreedCard } from "@/components/breed-card";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
 import { HomePortalSearch, type HomeSearchItem } from "@/components/home-portal-search";
 import { ArrowIcon, BowlIcon, CheckIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
-import { breeds, categories } from "@/lib/content";
+import { categories } from "@/lib/content";
 import { getPublishedArticles } from "@/lib/article-store";
+import { listPublishedBreeds } from "@/lib/breed-store";
 import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
 import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
 import { getPublishedEvents } from "@/lib/event-store";
@@ -14,7 +15,8 @@ import { eventHref, eventIsPast, formatEventDate } from "@/lib/events";
 import { getPublishedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { getNewsCategory, newsCategories } from "@/lib/news";
-import { articleHref, articlePortalSection, portalSections, portalSubpageHref } from "@/lib/portal";
+import { articleHref, articlePortalSection, portalSubpageHref } from "@/lib/portal";
+import { listManagedPortalSections } from "@/lib/section-store";
 import { buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_NAME, SITE_URL, WEBSITE_ID } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -42,12 +44,15 @@ const starterGuides = [
 ] as const;
 
 export default async function Home() {
-  const [publishedArticles, publishedEvents, directoryProfiles, publishedHelpCases] = await Promise.all([
+  const [publishedArticles, publishedEvents, directoryProfiles, publishedHelpCases, managedSections, breeds] = await Promise.all([
     getPublishedArticles(),
     getPublishedEvents(),
     getPublishedDirectoryProfiles(),
     getPublishedHelpCases(),
+    listManagedPortalSections(),
+    listPublishedBreeds(),
   ]);
+  const portalSections = managedSections.filter((section) => section.visible);
   const heroArticle = publishedArticles[0];
   const heroIsNews = heroArticle ? articlePortalSection(heroArticle) === "novinky" : false;
   const featuredArticles = publishedArticles.slice(1, 4);

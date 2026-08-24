@@ -36,15 +36,20 @@ export function AdminShell({
         </header>
 
         <nav className="admin-section-nav" aria-label="Redakčné moduly">
-          <a href="/admin">Články a novinky</a>
-          <a href="/admin/tipy">Tipy od čitateľov</a>
-          <a href="/admin/podujatia">Podujatia</a>
-          <a href="/admin/adresar">Adresár</a>
-          <a href="/admin/dopyty">Dopyty</a>
-          <a href="/admin/pomoc">Pomoc psom</a>
-          <a href="/admin/pravne">Právne centrum</a>\n          <a href="/admin/import">Import dát</a>
-          <a href="/adresar" target="_blank" rel="noreferrer">Verejný adresár ↗</a>
-          <a href="/pomoc-psom" target="_blank" rel="noreferrer">Verejná pomoc ↗</a>
+          <Link href="/admin">Články a novinky</Link>
+          <Link href="/admin/steniatka">Šteniatka</Link>
+          <Link href="/admin/plemena">Plemená</Link>
+          <Link href="/admin/sekcie">Sekcie</Link>
+          <Link href="/admin/tipy">Tipy od čitateľov</Link>
+          <Link href="/admin/podujatia">Podujatia</Link>
+          <Link href="/admin/adresar">Adresár</Link>
+          <Link href="/admin/dopyty">Dopyty</Link>
+          <Link href="/admin/pomoc">Pomoc psom</Link>
+          <Link href="/admin/navigacia">Navigácia</Link>
+          <Link href="/admin/pravne">Právne centrum</Link>
+          <Link href="/admin/import">Import dát</Link>
+          <Link href="/adresar" target="_blank" rel="noreferrer">Verejný adresár ↗</Link>
+          <Link href="/pomoc-psom" target="_blank" rel="noreferrer">Verejná pomoc ↗</Link>
         </nav>
 
         <div className="admin-heading">

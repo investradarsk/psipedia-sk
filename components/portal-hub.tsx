@@ -6,12 +6,11 @@ import type { Article } from "@/lib/content";
 import type { DogEvent } from "@/lib/events";
 import {
   articlePortalSection,
-  portalSections,
   portalSubpageHref,
   type PortalSection,
 } from "@/lib/portal";
 
-export function PortalHub({ section, articles, events }: { section: PortalSection; articles: Article[]; events?: DogEvent[] }) {
+export function PortalHub({ section, articles, events, allSections = [] }: { section: PortalSection; articles: Article[]; events?: DogEvent[]; allSections?: PortalSection[] }) {
   const sectionArticles = articles.filter((article) => articlePortalSection(article) === section.slug);
   const hasEventCalendar = events !== undefined;
 
@@ -83,7 +82,7 @@ export function PortalHub({ section, articles, events }: { section: PortalSectio
           <h2>Pokračuj ďalšou sekciou</h2>
         </div>
         <div className="portal-more-grid">
-          {portalSections.filter((item) => item.slug !== section.slug).map((item) => (
+          {allSections.filter((item) => item.slug !== section.slug).map((item) => (
             <Link href={`/${item.slug}`} key={item.slug}>
               <span aria-hidden="true">{item.icon}</span><strong>{item.label}</strong><ArrowIcon size={18} />
             </Link>

@@ -3,18 +3,18 @@ import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
 import type { Article } from "@/lib/content";
 import { getNewsCategory, newsCategories } from "@/lib/news";
-import { articleHref, articlePortalSection } from "@/lib/portal";
+import { articleHref, articlePortalSection, type PortalSection } from "@/lib/portal";
 
-export function NewsHub({ articles }: { articles: Article[] }) {
+export function NewsHub({ articles, section }: { articles: Article[]; section: PortalSection }) {
   const newsArticles = articles.filter((article) => articlePortalSection(article) === "novinky");
   const lead = newsArticles[0];
   const more = newsArticles.slice(1, 4);
   const schema = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "Novinky zo sveta psov",
+    name: section.label,
     url: "https://psipedia.sk/novinky",
-    description: "Overené správy, silné príbehy, veda a dôležité zmeny zo sveta psov.",
+    description: section.description,
   };
 
   return (
@@ -23,13 +23,13 @@ export function NewsHub({ articles }: { articles: Article[] }) {
       <header className="news-hero">
         <div className="shell news-hero-inner">
           <nav className="article-breadcrumbs" aria-label="Navigácia">
-            <Link href="/">Domov</Link><span>/</span><span>Novinky</span>
+            <Link href="/">Domov</Link><span>/</span><span>{section.label}</span>
           </nav>
           <div className="news-hero-grid">
             <div className="news-hero-copy">
-              <span className="eyebrow"><i aria-hidden="true" /> Psí svet práve teraz</span>
-              <h1>Novinky zo sveta psov</h1>
-              <p>Silné príbehy, dôležité zmeny a nové objavy zo Slovenska aj zo sveta. Bez lacných senzácií — so zdrojom, dátumom a súvislosťami.</p>
+              <span className="eyebrow"><i aria-hidden="true" /> {section.eyebrow}</span>
+              <h1>{section.label}</h1>
+              <p>{section.intro || section.description}</p>
               <div className="news-hero-actions">
                 <Link className="button button--coral" href="#najnovsie">Najnovšie správy <ArrowIcon /></Link>
                 <Link className="button button--glass" href="#temy">Vybrať tému</Link>

@@ -2,25 +2,32 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
 import { ArrowIcon } from "@/components/icons";
-import { breeds, fciGroups } from "@/lib/content";
-import { getPortalSection, portalSubpageHref } from "@/lib/portal";
+import { fciGroups } from "@/lib/content";
+import { portalSubpageHref } from "@/lib/portal";
+import { listPublishedBreeds } from "@/lib/breed-store";
+import { getManagedPortalSection } from "@/lib/section-store";
 import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Atlas plemien psov",
-  description: "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, energia, starostlivosť a vhodnosť do rodiny.",
-  path: "/plemena",
-});
+export async function generateMetadata(): Promise<Metadata> {
+  const section = await getManagedPortalSection("plemena");
+  return buildPageMetadata({
+    title: section?.label ?? "Atlas plemien psov",
+    description: section?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, energia, starostlivosť a vhodnosť do rodiny.",
+    path: "/plemena",
+  });
+}
 
-export default function BreedsPage() {
-  const portalSection = getPortalSection("plemena");
+export const dynamic = "force-dynamic";
+
+export default async function BreedsPage() {
+  const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedBreeds()]);
   return (
     <main id="obsah">
       <header className="page-hero shell">
         <div className="page-hero-inner">
-          <span className="eyebrow">Atlas plemien</span>
-          <h1>Nie najkrajší pes. Ten správny pre tvoj život.</h1>
-          <p>Porovnaj povahu, energiu a potreby plemien skôr, než sa rozhodneš. Každý pes je jedinečný, no pôvodné vlohy stále zohrávajú veľkú úlohu.</p>
+          <span className="eyebrow">{portalSection?.eyebrow ?? "Atlas plemien"}</span>
+          <h1>{portalSection?.label ?? "Plemená"}</h1>
+          <p>{portalSection?.intro || portalSection?.description || "Porovnaj povahu, energiu a potreby plemien skôr, než sa rozhodneš."}</p>
           <Link href="/porovnat-plemena" className="button button--dark page-hero-button">Porovnať dve plemená <ArrowIcon /></Link>
         </div>
       </header>

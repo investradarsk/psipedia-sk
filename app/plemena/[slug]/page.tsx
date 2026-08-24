@@ -3,10 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RatingDots } from "@/components/breed-card";
 import { ArrowIcon } from "@/components/icons";
-import { breeds, getBreed } from "@/lib/content";
+import { breeds } from "@/lib/content";
+import { getPublishedBreed } from "@/lib/breed-store";
 import { buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return breeds.map((breed) => ({ slug: breed.slug }));
@@ -14,7 +17,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const breed = getBreed(slug);
+  const breed = await getPublishedBreed(slug);
   return breed ? buildPageMetadata({
     title: breed.name,
     description: breed.intro,
@@ -22,8 +25,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     image: breed.image,
     imageAlt: `${breed.name} v prírodnom prostredí`,
     type: "article",
-    publishedTime: "2026-08-17",
-    modifiedTime: "2026-08-17",
+    publishedTime: "publishedAt" in breed ? breed.publishedAt ?? breed.createdAt : "2026-08-17",
+    modifiedTime: "updatedAt" in breed ? breed.updatedAt : "2026-08-17",
     authors: ["Redakcia Psipedia"],
     section: "Plemená psov",
     tags: [breed.name, `FCI skupina ${breed.fciGroup}`, breed.origin],
@@ -32,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BreedDetailPage({ params }: Props) {
   const { slug } = await params;
-  const breed = getBreed(slug);
+  const breed = await getPublishedBreed(slug);
   if (!breed) notFound();
   const canonical = `${SITE_URL}/plemena/${breed.slug}`;
   const schema = {
@@ -46,8 +49,8 @@ export default async function BreedDetailPage({ params }: Props) {
         headline: `${breed.name} – povaha, potreby a profil plemena`,
         description: breed.intro,
         image: [`${SITE_URL}${breed.image}`],
-        datePublished: "2026-08-17",
-        dateModified: "2026-08-17",
+        datePublished: "publishedAt" in breed ? breed.publishedAt ?? breed.createdAt : "2026-08-17",
+        dateModified: "updatedAt" in breed ? breed.updatedAt : "2026-08-17",
         inLanguage: "sk-SK",
         isAccessibleForFree: true,
         articleSection: "Plemená psov",

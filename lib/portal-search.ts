@@ -1,5 +1,6 @@
-import { breeds, type Article } from "@/lib/content";
+import type { Article, Breed } from "@/lib/content";
 import { getPublishedArticles } from "@/lib/article-store";
+import { listPublishedBreeds } from "@/lib/breed-store";
 import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
 import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
 import { getPublishedEvents } from "@/lib/event-store";
@@ -7,7 +8,8 @@ import { eventHref, formatEventDate } from "@/lib/events";
 import { getPublishedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { getNewsCategory } from "@/lib/news";
-import { articleHref, articlePortalSection, portalSections, portalSubpageHref } from "@/lib/portal";
+import { articleHref, articlePortalSection, portalSubpageHref, type PortalSection } from "@/lib/portal";
+import { listManagedPortalSections } from "@/lib/section-store";
 
 export type PortalSearchItem = {
   href: string;
@@ -37,9 +39,9 @@ export function filterPortalSearch(items: PortalSearchItem[], query: string, lim
     .map((match) => match.item);
 }
 
-function baseSearchItems(articles: Article[]): PortalSearchItem[] {
+function baseSearchItems(articles: Article[], sections: PortalSection[], breeds: Breed[]): PortalSearchItem[] {
   return [
-    ...portalSections.flatMap((section) => [
+    ...sections.flatMap((section) => [
       { href: `/${section.slug}`, title: section.label, type: "Sekcia", description: section.description, keywords: `${section.eyebrow} ${section.intro}` },
       ...section.subpages.map((subpage) => ({ href: portalSubpageHref(section, subpage), title: subpage.label, type: section.label, description: subpage.description, keywords: `${section.label} ${section.description}` })),
     ]),
@@ -59,19 +61,22 @@ function uniqueItems(items: PortalSearchItem[]) {
 }
 
 export async function getHeaderSearchIndex() {
-  return uniqueItems(baseSearchItems(await getPublishedArticles()));
+  const [articles, sections, breeds] = await Promise.all([getPublishedArticles(), listManagedPortalSections(), listPublishedBreeds()]);
+  return uniqueItems(baseSearchItems(articles, sections.filter((section) => section.visible), breeds));
 }
 
 export async function getPortalSearchIndex() {
-  const [articles, events, profiles, helpCases] = await Promise.all([
+  const [articles, events, profiles, helpCases, sections, breeds] = await Promise.all([
     getPublishedArticles(),
     getPublishedEvents(),
     getPublishedDirectoryProfiles(),
     getPublishedHelpCases(),
+    listManagedPortalSections(),
+    listPublishedBreeds(),
   ]);
 
   const items: PortalSearchItem[] = [
-    ...baseSearchItems(articles),
+    ...baseSearchItems(articles, sections.filter((section) => section.visible), breeds),
     ...events.map((event) => ({ href: eventHref(event), title: event.title, type: "Podujatie", description: `${formatEventDate(event)} · ${event.city}`, keywords: `${event.eventType} ${event.organizer} ${event.region} ${event.venue}` })),
     ...profiles.map((profile) => ({ href: directoryProfileHref(profile), title: profile.name, type: getDirectoryCategory(profile.category)?.singular ?? "Adresár", description: `${profile.excerpt} · ${profile.city}`, keywords: `${profile.region} ${profile.services.join(" ")} ${profile.qualifications.join(" ")}` })),
     ...helpCases.map((item) => ({ href: helpCaseHref(item), title: item.title, type: getHelpCategory(item.category)?.singular ?? "Pomoc psom", description: `${item.excerpt} · ${item.city}`, keywords: `${item.organization} ${item.region} ${item.dogName} ${item.breed}` })),

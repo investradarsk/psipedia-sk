@@ -22,6 +22,7 @@ export type Article = {
   takeaway: string;
   sources: { label: string; url: string }[];
   sections: ArticleSection[];
+  blocks?: import("@/lib/article-blocks").ArticleBlock[];
   portalSection?: import("@/lib/portal").ArticlePortalSection;
   newsCategory?: import("@/lib/news").NewsCategorySlug;
 };

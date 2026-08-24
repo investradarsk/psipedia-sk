@@ -4,7 +4,8 @@ import { PortalHub } from "@/components/portal-hub";
 import { NewsHub } from "@/components/news-hub";
 import { getPublishedArticles } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
-import { getPortalSection, portalSections } from "@/lib/portal";
+import { portalSections } from "@/lib/portal";
+import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
 
@@ -16,15 +17,16 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { section: slug } = await params;
-  const section = getPortalSection(slug);
+  const section = await getManagedPortalSection(slug);
+  if (!section?.visible) return {};
   if (slug === "novinky" && section) {
     return {
-      title: "Novinky zo sveta psov",
+      title: section.label,
       description: section.description,
       alternates: { canonical: "/novinky" },
       openGraph: {
         type: "website",
-        title: "Novinky zo sveta psov | Psipedia.sk",
+        title: `${section.label} | Psipedia.sk`,
         description: section.description,
         url: "/novinky",
       },
@@ -45,12 +47,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PortalSectionPage({ params }: Props) {
   const { section: slug } = await params;
-  const section = getPortalSection(slug);
-  if (!section) notFound();
-  const [articles, events] = await Promise.all([
+  const [section, allSections, articles, events] = await Promise.all([
+    getManagedPortalSection(slug),
+    listManagedPortalSections(),
     getPublishedArticles(),
     slug === "podujatia" ? getPublishedEvents() : Promise.resolve(undefined),
   ]);
-  if (slug === "novinky") return <NewsHub articles={articles} />;
-  return <PortalHub section={section} articles={articles} events={events} />;
+  if (!section?.visible) notFound();
+  if (slug === "novinky") return <NewsHub articles={articles} section={section} />;
+  return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }

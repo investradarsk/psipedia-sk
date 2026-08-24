@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useState } from "react";
+import { AdminArticleBlockEditor } from "@/components/admin-article-block-editor";
+import { ArticleBlocks } from "@/components/article-blocks";
 import type { ManagedArticle } from "@/lib/article-store";
+import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
   articlePortalSectionOptions,
   portalSectionLabel,
@@ -10,18 +13,6 @@ import {
 } from "@/lib/portal";
 import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/news";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
-
-type EditorSection = {
-  heading: string;
-  paragraphs: string;
-  bullets: string;
-  tip: string;
-};
-
-type EditorSource = { label: string; url: string };
-
-const emptySection = (): EditorSection => ({ heading: "", paragraphs: "", bullets: "", tip: "" });
-const emptySource = (): EditorSource => ({ label: "", url: "" });
 
 function slugify(value: string) {
   return value
@@ -33,20 +24,12 @@ function slugify(value: string) {
     .slice(0, 90);
 }
 
-function paragraphLines(value: string) {
-  return value.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
-}
-
-function bulletLines(value: string) {
-  return value.split("\n").map((item) => item.replace(/^[-•]\s*/, "").trim()).filter(Boolean);
-}
-
-export function AdminArticleEditor({ article }: { article?: ManagedArticle }) {
+export function AdminArticleEditor({ article, defaultPortalSection = "steniatka" }: { article?: ManagedArticle; defaultPortalSection?: ArticlePortalSection }) {
   const [title, setTitle] = useState(article?.title ?? "");
   const [slug, setSlug] = useState(article?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(article));
   const [category, setCategory] = useState(article?.category ?? "Výcvik");
-  const [portalSection, setPortalSection] = useState<ArticlePortalSection>(article?.portalSection ?? "steniatka");
+  const [portalSection, setPortalSection] = useState<ArticlePortalSection>(article?.portalSection ?? defaultPortalSection);
   const [newsCategory, setNewsCategory] = useState<NewsCategorySlug>(article?.newsCategory ?? "zo-sveta");
   const [accent, setAccent] = useState(article?.accent ?? "forest");
   const [author, setAuthor] = useState(article?.author ?? "Redakcia Psipedia");
@@ -56,28 +39,19 @@ export function AdminArticleEditor({ article }: { article?: ManagedArticle }) {
   const [takeaway, setTakeaway] = useState(article?.takeaway ?? "");
   const [imageUrl, setImageUrl] = useState(article?.image ?? "");
   const [imageKey, setImageKey] = useState(article?.imageKey ?? "");
-  const [sections, setSections] = useState<EditorSection[]>(
-    article?.sections.length
-      ? article.sections.map((section) => ({
-          heading: section.heading,
-          paragraphs: section.paragraphs.join("\n\n"),
-          bullets: section.bullets?.join("\n") ?? "",
-          tip: section.tip ?? "",
-        }))
-      : [emptySection()],
+  const [blocks, setBlocks] = useState<ArticleBlock[]>(
+    article?.blocks?.length
+      ? article.blocks
+      : article
+        ? legacyArticleBlocks(article.sections, article.sources)
+        : [createArticleBlock("text")],
   );
-  const [sources, setSources] = useState<EditorSource[]>(article?.sources.length ? article.sources : [emptySource()]);
   const [status, setStatus] = useState(article?.status ?? "draft");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(true);
-
-  const previewSections = useMemo(
-    () => sections.map((section) => ({ ...section, paragraphs: paragraphLines(section.paragraphs), bullets: bulletLines(section.bullets) })),
-    [sections],
-  );
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -87,14 +61,6 @@ export function AdminArticleEditor({ article }: { article?: ManagedArticle }) {
   function changePortalSection(value: ArticlePortalSection) {
     setPortalSection(value);
     if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
-  }
-
-  function updateSection(index: number, field: keyof EditorSection, value: string) {
-    setSections((current) => current.map((section, itemIndex) => itemIndex === index ? { ...section, [field]: value } : section));
-  }
-
-  function updateSource(index: number, field: keyof EditorSource, value: string) {
-    setSources((current) => current.map((source, itemIndex) => itemIndex === index ? { ...source, [field]: value } : source));
   }
 
   async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
@@ -136,13 +102,9 @@ export function AdminArticleEditor({ article }: { article?: ManagedArticle }) {
       imageUrl: imageUrl || null,
       imageKey: imageKey || null,
       status: nextStatus,
-      sections: sections.map((section) => ({
-        heading: section.heading,
-        paragraphs: paragraphLines(section.paragraphs),
-        bullets: bulletLines(section.bullets),
-        tip: section.tip,
-      })),
-      sources,
+      blocks,
+      sections: [],
+      sources: [],
     };
 
     try {
@@ -273,55 +235,18 @@ export function AdminArticleEditor({ article }: { article?: ManagedArticle }) {
         </section>
 
         <section className="admin-form-card">
-          <div className="admin-card-heading admin-card-heading--action">
-            <div><span>04</span><div><h2>Obsah článku</h2><p>Každá sekcia potrebuje nadpis a aspoň jeden odsek.</p></div></div>
-            <button type="button" onClick={() => setSections((current) => [...current, emptySection()])}>+ Pridať sekciu</button>
+          <div className="admin-card-heading">
+            <div><span>04</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
           </div>
-          <div className="admin-sections">
-            {sections.map((section, index) => (
-              <div className="admin-section-editor" key={index}>
-                <div className="admin-section-editor-head">
-                  <strong>Sekcia {index + 1}</strong>
-                  {sections.length > 1 && <button type="button" onClick={() => setSections((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Odstrániť</button>}
-                </div>
-                <div className="admin-field">
-                  <label htmlFor={`section-heading-${index}`}>Medzititulok</label>
-                  <input id={`section-heading-${index}`} value={section.heading} onChange={(event) => updateSection(index, "heading", event.target.value)} placeholder="Názov tejto časti" required />
-                </div>
-                <div className="admin-field">
-                  <label htmlFor={`section-paragraphs-${index}`}>Odseky</label>
-                  <textarea id={`section-paragraphs-${index}`} rows={7} value={section.paragraphs} onChange={(event) => updateSection(index, "paragraphs", event.target.value)} placeholder={"Prvý odsek…\n\nDruhý odsek začni po prázdnom riadku."} required />
-                  <small>Nový odsek začni po prázdnom riadku.</small>
-                </div>
-                <div className="admin-field-grid">
-                  <div className="admin-field">
-                    <label htmlFor={`section-bullets-${index}`}>Odrážky (nepovinné)</label>
-                    <textarea id={`section-bullets-${index}`} rows={4} value={section.bullets} onChange={(event) => updateSection(index, "bullets", event.target.value)} placeholder={"Jedna odrážka na riadok\nDruhá odrážka"} />
-                  </div>
-                  <div className="admin-field">
-                    <label htmlFor={`section-tip-${index}`}>Tip z praxe (nepovinný)</label>
-                    <textarea id={`section-tip-${index}`} rows={4} value={section.tip} onChange={(event) => updateSection(index, "tip", event.target.value)} placeholder="Krátky praktický tip…" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="admin-form-card">
-          <div className="admin-card-heading admin-card-heading--action">
-            <div><span>05</span><div><h2>Odborné zdroje</h2><p>{portalSection === "novinky" ? "Pri novinke je pred publikovaním povinný aspoň jeden overiteľný zdroj." : "Pridaj organizáciu alebo článok, z ktorého vychádzaš."}</p></div></div>
-            <button type="button" onClick={() => setSources((current) => [...current, emptySource()])}>+ Pridať zdroj</button>
-          </div>
-          <div className="admin-sources-editor">
-            {sources.map((source, index) => (
-              <div className="admin-source-row" key={index}>
-                <div className="admin-field"><label htmlFor={`source-label-${index}`}>Názov zdroja</label><input id={`source-label-${index}`} value={source.label} onChange={(event) => updateSource(index, "label", event.target.value)} placeholder="Napríklad: AVMA" /></div>
-                <div className="admin-field"><label htmlFor={`source-url-${index}`}>Odkaz</label><input id={`source-url-${index}`} type="url" value={source.url} onChange={(event) => updateSource(index, "url", event.target.value)} placeholder="https://…" /></div>
-                {sources.length > 1 && <button type="button" onClick={() => setSources((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Odstrániť zdroj ${index + 1}`}>×</button>}
-              </div>
-            ))}
-          </div>
+          {portalSection === "novinky" && <p className="admin-block-news-note">Pri publikovaní novinky pridaj aspoň jeden blok <strong>Odborný zdroj</strong>.</p>}
+          <AdminArticleBlockEditor
+            blocks={blocks}
+            onChange={setBlocks}
+            currentArticleId={article?.id}
+            onUploadingChange={setUploading}
+            onMessage={setMessage}
+            onError={setError}
+          />
         </section>
 
         {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}
@@ -349,14 +274,7 @@ export function AdminArticleEditor({ article }: { article?: ManagedArticle }) {
             {imageUrl && <img className="admin-preview-image" src={imageUrl} alt="" />}
             <p className="admin-preview-intro">{intro || "Úvod článku sa zobrazí na tomto mieste."}</p>
             <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><p>{takeaway || "Hlavná myšlienka článku."}</p></div>
-            {previewSections.map((section, index) => (
-              <section key={index}>
-                <h2>{section.heading || `Nadpis sekcie ${index + 1}`}</h2>
-                {(section.paragraphs.length ? section.paragraphs : ["Text tejto sekcie sa zobrazí tu."]).map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{paragraph}</p>)}
-                {section.bullets.length > 0 && <ul>{section.bullets.map((bullet, bulletIndex) => <li key={bulletIndex}>{bullet}</li>)}</ul>}
-                {section.tip && <div className="admin-preview-tip"><strong>Tip z praxe:</strong> {section.tip}</div>}
-              </section>
-            ))}
+            <ArticleBlocks blocks={blocks} preview />
           </article>
         </aside>
       )}

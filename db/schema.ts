@@ -16,6 +16,7 @@ export const managedArticles = sqliteTable(
     takeaway: text("takeaway").notNull(),
     sectionsJson: text("sections_json").notNull().default("[]"),
     sourcesJson: text("sources_json").notNull().default("[]"),
+    blocksJson: text("blocks_json").notNull().default("[]"),
     imageUrl: text("image_url"),
     imageKey: text("image_key"),
     readingMinutes: integer("reading_minutes").notNull().default(5),
@@ -177,6 +178,74 @@ export const legalSettings = sqliteTable("legal_settings", {
   updatedAt: text("updated_at").notNull(),
   updatedBy: text("updated_by").notNull(),
 });
+
+export const navigationItems = sqliteTable(
+  "navigation_items",
+  {
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    href: text("href").notNull(),
+    parentId: text("parent_id"),
+    position: integer("position").notNull().default(0),
+    visible: integer("visible").notNull().default(1),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  (table) => [
+    index("navigation_items_parent_position_idx").on(table.parentId, table.position),
+  ],
+);
+
+export const portalSectionSettings = sqliteTable("portal_section_settings", {
+  slug: text("slug").primaryKey(),
+  label: text("label").notNull(),
+  eyebrow: text("eyebrow").notNull(),
+  description: text("description").notNull(),
+  intro: text("intro").notNull(),
+  subpagesJson: text("subpages_json").notNull().default("[]"),
+  position: integer("position").notNull().default(0),
+  visible: integer("visible").notNull().default(1),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull(),
+});
+
+export const managedBreeds = sqliteTable(
+  "managed_breeds",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    status: text("status").notNull().default("draft"),
+    imageUrl: text("image_url").notNull().default(""),
+    imageKey: text("image_key"),
+    fciGroup: integer("fci_group").notNull(),
+    fciSection: text("fci_section").notNull(),
+    origin: text("origin").notNull(),
+    groupName: text("group_name").notNull(),
+    size: text("size").notNull(),
+    weight: text("weight").notNull(),
+    lifespan: text("lifespan").notNull(),
+    coat: text("coat").notNull(),
+    energy: integer("energy").notNull().default(3),
+    trainability: integer("trainability").notNull().default(3),
+    family: integer("family").notNull().default(3),
+    intro: text("intro").notNull(),
+    character: text("character").notNull(),
+    needs: text("needs").notNull(),
+    goodForJson: text("good_for_json").notNull().default("[]"),
+    considerJson: text("consider_json").notNull().default("[]"),
+    accent: text("accent").notNull().default("forest"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    publishedAt: text("published_at"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  (table) => [
+    uniqueIndex("managed_breeds_slug_unique").on(table.slug),
+    index("managed_breeds_public_idx").on(table.status, table.fciGroup, table.name),
+  ],
+);
 
 export const helpCases = sqliteTable(
   "help_cases",

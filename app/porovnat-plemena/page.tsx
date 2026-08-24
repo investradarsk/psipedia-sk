@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedComparison } from "@/components/breed-comparison";
 import { ArrowIcon } from "@/components/icons";
-import { breeds } from "@/lib/content";
+import { listPublishedBreeds } from "@/lib/breed-store";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -11,7 +11,10 @@ export const metadata: Metadata = buildPageMetadata({
   path: "/porovnat-plemena",
 });
 
-export default function CompareBreedsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function CompareBreedsPage() {
+  const breeds = await listPublishedBreeds();
   return (
     <main id="obsah">
       <header className="page-hero page-hero--compact shell compare-page-hero">

@@ -7,6 +7,7 @@ import {
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { articleBlockImageKeys } from "@/lib/article-blocks";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,13 @@ export async function PUT(request: Request, { params }: RouteProps) {
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
     }
 
+    const currentKeys = new Set(articleBlockImageKeys(article.blocks ?? []));
+    const removedKeys = articleBlockImageKeys(before.blocks ?? []).filter((key) => !currentKeys.has(key));
+    const bucket = (env as unknown as UploadBindings).BUCKET;
+    if (bucket && removedKeys.length) {
+      await Promise.all(removedKeys.map((key) => bucket.delete(key).catch(() => undefined)));
+    }
+
     return Response.json({ article });
   } catch (error) {
     return updateErrorResponse(error);
@@ -80,9 +88,10 @@ export async function DELETE(_request: Request, { params }: RouteProps) {
   try {
     const article = await deleteManagedArticle(id);
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
-    if (article.imageKey) {
-      const bucket = (env as unknown as UploadBindings).BUCKET;
-      if (bucket) await bucket.delete(article.imageKey).catch(() => undefined);
+    const bucket = (env as unknown as UploadBindings).BUCKET;
+    if (bucket) {
+      const keys = [...new Set([article.imageKey, ...articleBlockImageKeys(article.blocks ?? [])].filter((key): key is string => Boolean(key)))];
+      await Promise.all(keys.map((key) => bucket.delete(key).catch(() => undefined)));
     }
     return Response.json({ deleted: true, id });
   } catch (error) {
