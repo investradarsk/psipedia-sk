@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { CookieConsent } from "@/components/cookie-consent";
-import { getHeaderSearchIndex } from "@/lib/portal-search";
 import { getNavigationItems } from "@/lib/navigation-store";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
@@ -59,7 +58,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [searchIndex, navigationItems] = await Promise.all([getHeaderSearchIndex(), getNavigationItems()]);
+  const navigationItems = await getNavigationItems();
 
   return (
     <html lang="sk">
@@ -70,7 +69,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         />
       </head>
       <body>
-        <SiteHeader searchIndex={searchIndex} navigationItems={navigationItems} />
+        <SiteHeader navigationItems={navigationItems} />
         {children}
         <SiteFooter />
         <CookieConsent />

@@ -259,17 +259,26 @@ function normalizeInput(payload: ManagedHelpCaseInput) {
 export async function getPublishedHelpCases(category?: HelpCategorySlug) {
   const database = getD1Binding();
   if (!database) return [] as HelpCase[];
-  await ensureHelpStore(database);
   const result = category
     ? await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC").bind(category).all<HelpCaseRow>()
     : await database.prepare("SELECT * FROM help_cases WHERE status = 'published' ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC").all<HelpCaseRow>();
   return result.results.map(rowToHelpCase);
 }
 
+export async function getHighlightedHelpCases(limit = 2) {
+  const database = getD1Binding();
+  if (!database) return [] as HelpCase[];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const result = await database
+    .prepare("SELECT * FROM help_cases WHERE status = 'published' AND resolved = 0 ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?")
+    .bind(safeLimit)
+    .all<HelpCaseRow>();
+  return result.results.map(rowToHelpCase);
+}
+
 export async function getPublishedHelpCase(category: string, slug: string) {
   const database = getD1Binding();
   if (!database || !isHelpCategory(category)) return null;
-  await ensureHelpStore(database);
   const row = await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }

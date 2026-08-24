@@ -330,17 +330,26 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
 export async function getPublishedDirectoryProfiles(category?: DirectoryCategorySlug) {
   const database = getD1Binding();
   if (!database) return [] as PublicDirectoryProfile[];
-  await ensureDirectoryStore(database);
   const result = category
     ? await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, verified DESC, name ASC").bind(category).all<DirectoryProfileRow>()
     : await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, verified DESC, name ASC").all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
 }
 
+export async function getFeaturedDirectoryProfiles(limit = 2) {
+  const database = getD1Binding();
+  if (!database) return [] as PublicDirectoryProfile[];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const result = await database
+    .prepare("SELECT * FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, verified DESC, name ASC LIMIT ?")
+    .bind(safeLimit)
+    .all<DirectoryProfileRow>();
+  return result.results.map(rowToPublicProfile);
+}
+
 export async function getPublishedDirectoryProfile(category: string, slug: string) {
   const database = getD1Binding();
   if (!database || !isDirectoryCategory(category)) return null;
-  await ensureDirectoryStore(database);
   const row = await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<DirectoryProfileRow>();
   return row ? rowToPublicProfile(row) : null;
 }

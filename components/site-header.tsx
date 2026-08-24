@@ -2,17 +2,12 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { PortalSearchItem } from "@/lib/portal-search";
 import type { NavigationItem } from "@/lib/navigation";
 import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
 
-function normalizeSearch(value: string) {
-  return value.toLocaleLowerCase("sk").normalize("NFD").replace(/\p{Diacritic}/gu, "");
-}
-
-export function SiteHeader({ searchIndex, navigationItems }: { searchIndex: PortalSearchItem[]; navigationItems: NavigationItem[] }) {
+export function SiteHeader({ navigationItems }: { navigationItems: NavigationItem[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -64,18 +59,6 @@ export function SiteHeader({ searchIndex, navigationItems }: { searchIndex: Port
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [searchOpen]);
-
-  const matches = useMemo(() => {
-    const normalized = normalizeSearch(query.trim());
-    if (normalized.length < 2) return [];
-    return searchIndex
-      .filter((item) => normalizeSearch(`${item.title} ${item.description} ${item.keywords} ${item.type}`).includes(normalized))
-      .sort((a, b) => {
-        const aTitle = normalizeSearch(a.title); const bTitle = normalizeSearch(b.title);
-        return Number(bTitle.startsWith(normalized)) - Number(aTitle.startsWith(normalized)) || a.title.localeCompare(b.title, "sk");
-      })
-      .slice(0, 7);
-  }, [query, searchIndex]);
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
@@ -162,25 +145,9 @@ export function SiteHeader({ searchIndex, navigationItems }: { searchIndex: Port
               <button type="submit">Hľadať</button>
             </form>
             <div className="search-results" aria-live="polite">
-              {query.trim().length < 2 ? (
-                <p className="search-hint">Prehľadávame články, plemená, podujatia, odborníkov aj pomoc psom.</p>
-              ) : matches.length > 0 ? (
-                matches.map((match) => (
-                  <a
-                    href={match.href}
-                    key={match.href}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      window.location.assign(match.href);
-                    }}
-                  >
-                    <span>{match.type}</span>
-                    <strong>{match.title}</strong>
-                  </a>
-                ))
-              ) : (
-                <p className="search-hint">Nič sme nenašli. Skús všeobecnejšie slovo.</p>
-              )}
+              <p className="search-hint">
+                Prehľadávame články, novinky, plemená, podujatia, odborníkov aj pomoc psom. Napíš výraz a stlač Hľadať.
+              </p>
             </div>
           </div>
         </div>

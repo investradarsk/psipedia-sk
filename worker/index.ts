@@ -34,6 +34,10 @@ type AccessJwtPayload = {
 };
 
 type AccessJwk = JsonWebKey & { kid?: string };
+type CachedAccessJwks = { expiresAt: number; keys: AccessJwk[] };
+
+const ACCESS_JWKS_TTL_MS = 5 * 60 * 1000;
+const accessJwksCache = new Map<string, CachedAccessJwks>();
 
 const ADMIN_AUTH_PATHS = ["/admin", "/api/admin"];
 const AUTH_PROVIDER_HEADER = "x-psipedia-auth-provider";
@@ -123,17 +127,16 @@ async function verifyAccessIdentity(
     if (typeof payload.exp !== "number" || payload.exp <= now) return null;
     if (typeof payload.nbf === "number" && payload.nbf > now) return null;
 
-    const certsUrl = new URL("/cdn-cgi/access/certs", teamDomain);
-    const certsResponse = await fetch(certsUrl, {
-      headers: { Accept: "application/json" },
-    });
-    if (!certsResponse.ok) return null;
-
-    const jwks: unknown = await certsResponse.json();
-    if (!isRecord(jwks) || !Array.isArray(jwks.keys)) return null;
-    const jwk = jwks.keys.find((candidate): candidate is AccessJwk =>
+    let keys = await getAccessJwks(teamDomain);
+    let jwk = keys.find((candidate): candidate is AccessJwk =>
       isAccessJwk(candidate) && candidate.kid === header.kid,
     );
+    if (!jwk) {
+      keys = await getAccessJwks(teamDomain, true);
+      jwk = keys.find((candidate): candidate is AccessJwk =>
+        isAccessJwk(candidate) && candidate.kid === header.kid,
+      );
+    }
     if (!jwk) return null;
 
     const publicKey = await crypto.subtle.importKey(
@@ -159,6 +162,23 @@ async function verifyAccessIdentity(
     }));
     return null;
   }
+}
+
+async function getAccessJwks(teamDomain: URL, forceRefresh = false): Promise<AccessJwk[]> {
+  const cacheKey = teamDomain.origin;
+  const cached = accessJwksCache.get(cacheKey);
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.keys;
+
+  const certsResponse = await fetch(new URL("/cdn-cgi/access/certs", teamDomain), {
+    headers: { Accept: "application/json" },
+  });
+  if (!certsResponse.ok) return [];
+
+  const jwks: unknown = await certsResponse.json();
+  if (!isRecord(jwks) || !Array.isArray(jwks.keys)) return [];
+  const keys = jwks.keys.filter(isAccessJwk);
+  accessJwksCache.set(cacheKey, { expiresAt: Date.now() + ACCESS_JWKS_TTL_MS, keys });
+  return keys;
 }
 
 function normalizeAccessTeamDomain(value: string): URL | null {

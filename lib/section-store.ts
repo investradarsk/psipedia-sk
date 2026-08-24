@@ -55,7 +55,6 @@ function merge(row: Row): ManagedPortalSection | null {
 export async function listManagedPortalSections() {
   const db = database();
   if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
-  await ensure(db);
   const result = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible FROM portal_section_settings ORDER BY position,label").all<Row>();
   return result.results.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
 }

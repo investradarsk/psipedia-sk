@@ -54,7 +54,6 @@ function rowToItem(row: NavigationRow): NavigationItem {
 export async function getNavigationItems() {
   const database = getD1Binding();
   if (!database) return defaultNavigationItems;
-  await ensureNavigationStore(database);
   const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
   return result.results.length ? result.results.map(rowToItem) : defaultNavigationItems;
 }

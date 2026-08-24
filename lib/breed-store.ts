@@ -67,9 +67,10 @@ const select=`SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_gr
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at FROM managed_breeds`;
 export async function listManagedBreeds(){const database=requireDb();await ensure(database);const result=await database.prepare(`${select} ORDER BY fci_group,name`).all<Row>();return result.results.map(fromRow);}
-export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;await ensure(database);const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name`).all<Row>();return result.results.map(fromRow);}
+export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name`).all<Row>();return result.results.map(fromRow);}
+export async function listFeaturedBreeds(limit=3){const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));const database=db();if(!database)return seedBreeds.slice(0,safeLimit);const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<Row>();return result.results.map(fromRow);}
 export async function getManagedBreed(id:number){const database=requireDb();await ensure(database);const row=await database.prepare(`${select} WHERE id=?`).bind(id).first<Row>();return row?fromRow(row):null;}
-export async function getPublishedBreed(slug:string){const database=db();if(!database)return seedBreeds.find((breed)=>breed.slug===slug)??null;await ensure(database);const row=await database.prepare(`${select} WHERE slug=? AND status='published'`).bind(slug).first<Row>();return row?fromRow(row):null;}
+export async function getPublishedBreed(slug:string){const database=db();if(!database)return seedBreeds.find((breed)=>breed.slug===slug)??null;const row=await database.prepare(`${select} WHERE slug=? AND status='published'`).bind(slug).first<Row>();return row?fromRow(row):null;}
 
 function clean(input:ManagedBreedInput){
   const text=(value:unknown,max=1000)=>String(value??"").trim().slice(0,max);const score=(value:unknown)=>Math.min(5,Math.max(1,Number(value)||3));

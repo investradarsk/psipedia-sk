@@ -227,15 +227,25 @@ function normalizeInput(payload: ManagedEventInput) {
 export async function getPublishedEvents() {
   const database = getD1Binding();
   if (!database) return [] as DogEvent[];
-  await ensureEventStore(database);
   const result = await database.prepare("SELECT * FROM managed_events WHERE status = 'published' ORDER BY start_date ASC, start_time ASC, id ASC").all<EventRow>();
+  return result.results.map(rowToEvent);
+}
+
+export async function getUpcomingEvents(limit = 2) {
+  const database = getD1Binding();
+  if (!database) return [] as DogEvent[];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const today = new Date().toISOString().slice(0, 10);
+  const result = await database
+    .prepare("SELECT * FROM managed_events WHERE status = 'published' AND cancelled = 0 AND COALESCE(end_date, start_date) >= ? ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?")
+    .bind(today, safeLimit)
+    .all<EventRow>();
   return result.results.map(rowToEvent);
 }
 
 export async function getPublishedEvent(slug: string) {
   const database = getD1Binding();
   if (!database) return null;
-  await ensureEventStore(database);
   const row = await database.prepare("SELECT * FROM managed_events WHERE slug = ? AND status = 'published' LIMIT 1").bind(slug).first<EventRow>();
   return row ? rowToEvent(row) : null;
 }

@@ -3,18 +3,18 @@ import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { BreedCard } from "@/components/breed-card";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
-import { HomePortalSearch, type HomeSearchItem } from "@/components/home-portal-search";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon, CheckIcon, PawMark, SparkIcon } from "@/components/icons";
 import { getPublishedArticles } from "@/lib/article-store";
-import { listPublishedBreeds } from "@/lib/breed-store";
-import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
+import { listFeaturedBreeds } from "@/lib/breed-store";
+import { getFeaturedDirectoryProfiles } from "@/lib/directory-store";
 import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
-import { getPublishedEvents } from "@/lib/event-store";
-import { eventHref, eventIsPast, formatEventDate } from "@/lib/events";
-import { getPublishedHelpCases } from "@/lib/help-store";
+import { getUpcomingEvents } from "@/lib/event-store";
+import { eventHref, formatEventDate } from "@/lib/events";
+import { getHighlightedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { getNewsCategory, newsCategories } from "@/lib/news";
-import { articleHref, articlePortalSection, portalSubpageHref } from "@/lib/portal";
+import { articleHref, articlePortalSection } from "@/lib/portal";
 import { listManagedPortalSections } from "@/lib/section-store";
 import { buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_NAME, SITE_URL, WEBSITE_ID } from "@/lib/seo";
 
@@ -38,11 +38,11 @@ const starterGuides = [
 export default async function Home() {
   const [publishedArticles, publishedEvents, directoryProfiles, publishedHelpCases, managedSections, breeds] = await Promise.all([
     getPublishedArticles(),
-    getPublishedEvents(),
-    getPublishedDirectoryProfiles(),
-    getPublishedHelpCases(),
+    getUpcomingEvents(2),
+    getFeaturedDirectoryProfiles(2),
+    getHighlightedHelpCases(2),
     listManagedPortalSections(),
-    listPublishedBreeds(),
+    listFeaturedBreeds(3),
   ]);
   const portalSections = managedSections.filter((section) => section.visible);
   const newsArticles = publishedArticles.filter((article) => articlePortalSection(article) === "novinky");
@@ -50,20 +50,9 @@ export default async function Home() {
   const heroArticle = guideArticles[0];
   const featuredArticles = guideArticles.slice(1, 4);
   const newsLead = newsArticles[0];
-  const nextEvents = publishedEvents.filter((event) => !event.cancelled && !eventIsPast(event)).slice(0, 2);
-  const featuredProfiles = directoryProfiles.slice(0, 2);
-  const activeHelpCases = publishedHelpCases.filter((item) => !item.resolved).slice(0, 2);
-  const searchItems: HomeSearchItem[] = [
-    ...portalSections.flatMap((section) => [
-      { href: `/${section.slug}`, title: section.label, type: "Sekcia", keywords: `${section.description} ${section.intro}` },
-      ...section.subpages.map((subpage) => ({ href: portalSubpageHref(section, subpage), title: subpage.label, type: section.label, keywords: subpage.description })),
-    ]),
-    ...breeds.map((breed) => ({ href: `/plemena/${breed.slug}`, title: breed.name, type: "Plemeno", keywords: `${breed.group} ${breed.intro}` })),
-    ...publishedArticles.map((article) => ({ href: articleHref(article), title: article.title, type: articlePortalSection(article) === "novinky" ? "Novinka" : "Článok", keywords: `${article.excerpt} ${article.category} ${getNewsCategory(article.newsCategory)?.label ?? ""}` })),
-    ...publishedEvents.map((event) => ({ href: eventHref(event), title: event.title, type: "Podujatie", keywords: `${event.eventType} ${event.city} ${event.region}` })),
-    ...directoryProfiles.map((profile) => ({ href: directoryProfileHref(profile), title: profile.name, type: "Služby pre psov", keywords: `${profile.excerpt} ${profile.city} ${profile.region} ${profile.services.join(" ")}` })),
-    ...publishedHelpCases.map((item) => ({ href: helpCaseHref(item), title: item.title, type: "Pomoc psom", keywords: `${item.excerpt} ${item.city} ${item.region} ${item.organization}` })),
-  ];
+  const nextEvents = publishedEvents;
+  const featuredProfiles = directoryProfiles;
+  const activeHelpCases = publishedHelpCases;
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -126,7 +115,7 @@ export default async function Home() {
       </section>
 
       <div className="shell home-search-shell">
-        <HomePortalSearch items={searchItems} />
+        <HomePortalSearch />
       </div>
 
       <section className="promise-strip shell" aria-label="Naše zásady">
