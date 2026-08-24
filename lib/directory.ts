@@ -82,6 +82,7 @@ export type PublicDirectoryProfile = {
   verified: boolean;
   featured: boolean;
   updatedAt: string;
+  importData: Record<string, string | number | null> | null;
 };
 
 export type ManagedDirectoryProfile = PublicDirectoryProfile & {
