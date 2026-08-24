@@ -97,6 +97,10 @@ function requireD1Binding() {
 }
 
 async function ensureArticleStore(database: D1Database) {
+  // Wrangler applies the schema migrations during deployment. Do not write
+  // schema or seed data while rendering pages; concurrent writes can lock D1.
+  return;
+
   if (schemaReady) return schemaReady;
 
   schemaReady = (async () => {
