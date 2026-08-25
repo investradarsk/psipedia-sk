@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
 const SETTINGS_EVENT = "psipedia:open-cookie-settings";
@@ -9,28 +10,32 @@ const MEASUREMENT_ID = "G-Z6KV64S2CK";
 
 type ConsentChoice = "necessary" | "analytics";
 
-function enableAnalytics() {
-  if (document.querySelector(`script[data-psipedia-ga4="${MEASUREMENT_ID}"]`)) return;
-
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`;
-  script.dataset.psipediaGa4 = MEASUREMENT_ID;
-  document.head.appendChild(script);
-
+function enableAnalytics(pagePath: string) {
   const analyticsWindow = window as typeof window & {
     dataLayer?: unknown[][];
     gtag?: (...args: unknown[]) => void;
+    psipediaGa4Ready?: boolean;
     [key: `ga-disable-${string}`]: boolean | undefined;
   };
   analyticsWindow[`ga-disable-${MEASUREMENT_ID}`] = false;
   analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
   analyticsWindow.gtag = (...args: unknown[]) => analyticsWindow.dataLayer?.push(args);
-  analyticsWindow.gtag("js", new Date());
+
+  if (!analyticsWindow.psipediaGa4Ready) {
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`;
+    script.dataset.psipediaGa4 = MEASUREMENT_ID;
+    document.head.appendChild(script);
+    analyticsWindow.gtag("js", new Date());
+    analyticsWindow.psipediaGa4Ready = true;
+  }
+
   analyticsWindow.gtag("config", MEASUREMENT_ID, {
     anonymize_ip: true,
     allow_google_signals: false,
     allow_ad_personalization_signals: false,
+    page_path: pagePath,
   });
 }
 
@@ -47,6 +52,7 @@ function disableAnalytics() {
 }
 
 export function CookieConsent() {
+  const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [savedChoice, setSavedChoice] = useState<ConsentChoice | null>(null);
@@ -63,7 +69,6 @@ export function CookieConsent() {
       setIsOpen(choice === null);
       setReady(true);
     });
-    if (choice === "analytics") enableAnalytics();
     window.addEventListener(SETTINGS_EVENT, openSettings);
     return () => {
       mounted = false;
@@ -71,12 +76,17 @@ export function CookieConsent() {
     };
   }, [openSettings]);
 
+  useEffect(() => {
+    if (savedChoice === "analytics" && !pathname.startsWith("/admin")) {
+      enableAnalytics(pathname);
+    }
+  }, [pathname, savedChoice]);
+
   function saveChoice(choice: ConsentChoice) {
     window.localStorage.setItem(CONSENT_KEY, choice);
     setSavedChoice(choice);
     setIsOpen(false);
-    if (choice === "analytics") enableAnalytics();
-    else disableAnalytics();
+    if (choice === "necessary") disableAnalytics();
   }
 
   if (!ready || !isOpen) return null;
