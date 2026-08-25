@@ -73,6 +73,13 @@ const worker = {
         return new Response("Prístup do redakcie vyžaduje prihlásenie cez Cloudflare Access.", { status: 403 });
       }
       const headers = new Headers(request.headers);
+      // These headers are internal trust signals. Discard any client-supplied
+      // values before adding identity derived from the verified Access JWT.
+      headers.delete(ADMIN_AUTHORIZED_HEADER);
+      headers.delete(AUTH_PROVIDER_HEADER);
+      headers.delete(USER_EMAIL_HEADER);
+      headers.delete(USER_FULL_NAME_HEADER);
+      headers.delete(USER_FULL_NAME_ENCODING_HEADER);
       headers.set(ADMIN_AUTHORIZED_HEADER, "1");
       headers.set(USER_EMAIL_HEADER, identity.email);
       headers.set(AUTH_PROVIDER_HEADER, "cloudflare-access");

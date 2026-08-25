@@ -267,6 +267,26 @@ test("passes a verified Cloudflare Access identity to the admin application", as
     assert.ok(Array.isArray(payload.items));
     assert.ok(payload.items.length > 0);
 
+    const spoofedResponse = await worker.fetch(
+      new Request("http://localhost/api/admin/navigation", {
+        headers: {
+          accept: "application/json",
+          "x-psipedia-admin-authorized": "1",
+          "x-psipedia-auth-provider": "cloudflare-access",
+          "oai-authenticated-user-email": email,
+        },
+      }),
+      {
+        ACCESS_AUD: audience,
+        ACCESS_TEAM_DOMAIN: issuer,
+        ADMIN_EMAILS: email,
+        ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+        AUTH_MODE: "cloudflare-access",
+      },
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+    assert.equal(spoofedResponse.status, 403);
+
     const staleDeniedPage = await worker.fetch(
       new Request("http://localhost/admin/nepovoleny", {
         headers: {

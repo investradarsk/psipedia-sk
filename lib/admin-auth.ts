@@ -44,18 +44,6 @@ function usesCloudflareAccess() {
   return runtimeEnv.AUTH_MODE === "cloudflare-access";
 }
 
-function cloudflareAccessFallbackUser(): ChatGPTUser {
-  const [configuredEmail] = configuredAdminEmails();
-  const email = configuredEmail ?? "cloudflare-access@psipedia.local";
-
-  return {
-    authProvider: "cloudflare-access",
-    displayName: configuredEmail ? email : "Cloudflare Access",
-    email,
-    fullName: null,
-  };
-}
-
 async function getCloudflareAccessUser(): Promise<ChatGPTUser | null> {
   if (!usesCloudflareAccess()) return null;
 
@@ -79,12 +67,9 @@ export async function requireAdminPageUser(returnTo: string) {
   if (await isTrustedAgentPreview()) return PREVIEW_USER;
 
   if (usesCloudflareAccess()) {
-    // Every production /admin and /api/admin request reaches this module only
-    // after the Worker has validated the Cloudflare Access JWT signature,
-    // issuer, audience and lifetime. Vinext can omit Worker-injected headers
-    // from the subsequent Next request context, so those headers enrich the
-    // displayed identity but are not a second authorization gate.
-    return (await getCloudflareAccessUser()) ?? cloudflareAccessFallbackUser();
+    const user = await getCloudflareAccessUser();
+    if (!user) redirect("/admin/nepovoleny");
+    return user;
   }
 
   const user = await requireChatGPTUser(returnTo);
@@ -96,7 +81,7 @@ export async function getAdminApiUser() {
   if (await isTrustedAgentPreview()) return PREVIEW_USER;
 
   if (usesCloudflareAccess()) {
-    return (await getCloudflareAccessUser()) ?? cloudflareAccessFallbackUser();
+    return getCloudflareAccessUser();
   }
 
   const user = await getChatGPTUser();

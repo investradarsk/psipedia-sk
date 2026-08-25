@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { ManagedArticleSummary, ManagedArticleSummaryPage } from "@/lib/article-store";
+import type { AdminModuleCounts } from "@/lib/admin-dashboard-store";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, portalSectionLabel } from "@/lib/portal";
 import { AdminPagination } from "./admin-pagination";
@@ -18,9 +19,23 @@ function formattedDate(value: string) {
   return `${date.getUTCDate()}. ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${hour}:${minute}`;
 }
 
-export function AdminDashboard({ initialArticles, initialCounts, pagination, fixedPortalSection }: {
+const moduleOverview: Array<{ key: keyof AdminModuleCounts; label: string; href: string }> = [
+  { key: "articles", label: "Články", href: "/admin" },
+  { key: "puppies", label: "Šteniatka", href: "/admin/steniatka" },
+  { key: "breeds", label: "Plemená", href: "/admin/plemena" },
+  { key: "sections", label: "Sekcie", href: "/admin/sekcie" },
+  { key: "tips", label: "Tipy", href: "/admin/tipy" },
+  { key: "feedback", label: "Hodnotenia", href: "/admin/hodnotenia" },
+  { key: "inquiries", label: "Dopyty", href: "/admin/dopyty" },
+  { key: "events", label: "Podujatia", href: "/admin/podujatia" },
+  { key: "directory", label: "Adresár", href: "/admin/adresar" },
+  { key: "help", label: "Pomoc", href: "/admin/pomoc" },
+];
+
+export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, pagination, fixedPortalSection }: {
   initialArticles: ManagedArticleSummary[];
   initialCounts: ManagedArticleSummaryPage["counts"];
+  moduleCounts?: AdminModuleCounts;
   pagination: ManagedArticleSummaryPage["pagination"];
   fixedPortalSection?: ManagedArticleSummary["portalSection"];
 }) {
@@ -67,6 +82,23 @@ export function AdminDashboard({ initialArticles, initialCounts, pagination, fix
 
   return (
     <>
+      {moduleCounts && (
+        <section className="admin-overview" aria-labelledby="admin-overview-title">
+          <div className="admin-overview-heading">
+            <div><span>Celý portál</span><h2 id="admin-overview-title">Súhrnný prehľad</h2></div>
+            <p>Počty záznamov v hlavných moduloch administrácie.</p>
+          </div>
+          <div className="admin-overview-grid">
+            {moduleOverview.map((item) => (
+              <Link href={item.href} key={item.key}>
+                <span>{item.label}</span>
+                <strong>{moduleCounts[item.key]}</strong>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="admin-stats" aria-label="Stav redakcie">
         <div><span>Všetok obsah</span><strong>{counts.total}</strong></div>
         <div><span>Publikované</span><strong>{counts.published}</strong></div>
