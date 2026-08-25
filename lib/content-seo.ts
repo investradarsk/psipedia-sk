@@ -92,7 +92,8 @@ export function breedSeoFallback(name: string) {
 }
 
 export function directorySeoFallback(name: string, city: string, category: string) {
-  const place = city ? ` ${city}` : "";
+  const primaryCity = city.split(/[–—,/]/u)[0]?.trim() || city;
+  const place = primaryCity && !name.toLocaleLowerCase("sk").includes(primaryCity.toLocaleLowerCase("sk")) ? ` ${primaryCity}` : "";
   if (category === "kynologicke-kluby") return {
     title: `${name}${place} – kynologický klub | Psipedia`,
     description: `Informácie o kynologickom klube ${name}${city ? ` v lokalite ${city}` : ""}. Kontakt, lokalita, výcvik a ďalšie praktické údaje.`,
