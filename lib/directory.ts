@@ -1,4 +1,5 @@
 import type { SlovakRegion } from "@/lib/events";
+import type { ArticleSeo } from "@/lib/content";
 
 export const directoryCategories = [
   { slug: "veterinari", label: "Veterinári", singular: "Veterinárne pracovisko", icon: "🩺", description: "Ambulancie, kliniky, pohotovosti a špecializovaná starostlivosť." },
@@ -79,6 +80,7 @@ export type PublicDirectoryProfile = {
   featured: boolean;
   updatedAt: string;
   importData: Record<string, string | number | null> | null;
+  seo?: ArticleSeo;
 };
 
 export type ManagedDirectoryProfile = PublicDirectoryProfile & {

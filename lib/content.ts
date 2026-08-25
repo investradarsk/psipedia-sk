@@ -443,6 +443,7 @@ export type Breed = {
   consider: string[];
   sources?: BreedSource[];
   accent: "forest" | "coral" | "gold" | "blue";
+  seo?: ArticleSeo;
 };
 
 export const breeds: Breed[] = [

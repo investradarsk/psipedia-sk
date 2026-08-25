@@ -9,6 +9,7 @@ import {
 } from "@/lib/events";
 import { getPortalSubpage } from "@/lib/portal";
 import { slugifyArticleTitle } from "@/lib/article-store";
+import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 
 export type ManagedEventInput = {
   slug?: string;
@@ -32,6 +33,7 @@ export type ManagedEventInput = {
   imageUrl?: string | null;
   imageKey?: string | null;
   cancelled?: boolean;
+  seo?: EditableSeo;
 };
 
 export type ManagedEventSummary = Pick<
@@ -78,6 +80,7 @@ type EventRow = {
   published_at: string | null;
   created_by: string;
   updated_by: string;
+  seo_json: string;
 };
 
 type EventSummaryRow = {
@@ -142,8 +145,11 @@ function rowToEvent(row: EventRow): DogEvent {
     publishedAt: row.published_at,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
+    seo: parseSeo(row.seo_json),
   };
 }
+
+function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
 
 function rowToEventSummary(row: EventSummaryRow): ManagedEventSummary {
   return {
@@ -227,6 +233,7 @@ function normalizeInput(payload: ManagedEventInput) {
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
     cancelled: Boolean(payload.cancelled),
+    seo: cleanEditableSeo(payload.seo),
   };
 }
 
@@ -285,15 +292,15 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
     INSERT INTO managed_events (
       slug, title, excerpt, event_type, status, start_date, start_time, end_date, end_time,
       venue, city, region, address, organizer, description, practical_info,
-      website_url, registration_url, image_url, image_key, cancelled,
+      website_url, registration_url, image_url, image_key, cancelled, seo_json,
       created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `).bind(
     input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
     input.description, input.practicalInfo, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
-    input.cancelled ? 1 : 0, now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
+    input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<EventRow>();
   if (!row) throw new Error("Podujatie sa nepodarilo vytvoriť.");
   return rowToEvent(row);
@@ -312,13 +319,13 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
       slug = ?, title = ?, excerpt = ?, event_type = ?, status = ?, start_date = ?, start_time = ?,
       end_date = ?, end_time = ?, venue = ?, city = ?, region = ?, address = ?, organizer = ?,
       description = ?, practical_info = ?, website_url = ?, registration_url = ?, image_url = ?, image_key = ?,
-      cancelled = ?, updated_at = ?, published_at = ?, updated_by = ?
+      cancelled = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING *
   `).bind(
     input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
     input.description, input.practicalInfo, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
-    input.cancelled ? 1 : 0, now, publishedAt, editorEmail, id,
+    input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id,
   ).first<EventRow>();
   return row ? rowToEvent(row) : null;
 }

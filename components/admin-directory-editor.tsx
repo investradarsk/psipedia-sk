@@ -5,6 +5,8 @@ import { ChangeEvent, useState } from "react";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { directorySeoFallback } from "@/lib/content-seo";
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
@@ -35,6 +37,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [verified, setVerified] = useState(profile?.verified ?? false);
   const [featured, setFeatured] = useState(profile?.featured ?? false);
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
+  const [seo, setSeo] = useState(profile?.seo ?? {});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -63,7 +66,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, slug, category, status: nextStatus, excerpt, description, services: listFromText(services), qualifications: listFromText(qualifications), city, region, address, online, priceNote, websiteUrl: websiteUrl || null, internalEmail: internalEmail || null, imageUrl: imageUrl || null, imageKey: imageKey || null, verified, featured }),
+        body: JSON.stringify({ name, slug, category, status: nextStatus, excerpt, description, services: listFromText(services), qualifications: listFromText(qualifications), city, region, address, online, priceNote, websiteUrl: websiteUrl || null, internalEmail: internalEmail || null, imageUrl: imageUrl || null, imageKey: imageKey || null, verified, featured, seo }),
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
@@ -116,6 +119,8 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <img src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             <div className="admin-directory-flags"><label className="admin-event-cancelled"><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} /><span><strong>Overený profil</strong><small>Redakcia preverila základné údaje.</small></span></label><label className="admin-event-cancelled"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /><span><strong>Odporúčaný profil</strong><small>Zobrazí sa medzi prvými.</small></span></label></div>
           </section>
+
+          <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/adresar/${category}/${slug}`} fallbackTitle={directorySeoFallback(name||"Názov profilu",city,category).title} fallbackDescription={directorySeoFallback(name||"Názov profilu",city,category).description}/>
         </div>
 
         <aside className="admin-event-preview admin-directory-preview">

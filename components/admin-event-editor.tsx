@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ChangeEvent, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { eventSeoFallback } from "@/lib/content-seo";
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
@@ -32,6 +34,7 @@ export function AdminEventEditor({ event }: { event?: DogEvent }) {
   const [imageKey, setImageKey] = useState(event?.imageKey ?? "");
   const [cancelled, setCancelled] = useState(event?.cancelled ?? false);
   const [status, setStatus] = useState<EventStatus>(event?.status ?? "draft");
+  const [seo, setSeo] = useState(event?.seo ?? {});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -60,7 +63,7 @@ export function AdminEventEditor({ event }: { event?: DogEvent }) {
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
         method: event ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, cancelled }),
+        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, cancelled, seo }),
       });
       const data = await response.json() as { event?: DogEvent; error?: string };
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
@@ -122,6 +125,7 @@ export function AdminEventEditor({ event }: { event?: DogEvent }) {
             </div>
             <label className="admin-event-cancelled"><input type="checkbox" checked={cancelled} onChange={(input) => setCancelled(input.target.checked)} /><span><strong>Podujatie je zrušené</strong><small>Na verejnej stránke sa zobrazí výrazné upozornenie.</small></span></label>
           </section>
+          <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/podujatia/${slug}`} fallbackTitle={eventSeoFallback(title||"Názov podujatia",eventType,city).title} fallbackDescription={eventSeoFallback(title||"Názov podujatia",eventType,city).description}/>
         </div>
 
         <aside className="admin-event-preview">

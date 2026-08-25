@@ -1,3 +1,5 @@
+import type { ArticleSeo } from "@/lib/content";
+
 export const eventTypes = ["Výstava", "Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"] as const;
 export type EventType = (typeof eventTypes)[number];
 
@@ -44,6 +46,7 @@ export type DogEvent = {
   publishedAt: string | null;
   createdBy: string;
   updatedBy: string;
+  seo?: ArticleSeo;
 };
 
 export const eventTypeFilters = [

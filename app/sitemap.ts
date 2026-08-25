@@ -11,6 +11,7 @@ import { helpCaseHref } from "@/lib/help";
 import { articleHref, portalSubpageHref } from "@/lib/portal";
 import { listManagedPortalSections } from "@/lib/section-store";
 import { SITE_URL } from "@/lib/seo";
+import { resolvedCanonical } from "@/lib/content-seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([getPublishedArticles(), getPublishedEvents(), getPublishedDirectoryProfiles(), getPublishedHelpCases(), listManagedPortalSections(), listPublishedBreeds()]);
@@ -34,10 +35,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
       images: article.image ? [article.image.startsWith("https://") ? article.image : `${SITE_URL}${article.image}`] : undefined,
     })),
-    ...events.map((event) => ({ url: `${SITE_URL}${eventHref(event)}`, lastModified: new Date(event.updatedAt), changeFrequency: "weekly" as const, priority: 0.7 })),
-    ...directoryProfiles.map((profile) => ({ url: `${SITE_URL}${directoryProfileHref(profile)}`, lastModified: new Date(profile.updatedAt), changeFrequency: "monthly" as const, priority: 0.6 })),
-    ...helpCases.map((item) => ({ url: `${SITE_URL}${helpCaseHref(item)}`, lastModified: new Date(item.updatedAt), changeFrequency: "daily" as const, priority: 0.8 })),
-    ...breeds.map((breed) => ({ url: `${SITE_URL}/plemena/${breed.slug}`, lastModified: new Date("updatedAt" in breed ? breed.updatedAt : "2026-08-17"), changeFrequency: "monthly" as const, priority: 0.8, images: [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] })),
+    ...events.filter((event) => !event.seo?.noindex).map((event) => ({ url: resolvedCanonical(event.seo,eventHref(event)), lastModified: new Date(event.updatedAt), changeFrequency: "weekly" as const, priority: 0.7, images:event.imageUrl?[event.imageUrl.startsWith("https://")?event.imageUrl:`${SITE_URL}${event.imageUrl}`]:undefined })),
+    ...directoryProfiles.filter((profile) => !profile.seo?.noindex).map((profile) => ({ url: resolvedCanonical(profile.seo,directoryProfileHref(profile)), lastModified: new Date(profile.updatedAt), changeFrequency: "monthly" as const, priority: 0.6, images:profile.imageUrl?[profile.imageUrl.startsWith("https://")?profile.imageUrl:`${SITE_URL}${profile.imageUrl}`]:undefined })),
+    ...helpCases.filter((item) => !item.seo?.noindex).map((item) => ({ url: resolvedCanonical(item.seo,helpCaseHref(item)), lastModified: new Date(item.updatedAt), changeFrequency: "daily" as const, priority: 0.8, images:item.imageUrl?[item.imageUrl.startsWith("https://")?item.imageUrl:`${SITE_URL}${item.imageUrl}`]:undefined })),
+    ...breeds.filter((breed) => !breed.seo?.noindex).map((breed) => ({ url: resolvedCanonical(breed.seo,`/plemena/${breed.slug}`), lastModified: new Date("updatedAt" in breed ? breed.updatedAt : "2026-08-17"), changeFrequency: "monthly" as const, priority: 0.8, images: [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] })),
     ...categories.map((category) => ({ url: `${SITE_URL}/tema/${category.slug}`, lastModified: new Date("2026-08-17"), changeFrequency: "weekly" as const, priority: 0.6 })),
   ];
 }

@@ -5,7 +5,8 @@ import { RatingDots } from "@/components/breed-card";
 import { ArrowIcon } from "@/components/icons";
 import { breeds } from "@/lib/content";
 import { getPublishedBreed } from "@/lib/breed-store";
-import { absoluteUrl, buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { breedSeoFallback, buildContentMetadata, resolvedCanonical } from "@/lib/content-seo";
 
 type Props = { params: Promise<{ slug: string }> };
 export const dynamic = "force-dynamic";
@@ -14,16 +15,17 @@ function paragraphs(value?: string) { return value?.split(/\n\s*\n/).map((part) 
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params; const breed = await getPublishedBreed(slug);
-  return breed ? buildPageMetadata({ title: breed.name, description: breed.intro, path: `/plemena/${breed.slug}`, image: breed.image,
+  const fallback = breed ? breedSeoFallback(breed.name) : null;
+  return breed && fallback ? buildContentMetadata({ seo: breed.seo, fallbackTitle: fallback.title, fallbackDescription: fallback.description, path: `/plemena/${breed.slug}`, image: breed.image,
     imageAlt: `${breed.name} – profil plemena`, type: "article",
     publishedTime: "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : "2026-08-17",
-    modifiedTime: "updatedAt" in breed && typeof breed.updatedAt === "string" ? breed.updatedAt : "2026-08-17", authors: ["Redakcia Psipedia"],
+    modifiedTime: "updatedAt" in breed && typeof breed.updatedAt === "string" ? breed.updatedAt : "2026-08-17",
     section: "Plemená psov", tags: [breed.name, `FCI skupina ${breed.fciGroup}`, breed.origin] }) : {};
 }
 
 export default async function BreedDetailPage({ params }: Props) {
   const { slug } = await params; const breed = await getPublishedBreed(slug); if (!breed) notFound();
-  const canonical = `${SITE_URL}/plemena/${breed.slug}`;
+  const canonical = resolvedCanonical(breed.seo, `/plemena/${breed.slug}`);
   const publishedAt = "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : "2026-08-17";
   const updatedAt = "updatedAt" in breed && typeof breed.updatedAt === "string" ? breed.updatedAt : "2026-08-17";
   const gallery = breed.gallery ?? []; const healthRisks = breed.healthRisks ?? []; const sources = breed.sources ?? [];

@@ -5,6 +5,8 @@ import { useState, type ChangeEvent } from "react";
 import type { ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { breedSeoFallback } from "@/lib/content-seo";
 
 function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);}
 function lines(value:string){return value.split("\n").map((item)=>item.replace(/^[-•]\s*/,"").trim()).filter(Boolean);}
@@ -19,7 +21,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed }) {
     apartment:breed?.apartment??3,grooming:breed?.grooming??3,shedding:breed?.shedding??3,preyDrive:breed?.preyDrive??3,
     intro:breed?.intro??"",character:breed?.character??"",needs:breed?.needs??"",history:breed?.history??"",exercise:breed?.exercise??"",
     training:breed?.training??"",health:breed?.health??"",healthRisks:breed?.healthRisks?.join("\n")??"",goodFor:breed?.goodFor.join("\n")??"",
-    consider:breed?.consider.join("\n")??"",sources:breed?.sources?.length?breed.sources:[{...emptySource}],accent:breed?.accent??"forest",
+    consider:breed?.consider.join("\n")??"",sources:breed?.sources?.length?breed.sources:[{...emptySource}],accent:breed?.accent??"forest",seo:breed?.seo??{},
   });
   const [slugEdited,setSlugEdited]=useState(Boolean(breed));
   const [saving,setSaving]=useState(false);const [uploading,setUploading]=useState(false);const [message,setMessage]=useState("");const [error,setError]=useState("");
@@ -64,6 +66,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed }) {
 
     <section className="admin-form-card"><h2>Odborné zdroje</h2><div className="admin-breed-sources">{form.sources.map((source,index)=><div className="admin-source-row" key={index}><label className="admin-field"><span>Názov zdroja</span><input value={source.label} onChange={(e)=>updateSource(index,{label:e.target.value})}/></label><label className="admin-field"><span>URL zdroja</span><input type="url" value={source.url} onChange={(e)=>updateSource(index,{url:e.target.value})}/></label><button type="button" onClick={()=>change("sources",form.sources.filter((_,i)=>i!==index))}>Odstrániť</button></div>)}</div><button type="button" className="admin-secondary-button" onClick={()=>change("sources",[...form.sources,{...emptySource}])}>+ Pridať odborný zdroj</button><label className="admin-field"><span>Farebný motív</span><select value={form.accent} onChange={(e)=>change("accent",e.target.value)}><option value="forest">Zelený</option><option value="coral">Koralový</option><option value="gold">Zlatý</option><option value="blue">Modrý</option></select></label></section>
 
+    <AdminSeoFields value={form.seo} onChange={(seo)=>change("seo",seo)} canonicalPath={`/plemena/${form.slug}`} fallbackTitle={breedSeoFallback(form.name||"Názov plemena").title} fallbackDescription={breedSeoFallback(form.name||"Názov plemena").description}/>
     {error&&<p className="admin-form-error" role="alert">{error}</p>}{message&&<p className="admin-flash" role="status">{message}</p>}
     <div className="admin-editor-actions"><Link href="/admin/plemena">Späť</Link><div><button type="submit" disabled={saving}>Uložiť koncept</button><button type="button" className="is-primary" disabled={saving} onClick={()=>void save("published")}>Publikovať</button></div></div>
   </form>;

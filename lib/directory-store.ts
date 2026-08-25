@@ -11,6 +11,7 @@ import {
   type PublicDirectoryProfile,
 } from "@/lib/directory";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
+import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 
 export type ManagedDirectoryProfileInput = {
   slug?: string;
@@ -32,6 +33,7 @@ export type ManagedDirectoryProfileInput = {
   imageKey?: string | null;
   verified?: boolean;
   featured?: boolean;
+  seo?: EditableSeo;
 };
 
 export type ManagedDirectoryProfileSummary = Pick<
@@ -102,6 +104,7 @@ type DirectoryProfileRow = {
   published_at: string | null;
   created_by: string;
   updated_by: string;
+  seo_json: string;
 };
 
 type DirectoryInquiryRow = {
@@ -201,8 +204,11 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
     importData: safeImportData(row.source_data_json),
+    seo: parseSeo(row.seo_json),
   };
 }
+
+function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
 
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
   return {
@@ -315,6 +321,7 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
     imageKey: payload.imageKey?.trim() || null,
     verified: Boolean(payload.verified),
     featured: Boolean(payload.featured),
+    seo: cleanEditableSeo(payload.seo),
   };
 }
 
@@ -402,13 +409,13 @@ export async function createManagedDirectoryProfile(payload: ManagedDirectoryPro
     INSERT INTO directory_profiles (
       slug, name, category, status, excerpt, description, services_json, qualifications_json,
       city, region, address, online, price_note, website_url, internal_email, image_url, image_key,
-      verified, featured, created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
+      verified, featured, seo_json, created_at, updated_at, published_at, created_by, updated_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.region,
     input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0,
+    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo),
     now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
@@ -427,13 +434,13 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
     UPDATE directory_profiles SET
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
       qualifications_json = ?, city = ?, region = ?, address = ?, online = ?, price_note = ?, website_url = ?,
-      internal_email = ?, image_url = ?, image_key = ?, verified = ?, featured = ?, updated_at = ?, published_at = ?, updated_by = ?
+      internal_email = ?, image_url = ?, image_key = ?, verified = ?, featured = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING *
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.region,
     input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0,
+    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo),
     now, publishedAt, editorEmail, id,
   ).first<DirectoryProfileRow>();
   return row ? rowToManagedProfile(row) : null;

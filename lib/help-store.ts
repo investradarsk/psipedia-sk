@@ -9,6 +9,7 @@ import {
   type HelpCaseStatus,
   type HelpCategorySlug,
 } from "@/lib/help";
+import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 
 export type ManagedHelpCaseInput = {
   slug?: string;
@@ -36,6 +37,7 @@ export type ManagedHelpCaseInput = {
   verified?: boolean;
   urgent?: boolean;
   resolved?: boolean;
+  seo?: EditableSeo;
 };
 
 export type ManagedHelpCaseSummary = Pick<
@@ -86,6 +88,7 @@ type HelpCaseRow = {
   published_at: string | null;
   created_by: string;
   updated_by: string;
+  seo_json: string;
 };
 
 type HelpCaseSummaryRow = {
@@ -154,8 +157,11 @@ function rowToHelpCase(row: HelpCaseRow): HelpCase {
     publishedAt: row.published_at,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
+    seo: parseSeo(row.seo_json),
   };
 }
+
+function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
 
 function rowToHelpCaseSummary(row: HelpCaseSummaryRow): ManagedHelpCaseSummary {
   return {
@@ -255,6 +261,7 @@ function normalizeInput(payload: ManagedHelpCaseInput) {
     verified,
     urgent: Boolean(payload.urgent),
     resolved: Boolean(payload.resolved),
+    seo: cleanEditableSeo(payload.seo),
   };
 }
 
@@ -314,15 +321,15 @@ export async function createManagedHelpCase(payload: ManagedHelpCaseInput, edito
     INSERT INTO help_cases (
       slug, title, category, status, excerpt, description, organization, dog_name, breed, age_note,
       city, region, location_note, reported_date, deadline_date, action_label, action_url, contact_note,
-      goal_amount, raised_amount, image_url, image_key, verified, urgent, resolved,
+      goal_amount, raised_amount, image_url, image_key, verified, urgent, resolved, seo_json,
       created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
   `).bind(
     input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
     input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
     input.reportedDate, input.deadlineDate, input.actionLabel, input.actionUrl, input.contactNote,
     input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey, input.verified ? 1 : 0,
-    input.urgent ? 1 : 0, input.resolved ? 1 : 0, now, now,
+    input.urgent ? 1 : 0, input.resolved ? 1 : 0, JSON.stringify(input.seo), now, now,
     input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<HelpCaseRow>();
   if (!row) throw new Error("Prípad sa nepodarilo vytvoriť.");
@@ -342,14 +349,14 @@ export async function updateManagedHelpCase(id: number, payload: ManagedHelpCase
       slug = ?, title = ?, category = ?, status = ?, excerpt = ?, description = ?, organization = ?,
       dog_name = ?, breed = ?, age_note = ?, city = ?, region = ?, location_note = ?, reported_date = ?,
       deadline_date = ?, action_label = ?, action_url = ?, contact_note = ?, goal_amount = ?, raised_amount = ?,
-      image_url = ?, image_key = ?, verified = ?, urgent = ?, resolved = ?, updated_at = ?, published_at = ?, updated_by = ?
+      image_url = ?, image_key = ?, verified = ?, urgent = ?, resolved = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING *
   `).bind(
     input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
     input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
     input.reportedDate, input.deadlineDate, input.actionLabel, input.actionUrl, input.contactNote,
     input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey, input.verified ? 1 : 0,
-    input.urgent ? 1 : 0, input.resolved ? 1 : 0, now, publishedAt, editorEmail, id,
+    input.urgent ? 1 : 0, input.resolved ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id,
   ).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }

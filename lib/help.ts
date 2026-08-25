@@ -1,4 +1,5 @@
 import type { SlovakRegion } from "@/lib/events";
+import type { ArticleSeo } from "@/lib/content";
 
 export const helpCategories = [
   {
@@ -85,6 +86,7 @@ export type HelpCase = {
   publishedAt: string | null;
   createdBy: string;
   updatedBy: string;
+  seo?: ArticleSeo;
 };
 
 export function getHelpCategory(slug: string) {

@@ -10,7 +10,10 @@ import { getPublishedEvent, getPublishedEvents } from "@/lib/event-store";
 import { eventHref, eventTypeFromPortalSlug } from "@/lib/events";
 import { articleHref, portalSections } from "@/lib/portal";
 import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-store";
-import { buildPageMetadata, searchResultTitle } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
+import { StructuredData } from "@/components/structured-data";
+import { buildContentMetadata, eventSeoFallback, resolvedCanonical } from "@/lib/content-seo";
+import { absoluteUrl, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +40,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (section === "podujatia") {
     const event = await getPublishedEvent(slug);
     if (event) {
-      return buildPageMetadata({
-        title: searchResultTitle(event.title),
-        description: event.excerpt,
+      const fallback=eventSeoFallback(event.title,event.eventType,event.city);
+      return buildContentMetadata({ seo:event.seo, fallbackTitle:fallback.title,
+        fallbackDescription:fallback.description,
         path: eventHref(event),
         image: event.imageUrl || null,
         imageAlt: event.title,
@@ -64,7 +67,12 @@ export default async function PortalContentPage({ params }: Props) {
 
   if (section === "podujatia") {
     const event = await getPublishedEvent(slug);
-    if (event) return <EventDetail event={event} />;
+    if (event) {
+      const canonical=resolvedCanonical(event.seo,eventHref(event));
+      const location=event.region==="Online"?{"@type":"VirtualLocation",url:event.websiteUrl||canonical}:{"@type":"Place",name:event.venue||event.city,address:{"@type":"PostalAddress",streetAddress:event.address||undefined,addressLocality:event.city,addressRegion:event.region,addressCountry:"SK"}};
+      const schema={"@context":"https://schema.org","@graph":[{"@type":"Event","@id":`${canonical}#event`,name:event.title,description:event.description||event.excerpt,startDate:`${event.startDate}${event.startTime?`T${event.startTime}:00`:""}`,endDate:event.endDate?`${event.endDate}${event.endTime?`T${event.endTime}:00`:""}`:undefined,eventStatus:event.cancelled?"https://schema.org/EventCancelled":"https://schema.org/EventScheduled",eventAttendanceMode:event.region==="Online"?"https://schema.org/OnlineEventAttendanceMode":"https://schema.org/OfflineEventAttendanceMode",location,organizer:{"@type":"Organization",name:event.organizer,url:event.websiteUrl||undefined},image:event.imageUrl?[absoluteUrl(event.imageUrl)]:undefined,url:canonical},{"@type":"BreadcrumbList","@id":`${canonical}#breadcrumb`,itemListElement:[{"@type":"ListItem",position:1,name:"Domov",item:SITE_URL},{"@type":"ListItem",position:2,name:"Podujatia",item:`${SITE_URL}/podujatia`},{"@type":"ListItem",position:3,name:event.title,item:canonical}]}]};
+      return <><StructuredData value={schema}/><EventDetail event={event} /></>;
+    }
   }
 
   const article = await getPublishedArticle(slug);

@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } from "@/lib/content";
+import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 
 export type BreedStatus = "draft" | "published";
 export type ManagedBreed = Breed & { id: number; status: BreedStatus; imageKey: string | null; createdAt: string; updatedAt: string; publishedAt: string | null };
@@ -11,6 +12,7 @@ type Row = {
   energy:number;trainability:number;family:number;children:number;other_dogs:number;apartment:number;grooming:number;shedding:number;prey_drive:number;
   intro:string;character:string;needs:string;history:string;exercise:string;training:string;health:string;health_risks_json:string;
   good_for_json:string;consider_json:string;sources_json:string;accent:string;created_at:string;updated_at:string;published_at:string|null;
+  seo_json:string;
 };
 type SummaryRow = { id:number;slug:string;name:string;status:string;image_url:string;fci_group:number;origin:string;group_name:string;accent:string };
 type RuntimeBindings = { DB?: D1Database };
@@ -36,7 +38,10 @@ function fromRow(row:Row):ManagedBreed { return {
   training:row.training,health:row.health,healthRisks:stringArray(row.health_risks_json),goodFor:stringArray(row.good_for_json),
   consider:stringArray(row.consider_json),sources:parseArray(row.sources_json,isBreedSource),accent:row.accent as Breed["accent"],
   createdAt:row.created_at,updatedAt:row.updated_at,publishedAt:row.published_at,
+  seo:parseSeo(row.seo_json),
 }; }
+
+function parseSeo(value:string):EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
 
 function fromSummaryRow(row:SummaryRow):ManagedBreedSummary { return {
   id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
@@ -45,7 +50,7 @@ function fromSummaryRow(row:SummaryRow):ManagedBreedSummary { return {
 
 const select=`SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_group,fci_section,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
-history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at FROM managed_breeds`;
+history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
 export async function listManagedBreedSummaries(limit=100){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(200,Math.trunc(limit)));const result=await database.prepare("SELECT id,slug,name,status,image_url,fci_group,origin,group_name,accent FROM managed_breeds ORDER BY fci_group,name LIMIT ?").bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
 export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name`).all<Row>();return result.results.map(fromRow);}
 export async function listFeaturedBreeds(limit=3){const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));const database=db();if(!database)return seedBreeds.slice(0,safeLimit);const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<Row>();return result.results.map(fromRow);}
@@ -67,10 +72,10 @@ function clean(input:ManagedBreedInput){
     grooming:score(input.grooming),shedding:score(input.shedding),preyDrive:score(input.preyDrive),intro:text(input.intro,1200),character:text(input.character,8000),
     needs:text(input.needs,8000),history:text(input.history,8000),exercise:text(input.exercise,8000),training:text(input.training,8000),health:text(input.health,8000),
     healthRisks:strings(input.healthRisks),goodFor:strings(input.goodFor),consider:strings(input.consider),sources,
-    accent:["forest","coral","gold","blue"].includes(String(input.accent))?input.accent as Breed["accent"]:"forest"};
+    accent:["forest","coral","gold","blue"].includes(String(input.accent))?input.accent as Breed["accent"]:"forest",seo:cleanEditableSeo(input.seo)};
 }
-function values(value:ReturnType<typeof clean>){return [value.slug,value.name,value.status,value.image,value.imageKey,JSON.stringify(value.gallery),value.fciGroup,value.fciSection,value.origin,value.group,value.size,value.weight,value.height,value.lifespan,value.coat,value.energy,value.trainability,value.family,value.children,value.otherDogs,value.apartment,value.grooming,value.shedding,value.preyDrive,value.intro,value.character,value.needs,value.history,value.exercise,value.training,value.health,JSON.stringify(value.healthRisks),JSON.stringify(value.goodFor),JSON.stringify(value.consider),JSON.stringify(value.sources),value.accent];}
+function values(value:ReturnType<typeof clean>){return [value.slug,value.name,value.status,value.image,value.imageKey,JSON.stringify(value.gallery),value.fciGroup,value.fciSection,value.origin,value.group,value.size,value.weight,value.height,value.lifespan,value.coat,value.energy,value.trainability,value.family,value.children,value.otherDogs,value.apartment,value.grooming,value.shedding,value.preyDrive,value.intro,value.character,value.needs,value.history,value.exercise,value.training,value.health,JSON.stringify(value.healthRisks),JSON.stringify(value.goodFor),JSON.stringify(value.consider),JSON.stringify(value.sources),value.accent,JSON.stringify(value.seo)];}
 
-export async function createManagedBreed(input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();const placeholders=Array.from({length:41},()=>"?").join(",");const result=await database.prepare(`INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_group,fci_section,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`).bind(...values(value),now,now,value.status==="published"?now:null,user,user).run();return getManagedBreed(Number(result.meta.last_row_id));}
-export async function updateManagedBreed(id:number,input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();await database.prepare(`UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_group=?,fci_section=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=?`).bind(...values(value),now,value.status,now,user,id).run();return getManagedBreed(id);}
+export async function createManagedBreed(input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();const placeholders=Array.from({length:42},()=>"?").join(",");const result=await database.prepare(`INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_group,fci_section,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`).bind(...values(value),now,now,value.status==="published"?now:null,user,user).run();return getManagedBreed(Number(result.meta.last_row_id));}
+export async function updateManagedBreed(id:number,input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();await database.prepare(`UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_group=?,fci_section=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=?`).bind(...values(value),now,value.status,now,user,id).run();return getManagedBreed(id);}
 export async function deleteManagedBreed(id:number){const database=requireDb();await ensure(database);await database.prepare("DELETE FROM managed_breeds WHERE id=?").bind(id).run();}
