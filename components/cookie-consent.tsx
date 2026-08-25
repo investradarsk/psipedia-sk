@@ -10,38 +10,86 @@ const MEASUREMENT_ID = "G-Z6KV64S2CK";
 
 type ConsentChoice = "necessary" | "analytics";
 
-function enableAnalytics(pagePath: string) {
-  const analyticsWindow = window as typeof window & {
-    dataLayer?: unknown[][];
-    gtag?: (...args: unknown[]) => void;
-    psipediaGa4Ready?: boolean;
-    [key: `ga-disable-${string}`]: boolean | undefined;
-  };
+type AnalyticsWindow = typeof window & {
+  dataLayer?: unknown[];
+  gtag?: (...args: unknown[]) => void;
+  psipediaGa4Configured?: boolean;
+  psipediaGa4LastPageView?: string;
+  psipediaGa4LoadPromise?: Promise<void>;
+  [key: `ga-disable-${string}`]: boolean | undefined;
+};
+
+function loadAnalytics() {
+  const analyticsWindow = window as AnalyticsWindow;
   analyticsWindow[`ga-disable-${MEASUREMENT_ID}`] = false;
   analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
-  analyticsWindow.gtag = (...args: unknown[]) => analyticsWindow.dataLayer?.push(args);
+  analyticsWindow.gtag ||= function gtag(..._args: unknown[]) {
+    analyticsWindow.dataLayer?.push(arguments);
+  };
 
-  if (!analyticsWindow.psipediaGa4Ready) {
-    const script = document.createElement("script");
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`;
-    script.dataset.psipediaGa4 = MEASUREMENT_ID;
-    document.head.appendChild(script);
+  if (!analyticsWindow.psipediaGa4Configured) {
     analyticsWindow.gtag("js", new Date());
-    analyticsWindow.psipediaGa4Ready = true;
+    analyticsWindow.gtag("consent", "update", { analytics_storage: "granted" });
+    analyticsWindow.gtag("config", MEASUREMENT_ID, {
+      anonymize_ip: true,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+      send_page_view: false,
+    });
+    analyticsWindow.psipediaGa4Configured = true;
   }
 
-  analyticsWindow.gtag("config", MEASUREMENT_ID, {
-    anonymize_ip: true,
-    allow_google_signals: false,
-    allow_ad_personalization_signals: false,
-    page_path: pagePath,
-  });
+  if (!analyticsWindow.psipediaGa4LoadPromise) {
+    analyticsWindow.psipediaGa4LoadPromise = new Promise<void>((resolve, reject) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(`script[data-psipedia-ga4="${MEASUREMENT_ID}"]`);
+      if (existingScript?.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+
+      const script = existingScript ?? document.createElement("script");
+      script.addEventListener("load", () => {
+        script.dataset.loaded = "true";
+        resolve();
+      }, { once: true });
+      script.addEventListener("error", () => reject(new Error("Google Analytics sa nepodarilo načítať.")), { once: true });
+      if (existingScript) return;
+
+      script.async = true;
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`;
+      script.dataset.psipediaGa4 = MEASUREMENT_ID;
+      document.head.appendChild(script);
+    });
+  }
+
+  return analyticsWindow.psipediaGa4LoadPromise;
+}
+
+async function sendPageView(pagePath: string) {
+  const analyticsWindow = window as AnalyticsWindow;
+  const pageKey = `${pagePath}${window.location.search}`;
+  if (analyticsWindow.psipediaGa4LastPageView === pageKey) return;
+
+  try {
+    await loadAnalytics();
+    analyticsWindow.gtag?.("event", "page_view", {
+      send_to: MEASUREMENT_ID,
+      page_location: window.location.href,
+      page_path: pageKey,
+      page_title: document.title,
+    });
+    analyticsWindow.psipediaGa4LastPageView = pageKey;
+  } catch (error) {
+    analyticsWindow.psipediaGa4LoadPromise = undefined;
+    console.error(error);
+  }
 }
 
 function disableAnalytics() {
-  const analyticsWindow = window as typeof window & { [key: `ga-disable-${string}`]: boolean | undefined };
+  const analyticsWindow = window as AnalyticsWindow;
   analyticsWindow[`ga-disable-${MEASUREMENT_ID}`] = true;
+  analyticsWindow.psipediaGa4LastPageView = undefined;
+  analyticsWindow.gtag?.("consent", "update", { analytics_storage: "denied" });
 
   for (const cookie of document.cookie.split(";")) {
     const name = cookie.split("=")[0]?.trim();
@@ -78,7 +126,7 @@ export function CookieConsent() {
 
   useEffect(() => {
     if (savedChoice === "analytics" && !pathname.startsWith("/admin")) {
-      enableAnalytics(pathname);
+      void sendPageView(pathname);
     }
   }, [pathname, savedChoice]);
 
