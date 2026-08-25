@@ -219,16 +219,19 @@ test("renders the portal homepage", async () => {
   // The externally hosted Cloudflare build intentionally has no Sites-only
   // development preview marker.
   assert.doesNotMatch(html, developmentPreviewMeta);
-  assert.match(html, /Psipedia je viac než magazín/);
-  assert.match(html, /Šteniatka/);
+  assert.match(html, /Rozumej svojmu psovi/);
   assert.match(html, /Pomoc psom/);
-  assert.match(html, /Jedno miesto pre celý život so psom/);
-  assert.match(html, /Portál, ktorý sa hýbe s komunitou/);
+  assert.match(html, /Najbližšie podujatia/);
+  assert.match(html, /Dobré čítanie pre dobrý psí život/);
+  assert.match(html, /Plemeno dňa/);
+  assert.match(html, /Koľko „ľudských rokov“ má tvoj pes/);
   assert.match(html, /Kalendár práve dopĺňame/);
-  assert.match(html, /Vyber si, koho hľadáš/);
   assert.match(html, /Žiadna otvorená výzva/);
   assert.match(html, /Novinky zo sveta psov/);
   assert.match(html, /Prvé overené správy pripravujeme/);
+  assert.doesNotMatch(html, /Psipedia je viac než magazín/);
+  assert.doesNotMatch(html, /Portál, ktorý sa hýbe s komunitou/);
+  assert.doesNotMatch(html, /Vyber si, koho hľadáš/);
 });
 
 test("passes a verified Cloudflare Access identity to the admin application", async () => {
