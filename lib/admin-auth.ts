@@ -13,6 +13,7 @@ type AdminRuntimeEnv = {
 };
 
 const ACCESS_ASSERTION_HEADER = "cf-access-jwt-assertion";
+const ADMIN_AUTHORIZED_HEADER = "x-psipedia-admin-authorized";
 
 const PREVIEW_USER: ChatGPTUser = {
   authProvider: "chatgpt",
@@ -48,12 +49,14 @@ async function getCloudflareAccessUser(): Promise<ChatGPTUser | null> {
 
   const requestHeaders = await headers();
   const assertion = requestHeaders.get(ACCESS_ASSERTION_HEADER);
+  const authorized = requestHeaders.get(ADMIN_AUTHORIZED_HEADER) === "1";
   const user = await getChatGPTUser();
 
-  // The Worker validates the Access JWT and injects the verified identity into
-  // the same internal headers used by the application auth bridge. Requiring
-  // both values prevents client-supplied identity headers from being trusted.
-  return assertion && user?.authProvider === "cloudflare-access" ? user : null;
+  // The Worker validates the Access JWT, checks the admin allowlist and then
+  // injects both the verified identity and this internal authorization marker.
+  // Requiring all three prevents client-supplied identity headers from being
+  // treated as an authenticated administrator.
+  return assertion && authorized && user?.authProvider === "cloudflare-access" ? user : null;
 }
 
 function isConfiguredAdmin(user: ChatGPTUser) {
@@ -64,10 +67,7 @@ export async function requireAdminPageUser(returnTo: string) {
   if (await isTrustedAgentPreview()) return PREVIEW_USER;
 
   const accessUser = await getCloudflareAccessUser();
-  if (accessUser) {
-    if (!isConfiguredAdmin(accessUser)) redirect("/admin/nepovoleny");
-    return accessUser;
-  }
+  if (accessUser) return accessUser;
 
   // Cloudflare Access owns the sign-in flow in production. Do not fall back to
   // the legacy ChatGPT sign-in endpoint when its identity headers are absent.
@@ -82,7 +82,7 @@ export async function getAdminApiUser() {
   if (await isTrustedAgentPreview()) return PREVIEW_USER;
 
   const accessUser = await getCloudflareAccessUser();
-  if (accessUser) return isConfiguredAdmin(accessUser) ? accessUser : null;
+  if (accessUser) return accessUser;
   if (usesCloudflareAccess()) return null;
 
   const user = await getChatGPTUser();

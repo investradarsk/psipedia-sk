@@ -229,7 +229,6 @@ test("passes a verified Cloudflare Access identity to the admin application", as
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   const previousRuntimeEnv = { ...runtimeEnv };
   Object.assign(runtimeEnv, {
-    ADMIN_EMAILS: email,
     AUTH_MODE: "cloudflare-access",
   });
 
@@ -267,6 +266,24 @@ test("passes a verified Cloudflare Access identity to the admin application", as
     const payload = await response.json();
     assert.ok(Array.isArray(payload.items));
     assert.ok(payload.items.length > 0);
+
+    const deniedResponse = await worker.fetch(
+      new Request("http://localhost/api/admin/navigation", {
+        headers: {
+          accept: "application/json",
+          "cf-access-jwt-assertion": token,
+        },
+      }),
+      {
+        ACCESS_AUD: audience,
+        ACCESS_TEAM_DOMAIN: issuer,
+        ADMIN_EMAILS: "iny.ucet@example.com",
+        ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+        AUTH_MODE: "cloudflare-access",
+      },
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+    assert.equal(deniedResponse.status, 403);
   } finally {
     globalThis.fetch = originalFetch;
     for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
@@ -283,7 +300,7 @@ test("uses light admin lists and loads full records only for detail and save", a
   const database = createAdminMockDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   const previousRuntimeEnv = { ...runtimeEnv };
-  Object.assign(runtimeEnv, { DB: database, ADMIN_EMAILS: email, AUTH_MODE: "cloudflare-access" });
+  Object.assign(runtimeEnv, { DB: database, AUTH_MODE: "cloudflare-access" });
 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {

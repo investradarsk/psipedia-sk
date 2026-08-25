@@ -40,6 +40,7 @@ const ACCESS_JWKS_TTL_MS = 5 * 60 * 1000;
 const accessJwksCache = new Map<string, CachedAccessJwks>();
 
 const ADMIN_AUTH_PATHS = ["/admin", "/api/admin"];
+const ADMIN_AUTHORIZED_HEADER = "x-psipedia-admin-authorized";
 const AUTH_PROVIDER_HEADER = "x-psipedia-auth-provider";
 const USER_EMAIL_HEADER = "oai-authenticated-user-email";
 const USER_FULL_NAME_ENCODING_HEADER = "oai-authenticated-user-full-name-encoding";
@@ -71,8 +72,12 @@ const worker = {
       if (!identity) {
         return new Response("Prístup do redakcie vyžaduje prihlásenie cez Cloudflare Access.", { status: 403 });
       }
+      if (!configuredAdminEmails(env.ADMIN_EMAILS).has(identity.email)) {
+        return new Response("Tento účet nemá prístup do redakcie.", { status: 403 });
+      }
 
       const headers = new Headers(request.headers);
+      headers.set(ADMIN_AUTHORIZED_HEADER, "1");
       headers.set(USER_EMAIL_HEADER, identity.email);
       headers.set(AUTH_PROVIDER_HEADER, "cloudflare-access");
       if (identity.name) {
@@ -99,6 +104,15 @@ const worker = {
 
 function isAdminAuthPath(pathname: string): boolean {
   return ADMIN_AUTH_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function configuredAdminEmails(value: string | undefined): Set<string> {
+  return new Set(
+    (value ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  );
 }
 
 async function verifyAccessIdentity(
