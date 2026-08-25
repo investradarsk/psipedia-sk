@@ -52,10 +52,10 @@ async function getCloudflareAccessUser(): Promise<ChatGPTUser | null> {
   const authorized = requestHeaders.get(ADMIN_AUTHORIZED_HEADER) === "1";
   const user = await getChatGPTUser();
 
-  // The Worker validates the Access JWT, checks the admin allowlist and then
-  // injects both the verified identity and this internal authorization marker.
-  // Requiring all three prevents client-supplied identity headers from being
-  // treated as an authenticated administrator.
+  // Cloudflare Access applies the application's allow policy first. The Worker
+  // then validates the JWT and injects both the verified identity and this
+  // internal authorization marker. Requiring all three prevents client-supplied
+  // identity headers from being treated as an authenticated administrator.
   return assertion && authorized && user?.authProvider === "cloudflare-access" ? user : null;
 }
 

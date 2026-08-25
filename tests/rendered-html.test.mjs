@@ -294,9 +294,9 @@ test("passes a verified Cloudflare Access identity to the admin application", as
         },
       }),
       {
-        ACCESS_AUD: audience,
+        ACCESS_AUD: "ine-publikum",
         ACCESS_TEAM_DOMAIN: issuer,
-        ADMIN_EMAILS: "iny.ucet@example.com",
+        ADMIN_EMAILS: email,
         ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
         AUTH_MODE: "cloudflare-access",
       },

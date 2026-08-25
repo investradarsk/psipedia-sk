@@ -72,10 +72,6 @@ const worker = {
       if (!identity) {
         return new Response("Prístup do redakcie vyžaduje prihlásenie cez Cloudflare Access.", { status: 403 });
       }
-      if (!configuredAdminEmails(env.ADMIN_EMAILS).has(identity.email)) {
-        return new Response("Tento účet nemá prístup do redakcie.", { status: 403 });
-      }
-
       const headers = new Headers(request.headers);
       headers.set(ADMIN_AUTHORIZED_HEADER, "1");
       headers.set(USER_EMAIL_HEADER, identity.email);
@@ -104,15 +100,6 @@ const worker = {
 
 function isAdminAuthPath(pathname: string): boolean {
   return ADMIN_AUTH_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
-function configuredAdminEmails(value: string | undefined): Set<string> {
-  return new Set(
-    (value ?? "")
-      .split(",")
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean),
-  );
 }
 
 async function verifyAccessIdentity(
