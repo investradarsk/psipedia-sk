@@ -267,6 +267,25 @@ test("passes a verified Cloudflare Access identity to the admin application", as
     assert.ok(Array.isArray(payload.items));
     assert.ok(payload.items.length > 0);
 
+    const staleDeniedPage = await worker.fetch(
+      new Request("http://localhost/admin/nepovoleny", {
+        headers: {
+          accept: "text/html",
+          "cf-access-jwt-assertion": token,
+        },
+      }),
+      {
+        ACCESS_AUD: audience,
+        ACCESS_TEAM_DOMAIN: issuer,
+        ADMIN_EMAILS: email,
+        ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+        AUTH_MODE: "cloudflare-access",
+      },
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+    assert.equal(staleDeniedPage.status, 307);
+    assert.equal(new URL(staleDeniedPage.headers.get("location")).pathname, "/admin");
+
     const deniedResponse = await worker.fetch(
       new Request("http://localhost/api/admin/navigation", {
         headers: {

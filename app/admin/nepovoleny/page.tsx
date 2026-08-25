@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { chatGPTSignOutPath, getChatGPTUser } from "@/app/chatgpt-auth";
+import { getAdminApiUser } from "@/lib/admin-auth";
 
 export default async function AdminDeniedPage() {
+  if (await getAdminApiUser()) redirect("/admin");
+
   const user = await getChatGPTUser();
   return (
     <main id="obsah" className="admin-denied">
