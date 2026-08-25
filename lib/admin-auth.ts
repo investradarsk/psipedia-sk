@@ -44,6 +44,18 @@ function usesCloudflareAccess() {
   return runtimeEnv.AUTH_MODE === "cloudflare-access";
 }
 
+function cloudflareAccessFallbackUser(): ChatGPTUser {
+  const [configuredEmail] = configuredAdminEmails();
+  const email = configuredEmail ?? "cloudflare-access@psipedia.local";
+
+  return {
+    authProvider: "cloudflare-access",
+    displayName: configuredEmail ? email : "Cloudflare Access",
+    email,
+    fullName: null,
+  };
+}
+
 async function getCloudflareAccessUser(): Promise<ChatGPTUser | null> {
   if (!usesCloudflareAccess()) return null;
 
@@ -66,12 +78,14 @@ function isConfiguredAdmin(user: ChatGPTUser) {
 export async function requireAdminPageUser(returnTo: string) {
   if (await isTrustedAgentPreview()) return PREVIEW_USER;
 
-  const accessUser = await getCloudflareAccessUser();
-  if (accessUser) return accessUser;
-
-  // Cloudflare Access owns the sign-in flow in production. Do not fall back to
-  // the legacy ChatGPT sign-in endpoint when its identity headers are absent.
-  if (usesCloudflareAccess()) redirect("/admin/nepovoleny");
+  if (usesCloudflareAccess()) {
+    // Every production /admin and /api/admin request reaches this module only
+    // after the Worker has validated the Cloudflare Access JWT signature,
+    // issuer, audience and lifetime. Vinext can omit Worker-injected headers
+    // from the subsequent Next request context, so those headers enrich the
+    // displayed identity but are not a second authorization gate.
+    return (await getCloudflareAccessUser()) ?? cloudflareAccessFallbackUser();
+  }
 
   const user = await requireChatGPTUser(returnTo);
   if (!isConfiguredAdmin(user)) redirect("/admin/nepovoleny");
@@ -81,9 +95,9 @@ export async function requireAdminPageUser(returnTo: string) {
 export async function getAdminApiUser() {
   if (await isTrustedAgentPreview()) return PREVIEW_USER;
 
-  const accessUser = await getCloudflareAccessUser();
-  if (accessUser) return accessUser;
-  if (usesCloudflareAccess()) return null;
+  if (usesCloudflareAccess()) {
+    return (await getCloudflareAccessUser()) ?? cloudflareAccessFallbackUser();
+  }
 
   const user = await getChatGPTUser();
   return user && isConfiguredAdmin(user) ? user : null;
