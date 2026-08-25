@@ -112,6 +112,17 @@ function createAdminMockDatabase() {
 
   function rowsFor(sql) {
     const normalized = sql.replace(/\s+/g, " ").trim();
+    if (/FROM sqlite_master/i.test(normalized)) {
+      // Intentionally omit the newer module tables to verify that the dashboard
+      // still renders while production migrations catch up.
+      return [{ name: "managed_articles" }, { name: "directory_profiles" }];
+    }
+    if (/COUNT\(\*\) AS count/i.test(normalized) && /FROM managed_articles/i.test(normalized)) {
+      return [{ count: /portal_section != 'steniatka'/i.test(normalized) ? 1 : 0 }];
+    }
+    if (/COUNT\(\*\) AS count/i.test(normalized) && /FROM directory_profiles/i.test(normalized)) {
+      return [{ count: 1 }];
+    }
     if (/COUNT\(\*\) AS total/i.test(normalized) && /FROM managed_articles/i.test(normalized)) {
       return [{ total: 1, published: 0, scheduled: 0, draft: 1 }];
     }
@@ -369,7 +380,9 @@ test("uses light admin lists and loads full records only for detail and save", a
 
     const dashboard = await worker.fetch(adminRequest("/admin"), bindings, context);
     assert.equal(dashboard.status, 200);
-    assert.match(await dashboard.text(), /Testovací článok/);
+    const dashboardHtml = await dashboard.text();
+    assert.match(dashboardHtml, /Testovací článok/);
+    assert.match(dashboardHtml, /Súhrnný prehľad/);
 
     const directory = await worker.fetch(adminRequest("/admin/adresar"), bindings, context);
     assert.equal(directory.status, 200);

@@ -14,7 +14,8 @@ export type AdminModuleCounts = {
 };
 
 type RuntimeBindings = { DB?: D1Database };
-type CountRow = { module: keyof AdminModuleCounts; count: number };
+type CountRow = { count: number };
+type TableRow = { name: string };
 
 const emptyCounts: AdminModuleCounts = {
   articles: 0,
@@ -29,25 +30,52 @@ const emptyCounts: AdminModuleCounts = {
   help: 0,
 };
 
+const countQueries: Array<{
+  key: keyof AdminModuleCounts;
+  table: string;
+  where?: string;
+}> = [
+  { key: "articles", table: "managed_articles", where: "portal_section != 'steniatka'" },
+  { key: "puppies", table: "managed_articles", where: "portal_section = 'steniatka'" },
+  { key: "breeds", table: "managed_breeds" },
+  { key: "sections", table: "portal_section_settings" },
+  { key: "tips", table: "news_tips" },
+  { key: "feedback", table: "article_feedback" },
+  { key: "inquiries", table: "directory_inquiries" },
+  { key: "events", table: "managed_events" },
+  { key: "directory", table: "directory_profiles" },
+  { key: "help", table: "managed_help_cases" },
+];
+
 export async function getAdminModuleCounts(): Promise<AdminModuleCounts> {
   const database = (env as unknown as RuntimeBindings).DB;
-  if (!database || typeof database.prepare !== "function") return emptyCounts;
+  if (!database || typeof database.prepare !== "function") return { ...emptyCounts };
 
-  const result = await database.prepare(`
-    SELECT 'articles' AS module, COUNT(*) AS count FROM managed_articles WHERE portal_section != 'steniatka'
-    UNION ALL SELECT 'puppies', COUNT(*) FROM managed_articles WHERE portal_section = 'steniatka'
-    UNION ALL SELECT 'breeds', COUNT(*) FROM managed_breeds
-    UNION ALL SELECT 'sections', COUNT(*) FROM portal_section_settings
-    UNION ALL SELECT 'tips', COUNT(*) FROM news_tips
-    UNION ALL SELECT 'feedback', COUNT(*) FROM article_feedback
-    UNION ALL SELECT 'inquiries', COUNT(*) FROM directory_inquiries
-    UNION ALL SELECT 'events', COUNT(*) FROM managed_events
-    UNION ALL SELECT 'directory', COUNT(*) FROM directory_profiles
-    UNION ALL SELECT 'help', COUNT(*) FROM managed_help_cases
-  `).all<CountRow>();
+  try {
+    const tables = [...new Set(countQueries.map(({ table }) => table))];
+    const placeholders = tables.map(() => "?").join(", ");
+    const tableResult = await database
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${placeholders})`)
+      .bind(...tables)
+      .all<TableRow>();
+    const existingTables = new Set(tableResult.results.map(({ name }) => name));
+    const availableQueries = countQueries.filter(({ table }) => existingTables.has(table));
 
-  return result.results.reduce<AdminModuleCounts>(
-    (counts, row) => ({ ...counts, [row.module]: Number(row.count) || 0 }),
-    { ...emptyCounts },
-  );
+    if (!availableQueries.length) return { ...emptyCounts };
+
+    const results = await database.batch(
+      availableQueries.map(({ table, where }) =>
+        database.prepare(`SELECT COUNT(*) AS count FROM ${table}${where ? ` WHERE ${where}` : ""}`),
+      ),
+    );
+
+    return availableQueries.reduce<AdminModuleCounts>((counts, { key }, index) => {
+      const row = results[index]?.results[0] as CountRow | undefined;
+      counts[key] = Number(row?.count) || 0;
+      return counts;
+    }, { ...emptyCounts });
+  } catch (error) {
+    console.error("Admin dashboard counts could not be loaded", error);
+    return { ...emptyCounts };
+  }
 }
