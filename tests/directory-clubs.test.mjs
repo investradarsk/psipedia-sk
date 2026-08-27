@@ -42,6 +42,39 @@ function createD1Adapter(sqlite) {
   };
 }
 
+function applySqlMigration(sqlite, relativePath) {
+  const migrationSql = readFileSync(new URL(relativePath, import.meta.url), "utf8");
+  for (const statement of migrationSql.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) {
+    sqlite.exec(statement);
+  }
+}
+
+function readClubStats(sqlite) {
+  const row = sqlite.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END) AS published,
+      SUM(CASE WHEN trim(name) = '' THEN 1 ELSE 0 END) AS blank_names,
+      SUM(CASE WHEN trim(city) = '' THEN 1 ELSE 0 END) AS blank_cities,
+      SUM(CASE WHEN trim(district) = '' THEN 1 ELSE 0 END) AS missing_districts,
+      SUM(CASE WHEN trim(region) = '' THEN 1 ELSE 0 END) AS missing_regions,
+      COUNT(DISTINCT region) AS unique_regions,
+      SUM(CASE WHEN region = 'Online' THEN 1 ELSE 0 END) AS online_regions
+    FROM directory_profiles
+    WHERE category = 'kynologicke-kluby'
+  `).get();
+  return {
+    total: Number(row.total),
+    published: Number(row.published),
+    blankNames: Number(row.blank_names),
+    blankCities: Number(row.blank_cities),
+    missingDistricts: Number(row.missing_districts),
+    missingRegions: Number(row.missing_regions),
+    uniqueRegions: Number(row.unique_regions),
+    onlineRegions: Number(row.online_regions),
+  };
+}
+
 function createClubDatabase() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(`
@@ -85,8 +118,7 @@ function createClubDatabase() {
     );
     CREATE INDEX directory_profiles_public_idx ON directory_profiles (status, category, region, featured);
   `);
-  const migrationSql = readFileSync(new URL("../drizzle/0018_cold_nico_minoru.sql", import.meta.url), "utf8");
-  for (const statement of migrationSql.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) sqlite.exec(statement);
+  applySqlMigration(sqlite, "../drizzle/0018_cold_nico_minoru.sql");
   const regions = ["Bratislavský", "Trnavský", "Trenčiansky", "Nitriansky", "Žilinský", "Banskobystrický", "Prešovský", "Košický"];
   const insert = sqlite.prepare(`
     INSERT INTO directory_profiles (
@@ -138,52 +170,56 @@ test("migrates club locations idempotently and serves server-filtered, paginated
   const { sqlite, d1 } = createClubDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   const previousRuntimeEnv = { ...runtimeEnv };
-  const migrationToken = "test-directory-location-token";
-  Object.assign(runtimeEnv, { DB: d1, DIRECTORY_LOCATION_MIGRATION_TOKEN: migrationToken });
+  Object.assign(runtimeEnv, { DB: d1 });
 
   try {
-    const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-    workerUrl.searchParams.set("directory-clubs-test", `${process.pid}-${Date.now()}`);
-    const { default: worker } = await import(workerUrl.href);
-    const bindings = {
-      ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
-      DB: d1,
-      DIRECTORY_LOCATION_MIGRATION_TOKEN: migrationToken,
-    };
-    const context = { waitUntil() {}, passThroughOnException() {} };
-
-    const unauthorized = await worker.fetch(new Request("http://localhost/api/internal/directory-club-location-migration", { method: "POST" }), bindings, context);
-    assert.equal(unauthorized.status, 404);
-
-    const migrate = () => worker.fetch(new Request("http://localhost/api/internal/directory-club-location-migration", {
-      method: "POST",
-      headers: { authorization: `Bearer ${migrationToken}` },
-    }), bindings, context);
-    const firstMigration = await migrate();
-    assert.equal(firstMigration.status, 200);
-    const firstReport = await firstMigration.json();
-    assert.deepEqual(firstReport.before, {
+    const slugsBefore = sqlite.prepare(`
+      SELECT slug FROM directory_profiles
+      WHERE category = 'kynologicke-kluby'
+      ORDER BY slug
+    `).all().map((row) => row.slug);
+    assert.deepEqual(readClubStats(sqlite), {
       total: 248, published: 248, blankNames: 0, blankCities: 0,
       missingDistricts: 248, missingRegions: 0, uniqueRegions: 8, onlineRegions: 0,
     });
-    assert.deepEqual(firstReport.after, {
+
+    applySqlMigration(sqlite, "../drizzle/0019_backfill_directory_club_locations.sql");
+    assert.deepEqual(readClubStats(sqlite), {
       total: 248, published: 248, blankNames: 0, blankCities: 0,
       missingDistricts: 0, missingRegions: 0, uniqueRegions: 8, onlineRegions: 0,
     });
-    assert.deepEqual(firstReport.changed, { districts: 248, regions: 248 });
-    assert.equal(firstReport.slugsPreserved, true);
+    assert.equal(sqlite.prepare(`
+      SELECT COUNT(*) AS count
+      FROM directory_profiles
+      WHERE category = 'kynologicke-kluby'
+        AND district = trim(CAST(json_extract(source_data_json, '$.Okres') AS text))
+    `).get().count, 248);
+    assert.deepEqual(
+      new Set(sqlite.prepare(`
+        SELECT DISTINCT region FROM directory_profiles
+        WHERE category = 'kynologicke-kluby'
+      `).all().map((row) => row.region)),
+      new Set([
+        "Bratislavský kraj", "Trnavský kraj", "Trenčiansky kraj", "Nitriansky kraj",
+        "Žilinský kraj", "Banskobystrický kraj", "Prešovský kraj", "Košický kraj",
+      ]),
+    );
+    assert.deepEqual(sqlite.prepare(`
+      SELECT slug FROM directory_profiles
+      WHERE category = 'kynologicke-kluby'
+      ORDER BY slug
+    `).all().map((row) => row.slug), slugsBefore);
 
-    const secondMigration = await migrate();
-    assert.equal(secondMigration.status, 200);
-    assert.deepEqual((await secondMigration.json()).changed, { districts: 0, regions: 0 });
+    // A second execution must be a no-op and must preserve every invariant.
+    applySqlMigration(sqlite, "../drizzle/0019_backfill_directory_club_locations.sql");
+    assert.deepEqual(readClubStats(sqlite), {
+      total: 248, published: 248, blankNames: 0, blankCities: 0,
+      missingDistricts: 0, missingRegions: 0, uniqueRegions: 8, onlineRegions: 0,
+    });
 
-    const stats = sqlite.prepare(`
-      SELECT COUNT(*) AS total, COUNT(DISTINCT region) AS regions,
-        SUM(CASE WHEN district = '' THEN 1 ELSE 0 END) AS missing_districts,
-        SUM(CASE WHEN region = 'Online' THEN 1 ELSE 0 END) AS online_regions
-      FROM directory_profiles WHERE category = 'kynologicke-kluby'
-    `).get();
-    assert.deepEqual({ ...stats }, { total: 248, regions: 8, missing_districts: 0, online_regions: 0 });
+    const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+    workerUrl.searchParams.set("directory-clubs-test", `${process.pid}-${Date.now()}`);
+    const { default: worker } = await import(workerUrl.href);
     const indexNames = new Set(sqlite.prepare("PRAGMA index_list('directory_profiles')").all().map((row) => row.name));
     for (const name of ["directory_profiles_public_idx", "directory_profiles_public_district_idx", "directory_profiles_public_city_idx", "directory_profiles_public_name_idx"]) assert.ok(indexNames.has(name), name);
 
