@@ -90,6 +90,7 @@ function createAdminMockDatabase() {
     services_json: JSON.stringify(["Výcvik", "Socializácia"]),
     qualifications_json: JSON.stringify(["Skúsený tím"]),
     city: "Bratislava",
+    district: "Bratislava I",
     region: "Bratislavský kraj",
     address: "Testovacia 1",
     online: 0,

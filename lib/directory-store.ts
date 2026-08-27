@@ -2,15 +2,21 @@ import { env } from "cloudflare:workers";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
   allDirectoryCategories,
+  directoryClubSortOptions,
   isDirectoryCategory,
+  kynologicalClubCategory,
+  kynologicalClubPageSize,
   type DirectoryCategorySlug,
+  type DirectoryClubSearchParams,
+  type DirectoryClubSearchResult,
+  type DirectoryClubSort,
   type DirectoryInquiry,
   type DirectoryInquiryStatus,
   type DirectoryProfileStatus,
   type ManagedDirectoryProfile,
   type PublicDirectoryProfile,
 } from "@/lib/directory";
-import { slovakRegions, type SlovakRegion } from "@/lib/events";
+import { slovakRegions } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 
 export type ManagedDirectoryProfileInput = {
@@ -23,6 +29,7 @@ export type ManagedDirectoryProfileInput = {
   services?: string[];
   qualifications?: string[];
   city?: string;
+  district?: string;
   region?: string;
   address?: string;
   online?: boolean;
@@ -87,6 +94,7 @@ type DirectoryProfileRow = {
   services_json: string;
   qualifications_json: string;
   city: string;
+  district: string;
   region: string;
   address: string;
   online: number;
@@ -145,6 +153,22 @@ type DirectoryProfileCountRow = {
   draft: number;
 };
 
+type DirectoryClubCardRow = {
+  id: number;
+  slug: string;
+  name: string;
+  category: string;
+  city: string;
+  district: string;
+  region: string;
+  website_url: string | null;
+  contact: string | null;
+};
+
+type DirectoryClubOptionRow = { value: string };
+type DirectoryClubTotalRow = { total: number };
+type DirectoryCategoryCountRow = { category: string; total: number };
+
 type RuntimeBindings = { DB?: D1Database };
 
 function getD1Binding() {
@@ -183,6 +207,17 @@ function safeImportData(value: string) {
   }
 }
 
+const directoryRegionAliases = new Map(
+  slovakRegions.flatMap((region) => region === "Online"
+    ? [["Online", "Online"]]
+    : [[region, region], [region.replace(/ kraj$/, ""), region]]),
+);
+
+export function normalizeDirectoryRegion(value: string | null | undefined) {
+  const clean = value?.trim() ?? "";
+  return directoryRegionAliases.get(clean) ?? clean;
+}
+
 function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
   return {
     id: row.id,
@@ -194,7 +229,8 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     services: safeList(row.services_json),
     qualifications: safeList(row.qualifications_json),
     city: row.city,
-    region: (slovakRegions as readonly string[]).includes(row.region) ? row.region as SlovakRegion : "Online",
+    district: row.district,
+    region: normalizeDirectoryRegion(row.region),
     address: row.address,
     online: Boolean(row.online),
     priceNote: row.price_note,
@@ -232,7 +268,7 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDir
     status: row.status === "published" ? "published" : "draft",
     services: safeList(row.services_json),
     city: row.city,
-    region: (slovakRegions as readonly string[]).includes(row.region) ? row.region as SlovakRegion : "Online",
+    region: normalizeDirectoryRegion(row.region),
     imageUrl: row.image_url,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
@@ -288,7 +324,9 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
   const city = payload.city?.trim() ?? "";
-  const region = (slovakRegions as readonly string[]).includes(payload.region ?? "") ? payload.region as SlovakRegion : null;
+  const district = payload.district?.trim() ?? "";
+  const normalizedRegion = normalizeDirectoryRegion(payload.region);
+  const region = (slovakRegions as readonly string[]).includes(normalizedRegion) ? normalizedRegion : null;
   const imageUrl = payload.imageUrl?.trim() || null;
 
   if (!name) throw new Error("Doplň názov profilu.");
@@ -311,6 +349,7 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
     services: normalizeStringList(payload.services),
     qualifications: normalizeStringList(payload.qualifications),
     city,
+    district,
     region,
     address: payload.address?.trim() ?? "",
     online: Boolean(payload.online),
@@ -332,6 +371,129 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
     ? await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, verified DESC, name ASC").bind(category).all<DirectoryProfileRow>()
     : await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, verified DESC, name ASC").all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
+}
+
+function cleanClubFilter(value: string | null | undefined, maxLength = 100) {
+  return (value ?? "").trim().slice(0, maxLength);
+}
+
+function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
+export function parseDirectoryClubSearchParams(values: Record<string, string | string[] | undefined>): DirectoryClubSearchParams {
+  const first = (key: string) => {
+    const value = values[key];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const requestedSort = first("sort") ?? "name-asc";
+  const sort = directoryClubSortOptions.some((option) => option.value === requestedSort)
+    ? requestedSort as DirectoryClubSort
+    : "name-asc";
+  const requestedPage = Number.parseInt(first("page") ?? "1", 10);
+  return {
+    q: cleanClubFilter(first("q"), 120),
+    region: cleanClubFilter(first("region")),
+    district: cleanClubFilter(first("district")),
+    city: cleanClubFilter(first("city")),
+    sort,
+    page: Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
+  };
+}
+
+export async function getPublishedDirectoryCategoryCounts() {
+  const database = getD1Binding();
+  if (!database) return {} as Partial<Record<DirectoryCategorySlug, number>>;
+  const result = await database.prepare(`
+    SELECT category, COUNT(*) AS total
+    FROM directory_profiles
+    WHERE status = 'published'
+    GROUP BY category
+  `).all<DirectoryCategoryCountRow>();
+  return Object.fromEntries(result.results
+    .filter((row) => isDirectoryCategory(row.category))
+    .map((row) => [row.category, Number(row.total)])) as Partial<Record<DirectoryCategorySlug, number>>;
+}
+
+export async function searchPublishedKynologicalClubs(input: DirectoryClubSearchParams): Promise<DirectoryClubSearchResult> {
+  const database = getD1Binding();
+  if (!database) return {
+    profiles: [],
+    filters: { regions: [], districts: [], cities: [] },
+    pagination: { page: 1, pageSize: kynologicalClubPageSize, total: 0, totalPages: 1 },
+  };
+
+  const where = ["status = 'published'", "category = ?"];
+  const bindings: unknown[] = [kynologicalClubCategory];
+  if (input.q) {
+    const pattern = `%${escapeLike(input.q)}%`;
+    where.push("(name LIKE ? ESCAPE '\\' OR city LIKE ? ESCAPE '\\' OR district LIKE ? ESCAPE '\\' OR region LIKE ? ESCAPE '\\')");
+    bindings.push(pattern, pattern, pattern, pattern);
+  }
+  if (input.region) { where.push("region = ?"); bindings.push(input.region); }
+  if (input.district) { where.push("district = ?"); bindings.push(input.district); }
+  if (input.city) { where.push("city = ?"); bindings.push(input.city); }
+  const whereSql = where.join(" AND ");
+
+  const districtWhere = ["status = 'published'", "category = ?", "district <> ''"];
+  const districtBindings: unknown[] = [kynologicalClubCategory];
+  if (input.region) { districtWhere.push("region = ?"); districtBindings.push(input.region); }
+
+  const cityWhere = ["status = 'published'", "category = ?", "city <> ''"];
+  const cityBindings: unknown[] = [kynologicalClubCategory];
+  if (input.region) { cityWhere.push("region = ?"); cityBindings.push(input.region); }
+  if (input.district) { cityWhere.push("district = ?"); cityBindings.push(input.district); }
+
+  const [countResult, regionResult, districtResult, cityResult] = await database.batch([
+    database.prepare(`SELECT COUNT(*) AS total FROM directory_profiles WHERE ${whereSql}`).bind(...bindings),
+    database.prepare(`SELECT DISTINCT region AS value FROM directory_profiles WHERE status = 'published' AND category = ? AND region <> '' ORDER BY region COLLATE NOCASE ASC`).bind(kynologicalClubCategory),
+    database.prepare(`SELECT DISTINCT district AS value FROM directory_profiles WHERE ${districtWhere.join(" AND ")} ORDER BY district COLLATE NOCASE ASC`).bind(...districtBindings),
+    database.prepare(`SELECT DISTINCT city AS value FROM directory_profiles WHERE ${cityWhere.join(" AND ")} ORDER BY city COLLATE NOCASE ASC`).bind(...cityBindings),
+  ]);
+  const rawTotal = (countResult.results?.[0] ?? null) as unknown as DirectoryClubTotalRow | null;
+  const total = Number(rawTotal?.total ?? 0);
+  const totalPages = Math.max(1, Math.ceil(total / kynologicalClubPageSize));
+  const page = Math.min(input.page, totalPages);
+  const orderBy = input.sort === "name-desc"
+    ? "name COLLATE NOCASE DESC, id DESC"
+    : input.sort === "city-asc"
+      ? "city COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC"
+      : "name COLLATE NOCASE ASC, id ASC";
+  const listResult = await database.prepare(`
+    SELECT id, slug, name, category, city, district, region,
+      COALESCE(
+        NULLIF(TRIM(website_url), ''),
+        CASE WHEN json_valid(source_data_json) THEN NULLIF(TRIM(json_extract(source_data_json, '$.Web')), '') END
+      ) AS website_url,
+      CASE WHEN json_valid(source_data_json) THEN COALESCE(
+        NULLIF(TRIM(json_extract(source_data_json, '$.Telefón')), ''),
+        NULLIF(TRIM(json_extract(source_data_json, '$.E-mail')), '')
+      ) END AS contact
+    FROM directory_profiles
+    WHERE ${whereSql}
+    ORDER BY ${orderBy}
+    LIMIT ? OFFSET ?
+  `).bind(...bindings, kynologicalClubPageSize, (page - 1) * kynologicalClubPageSize).all<DirectoryClubCardRow>();
+
+  return {
+    profiles: listResult.results.map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      category: kynologicalClubCategory,
+      city: row.city,
+      district: row.district,
+      region: normalizeDirectoryRegion(row.region),
+      websiteUrl: row.website_url,
+      contact: row.contact,
+    })),
+    filters: {
+      regions: ((regionResult.results ?? []) as unknown as DirectoryClubOptionRow[]).map((row) => normalizeDirectoryRegion(row.value)).filter(Boolean),
+      districts: ((districtResult.results ?? []) as unknown as DirectoryClubOptionRow[]).map((row) => row.value),
+      cities: ((cityResult.results ?? []) as unknown as DirectoryClubOptionRow[]).map((row) => row.value),
+    },
+    pagination: { page, pageSize: kynologicalClubPageSize, total, totalPages },
+  };
 }
 
 export async function getFeaturedDirectoryProfiles(limit = 2) {
@@ -408,12 +570,12 @@ export async function createManagedDirectoryProfile(payload: ManagedDirectoryPro
   const row = await database.prepare(`
     INSERT INTO directory_profiles (
       slug, name, category, status, excerpt, description, services_json, qualifications_json,
-      city, region, address, online, price_note, website_url, internal_email, image_url, image_key,
+      city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
       verified, featured, seo_json, created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
-    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.region,
+    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo),
     now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
@@ -433,12 +595,12 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
   const row = await database.prepare(`
     UPDATE directory_profiles SET
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
-      qualifications_json = ?, city = ?, region = ?, address = ?, online = ?, price_note = ?, website_url = ?,
+      qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, online = ?, price_note = ?, website_url = ?,
       internal_email = ?, image_url = ?, image_key = ?, verified = ?, featured = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING *
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
-    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.region,
+    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo),
     now, publishedAt, editorEmail, id,

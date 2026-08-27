@@ -1,4 +1,3 @@
-import type { SlovakRegion } from "@/lib/events";
 import type { ArticleSeo } from "@/lib/content";
 
 export const directoryCategories = [
@@ -70,7 +69,8 @@ export type PublicDirectoryProfile = {
   services: string[];
   qualifications: string[];
   city: string;
-  region: SlovakRegion;
+  district: string;
+  region: string;
   address: string;
   online: boolean;
   priceNote: string;
@@ -81,6 +81,53 @@ export type PublicDirectoryProfile = {
   updatedAt: string;
   importData: Record<string, string | number | null> | null;
   seo?: ArticleSeo;
+};
+
+export const kynologicalClubCategory = "kynologicke-kluby" as const;
+export const kynologicalClubPageSize = 24;
+
+export const directoryClubSortOptions = [
+  { value: "name-asc", label: "Názov A–Z" },
+  { value: "name-desc", label: "Názov Z–A" },
+  { value: "city-asc", label: "Mesto A–Z" },
+] as const;
+
+export type DirectoryClubSort = (typeof directoryClubSortOptions)[number]["value"];
+
+export type DirectoryClubCardProfile = {
+  id: number;
+  slug: string;
+  name: string;
+  category: typeof kynologicalClubCategory;
+  city: string;
+  district: string;
+  region: string;
+  websiteUrl: string | null;
+  contact: string | null;
+};
+
+export type DirectoryClubSearchParams = {
+  q: string;
+  region: string;
+  district: string;
+  city: string;
+  sort: DirectoryClubSort;
+  page: number;
+};
+
+export type DirectoryClubSearchResult = {
+  profiles: DirectoryClubCardProfile[];
+  filters: {
+    regions: string[];
+    districts: string[];
+    cities: string[];
+  };
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 export type ManagedDirectoryProfile = PublicDirectoryProfile & {

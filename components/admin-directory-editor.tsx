@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChangeEvent, useState } from "react";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
-import { slovakRegions, type SlovakRegion } from "@/lib/events";
+import { slovakRegions } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { directorySeoFallback } from "@/lib/content-seo";
@@ -26,7 +26,8 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [services, setServices] = useState(profile?.services.join("\n") ?? "");
   const [qualifications, setQualifications] = useState(profile?.qualifications.join("\n") ?? "");
   const [city, setCity] = useState(profile?.city ?? "");
-  const [region, setRegion] = useState<SlovakRegion>(profile?.region ?? "Nitriansky kraj");
+  const [district, setDistrict] = useState(profile?.district ?? "");
+  const [region, setRegion] = useState(profile?.region ?? "Nitriansky kraj");
   const [address, setAddress] = useState(profile?.address ?? "");
   const [online, setOnline] = useState(profile?.online ?? false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
@@ -66,7 +67,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, slug, category, status: nextStatus, excerpt, description, services: listFromText(services), qualifications: listFromText(qualifications), city, region, address, online, priceNote, websiteUrl: websiteUrl || null, internalEmail: internalEmail || null, imageUrl: imageUrl || null, imageKey: imageKey || null, verified, featured, seo }),
+        body: JSON.stringify({ name, slug, category, status: nextStatus, excerpt, description, services: listFromText(services), qualifications: listFromText(qualifications), city, district, region, address, online, priceNote, websiteUrl: websiteUrl || null, internalEmail: internalEmail || null, imageUrl: imageUrl || null, imageKey: imageKey || null, verified, featured, seo }),
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
@@ -92,8 +93,9 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
             <div className="admin-card-heading"><div><span>01</span><div><h2>Zaradenie a lokalita</h2><p>Kategória, kraj a dostupnosť služby.</p></div></div></div>
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="directory-category">Kategória</label><select id="directory-category" value={category} onChange={(event) => setCategory(event.target.value as DirectoryCategorySlug)}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
-              <div className="admin-field"><label htmlFor="directory-region">Kraj</label><select id="directory-region" value={region} onChange={(event) => setRegion(event.target.value as SlovakRegion)}>{slovakRegions.map((item) => <option key={item}>{item}</option>)}</select></div>
+              <div className="admin-field"><label htmlFor="directory-region">Kraj</label><select id="directory-region" value={region} onChange={(event) => setRegion(event.target.value)}>{slovakRegions.map((item) => <option key={item}>{item}</option>)}</select></div>
               <div className="admin-field"><label htmlFor="directory-city">Mesto</label><input id="directory-city" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Nitra alebo Online" required /></div>
+              <div className="admin-field"><label htmlFor="directory-district">Okres <small>nepovinné</small></label><input id="directory-district" value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Nitra" /></div>
               <div className="admin-field"><label htmlFor="directory-address">Adresa <small>nepovinné</small></label><input id="directory-address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Ulica a číslo" /></div>
             </div>
             <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Profil sa dá vyhľadať filtrom „Dostupné online“.</small></span></label>
@@ -126,7 +128,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
         <aside className="admin-event-preview admin-directory-preview">
           <span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <img src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div>
           <span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overený" : ""}</span><h2>{name || "Názov profilu"}</h2><p>{excerpt || "Krátky popis profilu sa zobrazí tu."}</p>
-          <dl><div><dt>Lokalita</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Dostupnosť</dt><dd>{online ? "Osobne aj online" : "Osobne"}</dd></div><div><dt>Kontakt</dt><dd>Cez Psipediu</dd></div></dl>
+          <dl><div><dt>Lokalita</dt><dd>{city || "Mesto"}{district ? ` · okres ${district}` : ""} · {region}</dd></div><div><dt>Dostupnosť</dt><dd>{online ? "Osobne aj online" : "Osobne"}</dd></div><div><dt>Kontakt</dt><dd>Cez Psipediu</dd></div></dl>
         </aside>
       </div>
       {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}

@@ -127,6 +127,13 @@
       "when": 1787686658207,
       "tag": "0017_fancy_otto_octavius",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1787836107014,
+      "tag": "0018_cold_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

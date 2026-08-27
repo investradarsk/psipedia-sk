@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { DirectoryBrowser } from "@/components/directory-browser";
 import { ArrowIcon } from "@/components/icons";
 import {
@@ -9,7 +10,12 @@ import {
   type PublicDirectoryProfile,
 } from "@/lib/directory";
 
-export function DirectoryPage({ profiles, initialCategory = "all" }: { profiles: PublicDirectoryProfile[]; initialCategory?: "all" | DirectoryCategorySlug }) {
+export function DirectoryPage({ profiles, initialCategory = "all", categoryCounts, results }: {
+  profiles: PublicDirectoryProfile[];
+  initialCategory?: "all" | DirectoryCategorySlug;
+  categoryCounts?: Partial<Record<DirectoryCategorySlug, number>>;
+  results?: ReactNode;
+}) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   return (
     <main id="obsah">
@@ -35,13 +41,13 @@ export function DirectoryPage({ profiles, initialCategory = "all" }: { profiles:
         <div className="section-heading split-heading"><div><span className="eyebrow">Vyber si oblasť</span><h2 id="directory-categories-heading">Koho hľadáš?</h2></div><p>Každá kategória aj každý profil má vlastnú adresu, ktorú môžeš uložiť alebo zdieľať.</p></div>
         <div className="directory-category-grid">
           {directoryCategories.map((category) => {
-            const count = profiles.filter((profile) => profile.category === category.slug).length;
+            const count = categoryCounts?.[category.slug] ?? profiles.filter((profile) => profile.category === category.slug).length;
             return <Link className={active?.slug === category.slug ? "is-active" : ""} href={directoryCategoryHref(category)} key={category.slug}><span aria-hidden="true">{category.icon}</span><div><h3>{category.label}</h3><p>{category.description}</p><small>{count} {count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov"}</small></div><ArrowIcon size={20} /></Link>;
           })}
         </div>
       </section>
 
-      <section className="section section--tint"><div className="shell"><DirectoryBrowser profiles={profiles} initialCategory={initialCategory} /></div></section>
+      <section className="section section--tint"><div className="shell">{results ?? <DirectoryBrowser profiles={profiles} initialCategory={initialCategory} />}</div></section>
     </main>
   );
 }

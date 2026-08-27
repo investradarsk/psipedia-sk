@@ -85,7 +85,7 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
         <aside className="directory-detail-facts">
           <h2>Praktické informácie</h2>
           <dl><div><dt>Kategória</dt><dd>{category?.label}</dd></div><div><dt>Lokalita</dt><dd>{profile.address && <>{profile.address}<br /></>}{profile.city}, {profile.region}</dd></div>
-            {importedValue(profile, "Okres") && <div><dt>Okres</dt><dd>{importedValue(profile, "Okres")}</dd></div>}
+            {(profile.district || importedValue(profile, "Okres")) && <div><dt>Okres</dt><dd>{profile.district || importedValue(profile, "Okres")}</dd></div>}
             {importedValue(profile, "Typ klubu") && <div><dt>Typ klubu</dt><dd>{importedValue(profile, "Typ klubu")}</dd></div>}
             {importedValue(profile, "Zameranie") && <div><dt>Zameranie</dt><dd>{importedValue(profile, "Zameranie")}</dd></div>}
             {importedValue(profile, "Organizácia") && <div><dt>Organizácia</dt><dd>{importedValue(profile, "Organizácia")}</dd></div>}
