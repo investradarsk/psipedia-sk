@@ -1,0 +1,1 @@
+ALTER TABLE `directory_profiles` ADD `search_text` text DEFAULT '' NOT NULL;

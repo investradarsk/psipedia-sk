@@ -1,5 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { isDirectoryCategory } from "@/lib/directory";
+import { normalizeDirectoryRegion, normalizeDirectorySearchText } from "@/lib/directory-store";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,26 @@ function jsonArray(value: unknown) {
   return JSON.stringify(Array.isArray(value) ? value : []);
 }
 
+function valueFrom(row: JsonRecord, ...keys: string[]) {
+  for (const key of keys) if (row[key] !== undefined && row[key] !== null) return row[key];
+  return undefined;
+}
+
+function importedText(row: JsonRecord, keys: string[], fallback = "") {
+  const value = valueFrom(row, ...keys);
+  return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : fallback;
+}
+
+function importedList(row: JsonRecord, listKey: string, fallbackKeys: string[]) {
+  const direct = row[listKey];
+  if (Array.isArray(direct)) return direct.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim());
+  return fallbackKeys.map((key) => importedText(row, [key])).filter(Boolean);
+}
+
+function sourceData(row: JsonRecord) {
+  return JSON.stringify(Object.fromEntries(Object.entries(row).filter(([, value]) => value === null || ["string", "number", "boolean"].includes(typeof value))));
+}
+
 function migratedImage(row: JsonRecord) {
   const key = nullableText(row.imageKey);
   if (key) return `/migrated-media/${key}`;
@@ -77,6 +99,7 @@ export async function POST(request: Request) {
     const helpItems = list(payload.helpItems);
     const inquiries = list(payload.inquiries);
     const legal = payload.legal ? object(payload.legal) : null;
+    const selectedProfileCategory = text(payload.profileCategory);
     const statements: D1PreparedStatement[] = [];
 
     for (const row of articles) {
@@ -106,28 +129,56 @@ export async function POST(request: Request) {
     }
 
     for (const row of profiles) {
+      const category = importedText(row, ["category", "Kategória"], selectedProfileCategory);
+      if (!isDirectoryCategory(category)) throw new Error("Import profilov nemá platnú kategóriu.");
+      const name = required(valueFrom(row, "name", "Názov", "Názov klubu"), "názov profilu");
+      const slug = required(valueFrom(row, "slug", "Slug"), "adresa profilu");
+      const excerpt = importedText(row, ["excerpt", "Krátky popis", "Popis"]);
+      const description = importedText(row, ["description", "Popis"], excerpt);
+      const services = importedList(row, "services", ["Zameranie"]);
+      const qualifications = importedList(row, "qualifications", ["Organizácia"]);
+      const city = importedText(row, ["city", "Mesto / obec", "Mesto", "Obec"]);
+      const district = importedText(row, ["district", "Okres"]);
+      const rawRegion = importedText(row, ["region", "Kraj"]);
+      const region = normalizeDirectoryRegion(rawRegion);
+      if (!region) throw new Error(`Profil ${name} nemá platný kraj.`);
+      const address = importedText(row, ["address", "Adresa / cvičisko", "Adresa"]);
+      const websiteUrl = nullableText(valueFrom(row, "websiteUrl", "Web"));
+      const internalEmail = nullableText(valueFrom(row, "internalEmail", "E-mail"));
+      const importKey = importedText(row, ["importKey", "Import key"]) || null;
+      const rawStatus = importedText(row, ["status"]);
+      const status = rawStatus === "published" ? "published" : "draft";
+      const updateStatus = rawStatus === "published" || rawStatus === "draft";
+      const createdAt = importedText(row, ["createdAt"], new Date().toISOString());
+      const updatedAt = importedText(row, ["updatedAt", "Dátum overenia"], new Date().toISOString()).replace(/^(\d{4}-\d{2}-\d{2})$/, "$1T00:00:00.000Z");
+      const publishedAt = nullableText(row.publishedAt);
+      const rawSourceData = sourceData(row);
+      const searchText = normalizeDirectorySearchText([name, excerpt, description, services.join(" "), qualifications.join(" "), city, district, region, address].join(" "));
+      const conflictTarget = importKey ? "import_key" : "category, slug";
       statements.push(database.prepare(`
         INSERT INTO directory_profiles (
           slug, name, category, status, excerpt, description, services_json, qualifications_json,
-          city, region, address, online, price_note, website_url, internal_email, image_url, image_key,
-          verified, featured, created_at, updated_at, published_at, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(category, slug) DO UPDATE SET
-          name=excluded.name, status=excluded.status, excerpt=excluded.excerpt, description=excluded.description,
+          city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
+          import_key, source_data_json, search_text, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(${conflictTarget}) DO UPDATE SET
+          slug=excluded.slug, name=excluded.name, category=excluded.category,
+          status=CASE WHEN ? = 1 THEN excluded.status ELSE directory_profiles.status END,
+          excerpt=excluded.excerpt, description=excluded.description,
           services_json=excluded.services_json, qualifications_json=excluded.qualifications_json,
-          city=excluded.city, region=excluded.region, address=excluded.address, online=excluded.online,
+          city=excluded.city, district=excluded.district, region=excluded.region, address=excluded.address, online=excluded.online,
           price_note=excluded.price_note, website_url=excluded.website_url, internal_email=excluded.internal_email,
-          image_url=excluded.image_url, verified=excluded.verified, featured=excluded.featured,
-          created_at=excluded.created_at, updated_at=excluded.updated_at, published_at=excluded.published_at,
-          created_by=excluded.created_by, updated_by=excluded.updated_by
+          image_url=COALESCE(excluded.image_url, directory_profiles.image_url), import_key=COALESCE(excluded.import_key, directory_profiles.import_key),
+          source_data_json=excluded.source_data_json, search_text=excluded.search_text,
+          verified=excluded.verified, featured=excluded.featured, updated_at=excluded.updated_at,
+          published_at=COALESCE(excluded.published_at, directory_profiles.published_at), updated_by=excluded.updated_by
       `).bind(
-        required(row.slug, "adresa profilu"), required(row.name, "názov profilu"), required(row.category, "kategória profilu"),
-        text(row.status, "draft"), text(row.excerpt), text(row.description), jsonArray(row.services),
-        jsonArray(row.qualifications), text(row.city), text(row.region), text(row.address), bool(row.online),
-        text(row.priceNote), nullableText(row.websiteUrl), nullableText(row.internalEmail), migratedImage(row),
-        bool(row.verified), bool(row.featured), required(row.createdAt, "dátum vytvorenia profilu"),
-        required(row.updatedAt, "dátum úpravy profilu"), nullableText(row.publishedAt),
-        text(row.createdBy, user.email), text(row.updatedBy, user.email),
+        slug, name, category, status, excerpt, description, JSON.stringify(services), JSON.stringify(qualifications),
+        city, district, region, address, bool(row.online), importedText(row, ["priceNote", "Cena"]), websiteUrl,
+        internalEmail, migratedImage(row), importKey, rawSourceData, searchText,
+        bool(valueFrom(row, "verified", "Overené")) || importedText(row, ["Stav"]) === "Overené",
+        bool(row.featured), createdAt, updatedAt, publishedAt,
+        text(row.createdBy, user.email), text(row.updatedBy, `import:${category}`), updateStatus ? 1 : 0,
       ));
     }
 

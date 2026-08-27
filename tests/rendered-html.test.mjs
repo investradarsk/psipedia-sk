@@ -101,6 +101,7 @@ function createAdminMockDatabase() {
     image_key: null,
     import_key: "test-klub-9",
     source_data_json: JSON.stringify({ Zdroj: "test" }),
+    search_text: "testovaci kynologicky klub bratislava",
     verified: 1,
     featured: 0,
     created_at: now,
@@ -108,6 +109,7 @@ function createAdminMockDatabase() {
     published_at: now,
     created_by: "martin.zabransky@gmail.com",
     updated_by: "martin.zabransky@gmail.com",
+    seo_json: "{}",
   };
   const queries = [];
 
@@ -145,7 +147,7 @@ function createAdminMockDatabase() {
         updated_at: articleRow.updated_at,
       }];
     }
-    if (/SELECT id, slug, name, category, status, services_json, city, region, image_url, verified, featured FROM directory_profiles/i.test(normalized)) {
+    if (/SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured FROM directory_profiles/i.test(normalized)) {
       return [{
         id: profileRow.id,
         slug: profileRow.slug,
@@ -154,14 +156,17 @@ function createAdminMockDatabase() {
         status: profileRow.status,
         services_json: profileRow.services_json,
         city: profileRow.city,
+        district: profileRow.district,
         region: profileRow.region,
         image_url: profileRow.image_url,
         verified: profileRow.verified,
         featured: profileRow.featured,
       }];
     }
+    if (/FROM directory_profiles WHERE status = 'published'.*LIMIT \?/i.test(normalized)) return [profileRow];
+    if (/FROM directory_profiles WHERE status = 'published'.*category = \?.*slug = \?.*LIMIT 1/i.test(normalized)) return [profileRow];
     if (/SELECT \* FROM managed_articles WHERE id = \?/i.test(normalized)) return [articleRow];
-    if (/SELECT \* FROM directory_profiles WHERE id = \?/i.test(normalized)) return [profileRow];
+    if (/FROM directory_profiles WHERE id = \?/i.test(normalized)) return [profileRow];
     if (/INSERT INTO managed_articles/i.test(normalized) || /UPDATE managed_articles SET/i.test(normalized)) return [articleRow];
     return [];
   }
@@ -586,8 +591,11 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const trainersHtml = await trainers.text();
   assert.match(trainersHtml, /Služby pre psov|Psí tréneri/);
   assert.match(trainersHtml, /Kontakt cez Psipediu/);
-  assert.match(trainersHtml, /Názov, mesto alebo služba/);
-  assert.match(trainersHtml, /Prvé profily pripravujeme/);
+  assert.match(trainersHtml, /Názov, služba alebo lokalita/);
+  assert.match(trainersHtml, /Mesto\/obec/);
+  assert.match(trainersHtml, /Zoradenie/);
+  assert.match(trainersHtml, /Nenašli sme zhodu/);
+  assert.doesNotMatch(trainersHtml, /Koho hľadáš/);
 
   const directory = await worker.fetch(new Request("http://localhost/adresar", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(directory.status, 200);
@@ -596,6 +604,41 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(directoryHtml, /Veterinári/);
   assert.match(directoryHtml, /Hotely a opatrovanie/);
   assert.match(directoryHtml, /Fyzioterapia/);
+  assert.match(directoryHtml, /Koho hľadáš/);
+});
+
+test("filters a directory category on the server and keeps verification data private", async () => {
+  const database = createAdminMockDatabase();
+  const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
+  const previousRuntimeEnv = { ...runtimeEnv };
+  Object.assign(runtimeEnv, { DB: database });
+  try {
+    const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+    workerUrl.searchParams.set("directory-filter-test", `${process.pid}-${Date.now()}`);
+    const { default: worker } = await import(workerUrl.href);
+    const bindings = { DB: database, ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } };
+    const context = { waitUntil() {}, passThroughOnException() {} };
+
+    const list = await worker.fetch(new Request("http://localhost/adresar/kynologicke-kluby?q=zlate+moravce", { headers: { accept: "text/html" } }), bindings, context);
+    assert.equal(list.status, 200);
+    const listHtml = await list.text();
+    assert.match(listHtml, /Testovací kynologický klub/);
+    assert.doesNotMatch(listHtml, /Koho hľadáš/);
+    assert.doesNotMatch(listHtml, /Overený profil/);
+    const filteredQuery = database.queries.find(({ sql, bindings: values }) => /search_text LIKE/i.test(sql) && /LIMIT \? OFFSET \?/i.test(sql) && values.includes("%zlate moravce%"));
+    assert.ok(filteredQuery);
+    assert.doesNotMatch(filteredQuery.sql, /SELECT\s+\*/i);
+    assert.match(filteredQuery.sql, /LIMIT \? OFFSET \?/i);
+
+    const detail = await worker.fetch(new Request("http://localhost/adresar/kynologicke-kluby/testovaci-klub", { headers: { accept: "text/html" } }), bindings, context);
+    assert.equal(detail.status, 200);
+    const detailHtml = await detail.text();
+    assert.doesNotMatch(detailHtml, /Overenie údajov|Dátum overenia|Zobraziť zdroj|Overený profil/);
+    assert.match(detailHtml, /Bratislava I/);
+  } finally {
+    for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
+    Object.assign(runtimeEnv, previousRuntimeEnv);
+  }
 });
 
 test("renders the functional event calendar and type view", async () => {

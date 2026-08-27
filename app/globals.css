@@ -5804,7 +5804,7 @@ h3 {
 
 .directory-toolbar {
   display: grid;
-  grid-template-columns: minmax(280px, 1.5fr) minmax(190px, 0.8fr) minmax(190px, 0.8fr) auto;
+  grid-template-columns: minmax(250px, 1.35fr) repeat(4, minmax(145px, 0.75fr));
   align-items: end;
   gap: 14px;
   padding: 20px;
@@ -5812,6 +5812,58 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 22px;
   box-shadow: var(--shadow-sm);
+}
+
+.directory-filter-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+}
+
+.directory-filter-actions button {
+  min-height: 44px;
+  padding: 0 22px;
+  color: var(--white);
+  font-weight: 800;
+  background: var(--forest);
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.directory-filter-actions a,
+.directory-empty a {
+  color: var(--forest);
+  font-weight: 800;
+}
+
+.directory-pagination {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+  padding-top: 8px;
+}
+
+.directory-pagination a,
+.directory-pagination span {
+  color: var(--forest);
+  font-weight: 800;
+}
+
+.directory-pagination a:last-child,
+.directory-pagination span:last-child {
+  text-align: right;
+}
+
+.directory-pagination span[aria-disabled="true"] {
+  color: var(--muted);
+}
+
+.directory-category-results {
+  padding-top: 56px;
 }
 
 .directory-toolbar > label > span,
@@ -6754,6 +6806,11 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .directory-search,
+  .directory-filter-actions {
+    grid-column: 1 / -1;
+  }
+
   .directory-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -6848,8 +6905,7 @@ h3 {
   }
 
   .directory-club-search,
-  .directory-club-selects,
-  .directory-pagination {
+  .directory-club-selects {
     grid-template-columns: 1fr;
   }
 
@@ -6857,12 +6913,23 @@ h3 {
     width: 100%;
   }
 
-  .directory-pagination {
-    text-align: center;
+  .directory-search,
+  .directory-filter-actions {
+    grid-column: auto;
   }
 
-  .directory-pagination a:last-child,
-  .directory-pagination span:last-child {
+  .directory-filter-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .directory-pagination {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .directory-pagination strong {
+    grid-column: 1 / -1;
+    grid-row: 1;
     text-align: center;
   }
 

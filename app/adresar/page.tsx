@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { DirectoryPage } from "@/components/directory-page";
-import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
+import { getDirectoryCategoryCounts, listPublishedDirectoryProfiles, parseDirectoryFilters } from "@/lib/directory-store";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +11,13 @@ export const metadata: Metadata = buildPageMetadata({
   path: "/adresar",
 });
 
-export default async function DirectoryHomePage() {
-  return <DirectoryPage profiles={await getPublishedDirectoryProfiles()} />;
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function DirectoryHomePage({ searchParams }: Props) {
+  const filters = parseDirectoryFilters(await searchParams);
+  const [result, categoryCounts] = await Promise.all([
+    listPublishedDirectoryProfiles({ filters }),
+    getDirectoryCategoryCounts(),
+  ]);
+  return <DirectoryPage result={result} filters={filters} categoryCounts={categoryCounts} />;
 }

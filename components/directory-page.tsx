@@ -1,20 +1,19 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { DirectoryBrowser } from "@/components/directory-browser";
+import { DirectoryResults } from "@/components/directory-results";
 import { ArrowIcon } from "@/components/icons";
 import {
   directoryCategories,
   directoryCategoryHref,
   getDirectoryCategory,
   type DirectoryCategorySlug,
-  type PublicDirectoryProfile,
 } from "@/lib/directory";
+import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 
-export function DirectoryPage({ profiles, initialCategory = "all", categoryCounts, results }: {
-  profiles: PublicDirectoryProfile[];
+export function DirectoryPage({ result, filters, categoryCounts, initialCategory = "all" }: {
+  result: PublicDirectoryProfilePage;
+  filters: DirectoryFilters;
+  categoryCounts: Partial<Record<DirectoryCategorySlug, number>>;
   initialCategory?: "all" | DirectoryCategorySlug;
-  categoryCounts?: Partial<Record<DirectoryCategorySlug, number>>;
-  results?: ReactNode;
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   return (
@@ -37,17 +36,17 @@ export function DirectoryPage({ profiles, initialCategory = "all", categoryCount
         </div>
       </header>
 
-      <section className="section shell directory-categories" aria-labelledby="directory-categories-heading">
+      {!active && <section className="section shell directory-categories" aria-labelledby="directory-categories-heading">
         <div className="section-heading split-heading"><div><span className="eyebrow">Vyber si oblasť</span><h2 id="directory-categories-heading">Koho hľadáš?</h2></div><p>Každá kategória aj každý profil má vlastnú adresu, ktorú môžeš uložiť alebo zdieľať.</p></div>
         <div className="directory-category-grid">
           {directoryCategories.map((category) => {
-            const count = categoryCounts?.[category.slug] ?? profiles.filter((profile) => profile.category === category.slug).length;
+            const count = categoryCounts[category.slug] ?? 0;
             return <Link className={active?.slug === category.slug ? "is-active" : ""} href={directoryCategoryHref(category)} key={category.slug}><span aria-hidden="true">{category.icon}</span><div><h3>{category.label}</h3><p>{category.description}</p><small>{count} {count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov"}</small></div><ArrowIcon size={20} /></Link>;
           })}
         </div>
-      </section>
+      </section>}
 
-      <section className="section section--tint"><div className="shell">{results ?? <DirectoryBrowser profiles={profiles} initialCategory={initialCategory} />}</div></section>
+      <section className={`section section--tint${active ? " directory-category-results" : ""}`}><div className="shell"><DirectoryResults result={result} filters={filters} basePath={active ? `/adresar/${active.slug}` : "/adresar"} title={active ? active.label : "Profily v adresári"} /></div></section>
     </main>
   );
 }

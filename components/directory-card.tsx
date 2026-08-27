@@ -13,7 +13,6 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
       <div className="directory-card-body">
         <div className="directory-card-tags">
           <span>{category?.singular ?? category?.label}</span>
-          {profile.verified && <b>✓ Overený profil</b>}
         </div>
         <h3><Link href={directoryProfileHref(profile)}>{profile.name}</Link></h3>
         <p>{profile.excerpt}</p>

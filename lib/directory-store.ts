@@ -2,21 +2,15 @@ import { env } from "cloudflare:workers";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
   allDirectoryCategories,
-  directoryClubSortOptions,
   isDirectoryCategory,
-  kynologicalClubCategory,
-  kynologicalClubPageSize,
   type DirectoryCategorySlug,
-  type DirectoryClubSearchParams,
-  type DirectoryClubSearchResult,
-  type DirectoryClubSort,
   type DirectoryInquiry,
   type DirectoryInquiryStatus,
   type DirectoryProfileStatus,
   type ManagedDirectoryProfile,
   type PublicDirectoryProfile,
 } from "@/lib/directory";
-import { slovakRegions } from "@/lib/events";
+import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 
 export type ManagedDirectoryProfileInput = {
@@ -52,6 +46,7 @@ export type ManagedDirectoryProfileSummary = Pick<
   | "status"
   | "services"
   | "city"
+  | "district"
   | "region"
   | "imageUrl"
   | "verified"
@@ -105,6 +100,7 @@ type DirectoryProfileRow = {
   image_key: string | null;
   import_key: string | null;
   source_data_json: string;
+  search_text: string;
   verified: number;
   featured: number;
   created_at: string;
@@ -141,6 +137,7 @@ type DirectoryProfileSummaryRow = {
   status: string;
   services_json: string;
   city: string;
+  district: string;
   region: string;
   image_url: string | null;
   verified: number;
@@ -153,21 +150,48 @@ type DirectoryProfileCountRow = {
   draft: number;
 };
 
-type DirectoryClubCardRow = {
-  id: number;
-  slug: string;
-  name: string;
-  category: string;
-  city: string;
-  district: string;
+export type DirectorySort = "recommended" | "name-asc" | "name-desc" | "newest";
+
+export type DirectoryFilters = {
+  query: string;
   region: string;
-  website_url: string | null;
-  contact: string | null;
+  district: string;
+  city: string;
+  sort: DirectorySort;
+  page: number;
 };
 
-type DirectoryClubOptionRow = { value: string };
-type DirectoryClubTotalRow = { total: number };
-type DirectoryCategoryCountRow = { category: string; total: number };
+export type PublicDirectoryProfilePage = {
+  profiles: PublicDirectoryProfile[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  options: {
+    regions: string[];
+    districts: string[];
+    cities: string[];
+  };
+};
+
+type DirectorySearchParams = Record<string, string | string[] | undefined>;
+
+function firstParam(value: string | string[] | undefined) {
+  return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+}
+
+export function parseDirectoryFilters(params: DirectorySearchParams): DirectoryFilters {
+  const rawSort = firstParam(params.sort);
+  const sort: DirectorySort = ["recommended", "name-asc", "name-desc", "newest"].includes(rawSort) ? rawSort as DirectorySort : "recommended";
+  return {
+    query: firstParam(params.q).slice(0, 100),
+    region: normalizeDirectoryRegion(firstParam(params.region)) ?? "",
+    district: firstParam(params.district).slice(0, 100),
+    city: firstParam(params.city).slice(0, 120),
+    sort,
+    page: Math.max(1, Number.parseInt(firstParam(params.page) || "1", 10) || 1),
+  };
+}
 
 type RuntimeBindings = { DB?: D1Database };
 
@@ -207,16 +231,74 @@ function safeImportData(value: string) {
   }
 }
 
-const directoryRegionAliases = new Map(
-  slovakRegions.flatMap((region) => region === "Online"
-    ? [["Online", "Online"]]
-    : [[region, region], [region.replace(/ kraj$/, ""), region]]),
-);
-
-export function normalizeDirectoryRegion(value: string | null | undefined) {
-  const clean = value?.trim() ?? "";
-  return directoryRegionAliases.get(clean) ?? clean;
+export function normalizeDirectorySearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("sk")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 }
+
+export function normalizeDirectoryRegion(value: string | null | undefined): SlovakRegion | null {
+  const clean = value?.trim() ?? "";
+  if (!clean) return null;
+  if (clean === "Online") return "Online";
+  const withSuffix = clean.endsWith(" kraj") ? clean : `${clean} kraj`;
+  return (slovakRegions as readonly string[]).includes(withSuffix) ? withSuffix as SlovakRegion : null;
+}
+
+function directorySearchText(input: {
+  name: string;
+  excerpt: string;
+  description: string;
+  services: string[];
+  qualifications: string[];
+  city: string;
+  district: string;
+  region: string;
+  address: string;
+}) {
+  return normalizeDirectorySearchText([
+    input.name, input.excerpt, input.description, input.services.join(" "),
+    input.qualifications.join(" "), input.city, input.district, input.region, input.address,
+  ].join(" "));
+}
+
+const DIRECTORY_PROFILE_COLUMNS = `
+  id, slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, internal_email, image_url,
+  image_key, import_key, source_data_json, search_text, verified, featured, seo_json,
+  created_at, updated_at, published_at, created_by, updated_by
+`;
+
+const DIRECTORY_CARD_COLUMNS = `
+  id, slug, name, category, status, excerpt, '' AS description, services_json,
+  '[]' AS qualifications_json, city, district, region, '' AS address, online,
+  '' AS price_note, website_url, NULL AS internal_email, image_url, NULL AS image_key,
+  import_key, '{}' AS source_data_json, search_text, verified, featured, '{}' AS seo_json,
+  created_at, updated_at, published_at, created_by, updated_by
+`;
+
+function sqlNormalizedExpression(columnExpression: string) {
+  const replacements: Array<[string, string]> = [
+    ["á", "a"], ["ä", "a"], ["č", "c"], ["ď", "d"], ["é", "e"], ["í", "i"],
+    ["ĺ", "l"], ["ľ", "l"], ["ň", "n"], ["ó", "o"], ["ô", "o"], ["ŕ", "r"],
+    ["š", "s"], ["ť", "t"], ["ú", "u"], ["ý", "y"], ["ž", "z"],
+    ["Á", "a"], ["Ä", "a"], ["Č", "c"], ["Ď", "d"], ["É", "e"], ["Í", "i"],
+    ["Ĺ", "l"], ["Ľ", "l"], ["Ň", "n"], ["Ó", "o"], ["Ô", "o"], ["Ŕ", "r"],
+    ["Š", "s"], ["Ť", "t"], ["Ú", "u"], ["Ý", "y"], ["Ž", "z"],
+  ];
+  return replacements.reduce((expression, [from, to]) => `replace(${expression}, '${from}', '${to}')`, `lower(${columnExpression})`);
+}
+
+const LEGACY_DIRECTORY_SEARCH = sqlNormalizedExpression(`
+  coalesce(name, '') || ' ' || coalesce(excerpt, '') || ' ' || coalesce(description, '') || ' ' ||
+  coalesce(city, '') || ' ' || coalesce(district, '') || ' ' || coalesce(region, '') || ' ' ||
+  coalesce(address, '') || ' ' || coalesce(services_json, '') || ' ' || coalesce(qualifications_json, '') || ' ' ||
+  coalesce(json_extract(source_data_json, '$."Okres"'), '')
+`);
 
 function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
   return {
@@ -229,8 +311,8 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     services: safeList(row.services_json),
     qualifications: safeList(row.qualifications_json),
     city: row.city,
-    district: row.district,
-    region: normalizeDirectoryRegion(row.region),
+    district: row.district || String(safeImportData(row.source_data_json)?.["Okres"] ?? ""),
+    region: normalizeDirectoryRegion(row.region) ?? "Online",
     address: row.address,
     online: Boolean(row.online),
     priceNote: row.price_note,
@@ -268,7 +350,8 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDir
     status: row.status === "published" ? "published" : "draft",
     services: safeList(row.services_json),
     city: row.city,
-    region: normalizeDirectoryRegion(row.region),
+    district: row.district,
+    region: normalizeDirectoryRegion(row.region) ?? "Online",
     imageUrl: row.image_url,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
@@ -325,8 +408,7 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
   const description = payload.description?.trim() ?? "";
   const city = payload.city?.trim() ?? "";
   const district = payload.district?.trim() ?? "";
-  const normalizedRegion = normalizeDirectoryRegion(payload.region);
-  const region = (slovakRegions as readonly string[]).includes(normalizedRegion) ? normalizedRegion : null;
+  const region = normalizeDirectoryRegion(payload.region);
   const imageUrl = payload.imageUrl?.trim() || null;
 
   if (!name) throw new Error("Doplň názov profilu.");
@@ -339,6 +421,9 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
   if (!region) throw new Error("Vyber kraj.");
   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
 
+  const services = normalizeStringList(payload.services);
+  const qualifications = normalizeStringList(payload.qualifications);
+  const address = payload.address?.trim() ?? "";
   return {
     slug,
     name,
@@ -346,12 +431,12 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
     status,
     excerpt,
     description,
-    services: normalizeStringList(payload.services),
-    qualifications: normalizeStringList(payload.qualifications),
+    services,
+    qualifications,
     city,
     district,
     region,
-    address: payload.address?.trim() ?? "",
+    address,
     online: Boolean(payload.online),
     priceNote: payload.priceNote?.trim() ?? "",
     websiteUrl: normalizeUrl(payload.websiteUrl),
@@ -361,6 +446,7 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
     verified: Boolean(payload.verified),
     featured: Boolean(payload.featured),
     seo: cleanEditableSeo(payload.seo),
+    searchText: directorySearchText({ name, excerpt, description, services, qualifications, city, district, region, address }),
   };
 }
 
@@ -368,132 +454,80 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
   const database = getD1Binding();
   if (!database) return [] as PublicDirectoryProfile[];
   const result = category
-    ? await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, verified DESC, name ASC").bind(category).all<DirectoryProfileRow>()
-    : await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, verified DESC, name ASC").all<DirectoryProfileRow>();
+    ? await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC`).bind(category).all<DirectoryProfileRow>()
+    : await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC`).all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
 }
 
-function cleanClubFilter(value: string | null | undefined, maxLength = 100) {
-  return (value ?? "").trim().slice(0, maxLength);
-}
+export async function listPublishedDirectoryProfiles(options: {
+  category?: DirectoryCategorySlug;
+  filters: DirectoryFilters;
+  pageSize?: number;
+}): Promise<PublicDirectoryProfilePage> {
+  const database = getD1Binding();
+  const pageSize = Math.max(1, Math.min(48, Math.trunc(options.pageSize ?? 24)));
+  if (!database) return { profiles: [], total: 0, page: 1, pageSize, totalPages: 1, options: { regions: [], districts: [], cities: [] } };
 
-function escapeLike(value: string) {
-  return value.replace(/[\\%_]/g, "\\$&");
-}
+  const clauses = ["status = 'published'"];
+  const bindings: unknown[] = [];
+  if (options.category) { clauses.push("category = ?"); bindings.push(options.category); }
+  if (options.filters.query) {
+    const needle = `%${normalizeDirectorySearchText(options.filters.query)}%`;
+    clauses.push(`(search_text LIKE ? OR (search_text = '' AND ${LEGACY_DIRECTORY_SEARCH} LIKE ?))`);
+    bindings.push(needle, needle);
+  }
+  if (options.filters.region) {
+    clauses.push("(region = ? OR region = ?)");
+    bindings.push(options.filters.region, options.filters.region.replace(/ kraj$/, ""));
+  }
+  if (options.filters.district) {
+    clauses.push(`(district = ? OR (district = '' AND json_extract(source_data_json, '$."Okres"') = ?))`);
+    bindings.push(options.filters.district, options.filters.district);
+  }
+  if (options.filters.city) { clauses.push("city = ?"); bindings.push(options.filters.city); }
 
-export function parseDirectoryClubSearchParams(values: Record<string, string | string[] | undefined>): DirectoryClubSearchParams {
-  const first = (key: string) => {
-    const value = values[key];
-    return Array.isArray(value) ? value[0] : value;
-  };
-  const requestedSort = first("sort") ?? "name-asc";
-  const sort = directoryClubSortOptions.some((option) => option.value === requestedSort)
-    ? requestedSort as DirectoryClubSort
-    : "name-asc";
-  const requestedPage = Number.parseInt(first("page") ?? "1", 10);
+  const where = clauses.join(" AND ");
+  const orderBy = options.filters.sort === "name-desc" ? "name DESC, id DESC"
+    : options.filters.sort === "newest" ? "published_at DESC, id DESC"
+      : options.filters.sort === "name-asc" ? "name ASC, id ASC"
+        : "featured DESC, name ASC, id ASC";
+  const requestedPage = Math.max(1, Math.trunc(options.filters.page));
+  const countStatement = database.prepare(`SELECT COUNT(*) AS total FROM directory_profiles WHERE ${where}`).bind(...bindings);
+  const count = await countStatement.first<{ total: number }>();
+  const total = Number(count?.total ?? 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const listStatement = database.prepare(`
+    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
+    FROM directory_profiles WHERE ${where}
+    ORDER BY ${orderBy} LIMIT ? OFFSET ?
+  `).bind(...bindings, pageSize, (page - 1) * pageSize);
+
+  const optionClause = options.category ? "status = 'published' AND category = ?" : "status = 'published'";
+  const optionBindings = options.category ? [options.category] : [];
+  const [listResult, regionResult, districtResult, cityResult] = await database.batch([
+    listStatement,
+    database.prepare(`SELECT DISTINCT region AS value FROM directory_profiles WHERE ${optionClause} AND region <> '' ORDER BY region`).bind(...optionBindings),
+    database.prepare(`SELECT DISTINCT COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"')) AS value FROM directory_profiles WHERE ${optionClause} AND COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"')) <> '' ORDER BY value`).bind(...optionBindings),
+    database.prepare(`SELECT DISTINCT city AS value FROM directory_profiles WHERE ${optionClause} AND city <> '' ORDER BY city`).bind(...optionBindings),
+  ]);
+  const values = (result: D1Result<unknown>) => (result.results as Array<{ value?: string }>).map((row) => row.value?.trim() ?? "").filter(Boolean);
   return {
-    q: cleanClubFilter(first("q"), 120),
-    region: cleanClubFilter(first("region")),
-    district: cleanClubFilter(first("district")),
-    city: cleanClubFilter(first("city")),
-    sort,
-    page: Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
+    profiles: (listResult.results as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
+    total, page, pageSize, totalPages,
+    options: {
+      regions: [...new Set(values(regionResult).map((region) => normalizeDirectoryRegion(region)).filter((region): region is SlovakRegion => Boolean(region)))],
+      districts: values(districtResult),
+      cities: values(cityResult),
+    },
   };
 }
 
-export async function getPublishedDirectoryCategoryCounts() {
+export async function getDirectoryCategoryCounts() {
   const database = getD1Binding();
   if (!database) return {} as Partial<Record<DirectoryCategorySlug, number>>;
-  const result = await database.prepare(`
-    SELECT category, COUNT(*) AS total
-    FROM directory_profiles
-    WHERE status = 'published'
-    GROUP BY category
-  `).all<DirectoryCategoryCountRow>();
-  return Object.fromEntries(result.results
-    .filter((row) => isDirectoryCategory(row.category))
-    .map((row) => [row.category, Number(row.total)])) as Partial<Record<DirectoryCategorySlug, number>>;
-}
-
-export async function searchPublishedKynologicalClubs(input: DirectoryClubSearchParams): Promise<DirectoryClubSearchResult> {
-  const database = getD1Binding();
-  if (!database) return {
-    profiles: [],
-    filters: { regions: [], districts: [], cities: [] },
-    pagination: { page: 1, pageSize: kynologicalClubPageSize, total: 0, totalPages: 1 },
-  };
-
-  const where = ["status = 'published'", "category = ?"];
-  const bindings: unknown[] = [kynologicalClubCategory];
-  if (input.q) {
-    const pattern = `%${escapeLike(input.q)}%`;
-    where.push("(name LIKE ? ESCAPE '\\' OR city LIKE ? ESCAPE '\\' OR district LIKE ? ESCAPE '\\' OR region LIKE ? ESCAPE '\\')");
-    bindings.push(pattern, pattern, pattern, pattern);
-  }
-  if (input.region) { where.push("region = ?"); bindings.push(input.region); }
-  if (input.district) { where.push("district = ?"); bindings.push(input.district); }
-  if (input.city) { where.push("city = ?"); bindings.push(input.city); }
-  const whereSql = where.join(" AND ");
-
-  const districtWhere = ["status = 'published'", "category = ?", "district <> ''"];
-  const districtBindings: unknown[] = [kynologicalClubCategory];
-  if (input.region) { districtWhere.push("region = ?"); districtBindings.push(input.region); }
-
-  const cityWhere = ["status = 'published'", "category = ?", "city <> ''"];
-  const cityBindings: unknown[] = [kynologicalClubCategory];
-  if (input.region) { cityWhere.push("region = ?"); cityBindings.push(input.region); }
-  if (input.district) { cityWhere.push("district = ?"); cityBindings.push(input.district); }
-
-  const [countResult, regionResult, districtResult, cityResult] = await database.batch([
-    database.prepare(`SELECT COUNT(*) AS total FROM directory_profiles WHERE ${whereSql}`).bind(...bindings),
-    database.prepare(`SELECT DISTINCT region AS value FROM directory_profiles WHERE status = 'published' AND category = ? AND region <> '' ORDER BY region COLLATE NOCASE ASC`).bind(kynologicalClubCategory),
-    database.prepare(`SELECT DISTINCT district AS value FROM directory_profiles WHERE ${districtWhere.join(" AND ")} ORDER BY district COLLATE NOCASE ASC`).bind(...districtBindings),
-    database.prepare(`SELECT DISTINCT city AS value FROM directory_profiles WHERE ${cityWhere.join(" AND ")} ORDER BY city COLLATE NOCASE ASC`).bind(...cityBindings),
-  ]);
-  const rawTotal = (countResult.results?.[0] ?? null) as unknown as DirectoryClubTotalRow | null;
-  const total = Number(rawTotal?.total ?? 0);
-  const totalPages = Math.max(1, Math.ceil(total / kynologicalClubPageSize));
-  const page = Math.min(input.page, totalPages);
-  const orderBy = input.sort === "name-desc"
-    ? "name COLLATE NOCASE DESC, id DESC"
-    : input.sort === "city-asc"
-      ? "city COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC"
-      : "name COLLATE NOCASE ASC, id ASC";
-  const listResult = await database.prepare(`
-    SELECT id, slug, name, category, city, district, region,
-      COALESCE(
-        NULLIF(TRIM(website_url), ''),
-        CASE WHEN json_valid(source_data_json) THEN NULLIF(TRIM(json_extract(source_data_json, '$.Web')), '') END
-      ) AS website_url,
-      CASE WHEN json_valid(source_data_json) THEN COALESCE(
-        NULLIF(TRIM(json_extract(source_data_json, '$.Telefón')), ''),
-        NULLIF(TRIM(json_extract(source_data_json, '$.E-mail')), '')
-      ) END AS contact
-    FROM directory_profiles
-    WHERE ${whereSql}
-    ORDER BY ${orderBy}
-    LIMIT ? OFFSET ?
-  `).bind(...bindings, kynologicalClubPageSize, (page - 1) * kynologicalClubPageSize).all<DirectoryClubCardRow>();
-
-  return {
-    profiles: listResult.results.map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      name: row.name,
-      category: kynologicalClubCategory,
-      city: row.city,
-      district: row.district,
-      region: normalizeDirectoryRegion(row.region),
-      websiteUrl: row.website_url,
-      contact: row.contact,
-    })),
-    filters: {
-      regions: ((regionResult.results ?? []) as unknown as DirectoryClubOptionRow[]).map((row) => normalizeDirectoryRegion(row.value)).filter(Boolean),
-      districts: ((districtResult.results ?? []) as unknown as DirectoryClubOptionRow[]).map((row) => row.value),
-      cities: ((cityResult.results ?? []) as unknown as DirectoryClubOptionRow[]).map((row) => row.value),
-    },
-    pagination: { page, pageSize: kynologicalClubPageSize, total, totalPages },
-  };
+  const result = await database.prepare("SELECT category, COUNT(*) AS total FROM directory_profiles WHERE status = 'published' GROUP BY category").all<{ category: string; total: number }>();
+  return Object.fromEntries(result.results.filter((row) => isDirectoryCategory(row.category)).map((row) => [row.category, Number(row.total)])) as Partial<Record<DirectoryCategorySlug, number>>;
 }
 
 export async function getFeaturedDirectoryProfiles(limit = 2) {
@@ -501,7 +535,7 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
   if (!database) return [] as PublicDirectoryProfile[];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database
-    .prepare("SELECT * FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, verified DESC, name ASC LIMIT ?")
+    .prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`)
     .bind(safeLimit)
     .all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
@@ -510,7 +544,7 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
 export async function getPublishedDirectoryProfile(category: string, slug: string) {
   const database = getD1Binding();
   if (!database || !isDirectoryCategory(category)) return null;
-  const row = await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<DirectoryProfileRow>();
+  const row = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1`).bind(category, slug).first<DirectoryProfileRow>();
   return row ? rowToPublicProfile(row) : null;
 }
 
@@ -523,7 +557,7 @@ export async function listManagedDirectoryProfileSummaries(options: {
   const page = Math.max(1, Math.trunc(options.page ?? 1));
   const pageSize = Math.max(1, Math.min(100, Math.trunc(options.pageSize ?? 50)));
   const listStatement = database.prepare(`
-    SELECT id, slug, name, category, status, services_json, city, region, image_url, verified, featured
+    SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured
     FROM directory_profiles
     ORDER BY updated_at DESC, id DESC
     LIMIT ? OFFSET ?
@@ -558,7 +592,7 @@ export async function listManagedDirectoryProfileSummaries(options: {
 export async function getManagedDirectoryProfileById(id: number) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const row = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1").bind(id).first<DirectoryProfileRow>();
+  const row = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? LIMIT 1`).bind(id).first<DirectoryProfileRow>();
   return row ? rowToManagedProfile(row) : null;
 }
 
@@ -571,13 +605,13 @@ export async function createManagedDirectoryProfile(payload: ManagedDirectoryPro
     INSERT INTO directory_profiles (
       slug, name, category, status, excerpt, description, services_json, qualifications_json,
       city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
-      verified, featured, seo_json, created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
+      verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${DIRECTORY_PROFILE_COLUMNS}
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo),
+    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
@@ -596,13 +630,13 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
     UPDATE directory_profiles SET
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
       qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, online = ?, price_note = ?, website_url = ?,
-      internal_email = ?, image_url = ?, image_key = ?, verified = ?, featured = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
-    WHERE id = ? RETURNING *
+      internal_email = ?, image_url = ?, image_key = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
+    WHERE id = ? RETURNING ${DIRECTORY_PROFILE_COLUMNS}
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo),
+    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
   ).first<DirectoryProfileRow>();
   return row ? rowToManagedProfile(row) : null;
@@ -611,7 +645,7 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
 export async function deleteManagedDirectoryProfile(id: number) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const row = await database.prepare("DELETE FROM directory_profiles WHERE id = ? RETURNING *").bind(id).first<DirectoryProfileRow>();
+  const row = await database.prepare(`DELETE FROM directory_profiles WHERE id = ? RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(id).first<DirectoryProfileRow>();
   return row ? rowToManagedProfile(row) : null;
 }
 
@@ -635,7 +669,7 @@ export async function createDirectoryInquiry(payload: DirectoryInquiryInput) {
   await purgeExpiredDirectoryInquiries(database);
   const profileId = Number(payload.profileId);
   if (!Number.isSafeInteger(profileId) || profileId < 1) throw new Error("Profil sa nenašiel.");
-  const profile = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1").bind(profileId).first<DirectoryProfileRow>();
+  const profile = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`).bind(profileId).first<DirectoryProfileRow>();
   if (!profile) throw new Error("Profil sa nenašiel alebo už nie je verejný.");
 
   const senderName = payload.senderName?.trim() ?? "";

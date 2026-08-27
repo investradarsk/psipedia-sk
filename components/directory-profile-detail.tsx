@@ -25,15 +25,15 @@ const activityFields = [
 
 export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryProfile }) {
   const category = getDirectoryCategory(profile.category);
-  const importedActivities = activityFields.flatMap((label) => {
+  const isKynologyClub = profile.category === "kynologicke-kluby";
+  const importedActivities = isKynologyClub ? activityFields.flatMap((label) => {
     const value = importedValue(profile, label);
     return value ? [{ label, value }] : [];
-  });
+  }) : [];
   const phone = importedValue(profile, "Telefón");
   const email = importedValue(profile, "E-mail");
   const facebook = importedValue(profile, "Facebook");
   const website = importedValue(profile, "Web") ?? profile.websiteUrl;
-  const source = importedValue(profile, "Zdroj");
   const schema = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -52,7 +52,7 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
           <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span><Link href="/adresar">Služby pre psov</Link><span>/</span><Link href={`/adresar/${profile.category}`}>{category?.label}</Link><span>/</span><span>{profile.name}</span></nav>
           <div className="directory-detail-hero-grid">
             <div>
-              <div className="directory-detail-tags"><span>{category?.singular}</span>{profile.verified && <b>✓ Overený profil</b>}{profile.featured && <b>Odporúčame</b>}</div>
+              <div className="directory-detail-tags"><span>{category?.singular}</span>{profile.featured && <b>Odporúčame</b>}</div>
               <h1>{profile.name}</h1>
               <p>{profile.excerpt}</p>
               <div className="directory-detail-location"><span aria-hidden="true">📍</span><strong>{profile.city}</strong><span>{profile.region}{profile.online ? " · služby aj online" : ""}</span></div>
@@ -75,20 +75,14 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
             {website && <div><dt>Web</dt><dd><a href={website} target="_blank" rel="noreferrer">Otvoriť web ↗</a></dd></div>}
             {facebook && <div><dt>Facebook</dt><dd><a href={facebook} target="_blank" rel="noreferrer">Otvoriť Facebook ↗</a></dd></div>}
           </dl></section>}
-          {profile.importData && <section className="directory-detail-qualifications"><h3>Overenie údajov</h3><dl>
-            {importedValue(profile, "Stav") && <div><dt>Stav</dt><dd>{importedValue(profile, "Stav")}</dd></div>}
-            {importedValue(profile, "Dátum overenia") && <div><dt>Dátum overenia</dt><dd>{importedValue(profile, "Dátum overenia")}</dd></div>}
-            {importedValue(profile, "Poznámka") && <div><dt>Poznámka</dt><dd>{importedValue(profile, "Poznámka")}</dd></div>}
-            {source && <div><dt>Zdroj</dt><dd><a href={source} target="_blank" rel="noreferrer">Zobraziť zdroj ↗</a></dd></div>}
-          </dl></section>}
         </article>
         <aside className="directory-detail-facts">
           <h2>Praktické informácie</h2>
           <dl><div><dt>Kategória</dt><dd>{category?.label}</dd></div><div><dt>Lokalita</dt><dd>{profile.address && <>{profile.address}<br /></>}{profile.city}, {profile.region}</dd></div>
-            {(profile.district || importedValue(profile, "Okres")) && <div><dt>Okres</dt><dd>{profile.district || importedValue(profile, "Okres")}</dd></div>}
-            {importedValue(profile, "Typ klubu") && <div><dt>Typ klubu</dt><dd>{importedValue(profile, "Typ klubu")}</dd></div>}
-            {importedValue(profile, "Zameranie") && <div><dt>Zameranie</dt><dd>{importedValue(profile, "Zameranie")}</dd></div>}
-            {importedValue(profile, "Organizácia") && <div><dt>Organizácia</dt><dd>{importedValue(profile, "Organizácia")}</dd></div>}
+            {profile.district && <div><dt>Okres</dt><dd>{profile.district}</dd></div>}
+            {isKynologyClub && importedValue(profile, "Typ klubu") && <div><dt>Typ klubu</dt><dd>{importedValue(profile, "Typ klubu")}</dd></div>}
+            {isKynologyClub && importedValue(profile, "Zameranie") && <div><dt>Zameranie</dt><dd>{importedValue(profile, "Zameranie")}</dd></div>}
+            {isKynologyClub && importedValue(profile, "Organizácia") && <div><dt>Organizácia</dt><dd>{importedValue(profile, "Organizácia")}</dd></div>}
             {!profile.importData && <div><dt>Online</dt><dd>{profile.online ? "Áno" : "Nie"}</dd></div>}{profile.priceNote && <div><dt>Cena</dt><dd>{profile.priceNote}</dd></div>}</dl>
           {website && <a className="text-link" href={website} target="_blank" rel="noreferrer">Navštíviť web ↗</a>}
           <a className="button button--primary" href="#kontakt">Kontaktovať cez Psipediu</a>
