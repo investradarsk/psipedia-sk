@@ -160,7 +160,7 @@ export async function POST(request: Request) {
           slug, name, category, status, excerpt, description, services_json, qualifications_json,
           city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
           import_key, source_data_json, search_text, verified, featured, created_at, updated_at, published_at, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(${conflictTarget}) DO UPDATE SET
           slug=excluded.slug, name=excluded.name, category=excluded.category,
           status=CASE WHEN ? = 1 THEN excluded.status ELSE directory_profiles.status END,
