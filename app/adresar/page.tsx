@@ -15,9 +15,13 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 
 export default async function DirectoryHomePage({ searchParams }: Props) {
   const filters = parseDirectoryFilters(await searchParams);
+  const hasSearch = Boolean(filters.query || filters.category || filters.region || filters.district || filters.city || filters.service || filters.breed || filters.fciGroup || filters.organization || filters.profileType);
   const [result, categoryCounts] = await Promise.all([
-    listPublishedDirectoryProfiles({ filters }),
+    hasSearch ? listPublishedDirectoryProfiles({ filters }) : Promise.resolve({
+      profiles: [], total: 0, page: 1, pageSize: 24, totalPages: 1,
+      options: { regions: [], districts: [], cities: [], services: [], breeds: [], fciGroups: [], organizations: [], profileTypes: [] },
+    }),
     getDirectoryCategoryCounts(),
   ]);
-  return <DirectoryPage result={result} filters={filters} categoryCounts={categoryCounts} />;
+  return <DirectoryPage result={result} filters={filters} categoryCounts={categoryCounts} showResults={hasSearch} />;
 }

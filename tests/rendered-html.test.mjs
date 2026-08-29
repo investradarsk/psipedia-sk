@@ -100,7 +100,7 @@ function createAdminMockDatabase() {
     image_url: null,
     image_key: null,
     import_key: "test-klub-9",
-    source_data_json: JSON.stringify({ Zdroj: "test" }),
+    source_data_json: JSON.stringify({ Zdroj: "interný test", Telefón: "+421 900 111 222", "E-mail": "klub@example.com", Facebook: "https://facebook.com/testklub" }),
     search_text: "testovaci kynologicky klub bratislava",
     verified: 1,
     featured: 0,
@@ -590,8 +590,8 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.equal(trainers.status, 200);
   const trainersHtml = await trainers.text();
   assert.match(trainersHtml, /Služby pre psov|Psí tréneri/);
-  assert.match(trainersHtml, /Kontakt cez Psipediu/);
-  assert.match(trainersHtml, /Názov, služba alebo lokalita/);
+  assert.match(trainersHtml, /Psí tréneri a psie školy/);
+  assert.match(trainersHtml, /Názov, služba, plemeno alebo lokalita/);
   assert.match(trainersHtml, /Mesto\/obec/);
   assert.match(trainersHtml, /Zoradenie/);
   assert.match(trainersHtml, /Nenašli sme zhodu/);
@@ -600,11 +600,26 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const directory = await worker.fetch(new Request("http://localhost/adresar", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(directory.status, 200);
   const directoryHtml = await directory.text();
-  assert.match(directoryHtml, /Služby pre psov/);
+  assert.match(directoryHtml, /Nájdi službu pre svojho psa/);
   assert.match(directoryHtml, /Veterinári/);
   assert.match(directoryHtml, /Hotely a opatrovanie/);
   assert.match(directoryHtml, /Fyzioterapia/);
-  assert.match(directoryHtml, /Koho hľadáš/);
+  assert.match(directoryHtml, /Čo hľadáš/);
+  assert.doesNotMatch(directoryHtml, /Profily v adresári/);
+
+  const legacySchools = await worker.fetch(new Request("http://localhost/adresar/psie-skoly", { headers: { accept: "text/html" }, redirect: "manual" }), bindings, context);
+  assert.equal(legacySchools.status, 301);
+  assert.equal(new URL(legacySchools.headers.get("location")).pathname, "/adresar/treneri");
+
+  for (const category of ["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby", "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"]) {
+    const response = await worker.fetch(new Request(`http://localhost/adresar/${category}`, { headers: { accept: "text/html" } }), bindings, context);
+    assert.equal(response.status, 200, category);
+    const html = await response.text();
+    assert.match(html, /Kraj/);
+    assert.match(html, /Okres/);
+    assert.match(html, /Mesto\/obec/);
+    assert.doesNotMatch(html, /source_data_json|import_key|Overené Psipediou|Stav overenia/);
+  }
 });
 
 test("filters a directory category on the server and keeps verification data private", async () => {
@@ -633,8 +648,12 @@ test("filters a directory category on the server and keeps verification data pri
     const detail = await worker.fetch(new Request("http://localhost/adresar/kynologicke-kluby/testovaci-klub", { headers: { accept: "text/html" } }), bindings, context);
     assert.equal(detail.status, 200);
     const detailHtml = await detail.text();
-    assert.doesNotMatch(detailHtml, /Overenie údajov|Dátum overenia|Zobraziť zdroj|Overený profil/);
+    assert.doesNotMatch(detailHtml, /Overenie údajov|Dátum overenia|Zobraziť zdroj|Overený profil|interný test|source_data_json|import_key/);
     assert.match(detailHtml, /Bratislava I/);
+    assert.match(detailHtml, /tel:\+421900111222/);
+    assert.match(detailHtml, /mailto:klub@example.com/);
+    assert.match(detailHtml, /Navigovať/);
+    assert.match(detailHtml, /Ste majiteľom tohto profilu/);
   } finally {
     for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
     Object.assign(runtimeEnv, previousRuntimeEnv);

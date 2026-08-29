@@ -9,30 +9,30 @@ import {
 } from "@/lib/directory";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 
-export function DirectoryPage({ result, filters, categoryCounts, initialCategory = "all" }: {
+export function DirectoryPage({ result, filters, categoryCounts, initialCategory = "all", showResults = true }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
   categoryCounts: Partial<Record<DirectoryCategorySlug, number>>;
   initialCategory?: "all" | DirectoryCategorySlug;
+  showResults?: boolean;
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   return (
     <main id="obsah">
-      <header className="directory-hero">
+      <header className={`directory-hero${active ? " directory-hero--category" : ""}`}>
         <div className="shell">
           <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span>{active ? <><Link href="/adresar">Služby pre psov</Link><span>/</span><span>{active.label}</span></> : <span>Služby pre psov</span>}</nav>
-          <div className="directory-hero-grid">
-            <div>
-              <span className="eyebrow">{active ? active.singular : "Nájdi pomoc nablízku"}</span>
-              <h1>{active ? active.label : "Služby pre psov"}</h1>
-              <p>{active?.description ?? "Veterinári, tréneri, školy, kluby a ďalšie služby — prehľadne podľa kraja a zamerania."}</p>
-            </div>
-            <div className="directory-hero-trust">
-              <span aria-hidden="true">✓</span>
-              <div><strong>Kontakt cez Psipediu</strong><p>Tvoj dopyt najprv prijme redakcia. Kontaktné údaje poskytovateľa nezverejňujeme bez jeho súhlasu.</p></div>
-            </div>
+          <div className="directory-hero-copy">
+            <span className="eyebrow">{active ? active.singular : "Adresár služieb na Slovensku"}</span>
+            <h1>{active ? active.label : "Nájdi službu pre svojho psa"}</h1>
+            <p>{active?.description ?? "Vyhľadávaj podľa služby, mesta, okresu, kraja alebo plemena — aj bez diakritiky."}</p>
           </div>
-          <div className="directory-hero-stats"><div><strong>{directoryCategories.length}</strong><span>kategórií</span></div><div><strong>8 + online</strong><span>krajov a možnosti</span></div><div><strong>1 formulár</strong><span>bez hľadania kontaktov</span></div></div>
+          {!active && <form className="directory-main-search" action="/adresar" method="get">
+            <label><span>Čo hľadáš?</span><select name="category" defaultValue={filters.category}><option value="">Všetky služby</option>{directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}</select></label>
+            <label className="directory-main-search-query"><span>Kde alebo čo konkrétne?</span><input name="q" defaultValue={filters.query} placeholder="Nitra, fyzioterapia, labrador…" /></label>
+            <button type="submit">Hľadať</button>
+          </form>}
+          {!active && <div className="directory-search-examples"><span>Skús napríklad:</span><Link href="/adresar?category=veterinari&q=nitra">veterinár Nitra</Link><Link href="/adresar?category=fyzioterapia&q=zilina">fyzioterapia Žilina</Link><Link href="/adresar?category=chovatelske-stanice&q=labrador">labrador chovateľská stanica</Link></div>}
         </div>
       </header>
 
@@ -41,12 +41,12 @@ export function DirectoryPage({ result, filters, categoryCounts, initialCategory
         <div className="directory-category-grid">
           {directoryCategories.map((category) => {
             const count = categoryCounts[category.slug] ?? 0;
-            return <Link className={active?.slug === category.slug ? "is-active" : ""} href={directoryCategoryHref(category)} key={category.slug}><span aria-hidden="true">{category.icon}</span><div><h3>{category.label}</h3><p>{category.description}</p><small>{count} {count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov"}</small></div><ArrowIcon size={20} /></Link>;
+            return <Link href={directoryCategoryHref(category)} key={category.slug}><span aria-hidden="true">{category.icon}</span><div><h3>{category.label}</h3><p>{category.description}</p><small>{count} {count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov"}</small></div><ArrowIcon size={20} /></Link>;
           })}
         </div>
       </section>}
 
-      <section className={`section section--tint${active ? " directory-category-results" : ""}`}><div className="shell"><DirectoryResults result={result} filters={filters} basePath={active ? `/adresar/${active.slug}` : "/adresar"} title={active ? active.label : "Profily v adresári"} /></div></section>
+      {(active || showResults) && <section className={`section section--tint${active ? " directory-category-results" : ""}`}><div className="shell"><DirectoryResults result={result} filters={filters} basePath={active ? `/adresar/${active.slug}` : "/adresar"} title={active ? active.label : "Výsledky vyhľadávania"} category={active?.slug} showCategory={!active} /></div></section>}
     </main>
   );
 }

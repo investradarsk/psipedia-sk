@@ -154,9 +154,15 @@ export type DirectorySort = "recommended" | "name-asc" | "name-desc" | "newest";
 
 export type DirectoryFilters = {
   query: string;
+  category: "" | DirectoryCategorySlug;
   region: string;
   district: string;
   city: string;
+  service: string;
+  breed: string;
+  fciGroup: string;
+  organization: string;
+  profileType: string;
   sort: DirectorySort;
   page: number;
 };
@@ -171,6 +177,11 @@ export type PublicDirectoryProfilePage = {
     regions: string[];
     districts: string[];
     cities: string[];
+    services: string[];
+    breeds: string[];
+    fciGroups: string[];
+    organizations: string[];
+    profileTypes: string[];
   };
 };
 
@@ -182,12 +193,19 @@ function firstParam(value: string | string[] | undefined) {
 
 export function parseDirectoryFilters(params: DirectorySearchParams): DirectoryFilters {
   const rawSort = firstParam(params.sort);
+  const rawCategory = firstParam(params.category);
   const sort: DirectorySort = ["recommended", "name-asc", "name-desc", "newest"].includes(rawSort) ? rawSort as DirectorySort : "recommended";
   return {
     query: firstParam(params.q).slice(0, 100),
+    category: isDirectoryCategory(rawCategory) && rawCategory !== "psie-skoly" && rawCategory !== "utulky-a-zachrana" ? rawCategory : "",
     region: normalizeDirectoryRegion(firstParam(params.region)) ?? "",
     district: firstParam(params.district).slice(0, 100),
     city: firstParam(params.city).slice(0, 120),
+    service: firstParam(params.service).slice(0, 160),
+    breed: firstParam(params.breed).slice(0, 160),
+    fciGroup: firstParam(params.fci).slice(0, 80),
+    organization: firstParam(params.organization).slice(0, 160),
+    profileType: firstParam(params.type).slice(0, 160),
     sort,
     page: Math.max(1, Number.parseInt(firstParam(params.page) || "1", 10) || 1),
   };
@@ -276,10 +294,17 @@ const DIRECTORY_PROFILE_COLUMNS = `
 const DIRECTORY_CARD_COLUMNS = `
   id, slug, name, category, status, excerpt, '' AS description, services_json,
   '[]' AS qualifications_json, city, district, region, '' AS address, online,
-  '' AS price_note, website_url, NULL AS internal_email, image_url, NULL AS image_key,
+  price_note, website_url, NULL AS internal_email, image_url, NULL AS image_key,
   import_key, '{}' AS source_data_json, search_text, verified, featured, '{}' AS seo_json,
   created_at, updated_at, published_at, created_by, updated_by
 `;
+
+const DIRECTORY_SOURCE_FACETS = {
+  breed: `COALESCE(NULLIF(json_extract(source_data_json, '$."Plemeno"'), ''), NULLIF(json_extract(source_data_json, '$."Plemená"'), ''), '')`,
+  fciGroup: `COALESCE(NULLIF(json_extract(source_data_json, '$."FCI skupina"'), ''), NULLIF(json_extract(source_data_json, '$."FCI"'), ''), '')`,
+  organization: `COALESCE(NULLIF(json_extract(source_data_json, '$."Organizácia"'), ''), NULLIF(json_extract(source_data_json, '$."Zastrešujúca organizácia"'), ''), '')`,
+  profileType: `COALESCE(NULLIF(json_extract(source_data_json, '$."Typ služby"'), ''), NULLIF(json_extract(source_data_json, '$."Typ poskytovateľa"'), ''), NULLIF(json_extract(source_data_json, '$."Typ klubu"'), ''), '')`,
+} as const;
 
 function sqlNormalizedExpression(columnExpression: string) {
   const replacements: Array<[string, string]> = [
@@ -298,6 +323,11 @@ const LEGACY_DIRECTORY_SEARCH = sqlNormalizedExpression(`
   coalesce(city, '') || ' ' || coalesce(district, '') || ' ' || coalesce(region, '') || ' ' ||
   coalesce(address, '') || ' ' || coalesce(services_json, '') || ' ' || coalesce(qualifications_json, '') || ' ' ||
   coalesce(json_extract(source_data_json, '$."Okres"'), '')
+`);
+
+const DIRECTORY_PUBLIC_FACET_SEARCH = sqlNormalizedExpression(`
+  ${DIRECTORY_SOURCE_FACETS.breed} || ' ' || ${DIRECTORY_SOURCE_FACETS.fciGroup} || ' ' ||
+  ${DIRECTORY_SOURCE_FACETS.organization} || ' ' || ${DIRECTORY_SOURCE_FACETS.profileType}
 `);
 
 function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
@@ -466,26 +496,80 @@ export async function listPublishedDirectoryProfiles(options: {
 }): Promise<PublicDirectoryProfilePage> {
   const database = getD1Binding();
   const pageSize = Math.max(1, Math.min(48, Math.trunc(options.pageSize ?? 24)));
-  if (!database) return { profiles: [], total: 0, page: 1, pageSize, totalPages: 1, options: { regions: [], districts: [], cities: [] } };
+  const emptyOptions = { regions: [], districts: [], cities: [], services: [], breeds: [], fciGroups: [], organizations: [], profileTypes: [] };
+  if (!database) return { profiles: [], total: 0, page: 1, pageSize, totalPages: 1, options: emptyOptions };
 
-  const clauses = ["status = 'published'"];
-  const bindings: unknown[] = [];
-  if (options.category) { clauses.push("category = ?"); bindings.push(options.category); }
+  const category = (options.category ?? options.filters.category) || undefined;
+  const baseClauses = ["status = 'published'"];
+  const baseBindings: unknown[] = [];
+  if (category) { baseClauses.push("category = ?"); baseBindings.push(category); }
   if (options.filters.query) {
     const needle = `%${normalizeDirectorySearchText(options.filters.query)}%`;
-    clauses.push(`(search_text LIKE ? OR (search_text = '' AND ${LEGACY_DIRECTORY_SEARCH} LIKE ?))`);
-    bindings.push(needle, needle);
+    baseClauses.push(`(search_text LIKE ? OR ${DIRECTORY_PUBLIC_FACET_SEARCH} LIKE ? OR (search_text = '' AND ${LEGACY_DIRECTORY_SEARCH} LIKE ?))`);
+    baseBindings.push(needle, needle, needle);
   }
-  if (options.filters.region) {
-    clauses.push("(region = ? OR region = ?)");
-    bindings.push(options.filters.region, options.filters.region.replace(/ kraj$/, ""));
+  if (options.filters.service) {
+    baseClauses.push("EXISTS (SELECT 1 FROM json_each(directory_profiles.services_json) service_item WHERE trim(CAST(service_item.value AS TEXT)) = ?)");
+    baseBindings.push(options.filters.service);
   }
-  if (options.filters.district) {
-    clauses.push(`(district = ? OR (district = '' AND json_extract(source_data_json, '$."Okres"') = ?))`);
-    bindings.push(options.filters.district, options.filters.district);
-  }
-  if (options.filters.city) { clauses.push("city = ?"); bindings.push(options.filters.city); }
+  const addSourceFacet = (value: string, expression: string) => {
+    if (!value) return;
+    baseClauses.push(`${expression} = ?`);
+    baseBindings.push(value);
+  };
+  addSourceFacet(options.filters.breed, DIRECTORY_SOURCE_FACETS.breed);
+  addSourceFacet(options.filters.fciGroup, DIRECTORY_SOURCE_FACETS.fciGroup);
+  addSourceFacet(options.filters.organization, DIRECTORY_SOURCE_FACETS.organization);
+  addSourceFacet(options.filters.profileType, DIRECTORY_SOURCE_FACETS.profileType);
 
+  const locationWhere = (level: "region" | "district" | "city") => {
+    const clauses = [...baseClauses];
+    const bindings = [...baseBindings];
+    if ((level === "district" || level === "city") && options.filters.region) {
+      clauses.push("(region = ? OR region = ?)");
+      bindings.push(options.filters.region, options.filters.region.replace(/ kraj$/, ""));
+    }
+    if (level === "city" && options.filters.district) {
+      clauses.push(`COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') = ?`);
+      bindings.push(options.filters.district);
+    }
+    return { sql: clauses.join(" AND "), bindings };
+  };
+  const regionWhere = locationWhere("region");
+  const districtWhere = locationWhere("district");
+  const cityWhere = locationWhere("city");
+  const facetWhere = category ? "status = 'published' AND category = ?" : "status = 'published'";
+  const facetBindings = category ? [category] : [];
+  const facetQuery = (expression: string) => database.prepare(`SELECT DISTINCT trim(CAST(${expression} AS TEXT)) AS value FROM directory_profiles WHERE ${facetWhere} AND trim(CAST(${expression} AS TEXT)) <> '' ORDER BY value`).bind(...facetBindings);
+  const serviceQuery = database.prepare(`
+    SELECT DISTINCT trim(CAST(service_item.value AS TEXT)) AS value
+    FROM directory_profiles, json_each(directory_profiles.services_json) service_item
+    WHERE ${facetWhere} AND trim(CAST(service_item.value AS TEXT)) <> ''
+    ORDER BY value
+  `).bind(...facetBindings);
+  const optionResults = await database.batch([
+    database.prepare(`SELECT DISTINCT region AS value FROM directory_profiles WHERE ${regionWhere.sql} AND region <> '' ORDER BY region`).bind(...regionWhere.bindings),
+    database.prepare(`SELECT DISTINCT COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') AS value FROM directory_profiles WHERE ${districtWhere.sql} AND COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') <> '' ORDER BY value`).bind(...districtWhere.bindings),
+    database.prepare(`SELECT DISTINCT city AS value FROM directory_profiles WHERE ${cityWhere.sql} AND city <> '' ORDER BY city`).bind(...cityWhere.bindings),
+    serviceQuery,
+    facetQuery(DIRECTORY_SOURCE_FACETS.breed),
+    facetQuery(DIRECTORY_SOURCE_FACETS.fciGroup),
+    facetQuery(DIRECTORY_SOURCE_FACETS.organization),
+    facetQuery(DIRECTORY_SOURCE_FACETS.profileType),
+  ]);
+  const values = (result: D1Result<unknown>) => (result.results as Array<{ value?: string }>).map((row) => row.value?.trim() ?? "").filter(Boolean);
+  const regions = [...new Set(values(optionResults[0]).map((region) => normalizeDirectoryRegion(region)).filter((region): region is SlovakRegion => Boolean(region)))];
+  const districts = values(optionResults[1]);
+  const cities = values(optionResults[2]);
+  const region = regions.includes(options.filters.region as SlovakRegion) ? options.filters.region : "";
+  const district = (!options.filters.region || region) && districts.includes(options.filters.district) ? options.filters.district : "";
+  const city = (!options.filters.district || district) && cities.includes(options.filters.city) ? options.filters.city : "";
+
+  const clauses = [...baseClauses];
+  const bindings = [...baseBindings];
+  if (region) { clauses.push("(region = ? OR region = ?)"); bindings.push(region, region.replace(/ kraj$/, "")); }
+  if (district) { clauses.push(`COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') = ?`); bindings.push(district); }
+  if (city) { clauses.push("city = ?"); bindings.push(city); }
   const where = clauses.join(" AND ");
   const orderBy = options.filters.sort === "name-desc" ? "name DESC, id DESC"
     : options.filters.sort === "newest" ? "published_at DESC, id DESC"
@@ -503,22 +587,19 @@ export async function listPublishedDirectoryProfiles(options: {
     ORDER BY ${orderBy} LIMIT ? OFFSET ?
   `).bind(...bindings, pageSize, (page - 1) * pageSize);
 
-  const optionClause = options.category ? "status = 'published' AND category = ?" : "status = 'published'";
-  const optionBindings = options.category ? [options.category] : [];
-  const [listResult, regionResult, districtResult, cityResult] = await database.batch([
-    listStatement,
-    database.prepare(`SELECT DISTINCT region AS value FROM directory_profiles WHERE ${optionClause} AND region <> '' ORDER BY region`).bind(...optionBindings),
-    database.prepare(`SELECT DISTINCT COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"')) AS value FROM directory_profiles WHERE ${optionClause} AND COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"')) <> '' ORDER BY value`).bind(...optionBindings),
-    database.prepare(`SELECT DISTINCT city AS value FROM directory_profiles WHERE ${optionClause} AND city <> '' ORDER BY city`).bind(...optionBindings),
-  ]);
-  const values = (result: D1Result<unknown>) => (result.results as Array<{ value?: string }>).map((row) => row.value?.trim() ?? "").filter(Boolean);
+  const listResult = await listStatement.all<DirectoryProfileRow>();
   return {
     profiles: (listResult.results as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
     total, page, pageSize, totalPages,
     options: {
-      regions: [...new Set(values(regionResult).map((region) => normalizeDirectoryRegion(region)).filter((region): region is SlovakRegion => Boolean(region)))],
-      districts: values(districtResult),
-      cities: values(cityResult),
+      regions,
+      districts,
+      cities,
+      services: values(optionResults[3]),
+      breeds: values(optionResults[4]),
+      fciGroups: values(optionResults[5]),
+      organizations: values(optionResults[6]),
+      profileTypes: values(optionResults[7]),
     },
   };
 }

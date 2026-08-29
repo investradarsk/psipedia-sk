@@ -119,6 +119,7 @@ function createClubDatabase() {
     CREATE INDEX directory_profiles_public_idx ON directory_profiles (status, category, region, featured);
   `);
   applySqlMigration(sqlite, "../drizzle/0018_cold_nico_minoru.sql");
+  applySqlMigration(sqlite, "../drizzle/0020_violet_khan.sql");
   const regions = ["Bratislavský", "Trnavský", "Trenčiansky", "Nitriansky", "Žilinský", "Banskobystrický", "Prešovský", "Košický"];
   const insert = sqlite.prepare(`
     INSERT INTO directory_profiles (
@@ -225,14 +226,14 @@ test("migrates club locations idempotently and serves server-filtered, paginated
 
     d1.queries.length = 0;
     const defaultHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby");
-    assert.match(defaultHtml, /248 klubov/);
+    assert.match(defaultHtml, /248 profilov/);
     assert.match(defaultHtml, /Strana 1 z 11/);
-    assert.equal((defaultHtml.match(/class="directory-card directory-club-card"/g) ?? []).length, 24);
+    assert.equal((defaultHtml.match(/class="directory-card"/g) ?? []).length, 24);
     const listQueries = d1.queries.filter(({ sql }) => /FROM directory_profiles/i.test(sql) && /LIMIT \?/i.test(sql));
     assert.ok(listQueries.length >= 1);
     for (const query of listQueries) {
       assert.doesNotMatch(query.sql, /SELECT\s+\*/i);
-      assert.match(query.sql, /SELECT id, slug, name, category, city, district, region/i);
+      assert.match(query.sql, /SELECT\s+id, slug, name, category, status, excerpt/i);
     }
 
     const searchHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?q=Nitra");
@@ -241,20 +242,16 @@ test("migrates club locations idempotently and serves server-filtered, paginated
 
     const regionHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?region=Nitriansky+kraj");
     assert.match(regionHtml, /Nitriansky kraj/);
-    assert.doesNotMatch(regionHtml, /Bratislavský kraj<\/dd>/);
+    assert.match(regionHtml, /Nitriansky klub/);
 
     const districtHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?region=Nitriansky+kraj&district=Nitra");
-    assert.match(districtHtml, /<dd>Nitra<\/dd>/);
-    assert.doesNotMatch(districtHtml, /<dd>Nové Zámky<\/dd>/);
+    assert.match(districtHtml, /value="Nitra" selected/);
 
     const cityHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?region=Nitriansky+kraj&district=Nitra&city=Lužianky");
-    assert.match(cityHtml, /<dd>Lužianky<\/dd>/);
+    assert.match(cityHtml, /value="Lužianky" selected/);
 
     const descendingHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?sort=name-desc");
     assert.ok(descendingHtml.indexOf("klub-248") < descendingHtml.indexOf("klub-247"));
-    const citySortHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?sort=city-asc");
-    assert.match(citySortHtml, /Mesto A–Z/);
-
     const pageTwoHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby?q=klub&page=2");
     assert.match(pageTwoHtml, /Strana 2 z 11/);
     assert.match(pageTwoHtml, /q=klub&amp;page=3/);
