@@ -20,7 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const portalPages = portalSections.flatMap((section) => [
     `/${section.slug}`,
     ...section.subpages.map((subpage) => portalSubpageHref(section, subpage)),
-  ]);
+  ]).filter((path) => path !== "/adresar/psie-skoly");
   return [
     ...[...new Set([...staticPages, ...portalPages])].map((path) => ({
       url: `${SITE_URL}${path}`,

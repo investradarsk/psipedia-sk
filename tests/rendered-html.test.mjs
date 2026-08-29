@@ -825,6 +825,8 @@ test("publishes search-engine and ChatGPT discovery endpoints", async () => {
   const sitemapText = await sitemap.text();
   assert.match(sitemapText, /https:\/\/psipedia\.sk\/plemena\/border-kolia/);
   assert.match(sitemapText, /https:\/\/psipedia\.sk\/starostlivost\/ako-vybrat-granule-bez-marketingovych-mytov/);
+  assert.match(sitemapText, /https:\/\/psipedia\.sk\/adresar\/treneri/);
+  assert.doesNotMatch(sitemapText, /https:\/\/psipedia\.sk\/adresar\/psie-skoly/);
 
   const feed = await worker.fetch(new Request("http://localhost/feed.xml"), bindings, context);
   assert.equal(feed.status, 200);
