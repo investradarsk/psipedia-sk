@@ -158,6 +158,35 @@ export const directoryInquiries = sqliteTable(
   ],
 );
 
+export const directoryProfileChangeRequests = sqliteTable(
+  "directory_profile_change_requests",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    profileId: integer("profile_id").notNull(),
+    profileName: text("profile_name").notNull(),
+    profileSlug: text("profile_slug").notNull(),
+    profileCategory: text("profile_category").notNull(),
+    requesterName: text("requester_name").notNull(),
+    requesterEmail: text("requester_email").notNull(),
+    requesterPhone: text("requester_phone").notNull().default(""),
+    requesterRole: text("requester_role").notNull().default(""),
+    proposedDataJson: text("proposed_data_json").notNull(),
+    note: text("note").notNull().default(""),
+    authorized: integer("authorized").notNull().default(1),
+    consent: integer("consent").notNull().default(1),
+    status: text("status").notNull().default("new"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    reviewedAt: text("reviewed_at"),
+    reviewedBy: text("reviewed_by"),
+  },
+  (table) => [
+    index("directory_profile_change_requests_status_created_idx").on(table.status, table.createdAt),
+    index("directory_profile_change_requests_profile_created_idx").on(table.profileId, table.createdAt),
+    index("directory_profile_change_requests_email_created_idx").on(table.requesterEmail, table.createdAt),
+  ],
+);
+
 export const newsTips = sqliteTable(
   "news_tips",
   {

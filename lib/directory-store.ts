@@ -6,10 +6,14 @@ import {
   type DirectoryCategorySlug,
   type DirectoryInquiry,
   type DirectoryInquiryStatus,
+  type DirectoryProfileChangeRequest,
+  type DirectoryProfileChangeRequestStatus,
+  type DirectoryProfileEditableData,
   type DirectoryProfileStatus,
   type ManagedDirectoryProfile,
   type PublicDirectoryProfile,
 } from "@/lib/directory";
+import { editableDirectoryProfileData, specializedChangeRequestFields } from "@/lib/directory-change-request";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 
@@ -78,6 +82,18 @@ export type DirectoryInquiryInput = {
   consent?: boolean;
 };
 
+export type DirectoryProfileChangeRequestInput = {
+  profileId?: number;
+  requesterName?: string;
+  requesterEmail?: string;
+  requesterPhone?: string;
+  requesterRole?: string;
+  proposedData?: Partial<DirectoryProfileEditableData>;
+  note?: string;
+  authorized?: boolean;
+  consent?: boolean;
+};
+
 type DirectoryProfileRow = {
   id: number;
   slug: string;
@@ -127,6 +143,27 @@ type DirectoryInquiryRow = {
   consent: number;
   created_at: string;
   updated_at: string;
+};
+
+type DirectoryProfileChangeRequestRow = {
+  id: number;
+  profile_id: number;
+  profile_name: string;
+  profile_slug: string;
+  profile_category: string;
+  requester_name: string;
+  requester_email: string;
+  requester_phone: string;
+  requester_role: string;
+  proposed_data_json: string;
+  note: string;
+  authorized: number;
+  consent: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
 };
 
 type DirectoryProfileSummaryRow = {
@@ -414,6 +451,41 @@ function rowToInquiry(row: DirectoryInquiryRow): DirectoryInquiry {
   };
 }
 
+function parseProposedData(value: string): DirectoryProfileEditableData {
+  try {
+    return JSON.parse(value) as DirectoryProfileEditableData;
+  } catch {
+    return {
+      name: "", serviceType: "", city: "", district: "", region: "", address: "", phone: "", email: "",
+      website: "", facebook: "", instagram: "", description: "", services: [], priceNote: "", coverage: "", online: false, specialized: {},
+    };
+  }
+}
+
+function rowToChangeRequest(row: DirectoryProfileChangeRequestRow, currentData: DirectoryProfileEditableData | null = null): DirectoryProfileChangeRequest {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    profileName: row.profile_name,
+    profileSlug: row.profile_slug,
+    profileCategory: isDirectoryCategory(row.profile_category) ? row.profile_category : "salony-a-sluzby",
+    requesterName: row.requester_name,
+    requesterEmail: row.requester_email,
+    requesterPhone: row.requester_phone,
+    requesterRole: row.requester_role,
+    proposedData: parseProposedData(row.proposed_data_json),
+    currentData,
+    note: row.note,
+    authorized: Boolean(row.authorized),
+    consent: Boolean(row.consent),
+    status: row.status === "approved" ? "approved" : row.status === "rejected" ? "rejected" : "new",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    reviewedAt: row.reviewed_at,
+    reviewedBy: row.reviewed_by,
+  };
+}
+
 function normalizeUrl(value: string | null | undefined) {
   const clean = value?.trim() || null;
   if (!clean) return null;
@@ -428,6 +500,56 @@ function normalizeEmail(value: string | null | undefined, required = false) {
   if (!clean && !required) return null;
   if (!clean || clean.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new Error("E-mailová adresa nie je platná.");
   return clean;
+}
+
+function cleanText(value: unknown, maxLength: number) {
+  if (typeof value !== "string") return "";
+  return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\r\n?/g, "\n").trim().slice(0, maxLength);
+}
+
+function normalizeOptionalUrl(value: unknown, label: string) {
+  const clean = cleanText(value, 500);
+  if (!clean) return "";
+  try {
+    const parsed = new URL(clean);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error();
+    return parsed.toString();
+  } catch {
+    throw new Error(`${label} musí byť platná adresa začínajúca http:// alebo https://.`);
+  }
+}
+
+function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData> | undefined, category: DirectoryCategorySlug) {
+  const name = cleanText(value?.name, 180);
+  const region = normalizeDirectoryRegion(cleanText(value?.region, 80));
+  const email = normalizeEmail(cleanText(value?.email, 180)) ?? "";
+  if (name.length < 2) throw new Error("Doplň názov služby alebo firmy.");
+  if (!region) throw new Error("Vyber platný kraj alebo možnosť Online.");
+  const services = normalizeStringList(value?.services).map((item) => cleanText(item, 160)).filter(Boolean).slice(0, 30);
+  const allowedSpecialized = new Set(specializedChangeRequestFields[category] ?? []);
+  const rawSpecialized = value?.specialized && typeof value.specialized === "object" && !Array.isArray(value.specialized) ? value.specialized : {};
+  const specialized = Object.fromEntries(Object.entries(rawSpecialized)
+    .filter(([key]) => allowedSpecialized.has(key))
+    .map(([key, item]) => [key, cleanText(item, 500)]));
+  return {
+    name,
+    serviceType: cleanText(value?.serviceType, 160),
+    city: cleanText(value?.city, 120),
+    district: cleanText(value?.district, 120),
+    region,
+    address: cleanText(value?.address, 300),
+    phone: cleanText(value?.phone, 50),
+    email,
+    website: normalizeOptionalUrl(value?.website, "Webová adresa"),
+    facebook: normalizeOptionalUrl(value?.facebook, "Facebook"),
+    instagram: normalizeOptionalUrl(value?.instagram, "Instagram"),
+    description: cleanText(value?.description, 10_000),
+    services,
+    priceNote: cleanText(value?.priceNote, 1000),
+    coverage: cleanText(value?.coverage, 1000),
+    online: value?.online === true,
+    specialized,
+  } satisfies DirectoryProfileEditableData;
 }
 
 function normalizeStringList(value: unknown) {
@@ -814,4 +936,87 @@ export async function deleteDirectoryInquiry(id: number) {
   await ensureDirectoryStore(database);
   const row = await database.prepare("DELETE FROM directory_inquiries WHERE id = ? RETURNING *").bind(id).first<DirectoryInquiryRow>();
   return row ? rowToInquiry(row) : null;
+}
+
+const DIRECTORY_CHANGE_REQUEST_COLUMNS = `
+  id, profile_id, profile_name, profile_slug, profile_category, requester_name, requester_email,
+  requester_phone, requester_role, proposed_data_json, note, authorized, consent, status,
+  created_at, updated_at, reviewed_at, reviewed_by
+`;
+
+export async function createDirectoryProfileChangeRequest(payload: DirectoryProfileChangeRequestInput) {
+  const database = requireD1Binding();
+  await ensureDirectoryStore(database);
+  const profileId = Number(payload.profileId);
+  if (!Number.isSafeInteger(profileId) || profileId < 1) throw new Error("Profil sa nenašiel.");
+  const profileRow = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`).bind(profileId).first<DirectoryProfileRow>();
+  if (!profileRow) throw new Error("Profil sa nenašiel alebo už nie je verejný.");
+  const profile = rowToPublicProfile(profileRow);
+
+  const requesterName = cleanText(payload.requesterName, 120);
+  const requesterEmail = normalizeEmail(payload.requesterEmail, true) as string;
+  const requesterPhone = cleanText(payload.requesterPhone, 50);
+  const requesterRole = cleanText(payload.requesterRole, 80);
+  const note = cleanText(payload.note, 3000);
+  if (requesterName.length < 2) throw new Error("Doplň meno a priezvisko.");
+  if (!payload.authorized) throw new Error("Potvrď, že si oprávnený/á navrhnúť úpravu profilu.");
+  if (!payload.consent) throw new Error("Potvrď súhlas so spracovaním údajov na vybavenie návrhu.");
+  const proposedData = normalizeChangeRequestData(payload.proposedData, profile.category);
+
+  const limitSince = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const recent = await database.prepare(`
+    SELECT COUNT(*) AS count FROM directory_profile_change_requests
+    WHERE requester_email = ? AND created_at >= ?
+  `).bind(requesterEmail, limitSince).first<{ count: number }>();
+  if ((recent?.count ?? 0) >= 3) throw new DirectoryRateLimitError("Za krátky čas bolo odoslaných príliš veľa návrhov. Skús to neskôr.");
+
+  const now = new Date().toISOString();
+  const row = await database.prepare(`
+    INSERT INTO directory_profile_change_requests (
+      profile_id, profile_name, profile_slug, profile_category, requester_name, requester_email,
+      requester_phone, requester_role, proposed_data_json, note, authorized, consent, status,
+      created_at, updated_at, reviewed_at, reviewed_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 'new', ?, ?, NULL, NULL)
+    RETURNING ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
+  `).bind(
+    profile.id, profile.name, profile.slug, profile.category, requesterName, requesterEmail,
+    requesterPhone, requesterRole, JSON.stringify(proposedData), note, now, now,
+  ).first<DirectoryProfileChangeRequestRow>();
+  if (!row) throw new Error("Návrh úpravy sa nepodarilo uložiť.");
+  return rowToChangeRequest(row, editableDirectoryProfileData(profile));
+}
+
+export async function listDirectoryProfileChangeRequests() {
+  const database = requireD1Binding();
+  await ensureDirectoryStore(database);
+  const result = await database.prepare(`
+    SELECT ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
+    FROM directory_profile_change_requests
+    ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, created_at DESC
+    LIMIT 200
+  `).all<DirectoryProfileChangeRequestRow>();
+  const rows = result.results;
+  const ids = [...new Set(rows.map((row) => row.profile_id))];
+  const currentById = new Map<number, DirectoryProfileEditableData>();
+  if (ids.length > 0) {
+    const placeholders = ids.map(() => "?").join(", ");
+    const profiles = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id IN (${placeholders})`).bind(...ids).all<DirectoryProfileRow>();
+    for (const row of profiles.results) currentById.set(row.id, editableDirectoryProfileData(rowToPublicProfile(row)));
+  }
+  return rows.map((row) => rowToChangeRequest(row, currentById.get(row.profile_id) ?? null));
+}
+
+export async function reviewDirectoryProfileChangeRequest(id: number, status: Exclude<DirectoryProfileChangeRequestStatus, "new">, reviewerEmail: string) {
+  const database = requireD1Binding();
+  await ensureDirectoryStore(database);
+  const now = new Date().toISOString();
+  const row = await database.prepare(`
+    UPDATE directory_profile_change_requests
+    SET status = ?, updated_at = ?, reviewed_at = ?, reviewed_by = ?
+    WHERE id = ? AND status = 'new'
+    RETURNING ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
+  `).bind(status, now, now, reviewerEmail, id).first<DirectoryProfileChangeRequestRow>();
+  if (!row) return null;
+  const profile = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? LIMIT 1`).bind(row.profile_id).first<DirectoryProfileRow>();
+  return rowToChangeRequest(row, profile ? editableDirectoryProfileData(rowToPublicProfile(profile)) : null);
 }

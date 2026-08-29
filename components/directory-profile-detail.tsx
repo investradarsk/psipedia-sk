@@ -93,7 +93,7 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
         </dl>{navigationUrl && <a className="text-link" href={navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}<a className="button button--primary" href="#kontakt">Poslať dopyt cez Psipediu</a></aside>
       </section>
 
-      <section className="shell directory-owner-box"><div><span aria-hidden="true">✎</span><div><strong>Ste majiteľom tohto profilu?</strong><p>Doplňte alebo opravte údaje o svojej službe.</p></div></div><Link href="/opravy-a-podnety">Navrhnúť úpravu profilu</Link></section>
+      <section className="shell directory-owner-box"><div><span aria-hidden="true">✎</span><div><strong>Ste majiteľom tohto profilu?</strong><p>Doplňte alebo opravte údaje o svojej službe.</p></div></div><Link href={`/adresar/${profile.category}/${profile.slug}/upravit`}>Navrhnúť úpravu profilu</Link></section>
       <section className="section section--tint" id="kontakt"><div className="shell directory-contact-shell"><DirectoryContactForm profileId={profile.id} profileName={profile.name} /></div></section>
     </main>
   );
