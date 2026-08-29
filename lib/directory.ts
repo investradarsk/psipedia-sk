@@ -4,17 +4,10 @@ export const directoryCategories = [
   { slug: "veterinari", label: "Veterinári", singular: "Veterinárne pracovisko", icon: "🩺", description: "Ambulancie, kliniky, pohotovosti a špecializovaná starostlivosť." },
   {
     slug: "treneri",
-    label: "Psí tréneri",
-    singular: "Tréner",
+    label: "Psí tréneri a psie školy",
+    singular: "Tréner / psia škola",
     icon: "🎯",
-    description: "Individuálny výcvik, riešenie správania, šteniatka aj špecializované tréningy.",
-  },
-  {
-    slug: "psie-skoly",
-    label: "Psie školy",
-    singular: "Psia škola",
-    icon: "🎓",
-    description: "Skupinové kurzy, socializácia, poslušnosť a pravidelné tréningové programy.",
+    description: "Individuálny aj skupinový výcvik, socializácia, poslušnosť, riešenie správania a tréningové programy.",
   },
   {
     slug: "kynologicke-kluby",
@@ -51,6 +44,7 @@ export const directoryCategories = [
 ] as const;
 
 const legacyDirectoryCategories = [
+  { slug: "psie-skoly", label: "Psie školy", singular: "Psia škola", icon: "🎓", description: "Pôvodná kategória presmerovaná na Psí tréneri a psie školy." },
   { slug: "utulky-a-zachrana", label: "Útulky a záchrana", singular: "Útulok alebo organizácia", icon: "❤️", description: "Pôvodná kategória zachovaná pre existujúce profily." },
 ] as const;
 
