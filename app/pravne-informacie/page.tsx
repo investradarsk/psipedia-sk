@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLegalSettings, legalReadiness } from "@/lib/legal-settings";
+import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ export default async function LegalInformationPage() {
   const settings = await getLegalSettings();
   const readiness = legalReadiness(settings);
   const publicName = settings.businessName || settings.legalName;
+  const publicEmail = settings.email || EDITORIAL_EMAIL_ADDRESS;
+  const correctionEmail = settings.correctionEmail || EDITORIAL_EMAIL_ADDRESS;
   const mediaStatus = settings.mediaStatus === "registered"
     ? `zapísaný${settings.mediaRegistryNumber ? `, evidenčné číslo ${settings.mediaRegistryNumber}` : ""}`
     : settings.mediaStatus === "submitted" ? "žiadosť o zápis bola podaná" : "zápis ešte nie je potvrdený";
@@ -39,13 +42,13 @@ export default async function LegalInformationPage() {
         {settings.dic && <div><dt>DIČ</dt><dd>{settings.dic}</dd></div>}
         {settings.vatId && <div><dt>IČ DPH</dt><dd>{settings.vatId}</dd></div>}
         {(settings.registryName || settings.registryNumber) && <div><dt>Register a číslo zápisu</dt><dd>{[settings.registryName, settings.registryNumber].filter(Boolean).join(", ")}</dd></div>}
-        <div><dt>E-mail</dt><dd>{settings.email ? <a href={`mailto:${settings.email}`}>{settings.email}</a> : valueOrPending("")}</dd></div>
+        <div><dt>E-mail</dt><dd><a href={`mailto:${publicEmail}`}>{publicEmail}</a></dd></div>
         <div><dt>Telefón</dt><dd>{settings.phone ? <a href={`tel:${settings.phone.replace(/\s/g, "")}`}>{settings.phone}</a> : valueOrPending("")}</dd></div>
       </dl>
 
       <h2>Spravodajský portál</h2>
       <p>Psipedia.sk pripravuje články a novinky zo sveta psov. Stav evidencie spravodajského webového portálu: <strong>{mediaStatus}</strong>.</p>
-      {settings.correctionEmail ? <p>Žiadosti o uverejnenie opravy posielaj na samostatnú adresu <a href={`mailto:${settings.correctionEmail}`}>{settings.correctionEmail}</a>. Podrobný postup je na stránke <Link href="/opravy-a-podnety">Opravy a podnety</Link>.</p> : <p>Samostatný e-mail na zákonné žiadosti o opravu ešte čaká na aktiváciu. Bežnú vecnú chybu možno zatiaľ oznámiť cez stránku <Link href="/opravy-a-podnety">Opravy a podnety</Link>.</p>}
+      <p>Žiadosti o uverejnenie opravy posielaj na adresu <a href={`mailto:${correctionEmail}`}>{correctionEmail}</a>. Podrobný postup je na stránke <Link href="/opravy-a-podnety">Opravy a podnety</Link>.</p>
 
       <h2>Dohľad</h2>
       <ul>

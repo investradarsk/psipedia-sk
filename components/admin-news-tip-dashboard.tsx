@@ -88,7 +88,7 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
         {visible.length ? (
           <div className="admin-tip-list">
             {visible.map((tip) => (
-              <article className={`admin-tip-card is-${tip.status}`} key={tip.id}>
+              <article id={`tip-${tip.id}`} className={`admin-tip-card is-${tip.status}`} key={tip.id}>
                 <header>
                   <span className="admin-tip-icon" aria-hidden="true">{newsTipTopicIcon(tip.topic)}</span>
                   <div><div><span className={`admin-tip-status is-${tip.status}`}>{statusLabels[tip.status]}</span><span>{formatDate(tip.createdAt)}</span></div><small>{newsTipTopicLabel(tip.topic)}</small><h2>{tip.title}</h2></div>

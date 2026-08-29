@@ -1,4 +1,5 @@
 import { createDirectoryInquiry, DirectoryRateLimitError, type DirectoryInquiryInput } from "@/lib/directory-store";
+import { notifyDirectoryInquiry } from "@/lib/editorial-email";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,8 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json() as PublicInquiryPayload;
     if (payload.company?.trim()) return Response.json({ success: true }, { status: 201 });
-    await createDirectoryInquiry(payload);
+    const saved = await createDirectoryInquiry(payload);
+    await notifyDirectoryInquiry(saved);
     return Response.json({ success: true }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Dopyt sa nepodarilo odoslať.";

@@ -23,7 +23,7 @@ export function AdminArticleFeedbackDashboard({ feedback }: { feedback: ArticleF
         {feedback.length ? (
           <div className="admin-feedback-list">
             {feedback.map((item) => (
-              <article className={item.helpful ? "is-helpful" : "is-not-helpful"} key={item.id}>
+              <article id={`hodnotenie-${item.id}`} className={item.helpful ? "is-helpful" : "is-not-helpful"} key={item.id}>
                 <header><span>{item.helpful ? "👍 Áno" : "👎 Nie"}</span><time dateTime={item.createdAt}>{formatDate(item.createdAt)}</time></header>
                 <h2>{item.articleTitle}</h2>
                 {item.missingText ? <blockquote>{item.missingText}</blockquote> : !item.helpful ? <p className="admin-feedback-empty-note">Bez doplňujúcej odpovede.</p> : null}

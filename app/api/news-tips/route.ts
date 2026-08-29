@@ -1,4 +1,5 @@
 import { createNewsTip, NewsTipRateLimitError, type NewsTipInput } from "@/lib/news-tip-store";
+import { notifyNewsTip } from "@/lib/editorial-email";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,8 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json() as PublicNewsTipInput;
     if (payload.company?.trim()) return Response.json({ success: true }, { status: 201 });
-    await createNewsTip(payload);
+    const saved = await createNewsTip(payload);
+    await notifyNewsTip(saved);
     return Response.json({ success: true }, { status: 201 });
   } catch (error) {
     const status = error instanceof NewsTipRateLimitError ? 429 : 400;

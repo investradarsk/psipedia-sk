@@ -13,6 +13,12 @@
   "images": {
     "binding": "IMAGES"
   },
+  "send_email": [
+    {
+      "name": "EDITORIAL_EMAIL",
+      "destination_address": "psipedia.sk@gmail.com"
+    }
+  ],
   "vars": {
     "AUTH_MODE": "cloudflare-access",
     "ACCESS_TEAM_DOMAIN": "https://autumn-sea-d25d.cloudflareaccess.com",

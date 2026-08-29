@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLegalSettings } from "@/lib/legal-settings";
+import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export const metadata: Metadata = buildPageMetadata({
 export default async function PrivacyPage() {
   const settings = await getLegalSettings();
   const controllerName = settings.businessName || settings.legalName;
-  const privacyEmail = settings.privacyEmail || settings.email;
+  const privacyEmail = settings.privacyEmail || settings.email || EDITORIAL_EMAIL_ADDRESS;
 
   return (
     <main id="obsah" className="prose-page legal-page">
@@ -24,7 +25,7 @@ export default async function PrivacyPage() {
 
       <h2>Prevádzkovateľ osobných údajov</h2>
       <p>Prevádzkovateľom je <strong>{controllerName}</strong>{settings.address ? `, ${settings.address}` : ". Adresa prevádzkovateľa čaká na doplnenie v právnych údajoch"}.</p>
-      {privacyEmail ? <p>Kontakt pre otázky a uplatnenie práv: <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.</p> : <div className="legal-status-note"><strong>Kontakt čaká na aktiváciu</strong><p>E-mail pre žiadosti týkajúce sa osobných údajov ešte musí prevádzkovateľ doplniť v <Link href="/pravne-informacie">právnych informáciách</Link>.</p></div>}
+      <p>Kontakt pre otázky a uplatnenie práv: <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.</p>
 
       <h2>Aké údaje a prečo spracúvame</h2>
       <div className="privacy-purpose-list">

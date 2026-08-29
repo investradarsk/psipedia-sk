@@ -1,4 +1,5 @@
 import { createArticleFeedback, type ArticleFeedbackInput } from "@/lib/article-feedback-store";
+import { notifyNegativeArticleFeedback } from "@/lib/editorial-email";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,8 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json() as PublicArticleFeedbackInput;
     if (payload.website?.trim()) return Response.json({ success: true }, { status: 201 });
-    await createArticleFeedback(payload);
+    const saved = await createArticleFeedback(payload);
+    await notifyNegativeArticleFeedback(saved);
     return Response.json({ success: true }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Hodnotenie sa nepodarilo odoslať." }, { status: 400 });

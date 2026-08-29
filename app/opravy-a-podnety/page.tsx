@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLegalSettings } from "@/lib/legal-settings";
+import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default async function CorrectionsPage() {
   const settings = await getLegalSettings();
+  const correctionEmail = settings.correctionEmail || EDITORIAL_EMAIL_ADDRESS;
   return (
     <main id="obsah" className="prose-page legal-page">
       <span className="eyebrow">Zodpovedná redakcia</span>
@@ -31,7 +33,7 @@ export default async function CorrectionsPage() {
         <li>vysvetlenie, v čom je tvrdenie nepravdivé alebo neúplné a ako zasahuje do práv žiadateľa,</li>
         <li>pravdivé alebo úplné skutkové tvrdenie a návrh znenia opravy.</li>
       </ul>
-      {settings.correctionEmail ? <div className="legal-contact-box"><strong>Samostatná adresa na opravy</strong><a href={`mailto:${settings.correctionEmail}`}>{settings.correctionEmail}</a></div> : <div className="legal-status-note"><strong>Kontakt čaká na aktiváciu</strong><p>Samostatná e-mailová adresa na opravy ešte nebola prevádzkovateľom potvrdená. Po aktivácii bude uvedená na tomto mieste aj v <Link href="/pravne-informacie">právnych informáciách</Link>.</p></div>}
+      <div className="legal-contact-box"><strong>Kontakt na opravy</strong><a href={`mailto:${correctionEmail}`}>{correctionEmail}</a></div>
 
       <h2>Dodatočné oznámenie</h2>
       <p>Osoba, o ktorej portál informoval v súvislosti s konaním pred orgánom verejnej moci, môže po jeho právoplatnom skončení požiadať o uverejnenie konečného výsledku. Žiadosť sa doručuje do 30 dní od právoplatnosti rozhodnutia a musí identifikovať článok, konanie a jeho konečný výsledok.</p>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PawMark } from "./icons";
 import { CookieSettingsButton } from "./cookie-consent";
+import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 
 export function SiteFooter() {
   return (
@@ -44,6 +45,7 @@ export function SiteFooter() {
             <CookieSettingsButton />
             <Link href="/podmienky-pouzivania">Podmienky používania</Link>
             <Link href="/opravy-a-podnety">Opravy a podnety</Link>
+            <a href={`mailto:${EDITORIAL_EMAIL_ADDRESS}`}>Kontakt: {EDITORIAL_EMAIL_ADDRESS}</a>
           </div>
         </div>
       </div>
