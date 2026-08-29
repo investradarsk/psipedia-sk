@@ -239,6 +239,10 @@ function safeList(value: string) {
   }
 }
 
+function safePublicList(value: string) {
+  return safeList(value).filter((item) => !/^(?:stav overenia|(?:čiastočne\s+)?overené(?:\s+psipediou)?|neoverené|overenie údajov|zdroj(?: overenia)?|dátum (?:kontroly|overenia)|import[_ ]?key|source_data_json)\s*:?/i.test(item));
+}
+
 function safeImportData(value: string) {
   try {
     const parsed = JSON.parse(value) as unknown;
@@ -338,8 +342,8 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
     excerpt: row.excerpt,
     description: row.description,
-    services: safeList(row.services_json),
-    qualifications: safeList(row.qualifications_json),
+    services: safePublicList(row.services_json),
+    qualifications: safePublicList(row.qualifications_json),
     city: row.city,
     district: row.district || String(safeImportData(row.source_data_json)?.["Okres"] ?? ""),
     region: normalizeDirectoryRegion(row.region) ?? "Online",
@@ -361,6 +365,8 @@ function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JS
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
   return {
     ...rowToPublicProfile(row),
+    services: safeList(row.services_json),
+    qualifications: safeList(row.qualifications_json),
     status: row.status === "published" ? "published" : "draft",
     internalEmail: row.internal_email,
     imageKey: row.image_key,

@@ -88,7 +88,7 @@ function createAdminMockDatabase() {
     excerpt: "Dostatočne dlhý krátky popis testovacieho kynologického klubu.",
     description: "Dostatočne dlhý podrobný popis testovacieho kynologického klubu pre overenie detailu.",
     services_json: JSON.stringify(["Výcvik", "Socializácia"]),
-    qualifications_json: JSON.stringify(["Skúsený tím"]),
+    qualifications_json: JSON.stringify(["Stav overenia: Čiastočne overené", "Skúsený tím"]),
     city: "Bratislava",
     district: "Bratislava I",
     region: "Bratislavský kraj",
@@ -648,7 +648,7 @@ test("filters a directory category on the server and keeps verification data pri
     const detail = await worker.fetch(new Request("http://localhost/adresar/kynologicke-kluby/testovaci-klub", { headers: { accept: "text/html" } }), bindings, context);
     assert.equal(detail.status, 200);
     const detailHtml = await detail.text();
-    assert.doesNotMatch(detailHtml, /Overenie údajov|Dátum overenia|Zobraziť zdroj|Overený profil|interný test|source_data_json|import_key/);
+    assert.doesNotMatch(detailHtml, /Overenie údajov|Dátum overenia|Zobraziť zdroj|Overený profil|Stav overenia|Čiastočne overené|interný test|source_data_json|import_key/);
     assert.match(detailHtml, /Bratislava I/);
     assert.match(detailHtml, /tel:\+421900111222/);
     assert.match(detailHtml, /mailto:klub@example.com/);
