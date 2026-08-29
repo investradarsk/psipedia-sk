@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string; slug: string }> };
 
 const LEGACY_DIRECTORY_SLUGS: Record<string, string> = {
-  "veterinari/veterinarna-poliklinika-althea": "veterinarna-poliklinka-althea",
+  "veterinari/veterinarna-poliklinka-althea": "veterinarna-poliklinika-althea",
 };
 
 function resolveDirectorySlug(category: string, slug: string) {
