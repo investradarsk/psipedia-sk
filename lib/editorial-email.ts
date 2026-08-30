@@ -5,18 +5,11 @@ import type { ArticleFeedback } from "@/lib/article-feedback-store";
 import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 
 const ADMIN_ORIGIN = "https://psipedia.sk";
-
-type EmailSendBinding = {
-  send(message: {
-    from: string;
-    to: string;
-    subject: string;
-    text: string;
-  }): Promise<unknown>;
-};
+const RESEND_EMAIL_ENDPOINT = "https://api.resend.com/emails";
+const RESEND_TIMEOUT_MS = 8_000;
 
 type RuntimeBindings = {
-  EDITORIAL_EMAIL?: EmailSendBinding;
+  RESEND_API_KEY?: string;
   EDITORIAL_FROM_EMAIL?: string;
 };
 
@@ -44,9 +37,10 @@ function line(label: string, value: string | null | undefined) {
  */
 export async function sendEditorialEmail(message: EditorialMessage) {
   const bindings = env as unknown as RuntimeBindings;
+  const apiKey = bindings.RESEND_API_KEY?.trim();
   const sender = bindings.EDITORIAL_FROM_EMAIL?.trim();
-  if (!bindings.EDITORIAL_EMAIL || typeof bindings.EDITORIAL_EMAIL.send !== "function") {
-    console.warn("Editorial email skipped: EDITORIAL_EMAIL binding is unavailable.");
+  if (!apiKey) {
+    console.warn("Editorial email skipped: RESEND_API_KEY is not configured.");
     return false;
   }
   if (!sender) {
@@ -55,15 +49,27 @@ export async function sendEditorialEmail(message: EditorialMessage) {
   }
 
   try {
-    await bindings.EDITORIAL_EMAIL.send({
-      from: sender,
-      to: EDITORIAL_EMAIL_ADDRESS,
-      subject: message.subject.replace(/[\r\n]+/g, " ").slice(0, 240),
-      text: message.lines.filter((item): item is string => typeof item === "string" && item.length > 0).join("\n"),
+    const response = await fetch(RESEND_EMAIL_ENDPOINT, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        from: sender,
+        to: EDITORIAL_EMAIL_ADDRESS,
+        subject: message.subject.replace(/[\r\n]+/g, " ").slice(0, 240),
+        text: message.lines.filter((item): item is string => typeof item === "string" && item.length > 0).join("\n"),
+      }),
+      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
     });
+    if (!response.ok) {
+      console.error(`Editorial email notification failed: Resend returned ${response.status}.`);
+      return false;
+    }
     return true;
   } catch (error) {
-    console.error("Editorial email notification failed.", error);
+    console.error("Editorial email notification failed: Resend request error.", error);
     return false;
   }
 }
@@ -133,4 +139,3 @@ export function notifyNegativeArticleFeedback(feedback: ArticleFeedback) {
     ],
   });
 }
-

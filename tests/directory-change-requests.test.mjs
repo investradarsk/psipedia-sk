@@ -136,13 +136,19 @@ test("profile-specific forms are prefilled for representative directory categori
 test("server validation stores a separate request and never changes the profile", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
-  const emails = [];
+  const resendRequests = [];
   Object.assign(runtimeEnv, {
     DB: d1,
     ADMIN_EMAILS: "admin@psipedia.sk",
     EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
-    EDITORIAL_EMAIL: { async send(message) { emails.push(message); } },
+    RESEND_API_KEY: "re_test_key",
   });
+  delete runtimeEnv.EDITORIAL_EMAIL;
+  globalThis.fetch = async (url, init) => {
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 1, "Resend is called only after INSERT");
+    resendRequests.push({ url: String(url), init, body: JSON.parse(String(init.body)) });
+    return Response.json({ id: "email-test-1" }, { status: 200 });
+  };
   const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("change-submit", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
   const before = sqlite.prepare("SELECT * FROM directory_profiles WHERE id = 1").get();
@@ -156,7 +162,7 @@ test("server validation stores a separate request and never changes the profile"
     const response = await request(worker, d1, "/api/directory/profile-change-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     assert.equal(response.status, 400, label);
   }
-  assert.equal(emails.length, 0, "validation errors must not send email");
+  assert.equal(resendRequests.length, 0, "validation errors must not send email");
 
   const success = await request(worker, d1, "/api/directory/profile-change-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal()) });
   assert.equal(success.status, 201);
@@ -170,12 +176,16 @@ test("server validation stores a separate request and never changes the profile"
   assert.equal(stored.status, "new");
   assert.equal(JSON.parse(stored.proposed_data_json).phone, "+421911222333");
   assert.deepEqual(sqlite.prepare("SELECT * FROM directory_profiles WHERE id = 1").get(), before);
-  assert.equal(emails.length, 1);
-  assert.equal(emails[0].to, "psipedia.sk@gmail.com");
-  assert.match(emails[0].subject, /^\[Návrh profilu\] Veterina Test$/);
-  assert.match(emails[0].text, /Veterina Test/);
-  assert.match(emails[0].text, /https:\/\/psipedia\.sk\/admin\/adresar\/navrhy#navrh-1/);
-  assert.doesNotMatch(emails[0].text, /proposed_data_json|Navrhované údaje/i);
+  assert.equal(resendRequests.length, 1);
+  assert.equal(resendRequests[0].url, "https://api.resend.com/emails");
+  assert.equal(resendRequests[0].init.method, "POST");
+  assert.equal(resendRequests[0].init.headers.authorization, "Bearer re_test_key");
+  assert.equal(resendRequests[0].body.from, "redakcia@psipedia.sk");
+  assert.equal(resendRequests[0].body.to, "psipedia.sk@gmail.com");
+  assert.match(resendRequests[0].body.subject, /^\[Návrh profilu\] Veterina Test$/);
+  assert.match(resendRequests[0].body.text, /Veterina Test/);
+  assert.match(resendRequests[0].body.text, /https:\/\/psipedia\.sk\/admin\/adresar\/navrhy#navrh-1/);
+  assert.doesNotMatch(resendRequests[0].body.text, /proposed_data_json|Navrhované údaje/i);
 
   const bot = await request(worker, d1, "/api/directory/profile-change-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...proposal(), company: "spam" }) });
   assert.equal(bot.status, 201);
@@ -185,13 +195,18 @@ test("server validation stores a separate request and never changes the profile"
 test("editorial notifications follow successful inserts and email failures never undo stored data", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
-  const emails = [];
+  const resendRequests = [];
   Object.assign(runtimeEnv, {
     DB: d1,
     ADMIN_EMAILS: "admin@psipedia.sk",
     EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
-    EDITORIAL_EMAIL: { async send(message) { emails.push(message); } },
+    RESEND_API_KEY: "re_test_key",
   });
+  delete runtimeEnv.EDITORIAL_EMAIL;
+  globalThis.fetch = async (url, init) => {
+    resendRequests.push({ url: String(url), body: JSON.parse(String(init.body)) });
+    return Response.json({ id: `email-test-${resendRequests.length}` }, { status: 200 });
+  };
   const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("editorial-email", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
 
@@ -200,7 +215,7 @@ test("editorial notifications follow successful inserts and email failures never
     body: JSON.stringify({ profileId: 1, senderName: "Ján", senderEmail: "zly-email", message: "Dostatočne dlhá testovacia správa.", consent: true }),
   });
   assert.equal(invalidInquiry.status, 400);
-  assert.equal(emails.length, 0);
+  assert.equal(resendRequests.length, 0);
 
   const inquiry = await request(worker, d1, "/api/directory/inquiries", {
     method: "POST", headers: { "content-type": "application/json" },
@@ -208,9 +223,9 @@ test("editorial notifications follow successful inserts and email failures never
   });
   assert.equal(inquiry.status, 201);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, 1);
-  assert.match(emails.at(-1).subject, /^\[Dopyt\] Veterina Test$/);
-  assert.match(emails.at(-1).text, /preventívnej prehliadky/);
-  assert.match(emails.at(-1).text, /admin\/dopyty#dopyt-1/);
+  assert.match(resendRequests.at(-1).body.subject, /^\[Dopyt\] Veterina Test$/);
+  assert.match(resendRequests.at(-1).body.text, /preventívnej prehliadky/);
+  assert.match(resendRequests.at(-1).body.text, /admin\/dopyty#dopyt-1/);
 
   const tip = await request(worker, d1, "/api/news-tips", {
     method: "POST", headers: { "content-type": "application/json" },
@@ -218,39 +233,50 @@ test("editorial notifications follow successful inserts and email failures never
   });
   assert.equal(tip.status, 201);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
-  assert.match(emails.at(-1).subject, /^\[Tip pre redakciu\]/);
-  assert.match(emails.at(-1).text, /admin\/tipy#tip-1/);
+  assert.match(resendRequests.at(-1).body.subject, /^\[Tip pre redakciu\]/);
+  assert.match(resendRequests.at(-1).body.text, /admin\/tipy#tip-1/);
 
   const positive = await request(worker, d1, "/api/article-feedback", {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ articlePath: "/clanky/test", articleTitle: "Testovací článok", helpful: true, missingText: "" }),
   });
   assert.equal(positive.status, 201);
-  assert.equal(emails.length, 2, "positive usefulness votes do not require editorial action");
+  assert.equal(resendRequests.length, 2, "positive usefulness votes do not require editorial action");
 
   const negative = await request(worker, d1, "/api/article-feedback", {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ articlePath: "/clanky/test", articleTitle: "Testovací článok", helpful: false, missingText: "V článku chýba dôležitý zdroj." }),
   });
   assert.equal(negative.status, 201);
-  assert.equal(emails.length, 3);
-  assert.match(emails.at(-1).subject, /^\[Podnet k článku\]/);
-  assert.match(emails.at(-1).text, /V článku chýba dôležitý zdroj/);
+  assert.equal(resendRequests.length, 3);
+  assert.match(resendRequests.at(-1).body.subject, /^\[Podnet k článku\]/);
+  assert.match(resendRequests.at(-1).body.text, /V článku chýba dôležitý zdroj/);
 
-  runtimeEnv.EDITORIAL_EMAIL = { async send() { throw new Error("simulated delivery failure"); } };
-  const failedEmailInquiry = await request(worker, d1, "/api/directory/inquiries", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ profileId: 1, senderName: "Eva Klientka", senderEmail: "eva@example.sk", message: "Prosím o ďalší dostupný termín pre môjho psa.", consent: true }),
-  });
-  assert.equal(failedEmailInquiry.status, 201);
-  assert.deepEqual(await failedEmailInquiry.json(), { success: true });
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, 2, "stored inquiry survives email failure");
+  const failureCases = [
+    { label: "missing API key", email: "missing-key@example.sk", prepare() { delete runtimeEnv.RESEND_API_KEY; globalThis.fetch = async () => { throw new Error("fetch must not run without key"); }; } },
+    { label: "Resend 400", email: "resend-400@example.sk", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => new Response("bad request", { status: 400 }); } },
+    { label: "Resend 500", email: "resend-500@example.sk", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => new Response("server error", { status: 500 }); } },
+    { label: "network exception", email: "network-error@example.sk", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => { throw new Error("simulated network failure"); }; } },
+  ];
+  for (const [index, failure] of failureCases.entries()) {
+    failure.prepare();
+    const beforeCount = sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count;
+    const response = await request(worker, d1, "/api/directory/inquiries", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ profileId: 1, senderName: `Klient ${index + 1}`, senderEmail: failure.email, message: "Prosím o ďalší dostupný termín pre môjho psa.", consent: true }),
+    });
+    assert.equal(response.status, 201, failure.label);
+    assert.deepEqual(await response.json(), { success: true }, failure.label);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, beforeCount + 1, `${failure.label}: stored inquiry survives email failure`);
+  }
 });
 
 test("admin endpoints are protected and review uses the safe manual workflow", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
-  Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk", EDITORIAL_EMAIL: { async send() {} } });
+  Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk", EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk", RESEND_API_KEY: "re_test_key" });
+  delete runtimeEnv.EDITORIAL_EMAIL;
+  globalThis.fetch = async () => Response.json({ id: "email-admin-test" }, { status: 200 });
   const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("change-admin", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
   for (const [email, profileId] of [["approve@example.sk", 1], ["reject@example.sk", 2]]) {
@@ -287,14 +313,18 @@ test("change request layout stacks safely on mobile", () => {
   assert.match(css, /\.directory-change-submit button \{ width: 100%;/);
 });
 
-test("public contact and email binding stay restricted to the editorial inbox", () => {
+test("public contact and Resend transport stay restricted to the editorial inbox", () => {
   const contact = readFileSync(new URL("../lib/public-contact.ts", import.meta.url), "utf8");
   const privacy = readFileSync(new URL("../app/sukromie/page.tsx", import.meta.url), "utf8");
   const corrections = readFileSync(new URL("../app/opravy-a-podnety/page.tsx", import.meta.url), "utf8");
   const legal = readFileSync(new URL("../app/pravne-informacie/page.tsx", import.meta.url), "utf8");
   const footer = readFileSync(new URL("../components/site-footer.tsx", import.meta.url), "utf8");
+  const editorialEmail = readFileSync(new URL("../lib/editorial-email.ts", import.meta.url), "utf8");
   const wrangler = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
   assert.match(contact, /psipedia\.sk@gmail\.com/);
   for (const source of [privacy, corrections, legal, footer]) assert.match(source, /EDITORIAL_EMAIL_ADDRESS/);
-  assert.deepEqual(wrangler.send_email, [{ name: "EDITORIAL_EMAIL", destination_address: "psipedia.sk@gmail.com" }]);
+  assert.equal(wrangler.send_email, undefined);
+  assert.match(editorialEmail, /RESEND_API_KEY/);
+  assert.match(editorialEmail, /https:\/\/api\.resend\.com\/emails/);
+  assert.doesNotMatch(editorialEmail, /EDITORIAL_EMAIL\??:|bindings\.EDITORIAL_EMAIL|send_email/);
 });
