@@ -162,6 +162,13 @@
       "when": 1788082440219,
       "tag": "0022_fresh_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1788132030405,
+      "tag": "0023_big_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

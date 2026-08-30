@@ -29,6 +29,7 @@ export type ManagedArticle = Article & {
   showUpdated: boolean;
   createdBy: string;
   updatedBy: string;
+  relatedBreedIds: number[];
 };
 
 export type ManagedArticleSummary = Pick<
@@ -93,6 +94,7 @@ export type ManagedArticleInput = {
   ogDescription?: string;
   ogImageUrl?: string | null;
   ogImageKey?: string | null;
+  relatedBreedIds?: number[];
 };
 
 type ArticleRow = {
@@ -228,7 +230,7 @@ function formatSlovakDate(value: string) {
   return `${date.getUTCDate()}. ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
-function rowToManagedArticle(row: ArticleRow): ManagedArticle {
+function rowToManagedArticle(row: ArticleRow,relatedBreedIds:number[]=[]): ManagedArticle {
   const createdAt = typeof row.created_at === "string" && row.created_at
     ? row.created_at
     : new Date(0).toISOString();
@@ -275,6 +277,7 @@ function rowToManagedArticle(row: ArticleRow): ManagedArticle {
     showUpdated: Boolean(row.show_updated_label),
     createdBy: row.created_by,
     updatedBy: row.updated_by,
+    relatedBreedIds,
     seo: {
       title: row.seo_title || undefined,
       description: row.meta_description || undefined,
@@ -373,6 +376,7 @@ function normalizeInput(payload: ManagedArticleInput) {
     }))
     .filter((section) => section.heading || section.paragraphs.length || section.bullets?.length || section.tip);
   const blocks = normalizeArticleBlocks(payload.blocks ?? []);
+  const relatedBreedIds=[...new Set((payload.relatedBreedIds??[]).map(Number).filter((id)=>Number.isSafeInteger(id)&&id>0))].slice(0,50);
   const blockSources = articleBlockSources(blocks);
   const sources = (blockSources.length ? blockSources : payload.sources ?? [])
     .map((source) => ({ label: source.label?.trim() ?? "", url: source.url?.trim() ?? "", ...(source.accessedAt ? { accessedAt: source.accessedAt } : {}) }))
@@ -472,6 +476,7 @@ function normalizeInput(payload: ManagedArticleInput) {
     ogDescription: payload.ogDescription?.trim().slice(0, 320) ?? "",
     ogImageUrl,
     ogImageKey: payload.ogImageKey?.trim() || null,
+    relatedBreedIds,
   };
 }
 
@@ -578,12 +583,16 @@ export async function listManagedArticleSummaries(options: {
 export async function getManagedArticleById(id: number) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
-  const row = await database
-    .prepare("SELECT * FROM managed_articles WHERE id = ? LIMIT 1")
-    .bind(id)
-    .first<ArticleRow>();
-  return row ? rowToManagedArticle(row) : null;
+  const [articleResult,relationsResult] = await database.batch([
+    database.prepare("SELECT * FROM managed_articles WHERE id = ? LIMIT 1").bind(id),
+    database.prepare("SELECT breed_id AS id FROM breed_article_relations WHERE article_id=? ORDER BY breed_id").bind(id),
+  ]);
+  const row=(articleResult.results?.[0]??null) as unknown as ArticleRow|null;
+  const relatedBreedIds=(relationsResult.results as Array<{id:number}>).map((item)=>item.id);
+  return row ? rowToManagedArticle(row,relatedBreedIds) : null;
 }
+
+async function syncArticleBreeds(database:D1Database,articleId:number,breedIds:number[],editorEmail:string){const now=new Date().toISOString();const statements=[database.prepare("DELETE FROM breed_article_relations WHERE article_id=?").bind(articleId)];for(const breedId of breedIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_article_relations (breed_id,article_id,created_at,created_by) SELECT id,?,?,? FROM managed_breeds WHERE id=?").bind(articleId,now,editorEmail,breedId));await database.batch(statements);}
 
 export async function createManagedArticle(payload: ManagedArticleInput, editorEmail: string) {
   const database = requireD1Binding();
@@ -642,7 +651,8 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
     .first<ArticleRow>();
 
   if (!result) throw new Error("Článok sa nepodarilo vytvoriť.");
-  return rowToManagedArticle(result);
+  await syncArticleBreeds(database,result.id,input.relatedBreedIds,editorEmail);
+  return rowToManagedArticle(result,input.relatedBreedIds);
 }
 
 export async function updateManagedArticle(
@@ -712,12 +722,15 @@ export async function updateManagedArticle(
     )
     .first<ArticleRow>();
 
-  return result ? rowToManagedArticle(result) : null;
+  if(!result)return null;
+  await syncArticleBreeds(database,id,input.relatedBreedIds,editorEmail);
+  return rowToManagedArticle(result,input.relatedBreedIds);
 }
 
 export async function deleteManagedArticle(id: number) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
+  await database.prepare("DELETE FROM breed_article_relations WHERE article_id=?").bind(id).run();
   const row = await database
     .prepare("DELETE FROM managed_articles WHERE id = ? RETURNING *")
     .bind(id)

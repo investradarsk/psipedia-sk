@@ -5,6 +5,7 @@ import { ChangeEvent, useState } from "react";
 import { AdminArticleBlockEditor } from "@/components/admin-article-block-editor";
 import { ArticleBlocks } from "@/components/article-blocks";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
+import type { ManagedBreedSummary } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
   articlePortalSectionOptions,
@@ -35,10 +36,12 @@ export function AdminArticleEditor({
   article,
   defaultPortalSection = "steniatka",
   defaultPortalSubpage,
+  breedOptions = [],
 }: {
   article?: ManagedArticle;
   defaultPortalSection?: ArticlePortalSection;
   defaultPortalSubpage?: string;
+  breedOptions?: ManagedBreedSummary[];
 }) {
   const [title, setTitle] = useState(article?.title ?? "");
   const [slug, setSlug] = useState(article?.slug ?? "");
@@ -84,6 +87,7 @@ export function AdminArticleEditor({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [relatedBreedIds,setRelatedBreedIds]=useState(article?.relatedBreedIds??[]);
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -172,6 +176,7 @@ export function AdminArticleEditor({
       ogDescription,
       ogImageUrl: ogImageUrl || null,
       ogImageKey: ogImageKey || null,
+      relatedBreedIds,
     };
 
     try {
@@ -216,6 +221,11 @@ export function AdminArticleEditor({
             <textarea id="article-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Jednou až dvomi vetami vysvetli, čo čitateľ v článku nájde." required />
             <small>{excerpt.length} znakov · odporúčame 90–180</small>
           </div>
+        </section>
+
+        <section className="admin-form-card">
+          <div className="admin-card-heading"><div><span>03B</span><div><h2>Prepojenie na plemená</h2><p>Článok sa zobrazí v časti „Prehĺbte si vedomosti“ iba pri vybraných plemenách.</p></div></div></div>
+          <div className="admin-breed-article-links">{breedOptions.map((item)=><label className="admin-check" key={item.id}><input type="checkbox" checked={relatedBreedIds.includes(item.id)} onChange={()=>setRelatedBreedIds((current)=>current.includes(item.id)?current.filter((id)=>id!==item.id):[...current,item.id])}/><span>{item.name}{item.fciNumber?` · FCI ${item.fciNumber}`:""}</span></label>)}</div>
         </section>
 
         <section className="admin-form-card">

@@ -298,6 +298,9 @@ export const managedBreeds = sqliteTable(
     workingTrial: text("working_trial").notNull().default(""),
     importKey: text("import_key"),
     fciStandardJson: text("fci_standard_json").notNull().default("{}"),
+    editorialJson: text("editorial_json").notNull().default("{}"),
+    sportsJson: text("sports_json").notNull().default("[]"),
+    relatedBreedsJson: text("related_breeds_json").notNull().default("[]"),
     searchText: text("search_text").notNull().default(""),
     editorialComplete: integer("editorial_complete").notNull().default(1),
     origin: text("origin").notNull(),
@@ -341,6 +344,37 @@ export const managedBreeds = sqliteTable(
     uniqueIndex("managed_breeds_import_key_unique").on(table.importKey),
     index("managed_breeds_public_idx").on(table.status, table.fciGroup, table.name),
     index("managed_breeds_origin_idx").on(table.status, table.origin, table.name),
+  ],
+);
+
+export const breedArticleRelations = sqliteTable(
+  "breed_article_relations",
+  {
+    breedId: integer("breed_id").notNull(),
+    articleId: integer("article_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    uniqueIndex("breed_article_relations_unique").on(table.breedId, table.articleId),
+    index("breed_article_relations_article_idx").on(table.articleId, table.breedId),
+  ],
+);
+
+export const breedDirectoryRelations = sqliteTable(
+  "breed_directory_relations",
+  {
+    breedId: integer("breed_id").notNull(),
+    profileId: integer("profile_id").notNull(),
+    relationType: text("relation_type").notNull(),
+    source: text("source").notNull().default("manual"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    uniqueIndex("breed_directory_relations_unique").on(table.breedId, table.profileId),
+    index("breed_directory_relations_profile_idx").on(table.profileId, table.breedId),
+    index("breed_directory_relations_public_idx").on(table.breedId, table.relationType, table.profileId),
   ],
 );
 

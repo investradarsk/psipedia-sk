@@ -20,6 +20,253 @@
   --shadow-lg: 0 24px 70px rgba(23, 53, 43, 0.16);
 }
 
+/* Breed encyclopedia architecture */
+.breed-at-a-glance,
+.breed-fit-guide,
+.breed-sports,
+.breed-related-section,
+.breed-useful-links {
+  margin-block: clamp(42px, 6vw, 76px);
+}
+
+.breed-at-a-glance > header,
+.breed-sports > header,
+.breed-related-section > header {
+  max-width: 720px;
+  margin-bottom: 24px;
+}
+
+.breed-at-a-glance h2,
+.breed-fit-guide h2,
+.breed-sports h2,
+.breed-related-section h2,
+.breed-useful-links h2 {
+  margin: 6px 0 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.breed-at-a-glance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, .95fr);
+  gap: 18px;
+  padding: clamp(20px, 3vw, 34px);
+  border: 1px solid rgba(23, 53, 43, .1);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .67);
+}
+
+.breed-at-a-glance-grid dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 22px;
+  margin: 0;
+}
+
+.breed-at-a-glance-grid dt {
+  color: var(--muted);
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.breed-at-a-glance-grid dd {
+  margin: 5px 0 0;
+  color: var(--forest);
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.breed-at-a-glance-ratings {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding-left: 22px;
+  border-left: 1px solid rgba(23, 53, 43, .1);
+}
+
+.breed-fit-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.breed-fit-guide > div {
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid rgba(23, 53, 43, .1);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(237, 243, 232, .8), rgba(255, 255, 255, .72));
+}
+
+.breed-fit-guide > div + div {
+  background: linear-gradient(145deg, rgba(246, 239, 219, .78), rgba(255, 255, 255, .72));
+}
+
+.breed-fit-guide ul {
+  display: grid;
+  gap: 9px;
+  margin: 20px 0 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.breed-sports {
+  padding: clamp(28px, 4vw, 48px);
+  border-radius: 26px;
+  background: #e8efe2;
+}
+
+.breed-sports > header p {
+  max-width: 62ch;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.breed-sports > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.breed-sports article {
+  padding: 18px;
+  border: 1px solid rgba(23, 53, 43, .09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .72);
+}
+
+.breed-sports article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.breed-sports h3 { margin: 0; font-size: 1rem; }
+.breed-sports article span { display: flex; flex-shrink: 0; gap: 4px; }
+.breed-sports article i { width: 9px; height: 9px; border: 1px solid var(--forest); border-radius: 50%; }
+.breed-sports article i.is-filled { background: var(--forest); }
+.breed-sports article p { margin: 10px 0 0; color: var(--muted); font-size: .88rem; line-height: 1.55; }
+
+.breed-related-grid,
+.breed-directory-grid,
+.breed-similar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.breed-related-grid article,
+.breed-directory-grid article,
+.breed-similar-grid > a {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(23, 53, 43, .1);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, .74);
+}
+
+.breed-related-grid article img,
+.breed-similar-grid img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.breed-related-grid article > div,
+.breed-directory-grid article,
+.breed-similar-grid > a {
+  padding: 18px;
+}
+
+.breed-related-grid h3,
+.breed-directory-grid h3 { margin: 5px 0 8px; font-size: 1.15rem; line-height: 1.25; }
+.breed-related-grid p,
+.breed-directory-grid p { margin: 0; color: var(--muted); line-height: 1.55; }
+.breed-directory-grid small { display: block; margin-top: 9px; line-height: 1.5; }
+.breed-related-section > .text-link { display: inline-flex; margin-top: 20px; }
+
+.breed-similar-grid > a {
+  display: grid;
+  gap: 7px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.breed-similar-grid > a > span { display: grid; min-height: 105px; place-items: center; color: rgba(23, 53, 43, .45); background: #edf3e8; }
+.breed-similar-grid strong { line-height: 1.3; }
+.breed-similar-grid small { color: var(--muted); }
+
+.breed-useful-links {
+  padding-block: 28px;
+  border-block: 1px solid rgba(23, 53, 43, .12);
+}
+
+.breed-useful-links > div { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+.breed-useful-links a { padding: 9px 13px; border: 1px solid rgba(23, 53, 43, .13); border-radius: 999px; color: var(--forest); background: rgba(255, 255, 255, .66); text-decoration: none; }
+
+.breed-fci-disclosure { margin-top: 24px; }
+.breed-fci-disclosure > button {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 13px;
+  color: var(--paper);
+  background: var(--forest);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.breed-fci-disclosure > button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.breed-fci-disclosure > button span:last-child { font-size: 1.45rem; line-height: 1; }
+
+.admin-breed-section-nav {
+  position: sticky;
+  z-index: 5;
+  top: 12px;
+  display: flex;
+  gap: 7px;
+  margin-bottom: 16px;
+  padding: 10px;
+  overflow-x: auto;
+  border: 1px solid rgba(23, 53, 43, .12);
+  border-radius: 14px;
+  background: rgba(248, 244, 235, .96);
+}
+.admin-breed-section-nav a { flex: 0 0 auto; padding: 8px 11px; border-radius: 9px; color: var(--forest); font-size: .78rem; font-weight: 750; text-decoration: none; }
+.admin-breed-section-nav a:hover { background: rgba(23, 53, 43, .08); }
+.admin-breed-sports-editor,
+.admin-relation-grid { display: grid; gap: 12px; }
+.admin-breed-sport-row { display: grid; grid-template-columns: minmax(180px, .7fr) 130px minmax(220px, 1fr); gap: 12px; align-items: end; padding: 12px; border: 1px solid rgba(23, 53, 43, .1); border-radius: 12px; }
+.admin-relation-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.admin-relation-grid fieldset { min-width: 0; max-height: 420px; padding: 16px; overflow-y: auto; border: 1px solid rgba(23, 53, 43, .12); border-radius: 12px; }
+.admin-relation-grid legend { padding-inline: 6px; font-weight: 800; }
+.admin-breed-article-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; max-height: 360px; overflow-y: auto; }
+
+@media (max-width: 760px) {
+  .breed-at-a-glance-grid,
+  .breed-fit-guide,
+  .breed-sports > div,
+  .admin-relation-grid { grid-template-columns: 1fr; }
+  .breed-at-a-glance-ratings { padding: 18px 0 0; border-top: 1px solid rgba(23, 53, 43, .1); border-left: 0; }
+  .admin-breed-sport-row { grid-template-columns: 1fr; }
+  .admin-breed-article-links { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .breed-at-a-glance-grid dl { grid-template-columns: 1fr; }
+  .breed-related-grid,
+  .breed-directory-grid,
+  .breed-similar-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Editable navigation and submenu */
 .nav-group { position: relative; display: flex; align-items: center; }
 .nav-group > a span { margin-left: .24rem; font-size: .75em; }

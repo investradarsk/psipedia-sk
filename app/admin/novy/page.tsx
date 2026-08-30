@@ -1,12 +1,14 @@
 import { AdminArticleEditor } from "@/components/admin-article-editor";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { listManagedBreedSummaries } from "@/lib/breed-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewArticlePage({ searchParams }: { searchParams: Promise<{ sekcia?: string; oblast?: string }> }) {
   const user = await requireAdminPageUser("/admin/novy");
   const { sekcia, oblast } = await searchParams;
+  const breedOptions = await listManagedBreedSummaries(500);
 
   return (
     <AdminShell
@@ -18,6 +20,7 @@ export default async function NewArticlePage({ searchParams }: { searchParams: P
       <AdminArticleEditor
         defaultPortalSection={sekcia === "steniatka" ? "steniatka" : sekcia === "novinky" ? "novinky" : "steniatka"}
         defaultPortalSubpage={oblast}
+        breedOptions={breedOptions}
       />
     </AdminShell>
   );
