@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { breedAtlasHref, listFciSectionOptions, validFciSectionForGroup } from "../lib/breed-atlas.ts";
+import { combinedFciMeasurement, fciMeasurement, publicFciDate, publicFciSectionName } from "../lib/breed-fci.ts";
+
+const LONG_FCI_TEXT=Array.from({length:45},(_,index)=>`Odborná veta ${index+1} opisuje stavbu tela plemena bez skrátenia.`).join(" ")+" Úplný koniec odborného textu.";
 
 function createD1Adapter(sqlite) {
   function statement(sql, bindings = []) {
@@ -75,6 +78,7 @@ function readyBreeds() {
     [122,"Labradorský retriever","LABRADOR RETRIEVER",8,"labradorsky-retriever","1","Retrievery"],
     [5,"Anglický kokeršpaniel","ENGLISH COCKER SPANIEL",8,"anglicky-kokerspaniel","2","Sliediče"],
     [37,"Portugalský vodný pes","PORTUGUESE WATER DOG",8,"portugalsky-vodny-pes","3","Vodné psy"],
+    [312,"Nova Scotia Duck Tolling Retriever","NOVA SCOTIA DUCK TOLLING RETRIEVER",8,"nova-scotia-duck-tolling-retriever","1","Retrievers"],
     [166,"Nemecký ovčiak","GERMAN SHEPHERD DOG",1,"nemecky-ovciak","1","Ovčiarske psy"],
     [297,"Border kólia","BORDER COLLIE",1,"border-kolia","1","Ovčiarske psy"],
     [147,"Rotvajler","ROTTWEILER",2,"rotvajler","2.1","Molosoidné plemená – mastifový typ"],
@@ -83,6 +87,7 @@ function readyBreeds() {
     [998,"Plemeno bez názvu sekcie","SECTION NAMELESS BREED",2,"plemeno-bez-nazvu-sekcie","2.1",""],
   ];
   const used=new Set(named.map((item)=>item[0]));const rows=named.map(([number,name,official,group,slug,sectionNumber,sectionName])=>fciRecord({number,name,official,group,slug,sectionNumber,sectionName}));
+  const toller=rows.find((breed)=>breed.fci_cislo===312);Object.assign(toller,{fci_skupina_nazov:"Retrievers, Flushing Dogs, Water Dogs",datum_platneho_standardu:"1987-06-24",vyuzitie:"Retriever na lákanie a prinášanie vodného vtáctva",vyska_pes_cm:"48–51",vyska_suka_cm:"45–48",hmotnost_pes_kg:"20–23",hmotnost_suka_kg:"17–20",telo:LONG_FCI_TEXT,poznamka_chov:"Psy musia mať dva zjavne normálne semenníky úplne zostúpené v miešku.",zdroj_poznamka:"Iba FCI nomenklatúra a oficiálny FCI štandard; interná poznámka."});
   let candidate=1000;
   while(rows.length<344){while(used.has(candidate))candidate+=1;const index=rows.length+1;const group=((index-1)%10)+1;const groupEightSection=group===8?String(((index-1)%3)+1):"1";const groupEightName=groupEightSection==="1"?"Retrievery":groupEightSection==="2"?"Sliediče":"Vodné psy";rows.push(fciRecord({number:candidate,name:`Testovacie plemeno ${index}`,official:`TEST BREED ${index}`,group,slug:`testovacie-plemeno-${index}`,sectionNumber:groupEightSection,sectionName:group===8?groupEightName:"Testovacia sekcia"}));used.add(candidate);candidate+=1;}
   const noSource=rows.find((breed)=>breed.fci_cislo===279);delete noSource.fci_nomenklatura_url;delete noSource.fci_standard_pdf;delete noSource.zdroj_poznamka;for(const key of ["hlava_lebecna_cast","hlava_tvarova_cast","oci","usi"])delete noSource[key];
@@ -128,6 +133,13 @@ test("FCI section helpers preserve exact subsection values and dependent state",
   assert.equal(breedAtlasHref({query:"labrador",fciGroup:"8",fciSection:"1",origin:"Veľká Británia",energy:"active"}),"/plemena?q=labrador&fciGroup=8&fciSection=1&origin=Ve%C4%BEk%C3%A1+Brit%C3%A1nia&energy=active");
   assert.equal(breedAtlasHref({query:"",fciGroup:"2",fciSection:"2.1",origin:"",energy:"all"}),"/plemena?fciGroup=2&fciSection=2.1");
   assert.equal(breedAtlasHref({query:"",fciGroup:"",fciSection:"2.1",origin:"",energy:"all"}),"/plemena");
+  assert.equal(publicFciSectionName(8,"1","Retrievers"),"Retrievery");
+  assert.equal(publicFciSectionName(2,"9.9","Bezpečný pôvodný názov"),"Bezpečný pôvodný názov");
+  assert.equal(fciMeasurement("48–51","cm"),"48–51 cm");
+  assert.equal(fciMeasurement("20–23 kg","kg"),"20–23 kg");
+  assert.equal(combinedFciMeasurement(["48–51","45–48"],"cm"),"45–51 cm");
+  assert.equal(combinedFciMeasurement(["20–23","17–20"],"kg"),"17–23 kg");
+  assert.equal(publicFciDate("1987-06-24"),"24. 6. 1987");
 });
 
 test("344-record FCI import previews, imports and remains idempotent without erasing editorial data",async()=>{
@@ -159,7 +171,7 @@ test("344-record FCI import previews, imports and remains idempotent without era
 
   const detail=await get(worker,d1,"/plemena/labradorsky-retriever");assert.equal(detail.status,200);const detailHtml=await detail.text();
   const fciDetailHtml=detailHtml.slice(detailHtml.indexOf('<section class="breed-fci-standard'),detailHtml.indexOf('<div class="breed-detail-footer'));
-  assert.match(detailHtml,/FCI štandard/);assert.match(detailHtml,/História plemena Labradorský retriever/);assert.match(detailHtml,/FCI PDF štandard/);assert.doesNotMatch(detailHtml,/Poznámka k chovu/);
+  assert.match(detailHtml,/FCI štandard/);assert.match(detailHtml,/História plemena Labradorský retriever/);assert.match(detailHtml,/Oficiálny PDF štandard/);assert.doesNotMatch(detailHtml,/Poznámka k chovu/);
   assert.doesNotMatch(fciDetailHtml,/breed-fci-accordion/);assert.doesNotMatch(fciDetailHtml,/aria-expanded=/);assert.doesNotMatch(fciDetailHtml,/aria-controls=/);assert.doesNotMatch(fciDetailHtml,/<button/);
   assert.match(detailHtml,/href="#povaha"/);assert.match(detailHtml,/href="#zdravie"/);assert.match(detailHtml,/href="#fci-standard"/);
   assert.match(detailHtml,/id="fci-historia"/);assert.match(detailHtml,/id="fci-povaha"/);assert.match(detailHtml,/id="fci-hlava"/);assert.match(detailHtml,/Lebečná časť podľa štandardu/);assert.match(detailHtml,/Tvárová časť podľa štandardu/);
@@ -167,6 +179,13 @@ test("344-record FCI import previews, imports and remains idempotent without era
   assert.match(detailHtml,/<table class="breed-fci-dimensions">/);assert.match(detailHtml,/<th scope="col">Pes<\/th>/);assert.match(detailHtml,/<th scope="col">Suka<\/th>/);assert.match(detailHtml,/50–60 cm/);assert.match(detailHtml,/48–58 cm/);assert.match(detailHtml,/20–30 kg/);assert.match(detailHtml,/18–28 kg/);
   assert.ok(detailHtml.indexOf('id="povaha"') < detailHtml.indexOf('id="fci-standard"'));assert.ok(detailHtml.indexOf('id="fci-srst"') < detailHtml.indexOf('id="fci-chyby"'));assert.ok(detailHtml.indexOf("Závažné chyby") < detailHtml.indexOf("Diskvalifikačné chyby"));
   assert.match(detailHtml,/href="\/plemena\?fciGroup=8"/);assert.match(detailHtml,/href="\/plemena\?fciGroup=8&amp;fciSection=1"/);
+  const tollerDetail=await get(worker,d1,"/plemena/nova-scotia-duck-tolling-retriever");assert.equal(tollerDetail.status,200);const tollerHtml=await tollerDetail.text();const tollerFci=tollerHtml.slice(tollerHtml.indexOf('<section class="breed-fci-standard'),tollerHtml.indexOf('<div class="breed-detail-footer'));
+  assert.match(tollerHtml,/Nova Scotia Duck Tolling Retriever/);assert.match(tollerHtml,/NOVA SCOTIA DUCK TOLLING RETRIEVER/);assert.match(tollerHtml,/Retrievery, sliediče a vodné psy/);assert.doesNotMatch(tollerHtml,/Retrievers, Flushing Dogs, Water Dogs/);assert.match(tollerHtml,/Sekcia[\s\S]{0,120}Retrievery/);
+  assert.match(tollerHtml,/45–51 cm/);assert.match(tollerHtml,/17–23 kg/);assert.match(tollerFci,/<th scope="col">Parameter<\/th><th scope="col">Pes<\/th><th scope="col">Suka<\/th>/);assert.match(tollerFci,/48–51 cm/);assert.match(tollerFci,/45–48 cm/);assert.match(tollerFci,/20–23 kg/);assert.match(tollerFci,/17–20 kg/);
+  assert.ok(LONG_FCI_TEXT.length>500);assert.match(tollerFci,/Úplný koniec odborného textu\./);assert.doesNotMatch(tollerFci,/line-clamp|text-overflow|breed-fci-accordion/);
+  assert.equal((tollerFci.match(/<h3>Chyby<\/h3>/g)??[]).length,1);assert.doesNotMatch(tollerFci,/<h4>Chyby<\/h4>/);assert.match(tollerFci,/<h4>Závažné chyby<\/h4>/);assert.match(tollerFci,/<h4>Diskvalifikačné chyby<\/h4>/);
+  assert.match(tollerFci,/Chovná poznámka/);assert.doesNotMatch(tollerFci,/Iba FCI nomenklatúra/);assert.match(tollerFci,/Údaje vychádzajú z nomenklatúry a oficiálneho štandardu Fédération Cynologique Internationale \(FCI\)\./);assert.match(tollerFci,/24\. 6\. 1987/);assert.doesNotMatch(tollerFci,/1987-06-24/);assert.match(tollerFci,/FCI nomenklatúra/);assert.match(tollerFci,/Oficiálny PDF štandard/);
+  assert.match(tollerHtml,/href="\/plemena\?fciGroup=8"/);assert.match(tollerHtml,/href="\/plemena\?fciGroup=8&amp;fciSection=1"/);
   const fciOnly=await get(worker,d1,"/plemena/ciernohorsky-horsky-duric");assert.equal(fciOnly.status,200);const fciOnlyHtml=await fciOnly.text();
   assert.match(fciOnlyHtml,/Čiernohorský horský durič/);assert.match(fciOnlyHtml,/Fotografia sa pripravuje/);assert.match(fciOnlyHtml,/href="#fci-standard"/);
   assert.match(fciOnlyHtml,/História plemena Čiernohorský horský durič/);assert.doesNotMatch(fciOnlyHtml,/href="#povaha"/);assert.doesNotMatch(fciOnlyHtml,/Rýchly profil/);assert.doesNotMatch(fciOnlyHtml,/href="#fci-hlava"/);assert.doesNotMatch(fciOnlyHtml,/id="fci-hlava"/);assert.doesNotMatch(fciOnlyHtml,/FCI nomenklatúra/);assert.doesNotMatch(fciOnlyHtml,/FCI PDF štandard/);
@@ -180,7 +199,7 @@ test("344-record FCI import previews, imports and remains idempotent without era
   const groupEight=await get(worker,d1,"/plemena?fciGroup=8&fciSection=1&q=labrador");const groupEightHtml=await groupEight.text();const groupEightSelect=groupEightHtml.match(/<label class="fci-section-filter">[\s\S]*?<\/label>/)?.[0]??"";const groupEightList=groupEightHtml.match(/<div class="fci-group-list">[\s\S]*?<div class="breed-atlas-footer">/)?.[0]??"";assert.match(groupEightSelect,/Sekcia[\s\S]{0,80}Retrievery/);assert.match(groupEightSelect,/Sekcia[\s\S]{0,80}Sliediče/);assert.match(groupEightSelect,/Sekcia[\s\S]{0,80}Vodné psy/);assert.doesNotMatch(groupEightSelect,/2\.1/);assert.match(groupEightList,/Labradorský retriever/);assert.doesNotMatch(groupEightList,/Anglický kokeršpaniel/);
   const subsection=await get(worker,d1,"/plemena?fciGroup=2&fciSection=2.1");const subsectionHtml=await subsection.text();const subsectionSelect=subsectionHtml.match(/<label class="fci-section-filter">[\s\S]*?<\/label>/)?.[0]??"";const subsectionList=subsectionHtml.match(/<div class="fci-group-list">[\s\S]*?<div class="breed-atlas-footer">/)?.[0]??"";assert.match(subsectionSelect,/value="2\.1" selected=""/);assert.match(subsectionList,/Rotvajler/);assert.doesNotMatch(subsectionList,/Labradorský retriever/);
   const fciOnlyCard=atlasHtml.match(/<article class="breed-card[^>]*>[\s\S]*?testovacie-plemeno-11[\s\S]*?<\/article>/)?.[0]??"";assert.ok(fciOnlyCard);assert.doesNotMatch(fciOnlyCard,/breed-ratings/);
-  const css=readFileSync(new URL("../app/globals.css",import.meta.url),"utf8");assert.match(css,/\.fci-section-filter select\s*\{[\s\S]*?width:\s*100%/);assert.match(css,/@media \(max-width: 620px\)[\s\S]*?\.breed-fci-path,[\s\S]*?flex-direction:\s*column/);assert.match(css,/\.breed-fci-dimensions\s*\{[\s\S]*?table-layout:\s*fixed/);assert.match(css,/@media \(max-width: 620px\)[\s\S]*?\.breed-fci-anchor-nav > div\s*\{[\s\S]*?overflow-x:\s*auto/);
+  const css=readFileSync(new URL("../app/globals.css",import.meta.url),"utf8");assert.match(css,/\.fci-section-filter select\s*\{[\s\S]*?width:\s*100%/);assert.match(css,/@media \(max-width: 620px\)[\s\S]*?\.breed-fci-path,[\s\S]*?flex-direction:\s*column/);assert.match(css,/\.breed-fci-dimensions\s*\{[\s\S]*?table-layout:\s*fixed/);assert.match(css,/@media \(max-width: 620px\)[\s\S]*?\.breed-fci-anchor-nav > div\s*\{[\s\S]*?overflow-x:\s*auto/);const fciReadingCss=css.slice(css.indexOf(".breed-fci-open-content"),css.indexOf(".breed-detail-footer"));assert.doesNotMatch(fciReadingCss,/-webkit-line-clamp|text-overflow|overflow:\s*hidden/);
   const detailSource=readFileSync(new URL("../app/plemena/[slug]/page.tsx",import.meta.url),"utf8");assert.doesNotMatch(detailSource,/BreedFciAccordion|aria-expanded|aria-controls/);
   const sitemap=await get(worker,d1,"/sitemap.xml");assert.equal(sitemap.status,200);const sitemapText=await sitemap.text();assert.match(sitemapText,/\/plemena\/labradorsky-retriever/);assert.equal((sitemapText.match(/<loc>https:\/\/psipedia\.sk\/plemena\/[^<]+/g)??[]).length,344);
 });

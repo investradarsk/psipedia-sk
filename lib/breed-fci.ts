@@ -16,6 +16,91 @@ export type FciStandard = Partial<Record<FciStandardTextKey, string>> & {
   fci_standard_pdf?: string;
 };
 
+const FCI_SECTION_SK_LABELS: Readonly<Record<string, string>> = {
+  "1:1": "Ovčiarske psy",
+  "1:2": "Pastierske psy okrem švajčiarskych salašníckych psov",
+  "2:1.1": "Pinče",
+  "2:1.2": "Bradáče",
+  "2:1.3": "Holandské smoushondy",
+  "2:1.4": "Čierny ruský teriér",
+  "2:2.1": "Molosoidné plemená – mastifový typ",
+  "2:2.2": "Molosoidné plemená – horský typ",
+  "2:3": "Švajčiarske salašnícke a pastierske psy",
+  "3:1": "Veľké a stredné teriéry",
+  "3:2": "Malé teriéry",
+  "3:3": "Teriéry typu bull",
+  "3:4": "Toy teriéry",
+  "5:1": "Severské záprahové psy",
+  "5:2": "Severské poľovné psy",
+  "5:3": "Severské strážne a pastierske psy",
+  "5:4": "Európske špice",
+  "5:5": "Ázijské špice a príbuzné plemená",
+  "5:6": "Primitívne plemená",
+  "5:7": "Primitívne plemená – poľovné psy",
+  "6:1.1": "Duriče veľkých plemien",
+  "6:1.2": "Duriče stredných plemien",
+  "6:1.3": "Duriče malých plemien",
+  "6:2": "Farbiare",
+  "6:3": "Príbuzné plemená",
+  "7:1.1": "Kontinentálne stavače – typ braka",
+  "7:1.2": "Kontinentálne stavače – typ španiela",
+  "7:1.3": "Kontinentálne stavače – typ grifóna",
+  "7:2.1": "Britské a írske stavače a setre – pointer",
+  "7:2.2": "Britské a írske stavače a setre – seter",
+  "8:1": "Retrievery",
+  "8:2": "Sliediče",
+  "8:3": "Vodné psy",
+  "9:1.1": "Bišóny",
+  "9:1.2": "Coton de Tuléar",
+  "9:1.3": "Levíček",
+  "9:2": "Pudle",
+  "9:3.1": "Grifóny",
+  "9:3.2": "Petit Brabançon",
+  "9:4": "Bezsrsté psy",
+  "9:5": "Tibetské plemená",
+  "9:6": "Čivava",
+  "9:7": "Anglické spoločenské španiele",
+  "9:8": "Japonský chin a pekinský palácový psík",
+  "9:9": "Kontinentálny spoločenský španiel a ďalšie plemená",
+  "9:10": "Kromfohrländer",
+  "9:11": "Malé molosoidné psy",
+  "10:1": "Dlhosrsté alebo strapcovité chrty",
+  "10:2": "Hrubosrsté chrty",
+  "10:3": "Krátkosrsté chrty",
+};
+
+export function publicFciSectionName(group: number, section: string, fallback = "") {
+  return FCI_SECTION_SK_LABELS[`${group}:${section.trim()}`] ?? fallback.trim();
+}
+
+export function fciMeasurement(value: string | undefined, unit: "cm" | "kg") {
+  const normalized = value?.replace(/\s+/g, " ").trim() ?? "";
+  if (!normalized) return "";
+  return new RegExp(`\\b${unit}\\b`, "i").test(normalized) ? normalized : `${normalized} ${unit}`;
+}
+
+export function combinedFciMeasurement(values: Array<string | undefined>, unit: "cm" | "kg") {
+  const numbers: number[] = [];
+  for (const value of values) {
+    const matches = value?.match(/\d+(?:[.,]\d+)?/g) ?? [];
+    if (matches.length > 2) return "";
+    for (const match of matches) numbers.push(Number(match.replace(",", ".")));
+  }
+  if (!numbers.length || numbers.some((value) => !Number.isFinite(value))) return "";
+  const format = (value: number) => String(value).replace(".", ",");
+  const minimum = Math.min(...numbers); const maximum = Math.max(...numbers);
+  return `${format(minimum)}${minimum === maximum ? "" : `–${format(maximum)}`} ${unit}`;
+}
+
+export function publicFciDate(value: string | null | undefined) {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value?.trim() ?? "";
+  const [, year, month, day] = match;
+  const monthNumber = Number(month); const dayNumber = Number(day);
+  if (monthNumber < 1 || monthNumber > 12 || dayNumber < 1 || dayNumber > 31) return value?.trim() ?? "";
+  return `${dayNumber}. ${monthNumber}. ${year}`;
+}
+
 export type PreparedFciBreed = {
   sourceIndex: number;
   statusFci: string;
