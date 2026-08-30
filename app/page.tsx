@@ -4,8 +4,8 @@ import { ArticleCard } from "@/components/article-card";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
-import { getPublishedArticles } from "@/lib/article-store";
-import { listPublishedBreedsForComparison } from "@/lib/breed-store";
+import { getHomepageArticles } from "@/lib/article-store";
+import { getBreedOfTheDay } from "@/lib/breed-store";
 import { getUpcomingEvents } from "@/lib/event-store";
 import { eventHref, formatEventDate } from "@/lib/events";
 import { getHighlightedHelpCases } from "@/lib/help-store";
@@ -42,11 +42,12 @@ function dayOfYearInBratislava(now = new Date()) {
 }
 
 export default async function Home() {
-  const [publishedArticles, publishedEvents, publishedHelpCases, breeds] = await Promise.all([
-    getPublishedArticles(),
+  const dayOfYear = dayOfYearInBratislava();
+  const [publishedArticles, publishedEvents, publishedHelpCases, breedOfTheDay] = await Promise.all([
+    getHomepageArticles(),
     getUpcomingEvents(3),
     getHighlightedHelpCases(2),
-    listPublishedBreedsForComparison(),
+    getBreedOfTheDay(dayOfYear),
   ]);
   const newsArticles = publishedArticles.filter((article) => articlePortalSection(article) === "novinky");
   const guideArticles = publishedArticles.filter((article) => articlePortalSection(article) !== "novinky");
@@ -54,7 +55,6 @@ export default async function Home() {
   const newsLead = newsArticles[0];
   const nextEvents = publishedEvents;
   const activeHelpCases = publishedHelpCases;
-  const breedOfTheDay = breeds.length ? breeds[(dayOfYearInBratislava() - 1) % breeds.length] : null;
   const schema = {
     "@context": "https://schema.org",
     "@graph": [

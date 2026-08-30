@@ -160,6 +160,8 @@ test("344-record FCI import previews, imports and remains idempotent without era
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM managed_breeds WHERE status='published'").get().count,344);
   for(let group=1;group<=10;group+=1)assert.ok(sqlite.prepare("SELECT COUNT(*) count FROM managed_breeds WHERE fci_group=?").get(group).count>0,`FCI group ${group}`);
 
+  const homepage=await get(worker,d1,"/");assert.equal(homepage.status,200);assert.match(await homepage.text(),/Plemeno dňa/);
+
   const labrador=sqlite.prepare("SELECT * FROM managed_breeds WHERE fci_number=122").get();
   assert.equal(labrador.slug,"labradorsky-retriever");assert.equal(labrador.image_url,"/images/hero-labrador.webp");assert.equal(labrador.intro,"Pôvodný redakčný úvod.");
   assert.equal(labrador.character,"Pôvodná redakčná povaha.");assert.equal(labrador.energy,5);assert.equal(labrador.seo_json,'{"title":"Ručné SEO"}');assert.equal(labrador.editorial_complete,1);

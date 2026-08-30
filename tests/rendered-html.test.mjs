@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const developmentPreviewMeta =
@@ -238,6 +239,21 @@ test("renders the portal homepage", async () => {
   assert.doesNotMatch(html, /Psipedia je viac než magazín/);
   assert.doesNotMatch(html, /Portál, ktorý sa hýbe s komunitou/);
   assert.doesNotMatch(html, /Vyber si, koho hľadáš/);
+
+  const homeSource = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const articleStoreSource = readFileSync(new URL("../lib/article-store.ts", import.meta.url), "utf8");
+  const breedStoreSource = readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
+  const homepageArticleStart = articleStoreSource.indexOf("export async function getHomepageArticles");
+  const breedOfTheDayStart = breedStoreSource.indexOf("export async function getBreedOfTheDay");
+  const homepageArticleQuery = articleStoreSource.slice(homepageArticleStart, articleStoreSource.indexOf("export async function getPublishedArticle(", homepageArticleStart));
+  const breedOfTheDayQuery = breedStoreSource.slice(breedOfTheDayStart, breedStoreSource.indexOf("export async function listPublishedBreeds", breedOfTheDayStart));
+  assert.match(homeSource, /getHomepageArticles\(\)/);
+  assert.match(homeSource, /getBreedOfTheDay\(dayOfYear\)/);
+  assert.doesNotMatch(homeSource, /getPublishedArticles|listPublishedBreedsForComparison/);
+  assert.match(homepageArticleQuery, /homepage_rank <= 3/);
+  assert.doesNotMatch(homepageArticleQuery, /SELECT \*/);
+  assert.match(breedOfTheDayQuery, /LIMIT 1/);
+  assert.doesNotMatch(breedOfTheDayQuery, /fci_standard_json|SELECT \*/);
 });
 
 test("passes a verified Cloudflare Access identity to the admin application", async () => {

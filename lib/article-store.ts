@@ -147,6 +147,19 @@ type ArticleSummaryRow = {
   updated_at: string;
 };
 
+type HomepageArticleRow = {
+  slug: string;
+  title: string;
+  excerpt: string;
+  category: string;
+  portal_section: string;
+  news_category: string | null;
+  accent: string;
+  image_url: string | null;
+  reading_minutes: number;
+  published_at: string;
+};
+
 type ArticleCountRow = {
   total: number;
   published: number;
@@ -288,6 +301,30 @@ function rowToManagedArticleSummary(row: ArticleSummaryRow): ManagedArticleSumma
     accent: row.accent as Article["accent"],
     image: row.image_url ?? undefined,
     updatedAt: row.updated_at,
+  };
+}
+
+function rowToHomepageArticle(row: HomepageArticleRow): Article {
+  const publishedAt = row.published_at || new Date(0).toISOString();
+  return {
+    slug: row.slug,
+    title: row.title,
+    excerpt: row.excerpt,
+    category: row.category as Article["category"],
+    portalSection: isArticlePortalSection(row.portal_section) ? row.portal_section : "clanky",
+    newsCategory: row.news_category && isNewsCategory(row.news_category) ? row.news_category : undefined,
+    date: formatSlovakDate(publishedAt),
+    dateIso: publishedAt.slice(0, 10),
+    updatedDate: formatSlovakDate(publishedAt),
+    updatedDateIso: publishedAt.slice(0, 10),
+    readTime: `${row.reading_minutes} min`,
+    image: row.image_url ?? undefined,
+    accent: row.accent as Article["accent"],
+    author: "Redakcia Psipedia",
+    intro: "",
+    takeaway: "",
+    sections: [],
+    sources: [],
   };
 }
 
@@ -449,6 +486,34 @@ export async function getPublishedArticles(): Promise<Article[]> {
     .bind(new Date().toISOString())
     .all<ArticleRow>();
   return result.results.map(rowToManagedArticle);
+}
+
+export async function getHomepageArticles(): Promise<Article[]> {
+  const database = getD1Binding();
+  if (!database) {
+    const news = seedArticles.filter((article) => article.portalSection === "novinky").slice(0, 3);
+    const guides = seedArticles.filter((article) => article.portalSection !== "novinky").slice(0, 3);
+    return [...news, ...guides];
+  }
+  await ensureArticleStore(database);
+  const result = await database.prepare(`
+    WITH ranked AS (
+      SELECT slug, title, excerpt, category, portal_section, news_category, accent, image_url,
+        reading_minutes, published_at,
+        ROW_NUMBER() OVER (
+          PARTITION BY CASE WHEN portal_section = 'novinky' THEN 0 ELSE 1 END
+          ORDER BY published_at DESC, updated_at DESC, id DESC
+        ) AS homepage_rank
+      FROM managed_articles
+      WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
+    )
+    SELECT slug, title, excerpt, category, portal_section, news_category, accent, image_url,
+      reading_minutes, published_at
+    FROM ranked
+    WHERE homepage_rank <= 3
+    ORDER BY published_at DESC
+  `).bind(new Date().toISOString()).all<HomepageArticleRow>();
+  return result.results.map(rowToHomepageArticle);
 }
 
 export async function getPublishedArticle(slug: string): Promise<Article | null> {
