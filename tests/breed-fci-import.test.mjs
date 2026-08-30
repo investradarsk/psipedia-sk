@@ -59,9 +59,12 @@ function fciRecord({number,name,official,group,slug,sectionNumber="1",sectionNam
     status_fci:"detailne overene",nazov_sk:name,nazov_fci:official,fci_cislo:number,krajina_povodu:"Testovacia krajina",
     datum_platneho_standardu:"2026-01-01",vyuzitie:"Pracovný a spoločenský pes",fci_skupina:group,
     fci_skupina_nazov:`Skupina ${group}`,fci_sekcia:sectionNumber,fci_sekcia_nazov:sectionName,pracovna_skuska:"Podľa štandardu",
-    historicky_suhrn:`História plemena ${name}.`,celkovy_vzhlad:`Celkový vzhľad plemena ${name}.`,povaha_temperament:`Vyrovnaná povaha plemena ${name}.`,
-    oci:"Oči podľa platného štandardu.",srst:"Srsť podľa platného štandardu.",farba:"Farba podľa platného štandardu.",
-    vyska_pes_cm:"50–60 cm",hmotnost_pes_kg:"20–30 kg",chyby:"Odchýlky od štandardu.",
+    historicky_suhrn:`História plemena ${name}.`,celkovy_vzhlad:`Celkový vzhľad plemena ${name}.`,dolezite_proporcie:"Vyvážené proporcie podľa štandardu.",povaha_temperament:`Vyrovnaná povaha plemena ${name}.`,
+    hlava_lebecna_cast:"Lebečná časť podľa štandardu.",hlava_tvarova_cast:"Tvárová časť podľa štandardu.",oci:"Oči podľa platného štandardu.",usi:"Uši podľa platného štandardu.",
+    krk:"Krk podľa platného štandardu.",telo:"Telo podľa platného štandardu.",chvost:"Chvost podľa platného štandardu.",predne_koncatiny:"Predné končatiny podľa štandardu.",zadne_koncatiny:"Zadné končatiny podľa štandardu.",pohyb:"Pohyb podľa platného štandardu.",
+    koza:"Koža podľa platného štandardu.",srst:"Srsť podľa platného štandardu.",farba:"Farba podľa platného štandardu.",
+    vyska_pes_cm:"50–60 cm",vyska_suka_cm:"48–58 cm",hmotnost_pes_kg:"20–30 kg",hmotnost_suka_kg:"18–28 kg",velkost_hmotnost_poznamka:"Rozmery sa posudzujú v celkových proporciách.",
+    chyby:"Odchýlky od štandardu.",zavazne_chyby:"Výrazné odchýlky od štandardu.",diskvalifikacne_chyby:"Diskvalifikačné odchýlky podľa štandardu.",
     fci_nomenklatura_url:`https://www.fci.be/breed/${number}`,fci_standard_pdf:`https://www.fci.be/standard/${number}.pdf`,
     zdroj_poznamka:"Oficiálne údaje FCI.",slug,import_key:`plemena:fci-${String(number).padStart(4,"0")}`,status:"published",
   };
@@ -82,7 +85,7 @@ function readyBreeds() {
   const used=new Set(named.map((item)=>item[0]));const rows=named.map(([number,name,official,group,slug,sectionNumber,sectionName])=>fciRecord({number,name,official,group,slug,sectionNumber,sectionName}));
   let candidate=1000;
   while(rows.length<344){while(used.has(candidate))candidate+=1;const index=rows.length+1;const group=((index-1)%10)+1;const groupEightSection=group===8?String(((index-1)%3)+1):"1";const groupEightName=groupEightSection==="1"?"Retrievery":groupEightSection==="2"?"Sliediče":"Vodné psy";rows.push(fciRecord({number:candidate,name:`Testovacie plemeno ${index}`,official:`TEST BREED ${index}`,group,slug:`testovacie-plemeno-${index}`,sectionNumber:groupEightSection,sectionName:group===8?groupEightName:"Testovacia sekcia"}));used.add(candidate);candidate+=1;}
-  const noSource=rows.find((breed)=>breed.fci_cislo===279);delete noSource.fci_nomenklatura_url;delete noSource.fci_standard_pdf;delete noSource.zdroj_poznamka;
+  const noSource=rows.find((breed)=>breed.fci_cislo===279);delete noSource.fci_nomenklatura_url;delete noSource.fci_standard_pdf;delete noSource.zdroj_poznamka;for(const key of ["hlava_lebecna_cast","hlava_tvarova_cast","oci","usi"])delete noSource[key];
   return rows;
 }
 
@@ -155,12 +158,18 @@ test("344-record FCI import previews, imports and remains idempotent without era
   assert.equal(sqlite.prepare("SELECT slug FROM managed_breeds WHERE fci_number=122").get().slug,"labradorsky-retriever");
 
   const detail=await get(worker,d1,"/plemena/labradorsky-retriever");assert.equal(detail.status,200);const detailHtml=await detail.text();
+  const fciDetailHtml=detailHtml.slice(detailHtml.indexOf('<section class="breed-fci-standard'),detailHtml.indexOf('<div class="breed-detail-footer'));
   assert.match(detailHtml,/FCI štandard/);assert.match(detailHtml,/História plemena Labradorský retriever/);assert.match(detailHtml,/FCI PDF štandard/);assert.doesNotMatch(detailHtml,/Poznámka k chovu/);
-  assert.match(detailHtml,/aria-expanded="false"/);assert.match(detailHtml,/href="#povaha"/);assert.match(detailHtml,/href="#zdravie"/);assert.match(detailHtml,/href="#fci-standard"/);
+  assert.doesNotMatch(fciDetailHtml,/breed-fci-accordion/);assert.doesNotMatch(fciDetailHtml,/aria-expanded=/);assert.doesNotMatch(fciDetailHtml,/aria-controls=/);assert.doesNotMatch(fciDetailHtml,/<button/);
+  assert.match(detailHtml,/href="#povaha"/);assert.match(detailHtml,/href="#zdravie"/);assert.match(detailHtml,/href="#fci-standard"/);
+  assert.match(detailHtml,/id="fci-historia"/);assert.match(detailHtml,/id="fci-povaha"/);assert.match(detailHtml,/id="fci-hlava"/);assert.match(detailHtml,/Lebečná časť podľa štandardu/);assert.match(detailHtml,/Tvárová časť podľa štandardu/);
+  assert.match(detailHtml,/href="#fci-historia"/);assert.match(detailHtml,/href="#fci-vzhlad"/);assert.match(detailHtml,/href="#fci-hlava"/);assert.match(detailHtml,/href="#fci-rozmery"/);assert.match(detailHtml,/href="#fci-chyby"/);
+  assert.match(detailHtml,/<table class="breed-fci-dimensions">/);assert.match(detailHtml,/<th scope="col">Pes<\/th>/);assert.match(detailHtml,/<th scope="col">Suka<\/th>/);assert.match(detailHtml,/50–60 cm/);assert.match(detailHtml,/48–58 cm/);assert.match(detailHtml,/20–30 kg/);assert.match(detailHtml,/18–28 kg/);
+  assert.ok(detailHtml.indexOf('id="povaha"') < detailHtml.indexOf('id="fci-standard"'));assert.ok(detailHtml.indexOf('id="fci-srst"') < detailHtml.indexOf('id="fci-chyby"'));assert.ok(detailHtml.indexOf("Závažné chyby") < detailHtml.indexOf("Diskvalifikačné chyby"));
   assert.match(detailHtml,/href="\/plemena\?fciGroup=8"/);assert.match(detailHtml,/href="\/plemena\?fciGroup=8&amp;fciSection=1"/);
   const fciOnly=await get(worker,d1,"/plemena/ciernohorsky-horsky-duric");assert.equal(fciOnly.status,200);const fciOnlyHtml=await fciOnly.text();
   assert.match(fciOnlyHtml,/Čiernohorský horský durič/);assert.match(fciOnlyHtml,/Fotografia sa pripravuje/);assert.match(fciOnlyHtml,/href="#fci-standard"/);
-  assert.doesNotMatch(fciOnlyHtml,/href="#povaha"/);assert.doesNotMatch(fciOnlyHtml,/Rýchly profil/);assert.doesNotMatch(fciOnlyHtml,/FCI nomenklatúra/);assert.doesNotMatch(fciOnlyHtml,/FCI PDF štandard/);
+  assert.match(fciOnlyHtml,/História plemena Čiernohorský horský durič/);assert.doesNotMatch(fciOnlyHtml,/href="#povaha"/);assert.doesNotMatch(fciOnlyHtml,/Rýchly profil/);assert.doesNotMatch(fciOnlyHtml,/href="#fci-hlava"/);assert.doesNotMatch(fciOnlyHtml,/id="fci-hlava"/);assert.doesNotMatch(fciOnlyHtml,/FCI nomenklatúra/);assert.doesNotMatch(fciOnlyHtml,/FCI PDF štandard/);
   for(const slug of ["nemecky-ovciak","border-kolia","rotvajler","testovacie-plemeno-11"]){const response=await get(worker,d1,`/plemena/${slug}`);assert.equal(response.status,200,slug);assert.match(await response.text(),/FCI štandard/,slug);}
   const rottweiler=await get(worker,d1,"/plemena/rotvajler");const rottweilerHtml=await rottweiler.text();assert.match(rottweilerHtml,/Sekcia[\s\S]{0,20}2\.1/);assert.match(rottweilerHtml,/Molosoidné plemená – mastifový typ/);assert.match(rottweilerHtml,/href="\/plemena\?fciGroup=2"/);assert.match(rottweilerHtml,/href="\/plemena\?fciGroup=2&amp;fciSection=2\.1"/);
   const namelessSection=await get(worker,d1,"/plemena/plemeno-bez-nazvu-sekcie");assert.equal(namelessSection.status,200);assert.match(await namelessSection.text(),/Sekcia[\s\S]{0,20}2\.1/);
@@ -171,7 +180,8 @@ test("344-record FCI import previews, imports and remains idempotent without era
   const groupEight=await get(worker,d1,"/plemena?fciGroup=8&fciSection=1&q=labrador");const groupEightHtml=await groupEight.text();const groupEightSelect=groupEightHtml.match(/<label class="fci-section-filter">[\s\S]*?<\/label>/)?.[0]??"";const groupEightList=groupEightHtml.match(/<div class="fci-group-list">[\s\S]*?<div class="breed-atlas-footer">/)?.[0]??"";assert.match(groupEightSelect,/Sekcia[\s\S]{0,80}Retrievery/);assert.match(groupEightSelect,/Sekcia[\s\S]{0,80}Sliediče/);assert.match(groupEightSelect,/Sekcia[\s\S]{0,80}Vodné psy/);assert.doesNotMatch(groupEightSelect,/2\.1/);assert.match(groupEightList,/Labradorský retriever/);assert.doesNotMatch(groupEightList,/Anglický kokeršpaniel/);
   const subsection=await get(worker,d1,"/plemena?fciGroup=2&fciSection=2.1");const subsectionHtml=await subsection.text();const subsectionSelect=subsectionHtml.match(/<label class="fci-section-filter">[\s\S]*?<\/label>/)?.[0]??"";const subsectionList=subsectionHtml.match(/<div class="fci-group-list">[\s\S]*?<div class="breed-atlas-footer">/)?.[0]??"";assert.match(subsectionSelect,/value="2\.1" selected=""/);assert.match(subsectionList,/Rotvajler/);assert.doesNotMatch(subsectionList,/Labradorský retriever/);
   const fciOnlyCard=atlasHtml.match(/<article class="breed-card[^>]*>[\s\S]*?testovacie-plemeno-11[\s\S]*?<\/article>/)?.[0]??"";assert.ok(fciOnlyCard);assert.doesNotMatch(fciOnlyCard,/breed-ratings/);
-  const css=readFileSync(new URL("../app/globals.css",import.meta.url),"utf8");assert.match(css,/\.fci-section-filter select\s*\{[\s\S]*?width:\s*100%/);assert.match(css,/@media \(max-width: 620px\)[\s\S]*?\.breed-fci-path,[\s\S]*?flex-direction:\s*column/);
+  const css=readFileSync(new URL("../app/globals.css",import.meta.url),"utf8");assert.match(css,/\.fci-section-filter select\s*\{[\s\S]*?width:\s*100%/);assert.match(css,/@media \(max-width: 620px\)[\s\S]*?\.breed-fci-path,[\s\S]*?flex-direction:\s*column/);assert.match(css,/\.breed-fci-dimensions\s*\{[\s\S]*?table-layout:\s*fixed/);assert.match(css,/@media \(max-width: 620px\)[\s\S]*?\.breed-fci-anchor-nav > div\s*\{[\s\S]*?overflow-x:\s*auto/);
+  const detailSource=readFileSync(new URL("../app/plemena/[slug]/page.tsx",import.meta.url),"utf8");assert.doesNotMatch(detailSource,/BreedFciAccordion|aria-expanded|aria-controls/);
   const sitemap=await get(worker,d1,"/sitemap.xml");assert.equal(sitemap.status,200);const sitemapText=await sitemap.text();assert.match(sitemapText,/\/plemena\/labradorsky-retriever/);assert.equal((sitemapText.match(/<loc>https:\/\/psipedia\.sk\/plemena\/[^<]+/g)??[]).length,344);
 });
 

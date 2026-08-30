@@ -757,7 +757,7 @@ test("renders the atlas in all ten FCI groups with breed photos", async () => {
 
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /10 skupín FCI/);
+  assert.match(html, /FCI skupiny alebo sekcie/);
   assert.match(html, /FCI skupina 1/);
   assert.match(html, /FCI skupina 10/);
   assert.match(html, /Austrálsky ovčiak/);
