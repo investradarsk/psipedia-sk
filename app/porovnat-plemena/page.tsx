@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedComparison } from "@/components/breed-comparison";
 import { ArrowIcon } from "@/components/icons";
-import { listPublishedBreeds } from "@/lib/breed-store";
+import { listPublishedBreedsForComparison } from "@/lib/breed-store";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -14,7 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 export default async function CompareBreedsPage() {
-  const breeds = await listPublishedBreeds();
+  const breeds = await listPublishedBreedsForComparison();
   return (
     <main id="obsah">
       <header className="page-hero page-hero--compact shell compare-page-hero">

@@ -12,7 +12,7 @@
     "deploy:cloudflare": "wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && wrangler deploy --config dist/server/wrangler.json --keep-vars",
     "deploy:staging": "npm run build && wrangler deploy",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run build && node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/directory-import-sql.test.mjs tests/directory-clubs.test.mjs tests/directory-change-requests.test.mjs",
+    "test": "npm run build && node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/directory-import-sql.test.mjs tests/directory-clubs.test.mjs tests/directory-change-requests.test.mjs tests/breed-fci-import.test.mjs",
     "validate:artifact": "bash scripts/validate-artifact.sh",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"

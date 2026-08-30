@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { Breed } from "@/lib/content";
+import type { BreedComparisonItem } from "@/lib/breed-store";
 import { ArrowIcon } from "./icons";
 
 function CompareRating({ value, label }: { value: number; label: string }) {
@@ -16,7 +16,7 @@ function CompareRating({ value, label }: { value: number; label: string }) {
   );
 }
 
-function BreedHeading({ breed }: { breed: Breed }) {
+function BreedHeading({ breed }: { breed: BreedComparisonItem }) {
   return (
     <div className={`compare-breed-heading compare-breed-heading--${breed.accent}`}>
       <img className="compare-breed-image" src={breed.image} alt={`${breed.name} – fotografia plemena`} />
@@ -28,7 +28,7 @@ function BreedHeading({ breed }: { breed: Breed }) {
   );
 }
 
-export function BreedComparison({ breeds }: { breeds: Breed[] }) {
+export function BreedComparison({ breeds }: { breeds: BreedComparisonItem[] }) {
   const [firstSlug, setFirstSlug] = useState(breeds[0]?.slug ?? "");
   const [secondSlug, setSecondSlug] = useState(breeds[2]?.slug ?? breeds[1]?.slug ?? "");
 

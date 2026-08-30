@@ -5,7 +5,7 @@ import { DogAgeCalculator } from "@/components/dog-age-calculator";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
 import { getPublishedArticles } from "@/lib/article-store";
-import { listPublishedBreeds } from "@/lib/breed-store";
+import { listPublishedBreedsForComparison } from "@/lib/breed-store";
 import { getUpcomingEvents } from "@/lib/event-store";
 import { eventHref, formatEventDate } from "@/lib/events";
 import { getHighlightedHelpCases } from "@/lib/help-store";
@@ -46,7 +46,7 @@ export default async function Home() {
     getPublishedArticles(),
     getUpcomingEvents(3),
     getHighlightedHelpCases(2),
-    listPublishedBreeds(),
+    listPublishedBreedsForComparison(),
   ]);
   const newsArticles = publishedArticles.filter((article) => articlePortalSection(article) === "novinky");
   const guideArticles = publishedArticles.filter((article) => articlePortalSection(article) !== "novinky");

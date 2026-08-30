@@ -7,6 +7,7 @@ import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { breedSeoFallback } from "@/lib/content-seo";
+import type { FciStandard, FciStandardTextKey } from "@/lib/breed-fci";
 
 function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);}
 function lines(value:string){return value.split("\n").map((item)=>item.replace(/^[-•]\s*/,"").trim()).filter(Boolean);}
@@ -15,7 +16,9 @@ const emptySource:BreedSource={label:"",url:""};
 export function AdminBreedEditor({ breed }: { breed?: ManagedBreed }) {
   const [form,setForm]=useState({
     name:breed?.name??"",slug:breed?.slug??"",status:breed?.status??"draft",image:breed?.image??"",imageKey:breed?.imageKey??"",
-    gallery:breed?.gallery??[],fciGroup:breed?.fciGroup??1,fciSection:breed?.fciSection??"",origin:breed?.origin??"",group:breed?.group??"",
+    gallery:breed?.gallery??[],fciNumber:breed?.fciNumber?.toString()??"",fciGroup:breed?.fciGroup??1,fciSection:breed?.fciSection??"",fciSectionNumber:breed?.fciSectionNumber??"",
+    officialFciName:breed?.officialFciName??"",validStandardDate:breed?.validStandardDate??"",workingTrial:breed?.workingTrial??"",importKey:breed?.importKey??"",
+    fciStandard:breed?.fciStandard??{} as FciStandard,editorialComplete:breed?.editorialComplete??true,origin:breed?.origin??"",group:breed?.group??"",
     size:breed?.size??"",weight:breed?.weight??"",height:breed?.height??"",lifespan:breed?.lifespan??"",coat:breed?.coat??"",
     energy:breed?.energy??3,trainability:breed?.trainability??3,children:breed?.children??breed?.family??3,otherDogs:breed?.otherDogs??3,
     apartment:breed?.apartment??3,grooming:breed?.grooming??3,shedding:breed?.shedding??3,preyDrive:breed?.preyDrive??3,
@@ -33,7 +36,8 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed }) {
   function updateGallery(index:number,patch:Partial<BreedImage>){setForm((current)=>({...current,gallery:current.gallery.map((item,i)=>i===index?{...item,...patch}:item)}));}
   function moveGallery(index:number,direction:-1|1){setForm((current)=>{const gallery=[...current.gallery];const target=index+direction;if(target<0||target>=gallery.length)return current;[gallery[index],gallery[target]]=[gallery[target],gallery[index]];return {...current,gallery};});}
   function updateSource(index:number,patch:Partial<BreedSource>){setForm((current)=>({...current,sources:current.sources.map((item,i)=>i===index?{...item,...patch}:item)}));}
-  async function save(status:"draft"|"published"){setSaving(true);setError("");setMessage("");try{const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{method:breed?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...form,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim())})});const data=await response.json() as {breed?:ManagedBreed;error?:string};if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");if(!breed)window.location.assign(`/admin/plemena/${data.breed.id}`);}catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}finally{setSaving(false);}}
+  function updateFci(key:keyof FciStandard,value:string){setForm((current)=>({...current,fciStandard:{...current.fciStandard,[key]:value}}));}
+  async function save(status:"draft"|"published"){setSaving(true);setError("");setMessage("");try{const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{method:breed?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim())})});const data=await response.json() as {breed?:ManagedBreed;error?:string};if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");if(!breed)window.location.assign(`/admin/plemena/${data.breed.id}`);}catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}finally{setSaving(false);}}
 
   const scoreFields=[
     ["energy","Úroveň energie"],["trainability","Cvičiteľnosť"],["children","Vzťah k deťom"],["otherDogs","Vzťah k iným psom"],
@@ -42,13 +46,25 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed }) {
   const textSections=[
     ["character","Povaha"],["history","História"],["exercise","Potreba pohybu"],["training","Výcvik"],["health","Zdravie"],
   ] as const;
+  const fciSections:Array<{title:string;fields:Array<[FciStandardTextKey,string]>}>=[
+    {title:"História, vzhľad a povaha",fields:[["historicky_suhrn","Historický súhrn"],["celkovy_vzhlad","Celkový vzhľad"],["dolezite_proporcie","Dôležité proporcie"],["povaha_temperament","Povaha a temperament"],["vyuzitie","Využitie"]]},
+    {title:"Hlava a telo",fields:[["hlava_lebecna_cast","Hlava – lebečná časť"],["hlava_tvarova_cast","Hlava – tvárová časť"],["oci","Oči"],["usi","Uši"],["krk","Krk"],["telo","Telo"],["chvost","Chvost"]]},
+    {title:"Končatiny, pohyb a srsť",fields:[["predne_koncatiny","Predné končatiny"],["zadne_koncatiny","Zadné končatiny"],["pohyb","Pohyb"],["koza","Koža"],["srst","Srsť"],["farba","Farba"]]},
+    {title:"Veľkosť a chyby",fields:[["vyska_pes_cm","Výška – pes"],["vyska_suka_cm","Výška – suka"],["hmotnost_pes_kg","Hmotnosť – pes"],["hmotnost_suka_kg","Hmotnosť – suka"],["velkost_hmotnost_poznamka","Poznámka k veľkosti"],["chyby","Chyby"],["zavazne_chyby","Závažné chyby"],["diskvalifikacne_chyby","Diskvalifikačné chyby"],["poznamka_chov","Poznámka k chovu"]]},
+  ];
 
   return <form className="admin-breed-editor" onSubmit={(event)=>{event.preventDefault();void save("draft");}}>
     <section className="admin-form-card"><h2>Identita plemena</h2><div className="admin-field-grid"><label className="admin-field"><span>Názov plemena</span><input required value={form.name} onChange={(e)=>changeName(e.target.value)}/></label><label className="admin-field"><span>URL adresa</span><input required value={form.slug} onChange={(e)=>{setSlugEdited(true);change("slug",e.target.value)}}/></label></div><label className="admin-field"><span>Krátky úvod</span><textarea required rows={4} value={form.intro} onChange={(e)=>change("intro",e.target.value)}/></label></section>
 
     <section className="admin-form-card"><h2>Základné údaje</h2><div className="admin-field-grid">
+      <label className="admin-field"><span>FCI číslo</span><input type="number" min="1" max="9999" value={form.fciNumber} onChange={(e)=>change("fciNumber",e.target.value)}/></label>
       <label className="admin-field"><span>FCI skupina</span><input type="number" min="1" max="10" value={form.fciGroup} onChange={(e)=>change("fciGroup",Number(e.target.value))}/></label>
       <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={(e)=>change("fciSection",e.target.value)}/></label>
+      <label className="admin-field"><span>Číslo FCI sekcie</span><input value={form.fciSectionNumber} onChange={(e)=>change("fciSectionNumber",e.target.value)}/></label>
+      <label className="admin-field"><span>Oficiálny názov FCI</span><input value={form.officialFciName} onChange={(e)=>change("officialFciName",e.target.value)}/></label>
+      <label className="admin-field"><span>Dátum platného štandardu</span><input value={form.validStandardDate} onChange={(e)=>change("validStandardDate",e.target.value)}/></label>
+      <label className="admin-field"><span>Pracovná skúška</span><input value={form.workingTrial} onChange={(e)=>change("workingTrial",e.target.value)}/></label>
+      <label className="admin-field"><span>Import key</span><input value={form.importKey} onChange={(e)=>change("importKey",e.target.value)}/></label>
       <label className="admin-field"><span>Krajina pôvodu</span><input value={form.origin} onChange={(e)=>change("origin",e.target.value)}/></label>
       <label className="admin-field"><span>Skupina / pôvodné využitie</span><input value={form.group} onChange={(e)=>change("group",e.target.value)}/></label>
       <label className="admin-field"><span>Veľkosť</span><input value={form.size} onChange={(e)=>change("size",e.target.value)}/></label>
@@ -58,7 +74,9 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed }) {
       <label className="admin-field"><span>Srsť</span><input value={form.coat} onChange={(e)=>change("coat",e.target.value)}/></label>
     </div></section>
 
-    <section className="admin-form-card"><h2>Vlastnosti (1–5)</h2><p className="admin-field-help">1 znamená nízku mieru vlastnosti, 5 vysokú.</p><div className="admin-breed-score-grid">{scoreFields.map(([key,label])=><label className="admin-field" key={key}><span>{label}</span><input type="number" min="1" max="5" value={form[key]} onChange={(e)=>change(key,Number(e.target.value))}/></label>)}</div></section>
+    <section className="admin-form-card"><h2>Detailný FCI štandard</h2><p className="admin-field-help">Údaje importované z pripraveného FCI zdroja. Prázdne časti sa na verejnom profile nezobrazia.</p>{fciSections.map((section)=><details className="admin-fci-editor-section" key={section.title}><summary>{section.title}</summary><div>{section.fields.map(([key,label])=><label className="admin-field" key={key}><span>{label}</span><textarea rows={5} value={form.fciStandard[key]??""} onChange={(e)=>updateFci(key,e.target.value)}/></label>)}</div></details>)}<div className="admin-field-grid"><label className="admin-field"><span>FCI skupina – názov</span><input value={form.fciStandard.fci_skupina_nazov??""} onChange={(e)=>updateFci("fci_skupina_nazov",e.target.value)}/></label><label className="admin-field"><span>FCI sekcia – názov</span><input value={form.fciStandard.fci_sekcia_nazov??""} onChange={(e)=>updateFci("fci_sekcia_nazov",e.target.value)}/></label><label className="admin-field"><span>FCI nomenklatúra URL</span><input type="url" value={form.fciStandard.fci_nomenklatura_url??""} onChange={(e)=>updateFci("fci_nomenklatura_url",e.target.value)}/></label><label className="admin-field"><span>FCI PDF URL</span><input type="url" value={form.fciStandard.fci_standard_pdf??""} onChange={(e)=>updateFci("fci_standard_pdf",e.target.value)}/></label></div><label className="admin-field"><span>Poznámka k zdroju</span><textarea value={form.fciStandard.zdroj_poznamka??""} onChange={(e)=>updateFci("zdroj_poznamka",e.target.value)}/></label></section>
+
+    <section className="admin-form-card"><h2>Vlastnosti (1–5)</h2><p className="admin-field-help">1 znamená nízku mieru vlastnosti, 5 vysokú. Pri nových FCI importoch sa tieto hodnoty verejne skryjú, kým ich redakcia nepotvrdí.</p><label className="admin-check"><input type="checkbox" checked={form.editorialComplete} onChange={(e)=>change("editorialComplete",e.target.checked)}/><span>Praktický redakčný profil je skontrolovaný a môže sa verejne zobrazovať</span></label><div className="admin-breed-score-grid">{scoreFields.map(([key,label])=><label className="admin-field" key={key}><span>{label}</span><input type="number" min="1" max="5" value={form[key]} onChange={(e)=>change(key,Number(e.target.value))}/></label>)}</div></section>
 
     <section className="admin-form-card"><h2>Obsah profilu</h2>{textSections.map(([key,label])=><label className="admin-field" key={key}><span>{label}</span><textarea rows={6} value={form[key]} onChange={(e)=>change(key,e.target.value)}/></label>)}<label className="admin-field"><span>Každodenné potreby</span><textarea rows={5} value={form.needs} onChange={(e)=>change("needs",e.target.value)}/></label><label className="admin-field"><span>Typické zdravotné riziká — jedna položka na riadok</span><textarea value={form.healthRisks} onChange={(e)=>change("healthRisks",e.target.value)}/></label><div className="admin-field-grid"><label className="admin-field"><span>Pre koho je vhodný — jedna položka na riadok</span><textarea value={form.goodFor} onChange={(e)=>change("goodFor",e.target.value)}/></label><label className="admin-field"><span>Pre koho nemusí byť vhodný — jedna položka na riadok</span><textarea value={form.consider} onChange={(e)=>change("consider",e.target.value)}/></label></div></section>
 

@@ -13,6 +13,12 @@ type ImportPayload = {
   profileCategory?: string;
 };
 
+type BreedImportPreview = {
+  total:number;created:number;updated:number;skipped:number;published:number;draft:number;
+  errors:Array<{index:number;field:string;message:string}>;
+  duplicateFciNumbers:number[];duplicateImportKeys:string[];duplicateSlugs:string[];
+};
+
 const inputs = [
   { name: "articles", label: "Články a koncepty", sourceKey: "articles" },
   { name: "profiles", label: "Služby pre psov", sourceKey: "profiles" },
@@ -23,8 +29,17 @@ const inputs = [
 ] as const;
 
 async function readJson(file: File): Promise<unknown> {
-  if (file.size > 5 * 1024 * 1024) throw new Error(`${file.name} je príliš veľký.`);
+  if (file.size > 20 * 1024 * 1024) throw new Error(`${file.name} je príliš veľký.`);
   return JSON.parse(await file.text()) as unknown;
+}
+
+function AdminBreedImport(){
+  const [file,setFile]=useState<File>();const [preview,setPreview]=useState<BreedImportPreview>();const [payload,setPayload]=useState<unknown[]>();
+  const [busy,setBusy]=useState(false);const [message,setMessage]=useState("");const [error,setError]=useState("");
+  async function load(){if(!file)throw new Error("Vyber READY JSON súbor s plemenami.");const json=await readJson(file);if(!json||typeof json!=="object"||Array.isArray(json)||!Array.isArray((json as Record<string,unknown>).breeds))throw new Error("JSON musí obsahovať top-level pole breeds.");return (json as {breeds:unknown[]}).breeds;}
+  async function check(){setBusy(true);setMessage("");setError("");try{const breeds=await load();const response=await fetch("/api/admin/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({breeds,preview:true})});const data=await response.json() as {preview?:BreedImportPreview;error?:string};if(!response.ok||!data.preview)throw new Error(data.error||"Preview importu sa nepodaril.");setPayload(breeds);setPreview(data.preview);if(!data.preview.errors.length)setMessage("Kontrola je hotová. Import ešte nebol spustený.");}catch(nextError){setError(nextError instanceof Error?nextError.message:"Preview importu sa nepodaril.");setPreview(undefined);setPayload(undefined);}finally{setBusy(false);}}
+  async function run(){if(!payload||!preview||preview.errors.length)return;setBusy(true);setMessage("");setError("");try{const response=await fetch("/api/admin/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({breeds:payload})});const data=await response.json() as {preview?:BreedImportPreview;imported?:{breeds?:BreedImportPreview};error?:string};const result=data.imported?.breeds??data.preview;if(!response.ok||!result)throw new Error(data.error||result?.errors?.map((item)=>`Riadok ${item.index}: ${item.message}`).join(" ")||"Import plemien sa nepodaril.");setPreview(result);setMessage(`Import je hotový: ${result.created} vytvorených, ${result.updated} aktualizovaných, ${result.skipped} preskočených.`);}catch(nextError){setError(nextError instanceof Error?nextError.message:"Import plemien sa nepodaril.");}finally{setBusy(false);}}
+  return <section className="admin-panel admin-import-panel admin-breed-import"><div className="admin-card-heading"><div><span>FCI</span><div><h2>Plemená</h2><p>Bezpečný idempotentný import READY JSON. Najprv sa vždy zobrazí preview; existujúce redakčné údaje sa neprepisujú.</p></div></div></div><label><span>psipedia_plemena_344_READY.json</span><input type="file" accept="application/json,.json" onChange={(event)=>{setFile(event.target.files?.[0]);setPreview(undefined);setPayload(undefined);setMessage("");setError("");}}/></label><div className="admin-editor-actions"><button type="button" disabled={busy||!file} onClick={()=>void check()}>{busy?"Kontrolujem…":"Skontrolovať import"}</button><button type="button" className="is-primary" disabled={busy||!preview||preview.errors.length>0||!payload} onClick={()=>void run()}>Importovať plemená</button></div>{preview&&<div className="admin-import-preview" aria-live="polite"><div><span>Záznamov</span><strong>{preview.total}</strong></div><div><span>Nových</span><strong>{preview.created}</strong></div><div><span>Aktualizovaných</span><strong>{preview.updated}</strong></div><div><span>Publikovaných</span><strong>{preview.published}</strong></div><div><span>Konceptov</span><strong>{preview.draft}</strong></div><div><span>Chýb</span><strong>{preview.errors.length}</strong></div></div>}{preview?.errors.length?<ul className="admin-import-errors">{preview.errors.slice(0,50).map((item,index)=><li key={`${item.index}-${item.field}-${index}`}>Riadok {item.index||"—"}: {item.message}</li>)}</ul>:null}{message&&<p className="admin-flash" role="status">{message}</p>}{error&&<p className="admin-editor-message is-error" role="alert">{error}</p>}</section>;
 }
 
 export function AdminDataImport() {
@@ -67,7 +82,8 @@ export function AdminDataImport() {
     }
   }
 
-  return (
+  return (<>
+    <AdminBreedImport />
     <form className="admin-panel admin-import-panel" onSubmit={submit}>
       <p>Vyber jeden alebo viac JSON súborov. Import aktualizuje existujúce záznamy podľa stabilného importného kľúča a nepridá ich znova.</p>
       <div className="admin-import-grid">
@@ -82,6 +98,6 @@ export function AdminDataImport() {
       <button className="admin-publish" type="submit" disabled={busy}>{busy ? "Importujem…" : "Importovať vybrané dáta"}</button>
       {message && <p className="admin-flash" role="status">{message}</p>}
       {error && <p className="admin-editor-message is-error" role="alert">{error}</p>}
-    </form>
+    </form></>
   );
 }

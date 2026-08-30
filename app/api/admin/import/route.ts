@@ -2,13 +2,14 @@ import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { isDirectoryCategory } from "@/lib/directory";
 import { normalizeDirectoryRegion, normalizeDirectorySearchText } from "@/lib/directory-store";
+import { importFciBreeds, previewFciBreedImport } from "@/lib/breed-import";
 
 export const dynamic = "force-dynamic";
 
 type JsonRecord = Record<string, unknown>;
 type RuntimeBindings = { DB?: D1Database };
 
-const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
 const MAX_RECORDS_PER_SECTION = 5_000;
 
 function object(value: unknown): JsonRecord {
@@ -93,6 +94,15 @@ export async function POST(request: Request) {
 
   try {
     const payload = object(await request.json());
+    if (payload.breeds !== undefined) {
+      const breedPayload = { breeds: payload.breeds };
+      if (payload.preview === true) {
+        const { preview } = await previewFciBreedImport(database, breedPayload);
+        return Response.json({ success: preview.errors.length === 0, preview });
+      }
+      const result = await importFciBreeds(database, breedPayload, user.email);
+      return Response.json({ success: result.success, imported: { breeds: result }, preview: result }, { status: result.success ? 200 : 400 });
+    }
     const articles = list(payload.articles);
     const profiles = list(payload.profiles);
     const events = list(payload.events);

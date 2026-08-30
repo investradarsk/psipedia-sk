@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Breed } from "@/lib/content";
+import type { ManagedBreedIndexItem } from "@/lib/breed-store";
 import { ArrowIcon } from "./icons";
 
 export function RatingDots({ value, label }: { value: number; label: string }) {
@@ -13,22 +13,22 @@ export function RatingDots({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function BreedCard({ breed }: { breed: Breed }) {
+export function BreedCard({ breed }: { breed: ManagedBreedIndexItem }) {
   return (
     <article className={`breed-card breed-card--${breed.accent}`}>
       <Link href={`/plemena/${breed.slug}`} className="breed-card-media" aria-label={`Otvoriť profil: ${breed.name}`}>
-        <img src={breed.image} alt={`${breed.name} v prírodnom prostredí`} loading="lazy" decoding="async" />
+        {breed.image ? <img src={breed.image} alt={`${breed.name} v prírodnom prostredí`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true">🐕</span>}
         <span className="fci-badge">FCI {breed.fciGroup}</span>
       </Link>
       <div className="breed-card-body">
         <span className="eyebrow">{breed.fciSection}</span>
         <h3><Link href={`/plemena/${breed.slug}`}>{breed.name}</Link></h3>
-        <p>{breed.intro}</p>
-        <div className="breed-ratings">
+        <p>{breed.intro || breed.officialFciName}</p>
+        {breed.editorialComplete && <div className="breed-ratings">
           <RatingDots value={breed.energy} label="Energia" />
           <RatingDots value={breed.trainability} label="Cvičiteľnosť" />
           <RatingDots value={breed.family} label="Rodina" />
-        </div>
+        </div>}
         <Link href={`/plemena/${breed.slug}`} className="text-link">Profil plemena <ArrowIcon size={18} /></Link>
       </div>
     </article>

@@ -289,8 +289,17 @@ export const managedBreeds = sqliteTable(
     imageUrl: text("image_url").notNull().default(""),
     imageKey: text("image_key"),
     galleryJson: text("gallery_json").notNull().default("[]"),
+    fciNumber: integer("fci_number"),
     fciGroup: integer("fci_group").notNull(),
     fciSection: text("fci_section").notNull(),
+    fciSectionNumber: text("fci_section_number").notNull().default(""),
+    officialFciName: text("official_fci_name").notNull().default(""),
+    validStandardDate: text("valid_standard_date"),
+    workingTrial: text("working_trial").notNull().default(""),
+    importKey: text("import_key"),
+    fciStandardJson: text("fci_standard_json").notNull().default("{}"),
+    searchText: text("search_text").notNull().default(""),
+    editorialComplete: integer("editorial_complete").notNull().default(1),
     origin: text("origin").notNull(),
     groupName: text("group_name").notNull(),
     size: text("size").notNull(),
@@ -328,7 +337,10 @@ export const managedBreeds = sqliteTable(
   },
   (table) => [
     uniqueIndex("managed_breeds_slug_unique").on(table.slug),
+    uniqueIndex("managed_breeds_fci_number_unique").on(table.fciNumber),
+    uniqueIndex("managed_breeds_import_key_unique").on(table.importKey),
     index("managed_breeds_public_idx").on(table.status, table.fciGroup, table.name),
+    index("managed_breeds_origin_idx").on(table.status, table.origin, table.name),
   ],
 );
 

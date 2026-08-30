@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Breed, FciGroup } from "@/lib/content";
+import type { FciGroup } from "@/lib/content";
+import type { ManagedBreedIndexItem } from "@/lib/breed-store";
+import { normalizeBreedSearchText } from "@/lib/breed-fci";
 import { BreedCard } from "./breed-card";
 import { SearchIcon } from "./icons";
 
@@ -11,29 +13,34 @@ function breedCountLabel(count: number) {
   return `${count} plemien`;
 }
 
-export function BreedBrowser({ breeds, groups }: { breeds: Breed[]; groups: FciGroup[] }) {
+export function BreedBrowser({ breeds, groups }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[] }) {
   const [query, setQuery] = useState("");
   const [energy, setEnergy] = useState("all");
   const [selectedGroup, setSelectedGroup] = useState("all");
+  const [selectedOrigin, setSelectedOrigin] = useState("all");
+  const [shown,setShown]=useState(60);
+  const origins = useMemo(() => [...new Set(breeds.map((breed) => breed.origin).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"sk")), [breeds]);
 
   const visible = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("sk");
+    const normalized = normalizeBreedSearchText(query);
     return breeds.filter((breed) => {
-      const queryMatch = !normalized || `${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`.toLocaleLowerCase("sk").includes(normalized);
-      const energyMatch = energy === "all" || (energy === "calm" ? breed.energy <= 3 : breed.energy >= 4);
+      const queryMatch = !normalized || normalizeBreedSearchText(`${breed.name} ${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.intro} ${breed.searchText}`).includes(normalized);
+      const energyMatch = energy === "all" || !breed.editorialComplete || (energy === "calm" ? breed.energy <= 3 : breed.energy >= 4);
       const groupMatch = selectedGroup === "all" || breed.fciGroup === Number(selectedGroup);
-      return queryMatch && energyMatch && groupMatch;
+      const originMatch = selectedOrigin === "all" || breed.origin === selectedOrigin;
+      return queryMatch && energyMatch && groupMatch && originMatch;
     });
-  }, [breeds, query, energy, selectedGroup]);
+  }, [breeds, query, energy, selectedGroup, selectedOrigin]);
 
+  const displayed=useMemo(()=>visible.slice(0,shown),[visible,shown]);
   const groupedBreeds = useMemo(() => groups
     .map((group) => ({
       group,
-      breeds: visible
+      breeds: displayed
         .filter((breed) => breed.fciGroup === group.number)
         .sort((first, second) => first.name.localeCompare(second.name, "sk")),
     }))
-    .filter((entry) => entry.breeds.length > 0), [groups, visible]);
+    .filter((entry) => entry.breeds.length > 0), [groups, displayed]);
 
   return (
     <div>
@@ -43,14 +50,14 @@ export function BreedBrowser({ breeds, groups }: { breeds: Breed[]; groups: FciG
           <strong>Vyber si jednu z 10 skupín FCI</strong>
         </div>
         <div className="fci-filter-row" role="group" aria-label="Filtrovať podľa skupiny FCI">
-          <button type="button" className={selectedGroup === "all" ? "is-active" : ""} aria-pressed={selectedGroup === "all"} onClick={() => setSelectedGroup("all")}>Všetky</button>
+          <button type="button" className={selectedGroup === "all" ? "is-active" : ""} aria-pressed={selectedGroup === "all"} onClick={() => {setSelectedGroup("all");setShown(60);}}>Všetky</button>
           {groups.map((group) => (
             <button
               type="button"
               key={group.number}
               className={selectedGroup === String(group.number) ? "is-active" : ""}
               aria-pressed={selectedGroup === String(group.number)}
-              onClick={() => setSelectedGroup(String(group.number))}
+              onClick={() => {setSelectedGroup(String(group.number));setShown(60);}}
               aria-label={`FCI skupina ${group.number}: ${group.label}`}
               title={group.label}
             >
@@ -63,12 +70,13 @@ export function BreedBrowser({ breeds, groups }: { breeds: Breed[]; groups: FciG
         <label className="inline-search">
           <SearchIcon size={19} />
           <span className="sr-only">Hľadať plemeno</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať plemeno" />
+          <input value={query} onChange={(event) => {setQuery(event.target.value);setShown(60);}} placeholder="Hľadať plemeno" />
         </label>
+        <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><select value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</select></label>
         <div className="filter-row" role="group" aria-label="Filtrovať podľa energie">
-          <button type="button" className={energy === "all" ? "is-active" : ""} aria-pressed={energy === "all"} onClick={() => setEnergy("all")}>Všetky</button>
-          <button type="button" className={energy === "calm" ? "is-active" : ""} aria-pressed={energy === "calm"} onClick={() => setEnergy("calm")}>Pokojnejšie</button>
-          <button type="button" className={energy === "active" ? "is-active" : ""} aria-pressed={energy === "active"} onClick={() => setEnergy("active")}>Aktívne</button>
+          <button type="button" className={energy === "all" ? "is-active" : ""} aria-pressed={energy === "all"} onClick={() => {setEnergy("all");setShown(60);}}>Všetky</button>
+          <button type="button" className={energy === "calm" ? "is-active" : ""} aria-pressed={energy === "calm"} onClick={() => {setEnergy("calm");setShown(60);}}>Pokojnejšie</button>
+          <button type="button" className={energy === "active" ? "is-active" : ""} aria-pressed={energy === "active"} onClick={() => {setEnergy("active");setShown(60);}}>Aktívne</button>
         </div>
       </div>
       <p className="result-count" aria-live="polite">{breedCountLabel(visible.length)}</p>
@@ -88,6 +96,7 @@ export function BreedBrowser({ breeds, groups }: { breeds: Breed[]; groups: FciG
               <div className="breed-grid">{groupBreeds.map((breed) => <BreedCard breed={breed} key={breed.slug} />)}</div>
             </section>
           ))}
+          {displayed.length<visible.length&&<div className="breed-load-more"><button type="button" className="button button--dark" onClick={()=>setShown((value)=>value+60)}>Zobraziť ďalšie plemená</button><span>{displayed.length} z {visible.length}</span></div>}
         </div>
       ) : (
         <div className="empty-state"><span>🐕</span><h2>Také plemeno tu zatiaľ nemáme</h2><p>Skús inú časť názvu alebo zruš filter.</p></div>

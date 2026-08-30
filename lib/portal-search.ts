@@ -1,6 +1,6 @@
-import type { Article, Breed } from "@/lib/content";
+import type { Article } from "@/lib/content";
 import { getPublishedArticles } from "@/lib/article-store";
-import { listPublishedBreeds } from "@/lib/breed-store";
+import { listPublishedBreedIndex, type ManagedBreedIndexItem } from "@/lib/breed-store";
 import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
 import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
 import { getPublishedEvents } from "@/lib/event-store";
@@ -40,13 +40,13 @@ export function filterPortalSearch(items: PortalSearchItem[], query: string, lim
     .map((match) => match.item);
 }
 
-function baseSearchItems(articles: Article[], sections: PortalSection[], breeds: Breed[]): PortalSearchItem[] {
+function baseSearchItems(articles: Article[], sections: PortalSection[], breeds: ManagedBreedIndexItem[]): PortalSearchItem[] {
   return [
     ...sections.flatMap((section) => [
       { href: `/${section.slug}`, title: section.label, type: "Sekcia", description: section.description, keywords: `${section.eyebrow} ${section.intro}` },
       ...section.subpages.map((subpage) => ({ href: portalSubpageHref(section, subpage), title: subpage.label, type: section.label, description: subpage.description, keywords: `${section.label} ${section.description}` })),
     ]),
-    ...breeds.map((breed) => ({ href: `/plemena/${breed.slug}`, title: breed.name, type: "Plemeno", description: breed.intro, keywords: `${breed.group} ${breed.size} energia ${breed.energy} výcvik ${breed.trainability} rodina ${breed.family} ${breed.character} ${breed.needs} ${breed.goodFor.join(" ")} ${breed.consider.join(" ")}` })),
+    ...breeds.map((breed) => ({ href: `/plemena/${breed.slug}`, title: breed.name, type: "Plemeno", description: breed.intro || `${breed.officialFciName} · FCI skupina ${breed.fciGroup}`, keywords: `${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.origin} ${breed.searchText}` })),
     ...articles.map((article) => ({
       href: articleHref(article),
       title: article.title,
@@ -72,7 +72,7 @@ export async function getPortalSearchIndex() {
     getPublishedDirectoryProfiles(),
     getPublishedHelpCases(),
     listManagedPortalSections(),
-    listPublishedBreeds(),
+    listPublishedBreedIndex(),
   ]);
 
   const items: PortalSearchItem[] = [

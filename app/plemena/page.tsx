@@ -4,7 +4,7 @@ import { BreedBrowser } from "@/components/breed-browser";
 import { ArrowIcon } from "@/components/icons";
 import { fciGroups } from "@/lib/content";
 import { portalSubpageHref } from "@/lib/portal";
-import { listPublishedBreeds } from "@/lib/breed-store";
+import { listPublishedBreedIndex } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 export default async function BreedsPage() {
-  const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedBreeds()]);
+  const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedBreedIndex()]);
   return (
     <main id="obsah">
       <header className="page-hero shell">

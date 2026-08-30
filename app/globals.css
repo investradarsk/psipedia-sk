@@ -8536,6 +8536,60 @@ h3 {
   text-align: right;
 }
 
+/* FCI breed import and official standard */
+.breed-origin-filter select {
+  min-height: 46px;
+  max-width: 280px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 38px 0 16px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.breed-card-placeholder,
+.breed-detail-image--empty {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #eef3e9, #dfe9d8);
+  font-size: clamp(3rem, 8vw, 6rem);
+}
+.breed-official-name { font-style: italic; opacity: .78; }
+.breed-fci-standard { margin-top: 42px; }
+.breed-fci-basics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 22px 0;
+}
+.breed-fci-basics > div { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; }
+.breed-fci-basics dt { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+.breed-fci-basics dd { margin: 5px 0 0; font-weight: 700; }
+.breed-fci-section { border-top: 1px solid var(--line); }
+.breed-fci-section:last-of-type { border-bottom: 1px solid var(--line); }
+.breed-fci-section summary { cursor: pointer; padding: 17px 4px; font-weight: 750; }
+.breed-fci-section > div { padding: 0 4px 18px; }
+.breed-fci-section h3 { margin: 16px 0 8px; font-size: 1rem; }
+.breed-fci-sources { margin-top: 24px; padding: 20px; border-radius: 18px; background: var(--cream); }
+.breed-fci-sources > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.breed-fci-sources a { font-weight: 700; text-decoration: underline; }
+.breed-load-more { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 28px; }
+.breed-load-more span { color: var(--muted); font-size: .86rem; }
+.admin-fci-editor-section { margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; }
+.admin-fci-editor-section summary { cursor: pointer; padding: 14px 16px; font-weight: 750; }
+.admin-fci-editor-section > div { padding: 0 16px 16px; }
+.admin-breed-import { margin-bottom: 24px; }
+.admin-import-preview { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 10px; margin-top: 18px; }
+.admin-import-preview > div { padding: 13px; border: 1px solid var(--line); border-radius: 12px; }
+.admin-import-preview span { display: block; color: var(--muted); font-size: .78rem; }
+.admin-import-preview strong { display: block; margin-top: 5px; font-size: 1.35rem; }
+.admin-import-errors { max-height: 320px; overflow: auto; color: #8c2e26; }
+
+@media (max-width: 760px) {
+  .breed-origin-filter, .breed-origin-filter select { width: 100%; max-width: none; }
+  .breed-fci-basics { grid-template-columns: 1fr; }
+  .admin-import-preview { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
 .news-tip-contact-box {
   margin-top: 26px;
   padding: 22px;

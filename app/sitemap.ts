@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { categories } from "@/lib/content";
-import { listPublishedBreeds } from "@/lib/breed-store";
+import { listPublishedBreedIndex } from "@/lib/breed-store";
 import { getPublishedArticles } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { eventHref } from "@/lib/events";
@@ -14,7 +14,7 @@ import { SITE_URL } from "@/lib/seo";
 import { resolvedCanonical } from "@/lib/content-seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([getPublishedArticles(), getPublishedEvents(), getPublishedDirectoryProfiles(), getPublishedHelpCases(), listManagedPortalSections(), listPublishedBreeds()]);
+  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([getPublishedArticles(), getPublishedEvents(), getPublishedDirectoryProfiles(), getPublishedHelpCases(), listManagedPortalSections(), listPublishedBreedIndex()]);
   const portalSections = managedSections.filter((section) => section.visible);
   const staticPages = ["", "/clanky", "/plemena", "/porovnat-plemena", "/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"];
   const portalPages = portalSections.flatMap((section) => [
@@ -39,7 +39,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...directoryCategories.map((category) => ({ url: `${SITE_URL}/adresar/${category.slug}`, lastModified: new Date("2026-08-29"), changeFrequency: "weekly" as const, priority: 0.7 })),
     ...directoryProfiles.filter((profile) => profile.category !== "psie-skoly" && !profile.seo?.noindex).map((profile) => ({ url: resolvedCanonical(profile.seo,directoryProfileHref(profile)), lastModified: new Date(profile.updatedAt), changeFrequency: "monthly" as const, priority: 0.6, images:profile.imageUrl?[profile.imageUrl.startsWith("https://")?profile.imageUrl:`${SITE_URL}${profile.imageUrl}`]:undefined })),
     ...helpCases.filter((item) => !item.seo?.noindex).map((item) => ({ url: resolvedCanonical(item.seo,helpCaseHref(item)), lastModified: new Date(item.updatedAt), changeFrequency: "daily" as const, priority: 0.8, images:item.imageUrl?[item.imageUrl.startsWith("https://")?item.imageUrl:`${SITE_URL}${item.imageUrl}`]:undefined })),
-    ...breeds.filter((breed) => !breed.seo?.noindex).map((breed) => ({ url: resolvedCanonical(breed.seo,`/plemena/${breed.slug}`), lastModified: new Date("updatedAt" in breed ? breed.updatedAt : "2026-08-17"), changeFrequency: "monthly" as const, priority: 0.8, images: [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] })),
+    ...breeds.filter((breed) => !breed.seo?.noindex).map((breed) => ({ url: resolvedCanonical(breed.seo,`/plemena/${breed.slug}`), lastModified: new Date(breed.updatedAt), changeFrequency: "monthly" as const, priority: 0.8, images: breed.image ? [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] : undefined })),
     ...categories.map((category) => ({ url: `${SITE_URL}/tema/${category.slug}`, lastModified: new Date("2026-08-17"), changeFrequency: "weekly" as const, priority: 0.6 })),
   ];
 }
