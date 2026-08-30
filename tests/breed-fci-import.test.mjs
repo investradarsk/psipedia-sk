@@ -72,10 +72,12 @@ function readyBreeds() {
     [166,"Nemecký ovčiak","GERMAN SHEPHERD DOG",1,"nemecky-ovciak"],
     [297,"Border kólia","BORDER COLLIE",1,"border-kolia"],
     [101,"Francúzsky buldoček","FRENCH BULLDOG",9,"francuzsky-buldocek"],
+    [279,"Čiernohorský horský durič","MONTENEGRIN MOUNTAIN HOUND",6,"ciernohorsky-horsky-duric"],
   ];
   const used=new Set(named.map((item)=>item[0]));const rows=named.map(([number,name,official,group,slug])=>fciRecord({number,name,official,group,slug}));
   let candidate=1000;
   while(rows.length<344){while(used.has(candidate))candidate+=1;const index=rows.length+1;rows.push(fciRecord({number:candidate,name:`Testovacie plemeno ${index}`,official:`TEST BREED ${index}`,group:((index-1)%10)+1,slug:`testovacie-plemeno-${index}`}));used.add(candidate);candidate+=1;}
+  const noSource=rows.find((breed)=>breed.fci_cislo===279);delete noSource.fci_nomenklatura_url;delete noSource.fci_standard_pdf;delete noSource.zdroj_poznamka;
   return rows;
 }
 
@@ -131,9 +133,15 @@ test("344-record FCI import previews, imports and remains idempotent without era
 
   const detail=await get(worker,d1,"/plemena/labradorsky-retriever");assert.equal(detail.status,200);const detailHtml=await detail.text();
   assert.match(detailHtml,/FCI štandard/);assert.match(detailHtml,/História plemena Labradorský retriever/);assert.match(detailHtml,/FCI PDF štandard/);assert.doesNotMatch(detailHtml,/Poznámka k chovu/);
+  assert.match(detailHtml,/aria-expanded="false"/);assert.match(detailHtml,/href="#povaha"/);assert.match(detailHtml,/href="#zdravie"/);assert.match(detailHtml,/href="#fci-standard"/);
+  const fciOnly=await get(worker,d1,"/plemena/ciernohorsky-horsky-duric");assert.equal(fciOnly.status,200);const fciOnlyHtml=await fciOnly.text();
+  assert.match(fciOnlyHtml,/Čiernohorský horský durič/);assert.match(fciOnlyHtml,/Fotografia sa pripravuje/);assert.match(fciOnlyHtml,/href="#fci-standard"/);
+  assert.doesNotMatch(fciOnlyHtml,/href="#povaha"/);assert.doesNotMatch(fciOnlyHtml,/Rýchly profil/);assert.doesNotMatch(fciOnlyHtml,/FCI nomenklatúra/);assert.doesNotMatch(fciOnlyHtml,/FCI PDF štandard/);
+  for(const slug of ["nemecky-ovciak","border-kolia","testovacie-plemeno-11"]){const response=await get(worker,d1,`/plemena/${slug}`);assert.equal(response.status,200,slug);assert.match(await response.text(),/FCI štandard/,slug);}
   const search=await get(worker,d1,"/hladat?q=german%20shepherd%20dog");assert.equal(search.status,200);assert.match(await search.text(),/Nemecký ovčiak/);
   const accentSearch=await get(worker,d1,"/hladat?q=labradorsky%20retriever");assert.match(await accentSearch.text(),/Labradorský retriever/);
-  const atlas=await get(worker,d1,"/plemena");const atlasHtml=await atlas.text();assert.match(atlasHtml,/Všetky krajiny pôvodu/);assert.match(atlasHtml,/FCI skupina 10/);assert.match(atlasHtml,/Zobraziť ďalšie plemená/);
+  const atlas=await get(worker,d1,"/plemena");const atlasHtml=await atlas.text();assert.match(atlasHtml,/Všetky krajiny pôvodu/);assert.match(atlasHtml,/<strong>10<\/strong>[^<]*<!-- -->Chrty/);assert.match(atlasHtml,/Zobraziť ďalšie plemená/);assert.match(atlasHtml,/Fotografia sa pripravuje/);
+  const fciOnlyCard=atlasHtml.match(/<article class="breed-card[^>]*>[\s\S]*?testovacie-plemeno-11[\s\S]*?<\/article>/)?.[0]??"";assert.ok(fciOnlyCard);assert.doesNotMatch(fciOnlyCard,/breed-ratings/);
   const sitemap=await get(worker,d1,"/sitemap.xml");assert.equal(sitemap.status,200);const sitemapText=await sitemap.text();assert.match(sitemapText,/\/plemena\/labradorsky-retriever/);assert.equal((sitemapText.match(/<loc>https:\/\/psipedia\.sk\/plemena\/[^<]+/g)??[]).length,344);
 });
 

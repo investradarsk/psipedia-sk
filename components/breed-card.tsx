@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ManagedBreedIndexItem } from "@/lib/breed-store";
-import { ArrowIcon } from "./icons";
+import { ArrowIcon, PawMark } from "./icons";
 
 export function RatingDots({ value, label }: { value: number; label: string }) {
   return (
@@ -14,22 +14,28 @@ export function RatingDots({ value, label }: { value: number; label: string }) {
 }
 
 export function BreedCard({ breed }: { breed: ManagedBreedIndexItem }) {
+  const profileHref = `/plemena/${breed.slug}`;
   return (
     <article className={`breed-card breed-card--${breed.accent}`}>
-      <Link href={`/plemena/${breed.slug}`} className="breed-card-media" aria-label={`Otvoriť profil: ${breed.name}`}>
-        {breed.image ? <img src={breed.image} alt={`${breed.name} v prírodnom prostredí`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true">🐕</span>}
+      <Link href={profileHref} className="breed-card-media" aria-label={`Otvoriť profil: ${breed.name}`}>
+        {breed.image ? <img src={breed.image} alt={`${breed.name} – fotografia plemena`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true"><PawMark size={54} /><small>Fotografia sa pripravuje</small></span>}
         <span className="fci-badge">FCI {breed.fciGroup}</span>
       </Link>
       <div className="breed-card-body">
-        <span className="eyebrow">{breed.fciSection}</span>
-        <h3><Link href={`/plemena/${breed.slug}`}>{breed.name}</Link></h3>
-        <p>{breed.intro || breed.officialFciName}</p>
+        <span className="breed-card-classification">FCI {breed.fciGroup}{breed.fciSection ? ` · ${breed.fciSection}` : ""}</span>
+        <h3><Link href={profileHref}>{breed.name}</Link></h3>
+        <dl className="breed-card-facts">
+          {breed.origin && <div><dt>Pôvod</dt><dd>{breed.origin}</dd></div>}
+          {breed.height && <div><dt>Výška</dt><dd>{breed.height}</dd></div>}
+          {breed.weight && <div><dt>Hmotnosť</dt><dd>{breed.weight}</dd></div>}
+        </dl>
+        {(breed.intro || breed.officialFciName) && <p>{breed.intro || breed.officialFciName}</p>}
         {breed.editorialComplete && <div className="breed-ratings">
           <RatingDots value={breed.energy} label="Energia" />
           <RatingDots value={breed.trainability} label="Cvičiteľnosť" />
           <RatingDots value={breed.family} label="Rodina" />
         </div>}
-        <Link href={`/plemena/${breed.slug}`} className="text-link">Profil plemena <ArrowIcon size={18} /></Link>
+        <Link href={profileHref} className="text-link">Zobraziť profil <ArrowIcon size={18} /></Link>
       </div>
     </article>
   );

@@ -13,6 +13,11 @@ function breedCountLabel(count: number) {
   return `${count} plemien`;
 }
 
+const shortGroupLabels: Record<number, string> = {
+  1: "Ovčiarske", 2: "Pinče, bradáče a molosy", 3: "Teriéry", 4: "Jazvečíky", 5: "Špice",
+  6: "Duriče", 7: "Stavače", 8: "Retrievery", 9: "Spoločenské", 10: "Chrty",
+};
+
 export function BreedBrowser({ breeds, groups }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[] }) {
   const [query, setQuery] = useState("");
   const [energy, setEnergy] = useState("all");
@@ -25,7 +30,7 @@ export function BreedBrowser({ breeds, groups }: { breeds: ManagedBreedIndexItem
     const normalized = normalizeBreedSearchText(query);
     return breeds.filter((breed) => {
       const queryMatch = !normalized || normalizeBreedSearchText(`${breed.name} ${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.intro} ${breed.searchText}`).includes(normalized);
-      const energyMatch = energy === "all" || !breed.editorialComplete || (energy === "calm" ? breed.energy <= 3 : breed.energy >= 4);
+      const energyMatch = energy === "all" || (breed.editorialComplete && (energy === "calm" ? breed.energy <= 3 : breed.energy >= 4));
       const groupMatch = selectedGroup === "all" || breed.fciGroup === Number(selectedGroup);
       const originMatch = selectedOrigin === "all" || breed.origin === selectedOrigin;
       return queryMatch && energyMatch && groupMatch && originMatch;
@@ -44,11 +49,20 @@ export function BreedBrowser({ breeds, groups }: { breeds: ManagedBreedIndexItem
 
   return (
     <div>
-      <div className="fci-filter-panel">
-        <div className="fci-filter-intro">
-          <span className="eyebrow">Medzinárodné členenie</span>
-          <strong>Vyber si jednu z 10 skupín FCI</strong>
+      <div className="browser-toolbar breed-search-wrap">
+        <label className="inline-search breed-search-primary">
+          <SearchIcon size={22} />
+          <span className="sr-only">Hľadať plemeno podľa názvu, pôvodu alebo FCI skupiny</span>
+          <input value={query} onChange={(event) => {setQuery(event.target.value);setShown(60);}} placeholder="Hľadať plemeno, krajinu alebo FCI skupinu" />
+        </label>
+        <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><select value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</select></label>
+        <div className="filter-row" role="group" aria-label="Filtrovať podľa redakčne potvrdenej energie">
+          <button type="button" className={energy === "all" ? "is-active" : ""} aria-pressed={energy === "all"} onClick={() => {setEnergy("all");setShown(60);}}>Všetky</button>
+          <button type="button" className={energy === "calm" ? "is-active" : ""} aria-pressed={energy === "calm"} onClick={() => {setEnergy("calm");setShown(60);}}>Pokojnejšie</button>
+          <button type="button" className={energy === "active" ? "is-active" : ""} aria-pressed={energy === "active"} onClick={() => {setEnergy("active");setShown(60);}}>Aktívne</button>
         </div>
+      </div>
+      <div className="fci-filter-panel" aria-label="FCI skupiny">
         <div className="fci-filter-row" role="group" aria-label="Filtrovať podľa skupiny FCI">
           <button type="button" className={selectedGroup === "all" ? "is-active" : ""} aria-pressed={selectedGroup === "all"} onClick={() => {setSelectedGroup("all");setShown(60);}}>Všetky</button>
           {groups.map((group) => (
@@ -61,22 +75,9 @@ export function BreedBrowser({ breeds, groups }: { breeds: ManagedBreedIndexItem
               aria-label={`FCI skupina ${group.number}: ${group.label}`}
               title={group.label}
             >
-              FCI {group.number}
+              <strong>{group.number}</strong> {shortGroupLabels[group.number]}
             </button>
           ))}
-        </div>
-      </div>
-      <div className="browser-toolbar breed-search-wrap">
-        <label className="inline-search">
-          <SearchIcon size={19} />
-          <span className="sr-only">Hľadať plemeno</span>
-          <input value={query} onChange={(event) => {setQuery(event.target.value);setShown(60);}} placeholder="Hľadať plemeno" />
-        </label>
-        <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><select value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</select></label>
-        <div className="filter-row" role="group" aria-label="Filtrovať podľa energie">
-          <button type="button" className={energy === "all" ? "is-active" : ""} aria-pressed={energy === "all"} onClick={() => {setEnergy("all");setShown(60);}}>Všetky</button>
-          <button type="button" className={energy === "calm" ? "is-active" : ""} aria-pressed={energy === "calm"} onClick={() => {setEnergy("calm");setShown(60);}}>Pokojnejšie</button>
-          <button type="button" className={energy === "active" ? "is-active" : ""} aria-pressed={energy === "active"} onClick={() => {setEnergy("active");setShown(60);}}>Aktívne</button>
         </div>
       </div>
       <p className="result-count" aria-live="polite">{breedCountLabel(visible.length)}</p>
