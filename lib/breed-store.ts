@@ -10,7 +10,7 @@ export type ManagedBreed = Breed & {
   workingTrial: string; importKey: string | null; fciStandard: FciStandard; searchText: string; editorialComplete: boolean;
 };
 export type ManagedBreedSummary = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "origin" | "group" | "accent" | "fciNumber" | "officialFciName">;
-export type ManagedBreedIndexItem = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "origin" | "group" | "accent" | "height" | "weight" | "intro" | "energy" | "trainability" | "family" | "officialFciName" | "searchText" | "editorialComplete" | "seo" | "updatedAt">;
+export type ManagedBreedIndexItem = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" | "origin" | "group" | "accent" | "height" | "weight" | "intro" | "energy" | "trainability" | "family" | "officialFciName" | "searchText" | "editorialComplete" | "seo" | "updatedAt">;
 export type BreedComparisonItem = Pick<ManagedBreed,"slug"|"name"|"image"|"fciGroup"|"fciSection"|"origin"|"accent"|"size"|"weight"|"lifespan"|"coat"|"energy"|"trainability"|"family"|"intro"|"goodFor"|"consider">;
 export type ManagedBreedInput = Partial<Breed> & Partial<Pick<ManagedBreed, "fciNumber" | "fciSectionNumber" | "officialFciName" | "validStandardDate" | "workingTrial" | "importKey" | "fciStandard" | "editorialComplete">> & { status?: string; imageKey?: string | null };
 type Row = {
@@ -24,7 +24,7 @@ type Row = {
   seo_json:string;
 };
 type SummaryRow = { id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;origin:string;group_name:string;official_fci_name:string;accent:string };
-type IndexRow = SummaryRow & { fci_section:string;height:string;weight:string;intro:string;energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;seo_json:string;updated_at:string };
+type IndexRow = SummaryRow & { fci_section:string;fci_section_number:string;height:string;weight:string;intro:string;energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;seo_json:string;updated_at:string };
 type ComparisonRow = {slug:string;name:string;image_url:string;fci_group:number;fci_section:string;origin:string;accent:string;size:string;weight:string;lifespan:string;coat:string;energy:number;trainability:number;family:number;intro:string;good_for_json:string;consider_json:string};
 type RuntimeBindings = { DB?: D1Database };
 
@@ -64,7 +64,7 @@ function fromSummaryRow(row:SummaryRow):ManagedBreedSummary { return {
 }; }
 
 function fromIndexRow(row:IndexRow):ManagedBreedIndexItem { return {
-  ...fromSummaryRow(row),fciSection:row.fci_section,height:row.height,weight:row.weight,intro:row.intro,energy:row.energy,trainability:row.trainability,family:row.family,
+  ...fromSummaryRow(row),fciSection:row.fci_section,fciSectionNumber:row.fci_section_number,height:row.height,weight:row.weight,intro:row.intro,energy:row.energy,trainability:row.trainability,family:row.family,
   searchText:row.search_text,editorialComplete:row.editorial_complete===1,seo:parseSeo(row.seo_json),updatedAt:row.updated_at,
 }; }
 
@@ -73,7 +73,7 @@ valid_standard_date,working_trial,import_key,fci_standard_json,search_text,edito
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
 export async function listManagedBreedSummaries(limit=500){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(500,Math.trunc(limit)));const result=await database.prepare("SELECT id,slug,name,status,image_url,fci_number,fci_group,origin,group_name,official_fci_name,accent FROM managed_breeds ORDER BY fci_group,name LIMIT ?").bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
-export async function listPublishedBreedIndex(){const database=db();if(!database)return seedBreeds.map((breed,index)=>({id:-(index+1),status:"published" as const,officialFciName:"",searchText:normalizeBreedSearchText(`${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`),editorialComplete:true,seo:breed.seo??{},updatedAt:"2026-08-17",...breed}));const result=await database.prepare("SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE status='published' ORDER BY fci_group,name").all<IndexRow>();return result.results.map(fromIndexRow);}
+export async function listPublishedBreedIndex(){const database=db();if(!database)return seedBreeds.map((breed,index)=>({id:-(index+1),status:"published" as const,officialFciName:"",fciSectionNumber:"",searchText:normalizeBreedSearchText(`${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`),editorialComplete:true,seo:breed.seo??{},updatedAt:"2026-08-17",...breed}));const result=await database.prepare("SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE status='published' ORDER BY fci_group,name").all<IndexRow>();return result.results.map(fromIndexRow);}
 export async function listPublishedBreedsForComparison():Promise<BreedComparisonItem[]>{const database=db();if(!database)return seedBreeds;const result=await database.prepare("SELECT slug,name,image_url,fci_group,fci_section,origin,accent,size,weight,lifespan,coat,energy,trainability,family,intro,good_for_json,consider_json FROM managed_breeds WHERE status='published' AND editorial_complete=1 ORDER BY fci_group,name").all<ComparisonRow>();return result.results.map((row)=>({slug:row.slug,name:row.name,image:row.image_url,fciGroup:row.fci_group,fciSection:row.fci_section,origin:row.origin,accent:row.accent as Breed['accent'],size:row.size,weight:row.weight,lifespan:row.lifespan,coat:row.coat,energy:row.energy,trainability:row.trainability,family:row.family,intro:row.intro,goodFor:stringArray(row.good_for_json),consider:stringArray(row.consider_json)}));}
 export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name`).all<Row>();return result.results.map(fromRow);}
 export async function listFeaturedBreeds(limit=3){const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));const database=db();if(!database)return seedBreeds.slice(0,safeLimit);const result=await database.prepare(`${select} WHERE status='published' ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<Row>();return result.results.map(fromRow);}

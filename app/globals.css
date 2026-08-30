@@ -10184,6 +10184,46 @@ h3 {
   background: var(--gold);
 }
 
+.fci-section-filter {
+  display: grid;
+  width: min(100%, 620px);
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.fci-section-filter > span {
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.fci-section-filter select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 40px 10px 13px;
+  border: 1px solid rgba(23, 53, 43, 0.16);
+  border-radius: 13px;
+  color: var(--forest);
+  background-color: rgba(255, 255, 255, 0.78);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.fci-section-filter select:disabled {
+  color: rgba(23, 53, 43, 0.5);
+  background-color: rgba(236, 237, 229, 0.7);
+  cursor: not-allowed;
+}
+
+.fci-section-filter select:focus-visible {
+  outline: 3px solid rgba(185, 142, 39, 0.35);
+  outline-offset: 2px;
+}
+
 .fci-group-list {
   gap: 54px;
 }
@@ -10362,7 +10402,7 @@ h3 {
 
 .breed-detail-card h1 {
   max-width: 820px;
-  margin: 10px 0 12px;
+  margin: 0;
   font-size: clamp(3.1rem, 6vw, 5.9rem);
   line-height: 0.96;
   overflow-wrap: anywhere;
@@ -10382,6 +10422,62 @@ h3 {
   background: rgba(255,255,255,.7);
   font-size: 0.68rem;
   font-weight: 850;
+}
+
+.breed-fci-path {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.breed-fci-path-node {
+  display: grid;
+  min-width: 0;
+  max-width: 260px;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid rgba(23, 53, 43, 0.12);
+  border-radius: 13px;
+  color: var(--forest);
+  background: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+}
+
+a.breed-fci-path-node:hover,
+a.breed-fci-path-node:focus-visible {
+  border-color: var(--forest);
+  background: white;
+}
+
+.breed-fci-path-node small,
+.breed-fci-standard-path small {
+  color: var(--muted);
+  font-size: 0.59rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.breed-fci-path-node strong,
+.breed-fci-standard-path strong {
+  overflow-wrap: anywhere;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.breed-fci-path-arrow {
+  flex: none;
+  color: rgba(23, 53, 43, 0.42);
+  font-weight: 850;
+}
+
+.breed-fci-path-node--breed {
+  max-width: 530px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .breed-detail-card .breed-official-name {
@@ -10495,6 +10591,40 @@ h3 {
 .breed-fci-intro {
   max-width: 700px;
   margin-top: -5px;
+}
+
+.breed-fci-standard-path {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  gap: 9px;
+  margin-top: 24px;
+}
+
+.breed-fci-standard-path > a,
+.breed-fci-standard-path > div {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 0;
+  gap: 4px;
+  padding: 13px 14px;
+  border: 1px solid rgba(23, 53, 43, 0.11);
+  border-radius: 12px;
+  color: var(--forest);
+  background: rgba(255, 255, 255, 0.56);
+  text-decoration: none;
+}
+
+.breed-fci-standard-path > a:hover,
+.breed-fci-standard-path > a:focus-visible {
+  border-color: var(--forest);
+  background: white;
+}
+
+.breed-fci-standard-path > span {
+  align-self: center;
+  color: rgba(23, 53, 43, 0.42);
+  font-weight: 850;
 }
 
 .breed-fci-basics {
@@ -10706,6 +10836,14 @@ h3 {
     grid-column: 2;
   }
 
+  .fci-section-filter {
+    width: 100%;
+  }
+
+  .fci-section-filter select {
+    font-size: 0.78rem;
+  }
+
   .breed-card h3 {
     min-height: 0;
   }
@@ -10721,6 +10859,24 @@ h3 {
 
   .breed-detail-card h1 {
     font-size: clamp(2.65rem, 13vw, 3.8rem);
+  }
+
+  .breed-fci-path,
+  .breed-fci-standard-path {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .breed-fci-path-node {
+    width: 100%;
+    max-width: none;
+  }
+
+  .breed-fci-path-arrow,
+  .breed-fci-standard-path > span {
+    align-self: center;
+    line-height: 1;
+    transform: rotate(90deg);
   }
 
   .breed-hero-facts > div {
