@@ -13441,3 +13441,203 @@ a.breed-fci-path-node:focus-visible {
     border-radius: 12px;
   }
 }
+
+/* Breed detail editorial flow and responsive FCI placement. */
+@media (min-width: 761px) {
+  .breed-copy {
+    display: block;
+    columns: 2;
+    column-gap: clamp(38px, 5vw, 68px);
+    column-rule: 1px solid rgba(23, 53, 43, .1);
+  }
+
+  .breed-copy > section,
+  .breed-copy > section + section,
+  .breed-copy > section:nth-child(2n) {
+    display: inline-block;
+    width: 100%;
+    break-inside: avoid;
+    margin: 0;
+    padding: 22px 0 24px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(23, 53, 43, .11);
+    border-left: 0;
+  }
+
+  .breed-copy > .breed-practical-fit {
+    display: block;
+    column-span: all;
+    padding-block: 26px 28px;
+  }
+}
+
+.breed-practical-fit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 13px;
+}
+
+.breed-practical-fit-grid > div {
+  position: relative;
+  min-width: 0;
+  padding: 16px 18px 17px;
+  overflow: hidden;
+  border: 1px solid rgba(23, 53, 43, .1);
+  border-radius: 13px;
+  background: rgba(255, 253, 248, .9);
+}
+
+.breed-practical-fit-grid > div::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  content: "";
+  background: #3f7c59;
+}
+
+.breed-practical-fit-grid > .is-positive {
+  background: linear-gradient(120deg, rgba(231, 241, 229, .9), rgba(255, 253, 248, .94));
+}
+
+.breed-practical-fit-grid > .is-caution {
+  background: linear-gradient(120deg, rgba(249, 238, 225, .86), rgba(255, 253, 248, .94));
+}
+
+.breed-practical-fit-grid > .is-caution::before {
+  background: #b66a42;
+}
+
+.breed-practical-fit .breed-practical-fit-grid h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.breed-practical-fit-grid ul {
+  margin-top: 9px;
+}
+
+#fci-standard,
+#suvisiaci-obsah {
+  scroll-margin-top: 92px;
+}
+
+@media (max-width: 760px) {
+  .breed-copy {
+    display: block;
+    columns: auto;
+  }
+
+  .breed-practical-fit-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .breed-fci-standard,
+  .breed-fci-reading-column,
+  .breed-fci-header,
+  .breed-fci-standard-path,
+  .breed-fci-basics,
+  .breed-fci-disclosure,
+  .breed-fci-disclosure > div,
+  .breed-fci-anchor-nav,
+  .breed-fci-open-content,
+  .breed-fci-open-section,
+  .breed-fci-open-item,
+  .breed-fci-sources {
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .breed-fci-standard {
+    overflow: hidden;
+    padding: 22px 18px;
+  }
+
+  .breed-fci-standard-path {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .breed-fci-standard-path > span {
+    display: none;
+  }
+
+  .breed-fci-standard-path > a,
+  .breed-fci-standard-path > div {
+    display: block;
+    min-width: 0;
+    padding: 10px 0;
+  }
+
+  .breed-fci-standard-path small,
+  .breed-fci-standard-path strong {
+    display: block;
+    min-width: 0;
+  }
+
+  .breed-fci-basics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .breed-fci-basics > div,
+  .breed-fci-basics > div:nth-child(2n),
+  .breed-fci-basics > div:last-child {
+    display: block;
+    min-width: 0;
+    padding: 11px 0;
+    border-right: 0;
+    border-bottom: 1px solid rgba(23, 53, 43, .09);
+  }
+
+  .breed-fci-basics > div:last-child {
+    border-bottom: 0;
+  }
+
+  .breed-fci-basics dt,
+  .breed-fci-basics dd {
+    display: block;
+    width: auto;
+    min-width: 0;
+  }
+
+  .breed-fci-anchor-nav > div {
+    flex-wrap: wrap;
+    margin-inline: 0;
+    padding-inline: 0;
+    overflow: visible;
+  }
+
+  .breed-fci-anchor-nav a {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .breed-fci-dimensions {
+    width: 100%;
+    max-width: 100%;
+    table-layout: fixed;
+  }
+
+  .breed-fci-dimensions th,
+  .breed-fci-dimensions td,
+  .breed-fci-standard a,
+  .breed-fci-standard small,
+  .breed-fci-standard strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  #fci-standard,
+  #suvisiaci-obsah {
+    scroll-margin-top: 126px;
+  }
+}
