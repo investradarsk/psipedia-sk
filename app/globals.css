@@ -20,6 +20,142 @@
   --shadow-lg: 0 24px 70px rgba(23, 53, 43, 0.16);
 }
 
+/* Zdravie a starostlivosť — poradenský rozcestník */
+.care-search {
+  display: grid;
+  max-width: 860px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 32px 0 0 132px;
+  padding: 10px 10px 10px 18px;
+  border: 1px solid rgba(23, 75, 56, .15);
+  border-radius: 18px;
+  background: rgba(255,255,255,.82);
+  box-shadow: 0 12px 34px rgba(23, 53, 43, .08);
+}
+.care-search svg { color: var(--forest); }
+.care-search input { min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font: inherit; }
+.care-search button { min-height: 46px; padding: 0 20px; border: 0; border-radius: 12px; color: white; background: var(--forest); font-weight: 800; cursor: pointer; }
+.care-urgent { position: relative; z-index: 2; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 22px; align-items: center; margin-top: -29px; padding: 24px 28px; border: 1px solid rgba(178, 75, 54, .22); border-radius: 22px; background: #fffaf6; box-shadow: 0 14px 38px rgba(80, 42, 29, .09); }
+.care-urgent-icon { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 50%; color: white; background: var(--coral-dark); font-family: Georgia, serif; font-size: 1.8rem; }
+.care-urgent .eyebrow { margin: 0 0 3px; color: var(--coral-dark); }
+.care-urgent h2 { margin: 0 0 4px; font-size: clamp(1.45rem, 2.4vw, 2rem); }
+.care-urgent p { max-width: 700px; margin: 0; color: var(--muted); font-size: .85rem; }
+.care-urgent-actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+.care-urgent-actions a { display: inline-flex; min-height: 44px; align-items: center; padding: 0 15px; border: 1px solid rgba(23,75,56,.22); border-radius: 11px; color: var(--forest); background: white; font-size: .78rem; font-weight: 800; }
+.care-urgent-actions a.is-primary { border-color: var(--coral-dark); color: white; background: var(--coral-dark); }
+.portal-subpage-card.care-area-card { min-height: 205px; padding: 25px; border-radius: 22px; }
+.portal-subpage-card.care-area-card > span { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid rgba(23,75,56,.12); border-radius: 14px; background: var(--sage-light); font-size: 1.45rem; }
+.care-area-card h3 { font-size: 1.55rem; }
+.care-area-card b { display: block; margin-top: 14px; color: var(--forest); font-size: .72rem; }
+.care-area-topics { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 13px; }
+.care-area-topics small { padding: 5px 8px; border-radius: 999px; color: #53665d; background: #f1f5ef; font-size: .65rem; }
+.care-article-filters { display: flex; gap: 8px; flex-wrap: wrap; margin: -8px 0 24px; }
+.care-article-filters a { padding: 8px 12px; border: 1px solid rgba(23,75,56,.12); border-radius: 999px; color: var(--forest); background: rgba(255,255,255,.7); font-size: .74rem; font-weight: 750; }
+.care-articles-layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 20px; }
+.care-article-featured .article-card { height: 100%; }
+.care-article-featured .article-card-media { min-height: 300px; }
+.care-article-featured .article-card h3 { font-size: clamp(1.65rem, 2.5vw, 2.25rem); }
+.care-article-stack { display: grid; gap: 12px; }
+.care-article-stack .article-card { grid-template-columns: 150px minmax(0, 1fr); grid-template-rows: 1fr; }
+.care-article-stack .article-card-media { height: 100%; aspect-ratio: auto; }
+.care-article-stack .article-card-body { padding: 15px; }
+.care-article-stack .article-card h3 { margin: 8px 0; font-size: 1.1rem; }
+.care-article-stack .article-card-body > p { display: none; }
+.care-article-stack .article-card-meta > span,
+.care-article-stack .favorite-button { display: none; }
+.portal-more-heading > p { max-width: 620px; margin: 8px 0 0; color: var(--muted); }
+.portal-more-grid.care-service-grid a { min-height: 118px; align-items: start; padding: 20px; }
+.care-service-grid a > span:first-child { font-size: 1.5rem; }
+.care-service-grid a > span:nth-child(2) { display: grid; gap: 6px; }
+.care-service-grid small { color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.45; }
+.care-medical-note { margin: 24px 0 0; padding: 16px 18px; border-left: 3px solid var(--gold); color: var(--muted); background: #f9f5e8; font-size: .78rem; }
+
+/* Poradenská podstránka */
+.portal-topic-title { display: flex; gap: 18px; align-items: center; margin-top: 10px; }
+.portal-topic-title > span { display: grid; width: 68px; height: 68px; flex: none; place-items: center; border: 1px solid rgba(255,255,255,.7); border-radius: 20px; background: rgba(255,255,255,.55); font-size: 2rem; }
+.portal-topic-title h1 { margin: 0; }
+.care-topic-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 25px; }
+.care-topic-chips a { padding: 8px 12px; border: 1px solid rgba(23,75,56,.15); border-radius: 999px; color: var(--forest); background: var(--sage-light); font-size: .76rem; font-weight: 750; }
+.care-question-aside ul { display: grid; gap: 0; margin: 8px 0 22px; padding: 0; list-style: none; }
+.care-question-aside li { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.82); font-size: .82rem; line-height: 1.5; }
+.care-guidance-section { padding-block: 72px; }
+.care-guidance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.care-guidance-card { position: relative; padding: 28px; border: 1px solid rgba(23,75,56,.12); border-radius: 22px; background: white; }
+.care-guidance-card > span { display: grid; width: 38px; height: 38px; place-items: center; margin-bottom: 17px; border-radius: 50%; color: white; background: var(--forest); font-weight: 900; }
+.care-guidance-card.is-warning { border-color: rgba(190,79,57,.18); background: #fffaf7; }
+.care-guidance-card.is-warning > span { background: var(--coral-dark); }
+.care-guidance-card h3 { margin: 0 0 15px; font-family: Georgia, serif; font-size: 1.45rem; font-weight: 500; }
+.care-guidance-card ul { display: grid; gap: 10px; margin: 0; padding-left: 19px; color: var(--muted); font-size: .86rem; line-height: 1.6; }
+.care-expert-callout { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 16px; align-items: start; margin-top: 18px; padding: 22px 24px; border-radius: 18px; color: white; background: var(--forest); }
+.care-expert-callout > span { font-size: 1.55rem; }
+.care-expert-callout strong { font-family: Georgia, serif; font-size: 1.25rem; font-weight: 500; }
+.care-expert-callout p { margin: 6px 0 0; color: rgba(255,255,255,.76); font-size: .85rem; }
+.care-topic-services { display: grid; grid-template-columns: minmax(0,1fr) repeat(2, auto); gap: 12px; align-items: center; margin-top: 30px; padding-top: 28px; border-top: 1px solid var(--line); }
+.care-topic-services h3 { margin: 3px 0 0; font-size: 1.45rem; }
+.care-topic-services a { display: inline-flex; gap: 8px; min-height: 46px; align-items: center; justify-content: center; padding: 0 15px; border: 1px solid rgba(23,75,56,.18); border-radius: 12px; color: var(--forest); background: white; font-size: .78rem; font-weight: 800; }
+
+/* Rozšírený editor podsekcií */
+.admin-subsection-list .admin-subsection-row { display: grid; grid-template-columns: 1fr; gap: 13px; align-items: stretch; padding: 16px; }
+.admin-subsection-row-header { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding-bottom: 11px; border-bottom: 1px solid #e4eae5; }
+.admin-subsection-row-header > div { display: flex; gap: 9px; align-items: center; }
+.admin-subsection-row-header > div:first-child > span { font-size: 1.25rem; }
+.admin-subsection-row-header small { padding: 4px 7px; border-radius: 999px; color: #66746c; background: #eef3ef; font-size: .65rem; }
+.admin-subsection-row-header button { min-width: 36px; min-height: 34px; border: 1px solid #cad5cd; border-radius: 8px; color: #52635a; background: white; cursor: pointer; }
+.admin-subsection-row-header button.is-visible { color: #174b38; background: #e8f3ec; }
+.admin-subsection-basic { display: grid; grid-template-columns: 90px minmax(160px,.8fr) minmax(160px,.8fr); gap: 10px; }
+.admin-subsection-media { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.admin-care-area-fields { padding: 14px; border: 1px solid #dce5de; border-radius: 12px; background: #f8faf7; }
+.admin-care-area-fields summary { color: #174b38; font-weight: 800; cursor: pointer; }
+.admin-care-area-fields > p { color: #66746c; font-size: .72rem; }
+.admin-care-area-fields .admin-field-grid { margin-top: 14px; }
+.admin-subsection-row > .admin-subsection-remove { width: fit-content; justify-self: end; color: #a64c39; background: #fff5f2; }
+
+@media (max-width: 900px) {
+  .care-search { margin-left: 0; }
+  .care-urgent { grid-template-columns: auto minmax(0, 1fr); }
+  .care-urgent-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .care-articles-layout { grid-template-columns: 1fr; }
+  .care-article-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .care-article-stack .article-card { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .care-article-stack .article-card-media { aspect-ratio: 16 / 9; }
+  .care-topic-services { grid-template-columns: 1fr 1fr; }
+  .care-topic-services > div { grid-column: 1 / -1; }
+}
+
+@media (max-width: 620px) {
+  .care-search { grid-template-columns: auto minmax(0,1fr); padding: 12px 14px; }
+  .care-search button { grid-column: 1 / -1; width: 100%; }
+  .care-urgent { grid-template-columns: 1fr; margin-top: -18px; padding: 20px; }
+  .care-urgent-actions { grid-column: auto; }
+  .care-urgent-actions a { width: 100%; justify-content: center; }
+  .portal-subpage-card.care-area-card { min-height: 0; grid-template-columns: auto minmax(0,1fr); padding: 20px; }
+  .portal-subpage-card.care-area-card > svg { display: block; grid-column: 2; }
+  .care-articles-layout,
+  .care-article-stack,
+  .care-guidance-grid { grid-template-columns: 1fr; }
+  .care-article-featured .article-card-media { min-height: 0; }
+  .care-article-stack .article-card { grid-template-columns: 116px minmax(0,1fr); grid-template-rows: 1fr; }
+  .care-article-stack .article-card-media { height: 100%; aspect-ratio: auto; }
+  .care-article-stack .article-card-meta .eyebrow { font-size: .56rem; }
+  .care-article-stack .article-card-footer { display: none; }
+  .portal-topic-title { align-items: flex-start; }
+  .portal-topic-title > span { width: 52px; height: 52px; border-radius: 15px; font-size: 1.5rem; }
+  .portal-topic-title h1 { font-size: clamp(2.35rem, 12vw, 3.5rem); }
+  .care-guidance-section { padding-block: 54px; }
+  .care-guidance-card { padding: 22px; }
+  .care-topic-services { grid-template-columns: 1fr; }
+  .care-topic-services > div { grid-column: auto; }
+  .care-topic-services a { width: 100%; justify-content: space-between; }
+  .portal-more-grid.care-service-grid a { min-height: 96px; }
+  .admin-subsection-basic,
+  .admin-subsection-media,
+  .admin-care-area-fields .admin-field-grid { grid-template-columns: 1fr; }
+  .admin-subsection-row-header { align-items: flex-start; flex-direction: column; }
+  .admin-subsection-row-header > div { flex-wrap: wrap; }
+}
+
 /* Breed encyclopedia architecture */
 .breed-at-a-glance,
 .breed-fit-guide,
@@ -293,7 +429,7 @@
 .admin-navigation-fields input, .admin-navigation-fields select { min-width: 0; height: 42px; padding: 0 .7rem; border: 1px solid #ced9d2; border-radius: 10px; background: #fff; color: var(--ink); font: inherit; }
 .admin-navigation-fields input:focus, .admin-navigation-fields select:focus { outline: 3px solid rgba(52,122,91,.14); border-color: #347a5b; }
 .admin-navigation-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; max-width: 290px; }
-.admin-navigation-actions button, .admin-navigation-reset { min-height: 36px; padding: .45rem .65rem; border: 1px solid #d4ddd8; border-radius: 9px; background: #fff; color: #405148; font-weight: 730; cursor: pointer; }
+.admin-navigation-actions button, .admin-navigation-actions a, .admin-navigation-reset { display: inline-flex; min-height: 36px; align-items: center; padding: .45rem .65rem; border: 1px solid #d4ddd8; border-radius: 9px; background: #fff; color: #405148; font-weight: 730; cursor: pointer; }
 .admin-navigation-actions button:hover { border-color: #8ca397; }
 .admin-navigation-actions button:disabled { opacity: .35; cursor: not-allowed; }
 .admin-navigation-actions button.is-visible { color: #236747; background: #e8f6ee; border-color: #b9ddc8; }

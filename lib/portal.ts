@@ -20,9 +20,20 @@ export type PortalSubpage = {
   label: string;
   description: string;
   intro?: string;
+  icon?: string;
   imageUrl?: string;
   imageAlt?: string;
   href?: string;
+  visible?: boolean;
+  popularTopics?: string[];
+  commonQuestions?: string[];
+  homeSteps?: string[];
+  warningSigns?: string[];
+  expertAdvice?: string;
+  serviceLinks?: { label: string; href: string }[];
+  featuredArticleSlugs?: string[];
+  seoTitle?: string;
+  metaDescription?: string;
 };
 
 export type PortalSection = {
@@ -99,7 +110,7 @@ export const portalSections: PortalSection[] = [
   },
   {
     slug: "starostlivost",
-    label: "Starostlivosť",
+    label: "Zdravie a starostlivosť",
     icon: "🩺",
     accent: "blue",
     eyebrow: "Každodenná poradňa",
@@ -107,12 +118,69 @@ export const portalSections: PortalSection[] = [
     intro: "Vyber si oblasť a nájdi zrozumiteľný postup, varovné signály aj hranicu, kedy už patrí problém odborníkovi.",
     articleEnabled: true,
     subpages: [
-      { slug: "zdravie", label: "Zdravie", description: "Prevencia, príznaky, prvá pomoc a návšteva veterinára." },
-      { slug: "vyziva", label: "Výživa", description: "Krmivá, dávky, kondícia a rozhodovanie bez marketingových mýtov." },
-      { slug: "vycvik", label: "Výcvik", description: "Praktické postupy postavené na dôvere a zrozumiteľných pravidlách." },
-      { slug: "spravanie", label: "Správanie", description: "Strach, samota, štekanie, reaktivita a emócie psa." },
-      { slug: "srst-a-hygiena", label: "Srsť a hygiena", description: "Česanie, kúpanie, pazúry, zuby a uši." },
-      { slug: "senior", label: "Psí senior", description: "Pohyb, pohodlie, výživa a zmeny v staršom veku." },
+      {
+        slug: "zdravie", label: "Zdravie", icon: "🩺", description: "Prevencia, príznaky, prvá pomoc a návšteva veterinára.",
+        intro: "Zorientuj sa v príznakoch, priprav sa na telefonát veterinárovi a rozpoznaj situácie, pri ktorých sa neoplatí čakať.",
+        popularTopics: ["Kedy ísť k veterinárovi", "Hnačka a vracanie", "Kliešte a parazity", "Prvá pomoc"],
+        commonQuestions: ["Ktoré príznaky vyžadujú okamžité vyšetrenie?", "Čo si pripraviť pred telefonátom veterinárovi?", "Čo možno krátko sledovať doma?"],
+        homeSteps: ["Sleduj dýchanie, vedomie, príjem vody a rýchlosť zhoršovania.", "Zapíš čas vzniku príznakov a urob fotografiu alebo krátke video.", "Priprav hmotnosť psa, lieky a informácie o poslednom jedle a stolici."],
+        warningSigns: ["sťažené dýchanie, kolaps alebo opakované kŕče", "nafúknuté tvrdé brucho a neúspešné pokusy zvracať", "silné krvácanie, úraz alebo podozrenie na otravu"],
+        expertAdvice: "Pri rýchlom zhoršovaní, bolesti alebo neistote zavolaj veterinárovi. Ľudské lieky psovi nepodávaj bez jeho pokynu.",
+        serviceLinks: [{ label: "Nájsť veterinára", href: "/adresar/veterinari" }, { label: "Psia fyzioterapia", href: "/adresar/fyzioterapia" }],
+        featuredArticleSlugs: ["kedy-ist-so-psom-k-veterinarovi", "horuce-dni-so-psom-bezpecne"],
+      },
+      {
+        slug: "vyziva", label: "Výživa", icon: "🥣", description: "Krmivá, dávky, kondícia a rozhodovanie bez marketingových mýtov.",
+        intro: "Vyberaj krmivo podľa potrieb konkrétneho psa, jeho kondície a tolerancie — nie iba podľa reklamy na obale.",
+        popularTopics: ["Výber granúl", "Denná dávka", "Zmena krmiva", "Zdravá kondícia"],
+        commonQuestions: ["Ako spoznám kompletné krmivo?", "Koľko má pes denne zjesť?", "Ako bezpečne prejsť na nové krmivo?"],
+        homeSteps: ["Sleduj hmotnosť, rebrá, pás, stolicu, kožu a srsť.", "Nové krmivo zavádzaj postupne počas niekoľkých dní.", "Maškrty započítaj do celkového denného príjmu."],
+        warningSigns: ["opakované vracanie alebo dlhotrvajúca hnačka", "chudnutie, odmietanie potravy alebo výrazná apatia", "opuch, dýchacie ťažkosti alebo podozrenie na alergickú reakciu"],
+        expertAdvice: "Pri dlhodobých ťažkostiach, ochorení alebo eliminačnej diéte nastav stravu s veterinárom alebo veterinárnym nutričným odborníkom.",
+        serviceLinks: [{ label: "Nájsť veterinára", href: "/adresar/veterinari" }, { label: "Výživové poradenstvo", href: "/adresar/dalsie-sluzby" }],
+        featuredArticleSlugs: ["ako-vybrat-granule-bez-marketingovych-mytov"],
+      },
+      {
+        slug: "vycvik", label: "Každodenná výchova", icon: "🦮", description: "Praktické návyky postavené na dôvere a zrozumiteľných pravidlách.",
+        intro: "Krátke, zrozumiteľné tréningy pomáhajú psovi uspieť doma, na vodítku aj v bežnom ruchu.",
+        popularTopics: ["Chôdza na vodítku", "Privolanie", "Pokoj doma", "Základné návyky"],
+        commonQuestions: ["Ako začať bez zbytočného tlaku?", "Prečo pes poslúcha doma, ale nie vonku?", "Ako často a ako dlho trénovať?"],
+        homeSteps: ["Začni v pokojnom prostredí a odmeň správne správanie.", "Zvyšuj vždy iba jednu náročnosť: čas, vzdialenosť alebo rušenie.", "Konči krátky tréning skôr, než pes stratí sústredenie."],
+        warningSigns: ["tréning vyvoláva strach, zamŕzanie alebo únik", "pes presmeruje frustráciu na človeka alebo iného psa", "správanie sa náhle zmenilo bez zjavnej príčiny"],
+        expertAdvice: "Ak sa problém zhoršuje alebo je spojený so strachom či agresiou, vyhľadaj trénera pracujúceho bez nátlaku a podľa potreby veterinára.",
+        serviceLinks: [{ label: "Psí tréneri a školy", href: "/adresar/treneri" }, { label: "Kynologické kluby", href: "/adresar/kynologicke-kluby" }],
+        featuredArticleSlugs: ["chodza-pri-nohe-bez-tahania"],
+      },
+      {
+        slug: "spravanie", label: "Správanie", icon: "🐕", description: "Strach, samota, štekanie, reaktivita a emócie psa.",
+        intro: "Správanie je informácia. Hľadaj jeho príčinu, spúšťače a bezpečný postup namiesto trestu za samotný prejav.",
+        popularTopics: ["Samota", "Strach", "Štekanie", "Reaktivita"],
+        commonQuestions: ["Čo správanie spúšťa?", "Ako znížiť stres bez trestania?", "Kedy už potrebujem odbornú pomoc?"],
+        homeSteps: ["Zapíš miesto, čas, spúšťač a intenzitu správania.", "Zväčši vzdialenosť od spúšťača a predchádzaj opakovaniu konfliktu.", "Odmeň pokojné alternatívne správanie v zvládnuteľnej situácii."],
+        warningSigns: ["pes ohrozuje seba, človeka alebo iné zviera", "panika pri samote alebo sebapoškodzovanie", "náhla výrazná zmena správania, ktorá môže súvisieť s bolesťou"],
+        expertAdvice: "Pri agresii, panike alebo náhlej zmene najprv vylúč zdravotný problém a potom pracuj s kvalifikovaným odborníkom na správanie.",
+        serviceLinks: [{ label: "Psí tréneri a školy", href: "/adresar/treneri" }, { label: "Nájsť veterinára", href: "/adresar/veterinari" }],
+      },
+      {
+        slug: "srst-a-hygiena", label: "Srsť a hygiena", icon: "🧼", description: "Česanie, kúpanie, pazúry, zuby a uši.",
+        intro: "Pravidelná krátka starostlivosť udrží psa v pohodlí a pomôže zachytiť zmeny na koži, ušiach, zuboch či pazúroch včas.",
+        popularTopics: ["Česanie a kúpanie", "Zuby", "Uši", "Pazúry"],
+        commonQuestions: ["Ako často psa kúpať?", "Ako ho naučiť pokojnej manipulácii?", "Kedy už zmena kože patrí veterinárovi?"],
+        homeSteps: ["Kontroluj kožu, labky, uši, oči a chrup pri pokojnej manipulácii.", "Používaj pomôcky určené pre psa a postupuj po krátkych krokoch.", "Srsť upravuj podľa jej typu, nie podľa univerzálneho kalendára."],
+        warningSigns: ["bolesť, krvácanie, hnis alebo silný zápach", "intenzívne svrbenie, lysiny alebo mokvajúca koža", "opuch oka, náhle privieranie oka alebo cudzí predmet"],
+        expertAdvice: "Bolestivé, zapálené alebo rýchlo sa meniace nálezy nerieš iba kozmetikou. Najprv ich ukáž veterinárovi.",
+        serviceLinks: [{ label: "Psie salóny", href: "/adresar/salony-a-sluzby" }, { label: "Nájsť veterinára", href: "/adresar/veterinari" }],
+      },
+      {
+        slug: "senior", label: "Psí senior", icon: "🤍", description: "Pohyb, pohodlie, výživa a zmeny v staršom veku.",
+        intro: "Starnutie nemusí znamenať pasivitu. Primeraný pohyb, pohodlie a včas zachytené zmeny pomáhajú udržať kvalitu života.",
+        popularTopics: ["Pohyb a kĺby", "Zmeny správania", "Výživa seniora", "Pohodlie doma"],
+        commonQuestions: ["Ktoré zmeny patria k veku a ktoré k bolesti?", "Ako upraviť pohyb seniora?", "Ako často absolvovať preventívnu prehliadku?"],
+        homeSteps: ["Sleduj vstávanie, schody, spánok, chuť do jedla a orientáciu.", "Uprav povrch, pelech a prístup k vode tak, aby sa pes nešmýkal.", "Zachovaj pravidelný, mierny pohyb podľa aktuálnej kondície."],
+        warningSigns: ["náhly kolaps, slabosť alebo problémy s dýchaním", "výrazná bolesť, nemožnosť postaviť sa alebo náhle ochrnutie", "rýchle chudnutie, odmietanie potravy alebo zmätenosť"],
+        expertAdvice: "Nové zmeny nepripisuj automaticky veku. Bolesť, ochorenie aj kognitívne zmeny sa často dajú zmierniť po vyšetrení.",
+        serviceLinks: [{ label: "Nájsť veterinára", href: "/adresar/veterinari" }, { label: "Psia fyzioterapia", href: "/adresar/fyzioterapia" }],
+      },
     ],
   },
   {

@@ -44,7 +44,7 @@ function baseSearchItems(articles: Article[], sections: PortalSection[], breeds:
   return [
     ...sections.flatMap((section) => [
       { href: `/${section.slug}`, title: section.label, type: "Sekcia", description: section.description, keywords: `${section.eyebrow} ${section.intro}` },
-      ...section.subpages.map((subpage) => ({ href: portalSubpageHref(section, subpage), title: subpage.label, type: section.label, description: subpage.description, keywords: `${section.label} ${section.description}` })),
+      ...section.subpages.filter((subpage) => subpage.visible !== false).map((subpage) => ({ href: portalSubpageHref(section, subpage), title: subpage.label, type: section.label, description: subpage.description, keywords: `${section.label} ${section.description} ${(subpage.popularTopics ?? []).join(" ")} ${(subpage.commonQuestions ?? []).join(" ")}` })),
     ]),
     ...breeds.map((breed) => ({ href: `/plemena/${breed.slug}`, title: breed.name, type: "Plemeno", description: breed.intro || `${breed.officialFciName} · FCI skupina ${breed.fciGroup}`, keywords: `${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.origin} ${breed.searchText}` })),
     ...articles.map((article) => ({

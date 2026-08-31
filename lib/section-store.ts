@@ -42,14 +42,26 @@ async function ensure(db: D1Database) {
 }
 
 function parseSubpages(value: string, fallback: PortalSubpage[]) {
-  try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed as PortalSubpage[] : fallback; }
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return fallback;
+    return parsed.map((item) => {
+      const stored = item as PortalSubpage;
+      const defaults = fallback.find((candidate) => candidate.slug === stored.slug);
+      if (!defaults) return stored;
+      const merged = { ...defaults, ...stored };
+      if (stored.slug === "vycvik" && stored.label === "Výcvik") merged.label = defaults.label;
+      return merged;
+    });
+  }
   catch { return fallback; }
 }
 
 function merge(row: Row): ManagedPortalSection | null {
   const base = portalSections.find((section) => section.slug === row.slug);
   if (!base) return null;
-  return { ...base, label: row.label, eyebrow: row.eyebrow, description: row.description, intro: row.intro, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible) };
+  const label = row.slug === "starostlivost" && row.label === "Starostlivosť" ? base.label : row.label;
+  return { ...base, label, eyebrow: row.eyebrow, description: row.description, intro: row.intro, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible) };
 }
 
 export async function listManagedPortalSections() {
@@ -66,7 +78,7 @@ export async function getManagedPortalSection(slug: string) {
 export async function getManagedPortalSubpage(sectionSlug: string, subpageSlug: string) {
   const section = await getManagedPortalSection(sectionSlug);
   if (!section || !section.visible) return null;
-  const subpage = section.subpages.find((item) => item.slug === subpageSlug);
+  const subpage = section.subpages.find((item) => item.slug === subpageSlug && item.visible !== false);
   return subpage ? { section, subpage } : null;
 }
 
@@ -78,12 +90,34 @@ function cleanSubpages(value: unknown): PortalSubpage[] {
     const label = String(item.label ?? "").trim().slice(0, 100);
     const description = String(item.description ?? "").trim().slice(0, 400);
     const intro = item.intro ? String(item.intro).trim().slice(0, 3000) : undefined;
+    const icon = item.icon ? String(item.icon).trim().slice(0, 12) : undefined;
     const imageUrl = item.imageUrl ? String(item.imageUrl).trim().slice(0, 500) : undefined;
     const imageAlt = item.imageAlt ? String(item.imageAlt).trim().slice(0, 220) : undefined;
     const href = item.href ? String(item.href).trim().slice(0, 240) : undefined;
+    const cleanList = (list: unknown, max: number, length: number) => Array.isArray(list)
+      ? list.map((entry) => String(entry).trim().slice(0, length)).filter(Boolean).slice(0, max)
+      : [];
+    const serviceLinks = Array.isArray(item.serviceLinks) ? item.serviceLinks.map((entry) => {
+      const link = entry as { label?: unknown; href?: unknown };
+      return { label: String(link.label ?? "").trim().slice(0, 100), href: String(link.href ?? "").trim().slice(0, 240) };
+    }).filter((entry) => entry.label && (entry.href.startsWith("/") || /^https:\/\//i.test(entry.href))).slice(0, 6) : [];
+    const expertAdvice = item.expertAdvice ? String(item.expertAdvice).trim().slice(0, 1800) : undefined;
+    const seoTitle = item.seoTitle ? String(item.seoTitle).trim().slice(0, 80) : undefined;
+    const metaDescription = item.metaDescription ? String(item.metaDescription).trim().slice(0, 200) : undefined;
     if (!slug || !label) throw new Error("Každá podsekcia musí mať názov a adresu.");
     if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka oblasti nie je platná.");
-    return { slug, label, description, ...(intro ? { intro } : {}), ...(imageUrl ? { imageUrl } : {}), ...(imageAlt ? { imageAlt } : {}), ...(href ? { href } : {}) };
+    return {
+      slug, label, description, visible: item.visible !== false,
+      ...(icon ? { icon } : {}), ...(intro ? { intro } : {}), ...(imageUrl ? { imageUrl } : {}),
+      ...(imageAlt ? { imageAlt } : {}), ...(href ? { href } : {}),
+      popularTopics: cleanList(item.popularTopics, 8, 100),
+      commonQuestions: cleanList(item.commonQuestions, 10, 220),
+      homeSteps: cleanList(item.homeSteps, 10, 500),
+      warningSigns: cleanList(item.warningSigns, 10, 500),
+      ...(expertAdvice ? { expertAdvice } : {}), serviceLinks,
+      featuredArticleSlugs: cleanList(item.featuredArticleSlugs, 10, 100),
+      ...(seoTitle ? { seoTitle } : {}), ...(metaDescription ? { metaDescription } : {}),
+    };
   });
 }
 

@@ -30,8 +30,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic) {
     return buildPageMetadata({
-      title: `${portalTopic.subpage.label} – ${portalTopic.section.label}`,
-      description: portalTopic.subpage.description,
+      title: portalTopic.subpage.seoTitle || `${portalTopic.subpage.label} – ${portalTopic.section.label}`,
+      description: portalTopic.subpage.metaDescription || portalTopic.subpage.description,
       path: `/${portalTopic.section.slug}/${portalTopic.subpage.slug}`,
     });
   }

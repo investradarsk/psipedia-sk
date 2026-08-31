@@ -31,6 +31,7 @@ function dateTimeValue(value?: string | null) {
 }
 
 const puppyAreas = getPortalSection("steniatka")?.subpages.filter((subpage) => !subpage.href) ?? [];
+const careAreas = getPortalSection("starostlivost")?.subpages.filter((subpage) => !subpage.href && subpage.visible !== false) ?? [];
 
 export function AdminArticleEditor({
   article,
@@ -50,8 +51,8 @@ export function AdminArticleEditor({
   const [portalSection, setPortalSection] = useState<ArticlePortalSection>(article?.portalSection ?? defaultPortalSection);
   const [portalSubpage, setPortalSubpage] = useState(
     article?.portalSubpage ??
-    puppyAreas.find((area) => area.slug === defaultPortalSubpage)?.slug ??
-    puppyAreas[0]?.slug ?? "",
+    (defaultPortalSection === "starostlivost" ? careAreas : puppyAreas).find((area) => area.slug === defaultPortalSubpage)?.slug ??
+    (defaultPortalSection === "starostlivost" ? careAreas[0]?.slug : puppyAreas[0]?.slug) ?? "",
   );
   const [newsCategory, setNewsCategory] = useState<NewsCategorySlug>(article?.newsCategory ?? "zo-sveta");
   const [accent, setAccent] = useState(article?.accent ?? "forest");
@@ -98,6 +99,9 @@ export function AdminArticleEditor({
     setPortalSection(value);
     if (value === "steniatka" && !puppyAreas.some((area) => area.slug === portalSubpage)) {
       setPortalSubpage(puppyAreas[0]?.slug ?? "");
+    }
+    if (value === "starostlivost" && !careAreas.some((area) => area.slug === portalSubpage)) {
+      setPortalSubpage(careAreas[0]?.slug ?? "");
     }
     if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
   }
@@ -150,7 +154,7 @@ export function AdminArticleEditor({
       slug,
       category,
       portalSection,
-      portalSubpage: portalSection === "steniatka" ? portalSubpage : null,
+      portalSubpage: portalSection === "steniatka" || portalSection === "starostlivost" ? portalSubpage : null,
       newsCategory: portalSection === "novinky" ? newsCategory : null,
       accent,
       author,
@@ -281,6 +285,15 @@ export function AdminArticleEditor({
                   {puppyAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
                 </select>
                 <small>Článok sa zobrazí na samostatnej stránke vybranej oblasti.</small>
+              </div>
+            )}
+            {portalSection === "starostlivost" && (
+              <div className="admin-field">
+                <label htmlFor="article-care-area">Oblasť Zdravia a starostlivosti</label>
+                <select id="article-care-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  {careAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
+                </select>
+                <small>Článok sa zobrazí iba v zvolenej poradenskej oblasti.</small>
               </div>
             )}
             {portalSection === "novinky" && (

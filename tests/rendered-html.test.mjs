@@ -638,6 +638,39 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   }
 });
 
+test("renders the care hub, urgent guidance and topic-specific articles", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("care-portal-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const bindings = { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } };
+  const context = { waitUntil() {}, passThroughOnException() {} };
+
+  const hub = await worker.fetch(new Request("http://localhost/starostlivost", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(hub.status, 200);
+  const hubHtml = await hub.text();
+  assert.match(hubHtml, /Zdravie a starostlivosť/);
+  assert.match(hubHtml, /Má pes akútny problém/);
+  assert.match(hubHtml, /Čo riešiš/);
+  assert.match(hubHtml, /Užitočné služby a kontakty/);
+  assert.match(hubHtml, /Nájsť veterinára/);
+
+  const nutrition = await worker.fetch(new Request("http://localhost/starostlivost/vyziva", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(nutrition.status, 200);
+  const nutritionHtml = await nutrition.text();
+  assert.match(nutritionHtml, /Praktická poradňa: Výživa/);
+  assert.match(nutritionHtml, /Čo môžeš urobiť doma/);
+  assert.match(nutritionHtml, /Varovné signály/);
+  assert.match(nutritionHtml, /Ako vybrať granule bez marketingových mýtov/);
+  assert.doesNotMatch(nutritionHtml, /Chôdza pri nohe bez ťahania/);
+
+  const editorSource = readFileSync(new URL("../components/admin-section-editor.tsx", import.meta.url), "utf8");
+  assert.match(editorSource, /Najčastejšie otázky/);
+  assert.match(editorSource, /Pripnuté články/);
+  assert.match(editorSource, /Meta description/);
+  const articleEditorSource = readFileSync(new URL("../components/admin-article-editor.tsx", import.meta.url), "utf8");
+  assert.match(articleEditorSource, /Oblasť Zdravia a starostlivosti/);
+});
+
 test("filters a directory category on the server and keeps verification data private", async () => {
   const database = createAdminMockDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});

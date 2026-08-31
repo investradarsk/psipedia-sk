@@ -19,7 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages = ["", "/clanky", "/plemena", "/porovnat-plemena", "/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"];
   const portalPages = portalSections.flatMap((section) => [
     `/${section.slug}`,
-    ...section.subpages.map((subpage) => portalSubpageHref(section, subpage)),
+    ...section.subpages.filter((subpage) => subpage.visible !== false).map((subpage) => portalSubpageHref(section, subpage)),
   ]).filter((path) => path !== "/adresar/psie-skoly");
   return [
     ...[...new Set([...staticPages, ...portalPages])].map((path) => ({
