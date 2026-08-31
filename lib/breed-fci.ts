@@ -117,6 +117,18 @@ export type PreparedFciBreed = {
   status: "published" | "draft";
   standard: FciStandard;
   searchText: string;
+  profile: PreparedBreedProfile | null;
+};
+
+export type PreparedBreedProfile = {
+  intro?: string; overview?: string; character?: string; history?: string; exercise?: string; training?: string; health?: string; needs?: string;
+  coatCare?: string; familyLife?: string; otherDogsLife?: string; curiosities?: string; commonOwnerMistakes?: string;
+  exerciseTip?: string; trainingTip?: string; healthTip?: string; coatTip?: string;
+  height?: string; weight?: string; lifespan?: string; coat?: string;
+  healthRisks?: string[]; goodFor?: string[]; consider?: string[];
+  heroTraits?: Array<{label:string;rating:number}>; sports?: Array<{key:string;label:string;rating:number;note?:string}>;
+  ratings?: Partial<Record<"energy"|"trainability"|"children"|"otherDogs"|"apartment"|"grooming"|"shedding"|"preyDrive",number>>;
+  editorialComplete?: boolean;
 };
 
 export type FciImportIssue = { index: number; field: string; message: string };
@@ -140,6 +152,26 @@ function object(value: unknown): JsonRecord {
 function cleanText(value: unknown, max = 30_000) {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function optionalText(row:JsonRecord,key:string,max=8_000){return Object.hasOwn(row,key)?cleanText(row[key],max):undefined;}
+function cleanStringList(value:unknown){if(!Array.isArray(value))return undefined;return value.map((item)=>cleanText(item,300)).filter(Boolean).slice(0,40);}
+function cleanRating(value:unknown){const rating=Number(value);return Number.isFinite(rating)&&rating>=1&&rating<=5?Math.round(rating):undefined;}
+function cleanEditorialProfile(value:unknown):PreparedBreedProfile|null{
+  if(!value||typeof value!=="object"||Array.isArray(value))return null;
+  const row=value as JsonRecord;const profile:PreparedBreedProfile={};
+  const textFields:Record<string,keyof PreparedBreedProfile>={
+    uvod:"intro",prehlad_plemena:"overview",povaha:"character",historia:"history",pohyb_a_denne_potreby:"exercise",vycvik_a_vychova:"training",zdravie_a_starostlivost:"health",kazdodenne_potreby:"needs",srst_a_udrzba:"coatCare",zivot_s_rodinou_a_detmi:"familyLife",vztah_k_inym_psom:"otherDogsLife",zaujimavosti:"curiosities",caste_chyby_majitelov:"commonOwnerMistakes",odporucanie_pohyb:"exerciseTip",odporucanie_vycvik:"trainingTip",zdravotna_poznamka:"healthTip",odporucanie_srst:"coatTip",vyska:"height",hmotnost:"weight",dlzka_zivota:"lifespan",srst:"coat",
+  };
+  for(const [source,target] of Object.entries(textFields)){const result=optionalText(row,source,target==="intro"?1_200:8_000);if(result!==undefined)(profile as Record<string,unknown>)[target]=result;}
+  for(const [source,target] of [["zdravotne_rizika","healthRisks"],["vhodny_pre","goodFor"],["na_co_si_dat_pozor","consider"]] as const){if(Object.hasOwn(row,source)){const list=cleanStringList(row[source]);if(list)(profile as Record<string,unknown>)[target]=list;}}
+  if(Array.isArray(row.hlavne_vlastnosti))profile.heroTraits=row.hlavne_vlastnosti.map((item)=>{if(!item||typeof item!=="object"||Array.isArray(item))return null;const trait=item as JsonRecord;const label=cleanText(trait.nazov??trait.label,80);const rating=cleanRating(trait.hodnotenie??trait.rating);return label&&rating?{label,rating}:null;}).filter((item):item is {label:string;rating:number}=>Boolean(item)).slice(0,3);
+  if(Array.isArray(row.sporty))profile.sports=row.sporty.map((item)=>{if(!item||typeof item!=="object"||Array.isArray(item))return null;const sport=item as JsonRecord;const key=cleanText(sport.kluc??sport.key,80);const label=cleanText(sport.nazov??sport.label,120);const rating=cleanRating(sport.hodnotenie??sport.rating);const note=cleanText(sport.poznamka??sport.note,500);return key&&label&&rating?{key,label,rating,...(note?{note}: {})}:null;}).filter((item):item is {key:string;label:string;rating:number;note?:string}=>Boolean(item)).slice(0,30);
+  const ratingSources={energia:"energy",cvicitelnost:"trainability",deti:"children",ine_psy:"otherDogs",byt:"apartment",starostlivost:"grooming",plznutie:"shedding",lovecky_instinkt:"preyDrive"} as const;const ratings:PreparedBreedProfile["ratings"]={};
+  for(const [source,target] of Object.entries(ratingSources) as Array<[keyof typeof ratingSources,typeof ratingSources[keyof typeof ratingSources]]>){if(Object.hasOwn(row,source)){const rating=cleanRating(row[source]);if(rating)ratings[target]=rating;}}
+  if(Object.keys(ratings).length)profile.ratings=ratings;
+  if(typeof row.redakcny_profil_skontrolovany==="boolean")profile.editorialComplete=row.redakcny_profil_skontrolovany;
+  return Object.keys(profile).length?profile:null;
 }
 
 function cleanUrl(value: unknown) {
@@ -230,6 +262,7 @@ export function prepareFciBreedImport(value: unknown, maxRecords = 500): Prepare
         status: cleanText(row.status).toLowerCase() === "published" ? "published" : "draft",
         standard,
         searchText: normalizeBreedSearchText([name, officialFciName, origin, standard.fci_skupina_nazov, standard.fci_sekcia_nazov].filter(Boolean).join(" ")),
+        profile: cleanEditorialProfile(row.redakcny_profil),
       });
     } catch (error) {
       errors.push({ index: sourceIndex + 1, field: "record", message: error instanceof Error ? error.message : "Neplatný záznam." });

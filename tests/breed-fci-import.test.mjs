@@ -177,6 +177,11 @@ test("344-record FCI import previews, imports and remains idempotent without era
   assert.equal(repeat.created,0);assert.equal(repeat.updated,344);assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM managed_breeds").get().count,344);
   assert.equal(sqlite.prepare("SELECT slug FROM managed_breeds WHERE fci_number=122").get().slug,"labradorsky-retriever");
 
+  const enriched={...breeds.find((breed)=>breed.fci_cislo===122),redakcny_profil:{prehlad_plemena:"Praktický prehľad importovaný cez admin.",odporucanie_pohyb:"Denne 90 minút aktivity.",hlavne_vlastnosti:[{nazov:"Pracovitosť",hodnotenie:5},{nazov:"Oddanosť",hodnotenie:5}],sporty:[{kluc:"canicross",nazov:"Canicross",hodnotenie:4,poznamka:"Vhodný pri dobrej kondícii."}]}};
+  const enrichedResponse=await api(worker,d1,"/api/admin/import",{breeds:[enriched]});assert.equal(enrichedResponse.status,200);
+  let importedEditorial=JSON.parse(sqlite.prepare("SELECT editorial_json FROM managed_breeds WHERE fci_number=122").get().editorial_json);assert.equal(importedEditorial.overview,"Praktický prehľad importovaný cez admin.");assert.equal(importedEditorial.exerciseTip,"Denne 90 minút aktivity.");assert.equal(importedEditorial.heroTraits[0].label,"Pracovitosť");assert.equal(JSON.parse(sqlite.prepare("SELECT sports_json FROM managed_breeds WHERE fci_number=122").get().sports_json)[0].key,"canicross");
+  const emptyEditorialResponse=await api(worker,d1,"/api/admin/import",{breeds:[{...enriched,redakcny_profil:{prehlad_plemena:""}}]});assert.equal(emptyEditorialResponse.status,200);importedEditorial=JSON.parse(sqlite.prepare("SELECT editorial_json FROM managed_breeds WHERE fci_number=122").get().editorial_json);assert.equal(importedEditorial.overview,"Praktický prehľad importovaný cez admin.");
+
   const now="2026-08-30T12:00:00.000Z";
   const labradorId=sqlite.prepare("SELECT id FROM managed_breeds WHERE fci_number=122").get().id;
   const rottweilerId=sqlite.prepare("SELECT id FROM managed_breeds WHERE fci_number=147").get().id;

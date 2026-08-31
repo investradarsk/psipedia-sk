@@ -5,12 +5,19 @@ import { cleanFciStandard, normalizeBreedSearchText, type FciStandard } from "@/
 
 export type BreedStatus = "draft" | "published";
 export type BreedEditorial = {
+  overview?: string;
   coatCare?: string;
   familyLife?: string;
   otherDogsLife?: string;
   curiosities?: string;
   commonOwnerMistakes?: string;
+  exerciseTip?: string;
+  trainingTip?: string;
+  healthTip?: string;
+  coatTip?: string;
+  heroTraits?: BreedHeroTrait[];
 };
+export type BreedHeroTrait = { label: string; rating: number };
 export type BreedSport = { key: string; label: string; rating: number; note?: string };
 export type ManagedBreed = Breed & {
   id: number; status: BreedStatus; imageKey: string | null; createdAt: string; updatedAt: string; publishedAt: string | null;
@@ -58,6 +65,7 @@ function stringArray(value:string) { return parseArray(value,(item):item is stri
 function isBreedImage(value:unknown):value is BreedImage { return Boolean(value&&typeof value==="object"&&typeof (value as BreedImage).imageUrl==="string"); }
 function isBreedSource(value:unknown):value is BreedSource { return Boolean(value&&typeof value==="object"&&typeof (value as BreedSource).label==="string"&&typeof (value as BreedSource).url==="string"); }
 function isBreedSport(value:unknown):value is BreedSport { const item=value as BreedSport;return Boolean(item&&typeof item==="object"&&typeof item.key==="string"&&typeof item.label==="string"&&Number.isFinite(item.rating)); }
+function isBreedHeroTrait(value:unknown):value is BreedHeroTrait { const item=value as BreedHeroTrait;return Boolean(item&&typeof item==="object"&&typeof item.label==="string"&&item.label.trim()&&Number.isFinite(item.rating)&&item.rating>=1&&item.rating<=5); }
 function parseObject<T extends object>(value:string):T { try { const parsed:unknown=JSON.parse(value); return parsed && typeof parsed==="object" && !Array.isArray(parsed) ? parsed as T : {} as T; } catch { return {} as T; } }
 
 async function ensure(database:D1Database) {
@@ -65,11 +73,11 @@ async function ensure(database:D1Database) {
   // Schema and seed data are installed by deployment migrations.
 }
 
-function fromRow(row:Row,relations:{articles?:number[];directory?:number[]}={}):ManagedBreed { return {
+function fromRow(row:Row,relations:{articles?:number[];directory?:number[]}={}):ManagedBreed { const editorial=parseObject<BreedEditorial>(row.editorial_json);editorial.heroTraits=Array.isArray(editorial.heroTraits)?editorial.heroTraits.filter(isBreedHeroTrait).slice(0,3):[];return {
   id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,imageKey:row.image_key,
   gallery:parseArray(row.gallery_json,isBreedImage),fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:row.fci_section,
   fciSectionNumber:row.fci_section_number,officialFciName:row.official_fci_name,validStandardDate:row.valid_standard_date,
-  workingTrial:row.working_trial,importKey:row.import_key,fciStandard:parseObject<FciStandard>(row.fci_standard_json),editorial:parseObject<BreedEditorial>(row.editorial_json),
+  workingTrial:row.working_trial,importKey:row.import_key,fciStandard:parseObject<FciStandard>(row.fci_standard_json),editorial,
   sports:parseArray(row.sports_json,isBreedSport),relatedBreedIds:parseArray(row.related_breeds_json,(item):item is number=>Number.isSafeInteger(item)&&Number(item)>0),relatedArticleIds:relations.articles??[],directoryProfileIds:relations.directory??[],searchText:row.search_text,
   editorialComplete:row.editorial_complete===1,origin:row.origin,group:row.group_name,
   size:row.size,weight:row.weight,height:row.height,lifespan:row.lifespan,coat:row.coat,energy:row.energy,trainability:row.trainability,
@@ -135,7 +143,7 @@ function clean(input:ManagedBreedInput){
   const gallery=Array.isArray(input.gallery)?input.gallery.slice(0,30).map((item)=>({imageUrl:text(item.imageUrl,700),imageKey:item.imageKey?text(item.imageKey,700):null,alt:text(item.alt,240),caption:text(item.caption,500),credit:text(item.credit,300)})).filter((item)=>item.imageUrl):[];
   const sources=Array.isArray(input.sources)?input.sources.slice(0,30).map((item)=>({label:text(item.label,300),url:text(item.url,700)})).filter((item)=>item.label&&/^https?:\/\//i.test(item.url)):[];
   const officialFciName=text(input.officialFciName,200);const fciStandard=cleanFciStandard(input.fciStandard);
-  const rawEditorial=input.editorial??{};const editorial:BreedEditorial={coatCare:text(rawEditorial.coatCare,8000),familyLife:text(rawEditorial.familyLife,8000),otherDogsLife:text(rawEditorial.otherDogsLife,8000),curiosities:text(rawEditorial.curiosities,8000),commonOwnerMistakes:text(rawEditorial.commonOwnerMistakes,8000)};
+  const rawEditorial=input.editorial??{};const editorial:BreedEditorial={overview:text(rawEditorial.overview,8000),coatCare:text(rawEditorial.coatCare,8000),familyLife:text(rawEditorial.familyLife,8000),otherDogsLife:text(rawEditorial.otherDogsLife,8000),curiosities:text(rawEditorial.curiosities,8000),commonOwnerMistakes:text(rawEditorial.commonOwnerMistakes,8000),exerciseTip:text(rawEditorial.exerciseTip,500),trainingTip:text(rawEditorial.trainingTip,500),healthTip:text(rawEditorial.healthTip,500),coatTip:text(rawEditorial.coatTip,500),heroTraits:Array.isArray(rawEditorial.heroTraits)?rawEditorial.heroTraits.slice(0,3).map((item)=>({label:text(item.label,80),rating:Math.min(5,Math.max(1,Number(item.rating)||1))})).filter((item)=>item.label):[]};
   const sports=Array.isArray(input.sports)?input.sports.slice(0,30).map((item)=>({key:text(item.key,80),label:text(item.label,120),rating:Math.min(5,Math.max(1,Number(item.rating)||1)),note:text(item.note,500)})).filter((item)=>item.key&&item.label):[];
   const fciNumber=Number.isSafeInteger(input.fciNumber)&&Number(input.fciNumber)>0?Number(input.fciNumber):null;
   return {slug,name,status:input.status==="published"?"published":"draft",image:text(input.image,700),imageKey:input.imageKey?text(input.imageKey,700):null,gallery,
