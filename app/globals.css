@@ -13118,3 +13118,63 @@ a.breed-fci-path-node:focus-visible {
   .breed-useful-links a { min-height: 148px; }
   .breed-fci-basics > div { border-right: 0; border-bottom: 1px solid rgba(23,53,43,.09); }
 }
+
+/* Keep user-entered breed copy inside the mobile viewport, even without spaces. */
+.breed-detail-card h1,
+.breed-detail-card p,
+.breed-hero-facts dd,
+.breed-copy h2,
+.breed-copy h3,
+.breed-copy h4,
+.breed-copy p,
+.breed-copy li,
+.breed-section-tip,
+.breed-sports h3,
+.breed-sports p,
+.breed-related-section h3,
+.breed-related-section p,
+.breed-related-section small,
+.breed-useful-links strong,
+.breed-useful-links small,
+.breed-fci-standard h2,
+.breed-fci-standard h3,
+.breed-fci-standard h4,
+.breed-fci-standard p,
+.breed-fci-standard li,
+.breed-fci-standard dd {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 760px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .breed-detail-hero,
+  .breed-detail-card,
+  .breed-detail-intro,
+  .breed-detail-body,
+  .breed-copy,
+  .breed-copy section,
+  .breed-sports,
+  .breed-related-section,
+  .breed-useful-links,
+  .breed-fci-standard,
+  .breed-fci-reading-column {
+    min-width: 0;
+  }
+
+  .breed-detail-nav {
+    max-width: 100vw;
+    overflow: hidden;
+  }
+
+  .breed-detail-nav > div {
+    width: auto;
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+  }
+}
