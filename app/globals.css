@@ -13178,3 +13178,57 @@ a.breed-fci-path-node:focus-visible {
     overscroll-behavior-inline: contain;
   }
 }
+
+/* Denser desktop rhythm for the expanded FCI reference. */
+@media (min-width: 861px) {
+  .breed-fci-open-content {
+    margin-top: 2px;
+  }
+
+  .breed-fci-open-section {
+    grid-template-columns: minmax(165px, 205px) minmax(0, 1fr);
+    column-gap: clamp(24px, 3.5vw, 44px);
+    row-gap: 4px;
+    padding-block: 25px;
+  }
+
+  .breed-fci-open-section h3 {
+    padding-top: 20px;
+    font-size: clamp(1.25rem, 1.65vw, 1.55rem);
+    line-height: 1.18;
+  }
+
+  .breed-fci-open-section h3::before {
+    font-size: .58rem;
+  }
+
+  .breed-fci-open-item + .breed-fci-open-item {
+    margin-top: 15px;
+  }
+
+  .breed-fci-open-item h4,
+  .breed-fci-open-section--faults h4 {
+    margin-bottom: 6px;
+  }
+
+  .breed-fci-open-item p,
+  .breed-fci-open-section > p,
+  .breed-fci-dimensions-note {
+    margin-bottom: 10px;
+    font-size: .91rem;
+    line-height: 1.62;
+  }
+
+  .breed-fci-dimensions-note {
+    margin-top: 11px;
+  }
+
+  .breed-fci-open-section--faults {
+    margin-top: 2px;
+  }
+
+  .breed-fci-sources {
+    margin-top: 22px;
+    padding: 18px 20px;
+  }
+}
