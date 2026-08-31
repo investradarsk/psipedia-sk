@@ -12475,3 +12475,393 @@ a.breed-fci-path-node:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Reference composition: image-led hero and denser editorial rhythm. */
+@media (min-width: 761px) {
+  .breed-detail-card {
+    display: grid;
+    min-height: 430px;
+    align-content: space-between;
+    grid-template-areas:
+      "intro"
+      "facts";
+    grid-template-columns: minmax(0, 1fr);
+    padding: 34px 36px 24px;
+  }
+
+  .breed-detail-card::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0 auto 0 38%;
+    width: 26%;
+    background: linear-gradient(90deg, #fbf8ef 0%, rgba(251, 248, 239, .83) 34%, rgba(251, 248, 239, 0) 100%);
+    content: "";
+    pointer-events: none;
+  }
+
+  .breed-detail-intro {
+    position: relative;
+    z-index: 3;
+    width: 54%;
+    padding: 4px 0 92px;
+  }
+
+  .breed-detail-image {
+    position: absolute;
+    z-index: 0;
+    inset: 0 0 0 auto;
+    width: 62%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    object-position: center;
+    box-shadow: none;
+  }
+
+  .breed-detail-card--placeholder .breed-detail-image {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 46%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    opacity: .88;
+    border-left: 1px solid rgba(23, 53, 43, .07);
+    border-radius: 0;
+  }
+
+  .breed-detail-card--placeholder::after {
+    inset-inline-start: 45%;
+  }
+
+  .breed-hero-facts {
+    position: relative;
+    z-index: 4;
+    width: min(76%, 850px);
+    align-self: end;
+    margin: 0;
+    backdrop-filter: blur(10px);
+    background: rgba(255, 253, 248, .9);
+    box-shadow: 0 10px 28px rgba(23, 53, 43, .1);
+  }
+
+  .breed-hero-ratings {
+    position: absolute;
+    z-index: 5;
+    top: 22px;
+    right: 18px;
+    display: grid;
+    width: 168px;
+    gap: 8px;
+  }
+
+  .breed-hero-ratings .rating-row {
+    display: grid;
+    gap: 7px;
+    padding: 10px 12px;
+    border: 1px solid rgba(23, 53, 43, .1);
+    border-radius: 11px;
+    background: rgba(255, 253, 248, .9);
+    box-shadow: 0 7px 20px rgba(23, 53, 43, .1);
+    backdrop-filter: blur(8px);
+  }
+
+  .breed-hero-ratings .rating-row > span {
+    font-size: .68rem;
+    font-weight: 800;
+  }
+}
+
+.breed-detail-card h1 {
+  max-width: 14ch;
+  font-size: clamp(2.8rem, 4.35vw, 4.5rem);
+  line-height: .96;
+}
+
+.breed-detail-card .breed-lead {
+  margin-top: 16px;
+  padding-left: 0;
+  border-left: 0;
+  font-size: .94rem;
+  line-height: 1.58;
+}
+
+.breed-fci-path-current {
+  display: none;
+}
+
+.breed-fci-path-arrow:last-of-type {
+  display: none;
+}
+
+.breed-detail-nav {
+  position: sticky;
+  top: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.breed-detail-nav > div {
+  margin-block: 7px 0;
+  padding: 7px;
+  border: 1px solid rgba(23, 53, 43, .12);
+  border-radius: 13px;
+  background: rgba(255, 253, 248, .96);
+  box-shadow: 0 6px 18px rgba(23, 53, 43, .045);
+}
+
+.breed-detail-nav a:first-child {
+  color: var(--paper);
+  background: var(--forest);
+}
+
+.breed-detail-body {
+  padding-block: 34px 48px;
+}
+
+.breed-copy section,
+.breed-copy section + section {
+  min-height: 190px;
+  padding-block: 24px 26px;
+}
+
+.breed-copy p,
+.breed-copy li {
+  font-size: .88rem;
+  line-height: 1.62;
+}
+
+.breed-copy ul {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding-left: 20px;
+}
+
+.breed-practical-fit > div + div {
+  margin-top: 15px;
+}
+
+.breed-practical-fit h3 {
+  margin: 0 0 7px;
+  color: var(--forest);
+  font-family: inherit;
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.breed-practical-fit .is-positive li::marker {
+  color: #348452;
+}
+
+.breed-practical-fit .is-caution li::marker {
+  color: #b66a42;
+}
+
+.breed-section-heading > span {
+  width: 31px;
+  height: 31px;
+}
+
+.breed-copy h2,
+.breed-section-heading h2 {
+  font-size: clamp(1.25rem, 1.8vw, 1.55rem);
+}
+
+.breed-related-section > header,
+.breed-sports > header {
+  margin-bottom: 14px;
+}
+
+.breed-related-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.breed-related-grid article img {
+  aspect-ratio: 16 / 8.5;
+}
+
+.breed-related-grid article > div {
+  padding: 12px 13px 14px;
+}
+
+.breed-related-grid p {
+  margin-top: 7px;
+  font-size: .76rem;
+  line-height: 1.48;
+}
+
+.breed-sports {
+  padding: 22px;
+  background: transparent;
+}
+
+.breed-sports > div {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+}
+
+.breed-sports article {
+  min-height: 108px;
+  background: rgba(255, 253, 248, .88);
+}
+
+.breed-useful-links a {
+  min-height: 86px;
+  padding-left: 58px;
+}
+
+.breed-useful-links a::before {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--forest);
+  background: var(--sage-light);
+  content: "•";
+  font-size: 1.35rem;
+  transform: translateY(-50%);
+}
+
+.breed-fci-standard {
+  padding: 22px 26px;
+  border-radius: 15px;
+  background: linear-gradient(100deg, #f0eddf, #faf8ef 56%, #eef1e7);
+}
+
+.breed-fci-reading-column {
+  max-width: none;
+}
+
+.breed-fci-header {
+  display: grid;
+  max-width: none;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 18px;
+}
+
+.breed-fci-header::before {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  grid-row: 1 / span 3;
+  place-items: center;
+  border: 2px solid rgba(23, 53, 43, .45);
+  border-radius: 50%;
+  color: var(--forest);
+  content: "FCI";
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.breed-fci-header h2 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+}
+
+.breed-fci-header .eyebrow {
+  align-self: end;
+}
+
+.breed-fci-intro {
+  font-size: .82rem;
+}
+
+.breed-fci-standard-path {
+  margin-top: 17px;
+}
+
+.breed-fci-basics {
+  margin: 15px 0 16px;
+}
+
+.breed-fci-basics > div {
+  padding: 10px 13px;
+}
+
+.breed-fci-disclosure > button {
+  width: auto;
+  min-height: 42px;
+  margin-left: auto;
+  padding: 9px 14px;
+  font-size: .78rem;
+}
+
+@media (max-width: 1000px) {
+  .breed-related-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .breed-detail-card {
+    min-height: 0;
+  }
+
+  .breed-detail-card::after {
+    display: none;
+  }
+
+  .breed-detail-intro {
+    width: auto;
+    padding: 0;
+  }
+
+  .breed-detail-image,
+  .breed-detail-card--placeholder .breed-detail-image {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    opacity: 1;
+    border-radius: 14px;
+  }
+
+  .breed-hero-ratings {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .breed-hero-ratings .rating-row {
+    display: grid;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid rgba(23, 53, 43, .1);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .72);
+  }
+
+  .breed-related-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .breed-fci-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .breed-hero-ratings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .breed-related-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .breed-fci-header::before {
+    width: 48px;
+    height: 48px;
+    font-size: .84rem;
+  }
+}
