@@ -13026,11 +13026,80 @@ a.breed-fci-path-node:focus-visible {
 .breed-copy section + section { min-height: 0; }
 .breed-section-tip { position: relative; padding-left: 20px; color: var(--forest); font-size: .76rem !important; font-weight: 700; }
 .breed-section-tip::before { position: absolute; left: 0; color: #a27d23; content: "◷"; }
-.breed-useful-links a { min-height: 118px; padding: 15px 15px 14px 58px; }
-.breed-useful-links a::after { display: none; }
-.breed-useful-links a strong { font-size: .88rem; }
-.breed-useful-links a small { margin-top: 6px; color: var(--muted); font-size: .68rem; line-height: 1.42; }
-.breed-useful-links a span { margin-top: auto; padding: 5px 8px; border-radius: 5px; color: #fff; background: var(--forest); font-size: .62rem; }
+.breed-useful-links {
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid rgba(23, 53, 43, .09);
+  border-radius: 20px;
+  background: linear-gradient(125deg, rgba(234, 240, 226, .88), rgba(250, 247, 237, .92));
+}
+.breed-useful-links > header { max-width: 690px; }
+.breed-useful-links > header .eyebrow { color: #987520; font-size: .65rem; }
+.breed-useful-links > header h2 { margin-top: 4px; }
+.breed-useful-links > header p { margin-top: 7px; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.breed-useful-links > div { gap: 11px; margin-top: 18px; }
+.breed-useful-links a {
+  --useful-accent: #315f4e;
+  position: relative;
+  display: flex;
+  min-height: 178px;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  padding: 18px;
+  border: 1px solid rgba(23, 53, 43, .1);
+  border-radius: 14px;
+  color: var(--ink);
+  background: rgba(255, 253, 248, .92);
+  box-shadow: 0 7px 20px rgba(23, 53, 43, .045);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.breed-useful-links a:nth-child(2) { --useful-accent: #a27d23; }
+.breed-useful-links a:nth-child(3) { --useful-accent: #c85d43; }
+.breed-useful-links a:nth-child(4) { --useful-accent: #426579; }
+.breed-useful-links a::before { display: none; }
+.breed-useful-links a::after {
+  position: absolute;
+  inset: 0 0 auto;
+  display: block;
+  height: 3px;
+  content: "";
+  background: var(--useful-accent);
+  transform: none;
+}
+.breed-useful-links a:hover {
+  border-color: color-mix(in srgb, var(--useful-accent) 38%, transparent);
+  box-shadow: 0 13px 30px rgba(23, 53, 43, .1);
+  transform: translateY(-3px);
+}
+.breed-useful-links a:focus-visible { outline: 3px solid color-mix(in srgb, var(--useful-accent) 32%, transparent); outline-offset: 3px; }
+.breed-useful-links .breed-useful-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin: 0 0 13px;
+  padding: 0;
+  border-radius: 11px;
+  color: var(--useful-accent);
+  background: color-mix(in srgb, var(--useful-accent) 12%, white);
+}
+.breed-useful-links a strong { font-family: Georgia, "Times New Roman", serif; font-size: 1.02rem; line-height: 1.18; }
+.breed-useful-links a small { margin-top: 7px; color: var(--muted); font-size: .72rem; line-height: 1.45; }
+.breed-useful-links .breed-useful-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  padding: 7px 0 0;
+  border-radius: 0;
+  color: var(--useful-accent);
+  background: transparent;
+  font-size: .68rem;
+  font-weight: 850;
+}
+.breed-useful-links .breed-useful-cta svg { transition: transform .18s ease; }
+.breed-useful-links a:hover .breed-useful-cta svg { transform: translateX(3px); }
 .breed-fci-header h2 { font-size: clamp(1.15rem, 1.8vw, 1.5rem); }
 .breed-fci-intro { font-size: .74rem; }
 .breed-fci-basics { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; }
@@ -13039,11 +13108,13 @@ a.breed-fci-path-node:focus-visible {
 .breed-fci-disclosure > button { min-height: 38px; padding: 8px 12px; font-size: .72rem; }
 @media (max-width: 760px) {
   .breed-detail-intro { padding: 24px 22px 18px; }
-  .breed-useful-links a { min-height: 108px; }
+  .breed-useful-links { padding: 20px; }
+  .breed-useful-links a { min-height: 164px; }
   .breed-fci-basics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
   .breed-useful-links > div,
   .breed-fci-basics { grid-template-columns: minmax(0, 1fr); }
+  .breed-useful-links a { min-height: 148px; }
   .breed-fci-basics > div { border-right: 0; border-bottom: 1px solid rgba(23,53,43,.09); }
 }
