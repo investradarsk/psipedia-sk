@@ -155,6 +155,15 @@ export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBloc
           const href = safeHref(block.href, true);
           return block.title && href ? <aside className="article-block-related" key={block.id}><span>Súvisiaci článok</span><Link href={href}><strong>{block.title}</strong>{block.description && <small>{block.description}</small>}</Link></aside> : null;
         }
+        if (block.type === "cta") {
+          const href = safeHref(block.url, true);
+          if (!block.buttonText || !href) return null;
+          const rel = block.sponsored ? `sponsored nofollow${block.newTab ? " noreferrer" : ""}` : block.newTab ? "noreferrer" : undefined;
+          return <aside className={`article-block-cta ${block.sponsored ? "is-sponsored" : ""}`} key={block.id}>
+            {(block.text || block.sponsored) && <div>{block.sponsored && <span className="article-block-cta-disclosure">Partnerský odkaz</span>}{block.text && <p>{richText(block.text, `${block.id}-cta`)}</p>}</div>}
+            <Link className="article-block-cta-button" href={href} target={block.newTab ? "_blank" : undefined} rel={rel}>{block.buttonText}<span aria-hidden="true">→</span>{block.newTab && <span className="sr-only"> (otvorí sa v novom okne)</span>}</Link>
+          </aside>;
+        }
         if (block.type === "embed") {
           const src = embedUrl(block.url);
           if (src) return <figure className="article-block-embed" key={block.id}><iframe src={src} title={block.title || "Video v článku"} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></figure>;

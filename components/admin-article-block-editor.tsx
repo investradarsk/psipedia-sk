@@ -24,6 +24,23 @@ type Props = {
 
 const blockTypes = Object.keys(articleBlockLabels) as ArticleBlock["type"][];
 
+function blockIcon(type: ArticleBlock["type"]) {
+  if (type === "text") return "¶";
+  if (type === "image") return "▧";
+  if (type === "gallery") return "▦";
+  if (type === "table") return "▤";
+  if (type === "tip") return "★";
+  if (type === "warning") return "!";
+  if (type === "quote") return "❞";
+  if (type === "embed") return "▶";
+  if (type === "source") return "↗";
+  if (type === "related") return "→";
+  if (type === "cta") return "CTA";
+  if (type === "bullet-list") return "•";
+  if (type === "numbered-list") return "1.";
+  return "H";
+}
+
 function cloneBlock(block: ArticleBlock): ArticleBlock {
   return { ...structuredClone(block), id: crypto.randomUUID() };
 }
@@ -167,7 +184,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
     const open = pickerIndex === index;
     return <div className={`admin-block-insert ${open ? "is-open" : ""}`}>
       <button type="button" className="admin-block-insert-button" aria-expanded={open} onClick={() => setPickerIndex(open ? null : index)}>+ Vložiť blok sem</button>
-      {open && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, index)}><span>{type === "text" ? "¶" : type === "image" ? "▧" : type === "gallery" ? "▦" : type === "table" ? "▤" : type === "tip" ? "★" : type === "warning" ? "!" : type === "quote" ? "❞" : type === "embed" ? "▶" : type === "source" ? "↗" : type === "related" ? "→" : type === "bullet-list" ? "•" : type === "numbered-list" ? "1." : "H"}</span>{articleBlockLabels[type]}</button>)}</div>}
+      {open && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, index)}><span>{blockIcon(type)}</span>{articleBlockLabels[type]}</button>)}</div>}
     </div>;
   }
 
@@ -287,6 +304,17 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
             {block.type === "source" && <div className="admin-field-grid"><div className="admin-field"><label>Názov organizácie alebo článku</label><input value={block.label} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, label: event.target.value } : item)} placeholder="Napríklad AVMA alebo názov štúdie" /></div><div className="admin-field"><label>URL zdroja</label><input type="url" value={block.url} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, url: event.target.value } : item)} placeholder="https://…" /></div><div className="admin-field"><label>Dátum prístupu <small>nepovinný</small></label><input type="date" value={block.accessedAt ?? ""} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, accessedAt: event.target.value || undefined } : item)} /></div><div className="admin-field"><label>Poznámka <small>nepovinná</small></label><input value={block.note ?? ""} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, note: event.target.value } : item)} /></div></div>}
 
             {block.type === "related" && <div className="admin-field-grid"><div className="admin-field admin-field--full"><label>Vybrať existujúci článok</label><select value={articles.find((item) => articleHref(item) === block.href)?.id ?? ""} onChange={(event) => { const selected = articles.find((item) => item.id === Number(event.target.value)); if (selected) update(block.id, (item) => item.type === "related" ? { ...item, title: selected.title, href: articleHref(selected), description: selected.excerpt } : item); }}><option value="">Vyber článok…</option>{articles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></div><div className="admin-field"><label>Názov</label><input value={block.title} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, title: event.target.value } : item)} /></div><div className="admin-field"><label>Odkaz</label><input value={block.href} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, href: event.target.value } : item)} placeholder="/sekcia/adresa" /></div></div>}
+            {block.type === "cta" && <div className="admin-cta-editor">
+              <div className="admin-field-grid">
+                <div className="admin-field admin-field--full"><label>Krátky text alebo popis</label><textarea rows={3} value={block.text} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, text: event.target.value } : item)} placeholder="Prečo by mal čitateľ na ponuku kliknúť?" /></div>
+                <div className="admin-field"><label>Text tlačidla</label><input value={block.buttonText} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, buttonText: event.target.value } : item)} placeholder="Pozrieť produkt" /></div>
+                <div className="admin-field"><label>URL odkazu</label><input value={block.url} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, url: event.target.value } : item)} placeholder="https://… alebo /adresa" /></div>
+              </div>
+              <div className="admin-cta-options">
+                <label className="admin-check"><input type="checkbox" checked={block.newTab} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, newTab: event.target.checked } : item)} /><span><strong>Otvoriť v novom okne</strong><small>Vhodné najmä pre odkazy mimo Psipedie.</small></span></label>
+                <label className="admin-check"><input type="checkbox" checked={block.sponsored} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, sponsored: event.target.checked } : item)} /><span><strong>Affiliate / sponsored</strong><small>Odkaz dostane označenie „Partnerský odkaz“ a atribúty sponsored a nofollow.</small></span></label>
+              </div>
+            </div>}
             {block.type === "embed" && <div className="admin-field-grid"><div className="admin-field"><label>Odkaz na YouTube alebo Vimeo</label><input type="url" value={block.url} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, url: event.target.value } : item)} placeholder="https://youtube.com/watch?v=…" /></div><div className="admin-field"><label>Názov videa</label><input value={block.title ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, title: event.target.value } : item)} /></div></div>}
           </section>
           </Fragment>
@@ -295,7 +323,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
 
       <div className="admin-block-add">
         <button type="button" className="admin-block-add-button" aria-expanded={pickerIndex === blocks.length} onClick={() => setPickerIndex(pickerIndex === blocks.length ? null : blocks.length)}>+ Pridať blok na koniec</button>
-        {pickerIndex === blocks.length && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, blocks.length)}><span>{type === "text" ? "¶" : type === "image" ? "▧" : type === "gallery" ? "▦" : type === "table" ? "▤" : type === "tip" ? "★" : type === "warning" ? "!" : type === "quote" ? "❞" : type === "embed" ? "▶" : type === "source" ? "↗" : type === "related" ? "→" : type === "bullet-list" ? "•" : type === "numbered-list" ? "1." : "H"}</span>{articleBlockLabels[type]}</button>)}</div>}
+        {pickerIndex === blocks.length && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, blocks.length)}><span>{blockIcon(type)}</span>{articleBlockLabels[type]}</button>)}</div>}
       </div>
 
       <details className="admin-block-preview"><summary>Náhľad blokov</summary><ArticleBlocks blocks={blocks} preview /></details>

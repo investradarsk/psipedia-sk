@@ -23,6 +23,7 @@ export type ArticleBlock =
   | { id: string; type: "table"; headers: string[]; rows: string[][] }
   | { id: string; type: "source"; label: string; url: string; accessedAt?: string; note?: string }
   | { id: string; type: "related"; title: string; href: string; description?: string }
+  | { id: string; type: "cta"; text: string; buttonText: string; url: string; newTab: boolean; sponsored: boolean }
   | { id: string; type: "embed"; url: string; title?: string };
 
 export const articleBlockLabels: Record<ArticleBlock["type"], string> = {
@@ -39,6 +40,7 @@ export const articleBlockLabels: Record<ArticleBlock["type"], string> = {
   table: "Tabuľka",
   source: "Zdroj",
   related: "Súvisiaci článok",
+  cta: "CTA",
   embed: "Video / embed",
 };
 
@@ -53,6 +55,7 @@ export function createArticleBlock(type: ArticleBlock["type"], id = crypto.rando
   if (type === "table") return { id, type, headers: ["Stĺpec 1", "Stĺpec 2"], rows: [["", ""]] };
   if (type === "source") return { id, type, label: "", url: "", note: "" };
   if (type === "related") return { id, type, title: "", href: "", description: "" };
+  if (type === "cta") return { id, type, text: "", buttonText: "Pozrieť produkt", url: "", newTab: true, sponsored: false };
   return { id, type: "embed", url: "", title: "" };
 }
 
@@ -153,6 +156,7 @@ export function normalizeArticleBlocks(value: unknown): ArticleBlock[] {
     }
     if (type === "source") return [{ id, type, label: safeText(block.label, 500), url: safeUrl(block.url), accessedAt: /^\d{4}-\d{2}-\d{2}$/.test(safeText(block.accessedAt, 10)) ? safeText(block.accessedAt, 10) : undefined, note: safeText(block.note, 1_000) || undefined }];
     if (type === "related") return [{ id, type, title: safeText(block.title, 500), href: safeUrl(block.href, true), description: safeText(block.description, 1_000) || undefined }];
+    if (type === "cta") return [{ id, type, text: safeText(block.text, 500), buttonText: safeText(block.buttonText, 120), url: safeUrl(block.url, true), newTab: block.newTab === true, sponsored: block.sponsored === true }];
     if (type === "embed") return [{ id, type, url: safeUrl(block.url), title: safeText(block.title, 500) || undefined }];
     return [];
   });
@@ -197,6 +201,7 @@ export function articleBlockPlainText(blocks: ArticleBlock[]) {
     if (block.type === "table") return [...block.headers, ...block.rows.flat()];
     if (block.type === "source") return [block.label, block.note ?? ""];
     if (block.type === "related") return [block.title, block.description ?? ""];
+    if (block.type === "cta") return [block.text, block.buttonText];
     if (block.type === "image") return [block.alt, block.caption ?? "", block.credit ?? ""];
     if (block.type === "gallery") return block.images.flatMap((image) => [image.alt, image.caption ?? "", image.credit ?? ""]);
     return [];

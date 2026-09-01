@@ -59,7 +59,10 @@ function createAdminMockDatabase() {
     takeaway: "Hlavné posolstvo testovacieho článku.",
     sections_json: "[]",
     sources_json: "[]",
-    blocks_json: JSON.stringify([{ id: "text-1", type: "text", content: "Obsah testovacieho článku.", alignment: "left" }]),
+    blocks_json: JSON.stringify([
+      { id: "text-1", type: "text", content: "Obsah testovacieho článku.", alignment: "left" },
+      { id: "cta-1", type: "cta", text: "Odporúčaná pomôcka pre tento tréning.", buttonText: "Pozrieť produkt", url: "https://example.com/produkt", newTab: true, sponsored: true },
+    ]),
     image_url: null,
     image_key: null,
     reading_minutes: 5,
@@ -443,6 +446,10 @@ test("uses light admin lists and loads full records only for detail and save", a
     assert.match(articleDetailHtml, /Testovací článok/);
     assert.match(articleDetailHtml, /Vložiť blok sem/);
     assert.match(articleDetailHtml, />Zdroj</);
+    assert.match(articleDetailHtml, />CTA</);
+    assert.match(articleDetailHtml, /Pozrieť produkt/);
+    assert.match(articleDetailHtml, /Partnerský odkaz/);
+    assert.match(articleDetailHtml, /rel="sponsored nofollow noreferrer"/);
     assert.match(articleDetailHtml, /Prázdny riadok vytvorí na webe nový odsek/);
 
     const profileDetail = await worker.fetch(adminRequest("/admin/adresar/9"), bindings, context);
@@ -462,7 +469,10 @@ test("uses light admin lists and loads full records only for detail and save", a
       author: "Redakcia Psipedia",
       intro: "Dostatočne dlhý úvod nového testovacieho článku.",
       takeaway: "Dôležité posolstvo testovacieho článku.",
-      blocks: [{ id: "text-1", type: "text", content: "Obsah nového testovacieho článku.", alignment: "left" }],
+      blocks: [
+        { id: "text-1", type: "text", content: "Obsah nového testovacieho článku.", alignment: "left" },
+        { id: "cta-1", type: "cta", text: "Odporúčaná pomôcka.", buttonText: "Pozrieť produkt", url: "https://example.com/produkt", newTab: true, sponsored: true },
+      ],
     };
     const created = await worker.fetch(adminRequest("/api/admin/articles", {
       method: "POST",
@@ -471,6 +481,10 @@ test("uses light admin lists and loads full records only for detail and save", a
     }), bindings, context);
     assert.equal(created.status, 201);
     assert.equal((await created.json()).article.id, 7);
+    const createArticleQuery = database.queries.find(({ sql }) => /INSERT INTO managed_articles/i.test(sql));
+    const storedBlocks = createArticleQuery?.bindings.find((value) => typeof value === "string" && value.includes('"type":"cta"'));
+    assert.match(storedBlocks ?? "", /"buttonText":"Pozrieť produkt"/);
+    assert.match(storedBlocks ?? "", /"sponsored":true/);
 
     database.queries.length = 0;
     const saved = await worker.fetch(adminRequest("/api/admin/articles/7", {
