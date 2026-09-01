@@ -60,7 +60,8 @@ export function PortalTopic({
   const newsCategory = section.slug === "novinky" ? getNewsCategory(subpage.slug) : null;
   const isCare = section.slug === "starostlivost";
   const isActivities = section.slug === "aktivity";
-  const isStructuredTopic = isCare || isActivities;
+  const isPuppies = section.slug === "steniatka";
+  const isStructuredTopic = isCare || isActivities || isPuppies;
   const legacyCareArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
   const legacyActivityArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
   const sectionArticles = articles.filter((article) =>
@@ -95,11 +96,11 @@ export function PortalTopic({
         <div className="portal-topic-copy">
           {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
           <span className="eyebrow">Čo tu nájdeš</span>
-          <h2>{isCare ? `Praktická poradňa: ${subpage.label}` : isActivities ? `Praktický sprievodca: ${subpage.label}` : note.title}</h2>
+          <h2>{isCare ? `Praktická poradňa: ${subpage.label}` : isActivities ? `Praktický sprievodca: ${subpage.label}` : isPuppies ? `Sprievodca: ${subpage.label}` : note.title}</h2>
           <p>{isStructuredTopic ? (subpage.intro || subpage.description) : note.text}</p>
-          {isStructuredTopic && subpage.popularTopics?.length ? <div className={`care-topic-chips ${isActivities ? "activity-topic-chips" : ""}`}>{subpage.popularTopics.map((item) => <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${section.slug}`} key={item}>{item}</Link>)}</div> : <ul>{note.items.map((item) => <li key={item}><CheckIcon size={18} /><span>{item}</span></li>)}</ul>}
+          {isStructuredTopic && subpage.popularTopics?.length ? <div className={`care-topic-chips ${isActivities ? "activity-topic-chips" : ""} ${isPuppies ? "puppy-topic-chips" : ""}`}>{subpage.popularTopics.map((item) => <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${section.slug}`} key={item}>{item}</Link>)}</div> : <ul>{note.items.map((item) => <li key={item}><CheckIcon size={18} /><span>{item}</span></li>)}</ul>}
         </div>
-        <aside className={`portal-topic-aside ${isStructuredTopic ? "care-question-aside" : ""} ${isActivities ? "activity-question-aside" : ""}`}>
+        <aside className={`portal-topic-aside ${isStructuredTopic ? "care-question-aside" : ""} ${isActivities ? "activity-question-aside" : ""} ${isPuppies ? "puppy-question-aside" : ""}`}>
           <span aria-hidden="true">{isStructuredTopic ? "?" : section.icon}</span>
           <h3>{isStructuredTopic ? "Najčastejšie otázky" : section.label}</h3>
           {isStructuredTopic && subpage.commonQuestions?.length ? <ul>{subpage.commonQuestions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>{section.intro}</p>}
@@ -131,10 +132,22 @@ export function PortalTopic({
         </div>
       </section>}
 
+      {isPuppies && <section className="section section--tint care-guidance-section puppy-guidance-section">
+        <div className="shell">
+          <div className="section-heading"><span className="eyebrow">Krok za krokom</span><h2>Čo urobiť teraz a čo radšej neprehliadnuť</h2></div>
+          <div className="care-guidance-grid">
+            <article className="care-guidance-card puppy-guidance-card"><span aria-hidden="true">✓</span><h3>Čo urobiť teraz</h3><ul>{(subpage.homeSteps ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
+            <article className="care-guidance-card puppy-guidance-card is-warning"><span aria-hidden="true">!</span><h3>Na čo si dať pozor</h3><ul>{(subpage.warningSigns ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
+          </div>
+          {subpage.expertAdvice && <div className="care-expert-callout puppy-expert-callout"><span aria-hidden="true">🐶</span><div><strong>Dôležité pre túto fázu</strong><p>{subpage.expertAdvice}</p></div></div>}
+          {!!subpage.serviceLinks?.length && <div className="care-topic-services puppy-topic-services"><div><span className="eyebrow">Užitočné pokračovanie</span><h3>Kontakty a súvisiace služby</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
+        </div>
+      </section>}
+
       <section className={`section ${isStructuredTopic ? "" : "section--tint"}`}>
         <div className="shell">
           <div className="section-heading split-heading">
-            <div><span className="eyebrow">{newsCategory ? "Najnovšie správy" : "Súvisiace čítanie"}</span><h2>{newsCategory ? newsCategory.label : isActivities ? `Články: ${subpage.label}` : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`}</h2></div>
+            <div><span className="eyebrow">{newsCategory ? "Najnovšie správy" : "Súvisiace čítanie"}</span><h2>{newsCategory ? newsCategory.label : isActivities || isPuppies ? `Články: ${subpage.label}` : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`}</h2></div>
             <Link href={newsCategory ? "/novinky" : "/clanky"} className="text-link text-link--large">{newsCategory ? "Všetky novinky" : "Všetky články"} <ArrowIcon /></Link>
           </div>
           {sortedArticles.length ? (
@@ -144,6 +157,7 @@ export function PortalTopic({
           )}
           {isCare && <p className="care-medical-note"><strong>Bezpečnostná poznámka:</strong> Informácie slúžia na orientáciu a nenahrádzajú diagnózu ani veterinárne vyšetrenie.</p>}
           {isActivities && <p className="care-medical-note activity-safety-note"><strong>Primeraná záťaž:</strong> Pri bolesti, krívaní, neobvyklej únave alebo prehrievaní aktivitu ukonči. Ďalší postup podľa stavu konzultuj s veterinárom.</p>}
+          {isPuppies && <p className="care-medical-note puppy-safety-note"><strong>Bezpečný vývoj:</strong> Každé šteniatko rastie inak. Zdravie, očkovanie, výživu a primeranú záťaž konzultuj s veterinárom, ktorý pozná jeho stav.</p>}
         </div>
       </section>
     </main>

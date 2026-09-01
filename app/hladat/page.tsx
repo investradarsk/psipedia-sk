@@ -18,7 +18,7 @@ export default async function SearchPage({ searchParams }: Props) {
   const raw = params.q;
   const query = (Array.isArray(raw) ? raw[0] : raw ?? "").trim().slice(0, 120);
   const rawSection = Array.isArray(params.sekcia) ? params.sekcia[0] : params.sekcia;
-  const section = rawSection === "starostlivost" || rawSection === "aktivity" ? rawSection : "";
+  const section = rawSection === "starostlivost" || rawSection === "aktivity" || rawSection === "steniatka" ? rawSection : "";
   const results = filterPortalSearch(await getPortalSearchIndex(), query).filter((item) => !section || item.href === `/${section}` || item.href.startsWith(`/${section}/`));
   const grouped = results.reduce((groups, item) => {
     const group = groups.get(item.type) ?? [];
@@ -38,7 +38,7 @@ export default async function SearchPage({ searchParams }: Props) {
         <div className="shell">
           <span className="eyebrow">Celá Psipedia na jednom mieste</span>
           <h1>Čo hľadáš?</h1>
-          <p>{section ? "Vyhľadávame iba v poradni Zdravie a starostlivosť." : "Článok, plemeno, podujatie, trénera, útulok alebo konkrétnu pomoc nájdeš jedným vyhľadávaním."}</p>
+          <p>{section === "starostlivost" ? "Vyhľadávame iba v poradni Zdravie a starostlivosť." : section === "aktivity" ? "Vyhľadávame iba v sekcii Výcvik a aktivity." : section === "steniatka" ? "Vyhľadávame iba v sprievodcovi Šteniatka." : "Článok, plemeno, podujatie, trénera, útulok alebo konkrétnu pomoc nájdeš jedným vyhľadávaním."}</p>
           <form action="/hladat" method="get" className="portal-search-form">
             <SearchIcon size={24} />
             {section && <input type="hidden" name="sekcia" value={section} />}

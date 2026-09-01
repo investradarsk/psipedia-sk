@@ -704,6 +704,39 @@ test("renders the activities hub, safe-start guidance and activity admin fields"
   assert.match(articleStoreSource, /Vyber oblasť v sekcii Výcvik a aktivity/);
 });
 
+test("renders the puppy journey, practical topic guidance and puppy admin fields", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("puppy-portal-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const bindings = { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } };
+  const context = { waitUntil() {}, passThroughOnException() {} };
+
+  const hub = await worker.fetch(new Request("http://localhost/steniatka", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(hub.status, 200);
+  const hubHtml = await hub.text();
+  assert.match(hubHtml, /Čakáš šteniatko alebo je už doma/);
+  assert.match(hubHtml, /Pred príchodom/);
+  assert.match(hubHtml, /Prvé týždne doma/);
+  assert.match(hubHtml, /Rast a dospievanie/);
+  assert.match(hubHtml, /Hľadať v sprievodcovi/);
+  assert.match(hubHtml, /Chovateľské stanice/);
+
+  const firstDays = await worker.fetch(new Request("http://localhost/steniatka/prve-dni", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(firstDays.status, 200);
+  const firstDaysHtml = await firstDays.text();
+  assert.match(firstDaysHtml, /Sprievodca: Prvé dni doma/);
+  assert.match(firstDaysHtml, /Čo urobiť teraz/);
+  assert.match(firstDaysHtml, /Na čo si dať pozor/);
+  assert.match(firstDaysHtml, /Dôležité pre túto fázu/);
+
+  const editorSource = readFileSync(new URL("../components/admin-section-editor.tsx", import.meta.url), "utf8");
+  assert.match(editorSource, /Obsah oblasti Šteniatok/);
+  assert.match(editorSource, /Témy tejto fázy/);
+  assert.match(editorSource, /Dôležité pre túto fázu/);
+  const articleEditorSource = readFileSync(new URL("../components/admin-article-editor.tsx", import.meta.url), "utf8");
+  assert.match(articleEditorSource, /Oblasť Šteniatok/);
+});
+
 test("filters a directory category on the server and keeps verification data private", async () => {
   const database = createAdminMockDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});

@@ -92,6 +92,36 @@
 .activity-article-filters a { border-color: rgba(177,128,25,.18); color: #755817; background: rgba(255,250,234,.9); }
 .activity-safety-note { border-left-color: var(--forest); background: #f2f6f1; }
 
+/* Šteniatka — sprievodca od rozhodnutia po dospievanie */
+.puppy-search button { background: var(--coral-dark); }
+.puppy-start { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 24px; align-items: center; margin-top: -29px; padding: 24px 28px; border: 1px solid rgba(217,88,62,.2); border-radius: 22px; background: #fff8f3; box-shadow: 0 14px 38px rgba(111,54,39,.09); }
+.puppy-start .eyebrow { margin-bottom: 3px; color: var(--coral-dark); }
+.puppy-start h2 { margin: 0 0 5px; font-size: clamp(1.45rem,2.4vw,2rem); }
+.puppy-start p { margin: 0; color: var(--muted); font-size: .82rem; }
+.puppy-start-actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+.puppy-start-actions a { display: inline-flex; min-height: 44px; align-items: center; padding: 0 16px; border: 1px solid rgba(217,88,62,.25); border-radius: 11px; color: var(--coral-dark); background: white; font-size: .77rem; font-weight: 800; }
+.puppy-start-actions a.is-primary { color: white; background: var(--coral-dark); }
+.puppy-stage + .puppy-stage { margin-top: 42px; padding-top: 38px; border-top: 1px solid var(--line); }
+.puppy-stage-heading { display: flex; gap: 14px; align-items: center; margin-bottom: 18px; }
+.puppy-stage-heading > span { display: grid; width: 42px; height: 42px; flex: none; place-items: center; border-radius: 50%; color: white; background: var(--coral-dark); font-size: .72rem; font-weight: 900; }
+.puppy-stage-heading h3 { margin: 0 0 2px; font-family: Georgia,serif; font-size: 1.55rem; font-weight: 500; }
+.puppy-stage-heading p { margin: 0; color: var(--muted); font-size: .76rem; }
+.portal-subpage-card.puppy-area-card { min-height: 218px; padding: 25px; border-color: rgba(217,88,62,.15); border-radius: 22px; background: linear-gradient(145deg,#fffdf9,#fff7f1); }
+.portal-subpage-card.puppy-area-card > span { display: grid; width: 50px; height: 50px; place-items: center; border: 1px solid rgba(217,88,62,.15); border-radius: 15px; background: #ffe9df; font-size: 1.45rem; }
+.puppy-area-card h3 { font-size: 1.48rem; }
+.puppy-area-card b { display: block; margin-top: 14px; color: var(--coral-dark); font-size: .72rem; }
+.puppy-area-card .care-area-topics small { color: #8c503f; background: #ffebe3; }
+.puppy-topic-chips a { border-color: rgba(217,88,62,.18); color: #9d4634; background: #fff0e9; }
+.puppy-question-aside { background: linear-gradient(150deg,#5b3a32,#38261f); }
+.puppy-guidance-section { background: linear-gradient(180deg,#fff8f3,#f8f4eb); }
+.puppy-guidance-card { border-color: rgba(217,88,62,.14); }
+.puppy-guidance-card > span { background: var(--coral-dark); }
+.puppy-guidance-card.is-warning { border-color: rgba(177,128,25,.18); background: #fffaf0; }
+.puppy-guidance-card.is-warning > span { color: var(--ink); background: var(--gold); }
+.puppy-expert-callout { background: linear-gradient(135deg,#934b39,#c25d43); }
+.puppy-topic-services a { border-color: rgba(217,88,62,.2); color: #9d4634; }
+.puppy-safety-note { border-left-color: var(--coral-dark); background: #fff5f0; }
+
 /* Poradenská podstránka */
 .portal-topic-title { display: flex; gap: 18px; align-items: center; margin-top: 10px; }
 .portal-topic-title > span { display: grid; width: 68px; height: 68px; flex: none; place-items: center; border: 1px solid rgba(255,255,255,.7); border-radius: 20px; background: rgba(255,255,255,.55); font-size: 2rem; }
@@ -141,6 +171,8 @@
 .admin-care-area-fields .admin-field-grid { margin-top: 14px; }
 .admin-activity-area-fields { border-color: #eadcaf; background: #fffbef; }
 .admin-activity-area-fields summary { color: #755817; }
+.admin-puppy-area-fields { border-color: #f0cfc5; background: #fff8f5; }
+.admin-puppy-area-fields summary { color: #a64c39; }
 .admin-subsection-row > .admin-subsection-remove { width: fit-content; justify-self: end; color: #a64c39; background: #fff5f2; }
 
 @media (max-width: 900px) {
@@ -156,6 +188,8 @@
   .activity-fit { grid-template-columns: 1fr; }
   .activity-fit-factors { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .activity-fit > a { justify-self: start; }
+  .puppy-start { grid-template-columns: 1fr; }
+  .puppy-start-actions { justify-content: flex-start; }
 }
 
 @media (max-width: 620px) {
@@ -167,10 +201,15 @@
   .activity-fit { margin-top: -18px; padding: 20px; }
   .activity-fit-factors { grid-template-columns: 1fr; gap: 10px; }
   .activity-fit > a { width: 100%; justify-self: stretch; }
+  .puppy-start { margin-top: -18px; padding: 20px; }
+  .puppy-start-actions { display: grid; }
+  .puppy-start-actions a { justify-content: center; }
   .portal-subpage-card.care-area-card { min-height: 0; grid-template-columns: auto minmax(0,1fr); padding: 20px; }
   .portal-subpage-card.care-area-card > svg { display: block; grid-column: 2; }
   .portal-subpage-card.activity-area-card { min-height: 0; grid-template-columns: auto minmax(0,1fr); padding: 20px; }
   .portal-subpage-card.activity-area-card > svg { display: block; grid-column: 2; }
+  .portal-subpage-card.puppy-area-card { min-height: 0; grid-template-columns: auto minmax(0,1fr); padding: 20px; }
+  .portal-subpage-card.puppy-area-card > svg { display: block; grid-column: 2; }
   .care-articles-layout,
   .care-article-stack,
   .care-guidance-grid { grid-template-columns: 1fr; }

@@ -56,8 +56,9 @@ export function AdminSectionEditor({ initialSections }: { initialSections: Manag
         <div className="admin-subsection-heading"><div><strong>Podsekcie</strong><small>Názov, adresa a vysvetlenie, ktoré sa zobrazia na verejnej stránke.</small></div><button type="button" onClick={() => addSubpage(section.slug)}>+ Pridať podsekciu</button></div>
         <div className="admin-subsection-list">{section.subpages.map((subpage, subIndex) => {
           const completeness = [subpage.intro, subpage.popularTopics?.length, subpage.commonQuestions?.length, subpage.warningSigns?.length, subpage.serviceLinks?.length].filter(Boolean).length;
-          const isStructuredSection = section.slug === "starostlivost" || section.slug === "aktivity";
+          const isStructuredSection = section.slug === "starostlivost" || section.slug === "aktivity" || section.slug === "steniatka";
           const isActivitySection = section.slug === "aktivity";
+          const isPuppySection = section.slug === "steniatka";
           return <article className="admin-subsection-row" key={`${subpage.slug}-${subIndex}`}>
             <header className="admin-subsection-row-header">
               <div><span aria-hidden="true">{subpage.icon || "🐾"}</span><strong>{subpage.label || "Nová podsekcia"}</strong>{isStructuredSection && <small>{completeness}/5 častí vyplnených</small>}</div>
@@ -74,16 +75,16 @@ export function AdminSectionEditor({ initialSections }: { initialSections: Manag
               <label>Obrázok<input value={subpage.imageUrl ?? ""} onChange={(event) => updateSubpage(section.slug, subIndex, { imageUrl: event.target.value })} placeholder="/media/... alebo https://..." /></label>
               <label>ALT text<input value={subpage.imageAlt ?? ""} onChange={(event) => updateSubpage(section.slug, subIndex, { imageAlt: event.target.value })} /></label>
             </div>
-            {isStructuredSection && <details className={`admin-care-area-fields ${isActivitySection ? "admin-activity-area-fields" : ""}`} open={subIndex === 0}>
-              <summary>{isActivitySection ? "Obsah oblasti výcviku a aktivít" : "Obsah poradenskej oblasti"}</summary>
+            {isStructuredSection && <details className={`admin-care-area-fields ${isActivitySection ? "admin-activity-area-fields" : ""} ${isPuppySection ? "admin-puppy-area-fields" : ""}`} open={subIndex === 0}>
+              <summary>{isActivitySection ? "Obsah oblasti výcviku a aktivít" : isPuppySection ? "Obsah oblasti Šteniatok" : "Obsah poradenskej oblasti"}</summary>
               <p>Každú položku zoznamu napíš na samostatný riadok. Odkazy zapisuj ako <code>Názov | /adresa</code>.</p>
               <div className="admin-field-grid">
-                <label>{isActivitySection ? "Aktivity a témy" : "Najčastejšie témy"}<textarea rows={5} value={lines(subpage.popularTopics)} onChange={(event) => updateSubpage(section.slug, subIndex, { popularTopics: fromLines(event.target.value) })} /></label>
+                <label>{isActivitySection ? "Aktivity a témy" : isPuppySection ? "Témy tejto fázy" : "Najčastejšie témy"}<textarea rows={5} value={lines(subpage.popularTopics)} onChange={(event) => updateSubpage(section.slug, subIndex, { popularTopics: fromLines(event.target.value) })} /></label>
                 <label>Najčastejšie otázky<textarea rows={5} value={lines(subpage.commonQuestions)} onChange={(event) => updateSubpage(section.slug, subIndex, { commonQuestions: fromLines(event.target.value) })} /></label>
-                <label>{isActivitySection ? "Ako začať" : "Čo sledovať alebo urobiť doma"}<textarea rows={6} value={lines(subpage.homeSteps)} onChange={(event) => updateSubpage(section.slug, subIndex, { homeSteps: fromLines(event.target.value) })} /></label>
-                <label>{isActivitySection ? "Bezpečnosť a limity" : "Varovné signály"}<textarea rows={6} value={lines(subpage.warningSigns)} onChange={(event) => updateSubpage(section.slug, subIndex, { warningSigns: fromLines(event.target.value) })} /></label>
-                <label className="admin-field--full">{isActivitySection ? "Čo zvážiť pri výbere" : "Kedy vyhľadať odborníka"}<textarea rows={3} value={subpage.expertAdvice ?? ""} onChange={(event) => updateSubpage(section.slug, subIndex, { expertAdvice: event.target.value })} /></label>
-                <label>{isActivitySection ? "Kontakty a súvisiace služby" : "Užitočné kontakty"}<textarea rows={4} value={serviceLines(subpage.serviceLinks)} onChange={(event) => updateSubpage(section.slug, subIndex, { serviceLinks: fromServiceLines(event.target.value) })} /></label>
+                <label>{isActivitySection ? "Ako začať" : isPuppySection ? "Čo urobiť teraz" : "Čo sledovať alebo urobiť doma"}<textarea rows={6} value={lines(subpage.homeSteps)} onChange={(event) => updateSubpage(section.slug, subIndex, { homeSteps: fromLines(event.target.value) })} /></label>
+                <label>{isActivitySection ? "Bezpečnosť a limity" : isPuppySection ? "Na čo si dať pozor" : "Varovné signály"}<textarea rows={6} value={lines(subpage.warningSigns)} onChange={(event) => updateSubpage(section.slug, subIndex, { warningSigns: fromLines(event.target.value) })} /></label>
+                <label className="admin-field--full">{isActivitySection ? "Čo zvážiť pri výbere" : isPuppySection ? "Dôležité pre túto fázu" : "Kedy vyhľadať odborníka"}<textarea rows={3} value={subpage.expertAdvice ?? ""} onChange={(event) => updateSubpage(section.slug, subIndex, { expertAdvice: event.target.value })} /></label>
+                <label>{isActivitySection || isPuppySection ? "Kontakty a súvisiace služby" : "Užitočné kontakty"}<textarea rows={4} value={serviceLines(subpage.serviceLinks)} onChange={(event) => updateSubpage(section.slug, subIndex, { serviceLinks: fromServiceLines(event.target.value) })} /></label>
                 <label>Pripnuté články – slugy<textarea rows={4} value={lines(subpage.featuredArticleSlugs)} onChange={(event) => updateSubpage(section.slug, subIndex, { featuredArticleSlugs: fromLines(event.target.value) })} /></label>
                 <label>SEO title<input value={subpage.seoTitle ?? ""} onChange={(event) => updateSubpage(section.slug, subIndex, { seoTitle: event.target.value })} /></label>
                 <label>Meta description<textarea rows={3} value={subpage.metaDescription ?? ""} onChange={(event) => updateSubpage(section.slug, subIndex, { metaDescription: event.target.value })} /></label>
