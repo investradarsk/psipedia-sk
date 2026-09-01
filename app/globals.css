@@ -53,11 +53,11 @@
 .care-area-topics small { padding: 5px 8px; border-radius: 999px; color: #53665d; background: #f1f5ef; font-size: .65rem; }
 .care-article-filters { display: flex; gap: 8px; flex-wrap: wrap; margin: -8px 0 24px; }
 .care-article-filters a { padding: 8px 12px; border: 1px solid rgba(23,75,56,.12); border-radius: 999px; color: var(--forest); background: rgba(255,255,255,.7); font-size: .74rem; font-weight: 750; }
-.care-articles-layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 20px; }
+.care-articles-layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 20px; align-items: start; }
 .care-article-featured .article-card { height: 100%; }
 .care-article-featured .article-card-media { min-height: 300px; }
 .care-article-featured .article-card h3 { font-size: clamp(1.65rem, 2.5vw, 2.25rem); }
-.care-article-stack { display: grid; gap: 12px; }
+.care-article-stack { display: grid; grid-auto-rows: max-content; gap: 12px; align-content: start; }
 .care-article-stack .article-card { grid-template-columns: 150px minmax(0, 1fr); grid-template-rows: 1fr; }
 .care-article-stack .article-card-media { height: 100%; aspect-ratio: auto; }
 .care-article-stack .article-card-body { padding: 15px; }
@@ -10356,13 +10356,6 @@ h3 {
 .admin-og-upload { margin-top: 18px; padding-top: 18px; border-top: 1px solid #e2e7e2; }
 .admin-schedule { color: #6b4b13; background: #f5e6b7; }
 .article-updated { color: #8f513d; font-weight: 750; }
-.article-toc { margin: 0 0 32px; padding: 21px 23px; border: 1px solid #d7e2da; border-radius: 16px; background: #f5f9f5; font-family: "Avenir Next", Avenir, sans-serif; }
-.article-toc > strong { display: block; margin-bottom: 11px; color: var(--forest); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
-.article-toc ol { display: grid; gap: 7px; margin: 0; padding-left: 20px; }
-.article-toc li { color: #355347; font-size: .88rem; }
-.article-toc li.is-h3 { margin-left: 18px; font-size: .82rem; }
-.article-toc a { text-decoration: underline; text-decoration-color: rgba(23,75,56,.22); text-underline-offset: 3px; }
-.article-toc a:hover { color: var(--coral-dark); text-decoration-color: currentColor; }
 .article-blocks h2,
 .article-blocks h3 { scroll-margin-top: 110px; }
 

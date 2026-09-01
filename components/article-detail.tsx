@@ -9,7 +9,7 @@ import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel } from "@/lib/portal";
 import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
-import { articleBlockHeadings, articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
+import { articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
 
 export function ArticleDetail({ article, related }: { article: Article; related: Article[] }) {
   const section = articlePortalSection(article);
@@ -22,7 +22,6 @@ export function ArticleDetail({ article, related }: { article: Article; related:
   const blocks = article.blocks?.length
     ? article.blocks
     : legacyArticleBlocks(article.sections, article.sources);
-  const headings = articleBlockHeadings(blocks);
   const showUpdated = article.showUpdated ?? article.updatedDateIso !== article.dateIso;
   const wordCount = [article.intro, article.takeaway, articleBlockPlainText(blocks)]
     .join(" ")
@@ -101,7 +100,6 @@ export function ArticleDetail({ article, related }: { article: Article; related:
 
       <div className="article-content-wrap shell">
         <article className="article-prose">
-          {headings.length > 1 && <nav className="article-toc" aria-label="Obsah článku"><strong>Obsah článku</strong><ol>{headings.map((heading) => <li className={heading.level === 3 ? "is-h3" : undefined} key={heading.blockId}><a href={`#${heading.id}`}>{heading.text}</a></li>)}</ol></nav>}
           <p className="article-intro">{article.intro}</p>
           <div className="takeaway-box"><strong>To najdôležitejšie</strong><p>{article.takeaway}</p></div>
           <ArticleBlocks blocks={blocks} />

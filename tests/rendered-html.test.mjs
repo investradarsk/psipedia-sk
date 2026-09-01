@@ -565,7 +565,7 @@ test("renders article freshness and expert sources", async () => {
   const html = await response.text();
   assert.match(html, /Aktualizované/);
   assert.match(html, /Odborné zdroje/);
-  assert.match(html, /Obsah článku/);
+  assert.doesNotMatch(html, /Obsah článku/);
   assert.match(html, /Súvisiace články/);
   assert.match(html, /WSAVA: Global Nutrition Guidelines/);
   assert.match(html, /"dateModified":"2026-08-16"/);
