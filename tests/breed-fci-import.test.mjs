@@ -78,6 +78,8 @@ function readyBreeds() {
   const named=[
     [122,"Labradorský retriever","LABRADOR RETRIEVER",8,"labradorsky-retriever","1","Retrievery"],
     [5,"Anglický kokeršpaniel","ENGLISH COCKER SPANIEL",8,"anglicky-kokerspaniel","2","Sliediče"],
+    [161,"Bígl","BEAGLE",6,"bigl","1.3","Malé duriče"],
+    [57,"Maďarský krátkosrstý stavač (vyžla)","HUNGARIAN SHORT-HAIRED POINTER (VIZSLA)",7,"madarsky-kratkosrsty-stavac-vyzla","1.1","Kontinentálne stavače"],
     [37,"Portugalský vodný pes","PORTUGUESE WATER DOG",8,"portugalsky-vodny-pes","3","Vodné psy"],
     [312,"Nova Scotia Duck Tolling Retriever","NOVA SCOTIA DUCK TOLLING RETRIEVER",8,"nova-scotia-duck-tolling-retriever","1","Retrievers"],
     [166,"Nemecký ovčiak","GERMAN SHEPHERD DOG",1,"nemecky-ovciak","1","Ovčiarske psy"],
@@ -108,6 +110,17 @@ function seedEditorialLabrador(sqlite) {
     "Pôvodný redakčný úvod.","Pôvodná redakčná povaha.","Pôvodné potreby.","Pôvodná história.","Pôvodný pohyb.","Pôvodný výcvik.","Pôvodné zdravie.",
     '["DBK"]','["aktívne rodiny"]','["sklon k priberaniu"]','[]',"forest",'{"title":"Ručné SEO"}',now,now,now,"editor@psipedia.sk","editor@psipedia.sk",
   );
+}
+
+function duplicateBreedAsLegacy(sqlite, sourceFciNumber, legacySlug) {
+  const row = sqlite.prepare("SELECT * FROM managed_breeds WHERE fci_number=?").get(sourceFciNumber);
+  assert.ok(row, `Missing canonical FCI ${sourceFciNumber}`);
+  delete row.id;
+  row.slug = legacySlug;
+  row.fci_number = null;
+  row.import_key = null;
+  const columns = Object.keys(row);
+  sqlite.prepare(`INSERT INTO managed_breeds (${columns.join(",")}) VALUES (${columns.map(() => "?").join(",")})`).run(...columns.map((column) => row[column]));
 }
 
 function breedInputFromRow(row,overrides={}) {
@@ -229,7 +242,12 @@ test("344-record FCI import previews, imports and remains idempotent without era
   assert.match(css,/\.breed-copy p,[\s\S]*?overflow-wrap:\s*anywhere/);assert.match(css,/@media \(max-width: 760px\)[\s\S]*?overflow-x:\s*clip/);assert.match(css,/\.breed-detail-nav > div\s*\{[\s\S]*?overscroll-behavior-inline:\s*contain/);assert.match(css,/\.breed-fci-disclosure\.is-open > button\s*\{[\s\S]*?background:\s*var\(--forest\)/);assert.match(css,/@media \(min-width: 861px\)[\s\S]*?\.breed-fci-open-section\s*\{[\s\S]*?border-left:\s*3px solid/);assert.match(css,/@media \(min-width: 861px\)[\s\S]*?\.breed-fci-open-section h3::before\s*\{[\s\S]*?background:\s*var\(--forest\)/);assert.match(css,/@media \(min-width: 861px\)[\s\S]*?\.breed-fci-open-item \+ \.breed-fci-open-item\s*\{[\s\S]*?border-top:\s*1px dashed/);
   const detailSource=readFileSync(new URL("../app/plemena/[slug]/page.tsx",import.meta.url),"utf8");assert.doesNotMatch(detailSource,/BreedFciAccordion/);assert.match(detailSource,/BreedFciDisclosure/);
   const disclosureSource=readFileSync(new URL("../components/breed-fci-disclosure.tsx",import.meta.url),"utf8");assert.match(disclosureSource,/aria-expanded=\{open\}/);assert.match(disclosureSource,/aria-controls=\{contentId\}/);assert.match(disclosureSource,/hidden=\{!open\}/);
-  const sitemap=await get(worker,d1,"/sitemap.xml");assert.equal(sitemap.status,200);const sitemapText=await sitemap.text();assert.match(sitemapText,/\/plemena\/labradorsky-retriever/);assert.equal((sitemapText.match(/<loc>https:\/\/psipedia\.sk\/plemena\/[^<]+/g)??[]).length,344);
+  duplicateBreedAsLegacy(sqlite,5,"anglicky-koker-spaniel");duplicateBreedAsLegacy(sqlite,161,"beagle");duplicateBreedAsLegacy(sqlite,57,"madarska-vyzla");
+  const sitemap=await get(worker,d1,"/sitemap.xml");assert.equal(sitemap.status,200);const sitemapText=await sitemap.text();assert.match(sitemapText,/\/plemena\/labradorsky-retriever/);
+  const sitemapUrls=[...sitemapText.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match)=>match[1]);const breedUrls=sitemapUrls.filter((url)=>/^https:\/\/psipedia\.sk\/plemena\/[^/]+$/.test(url)&&url!=="https://psipedia.sk/plemena/vyber-plemena");
+  assert.equal(breedUrls.length,344);assert.ok(sitemapUrls.includes("https://psipedia.sk/plemena/vyber-plemena"));assert.equal(new Set(sitemapUrls).size,sitemapUrls.length);
+  for(const legacySlug of ["anglicky-koker-spaniel","beagle","madarska-vyzla"])assert.ok(!sitemapUrls.includes(`https://psipedia.sk/plemena/${legacySlug}`));
+  for(const [legacySlug,canonicalSlug] of [["anglicky-koker-spaniel","anglicky-kokerspaniel"],["beagle","bigl"],["madarska-vyzla","madarsky-kratkosrsty-stavac-vyzla"]]){const legacy=await get(worker,d1,`/plemena/${legacySlug}`);assert.equal(legacy.status,301);assert.equal(legacy.headers.get("location"),`http://localhost/plemena/${canonicalSlug}`);const canonical=await get(worker,d1,`/plemena/${canonicalSlug}`);assert.equal(canonical.status,200);}
 });
 
 test("FCI preview rejects missing numbers, invalid groups and duplicate identities without writing",async()=>{

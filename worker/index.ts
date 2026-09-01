@@ -46,6 +46,11 @@ const USER_EMAIL_HEADER = "oai-authenticated-user-email";
 const USER_FULL_NAME_ENCODING_HEADER = "oai-authenticated-user-full-name-encoding";
 const USER_FULL_NAME_HEADER = "oai-authenticated-user-full-name";
 const PERCENT_ENCODED_UTF8 = "percent-encoded-utf-8";
+const LEGACY_BREED_REDIRECTS: Readonly<Record<string, string>> = {
+  "/plemena/anglicky-koker-spaniel": "/plemena/anglicky-kokerspaniel",
+  "/plemena/beagle": "/plemena/bigl",
+  "/plemena/madarska-vyzla": "/plemena/madarsky-kratkosrsty-stavac-vyzla",
+};
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -61,6 +66,12 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    const canonicalBreedPath = LEGACY_BREED_REDIRECTS[url.pathname];
+    if (canonicalBreedPath) {
+      url.pathname = canonicalBreedPath;
+      return Response.redirect(url, 301);
+    }
 
     let appRequest = request;
     if (env.AUTH_MODE === "cloudflare-access" && isAdminAuthPath(url.pathname)) {

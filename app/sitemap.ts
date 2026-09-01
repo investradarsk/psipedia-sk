@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { categories } from "@/lib/content";
-import { listPublishedBreedIndex } from "@/lib/breed-store";
+import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
 import { getPublishedArticles } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { eventHref } from "@/lib/events";
@@ -14,14 +14,14 @@ import { SITE_URL } from "@/lib/seo";
 import { resolvedCanonical } from "@/lib/content-seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([getPublishedArticles(), getPublishedEvents(), getPublishedDirectoryProfiles(), getPublishedHelpCases(), listManagedPortalSections(), listPublishedBreedIndex()]);
+  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([getPublishedArticles(), getPublishedEvents(), getPublishedDirectoryProfiles(), getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex()]);
   const portalSections = managedSections.filter((section) => section.visible);
-  const staticPages = ["", "/clanky", "/plemena", "/porovnat-plemena", "/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"];
+  const staticPages = ["", "/clanky", "/plemena", "/plemena/vyber-plemena", "/porovnat-plemena", "/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"];
   const portalPages = portalSections.flatMap((section) => [
     `/${section.slug}`,
     ...section.subpages.filter((subpage) => subpage.visible !== false).map((subpage) => portalSubpageHref(section, subpage)),
   ]).filter((path) => path !== "/adresar/psie-skoly");
-  return [
+  const entries: MetadataRoute.Sitemap = [
     ...[...new Set([...staticPages, ...portalPages])].map((path) => ({
       url: `${SITE_URL}${path}`,
       lastModified: new Date("2026-08-17"),
@@ -42,4 +42,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...breeds.filter((breed) => !breed.seo?.noindex).map((breed) => ({ url: resolvedCanonical(breed.seo,`/plemena/${breed.slug}`), lastModified: new Date(breed.updatedAt), changeFrequency: "monthly" as const, priority: 0.8, images: breed.image ? [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] : undefined })),
     ...categories.map((category) => ({ url: `${SITE_URL}/tema/${category.slug}`, lastModified: new Date("2026-08-17"), changeFrequency: "weekly" as const, priority: 0.6 })),
   ];
+  return [...new Map(entries.map((entry) => [entry.url, entry])).values()];
 }
