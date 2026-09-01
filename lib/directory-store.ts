@@ -760,24 +760,29 @@ export async function getPublishedDirectoryProfile(category: string, slug: strin
 export async function listManagedDirectoryProfileSummaries(options: {
   page?: number;
   pageSize?: number;
+  category?: DirectoryCategorySlug;
 } = {}): Promise<ManagedDirectoryProfileSummaryPage> {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
   const page = Math.max(1, Math.trunc(options.page ?? 1));
   const pageSize = Math.max(1, Math.min(100, Math.trunc(options.pageSize ?? 50)));
+  const category = options.category && isDirectoryCategory(options.category) ? options.category : null;
+  const where = category ? "WHERE category = ?" : "";
   const listStatement = database.prepare(`
     SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured
     FROM directory_profiles
+    ${where}
     ORDER BY updated_at DESC, id DESC
     LIMIT ? OFFSET ?
-  `).bind(pageSize, (page - 1) * pageSize);
+  `).bind(...(category ? [category, pageSize, (page - 1) * pageSize] : [pageSize, (page - 1) * pageSize]));
   const countStatement = database.prepare(`
     SELECT
       COUNT(*) AS total,
       COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
       COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
     FROM directory_profiles
-  `);
+    ${where}
+  `).bind(...(category ? [category] : []));
   const [listResult, countResult] = await database.batch([listStatement, countStatement]);
   const rows = (listResult.results ?? []) as unknown as DirectoryProfileSummaryRow[];
   const rawCounts = (countResult.results?.[0] ?? null) as unknown as DirectoryProfileCountRow | null;

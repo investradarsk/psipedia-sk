@@ -8,11 +8,14 @@ import { SearchIcon } from "./icons";
 export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedBreedSummary[] }) {
   const [breeds, setBreeds] = useState(initialBreeds);
   const [query, setQuery] = useState("");
+  const [fciGroup, setFciGroup] = useState("all");
   const [message, setMessage] = useState("");
+  const fciGroups = useMemo(() => [...new Map(breeds.map((breed) => [breed.fciGroup, breed.group])).entries()].sort((a, b) => a[0] - b[0]), [breeds]);
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
-    return breeds.filter((breed) => !needle || `${breed.name} ${breed.slug} ${breed.group} ${breed.origin}`.toLocaleLowerCase("sk").includes(needle));
-  }, [breeds, query]);
+    return breeds.filter((breed) => (fciGroup === "all" || breed.fciGroup === Number(fciGroup))
+      && (!needle || `${breed.name} ${breed.slug} ${breed.group} ${breed.origin}`.toLocaleLowerCase("sk").includes(needle)));
+  }, [breeds, query, fciGroup]);
 
   async function remove(breed: ManagedBreedSummary) {
     if (!window.confirm(`Naozaj chceš odstrániť plemeno „${breed.name}“?`)) return;
@@ -30,7 +33,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       <div><span>Koncepty</span><strong>{breeds.filter((item) => item.status === "draft").length}</strong></div>
     </section>
     <section className="admin-panel">
-      <div className="admin-toolbar"><label className="admin-search"><SearchIcon size={19}/><span className="sr-only">Hľadať plemeno</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať plemeno"/></label></div>
+      <div className="admin-toolbar"><label className="admin-search"><SearchIcon size={19}/><span className="sr-only">Hľadať plemeno</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať plemeno"/></label><label className="admin-select-filter"><span>FCI skupina</span><select value={fciGroup} onChange={(event) => setFciGroup(event.target.value)}><option value="all">Všetky skupiny</option>{fciGroups.map(([number, label]) => <option value={number} key={number}>FCI {number} · {label}</option>)}</select></label></div>
       {message && <p className="admin-flash" role="status">{message}</p>}
       <div className="admin-article-list">
         {visible.map((breed) => <article className="admin-article-row" key={breed.id}>

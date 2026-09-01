@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, Fragment, useEffect, useRef, useState } from "react";
 import { ArticleBlocks } from "@/components/article-blocks";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import {
@@ -28,12 +28,13 @@ function cloneBlock(block: ArticleBlock): ArticleBlock {
   return { ...structuredClone(block), id: crypto.randomUUID() };
 }
 
-function RichTextInput({
+export function RichTextInput({
   value,
   onChange,
   rows = 5,
   id,
   placeholder,
+  required = false,
   showLists = false,
   alignment = "left",
   onAlignmentChange,
@@ -43,6 +44,7 @@ function RichTextInput({
   rows?: number;
   id: string;
   placeholder?: string;
+  required?: boolean;
   showLists?: boolean;
   alignment?: ArticleTextAlignment;
   onAlignmentChange?: (alignment: ArticleTextAlignment) => void;
@@ -102,14 +104,14 @@ function RichTextInput({
           ["right", "Vpravo"],
         ] as const).map(([position, label]) => <button type="button" key={position} className={alignment === position ? "is-active" : ""} aria-pressed={alignment === position} onClick={() => onAlignmentChange(position)}>{label}</button>)}
       </div>
-      <textarea ref={ref} id={id} rows={rows} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+      <textarea ref={ref} id={id} rows={rows} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} />
       <small>Označ text a použi formátovanie. Prázdny riadok vytvorí na webe nový odsek.</small>
     </div>
   );
 }
 
 export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, onUploadingChange, onMessage, onError }: Props) {
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
 
@@ -154,9 +156,19 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
     setDragIndex(null);
   }
 
-  function add(type: ArticleBlock["type"]) {
-    onChange([...blocks, createArticleBlock(type)]);
-    setPickerOpen(false);
+  function add(type: ArticleBlock["type"], index: number) {
+    const next = [...blocks];
+    next.splice(index, 0, createArticleBlock(type));
+    onChange(next);
+    setPickerIndex(null);
+  }
+
+  function insertControl(index: number) {
+    const open = pickerIndex === index;
+    return <div className={`admin-block-insert ${open ? "is-open" : ""}`}>
+      <button type="button" className="admin-block-insert-button" aria-expanded={open} onClick={() => setPickerIndex(open ? null : index)}>+ Vložiť blok sem</button>
+      {open && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, index)}><span>{type === "text" ? "¶" : type === "image" ? "▧" : type === "gallery" ? "▦" : type === "table" ? "▤" : type === "tip" ? "★" : type === "warning" ? "!" : type === "quote" ? "❞" : type === "embed" ? "▶" : type === "source" ? "↗" : type === "related" ? "→" : type === "bullet-list" ? "•" : type === "numbered-list" ? "1." : "H"}</span>{articleBlockLabels[type]}</button>)}</div>}
+    </div>;
   }
 
   async function uploadSingle(event: ChangeEvent<HTMLInputElement>, blockId: string) {
@@ -201,9 +213,10 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
       <div className="admin-block-list">
         {blocks.length === 0 && <div className="admin-block-empty"><strong>Článok zatiaľ nemá obsahové bloky.</strong><p>Začni textom alebo nadpisom H2.</p></div>}
         {blocks.map((block, index) => (
+          <Fragment key={block.id}>
+          {insertControl(index)}
           <section
             className={`admin-block-card ${dragIndex === index ? "is-dragging" : ""}`}
-            key={block.id}
             draggable
             onDragStart={() => setDragIndex(index)}
             onDragEnd={() => setDragIndex(null)}
@@ -276,12 +289,13 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
             {block.type === "related" && <div className="admin-field-grid"><div className="admin-field admin-field--full"><label>Vybrať existujúci článok</label><select value={articles.find((item) => articleHref(item) === block.href)?.id ?? ""} onChange={(event) => { const selected = articles.find((item) => item.id === Number(event.target.value)); if (selected) update(block.id, (item) => item.type === "related" ? { ...item, title: selected.title, href: articleHref(selected), description: selected.excerpt } : item); }}><option value="">Vyber článok…</option>{articles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></div><div className="admin-field"><label>Názov</label><input value={block.title} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, title: event.target.value } : item)} /></div><div className="admin-field"><label>Odkaz</label><input value={block.href} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, href: event.target.value } : item)} placeholder="/sekcia/adresa" /></div></div>}
             {block.type === "embed" && <div className="admin-field-grid"><div className="admin-field"><label>Odkaz na YouTube alebo Vimeo</label><input type="url" value={block.url} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, url: event.target.value } : item)} placeholder="https://youtube.com/watch?v=…" /></div><div className="admin-field"><label>Názov videa</label><input value={block.title ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, title: event.target.value } : item)} /></div></div>}
           </section>
+          </Fragment>
         ))}
       </div>
 
       <div className="admin-block-add">
-        <button type="button" className="admin-block-add-button" onClick={() => setPickerOpen((value) => !value)}>+ Pridať blok</button>
-        {pickerOpen && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type)}><span>{type === "text" ? "¶" : type === "image" ? "▧" : type === "gallery" ? "▦" : type === "table" ? "▤" : type === "tip" ? "★" : type === "warning" ? "!" : type === "quote" ? "❞" : type === "embed" ? "▶" : type === "source" ? "↗" : type === "related" ? "→" : type === "bullet-list" ? "•" : type === "numbered-list" ? "1." : "H"}</span>{articleBlockLabels[type]}</button>)}</div>}
+        <button type="button" className="admin-block-add-button" aria-expanded={pickerIndex === blocks.length} onClick={() => setPickerIndex(pickerIndex === blocks.length ? null : blocks.length)}>+ Pridať blok na koniec</button>
+        {pickerIndex === blocks.length && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, blocks.length)}><span>{type === "text" ? "¶" : type === "image" ? "▧" : type === "gallery" ? "▦" : type === "table" ? "▤" : type === "tip" ? "★" : type === "warning" ? "!" : type === "quote" ? "❞" : type === "embed" ? "▶" : type === "source" ? "↗" : type === "related" ? "→" : type === "bullet-list" ? "•" : type === "numbered-list" ? "1." : "H"}</span>{articleBlockLabels[type]}</button>)}</div>}
       </div>
 
       <details className="admin-block-preview"><summary>Náhľad blokov</summary><ArticleBlocks blocks={blocks} preview /></details>

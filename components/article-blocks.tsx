@@ -87,6 +87,10 @@ function renderRichTextBlocks(value: string, keyPrefix: string): ReactNode[] {
   return result;
 }
 
+export function ArticleRichText({ value, className }: { value: string; className?: string }) {
+  return <div className={className}>{renderRichTextBlocks(value, "rich-text")}</div>;
+}
+
 function embedUrl(value: string) {
   try {
     const url = new URL(value);

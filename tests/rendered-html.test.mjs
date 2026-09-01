@@ -413,6 +413,16 @@ test("uses light admin lists and loads full records only for detail and save", a
     assert.equal(directory.status, 200);
     assert.match(await directory.text(), /Testovací kynologický klub/);
 
+    const filteredDirectory = await worker.fetch(adminRequest("/admin/adresar?category=kynologicke-kluby"), bindings, context);
+    assert.equal(filteredDirectory.status, 200);
+    assert.match(await filteredDirectory.text(), /Kategória/);
+    const filteredDirectoryQuery = database.queries.find(({ sql, bindings: queryBindings }) => /FROM directory_profiles\s+WHERE category = \?/i.test(sql) && queryBindings[0] === "kynologicke-kluby");
+    assert.ok(filteredDirectoryQuery, "adresár musí filtrovať kategóriu v databázovom dotaze");
+
+    const breeds = await worker.fetch(adminRequest("/admin/plemena"), bindings, context);
+    assert.equal(breeds.status, 200);
+    assert.match(await breeds.text(), /FCI skupina/);
+
     const articleListQueries = database.queries.filter(({ sql }) => /FROM managed_articles/i.test(sql) && /LIMIT \?/i.test(sql));
     assert.ok(articleListQueries.length > 0);
     for (const { sql } of articleListQueries) {
@@ -431,6 +441,9 @@ test("uses light admin lists and loads full records only for detail and save", a
     const articleDetailHtml = await articleDetail.text();
     assert.match(articleDetailHtml, /Upraviť článok/);
     assert.match(articleDetailHtml, /Testovací článok/);
+    assert.match(articleDetailHtml, /Vložiť blok sem/);
+    assert.match(articleDetailHtml, />Zdroj</);
+    assert.match(articleDetailHtml, /Prázdny riadok vytvorí na webe nový odsek/);
 
     const profileDetail = await worker.fetch(adminRequest("/admin/adresar/9"), bindings, context);
     assert.equal(profileDetail.status, 200);
@@ -569,6 +582,10 @@ test("renders article freshness and expert sources", async () => {
   assert.match(html, /Súvisiace články/);
   assert.match(html, /WSAVA: Global Nutrition Guidelines/);
   assert.match(html, /"dateModified":"2026-08-16"/);
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.article-blocks\s*>\s*ul\s*\{[^}]*list-style:\s*disc outside/s);
+  assert.match(css, /\.article-blocks\s*>\s*ol\s*\{[^}]*list-style:\s*decimal outside/s);
+  assert.match(css, /\.admin-section-nav\s*\{[^}]*position:\s*sticky[^}]*top:\s*76px/s);
 });
 
 test("redirects an old article URL to its portal section URL", async () => {

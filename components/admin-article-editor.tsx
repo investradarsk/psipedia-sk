@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { ChangeEvent, useState } from "react";
-import { AdminArticleBlockEditor } from "@/components/admin-article-block-editor";
-import { ArticleBlocks } from "@/components/article-blocks";
+import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
+import { ArticleBlocks, ArticleRichText } from "@/components/article-blocks";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
@@ -366,11 +366,11 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-field">
             <label htmlFor="article-intro">Úvod článku</label>
-            <textarea id="article-intro" rows={5} value={intro} onChange={(event) => setIntro(event.target.value)} placeholder="Uveď čitateľa do témy…" required />
+            <RichTextInput id="article-intro" rows={5} value={intro} onChange={setIntro} placeholder="Uveď čitateľa do témy…" showLists required />
           </div>
           <div className="admin-field">
             <label htmlFor="article-takeaway">To najdôležitejšie</label>
-            <textarea id="article-takeaway" rows={3} value={takeaway} onChange={(event) => setTakeaway(event.target.value)} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." required />
+            <RichTextInput id="article-takeaway" rows={3} value={takeaway} onChange={setTakeaway} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists required />
           </div>
         </section>
 
@@ -378,8 +378,8 @@ export function AdminArticleEditor({
           <div className="admin-card-heading">
             <div><span>06</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
           </div>
-          {portalSection === "novinky" && <p className="admin-block-news-note">Pri publikovaní novinky pridaj aspoň jeden blok <strong>Odborný zdroj</strong>.</p>}
-          <p className="admin-block-news-note">Pre viac zdrojov pridaj viac blokov <strong>Odborný zdroj</strong>. Na verejnom článku sa spoja do jedného prehľadného zoznamu.</p>
+          {portalSection === "novinky" && <p className="admin-block-news-note">Pri publikovaní novinky pridaj aspoň jeden blok <strong>Zdroj</strong>.</p>}
+          <p className="admin-block-news-note">Pre viac zdrojov pridaj viac blokov <strong>Zdroj</strong>. Na verejnom článku sa spoja do jedného prehľadného zoznamu.</p>
           <AdminArticleBlockEditor
             blocks={blocks}
             onChange={setBlocks}
@@ -414,8 +414,8 @@ export function AdminArticleEditor({
             <h1>{title || "Názov tvojho článku"}</h1>
             <p className="admin-preview-excerpt">{excerpt || "Tu sa zobrazí krátky úvod z karty článku."}</p>
             {imageUrl && <img className="admin-preview-image" src={imageUrl} alt="" />}
-            <p className="admin-preview-intro">{intro || "Úvod článku sa zobrazí na tomto mieste."}</p>
-            <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><p>{takeaway || "Hlavná myšlienka článku."}</p></div>
+            <ArticleRichText className="admin-preview-intro" value={intro || "Úvod článku sa zobrazí na tomto mieste."} />
+            <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><ArticleRichText value={takeaway || "Hlavná myšlienka článku."} /></div>
             <ArticleBlocks blocks={blocks} preview />
           </article>
         </aside>

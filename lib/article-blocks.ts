@@ -37,7 +37,7 @@ export const articleBlockLabels: Record<ArticleBlock["type"], string> = {
   warning: "Dôležité upozornenie",
   quote: "Citát",
   table: "Tabuľka",
-  source: "Odborný zdroj",
+  source: "Zdroj",
   related: "Súvisiaci článok",
   embed: "Video / embed",
 };

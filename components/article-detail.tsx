@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArticleCard, categorySlug } from "@/components/article-card";
-import { ArticleBlocks } from "@/components/article-blocks";
+import { ArticleBlocks, ArticleRichText } from "@/components/article-blocks";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PawMark } from "@/components/icons";
@@ -100,8 +100,8 @@ export function ArticleDetail({ article, related }: { article: Article; related:
 
       <div className="article-content-wrap shell">
         <article className="article-prose">
-          <p className="article-intro">{article.intro}</p>
-          <div className="takeaway-box"><strong>To najdôležitejšie</strong><p>{article.takeaway}</p></div>
+          <ArticleRichText className="article-intro" value={article.intro} />
+          <div className="takeaway-box"><strong>To najdôležitejšie</strong><ArticleRichText value={article.takeaway} /></div>
           <ArticleBlocks blocks={blocks} />
           <p className="article-disclaimer">{section === "novinky" ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
           <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />

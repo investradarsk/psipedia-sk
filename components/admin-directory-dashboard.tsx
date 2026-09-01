@@ -4,15 +4,16 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AdminPagination } from "@/components/admin-pagination";
 import { SearchIcon } from "@/components/icons";
-import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
+import { allDirectoryCategories, directoryProfileHref, getDirectoryCategory, type DirectoryCategorySlug } from "@/lib/directory";
 import type { ManagedDirectoryProfileSummary, ManagedDirectoryProfileSummaryPage } from "@/lib/directory-store";
 
 type StatusFilter = "all" | "published" | "draft";
 
-export function AdminDirectoryDashboard({ initialProfiles, initialCounts, pagination }: {
+export function AdminDirectoryDashboard({ initialProfiles, initialCounts, pagination, initialCategory }: {
   initialProfiles: ManagedDirectoryProfileSummary[];
   initialCounts: ManagedDirectoryProfileSummaryPage["counts"];
   pagination: ManagedDirectoryProfileSummaryPage["pagination"];
+  initialCategory?: DirectoryCategorySlug;
 }) {
   const [profiles, setProfiles] = useState(initialProfiles);
   const [counts, setCounts] = useState(initialCounts);
@@ -56,6 +57,10 @@ export function AdminDirectoryDashboard({ initialProfiles, initialCounts, pagina
       <section className="admin-panel">
         <div className="admin-toolbar">
           <label className="admin-search"><SearchIcon size={19} /><span className="sr-only">Hľadať profil</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Názov, mesto alebo služba" /></label>
+          <form className="admin-directory-category-filter" action="/admin/adresar" method="get">
+            <label className="admin-select-filter"><span>Kategória</span><select name="category" defaultValue={initialCategory ?? ""}><option value="">Všetky kategórie</option>{allDirectoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}</select></label>
+            <button type="submit">Použiť filter</button>
+          </form>
           <div className="admin-status-filter" aria-label="Filtrovať podľa stavu">
             {([ ["all", "Všetky"], ["published", "Publikované"], ["draft", "Koncepty"] ] as const).map(([value, label]) => <button type="button" className={status === value ? "is-active" : ""} onClick={() => setStatus(value)} key={value}>{label}</button>)}
           </div>
@@ -81,7 +86,7 @@ export function AdminDirectoryDashboard({ initialProfiles, initialCounts, pagina
             })}
           </div>
         ) : <div className="admin-empty"><span>📍</span><h2>Žiadne profily</h2><p>Pridaj prvý profil alebo zmeň filter.</p></div>}
-        <AdminPagination pagination={pagination} basePath="/admin/adresar" />
+        <AdminPagination pagination={pagination} basePath={initialCategory ? `/admin/adresar?category=${initialCategory}` : "/admin/adresar"} />
       </section>
     </>
   );
