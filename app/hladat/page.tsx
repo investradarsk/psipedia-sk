@@ -18,7 +18,7 @@ export default async function SearchPage({ searchParams }: Props) {
   const raw = params.q;
   const query = (Array.isArray(raw) ? raw[0] : raw ?? "").trim().slice(0, 120);
   const rawSection = Array.isArray(params.sekcia) ? params.sekcia[0] : params.sekcia;
-  const section = rawSection === "starostlivost" ? rawSection : "";
+  const section = rawSection === "starostlivost" || rawSection === "aktivity" ? rawSection : "";
   const results = filterPortalSearch(await getPortalSearchIndex(), query).filter((item) => !section || item.href === `/${section}` || item.href.startsWith(`/${section}/`));
   const grouped = results.reduce((groups, item) => {
     const group = groups.get(item.type) ?? [];

@@ -355,7 +355,7 @@ function normalizeInput(payload: ManagedArticleInput) {
   const portalSection: ArticlePortalSection = payload.portalSection && isArticlePortalSection(payload.portalSection)
     ? payload.portalSection
     : "clanky";
-  const portalSubpage = (portalSection === "steniatka" || portalSection === "starostlivost") && payload.portalSubpage && getPortalSubpage(portalSection, payload.portalSubpage)
+  const portalSubpage = (portalSection === "steniatka" || portalSection === "starostlivost" || portalSection === "aktivity") && payload.portalSubpage && getPortalSubpage(portalSection, payload.portalSubpage)
     ? payload.portalSubpage
     : null;
   const newsCategory: NewsCategorySlug | null = portalSection === "novinky"
@@ -390,6 +390,7 @@ function normalizeInput(payload: ManagedArticleInput) {
   if (!category) throw new Error("Vyber tému článku.");
   if (portalSection === "steniatka" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Šteniatka.");
   if (portalSection === "starostlivost" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Zdravie a starostlivosť.");
+  if (portalSection === "aktivity" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Výcvik a aktivity.");
   if (excerpt.length < 20) throw new Error("Perex by mal mať aspoň 20 znakov.");
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
   if (takeaway.length < 10) throw new Error("Doplň hlavné posolstvo článku.");

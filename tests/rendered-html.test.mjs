@@ -671,6 +671,39 @@ test("renders the care hub, urgent guidance and topic-specific articles", async 
   assert.match(articleEditorSource, /Oblasť Zdravia a starostlivosti/);
 });
 
+test("renders the activities hub, safe-start guidance and activity admin fields", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("activities-portal-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const bindings = { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } };
+  const context = { waitUntil() {}, passThroughOnException() {} };
+
+  const hub = await worker.fetch(new Request("http://localhost/aktivity", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(hub.status, 200);
+  const hubHtml = await hub.text();
+  assert.match(hubHtml, /Výcvik a aktivity/);
+  assert.match(hubHtml, /Dobrá aktivita sedí konkrétnemu psovi/);
+  assert.match(hubHtml, /Hľadať v aktivitách/);
+  assert.match(hubHtml, /Tréning a zážitky nablízku/);
+  assert.match(hubHtml, /Kynologické kluby/);
+
+  const sports = await worker.fetch(new Request("http://localhost/aktivity/psie-sporty", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(sports.status, 200);
+  const sportsHtml = await sports.text();
+  assert.match(sportsHtml, /Praktický sprievodca: Psie športy/);
+  assert.match(sportsHtml, /Ako začať/);
+  assert.match(sportsHtml, /Bezpečnosť a limity/);
+  assert.match(sportsHtml, /Aport: od naháňačky k spoľahlivému odovzdaniu do ruky/);
+
+  const editorSource = readFileSync(new URL("../components/admin-section-editor.tsx", import.meta.url), "utf8");
+  assert.match(editorSource, /Obsah oblasti výcviku a aktivít/);
+  assert.match(editorSource, /Kontakty a súvisiace služby/);
+  const articleEditorSource = readFileSync(new URL("../components/admin-article-editor.tsx", import.meta.url), "utf8");
+  assert.match(articleEditorSource, /Oblasť Výcviku a aktivít/);
+  const articleStoreSource = readFileSync(new URL("../lib/article-store.ts", import.meta.url), "utf8");
+  assert.match(articleStoreSource, /Vyber oblasť v sekcii Výcvik a aktivity/);
+});
+
 test("filters a directory category on the server and keeps verification data private", async () => {
   const database = createAdminMockDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});

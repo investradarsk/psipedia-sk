@@ -14,13 +14,23 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
   const sectionArticles = articles.filter((article) => articlePortalSection(article) === section.slug);
   const hasEventCalendar = events !== undefined;
   const isCare = section.slug === "starostlivost";
+  const isActivities = section.slug === "aktivity";
+  const isEditorialHub = isCare || isActivities;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
   const careArticleArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
+  const activityArticleArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
+  const articleArea = (article: Article) => isCare ? careArticleArea(article) : activityArticleArea(article);
   const careServices = [
     { icon: "🩺", title: "Veterinári", text: "Ambulancie, kliniky a pohotovosti podľa lokality.", href: "/adresar/veterinari" },
     { icon: "🦴", title: "Fyzioterapia", text: "Rehabilitácia, regenerácia a podpora pohybu.", href: "/adresar/fyzioterapia" },
     { icon: "🦮", title: "Tréneri a školy", text: "Pomoc s výcvikom a problémovým správaním.", href: "/adresar/treneri" },
     { icon: "✂️", title: "Psie salóny", text: "Úprava srsti a pravidelná hygienická starostlivosť.", href: "/adresar/salony-a-sluzby" },
+  ];
+  const activityServices = [
+    { icon: "🦮", title: "Tréneri a psie školy", text: "Základy, športová príprava aj individuálne vedenie.", href: "/adresar/treneri" },
+    { icon: "🏅", title: "Kynologické kluby", text: "Cvičiská, športové kluby a miestne organizácie.", href: "/adresar/kynologicke-kluby" },
+    { icon: "📅", title: "Podujatia", text: "Preteky, tréningy, semináre a spoločné stretnutia.", href: "/podujatia" },
+    { icon: "🏡", title: "Hotely a opatrovanie", text: "Starostlivosť o psa, keď nemôže cestovať s tebou.", href: "/adresar/hotely-a-opatrovanie" },
   ];
 
   return (
@@ -46,6 +56,13 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
             <input id="care-search-query" name="q" maxLength={120} placeholder="Čo riešiš? Napríklad hnačka, svrbenie alebo samota…" />
             <button type="submit">Nájsť odpoveď</button>
           </form>}
+          {isActivities && <form className="care-search activity-search" action="/hladat" method="get">
+            <SearchIcon size={22} />
+            <input type="hidden" name="sekcia" value="aktivity" />
+            <label className="sr-only" htmlFor="activity-search-query">Akú aktivitu alebo šport hľadáš?</label>
+            <input id="activity-search-query" name="q" maxLength={120} placeholder="Hľadaj šport, výlet, výbavu alebo cestovanie…" />
+            <button type="submit">Hľadať v aktivitách</button>
+          </form>}
         </div>
       </header>
 
@@ -55,19 +72,29 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
         <div className="care-urgent-actions"><Link href="/starostlivost/kedy-ist-so-psom-k-veterinarovi">Kedy volať ihneď</Link><Link href="/adresar/veterinari" className="is-primary">Nájsť veterinára</Link></div>
       </section>}
 
+      {isActivities && <section className="shell activity-fit" aria-labelledby="activity-fit-heading">
+        <div className="activity-fit-heading"><span className="activity-fit-icon" aria-hidden="true">↗</span><div><span className="eyebrow">Vyber rozumne</span><h2 id="activity-fit-heading">Dobrá aktivita sedí konkrétnemu psovi</h2></div></div>
+        <div className="activity-fit-factors">
+          <div><strong>Vek a zdravie</strong><span>Rast, kĺby, hmotnosť a aktuálna kondícia.</span></div>
+          <div><strong>Motivácia psa</strong><span>Čuchanie, beh, aport, presnosť alebo spoločný výlet.</span></div>
+          <div><strong>Čas a prostredie</strong><span>Krátky tréning, pravidelný šport alebo celodenná cesta.</span></div>
+        </div>
+        <Link href="/aktivity/psie-sporty">Porovnať možnosti <ArrowIcon size={18} /></Link>
+      </section>}
+
       <section className="section shell portal-directory" aria-labelledby="portal-directory-heading">
         <div className="section-heading split-heading">
           <div>
             <span className="eyebrow">Vyber si oblasť</span>
             <h2 id="portal-directory-heading">Všetko na jednom mieste</h2>
           </div>
-          <p>{isCare ? "Začni tým, čo práve riešiš. V každej poradni nájdeš domáce kroky, varovné signály aj hranicu odbornej pomoci." : "Každá oblasť má vlastnú adresu, ktorú si môžeš uložiť alebo priamo zdieľať."}</p>
+          <p>{isCare ? "Začni tým, čo práve riešiš. V každej poradni nájdeš domáce kroky, varovné signály aj hranicu odbornej pomoci." : isActivities ? "Vyber si oblasť podľa toho, čo chcete spolu robiť. Nájdeš v nej prvé kroky, bezpečnostné limity aj praktické kontakty." : "Každá oblasť má vlastnú adresu, ktorú si môžeš uložiť alebo priamo zdieľať."}</p>
         </div>
         <div className="portal-subpage-grid">
           {subpages.map((subpage, index) => (
-            <Link href={portalSubpageHref(section, subpage)} className={`portal-subpage-card ${isCare ? "care-area-card" : ""}`} key={subpage.slug}>
-              <span>{isCare ? (subpage.icon || "🐾") : String(index + 1).padStart(2, "0")}</span>
-              <div><h3>{subpage.label}</h3><p>{subpage.description}</p>{isCare && <div className="care-area-topics">{subpage.popularTopics?.slice(0, 3).map((topic) => <small key={topic}>{topic}</small>)}</div>}{isCare && <b>{sectionArticles.filter((article) => careArticleArea(article) === subpage.slug).length} {sectionArticles.filter((article) => careArticleArea(article) === subpage.slug).length === 1 ? "článok" : "článkov"}</b>}</div>
+            <Link href={portalSubpageHref(section, subpage)} className={`portal-subpage-card ${isCare ? "care-area-card" : ""} ${isActivities ? "activity-area-card" : ""}`} key={subpage.slug}>
+              <span>{isEditorialHub ? (subpage.icon || "🐾") : String(index + 1).padStart(2, "0")}</span>
+              <div><h3>{subpage.label}</h3><p>{subpage.description}</p>{isEditorialHub && <div className="care-area-topics">{subpage.popularTopics?.slice(0, 3).map((topic) => <small key={topic}>{topic}</small>)}</div>}{isEditorialHub && <b>{sectionArticles.filter((article) => articleArea(article) === subpage.slug).length} {sectionArticles.filter((article) => articleArea(article) === subpage.slug).length === 1 ? "článok" : "článkov"}</b>}</div>
               <ArrowIcon size={20} />
             </Link>
           ))}
@@ -86,7 +113,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
           {hasEventCalendar && events.length ? (
             <div className="event-grid">{events.slice(0, 3).map((event) => <EventCard event={event} key={event.id} />)}</div>
           ) : !hasEventCalendar && sectionArticles.length ? (
-            isCare ? <><nav className="care-article-filters" aria-label="Oblasti článkov">{subpages.map((subpage) => <Link href={portalSubpageHref(section, subpage)} key={subpage.slug}>{subpage.icon} {subpage.label}</Link>)}</nav><div className="care-articles-layout"><div className="care-article-featured"><ArticleCard article={sectionArticles[0]} /></div><div className="care-article-stack">{sectionArticles.slice(1, 5).map((article) => <ArticleCard article={article} key={article.slug} />)}</div></div></>
+            isEditorialHub ? <><nav className={`care-article-filters ${isActivities ? "activity-article-filters" : ""}`} aria-label="Oblasti článkov">{subpages.map((subpage) => <Link href={portalSubpageHref(section, subpage)} key={subpage.slug}>{subpage.icon} {subpage.label}</Link>)}</nav><div className="care-articles-layout"><div className="care-article-featured"><ArticleCard article={sectionArticles[0]} /></div><div className="care-article-stack">{sectionArticles.slice(1, 5).map((article) => <ArticleCard article={article} key={article.slug} />)}</div></div></>
               : <div className="article-grid">{sectionArticles.slice(0, 3).map((article) => <ArticleCard article={article} key={article.slug} />)}</div>
           ) : (
             <div className="portal-empty">
@@ -98,13 +125,14 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
       </section>
 
       <section className="section shell">
-        <div className="portal-more-heading"><span className="eyebrow">{isCare ? "Pomoc nablízku" : "Celá Psipedia"}</span><h2>{isCare ? "Užitočné služby a kontakty" : "Pokračuj ďalšou sekciou"}</h2>{isCare && <p>Keď článok nestačí, pokračuj priamo k vhodnému odborníkovi alebo službe.</p>}</div>
-        <div className={`portal-more-grid ${isCare ? "care-service-grid" : ""}`}>
-          {(isCare ? careServices : allSections.filter((item) => item.slug !== section.slug).map((item) => ({ icon: item.icon, title: item.label, text: "", href: `/${item.slug}` }))).map((item) => (
+        <div className="portal-more-heading"><span className="eyebrow">{isCare ? "Pomoc nablízku" : isActivities ? "Tréning a zážitky nablízku" : "Celá Psipedia"}</span><h2>{isCare ? "Užitočné služby a kontakty" : isActivities ? "Kam pokračovať" : "Pokračuj ďalšou sekciou"}</h2>{isCare && <p>Keď článok nestačí, pokračuj priamo k vhodnému odborníkovi alebo službe.</p>}{isActivities && <p>Nájdi vedenie, klub, podujatie alebo bezpečné riešenie na čas, keď pes nemôže cestovať s tebou.</p>}</div>
+        <div className={`portal-more-grid ${isEditorialHub ? "care-service-grid" : ""}`}>
+          {(isCare ? careServices : isActivities ? activityServices : allSections.filter((item) => item.slug !== section.slug).map((item) => ({ icon: item.icon, title: item.label, text: "", href: `/${item.slug}` }))).map((item) => (
             <Link href={item.href} key={item.href}><span aria-hidden="true">{item.icon}</span><span><strong>{item.title}</strong>{item.text && <small>{item.text}</small>}</span><ArrowIcon size={18} /></Link>
           ))}
         </div>
         {isCare && <p className="care-medical-note"><strong>Dôležité:</strong> Psipedia nenahrádza veterinárne vyšetrenie. Pri akútnom stave alebo rýchlom zhoršovaní kontaktuj veterinára bez čakania.</p>}
+        {isActivities && <p className="care-medical-note activity-safety-note"><strong>Bezpečný pohyb:</strong> Záťaž zvyšuj postupne. Pri šteniatku, seniorovi, nadváhe, bolesti alebo zdravotnom obmedzení si vhodný pohyb over u veterinára alebo fyzioterapeuta.</p>}
       </section>
     </main>
   );

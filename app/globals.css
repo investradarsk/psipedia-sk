@@ -72,6 +72,26 @@
 .care-service-grid small { color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.45; }
 .care-medical-note { margin: 24px 0 0; padding: 16px 18px; border-left: 3px solid var(--gold); color: var(--muted); background: #f9f5e8; font-size: .78rem; }
 
+/* Výcvik a aktivity — výber podľa psa a bezpečný začiatok */
+.activity-search button { color: var(--ink); background: var(--gold); }
+.activity-fit { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(240px,.85fr) minmax(0,1.35fr) auto; gap: 24px; align-items: center; margin-top: -29px; padding: 24px 28px; border: 1px solid rgba(177,128,25,.2); border-radius: 22px; background: #fffaf0; box-shadow: 0 14px 38px rgba(91,67,19,.09); }
+.activity-fit-heading { display: flex; gap: 14px; align-items: center; }
+.activity-fit-heading .eyebrow { margin-bottom: 3px; color: #8b681e; }
+.activity-fit-heading h2 { margin: 0; font-size: clamp(1.35rem,2vw,1.8rem); }
+.activity-fit-icon { display: grid; width: 48px; height: 48px; flex: none; place-items: center; border-radius: 15px; color: var(--ink); background: var(--gold); font-size: 1.45rem; font-weight: 900; }
+.activity-fit-factors { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.activity-fit-factors div { display: grid; gap: 4px; padding-left: 14px; border-left: 1px solid rgba(23,75,56,.14); }
+.activity-fit-factors strong { color: var(--ink); font-size: .78rem; }
+.activity-fit-factors span { color: var(--muted); font-size: .69rem; line-height: 1.45; }
+.activity-fit > a { display: inline-flex; gap: 7px; min-height: 44px; align-items: center; justify-content: center; padding: 0 15px; border-radius: 11px; color: white; background: var(--forest); font-size: .75rem; font-weight: 800; white-space: nowrap; }
+.portal-subpage-card.activity-area-card { min-height: 218px; padding: 26px; border-color: rgba(177,128,25,.16); border-radius: 22px; background: linear-gradient(145deg,#fffdf8,#fff9e9); }
+.portal-subpage-card.activity-area-card > span { display: grid; width: 50px; height: 50px; place-items: center; border: 1px solid rgba(177,128,25,.16); border-radius: 15px; background: #fff2c9; font-size: 1.45rem; }
+.activity-area-card h3 { font-size: 1.55rem; }
+.activity-area-card b { display: block; margin-top: 14px; color: #836116; font-size: .72rem; }
+.activity-area-card .care-area-topics small { color: #755b24; background: #fff3d4; }
+.activity-article-filters a { border-color: rgba(177,128,25,.18); color: #755817; background: rgba(255,250,234,.9); }
+.activity-safety-note { border-left-color: var(--forest); background: #f2f6f1; }
+
 /* Poradenská podstránka */
 .portal-topic-title { display: flex; gap: 18px; align-items: center; margin-top: 10px; }
 .portal-topic-title > span { display: grid; width: 68px; height: 68px; flex: none; place-items: center; border: 1px solid rgba(255,255,255,.7); border-radius: 20px; background: rgba(255,255,255,.55); font-size: 2rem; }
@@ -95,6 +115,15 @@
 .care-topic-services { display: grid; grid-template-columns: minmax(0,1fr) repeat(2, auto); gap: 12px; align-items: center; margin-top: 30px; padding-top: 28px; border-top: 1px solid var(--line); }
 .care-topic-services h3 { margin: 3px 0 0; font-size: 1.45rem; }
 .care-topic-services a { display: inline-flex; gap: 8px; min-height: 46px; align-items: center; justify-content: center; padding: 0 15px; border: 1px solid rgba(23,75,56,.18); border-radius: 12px; color: var(--forest); background: white; font-size: .78rem; font-weight: 800; }
+.activity-topic-chips a { border-color: rgba(177,128,25,.2); color: #755817; background: #fff3d4; }
+.activity-question-aside { background: linear-gradient(150deg,#234f3f,#173b2f); }
+.activity-guidance-section { background: linear-gradient(180deg,#fff9e9,#f8f4eb); }
+.activity-guidance-card { border-color: rgba(177,128,25,.16); }
+.activity-guidance-card > span { color: var(--ink); background: var(--gold); }
+.activity-guidance-card.is-warning { border-color: rgba(23,75,56,.14); background: #f5f8f3; }
+.activity-guidance-card.is-warning > span { background: var(--forest); }
+.activity-expert-callout { background: linear-gradient(135deg,#765818,#9a7525); }
+.activity-topic-services a { border-color: rgba(177,128,25,.2); color: #755817; }
 
 /* Rozšírený editor podsekcií */
 .admin-subsection-list .admin-subsection-row { display: grid; grid-template-columns: 1fr; gap: 13px; align-items: stretch; padding: 16px; }
@@ -110,6 +139,8 @@
 .admin-care-area-fields summary { color: #174b38; font-weight: 800; cursor: pointer; }
 .admin-care-area-fields > p { color: #66746c; font-size: .72rem; }
 .admin-care-area-fields .admin-field-grid { margin-top: 14px; }
+.admin-activity-area-fields { border-color: #eadcaf; background: #fffbef; }
+.admin-activity-area-fields summary { color: #755817; }
 .admin-subsection-row > .admin-subsection-remove { width: fit-content; justify-self: end; color: #a64c39; background: #fff5f2; }
 
 @media (max-width: 900px) {
@@ -122,6 +153,9 @@
   .care-article-stack .article-card-media { aspect-ratio: 16 / 9; }
   .care-topic-services { grid-template-columns: 1fr 1fr; }
   .care-topic-services > div { grid-column: 1 / -1; }
+  .activity-fit { grid-template-columns: 1fr; }
+  .activity-fit-factors { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .activity-fit > a { justify-self: start; }
 }
 
 @media (max-width: 620px) {
@@ -130,8 +164,13 @@
   .care-urgent { grid-template-columns: 1fr; margin-top: -18px; padding: 20px; }
   .care-urgent-actions { grid-column: auto; }
   .care-urgent-actions a { width: 100%; justify-content: center; }
+  .activity-fit { margin-top: -18px; padding: 20px; }
+  .activity-fit-factors { grid-template-columns: 1fr; gap: 10px; }
+  .activity-fit > a { width: 100%; justify-self: stretch; }
   .portal-subpage-card.care-area-card { min-height: 0; grid-template-columns: auto minmax(0,1fr); padding: 20px; }
   .portal-subpage-card.care-area-card > svg { display: block; grid-column: 2; }
+  .portal-subpage-card.activity-area-card { min-height: 0; grid-template-columns: auto minmax(0,1fr); padding: 20px; }
+  .portal-subpage-card.activity-area-card > svg { display: block; grid-column: 2; }
   .care-articles-layout,
   .care-article-stack,
   .care-guidance-grid { grid-template-columns: 1fr; }

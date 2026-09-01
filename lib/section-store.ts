@@ -5,6 +5,12 @@ export type ManagedPortalSection = PortalSection & { position: number; visible: 
 type Row = { slug: string; label: string; eyebrow: string; description: string; intro: string; subpages_json: string; position: number; visible: number };
 type RuntimeBindings = { DB?: D1Database };
 let ready: Promise<void> | null = null;
+const legacyActivityDescriptions: Record<string, string> = {
+  "psie-sporty": "Agility, obedience, nosework, canicross, aporty a ďalšie disciplíny.",
+  "vylety-so-psom": "Trasy, náročnosť, pravidlá a praktická výbava.",
+  "dog-friendly-miesta": "Miesta, kde sú psy vítané a podmienky sú jasné vopred.",
+  "dovolenka-so-psom": "Ubytovanie, cestovanie, doklady a bezpečný režim.",
+};
 
 function database() {
   const db = (env as unknown as RuntimeBindings).DB;
@@ -51,6 +57,7 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
       if (!defaults) return stored;
       const merged = { ...defaults, ...stored };
       if (stored.slug === "vycvik" && stored.label === "Výcvik") merged.label = defaults.label;
+      if (stored.description === legacyActivityDescriptions[stored.slug]) merged.description = defaults.description;
       return merged;
     });
   }
@@ -60,8 +67,9 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
 function merge(row: Row): ManagedPortalSection | null {
   const base = portalSections.find((section) => section.slug === row.slug);
   if (!base) return null;
-  const label = row.slug === "starostlivost" && row.label === "Starostlivosť" ? base.label : row.label;
-  return { ...base, label, eyebrow: row.eyebrow, description: row.description, intro: row.intro, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible) };
+  const label = (row.slug === "starostlivost" && row.label === "Starostlivosť") || (row.slug === "aktivity" && row.label === "Aktivity") ? base.label : row.label;
+  const hasLegacyActivityCopy = row.slug === "aktivity" && row.eyebrow === "Spoločné zážitky" && row.description === "Psie športy, výlety a miesta, kde si môžete deň užiť spolu." && row.intro === "Nájdi aktivitu podľa kondície psa, svojich skúseností a času, ktorý máte k dispozícii.";
+  return { ...base, label, eyebrow: hasLegacyActivityCopy ? base.eyebrow : row.eyebrow, description: hasLegacyActivityCopy ? base.description : row.description, intro: hasLegacyActivityCopy ? base.intro : row.intro, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible) };
 }
 
 export async function listManagedPortalSections() {
