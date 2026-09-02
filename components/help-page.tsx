@@ -13,9 +13,11 @@ export function HelpPage({ items, initialCategory = "all" }: { items: HelpCase[]
   const active = initialCategory === "all" ? null : getHelpCategory(initialCategory);
   const activeCount = items.filter((item) => !item.resolved).length;
   const verifiedCount = items.filter((item) => item.verified).length;
+  const heroImage = items.find((item) => item.imageUrl)?.imageUrl || "/images/hero-labrador.webp";
   return (
     <main id="obsah">
-      <header className="help-hero">
+      <header className="help-hero help-hero--photo">
+        <img className="section-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />
         <div className="shell">
           <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span>{active ? <><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><span>{active.label}</span></> : <span>Pomoc psom</span>}</nav>
           <div className="help-hero-grid"><div><span className="eyebrow">{active ? active.singular : "Pomoc, ktorá má cieľ"}</span><h1>{active ? active.label : "Pomôžme psom správne"}</h1><p>{active?.description ?? "Adopcie, pátrania, urgentné prípady a transparentné zbierky na jednom dôveryhodnom mieste."}</p></div><aside><span aria-hidden="true">🛡️</span><div><strong>Najprv overujeme</strong><p>Pri prípadoch uvádzame zodpovednú osobu alebo organizáciu. Zbierku nezverejníme bez overeného odkazu a cieľa.</p></div></aside></div>

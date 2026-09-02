@@ -24,10 +24,12 @@ export default async function ArticlesPage({
     vyziva: "Výživa",
     "zivot-so-psom": "Život so psom",
   };
+  const heroImage = articles.find((article) => article.image)?.image;
 
   return (
     <main id="obsah">
-      <header className="page-hero shell">
+      <header className={`page-hero page-hero--editorial shell${heroImage ? " page-hero--photo" : ""}`}>
+        {heroImage && <img className="page-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}
         <div className="page-hero-inner">
           <span className="eyebrow">Psia knižnica</span>
           <h1>Články, ku ktorým sa oplatí vrátiť</h1>

@@ -20,7 +20,8 @@ export function NewsHub({ articles, section }: { articles: Article[]; section: P
   return (
     <main id="obsah">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
-      <header className="news-hero">
+      <header className={`news-hero${lead?.image ? " news-hero--photo" : ""}`}>
+        {lead?.image && <img className="news-hero-photo" src={lead.image} alt="" aria-hidden="true" decoding="async" />}
         <div className="shell news-hero-inner">
           <nav className="article-breadcrumbs" aria-label="Navigácia">
             <Link href="/">Domov</Link><span>/</span><span>{section.label}</span>

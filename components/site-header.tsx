@@ -91,6 +91,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
           </nav>
 
           <div className="header-actions">
+            <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
             <button className="icon-button search-trigger" type="button" onClick={openSearch} aria-label="Otvoriť vyhľadávanie">
               <SearchIcon />
               <span>Hľadať</span>
@@ -120,6 +121,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                 {item.children.length > 0 && <div className="mobile-nav-children">{item.children.map((child) => <Link href={child.href} key={child.id} onClick={() => setMenuOpen(false)}>{child.label}</Link>)}</div>}
               </div>
             ))}
+            <Link href="/o-nas#kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link>
             <button type="button" onClick={openSearch}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
         </div>

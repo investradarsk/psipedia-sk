@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
+import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -32,6 +33,12 @@ export default function AboutPage() {
 
       <h2>Psipedia práve rastie</h2>
       <p>Toto je prvá funkčná verzia. Postupne pribudnú ďalšie plemená, odborní spolupracovníci, praktické nástroje a nové články podľa otázok slovenských majiteľov psov.</p>
+      <section className="about-contact" id="kontakt">
+        <span className="eyebrow">Kontakt</span>
+        <h2>Napíš nám</h2>
+        <p>Máš otázku, námet na článok, upozornenie na chybu alebo záujem o spoluprácu? Ozvi sa redakcii Psipedie.</p>
+        <a className="button button--coral" href={`mailto:${EDITORIAL_EMAIL_ADDRESS}`}>{EDITORIAL_EMAIL_ADDRESS}</a>
+      </section>
       <Link className="button button--dark" href="/clanky">Pozrieť články <ArrowIcon /></Link>
     </main>
   );

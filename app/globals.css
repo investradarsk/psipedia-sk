@@ -8194,6 +8194,340 @@ h3 {
   }
 }
 
+/* Editorial desktop refinement — image-led section heroes and calmer scale */
+.portal-hero-photo,
+.news-hero-photo,
+.page-hero-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.portal-hero--photo::before,
+.news-hero--photo::before,
+.page-hero--photo::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.portal-hero--photo::before {
+  background: linear-gradient(90deg, rgba(11, 42, 32, .96) 0%, rgba(15, 57, 42, .84) 48%, rgba(15, 57, 42, .28) 100%);
+}
+
+.portal-hero--photo .portal-hero-inner,
+.news-hero--photo .news-hero-inner,
+.page-hero--photo .page-hero-inner {
+  position: relative;
+  z-index: 2;
+}
+
+.portal-hero--photo::after {
+  z-index: 1;
+}
+
+.portal-hero--photo .article-breadcrumbs,
+.portal-hero--photo .article-breadcrumbs a,
+.portal-hero--photo .eyebrow,
+.portal-hero--photo h1 {
+  color: white;
+}
+
+.portal-hero--photo .portal-hero-copy p,
+.portal-hero--photo .portal-hero-intro {
+  color: rgba(255, 255, 255, .78);
+}
+
+.portal-hero--photo .portal-hero-icon {
+  border-color: rgba(255,255,255,.32);
+  background: rgba(255,255,255,.15);
+  backdrop-filter: blur(12px);
+}
+
+.page-hero--photo {
+  position: relative;
+  margin-top: 28px;
+  padding: 54px clamp(30px, 5vw, 64px);
+  overflow: hidden;
+  border-radius: 28px;
+  color: white;
+  background: var(--forest);
+  box-shadow: var(--shadow-lg);
+}
+
+.page-hero--photo::before {
+  background: linear-gradient(90deg, rgba(8, 35, 26, .94) 0%, rgba(8, 35, 26, .78) 52%, rgba(8, 35, 26, .12) 100%);
+}
+
+.page-hero--photo .page-hero-inner {
+  max-width: 680px;
+}
+
+.page-hero--photo .eyebrow,
+.page-hero--photo h1 {
+  color: white;
+}
+
+.page-hero--photo p {
+  color: rgba(255,255,255,.78);
+}
+
+.page-hero--breed-atlas .page-hero-photo {
+  object-position: 68% 42%;
+}
+
+.news-hero--photo::before {
+  background: linear-gradient(90deg, rgba(9, 35, 27, .97) 0%, rgba(12, 45, 35, .9) 52%, rgba(12, 45, 35, .52) 100%);
+}
+
+.home-news-lead {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.home-news-lead-image,
+.home-news-lead-shade {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.home-news-lead-image {
+  object-fit: cover;
+  transition: transform 500ms ease;
+}
+
+.home-news-lead-shade {
+  z-index: -1;
+  background: linear-gradient(0deg, rgba(7, 29, 22, .95) 0%, rgba(7, 29, 22, .66) 62%, rgba(7, 29, 22, .28) 100%);
+}
+
+.home-news-lead:hover .home-news-lead-image {
+  transform: scale(1.025);
+}
+
+.header-contact-link {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 12px;
+  border-left: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: .76rem;
+  font-weight: 750;
+}
+
+.header-contact-link:hover {
+  color: var(--coral-dark);
+}
+
+.about-contact {
+  margin: 58px 0 30px;
+  padding: 30px;
+  border: 1px solid rgba(23,75,56,.12);
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--sage-light), #fff8ee);
+}
+
+.prose-page .about-contact h2 {
+  margin: 8px 0 14px;
+}
+
+.about-contact .button {
+  margin-top: 5px;
+}
+
+@media (min-width: 1401px) {
+  .brand {
+    margin-right: clamp(28px, 2.5vw, 44px);
+  }
+
+  .desktop-nav {
+    justify-content: flex-start;
+  }
+}
+
+@media (min-width: 821px) {
+  .hero-card,
+  .hero-copy {
+    min-height: 540px;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(2.9rem, 4.5vw, 4.55rem);
+  }
+
+  .portal-hero h1,
+  .portal-topic-hero h1 {
+    font-size: clamp(2.9rem, 5.2vw, 4.9rem);
+  }
+
+  .page-hero h1,
+  .page-hero--breed-atlas h1 {
+    font-size: clamp(2.8rem, 4.8vw, 4.65rem);
+  }
+
+  .news-hero-copy h1 {
+    max-width: 760px;
+    font-size: clamp(3.35rem, 6.4vw, 6.1rem);
+  }
+
+  .home-news-heading h2 {
+    font-size: clamp(2.2rem, 3.6vw, 3.45rem);
+  }
+
+  .home-news-lead {
+    min-height: 280px;
+  }
+
+  .home-news-lead h3 {
+    font-size: clamp(1.65rem, 2.65vw, 2.45rem);
+  }
+
+  .article-card--large .article-card-media {
+    min-height: 270px;
+  }
+
+  .article-card--large h3 {
+    font-size: clamp(1.55rem, 2vw, 1.95rem);
+  }
+
+  .featured-stack .article-card-media {
+    min-height: 188px;
+  }
+
+  .article-hero-grid {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 44px;
+  }
+
+  .article-hero-image,
+  .article-hero-placeholder {
+    aspect-ratio: 16 / 10;
+  }
+
+  .article-title h1 {
+    font-size: clamp(2.25rem, 3.7vw, 3.75rem);
+  }
+}
+
+.event-calendar-hero--photo,
+.directory-hero--photo,
+.help-hero--photo {
+  position: relative;
+  overflow: hidden;
+  color: white;
+  background: var(--forest-dark);
+}
+
+.section-hero-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.event-calendar-hero--photo::before,
+.directory-hero--photo::before,
+.help-hero--photo::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, rgba(9,37,28,.96) 0%, rgba(12,48,36,.84) 54%, rgba(12,48,36,.36) 100%);
+}
+
+.event-calendar-hero--photo > .shell,
+.directory-hero--photo > .shell,
+.help-hero--photo > .shell {
+  position: relative;
+  z-index: 2;
+}
+
+.event-calendar-hero--photo .article-breadcrumbs,
+.event-calendar-hero--photo .article-breadcrumbs a,
+.directory-hero--photo .article-breadcrumbs,
+.directory-hero--photo .article-breadcrumbs a,
+.help-hero--photo .article-breadcrumbs,
+.help-hero--photo .article-breadcrumbs a,
+.event-calendar-hero--photo .eyebrow,
+.directory-hero--photo .eyebrow,
+.help-hero--photo .eyebrow,
+.event-calendar-hero--photo h1,
+.directory-hero--photo h1,
+.help-hero--photo h1 {
+  color: white;
+}
+
+.event-calendar-hero--photo p,
+.directory-hero--photo .directory-hero-copy > p,
+.help-hero--photo .help-hero-grid > div > p {
+  color: rgba(255,255,255,.78);
+}
+
+.help-hero--photo .help-hero-grid > aside,
+.help-hero--photo .help-hero-stats {
+  border-color: rgba(255,255,255,.22);
+  background: rgba(10,39,29,.62);
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 820px) {
+  .event-calendar-hero--photo::before,
+  .directory-hero--photo::before,
+  .help-hero--photo::before {
+    background: linear-gradient(0deg, rgba(9,37,28,.97) 0%, rgba(12,48,36,.8) 68%, rgba(12,48,36,.42) 100%);
+  }
+}
+
+@media (max-width: 1400px) {
+  .header-contact-link {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .page-hero--photo {
+    margin-top: 16px;
+    padding: 42px 26px;
+    border-radius: 23px;
+  }
+
+  .portal-hero--photo::before,
+  .news-hero--photo::before,
+  .page-hero--photo::before {
+    background: linear-gradient(0deg, rgba(8,35,26,.96) 0%, rgba(8,35,26,.8) 66%, rgba(8,35,26,.38) 100%);
+  }
+
+  .portal-hero-photo,
+  .news-hero-photo {
+    object-position: 62% center;
+  }
+}
+
+@media (max-width: 620px) {
+  .page-hero--photo {
+    padding: 36px 22px;
+  }
+
+  .about-contact {
+    padding: 23px;
+  }
+
+  .about-contact .button {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* News portal */
 .home-news-section {
   padding-block: 72px 20px;
@@ -13804,5 +14138,56 @@ a.breed-fci-path-node:focus-visible {
   #fci-standard,
   #suvisiaci-obsah {
     scroll-margin-top: 126px;
+  }
+}
+
+/* Keep the editorial refinements above later portal-specific rules. */
+.home-news-lead,
+.home-news-lead:hover {
+  background: transparent;
+}
+
+.home-news-lead > span:not(.home-news-lead-shade),
+.home-news-lead > h3,
+.home-news-lead > p,
+.home-news-lead > strong {
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 821px) {
+  .home-news-heading h2 {
+    font-size: clamp(2.2rem, 3.6vw, 3.45rem);
+  }
+
+  .home-news-lead {
+    min-height: 280px;
+  }
+
+  .home-news-lead h3 {
+    font-size: clamp(1.65rem, 2.65vw, 2.45rem);
+  }
+
+  .news-hero-copy h1 {
+    max-width: 760px;
+    font-size: clamp(3.35rem, 6.4vw, 6.1rem);
+  }
+
+  .page-hero--breed-atlas {
+    padding: 54px clamp(30px, 5vw, 64px);
+  }
+
+  .page-hero--breed-atlas h1 {
+    font-size: clamp(2.8rem, 4.8vw, 4.65rem);
+  }
+
+  .event-calendar-hero h1,
+  .directory-hero h1,
+  .help-hero h1 {
+    font-size: clamp(2.9rem, 4.9vw, 4.8rem);
+  }
+
+  .section-heading h2 {
+    font-size: clamp(2.05rem, 3.2vw, 3.2rem);
   }
 }

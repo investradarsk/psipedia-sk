@@ -11,9 +11,11 @@ const pageCopy: Record<string, { title: string; description: string }> = {
 
 export function EventsPage({ events, initialType = "Všetky" }: { events: DogEvent[]; initialType?: EventType | "Všetky" }) {
   const copy = pageCopy[initialType] ?? pageCopy.Všetky;
+  const heroImage = events.find((event) => event.imageUrl)?.imageUrl || "/images/trening-pri-nohe.webp";
   return (
     <main id="obsah">
-      <header className="event-calendar-hero">
+      <header className="event-calendar-hero event-calendar-hero--photo">
+        <img className="section-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />
         <div className="shell">
           <nav className="article-breadcrumbs" aria-label="Navigácia">
             <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span>

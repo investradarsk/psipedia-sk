@@ -12,6 +12,11 @@ import {
 
 export function PortalHub({ section, articles, events, allSections = [] }: { section: PortalSection; articles: Article[]; events?: DogEvent[]; allSections?: PortalSection[] }) {
   const sectionArticles = articles.filter((article) => articlePortalSection(article) === section.slug);
+  const heroImage = sectionArticles.find((article) => article.image)?.image || ({
+    steniatka: "/images/hero-labrador.webp",
+    starostlivost: "/images/zdravie-veterinar.webp",
+    aktivity: "/images/trening-pri-nohe.webp",
+  } as Record<string, string>)[section.slug];
   const hasEventCalendar = events !== undefined;
   const isCare = section.slug === "starostlivost";
   const isActivities = section.slug === "aktivity";
@@ -47,7 +52,8 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
 
   return (
     <main id="obsah">
-      <header className={`portal-hero portal-hero--${section.accent}`}>
+      <header className={`portal-hero portal-hero--${section.accent}${heroImage ? " portal-hero--photo" : ""}`}>
+        {heroImage && <img className="portal-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}
         <div className="shell portal-hero-inner">
           <nav className="article-breadcrumbs" aria-label="Navigácia">
             <Link href="/">Domov</Link><span>/</span><span>{section.label}</span>

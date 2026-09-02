@@ -17,9 +17,15 @@ export function DirectoryPage({ result, filters, categoryCounts, initialCategory
   showResults?: boolean;
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
+  const heroImage = active?.slug === "veterinari" || active?.slug === "fyzioterapia"
+    ? "/images/zdravie-veterinar.webp"
+    : active?.slug === "treneri" || active?.slug === "kynologicke-kluby"
+      ? "/images/trening-pri-nohe.webp"
+      : "/images/hero-labrador.webp";
   return (
     <main id="obsah">
-      <header className={`directory-hero${active ? " directory-hero--category" : ""}`}>
+      <header className={`directory-hero directory-hero--photo${active ? " directory-hero--category" : ""}`}>
+        <img className="section-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />
         <div className="shell">
           <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span>{active ? <><Link href="/adresar">Služby pre psov</Link><span>/</span><span>{active.label}</span></> : <span>Služby pre psov</span>}</nav>
           <div className="directory-hero-copy">

@@ -119,6 +119,8 @@ export default async function Home() {
           {newsLead ? (
             <div className="home-news-content">
               <Link href={articleHref(newsLead)} className={`home-news-lead home-news-lead--${newsLead.accent}`}>
+                {newsLead.image && <img className="home-news-lead-image" src={newsLead.image} alt="" aria-hidden="true" decoding="async" />}
+                <span className="home-news-lead-shade" aria-hidden="true" />
                 <span>{getNewsCategory(newsLead.newsCategory)?.label ?? "Zo sveta psov"} · {newsLead.date}</span>
                 <h3>{newsLead.title}</h3>
                 <p>{newsLead.excerpt}</p>
@@ -160,24 +162,6 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section shell home-compact-section home-help-section">
-        <div className="section-heading"><span className="eyebrow">Aktuálne možnosti</span><h2>Pomoc psom</h2></div>
-        <div className="home-compact-grid">
-          <article className="home-live-card home-live-card--help">
-            <div className="home-live-list">
-              {activeHelpCases.length ? activeHelpCases.map((item) => (
-                <Link href={helpCaseHref(item)} key={item.id}>
-                  <span>{getHelpCategory(item.category)?.singular} · {item.city}</span>
-                  <strong>{item.title}</strong>
-                  <small>{item.urgent ? "Urgentné" : item.verified ? "✓ Overené" : item.organization}</small>
-                </Link>
-              )) : <div className="home-live-empty"><strong>Žiadna otvorená výzva</strong><p>To je dobrá správa. Ak nájdeš psa v núdzi, pripravili sme jasný postup.</p><div><Link href="/pomoc-psom/nahlasit-psa-v-nudzi">Čo urobiť teraz</Link></div></div>}
-            </div>
-            <Link className="home-live-footer" href="/pomoc-psom">Pozrieť možnosti pomoci <ArrowIcon size={18} /></Link>
-          </article>
-        </div>
-      </section>
-
       <section className="section section--tint">
         <div className="shell">
           <div className="section-heading split-heading">
@@ -207,6 +191,24 @@ export default async function Home() {
             </div>
           )}
           <div className="home-section-cta"><Link href="/clanky" className="button button--dark">Všetky články <ArrowIcon /></Link></div>
+        </div>
+      </section>
+
+      <section className="section shell home-compact-section home-help-section">
+        <div className="section-heading"><span className="eyebrow">Aktuálne možnosti</span><h2>Pomoc psom</h2></div>
+        <div className="home-compact-grid">
+          <article className="home-live-card home-live-card--help">
+            <div className="home-live-list">
+              {activeHelpCases.length ? activeHelpCases.map((item) => (
+                <Link href={helpCaseHref(item)} key={item.id}>
+                  <span>{getHelpCategory(item.category)?.singular} · {item.city}</span>
+                  <strong>{item.title}</strong>
+                  <small>{item.urgent ? "Urgentné" : item.verified ? "✓ Overené" : item.organization}</small>
+                </Link>
+              )) : <div className="home-live-empty"><strong>Žiadna otvorená výzva</strong><p>To je dobrá správa. Ak nájdeš psa v núdzi, pripravili sme jasný postup.</p><div><Link href="/pomoc-psom/nahlasit-psa-v-nudzi">Čo urobiť teraz</Link></div></div>}
+            </div>
+            <Link className="home-live-footer" href="/pomoc-psom">Pozrieť možnosti pomoci <ArrowIcon size={18} /></Link>
+          </article>
         </div>
       </section>
 

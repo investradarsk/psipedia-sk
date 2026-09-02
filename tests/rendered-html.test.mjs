@@ -239,6 +239,10 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Žiadna otvorená výzva/);
   assert.match(html, /Novinky zo sveta psov/);
   assert.match(html, /Prvé overené správy pripravujeme/);
+  assert.match(html, /href="\/o-nas#kontakt"/);
+  assert.ok(html.indexOf("<h2>Novinky zo sveta psov</h2>") < html.indexOf("<h2>Najbližšie podujatia</h2>"));
+  assert.ok(html.indexOf("<h2>Najbližšie podujatia</h2>") < html.indexOf("<h2>Dobré čítanie pre dobrý psí život</h2>"));
+  assert.ok(html.indexOf("<h2>Dobré čítanie pre dobrý psí život</h2>") < html.indexOf("<h2>Pomoc psom</h2>"));
   assert.doesNotMatch(html, /Psipedia je viac než magazín/);
   assert.doesNotMatch(html, /Portál, ktorý sa hýbe s komunitou/);
   assert.doesNotMatch(html, /Vyber si, koho hľadáš/);
@@ -633,6 +637,10 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(eventsHtml, /Kalendár podujatí/);
   assert.match(eventsHtml, /Výstavy/);
 
+  const calendar = await worker.fetch(new Request("http://localhost/podujatia/kalendar", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(calendar.status, 200);
+  assert.match(await calendar.text(), /event-calendar-hero--photo/);
+
   const trainers = await worker.fetch(new Request("http://localhost/adresar/treneri", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(trainers.status, 200);
   const trainersHtml = await trainers.text();
@@ -652,6 +660,7 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(directoryHtml, /Hotely a opatrovanie/);
   assert.match(directoryHtml, /Fyzioterapia/);
   assert.match(directoryHtml, /Čo hľadáš/);
+  assert.match(directoryHtml, /directory-hero--photo/);
   assert.doesNotMatch(directoryHtml, /Profily v adresári/);
 
   const legacySchools = await worker.fetch(new Request("http://localhost/adresar/psie-skoly", { headers: { accept: "text/html" }, redirect: "manual" }), bindings, context);
@@ -684,6 +693,8 @@ test("renders the care hub, urgent guidance and topic-specific articles", async 
   assert.match(hubHtml, /Čo riešiš/);
   assert.match(hubHtml, /Užitočné služby a kontakty/);
   assert.match(hubHtml, /Nájsť veterinára/);
+  assert.match(hubHtml, /portal-hero--photo/);
+  assert.match(hubHtml, /portal-hero-photo/);
 
   const nutrition = await worker.fetch(new Request("http://localhost/starostlivost/vyziva", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(nutrition.status, 200);
@@ -835,6 +846,7 @@ test("renders the help portal, stable category URL and emergency guide", async (
   const help = await worker.fetch(new Request("http://localhost/pomoc-psom", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(help.status, 200);
   const helpHtml = await help.text();
+  assert.match(helpHtml, /help-hero--photo/);
   assert.match(helpHtml, /Pomôžme psom správne/);
   assert.match(helpHtml, /Zbierky a výzvy/);
   assert.match(helpHtml, /Meno psa, mesto alebo organizácia/);

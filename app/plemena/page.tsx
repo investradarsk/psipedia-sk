@@ -25,7 +25,8 @@ export default async function BreedsPage({ searchParams }: { searchParams: Promi
   const initialFilters = parseBreedAtlasFilters(await searchParams);
   return (
     <main id="obsah">
-      <header className="page-hero page-hero--breed-atlas shell">
+      <header className="page-hero page-hero--breed-atlas page-hero--photo shell">
+        <img className="page-hero-photo" src="/images/breeds/australsky-ovciak.webp" alt="" aria-hidden="true" decoding="async" />
         <div className="page-hero-inner">
           <span className="eyebrow">{portalSection?.eyebrow ?? "Atlas plemien"}</span>
           <h1>{portalSection?.label ?? "Plemená"}</h1>
