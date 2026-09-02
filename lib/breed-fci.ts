@@ -92,6 +92,43 @@ export function combinedFciMeasurement(values: Array<string | undefined>, unit: 
   return `${format(minimum)}${minimum === maximum ? "" : `–${format(maximum)}`} ${unit}`;
 }
 
+export type BreedMeasurementKind = "height" | "weight" | "lifespan";
+export type BreedMeasurementIssue = {
+  code: "missing-number" | "out-of-range" | "reversed-range" | "glued-number" | "repeated-number" | "missing-unit";
+  severity: "error" | "warning";
+  message: string;
+};
+
+const BREED_MEASUREMENT_RULES: Record<BreedMeasurementKind,{minimum:number;maximum:number;unit:RegExp;unitLabel:string}> = {
+  height:{minimum:8,maximum:130,unit:/\bcm\b/i,unitLabel:"cm"},
+  weight:{minimum:0.5,maximum:150,unit:/\bkg\b/i,unitLabel:"kg"},
+  lifespan:{minimum:3,maximum:30,unit:/\b(?:rok|roky|rokov|r\.)\b/i,unitLabel:"rokov"},
+};
+
+export function inspectBreedMeasurement(value:unknown,kind:BreedMeasurementKind,{requireUnit=true}:{requireUnit?:boolean}={}):BreedMeasurementIssue[]{
+  const text=typeof value==="number"&&Number.isFinite(value)?String(value):typeof value==="string"?value.replace(/\s+/g," ").trim():"";
+  if(!text)return [];
+  const rule=BREED_MEASUREMENT_RULES[kind];
+  const parsed=[...text.matchAll(/\d+(?:[.,]\d+)?/g)].map((match)=>Number(match[0].replace(",","."))).filter(Number.isFinite);
+  const issues:BreedMeasurementIssue[]=[];
+  if(!parsed.length)issues.push({code:"missing-number",severity:"error",message:"Hodnota neobsahuje použiteľné číslo."});
+  if(parsed.some((number)=>number<rule.minimum||number>rule.maximum))issues.push({code:"out-of-range",severity:"error",message:`Hodnota je mimo bezpečného rozsahu ${rule.minimum}–${rule.maximum} ${rule.unitLabel}.`});
+  if(parsed.length>=2&&/\d\s*[–—-]\s*\d/.test(text)&&parsed[0]>parsed[1])issues.push({code:"reversed-range",severity:"error",message:"Minimum rozsahu nesmie byť vyššie než maximum."});
+  if(/\d{4,}/.test(text))issues.push({code:"glued-number",severity:"error",message:"Hodnota vyzerá ako zlepené alebo opakované čísla."});
+  if(parsed.length>=3&&parsed.every((number)=>number===parsed[0]))issues.push({code:"repeated-number",severity:"error",message:"Hodnota obsahuje rovnaké číslo opakované viackrát."});
+  if(requireUnit&&parsed.length&&!rule.unit.test(text))issues.push({code:"missing-unit",severity:"warning",message:`Doplňte jednotku ${rule.unitLabel}.`});
+  return [...new Map(issues.map((issue)=>[issue.code,issue])).values()];
+}
+
+export function publicBreedMeasurement(value:unknown,kind:BreedMeasurementKind,fallback=""){
+  const text=typeof value==="string"?value.replace(/\s+/g," ").trim():typeof value==="number"&&Number.isFinite(value)?String(value):"";
+  if(!text)return fallback.trim();
+  const issues=inspectBreedMeasurement(text,kind);
+  if(issues.some((issue)=>issue.severity==="error"))return fallback.trim();
+  const rule=BREED_MEASUREMENT_RULES[kind];
+  return issues.some((issue)=>issue.code==="missing-unit")?`${text} ${rule.unitLabel}`:text;
+}
+
 export function publicFciDate(value: string | null | undefined) {
   const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return value?.trim() ?? "";
@@ -246,6 +283,15 @@ export function prepareFciBreedImport(value: unknown, maxRecords = 500): Prepare
       }
 
       const origin = cleanText(row.krajina_povodu, 200);
+      const profile = cleanEditorialProfile(row.redakcny_profil);
+      for(const [key,kind] of [["vyska_pes_cm","height"],["vyska_suka_cm","height"],["hmotnost_pes_kg","weight"],["hmotnost_suka_kg","weight"]] as const){
+        const issue=inspectBreedMeasurement(standard[key],kind,{requireUnit:false}).find((item)=>item.severity==="error");
+        if(issue)throw new Error(`${key}: ${issue.message}`);
+      }
+      for(const [key,kind] of [["height","height"],["weight","weight"],["lifespan","lifespan"]] as const){
+        const issue=inspectBreedMeasurement(profile?.[key],kind).find((item)=>item.severity==="error");
+        if(issue)throw new Error(`redakcny_profil.${key}: ${issue.message}`);
+      }
       records.push({
         sourceIndex,
         statusFci: cleanText(row.status_fci, 100),
@@ -262,7 +308,7 @@ export function prepareFciBreedImport(value: unknown, maxRecords = 500): Prepare
         status: cleanText(row.status).toLowerCase() === "published" ? "published" : "draft",
         standard,
         searchText: normalizeBreedSearchText([name, officialFciName, origin, standard.fci_skupina_nazov, standard.fci_sekcia_nazov].filter(Boolean).join(" ")),
-        profile: cleanEditorialProfile(row.redakcny_profil),
+        profile,
       });
     } catch (error) {
       errors.push({ index: sourceIndex + 1, field: "record", message: error instanceof Error ? error.message : "Neplatný záznam." });

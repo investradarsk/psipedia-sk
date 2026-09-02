@@ -6,7 +6,7 @@ import { BreedFciDisclosure } from "@/components/breed-fci-disclosure";
 import { ArrowIcon, PawMark } from "@/components/icons";
 import { breedAtlasHref } from "@/lib/breed-atlas";
 import { breeds, getFciGroup } from "@/lib/content";
-import { combinedFciMeasurement, fciMeasurement, publicFciDate, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
+import { combinedFciMeasurement, publicBreedMeasurement, publicFciDate, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
 import { getBreedDetailRelations, getPublishedBreed, type BreedEditorial, type BreedSport, type ManagedBreed } from "@/lib/breed-store";
 import { articleHref, type ArticlePortalSection } from "@/lib/portal";
 import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
@@ -77,9 +77,13 @@ export default async function BreedDetailPage({ params }: Props) {
     fciTextSection("fci-koncatiny", "Končatiny a pohyb", "Končatiny", [["Predné končatiny",fci.predne_koncatiny],["Zadné končatiny",fci.zadne_koncatiny],["Pohyb",fci.pohyb]]),
     fciTextSection("fci-srst", "Koža, srsť a farba", "Srsť", [["Koža",fci.koza],["Srsť",fci.srst],["Farba",fci.farba]]),
   ].filter((section): section is FciTextSection => Boolean(section));
+  const fciDogHeight = publicBreedMeasurement(fci.vyska_pes_cm,"height");
+  const fciBitchHeight = publicBreedMeasurement(fci.vyska_suka_cm,"height");
+  const fciDogWeight = publicBreedMeasurement(fci.hmotnost_pes_kg,"weight");
+  const fciBitchWeight = publicBreedMeasurement(fci.hmotnost_suka_kg,"weight");
   const dimensionRows = [
-    { label: "Výška", dog: fciMeasurement(fci.vyska_pes_cm, "cm"), bitch: fciMeasurement(fci.vyska_suka_cm, "cm") },
-    { label: "Hmotnosť", dog: fciMeasurement(fci.hmotnost_pes_kg, "kg"), bitch: fciMeasurement(fci.hmotnost_suka_kg, "kg") },
+    { label: "Výška", dog: fciDogHeight, bitch: fciBitchHeight },
+    { label: "Hmotnosť", dog: fciDogWeight, bitch: fciBitchWeight },
   ].filter((row) => row.dog || row.bitch);
   const faultSection = fciTextSection("fci-chyby", "Chyby", "Chyby", [["Chyby",fci.chyby],["Závažné chyby",fci.zavazne_chyby],["Diskvalifikačné chyby",fci.diskvalifikacne_chyby]]);
   const breedingSection = fciTextSection("fci-chov", "Poznámka k chovu", "Chovná poznámka", [["Poznámka k chovu",fci.poznamka_chov]]);
@@ -104,8 +108,9 @@ export default async function BreedDetailPage({ params }: Props) {
   const fciSectionNumber = managedBreed?.fciSectionNumber.trim() ?? "";
   const storedSectionName = (fci.fci_sekcia_nazov || breed.fciSection).trim();
   const fciSectionName = publicFciSectionName(breed.fciGroup, fciSectionNumber, storedSectionName && storedSectionName !== fciSectionNumber ? storedSectionName : "");
-  const heroHeight = breed.height?.trim() || combinedFciMeasurement([fci.vyska_pes_cm, fci.vyska_suka_cm], "cm");
-  const heroWeight = breed.weight?.trim() || combinedFciMeasurement([fci.hmotnost_pes_kg, fci.hmotnost_suka_kg], "kg");
+  const heroHeight = publicBreedMeasurement(breed.height,"height",combinedFciMeasurement([fciDogHeight, fciBitchHeight], "cm"));
+  const heroWeight = publicBreedMeasurement(breed.weight,"weight",combinedFciMeasurement([fciDogWeight, fciBitchWeight], "kg"));
+  const heroLifespan = publicBreedMeasurement(breed.lifespan,"lifespan");
   const heroTraits=editorial.heroTraits?.filter((item)=>item.label.trim()).slice(0,3)??[];
   const fciGroupHref = breedAtlasHref({ query: "", fciGroup: String(breed.fciGroup), fciSection: "", origin: "", energy: "all" });
   const fciSectionHref = fciSectionNumber ? breedAtlasHref({ query: "", fciGroup: String(breed.fciGroup), fciSection: fciSectionNumber, origin: "", energy: "all" }) : "";
@@ -124,7 +129,7 @@ export default async function BreedDetailPage({ params }: Props) {
         {breed.image ? <img className="breed-detail-image" src={breed.image} alt={`${breed.name} – titulná fotografia plemena`} /> : <div className="breed-detail-image breed-detail-image--empty" role="img" aria-label={`Fotografia plemena ${breed.name} sa pripravuje`}><span className="breed-placeholder-mark" aria-hidden="true"><PawMark size={68}/></span><span>Fotografia sa pripravuje</span><small>Profil doplníme o autentický záber plemena.</small></div>}
         {(heroTraits.length>0||managedBreed?.editorialComplete) && <div className="breed-hero-ratings" aria-label="Redakčné hodnotenie plemena">{heroTraits.length>0?heroTraits.map((trait)=><RatingDots value={trait.rating} label={trait.label} key={trait.label}/>):<><RatingDots value={managedBreed!.energy} label="Energia"/><RatingDots value={managedBreed!.trainability} label="Cvičiteľnosť"/><RatingDots value={managedBreed!.children??managedBreed!.family} label="Rodina"/></>}</div>}
         <h2 className="sr-only">Plemeno v skratke</h2>
-        <dl className="breed-hero-facts">{breed.origin && <div><dt>Pôvod</dt><dd>{breed.origin}</dd></div>}{heroHeight && <div><dt>Výška</dt><dd>{fci.vyska_pes_cm&&<small>Pes: {fciMeasurement(fci.vyska_pes_cm,"cm")}</small>}{fci.vyska_suka_cm&&<small>Suka: {fciMeasurement(fci.vyska_suka_cm,"cm")}</small>}{(fci.vyska_pes_cm||fci.vyska_suka_cm)&&<span className="sr-only">Spolu {heroHeight}</span>}{!fci.vyska_pes_cm&&!fci.vyska_suka_cm&&heroHeight}</dd></div>}{heroWeight && <div><dt>Hmotnosť</dt><dd>{fci.hmotnost_pes_kg&&<small>Pes: {fciMeasurement(fci.hmotnost_pes_kg,"kg")}</small>}{fci.hmotnost_suka_kg&&<small>Suka: {fciMeasurement(fci.hmotnost_suka_kg,"kg")}</small>}{(fci.hmotnost_pes_kg||fci.hmotnost_suka_kg)&&<span className="sr-only">Spolu {heroWeight}</span>}{!fci.hmotnost_pes_kg&&!fci.hmotnost_suka_kg&&heroWeight}</dd></div>}{fci.vyuzitie && <div><dt>Využitie</dt><dd>{fci.vyuzitie}</dd></div>}{breed.lifespan && <div><dt>Dĺžka života</dt><dd>{breed.lifespan}</dd></div>}</dl>
+          <dl className="breed-hero-facts">{breed.origin && <div><dt>Pôvod</dt><dd>{breed.origin}</dd></div>}{heroHeight && <div><dt>Výška</dt><dd>{fciDogHeight&&<small>Pes: {fciDogHeight}</small>}{fciBitchHeight&&<small>Suka: {fciBitchHeight}</small>}{(fciDogHeight||fciBitchHeight)&&<span className="sr-only">Spolu {heroHeight}</span>}{!fciDogHeight&&!fciBitchHeight&&heroHeight}</dd></div>}{heroWeight && <div><dt>Hmotnosť</dt><dd>{fciDogWeight&&<small>Pes: {fciDogWeight}</small>}{fciBitchWeight&&<small>Suka: {fciBitchWeight}</small>}{(fciDogWeight||fciBitchWeight)&&<span className="sr-only">Spolu {heroWeight}</span>}{!fciDogWeight&&!fciBitchWeight&&heroWeight}</dd></div>}{fci.vyuzitie && <div><dt>Využitie</dt><dd>{fci.vyuzitie}</dd></div>}{heroLifespan && <div><dt>Dĺžka života</dt><dd>{heroLifespan}</dd></div>}</dl>
       </div></header>
     <nav className="breed-detail-nav" aria-label="Obsah profilu plemena"><div className="shell">{detailNavigation.map((item)=><a href={item.href} key={item.href}>{item.label}</a>)}</div></nav>
     {gallery.length > 0 && <section className="breed-gallery shell" aria-label={`Fotografie plemena ${breed.name}`}>{gallery.map((item, index) => <figure key={`${item.imageUrl}-${index}`}><img src={item.imageUrl} alt={item.alt || `${breed.name} – fotografia ${index + 1}`} />{(item.caption || item.credit) && <figcaption>{item.caption}{item.caption && item.credit ? " · " : ""}{item.credit && <span>Foto: {item.credit}</span>}</figcaption>}</figure>)}</section>}

@@ -5,7 +5,7 @@ import { ArrowIcon } from "@/components/icons";
 import { fciGroups } from "@/lib/content";
 import { parseBreedAtlasFilters } from "@/lib/breed-atlas";
 import { portalSubpageHref } from "@/lib/portal";
-import { listPublishedBreedIndex } from "@/lib/breed-store";
+import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 export default async function BreedsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedBreedIndex()]);
+  const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedCanonicalBreedIndex()]);
   const initialFilters = parseBreedAtlasFilters(await searchParams);
   return (
     <main id="obsah">

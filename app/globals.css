@@ -10430,6 +10430,8 @@ h3 {
 .admin-breed-editor .admin-form-card > h2 { margin: 0 0 20px; font-size: 1.25rem; }
 .admin-breed-preview { width: min(100%, 440px); max-height: 280px; margin-top: 14px; border-radius: 14px; object-fit: cover; }
 .admin-field-help { margin: -10px 0 18px; color: #66746d; }
+.admin-field-warning { color: #a9472f; font-weight: 700; line-height: 1.45; }
+.admin-field input[aria-invalid="true"] { border-color: #c75539; box-shadow: 0 0 0 3px rgba(199, 85, 57, .12); }
 .admin-breed-score-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .admin-breed-gallery-editor,
 .admin-breed-sources { display: grid; gap: 14px; margin-top: 18px; }

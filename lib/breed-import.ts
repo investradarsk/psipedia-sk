@@ -1,4 +1,4 @@
-import { prepareFciBreedImport, type FciImportIssue, type PreparedFciBreed } from "@/lib/breed-fci";
+import { prepareFciBreedImport, publicFciSectionName, type FciImportIssue, type PreparedFciBreed } from "@/lib/breed-fci";
 
 type ExistingBreedRow = {
   id: number;
@@ -91,6 +91,7 @@ export async function previewFciBreedImport(database: D1Database, payload: unkno
 
 function updateStatement(database:D1Database,action:ImportAction,user:string,now:string) {
   const record=action.record;const standard=record.standard;const profile=record.profile;
+  const publicSection=publicFciSectionName(record.fciGroup,record.fciSectionNumber,standard.fci_sekcia_nazov||record.fciSectionNumber);
   let editorial:string|null=null;
   if(profile){let current:Record<string,unknown>={};try{const parsed=JSON.parse(action.existingEditorial||"{}");if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed))current=parsed;}catch{current={};}
     const patch={overview:profile.overview,coatCare:profile.coatCare,familyLife:profile.familyLife,otherDogsLife:profile.otherDogsLife,curiosities:profile.curiosities,commonOwnerMistakes:profile.commonOwnerMistakes,exerciseTip:profile.exerciseTip,trainingTip:profile.trainingTip,healthTip:profile.healthTip,coatTip:profile.coatTip,heroTraits:profile.heroTraits};
@@ -109,7 +110,7 @@ function updateStatement(database:D1Database,action:ImportAction,user:string,now
     status=CASE WHEN ?='published' THEN 'published' ELSE status END,
     published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,
     updated_at=?, updated_by=? WHERE id=?`).bind(
-      record.name,record.fciNumber,record.fciGroup,standard.fci_sekcia_nazov||record.fciSectionNumber,record.fciSectionNumber,
+      record.name,record.fciNumber,record.fciGroup,publicSection,record.fciSectionNumber,
       record.officialFciName,record.validStandardDate,record.workingTrial,record.importKey,JSON.stringify(standard),record.searchText,
       record.origin,editorial,profile?.sports?.length?JSON.stringify(profile.sports):null,
       profile?.intro??"",profile?.character??"",profile?.needs??"",profile?.history??"",profile?.exercise??"",profile?.training??"",profile?.health??"",
@@ -122,6 +123,7 @@ function updateStatement(database:D1Database,action:ImportAction,user:string,now
 
 function createStatement(database:D1Database,action:ImportAction,user:string,now:string) {
   const record=action.record;const standard=record.standard;const profile=record.profile;
+  const publicSection=publicFciSectionName(record.fciGroup,record.fciSectionNumber,standard.fci_sekcia_nazov||record.fciSectionNumber);
   const intro=(profile?.intro||standard.povaha_temperament||standard.celkovy_vzhlad||"").slice(0,1200);
   const editorial=profile?{overview:profile.overview||"",coatCare:profile.coatCare||"",familyLife:profile.familyLife||"",otherDogsLife:profile.otherDogsLife||"",curiosities:profile.curiosities||"",commonOwnerMistakes:profile.commonOwnerMistakes||"",exerciseTip:profile.exerciseTip||"",trainingTip:profile.trainingTip||"",healthTip:profile.healthTip||"",coatTip:profile.coatTip||"",heroTraits:profile.heroTraits??[]}:{};
   const ratings=profile?.ratings??{};
@@ -132,7 +134,7 @@ function createStatement(database:D1Database,action:ImportAction,user:string,now
     intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,
     accent,seo_json,created_at,updated_at,published_at,created_by,updated_by
   ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
-    record.slug,record.name,record.status,"",null,"[]",record.fciNumber,record.fciGroup,standard.fci_sekcia_nazov||record.fciSectionNumber,
+    record.slug,record.name,record.status,"",null,"[]",record.fciNumber,record.fciGroup,publicSection,
     record.fciSectionNumber,record.officialFciName,record.validStandardDate,record.workingTrial,record.importKey,JSON.stringify(standard),JSON.stringify(editorial),JSON.stringify(profile?.sports??[]),
     record.searchText,profile?.editorialComplete?1:0,record.origin,standard.fci_skupina_nazov||"","",profile?.weight??"",profile?.height??"",profile?.lifespan??"",profile?.coat??"",ratings.energy??3,ratings.trainability??3,ratings.children??3,ratings.children??3,ratings.otherDogs??3,ratings.apartment??3,ratings.grooming??3,ratings.shedding??3,ratings.preyDrive??3,
     intro,profile?.character??"",profile?.needs??"",profile?.history??"",profile?.exercise??"",profile?.training??"",profile?.health??"",JSON.stringify(profile?.healthRisks??[]),JSON.stringify(profile?.goodFor??[]),JSON.stringify(profile?.consider??[]),"[]","forest","{}",now,now,record.status==="published"?now:null,user,user,

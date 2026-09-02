@@ -7,10 +7,12 @@ import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { breedSeoFallback } from "@/lib/content-seo";
-import type { FciStandard, FciStandardTextKey } from "@/lib/breed-fci";
+import { inspectBreedMeasurement, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
 
 function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);}
 function lines(value:string){return value.split("\n").map((item)=>item.replace(/^[-•]\s*/,"").trim()).filter(Boolean);}
+function measurementMessage(value:string,kind:BreedMeasurementKind){return inspectBreedMeasurement(value,kind).map((item)=>item.message).join(" ");}
+function measurementHasError(value:string,kind:BreedMeasurementKind){return inspectBreedMeasurement(value,kind).some((item)=>item.severity==="error");}
 const emptySource:BreedSource={label:"",url:""};
 const sportOptions=[
   ["obedience","Obedience"],["rally-obedience","Rally obedience"],["agility","Agility"],["canicross","Canicross"],
@@ -80,9 +82,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       <label className="admin-field"><span>Krajina pôvodu</span><input value={form.origin} onChange={(e)=>change("origin",e.target.value)}/></label>
       <label className="admin-field"><span>Skupina / pôvodné využitie</span><input value={form.group} onChange={(e)=>change("group",e.target.value)}/></label>
       <label className="admin-field"><span>Veľkosť</span><input value={form.size} onChange={(e)=>change("size",e.target.value)}/></label>
-      <label className="admin-field"><span>Hmotnosť</span><input value={form.weight} onChange={(e)=>change("weight",e.target.value)}/></label>
-      <label className="admin-field"><span>Výška v kohútiku</span><input value={form.height} onChange={(e)=>change("height",e.target.value)}/></label>
-      <label className="admin-field"><span>Dĺžka života</span><input value={form.lifespan} onChange={(e)=>change("lifespan",e.target.value)}/></label>
+      <label className="admin-field"><span>Hmotnosť</span><input aria-invalid={measurementHasError(form.weight,"weight")} value={form.weight} onChange={(e)=>change("weight",e.target.value)}/>{measurementMessage(form.weight,"weight")&&<small className="admin-field-warning">{measurementMessage(form.weight,"weight")}</small>}</label>
+      <label className="admin-field"><span>Výška v kohútiku</span><input aria-invalid={measurementHasError(form.height,"height")} value={form.height} onChange={(e)=>change("height",e.target.value)}/>{measurementMessage(form.height,"height")&&<small className="admin-field-warning">{measurementMessage(form.height,"height")}</small>}</label>
+      <label className="admin-field"><span>Dĺžka života</span><input aria-invalid={measurementHasError(form.lifespan,"lifespan")} value={form.lifespan} onChange={(e)=>change("lifespan",e.target.value)}/>{measurementMessage(form.lifespan,"lifespan")&&<small className="admin-field-warning">{measurementMessage(form.lifespan,"lifespan")}</small>}</label>
       <label className="admin-field"><span>Srsť</span><input value={form.coat} onChange={(e)=>change("coat",e.target.value)}/></label>
     </div></section>
 
