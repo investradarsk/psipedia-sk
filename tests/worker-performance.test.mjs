@@ -48,5 +48,5 @@ test("public HTML has a short edge cache while admin remains no-store", () => {
   assert.match(worker, /X-Psipedia-Cache/);
   assert.match(worker, /private, no-store/);
   assert.match(worker, /request\.headers\.has\("cookie"\)/);
-  assert.doesNotMatch(rootLayout, /force-dynamic/);
+  assert.match(rootLayout, /navigation is D1-backed/);
 });
