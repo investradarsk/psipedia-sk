@@ -153,7 +153,7 @@ test("FCI section helpers preserve exact subsection values and dependent state",
   assert.equal(breedAtlasHref({query:"",fciGroup:"2",fciSection:"2.1",origin:"",energy:"all"}),"/plemena?fciGroup=2&fciSection=2.1");
   assert.equal(breedAtlasHref({query:"",fciGroup:"",fciSection:"2.1",origin:"",energy:"all"}),"/plemena");
   assert.equal(publicFciSectionName(8,"1","Retrievers"),"Retrievery");
-  assert.equal(publicFciSectionName(2,"9.9","Bezpečný pôvodný názov"),"Bezpečný pôvodný názov");
+  assert.equal(publicFciSectionName(2,"9.9","Bezpečný pôvodný názov"),"Sekcia sa overuje");
   assert.equal(fciMeasurement("48–51","cm"),"48–51 cm");
   assert.equal(fciMeasurement("20–23 kg","kg"),"20–23 kg");
   assert.equal(combinedFciMeasurement(["48–51","45–48"],"cm"),"45–51 cm");
@@ -191,7 +191,15 @@ test("344-record FCI import previews, imports and remains idempotent without era
   const repairedArdennes=sqlite.prepare("SELECT height,weight,fci_section FROM managed_breeds WHERE fci_number=171").get();
   assert.deepEqual({...repairedArdennes},{height:"52–62 cm",weight:"22–35 kg",fci_section:"Pastierske psy okrem švajčiarskych salašníckych psov"});
 
-  const homepage=await get(worker,d1,"/");assert.equal(homepage.status,200);assert.match(await homepage.text(),/Plemeno dňa/);
+  const homepage=await get(worker,d1,"/");assert.equal(homepage.status,200);
+  const homepageHtml=await homepage.text();assert.match(homepageHtml,/Plemeno dňa/);assert.match(homepageHtml,/class="home-breed-day"/);
+  sqlite.exec("SAVEPOINT no_breeds; UPDATE managed_breeds SET status='draft'");
+  const emptyHomepage=await get(worker,d1,"/");assert.equal(emptyHomepage.status,200);assert.doesNotMatch(await emptyHomepage.text(),/Plemeno dňa|class="home-breed-day"/);
+  sqlite.exec("ROLLBACK TO no_breeds; RELEASE no_breeds");
+
+  const auditUnauthorized=await get(worker,d1,"/api/admin/breeds/audit");assert.ok([401,403].includes(auditUnauthorized.status));
+  const auditResponse=await worker.fetch(new Request("http://localhost/api/admin/breeds/audit",{headers:{"oai-authenticated-user-email":"admin@psipedia.sk"}}),{DB:d1,ADMIN_EMAILS:"admin@psipedia.sk",ASSETS:{fetch:async()=>new Response(null,{status:404})}},{waitUntil(){},passThroughOnException(){}});
+  assert.equal(auditResponse.status,200);const audit=await auditResponse.json();assert.equal(audit.canonicalCount,344);assert.equal(audit.publishedCount,344);assert.ok(audit.issues.some(issue=>issue.code==="missing-image-url"));
 
   const labrador=sqlite.prepare("SELECT * FROM managed_breeds WHERE fci_number=122").get();
   assert.equal(labrador.slug,"labradorsky-retriever");assert.equal(labrador.image_url,"/images/hero-labrador.webp");assert.equal(labrador.intro,"Pôvodný redakčný úvod.");

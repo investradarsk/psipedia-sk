@@ -259,7 +259,7 @@ test("renders the portal homepage", async () => {
   assert.doesNotMatch(homeSource, /getPublishedArticles|listPublishedBreedsForComparison/);
   assert.match(homepageArticleQuery, /homepage_rank <= 3/);
   assert.doesNotMatch(homepageArticleQuery, /SELECT \*/);
-  assert.match(breedOfTheDayQuery, /LIMIT 1/);
+  assert.match(breedOfTheDayQuery, /canonicalBreedIdsSql/);
   assert.doesNotMatch(breedOfTheDayQuery, /fci_standard_json|SELECT \*/);
 });
 

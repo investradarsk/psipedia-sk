@@ -1,3 +1,5 @@
+import { BreedPhoto } from "@/components/breed-photo";
+import { dayOfYearInBratislava } from "@/lib/breed-canonical";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
@@ -30,16 +32,6 @@ const starterGuides = [
   { icon: "🩺", eyebrow: "Starostlivosť", title: "Zdravie a varovné signály", description: "Čo môžeš sledovať doma a kedy už patrí problém veterinárovi.", href: "/starostlivost/zdravie" },
   { icon: "🥾", eyebrow: "Spoločné zážitky", title: "Aktivity podľa vášho tempa", description: "Psie športy, výlety a nápady pre hlavu aj telo psa.", href: "/aktivity/psie-sporty" },
 ] as const;
-
-function dayOfYearInBratislava(now = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bratislava", year: "numeric", month: "2-digit", day: "2-digit" })
-    .formatToParts(now).reduce<Record<string, number>>((values, part) => {
-      if (part.type !== "literal") values[part.type] = Number(part.value);
-      return values;
-    }, {});
-  const start = Date.UTC(parts.year, 0, 0);
-  return Math.floor((Date.UTC(parts.year, parts.month - 1, parts.day) - start) / 86_400_000);
-}
 
 export default async function Home() {
   const dayOfYear = dayOfYearInBratislava();
@@ -212,17 +204,17 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section shell home-breed-day-section">
+      {breedOfTheDay && <section className="section shell home-breed-day-section">
         <div className="section-heading"><span className="eyebrow">Atlas plemien</span><h2>Plemeno dňa</h2></div>
-        {breedOfTheDay && <article className="home-breed-day">
-          <img src={breedOfTheDay.image} alt={`${breedOfTheDay.name} – plemeno dňa`} />
+        <article className="home-breed-day">
+          <BreedPhoto src={breedOfTheDay.image} alt={`${breedOfTheDay.name} – plemeno dňa`} />
           <div><span className="eyebrow">Dnešný profil</span><h3>{breedOfTheDay.name}</h3><p>{breedOfTheDay.intro}</p>
-            <dl><div><dt>FCI skupina</dt><dd>{breedOfTheDay.fciGroup}. {breedOfTheDay.fciSection}</dd></div><div><dt>Veľkosť</dt><dd>{breedOfTheDay.size}</dd></div><div><dt>Energia</dt><dd>{breedOfTheDay.energy}/5</dd></div><div><dt>Cvičiteľnosť</dt><dd>{breedOfTheDay.trainability}/5</dd></div></dl>
+            <dl><div><dt>FCI skupina</dt><dd>{breedOfTheDay.fciGroup}. {breedOfTheDay.fciSection}</dd></div>{breedOfTheDay.size?.trim() && <div><dt>Veľkosť</dt><dd>{breedOfTheDay.size}</dd></div>}<div><dt>Energia</dt><dd>{breedOfTheDay.energy}/5</dd></div><div><dt>Cvičiteľnosť</dt><dd>{breedOfTheDay.trainability}/5</dd></div></dl>
             <Link className="button button--coral" href={`/plemena/${breedOfTheDay.slug}`}>Pozrieť profil <ArrowIcon /></Link>
           </div>
-        </article>}
+        </article>
         <div className="home-section-cta home-section-cta--quiet"><Link href="/plemena" className="text-link">Všetky plemená <ArrowIcon size={18} /></Link></div>
-      </section>
+      </section>}
 
       <section className="section shell">
         <div className="calculator-section">

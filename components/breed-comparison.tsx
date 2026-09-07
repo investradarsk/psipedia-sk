@@ -1,4 +1,5 @@
 "use client";
+import { BreedPhoto } from "@/components/breed-photo";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -19,7 +20,7 @@ function CompareRating({ value, label }: { value: number; label: string }) {
 function BreedHeading({ breed }: { breed: BreedComparisonItem }) {
   return (
     <div className={`compare-breed-heading compare-breed-heading--${breed.accent}`}>
-      <img className="compare-breed-image" src={breed.image} alt={`${breed.name} – fotografia plemena`} />
+      <BreedPhoto className="compare-breed-image" src={breed.image} alt={`${breed.name} – fotografia plemena`} />
       <span>FCI {breed.fciGroup} · {breed.fciSection}</span>
       <h2>{breed.name}</h2>
       <small>{breed.origin}</small>

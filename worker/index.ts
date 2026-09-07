@@ -1,3 +1,4 @@
+import { canonicalBreedRedirect } from "../lib/breed-canonical";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -71,6 +72,12 @@ const worker = {
     if (canonicalBreedPath) {
       url.pathname = canonicalBreedPath;
       return Response.redirect(url, 301);
+    }
+
+    const breedMatch=url.pathname.match(/^\/plemena\/([a-z0-9-]+)$/);
+    if(breedMatch&&env.DB){
+      const target=await canonicalBreedRedirect(env.DB,breedMatch[1]);
+      if(target){url.pathname=target;return Response.redirect(url,301);}
     }
 
     let appRequest = request;

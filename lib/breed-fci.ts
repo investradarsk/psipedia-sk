@@ -19,6 +19,15 @@ export type FciStandard = Partial<Record<FciStandardTextKey, string>> & {
 const FCI_SECTION_SK_LABELS: Readonly<Record<string, string>> = {
   "1:1": "Ovčiarske psy",
   "1:2": "Pastierske psy okrem švajčiarskych salašníckych psov",
+  "2:1": "Pinče a bradáče",
+  "2:2": "Molosoidné plemená",
+  "4:": "Jazvečíky",
+  "4:1": "Jazvečíky",
+  "6:1": "Duriče",
+  "7:1": "Kontinentálne stavače",
+  "7:2": "Britské a írske stavače a setre",
+  "9:1": "Bišóny a príbuzné plemená",
+  "9:3": "Malé belgické psy",
   "2:1.1": "Pinče",
   "2:1.2": "Bradáče",
   "2:1.3": "Holandské smoushondy",
@@ -70,7 +79,12 @@ const FCI_SECTION_SK_LABELS: Readonly<Record<string, string>> = {
 };
 
 export function publicFciSectionName(group: number, section: string, fallback = "") {
-  return FCI_SECTION_SK_LABELS[`${group}:${section.trim()}`] ?? fallback.trim();
+  const number=section.trim().replace(',', '.');
+  const known=FCI_SECTION_SK_LABELS[`${group}:${number}`];
+  if(known)return known;
+  // Unknown classifications must not leak raw English labels into public cards.
+  if(!Number.isInteger(group)||group<1||group>10)return "Nezaradená sekcia";
+  return "Sekcia sa overuje";
 }
 
 export function fciMeasurement(value: string | undefined, unit: "cm" | "kg") {
@@ -120,11 +134,11 @@ export function inspectBreedMeasurement(value:unknown,kind:BreedMeasurementKind,
   return [...new Map(issues.map((issue)=>[issue.code,issue])).values()];
 }
 
-export function publicBreedMeasurement(value:unknown,kind:BreedMeasurementKind,fallback=""){
+export function publicBreedMeasurement(value:unknown,kind:BreedMeasurementKind,fallback=""):string{
   const text=typeof value==="string"?value.replace(/\s+/g," ").trim():typeof value==="number"&&Number.isFinite(value)?String(value):"";
-  if(!text)return fallback.trim();
+  if(!text)return fallback?publicBreedMeasurement(fallback,kind):"";
   const issues=inspectBreedMeasurement(text,kind);
-  if(issues.some((issue)=>issue.severity==="error"))return fallback.trim();
+  if(issues.some((issue)=>issue.severity==="error"))return fallback?publicBreedMeasurement(fallback,kind):"";
   const rule=BREED_MEASUREMENT_RULES[kind];
   return issues.some((issue)=>issue.code==="missing-unit")?`${text} ${rule.unitLabel}`:text;
 }

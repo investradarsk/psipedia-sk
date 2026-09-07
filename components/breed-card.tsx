@@ -1,3 +1,4 @@
+import { BreedPhoto } from "@/components/breed-photo";
 import Link from "next/link";
 import type { ManagedBreedIndexItem } from "@/lib/breed-store";
 import { ArrowIcon, PawMark } from "./icons";
@@ -18,7 +19,7 @@ export function BreedCard({ breed }: { breed: ManagedBreedIndexItem }) {
   return (
     <article className={`breed-card breed-card--${breed.accent}`}>
       <Link href={profileHref} className="breed-card-media" aria-label={`Otvoriť profil: ${breed.name}`}>
-        {breed.image ? <img src={breed.image} alt={`${breed.name} – fotografia plemena`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true"><PawMark size={54} /><small>Fotografia sa pripravuje</small></span>}
+        {breed.image ? <BreedPhoto src={breed.image} alt={`${breed.name} – fotografia plemena`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true"><PawMark size={54} /><small>Fotografia sa pripravuje</small></span>}
         <span className="fci-badge">FCI {breed.fciGroup}</span>
       </Link>
       <div className="breed-card-body">
