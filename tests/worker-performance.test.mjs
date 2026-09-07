@@ -46,6 +46,7 @@ test("public HTML has a short edge cache while admin remains no-store", () => {
   assert.match(worker, /PUBLIC_HTML_CACHE_TTL_SECONDS = 45/);
   assert.match(worker, /caches\?\.default/);
   assert.match(worker, /X-Psipedia-Cache/);
+  assert.match(worker, /Cloudflare-CDN-Cache-Control/);
   assert.match(worker, /private, no-store/);
   assert.match(worker, /request\.headers\.has\("cookie"\)/);
   assert.doesNotMatch(worker.slice(worker.indexOf("function isCacheableHtmlResponse"), worker.indexOf("function responseWithHeader")), /no-store/);

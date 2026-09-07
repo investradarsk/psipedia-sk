@@ -78,7 +78,7 @@ const worker = {
     const cache = publicHtmlCache(request, url);
     if (cache) {
       const cached = await cache.storage.match(cache.key);
-      if (cached) return responseWithHeader(cached, "X-Psipedia-Cache", "HIT");
+      if (cached) return responseWithHeaders(cached, publicHtmlCacheHeaders("HIT"));
     }
 
     const breedMatch=url.pathname.match(/^\/plemena\/([a-z0-9-]+)$/);
@@ -132,11 +132,7 @@ const worker = {
     }
     if (!cache || !isCacheableHtmlResponse(response)) return response;
 
-    const cacheable = responseWithHeaders(response, {
-      "Cache-Control": `public, max-age=0, s-maxage=${PUBLIC_HTML_CACHE_TTL_SECONDS}, stale-while-revalidate=30`,
-      "CDN-Cache-Control": `public, max-age=${PUBLIC_HTML_CACHE_TTL_SECONDS}`,
-      "X-Psipedia-Cache": "MISS",
-    });
+    const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));
     ctx.waitUntil(cache.storage.put(cache.key, cacheable.clone()));
     return cacheable;
   },
@@ -150,6 +146,15 @@ function publicHtmlCache(request: Request, url: URL): { storage: Cache; key: Req
   if (accept && !accept.includes("text/html") && !accept.includes("*/*")) return null;
   const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
   return storage ? { storage, key: new Request(url.toString(), { method: "GET" }) } : null;
+}
+
+function publicHtmlCacheHeaders(status: "HIT" | "MISS"): Record<string, string> {
+  return {
+    "Cache-Control": `public, max-age=0, s-maxage=${PUBLIC_HTML_CACHE_TTL_SECONDS}, stale-while-revalidate=30`,
+    "CDN-Cache-Control": `public, max-age=${PUBLIC_HTML_CACHE_TTL_SECONDS}`,
+    "Cloudflare-CDN-Cache-Control": `public, max-age=${PUBLIC_HTML_CACHE_TTL_SECONDS}`,
+    "X-Psipedia-Cache": status,
+  };
 }
 
 function isCacheableHtmlResponse(response: Response): boolean {
