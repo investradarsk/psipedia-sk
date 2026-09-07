@@ -3,13 +3,13 @@ import { inspectBreedMeasurement, publicFciSectionName } from './breed-fci.ts';
 import { withAvailableBreedImages, type ImageBindings } from './breed-image.ts';
 
 export type BreedAuditRow = CanonicalIdentity & {
-  name:string; image_url:string; fci_group:number; fci_section_number:string; fci_section:string;
+  name:string; image_url:string; fci_group:number; fci_section_number:string; fci_section:string; size:string;
   height:string; weight:string; lifespan:string; fci_measurements_json:string;
 };
 // Keep the projection small: a complete FCI standard can contain tens of kilobytes per breed.
 const standard = "CASE WHEN json_valid(fci_standard_json) THEN fci_standard_json ELSE '{}' END";
 export const breedAuditRowsSql = `SELECT id,slug,name,status,fci_number,import_key,seo_json,image_url,
-  fci_group,fci_section_number,fci_section,height,weight,lifespan,
+  fci_group,fci_section_number,fci_section,size,height,weight,lifespan,
   json_object('vyska_pes_cm',json_extract(${standard},'$.vyska_pes_cm'),
     'vyska_suka_cm',json_extract(${standard},'$.vyska_suka_cm'),
     'hmotnost_pes_kg',json_extract(${standard},'$.hmotnost_pes_kg'),
@@ -21,6 +21,7 @@ export function auditBreedRows(rows:BreedAuditRow[]) {
   for(const row of rows.filter(item=>item.status==='published')){
     const add=(code:string,value:string)=>issues.push({code,ids:[row.id],value});
     if(!row.image_url?.trim())add('missing-image-url','');
+    if(/^\d[\d\s.,–—-]*$/.test(row.size?.trim()??'') || /\d{4,}/.test(row.size??''))add('invalid-size',row.size);
     const expected=publicFciSectionName(row.fci_group,row.fci_section_number??'');
     if(expected==='Sekcia sa overuje'||expected==='Nezaradená sekcia')add('invalid-fci-group-section',`${row.fci_group}:${row.fci_section_number}`);
     else if(row.fci_section!==expected)add('non-slovak-or-inconsistent-fci-section',`${row.fci_section??''} → ${expected}`);

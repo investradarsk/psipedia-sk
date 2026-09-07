@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { canonicalBreedIdsSql, assertCanonicalIdentities, canonicalBreedRedirect, dayOfYearInBratislava, rotateBreeds } from '../lib/breed-canonical.ts';
 import { availableBreedImage, withAvailableBreedImages } from '../lib/breed-image.ts';
-import { publicFciSectionName, publicBreedMeasurement } from '../lib/breed-fci.ts';
+import { publicFciSectionName, publicBreedMeasurement, publicBreedSize } from '../lib/breed-fci.ts';
 import { getBreedOfTheDay } from '../lib/breed-store.ts';
 const runtime=globalThis.__CLOUDFLARE_WORKERS_ENV__;
 function database(){
@@ -67,6 +67,7 @@ test('section translations and corrupt fallback measurements never leak raw valu
  for(const [group,section,raw,expected] of [[1,'1','Sheepdogs','Ovčiarske psy'],[1,'2','Cattledogs','Pastierske psy okrem švajčiarskych salašníckych psov'],[8,'1','Retrievers','Retrievery'],[8,'2','Flushing Dogs','Sliediče'],[8,'3','Water Dogs','Vodné psy'],[4,'','','Jazvečíky']])assert.equal(publicFciSectionName(group,section,raw),expected);
  assert.equal(publicFciSectionName(8,'99','Water Dogs'),'Sekcia sa overuje');
  assert.equal(publicBreedMeasurement('454','height','454 cm'),'');assert.equal(publicBreedMeasurement('454','height','52–62 cm'),'52–62 cm');
+ assert.equal(publicBreedSize('454545'),'');assert.equal(publicBreedSize('stredne veľký'),'stredne veľký');
 });
 
 test('an ineligible older duplicate cannot suppress the valid profile',()=>{

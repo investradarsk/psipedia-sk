@@ -143,6 +143,12 @@ export function publicBreedMeasurement(value:unknown,kind:BreedMeasurementKind,f
   return issues.some((issue)=>issue.code==="missing-unit")?`${text} ${rule.unitLabel}`:text;
 }
 
+export function publicBreedSize(value:unknown):string {
+  const text=typeof value==="string"?value.replace(/\s+/g," ").trim():"";
+  if(!text || /^\d[\d\s.,–—-]*$/.test(text) || /\d{4,}/.test(text))return "";
+  return text;
+}
+
 export function publicFciDate(value: string | null | undefined) {
   const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return value?.trim() ?? "";
