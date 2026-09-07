@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ArticleBrowser } from "@/components/article-browser";
-import { getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export default async function ArticlesPage({
   searchParams: Promise<{ hladat?: string; tema?: string }>;
 }) {
   const params = await searchParams;
-  const articles = await getPublishedArticles();
+  const articles = await getPublishedArticleSummaries({ portalSection: "clanky", limit: 200 });
   const categories: Record<string, string> = {
     vycvik: "Výcvik",
     zdravie: "Zdravie",

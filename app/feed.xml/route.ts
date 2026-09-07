@@ -1,4 +1,4 @@
-import { getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { articleHref } from "@/lib/portal";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 
@@ -19,7 +19,7 @@ function articleDate(value: string) {
 }
 
 export async function GET() {
-  const articles = await getPublishedArticles();
+  const articles = await getPublishedArticleSummaries({ limit: 50 });
   const items = articles.slice(0, 50).map((article) => {
     const url = `${SITE_URL}${articleHref(article)}`;
     const image = article.image

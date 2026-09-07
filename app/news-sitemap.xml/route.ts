@@ -1,4 +1,4 @@
-import { getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticleIndex } from "@/lib/article-store";
 import { articleHref, articlePortalSection } from "@/lib/portal";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const NEWS_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 const MAX_NEWS_ITEMS = 1000;
 
-type PublishedArticle = Awaited<ReturnType<typeof getPublishedArticles>>[number];
+type PublishedArticle = Awaited<ReturnType<typeof getPublishedArticleIndex>>[number];
 
 function escapeXml(value: string) {
   return value
@@ -40,7 +40,7 @@ function canonicalArticleUrl(article: PublishedArticle) {
 
 export async function GET() {
   const now = Date.now();
-  const articles = (await getPublishedArticles())
+  const articles = (await getPublishedArticleIndex(MAX_NEWS_ITEMS))
     .flatMap((article) => {
       if (articlePortalSection(article) !== "novinky" || article.seo?.noindex || !article.title.trim()) return [];
       const published = publicationDate(article);

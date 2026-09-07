@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArticleCard } from "@/components/article-card";
 import { categories, categoryBySlug } from "@/lib/content";
-import { getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +33,7 @@ export default async function TopicPage({ params }: Props) {
   const { slug } = await params;
   const category = categoryBySlug[slug];
   if (!category) notFound();
-  const articles = await getPublishedArticles();
-  const filtered = articles.filter((article) => article.category === category.label);
+  const filtered = await getPublishedArticleSummaries({ category: category.label, limit: 120 });
 
   return (
     <main id="obsah">

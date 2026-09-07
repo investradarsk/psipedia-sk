@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PortalHub } from "@/components/portal-hub";
 import { NewsHub } from "@/components/news-hub";
-import { getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
-import { portalSections } from "@/lib/portal";
+import { portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,7 @@ export default async function PortalSectionPage({ params }: Props) {
   const [section, allSections, articles, events] = await Promise.all([
     getManagedPortalSection(slug),
     listManagedPortalSections(),
-    getPublishedArticles(),
+    slug === "podujatia" ? Promise.resolve([]) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
     slug === "podujatia" ? getPublishedEvents() : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();

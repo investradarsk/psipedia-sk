@@ -4,11 +4,11 @@ import { ArticleDetail } from "@/components/article-detail";
 import { EventDetail } from "@/components/event-detail";
 import { EventsPage } from "@/components/events-page";
 import { PortalTopic } from "@/components/portal-topic";
-import { getPublishedArticle, getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticle, getPublishedArticleSummaries, getRelatedPublishedArticles } from "@/lib/article-store";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { getPublishedEvent, getPublishedEvents } from "@/lib/event-store";
 import { eventHref, eventTypeFromPortalSlug } from "@/lib/events";
-import { articleHref, portalSections } from "@/lib/portal";
+import { articleHref, portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-store";
 import { buildPageMetadata } from "@/lib/seo";
 import { StructuredData } from "@/components/structured-data";
@@ -62,8 +62,7 @@ export default async function PortalContentPage({ params }: Props) {
   if (section === "podujatia" && (slug === "kalendar" || eventTypeFromPortalSlug(slug))) {
     return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} />;
   }
-  const articles = await getPublishedArticles();
-  if (portalTopic) return <PortalTopic {...portalTopic} articles={articles} />;
+  if (portalTopic) return <PortalTopic {...portalTopic} articles={await getPublishedArticleSummaries({ portalSection: portalTopic.section.slug as ArticlePortalSection, limit: 120 })} />;
 
   if (section === "podujatia") {
     const event = await getPublishedEvent(slug);
@@ -80,9 +79,5 @@ export default async function PortalContentPage({ params }: Props) {
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) redirect(canonical);
 
-  const sameCategory = articles.filter((item) => item.slug !== article.slug && (
-    section === "novinky" ? item.newsCategory === article.newsCategory : item.category === article.category
-  ));
-  const others = articles.filter((item) => item.slug !== article.slug && !sameCategory.some((related) => related.slug === item.slug));
-  return <ArticleDetail article={article} related={[...sameCategory, ...others].slice(0, 3)} />;
+  return <ArticleDetail article={article} related={await getRelatedPublishedArticles(article, 3)} />;
 }

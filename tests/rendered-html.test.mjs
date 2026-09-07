@@ -252,7 +252,7 @@ test("renders the portal homepage", async () => {
   const breedStoreSource = readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
   const homepageArticleStart = articleStoreSource.indexOf("export async function getHomepageArticles");
   const breedOfTheDayStart = breedStoreSource.indexOf("export async function getBreedOfTheDay");
-  const homepageArticleQuery = articleStoreSource.slice(homepageArticleStart, articleStoreSource.indexOf("export async function getPublishedArticle(", homepageArticleStart));
+  const homepageArticleQuery = articleStoreSource.slice(homepageArticleStart, articleStoreSource.indexOf("const getPublishedArticleUncached", homepageArticleStart));
   const breedOfTheDayQuery = breedStoreSource.slice(breedOfTheDayStart, breedStoreSource.indexOf("export async function listPublishedBreeds", breedOfTheDayStart));
   assert.match(homeSource, /getHomepageArticles\(\)/);
   assert.match(homeSource, /getBreedOfTheDay\(dayOfYear\)/);

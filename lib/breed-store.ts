@@ -1,6 +1,7 @@
 import { canonicalBreedIdsSql, rotateBreeds } from "./breed-canonical";
 import { availableBreedImage, withAvailableBreedImages } from "./breed-image";
 import { env } from "cloudflare:workers";
+import { cache } from "react";
 import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } from "@/lib/content";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { cleanFciStandard, combinedFciMeasurement, inspectBreedMeasurement, normalizeBreedSearchText, publicBreedMeasurement, publicBreedSize, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
@@ -128,7 +129,8 @@ export async function getBreedOfTheDay(dayOfYear:number):Promise<BreedOfTheDayIt
 export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;const result=await database.prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<Row>();return withAvailableBreedImages(result.results.map(row=>fromRow(row,{public:true})),env);}
 export async function listFeaturedBreeds(limit=3){const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));const database=db();if(!database)return seedBreeds.slice(0,safeLimit);const result=await database.prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<Row>();return withAvailableBreedImages(result.results.map(row=>fromRow(row,{public:true})),env);}
 export async function getManagedBreed(id:number){const database=requireDb();await ensure(database);const [breedResult,articleResult,directoryResult]=await database.batch([database.prepare(`${select} WHERE id=?`).bind(id),database.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),database.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id)]);const row=(breedResult.results?.[0]??null) as unknown as Row|null;return row?fromRow(row,{articles:(articleResult.results as RelationIdRow[]).map((item)=>item.id),directory:(directoryResult.results as RelationIdRow[]).map((item)=>item.id)}):null;}
-export async function getPublishedBreed(slug:string){const database=db();if(!database)return seedBreeds.find((breed)=>breed.slug===slug)??null;const row=await database.prepare(`${select} WHERE slug=? AND id IN (${canonicalBreedIdsSql})`).bind(slug).first<Row>();if(!row)return null;const breed=fromRow(row,{public:true});breed.image=await availableBreedImage(breed.image,env);breed.gallery=(await Promise.all((breed.gallery??[]).map(async item=>({...item,imageUrl:await availableBreedImage(item.imageUrl,env)})))).filter(item=>item.imageUrl);return breed;}
+const getPublishedBreedUncached=async(slug:string)=>{const database=db();if(!database)return seedBreeds.find((breed)=>breed.slug===slug)??null;const row=await database.prepare(`${select} WHERE slug=? AND id IN (${canonicalBreedIdsSql})`).bind(slug).first<Row>();if(!row)return null;const breed=fromRow(row,{public:true});breed.image=await availableBreedImage(breed.image,env);breed.gallery=(await Promise.all((breed.gallery??[]).map(async item=>({...item,imageUrl:await availableBreedImage(item.imageUrl,env)})))).filter(item=>item.imageUrl);return breed;};
+export const getPublishedBreed=cache(getPublishedBreedUncached);
 
 
 export async function getBreedEditorOptions():Promise<BreedEditorOptions>{const database=requireDb();const [breedsResult,articlesResult,directoryResult]=await database.batch([

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
-import { getPublishedArticle, getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticle, getRelatedPublishedArticles } from "@/lib/article-store";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { articles as seedArticles } from "@/lib/content";
 import { articleHref } from "@/lib/portal";
@@ -29,8 +29,5 @@ export default async function LegacyArticlePage({ params }: Props) {
   const canonical = articleHref(article);
   if (canonical !== `/clanky/${slug}`) redirect(canonical);
 
-  const articles = await getPublishedArticles();
-  const sameCategory = articles.filter((item) => item.slug !== article.slug && item.category === article.category);
-  const others = articles.filter((item) => item.slug !== article.slug && item.category !== article.category);
-  return <ArticleDetail article={article} related={[...sameCategory, ...others].slice(0, 3)} />;
+  return <ArticleDetail article={article} related={await getRelatedPublishedArticles(article, 3)} />;
 }

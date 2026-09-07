@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { cache } from "react";
 import { articles as seedArticles, type Article, type ArticleSection, type ArticleSource } from "@/lib/content";
 import {
   getPortalSubpage,
@@ -136,17 +137,25 @@ type ArticleRow = {
 };
 
 type ArticleSummaryRow = {
-  id: number;
+  id?: number;
   slug: string;
   title: string;
   excerpt: string;
   category: string;
   portal_section: string;
+  portal_subpage: string | null;
   news_category: string | null;
   status: string;
   accent: string;
   image_url: string | null;
   updated_at: string;
+  published_at: string;
+  reading_minutes: number;
+};
+
+type ArticleIndexRow = ArticleSummaryRow & {
+  noindex: number;
+  canonical_url: string;
 };
 
 type HomepageArticleRow = {
@@ -293,7 +302,7 @@ function rowToManagedArticle(row: ArticleRow,relatedBreedIds:number[]=[]): Manag
 
 function rowToManagedArticleSummary(row: ArticleSummaryRow): ManagedArticleSummary {
   return {
-    id: row.id,
+    id: row.id ?? 0,
     slug: row.slug,
     title: row.title,
     excerpt: row.excerpt,
@@ -305,6 +314,37 @@ function rowToManagedArticleSummary(row: ArticleSummaryRow): ManagedArticleSumma
     image: row.image_url ?? undefined,
     updatedAt: row.updated_at,
   };
+}
+
+function rowToPublishedArticleSummary(row: ArticleSummaryRow): Article {
+  const publishedAt = row.published_at || row.updated_at || new Date(0).toISOString();
+  return {
+    slug: row.slug,
+    title: row.title,
+    excerpt: row.excerpt,
+    category: row.category as Article["category"],
+    portalSection: isArticlePortalSection(row.portal_section) ? row.portal_section : "clanky",
+    portalSubpage: row.portal_subpage || undefined,
+    newsCategory: row.news_category && isNewsCategory(row.news_category) ? row.news_category : undefined,
+    date: formatSlovakDate(publishedAt),
+    dateIso: publishedAt.slice(0, 10),
+    updatedDate: formatSlovakDate(row.updated_at || publishedAt),
+    updatedDateIso: (row.updated_at || publishedAt).slice(0, 10),
+    readTime: `${row.reading_minutes} min`,
+    image: row.image_url ?? undefined,
+    accent: row.accent as Article["accent"],
+    author: "Redakcia Psipedia",
+    intro: "",
+    takeaway: "",
+    sections: [],
+    sources: [],
+    blocks: [],
+  };
+}
+
+function rowToPublishedArticleIndex(row: ArticleIndexRow): Article {
+  const article = rowToPublishedArticleSummary(row);
+  return { ...article, seo: { noindex: Boolean(row.noindex), canonicalUrl: row.canonical_url || undefined } };
 }
 
 function rowToHomepageArticle(row: HomepageArticleRow): Article {
@@ -482,17 +522,59 @@ function normalizeInput(payload: ManagedArticleInput) {
   };
 }
 
-export async function getPublishedArticles(): Promise<Article[]> {
+const PUBLIC_ARTICLE_SUMMARY_COLUMNS = `slug, title, excerpt, category, portal_section, portal_subpage,
+  news_category, accent, image_url, reading_minutes, published_at, updated_at`;
+
+export async function getPublishedArticleSummaries(options: {
+  portalSection?: ArticlePortalSection;
+  category?: Article["category"];
+  limit?: number;
+} = {}): Promise<Article[]> {
   const database = getD1Binding();
-  if (!database) return seedArticles;
+  const limit = Math.max(1, Math.min(500, Math.trunc(options.limit ?? 120)));
+  if (!database) return seedArticles
+    .filter((article) => !options.portalSection || article.portalSection === options.portalSection)
+    .filter((article) => !options.category || article.category === options.category)
+    .slice(0, limit);
   await ensureArticleStore(database);
+  const conditions = ["(status = 'published' OR (status = 'scheduled' AND published_at <= ?))"];
+  const bindings: unknown[] = [new Date().toISOString()];
+  if (options.portalSection) {
+    conditions.push("portal_section = ?");
+    bindings.push(options.portalSection);
+  }
+  if (options.category) {
+    conditions.push("category = ?");
+    bindings.push(options.category);
+  }
   const result = await database
-    .prepare(
-      "SELECT * FROM managed_articles WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?) ORDER BY published_at DESC, updated_at DESC, id DESC",
-    )
-    .bind(new Date().toISOString())
-    .all<ArticleRow>();
-  return result.results.map(rowToManagedArticle);
+    .prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}
+      FROM managed_articles
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY published_at DESC, updated_at DESC, id DESC
+      LIMIT ?`)
+    .bind(...bindings, limit)
+    .all<ArticleSummaryRow>();
+  return result.results.map(rowToPublishedArticleSummary);
+}
+
+/** Backwards-compatible public listing. It intentionally returns summaries, never article bodies. */
+export async function getPublishedArticles(): Promise<Article[]> {
+  return getPublishedArticleSummaries();
+}
+
+export async function getPublishedArticleIndex(limit = 2000): Promise<Article[]> {
+  const safeLimit = Math.max(1, Math.min(5000, Math.trunc(limit)));
+  const database = getD1Binding();
+  if (!database) return seedArticles.slice(0, safeLimit);
+  const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, noindex, canonical_url
+    FROM managed_articles
+    WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
+    ORDER BY published_at DESC, updated_at DESC, id DESC
+    LIMIT ?`)
+    .bind(new Date().toISOString(), safeLimit)
+    .all<ArticleIndexRow>();
+  return result.results.map(rowToPublishedArticleIndex);
 }
 
 export async function getHomepageArticles(): Promise<Article[]> {
@@ -523,15 +605,51 @@ export async function getHomepageArticles(): Promise<Article[]> {
   return result.results.map(rowToHomepageArticle);
 }
 
-export async function getPublishedArticle(slug: string): Promise<Article | null> {
+const getPublishedArticleUncached = async (slug: string): Promise<Article | null> => {
   const database = getD1Binding();
   if (!database) return seedArticles.find((article) => article.slug === slug) ?? null;
   await ensureArticleStore(database);
   const row = await database
-    .prepare("SELECT * FROM managed_articles WHERE slug = ? AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?)) LIMIT 1")
+    .prepare(`SELECT id, slug, title, excerpt, category, portal_section, portal_subpage, news_category,
+      status, accent, author, intro, takeaway, sections_json, sources_json, blocks_json,
+      image_url, image_key, reading_minutes, created_at, updated_at, published_at, created_by,
+      updated_by, content_updated_at, show_updated_label, seo_title, meta_description,
+      canonical_url, noindex, focus_keyword, og_title, og_description, og_image_url, og_image_key
+      FROM managed_articles
+      WHERE slug = ? AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?))
+      LIMIT 1`)
     .bind(slug, new Date().toISOString())
     .first<ArticleRow>();
   return row ? rowToManagedArticle(row) : null;
+};
+
+/** React request memoization shares the detail query between metadata and page render. */
+export const getPublishedArticle = cache(getPublishedArticleUncached);
+
+export async function getRelatedPublishedArticles(article: Article, limit = 3): Promise<Article[]> {
+  const safeLimit = Math.max(1, Math.min(6, Math.trunc(limit)));
+  const database = getD1Binding();
+  if (!database) {
+    const others = seedArticles.filter((item) => item.slug !== article.slug);
+    return [
+      ...others.filter((item) => item.category === article.category),
+      ...others.filter((item) => item.category !== article.category),
+    ].slice(0, safeLimit);
+  }
+  const now = new Date().toISOString();
+  const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}
+    FROM managed_articles
+    WHERE slug <> ?
+      AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?))
+    ORDER BY CASE
+      WHEN ? = 'novinky' AND news_category = ? THEN 0
+      WHEN ? <> 'novinky' AND category = ? THEN 0
+      ELSE 1
+    END, published_at DESC, updated_at DESC, id DESC
+    LIMIT ?`)
+    .bind(article.slug, now, article.portalSection ?? "clanky", article.newsCategory ?? "", article.portalSection ?? "clanky", article.category, safeLimit)
+    .all<ArticleSummaryRow>();
+  return result.results.map(rowToPublishedArticleSummary);
 }
 
 export async function listManagedArticleSummaries(options: {

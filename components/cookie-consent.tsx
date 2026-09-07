@@ -23,8 +23,8 @@ function loadAnalytics() {
   const analyticsWindow = window as AnalyticsWindow;
   analyticsWindow[`ga-disable-${MEASUREMENT_ID}`] = false;
   analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
-  analyticsWindow.gtag ||= function gtag(..._args: unknown[]) {
-    analyticsWindow.dataLayer?.push(arguments);
+  analyticsWindow.gtag ||= function gtag(...args: unknown[]) {
+    analyticsWindow.dataLayer?.push(args);
   };
 
   if (!analyticsWindow.psipediaGa4Configured) {

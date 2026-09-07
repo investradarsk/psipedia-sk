@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { FavoritesList } from "@/components/favorites-list";
-import { getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function FavoritesPage() {
-  const articles = await getPublishedArticles();
+  const articles = await getPublishedArticleSummaries({ limit: 200 });
 
   return (
     <main id="obsah">

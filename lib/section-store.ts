@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { cache } from "react";
 import { portalSections, type PortalSection, type PortalSubpage } from "@/lib/portal";
 
 export type ManagedPortalSection = PortalSection & { position: number; visible: boolean };
@@ -72,23 +73,23 @@ function merge(row: Row): ManagedPortalSection | null {
   return { ...base, label, eyebrow: hasLegacyActivityCopy ? base.eyebrow : row.eyebrow, description: hasLegacyActivityCopy ? base.description : row.description, intro: hasLegacyActivityCopy ? base.intro : row.intro, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible) };
 }
 
-export async function listManagedPortalSections() {
+export const listManagedPortalSections = cache(async function listManagedPortalSections() {
   const db = database();
   if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
   const result = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible FROM portal_section_settings ORDER BY position,label").all<Row>();
   return result.results.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
-}
+});
 
-export async function getManagedPortalSection(slug: string) {
+export const getManagedPortalSection = cache(async function getManagedPortalSection(slug: string) {
   return (await listManagedPortalSections()).find((section) => section.slug === slug) ?? null;
-}
+});
 
-export async function getManagedPortalSubpage(sectionSlug: string, subpageSlug: string) {
+export const getManagedPortalSubpage = cache(async function getManagedPortalSubpage(sectionSlug: string, subpageSlug: string) {
   const section = await getManagedPortalSection(sectionSlug);
   if (!section || !section.visible) return null;
   const subpage = section.subpages.find((item) => item.slug === subpageSlug && item.visible !== false);
   return subpage ? { section, subpage } : null;
-}
+});
 
 function cleanSubpages(value: unknown): PortalSubpage[] {
   if (!Array.isArray(value)) return [];

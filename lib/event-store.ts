@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { cache } from "react";
 import {
   eventTypes,
   slovakRegions,
@@ -237,10 +238,11 @@ function normalizeInput(payload: ManagedEventInput) {
   };
 }
 
-export async function getPublishedEvents() {
+export async function getPublishedEvents(limit = 250) {
   const database = getD1Binding();
   if (!database) return [] as DogEvent[];
-  const result = await database.prepare("SELECT * FROM managed_events WHERE status = 'published' ORDER BY start_date ASC, start_time ASC, id ASC").all<EventRow>();
+  const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
+  const result = await database.prepare("SELECT * FROM managed_events WHERE status = 'published' ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?").bind(safeLimit).all<EventRow>();
   return result.results.map(rowToEvent);
 }
 
@@ -256,12 +258,13 @@ export async function getUpcomingEvents(limit = 2) {
   return result.results.map(rowToEvent);
 }
 
-export async function getPublishedEvent(slug: string) {
+const getPublishedEventUncached = async (slug: string) => {
   const database = getD1Binding();
   if (!database) return null;
   const row = await database.prepare("SELECT * FROM managed_events WHERE slug = ? AND status = 'published' LIMIT 1").bind(slug).first<EventRow>();
   return row ? rowToEvent(row) : null;
-}
+};
+export const getPublishedEvent = cache(getPublishedEventUncached);
 
 export async function listManagedEventSummaries(limit = 100) {
   const database = requireD1Binding();

@@ -21,5 +21,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function HelpCategoryPage({ params }: Props) {
   const { category } = await params;
   if (!isHelpCategory(category)) notFound();
-  return <HelpPage items={await getPublishedHelpCases()} initialCategory={category} />;
+  return <HelpPage items={await getPublishedHelpCases(category)} initialCategory={category} />;
 }

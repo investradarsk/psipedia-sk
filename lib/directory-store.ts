@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { cache } from "react";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
   allDirectoryCategories,
@@ -608,12 +609,13 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
   };
 }
 
-export async function getPublishedDirectoryProfiles(category?: DirectoryCategorySlug) {
+export async function getPublishedDirectoryProfiles(category?: DirectoryCategorySlug, limit = 500) {
   const database = getD1Binding();
   if (!database) return [] as PublicDirectoryProfile[];
+  const safeLimit = Math.max(1, Math.min(1000, Math.trunc(limit)));
   const result = category
-    ? await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC`).bind(category).all<DirectoryProfileRow>()
-    : await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC`).all<DirectoryProfileRow>();
+    ? await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC LIMIT ?`).bind(category, safeLimit).all<DirectoryProfileRow>()
+    : await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`).bind(safeLimit).all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
 }
 
@@ -750,12 +752,13 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
   return result.results.map(rowToPublicProfile);
 }
 
-export async function getPublishedDirectoryProfile(category: string, slug: string) {
+const getPublishedDirectoryProfileUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
   if (!database || !isDirectoryCategory(category)) return null;
   const row = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1`).bind(category, slug).first<DirectoryProfileRow>();
   return row ? rowToPublicProfile(row) : null;
-}
+};
+export const getPublishedDirectoryProfile = cache(getPublishedDirectoryProfileUncached);
 
 export async function listManagedDirectoryProfileSummaries(options: {
   page?: number;

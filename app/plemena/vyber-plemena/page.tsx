@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PortalTopic } from "@/components/portal-topic";
-import { getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPortalSubpage } from "@/lib/portal";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -16,5 +16,5 @@ export const metadata: Metadata = buildPageMetadata({
 export default async function BreedChoicePage() {
   const topic = getPortalSubpage("plemena", "vyber-plemena");
   if (!topic) notFound();
-  return <PortalTopic {...topic} articles={await getPublishedArticles()} />;
+  return <PortalTopic {...topic} articles={await getPublishedArticleSummaries({ portalSection: "steniatka", limit: 120 })} />;
 }

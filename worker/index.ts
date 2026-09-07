@@ -52,6 +52,7 @@ const LEGACY_BREED_REDIRECTS: Readonly<Record<string, string>> = {
   "/plemena/beagle": "/plemena/bigl",
   "/plemena/madarska-vyzla": "/plemena/madarsky-kratkosrsty-stavac-vyzla",
 };
+const PUBLIC_HTML_CACHE_TTL_SECONDS = 45;
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -72,6 +73,12 @@ const worker = {
     if (canonicalBreedPath) {
       url.pathname = canonicalBreedPath;
       return Response.redirect(url, 301);
+    }
+
+    const cache = publicHtmlCache(request, url);
+    if (cache) {
+      const cached = await cache.storage.match(cache.key);
+      if (cached) return responseWithHeader(cached, "X-Psipedia-Cache", "HIT");
     }
 
     const breedMatch=url.pathname.match(/^\/plemena\/([a-z0-9-]+)$/);
@@ -119,9 +126,50 @@ const worker = {
       }, allowedWidths);
     }
 
-    return handler.fetch(appRequest, env, ctx);
+    const response = await handler.fetch(appRequest, env, ctx);
+    if (isAdminAuthPath(url.pathname) || url.pathname.startsWith("/api/")) {
+      return responseWithHeader(response, "Cache-Control", "private, no-store");
+    }
+    if (!cache || !isCacheableHtmlResponse(response)) return response;
+
+    const cacheable = responseWithHeaders(response, {
+      "Cache-Control": `public, max-age=0, s-maxage=${PUBLIC_HTML_CACHE_TTL_SECONDS}, stale-while-revalidate=30`,
+      "CDN-Cache-Control": `public, max-age=${PUBLIC_HTML_CACHE_TTL_SECONDS}`,
+      "X-Psipedia-Cache": "MISS",
+    });
+    ctx.waitUntil(cache.storage.put(cache.key, cacheable.clone()));
+    return cacheable;
   },
 };
+
+function publicHtmlCache(request: Request, url: URL): { storage: Cache; key: Request } | null {
+  if (request.method !== "GET" || url.search || isAdminAuthPath(url.pathname)) return null;
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/media/") || url.pathname.startsWith("/_")) return null;
+  if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
+  const accept = request.headers.get("accept") ?? "";
+  if (accept && !accept.includes("text/html") && !accept.includes("*/*")) return null;
+  const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
+  return storage ? { storage, key: new Request(url.toString(), { method: "GET" }) } : null;
+}
+
+function isCacheableHtmlResponse(response: Response): boolean {
+  const contentType = response.headers.get("content-type") ?? "";
+  const cacheControl = response.headers.get("cache-control") ?? "";
+  return response.status === 200
+    && contentType.includes("text/html")
+    && !response.headers.has("set-cookie")
+    && !/\b(?:private|no-store)\b/i.test(cacheControl);
+}
+
+function responseWithHeader(response: Response, name: string, value: string): Response {
+  return responseWithHeaders(response, { [name]: value });
+}
+
+function responseWithHeaders(response: Response, values: Record<string, string>): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(values)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
 
 function isAdminAuthPath(pathname: string): boolean {
   return ADMIN_AUTH_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

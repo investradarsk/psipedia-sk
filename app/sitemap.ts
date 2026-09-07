@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { categories } from "@/lib/content";
 import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
-import { getPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticleIndex } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { eventHref } from "@/lib/events";
 import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
@@ -14,7 +14,7 @@ import { SITE_URL } from "@/lib/seo";
 import { resolvedCanonical } from "@/lib/content-seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([getPublishedArticles(), getPublishedEvents(), getPublishedDirectoryProfiles(), getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex()]);
+  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectoryProfiles(), getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex()]);
   const portalSections = managedSections.filter((section) => section.visible);
   const staticPages = ["", "/clanky", "/plemena", "/plemena/vyber-plemena", "/porovnat-plemena", "/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"];
   const portalPages = portalSections.flatMap((section) => [
