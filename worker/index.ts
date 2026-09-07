@@ -154,11 +154,9 @@ function publicHtmlCache(request: Request, url: URL): { storage: Cache; key: Req
 
 function isCacheableHtmlResponse(response: Response): boolean {
   const contentType = response.headers.get("content-type") ?? "";
-  const cacheControl = response.headers.get("cache-control") ?? "";
   return response.status === 200
     && contentType.includes("text/html")
-    && !response.headers.has("set-cookie")
-    && !/\b(?:private|no-store)\b/i.test(cacheControl);
+    && !response.headers.has("set-cookie");
 }
 
 function responseWithHeader(response: Response, name: string, value: string): Response {
