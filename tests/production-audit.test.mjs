@@ -15,7 +15,8 @@ test("production audit arguments have safe independent defaults", () => {
   assert.equal(options.baseUrl, "https://psipedia.sk");
   assert.equal(options.sitemapUrl, "https://psipedia.sk/sitemap.xml");
   assert.equal(options.maxPages, 2_000);
-  assert.equal(options.concurrency, 8);
+  assert.equal(options.concurrency, 4);
+  assert.equal(options.retries, 1);
 });
 
 test("URL normalization removes fragments but preserves filters for checking", () => {
@@ -38,7 +39,14 @@ test("HTML parser extracts links, images and absolute canonical", () => {
     links: ["https://psipedia.sk/clanky"],
     images: ["https://psipedia.sk/dog.webp", "https://cdn.example/dog.avif"],
     canonicals: [{ raw: "https://psipedia.sk/plemena", normalized: "https://psipedia.sk/plemena", absolute: true }],
+    noindex: false,
   });
+});
+
+test("HTML parser identifies noindex pages so canonical warnings can be suppressed", () => {
+  const references = extractHtmlReferences('<meta name="robots" content="noindex, follow"><a href="/plemena">Atlas</a>', "https://psipedia.sk/hladat?q=pes");
+  assert.equal(references.noindex, true);
+  assert.deepEqual(references.links, ["https://psipedia.sk/plemena"]);
 });
 
 test("redirect tracer detects chains and loops without automatic redirects", async () => {
@@ -75,4 +83,20 @@ test("full audit marks broken internal URLs, images and canonical targets as cri
   assert.equal(report.brokenInternalUrls.items.length, 1);
   assert.equal(report.brokenImages.items.length, 1);
   assert.equal(report.critical, true);
+});
+
+test("full audit retries a transient 5xx and does not report it after recovery", async () => {
+  let pageAttempts = 0;
+  const fetchImpl = async (input) => {
+    const url = String(input);
+    if (url.endsWith("/sitemap.xml")) return new Response("<urlset><url><loc>https://psipedia.sk/</loc></url></urlset>", { status: 200 });
+    pageAttempts += 1;
+    if (pageAttempts === 1) return new Response("busy", { status: 500 });
+    return new Response('<meta name="robots" content="noindex">', { status: 200, headers: { "content-type": "text/html" } });
+  };
+  const report = await auditProductionSite(parseArguments(["--max-pages", "1"]), { fetchImpl });
+  assert.equal(pageAttempts, 2);
+  assert.equal(report.serverErrors.items.length, 0);
+  assert.equal(report.canonicalIssues.items.length, 0);
+  assert.equal(report.critical, false);
 });

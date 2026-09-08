@@ -1,5 +1,5 @@
-import { canonicalBreedIdsSql, rotateBreeds } from "./breed-canonical";
-import { availableBreedImage, withAvailableBreedImages } from "./breed-image";
+import { canonicalBreedIdsSql, canonicalBreedWinnerSql, rotateBreeds } from "./breed-canonical";
+import { ownedBreedImage, withAvailableBreedImages } from "./breed-image";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } from "@/lib/content";
@@ -129,7 +129,7 @@ export async function getBreedOfTheDay(dayOfYear:number):Promise<BreedOfTheDayIt
 export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;const result=await database.prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<Row>();return withAvailableBreedImages(result.results.map(row=>fromRow(row,{public:true})),env);}
 export async function listFeaturedBreeds(limit=3){const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));const database=db();if(!database)return seedBreeds.slice(0,safeLimit);const result=await database.prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<Row>();return withAvailableBreedImages(result.results.map(row=>fromRow(row,{public:true})),env);}
 export async function getManagedBreed(id:number){const database=requireDb();await ensure(database);const [breedResult,articleResult,directoryResult]=await database.batch([database.prepare(`${select} WHERE id=?`).bind(id),database.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),database.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id)]);const row=(breedResult.results?.[0]??null) as unknown as Row|null;return row?fromRow(row,{articles:(articleResult.results as RelationIdRow[]).map((item)=>item.id),directory:(directoryResult.results as RelationIdRow[]).map((item)=>item.id)}):null;}
-const getPublishedBreedUncached=async(slug:string)=>{const database=db();if(!database)return seedBreeds.find((breed)=>breed.slug===slug)??null;const row=await database.prepare(`${select} WHERE slug=? AND id IN (${canonicalBreedIdsSql})`).bind(slug).first<Row>();if(!row)return null;const breed=fromRow(row,{public:true});breed.image=await availableBreedImage(breed.image,env);breed.gallery=(await Promise.all((breed.gallery??[]).map(async item=>({...item,imageUrl:await availableBreedImage(item.imageUrl,env)})))).filter(item=>item.imageUrl);return breed;};
+const getPublishedBreedUncached=async(slug:string)=>{const database=db();if(!database)return seedBreeds.find((breed)=>breed.slug===slug)??null;const row=await database.prepare(`${select} WHERE slug=? AND ${canonicalBreedWinnerSql('managed_breeds')} LIMIT 1`).bind(slug).first<Row>();if(!row)return null;const breed=fromRow(row,{public:true});breed.image=ownedBreedImage(breed.image);breed.gallery=(breed.gallery??[]).map(item=>({...item,imageUrl:ownedBreedImage(item.imageUrl)})).filter(item=>item.imageUrl);return breed;};
 export const getPublishedBreed=cache(getPublishedBreedUncached);
 
 
@@ -149,7 +149,7 @@ export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"fciG
   const articles=(articlesResult.results as Array<{id:number;slug:string;title:string;excerpt:string;portal_section:string;image_url:string|null;accent:string}>).map((row)=>({id:row.id,slug:row.slug,title:row.title,excerpt:row.excerpt,portalSection:row.portal_section,image:row.image_url,accent:row.accent}));
   const directory=[...stationsResult.results,...clubsResult.results].map((row)=>row as {id:number;slug:string;name:string;category:string;excerpt:string;city:string;region:string;image_url:string|null}).map((row)=>({id:row.id,slug:row.slug,name:row.name,category:row.category,excerpt:row.excerpt,city:row.city,region:row.region,image:row.image_url}));
   const similarBreeds=(similarResult.results as Array<{id:number;slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string}>).map((row)=>({id:row.id,slug:row.slug,name:row.name,image:row.image_url,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section)}));
-  return {articles,breedingStations:directory.filter((item)=>item.category==='chovatelske-stanice'),breedClubs:directory.filter((item)=>item.category==='chovatelske-kluby'),similarBreeds:await withAvailableBreedImages(similarBreeds,env)};
+  return {articles,breedingStations:directory.filter((item)=>item.category==='chovatelske-stanice'),breedClubs:directory.filter((item)=>item.category==='chovatelske-kluby'),similarBreeds:similarBreeds.map(item=>({...item,image:ownedBreedImage(item.image) }))};
 }
 
 function clean(input:ManagedBreedInput){

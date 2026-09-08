@@ -1,13 +1,18 @@
 // Only resolve owned assets through bindings; never fetch an arbitrary stored URL from the Worker.
 export type ImageBindings = { BUCKET?: {head(key:string):Promise<unknown>;list?(options:{prefix:string;limit:number;cursor?:string}):Promise<{objects:Array<{key:string}>;truncated:boolean;cursor?:string}>}; ASSETS?:{fetch(request:Request):Promise<Response>} };
 const caches=new WeakMap<object,Map<string,{expires:number;value:Promise<string>}>>();
-export async function availableBreedImage(raw:string|null|undefined,bindings:ImageBindings):Promise<string> {
+export function ownedBreedImage(raw:string|null|undefined):string {
   const value=raw?.trim()??'';
   if(!value)return '';
-  let url:URL;
-  try{url=new URL(value,'https://psipedia.sk');}catch{return '';}
-  if(url.origin!=='https://psipedia.sk')return ''; // External images need importing into the owned media store.
-  if(!/^\/(media|images|migrated-media)\//.test(url.pathname))return '';
+  try{
+    const url=new URL(value,'https://psipedia.sk');
+    return url.origin==='https://psipedia.sk'&&/^\/(media|images|migrated-media)\//.test(url.pathname)?value:'';
+  }catch{return '';}
+}
+export async function availableBreedImage(raw:string|null|undefined,bindings:ImageBindings):Promise<string> {
+  const value=ownedBreedImage(raw);
+  if(!value)return '';
+  const url=new URL(value,'https://psipedia.sk');
   if(!bindings.BUCKET&&!bindings.ASSETS)return value; // Offline seed preview; client still handles failures.
   const owner=bindings.BUCKET??bindings.ASSETS!;
   let cache=caches.get(owner);if(!cache){cache=new Map();caches.set(owner,cache);}

@@ -4,8 +4,9 @@ import { pathToFileURL } from "node:url";
 
 const DEFAULT_BASE_URL = "https://psipedia.sk";
 const DEFAULT_MAX_PAGES = 2_000;
-const DEFAULT_CONCURRENCY = 8;
+const DEFAULT_CONCURRENCY = 4;
 const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_RETRIES = 1;
 const MAX_REDIRECT_HOPS = 10;
 const MAX_SITEMAPS = 50;
 
@@ -19,6 +20,7 @@ export function parseArguments(argv) {
     maxPages: DEFAULT_MAX_PAGES,
     concurrency: DEFAULT_CONCURRENCY,
     timeoutMs: DEFAULT_TIMEOUT_MS,
+    retries: DEFAULT_RETRIES,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -38,6 +40,9 @@ export function parseArguments(argv) {
       index += 1;
     } else if (argument === "--timeout-ms" && value) {
       options.timeoutMs = parsePositiveInteger(value, "--timeout-ms");
+      index += 1;
+    } else if (argument === "--retries" && value) {
+      options.retries = parsePositiveInteger(value, "--retries");
       index += 1;
     } else if (argument === "--help") {
       options.help = true;
@@ -98,7 +103,12 @@ function isInternal(url, origin) {
 
 function shouldCrawl(url) {
   const parsed = new URL(url);
-  return !NON_HTML_EXTENSIONS.test(parsed.pathname);
+  return !NON_HTML_EXTENSIONS.test(parsed.pathname) && !(parsed.pathname === "/hladat" && parsed.search);
+}
+
+function shouldCheckInternal(url) {
+  const parsed = new URL(url);
+  return !(parsed.pathname === "/hladat" && parsed.search);
 }
 
 function decodeXml(value) {
@@ -144,7 +154,14 @@ export function extractHtmlReferences(html, pageUrl) {
     const raw = href?.[1] ?? href?.[2] ?? href?.[3] ?? "";
     return { raw, normalized: normalizeUrl(raw, pageUrl), absolute: /^https?:\/\//i.test(raw) };
   });
-  return { links, images, canonicals };
+  const noindex = (html.match(/<meta\b[^>]*>/gi) ?? []).some((tag) => {
+    const name = tag.match(/\bname\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const content = tag.match(/\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const agent = (name?.[1] ?? name?.[2] ?? name?.[3] ?? "").toLowerCase();
+    const directives = (content?.[1] ?? content?.[2] ?? content?.[3] ?? "").toLowerCase().split(/[\s,]+/);
+    return (agent === "robots" || agent === "googlebot") && directives.includes("noindex");
+  });
+  return { links, images, canonicals, noindex };
 }
 
 function isHtml(response) {
@@ -245,11 +262,19 @@ function recordRequestResult(report, result, context) {
 }
 
 async function safeFetch(url, options) {
-  try {
-    return await fetchWithRedirectTrace(url, options);
-  } catch (error) {
-    return { url, error: error instanceof Error ? error.message : String(error), history: [] };
+  let lastResult;
+  const retries = options.retries ?? DEFAULT_RETRIES;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      lastResult = await fetchWithRedirectTrace(url, options);
+    } catch (error) {
+      lastResult = { url, error: error instanceof Error ? error.message : String(error), history: [] };
+    }
+    const status = lastResult.history?.at(-1)?.status;
+    if (!lastResult.error && !(status >= 500)) return { ...lastResult, attempts: attempt + 1 };
+    if (attempt < retries) await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
   }
+  return { ...lastResult, attempts: retries + 1 };
 }
 
 async function loadSitemapUrls(options, report) {
@@ -261,7 +286,7 @@ async function loadSitemapUrls(options, report) {
     const sitemapUrl = pending.shift();
     if (seenSitemaps.has(sitemapUrl)) continue;
     seenSitemaps.add(sitemapUrl);
-    const result = await safeFetch(sitemapUrl, { fetchImpl: options.fetchImpl, timeoutMs: options.timeoutMs, readBody: true });
+    const result = await safeFetch(sitemapUrl, { fetchImpl: options.fetchImpl, timeoutMs: options.timeoutMs, retries: options.retries, readBody: true });
     report.checkedRequests += 1;
     recordRequestResult(report, result, { url: sitemapUrl, source: "sitemap" });
     if (result.error) continue;
@@ -353,10 +378,11 @@ export async function auditProductionSite(options, { fetchImpl = fetch } = {}) {
       if (result.error || result.history.at(-1)?.status !== 200 || !result.response || !isHtml(result.response)) continue;
 
       const references = extractHtmlReferences(result.body, url);
-      if (references.canonicals.length !== 1) {
+      if (!references.noindex && references.canonicals.length !== 1) {
         addIssue(report.canonicalIssues, { url, reason: references.canonicals.length === 0 ? "missing canonical" : "multiple canonicals" });
       }
       for (const canonical of references.canonicals) {
+        if (references.noindex) continue;
         if (!canonical.absolute || !canonical.normalized) {
           addIssue(report.canonicalIssues, { url, canonical: canonical.raw, reason: "canonical is not a valid absolute HTTP(S) URL" });
           continue;
@@ -369,6 +395,7 @@ export async function auditProductionSite(options, { fetchImpl = fetch } = {}) {
       }
       for (const link of references.links) {
         if (!isInternal(link, origin)) continue;
+        if (!shouldCheckInternal(link)) continue;
         if (!internalLinkSources.has(link)) internalLinkSources.set(link, new Set());
         internalLinkSources.get(link).add(url);
         enqueuePage(link);
@@ -466,7 +493,7 @@ export function printReport(report) {
 }
 
 function printHelp() {
-  console.log(`Usage: npm run audit:production -- [options]\n\nOptions:\n  --base <url>          Base URL (default: ${DEFAULT_BASE_URL})\n  --sitemap <url>       Sitemap URL (default: <base>/sitemap.xml)\n  --max-pages <number>  Maximum HTML pages to crawl (default: ${DEFAULT_MAX_PAGES})\n  --concurrency <n>     Concurrent requests (default: ${DEFAULT_CONCURRENCY})\n  --timeout-ms <ms>     Per-request timeout (default: ${DEFAULT_TIMEOUT_MS})\n  --help                 Show this help`);
+  console.log(`Usage: npm run audit:production -- [options]\n\nOptions:\n  --base <url>          Base URL (default: ${DEFAULT_BASE_URL})\n  --sitemap <url>       Sitemap URL (default: <base>/sitemap.xml)\n  --max-pages <number>  Maximum HTML pages to crawl (default: ${DEFAULT_MAX_PAGES})\n  --concurrency <n>     Concurrent requests (default: ${DEFAULT_CONCURRENCY})\n  --timeout-ms <ms>     Per-request timeout (default: ${DEFAULT_TIMEOUT_MS})\n  --retries <n>         Retries for timeouts and 5xx (default: ${DEFAULT_RETRIES})\n  --help                 Show this help`);
 }
 
 async function main() {
@@ -477,7 +504,7 @@ async function main() {
       return;
     }
     console.log(`Auditing ${options.baseUrl} via ${options.sitemapUrl}`);
-    console.log(`Limits: ${options.maxPages} pages, concurrency ${options.concurrency}, timeout ${options.timeoutMs} ms`);
+    console.log(`Limits: ${options.maxPages} pages, concurrency ${options.concurrency}, timeout ${options.timeoutMs} ms, retries ${options.retries}`);
     const report = await auditProductionSite({ ...options, onProgress: (message) => console.log(message) });
     printReport(report);
     process.exitCode = report.critical ? 1 : 0;

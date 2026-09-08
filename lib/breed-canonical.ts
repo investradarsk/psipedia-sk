@@ -1,5 +1,5 @@
 /** One eligibility predicate for winners and competing rows. */
-function eligible(alias:string) {
+export function canonicalBreedEligibilitySql(alias:string) {
   const seo=`CASE WHEN json_valid(${alias}.seo_json) THEN ${alias}.seo_json ELSE '{}' END`;
   return `${alias}.status='published'
     AND typeof(${alias}.fci_number)='integer' AND ${alias}.fci_number>0
@@ -12,14 +12,19 @@ function eligible(alias:string) {
     AND COALESCE(json_extract(${seo},'$.canonicalUrl'),'') IN ('','https://psipedia.sk/plemena/'||${alias}.slug,'/plemena/'||${alias}.slug)`;
 }
 
+/** Canonical winner predicate that can use a selective outer query (for example slug=?). */
+export function canonicalBreedWinnerSql(alias:string) {
+  return `${canonicalBreedEligibilitySql(alias)}
+  AND NOT EXISTS (
+    SELECT 1 FROM managed_breeds other WHERE ${canonicalBreedEligibilitySql('other')}
+      AND other.id<${alias}.id
+      AND (other.fci_number=${alias}.fci_number OR other.slug=${alias}.slug OR TRIM(other.import_key)=TRIM(${alias}.import_key))
+  )`;
+}
+
 /** Shared eligibility used by every public breed query. Drafts and legacy rows stay editable. */
 export const canonicalBreedIdsSql = `SELECT b.id FROM managed_breeds b
-WHERE ${eligible('b')}
-  AND NOT EXISTS (
-    SELECT 1 FROM managed_breeds other WHERE ${eligible('other')}
-      AND other.id<b.id
-      AND (other.fci_number=b.fci_number OR other.slug=b.slug OR TRIM(other.import_key)=TRIM(b.import_key))
-  )`;
+WHERE ${canonicalBreedWinnerSql('b')}`;
 
 export type CanonicalIdentity = { id:number; slug:string; fci_number:number|null; import_key:string|null; status:string; seo_json:string };
 

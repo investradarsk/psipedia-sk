@@ -8,6 +8,7 @@ const sectionDetail = readFileSync(new URL("../app/[section]/[slug]/page.tsx", i
 const legacyDetail = readFileSync(new URL("../app/clanky/[slug]/page.tsx", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const rootLayout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+const breedStore = readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
 
 function functionSource(name, nextName) {
   const start = articleStore.indexOf(name);
@@ -51,4 +52,11 @@ test("public HTML has a short edge cache while admin remains no-store", () => {
   assert.match(worker, /request\.headers\.has\("cookie"\)/);
   assert.doesNotMatch(worker.slice(worker.indexOf("function isCacheableHtmlResponse"), worker.indexOf("function responseWithHeader")), /no-store/);
   assert.match(rootLayout, /navigation is D1-backed/);
+});
+
+test("breed detail uses a selective canonical query and avoids runtime image HEAD checks", () => {
+  assert.match(breedStore, /WHERE slug=\? AND \$\{canonicalBreedWinnerSql\('managed_breeds'\)\} LIMIT 1/);
+  const detailLoader = breedStore.match(/const getPublishedBreedUncached=[\s\S]*?export const getPublishedBreed=/)?.[0] ?? "";
+  assert.doesNotMatch(detailLoader, /availableBreedImage/);
+  assert.match(detailLoader, /ownedBreedImage/);
 });
