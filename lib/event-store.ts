@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import {
+  bratislavaDateKey,
+  eventIsActive,
   eventTypes,
   slovakRegions,
   type DogEvent,
@@ -250,12 +252,12 @@ export async function getUpcomingEvents(limit = 2) {
   const database = getD1Binding();
   if (!database) return [] as DogEvent[];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = bratislavaDateKey();
   const result = await database
     .prepare("SELECT * FROM managed_events WHERE status = 'published' AND cancelled = 0 AND COALESCE(end_date, start_date) >= ? ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?")
     .bind(today, safeLimit)
     .all<EventRow>();
-  return result.results.map(rowToEvent);
+  return result.results.map(rowToEvent).filter((event) => eventIsActive(event, today));
 }
 
 const getPublishedEventUncached = async (slug: string) => {

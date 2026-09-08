@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { EventCard } from "@/components/event-card";
 import { SearchIcon } from "@/components/icons";
-import { eventTypeFilters, slovakRegions, type DogEvent, type EventType } from "@/lib/events";
+import { eventDateStatus, eventTypeFilters, slovakRegions, type DogEvent, type EventType } from "@/lib/events";
 
 type TimeFilter = "upcoming" | "past" | "all";
 
@@ -24,8 +24,8 @@ export function EventCalendar({
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
     return events.filter((event) => {
-      const lastDate = event.endDate ?? event.startDate;
-      const isPast = lastDate < today;
+      const dateStatus = eventDateStatus(event, today);
+      const isPast = dateStatus === "past";
       const queryMatches = !needle || `${event.title} ${event.excerpt} ${event.city} ${event.organizer}`.toLocaleLowerCase("sk").includes(needle);
       return queryMatches
         && (type === "Všetky" || event.eventType === type)

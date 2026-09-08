@@ -54,22 +54,72 @@ export const eventTypeFilters = [
   ...eventTypes.map((value) => ({ value, label: value })),
 ];
 
+export const EVENT_TIME_ZONE = "Europe/Bratislava";
+export type EventDateStatus = "current" | "upcoming" | "past";
+
+function validEventDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+export function bratislavaDateKey(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: EVENT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+export function eventDateStatus(
+  event: Pick<DogEvent, "startDate" | "endDate">,
+  today = bratislavaDateKey(),
+): EventDateStatus {
+  const startDate = validEventDate(event.startDate) ? event.startDate : today;
+  const lastDate = event.endDate && validEventDate(event.endDate) ? event.endDate : startDate;
+  if (lastDate < today) return "past";
+  if (startDate > today) return "upcoming";
+  return "current";
+}
+
+export function eventIsActive(event: Pick<DogEvent, "startDate" | "endDate">, today = bratislavaDateKey()) {
+  return eventDateStatus(event, today) !== "past";
+}
+
+export function eventDateTimeIso(date: string, time?: string | null): string {
+  if (!time) return date;
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: EVENT_TIME_ZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(utcGuess));
+  const zoned = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const representedAsUtc = Date.UTC(Number(zoned.year), Number(zoned.month) - 1, Number(zoned.day), Number(zoned.hour), Number(zoned.minute));
+  const offsetMinutes = Math.round((representedAsUtc - utcGuess) / 60_000);
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absolute = Math.abs(offsetMinutes);
+  const offset = `${sign}${String(Math.floor(absolute / 60)).padStart(2, "0")}:${String(absolute % 60).padStart(2, "0")}`;
+  return `${date}T${time}:00${offset}`;
+}
+
 export function eventHref(event: Pick<DogEvent, "slug">) {
   return `/podujatia/${event.slug}`;
 }
 
 export function formatEventDate(event: Pick<DogEvent, "startDate" | "endDate">) {
-  const formatter = new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  const formatter = new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: EVENT_TIME_ZONE });
   const start = new Date(`${event.startDate}T12:00:00Z`);
   if (!event.endDate || event.endDate === event.startDate) return formatter.format(start);
   const end = new Date(`${event.endDate}T12:00:00Z`);
-  return `${formatter.format(start)} – ${formatter.format(end)}`;
+  return formatter.formatRange(start, end);
 }
 
-export function eventIsPast(event: Pick<DogEvent, "endDate" | "startDate">, today = new Date()) {
-  const lastDate = event.endDate ?? event.startDate;
-  const todayIso = today.toISOString().slice(0, 10);
-  return lastDate < todayIso;
+export function eventIsPast(event: Pick<DogEvent, "endDate" | "startDate">, today: Date | string = new Date()) {
+  return eventDateStatus(event, typeof today === "string" ? today : bratislavaDateKey(today)) === "past";
 }
 
 export function eventTypeFromPortalSlug(slug: string): EventType | null {

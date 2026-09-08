@@ -7,7 +7,7 @@ import { PortalTopic } from "@/components/portal-topic";
 import { getPublishedArticle, getPublishedArticleSummaries, getRelatedPublishedArticles } from "@/lib/article-store";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { getPublishedEvent, getPublishedEvents } from "@/lib/event-store";
-import { eventHref, eventTypeFromPortalSlug } from "@/lib/events";
+import { eventDateTimeIso, eventHref, eventTypeFromPortalSlug } from "@/lib/events";
 import { articleHref, portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-store";
 import { buildPageMetadata } from "@/lib/seo";
@@ -69,7 +69,7 @@ export default async function PortalContentPage({ params }: Props) {
     if (event) {
       const canonical=resolvedCanonical(event.seo,eventHref(event));
       const location=event.region==="Online"?{"@type":"VirtualLocation",url:event.websiteUrl||canonical}:{"@type":"Place",name:event.venue||event.city,address:{"@type":"PostalAddress",streetAddress:event.address||undefined,addressLocality:event.city,addressRegion:event.region,addressCountry:"SK"}};
-      const schema={"@context":"https://schema.org","@graph":[{"@type":"Event","@id":`${canonical}#event`,name:event.title,description:event.description||event.excerpt,startDate:`${event.startDate}${event.startTime?`T${event.startTime}:00`:""}`,endDate:event.endDate?`${event.endDate}${event.endTime?`T${event.endTime}:00`:""}`:undefined,eventStatus:event.cancelled?"https://schema.org/EventCancelled":"https://schema.org/EventScheduled",eventAttendanceMode:event.region==="Online"?"https://schema.org/OnlineEventAttendanceMode":"https://schema.org/OfflineEventAttendanceMode",location,organizer:{"@type":"Organization",name:event.organizer,url:event.websiteUrl||undefined},image:event.imageUrl?[absoluteUrl(event.imageUrl)]:undefined,url:canonical},{"@type":"BreadcrumbList","@id":`${canonical}#breadcrumb`,itemListElement:[{"@type":"ListItem",position:1,name:"Domov",item:SITE_URL},{"@type":"ListItem",position:2,name:"Podujatia",item:`${SITE_URL}/podujatia`},{"@type":"ListItem",position:3,name:event.title,item:canonical}]}]};
+      const schema={"@context":"https://schema.org","@graph":[{"@type":"Event","@id":`${canonical}#event`,name:event.title,description:event.description||event.excerpt,startDate:eventDateTimeIso(event.startDate,event.startTime),endDate:event.endDate?eventDateTimeIso(event.endDate,event.endTime):undefined,eventStatus:event.cancelled?"https://schema.org/EventCancelled":"https://schema.org/EventScheduled",eventAttendanceMode:event.region==="Online"?"https://schema.org/OnlineEventAttendanceMode":"https://schema.org/OfflineEventAttendanceMode",location,organizer:{"@type":"Organization",name:event.organizer,url:event.websiteUrl||undefined},image:event.imageUrl?[absoluteUrl(event.imageUrl)]:undefined,url:canonical},{"@type":"BreadcrumbList","@id":`${canonical}#breadcrumb`,itemListElement:[{"@type":"ListItem",position:1,name:"Domov",item:SITE_URL},{"@type":"ListItem",position:2,name:"Podujatia",item:`${SITE_URL}/podujatia`},{"@type":"ListItem",position:3,name:event.title,item:canonical}]}]};
       return <><StructuredData value={schema}/><EventDetail event={event} /></>;
     }
   }

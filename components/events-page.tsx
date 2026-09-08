@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
-import type { DogEvent, EventType } from "@/lib/events";
+import { bratislavaDateKey, type DogEvent, type EventType } from "@/lib/events";
 
 const pageCopy: Record<string, { title: string; description: string }> = {
   Všetky: { title: "Kalendár podujatí", description: "Výstavy, preteky, semináre, tréningy a stretnutia pre psí svet na jednom mieste." },
@@ -26,7 +26,7 @@ export function EventsPage({ events, initialType = "Všetky" }: { events: DogEve
         </div>
       </header>
       <section className="event-calendar-section shell">
-        <EventCalendar events={events} today={new Date().toISOString().slice(0, 10)} initialType={initialType} />
+        <EventCalendar events={events} today={bratislavaDateKey()} initialType={initialType} />
       </section>
     </main>
   );

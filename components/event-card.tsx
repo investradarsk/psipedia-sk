@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ArrowIcon, PawMark } from "@/components/icons";
-import { eventHref, formatEventDate, type DogEvent } from "@/lib/events";
+import { EVENT_TIME_ZONE, eventHref, formatEventDate, type DogEvent } from "@/lib/events";
 
 export function EventCard({ event }: { event: DogEvent }) {
   const day = Number(event.startDate.slice(8, 10));
-  const month = new Intl.DateTimeFormat("sk-SK", { month: "short", timeZone: "UTC" })
+  const month = new Intl.DateTimeFormat("sk-SK", { month: "short", timeZone: EVENT_TIME_ZONE })
     .format(new Date(`${event.startDate}T12:00:00Z`))
     .replace(".", "");
 

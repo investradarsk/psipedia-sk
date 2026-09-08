@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowIcon, PawMark } from "@/components/icons";
-import { eventHref, formatEventDate, type DogEvent } from "@/lib/events";
+import { eventDateTimeIso, eventHref, formatEventDate, type DogEvent } from "@/lib/events";
 
 export function EventDetail({ event }: { event: DogEvent }) {
   const schema = {
@@ -8,8 +8,8 @@ export function EventDetail({ event }: { event: DogEvent }) {
     "@type": "Event",
     name: event.title,
     description: event.excerpt,
-    startDate: `${event.startDate}${event.startTime ? `T${event.startTime}:00+02:00` : ""}`,
-    endDate: event.endDate ? `${event.endDate}${event.endTime ? `T${event.endTime}:00+02:00` : ""}` : undefined,
+    startDate: eventDateTimeIso(event.startDate, event.startTime),
+    endDate: event.endDate ? eventDateTimeIso(event.endDate, event.endTime) : undefined,
     eventStatus: event.cancelled ? "https://schema.org/EventCancelled" : "https://schema.org/EventScheduled",
     eventAttendanceMode: event.region === "Online" ? "https://schema.org/OnlineEventAttendanceMode" : "https://schema.org/OfflineEventAttendanceMode",
     location: event.region === "Online" ? undefined : { "@type": "Place", name: event.venue || event.city, address: `${event.address}, ${event.city}` },
