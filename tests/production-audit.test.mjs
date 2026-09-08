@@ -1,0 +1,78 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  auditProductionSite,
+  extractHtmlReferences,
+  extractSitemapLocations,
+  fetchWithRedirectTrace,
+  normalizeUrl,
+  parseArguments,
+} from "../scripts/audit-production-site.mjs";
+
+test("production audit arguments have safe independent defaults", () => {
+  const options = parseArguments([]);
+  assert.equal(options.baseUrl, "https://psipedia.sk");
+  assert.equal(options.sitemapUrl, "https://psipedia.sk/sitemap.xml");
+  assert.equal(options.maxPages, 2_000);
+  assert.equal(options.concurrency, 8);
+});
+
+test("URL normalization removes fragments but preserves filters for checking", () => {
+  assert.equal(normalizeUrl("/plemena?fciGroup=1#results", "https://psipedia.sk/clanky"), "https://psipedia.sk/plemena?fciGroup=1");
+  assert.equal(normalizeUrl("mailto:test@example.com", "https://psipedia.sk"), null);
+});
+
+test("sitemap parser retains duplicates so the audit can report them", () => {
+  const xml = "<urlset><url><loc>https://psipedia.sk/a</loc></url><url><loc>https://psipedia.sk/a</loc></url><url><loc>https://psipedia.sk/b?a=1&amp;b=2</loc></url></urlset>";
+  assert.deepEqual(extractSitemapLocations(xml, "https://psipedia.sk/sitemap.xml"), [
+    "https://psipedia.sk/a",
+    "https://psipedia.sk/a",
+    "https://psipedia.sk/b?a=1&b=2",
+  ]);
+});
+
+test("HTML parser extracts links, images and absolute canonical", () => {
+  const html = `<a href="/clanky">Články</a><img src='/dog.webp'><source src="https://cdn.example/dog.avif"><link rel="canonical" href="https://psipedia.sk/plemena">`;
+  assert.deepEqual(extractHtmlReferences(html, "https://psipedia.sk/plemena?group=1"), {
+    links: ["https://psipedia.sk/clanky"],
+    images: ["https://psipedia.sk/dog.webp", "https://cdn.example/dog.avif"],
+    canonicals: [{ raw: "https://psipedia.sk/plemena", normalized: "https://psipedia.sk/plemena", absolute: true }],
+  });
+});
+
+test("redirect tracer detects chains and loops without automatic redirects", async () => {
+  const responses = new Map([
+    ["https://psipedia.sk/old", new Response(null, { status: 301, headers: { location: "/new" } })],
+    ["https://psipedia.sk/new", new Response("ok", { status: 200, headers: { "content-type": "text/html" } })],
+    ["https://psipedia.sk/loop", new Response(null, { status: 302, headers: { location: "/loop" } })],
+  ]);
+  const fetchImpl = async (url, init) => {
+    assert.equal(init.redirect, "manual");
+    return responses.get(url);
+  };
+  const redirected = await fetchWithRedirectTrace("https://psipedia.sk/old", { fetchImpl, readBody: true });
+  assert.equal(redirected.history.length, 2);
+  assert.equal(redirected.finalUrl, "https://psipedia.sk/new");
+  const loop = await fetchWithRedirectTrace("https://psipedia.sk/loop", { fetchImpl });
+  assert.equal(loop.loop, true);
+});
+
+test("full audit marks broken internal URLs, images and canonical targets as critical", async () => {
+  const fetchImpl = async (input) => {
+    const url = String(input);
+    if (url === "https://psipedia.sk/sitemap.xml") {
+      return new Response("<urlset><url><loc>https://psipedia.sk/</loc></url></urlset>", { status: 200, headers: { "content-type": "application/xml" } });
+    }
+    if (url === "https://psipedia.sk/") {
+      return new Response(`<link rel="canonical" href="https://psipedia.sk/"><a href="/missing">Chýba</a><img src="/broken.jpg">`, { status: 200, headers: { "content-type": "text/html" } });
+    }
+    return new Response("missing", { status: 404 });
+  };
+  const options = parseArguments(["--max-pages", "10", "--concurrency", "2"]);
+  const report = await auditProductionSite(options, { fetchImpl });
+  assert.equal(report.sitemapUrlCount, 1);
+  assert.equal(report.brokenInternalUrls.items.length, 1);
+  assert.equal(report.brokenImages.items.length, 1);
+  assert.equal(report.critical, true);
+});
