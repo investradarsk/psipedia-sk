@@ -10,10 +10,10 @@
   --cream: #f8f4eb;
   --paper: #fffdf8;
   --coral: #f47757;
-  --coral-dark: #d9583e;
+  --coral-dark: #b94732;
   --gold: #e8b64c;
   --sky: #badde0;
-  --muted: #687a72;
+  --muted: #52665d;
   --line: #dfe3d9;
   --white: #fff;
   --shadow-sm: 0 8px 28px rgba(23, 53, 43, 0.08);
@@ -2506,13 +2506,13 @@ h3 {
 }
 
 .brand--footer small {
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.72);
 }
 
 .footer-brand-block p {
   max-width: 330px;
   margin: 22px 0 0;
-  color: rgba(255,255,255,0.58);
+  color: rgba(255,255,255,0.72);
 }
 
 .footer-links {
@@ -2546,7 +2546,7 @@ h3 {
   gap: 24px;
   padding-block: 22px;
   border-top: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.72);
   font-size: 0.72rem;
 }
 

@@ -55,7 +55,7 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   const search = page.getByRole("search").filter({ has: page.locator("#home-search") });
   await search.locator("input[name=q]").fill("labrador");
   await Promise.all([page.waitForURL(/\/hladat\?q=labrador/), search.getByRole("button", { name: "Nájsť všetko" }).click()]);
-  await expect(page.locator("h1")).toContainText(/Hľadať|Výsledky/i);
+  await expect(page.locator("h1")).toContainText(/Čo hľadáš\?|Hľadať|Výsledky/i);
   await page.goto("/");
   const breedSection = page.locator(".home-breed-day-section");
   await expect(breedSection).toBeVisible();
@@ -74,7 +74,7 @@ test("@production breed listing filters, detail, 404 and comparison work", async
   const missing = await page.goto("/plemena/neexistujuce-plemeno-e2e");
   expect(missing?.status(), "Unknown breed must return HTTP 404").toBe(404);
   await page.goto("/porovnat-plemena");
-  await expect(page.locator("h1")).toContainText(/Porovnanie plemien/i);
+  await expect(page.locator("h1")).toContainText(/Dve plemená|Porovnanie plemien/i);
 });
 
 test("@production directory listing, veterinarians, profile and filters work", async ({ page }) => {
@@ -93,7 +93,7 @@ test("@production directory listing, veterinarians, profile and filters work", a
 });
 
 test("@production events listing, detail and past/upcoming separation work", async ({ page }) => {
-  await page.goto("/podujatia");
+  await page.goto("/podujatia/kalendar");
   await expect(page.locator("h1")).toBeVisible();
   const upcomingLinks = await page.locator('.event-grid a[href^="/podujatia/"]').evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)))]);
   expect(upcomingLinks.length, "Upcoming event listing is empty").toBeGreaterThan(0);
