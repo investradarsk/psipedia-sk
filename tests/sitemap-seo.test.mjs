@@ -45,7 +45,7 @@ test("filtered listings keep a clean base canonical", () => {
 
 test("canonical repair migration fixes only the five confirmed 404 targets and is idempotent", () => {
   const database = new DatabaseSync(":memory:");
-  database.exec("CREATE TABLE managed_articles (slug TEXT PRIMARY KEY, seo_json TEXT NOT NULL, canonical_url TEXT NOT NULL, updated_at TEXT, updated_by TEXT); CREATE TABLE managed_events (slug TEXT PRIMARY KEY, seo_json TEXT NOT NULL, updated_at TEXT, updated_by TEXT);");
+  database.exec("CREATE TABLE managed_articles (slug TEXT PRIMARY KEY, canonical_url TEXT NOT NULL, updated_at TEXT, updated_by TEXT); CREATE TABLE managed_events (slug TEXT PRIMARY KEY, seo_json TEXT NOT NULL, updated_at TEXT, updated_by TEXT);");
   const articles = [
     ["prosba-aby-dal-psa-na-vodzku-mala-skoncit-bitkou-incident-v", "https://psipedia.sk/novinky/spor-pes-vodzka-mala-fatra-pravidla"],
     ["zakladny-vycvik-psat", "https://psipedia.sk/aktivity/zakladny-vycvik-psa"],
@@ -55,19 +55,18 @@ test("canonical repair migration fixes only the five confirmed 404 targets and i
     ["psi-talent-2026", "https://psipedia.sk/podujatia/psi-talent-2026-galanta-hody"],
     ["specialna-vystava-slovenskeho-novofundlandskeho-klubu-2026-cac", "https://psipedia.sk/podujatia/specialna-vystava-slovenskeho-novofundlandskeho-klubu-2026"],
   ];
-  for (const [slug, canonicalUrl] of articles) database.prepare("INSERT INTO managed_articles VALUES (?, ?, ?, NULL, NULL)").run(slug, JSON.stringify({ canonicalUrl }), canonicalUrl);
+  for (const [slug, canonicalUrl] of articles) database.prepare("INSERT INTO managed_articles VALUES (?, ?, NULL, NULL)").run(slug, canonicalUrl);
   for (const [slug, canonicalUrl] of events) database.prepare("INSERT INTO managed_events VALUES (?, ?, NULL, NULL)").run(slug, JSON.stringify({ canonicalUrl }));
-  database.prepare("INSERT INTO managed_articles VALUES (?, ?, ?, NULL, NULL)").run("untouched", JSON.stringify({ canonicalUrl: "https://psipedia.sk/clanky/untouched" }), "https://psipedia.sk/clanky/untouched");
+  database.prepare("INSERT INTO managed_articles VALUES (?, ?, NULL, NULL)").run("untouched", "https://psipedia.sk/clanky/untouched");
   const migrations = ["0025_repair_broken_content_canonicals.sql", "0026_repair_article_canonical_columns.sql"]
     .map((name) => fs.readFileSync(new URL(`../drizzle/${name}`, import.meta.url), "utf8"));
   for (const migration of migrations) database.exec(migration);
   for (const migration of migrations) database.exec(migration);
-  const repairedArticles = database.prepare("SELECT slug, canonical_url canonical, json_extract(seo_json, '$.canonicalUrl') legacy_canonical FROM managed_articles ORDER BY slug").all();
+  const repairedArticles = database.prepare("SELECT slug, canonical_url canonical FROM managed_articles ORDER BY slug").all();
   const repairedEvents = database.prepare("SELECT slug, json_extract(seo_json, '$.canonicalUrl') canonical FROM managed_events ORDER BY slug").all();
   assert.equal(repairedArticles.find((row) => row.slug === "untouched").canonical, "https://psipedia.sk/clanky/untouched");
   for (const row of repairedArticles.filter((item) => item.slug !== "untouched")) {
     assert.ok(row.canonical.endsWith(`/${row.slug}`));
-    assert.equal(row.legacy_canonical, row.canonical);
   }
   for (const row of repairedEvents) assert.ok(row.canonical.endsWith(`/${row.slug}`));
   database.close();
