@@ -43,7 +43,7 @@ test("filtered listings keep a clean base canonical", () => {
   assert.match(directoryCategory, /path:\s*`\/adresar\/\$\{category\.slug\}`/);
 });
 
-test("canonical repair migration fixes only the five confirmed 404 targets and is idempotent", () => {
+test("canonical repair migration fixes only the confirmed broken canonical targets and is idempotent", () => {
   const database = new DatabaseSync(":memory:");
   database.exec("CREATE TABLE managed_articles (slug TEXT PRIMARY KEY, canonical_url TEXT NOT NULL, updated_at TEXT, updated_by TEXT); CREATE TABLE managed_events (slug TEXT PRIMARY KEY, seo_json TEXT NOT NULL, updated_at TEXT, updated_by TEXT);");
   const articles = [
@@ -54,11 +54,12 @@ test("canonical repair migration fixes only the five confirmed 404 targets and i
   const events = [
     ["psi-talent-2026", "https://psipedia.sk/podujatia/psi-talent-2026-galanta-hody"],
     ["specialna-vystava-slovenskeho-novofundlandskeho-klubu-2026-cac", "https://psipedia.sk/podujatia/specialna-vystava-slovenskeho-novofundlandskeho-klubu-2026"],
+    ["psi-talent-2026-galanta", "https://psipedia.sk/novinky/psi-talent-2026-galanta"],
   ];
   for (const [slug, canonicalUrl] of articles) database.prepare("INSERT INTO managed_articles VALUES (?, ?, NULL, NULL)").run(slug, canonicalUrl);
   for (const [slug, canonicalUrl] of events) database.prepare("INSERT INTO managed_events VALUES (?, ?, NULL, NULL)").run(slug, JSON.stringify({ canonicalUrl }));
   database.prepare("INSERT INTO managed_articles VALUES (?, ?, NULL, NULL)").run("untouched", "https://psipedia.sk/clanky/untouched");
-  const migrations = ["0025_repair_broken_content_canonicals.sql", "0026_repair_article_canonical_columns.sql"]
+  const migrations = ["0025_repair_broken_content_canonicals.sql", "0026_repair_article_canonical_columns.sql", "0027_repair_event_cross_canonical.sql"]
     .map((name) => fs.readFileSync(new URL(`../drizzle/${name}`, import.meta.url), "utf8"));
   for (const migration of migrations) database.exec(migration);
   for (const migration of migrations) database.exec(migration);
