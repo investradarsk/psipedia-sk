@@ -677,7 +677,7 @@ h3 {
 }
 
 .brand > span:last-child > span {
-  color: var(--coral);
+  color: var(--coral-dark);
 }
 
 .brand small {
@@ -2446,7 +2446,7 @@ h3 {
 
 .age-calculator > p {
   margin: 0;
-  color: rgba(255,255,255,0.58);
+  color: rgba(255,255,255,0.66);
   font-size: 0.75rem;
 }
 
