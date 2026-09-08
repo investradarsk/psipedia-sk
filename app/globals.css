@@ -2500,6 +2500,10 @@ h3 {
   color: white;
 }
 
+.brand--footer > span:last-child > span {
+  color: var(--coral);
+}
+
 .brand--footer .brand-mark {
   color: var(--forest-dark);
   background: #e1eadc;
