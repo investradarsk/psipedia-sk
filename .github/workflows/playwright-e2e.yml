@@ -5,9 +5,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches:
-      - main
-      - codex/playwright-e2e
+    branches: [main]
   schedule:
     - cron: "17 5 * * *"
 
@@ -77,7 +75,7 @@ jobs:
   notify-production-failure:
     name: Notify owner about failed production smoke
     needs: production-smoke
-    if: ${{ always() && needs.production-smoke.result == 'failure' }}
+    if: ${{ always() && github.event_name != 'pull_request' && needs.production-smoke.result == 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
