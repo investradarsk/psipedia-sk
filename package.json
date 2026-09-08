@@ -17,7 +17,10 @@
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
     "audit:breeds": "node scripts/audit-breeds.mjs",
-    "audit:production": "node scripts/audit-production-site.mjs"
+    "audit:production": "node scripts/audit-production-site.mjs",
+    "e2e:install": "playwright install chromium",
+    "e2e": "playwright test",
+    "e2e:production": "E2E_BASE_URL=https://psipedia.sk playwright test --grep @production"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -26,7 +29,9 @@
     "react-dom": "19.2.6"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@cloudflare/vite-plugin": "1.37.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
