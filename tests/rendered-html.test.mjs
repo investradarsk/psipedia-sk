@@ -795,6 +795,8 @@ test("filters a directory category on the server and keeps verification data pri
     assert.equal(list.status, 200);
     const listHtml = await list.text();
     assert.match(listHtml, /Testovací kynologický klub/);
+    assert.match(listHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/adresar\/kynologicke-kluby"/);
+    assert.doesNotMatch(listHtml, /rel="canonical"[^>]+(?:\?|&amp;)q=/);
     assert.doesNotMatch(listHtml, /Koho hľadáš/);
     assert.doesNotMatch(listHtml, /Overený profil/);
     const filteredQuery = database.queries.find(({ sql, bindings: values }) => /search_text LIKE/i.test(sql) && /LIMIT \? OFFSET \?/i.test(sql) && values.includes("%zlate moravce%"));
@@ -899,7 +901,7 @@ test("renders the atlas in all ten FCI groups with breed photos", async () => {
   const { default: worker } = await import(workerUrl.href);
 
   const response = await worker.fetch(
-    new Request("http://localhost/plemena", {
+    new Request("http://localhost/plemena?fciGroup=1&fciSection=1", {
       headers: { accept: "text/html" },
     }),
     {
@@ -915,6 +917,8 @@ test("renders the atlas in all ten FCI groups with breed photos", async () => {
 
   assert.equal(response.status, 200);
   const html = await response.text();
+  assert.match(html, /rel="canonical" href="https:\/\/psipedia\.sk\/plemena"/);
+  assert.doesNotMatch(html, /rel="canonical"[^>]+fci(?:Group|Section)=/);
   assert.match(html, /FCI skupiny alebo sekcie/);
   assert.match(html, /FCI skupina 1/);
   assert.match(html, /FCI skupina 10/);

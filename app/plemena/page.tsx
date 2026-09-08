@@ -14,6 +14,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
     title: section?.label ?? "Atlas plemien psov",
     description: section?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, energia, starostlivosť a vhodnosť do rodiny.",
+    // FCI, sekcia, pôvod, energia a vyhľadávanie sú používateľské filtre,
+    // nie samostatné SEO landing pages. Canonical preto zostáva bez query.
     path: "/plemena",
   });
 }

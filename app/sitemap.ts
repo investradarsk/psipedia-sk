@@ -11,36 +11,86 @@ import { helpCaseHref } from "@/lib/help";
 import { articleHref, portalSubpageHref } from "@/lib/portal";
 import { listManagedPortalSections } from "@/lib/section-store";
 import { SITE_URL } from "@/lib/seo";
-import { resolvedCanonical } from "@/lib/content-seo";
+import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectoryProfiles(), getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex()]);
+  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([
+    getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectoryProfiles(),
+    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(),
+  ]);
   const portalSections = managedSections.filter((section) => section.visible);
-  const staticPages = ["", "/clanky", "/plemena", "/plemena/vyber-plemena", "/porovnat-plemena", "/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"];
-  const portalPages = portalSections.flatMap((section) => [
-    `/${section.slug}`,
-    ...section.subpages.filter((subpage) => subpage.visible !== false).map((subpage) => portalSubpageHref(section, subpage)),
-  ]).filter((path) => path !== "/adresar/psie-skoly");
+  const articleModified = (article: (typeof articles)[number]) => article.updatedDateIso;
+  const latestArticles = latestModified(articles.map(articleModified));
+  const latestEvents = latestModified(events.map((event) => event.updatedAt));
+  const latestDirectory = latestModified(directoryProfiles.map((profile) => profile.updatedAt));
+  const latestHelp = latestModified(helpCases.map((item) => item.updatedAt));
+  const latestBreeds = latestModified(breeds.map((breed) => breed.updatedAt));
+  const latestSections = latestModified(portalSections.map((section) => section.updatedAt));
+  const homepageModified = latestModified([
+    latestArticles?.toISOString(), latestEvents?.toISOString(), latestDirectory?.toISOString(),
+    latestHelp?.toISOString(), latestBreeds?.toISOString(), latestSections?.toISOString(),
+  ]);
+
   const entries: MetadataRoute.Sitemap = [
-    ...[...new Set([...staticPages, ...portalPages])].map((path) => ({
-      url: `${SITE_URL}${path}`,
-      lastModified: new Date("2026-08-17"),
-      changeFrequency: path === "" || path === "/novinky" ? "daily" as const : "weekly" as const,
-      priority: path === "" ? 1 : path === "/novinky" ? 0.9 : 0.7,
-    })),
-    ...articles.filter((article) => !article.seo?.noindex).map((article) => ({
-      url: `${SITE_URL}${articleHref(article)}`,
-      lastModified: new Date(article.updatedDateIso),
-      changeFrequency: "monthly" as const,
-      priority: 0.8,
+    sitemapEntry("", { lastModified: homepageModified, changeFrequency: "daily", priority: 1 }),
+    sitemapEntry("/clanky", { lastModified: latestArticles, changeFrequency: "weekly", priority: 0.7 }),
+    sitemapEntry("/plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
+    sitemapEntry("/plemena/vyber-plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
+    sitemapEntry("/porovnat-plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
+    ...["/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"]
+      .map((path) => sitemapEntry(path, { changeFrequency: "monthly", priority: 0.5 })),
+    ...portalSections.flatMap((section) => {
+      const sectionArticles = articles.filter((article) => article.portalSection === section.slug);
+      const relevantModified = latestModified([
+        section.updatedAt,
+        ...sectionArticles.map(articleModified),
+        ...(section.slug === "podujatia" ? events.map((event) => event.updatedAt) : []),
+        ...(section.slug === "adresar" ? directoryProfiles.map((profile) => profile.updatedAt) : []),
+        ...(section.slug === "pomoc-psom" ? helpCases.map((item) => item.updatedAt) : []),
+        ...(section.slug === "plemena" ? breeds.map((breed) => breed.updatedAt) : []),
+      ]);
+      return [
+        sitemapEntry(`/${section.slug}`, { lastModified: relevantModified, changeFrequency: section.slug === "novinky" ? "daily" : "weekly", priority: section.slug === "novinky" ? 0.9 : 0.7 }),
+        ...section.subpages.filter((subpage) => subpage.visible !== false && !SITEMAP_REDIRECT_SOURCES.has(portalSubpageHref(section, subpage))).map((subpage) => {
+          const path = portalSubpageHref(section, subpage);
+          const subpageModified = latestModified([
+            section.updatedAt,
+            ...sectionArticles.filter((article) => article.portalSubpage === subpage.slug).map(articleModified),
+            ...(section.slug === "podujatia" ? events.map((event) => event.updatedAt) : []),
+          ]);
+          return sitemapEntry(path, { lastModified: subpageModified, changeFrequency: "weekly", priority: 0.7 });
+        }),
+      ];
+    }),
+    ...articles.filter((article) => isSelfCanonical(article.seo, articleHref(article))).map((article) => sitemapEntry(articleHref(article), {
+      lastModified: latestModified([articleModified(article)]), changeFrequency: "monthly", priority: 0.8,
       images: article.image ? [article.image.startsWith("https://") ? article.image : `${SITE_URL}${article.image}`] : undefined,
     })),
-    ...events.filter((event) => !event.seo?.noindex).map((event) => ({ url: resolvedCanonical(event.seo,eventHref(event)), lastModified: new Date(event.updatedAt), changeFrequency: "weekly" as const, priority: 0.7, images:event.imageUrl?[event.imageUrl.startsWith("https://")?event.imageUrl:`${SITE_URL}${event.imageUrl}`]:undefined })),
-    ...directoryCategories.map((category) => ({ url: `${SITE_URL}/adresar/${category.slug}`, lastModified: new Date("2026-08-29"), changeFrequency: "weekly" as const, priority: 0.7 })),
-    ...directoryProfiles.filter((profile) => profile.category !== "psie-skoly" && !profile.seo?.noindex).map((profile) => ({ url: resolvedCanonical(profile.seo,directoryProfileHref(profile)), lastModified: new Date(profile.updatedAt), changeFrequency: "monthly" as const, priority: 0.6, images:profile.imageUrl?[profile.imageUrl.startsWith("https://")?profile.imageUrl:`${SITE_URL}${profile.imageUrl}`]:undefined })),
-    ...helpCases.filter((item) => !item.seo?.noindex).map((item) => ({ url: resolvedCanonical(item.seo,helpCaseHref(item)), lastModified: new Date(item.updatedAt), changeFrequency: "daily" as const, priority: 0.8, images:item.imageUrl?[item.imageUrl.startsWith("https://")?item.imageUrl:`${SITE_URL}${item.imageUrl}`]:undefined })),
-    ...breeds.filter((breed) => !breed.seo?.noindex).map((breed) => ({ url: resolvedCanonical(breed.seo,`/plemena/${breed.slug}`), lastModified: new Date(breed.updatedAt), changeFrequency: "monthly" as const, priority: 0.8, images: breed.image ? [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] : undefined })),
-    ...categories.map((category) => ({ url: `${SITE_URL}/tema/${category.slug}`, lastModified: new Date("2026-08-17"), changeFrequency: "weekly" as const, priority: 0.6 })),
+    ...events.filter((event) => isSelfCanonical(event.seo, eventHref(event))).map((event) => sitemapEntry(eventHref(event), {
+      lastModified: latestModified([event.updatedAt]), changeFrequency: "weekly", priority: 0.7,
+      images: event.imageUrl ? [event.imageUrl.startsWith("https://") ? event.imageUrl : `${SITE_URL}${event.imageUrl}`] : undefined,
+    })),
+    ...directoryCategories.map((category) => sitemapEntry(`/adresar/${category.slug}`, {
+      lastModified: latestModified(directoryProfiles.filter((profile) => profile.category === category.slug).map((profile) => profile.updatedAt)),
+      changeFrequency: "weekly", priority: 0.7,
+    })),
+    ...directoryProfiles.filter((profile) => profile.category !== "psie-skoly" && isSelfCanonical(profile.seo, directoryProfileHref(profile))).map((profile) => sitemapEntry(directoryProfileHref(profile), {
+      lastModified: latestModified([profile.updatedAt]), changeFrequency: "monthly", priority: 0.6,
+      images: profile.imageUrl ? [profile.imageUrl.startsWith("https://") ? profile.imageUrl : `${SITE_URL}${profile.imageUrl}`] : undefined,
+    })),
+    ...helpCases.filter((item) => isSelfCanonical(item.seo, helpCaseHref(item))).map((item) => sitemapEntry(helpCaseHref(item), {
+      lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.8,
+      images: item.imageUrl ? [item.imageUrl.startsWith("https://") ? item.imageUrl : `${SITE_URL}${item.imageUrl}`] : undefined,
+    })),
+    ...breeds.filter((breed) => isSelfCanonical(breed.seo, `/plemena/${breed.slug}`)).map((breed) => sitemapEntry(`/plemena/${breed.slug}`, {
+      lastModified: latestModified([breed.updatedAt]), changeFrequency: "monthly", priority: 0.8,
+      images: breed.image ? [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] : undefined,
+    })),
+    ...categories.map((category) => sitemapEntry(`/tema/${category.slug}`, {
+      lastModified: latestModified(articles.filter((article) => article.category === category.label).map(articleModified)),
+      changeFrequency: "weekly", priority: 0.6,
+    })),
   ];
-  return [...new Map(entries.map((entry) => [entry.url, entry])).values()];
+
+  return assertValidSitemap([...new Map(entries.map((entry) => [entry.url, entry])).values()]);
 }

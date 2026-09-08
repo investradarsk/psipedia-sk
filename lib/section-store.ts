@@ -2,8 +2,8 @@ import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { portalSections, type PortalSection, type PortalSubpage } from "@/lib/portal";
 
-export type ManagedPortalSection = PortalSection & { position: number; visible: boolean };
-type Row = { slug: string; label: string; eyebrow: string; description: string; intro: string; subpages_json: string; position: number; visible: number };
+export type ManagedPortalSection = PortalSection & { position: number; visible: boolean; updatedAt?: string };
+type Row = { slug: string; label: string; eyebrow: string; description: string; intro: string; subpages_json: string; position: number; visible: number; updated_at?: string };
 type RuntimeBindings = { DB?: D1Database };
 let ready: Promise<void> | null = null;
 const legacyActivityDescriptions: Record<string, string> = {
@@ -70,13 +70,13 @@ function merge(row: Row): ManagedPortalSection | null {
   if (!base) return null;
   const label = (row.slug === "starostlivost" && row.label === "Starostlivosť") || (row.slug === "aktivity" && row.label === "Aktivity") ? base.label : row.label;
   const hasLegacyActivityCopy = row.slug === "aktivity" && row.eyebrow === "Spoločné zážitky" && row.description === "Psie športy, výlety a miesta, kde si môžete deň užiť spolu." && row.intro === "Nájdi aktivitu podľa kondície psa, svojich skúseností a času, ktorý máte k dispozícii.";
-  return { ...base, label, eyebrow: hasLegacyActivityCopy ? base.eyebrow : row.eyebrow, description: hasLegacyActivityCopy ? base.description : row.description, intro: hasLegacyActivityCopy ? base.intro : row.intro, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible) };
+  return { ...base, label, eyebrow: hasLegacyActivityCopy ? base.eyebrow : row.eyebrow, description: hasLegacyActivityCopy ? base.description : row.description, intro: hasLegacyActivityCopy ? base.intro : row.intro, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible), ...(row.updated_at ? { updatedAt: row.updated_at } : {}) };
 }
 
-export const listManagedPortalSections = cache(async function listManagedPortalSections() {
+export const listManagedPortalSections = cache(async function listManagedPortalSections(): Promise<ManagedPortalSection[]> {
   const db = database();
   if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
-  const result = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible FROM portal_section_settings ORDER BY position,label").all<Row>();
+  const result = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible,updated_at FROM portal_section_settings ORDER BY position,label").all<Row>();
   return result.results.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
 });
 
