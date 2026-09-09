@@ -11,6 +11,7 @@ test("editorial section tabs use the managed subsection source of truth", () => 
   assert.match(tabs, /portalSubpageHref\(section, subpage\)/);
   assert.match(tabs, /aria-current=\{active \? "page"/);
   assert.doesNotMatch(tabs, /pred-kupou-psa|zdravie|psie-sporty/);
+  assert.doesNotMatch(tabs, /\?category=|\?kategoria=|URLSearchParams/);
 });
 
 test("editorial hubs expose direct content before the area directory", () => {
