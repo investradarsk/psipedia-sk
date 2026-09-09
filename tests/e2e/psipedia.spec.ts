@@ -46,7 +46,51 @@ async function expectAxeClean(page: Page, label: string) {
   expect(violations, `${label} accessibility violations:\n${details}`).toEqual([]);
 }
 
+async function expectSectionTabsClear(page: Page, path: string, minimumGap = 0) {
+  await page.goto(path);
+  const tabs = page.locator(".portal-section-tabs");
+  const following = page.locator(".portal-section-tabs + .shell");
+  await expect(tabs, `${path}: section tabs missing`).toBeVisible();
+  await expect(following, `${path}: content after section tabs missing`).toBeVisible();
+
+  const active = tabs.locator('.section-tab[aria-current="page"]');
+  await expect(active, `${path}: active section tab missing`).toHaveCount(1);
+  await active.scrollIntoViewIfNeeded();
+  await expect(active, `${path}: active section tab is not visible`).toBeVisible();
+
+  const [tabsBox, followingBox, activeBox] = await Promise.all([
+    tabs.boundingBox(),
+    following.boundingBox(),
+    active.boundingBox(),
+  ]);
+  expect(tabsBox, `${path}: cannot measure section tabs`).not.toBeNull();
+  expect(followingBox, `${path}: cannot measure following content`).not.toBeNull();
+  expect(activeBox, `${path}: cannot measure active tab`).not.toBeNull();
+  expect(
+    followingBox!.y - (tabsBox!.y + tabsBox!.height),
+    `${path}: following content overlaps SectionTabs`,
+  ).toBeGreaterThanOrEqual(minimumGap);
+
+  const hit = await page.evaluate(({ x, y }) => {
+    const element = document.elementFromPoint(x, y);
+    return Boolean(element?.closest(".section-tab"));
+  }, {
+    x: activeBox!.x + activeBox!.width / 2,
+    y: activeBox!.y + activeBox!.height / 2,
+  });
+  expect(hit, `${path}: active tab is covered by another layer`).toBe(true);
+}
+
 test.beforeEach(async ({ page }) => useNecessaryCookies(page));
+
+test("portal SectionTabs never overlap the following content", async ({ page }) => {
+  for (const path of ["/steniatka", "/starostlivost", "/aktivity"]) {
+    await expectSectionTabsClear(page, path, 12);
+  }
+  for (const path of ["/steniatka/prve-dni", "/starostlivost/vyziva", "/aktivity/psie-sporty"]) {
+    await expectSectionTabsClear(page, path);
+  }
+});
 
 test("@production homepage search, CTA and Plemeno dňa work without JS errors", async ({ page }) => {
   await expectHealthyPage(page, "/");
