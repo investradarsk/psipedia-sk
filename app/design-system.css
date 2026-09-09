@@ -18,7 +18,12 @@
   max-width: var(--ps-content-max);
 }
 
+.section {
+  padding-block: var(--ps-space-section);
+}
+
 .section-hero,
+.page-hero,
 .portal-hero,
 .portal-topic-hero,
 .news-hero,
@@ -211,6 +216,7 @@
   :root {
     --ps-radius-card: 18px;
     --ps-radius-media: 18px;
+    --ps-space-section: 64px;
     --ps-space-block: 24px;
   }
 }
