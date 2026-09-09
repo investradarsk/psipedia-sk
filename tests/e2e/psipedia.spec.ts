@@ -46,7 +46,34 @@ async function expectAxeClean(page: Page, label: string) {
   expect(violations, `${label} accessibility violations:\n${details}`).toEqual([]);
 }
 
+async function readSectionTabs(page: Page, path: string) {
+  await page.goto(path);
+  return page.locator(".portal-section-tabs .section-tab").evaluateAll((links) => links.map((link) => ({
+    label: link.textContent?.trim().replace(/\s+/g, " ") ?? "",
+    href: link.getAttribute("href") ?? "",
+  })));
+}
+
 test.beforeEach(async ({ page }) => useNecessaryCookies(page));
+
+test("managed portal SectionTabs contain valid labels and slugs", async ({ page }) => {
+  const technicalLabels = ["adresa url", "názov sekcie", "slug"];
+  for (const section of ["steniatka", "starostlivost", "aktivity"]) {
+    const path = `/${section}`;
+    const tabs = await readSectionTabs(page, path);
+    expect(tabs.length, `${path}: SectionTabs are empty`).toBeGreaterThan(1);
+    expect(tabs[0], `${path}: overview tab is invalid`).toEqual({ label: "Prehľad", href: path });
+
+    const subpages = tabs.slice(1);
+    const labels = subpages.map((item) => item.label);
+    const hrefs = subpages.map((item) => item.href);
+    expect(labels.every(Boolean), `${path}: empty SectionTabs label; ${JSON.stringify(tabs)}`).toBe(true);
+    expect(labels.some((label) => technicalLabels.some((technical) => label.toLocaleLowerCase("sk-SK").includes(technical))), `${path}: technical/admin label leaked into SectionTabs; ${JSON.stringify(tabs)}`).toBe(false);
+    expect(new Set(labels).size, `${path}: duplicate SectionTabs label; ${JSON.stringify(tabs)}`).toBe(labels.length);
+    expect(new Set(hrefs).size, `${path}: duplicate SectionTabs href; ${JSON.stringify(tabs)}`).toBe(hrefs.length);
+    expect(hrefs.every((href) => new RegExp(`^/${section}/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`).test(href)), `${path}: invalid SectionTabs href; ${JSON.stringify(tabs)}`).toBe(true);
+  }
+});
 
 test("@production homepage search, CTA and Plemeno dňa work without JS errors", async ({ page }) => {
   await expectHealthyPage(page, "/");

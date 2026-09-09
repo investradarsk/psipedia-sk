@@ -4,14 +4,17 @@ import { portalSections, type PortalSection, type PortalSubpage } from "@/lib/po
 
 export type ManagedPortalSection = PortalSection & { position: number; visible: boolean; updatedAt?: string };
 type Row = { slug: string; label: string; eyebrow: string; description: string; intro: string; subpages_json: string; position: number; visible: number; updated_at?: string };
+type ManagedSubpagesRow = { slug: string; subpages_json: string };
 type RuntimeBindings = { DB?: D1Database };
 let ready: Promise<void> | null = null;
+let dataRepairReady: Promise<void> | null = null;
 const legacyActivityDescriptions: Record<string, string> = {
   "psie-sporty": "Agility, obedience, nosework, canicross, aporty a ďalšie disciplíny.",
   "vylety-so-psom": "Trasy, náročnosť, pravidlá a praktická výbava.",
   "dog-friendly-miesta": "Miesta, kde sú psy vítané a podmienky sú jasné vopred.",
   "dovolenka-so-psom": "Ubytovanie, cestovanie, doklady a bezpečný režim.",
 };
+const adminFieldLabels = new Set(["adresa", "adresa url", "názov", "názov sekcie", "slug", "url"]);
 
 function database() {
   const db = (env as unknown as RuntimeBindings).DB;
@@ -48,6 +51,54 @@ async function ensure(db: D1Database) {
   return ready;
 }
 
+async function repairCorruptManagedSubpages(db: D1Database) {
+  if (dataRepairReady) return dataRepairReady;
+  dataRepairReady = (async () => {
+    const result = await db.prepare("SELECT slug,subpages_json FROM portal_section_settings WHERE slug IN ('steniatka','aktivity')").all<ManagedSubpagesRow>();
+    const now = new Date().toISOString();
+    const updates: D1PreparedStatement[] = [];
+
+    for (const row of result.results) {
+      let parsed: unknown;
+      try { parsed = JSON.parse(row.subpages_json); }
+      catch { continue; }
+      if (!Array.isArray(parsed)) continue;
+
+      let changed = false;
+      let subpages = parsed.map((item) => ({ ...(item as Record<string, unknown>) }));
+
+      if (row.slug === "steniatka") {
+        const defaults = portalSections.find((section) => section.slug === "steniatka")?.subpages.find((item) => item.slug === "prve-dni");
+        subpages = subpages.map((item) => {
+          const normalizedLabel = String(item.label ?? "").trim().replace(/\s+/g, " ");
+          if (item.slug === "prve-dni" && normalizedLabel === "Prvé dni doma so šteniatkom Adresa URL" && defaults) {
+            changed = true;
+            return { ...item, label: defaults.label };
+          }
+          return item;
+        });
+      }
+
+      if (row.slug === "aktivity") {
+        const hasCanonicalTraining = subpages.some((item) => item.slug === "trening" && String(item.label ?? "").trim() === "Tréning");
+        if (hasCanonicalTraining) {
+          const before = subpages.length;
+          subpages = subpages.filter((item) => !(item.slug === "-vycvik-a-aktivity-trening" && String(item.label ?? "").trim() === "Tréning psa"));
+          if (subpages.length !== before) changed = true;
+        }
+      }
+
+      if (changed) {
+        updates.push(db.prepare("UPDATE portal_section_settings SET subpages_json=?,updated_at=?,updated_by=? WHERE slug=? AND subpages_json=?")
+          .bind(JSON.stringify(subpages), now, "system:data-repair", row.slug, row.subpages_json));
+      }
+    }
+
+    if (updates.length) await db.batch(updates);
+  })().catch((error) => { dataRepairReady = null; throw error; });
+  return dataRepairReady;
+}
+
 function parseSubpages(value: string, fallback: PortalSubpage[]) {
   try {
     const parsed = JSON.parse(value);
@@ -78,6 +129,7 @@ function merge(row: Row): ManagedPortalSection | null {
 export const listManagedPortalSections = cache(async function listManagedPortalSections(): Promise<ManagedPortalSection[]> {
   const db = database();
   if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
+  await repairCorruptManagedSubpages(db);
   const result = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible,updated_at FROM portal_section_settings ORDER BY position,label").all<Row>();
   return result.results.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
 });
@@ -99,6 +151,7 @@ function cleanSubpages(value: unknown): PortalSubpage[] {
     const item = raw as Partial<PortalSubpage>;
     const slug = String(item.slug ?? "").trim().replace(/^\/+|\/+$/g, "").slice(0, 80);
     const label = String(item.label ?? "").trim().slice(0, 100);
+    const normalizedLabel = label.toLocaleLowerCase("sk-SK").replace(/\s+/g, " ");
     const description = String(item.description ?? "").trim().slice(0, 400);
     const intro = item.intro ? String(item.intro).trim().slice(0, 3000) : undefined;
     const icon = item.icon ? String(item.icon).trim().slice(0, 12) : undefined;
@@ -116,6 +169,8 @@ function cleanSubpages(value: unknown): PortalSubpage[] {
     const seoTitle = item.seoTitle ? String(item.seoTitle).trim().slice(0, 80) : undefined;
     const metaDescription = item.metaDescription ? String(item.metaDescription).trim().slice(0, 200) : undefined;
     if (!slug || !label) throw new Error("Každá podsekcia musí mať názov a adresu.");
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(slug)) throw new Error("Adresa podsekcie musí byť platný slug bez úvodnej alebo koncovej pomlčky.");
+    if (adminFieldLabels.has(normalizedLabel) || normalizedLabel.endsWith(" adresa url")) throw new Error("Názov podsekcie obsahuje technický názov administračného poľa. Zadaj verejný názov podsekcie.");
     if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka oblasti nie je platná.");
     return {
       slug, label, description, visible: item.visible !== false,

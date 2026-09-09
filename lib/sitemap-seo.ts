@@ -5,6 +5,7 @@ import { SITE_URL } from "./seo.ts";
 export const SITEMAP_REDIRECT_SOURCES = new Set([
   "/adresar/psie-skoly",
   "/adresar/veterinari/veterinarna-poliklinka-althea",
+  "/aktivity/-vycvik-a-aktivity-trening",
   "/recenzie/vybava",
   "/podujatia/kalendar",
 ]);

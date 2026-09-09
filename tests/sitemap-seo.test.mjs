@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry } from "../lib/sitemap-seo.ts";
+import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "../lib/sitemap-seo.ts";
 
 test("lastModified uses the latest real timestamp and omits unknown dates", () => {
   assert.equal(latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(), "2026-09-07T12:30:00.000Z");
@@ -23,6 +23,22 @@ test("sitemap QA rejects duplicates, parameters, internal paths and redirect sou
   assert.throws(() => assertValidSitemap([entry("/plemena?fciGroup=1")]), /sitemap-parametric-url/);
   assert.throws(() => assertValidSitemap([entry("/admin")]), /sitemap-internal-url/);
   assert.throws(() => assertValidSitemap([entry("/adresar/psie-skoly")]), /sitemap-redirect-source/);
+});
+
+test("legacy activity training URL redirects directly to the canonical managed topic", () => {
+  const legacyPath = "/aktivity/-vycvik-a-aktivity-trening";
+  const targetPath = "/aktivity/trening";
+  const route = fs.readFileSync(new URL("../app/aktivity/-vycvik-a-aktivity-trening/route.ts", import.meta.url), "utf8");
+  const portal = fs.readFileSync(new URL("../lib/portal.ts", import.meta.url), "utf8");
+  const portalPage = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+
+  assert.match(route, /NextResponse\.redirect\(new URL\("\/aktivity\/trening", request\.url\), 301\)/);
+  assert.equal(SITEMAP_REDIRECT_SOURCES.has(legacyPath), true);
+  assert.equal(SITEMAP_REDIRECT_SOURCES.has(targetPath), false);
+  assert.match(portal, /slug:\s*"trening",\s*label:\s*"Tréning"/);
+  assert.doesNotMatch(portal, /-vycvik-a-aktivity-trening/);
+  assert.match(portalPage, /path:\s*`\/\$\{portalTopic\.section\.slug\}\/\$\{portalTopic\.subpage\.slug\}`/);
+  assert.match(portalPage, /if \(portalTopic\) return <PortalTopic/);
 });
 
 test("generated sitemap uses canonical public sources and no hardcoded fake dates", () => {
