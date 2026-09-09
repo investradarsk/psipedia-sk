@@ -48,18 +48,16 @@ async function expectAxeClean(page: Page, label: string) {
 
 async function readSectionTabs(page: Page, path: string) {
   await page.goto(path);
-  const tabs = await page.locator(".portal-section-tabs .section-tab").evaluateAll((links) => links.map((link) => ({
-    label: link.textContent?.trim() ?? "",
+  return page.locator(".portal-section-tabs .section-tab").evaluateAll((links) => links.map((link) => ({
+    label: link.textContent?.trim().replace(/\s+/g, " ") ?? "",
     href: link.getAttribute("href") ?? "",
   })));
-  console.log(`SECTION_TABS ${path}: ${JSON.stringify(tabs)}`);
-  return tabs;
 }
 
 test.beforeEach(async ({ page }) => useNecessaryCookies(page));
 
-test("@production managed portal SectionTabs contain valid labels and slugs", async ({ page }) => {
-  const technicalLabels = new Set(["Adresa URL", "Adresa", "Názov", "Názov sekcie", "Slug", "URL"]);
+test("managed portal SectionTabs contain valid labels and slugs", async ({ page }) => {
+  const technicalLabels = ["adresa url", "názov sekcie", "slug"];
   for (const section of ["steniatka", "starostlivost", "aktivity"]) {
     const path = `/${section}`;
     const tabs = await readSectionTabs(page, path);
@@ -70,10 +68,10 @@ test("@production managed portal SectionTabs contain valid labels and slugs", as
     const labels = subpages.map((item) => item.label);
     const hrefs = subpages.map((item) => item.href);
     expect(labels.every(Boolean), `${path}: empty SectionTabs label; ${JSON.stringify(tabs)}`).toBe(true);
-    expect(labels.some((label) => technicalLabels.has(label)), `${path}: technical/admin label leaked into SectionTabs; ${JSON.stringify(tabs)}`).toBe(false);
+    expect(labels.some((label) => technicalLabels.some((technical) => label.toLocaleLowerCase("sk-SK").includes(technical))), `${path}: technical/admin label leaked into SectionTabs; ${JSON.stringify(tabs)}`).toBe(false);
     expect(new Set(labels).size, `${path}: duplicate SectionTabs label; ${JSON.stringify(tabs)}`).toBe(labels.length);
     expect(new Set(hrefs).size, `${path}: duplicate SectionTabs href; ${JSON.stringify(tabs)}`).toBe(hrefs.length);
-    expect(hrefs.every((href) => new RegExp(`^/${section}/[a-z0-9-]+$`).test(href)), `${path}: invalid SectionTabs href; ${JSON.stringify(tabs)}`).toBe(true);
+    expect(hrefs.every((href) => new RegExp(`^/${section}/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`).test(href)), `${path}: invalid SectionTabs href; ${JSON.stringify(tabs)}`).toBe(true);
   }
 });
 
