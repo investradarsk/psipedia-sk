@@ -1,4 +1,4 @@
-name: Phase 5 exact-SHA diagnostics
+name: Phase 5 exact-SHA webServer diagnostics
 
 on:
   push:
@@ -8,81 +8,124 @@ permissions:
   contents: read
 
 jobs:
-  desktop:
-    name: Reproduce Phase 5 desktop at dadf21c
+  webserver:
+    name: Diagnose webServer startup at dadf21c
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
           ref: dadf21c322114148f770ce198464a47b1870a787
-      - name: Prove exact checkout
-        shell: bash
-        run: |
-          echo "HEAD=$(git rev-parse HEAD)"
-          test "$(git rev-parse HEAD)" = "dadf21c322114148f770ce198464a47b1870a787"
-          git status --short
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.18.0
-          cache: npm
-      - name: npm ci
-        run: npm ci
-      - name: Build
-        run: npm run build
-      - name: Apply existing D1 migrations locally
-        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json
-      - name: Install Chromium and system dependencies
-        run: npx playwright install --with-deps chromium
-      - name: Run exact Phase 5 desktop E2E
-        run: npx playwright test tests/e2e/reviews-phase5.spec.ts --project=desktop-chromium --reporter=line,html
-      - name: Preserve desktop Playwright artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase5-dadf21c-desktop-playwright
-          if-no-files-found: warn
-          retention-days: 7
-          path: |
-            test-results/
-            playwright-report/
 
-  mobile:
-    name: Reproduce Phase 5 mobile at dadf21c
-    needs: desktop
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: dadf21c322114148f770ce198464a47b1870a787
       - name: Prove exact checkout
         shell: bash
         run: |
+          set -euxo pipefail
           echo "HEAD=$(git rev-parse HEAD)"
           test "$(git rev-parse HEAD)" = "dadf21c322114148f770ce198464a47b1870a787"
+          test -z "$(git status --porcelain)"
           git status --short
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
           cache: npm
+
       - name: npm ci
         run: npm ci
+
       - name: Build
         run: npm run build
+
       - name: Apply existing D1 migrations locally
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json
-      - name: Install Chromium and system dependencies
-        run: npx playwright install --with-deps chromium
-      - name: Run exact Phase 5 mobile E2E
-        run: npx playwright test tests/e2e/reviews-phase5.spec.ts --project=mobile-chromium --reporter=line,html
-      - name: Preserve mobile Playwright artifacts
+
+      - name: Manually start exact Playwright webServer command and probe it
+        shell: bash
+        run: |
+          set +e
+          mkdir -p diagnostic-artifacts .wrangler
+          : > diagnostic-artifacts/server.log
+          : > diagnostic-artifacts/curl-verbose.log
+          : > diagnostic-artifacts/curl-body.txt
+          : > diagnostic-artifacts/sockets.txt
+          : > diagnostic-artifacts/process.txt
+
+          echo "=== exact command ===" | tee diagnostic-artifacts/summary.txt
+          echo "npm run dev" | tee -a diagnostic-artifacts/summary.txt
+          echo "=== environment relevant to Playwright/Vite ===" | tee -a diagnostic-artifacts/summary.txt
+          env | sort | grep -E '^(CI|E2E_BASE_URL|HOST|PORT|NODE_ENV|WRANGLER_)=' | tee -a diagnostic-artifacts/summary.txt || true
+
+          npm run dev > diagnostic-artifacts/server.log 2>&1 &
+          SERVER_PID=$!
+          echo "$SERVER_PID" > diagnostic-artifacts/server.pid
+          echo "SERVER_PID=$SERVER_PID" | tee -a diagnostic-artifacts/summary.txt
+
+          READY=0
+          EXITED=0
+          for i in $(seq 1 60); do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "server process exited before readiness on probe $i" | tee -a diagnostic-artifacts/summary.txt
+              EXITED=1
+              break
+            fi
+            if curl --silent --show-error --max-time 2 --output /dev/null http://127.0.0.1:5173/; then
+              echo "127.0.0.1:5173 became reachable on probe $i" | tee -a diagnostic-artifacts/summary.txt
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+
+          echo "=== process state ===" | tee -a diagnostic-artifacts/summary.txt
+          ps -fp "$SERVER_PID" | tee diagnostic-artifacts/process.txt || true
+          echo "=== listen sockets ===" | tee -a diagnostic-artifacts/summary.txt
+          ss -ltnp | tee diagnostic-artifacts/sockets.txt || true
+
+          echo "=== curl -v http://127.0.0.1:5173/ ===" | tee -a diagnostic-artifacts/summary.txt
+          curl -v --max-time 15 -D diagnostic-artifacts/curl-headers.txt -o diagnostic-artifacts/curl-body.txt http://127.0.0.1:5173/ 2> diagnostic-artifacts/curl-verbose.log
+          CURL_EXIT=$?
+          HTTP_STATUS=$(awk 'toupper($1) ~ /^HTTP\// {status=$2} END {print status}' diagnostic-artifacts/curl-headers.txt 2>/dev/null)
+          echo "CURL_EXIT=$CURL_EXIT" | tee -a diagnostic-artifacts/summary.txt
+          echo "HTTP_STATUS=${HTTP_STATUS:-none}" | tee -a diagnostic-artifacts/summary.txt
+          echo "READY=$READY EXITED=$EXITED" | tee -a diagnostic-artifacts/summary.txt
+
+          echo "=== server stdout/stderr ==="
+          cat diagnostic-artifacts/server.log
+          echo "=== curl verbose ==="
+          cat diagnostic-artifacts/curl-verbose.log
+          echo "=== curl response headers ==="
+          cat diagnostic-artifacts/curl-headers.txt 2>/dev/null || true
+          echo "=== curl response body ==="
+          cat diagnostic-artifacts/curl-body.txt 2>/dev/null || true
+          echo "=== wrangler log ==="
+          if [ -f .wrangler/wrangler.log ]; then
+            cp .wrangler/wrangler.log diagnostic-artifacts/wrangler.log
+            cat .wrangler/wrangler.log
+          else
+            echo "No .wrangler/wrangler.log produced"
+          fi
+
+          if kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "SERVER_STILL_RUNNING=yes" | tee -a diagnostic-artifacts/summary.txt
+            kill "$SERVER_PID" 2>/dev/null || true
+            wait "$SERVER_PID" 2>/dev/null || true
+          else
+            echo "SERVER_STILL_RUNNING=no" | tee -a diagnostic-artifacts/summary.txt
+            wait "$SERVER_PID" 2>/dev/null
+            SERVER_EXIT=$?
+            echo "SERVER_EXIT=$SERVER_EXIT" | tee -a diagnostic-artifacts/summary.txt
+          fi
+
+          exit 0
+
+      - name: Preserve webServer diagnostic artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase5-dadf21c-mobile-playwright
+          name: phase5-dadf21c-webserver-diagnostics
           if-no-files-found: warn
           retention-days: 7
           path: |
-            test-results/
-            playwright-report/
+            diagnostic-artifacts/
+            .wrangler/wrangler.log
