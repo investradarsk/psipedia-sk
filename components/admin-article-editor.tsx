@@ -9,9 +9,10 @@ import type { ManagedBreedSummary } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
   articlePortalSectionOptions,
-  getPortalSection,
+  portalSections as defaultPortalSections,
   portalSectionLabel,
   type ArticlePortalSection,
+  type PortalSection,
 } from "@/lib/portal";
 import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/news";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
@@ -30,22 +31,29 @@ function dateTimeValue(value?: string | null) {
   return value ? value.slice(0, 16) : "";
 }
 
-const puppyAreas = getPortalSection("steniatka")?.subpages.filter((subpage) => !subpage.href) ?? [];
-const careAreas = getPortalSection("starostlivost")?.subpages.filter((subpage) => !subpage.href && subpage.visible !== false) ?? [];
-const activityAreas = getPortalSection("aktivity")?.subpages.filter((subpage) => !subpage.href && subpage.visible !== false) ?? [];
-
 export function AdminArticleEditor({
   article,
   defaultPortalSection = "steniatka",
   defaultPortalSubpage,
   breedOptions = [],
+  managedSections = defaultPortalSections,
 }: {
   article?: ManagedArticle;
   defaultPortalSection?: ArticlePortalSection;
   defaultPortalSubpage?: string;
   breedOptions?: ManagedBreedSummary[];
+  managedSections?: Array<PortalSection & { visible?: boolean }>;
 }) {
   const initialPortalSection = article?.portalSection ?? defaultPortalSection;
+  const sectionOptions = [
+    articlePortalSectionOptions[0],
+    ...managedSections
+      .filter((section) => section.articleEnabled && section.visible !== false)
+      .map((section) => ({ slug: section.slug as ArticlePortalSection, label: section.label })),
+  ];
+  const areasFor = (sectionSlug: ArticlePortalSection) =>
+    managedSections.find((section) => section.slug === sectionSlug)?.subpages.filter((subpage) => !subpage.href && subpage.visible !== false) ?? [];
+  const initialAreas = areasFor(initialPortalSection);
   const [title, setTitle] = useState(article?.title ?? "");
   const [slug, setSlug] = useState(article?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(article));
@@ -53,9 +61,10 @@ export function AdminArticleEditor({
   const [portalSection, setPortalSection] = useState<ArticlePortalSection>(initialPortalSection);
   const [portalSubpage, setPortalSubpage] = useState(
     article?.portalSubpage ??
-    (initialPortalSection === "starostlivost" ? careAreas : initialPortalSection === "aktivity" ? activityAreas : puppyAreas).find((area) => area.slug === defaultPortalSubpage)?.slug ??
-    (initialPortalSection === "starostlivost" ? careAreas[0]?.slug : initialPortalSection === "aktivity" ? activityAreas[0]?.slug : puppyAreas[0]?.slug) ?? "",
+    initialAreas.find((area) => area.slug === defaultPortalSubpage)?.slug ??
+    initialAreas[0]?.slug ?? "",
   );
+  const currentAreas = areasFor(portalSection);
   const [newsCategory, setNewsCategory] = useState<NewsCategorySlug>(article?.newsCategory ?? "zo-sveta");
   const [accent, setAccent] = useState(article?.accent ?? "forest");
   const [author, setAuthor] = useState(article?.author ?? "Redakcia Psipedia");
@@ -99,15 +108,8 @@ export function AdminArticleEditor({
 
   function changePortalSection(value: ArticlePortalSection) {
     setPortalSection(value);
-    if (value === "steniatka" && !puppyAreas.some((area) => area.slug === portalSubpage)) {
-      setPortalSubpage(puppyAreas[0]?.slug ?? "");
-    }
-    if (value === "starostlivost" && !careAreas.some((area) => area.slug === portalSubpage)) {
-      setPortalSubpage(careAreas[0]?.slug ?? "");
-    }
-    if (value === "aktivity" && !activityAreas.some((area) => area.slug === portalSubpage)) {
-      setPortalSubpage(activityAreas[0]?.slug ?? "");
-    }
+    const nextAreas = areasFor(value);
+    if (!nextAreas.some((area) => area.slug === portalSubpage)) setPortalSubpage(nextAreas[0]?.slug ?? "");
     if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
   }
 
@@ -159,7 +161,7 @@ export function AdminArticleEditor({
       slug,
       category,
       portalSection,
-      portalSubpage: portalSection === "steniatka" || portalSection === "starostlivost" || portalSection === "aktivity" ? portalSubpage : null,
+      portalSubpage: currentAreas.length ? portalSubpage : null,
       newsCategory: portalSection === "novinky" ? newsCategory : null,
       accent,
       author,
@@ -271,7 +273,7 @@ export function AdminArticleEditor({
             <div className="admin-field">
               <label htmlFor="article-portal-section">Sekcia portálu</label>
               <select id="article-portal-section" value={portalSection} onChange={(event) => changePortalSection(event.target.value as ArticlePortalSection)}>
-                {articlePortalSectionOptions.map((option) => <option value={option.slug} key={option.slug}>{option.label}</option>)}
+                {sectionOptions.map((option) => <option value={option.slug} key={option.slug}>{option.label}</option>)}
               </select>
               <small>Určí, kde sa článok zobrazí a akú bude mať adresu.</small>
             </div>
@@ -283,31 +285,13 @@ export function AdminArticleEditor({
                 </select>
               </div>
             )}
-            {portalSection === "steniatka" && (
+            {portalSection !== "novinky" && portalSection !== "clanky" && currentAreas.length > 0 && (
               <div className="admin-field">
-                <label htmlFor="article-puppy-area">Oblasť Šteniatok</label>
-                <select id="article-puppy-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
-                  {puppyAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
+                <label htmlFor="article-portal-area">Oblasť {managedSections.find((section) => section.slug === portalSection)?.label ?? "sekcie"}</label>
+                <select id="article-portal-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  {currentAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
                 </select>
-                <small>Článok sa zobrazí na samostatnej stránke vybranej oblasti.</small>
-              </div>
-            )}
-            {portalSection === "starostlivost" && (
-              <div className="admin-field">
-                <label htmlFor="article-care-area">Oblasť Zdravia a starostlivosti</label>
-                <select id="article-care-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
-                  {careAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
-                </select>
-                <small>Článok sa zobrazí iba v zvolenej poradenskej oblasti.</small>
-              </div>
-            )}
-            {portalSection === "aktivity" && (
-              <div className="admin-field">
-                <label htmlFor="article-activity-area">Oblasť Výcviku a aktivít</label>
-                <select id="article-activity-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
-                  {activityAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
-                </select>
-                <small>Článok sa zobrazí iba vo zvolenej oblasti aktivít.</small>
+                <small>Článok sa zobrazí v zvolenej oblasti tejto sekcie.</small>
               </div>
             )}
             {portalSection === "novinky" && (

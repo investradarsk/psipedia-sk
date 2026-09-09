@@ -308,6 +308,18 @@ export const portalSections: PortalSection[] = [
         metaDescription: "Vyberte psí šport podľa kondície a povahy psa. Praktické návody pre canicross, bikejoring, nosework, aportovanie a ďalšie disciplíny.",
       },
       {
+        slug: "trening", label: "Tréning", icon: "🎯", description: "Učenie správania, tréningové plány a metodika od základov po pokročilú prácu.",
+        intro: "Tréning má psovi zrozumiteľne ukázať, čo sa oplatí robiť. Nájdeš tu postupy pre učenie nového správania, prácu s rušivými vplyvmi, odmenami, kritériami aj systematické tréningové plány.",
+        popularTopics: ["Privolanie", "Chôdza pri nohe", "Stimulus control", "Tréningové plány"],
+        commonQuestions: ["Ako nastaviť tréning tak, aby pes rozumel kritériu?", "Kedy zvýšiť náročnosť alebo pridať rušivé vplyvy?", "Čo robiť, keď správanie funguje doma, ale nie vonku?"],
+        homeSteps: ["Vyber jedno konkrétne správanie a jasné kritérium úspechu.", "Začni v prostredí, kde má pes vysokú šancu uspieť, a odmeňuj presne.", "Náročnosť zvyšuj po jednom prvku: trvanie, vzdialenosť alebo rušenie."],
+        warningSigns: ["pes opakovane nevie uspieť ani po zjednodušení úlohy", "tréning vyvoláva strach, zamŕzanie, únik alebo obranné správanie", "kritériá sa menia rýchlejšie, než ich pes dokáže pochopiť"],
+        expertAdvice: "Kvalitný tréning nie je o počte povelov. Sleduj úspešnosť psa, načasovanie odmeny a podmienky, v ktorých správanie učíš; pri strachu alebo agresii zapoj kvalifikovaného odborníka.",
+        serviceLinks: [{ label: "Tréneri a psie školy", href: "/adresar/treneri" }, { label: "Kynologické kluby", href: "/adresar/kynologicke-kluby" }],
+        seoTitle: "Tréning psa – metodika, návody a tréningové plány",
+        metaDescription: "Praktický tréning psa od základov po pokročilú prácu. Privolanie, chôdza pri nohe, stimulus control, odmeny, kritériá a tréningové plány.",
+      },
+      {
         slug: "vylety-so-psom", label: "Výlety so psom", icon: "🥾", description: "Trasy, náročnosť, pravidlá, počasie a praktická výbava na cestu.",
         intro: "Dobrý výlet zodpovedá kondícii psa, počasiu aj povrchu trasy. Naplánuj vodu, prestávky a bezpečný návrat skôr, než vyrazíte.",
         popularTopics: ["Turistika so psom", "Výbava na výlet", "Pohyb v horúčave", "Pravidlá v prírode"],
@@ -347,7 +359,7 @@ export const portalSections: PortalSection[] = [
     eyebrow: "Čo sa deje",
     description: "Kalendár výstav, pretekov, seminárov, tréningov a stretnutí.",
     intro: "Podujatia budú zoradené podľa dátumu, kraja a typu, aby si rýchlo našiel program vo svojom okolí.",
-    articleEnabled: true,
+    articleEnabled: false,
     subpages: [
       { slug: "kalendar", label: "Kalendár podujatí", description: "Všetky termíny na jednom mieste s praktickými filtrami." },
       { slug: "vystavy", label: "Výstavy", description: "Národné, medzinárodné a klubové výstavy psov." },
@@ -364,7 +376,7 @@ export const portalSections: PortalSection[] = [
     eyebrow: "Nájdi pomoc nablízku",
     description: "Veterinári, tréneri, školy, kluby a praktické služby na jednom mieste.",
     intro: "Profily môžeš filtrovať podľa kraja, okresu, mesta, zamerania a typu služby.",
-    articleEnabled: true,
+    articleEnabled: false,
     subpages: [
       { slug: "veterinari", label: "Veterinári", description: "Ambulancie, kliniky, pohotovosti a ich zameranie." },
       { slug: "treneri", label: "Psí tréneri a psie školy", description: "Individuálny aj skupinový výcvik, správanie, šteniatka a špecializované tréningy." },
@@ -386,7 +398,7 @@ export const portalSections: PortalSection[] = [
     eyebrow: "Pomoc, ktorá má cieľ",
     description: "Adopcia, útulky, záchrana, dočasná opatera a overené možnosti pomoci.",
     intro: "Na jednom mieste spojíme ľudí, ktorí chcú pomôcť, s overenými útulkami, organizáciami a konkrétnymi prípadmi.",
-    articleEnabled: true,
+    articleEnabled: false,
     subpages: [
       { slug: "adopcia", label: "Psy na adopciu", description: "Psy hľadajúce bezpečný a zodpovedný domov." },
       { slug: "utulky", label: "Útulky a organizácie", description: "Overené zariadenia a záchranné občianske združenia." },
