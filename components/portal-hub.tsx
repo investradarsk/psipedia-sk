@@ -163,7 +163,9 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
         <div className="puppy-start-actions"><Link href="/steniatka/pred-kupou-psa">Ešte sa rozhodujem</Link><Link href="/steniatka/prve-dni" className="is-primary">Šteniatko je doma</Link></div>
       </section>}
 
-      {showSectionTabs && latestContent}
+      {isEditorialHub && latestContent}
+
+      {isReviews && latestContent}
 
       {!isReviews && <section className="section shell portal-directory" aria-labelledby="portal-directory-heading">
         <div className="section-heading split-heading">
@@ -187,7 +189,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
         </div>)}
       </section>}
 
-      {!showSectionTabs && latestContent}
+      {!isEditorialHub && !isReviews && latestContent}
 
       <section className="section shell">
         <div className="portal-more-heading"><span className="eyebrow">{isCare ? "Pomoc nablízku" : isActivities ? "Tréning a zážitky nablízku" : isPuppies ? "Ďalší bezpečný krok" : "Celá Psipedia"}</span><h2>{isCare ? "Užitočné služby a kontakty" : isActivities ? "Kam pokračovať" : isPuppies ? "Výber, zdravie a vedenie na jednom mieste" : "Pokračuj ďalšou sekciou"}</h2>{isCare && <p>Keď článok nestačí, pokračuj priamo k vhodnému odborníkovi alebo službe.</p>}{isActivities && <p>Nájdi vedenie, klub, podujatie alebo bezpečné riešenie na čas, keď pes nemôže cestovať s tebou.</p>}{isPuppies && <p>Over si rozhodnutie, pôvod šteniatka aj odbornú pomoc skôr, než ju budeš súrne potrebovať.</p>}</div>
