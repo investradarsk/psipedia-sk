@@ -59,13 +59,22 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p diagnostic-artifacts .wrangler
-          npm run dev > diagnostic-artifacts/readiness-server.log 2>&1 &
+
+          setsid bash -c 'exec npm run dev' > diagnostic-artifacts/readiness-server.log 2>&1 &
           SERVER_PID=$!
-          cleanup() {
-            kill "$SERVER_PID" 2>/dev/null || true
+
+          stop_server_group() {
+            kill -TERM -- "-$SERVER_PID" 2>/dev/null || true
+            for _ in $(seq 1 20); do
+              if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+                break
+              fi
+              sleep 0.25
+            done
+            kill -KILL -- "-$SERVER_PID" 2>/dev/null || true
             wait "$SERVER_PID" 2>/dev/null || true
           }
-          trap cleanup EXIT
+          trap stop_server_group EXIT
 
           READY=0
           HTTP_STATUS=000
@@ -96,12 +105,28 @@ jobs:
 
           echo "HTTP_STATUS=$HTTP_STATUS" | tee diagnostic-artifacts/readiness-summary.txt
           echo "READY=$READY" | tee -a diagnostic-artifacts/readiness-summary.txt
-          ss -ltnp | tee diagnostic-artifacts/readiness-sockets.txt || true
+          ss -ltnp | tee diagnostic-artifacts/readiness-sockets-before-stop.txt || true
           cp diagnostic-artifacts/readiness-body.txt diagnostic-artifacts/readiness-body-final.txt 2>/dev/null || true
           cat diagnostic-artifacts/readiness-server.log
 
           test "$READY" = "1"
           test "$HTTP_STATUS" != "500"
+
+          stop_server_group
+          trap - EXIT
+
+          PORT_FREE=0
+          for i in $(seq 1 20); do
+            if ! curl --silent --show-error --max-time 1 http://127.0.0.1:5173/ >/dev/null 2>&1; then
+              PORT_FREE=1
+              echo "Port 5173 released after readiness probe $i"
+              break
+            fi
+            sleep 0.5
+          done
+          ss -ltnp | tee diagnostic-artifacts/readiness-sockets-after-stop.txt || true
+          echo "PORT_FREE=$PORT_FREE" | tee -a diagnostic-artifacts/readiness-summary.txt
+          test "$PORT_FREE" = "1"
 
       - name: Phase 5 Playwright desktop
         run: npx playwright test tests/e2e/reviews-phase5.spec.ts --project=desktop-chromium --reporter=line,html
