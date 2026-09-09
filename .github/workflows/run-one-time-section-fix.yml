@@ -1,0 +1,31 @@
+name: Run section source-of-truth transformation
+on:
+  push:
+    branches: [fix/admin-section-source-of-truth]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/admin-section-source-of-truth
+      - name: Apply transformation
+        run: |
+          python scripts/one_time_fix_admin_sections.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('components/admin-article-editor.tsx')
+          t = p.read_text()
+          t = t.replace('managedSections?: PortalSection[];', 'managedSections?: Array<PortalSection & { visible?: boolean }>;')
+          p.write_text(t)
+          PY
+      - name: Commit transformed source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/portal.ts lib/section-store.ts lib/article-store.ts components/admin-article-editor.tsx app/admin/novy/page.tsx 'app/admin/clanky/[id]/page.tsx'
+          git diff --cached --check
+          git commit -m "Align article editor with managed portal sections"
+          git push origin HEAD:fix/admin-section-source-of-truth
