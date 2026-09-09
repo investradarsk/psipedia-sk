@@ -35,8 +35,10 @@ test("admin and public event filters share eventTypes", () => {
   assert.match(adminEditor, /slovakRegions\.map/);
 });
 
-test("legacy calendar URL permanently redirects and is excluded from sitemap", () => {
-  assert.match(contentPage, /slug === "kalendar"\) permanentRedirect\("\/podujatia"\)/);
-  assert.match(contentPage, /canonical: "\/podujatia"/);
+test("legacy calendar URL is a noindex canonical alias excluded from sitemap", () => {
+  assert.match(contentPage, /slug === "kalendar"[\s\S]*canonical: "\/podujatia"/);
+  assert.match(contentPage, /robots: \{ index: false, follow: true \}/);
+  assert.match(contentPage, /slug === "kalendar"\) \{[\s\S]*return <EventsPage events=\{await getPublishedEvents\(\)\}/);
+  assert.doesNotMatch(contentPage, /permanentRedirect\("\/podujatia"\)/);
   assert.match(sitemapSeo, /"\/podujatia\/kalendar"/);
 });
