@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { EventCard } from "@/components/event-card";
 import { SearchIcon } from "@/components/icons";
+import { FilterBar } from "@/components/page-system";
 import { eventDateStatus, eventTypeFilters, slovakRegions, type DogEvent, type EventType } from "@/lib/events";
 
 type TimeFilter = "upcoming" | "past" | "all";
@@ -36,7 +37,7 @@ export function EventCalendar({
 
   return (
     <div className="event-calendar">
-      <div className="event-calendar-toolbar">
+      <FilterBar className="event-calendar-toolbar">
         <label className="event-search">
           <SearchIcon size={20} />
           <span className="sr-only">Hľadať podujatie</span>
@@ -55,7 +56,7 @@ export function EventCalendar({
             {slovakRegions.map((item) => <option key={item}>{item}</option>)}
           </select>
         </label>
-      </div>
+      </FilterBar>
 
       <div className="event-time-filter" aria-label="Filtrovať termín">
         {([
