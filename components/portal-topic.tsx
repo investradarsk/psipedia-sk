@@ -4,7 +4,8 @@ import { ArrowIcon, CheckIcon } from "@/components/icons";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
-import { articlePortalSection, type PortalSection, type PortalSubpage } from "@/lib/portal";
+import { articlePortalSection, portalSubpageHref, type PortalSection, type PortalSubpage } from "@/lib/portal";
+import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 
 const specialNotes: Record<string, { title: string; text: string; items: string[] }> = {
   "novinky/zachrana-a-hrdinovia": {
@@ -62,18 +63,24 @@ export function PortalTopic({
   const isCare = section.slug === "starostlivost";
   const isActivities = section.slug === "aktivity";
   const isPuppies = section.slug === "steniatka";
+  const isReviews = section.slug === "recenzie";
   const isStructuredTopic = isCare || isActivities || isPuppies;
+  const showSectionTabs = isStructuredTopic || isReviews;
+  const hasReviewGuide = isReviews && portalSubpageHasEditorialValue(subpage);
   const legacyCareArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
   const legacyActivityArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
   const sectionArticles = articles.filter((article) =>
     articlePortalSection(article) === section.slug &&
     (!newsCategory || article.newsCategory === newsCategory.slug) &&
     (section.slug !== "steniatka" || article.portalSubpage === subpage.slug) &&
+    (section.slug !== "recenzie" || article.portalSubpage === subpage.slug) &&
     (!isCare || legacyCareArea(article) === subpage.slug) &&
     (!isActivities || legacyActivityArea(article) === subpage.slug),
   );
   const featured = new Map((subpage.featuredArticleSlugs ?? []).map((slug, index) => [slug, index]));
   const sortedArticles = [...sectionArticles].sort((a, b) => (featured.get(a.slug) ?? 999) - (featured.get(b.slug) ?? 999));
+  const reviewTopicHref = portalSubpageHref(section, subpage);
+  const reviewCardProps = isReviews ? { topicHref: reviewTopicHref, topicLabel: subpage.label, actionLabel: "Čítať recenziu" } : {};
   const note = specialNotes[`${section.slug}/${subpage.slug}`] ?? {
     title: `Praktický prehľad: ${subpage.label}`,
     text: subpage.intro || `${subpage.description} Obsah budeme rozširovať o overené informácie, konkrétne postupy a užitočné kontakty.`,
@@ -93,9 +100,9 @@ export function PortalTopic({
         </div>
       </header>
 
-      {isStructuredTopic && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
+      {showSectionTabs && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
 
-      <section className="section shell portal-topic-body">
+      {!isReviews && <section className="section shell portal-topic-body">
         <div className="portal-topic-copy">
           {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
           <span className="eyebrow">Čo tu nájdeš</span>
@@ -109,7 +116,27 @@ export function PortalTopic({
           {isStructuredTopic && subpage.commonQuestions?.length ? <ul>{subpage.commonQuestions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>{section.intro}</p>}
           <Link href={`/${section.slug}`} className="text-link">Celá sekcia <ArrowIcon size={18} /></Link>
         </aside>
-      </section>
+      </section>}
+
+      {hasReviewGuide && <section className="section shell portal-topic-body review-topic-guide">
+        <div className="portal-topic-copy">
+          {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
+          <span className="eyebrow">Sprievodca kategóriou</span>
+          <h2>{subpage.label}: čo sa oplatí vedieť pred výberom</h2>
+          <p>{subpage.intro || subpage.description}</p>
+          {!!subpage.popularTopics?.length && <div className="care-topic-chips review-topic-chips">{subpage.popularTopics.map((item) => <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=recenzie`} key={item}>{item}</Link>)}</div>}
+          {!!subpage.homeSteps?.length && <><h3>Na čo sa pri výbere zamerať</h3><ul>{subpage.homeSteps.map((item) => <li key={item}><CheckIcon size={18} /><span>{item}</span></li>)}</ul></>}
+          {!!subpage.warningSigns?.length && <><h3>Na čo si dať pozor</h3><ul>{subpage.warningSigns.map((item) => <li key={item}><CheckIcon size={18} /><span>{item}</span></li>)}</ul></>}
+          {subpage.expertAdvice && <p><strong>Metodika a kontext:</strong> {subpage.expertAdvice}</p>}
+          {!!subpage.serviceLinks?.length && <div className="care-topic-services review-topic-links"><div><span className="eyebrow">Súvisiace odkazy</span><h3>Pokračuj podľa potreby</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
+        </div>
+        <aside className="portal-topic-aside care-question-aside">
+          <span aria-hidden="true">{subpage.commonQuestions?.length ? "?" : section.icon}</span>
+          <h3>{subpage.commonQuestions?.length ? "Najčastejšie otázky" : section.label}</h3>
+          {subpage.commonQuestions?.length ? <ul>{subpage.commonQuestions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>{section.intro}</p>}
+          <Link href="/recenzie" className="text-link">Všetky recenzie <ArrowIcon size={18} /></Link>
+        </aside>
+      </section>}
 
       {isCare && <section className="section section--tint care-guidance-section">
         <div className="shell">
@@ -147,16 +174,16 @@ export function PortalTopic({
         </div>
       </section>}
 
-      <section className={`section ${isStructuredTopic ? "" : "section--tint"}`}>
+      <section className={`section ${isStructuredTopic || isReviews ? "" : "section--tint"}`}>
         <div className="shell">
           <div className="section-heading split-heading">
-            <div><span className="eyebrow">{newsCategory ? "Najnovšie správy" : "Súvisiace čítanie"}</span><h2>{newsCategory ? newsCategory.label : isActivities || isPuppies ? `Články: ${subpage.label}` : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`}</h2></div>
-            <Link href={newsCategory ? "/novinky" : "/clanky"} className="text-link text-link--large">{newsCategory ? "Všetky novinky" : "Všetky články"} <ArrowIcon /></Link>
+            <div><span className="eyebrow">{newsCategory ? "Najnovšie správy" : isReviews ? "Recenzie v kategórii" : "Súvisiace čítanie"}</span><h2>{newsCategory ? newsCategory.label : isReviews ? subpage.label : isActivities || isPuppies ? `Články: ${subpage.label}` : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`}</h2></div>
+            <Link href={newsCategory ? "/novinky" : isReviews ? "/recenzie" : "/clanky"} className="text-link text-link--large">{newsCategory ? "Všetky novinky" : isReviews ? "Všetky recenzie" : "Všetky články"} <ArrowIcon /></Link>
           </div>
           {sortedArticles.length ? (
-            <div className="article-grid">{sortedArticles.slice(0, 5).map((article) => <ArticleCard article={article} key={article.slug} />)}</div>
+            <div className="article-grid">{sortedArticles.slice(0, isReviews ? 12 : 5).map((article) => <ArticleCard article={article} {...reviewCardProps} key={article.slug} />)}</div>
           ) : (
-            <div className="portal-empty"><span aria-hidden="true">{newsCategory?.icon ?? "🐾"}</span><div><h3>{newsCategory ? "Prvú overenú správu pripravujeme" : "Obsah dopĺňame"}</h3><p>{newsCategory ? "Táto téma má vlastnú stálu adresu. Keď pribudne novinka, zobrazí sa tu spolu so zdrojom a dátumom aktualizácie." : "Táto podsekcia má vlastnú stálu adresu. Nové články sa sem budú pripájať cez redakčnú administráciu."}</p></div></div>
+            <div className="portal-empty"><span aria-hidden="true">{newsCategory?.icon ?? "🐾"}</span><div><h3>{newsCategory ? "Prvú overenú správu pripravujeme" : isReviews ? "Prvú recenziu v tejto kategórii pripravujeme" : "Obsah dopĺňame"}</h3><p>{newsCategory ? "Táto téma má vlastnú stálu adresu. Keď pribudne novinka, zobrazí sa tu spolu so zdrojom a dátumom aktualizácie." : isReviews ? "Keď bude publikovaný prvý test, zobrazí sa priamo na tejto adrese. Dovtedy stránku neponúkame Googlu ako samostatný obsah." : "Táto podsekcia má vlastnú stálu adresu. Nové články sa sem budú pripájať cez redakčnú administráciu."}</p></div></div>
           )}
           {isCare && <p className="care-medical-note"><strong>Bezpečnostná poznámka:</strong> Informácie slúžia na orientáciu a nenahrádzajú diagnózu ani veterinárne vyšetrenie.</p>}
           {isActivities && <p className="care-medical-note activity-safety-note"><strong>Primeraná záťaž:</strong> Pri bolesti, krívaní, neobvyklej únave alebo prehrievaní aktivitu ukonči. Ďalší postup podľa stavu konzultuj s veterinárom.</p>}
