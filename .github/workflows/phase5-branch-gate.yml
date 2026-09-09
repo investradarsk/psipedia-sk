@@ -29,40 +29,127 @@ jobs:
       - run: npm run build
       - name: Apply migrations locally
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state"
-      - name: Query local D1 content
+      - name: Inspect local D1 dynamically
+        shell: bash
         run: |
           mkdir -p diagnostic-artifacts
-          echo '=== portal_section_settings ===' | tee diagnostic-artifacts/d1.txt
-          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state" --command "SELECT COUNT(*) AS section_count FROM portal_section_settings; SELECT slug,label,visible,length(subpages_json) AS subpages_json_length FROM portal_section_settings ORDER BY position; SELECT slug,label,visible,subpages_json FROM portal_section_settings WHERE slug='recenzie';" | tee -a diagnostic-artifacts/d1.txt
-          echo '=== managed_articles ===' | tee -a diagnostic-artifacts/d1.txt
-          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state" --command "SELECT COUNT(*) AS article_count FROM managed_articles; SELECT COUNT(*) AS published_review_count FROM managed_articles WHERE portal_section='recenzie' AND status='published'; SELECT id,slug,title,portal_section,portal_subpage,status,published_at FROM managed_articles WHERE portal_section='recenzie' ORDER BY id LIMIT 50;" | tee -a diagnostic-artifacts/d1.txt
-          echo '=== recenzie string matches ===' | tee -a diagnostic-artifacts/d1.txt
-          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state" --command "SELECT slug,label FROM portal_section_settings WHERE lower(slug) LIKE '%recenzi%' OR lower(label) LIKE '%recenzi%'; SELECT id,slug,title,portal_section,portal_subpage,status FROM managed_articles WHERE lower(portal_section) LIKE '%recenzi%' OR lower(title) LIKE '%recenzi%' OR lower(slug) LIKE '%recenzi%' LIMIT 50;" | tee -a diagnostic-artifacts/d1.txt
+          python - <<'PY' | tee diagnostic-artifacts/d1.txt
+          import glob, json, sqlite3
+
+          paths = glob.glob('.wrangler/state/v3/d1/**/*.sqlite', recursive=True)
+          print('DB_FILES=', paths)
+          assert paths, 'No local D1 sqlite file found'
+          db = paths[0]
+          con = sqlite3.connect(db)
+          con.row_factory = sqlite3.Row
+
+          tables = [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+          print('TABLES=', tables)
+
+          def inspect_table(name):
+              print(f'\n=== {name} ===')
+              if name not in tables:
+                  print('MISSING_TABLE')
+                  return []
+              cols = [dict(r) for r in con.execute(f'PRAGMA table_info("{name}")')]
+              print('COLUMNS=', json.dumps(cols, ensure_ascii=False))
+              count = con.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+              print('COUNT=', count)
+              rows = [dict(r) for r in con.execute(f'SELECT * FROM "{name}" LIMIT 100')]
+              print('ROWS=', json.dumps(rows, ensure_ascii=False, default=str))
+              return rows
+
+          sections = inspect_table('portal_section_settings')
+          articles = inspect_table('managed_articles')
+
+          print('\n=== RECENZIE SECTION ANALYSIS ===')
+          review_sections=[]
+          for row in sections:
+              blob=' '.join(str(v) for v in row.values() if v is not None).lower()
+              if 'recenzi' in blob:
+                  review_sections.append(row)
+          print('MATCHING_SECTION_ROWS=', json.dumps(review_sections, ensure_ascii=False, default=str))
+          for row in review_sections:
+              for key, value in row.items():
+                  if value is None: continue
+                  if 'subpage' in key.lower() or 'json' in key.lower():
+                      try:
+                          parsed=json.loads(value) if isinstance(value,str) else value
+                          if isinstance(parsed,list):
+                              print(f'{key}_COUNT=', len(parsed))
+                              print(f'{key}_SLUGS=', [x.get('slug') if isinstance(x,dict) else None for x in parsed])
+                      except Exception as e:
+                          print(f'{key}_PARSE_ERROR=', repr(e))
+
+          print('\n=== RECENZIE ARTICLE ANALYSIS ===')
+          review_articles=[]
+          for row in articles:
+              blob=' '.join(str(v) for v in row.values() if v is not None).lower()
+              if 'recenzi' in blob:
+                  review_articles.append(row)
+          print('MATCHING_ARTICLE_ROWS=', json.dumps(review_articles, ensure_ascii=False, default=str))
+          print('MATCHING_ARTICLE_COUNT=', len(review_articles))
+          published=[]
+          for row in review_articles:
+              status=str(row.get('status','')).lower()
+              if status == 'published': published.append(row)
+          print('PUBLISHED_MATCHING_ARTICLE_COUNT=', len(published))
+          PY
       - name: Search existing seed mechanisms
+        shell: bash
         run: |
           mkdir -p diagnostic-artifacts
-          find . -path './node_modules' -prune -o -path './dist' -prune -o -type f \( -iname '*seed*' -o -iname '*fixture*' -o -iname '*bootstrap*' \) -print | tee diagnostic-artifacts/seed-files.txt
-          grep -RniE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git 'seed|fixture|bootstrap|INSERT INTO portal_section_settings|INSERT INTO managed_articles' . | head -n 500 | tee diagnostic-artifacts/seed-content.txt || true
-      - name: Probe recenzie
+          {
+            echo '=== CANDIDATE FILES ==='
+            find . -path './node_modules' -prune -o -path './dist' -prune -o -path './.git' -prune -o -type f \( -iname '*seed*' -o -iname '*fixture*' -o -iname '*bootstrap*' \) -print
+            echo '=== CONTENT REFERENCES ==='
+            grep -RniE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git 'seed|fixture|bootstrap|INSERT INTO portal_section_settings|INSERT INTO managed_articles' . | head -n 500 || true
+            echo '=== MIGRATION INSERTS INTO RELEVANT TABLES ==='
+            grep -RniE 'INSERT[[:space:]]+INTO[[:space:]]+(portal_section_settings|managed_articles)' drizzle || true
+          } | tee diagnostic-artifacts/seed-search.txt
+      - name: Probe recenzie with same local D1
+        shell: bash
         run: |
           mkdir -p diagnostic-artifacts
           setsid bash -c 'exec npm run dev' > diagnostic-artifacts/server.log 2>&1 &
           PID=$!
+          stop() { kill -TERM -- "-$PID" 2>/dev/null || true; sleep 1; kill -KILL -- "-$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; }
+          trap stop EXIT
           for i in $(seq 1 60); do
             ROOT=$(curl -sS --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/ || true)
             [ "$ROOT" = "200" ] && break
             sleep 2
           done
           curl -sS -L -D diagnostic-artifacts/recenzie-headers.txt -o diagnostic-artifacts/recenzie.html -w 'HTTP=%{http_code}\nURL=%{url_effective}\n' http://127.0.0.1:5173/recenzie | tee diagnostic-artifacts/recenzie-summary.txt
-          grep -o '<h1[^>]*>[^<]*</h1>' diagnostic-artifacts/recenzie.html | head -n 5 | tee -a diagnostic-artifacts/recenzie-summary.txt || true
-          grep -o 'Táto stopa nikam nevedie\|Recenzie a testy' diagnostic-artifacts/recenzie.html | sort -u | tee -a diagnostic-artifacts/recenzie-summary.txt || true
-          kill -TERM -- "-$PID" 2>/dev/null || true
-          sleep 1
-          kill -KILL -- "-$PID" 2>/dev/null || true
+          python - <<'PY' | tee -a diagnostic-artifacts/recenzie-summary.txt
+          from html.parser import HTMLParser
+          h=open('diagnostic-artifacts/recenzie.html',encoding='utf-8').read()
+          class P(HTMLParser):
+              def __init__(self): super().__init__(); self.in_h1=False; self.in_title=False; self.h1=[]; self.title=[]; self.text=[]
+              def handle_starttag(self,t,a):
+                  if t=='h1': self.in_h1=True
+                  if t=='title': self.in_title=True
+              def handle_endtag(self,t):
+                  if t=='h1': self.in_h1=False
+                  if t=='title': self.in_title=False
+              def handle_data(self,d):
+                  s=' '.join(d.split())
+                  if not s: return
+                  self.text.append(s)
+                  if self.in_h1: self.h1.append(s)
+                  if self.in_title: self.title.append(s)
+          p=P(); p.feed(h)
+          print('TITLE=', ' '.join(p.title))
+          print('H1=', ' '.join(p.h1))
+          print('TEXT=', ' | '.join(p.text[:100]))
+          PY
+          cat diagnostic-artifacts/server.log
+          stop
+          trap - EXIT
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase5-dadf21c-d1-content-diagnostics
+          name: phase5-dadf21c-d1-content-diagnostics-v2
           retention-days: 7
           path: diagnostic-artifacts/
