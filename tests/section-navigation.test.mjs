@@ -11,7 +11,25 @@ test("editorial section tabs use the managed subsection source of truth", () => 
   assert.match(tabs, /portalSubpageHref\(section, subpage\)/);
   assert.match(tabs, /aria-current=\{active \? "page"/);
   assert.doesNotMatch(tabs, /pred-kupou-psa|zdravie|psie-sporty/);
+  assert.doesNotMatch(tabs, /Adresa URL|adminFieldLabels/);
   assert.doesNotMatch(tabs, /\?category=|\?kategoria=|URLSearchParams/);
+});
+
+test("managed subsection writes reject technical labels and malformed slugs", () => {
+  const store = read("lib/section-store.ts");
+  assert.match(store, /adminFieldLabels/);
+  assert.match(store, /normalizedLabel\.endsWith\(" adresa url"\)/);
+  assert.match(store, /Adresa podsekcie musí byť platný slug bez úvodnej alebo koncovej pomlčky/);
+  assert.match(store, /repairCorruptManagedSubpages/);
+  assert.match(store, /system:data-repair/);
+});
+
+test("section editor keeps subsection name and address in separate fields", () => {
+  const editor = read("components/admin-section-editor.tsx");
+  assert.match(editor, /<label>Názov<input value=\{subpage\.label\}/);
+  assert.match(editor, /updateSubpage\(section\.slug, subIndex, \{ label: event\.target\.value \}\)/);
+  assert.match(editor, /<label>Adresa<input value=\{subpage\.slug\}/);
+  assert.match(editor, /updateSubpage\(section\.slug, subIndex, \{ slug: event\.target\.value/);
 });
 
 test("editorial hubs expose direct content before the area directory", () => {
