@@ -82,12 +82,10 @@ export default async function PortalContentPage({ params }: Props) {
   if (section === "podujatia" && eventTypeFromPortalSlug(slug)) {
     return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} />;
   }
-  if (portalTopic) {
-    const articles = section === "recenzie"
-      ? await getPublishedReviewSummaries(slug, 120)
-      : await getPublishedArticleSummaries({ portalSection: portalTopic.section.slug as ArticlePortalSection, limit: 120 });
-    return <PortalTopic {...portalTopic} articles={articles} />;
+  if (portalTopic && section === "recenzie") {
+    return <PortalTopic {...portalTopic} articles={await getPublishedReviewSummaries(slug, 120)} />;
   }
+  if (portalTopic) return <PortalTopic {...portalTopic} articles={await getPublishedArticleSummaries({ portalSection: portalTopic.section.slug as ArticlePortalSection, limit: 120 })} />;
 
   if (section === "podujatia") {
     const event = await getPublishedEvent(slug);
