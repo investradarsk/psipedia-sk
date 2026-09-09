@@ -1,8 +1,9 @@
-name: Phase 5 local D1 content diagnostics
+name: Phase 5 D1 content diagnostics
 
 on:
   push:
-    branches: [codex/phase5-repro-dadf21c]
+    branches:
+      - codex/phase5-repro-dadf21c
 
 permissions:
   contents: read
@@ -10,130 +11,54 @@ permissions:
 jobs:
   diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
           ref: dadf21c322114148f770ce198464a47b1870a787
-
-      - name: Prove exact application checkout
-        shell: bash
+      - name: Prove exact checkout
         run: |
-          set -euxo pipefail
           echo "HEAD=$(git rev-parse HEAD)"
           test "$(git rev-parse HEAD)" = "dadf21c322114148f770ce198464a47b1870a787"
           test -z "$(git status --porcelain)"
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
           cache: npm
-
       - run: npm ci
       - run: npm run build
-
-      - name: Apply local D1 migrations to Vite persistence
+      - name: Apply migrations locally
+        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state"
+      - name: Query local D1 content
         run: |
-          npx wrangler d1 migrations apply DB \
-            --local \
-            --config dist/server/wrangler.json \
-            --persist-to "$PWD/.wrangler/state"
-
-      - name: Inspect local D1 schema and content
-        shell: bash
-        run: |
-          set -euxo pipefail
           mkdir -p diagnostic-artifacts
-          {
-            echo '=== TABLES ==='
-            npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state" --command "SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name;"
-            echo '=== NONEMPTY TABLE COUNTS ==='
-            DB_FILE=$(find .wrangler/state/v3/d1 -type f -name '*.sqlite' | head -n1)
-            echo "DB_FILE=$DB_FILE"
-            sqlite3 "$DB_FILE" ".tables"
-            for t in $(sqlite3 "$DB_FILE" "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;"); do
-              c=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM \"$t\";" 2>/dev/null || echo ERR)
-              echo "$t=$c"
-            done
-            echo '=== TABLE SCHEMAS OF LIKELY CONTENT TABLES ==='
-            for t in managed_sections sections articles managed_articles portal_sections section_subpages navigation_items; do
-              if sqlite3 "$DB_FILE" "SELECT 1 FROM sqlite_master WHERE type='table' AND name='$t';" | grep -q 1; then
-                echo "--- $t schema ---"
-                sqlite3 "$DB_FILE" ".schema $t"
-                echo "--- $t rows ---"
-                sqlite3 -header -column "$DB_FILE" "SELECT * FROM \"$t\" LIMIT 50;"
-              fi
-            done
-            echo '=== RECENZIE STRING SEARCH ACROSS TEXT COLUMNS ==='
-            python - <<'PY'
-import sqlite3, glob
-p=glob.glob('.wrangler/state/v3/d1/**/*.sqlite', recursive=True)[0]
-con=sqlite3.connect(p)
-for (table,) in con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"):
-    cols=list(con.execute(f'PRAGMA table_info("{table}")'))
-    text_cols=[r[1] for r in cols if (r[2] or '').upper() in ('TEXT','VARCHAR','CHAR','CLOB') or (r[2] or '')=='']
-    for col in text_cols:
-        try:
-            rows=list(con.execute(f'SELECT rowid, "{col}" FROM "{table}" WHERE lower(CAST("{col}" AS TEXT)) LIKE ? LIMIT 20', ('%recenzi%',)))
-        except Exception:
-            continue
-        if rows:
-            print(f'[{table}.{col}] {len(rows)} match(es)')
-            for row in rows:
-                print(row)
-PY
-          } | tee diagnostic-artifacts/d1-content.txt
-
-      - name: Search repository for existing seed fixture bootstrap mechanisms
-        shell: bash
+          echo '=== portal_section_settings ===' | tee diagnostic-artifacts/d1.txt
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state" --command "SELECT COUNT(*) AS section_count FROM portal_section_settings; SELECT slug,label,visible,length(subpages_json) AS subpages_json_length FROM portal_section_settings ORDER BY position; SELECT slug,label,visible,subpages_json FROM portal_section_settings WHERE slug='recenzie';" | tee -a diagnostic-artifacts/d1.txt
+          echo '=== managed_articles ===' | tee -a diagnostic-artifacts/d1.txt
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state" --command "SELECT COUNT(*) AS article_count FROM managed_articles; SELECT COUNT(*) AS published_review_count FROM managed_articles WHERE portal_section='recenzie' AND status='published'; SELECT id,slug,title,portal_section,portal_subpage,status,published_at FROM managed_articles WHERE portal_section='recenzie' ORDER BY id LIMIT 50;" | tee -a diagnostic-artifacts/d1.txt
+          echo '=== recenzie string matches ===' | tee -a diagnostic-artifacts/d1.txt
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to "$PWD/.wrangler/state" --command "SELECT slug,label FROM portal_section_settings WHERE lower(slug) LIKE '%recenzi%' OR lower(label) LIKE '%recenzi%'; SELECT id,slug,title,portal_section,portal_subpage,status FROM managed_articles WHERE lower(portal_section) LIKE '%recenzi%' OR lower(title) LIKE '%recenzi%' OR lower(slug) LIKE '%recenzi%' LIMIT 50;" | tee -a diagnostic-artifacts/d1.txt
+      - name: Search existing seed mechanisms
         run: |
-          set -euo pipefail
-          {
-            echo '=== FILE NAMES ==='
-            find . -path './node_modules' -prune -o -path './dist' -prune -o -type f \( -iname '*seed*' -o -iname '*fixture*' -o -iname '*bootstrap*' -o -iname '*mock*' \) -print
-            echo '=== CONTENT REFERENCES ==='
-            grep -RniE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git 'seed|fixture|bootstrap|INSERT INTO .*section|INSERT INTO .*article|managed_sections|portal_sections|subpages' . | head -n 500 || true
-          } | tee diagnostic-artifacts/seed-search.txt
-
-      - name: Probe /recenzie with the same Vite local D1
-        shell: bash
+          mkdir -p diagnostic-artifacts
+          find . -path './node_modules' -prune -o -path './dist' -prune -o -type f \( -iname '*seed*' -o -iname '*fixture*' -o -iname '*bootstrap*' \) -print | tee diagnostic-artifacts/seed-files.txt
+          grep -RniE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git 'seed|fixture|bootstrap|INSERT INTO portal_section_settings|INSERT INTO managed_articles' . | head -n 500 | tee diagnostic-artifacts/seed-content.txt || true
+      - name: Probe recenzie
         run: |
-          set -euo pipefail
-          mkdir -p diagnostic-artifacts .wrangler
+          mkdir -p diagnostic-artifacts
           setsid bash -c 'exec npm run dev' > diagnostic-artifacts/server.log 2>&1 &
           PID=$!
-          stop() { kill -TERM -- "-$PID" 2>/dev/null || true; sleep 1; kill -KILL -- "-$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; }
-          trap stop EXIT
           for i in $(seq 1 60); do
-            STATUS=$(curl -sS --max-time 3 -o diagnostic-artifacts/root.html -w '%{http_code}' http://127.0.0.1:5173/ || true)
-            [ "$STATUS" = "200" ] && break
+            ROOT=$(curl -sS --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/ || true)
+            [ "$ROOT" = "200" ] && break
             sleep 2
           done
-          curl -sS -D diagnostic-artifacts/recenzie-headers.txt -o diagnostic-artifacts/recenzie.html -w 'RECENZIE_HTTP=%{http_code}\nRECENZIE_URL=%{url_effective}\n' http://127.0.0.1:5173/recenzie | tee diagnostic-artifacts/recenzie-summary.txt
-          echo '=== H1/TITLE/TEXT MARKERS ===' | tee -a diagnostic-artifacts/recenzie-summary.txt
-          python - <<'PY' | tee -a diagnostic-artifacts/recenzie-summary.txt
-from html.parser import HTMLParser
-html=open('diagnostic-artifacts/recenzie.html',encoding='utf-8').read()
-class P(HTMLParser):
-    def __init__(self): super().__init__(); self.stack=[]; self.h1=[]; self.title=[]; self.text=[]
-    def handle_starttag(self,t,a): self.stack.append(t)
-    def handle_endtag(self,t):
-        if self.stack and self.stack[-1]==t: self.stack.pop()
-    def handle_data(self,d):
-        s=' '.join(d.split())
-        if not s: return
-        self.text.append(s)
-        if self.stack and self.stack[-1]=='h1': self.h1.append(s)
-        if self.stack and self.stack[-1]=='title': self.title.append(s)
-p=P(); p.feed(html)
-print('TITLE=', ' '.join(p.title))
-print('H1=', ' '.join(p.h1))
-print('TEXT=', ' | '.join(p.text[:120]))
-PY
-          cat diagnostic-artifacts/server.log
-          stop
-          trap - EXIT
-
+          curl -sS -L -D diagnostic-artifacts/recenzie-headers.txt -o diagnostic-artifacts/recenzie.html -w 'HTTP=%{http_code}\nURL=%{url_effective}\n' http://127.0.0.1:5173/recenzie | tee diagnostic-artifacts/recenzie-summary.txt
+          grep -o '<h1[^>]*>[^<]*</h1>' diagnostic-artifacts/recenzie.html | head -n 5 | tee -a diagnostic-artifacts/recenzie-summary.txt || true
+          grep -o 'Táto stopa nikam nevedie\|Recenzie a testy' diagnostic-artifacts/recenzie.html | sort -u | tee -a diagnostic-artifacts/recenzie-summary.txt || true
+          kill -TERM -- "-$PID" 2>/dev/null || true
+          sleep 1
+          kill -KILL -- "-$PID" 2>/dev/null || true
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
