@@ -45,7 +45,7 @@ export function EventsPage({
         <div className="section-heading split-heading">
           <div>
             <span className="eyebrow">Kalendár</span>
-            <h2 id="event-listing-heading">Nájdi podujatie</h2>
+            <h2 id="event-listing-heading">Kalendár podujatí</h2>
           </div>
           <p>Filtruj podľa typu, kraja, termínu alebo hľadaj podľa názvu, mesta či organizátora.</p>
         </div>
