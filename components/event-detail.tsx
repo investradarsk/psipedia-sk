@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowIcon, PawMark } from "@/components/icons";
+import { Breadcrumbs, MediaFrame, cardShellClassName } from "@/components/page-system";
 import { eventDateTimeIso, eventHref, formatEventDate, type DogEvent } from "@/lib/events";
 
 export function EventDetail({ event }: { event: DogEvent }) {
@@ -23,18 +24,18 @@ export function EventDetail({ event }: { event: DogEvent }) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
       <header className="event-detail-hero">
         <div className="shell">
-          <nav className="article-breadcrumbs" aria-label="Navigácia">
+          <Breadcrumbs>
             <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span><span>{event.title}</span>
-          </nav>
+          </Breadcrumbs>
           <div className="event-detail-hero-grid">
             <div>
               <div className="event-detail-tags"><span>{event.eventType}</span>{event.cancelled && <b>Zrušené podujatie</b>}</div>
               <h1>{event.title}</h1>
               <p>{event.excerpt}</p>
             </div>
-            <div className="event-detail-visual">
+            <MediaFrame className="event-detail-visual" variant="landscape">
               {event.imageUrl ? <img src={event.imageUrl} alt={event.title} /> : <PawMark size={92} />}
-            </div>
+            </MediaFrame>
           </div>
         </div>
       </header>
@@ -48,7 +49,7 @@ export function EventDetail({ event }: { event: DogEvent }) {
             <div className="event-practical-info"><strong>Praktické informácie</strong>{event.practicalInfo.split(/\n\s*\n/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
           )}
         </article>
-        <aside className="event-detail-facts">
+        <aside className={`event-detail-facts ${cardShellClassName}`}>
           <h2>Termín a miesto</h2>
           <dl>
             <div><dt>Dátum</dt><dd>{formatEventDate(event)}</dd></div>
