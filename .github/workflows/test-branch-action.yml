@@ -1,9 +1,0 @@
-name: Test branch workflow execution
-on:
-  push:
-    branches: [fix/admin-section-source-of-truth]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo ok
