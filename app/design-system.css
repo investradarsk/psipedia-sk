@@ -147,6 +147,11 @@
   background: var(--forest);
 }
 
+/* Portal flow: hero → tabs → following shell content stays below the navigation. */
+.portal-section-tabs + .shell {
+  margin-top: var(--ps-space-stack);
+}
+
 .filter-bar {
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-filter);
