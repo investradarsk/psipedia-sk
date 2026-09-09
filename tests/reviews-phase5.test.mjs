@@ -9,7 +9,8 @@ test("Phase 5 review hub uses managed canonical category navigation and surfaces
   assert.match(hub, /const isReviews = section\.slug === "recenzie"/);
   assert.match(hub, /const showSectionTabs = isEditorialHub \|\| isReviews/);
   assert.match(hub, /showSectionTabs && <PortalSectionTabs section=\{section\}/);
-  assert.match(hub, /showSectionTabs && latestContent/);
+  assert.match(hub, /isEditorialHub && latestContent/);
+  assert.match(hub, /isReviews && latestContent/);
   assert.match(hub, /!isReviews && <section className="section shell portal-directory"/);
   assert.match(hub, /subpages\.find\(\(item\) => item\.slug === article\.portalSubpage\)/);
   assert.match(hub, /portalSubpageHref\(section, category\)/);
@@ -21,7 +22,8 @@ test("Phase 5 review category pages are direct filtered listings, not generic in
   const topic = read("components/portal-topic.tsx");
   assert.match(topic, /const isReviews = section\.slug === "recenzie"/);
   assert.match(topic, /section\.slug !== "recenzie" \|\| article\.portalSubpage === subpage\.slug/);
-  assert.match(topic, /showSectionTabs && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
+  assert.match(topic, /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
+  assert.match(topic, /isReviews && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
   assert.match(topic, /!isReviews && <section className="section shell portal-topic-body"/);
   assert.match(topic, /hasReviewGuide && <section className="section shell portal-topic-body review-topic-guide"/);
   assert.match(topic, /Recenzie v kategórii/);
@@ -77,6 +79,7 @@ test("empty thin review categories are noindex and excluded from sitemap until t
   assert.match(sitemap, /portalSubpageHasEditorialValue\(subpage\) \|\| sectionArticles\.some\(\(article\) => article\.portalSubpage === subpage\.slug\)/);
 });
 
+
 test("review category landing content and SEO are manageable in the existing section admin", () => {
   const editor = read("components/admin-section-editor.tsx");
   assert.match(editor, /const isReviewSection = section\.slug === "recenzie"/);
@@ -97,6 +100,7 @@ test("existing admin CTA and sponsored behavior remain the review source of trut
   assert.match(renderer, /article-block-cta-disclosure/);
 });
 
+
 test("review category filtering happens before the category-page slice", () => {
   const reviews = read("lib/reviews.ts");
   const route = read("app/[section]/[slug]/page.tsx");
@@ -112,7 +116,7 @@ test("Phase 5 keeps non-review shared component behavior on the existing paths",
   const topic = read("components/portal-topic.tsx");
   const detail = read("components/article-detail.tsx");
   assert.match(hub, /const isEditorialHub = isCare \|\| isActivities \|\| isPuppies/);
-  assert.match(hub, /!showSectionTabs && latestContent/);
+  assert.match(hub, /!isEditorialHub && !isReviews && latestContent/);
   assert.match(topic, /const isStructuredTopic = isCare \|\| isActivities \|\| isPuppies/);
   assert.match(topic, /section\.slug !== "steniatka" \|\| article\.portalSubpage === subpage\.slug/);
   assert.match(topic, /!isCare \|\| legacyCareArea\(article\) === subpage\.slug/);
