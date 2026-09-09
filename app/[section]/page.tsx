@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { EventsPage } from "@/components/events-page";
 import { PortalHub } from "@/components/portal-hub";
 import { NewsHub } from "@/components/news-hub";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
-import { getUpcomingEvents } from "@/lib/event-store";
+import { getPublishedEvents } from "@/lib/event-store";
 import { portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
 
@@ -51,9 +52,10 @@ export default async function PortalSectionPage({ params }: Props) {
     getManagedPortalSection(slug),
     listManagedPortalSections(),
     slug === "podujatia" ? Promise.resolve([]) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
-    slug === "podujatia" ? getUpcomingEvents(3) : Promise.resolve(undefined),
+    slug === "podujatia" ? getPublishedEvents() : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();
   if (slug === "novinky") return <NewsHub articles={articles} section={section} />;
+  if (slug === "podujatia") return <EventsPage events={events ?? []} section={section} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }
