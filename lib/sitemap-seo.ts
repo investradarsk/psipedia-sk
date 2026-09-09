@@ -6,6 +6,7 @@ export const SITEMAP_REDIRECT_SOURCES = new Set([
   "/adresar/psie-skoly",
   "/adresar/veterinari/veterinarna-poliklinka-althea",
   "/recenzie/vybava",
+  "/podujatia/kalendar",
 ]);
 
 const FORBIDDEN_PREFIXES = ["/admin", "/api", "/hladat", "/oblubene", "/media"];
