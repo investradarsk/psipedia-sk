@@ -23,7 +23,10 @@ function loadAnalytics() {
   const analyticsWindow = window as AnalyticsWindow;
   analyticsWindow[`ga-disable-${MEASUREMENT_ID}`] = false;
   analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
+  // Google gtag.js expects each command to be queued as the function Arguments object.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   analyticsWindow.gtag ||= function gtag(..._args: unknown[]) {
+    // eslint-disable-next-line prefer-rest-params
     analyticsWindow.dataLayer?.push(arguments);
   };
 
