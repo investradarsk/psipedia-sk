@@ -8,16 +8,24 @@ import { Breadcrumbs, MediaFrame, cardShellClassName } from "@/components/page-s
 import { ShareButton } from "@/components/share-button";
 import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
-import { articleHref, articlePortalSection, portalSectionLabel } from "@/lib/portal";
+import { articleHref, articlePortalSection, portalSectionLabel, portalSubpageHref, type PortalSection } from "@/lib/portal";
 import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 import { articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
 
-export function ArticleDetail({ article, related }: { article: Article; related: Article[] }) {
+export function ArticleDetail({ article, related, portalSection }: { article: Article; related: Article[]; portalSection?: PortalSection }) {
   const section = articlePortalSection(article);
   const sectionHref = section === "clanky" ? "/clanky" : `/${section}`;
   const newsCategory = section === "novinky" ? getNewsCategory(article.newsCategory) : null;
-  const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : `/tema/${categorySlug(article.category)}`;
-  const topicLabel = newsCategory?.label ?? article.category;
+  const reviewCategory = section === "recenzie" && portalSection?.slug === "recenzie" && article.portalSubpage
+    ? portalSection.subpages.find((item) => item.slug === article.portalSubpage && item.visible !== false) ?? null
+    : null;
+  const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : reviewCategory ? portalSubpageHref(portalSection!, reviewCategory) : `/tema/${categorySlug(article.category)}`;
+  const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
+  const relatedCardProps = (item: Article) => {
+    if (section !== "recenzie" || articlePortalSection(item) !== "recenzie" || !portalSection || !item.portalSubpage) return {};
+    const category = portalSection.subpages.find((entry) => entry.slug === item.portalSubpage && entry.visible !== false);
+    return category ? { topicHref: portalSubpageHref(portalSection, category), topicLabel: category.label, actionLabel: "Čítať recenziu" } : {};
+  };
   const canonical = article.seo?.canonicalUrl || `${SITE_URL}${articleHref(article)}`;
   const image = article.image ? absoluteUrl(article.image) : undefined;
   const blocks = article.blocks?.length
@@ -106,21 +114,21 @@ export function ArticleDetail({ article, related }: { article: Article; related:
           <ArticleRichText className="article-intro" value={article.intro} />
           <div className="takeaway-box"><strong>To najdôležitejšie</strong><ArticleRichText value={article.takeaway} /></div>
           <ArticleBlocks blocks={blocks} />
-          <p className="article-disclaimer">{section === "novinky" ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
+          <p className="article-disclaimer">{section === "novinky" ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : section === "recenzie" ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
           <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
         </article>
         <aside className={`article-aside ${cardShellClassName}`} aria-label="Nástroje článku">
           <FavoriteButton slug={article.slug} />
-          <ShareButton title={article.title} label={section === "novinky" ? "Zdieľať novinku" : "Zdieľať článok"} />
-          <p className="article-aside-note">Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr.</p>
+          <ShareButton title={article.title} label={section === "novinky" ? "Zdieľať novinku" : section === "recenzie" ? "Zdieľať recenziu" : "Zdieľať článok"} />
+          <p className="article-aside-note">{section === "recenzie" ? "Recenziu si môžeš uložiť v tomto zariadení a vrátiť sa k nej neskôr." : "Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr."}</p>
         </aside>
       </div>
 
       <section className="related-section">
         <div className="shell">
           <span className="eyebrow">Pokračuj v čítaní</span>
-          <h2>Súvisiace články</h2>
-          <div className="article-grid">{related.map((item) => <ArticleCard article={item} key={item.slug} />)}</div>
+          <h2>{section === "recenzie" ? "Súvisiace recenzie a články" : "Súvisiace články"}</h2>
+          <div className="article-grid">{related.map((item) => <ArticleCard article={item} {...relatedCardProps(item)} key={item.slug} />)}</div>
         </div>
       </section>
     </main>
