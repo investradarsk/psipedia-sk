@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HelpBrowser } from "@/components/help-browser";
 import { ArrowIcon } from "@/components/icons";
+import { Breadcrumbs, SectionHero } from "@/components/page-system";
 import {
   getHelpCategory,
   helpCategories,
@@ -16,14 +17,11 @@ export function HelpPage({ items, initialCategory = "all" }: { items: HelpCase[]
   const heroImage = items.find((item) => item.imageUrl)?.imageUrl || "/images/hero-labrador.webp";
   return (
     <main id="obsah">
-      <header className="help-hero help-hero--photo">
-        <img className="section-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />
-        <div className="shell">
-          <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span>{active ? <><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><span>{active.label}</span></> : <span>Pomoc psom</span>}</nav>
-          <div className="help-hero-grid"><div><span className="eyebrow">{active ? active.singular : "Pomoc, ktorá má cieľ"}</span><h1>{active ? active.label : "Pomôžme psom správne"}</h1><p>{active?.description ?? "Adopcie, pátrania, urgentné prípady a transparentné zbierky na jednom dôveryhodnom mieste."}</p></div><aside><span aria-hidden="true">🛡️</span><div><strong>Najprv overujeme</strong><p>Pri prípadoch uvádzame zodpovednú osobu alebo organizáciu. Zbierku nezverejníme bez overeného odkazu a cieľa.</p></div></aside></div>
-          <div className="help-hero-stats"><div><strong>{helpCategories.length}</strong><span>spôsobov pomoci</span></div><div><strong>{activeCount}</strong><span>aktívnych prípadov</span></div><div><strong>{verifiedCount}</strong><span>overených výziev</span></div></div>
-        </div>
-      </header>
+      <SectionHero className="help-hero help-hero--photo" image={heroImage}>
+        <Breadcrumbs><Link href="/">Domov</Link><span>/</span>{active ? <><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><span>{active.label}</span></> : <span>Pomoc psom</span>}</Breadcrumbs>
+        <div className="help-hero-grid"><div><span className="eyebrow">{active ? active.singular : "Pomoc, ktorá má cieľ"}</span><h1>{active ? active.label : "Pomôžme psom správne"}</h1><p>{active?.description ?? "Adopcie, pátrania, urgentné prípady a transparentné zbierky na jednom dôveryhodnom mieste."}</p></div><aside><span aria-hidden="true">🛡️</span><div><strong>Najprv overujeme</strong><p>Pri prípadoch uvádzame zodpovednú osobu alebo organizáciu. Zbierku nezverejníme bez overeného odkazu a cieľa.</p></div></aside></div>
+        <div className="help-hero-stats"><div><strong>{helpCategories.length}</strong><span>spôsobov pomoci</span></div><div><strong>{activeCount}</strong><span>aktívnych prípadov</span></div><div><strong>{verifiedCount}</strong><span>overených výziev</span></div></div>
+      </SectionHero>
 
       <section className="section shell help-categories" aria-labelledby="help-categories-heading">
         <div className="section-heading split-heading"><div><span className="eyebrow">Vyber si spôsob</span><h2 id="help-categories-heading">Ako chceš pomôcť?</h2></div><p>Každá kategória aj každý prípad má vlastnú adresu na jednoduché uloženie a zdieľanie.</p></div>
