@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
+import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articlePortalSection, type PortalSection, type PortalSubpage } from "@/lib/portal";
@@ -91,6 +92,8 @@ export function PortalTopic({
           <p>{subpage.description}</p>
         </div>
       </header>
+
+      {isStructuredTopic && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
 
       <section className="section shell portal-topic-body">
         <div className="portal-topic-copy">

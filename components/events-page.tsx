@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
+import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
 import { bratislavaDateKey, type DogEvent, type EventType } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 
@@ -28,39 +29,38 @@ export function EventsPage({
 
   return (
     <main id="obsah">
-      <header className="event-calendar-hero event-calendar-hero--photo">
-        <img className="section-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />
-        <div className="shell">
-          <nav className="article-breadcrumbs" aria-label="Navigácia">
-            <Link href="/">Domov</Link><span>/</span>{isMainListing ? <span>Podujatia</span> : <><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span></>}
-          </nav>
-          <span className="eyebrow">Čo sa deje</span>
-          <h1>{title}</h1>
-          <p>{description}</p>
-          {intro && <p className="portal-hero-intro">{intro}</p>}
-        </div>
-      </header>
+      <SectionHero className="event-calendar-hero event-calendar-hero--photo" image={heroImage}>
+        <Breadcrumbs>
+          <Link href="/">Domov</Link><span>/</span>{isMainListing ? <span>Podujatia</span> : <><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span></>}
+        </Breadcrumbs>
+        <span className="eyebrow">Čo sa deje</span>
+        <h1>{title}</h1>
+        <p>{description}</p>
+        {intro && <p className="portal-hero-intro">{intro}</p>}
+      </SectionHero>
 
-      <section className="event-calendar-section shell" aria-labelledby="event-listing-heading">
-        <div className="section-heading split-heading">
-          <div>
-            <span className="eyebrow">Kalendár</span>
-            <h2 id="event-listing-heading">Kalendár podujatí</h2>
+      <section className="event-calendar-section" aria-labelledby="event-listing-heading">
+        <PageContainer>
+          <div className="section-heading split-heading">
+            <div>
+              <span className="eyebrow">Kalendár</span>
+              <h2 id="event-listing-heading">Kalendár podujatí</h2>
+            </div>
+            <p>Výstavy, preteky, semináre a ďalšie typy môžeš filtrovať podľa kraja, termínu alebo hľadať podľa názvu, mesta či organizátora.</p>
           </div>
-          <p>Výstavy, preteky, semináre a ďalšie podujatia filtruj podľa typu, kraja, termínu alebo hľadaj podľa názvu, mesta či organizátora.</p>
-        </div>
-        <EventCalendar events={events} today={bratislavaDateKey()} initialType={initialType} />
+          <EventCalendar events={events} today={bratislavaDateKey()} initialType={initialType} />
+        </PageContainer>
       </section>
 
       <section className="section section--tint">
-        <div className="shell portal-more">
+        <PageContainer className="portal-more">
           <div>
             <span className="eyebrow">Pre organizátorov</span>
             <h2>Chýba tu vaše podujatie?</h2>
             <p>Pošlite nám údaje na redakčné overenie. Pridanie podujatia zostáva samostatnou cestou, ale neodvádza pozornosť od vyhľadávania v kalendári.</p>
           </div>
           <Link href="/podujatia/pridat-podujatie" className="button button--dark">Pridať podujatie</Link>
-        </div>
+        </PageContainer>
       </section>
     </main>
   );

@@ -4,6 +4,7 @@ import { ArticleBlocks, ArticleRichText } from "@/components/article-blocks";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PawMark } from "@/components/icons";
+import { Breadcrumbs, MediaFrame, cardShellClassName } from "@/components/page-system";
 import { ShareButton } from "@/components/share-button";
 import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
@@ -73,11 +74,11 @@ export function ArticleDetail({ article, related }: { article: Article; related:
     <main id="obsah">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
       <header className="article-hero shell">
-        <nav className="article-breadcrumbs" aria-label="Navigácia v článku">
+        <Breadcrumbs label="Navigácia v článku">
           <Link href="/">Domov</Link><span>/</span>
           <Link href={sectionHref}>{portalSectionLabel(section)}</Link><span>/</span>
           <Link href={topicHref}>{topicLabel}</Link>
-        </nav>
+        </Breadcrumbs>
         <div className="article-hero-grid">
           <div className="article-title">
             <span className="eyebrow">{portalSectionLabel(section)} · {topicLabel}</span>
@@ -90,11 +91,13 @@ export function ArticleDetail({ article, related }: { article: Article; related:
               <span>{article.readTime} čítania</span>
             </div>
           </div>
-          {article.image ? (
-            <img className="article-hero-image" src={article.image} alt={article.title} decoding="async" />
-          ) : (
-            <div className={`article-hero-placeholder article-hero-placeholder--${article.accent}`}><PawMark size={86} /></div>
-          )}
+          <MediaFrame className="article-hero-media" variant="article">
+            {article.image ? (
+              <img className="article-hero-image" src={article.image} alt={article.title} decoding="async" />
+            ) : (
+              <div className={`article-hero-placeholder article-hero-placeholder--${article.accent}`}><PawMark size={86} /></div>
+            )}
+          </MediaFrame>
         </div>
       </header>
 
@@ -106,7 +109,7 @@ export function ArticleDetail({ article, related }: { article: Article; related:
           <p className="article-disclaimer">{section === "novinky" ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
           <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
         </article>
-        <aside className="article-aside" aria-label="Nástroje článku">
+        <aside className={`article-aside ${cardShellClassName}`} aria-label="Nástroje článku">
           <FavoriteButton slug={article.slug} />
           <ShareButton title={article.title} label={section === "novinky" ? "Zdieľať novinku" : "Zdieľať článok"} />
           <p className="article-aside-note">Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr.</p>

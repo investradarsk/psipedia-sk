@@ -6,6 +6,7 @@ const portalPage = readFileSync(new URL("../app/[section]/page.tsx", import.meta
 const contentPage = readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
 const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
 const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
+const eventCard = readFileSync(new URL("../components/event-card.tsx", import.meta.url), "utf8");
 const eventsLib = readFileSync(new URL("../lib/events.ts", import.meta.url), "utf8");
 const adminEditor = readFileSync(new URL("../components/admin-event-editor.tsx", import.meta.url), "utf8");
 const sitemapSeo = readFileSync(new URL("../lib/sitemap-seo.ts", import.meta.url), "utf8");
@@ -25,6 +26,15 @@ test("event filters use the central event type and date sources", () => {
   assert.match(calendar, /Nenašli sme zhodu/);
   assert.match(calendar, /resetFilters/);
   assert.doesNotMatch(calendar, /const eventTypes\s*=|new Date\(/);
+});
+
+test("events reuse the shared Phase 1 and Phase 2 page primitives", () => {
+  assert.match(eventsPage, /Breadcrumbs, PageContainer, SectionHero/);
+  assert.match(eventsPage, /<SectionHero/);
+  assert.match(eventsPage, /<PageContainer/);
+  assert.match(calendar, /import \{ FilterBar \} from "@\/components\/page-system"/);
+  assert.match(calendar, /<FilterBar className="event-calendar-toolbar">/);
+  assert.match(eventCard, /cardShellClassName/);
 });
 
 test("admin and public event filters share eventTypes", () => {
