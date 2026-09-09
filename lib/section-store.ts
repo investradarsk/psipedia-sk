@@ -52,7 +52,7 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
   try {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return fallback;
-    return parsed.map((item) => {
+    const storedItems = parsed.map((item) => {
       const stored = item as PortalSubpage;
       const defaults = fallback.find((candidate) => candidate.slug === stored.slug);
       if (!defaults) return stored;
@@ -61,6 +61,8 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
       if (stored.description === legacyActivityDescriptions[stored.slug]) merged.description = defaults.description;
       return merged;
     });
+    const storedSlugs = new Set(storedItems.map((item) => item.slug));
+    return [...storedItems, ...fallback.filter((item) => !storedSlugs.has(item.slug))];
   }
   catch { return fallback; }
 }

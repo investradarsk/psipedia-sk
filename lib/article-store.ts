@@ -7,6 +7,7 @@ import {
   type ArticlePortalSection,
 } from "@/lib/portal";
 import { isNewsCategory, type NewsCategorySlug } from "@/lib/news";
+import { getManagedPortalSubpage } from "@/lib/section-store";
 import {
   articleBlockSources,
   legacyArticleBlocks,
@@ -381,7 +382,7 @@ export function slugifyArticleTitle(value: string) {
     .slice(0, 90);
 }
 
-function normalizeInput(payload: ManagedArticleInput) {
+async function normalizeInput(payload: ManagedArticleInput) {
   const title = payload.title?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || title);
   const excerpt = payload.excerpt?.trim() ?? "";
@@ -395,9 +396,10 @@ function normalizeInput(payload: ManagedArticleInput) {
   const portalSection: ArticlePortalSection = payload.portalSection && isArticlePortalSection(payload.portalSection)
     ? payload.portalSection
     : "clanky";
-  const portalSubpage = (portalSection === "steniatka" || portalSection === "starostlivost" || portalSection === "aktivity") && payload.portalSubpage && getPortalSubpage(portalSection, payload.portalSubpage)
-    ? payload.portalSubpage
+  const managedSubpage = portalSection !== "clanky" && portalSection !== "novinky" && payload.portalSubpage
+    ? await getManagedPortalSubpage(portalSection, payload.portalSubpage)
     : null;
+  const portalSubpage = managedSubpage ? payload.portalSubpage ?? null : null;
   const newsCategory: NewsCategorySlug | null = portalSection === "novinky"
     ? payload.newsCategory && isNewsCategory(payload.newsCategory) ? payload.newsCategory : "zo-sveta"
     : null;
@@ -431,6 +433,7 @@ function normalizeInput(payload: ManagedArticleInput) {
   if (portalSection === "steniatka" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Šteniatka.");
   if (portalSection === "starostlivost" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Zdravie a starostlivosť.");
   if (portalSection === "aktivity" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Výcvik a aktivity.");
+  if (portalSection === "recenzie" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Recenzie a testy.");
   if (excerpt.length < 20) throw new Error("Perex by mal mať aspoň 20 znakov.");
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
   if (takeaway.length < 10) throw new Error("Doplň hlavné posolstvo článku.");
@@ -717,7 +720,7 @@ async function syncArticleBreeds(database:D1Database,articleId:number,breedIds:n
 export async function createManagedArticle(payload: ManagedArticleInput, editorEmail: string) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
-  const input = normalizeInput(payload);
+  const input = await normalizeInput(payload);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? input.publishedAt ?? now : input.status === "scheduled" ? input.publishedAt : null;
 
@@ -786,7 +789,7 @@ export async function updateManagedArticle(
   const existing = existingArticle ?? await getManagedArticleById(id);
   if (!existing) return null;
 
-  const input = normalizeInput(payload);
+  const input = await normalizeInput(payload);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published"
     ? input.publishedAt ?? existing.publishedAt ?? now
