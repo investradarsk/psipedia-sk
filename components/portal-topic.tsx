@@ -65,7 +65,6 @@ export function PortalTopic({
   const isPuppies = section.slug === "steniatka";
   const isReviews = section.slug === "recenzie";
   const isStructuredTopic = isCare || isActivities || isPuppies;
-  const showSectionTabs = isStructuredTopic || isReviews;
   const hasReviewGuide = isReviews && portalSubpageHasEditorialValue(subpage);
   const legacyCareArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
   const legacyActivityArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
@@ -100,7 +99,9 @@ export function PortalTopic({
         </div>
       </header>
 
-      {showSectionTabs && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
+      {isStructuredTopic && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
+
+      {isReviews && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
 
       {!isReviews && <section className="section shell portal-topic-body">
         <div className="portal-topic-copy">
