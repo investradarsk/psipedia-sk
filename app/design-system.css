@@ -241,6 +241,10 @@
   border-radius: var(--ps-radius-card);
 }
 
+.directory-detail-facts.card-shell .text-link {
+  color: var(--forest-dark);
+}
+
 @media (max-width: 900px) {
   .media-frame--article {
     aspect-ratio: 16 / 9;
