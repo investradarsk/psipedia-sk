@@ -122,6 +122,36 @@ export function eventIsPast(event: Pick<DogEvent, "endDate" | "startDate">, toda
   return eventDateStatus(event, typeof today === "string" ? today : bratislavaDateKey(today)) === "past";
 }
 
+const eventTypePortalSlugs: Partial<Record<EventType, string>> = {
+  "Výstava": "vystavy",
+  "Preteky": "preteky",
+  "Seminár": "seminare",
+};
+
 export function eventTypeFromPortalSlug(slug: string): EventType | null {
-  return ({ vystavy: "Výstava", preteky: "Preteky", seminare: "Seminár" } as Record<string, EventType>)[slug] ?? null;
+  return (Object.entries(eventTypePortalSlugs).find(([, value]) => value === slug)?.[0] as EventType | undefined) ?? null;
+}
+
+export function eventTypePortalHref(eventType: EventType) {
+  const slug = eventTypePortalSlugs[eventType];
+  return slug ? `/podujatia/${slug}` : null;
+}
+
+export function selectRelatedEvents(
+  event: DogEvent,
+  candidates: DogEvent[],
+  limit = 3,
+  today = bratislavaDateKey(),
+) {
+  const active = candidates
+    .filter((candidate) => candidate.slug !== event.slug && !candidate.cancelled && eventDateStatus(candidate, today) !== "past")
+    .sort((left, right) => left.startDate.localeCompare(right.startDate)
+      || left.startTime.localeCompare(right.startTime)
+      || left.id - right.id);
+
+  if (eventDateStatus(event, today) === "past") return active.slice(0, limit);
+
+  const sameType = active.filter((candidate) => candidate.eventType === event.eventType);
+  const otherTypes = active.filter((candidate) => candidate.eventType !== event.eventType);
+  return [...sameType, ...otherTypes].slice(0, limit);
 }
