@@ -1,0 +1,268 @@
+from pathlib import Path
+
+
+def replace(path: str, old: str, new: str) -> None:
+    p = Path(path)
+    text = p.read_text()
+    if old not in text:
+        raise SystemExit(f"Expected text not found in {path}: {old[:120]!r}")
+    p.write_text(text.replace(old, new, 1))
+
+
+portal = Path("lib/portal.ts")
+text = portal.read_text()
+marker = '''      {
+        slug: "vylety-so-psom", label: "Výlety so psom", icon: "🥾", description: "Trasy, náročnosť, pravidlá, počasie a praktická výbava na cestu.",'''
+training = '''      {
+        slug: "trening", label: "Tréning", icon: "🎯", description: "Učenie správania, tréningové plány a metodika od základov po pokročilú prácu.",
+        intro: "Tréning má psovi zrozumiteľne ukázať, čo sa oplatí robiť. Nájdeš tu postupy pre učenie nového správania, prácu s rušivými vplyvmi, odmenami, kritériami aj systematické tréningové plány.",
+        popularTopics: ["Privolanie", "Chôdza pri nohe", "Stimulus control", "Tréningové plány"],
+        commonQuestions: ["Ako nastaviť tréning tak, aby pes rozumel kritériu?", "Kedy zvýšiť náročnosť alebo pridať rušivé vplyvy?", "Čo robiť, keď správanie funguje doma, ale nie vonku?"],
+        homeSteps: ["Vyber jedno konkrétne správanie a jasné kritérium úspechu.", "Začni v prostredí, kde má pes vysokú šancu uspieť, a odmeňuj presne.", "Náročnosť zvyšuj po jednom prvku: trvanie, vzdialenosť alebo rušenie."],
+        warningSigns: ["pes opakovane nevie uspieť ani po zjednodušení úlohy", "tréning vyvoláva strach, zamŕzanie, únik alebo obranné správanie", "kritériá sa menia rýchlejšie, než ich pes dokáže pochopiť"],
+        expertAdvice: "Kvalitný tréning nie je o počte povelov. Sleduj úspešnosť psa, načasovanie odmeny a podmienky, v ktorých správanie učíš; pri strachu alebo agresii zapoj kvalifikovaného odborníka.",
+        serviceLinks: [{ label: "Tréneri a psie školy", href: "/adresar/treneri" }, { label: "Kynologické kluby", href: "/adresar/kynologicke-kluby" }],
+        seoTitle: "Tréning psa – metodika, návody a tréningové plány",
+        metaDescription: "Praktický tréning psa od základov po pokročilú prácu. Privolanie, chôdza pri nohe, stimulus control, odmeny, kritériá a tréningové plány.",
+      },
+'''
+if 'slug: "trening", label: "Tréning"' not in text:
+    if marker not in text:
+        raise SystemExit("Activities insertion marker not found")
+    text = text.replace(marker, training + marker, 1)
+
+for section_slug in ("podujatia", "adresar", "pomoc-psom"):
+    anchor = f'''    slug: "{section_slug}",'''
+    start = text.find(anchor)
+    if start < 0:
+        raise SystemExit(f"Section {section_slug} not found")
+    pos = text.find("articleEnabled: true", start)
+    next_section = text.find('\n  {\n    slug:', start + len(anchor))
+    if pos < 0 or (next_section >= 0 and pos > next_section):
+        raise SystemExit(f"articleEnabled for {section_slug} not found")
+    text = text[:pos] + "articleEnabled: false" + text[pos + len("articleEnabled: true"):]
+portal.write_text(text)
+
+replace(
+    "lib/section-store.ts",
+    '''    return parsed.map((item) => {
+      const stored = item as PortalSubpage;
+      const defaults = fallback.find((candidate) => candidate.slug === stored.slug);
+      if (!defaults) return stored;
+      const merged = { ...defaults, ...stored };
+      if (stored.slug === "vycvik" && stored.label === "Výcvik") merged.label = defaults.label;
+      if (stored.description === legacyActivityDescriptions[stored.slug]) merged.description = defaults.description;
+      return merged;
+    });''',
+    '''    const storedItems = parsed.map((item) => {
+      const stored = item as PortalSubpage;
+      const defaults = fallback.find((candidate) => candidate.slug === stored.slug);
+      if (!defaults) return stored;
+      const merged = { ...defaults, ...stored };
+      if (stored.slug === "vycvik" && stored.label === "Výcvik") merged.label = defaults.label;
+      if (stored.description === legacyActivityDescriptions[stored.slug]) merged.description = defaults.description;
+      return merged;
+    });
+    const storedSlugs = new Set(storedItems.map((item) => item.slug));
+    return [...storedItems, ...fallback.filter((item) => !storedSlugs.has(item.slug))];''',
+)
+
+replace(
+    "components/admin-article-editor.tsx",
+    '''  articlePortalSectionOptions,
+  getPortalSection,
+  portalSectionLabel,
+  type ArticlePortalSection,
+} from "@/lib/portal";''',
+    '''  articlePortalSectionOptions,
+  portalSections as defaultPortalSections,
+  portalSectionLabel,
+  type ArticlePortalSection,
+  type PortalSection,
+} from "@/lib/portal";''',
+)
+replace(
+    "components/admin-article-editor.tsx",
+    '''const puppyAreas = getPortalSection("steniatka")?.subpages.filter((subpage) => !subpage.href) ?? [];
+const careAreas = getPortalSection("starostlivost")?.subpages.filter((subpage) => !subpage.href && subpage.visible !== false) ?? [];
+const activityAreas = getPortalSection("aktivity")?.subpages.filter((subpage) => !subpage.href && subpage.visible !== false) ?? [];
+
+export function AdminArticleEditor({''',
+    '''export function AdminArticleEditor({''',
+)
+replace(
+    "components/admin-article-editor.tsx",
+    '''  breedOptions = [],
+}: {
+  article?: ManagedArticle;
+  defaultPortalSection?: ArticlePortalSection;
+  defaultPortalSubpage?: string;
+  breedOptions?: ManagedBreedSummary[];
+}) {
+  const initialPortalSection = article?.portalSection ?? defaultPortalSection;''',
+    '''  breedOptions = [],
+  managedSections = defaultPortalSections,
+}: {
+  article?: ManagedArticle;
+  defaultPortalSection?: ArticlePortalSection;
+  defaultPortalSubpage?: string;
+  breedOptions?: ManagedBreedSummary[];
+  managedSections?: PortalSection[];
+}) {
+  const initialPortalSection = article?.portalSection ?? defaultPortalSection;
+  const sectionOptions = [
+    articlePortalSectionOptions[0],
+    ...managedSections
+      .filter((section) => section.articleEnabled && section.visible !== false)
+      .map((section) => ({ slug: section.slug as ArticlePortalSection, label: section.label })),
+  ];
+  const areasFor = (sectionSlug: ArticlePortalSection) =>
+    managedSections.find((section) => section.slug === sectionSlug)?.subpages.filter((subpage) => !subpage.href && subpage.visible !== false) ?? [];
+  const initialAreas = areasFor(initialPortalSection);''',
+)
+replace(
+    "components/admin-article-editor.tsx",
+    '''    article?.portalSubpage ??
+    (initialPortalSection === "starostlivost" ? careAreas : initialPortalSection === "aktivity" ? activityAreas : puppyAreas).find((area) => area.slug === defaultPortalSubpage)?.slug ??
+    (initialPortalSection === "starostlivost" ? careAreas[0]?.slug : initialPortalSection === "aktivity" ? activityAreas[0]?.slug : puppyAreas[0]?.slug) ?? "",
+  );''',
+    '''    article?.portalSubpage ??
+    initialAreas.find((area) => area.slug === defaultPortalSubpage)?.slug ??
+    initialAreas[0]?.slug ?? "",
+  );
+  const currentAreas = areasFor(portalSection);''',
+)
+replace(
+    "components/admin-article-editor.tsx",
+    '''  function changePortalSection(value: ArticlePortalSection) {
+    setPortalSection(value);
+    if (value === "steniatka" && !puppyAreas.some((area) => area.slug === portalSubpage)) {
+      setPortalSubpage(puppyAreas[0]?.slug ?? "");
+    }
+    if (value === "starostlivost" && !careAreas.some((area) => area.slug === portalSubpage)) {
+      setPortalSubpage(careAreas[0]?.slug ?? "");
+    }
+    if (value === "aktivity" && !activityAreas.some((area) => area.slug === portalSubpage)) {
+      setPortalSubpage(activityAreas[0]?.slug ?? "");
+    }
+    if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
+  }''',
+    '''  function changePortalSection(value: ArticlePortalSection) {
+    setPortalSection(value);
+    const nextAreas = areasFor(value);
+    if (!nextAreas.some((area) => area.slug === portalSubpage)) setPortalSubpage(nextAreas[0]?.slug ?? "");
+    if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
+  }''',
+)
+replace(
+    "components/admin-article-editor.tsx",
+    '''      portalSubpage: portalSection === "steniatka" || portalSection === "starostlivost" || portalSection === "aktivity" ? portalSubpage : null,''',
+    '''      portalSubpage: currentAreas.length ? portalSubpage : null,''',
+)
+replace(
+    "components/admin-article-editor.tsx",
+    '''                {articlePortalSectionOptions.map((option) => <option value={option.slug} key={option.slug}>{option.label}</option>)}''',
+    '''                {sectionOptions.map((option) => <option value={option.slug} key={option.slug}>{option.label}</option>)}''',
+)
+replace(
+    "components/admin-article-editor.tsx",
+    '''            {portalSection === "steniatka" && (
+              <div className="admin-field">
+                <label htmlFor="article-puppy-area">Oblasť Šteniatok</label>
+                <select id="article-puppy-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  {puppyAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
+                </select>
+                <small>Článok sa zobrazí na samostatnej stránke vybranej oblasti.</small>
+              </div>
+            )}
+            {portalSection === "starostlivost" && (
+              <div className="admin-field">
+                <label htmlFor="article-care-area">Oblasť Zdravia a starostlivosti</label>
+                <select id="article-care-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  {careAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
+                </select>
+                <small>Článok sa zobrazí iba v zvolenej poradenskej oblasti.</small>
+              </div>
+            )}
+            {portalSection === "aktivity" && (
+              <div className="admin-field">
+                <label htmlFor="article-activity-area">Oblasť Výcviku a aktivít</label>
+                <select id="article-activity-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  {activityAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
+                </select>
+                <small>Článok sa zobrazí iba vo zvolenej oblasti aktivít.</small>
+              </div>
+            )}''',
+    '''            {portalSection !== "novinky" && portalSection !== "clanky" && currentAreas.length > 0 && (
+              <div className="admin-field">
+                <label htmlFor="article-portal-area">Oblasť {managedSections.find((section) => section.slug === portalSection)?.label ?? "sekcie"}</label>
+                <select id="article-portal-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  {currentAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
+                </select>
+                <small>Článok sa zobrazí v zvolenej oblasti tejto sekcie.</small>
+              </div>
+            )}''',
+)
+
+replace(
+    "app/admin/novy/page.tsx",
+    'import { listManagedBreedSummaries } from "@/lib/breed-store";',
+    'import { listManagedBreedSummaries } from "@/lib/breed-store";\nimport { isArticlePortalSection } from "@/lib/portal";\nimport { listManagedPortalSections } from "@/lib/section-store";',
+)
+replace(
+    "app/admin/novy/page.tsx",
+    '''  const breedOptions = await listManagedBreedSummaries(500);''',
+    '''  const [breedOptions, managedSections] = await Promise.all([listManagedBreedSummaries(500), listManagedPortalSections()]);
+  const requestedSection = sekcia && isArticlePortalSection(sekcia) && (sekcia === "clanky" || managedSections.some((section) => section.slug === sekcia && section.articleEnabled && section.visible !== false)) ? sekcia : "steniatka";''',
+)
+replace(
+    "app/admin/novy/page.tsx",
+    '''        defaultPortalSection={sekcia === "steniatka" ? "steniatka" : sekcia === "novinky" ? "novinky" : "steniatka"}
+        defaultPortalSubpage={oblast}
+        breedOptions={breedOptions}''',
+    '''        defaultPortalSection={requestedSection}
+        defaultPortalSubpage={oblast}
+        breedOptions={breedOptions}
+        managedSections={managedSections}''',
+)
+
+replace(
+    "app/admin/clanky/[id]/page.tsx",
+    'import { listManagedBreedSummaries } from "@/lib/breed-store";',
+    'import { listManagedBreedSummaries } from "@/lib/breed-store";\nimport { listManagedPortalSections } from "@/lib/section-store";',
+)
+replace(
+    "app/admin/clanky/[id]/page.tsx",
+    '''  const [article,breedOptions] = await Promise.all([getManagedArticleById(numericId),listManagedBreedSummaries(500)]);''',
+    '''  const [article, breedOptions, managedSections] = await Promise.all([getManagedArticleById(numericId), listManagedBreedSummaries(500), listManagedPortalSections()]);''',
+)
+replace(
+    "app/admin/clanky/[id]/page.tsx",
+    '''      <AdminArticleEditor article={article} breedOptions={breedOptions} />''',
+    '''      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} />''',
+)
+
+replace(
+    "lib/article-store.ts",
+    'import { isNewsCategory, type NewsCategorySlug } from "@/lib/news";',
+    'import { isNewsCategory, type NewsCategorySlug } from "@/lib/news";\nimport { getManagedPortalSubpage } from "@/lib/section-store";',
+)
+replace("lib/article-store.ts", 'function normalizeInput(payload: ManagedArticleInput) {', 'async function normalizeInput(payload: ManagedArticleInput) {')
+replace(
+    "lib/article-store.ts",
+    '''  const portalSubpage = (portalSection === "steniatka" || portalSection === "starostlivost" || portalSection === "aktivity") && payload.portalSubpage && getPortalSubpage(portalSection, payload.portalSubpage)
+    ? payload.portalSubpage
+    : null;''',
+    '''  const managedSubpage = portalSection !== "clanky" && portalSection !== "novinky" && payload.portalSubpage
+    ? await getManagedPortalSubpage(portalSection, payload.portalSubpage)
+    : null;
+  const portalSubpage = managedSubpage ? payload.portalSubpage ?? null : null;''',
+)
+replace(
+    "lib/article-store.ts",
+    '''  if (portalSection === "aktivity" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Výcvik a aktivity.");''',
+    '''  if (portalSection === "aktivity" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Výcvik a aktivity.");
+  if (portalSection === "recenzie" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Recenzie a testy.");''',
+)
+replace("lib/article-store.ts", '  const input = normalizeInput(payload);', '  const input = await normalizeInput(payload);')
+replace("lib/article-store.ts", '  const input = normalizeInput(payload);', '  const input = await normalizeInput(payload);')
