@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
+import { Breadcrumbs, MediaFrame, cardShellClassName } from "@/components/page-system";
 import { getDirectoryCategory, type DirectoryCategorySlug, type PublicDirectoryProfile } from "@/lib/directory";
 
 function paragraphs(value: string) {
@@ -64,7 +65,7 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
   return (
     <main id="obsah">
       <header className="directory-detail-hero"><div className="shell">
-        <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span><Link href="/adresar">Služby pre psov</Link><span>/</span><Link href={`/adresar/${profile.category}`}>{category?.label}</Link><span>/</span><span>{profile.name}</span></nav>
+        <Breadcrumbs><Link href="/">Domov</Link><span>/</span><Link href="/adresar">Služby pre psov</Link><span>/</span><Link href={`/adresar/${profile.category}`}>{category?.label}</Link><span>/</span><span>{profile.name}</span></Breadcrumbs>
         <div className="directory-detail-hero-grid"><div>
           <div className="directory-detail-tags"><span>{category?.singular}</span>{profile.featured && <b>Odporúčame</b>}</div>
           <h1>{profile.name}</h1>
@@ -73,7 +74,7 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
           {(phoneHref || emails[0] || website || navigationUrl) && <div className="directory-direct-actions">
             {phoneHref && <a href={phoneHref}>Zavolať</a>}{emails[0] && <a href={`mailto:${emails[0]}`}>E-mail</a>}{website && <a href={website} target="_blank" rel="noreferrer">Web ↗</a>}{navigationUrl && <a href={navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}
           </div>}
-        </div><div className="directory-detail-visual">{profile.imageUrl ? <img src={profile.imageUrl} alt={`Profil ${profile.name}`} /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div></div>
+        </div><MediaFrame className="directory-detail-visual" variant="landscape">{profile.imageUrl ? <img src={profile.imageUrl} alt={`Profil ${profile.name}`} /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</MediaFrame></div>
       </div></header>
 
       <section className="section shell directory-detail-layout">
@@ -88,7 +89,7 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
             {profile.qualifications.length > 0 && <ul>{profile.qualifications.map((item) => <li key={item}>{item}</li>)}</ul>}{facts.length > 0 && <dl>{facts.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}
           </section>}
         </article>
-        <aside className="directory-detail-facts"><h2>Kontakty</h2><dl>
+        <aside className={`directory-detail-facts ${cardShellClassName}`}><h2>Kontakty</h2><dl>
           {phone && <div><dt>Telefón</dt><dd><a href={phoneHref ?? undefined}>{phone}</a></dd></div>}{emails.length > 0 && <div><dt>E-mail</dt><dd>{emails.map((email) => <a href={`mailto:${email}`} key={email}>{email}</a>)}</dd></div>}{website && <div><dt>Web</dt><dd><a href={website} target="_blank" rel="noreferrer">Otvoriť web ↗</a></dd></div>}{facebook && <div><dt>Facebook</dt><dd><a href={facebook} target="_blank" rel="noreferrer">Otvoriť Facebook ↗</a></dd></div>}{instagram && <div><dt>Instagram</dt><dd><a href={instagram} target="_blank" rel="noreferrer">Otvoriť Instagram ↗</a></dd></div>}
         </dl>{navigationUrl && <a className="text-link" href={navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}<a className="button button--primary" href="#kontakt">Poslať dopyt cez Psipediu</a></aside>
       </section>
