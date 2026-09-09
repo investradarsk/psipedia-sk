@@ -42,14 +42,18 @@ test("structured event times use the Bratislava DST offset for their date", () =
   assert.equal(eventDateTimeIso("2026-07-15", ""), "2026-07-15");
 });
 
-test("homepage and podujatia hub use the same upcoming query", () => {
+test("homepage and event listing reuse the central event date implementation", () => {
   const homepage = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
   const portal = readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
+  const card = readFileSync(new URL("../components/event-card.tsx", import.meta.url), "utf8");
   assert.match(homepage, /getUpcomingEvents\(3\)/);
-  assert.match(portal, /getUpcomingEvents\(3\)/);
+  assert.match(portal, /getPublishedEvents\(\)/);
+  assert.match(portal, /slug === "podujatia"\) return <EventsPage/);
   assert.match(calendar, /eventDateStatus\(event, today\)/);
+  assert.match(calendar, /dateStatus === "current"/);
   assert.match(eventsPage, /bratislavaDateKey\(\)/);
-  assert.doesNotMatch(`${calendar}\n${eventsPage}`, /toISOString\(\)\.slice\(0, 10\)/);
+  assert.match(card, /eventDateStatus\(event, today\)/);
+  assert.doesNotMatch(`${calendar}\n${eventsPage}\n${card}`, /new Date\(\).*startDate|toISOString\(\)\.slice\(0, 10\)/s);
 });
