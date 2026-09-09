@@ -92,16 +92,23 @@ test("@production directory listing, veterinarians, profile and filters work", a
   await expect(page.locator("h1")).toBeVisible();
 });
 
-test("@production events listing, detail and past/upcoming separation work", async ({ page }) => {
-  await page.goto("/podujatia/kalendar");
+test("@production events listing, detail and past/upcoming separation work", async ({ page, request }) => {
+  await page.goto("/podujatia");
   await expect(page.locator("h1")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Výstava", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Kraj")).toBeVisible();
+  await expect(page.getByLabel("Obdobie")).toBeVisible();
   const upcomingLinks = await page.locator('.event-grid a[href^="/podujatia/"]').evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)))]);
   expect(upcomingLinks.length, "Upcoming event listing is empty").toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Ukončené" }).click();
+  await page.getByRole("button", { name: "Ukončené", exact: true }).click();
   const pastLinks = await page.locator('.event-grid a[href^="/podujatia/"]').evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)))]);
   expect(upcomingLinks.filter((href) => pastLinks.includes(href)).length, "A past event also appears among upcoming events").toBe(0);
   await page.goto(upcomingLinks[0]!);
   await expect(page.locator("h1")).toBeVisible();
+
+  const legacy = await request.get("/podujatia/kalendar", { maxRedirects: 0 });
+  expect([301, 308]).toContain(legacy.status());
+  expect(new URL(legacy.headers()["location"]!, "https://psipedia.sk").pathname).toBe("/podujatia");
 });
 
 test("@production help listing and an existing case detail work", async ({ page }) => {
@@ -122,6 +129,8 @@ test("@production robots and sitemaps are available and valid", async ({ request
     expect(response.status(), `${path} returned HTTP ${response.status()}`).toBe(200);
     expect(await response.text(), `${path} has unexpected content`).toMatch(content);
   }
+  const sitemap = await (await request.get("/sitemap.xml")).text();
+  expect(sitemap).not.toContain("/podujatia/kalendar");
 });
 
 test("@production cookie banner is operable and navigation works before consent", async ({ page }) => {
