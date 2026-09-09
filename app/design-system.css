@@ -187,6 +187,163 @@
   border-radius: var(--ps-radius-filter);
 }
 
+/* Phase 4 event detail: shared container, media and cards with scannable facts before long copy. */
+.event-detail-hero {
+  padding: 34px 0 48px;
+  border-bottom: 1px solid var(--ps-border-soft);
+  background: var(--ps-surface);
+}
+
+.event-detail-hero .page-breadcrumbs {
+  margin-bottom: var(--ps-space-block);
+}
+
+.event-detail-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: clamp(32px, 5vw, 64px);
+  align-items: center;
+}
+
+.event-detail-heading {
+  min-width: 0;
+}
+
+.event-detail-heading h1 {
+  margin: 14px 0 16px;
+}
+
+.event-detail-heading > p {
+  max-width: 720px;
+  margin: 0;
+}
+
+.event-detail-tags,
+.event-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.event-detail-tags > span,
+.event-detail-tags > a,
+.event-detail-tags > b {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.event-detail-tags > span,
+.event-detail-type-link {
+  border: 1px solid var(--ps-border-strong);
+  color: var(--forest-dark);
+  background: var(--ps-surface-raised);
+}
+
+.event-detail-type-link:hover {
+  border-color: var(--forest);
+  color: var(--forest);
+}
+
+.event-detail-tags > b {
+  color: var(--coral-dark, var(--forest-dark));
+  background: var(--coral-light, var(--cream));
+}
+
+.event-detail-actions {
+  margin-top: 24px;
+}
+
+.event-detail-official-link {
+  min-height: 44px;
+  padding-inline: 4px;
+}
+
+.event-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 34px 0 0;
+}
+
+.event-detail-summary > .card-shell {
+  min-width: 0;
+  padding: 17px 18px;
+}
+
+.event-detail-summary dt {
+  margin-bottom: 7px;
+  color: var(--ink-3, var(--ink-2));
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.event-detail-summary dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 750;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.event-detail-summary dd span {
+  display: block;
+}
+
+.event-detail-body {
+  padding-block: var(--ps-space-section);
+}
+
+.event-detail-copy {
+  width: min(100%, 820px);
+  margin-inline: auto;
+}
+
+.event-detail-copy section > h2 {
+  margin: 8px 0 20px;
+}
+
+.event-detail-copy section > p {
+  white-space: pre-line;
+}
+
+.event-detail-copy section > p + p {
+  margin-top: 16px;
+}
+
+.event-practical-info.card-shell {
+  margin-top: var(--ps-space-block);
+  padding: clamp(24px, 4vw, 36px);
+}
+
+.event-detail-related {
+  padding: 0 0 var(--ps-space-section);
+}
+
+.event-detail-related-heading {
+  display: flex;
+  gap: 24px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: var(--ps-space-block);
+}
+
+.event-detail-related-heading h2 {
+  margin: 7px 0 0;
+}
+
+.event-detail-related-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 /* Detail media: one Psipedia frame, layout/aspect can still vary by content type. */
 .event-detail-visual.media-frame,
 .help-detail-visual.media-frame,
@@ -254,6 +411,22 @@
   .media-frame--article {
     aspect-ratio: 16 / 9;
   }
+
+  .event-detail-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .event-detail-visual.media-frame {
+    width: min(100%, 720px);
+  }
+
+  .event-detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .event-detail-related-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 620px) {
@@ -273,5 +446,38 @@
     min-height: 36px;
     padding: 7px 11px;
     font-size: 0.74rem;
+  }
+
+  .event-detail-hero {
+    padding: 24px 0 36px;
+  }
+
+  .event-detail-hero .page-breadcrumbs {
+    margin-bottom: 22px;
+  }
+
+  .event-detail-hero-grid {
+    gap: 26px;
+  }
+
+  .event-detail-summary {
+    grid-template-columns: 1fr;
+    margin-top: 26px;
+  }
+
+  .event-detail-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .event-detail-actions .button,
+  .event-detail-actions .text-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .event-detail-related-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
