@@ -47,7 +47,7 @@ export function EventsPage({
             <span className="eyebrow">Kalendár</span>
             <h2 id="event-listing-heading">Kalendár podujatí</h2>
           </div>
-          <p>Filtruj podľa typu, kraja, termínu alebo hľadaj podľa názvu, mesta či organizátora.</p>
+          <p>Výstavy, preteky, semináre a ďalšie podujatia filtruj podľa typu, kraja, termínu alebo hľadaj podľa názvu, mesta či organizátora.</p>
         </div>
         <EventCalendar events={events} today={bratislavaDateKey()} initialType={initialType} />
       </section>
