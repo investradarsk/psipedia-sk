@@ -25,6 +25,25 @@ test("editorial hubs expose direct content before the area directory", () => {
   assert.match(hub, /featuredArticleSlugs/);
 });
 
+test("portal hub callouts cannot pull back over section tabs", () => {
+  const css = read("app/design-system.css");
+  const hub = read("components/portal-hub.tsx");
+
+  assert.match(
+    css,
+    /\.portal-section-tabs\s*\+\s*\.shell\s*\{[\s\S]*?margin-top:\s*var\(--ps-space-stack\);[\s\S]*?\}/,
+    "spoločný layout musí po SectionTabs rezervovať kladnú vertikálnu medzeru",
+  );
+
+  const tabsPosition = hub.indexOf("<PortalSectionTabs section={section}");
+  for (const className of ["care-urgent", "activity-fit", "puppy-start"]) {
+    assert.ok(
+      hub.indexOf(className) > tabsPosition,
+      `${className} musí nasledovať po spoločnej sekčnej navigácii`,
+    );
+  }
+});
+
 test("structured topic landing pages keep the section system and active tab", () => {
   const topic = read("components/portal-topic.tsx");
   assert.match(topic, /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
