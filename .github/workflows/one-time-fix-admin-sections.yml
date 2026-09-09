@@ -17,7 +17,7 @@ jobs:
         with:
           ref: fix/admin-section-source-of-truth
       - name: Apply scoped transformations
-        shell: python
+        shell: python {0}
         run: |
           from pathlib import Path
 
@@ -28,7 +28,6 @@ jobs:
                   raise SystemExit(f"Expected text not found in {path}: {old[:120]!r}")
               p.write_text(text.replace(old, new, 1))
 
-          # 1) Add the missing Training area and keep entity-driven sections out of article creation.
           portal = Path("lib/portal.ts")
           text = portal.read_text()
           marker = '''      {
@@ -50,7 +49,6 @@ jobs:
               if marker not in text:
                   raise SystemExit("Activities insertion marker not found")
               text = text.replace(marker, training + marker, 1)
-          # These are dedicated data systems, not normal article destinations.
           for section_slug in ("podujatia", "adresar", "pomoc-psom"):
               anchor = f'''    slug: "{section_slug}",'''
               start = text.find(anchor)
@@ -63,7 +61,6 @@ jobs:
               text = text[:pos] + "articleEnabled: false" + text[pos + len("articleEnabled: true"):]
           portal.write_text(text)
 
-          # 2) When defaults gain a new subpage, merge it into older D1 JSON instead of silently losing it.
           replace("lib/section-store.ts", '''    return parsed.map((item) => {
       const stored = item as PortalSubpage;
       const defaults = fallback.find((candidate) => candidate.slug === stored.slug);
@@ -84,8 +81,6 @@ jobs:
     const storedSlugs = new Set(storedItems.map((item) => item.slug));
     return [...storedItems, ...fallback.filter((item) => !storedSlugs.has(item.slug))];''')
 
-          # 3) Article editor consumes the managed section structure passed by server pages.
-          replace("components/admin-article-editor.tsx", 'import { ChangeEvent, useState } from "react";', 'import { ChangeEvent, useState } from "react";')
           replace("components/admin-article-editor.tsx", '''  articlePortalSectionOptions,
   getPortalSection,
   portalSectionLabel,
@@ -190,7 +185,6 @@ export function AdminArticleEditor({''', '''export function AdminArticleEditor({
             )}'''
           replace("components/admin-article-editor.tsx", old_area_ui, new_area_ui)
 
-          # 4) Both create/edit pages pass the same managed structure used by Admin > Sections.
           replace("app/admin/novy/page.tsx", 'import { listManagedBreedSummaries } from "@/lib/breed-store";', 'import { listManagedBreedSummaries } from "@/lib/breed-store";\nimport { isArticlePortalSection } from "@/lib/portal";\nimport { listManagedPortalSections } from "@/lib/section-store";')
           replace("app/admin/novy/page.tsx", '''  const breedOptions = await listManagedBreedSummaries(500);''', '''  const [breedOptions, managedSections] = await Promise.all([listManagedBreedSummaries(500), listManagedPortalSections()]);
   const requestedSection = sekcia && isArticlePortalSection(sekcia) && (sekcia === "clanky" || managedSections.some((section) => section.slug === sekcia && section.articleEnabled && section.visible !== false)) ? sekcia : "steniatka";''')
@@ -205,7 +199,6 @@ export function AdminArticleEditor({''', '''export function AdminArticleEditor({
           replace("app/admin/clanky/[id]/page.tsx", '''  const [article,breedOptions] = await Promise.all([getManagedArticleById(numericId),listManagedBreedSummaries(500)]);''', '''  const [article, breedOptions, managedSections] = await Promise.all([getManagedArticleById(numericId), listManagedBreedSummaries(500), listManagedPortalSections()]);''')
           replace("app/admin/clanky/[id]/page.tsx", '''      <AdminArticleEditor article={article} breedOptions={breedOptions} />''', '''      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} />''')
 
-          # 5) Server-side validation accepts the same managed subpages, including Recenzie.
           replace("lib/article-store.ts", 'import { isNewsCategory, type NewsCategorySlug } from "@/lib/news";', 'import { isNewsCategory, type NewsCategorySlug } from "@/lib/news";\nimport { getManagedPortalSubpage } from "@/lib/section-store";')
           replace("lib/article-store.ts", 'function normalizeInput(payload: ManagedArticleInput) {', 'async function normalizeInput(payload: ManagedArticleInput) {')
           replace("lib/article-store.ts", '''  const portalSubpage = (portalSection === "steniatka" || portalSection === "starostlivost" || portalSection === "aktivity") && payload.portalSubpage && getPortalSubpage(portalSection, payload.portalSubpage)
@@ -217,7 +210,6 @@ export function AdminArticleEditor({''', '''export function AdminArticleEditor({
           replace("lib/article-store.ts", '''  if (portalSection === "aktivity" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Výcvik a aktivity.");''', '''  if (portalSection === "aktivity" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Výcvik a aktivity.");
   if (portalSection === "recenzie" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Recenzie a testy.");''')
           replace("lib/article-store.ts", '  const input = normalizeInput(payload);', '  const input = await normalizeInput(payload);')
-          # second occurrence for update
           replace("lib/article-store.ts", '  const input = normalizeInput(payload);', '  const input = await normalizeInput(payload);')
 
       - name: Commit changes
