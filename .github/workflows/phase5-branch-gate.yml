@@ -1,4 +1,4 @@
-name: Phase 5 exact-SHA webServer diagnostics
+name: Phase 5 exact-SHA full gate
 
 on:
   push:
@@ -8,16 +8,16 @@ permissions:
   contents: read
 
 jobs:
-  webserver:
-    name: Diagnose webServer startup at dadf21c
+  phase5-gate:
+    name: Validate Phase 5 at dadf21c with shared local D1 state
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
           ref: dadf21c322114148f770ce198464a47b1870a787
 
-      - name: Prove exact checkout
+      - name: Prove exact application checkout
         shell: bash
         run: |
           set -euxo pipefail
@@ -34,98 +34,113 @@ jobs:
       - name: npm ci
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Build
         run: npm run build
 
-      - name: Apply existing D1 migrations locally
-        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json
+      - name: Complete npm test
+        run: npm test
 
-      - name: Manually start exact Playwright webServer command and probe it
+      - name: Apply existing D1 migrations to Vite local persistence
         shell: bash
         run: |
-          set +e
+          npx wrangler d1 migrations apply DB \
+            --local \
+            --config dist/server/wrangler.json \
+            --persist-to "$PWD/.wrangler/state"
+
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify local webServer readiness before Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p diagnostic-artifacts .wrangler
-          : > diagnostic-artifacts/server.log
-          : > diagnostic-artifacts/curl-verbose.log
-          : > diagnostic-artifacts/curl-body.txt
-          : > diagnostic-artifacts/sockets.txt
-          : > diagnostic-artifacts/process.txt
-
-          echo "=== exact command ===" | tee diagnostic-artifacts/summary.txt
-          echo "npm run dev" | tee -a diagnostic-artifacts/summary.txt
-          echo "=== environment relevant to Playwright/Vite ===" | tee -a diagnostic-artifacts/summary.txt
-          env | sort | grep -E '^(CI|E2E_BASE_URL|HOST|PORT|NODE_ENV|WRANGLER_)=' | tee -a diagnostic-artifacts/summary.txt || true
-
-          npm run dev > diagnostic-artifacts/server.log 2>&1 &
+          npm run dev > diagnostic-artifacts/readiness-server.log 2>&1 &
           SERVER_PID=$!
-          echo "$SERVER_PID" > diagnostic-artifacts/server.pid
-          echo "SERVER_PID=$SERVER_PID" | tee -a diagnostic-artifacts/summary.txt
+          cleanup() {
+            kill "$SERVER_PID" 2>/dev/null || true
+            wait "$SERVER_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
 
           READY=0
-          EXITED=0
+          HTTP_STATUS=000
           for i in $(seq 1 60); do
             if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-              echo "server process exited before readiness on probe $i" | tee -a diagnostic-artifacts/summary.txt
-              EXITED=1
-              break
+              echo "Server exited before readiness"
+              cat diagnostic-artifacts/readiness-server.log
+              exit 1
             fi
-            if curl --silent --show-error --max-time 2 --output /dev/null http://127.0.0.1:5173/; then
-              echo "127.0.0.1:5173 became reachable on probe $i" | tee -a diagnostic-artifacts/summary.txt
-              READY=1
-              break
-            fi
+
+            HTTP_STATUS=$(curl --silent --show-error --max-time 3 \
+              --output diagnostic-artifacts/readiness-body.txt \
+              --write-out '%{http_code}' \
+              http://127.0.0.1:5173/ || true)
+
+            case "$HTTP_STATUS" in
+              2??|3??|400|401|402|403)
+                READY=1
+                echo "Playwright-compatible readiness reached: HTTP $HTTP_STATUS on probe $i"
+                break
+                ;;
+              *)
+                echo "Probe $i returned HTTP $HTTP_STATUS"
+                ;;
+            esac
             sleep 2
           done
 
-          echo "=== process state ===" | tee -a diagnostic-artifacts/summary.txt
-          ps -fp "$SERVER_PID" | tee diagnostic-artifacts/process.txt || true
-          echo "=== listen sockets ===" | tee -a diagnostic-artifacts/summary.txt
-          ss -ltnp | tee diagnostic-artifacts/sockets.txt || true
+          echo "HTTP_STATUS=$HTTP_STATUS" | tee diagnostic-artifacts/readiness-summary.txt
+          echo "READY=$READY" | tee -a diagnostic-artifacts/readiness-summary.txt
+          ss -ltnp | tee diagnostic-artifacts/readiness-sockets.txt || true
+          cp diagnostic-artifacts/readiness-body.txt diagnostic-artifacts/readiness-body-final.txt 2>/dev/null || true
+          cat diagnostic-artifacts/readiness-server.log
 
-          echo "=== curl -v http://127.0.0.1:5173/ ===" | tee -a diagnostic-artifacts/summary.txt
-          curl -v --max-time 15 -D diagnostic-artifacts/curl-headers.txt -o diagnostic-artifacts/curl-body.txt http://127.0.0.1:5173/ 2> diagnostic-artifacts/curl-verbose.log
-          CURL_EXIT=$?
-          HTTP_STATUS=$(awk 'toupper($1) ~ /^HTTP\// {status=$2} END {print status}' diagnostic-artifacts/curl-headers.txt 2>/dev/null)
-          echo "CURL_EXIT=$CURL_EXIT" | tee -a diagnostic-artifacts/summary.txt
-          echo "HTTP_STATUS=${HTTP_STATUS:-none}" | tee -a diagnostic-artifacts/summary.txt
-          echo "READY=$READY EXITED=$EXITED" | tee -a diagnostic-artifacts/summary.txt
+          test "$READY" = "1"
+          test "$HTTP_STATUS" != "500"
 
-          echo "=== server stdout/stderr ==="
-          cat diagnostic-artifacts/server.log
-          echo "=== curl verbose ==="
-          cat diagnostic-artifacts/curl-verbose.log
-          echo "=== curl response headers ==="
-          cat diagnostic-artifacts/curl-headers.txt 2>/dev/null || true
-          echo "=== curl response body ==="
-          cat diagnostic-artifacts/curl-body.txt 2>/dev/null || true
-          echo "=== wrangler log ==="
-          if [ -f .wrangler/wrangler.log ]; then
-            cp .wrangler/wrangler.log diagnostic-artifacts/wrangler.log
-            cat .wrangler/wrangler.log
-          else
-            echo "No .wrangler/wrangler.log produced"
-          fi
+      - name: Phase 5 Playwright desktop
+        run: npx playwright test tests/e2e/reviews-phase5.spec.ts --project=desktop-chromium --reporter=line,html
 
-          if kill -0 "$SERVER_PID" 2>/dev/null; then
-            echo "SERVER_STILL_RUNNING=yes" | tee -a diagnostic-artifacts/summary.txt
-            kill "$SERVER_PID" 2>/dev/null || true
-            wait "$SERVER_PID" 2>/dev/null || true
-          else
-            echo "SERVER_STILL_RUNNING=no" | tee -a diagnostic-artifacts/summary.txt
-            wait "$SERVER_PID" 2>/dev/null
-            SERVER_EXIT=$?
-            echo "SERVER_EXIT=$SERVER_EXIT" | tee -a diagnostic-artifacts/summary.txt
-          fi
-
-          exit 0
-
-      - name: Preserve webServer diagnostic artifacts
+      - name: Preserve desktop Playwright artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase5-dadf21c-webserver-diagnostics
+          name: phase5-dadf21c-desktop-playwright-final-gate
           if-no-files-found: warn
           retention-days: 7
           path: |
+            test-results/
+            playwright-report/
             diagnostic-artifacts/
-            .wrangler/wrangler.log
+
+      - name: Clear Playwright outputs before mobile
+        if: success()
+        shell: bash
+        run: rm -rf test-results playwright-report
+
+      - name: Phase 5 Playwright mobile
+        run: npx playwright test tests/e2e/reviews-phase5.spec.ts --project=mobile-chromium --reporter=line,html
+
+      - name: Preserve mobile Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase5-dadf21c-mobile-playwright-final-gate
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            test-results/
+            playwright-report/
+            diagnostic-artifacts/
+
+      - name: Final tracked status
+        if: always()
+        shell: bash
+        run: |
+          echo "HEAD=$(git rev-parse HEAD)"
+          git status --short
