@@ -22,11 +22,22 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
   const isCare = section.slug === "starostlivost";
   const isActivities = section.slug === "aktivity";
   const isPuppies = section.slug === "steniatka";
+  const isReviews = section.slug === "recenzie";
   const isEditorialHub = isCare || isActivities || isPuppies;
+  const showSectionTabs = isEditorialHub || isReviews;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
   const careArticleArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
   const activityArticleArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
   const articleArea = (article: Article) => isCare ? careArticleArea(article) : activityArticleArea(article);
+  const reviewCardProps = (article: Article) => {
+    if (!isReviews) return {};
+    const category = article.portalSubpage ? subpages.find((item) => item.slug === article.portalSubpage) : null;
+    return {
+      topicHref: category ? portalSubpageHref(section, category) : `/${section.slug}`,
+      topicLabel: category?.label ?? section.label,
+      actionLabel: "Čítať recenziu",
+    };
+  };
   const featuredSlugs = subpages.flatMap((subpage) => subpage.featuredArticleSlugs ?? []);
   const featuredArticles = featuredSlugs.flatMap((slug) => {
     const article = sectionArticles.find((item) => item.slug === slug);
@@ -64,25 +75,25 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
     <div className="shell">
       <div className="section-heading split-heading">
         <div>
-          <span className="eyebrow">{hasEventCalendar ? "Najbližšie termíny" : isEditorialHub && featuredArticles.length ? "Odporúčané a najnovšie" : "Najnovšie v sekcii"}</span>
-          <h2>{hasEventCalendar ? "Čo nás čaká" : isEditorialHub ? "Čítaj priamo zo sekcie" : "Čerstvé články a sprievodcovia"}</h2>
+          <span className="eyebrow">{hasEventCalendar ? "Najbližšie termíny" : isReviews ? "Najnovšie recenzie a testy" : isEditorialHub && featuredArticles.length ? "Odporúčané a najnovšie" : "Najnovšie v sekcii"}</span>
+          <h2>{hasEventCalendar ? "Čo nás čaká" : isReviews ? "Testy a skúsenosti bez ďalšieho medzikroku" : isEditorialHub ? "Čítaj priamo zo sekcie" : "Čerstvé články a sprievodcovia"}</h2>
         </div>
-        <Link href={hasEventCalendar ? "/podujatia/kalendar" : "/clanky"} className="text-link text-link--large">{hasEventCalendar ? "Celý kalendár" : "Všetky články"} <ArrowIcon /></Link>
+        {!isReviews && <Link href={hasEventCalendar ? "/podujatia/kalendar" : "/clanky"} className="text-link text-link--large">{hasEventCalendar ? "Celý kalendár" : "Všetky články"} <ArrowIcon /></Link>}
       </div>
       {hasEventCalendar && events.length ? (
         <div className="event-grid">{events.slice(0, 3).map((event) => <EventCard event={event} key={event.id} />)}</div>
       ) : !hasEventCalendar && hubArticles.length ? (
         isEditorialHub ? <>
           <div className="care-articles-layout">
-            <div className="care-article-featured"><ArticleCard article={hubArticles[0]} /></div>
-            <div className="care-article-stack">{hubArticles.slice(1, 5).map((article) => <ArticleCard article={article} key={article.slug} />)}</div>
+            <div className="care-article-featured"><ArticleCard article={hubArticles[0]} {...reviewCardProps(hubArticles[0])} /></div>
+            <div className="care-article-stack">{hubArticles.slice(1, 5).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
           </div>
-          {hubArticles.length > 5 && <div className="article-grid portal-hub-more-articles">{hubArticles.slice(5, 8).map((article) => <ArticleCard article={article} key={article.slug} />)}</div>}
-        </> : <div className="article-grid">{hubArticles.slice(0, 3).map((article) => <ArticleCard article={article} key={article.slug} />)}</div>
+          {hubArticles.length > 5 && <div className="article-grid portal-hub-more-articles">{hubArticles.slice(5, 8).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>}
+        </> : <div className="article-grid">{hubArticles.slice(0, isReviews ? 6 : 3).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
       ) : (
         <div className="portal-empty">
           <span aria-hidden="true">🐾</span>
-          <div><h3>{hasEventCalendar ? "Prvé termíny pripravujeme" : "Prvé články pripravujeme"}</h3><p>{hasEventCalendar ? "Kalendár je pripravený a nové podujatia sa sem pridávajú cez redakčnú administráciu." : "Štruktúra sekcie je už pripravená a redakcia sem môže články pridávať priamo cez administráciu."}</p></div>
+          <div><h3>{hasEventCalendar ? "Prvé termíny pripravujeme" : isReviews ? "Prvé recenzie pripravujeme" : "Prvé články pripravujeme"}</h3><p>{hasEventCalendar ? "Kalendár je pripravený a nové podujatia sa sem pridávajú cez redakčnú administráciu." : isReviews ? "Kategórie sú pripravené. Publikované recenzie a testy sa zobrazia priamo tu aj vo svojej produktovej kategórii." : "Štruktúra sekcie je už pripravená a redakcia sem môže články pridávať priamo cez administráciu."}</p></div>
         </div>
       )}
     </div>
@@ -129,7 +140,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
         </div>
       </header>
 
-      {isEditorialHub && <PortalSectionTabs section={section} />}
+      {showSectionTabs && <PortalSectionTabs section={section} />}
 
       {isCare && <section className="shell care-urgent" aria-labelledby="care-urgent-heading">
         <span className="care-urgent-icon" aria-hidden="true">!</span>
@@ -152,9 +163,9 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
         <div className="puppy-start-actions"><Link href="/steniatka/pred-kupou-psa">Ešte sa rozhodujem</Link><Link href="/steniatka/prve-dni" className="is-primary">Šteniatko je doma</Link></div>
       </section>}
 
-      {isEditorialHub && latestContent}
+      {showSectionTabs && latestContent}
 
-      <section className="section shell portal-directory" aria-labelledby="portal-directory-heading">
+      {!isReviews && <section className="section shell portal-directory" aria-labelledby="portal-directory-heading">
         <div className="section-heading split-heading">
           <div>
             <span className="eyebrow">Vyber si oblasť</span>
@@ -174,9 +185,9 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
           ))}
           </div>
         </div>)}
-      </section>
+      </section>}
 
-      {!isEditorialHub && latestContent}
+      {!showSectionTabs && latestContent}
 
       <section className="section shell">
         <div className="portal-more-heading"><span className="eyebrow">{isCare ? "Pomoc nablízku" : isActivities ? "Tréning a zážitky nablízku" : isPuppies ? "Ďalší bezpečný krok" : "Celá Psipedia"}</span><h2>{isCare ? "Užitočné služby a kontakty" : isActivities ? "Kam pokračovať" : isPuppies ? "Výber, zdravie a vedenie na jednom mieste" : "Pokračuj ďalšou sekciou"}</h2>{isCare && <p>Keď článok nestačí, pokračuj priamo k vhodnému odborníkovi alebo službe.</p>}{isActivities && <p>Nájdi vedenie, klub, podujatie alebo bezpečné riešenie na čas, keď pes nemôže cestovať s tebou.</p>}{isPuppies && <p>Over si rozhodnutie, pôvod šteniatka aj odbornú pomoc skôr, než ju budeš súrne potrebovať.</p>}</div>
