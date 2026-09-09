@@ -710,7 +710,9 @@ test("renders the care hub, urgent guidance and topic-specific articles", async 
   assert.match(editorSource, /Pripnuté články/);
   assert.match(editorSource, /Meta description/);
   const articleEditorSource = readFileSync(new URL("../components/admin-article-editor.tsx", import.meta.url), "utf8");
-  assert.match(articleEditorSource, /Oblasť Zdravia a starostlivosti/);
+  assert.match(articleEditorSource, /article-portal-area/);
+  assert.match(articleEditorSource, /managedSections/);
+  assert.match(articleEditorSource, /areasFor/);
 });
 
 test("renders the activities hub, safe-start guidance and activity admin fields", async () => {
@@ -741,7 +743,10 @@ test("renders the activities hub, safe-start guidance and activity admin fields"
   assert.match(editorSource, /Obsah oblasti výcviku a aktivít/);
   assert.match(editorSource, /Kontakty a súvisiace služby/);
   const articleEditorSource = readFileSync(new URL("../components/admin-article-editor.tsx", import.meta.url), "utf8");
-  assert.match(articleEditorSource, /Oblasť Výcviku a aktivít/);
+  assert.match(articleEditorSource, /article-portal-area/);
+  assert.match(articleEditorSource, /managedSections/);
+  const portalSource = readFileSync(new URL("../lib/portal.ts", import.meta.url), "utf8");
+  assert.match(portalSource, /slug: "trening", label: "Tréning"/);
   const articleStoreSource = readFileSync(new URL("../lib/article-store.ts", import.meta.url), "utf8");
   assert.match(articleStoreSource, /Vyber oblasť v sekcii Výcvik a aktivity/);
 });
@@ -776,7 +781,8 @@ test("renders the puppy journey, practical topic guidance and puppy admin fields
   assert.match(editorSource, /Témy tejto fázy/);
   assert.match(editorSource, /Dôležité pre túto fázu/);
   const articleEditorSource = readFileSync(new URL("../components/admin-article-editor.tsx", import.meta.url), "utf8");
-  assert.match(articleEditorSource, /Oblasť Šteniatok/);
+  assert.match(articleEditorSource, /article-portal-area/);
+  assert.match(articleEditorSource, /managedSections/);
 });
 
 test("filters a directory category on the server and keeps verification data private", async () => {
