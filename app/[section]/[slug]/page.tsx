@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
 import { EventDetail } from "@/components/event-detail";
 import { EventsPage } from "@/components/events-page";
@@ -27,6 +27,9 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { section, slug } = await params;
+  if (section === "podujatia" && slug === "kalendar") {
+    return { alternates: { canonical: "/podujatia" }, robots: { index: false, follow: true } };
+  }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic) {
     return buildPageMetadata({
@@ -57,9 +60,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PortalContentPage({ params }: Props) {
   const { section, slug } = await params;
   if (section === "recenzie" && slug === "vybava") redirect("/recenzie/postroje-a-vodidla");
+  if (section === "podujatia" && slug === "kalendar") permanentRedirect("/podujatia");
   if (!(await getManagedPortalSection(section))?.visible) notFound();
   const portalTopic = await getManagedPortalSubpage(section, slug);
-  if (section === "podujatia" && (slug === "kalendar" || eventTypeFromPortalSlug(slug))) {
+  if (section === "podujatia" && eventTypeFromPortalSlug(slug)) {
     return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} />;
   }
   if (portalTopic) return <PortalTopic {...portalTopic} articles={await getPublishedArticleSummaries({ portalSection: portalTopic.section.slug as ArticlePortalSection, limit: 120 })} />;
