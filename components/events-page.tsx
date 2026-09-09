@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
+import { Breadcrumbs, SectionHero } from "@/components/page-system";
 import { bratislavaDateKey, type DogEvent, type EventType } from "@/lib/events";
 
 const pageCopy: Record<string, { title: string; description: string }> = {
@@ -14,17 +15,14 @@ export function EventsPage({ events, initialType = "Všetky" }: { events: DogEve
   const heroImage = events.find((event) => event.imageUrl)?.imageUrl || "/images/trening-pri-nohe.webp";
   return (
     <main id="obsah">
-      <header className="event-calendar-hero event-calendar-hero--photo">
-        <img className="section-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />
-        <div className="shell">
-          <nav className="article-breadcrumbs" aria-label="Navigácia">
-            <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span>
-          </nav>
-          <span className="eyebrow">Čo sa deje</span>
-          <h1>{copy.title}</h1>
-          <p>{copy.description}</p>
-        </div>
-      </header>
+      <SectionHero className="event-calendar-hero event-calendar-hero--photo" image={heroImage}>
+        <Breadcrumbs>
+          <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span>
+        </Breadcrumbs>
+        <span className="eyebrow">Čo sa deje</span>
+        <h1>{copy.title}</h1>
+        <p>{copy.description}</p>
+      </SectionHero>
       <section className="event-calendar-section shell">
         <EventCalendar events={events} today={bratislavaDateKey()} initialType={initialType} />
       </section>
