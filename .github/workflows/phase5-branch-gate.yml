@@ -1,0 +1,45 @@
+name: Phase 5 branch gate
+
+on:
+  push:
+    branches: [codex/phase5-reviews-tests]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Phase 5 lint, build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Unit and integration tests
+        run: npm test
+      - name: Phase 5 regressions explicitly
+        run: node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/reviews-phase5.test.mjs
+
+  branch-playwright:
+    name: Phase 5 local branch Playwright
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Local branch E2E on desktop and mobile
+        run: npx playwright test tests/e2e/reviews-phase5.spec.ts
