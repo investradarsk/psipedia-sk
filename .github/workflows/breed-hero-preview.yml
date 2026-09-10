@@ -1,0 +1,58 @@
+name: Breed hero visual preview
+
+on:
+  push:
+    branches:
+      - preview/breed-hero-pr34
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout preview branch
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture production page with PR CSS injected
+        run: |
+          mkdir -p preview-artifacts
+          node --input-type=module <<'NODE'
+          import { chromium } from '@playwright/test';
+          import { readFile } from 'node:fs/promises';
+
+          const css = await readFile('app/breed-hero-text-safe-zone.css', 'utf8');
+          const browser = await chromium.launch({ headless: true });
+
+          const desktop = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+          await desktop.goto('https://psipedia.sk/plemena/australska-kelpia', { waitUntil: 'networkidle', timeout: 60000 });
+          await desktop.addStyleTag({ content: css });
+          await desktop.waitForTimeout(1000);
+          await desktop.screenshot({ path: 'preview-artifacts/australska-kelpia-desktop.png', fullPage: false });
+          await desktop.close();
+
+          const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+          await mobile.goto('https://psipedia.sk/plemena/australska-kelpia', { waitUntil: 'networkidle', timeout: 60000 });
+          await mobile.addStyleTag({ content: css });
+          await mobile.waitForTimeout(1000);
+          await mobile.screenshot({ path: 'preview-artifacts/australska-kelpia-mobile.png', fullPage: false });
+          await mobile.close();
+
+          await browser.close();
+          NODE
+      - name: Upload visual preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: breed-hero-pr34-preview
+          path: preview-artifacts/
+          retention-days: 7
