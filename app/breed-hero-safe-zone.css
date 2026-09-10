@@ -1,0 +1,53 @@
+/*
+ * Breed detail hero safe zone.
+ *
+ * The desktop hero intentionally lets the breed photo extend behind the copy
+ * side of the card. Keep that image-led composition, but make the whole text
+ * column an opaque visual safe zone so heads/high-contrast details in any
+ * breed photo can never compete with the title or introductory copy.
+ *
+ * Mobile already stacks copy and image, so these rules only affect the
+ * overlapping desktop/tablet composition.
+ */
+@media (min-width: 761px) {
+  .breed-detail-card:not(.breed-detail-card--placeholder)::after {
+    inset: 0 auto 0 0;
+    width: 68%;
+    background: linear-gradient(
+      90deg,
+      #fbf8ef 0%,
+      #fbf8ef 78%,
+      rgba(251, 248, 239, 0.98) 84%,
+      rgba(251, 248, 239, 0.88) 89%,
+      rgba(251, 248, 239, 0.45) 95%,
+      rgba(251, 248, 239, 0) 100%
+    );
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) .breed-detail-intro {
+    width: 50%;
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) h1 {
+    max-width: 100%;
+    font-size: clamp(2.65rem, 4vw, 4.2rem);
+    line-height: 0.98;
+    text-wrap: balance;
+  }
+}
+
+/* Give medium-width desktop/tablet layouts a little more copy room while
+ * keeping the gradient opaque behind the entire title area. */
+@media (min-width: 761px) and (max-width: 1000px) {
+  .breed-detail-card:not(.breed-detail-card--placeholder)::after {
+    width: 74%;
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) .breed-detail-intro {
+    width: 56%;
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) h1 {
+    font-size: clamp(2.35rem, 5.1vw, 3.25rem);
+  }
+}
