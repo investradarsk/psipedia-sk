@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowIcon, PawMark } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
 import { Breadcrumbs, MediaFrame, PageContainer, cardShellClassName } from "@/components/page-system";
-import { eventDateStatus, eventTypePortalHref, formatEventDate, type DogEvent } from "@/lib/events";
+import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, type DogEvent } from "@/lib/events";
 
 function eventTimeLabel(event: DogEvent) {
   if (event.startTime && event.endTime) return `${event.startTime} – ${event.endTime}`;
@@ -27,6 +27,7 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
   const timeLabel = eventTimeLabel(event);
   const locationLines = eventLocationLines(event);
   const typeHref = eventTypePortalHref(event.eventType);
+  const category = eventPortalCategory(event.eventType);
   const statusLabel = event.cancelled
     ? "Zrušené podujatie"
     : dateStatus === "current"
@@ -41,7 +42,7 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
       <header className="event-detail-hero">
         <PageContainer>
           <Breadcrumbs>
-            <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span><span>{event.title}</span>
+            <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span>{category && <><Link href={category.href}>{category.label}</Link><span>/</span></>}<span>{event.title}</span>
           </Breadcrumbs>
 
           <div className="event-detail-hero-grid">

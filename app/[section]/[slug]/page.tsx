@@ -7,7 +7,7 @@ import { PortalTopic } from "@/components/portal-topic";
 import { getPublishedArticle, getPublishedArticleSummaries, getRelatedPublishedArticles } from "@/lib/article-store";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { getPublishedEvent, getPublishedEvents, getUpcomingEvents } from "@/lib/event-store";
-import { eventDateTimeIso, eventHref, eventTypeFromPortalSlug, selectRelatedEvents } from "@/lib/events";
+import { eventDateTimeIso, eventHref, eventPortalCategory, eventTimeFilterFromParam, eventTypeFromPortalSlug, selectRelatedEvents } from "@/lib/events";
 import { articleHref, portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getPublishedReviewSummaries, portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-store";
@@ -18,7 +18,7 @@ import { absoluteUrl, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ section: string; slug: string }> };
+type Props = { params: Promise<{ section: string; slug: string }>; searchParams: Promise<{ termin?: string | string[] }> };
 
 export function generateStaticParams() {
   return portalSections.flatMap((section) => section.subpages
@@ -70,13 +70,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildArticleMetadata(article);
 }
 
-export default async function PortalContentPage({ params }: Props) {
+export default async function PortalContentPage({ params, searchParams }: Props) {
   const { section, slug } = await params;
   if (section === "recenzie" && slug === "vybava") redirect("/recenzie/postroje-a-vodidla");
   const managedSection = await getManagedPortalSection(section);
   if (!managedSection?.visible) notFound();
   if (section === "podujatia" && slug === "kalendar") {
-    return <EventsPage events={await getPublishedEvents()} />;
+    return <EventsPage events={await getPublishedEvents()} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (section === "podujatia" && eventTypeFromPortalSlug(slug)) {
@@ -91,8 +91,10 @@ export default async function PortalContentPage({ params }: Props) {
     const event = await getPublishedEvent(slug);
     if (event) {
       const canonical = resolvedCanonical(event.seo, eventHref(event));
+      const eventCategory = eventPortalCategory(event.eventType);
       const location = event.region === "Online" ? { "@type": "VirtualLocation", url: event.websiteUrl || canonical } : { "@type": "Place", name: event.venue || event.city, address: { "@type": "PostalAddress", streetAddress: event.address || undefined, addressLocality: event.city, addressRegion: event.region, addressCountry: "SK" } };
-      const schema = { "@context": "https://schema.org", "@graph": [{ "@type": "Event", "@id": `${canonical}#event`, name: event.title, description: event.description || event.excerpt, startDate: eventDateTimeIso(event.startDate, event.startTime), endDate: event.endDate ? eventDateTimeIso(event.endDate, event.endTime) : undefined, eventStatus: event.cancelled ? "https://schema.org/EventCancelled" : "https://schema.org/EventScheduled", eventAttendanceMode: event.region === "Online" ? "https://schema.org/OnlineEventAttendanceMode" : "https://schema.org/OfflineEventAttendanceMode", location, organizer: { "@type": "Organization", name: event.organizer, url: event.websiteUrl || undefined }, image: event.imageUrl ? [absoluteUrl(event.imageUrl)] : undefined, url: canonical }, { "@type": "BreadcrumbList", "@id": `${canonical}#breadcrumb`, itemListElement: [{ "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Podujatia", item: `${SITE_URL}/podujatia` }, { "@type": "ListItem", position: 3, name: event.title, item: canonical }] }] };
+      const breadcrumbItems = [{ "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Podujatia", item: `${SITE_URL}/podujatia` }, ...(eventCategory ? [{ "@type": "ListItem", position: 3, name: eventCategory.label, item: absoluteUrl(eventCategory.href) }] : []), { "@type": "ListItem", position: eventCategory ? 4 : 3, name: event.title, item: canonical }];
+      const schema = { "@context": "https://schema.org", "@graph": [{ "@type": "Event", "@id": `${canonical}#event`, name: event.title, description: event.description || event.excerpt, startDate: eventDateTimeIso(event.startDate, event.startTime), endDate: event.endDate ? eventDateTimeIso(event.endDate, event.endTime) : undefined, eventStatus: event.cancelled ? "https://schema.org/EventCancelled" : "https://schema.org/EventScheduled", eventAttendanceMode: event.region === "Online" ? "https://schema.org/OnlineEventAttendanceMode" : "https://schema.org/OfflineEventAttendanceMode", location, organizer: { "@type": "Organization", name: event.organizer, url: event.websiteUrl || undefined }, image: event.imageUrl ? [absoluteUrl(event.imageUrl)] : undefined, url: canonical }, { "@type": "BreadcrumbList", "@id": `${canonical}#breadcrumb`, itemListElement: breadcrumbItems }] };
       const related = selectRelatedEvents(event, await getUpcomingEvents(8));
       return <><StructuredData value={schema} /><EventDetail event={event} related={related} /></>;
     }

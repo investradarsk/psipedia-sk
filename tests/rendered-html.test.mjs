@@ -240,6 +240,7 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Novinky zo sveta psov/);
   assert.match(html, /Prvé overené správy pripravujeme/);
   assert.match(html, /href="\/o-nas#kontakt"/);
+  assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert=""/);
   assert.ok(html.indexOf("<h2>Novinky zo sveta psov</h2>") < html.indexOf("<h2>Najbližšie podujatia</h2>"));
   assert.ok(html.indexOf("<h2>Najbližšie podujatia</h2>") < html.indexOf("<h2>Dobré čítanie pre dobrý psí život</h2>"));
   assert.ok(html.indexOf("<h2>Dobré čítanie pre dobrý psí život</h2>") < html.indexOf("<h2>Pomoc psom</h2>"));
@@ -818,6 +819,7 @@ test("filters a directory category on the server and keeps verification data pri
     assert.match(detailHtml, /tel:\+421900111222/);
     assert.match(detailHtml, /mailto:klub@example.com/);
     assert.match(detailHtml, /Navigovať/);
+    assert.match(detailHtml, /href="\/adresar\/kynologicke-kluby\?region=Bratislavsk%C3%BD%20kraj"/);
     assert.match(detailHtml, /Ste majiteľom tohto profilu/);
   } finally {
     for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
@@ -837,6 +839,7 @@ test("renders the functional event calendar and type view", async () => {
   const calendarHtml = await calendar.text();
   assert.match(calendarHtml, /Kalendár podujatí/);
   assert.match(calendarHtml, /Názov, mesto alebo organizátor/);
+  assert.match(calendarHtml, /href="\?termin=ukoncene"/);
   assert.match(calendarHtml, /Prvé podujatia pripravujeme/);
 
   const shows = await worker.fetch(new Request("http://localhost/podujatia/vystavy", { headers: { accept: "text/html" } }), bindings, context);

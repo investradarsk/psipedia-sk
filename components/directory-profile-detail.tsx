@@ -70,7 +70,7 @@ export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryPr
           <div className="directory-detail-tags"><span>{category?.singular}</span>{profile.featured && <b>Odporúčame</b>}</div>
           <h1>{profile.name}</h1>
           {profile.excerpt && <p>{profile.excerpt}</p>}
-          <div className="directory-detail-location"><span aria-hidden="true">📍</span><strong>{profile.city}</strong>{profile.district && <span>okres {profile.district}</span>}<span>{profile.region}{profile.online ? " · služby aj online" : ""}</span></div>
+          <div className="directory-detail-location"><span aria-hidden="true">📍</span><strong>{profile.city}</strong>{profile.district && <span>okres {profile.district}</span>}<Link href={`/adresar/${profile.category}?region=${encodeURIComponent(profile.region)}`}>{profile.region}</Link>{profile.online && <span>služby aj online</span>}</div>
           {(phoneHref || emails[0] || website || navigationUrl) && <div className="directory-direct-actions">
             {phoneHref && <a href={phoneHref}>Zavolať</a>}{emails[0] && <a href={`mailto:${emails[0]}`}>E-mail</a>}{website && <a href={website} target="_blank" rel="noreferrer">Web ↗</a>}{navigationUrl && <a href={navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}
           </div>}

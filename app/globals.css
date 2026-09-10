@@ -5625,7 +5625,8 @@ h3 {
   margin: 20px 0 22px;
 }
 
-.event-time-filter button {
+.event-time-filter button,
+.event-time-filter a {
   min-height: 38px;
   padding: 7px 15px;
   border: 0;
@@ -5637,7 +5638,9 @@ h3 {
 }
 
 .event-time-filter button:hover,
-.event-time-filter button.is-active {
+.event-time-filter button.is-active,
+.event-time-filter a:hover,
+.event-time-filter a.is-active {
   color: white;
   background: var(--forest);
 }
@@ -5832,6 +5835,10 @@ h3 {
   font-weight: 850;
   letter-spacing: 0.09em;
   text-transform: uppercase;
+}
+
+.event-detail-tags > a {
+  color: inherit;
 }
 
 .event-detail-tags b {
@@ -6957,8 +6964,13 @@ h3 {
   font-size: 0.93rem;
 }
 
-.directory-detail-location > span:last-child {
+.directory-detail-location > span:last-child,
+.directory-detail-location > a {
   color: var(--muted);
+}
+
+.directory-detail-location > a:hover {
+  color: var(--ink);
 }
 
 .directory-detail-visual {
@@ -8095,6 +8107,7 @@ h3 {
 .help-safety-note > span { display: grid; width: 52px; height: 52px; place-items: center; background: var(--sage); border-radius: 16px; font-size: 1.35rem; }
 .help-safety-note h2 { margin: 0 0 5px; font-size: 1.7rem; }
 .help-safety-note p { max-width: 720px; margin: 0; color: var(--muted); }
+.help-safety-links { display: grid; justify-items: start; gap: 9px; }
 
 .help-guide-hero { padding: 34px 0 70px; background: linear-gradient(135deg, #ffe6db, #fff5df 62%, #e4eee1); }
 .help-guide-hero h1 { max-width: 850px; margin: 14px 0 18px; font-size: clamp(3.8rem, 7vw, 6.7rem); font-weight: 500; }
@@ -8144,7 +8157,7 @@ h3 {
   .help-guide-layout > aside { position: static; }
   .help-category-grid { grid-template-columns: 1fr; }
   .help-safety-note { grid-template-columns: 52px minmax(0, 1fr); }
-  .help-safety-note .text-link { grid-column: 2; }
+  .help-safety-links { grid-column: 2; }
 }
 
 @media (max-width: 620px) {
@@ -8180,7 +8193,7 @@ h3 {
   .help-result-heading { align-items: flex-start; flex-direction: column; }
   .help-card-body { min-height: 0; }
   .help-safety-note { grid-template-columns: 1fr; }
-  .help-safety-note .text-link { grid-column: auto; }
+  .help-safety-links { grid-column: auto; }
   .help-guide-steps article { grid-template-columns: 46px minmax(0, 1fr); padding: 18px; }
   .help-guide-steps article > span { width: 44px; height: 44px; }
   .admin-help-row { grid-template-columns: 62px minmax(0, 1fr); }

@@ -4,23 +4,28 @@ import { useMemo, useState } from "react";
 import { EventCard } from "@/components/event-card";
 import { SearchIcon } from "@/components/icons";
 import { FilterBar } from "@/components/page-system";
-import { eventDateStatus, eventTypeFilters, slovakRegions, type DogEvent, type EventType } from "@/lib/events";
-
-type TimeFilter = "upcoming" | "current" | "past" | "all";
+import { eventDateStatus, eventTimeFilterHref, eventTypeFilters, eventTypePortalHref, slovakRegions, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
 
 export function EventCalendar({
   events,
   today,
   initialType = "Všetky",
+  initialTime = "upcoming",
 }: {
   events: DogEvent[];
   today: string;
   initialType?: EventType | "Všetky";
+  initialTime?: EventTimeFilter;
 }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<EventType | "Všetky">(initialType);
   const [region, setRegion] = useState("Všetky kraje");
-  const [time, setTime] = useState<TimeFilter>("upcoming");
+  const [time, setTime] = useState<EventTimeFilter>(initialTime);
+
+  function selectTime(value: EventTimeFilter) {
+    setTime(value);
+    window.history.replaceState(null, "", eventTimeFilterHref(value));
+  }
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
@@ -42,23 +47,20 @@ export function EventCalendar({
     setQuery("");
     setType(initialType);
     setRegion("Všetky kraje");
-    setTime("upcoming");
+    selectTime("upcoming");
   }
 
   return (
     <div className="event-calendar">
       <div className="event-time-filter" role="group" aria-label="Typ podujatia">
-        {eventTypeFilters.map((option) => (
-          <button
-            type="button"
-            className={type === option.value ? "is-active" : ""}
-            aria-pressed={type === option.value}
-            onClick={() => setType(option.value)}
-            key={option.value}
-          >
-            {option.label}
-          </button>
-        ))}
+        {eventTypeFilters.map((option) => {
+          const href = option.value === "Všetky" ? "/podujatia" : eventTypePortalHref(option.value);
+          return href ? (
+            <a href={href} className={type === option.value ? "is-active" : ""} aria-current={type === option.value ? "page" : undefined} onClick={(event) => { event.preventDefault(); setType(option.value); }} key={option.value}>{option.label}</a>
+          ) : (
+            <button type="button" className={type === option.value ? "is-active" : ""} aria-pressed={type === option.value} onClick={() => setType(option.value)} key={option.value}>{option.label}</button>
+          );
+        })}
       </div>
 
       <FilterBar className="event-calendar-toolbar">
@@ -76,7 +78,7 @@ export function EventCalendar({
         </label>
         <label>
           <span>Obdobie</span>
-          <select value={time} onChange={(event) => setTime(event.target.value as TimeFilter)}>
+          <select value={time} onChange={(event) => selectTime(event.target.value as EventTimeFilter)}>
             <option value="upcoming">Najbližšie</option>
             <option value="current">Prebiehajúce dnes</option>
             <option value="past">Ukončené</option>
@@ -92,15 +94,17 @@ export function EventCalendar({
           ["past", "Ukončené"],
           ["all", "Všetky"],
         ] as const).map(([value, label]) => (
-          <button
-            type="button"
+          <a
+            role="button"
+            href={eventTimeFilterHref(value)}
             className={time === value ? "is-active" : ""}
-            aria-pressed={time === value}
-            onClick={() => setTime(value)}
+            aria-current={time === value ? "page" : undefined}
+            onClick={(event) => { event.preventDefault(); selectTime(value); }}
+            onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); selectTime(value); } }}
             key={value}
           >
             {label}
-          </button>
+          </a>
         ))}
         <span aria-live="polite">{filtered.length} {filtered.length === 1 ? "podujatie" : "podujatí"}</span>
       </div>

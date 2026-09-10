@@ -81,7 +81,8 @@ test("route keeps canonical metadata, Event schema and truthful BreadcrumbList w
   assert.match(page, /"@type": "BreadcrumbList"/);
   assert.match(page, /position: 1, name: "Domov"/);
   assert.match(page, /position: 2, name: "Podujatia"/);
-  assert.match(page, /position: 3, name: event\.title/);
+  assert.match(page, /eventCategory \? \[\{ "@type": "ListItem", position: 3, name: eventCategory\.label/);
+  assert.match(page, /position: eventCategory \? 4 : 3, name: event\.title/);
   assert.match(page, /eventDateTimeIso\(event\.startDate, event\.startTime\)/);
   assert.match(page, /getUpcomingEvents\(8\)/);
   assert.match(page, /selectRelatedEvents\(event,/);

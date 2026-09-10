@@ -7,6 +7,9 @@ import {
   eventDateTimeIso,
   eventIsActive,
   eventIsPast,
+  eventPortalCategory,
+  eventTimeFilterFromParam,
+  eventTimeFilterHref,
   formatEventDate,
 } from "../lib/events.ts";
 
@@ -40,6 +43,28 @@ test("structured event times use the Bratislava DST offset for their date", () =
   assert.equal(eventDateTimeIso("2026-01-15", "09:30"), "2026-01-15T09:30:00+01:00");
   assert.equal(eventDateTimeIso("2026-07-15", "09:30"), "2026-07-15T09:30:00+02:00");
   assert.equal(eventDateTimeIso("2026-07-15", ""), "2026-07-15");
+});
+
+test("event types link only to real calendar categories", () => {
+  assert.deepEqual(eventPortalCategory("Výstava"), { href: "/podujatia/vystavy", label: "Výstavy" });
+  assert.deepEqual(eventPortalCategory("Tréning"), { href: "/podujatia/seminare", label: "Semináre a tréningy" });
+  assert.equal(eventPortalCategory("Stretnutie"), null);
+  assert.equal(eventPortalCategory("Iné"), null);
+});
+
+test("event time filters have crawlable, shareable URLs", () => {
+  assert.equal(eventTimeFilterFromParam("prebiehajuce"), "current");
+  assert.equal(eventTimeFilterFromParam("ukoncene"), "past");
+  assert.equal(eventTimeFilterFromParam(["vsetky"]), "all");
+  assert.equal(eventTimeFilterFromParam("invalid"), "upcoming");
+  assert.equal(eventTimeFilterHref("past"), "?termin=ukoncene");
+  assert.equal(eventTimeFilterHref("upcoming"), "?termin=najblizsie");
+});
+
+test("event type filters expose crawlable links for real category landings", () => {
+  const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
+  assert.match(calendar, /eventTypePortalHref\(option\.value\)/);
+  assert.match(calendar, /<a href=\{href\}/);
 });
 
 test("homepage and event listing reuse the central event date implementation", () => {

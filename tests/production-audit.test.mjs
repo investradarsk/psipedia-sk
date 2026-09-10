@@ -17,6 +17,11 @@ test("production audit arguments have safe independent defaults", () => {
   assert.equal(options.maxPages, 2_000);
   assert.equal(options.concurrency, 4);
   assert.equal(options.retries, 1);
+  assert.equal(options.skipImages, false);
+});
+
+test("production audit can skip images for a link-graph-only pass", () => {
+  assert.equal(parseArguments(["--skip-images"]).skipImages, true);
 });
 
 test("URL normalization removes fragments but preserves filters for checking", () => {
@@ -98,5 +103,33 @@ test("full audit retries a transient 5xx and does not report it after recovery",
   assert.equal(pageAttempts, 2);
   assert.equal(report.serverErrors.items.length, 0);
   assert.equal(report.canonicalIssues.items.length, 0);
+  assert.equal(report.critical, false);
+});
+
+test("full audit reports sitemap orphans, weak links and homepage crawl depth", async () => {
+  const pages = new Map([
+    ["https://psipedia.sk/", '<link rel="canonical" href="https://psipedia.sk/"><a href="/a">A</a>'],
+    ["https://psipedia.sk/a", '<link rel="canonical" href="https://psipedia.sk/a"><a href="/b">B</a>'],
+    ["https://psipedia.sk/b", '<link rel="canonical" href="https://psipedia.sk/b">'],
+    ["https://psipedia.sk/orphan", '<link rel="canonical" href="https://psipedia.sk/orphan">'],
+  ]);
+  const fetchImpl = async (input) => {
+    const url = String(input);
+    if (url.endsWith("/sitemap.xml")) {
+      return new Response(`<urlset>${[...pages.keys()].map((page) => `<url><loc>${page}</loc></url>`).join("")}</urlset>`, { status: 200 });
+    }
+    return new Response(pages.get(url) ?? "missing", {
+      status: pages.has(url) ? 200 : 404,
+      headers: { "content-type": "text/html" },
+    });
+  };
+  const report = await auditProductionSite(parseArguments(["--max-pages", "10"]), { fetchImpl });
+  assert.deepEqual(report.orphanSitemapUrls.items, [{ url: "https://psipedia.sk/orphan" }]);
+  assert.deepEqual(report.lowLinkedSitemapUrls.items, [
+    { url: "https://psipedia.sk/a", source: "https://psipedia.sk/" },
+    { url: "https://psipedia.sk/b", source: "https://psipedia.sk/a" },
+  ]);
+  assert.deepEqual(report.unreachableSitemapUrls.items, [{ url: "https://psipedia.sk/orphan" }]);
+  assert.deepEqual(report.crawlDepth, { maximum: 2, distribution: { 0: 1, 1: 1, 2: 1 } });
   assert.equal(report.critical, false);
 });

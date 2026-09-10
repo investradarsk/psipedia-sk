@@ -91,6 +91,22 @@ async function expectSectionTabsClear(page: Page, path: string, minimumGap = 0) 
 
 test.beforeEach(async ({ page }) => useNecessaryCookies(page));
 
+test("desktop and mobile menus expose the same primary destinations without hidden focus targets", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await page.goto("/");
+  const desktopHrefs = await page.locator(".desktop-nav > a, .desktop-nav > .nav-group > a").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileMenu = page.locator("#mobile-menu");
+  await expect(mobileMenu).toHaveAttribute("inert", "");
+  await expect(mobileMenu).toHaveAttribute("aria-hidden", "true");
+  await page.getByRole("button", { name: "Otvoriť menu" }).click();
+  await expect(mobileMenu).not.toHaveAttribute("inert", "");
+  await expect(mobileMenu).toHaveAttribute("aria-hidden", "false");
+  const mobileHrefs = await mobileMenu.locator(".mobile-nav-group > a").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+  expect(mobileHrefs).toEqual(desktopHrefs);
+});
+
 test("managed portal SectionTabs contain valid labels and slugs", async ({ page }) => {
   const technicalLabels = ["adresa url", "názov sekcie", "slug"];
   for (const section of ["steniatka", "starostlivost", "aktivity"]) {
