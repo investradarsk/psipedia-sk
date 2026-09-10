@@ -1,0 +1,65 @@
+/*
+ * Universal breed hero text safe-zone fix.
+ *
+ * Keep photography visually prominent while guaranteeing that breed names,
+ * official names and lead copy never sit on top of the dog image.
+ */
+@media (min-width: 761px) {
+  .breed-detail-card:not(.breed-detail-card--placeholder)::after {
+    width: 60%;
+    background: linear-gradient(
+      90deg,
+      #fbf8ef 0%,
+      #fbf8ef 78%,
+      rgba(251, 248, 239, .98) 84%,
+      rgba(251, 248, 239, .82) 90%,
+      rgba(251, 248, 239, 0) 100%
+    );
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) .breed-detail-intro {
+    width: 47%;
+    max-width: 47%;
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) .breed-detail-image {
+    right: 0;
+    left: auto;
+    width: 50%;
+    object-position: center;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 100%);
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) h1 {
+    max-width: 100%;
+    font-size: clamp(2.45rem, 3.75vw, 4rem);
+    line-height: .98;
+    overflow-wrap: normal;
+    hyphens: auto;
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) .breed-official-name,
+  .breed-detail-card:not(.breed-detail-card--placeholder) .breed-lead {
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1000px) {
+  .breed-detail-card:not(.breed-detail-card--placeholder)::after {
+    width: 64%;
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) .breed-detail-intro {
+    width: 51%;
+    max-width: 51%;
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) .breed-detail-image {
+    width: 46%;
+  }
+
+  .breed-detail-card:not(.breed-detail-card--placeholder) h1 {
+    font-size: clamp(2.15rem, 4.2vw, 3.05rem);
+  }
+}
