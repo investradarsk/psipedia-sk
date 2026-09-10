@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "sk_SK",
-    siteName: SITE_NAME,
+    siteName: "Psipedia.sk",
     title: "Psipedia.sk – rozumej svojmu psovi",
     description: "Overené súvislosti a praktické návody pre lepší život so psom.",
     images: [{ url: "/images/hero-labrador.webp", width: 1536, height: 1024, alt: "Čierny labrador na lúke" }],
