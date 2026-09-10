@@ -57,14 +57,17 @@ test("event time filters have crawlable, shareable URLs", () => {
   assert.equal(eventTimeFilterFromParam("ukoncene"), "past");
   assert.equal(eventTimeFilterFromParam(["vsetky"]), "all");
   assert.equal(eventTimeFilterFromParam("invalid"), "upcoming");
-  assert.equal(eventTimeFilterHref("past"), "?termin=ukoncene");
-  assert.equal(eventTimeFilterHref("upcoming"), "?termin=najblizsie");
+  assert.equal(eventTimeFilterHref("past"), "/podujatia?termin=ukoncene");
+  assert.equal(eventTimeFilterHref("past", "/podujatia/vystavy"), "/podujatia/vystavy?termin=ukoncene");
+  assert.equal(eventTimeFilterHref("upcoming", "/podujatia/vystavy"), "/podujatia/vystavy");
 });
 
 test("event type filters expose crawlable links for real category landings", () => {
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   assert.match(calendar, /eventTypePortalHref\(option\.value\)/);
   assert.match(calendar, /<a href=\{href\}/);
+  assert.match(calendar, /history\.pushState\(null, "", eventTimeFilterHref\(time, pathname\)\)/);
+  assert.match(calendar, /history\.replaceState\(null, "", eventTimeFilterHref\(value, window\.location\.pathname\)\)/);
 });
 
 test("homepage and event listing reuse the central event date implementation", () => {

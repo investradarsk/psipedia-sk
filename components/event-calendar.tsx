@@ -21,10 +21,16 @@ export function EventCalendar({
   const [type, setType] = useState<EventType | "Všetky">(initialType);
   const [region, setRegion] = useState("Všetky kraje");
   const [time, setTime] = useState<EventTimeFilter>(initialTime);
+  const listingPath = type === "Všetky" ? "/podujatia" : eventTypePortalHref(type) ?? "/podujatia";
 
   function selectTime(value: EventTimeFilter) {
     setTime(value);
-    window.history.replaceState(null, "", eventTimeFilterHref(value));
+    window.history.replaceState(null, "", eventTimeFilterHref(value, window.location.pathname));
+  }
+
+  function selectType(value: EventType | "Všetky", pathname: string) {
+    setType(value);
+    window.history.pushState(null, "", eventTimeFilterHref(time, pathname));
   }
 
   const filtered = useMemo(() => {
@@ -54,11 +60,12 @@ export function EventCalendar({
     <div className="event-calendar">
       <div className="event-time-filter" role="group" aria-label="Typ podujatia">
         {eventTypeFilters.map((option) => {
-          const href = option.value === "Všetky" ? "/podujatia" : eventTypePortalHref(option.value);
+          const pathname = option.value === "Všetky" ? "/podujatia" : eventTypePortalHref(option.value);
+          const href = pathname ? eventTimeFilterHref(time, pathname) : null;
           return href ? (
-            <a href={href} className={type === option.value ? "is-active" : ""} aria-current={type === option.value ? "page" : undefined} onClick={(event) => { event.preventDefault(); setType(option.value); }} key={option.value}>{option.label}</a>
+            <a href={href} className={type === option.value ? "is-active" : ""} aria-current={type === option.value ? "page" : undefined} onClick={(event) => { event.preventDefault(); selectType(option.value, pathname!); }} key={option.value}>{option.label}</a>
           ) : (
-            <button type="button" className={type === option.value ? "is-active" : ""} aria-pressed={type === option.value} onClick={() => setType(option.value)} key={option.value}>{option.label}</button>
+            <button type="button" className={type === option.value ? "is-active" : ""} aria-pressed={type === option.value} onClick={() => selectType(option.value, "/podujatia")} key={option.value}>{option.label}</button>
           );
         })}
       </div>
@@ -96,7 +103,7 @@ export function EventCalendar({
         ] as const).map(([value, label]) => (
           <a
             role="button"
-            href={eventTimeFilterHref(value)}
+            href={eventTimeFilterHref(value, listingPath)}
             className={time === value ? "is-active" : ""}
             aria-current={time === value ? "page" : undefined}
             onClick={(event) => { event.preventDefault(); selectTime(value); }}

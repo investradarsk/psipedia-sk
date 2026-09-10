@@ -5,12 +5,13 @@ import { PortalHub } from "@/components/portal-hub";
 import { NewsHub } from "@/components/news-hub";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
+import { eventTimeFilterFromParam } from "@/lib/events";
 import { portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ section: string }> };
+type Props = { params: Promise<{ section: string }>; searchParams: Promise<{ termin?: string | string[] }> };
 
 export function generateStaticParams() {
   return portalSections.map((section) => ({ section: section.slug }));
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   } : {};
 }
 
-export default async function PortalSectionPage({ params }: Props) {
+export default async function PortalSectionPage({ params, searchParams }: Props) {
   const { section: slug } = await params;
   const [section, allSections, articles, events] = await Promise.all([
     getManagedPortalSection(slug),
@@ -56,6 +57,6 @@ export default async function PortalSectionPage({ params }: Props) {
   ]);
   if (!section?.visible) notFound();
   if (slug === "novinky") return <NewsHub articles={articles} section={section} />;
-  if (slug === "podujatia") return <EventsPage events={events ?? []} section={section} />;
+  if (slug === "podujatia") return <EventsPage events={events ?? []} section={section} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }

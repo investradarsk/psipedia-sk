@@ -107,6 +107,26 @@ test("desktop and mobile menus expose the same primary destinations without hidd
   expect(mobileHrefs).toEqual(desktopHrefs);
 });
 
+test("event category and time filters keep a shareable URL across reload", async ({ page }) => {
+  await page.goto("/podujatia?termin=ukoncene");
+  const typeFilters = page.getByRole("group", { name: "Typ podujatia" });
+  await typeFilters.getByRole("link", { name: "Výstava", exact: true }).click();
+  await expect(page).toHaveURL(/\/podujatia\/vystavy\?termin=ukoncene$/);
+
+  for (const [path, label] of [
+    ["/podujatia/vystavy?termin=ukoncene", "Výstava"],
+    ["/podujatia/preteky?termin=ukoncene", "Preteky"],
+    ["/podujatia/seminare?termin=ukoncene", "Seminár"],
+  ] as const) {
+    await page.goto(path);
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`${path.replace(/[?]/g, "\\?")}$`));
+    await expect(page.getByRole("group", { name: "Typ podujatia" }).getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.locator(".event-calendar-toolbar select").last()).toHaveValue("past");
+    await expect(page.getByRole("group", { name: "Rýchly filter termínu" }).getByRole("button", { name: "Ukončené", exact: true })).toHaveAttribute("aria-current", "page");
+  }
+});
+
 test("managed portal SectionTabs contain valid labels and slugs", async ({ page }) => {
   const technicalLabels = ["adresa url", "názov sekcie", "slug"];
   for (const section of ["steniatka", "starostlivost", "aktivity"]) {

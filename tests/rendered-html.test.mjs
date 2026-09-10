@@ -839,12 +839,18 @@ test("renders the functional event calendar and type view", async () => {
   const calendarHtml = await calendar.text();
   assert.match(calendarHtml, /Kalendár podujatí/);
   assert.match(calendarHtml, /Názov, mesto alebo organizátor/);
-  assert.match(calendarHtml, /href="\?termin=ukoncene"/);
+  assert.match(calendarHtml, /href="\/podujatia\?termin=ukoncene"/);
   assert.match(calendarHtml, /Prvé podujatia pripravujeme/);
 
   const shows = await worker.fetch(new Request("http://localhost/podujatia/vystavy", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(shows.status, 200);
   assert.match(await shows.text(), /Výstavy psov/);
+
+  const pastShows = await worker.fetch(new Request("http://localhost/podujatia/vystavy?termin=ukoncene", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(pastShows.status, 200);
+  const pastShowsHtml = await pastShows.text();
+  assert.match(pastShowsHtml, /href="\/podujatia\/vystavy\?termin=ukoncene" class="is-active" aria-current="page">Výstava/);
+  assert.match(pastShowsHtml, /<option value="past" selected="">Ukončené<\/option>/);
 });
 
 test("renders the help portal, stable category URL and emergency guide", async () => {

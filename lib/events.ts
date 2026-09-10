@@ -171,6 +171,8 @@ export function eventTimeFilterFromParam(value: string | string[] | undefined): 
   return ({ prebiehajuce: "current", ukoncene: "past", vsetky: "all" } as Partial<Record<string, EventTimeFilter>>)[parameter ?? ""] ?? "upcoming";
 }
 
-export function eventTimeFilterHref(value: EventTimeFilter) {
-  return `?termin=${value === "current" ? "prebiehajuce" : value === "past" ? "ukoncene" : value === "all" ? "vsetky" : "najblizsie"}`;
+export function eventTimeFilterHref(value: EventTimeFilter, pathname = "/podujatia") {
+  if (value === "upcoming") return pathname;
+  const parameter = value === "current" ? "prebiehajuce" : value === "past" ? "ukoncene" : "vsetky";
+  return `${pathname}?termin=${parameter}`;
 }

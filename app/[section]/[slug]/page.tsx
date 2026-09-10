@@ -80,7 +80,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (section === "podujatia" && eventTypeFromPortalSlug(slug)) {
-    return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} />;
+    return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
   }
   if (portalTopic && section === "recenzie") {
     return <PortalTopic {...portalTopic} articles={await getPublishedReviewSummaries(slug, 120)} />;
