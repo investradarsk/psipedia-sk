@@ -86,7 +86,7 @@ jobs:
           fi
 
           node scripts/bootstrap-phase5-e2e.mjs
-          npm run e2e -- --grep "event category and time filters keep a shareable URL across reload"
+          npm run e2e -- --grep "event category and time filters keep a shareable URL across reload|loading UX:"
       - name: Upload Playwright HTML report on failure
         if: failure()
         uses: actions/upload-artifact@v4

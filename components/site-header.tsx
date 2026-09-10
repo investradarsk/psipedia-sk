@@ -6,6 +6,7 @@ import type { NavigationItem } from "@/lib/navigation";
 import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
+import { NavigationProgress } from "./navigation-progress";
 
 export function SiteHeader({ navigationItems }: { navigationItems: NavigationItem[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -125,6 +126,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
             <button type="button" onClick={openSearch}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
         </div>
+        <NavigationProgress />
       </header>
 
       {searchOpen && (
