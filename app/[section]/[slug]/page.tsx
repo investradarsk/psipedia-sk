@@ -9,6 +9,7 @@ import { buildArticleMetadata } from "@/lib/article-seo";
 import { getPublishedEvent, getPublishedEvents, getUpcomingEvents } from "@/lib/event-store";
 import { eventDateTimeIso, eventHref, eventTypeFromPortalSlug, selectRelatedEvents } from "@/lib/events";
 import { articleHref, portalSections, type ArticlePortalSection } from "@/lib/portal";
+import { getPublishedReviewSummaries, portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-store";
 import { buildPageMetadata } from "@/lib/seo";
 import { StructuredData } from "@/components/structured-data";
@@ -37,11 +38,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic) {
-    return buildPageMetadata({
+    const metadata = buildPageMetadata({
       title: portalTopic.subpage.seoTitle || `${portalTopic.subpage.label} – ${portalTopic.section.label}`,
       description: portalTopic.subpage.metaDescription || portalTopic.subpage.description,
       path: `/${portalTopic.section.slug}/${portalTopic.subpage.slug}`,
     });
+    if (section === "recenzie" && !portalSubpageHasEditorialValue(portalTopic.subpage)) {
+      const reviews = await getPublishedReviewSummaries(slug, 1);
+      if (!reviews.length) {
+        return { ...metadata, robots: { index: false, follow: true } };
+      }
+    }
+    return metadata;
   }
 
   if (!(await getManagedPortalSection(section))?.visible) return {};
@@ -65,13 +73,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PortalContentPage({ params }: Props) {
   const { section, slug } = await params;
   if (section === "recenzie" && slug === "vybava") redirect("/recenzie/postroje-a-vodidla");
-  if (!(await getManagedPortalSection(section))?.visible) notFound();
+  const managedSection = await getManagedPortalSection(section);
+  if (!managedSection?.visible) notFound();
   if (section === "podujatia" && slug === "kalendar") {
     return <EventsPage events={await getPublishedEvents()} />;
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (section === "podujatia" && eventTypeFromPortalSlug(slug)) {
     return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} />;
+  }
+  if (portalTopic && section === "recenzie") {
+    return <PortalTopic {...portalTopic} articles={await getPublishedReviewSummaries(slug, 120)} />;
   }
   if (portalTopic) return <PortalTopic {...portalTopic} articles={await getPublishedArticleSummaries({ portalSection: portalTopic.section.slug as ArticlePortalSection, limit: 120 })} />;
 
@@ -91,5 +103,5 @@ export default async function PortalContentPage({ params }: Props) {
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) redirect(canonical);
 
-  return <ArticleDetail article={article} related={await getRelatedPublishedArticles(article, 3)} />;
+  return <ArticleDetail article={article} related={await getRelatedPublishedArticles(article, 3)} portalSection={section === "recenzie" ? managedSection : undefined} />;
 }

@@ -7,10 +7,15 @@ const { d1, r2 } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
+const isExplicitLocalE2eBootstrap = process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP === "1";
 
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_date: "2026-05-22",
+  // Production keeps Cloudflare Access from wrangler.jsonc. Only the explicit
+  // local E2E bootstrap disables that Worker-level gate so the existing
+  // localhost preview admin identity can reach the normal admin API routes.
+  ...(isExplicitLocalE2eBootstrap ? { vars: { AUTH_MODE: "local-e2e-preview" } } : {}),
   d1_databases: d1
     ? [
         {

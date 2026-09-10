@@ -71,7 +71,7 @@ export function buildContentMetadata(input: ContentMetadataInput): Metadata {
     authors: input.type === "article" ? ["Redakcia Psipedia"] : undefined,
     section: input.section,
     tags: input.seo?.focusKeyword ? [input.seo.focusKeyword] : undefined,
-    robots: input.seo?.noindex ? { index: false, follow: true } : { index: true, follow: true },
+    robots: input.seo?.noindex ? { index: false, follow: true } : undefined,
   });
   return {
     ...base,

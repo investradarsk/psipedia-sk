@@ -5,12 +5,25 @@ import { articleHref, portalSectionLabel, articlePortalSection } from "@/lib/por
 import { ArrowIcon, PawMark } from "./icons";
 import { FavoriteButton } from "./favorite-button";
 
-export function ArticleCard({ article, large = false }: { article: Article; large?: boolean }) {
+export function ArticleCard({
+  article,
+  large = false,
+  topicHref: topicHrefOverride,
+  topicLabel: topicLabelOverride,
+  actionLabel,
+}: {
+  article: Article;
+  large?: boolean;
+  topicHref?: string;
+  topicLabel?: string;
+  actionLabel?: string;
+}) {
   const href = articleHref(article);
   const section = articlePortalSection(article);
   const newsCategory = section === "novinky" ? getNewsCategory(article.newsCategory) : null;
-  const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : `/tema/${categorySlug(article.category)}`;
-  const topicLabel = newsCategory ? newsCategory.shortLabel : article.category;
+  const topicHref = topicHrefOverride ?? (newsCategory ? `/novinky/${newsCategory.slug}` : `/tema/${categorySlug(article.category)}`);
+  const topicLabel = topicLabelOverride ?? (newsCategory ? newsCategory.shortLabel : article.category);
+  const resolvedActionLabel = actionLabel ?? (section === "novinky" ? "Čítať novinku" : "Čítať článok");
   return (
     <article className={`article-card article-card--${article.accent} ${large ? "article-card--large" : ""}`}>
       <Link href={href} className="article-card-media" tabIndex={-1} aria-hidden="true">
@@ -28,7 +41,7 @@ export function ArticleCard({ article, large = false }: { article: Article; larg
         <h3><Link href={href}>{article.title}</Link></h3>
         <p>{article.excerpt}</p>
         <div className="article-card-footer">
-          <Link href={href} className="text-link">{section === "novinky" ? "Čítať novinku" : "Čítať článok"} <ArrowIcon size={18} /></Link>
+          <Link href={href} className="text-link">{resolvedActionLabel} <ArrowIcon size={18} /></Link>
           <FavoriteButton slug={article.slug} compact />
         </div>
       </div>

@@ -9,6 +9,7 @@ import { directoryCategories, directoryProfileHref } from "@/lib/directory";
 import { getPublishedHelpCases } from "@/lib/help-store";
 import { helpCaseHref } from "@/lib/help";
 import { articleHref, portalSubpageHref } from "@/lib/portal";
+import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { listManagedPortalSections } from "@/lib/section-store";
 import { SITE_URL } from "@/lib/seo";
 import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
@@ -51,7 +52,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ]);
       return [
         sitemapEntry(`/${section.slug}`, { lastModified: relevantModified, changeFrequency: section.slug === "novinky" ? "daily" : "weekly", priority: section.slug === "novinky" ? 0.9 : 0.7 }),
-        ...section.subpages.filter((subpage) => subpage.visible !== false && !SITEMAP_REDIRECT_SOURCES.has(portalSubpageHref(section, subpage))).map((subpage) => {
+        ...section.subpages.filter((subpage) => {
+          if (subpage.visible === false || SITEMAP_REDIRECT_SOURCES.has(portalSubpageHref(section, subpage))) return false;
+          if (section.slug !== "recenzie") return true;
+          return portalSubpageHasEditorialValue(subpage) || sectionArticles.some((article) => article.portalSubpage === subpage.slug);
+        }).map((subpage) => {
           const path = portalSubpageHref(section, subpage);
           const subpageModified = latestModified([
             section.updatedAt,
