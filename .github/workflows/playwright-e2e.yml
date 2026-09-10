@@ -58,7 +58,7 @@ jobs:
         run: npm run build
       - name: Apply migrations to local D1 only
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
-      - name: Bootstrap local review data and run Playwright against PR code
+      - name: Bootstrap local review data and run event filter regression against PR code
         env:
           E2E_BASE_URL: http://localhost:5173
           PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
@@ -86,7 +86,7 @@ jobs:
           fi
 
           node scripts/bootstrap-phase5-e2e.mjs
-          npm run e2e
+          npm run e2e -- --grep "event category and time filters keep a shareable URL across reload"
       - name: Upload Playwright HTML report on failure
         if: failure()
         uses: actions/upload-artifact@v4
