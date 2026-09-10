@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 export const SITE_NAME = "Psipedia.sk";
 export const SITE_URL = "https://psipedia.sk";
 export const SITE_DESCRIPTION =
@@ -5,6 +7,18 @@ export const SITE_DESCRIPTION =
 
 export const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 export const WEBSITE_ID = `${SITE_URL}/#website`;
+
+export const INDEXABLE_ROBOTS: Metadata["robots"] = {
+  index: true,
+  follow: true,
+  googleBot: {
+    index: true,
+    follow: true,
+    "max-image-preview": "large",
+    "max-snippet": -1,
+    "max-video-preview": -1,
+  },
+};
 
 export function absoluteUrl(path: string) {
   if (/^https?:\/\//i.test(path)) return path;
@@ -39,7 +53,7 @@ export function buildPageMetadata({
   authors,
   section,
   tags,
-  robots,
+  robots = INDEXABLE_ROBOTS,
 }: PageMetadataInput): Metadata {
   const url = absoluteUrl(path);
   const imageUrl = image ? absoluteUrl(image) : null;
@@ -101,4 +115,3 @@ export function searchResultTitle(title: string, maxLength = 52) {
 export function serializeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
-import type { Metadata } from "next";
