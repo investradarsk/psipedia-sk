@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
-import { bratislavaDateKey, type DogEvent, type EventType } from "@/lib/events";
+import { bratislavaDateKey, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 
 const pageCopy: Record<string, { title: string; description: string }> = {
@@ -14,10 +14,12 @@ const pageCopy: Record<string, { title: string; description: string }> = {
 export function EventsPage({
   events,
   initialType = "Všetky",
+  initialTime = "upcoming",
   section,
 }: {
   events: DogEvent[];
   initialType?: EventType | "Všetky";
+  initialTime?: EventTimeFilter;
   section?: PortalSection;
 }) {
   const copy = pageCopy[initialType] ?? pageCopy.Všetky;
@@ -48,7 +50,7 @@ export function EventsPage({
             </div>
             <p>Výstavy, preteky, semináre a ďalšie typy môžeš filtrovať podľa kraja, termínu alebo hľadať podľa názvu, mesta či organizátora.</p>
           </div>
-          <EventCalendar events={events} today={bratislavaDateKey()} initialType={initialType} />
+          <EventCalendar events={events} today={bratislavaDateKey()} initialType={initialType} initialTime={initialTime} />
         </PageContainer>
       </section>
 

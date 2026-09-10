@@ -52,3 +52,8 @@ test("legacy calendar URL is a noindex canonical alias excluded from sitemap", (
   assert.doesNotMatch(contentPage, /permanentRedirect\("\/podujatia"\)/);
   assert.match(sitemapSeo, /"\/podujatia\/kalendar"/);
 });
+
+test("event category routes restore the shared time filter from the URL", () => {
+  assert.match(portalPage, /initialTime=\{eventTimeFilterFromParam\(\(await searchParams\)\.termin\)\}/);
+  assert.match(contentPage, /eventTypeFromPortalSlug\(slug\)[\s\S]*initialTime=\{eventTimeFilterFromParam\(\(await searchParams\)\.termin\)\}/);
+});

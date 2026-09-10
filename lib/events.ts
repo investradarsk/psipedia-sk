@@ -56,6 +56,7 @@ export const eventTypeFilters = [
 
 export const EVENT_TIME_ZONE = "Europe/Bratislava";
 export type EventDateStatus = "current" | "upcoming" | "past";
+export type EventTimeFilter = "upcoming" | "current" | "past" | "all";
 
 function validEventDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -154,4 +155,24 @@ export function selectRelatedEvents(
   const sameType = active.filter((candidate) => candidate.eventType === event.eventType);
   const otherTypes = active.filter((candidate) => candidate.eventType !== event.eventType);
   return [...sameType, ...otherTypes].slice(0, limit);
+}
+
+export function eventPortalCategory(eventType: EventType) {
+  return ({
+    Výstava: { href: "/podujatia/vystavy", label: "Výstavy" },
+    Preteky: { href: "/podujatia/preteky", label: "Preteky" },
+    Seminár: { href: "/podujatia/seminare", label: "Semináre a tréningy" },
+    Tréning: { href: "/podujatia/seminare", label: "Semináre a tréningy" },
+  } as Partial<Record<EventType, { href: string; label: string }>>)[eventType] ?? null;
+}
+
+export function eventTimeFilterFromParam(value: string | string[] | undefined): EventTimeFilter {
+  const parameter = Array.isArray(value) ? value[0] : value;
+  return ({ prebiehajuce: "current", ukoncene: "past", vsetky: "all" } as Partial<Record<string, EventTimeFilter>>)[parameter ?? ""] ?? "upcoming";
+}
+
+export function eventTimeFilterHref(value: EventTimeFilter, pathname = "/podujatia") {
+  if (value === "upcoming") return pathname;
+  const parameter = value === "current" ? "prebiehajuce" : value === "past" ? "ukoncene" : "vsetky";
+  return `${pathname}?termin=${parameter}`;
 }

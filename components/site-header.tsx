@@ -113,7 +113,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
           </div>
         </div>
 
-        <div id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`}>
+        <div id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell" aria-label="Mobilná navigácia">
             {nav.map((item) => (
               <div className="mobile-nav-group" key={item.id}>

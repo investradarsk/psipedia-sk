@@ -21,6 +21,7 @@ export function parseArguments(argv) {
     concurrency: DEFAULT_CONCURRENCY,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     retries: DEFAULT_RETRIES,
+    skipImages: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -44,6 +45,8 @@ export function parseArguments(argv) {
     } else if (argument === "--retries" && value) {
       options.retries = parsePositiveInteger(value, "--retries");
       index += 1;
+    } else if (argument === "--skip-images") {
+      options.skipImages = true;
     } else if (argument === "--help") {
       options.help = true;
     } else {
@@ -328,6 +331,10 @@ export async function auditProductionSite(options, { fetchImpl = fetch } = {}) {
     sitemapIssues: createIssueCollection(),
     duplicateSitemapUrls: createIssueCollection(),
     brokenInternalUrls: createIssueCollection(),
+    orphanSitemapUrls: createIssueCollection(),
+    lowLinkedSitemapUrls: createIssueCollection(),
+    unreachableSitemapUrls: createIssueCollection(),
+    crawlDepth: { maximum: 0, distribution: {} },
     requestErrors: createIssueCollection(),
   };
 
@@ -341,6 +348,7 @@ export async function auditProductionSite(options, { fetchImpl = fetch } = {}) {
   const checkedResources = new Map();
   const imageSources = new Map();
   const internalLinkSources = new Map();
+  const internalLinkTargets = new Map();
   const canonicalSources = new Map();
 
   for (const url of sitemapUrls) {
@@ -396,6 +404,8 @@ export async function auditProductionSite(options, { fetchImpl = fetch } = {}) {
       for (const link of references.links) {
         if (!isInternal(link, origin)) continue;
         if (!shouldCheckInternal(link)) continue;
+        if (!internalLinkTargets.has(url)) internalLinkTargets.set(url, new Set());
+        internalLinkTargets.get(url).add(link);
         if (!internalLinkSources.has(link)) internalLinkSources.set(link, new Set());
         internalLinkSources.get(link).add(url);
         enqueuePage(link);
@@ -426,6 +436,37 @@ export async function auditProductionSite(options, { fetchImpl = fetch } = {}) {
     }
   }
 
+  for (const url of sitemapUrls) {
+    if (url === `${options.baseUrl}/`) continue;
+    const sources = [...(internalLinkSources.get(url) ?? [])].filter((source) => source !== url);
+    if (sources.length === 0) addIssue(report.orphanSitemapUrls, { url });
+    else if (sources.length === 1) addIssue(report.lowLinkedSitemapUrls, { url, source: sources[0] });
+  }
+
+  const homeUrl = `${options.baseUrl}/`;
+  const depthByUrl = new Map([[homeUrl, 0]]);
+  const depthQueue = [homeUrl];
+  while (depthQueue.length > 0) {
+    const source = depthQueue.shift();
+    const depth = depthByUrl.get(source);
+    for (const target of internalLinkTargets.get(source) ?? []) {
+      if (!shouldCrawl(target) || depthByUrl.has(target)) continue;
+      depthByUrl.set(target, depth + 1);
+      depthQueue.push(target);
+    }
+  }
+  const distribution = {};
+  for (const url of sitemapUrls) {
+    const depth = depthByUrl.get(url);
+    if (depth === undefined) {
+      addIssue(report.unreachableSitemapUrls, { url });
+      continue;
+    }
+    distribution[depth] = (distribution[depth] ?? 0) + 1;
+    report.crawlDepth.maximum = Math.max(report.crawlDepth.maximum, depth);
+  }
+  report.crawlDepth.distribution = distribution;
+
   for (const [url, sources] of canonicalSources) {
     const result = checkedResources.get(url);
     const status = result?.history?.at(-1)?.status;
@@ -434,17 +475,21 @@ export async function auditProductionSite(options, { fetchImpl = fetch } = {}) {
     }
   }
 
-  options.onProgress?.(`Checking ${imageSources.size} unique image URLs`);
-  await mapConcurrent([...imageSources.keys()], options.concurrency, async (url) => {
-    const result = await safeFetch(url, { fetchImpl, timeoutMs: options.timeoutMs, readBody: false });
-    report.checkedRequests += 1;
-    report.checkedImages += 1;
-    recordRequestResult(report, result, { url, source: `image:${[...imageSources.get(url)].slice(0, 3).join(", ")}` });
-    const status = result.history.at(-1)?.status;
-    if (result.error || status !== 200 || result.loop || result.tooManyHops) {
-      addIssue(report.brokenImages, { url, status: status ?? null, sources: [...imageSources.get(url)].slice(0, 5), error: result.error });
-    }
-  });
+  if (options.skipImages) {
+    options.onProgress?.(`Skipping ${imageSources.size} image URLs`);
+  } else {
+    options.onProgress?.(`Checking ${imageSources.size} unique image URLs`);
+    await mapConcurrent([...imageSources.keys()], options.concurrency, async (url) => {
+      const result = await safeFetch(url, { fetchImpl, timeoutMs: options.timeoutMs, readBody: false });
+      report.checkedRequests += 1;
+      report.checkedImages += 1;
+      recordRequestResult(report, result, { url, source: `image:${[...imageSources.get(url)].slice(0, 3).join(", ")}` });
+      const status = result.history.at(-1)?.status;
+      if (result.error || status !== 200 || result.loop || result.tooManyHops) {
+        addIssue(report.brokenImages, { url, status: status ?? null, sources: [...imageSources.get(url)].slice(0, 5), error: result.error });
+      }
+    });
+  }
 
   report.critical = report.serverErrors.items.length > 0
     || report.sitemapIssues.items.length > 0
@@ -475,6 +520,11 @@ export function printReport(report) {
   console.log(`Redirect chains (>1 hop): ${report.redirectChains.items.length}`);
   console.log(`Redirect loops: ${report.redirectLoops.items.length}`);
   console.log(`Broken internal URLs: ${report.brokenInternalUrls.items.length}`);
+  console.log(`Orphan sitemap URLs: ${report.orphanSitemapUrls.items.length}`);
+  console.log(`Low-linked sitemap URLs (1 source): ${report.lowLinkedSitemapUrls.items.length}`);
+  console.log(`Unreachable from homepage: ${report.unreachableSitemapUrls.items.length}`);
+  console.log(`Maximum sitemap crawl depth: ${report.crawlDepth.maximum}`);
+  console.log(`Crawl depth distribution: ${JSON.stringify(report.crawlDepth.distribution)}`);
   console.log(`Broken images: ${report.brokenImages.items.length}`);
   console.log(`Canonical issues: ${report.canonicalIssues.items.length}`);
   console.log(`Duplicate sitemap URLs: ${report.duplicateSitemapUrls.items.length}`);
@@ -484,16 +534,20 @@ export function printReport(report) {
   printIssues("Duplicate sitemap URLs", report.duplicateSitemapUrls);
   printIssues("404 responses", report.notFound);
   printIssues("5xx responses", report.serverErrors);
+  printIssues("Redirects", report.redirects);
   printIssues("Redirect chains", report.redirectChains);
   printIssues("Redirect loops", report.redirectLoops);
   printIssues("Broken internal URLs", report.brokenInternalUrls);
+  printIssues("Orphan sitemap URLs", report.orphanSitemapUrls);
+  printIssues("Low-linked sitemap URLs", report.lowLinkedSitemapUrls);
+  printIssues("Sitemap URLs unreachable from homepage", report.unreachableSitemapUrls);
   printIssues("Broken images", report.brokenImages);
   printIssues("Canonical issues", report.canonicalIssues);
   printIssues("Request errors", report.requestErrors);
 }
 
 function printHelp() {
-  console.log(`Usage: npm run audit:production -- [options]\n\nOptions:\n  --base <url>          Base URL (default: ${DEFAULT_BASE_URL})\n  --sitemap <url>       Sitemap URL (default: <base>/sitemap.xml)\n  --max-pages <number>  Maximum HTML pages to crawl (default: ${DEFAULT_MAX_PAGES})\n  --concurrency <n>     Concurrent requests (default: ${DEFAULT_CONCURRENCY})\n  --timeout-ms <ms>     Per-request timeout (default: ${DEFAULT_TIMEOUT_MS})\n  --retries <n>         Retries for timeouts and 5xx (default: ${DEFAULT_RETRIES})\n  --help                 Show this help`);
+  console.log(`Usage: npm run audit:production -- [options]\n\nOptions:\n  --base <url>          Base URL (default: ${DEFAULT_BASE_URL})\n  --sitemap <url>       Sitemap URL (default: <base>/sitemap.xml)\n  --max-pages <number>  Maximum HTML pages to crawl (default: ${DEFAULT_MAX_PAGES})\n  --concurrency <n>     Concurrent requests (default: ${DEFAULT_CONCURRENCY})\n  --timeout-ms <ms>     Per-request timeout (default: ${DEFAULT_TIMEOUT_MS})\n  --retries <n>         Retries for timeouts and 5xx (default: ${DEFAULT_RETRIES})\n  --skip-images          Skip image checks for a faster link-graph-only audit\n  --help                 Show this help`);
 }
 
 async function main() {

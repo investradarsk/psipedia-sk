@@ -4,7 +4,6 @@ import {
   formatHelpAmount,
   formatHelpDate,
   getHelpCategory,
-  helpCaseHref,
   helpProgress,
   type HelpCase,
 } from "@/lib/help";
@@ -17,17 +16,6 @@ export function HelpDetail({ item }: { item: HelpCase }) {
   const category = getHelpCategory(item.category);
   const progress = helpProgress(item);
   const actionAllowed = item.actionUrl && (item.category !== "zbierky" || item.verified);
-  const schema = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: item.title,
-    description: item.excerpt,
-    datePublished: item.publishedAt,
-    dateModified: item.updatedAt,
-    url: `https://psipedia.sk${helpCaseHref(item)}`,
-    author: { "@type": "Organization", name: item.organization },
-    image: item.imageUrl ? `https://psipedia.sk${item.imageUrl}` : undefined,
-  };
   return (
     <main id="obsah">
       <header className={`help-detail-hero${item.urgent && !item.resolved ? " is-urgent" : ""}`}><div className="shell"><Breadcrumbs><Link href="/">Domov</Link><span>/</span><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><Link href={`/pomoc-psom/${item.category}`}>{category?.label}</Link><span>/</span><span>{item.title}</span></Breadcrumbs><div className="help-detail-hero-grid"><div><div className="help-detail-tags"><span>{category?.singular}</span>{item.verified && <b>✓ Overené</b>}{item.urgent && !item.resolved && <b className="is-urgent">Urgentné</b>}{item.resolved && <b className="is-resolved">Prípad je vybavený</b>}</div><h1>{item.title}</h1><p>{item.excerpt}</p><div className="help-detail-location"><span aria-hidden="true">📍</span><strong>{item.city}</strong><span>{item.region}</span></div></div><MediaFrame className="help-detail-visual" variant="landscape">{item.imageUrl ? <img src={item.imageUrl} alt={item.dogName ? `${item.dogName} – ${item.title}` : item.title} /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</MediaFrame></div></div></header>
@@ -41,8 +29,7 @@ export function HelpDetail({ item }: { item: HelpCase }) {
           {!item.verified && item.category === "zbierky" && <p className="help-unverified-note">Odkaz na zbierku sa zobrazí až po redakčnom overení.</p>}
         </aside>
       </section>
-      <section className="section section--tint"><div className="shell help-safety-note"><span aria-hidden="true">🛡️</span><div><h2>Pomáhaj bezpečne</h2><p>Peniaze posielaj iba cez uvedený overený odkaz. Pri osobnom kontakte si potvrď totožnosť organizácie a nikdy nevstupuj do nebezpečnej situácie.</p></div><Link className="text-link" href="/zasady-obsahu">Ako overujeme obsah →</Link></div></section>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, "\\u003c") }} />
+      <section className="section section--tint"><div className="shell help-safety-note"><span aria-hidden="true">🛡️</span><div><h2>Pomáhaj bezpečne</h2><p>Peniaze posielaj iba cez uvedený overený odkaz. Pri osobnom kontakte si potvrď totožnosť organizácie a nikdy nevstupuj do nebezpečnej situácie.</p></div><nav className="help-safety-links" aria-label="Súvisiace možnosti pomoci"><Link className="text-link" href={`/pomoc-psom/${item.category}`}>Ďalšie: {category?.label} →</Link><Link className="text-link" href="/zasady-obsahu">Ako overujeme obsah →</Link></nav></div></section>
     </main>
   );
 }
