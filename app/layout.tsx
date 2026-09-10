@@ -7,6 +7,7 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 import "./design-system.css";
 import "./breed-hero-safe-zone.css";
+import "./breed-hero-text-safe-zone.css";
 
 // The shared navigation is D1-backed. Keep the layout runtime-rendered; public
 // anonymous HTML is cached at the Worker edge after a successful render.
@@ -47,7 +48,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "sk_SK",
-    siteName: "Psipedia.sk",
+    siteName: SITE_NAME,
     title: "Psipedia.sk – rozumej svojmu psovi",
     description: "Overené súvislosti a praktické návody pre lepší život so psom.",
     images: [{ url: "/images/hero-labrador.webp", width: 1536, height: 1024, alt: "Čierny labrador na lúke" }],
