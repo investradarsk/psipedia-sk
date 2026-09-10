@@ -1,0 +1,114 @@
+name: Breed page rollback visual preview
+
+on:
+  push:
+    branches:
+      - preview/breed-page-rollback-shot
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout preview branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture full-page rollback preview
+        run: |
+          mkdir -p preview-artifacts
+          node --input-type=module <<'NODE'
+          import { chromium } from '@playwright/test';
+          import { readFile } from 'node:fs/promises';
+
+          const cssFiles = [
+            'app/globals.css',
+            'app/design-system.css',
+            'app/breed-hero-safe-zone.css',
+          ];
+          const css = (await Promise.all(cssFiles.map((file) => readFile(file, 'utf8')))).join('\n\n');
+          const browser = await chromium.launch({ headless: true });
+
+          async function preparePage(viewport) {
+            const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
+            await page.goto('https://psipedia.sk/plemena/australska-kelpia', {
+              waitUntil: 'networkidle',
+              timeout: 60000,
+            });
+
+            // Load lazy content before taking a full-page screenshot.
+            await page.evaluate(async () => {
+              await new Promise((resolve) => {
+                let total = 0;
+                const distance = 700;
+                const timer = setInterval(() => {
+                  window.scrollBy(0, distance);
+                  total += distance;
+                  if (total >= document.body.scrollHeight) {
+                    clearInterval(timer);
+                    window.scrollTo(0, 0);
+                    resolve();
+                  }
+                }, 40);
+              });
+            });
+
+            // Remove the current production CSS and recreate the page using the
+            // stylesheet set from the rollback branch. The HTML/data stay current.
+            await page.evaluate(() => {
+              document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => node.remove());
+            });
+            await page.addStyleTag({ content: css });
+
+            // Keep the comparison focused on the page itself, not the consent UI.
+            await page.evaluate(() => {
+              for (const el of [...document.querySelectorAll('body *')]) {
+                const text = (el.textContent || '').toLowerCase();
+                const position = getComputedStyle(el).position;
+                if ((position === 'fixed' || position === 'sticky') && /cookie|cookies|súhlas|suhlas/.test(text)) {
+                  el.remove();
+                }
+              }
+              window.scrollTo(0, 0);
+            });
+            await page.waitForTimeout(800);
+            return page;
+          }
+
+          const desktop = await preparePage({ width: 1920, height: 1080 });
+          await desktop.screenshot({
+            path: 'preview-artifacts/australska-kelpia-before-pr31-desktop-full.png',
+            fullPage: true,
+          });
+          await desktop.close();
+
+          const mobile = await preparePage({ width: 390, height: 844 });
+          await mobile.screenshot({
+            path: 'preview-artifacts/australska-kelpia-before-pr31-mobile-full.png',
+            fullPage: true,
+          });
+          await mobile.close();
+
+          await browser.close();
+          NODE
+
+      - name: Upload rollback preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: breed-page-before-pr31-preview
+          path: preview-artifacts/
+          retention-days: 7
