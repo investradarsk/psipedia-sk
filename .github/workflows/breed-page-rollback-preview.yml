@@ -67,14 +67,17 @@ jobs:
               });
             });
 
-            // Remove the current production CSS and recreate the page using the
-            // stylesheet set from the rollback branch. The HTML/data stay current.
-            await page.evaluate(() => {
+            // Remove current production CSS and apply the rollback branch's
+            // stylesheet sources directly. Current public HTML/data stay intact.
+            await page.evaluate((rollbackCss) => {
               document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => node.remove());
-            });
-            await page.addStyleTag({ content: css });
+              const style = document.createElement('style');
+              style.setAttribute('data-rollback-preview', 'true');
+              style.textContent = rollbackCss;
+              document.head.appendChild(style);
+            }, css);
 
-            // Keep the comparison focused on the page itself, not the consent UI.
+            // Keep the comparison focused on the page itself, not consent UI.
             await page.evaluate(() => {
               for (const el of [...document.querySelectorAll('body *')]) {
                 const text = (el.textContent || '').toLowerCase();
