@@ -4,7 +4,7 @@ import { chromium } from "@playwright/test";
 
 const DEFAULT_BASE_URL = "http://localhost:5173";
 const DEFAULT_CANONICAL_ORIGIN = "https://psipedia.sk";
-const MIN_EXPECTED_BREEDS = 300;
+const EXPECTED_BREEDS = 343;
 
 function parseArguments(argv) {
   const options = {
@@ -61,8 +61,8 @@ if (!sitemapResponse.ok) {
   throw new Error(`[breed-profile-audit] sitemap returned HTTP ${sitemapResponse.status}`);
 }
 const breedPaths = sitemapBreedPaths(await sitemapResponse.text());
-if (breedPaths.length < MIN_EXPECTED_BREEDS) {
-  throw new Error(`[breed-profile-audit] only ${breedPaths.length} canonical breed URLs found; expected at least ${MIN_EXPECTED_BREEDS}`);
+if (breedPaths.length !== EXPECTED_BREEDS) {
+  throw new Error(`[breed-profile-audit] ${breedPaths.length} canonical breed URLs found; expected exactly ${EXPECTED_BREEDS}`);
 }
 
 console.log(`[breed-profile-audit] Loaded ${breedPaths.length} published canonical breed URLs from sitemap.`);
@@ -75,9 +75,11 @@ page.setDefaultNavigationTimeout(10_000);
 page.setDefaultTimeout(5_000);
 
 const failures = [];
+let checked = 0;
 
 for (let index = 0; index < breedPaths.length; index += 1) {
   const path = breedPaths[index];
+  checked += 1;
   const pageErrors = [];
   const consoleErrors = [];
 
@@ -186,18 +188,19 @@ for (let index = 0; index < breedPaths.length; index += 1) {
     page.off("console", onConsole);
   }
 
-  if ((index + 1) % 50 === 0 || index + 1 === breedPaths.length) {
-    console.log(`[breed-profile-audit] Checked ${index + 1}/${breedPaths.length}.`);
+  if (checked % 50 === 0 || checked === breedPaths.length) {
+    console.log(`[breed-profile-audit] Checked ${checked}/${breedPaths.length}.`);
   }
 }
 
 await browser.close();
 
 if (failures.length) {
-  console.error(`[breed-profile-audit] FAIL ${failures.length} issue(s):`);
+  console.error(`[breed-profile-audit] FAIL: ${breedPaths.length} loaded / ${checked} checked / ${failures.length} issue(s).`);
   for (const failure of failures) console.error(`- ${failure}`);
   process.exitCode = 1;
 } else {
+  console.log(`[breed-profile-audit] ${breedPaths.length} loaded / ${checked} checked / ${breedPaths.length} PASS / 0 FAIL`);
   console.log(
     `[breed-profile-audit] PASS ${breedPaths.length}/${breedPaths.length}: HTTP 200, runtime, H1, image fallback, duplicate IDs, anchors, canonical and mobile horizontal overflow.`,
   );

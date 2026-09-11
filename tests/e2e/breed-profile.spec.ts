@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
+const WHITE_SWISS_LOCAL_IMAGE = "/images/e2e-biely-svajciarsky-ovciak.png";
 
 const REPRESENTATIVE_BREEDS = [
   { slug: "biely-svajciarsky-ovciak", name: "Biely švajčiarsky ovčiak" },
@@ -63,19 +64,50 @@ test("breed profile: representative canonical details return 200, keep canonical
   }
 });
 
-test("breed profile: a stored breed image is rendered as a real image source with fallback protection", async ({ request, page }) => {
+test("breed profile: White Swiss uses a visible, decoded real image and not the fallback", async ({ request, page }) => {
   const path = "/plemena/biely-svajciarsky-ovciak";
   const response = await request.get(path);
   expect(response.status()).toBe(200);
   const html = await response.text();
   const imageTag = html.match(/<img\b[^>]*data-testid="breed-hero-image"[^>]*>/i)?.[0] ?? "";
   expect(imageTag, "White Swiss Shepherd must SSR a real breed image").not.toBe("");
-  expect(imageTag).toMatch(/\bsrc="(?:\/media\/|\/images\/|https?:\/\/)[^"]+"/i);
+  expect(imageTag).toContain(WHITE_SWISS_LOCAL_IMAGE);
 
-  await page.goto(path);
+  const navigation = await page.goto(path, { waitUntil: "domcontentloaded" });
+  expect(navigation?.status()).toBe(200);
   const frame = page.getByTestId("breed-hero-photo");
+  const image = page.getByTestId("breed-hero-image");
+  await expect(frame).toBeVisible();
   await expect(frame).toHaveAttribute("data-image-fallback", "breed-photo");
-  await expect(frame.getByRole("img")).toHaveCount(1);
+  await expect(image).toBeVisible();
+  await expect(frame.locator('[role="img"]:not(img)')).toHaveCount(0);
+
+  await image.evaluate(async (element) => {
+    const img = element as HTMLImageElement;
+    if (!img.complete) {
+      await new Promise<void>((resolve) => {
+        img.addEventListener("load", () => resolve(), { once: true });
+        img.addEventListener("error", () => resolve(), { once: true });
+      });
+    }
+    if (typeof img.decode === "function") {
+      await img.decode().catch(() => undefined);
+    }
+  });
+
+  const state = await image.evaluate((element) => {
+    const img = element as HTMLImageElement;
+    return {
+      complete: img.complete,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      currentSrc: img.currentSrc || img.src,
+    };
+  });
+  expect(state.complete, "White Swiss image did not finish loading").toBe(true);
+  expect(state.naturalWidth, "White Swiss image is broken (naturalWidth=0)").toBeGreaterThan(0);
+  expect(state.naturalHeight, "White Swiss image is broken (naturalHeight=0)").toBeGreaterThan(0);
+  expect(state.currentSrc, "White Swiss must use the real CI image fixture").toContain(WHITE_SWISS_LOCAL_IMAGE);
 });
 
 test("breed profile: quick facts stay dense for rich data and collapse cleanly for sparse data", async ({ page }) => {
@@ -97,7 +129,7 @@ test("breed profile: quick facts stay dense for rich data and collapse cleanly f
   }
 });
 
-test("breed profile: suitability, accessible accordion keyboard controls and normalized sports work", async ({ page }) => {
+test("breed profile: suitability, accessible accordion controls and normalized sports work", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
 
   const fit = page.getByTestId("breed-fit");
@@ -106,16 +138,20 @@ test("breed profile: suitability, accessible accordion keyboard controls and nor
 
   const movement = page.getByRole("button", { name: /Pohyb a každodenný život/ });
   await expect(movement).toHaveAttribute("aria-expanded", "false");
-  await movement.focus();
-  await page.keyboard.press("Enter");
+  await movement.click();
   await expect(movement).toHaveAttribute("aria-expanded", "true");
   const panelId = await movement.getAttribute("aria-controls");
   expect(panelId).toBeTruthy();
   await expect(page.locator(`#${panelId}`)).toBeVisible();
-
-  await page.keyboard.press("Space");
+  await movement.click();
   await expect(movement).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator(`#${panelId}`)).toBeHidden();
+
+  await movement.focus();
+  await page.keyboard.press("Enter");
+  await expect(movement).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Space");
+  await expect(movement).toHaveAttribute("aria-expanded", "false");
 
   const sportKeys = await page.locator("[data-sport-key]").evaluateAll((rows) =>
     rows.map((row) => row.getAttribute("data-sport-key")).filter((value): value is string => Boolean(value)),
@@ -174,6 +210,7 @@ test("breed profile: FCI CTA opens the production standard with seven adaptive g
 test("breed profile: sparse FCI content never renders empty groups or subsections", async ({ page }) => {
   const response = await page.goto("/plemena/burgosky-stavac/fci-standard", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
+  await expectNoHorizontalOverflow(page, "Burgos FCI standard");
   const groups = page.locator("[data-fci-group]");
   const groupCount = await groups.count();
   expect(groupCount, "Sparse FCI page should expose only available groups").toBeGreaterThan(0);
