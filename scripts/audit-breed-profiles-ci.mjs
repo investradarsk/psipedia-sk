@@ -2,6 +2,7 @@
 
 const EXPECTED_PUBLISHED = 343;
 const DRAFT_SLUG = 'anglicky-kokerspaniel';
+const NON_BREED_ROUTES = new Set(['/plemena/vyber-plemena']);
 
 function argument(name, fallback = '') {
   const flag = `--${name}`;
@@ -25,18 +26,18 @@ if (target.protocol !== 'http:' || target.hostname !== 'localhost' || target.por
 const response = await fetch(`${base}/sitemap.xml`, { redirect: 'manual' });
 if (!response.ok) fail(`sitemap.xml returned HTTP ${response.status}.`);
 const xml = await response.text();
-const locations = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1].trim());
+const locations = [...xml.matchAll(/<loc(?:\s[^>]*)?>([\s\S]*?)<\/loc>/gi)].map((match) => match[1].trim());
 const routes = [...new Set(locations.map((value) => {
-  try { return new URL(value, base).pathname.replace(/\/$/, '') || '/'; }
+  try { return new URL(value.replaceAll('&amp;', '&'), base).pathname.replace(/\/$/, '') || '/'; }
   catch { return ''; }
-}).filter((pathname) => /^\/plemena\/[^/]+$/.test(pathname)))].sort();
+}).filter((pathname) => /^\/plemena\/[^/]+$/.test(pathname) && !NON_BREED_ROUTES.has(pathname)))].sort();
 
 if (routes.length !== EXPECTED_PUBLISHED) {
-  fail(`sitemap exposes ${routes.length} published breed URLs; expected exactly ${EXPECTED_PUBLISHED}.`);
+  fail(`sitemap exposes ${routes.length} published canonical breed URLs; expected exactly ${EXPECTED_PUBLISHED}.`);
 }
 if (routes.includes(`/plemena/${DRAFT_SLUG}`)) {
   fail(`Draft FCI 5 route /plemena/${DRAFT_SLUG} is present in the published sitemap.`);
 }
 
-console.log(`[breed-profile-ci-audit] Breed set PASS: ${routes.length}/${EXPECTED_PUBLISHED} published URLs loaded; FCI 5 ${DRAFT_SLUG} excluded.`);
+console.log(`[breed-profile-ci-audit] Breed set PASS: ${routes.length}/${EXPECTED_PUBLISHED} published canonical URLs loaded; FCI 5 ${DRAFT_SLUG} excluded.`);
 await import('./audit-breed-profiles.mjs');
