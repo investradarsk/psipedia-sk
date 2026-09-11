@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // Runs against the PR/local app. No production mutations or test-only app routes.
 test.beforeEach(async ({ page, baseURL, isMobile }) => {
@@ -58,6 +58,12 @@ async function dispatchPreventedClick(
   }, init);
 }
 
+async function trustedPointerClick(page: Page, link: Locator) {
+  const box = await link.boundingBox();
+  expect(box, "Navigation link must have a pointer target").not.toBeNull();
+  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
+
 test("loading UX: internal Link gives immediate feedback without layout shift and clears on commit", async ({ page, isMobile }) => {
   await ready(page);
   let release!: () => void;
@@ -72,7 +78,7 @@ test("loading UX: internal Link gives immediate feedback without layout shift an
   const link = await menuLink(page, isMobile, "/podujatia");
   await observeProgress(page);
   const before = await page.locator(".header-inner").boundingBox();
-  await link.dispatchEvent("click", { button: 0 });
+  await trustedPointerClick(page, link);
   const bar = page.locator(".navigation-progress");
   await expect(bar).toHaveAttribute("data-active", "true");
   await expect(bar).toBeVisible();
@@ -159,7 +165,7 @@ test("loading UX: reduced motion and failed navigation finish idle", async ({ pa
     await route.continue();
   });
   await clearNavigationCaches(page);
-  await (await menuLink(page, isMobile, "/podujatia")).dispatchEvent("click", { button: 0 });
+  await trustedPointerClick(page, await menuLink(page, isMobile, "/podujatia"));
   const bar = page.locator(".navigation-progress");
   await expect(bar).toHaveAttribute("data-active", "true");
   await expect(bar.locator("span")).toHaveCSS("animation-name", "none");

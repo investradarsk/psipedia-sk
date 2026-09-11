@@ -35,7 +35,8 @@ with unrelated content, where one generic skeleton would be inappropriate.
 - `tests/e2e/navigation-loading.spec.ts` runs on both existing desktop/mobile
   projects against a localhost PR app. It covers delayed navigation, feedback
   latency, unchanged header geometry, completion, ignored links, modifiers,
-  history traversal, rapid clicks, reduced motion and watchdog cleanup.
+  history traversal, rapid clicks, reduced motion and error cleanup. The unit
+  suite covers the bounded watchdog separately with a deterministic timer.
 - The existing PR E2E workflow runs these tests alongside the unchanged event
   filter regression. Production smoke remains separate and cannot validate an
   unmerged loading implementation.
