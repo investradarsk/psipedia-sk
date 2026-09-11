@@ -7,6 +7,7 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 import "./design-system.css";
 import "./breed-hero-safe-zone.css";
+import "./navigation-loading.css";
 
 // The shared navigation is D1-backed. Keep the layout runtime-rendered; public
 // anonymous HTML is cached at the Worker edge after a successful render.
