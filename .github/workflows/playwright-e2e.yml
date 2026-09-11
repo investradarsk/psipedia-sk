@@ -66,6 +66,9 @@ jobs:
           PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
         run: node scripts/bootstrap-breed-e2e.mjs prepare
       - name: Start local app server
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
         run: |
           mkdir -p .e2e-artifacts
           nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/local-server.log 2>&1 &
