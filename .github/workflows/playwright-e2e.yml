@@ -20,7 +20,7 @@ jobs:
   validate:
     name: Build, lint and unit/integration tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,15 +33,17 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
-      - name: Build and run unit/integration tests
+      - name: Production build
+        run: npm run build
+      - name: Unit and integration tests
         run: npm test
 
   pull-request-e2e:
-    name: Playwright E2E against PR code (desktop and mobile)
+    name: Breed CI bootstrap, all-breed regression and Playwright
     if: github.event_name == 'pull_request'
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout PR merge ref
         uses: actions/checkout@v4
@@ -58,20 +60,19 @@ jobs:
         run: npm run build
       - name: Apply migrations to local D1 only
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
-      - name: Bootstrap local review data and run event filter regression against PR code
+      - name: Prepare deterministic breed CI fixture and White Swiss image
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-breed-e2e.mjs prepare
+      - name: Start local app server
         env:
           E2E_BASE_URL: http://localhost:5173
           PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
         run: |
           mkdir -p .e2e-artifacts
-          npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/local-server.log 2>&1 &
-          E2E_SERVER_PID=$!
-          cleanup() {
-            kill "$E2E_SERVER_PID" 2>/dev/null || true
-            wait "$E2E_SERVER_PID" 2>/dev/null || true
-          }
-          trap cleanup EXIT
-
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/local-server.log 2>&1 &
+          echo $! > .e2e-artifacts/local-server.pid
           E2E_SERVER_READY=0
           for E2E_ATTEMPT in $(seq 1 120); do
             if curl --silent --fail http://localhost:5173/ >/dev/null; then
@@ -84,14 +85,39 @@ jobs:
             tail -200 .e2e-artifacts/local-server.log
             exit 1
           fi
-
-          node scripts/bootstrap-phase5-e2e.mjs
-          npm run e2e -- --grep "event category and time filters keep a shareable URL across reload|loading UX:"
+      - name: Seed breeds into local CI D1 only
+        id: seed
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-breed-e2e.mjs seed
+      - name: All-breed regression — exactly 343 published URLs
+        id: audit
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: node scripts/audit-breed-profiles-ci.mjs --base http://localhost:5173
+      - name: Breed-specific Playwright — desktop
+        id: breed_desktop
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/breed-profile.spec.ts --project=desktop-chromium
+      - name: Breed-specific Playwright — mobile
+        id: breed_mobile
+        if: ${{ always() && steps.seed.outcome == 'success' && steps.audit.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/breed-profile.spec.ts --project=mobile-chromium
+      - name: Stop local app server
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/local-server.pid ]; then
+            kill "$(cat .e2e-artifacts/local-server.pid)" 2>/dev/null || true
+          fi
       - name: Upload Playwright HTML report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-pr-html-report-${{ github.run_attempt }}
+          name: playwright-breed-pr-html-report-${{ github.run_attempt }}
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -99,18 +125,26 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-pr-failure-evidence-${{ github.run_attempt }}
+          name: playwright-breed-pr-failure-evidence-${{ github.run_attempt }}
           path: |
             test-results/playwright/
-            .e2e-artifacts/local-server.log
+            .e2e-artifacts/
           if-no-files-found: ignore
           retention-days: 14
 
   production-smoke:
-    name: Playwright production smoke (desktop and mobile)
+    name: Playwright production smoke (${{ matrix.label }})
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: desktop
+            project: desktop-chromium
+          - label: mobile
+            project: mobile-chromium
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -123,13 +157,15 @@ jobs:
         run: npm ci
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium
-      - name: Run all 16 read-only production browser tests
-        run: npm run e2e:production
+      - name: Run read-only production browser tests — ${{ matrix.label }}
+        env:
+          E2E_BASE_URL: https://psipedia.sk
+        run: npx playwright test --grep @production --project="${{ matrix.project }}"
       - name: Upload Playwright HTML report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-html-report-${{ github.run_attempt }}
+          name: playwright-production-${{ matrix.label }}-html-report-${{ github.run_attempt }}
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -137,7 +173,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-failure-evidence-${{ github.run_attempt }}
+          name: playwright-production-${{ matrix.label }}-failure-evidence-${{ github.run_attempt }}
           path: test-results/playwright/
           if-no-files-found: ignore
           retention-days: 14
