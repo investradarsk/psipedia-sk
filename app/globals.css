@@ -13689,7 +13689,7 @@ a.breed-fci-path-node:focus-visible {
   background: linear-gradient(125deg, rgba(234, 240, 226, .88), rgba(250, 247, 237, .92));
 }
 .breed-useful-links > header { max-width: 690px; }
-.breed-useful-links > header .eyebrow { color: #987520; font-size: .65rem; }
+.breed-useful-links > header .eyebrow { color: #806218; font-size: .65rem; }
 .breed-useful-links > header h2 { margin-top: 4px; }
 .breed-useful-links > header p { margin-top: 7px; color: var(--muted); font-size: .82rem; line-height: 1.5; }
 .breed-useful-links > div { gap: 11px; margin-top: 18px; }
