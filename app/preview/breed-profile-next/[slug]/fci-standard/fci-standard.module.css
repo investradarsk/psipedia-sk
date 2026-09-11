@@ -1,0 +1,114 @@
+.page {
+  min-height: 100vh;
+  padding: 22px 0 100px;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.shell { max-width: var(--ps-content-max); }
+.breadcrumbs { margin-bottom: 18px; font-size: .76rem; color: var(--muted); }
+.breadcrumbs a { color: var(--forest); text-decoration: none; }
+
+.referenceHeader {
+  padding: 26px 0 34px;
+  border-bottom: 1px solid var(--ps-border-soft);
+}
+.headerTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: end;
+}
+.eyebrow { margin: 0 0 8px; color: var(--coral-dark); font-size: .68rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.referenceHeader h1 { margin: 0; max-width: 900px; font-size: clamp(2.35rem, 4.2vw, 4.6rem); line-height: 1; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.officialName { margin: 11px 0 0; color: var(--muted); font-size: .98rem; font-style: italic; }
+.backLink { display: inline-flex; min-height: 44px; align-items: center; align-self: center; color: var(--forest); font-size: .77rem; font-weight: 800; text-decoration: none; }
+
+.referenceFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 26px 0 0;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  overflow: hidden;
+  background: var(--white);
+}
+.referenceFacts div { min-width: 0; padding: 15px 17px; border-right: 1px solid var(--ps-border-soft); border-bottom: 1px solid var(--ps-border-soft); }
+.referenceFacts dt, .measurementFacts dt { margin-bottom: 5px; color: var(--muted); font-size: .65rem; font-weight: 850; letter-spacing: .055em; text-transform: uppercase; }
+.referenceFacts dd, .measurementFacts dd { margin: 0; color: var(--ink); font-size: .87rem; font-weight: 800; line-height: 1.45; overflow-wrap: anywhere; }
+
+.officialLinks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.officialLinks a { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; padding: 0 13px; border: 1px solid var(--ps-border-strong); border-radius: var(--ps-radius-control); color: var(--forest); background: var(--cream); font-size: .74rem; font-weight: 800; text-decoration: none; }
+.officialLinks a:hover { background: var(--sage-light); }
+.officialLinks a:focus-visible, .backLink:focus-visible, .standardControls button:focus-visible, .standardAccordion h2 button:focus-visible, .standardSidebar button:focus-visible { outline: 3px solid rgba(244,119,87,.36); outline-offset: 3px; }
+
+.standardIntro { max-width: 760px; padding: 44px 0 22px; }
+.standardIntro h2 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.6rem); line-height: 1.08; letter-spacing: -.025em; }
+.standardIntro p { margin: 12px 0 0; color: var(--muted); line-height: 1.68; }
+
+.standardLayout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 54px; align-items: start; }
+.standardSidebar { position: sticky; top: 92px; padding: 17px 0 18px; border-top: 1px solid var(--ps-border-strong); border-bottom: 1px solid var(--ps-border-strong); }
+.standardSidebar > p { margin: 0 0 10px; color: var(--muted); font-size: .65rem; font-weight: 850; letter-spacing: .065em; text-transform: uppercase; }
+.standardSidebar nav { display: grid; gap: 2px; }
+.standardSidebar button { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 6px; width: 100%; min-height: 40px; align-items: center; padding: 6px 4px; border: 0; color: var(--ink-2); background: transparent; font: inherit; font-size: .74rem; font-weight: 700; line-height: 1.3; text-align: left; cursor: pointer; }
+.standardSidebar button:hover { color: var(--forest); }
+.standardSidebar button span { color: var(--coral-dark); font-size: .62rem; font-weight: 850; letter-spacing: .05em; }
+
+.standardMain { min-width: 0; max-width: 900px; }
+.standardControls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 13px; color: var(--muted); }
+.standardControls button { min-height: 44px; padding: 0; border: 0; color: var(--forest); background: transparent; font: inherit; font-size: .75rem; font-weight: 850; cursor: pointer; }
+.standardControls button:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.standardAccordionList { border-top: 1px solid var(--ps-border-strong); }
+.standardAccordion { scroll-margin-top: 94px; border-bottom: 1px solid var(--ps-border-strong); }
+.standardAccordion h2 { margin: 0; }
+.standardAccordion h2 button { display: grid; grid-template-columns: 44px minmax(0, 1fr) 38px; gap: 12px; width: 100%; min-height: 74px; align-items: center; padding: 15px 4px; border: 0; color: var(--ink); background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.standardAccordionOpen h2 button { color: var(--forest-dark); }
+.standardAccordionIndex { color: var(--coral-dark); font-size: .67rem; font-weight: 850; letter-spacing: .07em; }
+.standardAccordionTitle { min-width: 0; font-size: clamp(1.12rem, 1.8vw, 1.42rem); font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.standardAccordionIcon { display: grid; width: 34px; height: 34px; place-items: center; justify-self: end; border: 1px solid var(--ps-border-strong); border-radius: 50%; color: var(--forest); background: var(--white); font-size: 1.3rem; line-height: 1; }
+.standardAccordionPanel { padding: 0 0 34px 56px; }
+.standardAccordionBody { max-width: 770px; }
+.standardSubsection + .standardSubsection { margin-top: 28px; padding-top: 27px; border-top: 1px solid var(--ps-border-soft); }
+.standardSubsection h3 { margin: 0 0 12px; font-size: 1rem; line-height: 1.35; }
+.standardProse { color: var(--ink-2); font-size: .98rem; line-height: 1.8; }
+.standardProse p { margin: 0; }
+.standardProse p + p { margin-top: 1.2em; }
+.measurementFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-control); overflow: hidden; background: var(--white); }
+.measurementFacts div { min-width: 0; padding: 14px 15px; border-right: 1px solid var(--ps-border-soft); }
+.measurementFacts div:last-child { border-right: 0; }
+.measurementFacts + .standardProse { margin-top: 15px; }
+
+@media (max-width: 900px) {
+  .page { padding-top: 16px; }
+  .headerTop { grid-template-columns: 1fr; gap: 14px; }
+  .backLink { justify-self: start; }
+  .standardLayout { grid-template-columns: 1fr; gap: 0; }
+  .standardSidebar { display: none; }
+  .standardMain { max-width: none; }
+}
+
+@media (max-width: 560px) {
+  .page { padding-bottom: 72px; }
+  .breadcrumbs { margin-bottom: 12px; font-size: .7rem; }
+  .referenceHeader { padding: 18px 0 28px; }
+  .referenceHeader h1 { font-size: clamp(2.15rem, 11vw, 3.35rem); }
+  .officialName { font-size: .9rem; line-height: 1.5; }
+  .referenceFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 20px; border-radius: 18px; }
+  .referenceFacts div { padding: 13px 14px; }
+  .officialLinks { display: grid; grid-template-columns: 1fr; }
+  .officialLinks a { width: 100%; }
+  .standardIntro { padding: 36px 0 18px; }
+  .standardIntro h2 { font-size: 1.75rem; }
+  .standardControls { gap: 7px; margin-bottom: 8px; }
+  .standardControls button { min-height: 44px; font-size: .72rem; }
+  .standardAccordion h2 button { grid-template-columns: 34px minmax(0, 1fr) 36px; min-height: 64px; gap: 8px; padding: 12px 0; }
+  .standardAccordionIndex { font-size: .61rem; }
+  .standardAccordionTitle { font-size: 1.05rem; }
+  .standardAccordionPanel { padding: 0 0 28px 42px; }
+  .standardSubsection + .standardSubsection { margin-top: 22px; padding-top: 21px; }
+  .standardProse { font-size: .93rem; line-height: 1.72; }
+  .measurementFacts { grid-template-columns: 1fr; }
+  .measurementFacts div { border-right: 0; border-bottom: 1px solid var(--ps-border-soft); }
+  .measurementFacts div:last-child { border-bottom: 0; }
+}
