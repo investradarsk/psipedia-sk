@@ -3,9 +3,10 @@
 Scope: UI feedback only. No changes to cache, Worker, D1, image processing,
 content, metadata or root-layout data loading.
 
-- `instrumentation-client.ts` uses the supported `onRouterTransitionStart`
-  hook in the pinned Vinext 0.0.50 runtime. It observes accepted Link/router
-  transitions and history traversal, without replacing Link, history or fetch.
+- `instrumentation-client.ts` starts eligible Link clicks synchronously from a
+  capture listener and uses the supported `onRouterTransitionStart` hook in the
+  pinned Vinext 0.0.50 runtime for router transitions and history traversal.
+  Neither path replaces or prevents Link, history or fetch behavior.
 - Click classification excludes modifiers, downloads, non-self targets,
   non-HTTP/external URLs and same pathname/query (including hash-only changes).
   It also guards Vinext's transition hook for download links.

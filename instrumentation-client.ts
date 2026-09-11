@@ -12,6 +12,11 @@ document.addEventListener("click", (event) => {
     target: link.getAttribute("target") ?? document.querySelector("base")?.target ?? "",
     download: link.hasAttribute("download"),
   }, window.location.href) : undefined;
+  // Start at the browser event boundary so accepted Link clicks paint before
+  // an RSC request can block. The router hook below remains the source for
+  // programmatic transitions and history traversal. This listener observes
+  // only; it never prevents the click or replaces Link/router behavior.
+  if (clickAllowed) navigationProgress.begin();
   queueMicrotask(() => { clickAllowed = undefined; });
 }, true);
 
