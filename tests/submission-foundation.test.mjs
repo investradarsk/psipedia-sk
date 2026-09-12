@@ -93,7 +93,7 @@ test("quarantine is structurally separate from public /media bucket and feature 
 test("migration is additive and does not mutate domain tables", async () => {
   const sql = await fs.readFile(new URL("../drizzle/0029_submission_moderation_security_foundation.sql", import.meta.url), "utf8");
   for (const forbidden of ["DROP TABLE", "ALTER TABLE help_cases", "lost_found_cases", "lost_found_private_details", "adoption_dogs"]) assert.ok(!sql.includes(forbidden));
-  for (const table of ["moderation_submissions", "moderation_events", "media_assets", "resource_access_tokens", "resource_management_sessions"]) assert.match(sql, new RegExp(`CREATE TABLE \\`${table}\\``));
+  for (const table of ["moderation_submissions", "moderation_events", "media_assets", "resource_access_tokens", "resource_management_sessions"]) assert.match(sql, new RegExp("CREATE TABLE `" + table + "`"));
 });
 
 test("existing help and admin authentication files are not replaced by foundation", async () => {
