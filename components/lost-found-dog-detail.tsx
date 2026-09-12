@@ -30,7 +30,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
   if (!report) notFound();
   const active = report.status === "ACTIVE";
   const relayHref = `/kontakt?tema=${encodeURIComponent(`Hlásenie ${report.id}: ${dogReportTypeLabel(type)}`)}`;
-  return <main className={styles.detail}>
+  return <main id="obsah" tabIndex={-1} className={styles.detail}>
     <nav className={styles.crumbs} aria-label="Omrvinková navigácia"><Link href="/pomoc-psom">Pomoc psom</Link> / <Link href={dogReportBasePath(type)}>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</Link> / {report.dogName || report.slug}</nav>
     <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : "Tento prípad už nie je vedený ako aktívny."}</span></div>
     <section className={styles.detailHero}>
