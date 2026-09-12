@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import type { DirectoryInquiry } from "@/lib/directory";
 import {
   getDirectoryInquiryStatus,
+  listRecentNewDirectoryInquiriesNeedingNotification,
   listStaleNewDirectoryInquiries,
 } from "@/lib/directory-inquiry-store";
 import {
@@ -33,6 +34,8 @@ type NotificationOptions = {
   bindings?: EditorialEmailBindings;
   now?: Date;
 };
+
+type SweepSummary = { candidates: number; sent: number; failed: number; skipped: number };
 
 const OUTBOX_COLUMNS = `
   id, inquiry_id, notification_type, status, attempts, last_attempt_at,
@@ -190,34 +193,46 @@ export async function processDirectoryInquiryNotification(
   return { status: "failed" as const, error };
 }
 
-export async function runDirectoryInquiryReminderSweep(options: NotificationOptions = {}) {
-  const { database, bindings, now } = resolveRuntime(options);
-  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1_000).toISOString();
-  const inquiries = await listStaleNewDirectoryInquiries(cutoff, database);
-  const summary = { candidates: inquiries.length, sent: 0, failed: 0, skipped: 0 };
-
+async function processSweep(
+  inquiries: DirectoryInquiry[],
+  notificationType: DirectoryInquiryNotificationType,
+  options: Required<Pick<NotificationOptions, "database" | "bindings" | "now">>,
+) {
+  const summary: SweepSummary = { candidates: inquiries.length, sent: 0, failed: 0, skipped: 0 };
   for (const inquiry of inquiries) {
     try {
-      const result = await processDirectoryInquiryNotification(inquiry, "stale-24h", {
-        database,
-        bindings,
-        now,
-      });
+      if (notificationType === "new" && await getDirectoryInquiryStatus(inquiry.id, options.database) !== "new") {
+        summary.skipped += 1;
+        logAttempt({ inquiryId: inquiry.id, notificationType, result: "skipped_status" });
+        continue;
+      }
+      const result = await processDirectoryInquiryNotification(inquiry, notificationType, options);
       if (result.status === "sent") summary.sent += 1;
       else if (result.status === "failed") summary.failed += 1;
       else summary.skipped += 1;
-    } catch (error) {
+    } catch {
       summary.failed += 1;
       console.error(JSON.stringify({
         event: "directory_inquiry_notification",
         inquiryId: inquiry.id,
-        notificationType: "stale-24h",
+        notificationType,
         result: "failed",
         error: "outbox_processing_failed",
       }));
-      void error;
     }
   }
-
   return summary;
+}
+
+export async function runDirectoryInquiryNotificationSweep(options: NotificationOptions = {}) {
+  const { database, bindings, now } = resolveRuntime(options);
+  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1_000).toISOString();
+
+  const recentNeedingInitial = await listRecentNewDirectoryInquiriesNeedingNotification(cutoff, database);
+  const initial = await processSweep(recentNeedingInitial, "new", { database, bindings, now });
+
+  const staleInquiries = await listStaleNewDirectoryInquiries(cutoff, database);
+  const stale = await processSweep(staleInquiries, "stale-24h", { database, bindings, now });
+
+  return { initial, stale };
 }
