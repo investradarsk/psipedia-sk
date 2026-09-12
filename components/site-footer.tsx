@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { PawMark } from "./icons";
 import { CookieSettingsButton } from "./cookie-consent";
-import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 
 export function SiteFooter() {
   return (
@@ -38,14 +37,14 @@ export function SiteFooter() {
             <Link href="/zasady-obsahu">Zásady obsahu</Link>
           </div>
           <div>
-            <strong>Právne</strong>
+            <strong>Právne a kontakt</strong>
+            <Link href="/kontakt">Kontakt</Link>
             <Link href="/pravne-informacie">Prevádzkovateľ</Link>
-            <Link href="/sukromie">Ochrana údajov</Link>
-            <Link href="/cookies">Cookies</Link>
+            <Link href="/sukromie">Ochrana osobných údajov</Link>
+            <Link href="/cookies">Cookies a lokálne úložisko</Link>
             <CookieSettingsButton />
             <Link href="/podmienky-pouzivania">Podmienky používania</Link>
             <Link href="/opravy-a-podnety">Opravy a podnety</Link>
-            <a href={`mailto:${EDITORIAL_EMAIL_ADDRESS}`}>Kontakt: {EDITORIAL_EMAIL_ADDRESS}</a>
           </div>
         </div>
       </div>
