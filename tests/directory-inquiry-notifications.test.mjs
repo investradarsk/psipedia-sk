@@ -73,6 +73,16 @@ function createDatabase() {
     CREATE INDEX directory_inquiries_status_created_idx ON directory_inquiries(status, created_at);
     CREATE INDEX directory_inquiries_profile_idx ON directory_inquiries(profile_id, created_at);
     CREATE INDEX directory_inquiries_email_idx ON directory_inquiries(sender_email, created_at);
+    CREATE TABLE navigation_items (
+      id TEXT PRIMARY KEY NOT NULL,
+      label TEXT NOT NULL,
+      href TEXT NOT NULL,
+      parent_id TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      visible INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL
+    );
   `);
   const migration = readFileSync(new URL("../drizzle/0031_directory_inquiry_notifications.sql", import.meta.url), "utf8");
   sqlite.exec(migration);
