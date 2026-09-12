@@ -4,6 +4,10 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
+  push:
+    branches: [main, codex/lost-found-dogs]
+  schedule:
+    - cron: "17 5 * * *"
 
 concurrency:
   group: playwright-e2e-${{ github.workflow }}-${{ github.ref }}
@@ -14,7 +18,7 @@ permissions:
 
 jobs:
   validate:
-    name: Final isolated inquiry validation
+    name: Build, lint and unit/integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -27,9 +31,201 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Fresh production build
+      - name: Lint
+        run: npm run lint
+      - name: Production build
         run: npm run build
-      - name: Isolated admin badge test
-        run: node --experimental-loader ./tests/cloudflare-loader.mjs --test --test-name-pattern="admin badge reflects new inquiry count and decreases after new to read" tests/directory-inquiry-notifications.test.mjs
-      - name: Full directory inquiry notification test file
-        run: node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-inquiry-notifications.test.mjs
+      - name: Unit and integration tests
+        run: npm test
+
+  pull-request-e2e:
+    name: Breed CI bootstrap, all-breed regression and Playwright
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/codex/lost-found-dogs'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Build PR code
+        run: npm run build
+      - name: Configure CI-only local PII keys
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          EOF
+      - name: Apply migrations to local D1 only
+        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Prepare deterministic breed CI fixture and White Swiss image
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-breed-e2e.mjs prepare
+      - name: Start local app server
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: |
+          mkdir -p .e2e-artifacts
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/local-server.log 2>&1 &
+          echo $! > .e2e-artifacts/local-server.pid
+          E2E_SERVER_READY=0
+          for E2E_ATTEMPT in $(seq 1 120); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              E2E_SERVER_READY=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$E2E_SERVER_READY" -ne 1 ]; then
+            tail -200 .e2e-artifacts/local-server.log
+            exit 1
+          fi
+      - name: Seed breeds into local CI D1 only
+        id: seed
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-breed-e2e.mjs seed
+      - name: Seed LOST/FOUND fixtures into local CI D1 only
+        id: lost_found_seed
+        run: |
+          mkdir -p .e2e-artifacts/lost-found
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/lost-found-e2e.sql
+      - name: All-breed regression — exactly 343 published URLs
+        id: audit
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: node scripts/audit-breed-profiles-ci.mjs --base http://localhost:5173
+      - name: Breed-specific Playwright — desktop
+        id: breed_desktop
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/breed-profile.spec.ts --project=desktop-chromium
+      - name: Breed-specific Playwright — mobile
+        id: breed_mobile
+        if: ${{ always() && steps.seed.outcome == 'success' && steps.audit.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/breed-profile.spec.ts --project=mobile-chromium
+      - name: Lost/found dogs Playwright + accessibility — desktop
+        id: lost_found_desktop
+        if: ${{ always() && steps.seed.outcome == 'success' && steps.lost_found_seed.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/lost-found-dogs.spec.ts --project=desktop-chromium
+      - name: Lost/found dogs Playwright + accessibility — mobile
+        id: lost_found_mobile
+        if: ${{ always() && steps.seed.outcome == 'success' && steps.lost_found_seed.outcome == 'success' && steps.lost_found_desktop.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/lost-found-dogs.spec.ts --project=mobile-chromium
+      - name: Upload LOST/FOUND public screenshots
+        if: ${{ always() && steps.lost_found_desktop.outcome == 'success' && steps.lost_found_mobile.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lost-found-public-screenshots-${{ github.run_attempt }}
+          path: .e2e-artifacts/lost-found/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Stop local app server
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/local-server.pid ]; then
+            kill "$(cat .e2e-artifacts/local-server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload Playwright HTML report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-breed-pr-html-report-${{ github.run_attempt }}
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload screenshots, video, traces and server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-breed-pr-failure-evidence-${{ github.run_attempt }}
+          path: |
+            test-results/playwright/
+            .e2e-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  production-smoke:
+    name: Playwright production smoke (${{ matrix.label }})
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: desktop
+            project: desktop-chromium
+          - label: mobile
+            project: mobile-chromium
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Run read-only production browser tests — ${{ matrix.label }}
+        env:
+          E2E_BASE_URL: https://psipedia.sk
+        run: npx playwright test --grep @production --project="${{ matrix.project }}"
+      - name: Upload Playwright HTML report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-production-${{ matrix.label }}-html-report-${{ github.run_attempt }}
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload screenshots, video and traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-production-${{ matrix.label }}-failure-evidence-${{ github.run_attempt }}
+          path: test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  notify-production-failure:
+    name: Notify owner about failed production smoke
+    needs: production-smoke
+    if: ${{ always() && github.event_name != 'pull_request' && needs.production-smoke.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Create GitHub notification issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              ...context.repo,
+              title: `Production smoke zlyhal – run #${context.runNumber}`,
+              body: `Playwright production smoke pre Psipediu zlyhal.\n\n[Otvoriť workflow a artifacts](${runUrl})`,
+              assignees: [context.repo.owner],
+            });
