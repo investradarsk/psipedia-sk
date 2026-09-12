@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   validate:
-    name: Badge RSC diagnostic
+    name: Locate RSC error masking
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -25,58 +25,40 @@ jobs:
         run: npm ci
       - name: Fresh production build
         run: npm run build
-      - name: PR isolated badge with development runtime flag
+      - name: Locate masking implementation and context
         shell: bash
         run: |
-          set +e
-          NODE_ENV=development node --experimental-loader ./tests/cloudflare-loader.mjs --test --test-name-pattern="admin badge reflects new inquiry count and decreases after new to read" tests/directory-inquiry-notifications.test.mjs 2>&1 | tee /tmp/pr-dev-runtime.log
-          echo "PR_DEV_EXIT=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
-          exit 0
-      - name: Checkout current main control
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          path: main-control
-      - name: Build current main control
-        shell: bash
-        run: |
-          cd main-control
-          npm ci
-          npm run build
-      - name: Exact badge harness fixture against main worker
-        shell: bash
-        run: |
-          cp tests/directory-inquiry-notifications.test.mjs /tmp/directory-inquiry-main-control.orig
           python - <<'PY'
           from pathlib import Path
-          p = Path('tests/directory-inquiry-notifications.test.mjs')
-          s = p.read_text()
-          s = s.replace('new URL("../dist/server/index.js", import.meta.url)', 'new URL("../main-control/dist/server/index.js", import.meta.url)')
-          s = s.replace('assert.match(beforeHtml, /aria-label="2 nových dopytov"/);', 'assert.match(beforeHtml, /Prijaté dopyty/);')
-          s = s.replace('assert.match(afterHtml, /aria-label="1 nových dopytov"/);\n  assert.doesNotMatch(afterHtml, /aria-label="2 nových dopytov"/);', 'assert.match(afterHtml, /Prijaté dopyty/);')
-          s = s.replace(
-            '  const before = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);',
-            '  console.error("MAIN_EXACT first-get start");\n  const before = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);\n  console.error("MAIN_EXACT first-get response", before.status);'
-          )
-          s = s.replace(
-            '  assert.equal(update.status, 200);\n  const after = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);',
-            '  assert.equal(update.status, 200);\n  console.error("MAIN_EXACT update response", update.status);\n  console.error("MAIN_EXACT second-get start");\n  const after = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);\n  console.error("MAIN_EXACT second-get response", after.status);'
-          )
-          p.write_text(s)
+          needle = "An error occurred in the Server Components render"
+          roots = [Path("node_modules"), Path(".sites-runtime"), Path("dist")]
+          found = 0
+          for root in roots:
+            if not root.exists():
+              continue
+            for p in root.rglob("*"):
+              if found >= 20 or not p.is_file():
+                continue
+              try:
+                text = p.read_text(errors="ignore")
+              except Exception:
+                continue
+              if needle not in text:
+                continue
+              found += 1
+              print(f"RSC_MASK_MATCH {p}")
+              idx = text.index(needle)
+              start = max(0, idx - 1600)
+              end = min(len(text), idx + len(needle) + 1600)
+              print(text[start:end])
+              print("RSC_MASK_END")
+          print(f"RSC_MASK_MATCH_COUNT={found}")
           PY
-          set +e
-          node --experimental-loader ./tests/cloudflare-loader.mjs --test --test-name-pattern="admin badge reflects new inquiry count and decreases after new to read" tests/directory-inquiry-notifications.test.mjs 2>&1 | tee /tmp/main-exact.log
-          MAIN_EXACT_STATUS=${PIPESTATUS[0]}
-          cp /tmp/directory-inquiry-main-control.orig tests/directory-inquiry-notifications.test.mjs
-          echo "MAIN_EXACT_EXIT=$MAIN_EXACT_STATUS" >> "$GITHUB_ENV"
-          exit 0
-      - name: Diagnostic summary
+      - name: Reproduce isolated badge once
         shell: bash
         run: |
-          echo "PR development-runtime isolated exit: ${PR_DEV_EXIT}"
-          echo "Main exact harness exit: ${MAIN_EXACT_EXIT}"
-          echo "--- PR dev-runtime ---"
-          cat /tmp/pr-dev-runtime.log
-          echo "--- Main exact harness ---"
-          cat /tmp/main-exact.log
+          set +e
+          node --experimental-loader ./tests/cloudflare-loader.mjs --test --test-name-pattern="admin badge reflects new inquiry count and decreases after new to read" tests/directory-inquiry-notifications.test.mjs 2>&1 | tee /tmp/badge.log
+          STATUS=${PIPESTATUS[0]}
+          echo "BADGE_EXIT=$STATUS"
           exit 1
