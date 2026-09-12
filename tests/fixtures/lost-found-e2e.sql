@@ -13,11 +13,22 @@ INSERT INTO lost_found_dog_reports (
 );
 
 INSERT INTO lost_found_dog_private_details (
-  report_id,contact_name,contact_phone,contact_email,private_location_description,private_latitude,private_longitude,
-  verification_note,private_note,created_by,updated_by,created_at,updated_at
+  report_id,contact_name_encrypted,contact_phone_encrypted,contact_phone_hash,contact_email_encrypted,contact_email_hash,
+  private_location_description_encrypted,private_latitude_encrypted,private_longitude_encrypted,
+  verification_note_encrypted,private_note_encrypted,created_by,updated_by,created_at,updated_at
 ) VALUES (
-  910001,'E2E súkromný kontakt','+421900000001','lost-e2e@example.invalid','Presná testovacia lokalita iba pre admina',48.306401,18.086401,
-  'Lokálny test verifikácie.','Neverejná E2E poznámka.','e2e-admin@example.invalid','e2e-admin@example.invalid','2026-09-12T16:35:00.000Z','2026-09-12T16:35:00.000Z'
+  910001,
+  'v1.AAAAAAAAAAAAAAAB.i-cn3hLs7FDjtBAflqDd8A5E4auwSSlsdyRomcDSog',
+  'v1.AAAAAAAAAAAAAAAC.DrTYvaEOn_23NHmR1Bry7oa0PMVgc1BzbhoMKdo',
+  'o_663FKT1JCW83HDzX0kxGUDNjup76mJin2Us0JKuhg',
+  'v1.AAAAAAAAAAAAAAAD.Mrvud8iexR7XwssPdMwH359iSHAgPAL6O7pAzU6eTInwDpeRWG0qBw',
+  '3Viosr8SEheZMLfFhS-tvZyTfSDDb3ivHnHKxDY9m-g',
+  'v1.AAAAAAAAAAAAAAAE.i5feTBhMHeqe6eRfVCoV61PA-cvQ3jCQo8vMzTK8CwbNcyr1WHQSPNjwumGUBx0fI10m9zcUqxFleg',
+  'v1.AAAAAAAAAAAAAAAF.hB81XrUMxQYqxwqddnF4yKR0RryYC2hqMQ',
+  'v1.AAAAAAAAAAAAAAAG.TF8lb1Nzbmt7FTzvNm765ygw2HiADd0ifQ',
+  'v1.AAAAAAAAAAAAAAAH.S8nbg-fwv79JNUNevgx3lYZ1_5DK7LNHNNMmgTFrQR4',
+  'v1.AAAAAAAAAAAAAAAI.-K5j9hpviwZyqtxTXV709wNyTmOOT-EUSzyRwBOczEdCNMSJu4npnWg',
+  'e2e-admin@example.invalid','e2e-admin@example.invalid','2026-09-12T16:35:00.000Z','2026-09-12T16:35:00.000Z'
 );
 
 INSERT INTO lost_found_dog_reports (
@@ -35,9 +46,20 @@ INSERT INTO lost_found_dog_reports (
 );
 
 INSERT INTO lost_found_dog_private_details (
-  report_id,contact_name,contact_phone,contact_email,private_location_description,private_latitude,private_longitude,
-  verification_note,private_note,created_by,updated_by,created_at,updated_at
+  report_id,contact_name_encrypted,contact_phone_encrypted,contact_phone_hash,contact_email_encrypted,contact_email_hash,
+  private_location_description_encrypted,private_latitude_encrypted,private_longitude_encrypted,
+  verification_note_encrypted,private_note_encrypted,created_by,updated_by,created_at,updated_at
 ) VALUES (
-  910002,'E2E súkromný nálezca','+421900000002','found-e2e@example.invalid','Presná testovacia lokalita iba pre admina',48.309001,18.081001,
-  'Lokálny test verifikácie.','Neverejná E2E poznámka.','e2e-admin@example.invalid','e2e-admin@example.invalid','2026-09-12T17:00:00.000Z','2026-09-12T17:00:00.000Z'
+  910002,
+  'v1.AAAAAAAAAAAAAAAJ.44kIyEyY_WDI9c1pVZ_qAy09PIBZeg0Mq81c_f_Qw6I',
+  'v1.AAAAAAAAAAAAAAAK.tQMOoZuaxApqd-vxcbGWUGPGo0VOZ0vuTFR8Wnk',
+  'IfenAAEZ3bKCJ1dwjTKe_e7WT_nrK6Hwk0oBu8KXxS4',
+  'v1.AAAAAAAAAAAAAAAL.P69Kros9SsDPKbOz1o8jelMLNz0RgZZPYorvOY-XuJCyg0NjQxiyX-M',
+  'BExCTObBN0VsgwReYQdJ4HtPl7qcMJ_-FY3nY8qH6J8',
+  'v1.AAAAAAAAAAAAAAAM.mucOZoHVngqeDBD7_VK14ITFMxIE0MRcuEr-O3pqbbQsagy0uhVsIEHQ-tTq1FHsWkyXhONQQF3ZNg',
+  'v1.AAAAAAAAAAAAAAAN.95aTn25jyRltGfKLtE6VT0I2I8ICnMfCRA',
+  'v1.AAAAAAAAAAAAAAAO.gXNh6dzEWuHOadRe6SprZQ2i2BJanfILug',
+  'v1.AAAAAAAAAAAAAAAP.o8ciFNwlsRWbxqsBN3tPQE4sFMSC1k-jK4pEJKMobBQ',
+  'v1.AAAAAAAAAAAAAAAQ.-YiCBXLkbVcLiZ5PUxzI87OzlF8gXL5SZM_d01DzB6mtivVyNh1eGug',
+  'e2e-admin@example.invalid','e2e-admin@example.invalid','2026-09-12T17:00:00.000Z','2026-09-12T17:00:00.000Z'
 );

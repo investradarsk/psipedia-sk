@@ -32,7 +32,7 @@ test("public EXPIRED case becomes ARCHIVED only after the configured case window
   assert.equal(effectiveLostFoundStatus({ status: "EXPIRED", expiresAt: "2026-09-13T10:00:00.000Z" }, now), "EXPIRED");
 });
 
-test("private PII retention is intentionally separate and unset before foundation integration", () => {
+test("private PII retention remains separate and intentionally unset before launch policy", () => {
   assert.equal(LOST_FOUND_PRIVATE_PII_RETENTION_DAYS, null);
 });
 
@@ -51,10 +51,52 @@ test("public LOST/FOUND table cannot contain contact PII or private moderation d
   const publicSql = migration.slice(0, markerIndex);
   const privateSql = migration.slice(markerIndex);
 
-  for (const forbidden of ["`contact_name`", "`contact_phone`", "`contact_email`", "`private_note`", "`verification_note`", "`private_location_description`", "`created_by`", "`updated_by`"]) {
+  for (const forbidden of [
+    "`contact_name_encrypted`",
+    "`contact_phone_encrypted`",
+    "`contact_phone_hash`",
+    "`contact_email_encrypted`",
+    "`contact_email_hash`",
+    "`private_note_encrypted`",
+    "`verification_note_encrypted`",
+    "`private_location_description_encrypted`",
+    "`private_latitude_encrypted`",
+    "`private_longitude_encrypted`",
+    "`created_by`",
+    "`updated_by`",
+  ]) {
     assert.equal(publicSql.includes(forbidden), false, `${forbidden} must not exist in lost_found_dog_reports`);
   }
-  for (const required of ["`contact_name`", "`contact_phone`", "`contact_email`", "`private_note`", "`verification_note`", "`private_location_description`", "`created_by`", "`updated_by`"]) {
+
+  for (const required of [
+    "`contact_name_encrypted`",
+    "`contact_phone_encrypted`",
+    "`contact_phone_hash`",
+    "`contact_email_encrypted`",
+    "`contact_email_hash`",
+    "`private_note_encrypted`",
+    "`verification_note_encrypted`",
+    "`private_location_description_encrypted`",
+    "`private_latitude_encrypted`",
+    "`private_longitude_encrypted`",
+    "`created_by`",
+    "`updated_by`",
+  ]) {
     assert.equal(privateSql.includes(required), true, `${required} must exist in lost_found_dog_private_details`);
   }
+});
+
+test("LOST/FOUND private persistence uses the canonical foundation PII helpers", async () => {
+  const store = await readFile(new URL("../lib/lost-found-dog-store.ts", import.meta.url), "utf8");
+  assert.match(store, /encryptPii\(/);
+  assert.match(store, /decryptPii\(/);
+  assert.match(store, /hashPii\(/);
+  assert.match(store, /normalizeEmail\(/);
+  assert.match(store, /normalizePhone\(/);
+
+  const publicQueryStart = store.indexOf("export async function listPublicDogReports");
+  const adminQueryStart = store.indexOf("export async function listAdminDogReports");
+  assert.ok(publicQueryStart >= 0 && adminQueryStart > publicQueryStart);
+  const publicQuerySection = store.slice(publicQueryStart, adminQueryStart);
+  assert.equal(publicQuerySection.includes("lost_found_dog_private_details"), false, "public list/detail/sitemap path must not join private LOST/FOUND PII");
 });

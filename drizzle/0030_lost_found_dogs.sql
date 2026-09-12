@@ -50,16 +50,20 @@ CREATE INDEX `lost_found_dog_reports_duplicate_idx` ON `lost_found_dog_reports` 
 
 CREATE TABLE `lost_found_dog_private_details` (
   `report_id` integer PRIMARY KEY NOT NULL REFERENCES `lost_found_dog_reports`(`id`) ON DELETE CASCADE,
-  `contact_name` text,
-  `contact_phone` text,
-  `contact_email` text,
-  `private_location_description` text,
-  `private_latitude` real,
-  `private_longitude` real,
-  `verification_note` text DEFAULT '' NOT NULL,
-  `private_note` text DEFAULT '' NOT NULL,
+  `contact_name_encrypted` text,
+  `contact_phone_encrypted` text,
+  `contact_phone_hash` text,
+  `contact_email_encrypted` text,
+  `contact_email_hash` text,
+  `private_location_description_encrypted` text,
+  `private_latitude_encrypted` text,
+  `private_longitude_encrypted` text,
+  `verification_note_encrypted` text,
+  `private_note_encrypted` text,
   `created_by` text NOT NULL,
   `updated_by` text NOT NULL,
   `created_at` text NOT NULL,
   `updated_at` text NOT NULL
 );
+CREATE INDEX `lost_found_dog_private_phone_hash_idx` ON `lost_found_dog_private_details` (`contact_phone_hash`);
+CREATE INDEX `lost_found_dog_private_email_hash_idx` ON `lost_found_dog_private_details` (`contact_email_hash`);

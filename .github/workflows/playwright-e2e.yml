@@ -58,6 +58,12 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Build PR code
         run: npm run build
+      - name: Configure CI-only local PII keys
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          EOF
       - name: Apply migrations to local D1 only
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Prepare deterministic breed CI fixture and White Swiss image
@@ -120,7 +126,7 @@ jobs:
         run: npm run e2e -- tests/e2e/lost-found-dogs.spec.ts --project=desktop-chromium
       - name: Lost/found dogs Playwright + accessibility — mobile
         id: lost_found_mobile
-        if: ${{ always() && steps.seed.outcome == 'success' && steps.lost_found_seed.outcome == 'success' }}
+        if: ${{ always() && steps.seed.outcome == 'success' && steps.lost_found_seed.outcome == 'success' && steps.lost_found_desktop.outcome == 'success' }}
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/lost-found-dogs.spec.ts --project=mobile-chromium

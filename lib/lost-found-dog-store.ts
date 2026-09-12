@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { defaultLostFoundExpiresAt, effectiveLostFoundStatus, expiredArchiveThreshold, LOST_FOUND_STATUSES, type LostFoundStatus } from "@/lib/lost-found-lifecycle.js";
+import { decryptPii, encryptPii, hashPii, normalizeEmail, normalizePhone } from "@/lib/pii-crypto";
 import {
   chipStates,
   dogReportTypes,
@@ -19,7 +20,11 @@ import {
   type PublicLocationPrecision,
 } from "@/lib/lost-found-dogs";
 
-type RuntimeBindings = { DB?: D1Database };
+type RuntimeBindings = {
+  DB?: D1Database;
+  PII_ENCRYPTION_KEY?: string;
+  PII_HASH_KEY?: string;
+};
 
 type ReportRow = {
   id: number;
@@ -58,12 +63,12 @@ type ReportRow = {
   published_at: string | null;
   expires_at: string | null;
   resolved_at: string | null;
-  private_contact_name?: string | null;
-  private_contact_phone?: string | null;
-  private_contact_email?: string | null;
+  private_contact_name_encrypted?: string | null;
+  private_contact_phone_encrypted?: string | null;
+  private_contact_email_encrypted?: string | null;
   duplicate_of_id?: number | null;
   duplicate_reason?: string;
-  private_note?: string;
+  private_note_encrypted?: string | null;
   created_at?: string;
   archived_at?: string | null;
   private_created_by?: string;
@@ -110,8 +115,12 @@ export type ManagedDogReportInput = {
   internalNote?: string;
 };
 
+function getBindings() {
+  return env as unknown as RuntimeBindings;
+}
+
 function getD1Binding() {
-  const database = (env as unknown as RuntimeBindings).DB;
+  const database = getBindings().DB;
   return database && typeof database.prepare === "function" ? database : null;
 }
 
@@ -119,6 +128,14 @@ function requireD1Binding() {
   const database = getD1Binding();
   if (!database) throw new Error("Databáza stratených a nájdených psov nie je pripojená.");
   return database;
+}
+
+function requirePiiKeys() {
+  const bindings = getBindings();
+  const encryptionKey = bindings.PII_ENCRYPTION_KEY?.trim();
+  const hashKey = bindings.PII_HASH_KEY?.trim();
+  if (!encryptionKey || !hashKey) throw new Error("PII_ENCRYPTION_KEY a PII_HASH_KEY musia byť nakonfigurované pre LOST/FOUND administráciu.");
+  return { encryptionKey, hashKey };
 }
 
 function oneOf<T extends string>(value: unknown, options: readonly T[], fallback: T): T {
@@ -173,16 +190,27 @@ function rowToPublic(row: ReportRow): PublicDogReport {
   };
 }
 
-function rowToAdmin(row: ReportRow): AdminDogReport {
+async function decryptNullable(value: string | null | undefined, encryptionKey: string) {
+  return value ? decryptPii(value, encryptionKey) : null;
+}
+
+async function rowToAdmin(row: ReportRow, encryptionKey: string): Promise<AdminDogReport> {
+  const [contactName, contactPhone, contactEmail, internalNote] = await Promise.all([
+    decryptNullable(row.private_contact_name_encrypted, encryptionKey),
+    decryptNullable(row.private_contact_phone_encrypted, encryptionKey),
+    decryptNullable(row.private_contact_email_encrypted, encryptionKey),
+    decryptNullable(row.private_note_encrypted, encryptionKey),
+  ]);
+
   return {
     ...rowToPublic(row),
     mainImageKey: row.main_image_key ?? null,
-    contactName: row.private_contact_name ?? null,
-    contactPhone: row.private_contact_phone ?? null,
-    contactEmail: row.private_contact_email ?? null,
+    contactName,
+    contactPhone,
+    contactEmail,
     duplicateOfId: row.duplicate_of_id ?? null,
     duplicateReason: row.duplicate_reason ?? "",
-    internalNote: row.private_note ?? "",
+    internalNote: internalNote ?? "",
     createdAt: row.created_at ?? row.updated_at,
     archivedAt: row.archived_at ?? null,
     createdBy: row.private_created_by ?? "",
@@ -200,8 +228,11 @@ const publicSelect = `
   r.updated_at, r.published_at, r.expires_at, r.resolved_at`;
 
 const adminSelect = `${publicSelect}, r.main_image_key, r.duplicate_of_id, r.duplicate_reason, r.created_at, r.archived_at,
-  p.contact_name AS private_contact_name, p.contact_phone AS private_contact_phone, p.contact_email AS private_contact_email,
-  p.private_note AS private_note, p.created_by AS private_created_by, p.updated_by AS private_updated_by`;
+  p.contact_name_encrypted AS private_contact_name_encrypted,
+  p.contact_phone_encrypted AS private_contact_phone_encrypted,
+  p.contact_email_encrypted AS private_contact_email_encrypted,
+  p.private_note_encrypted AS private_note_encrypted,
+  p.created_by AS private_created_by, p.updated_by AS private_updated_by`;
 
 export const listPublishedBreedOptions = cache(async (): Promise<BreedOption[]> => {
   const database = getD1Binding();
@@ -275,14 +306,18 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r ${whereSql}`).bind(...args).first<{ count: number }>();
   const total = Number(count?.count || 0);
   const result = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
-  return { items: (result.results ?? []).map(rowToAdmin), total, page, pageSize, pages: Math.ceil(total / pageSize) };
+  const { encryptionKey } = requirePiiKeys();
+  const items = await Promise.all((result.results ?? []).map((row) => rowToAdmin(row, encryptionKey)));
+  return { items, total, page, pageSize, pages: Math.ceil(total / pageSize) };
 }
 
 export async function getAdminDogReport(id: number) {
   const database = requireD1Binding();
   await persistLostFoundLifecycle(database);
   const row = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id WHERE r.id = ? LIMIT 1`).bind(id).first<ReportRow>();
-  return row ? rowToAdmin(row) : null;
+  if (!row) return null;
+  const { encryptionKey } = requirePiiKeys();
+  return rowToAdmin(row, encryptionKey);
 }
 
 export async function getAdminDogReportCounts() {
@@ -298,13 +333,28 @@ export async function getAdminDogReportCounts() {
   return { total, ...counts };
 }
 
+async function preparePrivatePii(clean: { contactName: string | null; contactPhone: string | null; contactEmail: string | null; internalNote: string }) {
+  const { encryptionKey, hashKey } = requirePiiKeys();
+  const normalizedPhone = clean.contactPhone ? normalizePhone(clean.contactPhone) : null;
+  const normalizedEmail = clean.contactEmail ? normalizeEmail(clean.contactEmail) : null;
+  const [contactNameEncrypted, contactPhoneEncrypted, contactPhoneHash, contactEmailEncrypted, contactEmailHash, privateNoteEncrypted] = await Promise.all([
+    clean.contactName ? encryptPii(clean.contactName, encryptionKey) : Promise.resolve(null),
+    clean.contactPhone ? encryptPii(clean.contactPhone, encryptionKey) : Promise.resolve(null),
+    normalizedPhone ? hashPii(normalizedPhone, hashKey) : Promise.resolve(null),
+    clean.contactEmail ? encryptPii(clean.contactEmail, encryptionKey) : Promise.resolve(null),
+    normalizedEmail ? hashPii(normalizedEmail, hashKey) : Promise.resolve(null),
+    clean.internalNote ? encryptPii(clean.internalNote, encryptionKey) : Promise.resolve(null),
+  ]);
+  return { contactNameEncrypted, contactPhoneEncrypted, contactPhoneHash, contactEmailEncrypted, contactEmailHash, privateNoteEncrypted };
+}
+
 export async function createAdminDogReport(input: ManagedDogReportInput, actor: string) {
   const database = requireD1Binding();
   const clean = await cleanInput(database, input, null);
+  const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
   const lifecycle = lifecycleFields(clean.status, null, clean.expiresAt, now);
 
-  // Create the case unpublished/DRAFT first. If private persistence fails, no public record can leak incomplete contact handling.
   const result = await database.prepare(`INSERT INTO lost_found_dog_reports (
     type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,description,distinguishing_marks,collar_description,chipped,
     main_image,main_image_key,gallery_json,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,public_location_precision,
@@ -317,9 +367,19 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
   const reportId = Number(result.meta.last_row_id);
 
   const privateInsert = database.prepare(`INSERT INTO lost_found_dog_private_details (
-    report_id,contact_name,contact_phone,contact_email,private_note,created_by,updated_by,created_at,updated_at
-  ) VALUES (?,?,?,?,?,?,?,?,?)`).bind(
-    reportId, clean.contactName, clean.contactPhone, clean.contactEmail, clean.internalNote, actor, actor, now, now
+    report_id,contact_name_encrypted,contact_phone_encrypted,contact_phone_hash,contact_email_encrypted,contact_email_hash,private_note_encrypted,created_by,updated_by,created_at,updated_at
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(
+    reportId,
+    privatePii.contactNameEncrypted,
+    privatePii.contactPhoneEncrypted,
+    privatePii.contactPhoneHash,
+    privatePii.contactEmailEncrypted,
+    privatePii.contactEmailHash,
+    privatePii.privateNoteEncrypted,
+    actor,
+    actor,
+    now,
+    now,
   );
   const publishCase = database.prepare(`UPDATE lost_found_dog_reports SET status=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
     clean.status, now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, reportId
@@ -333,6 +393,7 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const existing = await getAdminDogReport(id);
   if (!existing) throw new Error("Hlásenie neexistuje.");
   const clean = await cleanInput(database, input, id);
+  const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);
 
@@ -346,16 +407,28 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
     now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, id
   );
   const privateUpsert = database.prepare(`INSERT INTO lost_found_dog_private_details (
-    report_id,contact_name,contact_phone,contact_email,private_note,created_by,updated_by,created_at,updated_at
-  ) VALUES (?,?,?,?,?,?,?,?,?)
+    report_id,contact_name_encrypted,contact_phone_encrypted,contact_phone_hash,contact_email_encrypted,contact_email_hash,private_note_encrypted,created_by,updated_by,created_at,updated_at
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
   ON CONFLICT(report_id) DO UPDATE SET
-    contact_name=excluded.contact_name,
-    contact_phone=excluded.contact_phone,
-    contact_email=excluded.contact_email,
-    private_note=excluded.private_note,
+    contact_name_encrypted=excluded.contact_name_encrypted,
+    contact_phone_encrypted=excluded.contact_phone_encrypted,
+    contact_phone_hash=excluded.contact_phone_hash,
+    contact_email_encrypted=excluded.contact_email_encrypted,
+    contact_email_hash=excluded.contact_email_hash,
+    private_note_encrypted=excluded.private_note_encrypted,
     updated_by=excluded.updated_by,
     updated_at=excluded.updated_at`).bind(
-    id, clean.contactName, clean.contactPhone, clean.contactEmail, clean.internalNote, actor, actor, now, now
+    id,
+    privatePii.contactNameEncrypted,
+    privatePii.contactPhoneEncrypted,
+    privatePii.contactPhoneHash,
+    privatePii.contactEmailEncrypted,
+    privatePii.contactEmailHash,
+    privatePii.privateNoteEncrypted,
+    actor,
+    actor,
+    now,
+    now,
   );
   await database.batch([publicUpdate, privateUpsert]);
   return getAdminDogReport(id);
@@ -419,6 +492,10 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput, cu
   const mainImage = cleanImageNullable(input.mainImage);
   const gallery = (Array.isArray(input.gallery) ? input.gallery : []).map(cleanImageNullable).filter((item): item is string => Boolean(item)).slice(0, 8);
   const expiresAt = cleanIsoNullable(input.expiresAt);
+  const contactPhone = cleanNullable(input.contactPhone, 80);
+  if (contactPhone) {
+    try { normalizePhone(contactPhone); } catch { throw new Error("Kontaktný telefón nemá platný formát."); }
+  }
   const contactEmail = cleanNullable(input.contactEmail, 254);
   if (contactEmail && !/^\S+@\S+\.\S+$/.test(contactEmail)) throw new Error("Kontaktný e-mail nemá platný formát.");
 
@@ -433,7 +510,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput, cu
     mainImage, mainImageKey: cleanNullable(input.mainImageKey, 500), gallery,
     eventDate, lastSeenDateTime, region, district, city, locationDescription: cleanText(input.locationDescription, 1000),
     publicLatitude, publicLongitude, publicLocationPrecision: oneOf(input.publicLocationPrecision, publicLocationPrecisions, "MUNICIPALITY") as PublicLocationPrecision,
-    contactName: cleanNullable(input.contactName, 160), contactPhone: cleanNullable(input.contactPhone, 80), contactEmail,
+    contactName: cleanNullable(input.contactName, 160), contactPhone, contactEmail,
     publicContactNote: cleanText(input.publicContactNote, 800), source: cleanText(input.source, 160) || "EDITORIAL", sourceUrl,
     expiresAt, duplicateOfId, duplicateReason, internalNote: cleanText(input.internalNote, 4000),
   };
