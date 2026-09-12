@@ -1,15 +1,15 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { use, type ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { getNewDirectoryInquiryCount } from "@/lib/directory-inquiry-store";
 import { PawMark } from "./icons";
 
-async function AdminNavigation() {
-  const newInquiryCount = await getNewDirectoryInquiryCount();
+function AdminNavigation() {
+  const newInquiryCount = use(getNewDirectoryInquiryCount());
   return (
     <nav className="admin-section-nav" aria-label="Redakčné moduly">
       <div className="admin-nav-group"><span>Obsah</span><div><Link href="/admin">Články</Link><Link href="/admin/steniatka">Šteniatka</Link><Link href="/admin/plemena">Plemená</Link><Link href="/admin/sekcie">Sekcie</Link></div></div>
-      <div className="admin-nav-group"><span>Komunita</span><div><Link href="/admin/tipy">Tipy</Link><Link href="/admin/hodnotenia">Hodnotenia</Link><Link href="/admin/dopyty">Dopyty{newInquiryCount > 0 ? ` ${newInquiryCount}` : ""}</Link></div></div>
+      <div className="admin-nav-group"><span>Komunita</span><div><Link href="/admin/tipy">Tipy</Link><Link href="/admin/hodnotenia">Hodnotenia</Link><Link href="/admin/dopyty">Dopyty{newInquiryCount > 0 && <span className="admin-inquiry-status is-new" aria-label={`${newInquiryCount} nových dopytov`}>{newInquiryCount}</span>}</Link></div></div>
       <div className="admin-nav-group"><span>Portál</span><div><Link href="/admin/podujatia">Podujatia</Link><Link href="/admin/adresar">Adresár</Link><Link href="/admin/adresar/navrhy">Návrhy úprav</Link><Link href="/admin/pomoc">Pomoc</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link></div></div>
       <div className="admin-nav-group"><span>Nastavenia</span><div><Link href="/admin/navigacia">Navigácia</Link><Link href="/admin/pravne">Právne</Link><Link href="/admin/import">Import</Link></div></div>
       <div className="admin-nav-public"><Link href="/adresar" target="_blank" rel="noreferrer">Adresár ↗</Link><Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc ↗</Link></div>
