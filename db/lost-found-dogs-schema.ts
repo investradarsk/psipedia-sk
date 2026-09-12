@@ -32,24 +32,18 @@ export const lostFoundDogReports = sqliteTable(
     publicLatitude: real("public_latitude"),
     publicLongitude: real("public_longitude"),
     publicLocationPrecision: text("public_location_precision").notNull().default("MUNICIPALITY"),
-    contactName: text("contact_name"),
-    contactPhone: text("contact_phone"),
-    contactEmail: text("contact_email"),
     publicContactNote: text("public_contact_note").notNull().default(""),
     source: text("source").notNull().default("EDITORIAL"),
     sourceUrl: text("source_url"),
     searchText: text("search_text").notNull().default(""),
     duplicateOfId: integer("duplicate_of_id"),
     duplicateReason: text("duplicate_reason").notNull().default(""),
-    internalNote: text("internal_note").notNull().default(""),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     publishedAt: text("published_at"),
     expiresAt: text("expires_at"),
     resolvedAt: text("resolved_at"),
     archivedAt: text("archived_at"),
-    createdBy: text("created_by").notNull(),
-    updatedBy: text("updated_by").notNull(),
   },
   (table) => [
     uniqueIndex("lost_found_dog_reports_type_slug_unique").on(table.type, table.slug),
@@ -60,4 +54,25 @@ export const lostFoundDogReports = sqliteTable(
     index("lost_found_dog_reports_admin_updated_idx").on(table.updatedAt, table.id),
     index("lost_found_dog_reports_duplicate_idx").on(table.duplicateOfId),
   ],
+);
+
+export const lostFoundDogPrivateDetails = sqliteTable(
+  "lost_found_dog_private_details",
+  {
+    reportId: integer("report_id")
+      .primaryKey()
+      .references(() => lostFoundDogReports.id, { onDelete: "cascade" }),
+    contactName: text("contact_name"),
+    contactPhone: text("contact_phone"),
+    contactEmail: text("contact_email"),
+    privateLocationDescription: text("private_location_description"),
+    privateLatitude: real("private_latitude"),
+    privateLongitude: real("private_longitude"),
+    verificationNote: text("verification_note").notNull().default(""),
+    privateNote: text("private_note").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
 );
