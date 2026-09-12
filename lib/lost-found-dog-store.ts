@@ -246,7 +246,7 @@ export async function listPublicDogReports(type: DogReportType, filters: DogRepo
 export async function getPublicDogReport(type: DogReportType, slug: string) {
   const database = getD1Binding();
   if (!database) return null;
-  const row = await database.prepare(`SELECT ${publicSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.type = ? AND r.slug = ? AND r.published_at IS NOT NULL AND r.status IN ('ACTIVE','RESOLVED','EXPIRED','ARCHIVED') LIMIT 1`).bind(type, slug).first<ReportRow>();
+  const row = await database.prepare(`SELECT ${publicSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.type = ? AND r.slug = ? AND r.published_at IS NOT NULL AND r.duplicate_of_id IS NULL AND r.status IN ('ACTIVE','RESOLVED','EXPIRED','ARCHIVED') LIMIT 1`).bind(type, slug).first<ReportRow>();
   return row ? rowToPublic(row) : null;
 }
 
@@ -346,7 +346,7 @@ function lifecycleFields(status: LostFoundStatus, existing: AdminDogReport | nul
 }
 
 async function cleanInput(database: D1Database, input: ManagedDogReportInput, currentId: number | null) {
-  let type = oneOf(input.type, dogReportTypes, "LOST") as DogReportType;
+  const type = oneOf(input.type, dogReportTypes, "LOST") as DogReportType;
   let status = oneOf(input.status, LOST_FOUND_STATUSES, "DRAFT") as LostFoundStatus;
   const dogName = cleanNullable(input.dogName, 120);
   const eventDate = cleanText(input.eventDate, 10);
@@ -366,7 +366,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput, cu
   if (status === "ACTIVE" && type === "LOST" && !lastSeenDateTime) throw new Error("Pri aktívnom stratenom psovi zadaj čas, kedy bol naposledy videný.");
 
   const breedUnknown = Boolean(input.breedUnknown);
-  let breedId = breedUnknown ? null : positiveInt(input.breedId);
+  const breedId = breedUnknown ? null : positiveInt(input.breedId);
   let breed = breedUnknown ? "" : cleanText(input.breed, 160);
   if (breedId) {
     const linked = await database.prepare("SELECT id, name FROM managed_breeds WHERE id = ? AND status = 'published' LIMIT 1").bind(breedId).first<{ id: number; name: string }>();
@@ -374,7 +374,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput, cu
     breed = linked.name;
   }
 
-  let duplicateOfId = positiveInt(input.duplicateOfId);
+  const duplicateOfId = positiveInt(input.duplicateOfId);
   const duplicateReason = cleanText(input.duplicateReason, 500);
   if (duplicateOfId) {
     if (currentId && duplicateOfId === currentId) throw new Error("Hlásenie nemôže byť duplicitou samého seba.");
@@ -424,5 +424,5 @@ function cleanNullable(value: unknown, max: number) { const text = cleanText(val
 function positiveInt(value: unknown) { const parsed = Number(value); return Number.isInteger(parsed) && parsed > 0 ? parsed : null; }
 function optionalNumber(value: unknown) { if (value === null || value === undefined || value === "") return null; const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; }
 function cleanIsoNullable(value: unknown) { const text = cleanText(value, 50); if (!text) return null; const date = new Date(text); if (Number.isNaN(date.getTime())) throw new Error("Neplatný dátum alebo čas."); return date.toISOString(); }
-function cleanUrlNullable(value: unknown) { const text = cleanText(value, 1000); if (!text) return null; try { const url = new URL(text); if (!['http:', 'https:'].includes(url.protocol)) throw new Error(); return url.toString(); } catch { throw new Error("Odkaz zdroja musí byť platná HTTP/HTTPS adresa."); } }
-function cleanImageNullable(value: unknown) { const text = cleanText(value, 1000); if (!text) return null; if (text.startsWith("/media/") || text.startsWith("/images/")) return text; try { const url = new URL(text); if (['http:', 'https:'].includes(url.protocol)) return url.toString(); } catch {} throw new Error("Obrázok musí byť interná /media/ adresa alebo platná HTTP/HTTPS URL."); }
+function cleanUrlNullable(value: unknown) { const text = cleanText(value, 1000); if (!text) return null; try { const url = new URL(text); if (!["http:", "https:"].includes(url.protocol)) throw new Error(); return url.toString(); } catch { throw new Error("Odkaz zdroja musí byť platná HTTP/HTTPS adresa."); } }
+function cleanImageNullable(value: unknown) { const text = cleanText(value, 1000); if (!text) return null; if (text.startsWith("/media/") || text.startsWith("/images/")) return text; try { const url = new URL(text); if (["http:", "https:"].includes(url.protocol)) return url.toString(); } catch {} throw new Error("Obrázok musí byť interná /media/ adresa alebo platná HTTP/HTTPS URL."); }
