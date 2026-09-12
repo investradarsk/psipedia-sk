@@ -5,7 +5,13 @@ import { getNewDirectoryInquiryCount } from "@/lib/directory-inquiry-store";
 import { PawMark } from "./icons";
 
 async function AdminNavigation() {
-  const newInquiryCount = await getNewDirectoryInquiryCount();
+  let newInquiryCount: number;
+  try {
+    newInquiryCount = await getNewDirectoryInquiryCount();
+  } catch (error) {
+    console.error("ADMIN_INQUIRY_BADGE_DEBUG", error);
+    throw error;
+  }
   return (
     <nav className="admin-section-nav" aria-label="Redakčné moduly">
       <div className="admin-nav-group"><span>Obsah</span><div><Link href="/admin">Články</Link><Link href="/admin/steniatka">Šteniatka</Link><Link href="/admin/plemena">Plemená</Link><Link href="/admin/sekcie">Sekcie</Link></div></div>
