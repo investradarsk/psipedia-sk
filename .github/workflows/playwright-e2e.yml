@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   validate:
-    name: Locate RSC error masking
+    name: Expose original RSC exception
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -23,42 +23,29 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Fresh production build
-        run: npm run build
-      - name: Locate masking implementation and context
+      - name: Patch installed vinext diagnostics only
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-          needle = "An error occurred in the Server Components render"
-          roots = [Path("node_modules"), Path(".sites-runtime"), Path("dist")]
-          found = 0
-          for root in roots:
-            if not root.exists():
-              continue
-            for p in root.rglob("*"):
-              if found >= 20 or not p.is_file():
-                continue
-              try:
-                text = p.read_text(errors="ignore")
-              except Exception:
-                continue
-              if needle not in text:
-                continue
-              found += 1
-              print(f"RSC_MASK_MATCH {p}")
-              idx = text.index(needle)
-              start = max(0, idx - 1600)
-              end = min(len(text), idx + len(needle) + 1600)
-              print(text[start:end])
-              print("RSC_MASK_END")
-          print(f"RSC_MASK_MATCH_COUNT={found}")
+          p = Path("node_modules/vinext/dist/server/app-rsc-errors.js")
+          s = p.read_text()
+          old = 'function createRscOnErrorHandler(options) {\n\treturn (error) => {'
+          new = 'function createRscOnErrorHandler(options) {\n\treturn (error) => {\n\t\tconsole.error("RSC_ORIGINAL_DIAG", error, error instanceof Error ? error.stack : "");'
+          if old not in s:
+              raise SystemExit("vinext RSC handler pattern not found")
+          p.write_text(s.replace(old, new, 1))
+          print("patched", p)
           PY
-      - name: Reproduce isolated badge once
+      - name: Fresh production build with diagnostic runtime
+        run: npm run build
+      - name: Isolated badge test and original exception
         shell: bash
         run: |
           set +e
-          node --experimental-loader ./tests/cloudflare-loader.mjs --test --test-name-pattern="admin badge reflects new inquiry count and decreases after new to read" tests/directory-inquiry-notifications.test.mjs 2>&1 | tee /tmp/badge.log
+          node --experimental-loader ./tests/cloudflare-loader.mjs --test --test-name-pattern="admin badge reflects new inquiry count and decreases after new to read" tests/directory-inquiry-notifications.test.mjs 2>&1 | tee /tmp/badge-original.log
           STATUS=${PIPESTATUS[0]}
           echo "BADGE_EXIT=$STATUS"
+          echo "--- original RSC diagnostic lines ---"
+          grep -A20 -B5 "RSC_ORIGINAL_DIAG" /tmp/badge-original.log || true
           exit 1
