@@ -34,7 +34,7 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
   for (const [key, value] of Object.entries({ q, region, locality, date, sex, size, breed: breedId ? String(breedId) : "" })) if (value) params.set(key, value);
   const label = dogReportTypeShortLabel(type).toLowerCase();
 
-  return <main className={styles.shell}>
+  return <main id="obsah" tabIndex={-1} className={styles.shell}>
     <section className={styles.hero}>
       <span className={styles.eyebrow}>Pomoc psom · aktuálne hlásenia</span>
       <h1>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</h1>
