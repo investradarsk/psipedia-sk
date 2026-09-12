@@ -19,7 +19,7 @@ import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITE
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports] = await Promise.all([
     getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectoryProfiles(),
-    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports(),
+    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports().catch(() => []),
   ]);
   const portalSections = managedSections.filter((section) => section.visible);
   const articleModified = (article: (typeof articles)[number]) => article.updatedDateIso;
