@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, codex/lost-found-dogs]
   schedule:
     - cron: "17 5 * * *"
 
@@ -40,7 +40,7 @@ jobs:
 
   pull-request-e2e:
     name: Breed CI bootstrap, all-breed regression and Playwright
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/codex/lost-found-dogs'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 60
