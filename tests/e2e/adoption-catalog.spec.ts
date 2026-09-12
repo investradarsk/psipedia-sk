@@ -5,9 +5,9 @@ test.describe("adoption catalog", () => {
   test("renders filters, status separation and passes critical accessibility", async ({ page }) => {
     await page.goto("/pomoc-psom/adopcia");
     await expect(page.getByRole("heading", { name: "Psy na adopciu", level: 1 })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Aktívne adopcie" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Rezervované" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Adoptované" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Aktívne adopcie", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Rezervované", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Adoptované", exact: true })).toBeVisible();
     await expect(page.getByRole("complementary", { name: "Filtre adopcií" })).toBeVisible();
 
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
