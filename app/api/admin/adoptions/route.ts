@@ -1,0 +1,6 @@
+import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { createManagedAdoption, isAdoptionConflict, listManagedAdoptions, type ManagedAdoptionInput } from "@/lib/adoption-store";
+export const dynamic="force-dynamic";
+function errorResponse(error:unknown){const conflict=isAdoptionConflict(error);return Response.json({error:conflict?"Profil s rovnakou adresou už existuje.":error instanceof Error?error.message:"Nastala neočakávaná chyba."},{status:conflict?409:400})}
+export async function GET(request:Request){const user=await getAdminApiUser();if(!user)return unauthorizedAdminResponse();const url=new URL(request.url);try{return Response.json(await listManagedAdoptions({q:url.searchParams.get("q")||"",status:(url.searchParams.get("status")||"") as never,stale:(url.searchParams.get("stale")||"all") as never,page:Number(url.searchParams.get("page"))||1}))}catch(error){return Response.json({error:error instanceof Error?error.message:"Profily sa nepodarilo načítať."},{status:500})}}
+export async function POST(request:Request){const user=await getAdminApiUser();if(!user)return unauthorizedAdminResponse();try{return Response.json({item:await createManagedAdoption(await request.json() as ManagedAdoptionInput,user.email)},{status:201})}catch(error){return errorResponse(error)}}
