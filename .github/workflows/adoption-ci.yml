@@ -35,21 +35,51 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
-      - name: Apply local D1 migrations
+      - name: Apply migrations to local D1 only
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
-      - name: Seed adoption fixture (local CI only)
-        run: node scripts/bootstrap-adoption-e2e.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Start app
+      - name: Start local app server
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
         run: |
-          nohup npm exec vite -- --host 127.0.0.1 > /tmp/adoption-app.log 2>&1 &
-          for i in $(seq 1 90); do curl --silent --fail http://127.0.0.1:5173/ >/dev/null && exit 0; sleep 1; done
-          cat /tmp/adoption-app.log
+          mkdir -p .e2e-artifacts
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/adoption-local-server.log 2>&1 &
+          echo $! > .e2e-artifacts/adoption-local-server.pid
+          for i in $(seq 1 120); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -200 .e2e-artifacts/adoption-local-server.log
           exit 1
+      - name: Seed adoption fixture through local app only
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-adoption-e2e.mjs
       - name: Desktop adoption + accessibility
-        env: { E2E_BASE_URL: "http://127.0.0.1:5173" }
+        env:
+          E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/adoption.spec.ts --project=desktop-chromium
       - name: Mobile adoption + accessibility
-        env: { E2E_BASE_URL: "http://127.0.0.1:5173" }
+        env:
+          E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/adoption.spec.ts --project=mobile-chromium
+      - name: Stop local app server
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/adoption-local-server.pid ]; then
+            kill "$(cat .e2e-artifacts/adoption-local-server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adoption-ci-failure-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+            .e2e-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
