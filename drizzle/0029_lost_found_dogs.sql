@@ -27,24 +27,18 @@ CREATE TABLE `lost_found_dog_reports` (
   `public_latitude` real,
   `public_longitude` real,
   `public_location_precision` text DEFAULT 'MUNICIPALITY' NOT NULL CHECK (`public_location_precision` IN ('MUNICIPALITY','NEIGHBORHOOD','APPROXIMATE')),
-  `contact_name` text,
-  `contact_phone` text,
-  `contact_email` text,
   `public_contact_note` text DEFAULT '' NOT NULL,
   `source` text DEFAULT 'EDITORIAL' NOT NULL,
   `source_url` text,
   `search_text` text DEFAULT '' NOT NULL,
   `duplicate_of_id` integer REFERENCES `lost_found_dog_reports`(`id`) ON DELETE SET NULL,
   `duplicate_reason` text DEFAULT '' NOT NULL,
-  `internal_note` text DEFAULT '' NOT NULL,
   `created_at` text NOT NULL,
   `updated_at` text NOT NULL,
   `published_at` text,
   `expires_at` text,
   `resolved_at` text,
-  `archived_at` text,
-  `created_by` text NOT NULL,
-  `updated_by` text NOT NULL
+  `archived_at` text
 );
 CREATE UNIQUE INDEX `lost_found_dog_reports_type_slug_unique` ON `lost_found_dog_reports` (`type`,`slug`);
 CREATE INDEX `lost_found_dog_reports_public_idx` ON `lost_found_dog_reports` (`type`,`status`,`event_date`,`published_at`);
@@ -53,3 +47,19 @@ CREATE INDEX `lost_found_dog_reports_expiry_idx` ON `lost_found_dog_reports` (`s
 CREATE INDEX `lost_found_dog_reports_breed_idx` ON `lost_found_dog_reports` (`status`,`type`,`breed_id`);
 CREATE INDEX `lost_found_dog_reports_admin_updated_idx` ON `lost_found_dog_reports` (`updated_at`,`id`);
 CREATE INDEX `lost_found_dog_reports_duplicate_idx` ON `lost_found_dog_reports` (`duplicate_of_id`);
+
+CREATE TABLE `lost_found_dog_private_details` (
+  `report_id` integer PRIMARY KEY NOT NULL REFERENCES `lost_found_dog_reports`(`id`) ON DELETE CASCADE,
+  `contact_name` text,
+  `contact_phone` text,
+  `contact_email` text,
+  `private_location_description` text,
+  `private_latitude` real,
+  `private_longitude` real,
+  `verification_note` text DEFAULT '' NOT NULL,
+  `private_note` text DEFAULT '' NOT NULL,
+  `created_by` text NOT NULL,
+  `updated_by` text NOT NULL,
+  `created_at` text NOT NULL,
+  `updated_at` text NOT NULL
+);
