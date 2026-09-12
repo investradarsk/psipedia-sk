@@ -9,7 +9,7 @@ for (const path of paths) {
     expect(response?.status()).toBe(200);
     await expect(page.locator("h1")).toBeVisible();
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `https://psipedia.sk${path}`);
-    await expect(page.getByRole("form", { name: /Filtrovať/i })).toBeVisible();
+    await expect(page.locator('form[aria-label^="Filtrovať"]')).toBeVisible();
     await expect(page.getByLabel("Kraj")).toBeVisible();
     await expect(page.getByLabel("Okres alebo lokalita")).toBeVisible();
     await expect(page.getByLabel("Pohlavie")).toBeVisible();
