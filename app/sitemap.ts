@@ -15,10 +15,20 @@ import { listManagedPortalSections } from "@/lib/section-store";
 import { SITE_URL } from "@/lib/seo";
 import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
 
+async function safeIndexableAdoptions() {
+  try {
+    return await listIndexableAdoptions();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("no such table: adoption_dogs")) return [];
+    throw error;
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [articles, events, directoryProfiles, helpCases, managedSections, breeds, adoptions] = await Promise.all([
     getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectoryProfiles(),
-    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listIndexableAdoptions(),
+    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), safeIndexableAdoptions(),
   ]);
   const portalSections = managedSections.filter((section) => section.visible);
   const articleModified = (article: (typeof articles)[number]) => article.updatedDateIso;
