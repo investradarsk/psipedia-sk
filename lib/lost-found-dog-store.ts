@@ -58,16 +58,16 @@ type ReportRow = {
   published_at: string | null;
   expires_at: string | null;
   resolved_at: string | null;
-  contact_name?: string | null;
-  contact_phone?: string | null;
-  contact_email?: string | null;
+  private_contact_name?: string | null;
+  private_contact_phone?: string | null;
+  private_contact_email?: string | null;
   duplicate_of_id?: number | null;
   duplicate_reason?: string;
-  internal_note?: string;
+  private_note?: string;
   created_at?: string;
   archived_at?: string | null;
-  created_by?: string;
-  updated_by?: string;
+  private_created_by?: string;
+  private_updated_by?: string;
 };
 
 export type ManagedDogReportInput = {
@@ -177,16 +177,16 @@ function rowToAdmin(row: ReportRow): AdminDogReport {
   return {
     ...rowToPublic(row),
     mainImageKey: row.main_image_key ?? null,
-    contactName: row.contact_name ?? null,
-    contactPhone: row.contact_phone ?? null,
-    contactEmail: row.contact_email ?? null,
+    contactName: row.private_contact_name ?? null,
+    contactPhone: row.private_contact_phone ?? null,
+    contactEmail: row.private_contact_email ?? null,
     duplicateOfId: row.duplicate_of_id ?? null,
     duplicateReason: row.duplicate_reason ?? "",
-    internalNote: row.internal_note ?? "",
+    internalNote: row.private_note ?? "",
     createdAt: row.created_at ?? row.updated_at,
     archivedAt: row.archived_at ?? null,
-    createdBy: row.created_by ?? "",
-    updatedBy: row.updated_by ?? "",
+    createdBy: row.private_created_by ?? "",
+    updatedBy: row.private_updated_by ?? "",
   };
 }
 
@@ -199,8 +199,9 @@ const publicSelect = `
   r.public_location_precision, r.public_contact_note, r.source, r.source_url,
   r.updated_at, r.published_at, r.expires_at, r.resolved_at`;
 
-const adminSelect = `${publicSelect}, r.main_image_key, r.contact_name, r.contact_phone, r.contact_email,
-  r.duplicate_of_id, r.duplicate_reason, r.internal_note, r.created_at, r.archived_at, r.created_by, r.updated_by`;
+const adminSelect = `${publicSelect}, r.main_image_key, r.duplicate_of_id, r.duplicate_reason, r.created_at, r.archived_at,
+  p.contact_name AS private_contact_name, p.contact_phone AS private_contact_phone, p.contact_email AS private_contact_email,
+  p.private_note AS private_note, p.created_by AS private_created_by, p.updated_by AS private_updated_by`;
 
 export const listPublishedBreedOptions = cache(async (): Promise<BreedOption[]> => {
   const database = getD1Binding();
@@ -273,14 +274,14 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r ${whereSql}`).bind(...args).first<{ count: number }>();
   const total = Number(count?.count || 0);
-  const result = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id ${whereSql} ORDER BY CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
+  const result = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
   return { items: (result.results ?? []).map(rowToAdmin), total, page, pageSize, pages: Math.ceil(total / pageSize) };
 }
 
 export async function getAdminDogReport(id: number) {
   const database = requireD1Binding();
   await persistLostFoundLifecycle(database);
-  const row = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.id = ? LIMIT 1`).bind(id).first<ReportRow>();
+  const row = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id WHERE r.id = ? LIMIT 1`).bind(id).first<ReportRow>();
   return row ? rowToAdmin(row) : null;
 }
 
@@ -302,18 +303,29 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
   const clean = await cleanInput(database, input, null);
   const now = new Date().toISOString();
   const lifecycle = lifecycleFields(clean.status, null, clean.expiresAt, now);
+
+  // Create the case unpublished/DRAFT first. If private persistence fails, no public record can leak incomplete contact handling.
   const result = await database.prepare(`INSERT INTO lost_found_dog_reports (
     type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,description,distinguishing_marks,collar_description,chipped,
     main_image,main_image_key,gallery_json,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,public_location_precision,
-    contact_name,contact_phone,contact_email,public_contact_note,source,source_url,search_text,duplicate_of_id,duplicate_reason,internal_note,
-    created_at,updated_at,published_at,expires_at,resolved_at,archived_at,created_by,updated_by
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
-    clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
+    public_contact_note,source,source_url,search_text,duplicate_of_id,duplicate_reason,created_at,updated_at,published_at,expires_at,resolved_at,archived_at
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+    clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
-    clean.contactName, clean.contactPhone, clean.contactEmail, clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, clean.duplicateOfId, clean.duplicateReason, clean.internalNote,
-    now, now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, actor, actor
+    clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, clean.duplicateOfId, clean.duplicateReason, now, now, null, null, null, null
   ).run();
-  return getAdminDogReport(Number(result.meta.last_row_id));
+  const reportId = Number(result.meta.last_row_id);
+
+  const privateInsert = database.prepare(`INSERT INTO lost_found_dog_private_details (
+    report_id,contact_name,contact_phone,contact_email,private_note,created_by,updated_by,created_at,updated_at
+  ) VALUES (?,?,?,?,?,?,?,?,?)`).bind(
+    reportId, clean.contactName, clean.contactPhone, clean.contactEmail, clean.internalNote, actor, actor, now, now
+  );
+  const publishCase = database.prepare(`UPDATE lost_found_dog_reports SET status=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
+    clean.status, now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, reportId
+  );
+  await database.batch([privateInsert, publishCase]);
+  return getAdminDogReport(reportId);
 }
 
 export async function updateAdminDogReport(id: number, input: ManagedDogReportInput, actor: string) {
@@ -323,16 +335,29 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const clean = await cleanInput(database, input, id);
   const now = new Date().toISOString();
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);
-  await database.prepare(`UPDATE lost_found_dog_reports SET
+
+  const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET
     type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,description=?,distinguishing_marks=?,collar_description=?,chipped=?,
     main_image=?,main_image_key=?,gallery_json=?,event_date=?,last_seen_date_time=?,region=?,district=?,city=?,location_description=?,public_latitude=?,public_longitude=?,public_location_precision=?,
-    contact_name=?,contact_phone=?,contact_email=?,public_contact_note=?,source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,internal_note=?,
-    updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=?,updated_by=? WHERE id=?`).bind(
+    public_contact_note=?,source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
     clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
-    clean.contactName, clean.contactPhone, clean.contactEmail, clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, clean.duplicateOfId, clean.duplicateReason, clean.internalNote,
-    now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, actor, id
-  ).run();
+    clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, clean.duplicateOfId, clean.duplicateReason,
+    now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, id
+  );
+  const privateUpsert = database.prepare(`INSERT INTO lost_found_dog_private_details (
+    report_id,contact_name,contact_phone,contact_email,private_note,created_by,updated_by,created_at,updated_at
+  ) VALUES (?,?,?,?,?,?,?,?,?)
+  ON CONFLICT(report_id) DO UPDATE SET
+    contact_name=excluded.contact_name,
+    contact_phone=excluded.contact_phone,
+    contact_email=excluded.contact_email,
+    private_note=excluded.private_note,
+    updated_by=excluded.updated_by,
+    updated_at=excluded.updated_at`).bind(
+    id, clean.contactName, clean.contactPhone, clean.contactEmail, clean.internalNote, actor, actor, now, now
+  );
+  await database.batch([publicUpdate, privateUpsert]);
   return getAdminDogReport(id);
 }
 
