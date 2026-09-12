@@ -27,7 +27,7 @@ export default function CookiesPage() {
       <PrivacyControls />
 
       <h2>Google Analytics 4</h2>
-      <p>So súhlasom návštevníka používame službu Google Analytics 4 od spoločnosti Google Ireland Limited na súhrnné meranie návštevnosti a používania portálu. Identifikátor merania je <code>G-Z6KV64S2CK</code>. Analytický skript sa pred udelením súhlasu nenačíta.</p>
+      <p>So súhlasom návštevníka používame službu Google Analytics 4 od spoločnosti Google Ireland Limited na súhrnné meranie návštevnosti a používania portálu. Identifikátor merania je <code>G-Z6KV64S2CK</code>. Google Analytics sa pred prijatím analytiky nenačíta.</p>
       <p>Pri povolenej analytike môžu byť spracúvané údaje o navštívenej stránke, čase návštevy, zariadení, prehliadači, približnej geografickej oblasti a interakciách. Nepoužívame Google Signals ani reklamné personalizačné signály.</p>
       <p>Po povolení môže Google Analytics používať analytické cookies, napríklad <code>_ga</code> a <code>_ga_*</code>.</p>
 
