@@ -1,0 +1,55 @@
+name: Adoption foundation CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/pomoc-psom/adopcia/**"
+      - "app/admin/adopcia/**"
+      - "app/api/admin/adoptions/**"
+      - "components/adoption*"
+      - "components/admin-adoption*"
+      - "lib/adoption*"
+      - "db/adoption-schema.ts"
+      - "drizzle/0029_adoption_dogs.sql"
+      - "tests/e2e/adoption.spec.ts"
+      - "scripts/bootstrap-adoption-e2e.mjs"
+      - ".github/workflows/adoption-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adoption:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Apply local D1 migrations
+        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed adoption fixture (local CI only)
+        run: node scripts/bootstrap-adoption-e2e.mjs
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start app
+        run: |
+          nohup npm exec vite -- --host 127.0.0.1 > /tmp/adoption-app.log 2>&1 &
+          for i in $(seq 1 90); do curl --silent --fail http://127.0.0.1:5173/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/adoption-app.log
+          exit 1
+      - name: Desktop adoption + accessibility
+        env: { E2E_BASE_URL: "http://127.0.0.1:5173" }
+        run: npm run e2e -- tests/e2e/adoption.spec.ts --project=desktop-chromium
+      - name: Mobile adoption + accessibility
+        env: { E2E_BASE_URL: "http://127.0.0.1:5173" }
+        run: npm run e2e -- tests/e2e/adoption.spec.ts --project=mobile-chromium
