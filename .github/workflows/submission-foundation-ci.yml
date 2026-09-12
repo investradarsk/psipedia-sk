@@ -1,0 +1,39 @@
+name: Submission foundation security tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/api/admin/moderation/**"
+      - "db/foundation-schema.ts"
+      - "drizzle/0029_submission_moderation_security_foundation.sql"
+      - "lib/audit-identity.ts"
+      - "lib/moderation-store.ts"
+      - "lib/pii-crypto.ts"
+      - "lib/private-media.ts"
+      - "lib/rate-limit.ts"
+      - "lib/resource-access.ts"
+      - "lib/resource-access-store.ts"
+      - "lib/submission-feature-flags.ts"
+      - "lib/submission-security.ts"
+      - "lib/turnstile.ts"
+      - "tests/submission-foundation.test.mjs"
+      - ".github/workflows/submission-foundation-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run test:foundation
+      - run: npm run lint
