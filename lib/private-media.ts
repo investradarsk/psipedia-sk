@@ -1,5 +1,3 @@
-import { createOpaqueToken } from "@/lib/resource-access";
-
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -12,6 +10,11 @@ type PublicBucketLike = { put(key: string, value: ArrayBuffer | Uint8Array | Rea
 
 function startsWith(bytes: Uint8Array, signature: number[]) {
   return signature.every((value, index) => bytes[index] === value);
+}
+
+function randomSuffix(byteLength = 16) {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function detectImageMime(bytes: Uint8Array) {
@@ -40,12 +43,12 @@ export async function ingestPrivateImage(input: {
   if (!detectedMime || detectedMime !== input.declaredMime) throw new Error("Image MIME mismatch");
 
   const assetId = crypto.randomUUID();
-  const rawKey = `quarantine/${input.ownerType}/${input.ownerId}/${assetId}-${createOpaqueToken(16)}`;
+  const rawKey = `quarantine/${input.ownerType}/${input.ownerId}/${assetId}-${randomSuffix()}`;
   const safeKey = `safe/${input.ownerType}/${input.ownerId}/${assetId}.webp`;
   await input.privateBucket.put(rawKey, input.bytes, { httpMetadata: { contentType: detectedMime }, customMetadata: { visibility: "private-quarantine" } });
 
   try {
-    const source = new Blob([input.bytes], { type: detectedMime }).stream();
+    const source = new Blob([input.bytes.slice().buffer], { type: detectedMime }).stream();
     const transformed = input.images.input(source)
       .transform({ width: 2000, height: 2000, fit: "scale-down" })
       .output({ format: "image/webp", quality: 85, metadata: "none" });
