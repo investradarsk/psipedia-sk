@@ -12,7 +12,7 @@
     "deploy:cloudflare": "wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && npm run audit:breeds -- --remote --strict && wrangler deploy --config dist/server/wrangler.json --keep-vars",
     "deploy:staging": "npm run build && wrangler deploy",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run build && node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/worker-performance.test.mjs tests/event-dates.test.mjs tests/events-phase4.test.mjs tests/reviews-phase5.test.mjs tests/sitemap-seo.test.mjs tests/directory-import-sql.test.mjs tests/directory-clubs.test.mjs tests/directory-change-requests.test.mjs tests/breed-fci-import.test.mjs tests/production-audit.test.mjs tests/section-navigation.test.mjs tests/events-phase3.test.mjs tests/navigation-progress.test.mjs",
+    "test": "npm run build && node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/worker-performance.test.mjs tests/event-dates.test.mjs tests/events-phase4.test.mjs tests/reviews-phase5.test.mjs tests/sitemap-seo.test.mjs tests/directory-import-sql.test.mjs tests/directory-clubs.test.mjs tests/directory-change-requests.test.mjs tests/breed-fci-import.test.mjs tests/production-audit.test.mjs tests/section-navigation.test.mjs tests/events-phase3.test.mjs tests/navigation-progress.test.mjs tests/adoption-foundation.test.mjs",
     "validate:artifact": "bash scripts/validate-artifact.sh",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
