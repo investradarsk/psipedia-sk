@@ -44,7 +44,7 @@ test("only ACTIVE reports are indexable while historical public URLs stay readab
 });
 
 test("public LOST/FOUND table cannot contain contact PII or private moderation data", async () => {
-  const migration = await readFile(new URL("../drizzle/0029_lost_found_dogs.sql", import.meta.url), "utf8");
+  const migration = await readFile(new URL("../drizzle/0030_lost_found_dogs.sql", import.meta.url), "utf8");
   const privateMarker = "CREATE TABLE `lost_found_dog_private_details`";
   const markerIndex = migration.indexOf(privateMarker);
   assert.notEqual(markerIndex, -1);
