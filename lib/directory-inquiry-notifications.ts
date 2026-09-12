@@ -224,7 +224,7 @@ async function processSweep(
   return summary;
 }
 
-export async function runDirectoryInquiryNotificationSweep(options: NotificationOptions = {}) {
+export async function runDirectoryInquiryReminderSweep(options: NotificationOptions = {}) {
   const { database, bindings, now } = resolveRuntime(options);
   const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1_000).toISOString();
 
