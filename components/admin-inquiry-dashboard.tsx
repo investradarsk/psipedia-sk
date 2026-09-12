@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { directoryCategoryLabel, type DirectoryInquiry, type DirectoryInquiryStatus } from "@/lib/directory";
@@ -15,7 +14,6 @@ function formatDate(value: string) {
 const statusLabels: Record<DirectoryInquiryStatus, string> = { new: "Nový", read: "Prečítaný", resolved: "Vybavený" };
 
 export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: DirectoryInquiry[] }) {
-  const router = useRouter();
   const [inquiries, setInquiries] = useState(initialInquiries);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -35,7 +33,7 @@ export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: 
       const data = await response.json() as { inquiry?: DirectoryInquiry; error?: string };
       if (!response.ok || !data.inquiry) throw new Error(data.error || "Stav sa nepodarilo zmeniť.");
       setInquiries((current) => current.map((item) => item.id === inquiry.id ? data.inquiry as DirectoryInquiry : item));
-      router.refresh();
+      window.location.reload();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Stav sa nepodarilo zmeniť."); }
     finally { setBusyId(null); }
   }
@@ -49,7 +47,7 @@ export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: 
       if (!response.ok) throw new Error(data.error || "Dopyt sa nepodarilo vymazať.");
       setInquiries((current) => current.filter((item) => item.id !== inquiry.id));
       setMessage("Dopyt bol vymazaný.");
-      router.refresh();
+      window.location.reload();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Dopyt sa nepodarilo vymazať."); }
     finally { setBusyId(null); }
   }
