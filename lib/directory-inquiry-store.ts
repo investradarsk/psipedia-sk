@@ -190,6 +190,28 @@ export async function getNewDirectoryInquiryCount(database?: D1Database) {
   return Number(row?.count ?? 0);
 }
 
+export async function listRecentNewDirectoryInquiriesNeedingNotification(cutoffIso: string, database?: D1Database) {
+  const db = requireD1Binding(database);
+  const result = await db.prepare(`
+    SELECT
+      i.id, i.profile_id, i.profile_name, i.profile_slug, i.profile_category, i.recipient_email,
+      i.sender_name, i.sender_email, i.sender_phone, i.dog_info, i.message, i.status, i.consent,
+      i.submission_key, i.created_at, i.updated_at
+    FROM directory_inquiries i
+    LEFT JOIN directory_inquiry_notifications n
+      ON n.inquiry_id = i.id
+      AND n.notification_type = 'new'
+      AND n.status = 'sent'
+    WHERE i.status = 'new'
+      AND i.submission_key IS NOT NULL
+      AND i.created_at > ?
+      AND n.id IS NULL
+    ORDER BY i.created_at ASC, i.id ASC
+    LIMIT 200
+  `).bind(cutoffIso).all<DirectoryInquiryRow>();
+  return result.results.map(rowToInquiry);
+}
+
 export async function listStaleNewDirectoryInquiries(cutoffIso: string, database?: D1Database) {
   const db = requireD1Binding(database);
   const result = await db.prepare(`
