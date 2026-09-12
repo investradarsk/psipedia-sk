@@ -6,6 +6,7 @@ import { PawMark } from "./icons";
 
 async function AdminNavigation() {
   const newInquiryCount = await getNewDirectoryInquiryCount();
+  console.info("ADMIN_INQUIRY_BADGE_COUNT_DEBUG", newInquiryCount);
   return (
     <nav className="admin-section-nav" aria-label="Redakčné moduly">
       <div className="admin-nav-group"><span>Obsah</span><div><Link href="/admin">Články</Link><Link href="/admin/steniatka">Šteniatka</Link><Link href="/admin/plemena">Plemená</Link><Link href="/admin/sekcie">Sekcie</Link></div></div>
