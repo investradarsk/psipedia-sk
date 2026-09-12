@@ -74,7 +74,9 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
 
   return (
     <>
-      <a className="skip-link" href="#obsah">Preskočiť na obsah</a>
+      <nav aria-label="Rýchla navigácia">
+        <a className="skip-link" href="#obsah">Preskočiť na obsah</a>
+      </nav>
       <header className="site-header">
         <div className="header-inner shell">
           <Link href="/" className="brand" aria-label="Psipedia.sk – domov">

@@ -8,6 +8,8 @@ import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
 import { directoryCategories, directoryProfileHref } from "@/lib/directory";
 import { getPublishedHelpCases } from "@/lib/help-store";
 import { helpCaseHref } from "@/lib/help";
+import { listSitemapDogReports } from "@/lib/lost-found-dog-store";
+import { dogReportHref } from "@/lib/lost-found-dogs";
 import { articleHref, portalSubpageHref } from "@/lib/portal";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { listManagedPortalSections } from "@/lib/section-store";
@@ -15,9 +17,9 @@ import { SITE_URL } from "@/lib/seo";
 import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [articles, events, directoryProfiles, helpCases, managedSections, breeds] = await Promise.all([
+  const [articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports] = await Promise.all([
     getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectoryProfiles(),
-    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(),
+    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports().catch(() => []),
   ]);
   const portalSections = managedSections.filter((section) => section.visible);
   const articleModified = (article: (typeof articles)[number]) => article.updatedDateIso;
@@ -25,11 +27,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const latestEvents = latestModified(events.map((event) => event.updatedAt));
   const latestDirectory = latestModified(directoryProfiles.map((profile) => profile.updatedAt));
   const latestHelp = latestModified(helpCases.map((item) => item.updatedAt));
+  const latestLostFound = latestModified(lostFoundReports.map((item) => item.updatedAt));
   const latestBreeds = latestModified(breeds.map((breed) => breed.updatedAt));
   const latestSections = latestModified(portalSections.map((section) => section.updatedAt));
   const homepageModified = latestModified([
     latestArticles?.toISOString(), latestEvents?.toISOString(), latestDirectory?.toISOString(),
-    latestHelp?.toISOString(), latestBreeds?.toISOString(), latestSections?.toISOString(),
+    latestHelp?.toISOString(), latestLostFound?.toISOString(), latestBreeds?.toISOString(), latestSections?.toISOString(),
   ]);
 
   const entries: MetadataRoute.Sitemap = [
@@ -38,6 +41,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     sitemapEntry("/plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
     sitemapEntry("/plemena/vyber-plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
     sitemapEntry("/porovnat-plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
+    sitemapEntry("/pomoc-psom/stratene-psy", { lastModified: latestLostFound, changeFrequency: "daily", priority: 0.85 }),
+    sitemapEntry("/pomoc-psom/najdene-psy", { lastModified: latestLostFound, changeFrequency: "daily", priority: 0.85 }),
     ...["/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"]
       .map((path) => sitemapEntry(path, { changeFrequency: "monthly", priority: 0.5 })),
     ...portalSections.flatMap((section) => {
@@ -47,7 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         ...sectionArticles.map(articleModified),
         ...(section.slug === "podujatia" ? events.map((event) => event.updatedAt) : []),
         ...(section.slug === "adresar" ? directoryProfiles.map((profile) => profile.updatedAt) : []),
-        ...(section.slug === "pomoc-psom" ? helpCases.map((item) => item.updatedAt) : []),
+        ...(section.slug === "pomoc-psom" ? [...helpCases.map((item) => item.updatedAt), ...lostFoundReports.map((item) => item.updatedAt)] : []),
         ...(section.slug === "plemena" ? breeds.map((breed) => breed.updatedAt) : []),
       ]);
       return [
@@ -86,6 +91,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...helpCases.filter((item) => isSelfCanonical(item.seo, helpCaseHref(item))).map((item) => sitemapEntry(helpCaseHref(item), {
       lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.8,
       images: item.imageUrl ? [item.imageUrl.startsWith("https://") ? item.imageUrl : `${SITE_URL}${item.imageUrl}`] : undefined,
+    })),
+    ...lostFoundReports.map((item) => sitemapEntry(dogReportHref(item), {
+      lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.85,
+      images: item.mainImage ? [item.mainImage.startsWith("https://") ? item.mainImage : `${SITE_URL}${item.mainImage}`] : undefined,
     })),
     ...breeds.filter((breed) => isSelfCanonical(breed.seo, `/plemena/${breed.slug}`)).map((breed) => sitemapEntry(`/plemena/${breed.slug}`, {
       lastModified: latestModified([breed.updatedAt]), changeFrequency: "monthly", priority: 0.8,
