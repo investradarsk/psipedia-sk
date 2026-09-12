@@ -107,6 +107,18 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/breed-profile.spec.ts --project=mobile-chromium
+      - name: Lost/found dogs Playwright + accessibility — desktop
+        id: lost_found_desktop
+        if: ${{ always() && steps.seed.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/lost-found-dogs.spec.ts --project=desktop-chromium
+      - name: Lost/found dogs Playwright + accessibility — mobile
+        id: lost_found_mobile
+        if: ${{ always() && steps.seed.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/lost-found-dogs.spec.ts --project=mobile-chromium
       - name: Stop local app server
         if: always()
         run: |
