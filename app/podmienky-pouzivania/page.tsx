@@ -13,33 +13,50 @@ export default function TermsPage() {
     <main id="obsah" className="prose-page legal-page">
       <span className="eyebrow">Pravidlá portálu</span>
       <h1>Podmienky používania</h1>
-      <p className="lead">Používaním Psipedia.sk berieš na vedomie tieto pravidlá. Ich cieľom je chrániť čitateľov, zvieratá, autorov aj ľudí, ktorých sa obsah týka.</p>
+      <p className="lead">Psipedia.sk je odborný a informačný portál o psoch. Používaním portálu berieš na vedomie tieto pravidlá.</p>
 
       <h2>Informačný charakter</h2>
-      <p>Obsah je určený na všeobecné vzdelávanie a orientáciu. Nenahrádza veterinárne vyšetrenie, diagnózu, liečbu, individuálny tréningový plán ani právnu pomoc. Pri ohrození života alebo zdravia psa kontaktuj veterinára alebo príslušnú tiesňovú službu.</p>
+      <p>Obsah slúži na všeobecné vzdelávanie a orientáciu. Nenahrádza veterinárne vyšetrenie, diagnózu, liečbu, individuálny tréningový plán ani právnu pomoc. Pri akútnom ohrození zdravia alebo života psa kontaktuj veterinára alebo príslušnú zložku pomoci.</p>
 
       <h2>Presnosť a aktuálnosť</h2>
-      <p>Usilujeme sa o presný a aktuálny obsah, no nemôžeme zaručiť, že každý údaj zostane bez zmeny. Pri článkoch uvádzame dátum zverejnenia a aktualizácie. Chyby a neúplné skutkové tvrdenia riešime podľa postupu <Link href="/opravy-a-podnety">Opravy a podnety</Link>.</p>
+      <p>Snažíme sa o presný a aktuálny obsah, no niektoré údaje sa môžu meniť, napríklad termíny podujatí, kontakty, ceny, ordinačné hodiny alebo podmienky poskytovateľov. Pred dôležitým rozhodnutím si aktuálny stav over aj u pôvodného poskytovateľa alebo organizátora.</p>
+      <p>Ak nájdeš chybu alebo neaktuálny údaj, použi stránku <Link href="/opravy-a-podnety">Opravy a podnety</Link>.</p>
 
-      <h2>Služby pre psov, podujatia a externé služby</h2>
-      <p>Zverejnenie profilu, podujatia alebo odkazu nie je automaticky odporúčaním ani zárukou kvality. Za ponuku, odbornú spôsobilosť, cenu, dostupnosť a plnenie služby zodpovedá jej poskytovateľ. Pred objednaním si over aktuálne podmienky priamo u neho.</p>
+      <h2>Služby pre psov a adresár</h2>
+      <p>Zaradenie veterinára, trénera, salónu, klubu, chovateľskej stanice, organizácie alebo iného subjektu do adresára samo osebe nepredstavuje odporúčanie, garanciu kvality ani potvrdenie odbornej spôsobilosti. Za svoju ponuku, oprávnenia, ceny, aktuálnosť údajov a plnenie služby zodpovedá konkrétny poskytovateľ.</p>
+
+      <h2>Budúce účty a správa profilov</h2>
+      <p>Psipedia pripravuje možnosť, aby si poskytovateľ služby mohol vytvoriť účet, požiadať o priradenie svojho profilu a navrhovať zmeny údajov. Táto funkcia zatiaľ nie je verejne spustená.</p>
+      <p>Po spustení bude používateľ zodpovedať za pravdivosť a oprávnenosť údajov, ktoré navrhne. Návrh zmeny nebude znamenať automatické zverejnenie; Psipedia si ponechá možnosť zmenu preveriť, upraviť, odmietnuť alebo schváliť pred publikovaním.</p>
+      <p>Žiadosť o priradenie profilu môže vyžadovať primerané overenie, že používateľ je oprávnený konať za danú prevádzku, organizáciu alebo službu.</p>
+
+      <h2>Podujatia</h2>
+      <p>Informácie o podujatiach môžu pochádzať od organizátorov alebo z verejných zdrojov. Termín, miesto, podmienky účasti a prípadné zmeny alebo zrušenie si pred cestou over u organizátora.</p>
 
       <h2>Pomoc psom a zbierky</h2>
-      <p>Psipedia v pilotnej verzii neprijíma peniaze pre útulky ani neorganizuje vlastnú verejnú zbierku. Pri výzvach smeruje návštevníka na oficiálnu stránku overenej organizácie. Pred platbou si vždy skontroluj príjemcu, účel a aktuálnosť výzvy.</p>
+      <p>Ak Psipedia odkazuje na útulok, občianske združenie, zbierku alebo inú výzvu na pomoc, nejde automaticky o organizovanie zbierky zo strany Psipedia.sk. Ak nie je výslovne uvedené inak, pomoc alebo platba prebieha priamo prostredníctvom príslušnej organizácie. Pred poskytnutím peňazí si over identitu príjemcu a aktuálnosť výzvy.</p>
 
       <h2>Tipy a obsah od používateľov</h2>
-      <p>Odosielateľ zodpovedá za to, že tip, text, fotografia alebo odkaz neporušuje práva iných osôb a že má oprávnenie materiál poskytnúť. Odoslaním dáva Psipedii nevýhradné a bezodplatné oprávnenie materiál preveriť, redakčne spracovať a po dohode použiť na portáli. Tip sa nezverejňuje automaticky.</p>
-      <p>Neposielaj zbytočné osobné údaje, zdravotnú dokumentáciu ľudí, čísla dokladov, súkromnú korešpondenciu ani fotografie osôb bez primeraného právneho dôvodu. Nepravdivý, nezákonný, výhražný alebo autorské práva porušujúci obsah môžeme odmietnuť alebo odstrániť.</p>
+      <p>Odosielateľ zodpovedá za to, že materiál, ktorý nám poskytne, môže oprávnene poskytnúť a že jeho odoslaním neporušuje práva iných osôb. Tip sa nezverejňuje automaticky a môže byť použitý najprv iba na interné preverenie.</p>
+      <p>Neposielaj zbytočné osobné údaje, zdravotnú dokumentáciu ľudí, čísla dokladov, súkromnú korešpondenciu ani fotografie osôb bez primeraného oprávnenia.</p>
+
+      <h2>Externé odkazy</h2>
+      <p>Portál môže obsahovať odkazy na stránky tretích strán. Za ich obsah, dostupnosť, bezpečnosť, obchodné podmienky a spracúvanie osobných údajov zodpovedajú ich prevádzkovatelia.</p>
 
       <h2>Autorské práva</h2>
-      <p>Texty, štruktúra, grafika a pôvodné fotografie sú chránené autorským právom. Bežné zdieľanie odkazu je vítané. Kopírovanie celého článku, databázy alebo fotografie na iný web bez súhlasu nie je dovolené. Krátka citácia musí uvádzať autora alebo Psipedia.sk a odkaz na pôvodný článok.</p>
+      <p>Pôvodné texty, fotografie, grafické prvky, databázové usporiadanie a ďalší obsah Psipedia.sk môžu byť chránené autorským právom a ďalšími právami duševného vlastníctva. Zdieľanie odkazu je vítané. Bez príslušného oprávnenia nie je dovolené systematicky preberať celé články, databázy, fotografie alebo podstatné časti obsahu a zverejňovať ich ako vlastné.</p>
+      <p>Právo citovať v rozsahu dovolenom právnymi predpismi tým nie je dotknuté.</p>
 
-      <h2>Reklama a affiliate odkazy</h2>
-      <p>Ak bude článok platený, sponzorovaný alebo bude obsahovať affiliate odkazy, označíme to viditeľne pri článku. Partner nemá právo kúpiť si pozitívny odborný záver.</p>
+      <h2>Reklama, affiliate odkazy a spolupráce</h2>
+      <p>Ak portál v budúcnosti použije platenú spoluprácu, sponzorovaný obsah alebo affiliate odkaz, takýto komerčný prvok bude primerane a zrozumiteľne označený. Odmena alebo spolupráca nemá dávať partnerovi právo určovať odborný záver redakcie.</p>
+
+      <h2>Ochrana osobných údajov</h2>
+      <p>Pravidlá spracúvania osobných údajov nájdeš na stránke <Link href="/sukromie">Ochrana osobných údajov</Link>. Informácie o analytike, cookies a lokálnom úložisku sú na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>.</p>
 
       <h2>Záverečné ustanovenia</h2>
-      <p>Na používanie portálu sa vzťahuje právo Slovenskej republiky a priamo uplatniteľné právo Európskej únie. Tieto podmienky môžeme primerane meniť pri rozšírení funkcií alebo zmene právnych povinností; aktuálne znenie bude vždy na tejto adrese.</p>
-      <p className="legal-updated">Účinné od 17. augusta 2026.</p>
+      <p>Na prevádzku portálu sa vzťahuje právny poriadok Slovenskej republiky a priamo uplatniteľné právo Európskej únie. Tým nie sú dotknuté práva, ktoré nemožno podľa zákona vylúčiť alebo obmedziť.</p>
+      <p>Tieto podmienky môžeme aktualizovať najmä pri rozšírení funkcií portálu alebo zmene právnych povinností. Aktuálne znenie bude vždy dostupné na tejto adrese.</p>
+      <p className="legal-updated">Účinné od 12. septembra 2026.</p>
     </main>
   );
 }

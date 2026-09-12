@@ -1,47 +1,52 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getLegalSettings } from "@/lib/legal-settings";
 import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 import { buildPageMetadata } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = buildPageMetadata({
   title: "Opravy a podnety",
-  description: "Ako oznámiť chybu alebo požiadať Psipedia.sk o uverejnenie opravy.",
+  description: "Ako oznámiť chybu, neaktuálny údaj alebo poslať podnet portálu Psipedia.sk.",
   path: "/opravy-a-podnety",
 });
 
-export default async function CorrectionsPage() {
-  const settings = await getLegalSettings();
-  const correctionEmail = settings.correctionEmail || EDITORIAL_EMAIL_ADDRESS;
+export default function CorrectionsPage() {
   return (
     <main id="obsah" className="prose-page legal-page">
-      <span className="eyebrow">Zodpovedná redakcia</span>
+      <span className="eyebrow">Presnosť obsahu</span>
       <h1>Opravy a podnety</h1>
-      <p className="lead">Vecnú chybu chceme opraviť rýchlo. Zákonná žiadosť o opravu má presné náležitosti a lehoty.</p>
+      <p className="lead">Ak nájdeš chybný, neaktuálny alebo neúplný údaj, daj nám vedieť. Podnet preveríme a podľa výsledku obsah opravíme alebo doplníme.</p>
 
-      <h2>Bežná chyba alebo doplnenie</h2>
-      <p>Ak ide o preklep, nefunkčný odkaz, zmenu termínu podujatia alebo odborné doplnenie, pošli nám <Link href="/novinky/poslat-tip">tip pre redakciu</Link>. Uveď adresu stránky a čo treba preveriť.</p>
-
-      <h2>Žiadosť o uverejnenie opravy</h2>
-      <p>Ak bolo uverejnené nepravdivé alebo neúplné skutkové tvrdenie, ktoré zasahuje do cti, dôstojnosti, súkromia alebo dobrej povesti presne určiteľnej osoby, žiadosť treba doručiť do 30 dní od uverejnenia.</p>
-      <p>Písomná žiadosť má obsahovať:</p>
+      <h2>Čo nám môžeš nahlásiť</h2>
       <ul>
-        <li>odkaz alebo inú presnú identifikáciu článku,</li>
-        <li>označenie sporného skutkového tvrdenia,</li>
-        <li>vysvetlenie, v čom je tvrdenie nepravdivé alebo neúplné a ako zasahuje do práv žiadateľa,</li>
-        <li>pravdivé alebo úplné skutkové tvrdenie a návrh znenia opravy.</li>
+        <li>preklep alebo nefunkčný odkaz,</li>
+        <li>nesprávny odborný údaj,</li>
+        <li>zmenený termín alebo miesto podujatia,</li>
+        <li>neaktuálny kontakt, otváracie hodiny alebo údaje služby,</li>
+        <li>zmenu pri organizácii, útulku alebo inom profile,</li>
+        <li>obsah, ktorý môže byť zavádzajúci alebo potrebuje doplniť zdroj.</li>
       </ul>
-      <div className="legal-contact-box"><strong>Kontakt na opravy</strong><a href={`mailto:${correctionEmail}`}>{correctionEmail}</a></div>
 
-      <h2>Dodatočné oznámenie</h2>
-      <p>Osoba, o ktorej portál informoval v súvislosti s konaním pred orgánom verejnej moci, môže po jeho právoplatnom skončení požiadať o uverejnenie konečného výsledku. Žiadosť sa doručuje do 30 dní od právoplatnosti rozhodnutia a musí identifikovať článok, konanie a jeho konečný výsledok.</p>
+      <div className="legal-contact-box">
+        <strong>Kontakt na opravy a podnety</strong>
+        <a href={`mailto:${EDITORIAL_EMAIL_ADDRESS}`}>{EDITORIAL_EMAIL_ADDRESS}</a>
+      </div>
 
-      <h2>Ochrana zdroja</h2>
-      <p>Ak žiadaš utajenie totožnosti ako zdroj redakčnej informácie, uveď to už pri prvom kontakte a neposielaj viac identifikačných údajov, než je nevyhnutné. Bežný webový formulár nie je tiesňová ani šifrovaná komunikačná služba.</p>
+      <h2>Čo uviesť v správe</h2>
+      <p>Najviac nám pomôže, ak pošleš odkaz na konkrétnu stránku, označíš sporný údaj a stručne vysvetlíš, čo je podľa teba nesprávne alebo neaktuálne. Ak máš dôveryhodný zdroj, prilož aj odkaz naň.</p>
 
-      <p>Právny rámec: <a href="https://static.slov-lex.sk/static/SK/ZZ/2022/265/20251101.html" target="_blank" rel="noreferrer">zákon č. 265/2022 Z. z. o publikáciách</a>.</p>
+      <h2>Ako podnet spracujeme</h2>
+      <p>Podnet neznamená automatickú zmenu stránky. Informáciu najprv preveríme podľa dostupných zdrojov a charakteru údaja. Pri profile služby alebo organizácie môžeme požiadať aj o primerané potvrdenie, že navrhovateľ je oprávnený za daný subjekt konať.</p>
+
+      <h2>Budúce úpravy profilov poskytovateľmi</h2>
+      <p>Psipedia pripravuje možnosť, aby si poskytovatelia služieb mohli po prihlásení navrhovať zmeny svojho profilu. Aj po spustení tejto funkcie bude návrh zmeny pred verejným zobrazením podliehať kontrole a schváleniu Psipediou.</p>
+
+      <h2>Tip na príbeh alebo zaujímavosť</h2>
+      <p>Ak nejde o opravu existujúceho obsahu, ale o nový príbeh, zaujímavosť, výskum alebo udalosť zo sveta psov, môžeš použiť stránku <Link href="/novinky/poslat-tip">Pošli tip Psipedii</Link>.</p>
+
+      <h2>Súkromie</h2>
+      <p>Do správy neposielaj viac osobných údajov, než je potrebné na preverenie podnetu. Podrobnosti o spracúvaní údajov sú na stránke <Link href="/sukromie">Ochrana osobných údajov</Link>.</p>
+
+      <p className="legal-updated">Aktualizované 12. septembra 2026.</p>
     </main>
   );
 }

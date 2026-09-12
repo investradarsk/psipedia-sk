@@ -11,6 +11,8 @@ import { getManagedPortalSection, listManagedPortalSections } from "@/lib/sectio
 
 export const dynamic = "force-dynamic";
 
+const NOVINKY_DESCRIPTION = "Výber príbehov, zaujímavostí, výskumu a užitočných tém zo sveta psov.";
+
 type Props = { params: Promise<{ section: string }>; searchParams: Promise<{ termin?: string | string[] }> };
 
 export function generateStaticParams() {
@@ -24,12 +26,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (slug === "novinky" && section) {
     return {
       title: section.label,
-      description: section.description,
+      description: NOVINKY_DESCRIPTION,
       alternates: { canonical: "/novinky" },
       openGraph: {
         type: "website",
         title: `${section.label} | Psipedia.sk`,
-        description: section.description,
+        description: NOVINKY_DESCRIPTION,
         url: "/novinky",
       },
     };
