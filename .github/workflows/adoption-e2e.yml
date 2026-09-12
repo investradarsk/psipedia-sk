@@ -1,0 +1,70 @@
+name: Adoption catalog PR checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/pomoc-psom/adopcia/**"
+      - "components/adoption*"
+      - "lib/adoption*"
+      - "drizzle/0029_adoption_dogs.sql"
+      - "tests/e2e/adoption-catalog.spec.ts"
+      - ".github/workflows/adoption-e2e.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adoption-e2e-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser-checks:
+    name: Adoption desktop and mobile accessibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Apply migrations to local D1 only
+        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Start local app
+        run: |
+          mkdir -p .e2e-artifacts
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/adoption-server.log 2>&1 &
+          echo $! > .e2e-artifacts/adoption-server.pid
+          for attempt in $(seq 1 120); do
+            if curl --silent --fail http://localhost:5173/pomoc-psom/adopcia >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -200 .e2e-artifacts/adoption-server.log
+          exit 1
+      - name: Desktop Chromium + axe
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/adoption-catalog.spec.ts --project=desktop-chromium
+      - name: Mobile Chromium + axe
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/adoption-catalog.spec.ts --project=mobile-chromium
+      - name: Stop local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/adoption-server.pid ]; then kill "$(cat .e2e-artifacts/adoption-server.pid)" 2>/dev/null || true; fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adoption-e2e-failure-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+            .e2e-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
