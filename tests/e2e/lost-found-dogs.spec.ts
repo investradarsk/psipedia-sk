@@ -106,6 +106,6 @@ test("authorized admin detail receives private contact fields from the private t
   const response = await page.goto("/admin/stratene-najdene/910001", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page.locator('input[type="email"]')).toHaveValue("lost-e2e@example.invalid");
-  await expect(page.locator('input').filter({ has: page.locator('xpath=following-sibling::*') })).toHaveCount(0).catch(() => undefined);
-  await expect(page.locator('input').evaluateAll((inputs) => inputs.some((input) => (input as HTMLInputElement).value === "+421900000001"))).resolves.toBeTruthy();
+  const inputValues = await page.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  expect(inputValues).toContain("+421900000001");
 });
