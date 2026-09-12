@@ -50,8 +50,8 @@ export async function ingestPrivateImage(input: {
   try {
     const source = new Blob([input.bytes.slice().buffer], { type: detectedMime }).stream();
     const transformed = input.images.input(source)
-      .transform({ width: 2000, height: 2000, fit: "scale-down" })
-      .output({ format: "image/webp", quality: 85, metadata: "none" });
+      .transform({ width: 2000, height: 2000, fit: "scale-down", metadata: "none" })
+      .output({ format: "image/webp", quality: 85, anim: false });
     const response = await transformed.response();
     if (!response.ok) throw new Error("Image transformation failed");
     const safeBytes = new Uint8Array(await response.arrayBuffer());

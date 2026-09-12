@@ -36,6 +36,14 @@ test("opaque token hashing, expiry and session cookie security properties", asyn
   for (const attribute of ["HttpOnly", "Secure", "SameSite=Strict", "Path=/", "Max-Age=900"]) assert.match(cookie, new RegExp(attribute));
 });
 
+test("resource access persistence stores hashes, never plaintext token columns", async () => {
+  const source = await fs.readFile(new URL("../lib/resource-access-store.ts", import.meta.url), "utf8");
+  assert.match(source, /token_hash/);
+  assert.match(source, /session_hash/);
+  assert.doesNotMatch(source, /INSERT INTO resource_access_tokens[^\n]+\btoken\b,/i);
+  assert.doesNotMatch(source, /INSERT INTO resource_management_sessions[^\n]+\bsession\b,/i);
+});
+
 test("Turnstile fails closed, validates hostname/action and rejects replay", async () => {
   const { verifyTurnstile } = await importTs("lib/turnstile.ts");
   const now = new Date("2026-09-12T19:00:00.000Z");
@@ -49,10 +57,14 @@ test("Turnstile fails closed, validates hostname/action and rejects replay", asy
 });
 
 test("rate limit denies requests beyond configured count", async () => {
-  const source = await fs.readFile(new URL("../lib/rate-limit.ts", import.meta.url), "utf8");
-  assert.match(source, /count <= limit/);
-  assert.match(source, /ON CONFLICT\(bucket_key\)/);
-  assert.doesNotMatch(source, /rawIdentifier.*INSERT/i);
+  const { enforceRateLimit, deriveRateLimitKey } = await importTs("lib/rate-limit.ts");
+  let count = 0;
+  const store = { async increment(_key, windowSeconds, now) { count += 1; return { count, resetAt: new Date(now.getTime() + windowSeconds * 1000).toISOString() }; } };
+  const key = await deriveRateLimitKey("submission", "person@example.com", key32(3));
+  assert.ok(!key.includes("person@example.com"));
+  assert.equal((await enforceRateLimit(store, key, 2, 60)).allowed, true);
+  assert.equal((await enforceRateLimit(store, key, 2, 60)).allowed, true);
+  assert.equal((await enforceRateLimit(store, key, 2, 60)).allowed, false);
 });
 
 test("plaintext UGC rejects executable HTML and audit payload redacts PII", async () => {
@@ -63,16 +75,18 @@ test("plaintext UGC rejects executable HTML and audit payload redacts PII", asyn
   assert.ok(!audit.includes("+421900123456"));
 });
 
-test("image pipeline rejects MIME mismatch and only publishes SAFE namespace", async () => {
+test("image pipeline rejects MIME mismatch, strips metadata and only publishes SAFE namespace", async () => {
   const { detectImageMime, ingestPrivateImage, publishSafeImage } = await importTs("lib/private-media.ts");
   const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe1, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00]);
   assert.equal(detectImageMime(jpeg), "image/jpeg");
   const objects = new Map();
+  const transforms = [];
   const bucket = { async put(key, value) { const bytes = value instanceof Uint8Array ? value : new Uint8Array(await new Response(value).arrayBuffer()); objects.set(key, bytes); }, async get(key) { const bytes = objects.get(key); return bytes ? { body: new Blob([bytes]).stream(), async arrayBuffer() { return bytes.buffer; } } : null; }, async delete(key) { objects.delete(key); } };
   const safeOutput = Uint8Array.from([0x52,0x49,0x46,0x46,0x04,0x00,0x00,0x00,0x57,0x45,0x42,0x50]);
-  const images = { input() { return { transform() { return this; }, output() { return { async response() { return new Response(safeOutput, { status: 200 }); } }; } }; } };
+  const images = { input() { return { transform(options) { transforms.push(options); return this; }, output() { return { async response() { return new Response(safeOutput, { status: 200 }); } }; } }; } };
   await assert.rejects(() => ingestPrivateImage({ bytes: jpeg, declaredMime: "image/png", ownerType: "TEST", ownerId: "1", privateBucket: bucket, images }));
   const result = await ingestPrivateImage({ bytes: jpeg, declaredMime: "image/jpeg", ownerType: "TEST", ownerId: "1", privateBucket: bucket, images });
+  assert.equal(transforms.at(-1)?.metadata, "none");
   const safeBytes = objects.get(result.safeKey);
   assert.ok(safeBytes);
   assert.ok(!new TextDecoder().decode(safeBytes).includes("Exif"));

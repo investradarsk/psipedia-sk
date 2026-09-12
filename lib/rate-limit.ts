@@ -1,10 +1,30 @@
-import { hashPii } from "@/lib/pii-crypto";
+const encoder = new TextEncoder();
+
+function fromBase64Url(value: string) {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function base64Url(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function keyedHash(value: string, hashKey: string) {
+  const keyBytes = fromBase64Url(hashKey.trim());
+  if (keyBytes.byteLength !== 32) throw new Error("PII_HASH_KEY must be 32 random bytes encoded as base64url");
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
+  return base64Url(new Uint8Array(signature));
+}
 
 export type RateLimitResult = { allowed: boolean; count: number; limit: number; resetAt: string };
 export type RateLimitStore = { increment(bucketKey: string, windowSeconds: number, now: Date): Promise<{ count: number; resetAt: string }> };
 
 export async function deriveRateLimitKey(namespace: string, rawIdentifier: string, hashKey: string) {
-  return `${namespace}:${await hashPii(rawIdentifier.trim().toLowerCase(), hashKey)}`;
+  return `${namespace}:${await keyedHash(rawIdentifier.trim().toLowerCase(), hashKey)}`;
 }
 
 export async function enforceRateLimit(store: RateLimitStore, bucketKey: string, limit: number, windowSeconds: number, now = new Date()): Promise<RateLimitResult> {
