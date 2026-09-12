@@ -29,6 +29,11 @@ export default async function LegalInformationPage() {
       <h1>Prevádzkovateľ a právne informácie</h1>
       <p className="lead">Psipedia.sk je slovenský odborný a informačný portál o psoch. Na tejto stránke nájdeš údaje o jeho prevádzkovateľovi a základné právne informácie.</p>
 
+      <div className="legal-status-note">
+        <strong>Pilotná prevádzka</strong>
+        <p>Psipedia.sk je v súčasnosti nekomerčný projekt prevádzkovaný fyzickou osobou – nepodnikateľom. Portál neprevádzkuje internetový obchod, nepredáva produkty a neposkytuje platené používateľské účty.</p>
+      </div>
+
       <h2>Prevádzkovateľ</h2>
       <dl className="legal-data-list">
         <div><dt>Meno</dt><dd>{publicName}</dd></div>
@@ -43,7 +48,7 @@ export default async function LegalInformationPage() {
       </dl>
 
       <h2>Charakter portálu</h2>
-      <p>Psipedia.sk prináša najmä odborné a praktické články, databázu plemien, prehľad služieb a organizácií, podujatia a vybrané príbehy či zaujímavosti zo sveta psov. Nejde o internetový obchod a portál v súčasnosti nepredáva produkty ani neposkytuje platené používateľské účty.</p>
+      <p>Psipedia.sk prináša najmä odborné a praktické články, databázu plemien, prehľad služieb a organizácií, podujatia a vybrané príbehy či zaujímavosti zo sveta psov.</p>
 
       <h2>Obsah a externé služby</h2>
       <p>Zverejnenie profilu služby, organizácie, podujatia alebo externého odkazu samo osebe neznamená odporúčanie ani garanciu kvality. Za svoju ponuku, odbornú spôsobilosť, aktuálnosť údajov a plnenie služby zodpovedá príslušný poskytovateľ alebo organizátor.</p>
