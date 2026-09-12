@@ -114,5 +114,5 @@ test("existing help and admin authentication files are not replaced by foundatio
   const auth = await fs.readFile(new URL("../lib/admin-auth.ts", import.meta.url), "utf8");
   const help = await fs.readFile(new URL("../lib/help-store.ts", import.meta.url), "utf8");
   assert.match(auth, /getCloudflareAccessUser/);
-  assert.match(help, /helpCases/);
+  assert.match(help, /help_cases/);
 });
