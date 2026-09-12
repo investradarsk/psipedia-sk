@@ -35,8 +35,177 @@ jobs:
         run: npm run lint
       - name: Production build
         run: npm run build
-      - name: Unit and integration tests
-        run: npm test
+      - name: Isolated badge test in fresh Node process
+        id: isolated_badge
+        shell: bash
+        run: |
+          cp tests/directory-inquiry-notifications.test.mjs /tmp/directory-inquiry-notifications.test.mjs.orig
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/directory-inquiry-notifications.test.mjs')
+          s = p.read_text()
+          s = s.replace(
+            '  const before = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);',
+            '  console.error("BADGE_CHECKPOINT first-get start");\n  const before = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);\n  console.error("BADGE_CHECKPOINT first-get response", before.status);'
+          )
+          s = s.replace(
+            '  const update = await request(worker, d1, `/api/admin/inquiries/${firstId}`, {',
+            '  console.error("BADGE_CHECKPOINT update start");\n  const update = await request(worker, d1, `/api/admin/inquiries/${firstId}`, {'
+          )
+          s = s.replace(
+            '  assert.equal(update.status, 200);\n  const after = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);',
+            '  assert.equal(update.status, 200);\n  console.error("BADGE_CHECKPOINT update response", update.status);\n  console.error("BADGE_CHECKPOINT second-get start");\n  const after = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);\n  console.error("BADGE_CHECKPOINT second-get response", after.status);'
+          )
+          p.write_text(s)
+          PY
+          set +e
+          node --experimental-loader ./tests/cloudflare-loader.mjs --test --test-name-pattern="admin badge reflects new inquiry count and decreases after new to read" tests/directory-inquiry-notifications.test.mjs 2>&1 | tee /tmp/isolated-badge.log
+          ISOLATED_STATUS=${PIPESTATUS[0]}
+          cp /tmp/directory-inquiry-notifications.test.mjs.orig tests/directory-inquiry-notifications.test.mjs
+          echo "isolated_status=$ISOLATED_STATUS" >> "$GITHUB_OUTPUT"
+          echo "ISOLATED_BADGE_EXIT=$ISOLATED_STATUS" >> "$GITHUB_ENV"
+          exit 0
+      - name: Full directory inquiry test file in fresh Node process
+        id: full_directory_file
+        shell: bash
+        run: |
+          set +e
+          node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-inquiry-notifications.test.mjs 2>&1 | tee /tmp/full-directory-inquiry.log
+          FULL_STATUS=${PIPESTATUS[0]}
+          echo "full_status=$FULL_STATUS" >> "$GITHUB_OUTPUT"
+          echo "FULL_DIRECTORY_EXIT=$FULL_STATUS" >> "$GITHUB_ENV"
+          exit 0
+      - name: Checkout main control without changing main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-control
+      - name: Build main control
+        shell: bash
+        run: |
+          cd main-control
+          npm ci
+          npm run build
+      - name: Repeatedly render main /admin/dopyty in one Node process
+        id: main_control
+        shell: bash
+        run: |
+          set +e
+          node --experimental-loader ./tests/cloudflare-loader.mjs --input-type=module <<'NODE' 2>&1 | tee /tmp/main-control.log
+          import { DatabaseSync } from "node:sqlite";
+          import { pathToFileURL } from "node:url";
+
+          function createD1Adapter(sqlite) {
+            function statement(sql, bindings = []) {
+              function execute() {
+                const prepared = sqlite.prepare(sql);
+                if (/^\s*(SELECT|WITH|PRAGMA|EXPLAIN)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) {
+                  return { success: true, results: prepared.all(...bindings), meta: { changes: 0 } };
+                }
+                const result = prepared.run(...bindings);
+                return { success: true, results: [], meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid ?? 0) } };
+              }
+              return {
+                bind(...values) { return statement(sql, values); },
+                async all() { return execute(); },
+                async first() { return execute().results[0] ?? null; },
+                async run() { return execute(); },
+                execute,
+              };
+            }
+            return {
+              prepare(sql) { return statement(sql); },
+              async batch(statements) {
+                sqlite.exec("BEGIN");
+                try {
+                  const results = statements.map((item) => item.execute());
+                  sqlite.exec("COMMIT");
+                  return results;
+                } catch (error) {
+                  sqlite.exec("ROLLBACK");
+                  throw error;
+                }
+              },
+            };
+          }
+
+          const sqlite = new DatabaseSync(":memory:");
+          sqlite.exec(`
+            PRAGMA foreign_keys = ON;
+            CREATE TABLE directory_profiles (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              slug TEXT NOT NULL,
+              name TEXT NOT NULL,
+              category TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'draft',
+              internal_email TEXT
+            );
+            CREATE TABLE directory_inquiries (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              profile_id INTEGER,
+              profile_name TEXT NOT NULL,
+              profile_slug TEXT NOT NULL,
+              profile_category TEXT NOT NULL,
+              recipient_email TEXT,
+              sender_name TEXT NOT NULL,
+              sender_email TEXT NOT NULL,
+              sender_phone TEXT NOT NULL DEFAULT '',
+              dog_info TEXT NOT NULL DEFAULT '',
+              message TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'new',
+              consent INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+            CREATE INDEX directory_inquiries_status_created_idx ON directory_inquiries(status, created_at);
+            CREATE INDEX directory_inquiries_profile_idx ON directory_inquiries(profile_id, created_at);
+            CREATE INDEX directory_inquiries_email_idx ON directory_inquiries(sender_email, created_at);
+          `);
+          const d1 = createD1Adapter(sqlite);
+          const runtime = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
+          Object.assign(runtime, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk" });
+          const workerUrl = pathToFileURL(`${process.cwd()}/main-control/dist/server/index.js`);
+          workerUrl.searchParams.set("main-control", `${Date.now()}-${Math.random()}`);
+          const worker = (await import(workerUrl.href)).default;
+
+          async function render(label) {
+            Object.assign(runtime, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk" });
+            try {
+              const response = await worker.fetch(
+                new Request("http://localhost/admin/dopyty", { headers: { "oai-authenticated-user-email": "admin@psipedia.sk" } }),
+                { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) }, DB: d1, ADMIN_EMAILS: "admin@psipedia.sk" },
+                { waitUntil() {}, passThroughOnException() {} },
+              );
+              const body = await response.text();
+              console.log(`MAIN_CONTROL ${label} status=${response.status} body=${body.length}`);
+              if (response.status !== 200) process.exitCode = 1;
+            } catch (error) {
+              console.error(`MAIN_CONTROL ${label} threw`, error?.stack || error);
+              process.exitCode = 1;
+            }
+          }
+
+          await render("first");
+          await render("second");
+          await render("third");
+          NODE
+          MAIN_STATUS=${PIPESTATUS[0]}
+          echo "main_status=$MAIN_STATUS" >> "$GITHUB_OUTPUT"
+          echo "MAIN_CONTROL_EXIT=$MAIN_STATUS" >> "$GITHUB_ENV"
+          exit 0
+      - name: Diagnostic summary and stop gate
+        shell: bash
+        run: |
+          echo "isolated badge exit: ${ISOLATED_BADGE_EXIT}"
+          echo "full directory file exit: ${FULL_DIRECTORY_EXIT}"
+          echo "main repeated render exit: ${MAIN_CONTROL_EXIT}"
+          echo "--- isolated checkpoints ---"
+          grep -E "BADGE_CHECKPOINT|digest|admin badge reflects" /tmp/isolated-badge.log || true
+          echo "--- full file badge failure ---"
+          grep -E "digest|admin badge reflects" /tmp/full-directory-inquiry.log || true
+          echo "--- main control ---"
+          cat /tmp/main-control.log || true
+          exit 1
 
   pull-request-e2e:
     name: Breed CI bootstrap, all-breed regression and Playwright
