@@ -17,7 +17,7 @@ export default async function ArticlesPage({
   searchParams: Promise<{ hladat?: string; tema?: string }>;
 }) {
   const params = await searchParams;
-  const articles = await getPublishedArticleSummaries({ portalSection: "clanky", limit: 200 });
+  const articles = await getPublishedArticleSummaries({ limit: 200 });
   const categories: Record<string, string> = {
     vycvik: "Výcvik",
     zdravie: "Zdravie",
