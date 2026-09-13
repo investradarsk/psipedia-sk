@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -70,27 +69,33 @@ export function useAdminBulkSelection({
 
   useEffect(() => {
     const key = storageKey(module);
+    let nextSelection: AdminBulkSelectionState = { mode: "explicit", ids: [] };
     try {
       const raw = sessionStorage.getItem(key);
-      if (!raw) {
-        setSelection({ mode: "explicit", ids: [] });
-      } else {
+      if (raw) {
         const stored = JSON.parse(raw) as { membershipFingerprint?: unknown; selection?: unknown };
         const normalized = stored.membershipFingerprint === membershipFingerprint
           ? normalizeStoredState(stored.selection)
           : null;
         if (normalized) {
-          setSelection(normalized);
+          nextSelection = normalized;
         } else {
           sessionStorage.removeItem(key);
-          setSelection({ mode: "explicit", ids: [] });
         }
       }
     } catch {
       sessionStorage.removeItem(key);
-      setSelection({ mode: "explicit", ids: [] });
     }
-    setRestored(true);
+
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setSelection(nextSelection);
+      setRestored(true);
+    });
+    return () => {
+      active = false;
+    };
   }, [membershipFingerprint, module]);
 
   useEffect(() => {
@@ -105,7 +110,7 @@ export function useAdminBulkSelection({
   }, [membershipFingerprint, module, restored, resultCount, selection]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
-  const explicitSet = useMemo(() => new Set(explicitIds), [explicitIds]);
+  const explicitSet = new Set(explicitIds);
   const currentPageSelected = selection.mode === "all-matching"
     ? pageIds.length
     : pageIds.filter((id) => explicitSet.has(id)).length;
