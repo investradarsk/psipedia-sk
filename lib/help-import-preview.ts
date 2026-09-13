@@ -33,6 +33,7 @@ export type ExistingHelpRow = {
   excerpt: string;
   description: string;
   organization: string;
+  dog_name: string;
   city: string;
   region: string;
   location_note: string;
@@ -47,6 +48,7 @@ type Input = Record<string, unknown>;
 type Identity = {
   title: string;
   organization: string;
+  dogName: string;
   city: string;
   region: string;
   actionUrl: string;
@@ -55,6 +57,8 @@ type Identity = {
   emails: Set<string>;
   phones: Set<string>;
 };
+
+type MatchResult = { strong: boolean; potential: boolean; signals: string };
 
 function field(row: Input, key: string) { return typeof row[key] === "string" ? (row[key] as string).trim() : ""; }
 function normalized(value: string) {
@@ -67,7 +71,7 @@ function url(value: string) {
   try { const parsed = new URL(value); return ["https:", "http:"].includes(parsed.protocol) ? parsed : null; }
   catch { return null; }
 }
-function identity(row: { title: string; organization: string; city: string; region: string; actionUrl: string; contactNote: string; description: string; locationNote: string }): Identity {
+function identity(row: { title: string; organization: string; dogName: string; city: string; region: string; actionUrl: string; contactNote: string; description: string; locationNote: string }): Identity {
   const haystack = [row.actionUrl, row.contactNote, row.description, row.locationNote].join(" ");
   const urls = new Set<string>();
   const domains = new Set<string>();
@@ -85,10 +89,23 @@ function identity(row: { title: string; organization: string; city: string; regi
     const number = match[1].replace(/\D/g, "");
     if (number.length >= 9) phones.add(number);
   }
-  return { title: normalized(row.title), organization: normalized(row.organization), city: normalized(row.city), region: row.region, actionUrl: row.actionUrl.trim(), domains, urls, emails, phones };
+  return {
+    title: normalized(row.title),
+    organization: normalized(row.organization),
+    dogName: normalized(row.dogName),
+    city: normalized(row.city),
+    region: row.region,
+    actionUrl: row.actionUrl.trim(),
+    domains,
+    urls,
+    emails,
+    phones,
+  };
 }
 function intersects<T>(first: Set<T>, second: Set<T>) { return [...first].some((value) => second.has(value)); }
-function matches(input: Identity, existing: Identity) {
+function signalList(values: Array<string | false>) { return values.filter(Boolean).join(", "); }
+
+function organizationMatch(input: Identity, existing: Identity): MatchResult {
   const title = Boolean(input.title && input.title === existing.title);
   const operator = Boolean(input.organization && input.organization === existing.organization);
   const city = Boolean(input.city && input.city === existing.city);
@@ -98,7 +115,37 @@ function matches(input: Identity, existing: Identity) {
   const phone = intersects(input.phones, existing.phones);
   const strong = (title && (city || operator)) || (operator && city) || (operator && (domain || urlMatch || email || phone)) || (title && (domain || email || phone)) || (city && (urlMatch || email || phone));
   const potential = strong || operator || (title && input.region === existing.region) || domain || urlMatch || email || phone;
-  return { strong, potential, signals: [title && "názov", operator && "prevádzkovateľ", city && "mesto", domain && "doména", urlMatch && "URL/sociálna sieť", email && "e-mail", phone && "telefón"].filter(Boolean).join(", ") };
+  return { strong, potential, signals: signalList([title && "názov", operator && "prevádzkovateľ", city && "mesto", domain && "doména", urlMatch && "URL/sociálna sieť", email && "e-mail", phone && "telefón"]) };
+}
+
+function caseMatch(input: Identity, existing: Identity, category: string): MatchResult {
+  const title = Boolean(input.title && input.title === existing.title);
+  const operator = Boolean(input.organization && input.organization === existing.organization);
+  const dogName = Boolean(input.dogName && input.dogName === existing.dogName);
+  const city = Boolean(input.city && input.city === existing.city);
+  const sameRegion = Boolean(input.region && input.region === existing.region);
+  const urlMatch = intersects(input.urls, existing.urls);
+
+  // Case-like categories intentionally ignore shared organization contact data by itself.
+  // One shelter can legitimately publish many dogs, temporary-care appeals, fundraisers
+  // and volunteering opportunities that all share the same domain, e-mail and phone.
+  const strong =
+    (dogName && operator) ||
+    (title && operator) ||
+    (title && city) ||
+    (title && urlMatch) ||
+    (dogName && (city || urlMatch)) ||
+    (category === "zbierky" && operator && urlMatch);
+  const potential =
+    strong ||
+    (dogName && (operator || city || sameRegion)) ||
+    (title && (operator || city || sameRegion || urlMatch)) ||
+    (category === "zbierky" && operator && urlMatch);
+  return { strong, potential, signals: signalList([title && "názov", dogName && "pes", operator && "organizácia", city && "mesto", urlMatch && "URL výzvy"]) };
+}
+
+function matches(input: Identity, existing: Identity, category: string) {
+  return category === "utulky" ? organizationMatch(input, existing) : caseMatch(input, existing, category);
 }
 
 function validate(row: Input, categories: readonly string[], regions: readonly string[]) {
@@ -145,10 +192,10 @@ function validate(row: Input, categories: readonly string[], regions: readonly s
 }
 
 function productionIdentity(row: ExistingHelpRow) {
-  return identity({ title: row.title, organization: row.organization, city: row.city, region: row.region, actionUrl: row.action_url ?? "", contactNote: row.contact_note, description: row.description, locationNote: row.location_note });
+  return identity({ title: row.title, organization: row.organization, dogName: row.dog_name ?? "", city: row.city, region: row.region, actionUrl: row.action_url ?? "", contactNote: row.contact_note, description: row.description, locationNote: row.location_note });
 }
 function inputIdentity(row: Input) {
-  return identity({ title: field(row, "title"), organization: field(row, "organization"), city: field(row, "city"), region: field(row, "region"), actionUrl: field(row, "actionUrl"), contactNote: field(row, "contactNote"), description: field(row, "description"), locationNote: field(row, "locationNote") });
+  return identity({ title: field(row, "title"), organization: field(row, "organization"), dogName: field(row, "dogName"), city: field(row, "city"), region: field(row, "region"), actionUrl: field(row, "actionUrl"), contactNote: field(row, "contactNote"), description: field(row, "description"), locationNote: field(row, "locationNote") });
 }
 function sameDetails(row: Input, existing: ExistingHelpRow) {
   return [
@@ -164,6 +211,7 @@ export function classifyHelpItems(items: unknown[], existing: ExistingHelpRow[],
   const rows: HelpPreviewRow[] = [];
   const keys = new Map<string, number[]>();
   const identities = items.map((item) => item && typeof item === "object" && !Array.isArray(item) ? inputIdentity(item as Input) : null);
+  const itemCategories = items.map((item) => item && typeof item === "object" && !Array.isArray(item) ? field(item as Input, "category") : "");
   items.forEach((item, index) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return;
     const row = item as Input;
@@ -186,26 +234,29 @@ export function classifyHelpItems(items: unknown[], existing: ExistingHelpRow[],
       result.matchedProductionId = exact.id;
       result.matchedProductionSlug = exact.slug;
       const inputId = identities[index]!;
-      const match = matches(inputId, productionIdentity(exact));
+      const match = matches(inputId, productionIdentity(exact), category);
       result.status = match.strong && sameDetails(row!, exact) ? "EXISTING_SAME" : "CONFLICT";
       result.reason = result.status === "EXISTING_SAME" ? "Rovnaký (category, slug), identita a údaje." : "Kolízia (category, slug): existujúce údaje nie sú ekvivalentné; neprepisovať.";
       rows.push(result); continue;
     }
-    const candidates = existing.map((candidate) => ({ candidate, match: matches(identities[index]!, productionIdentity(candidate)) })).filter(({ match }) => match.potential);
+    const candidates = existing
+      .filter((candidate) => candidate.category === category)
+      .map((candidate) => ({ candidate, match: matches(identities[index]!, productionIdentity(candidate), category) }))
+      .filter(({ match }) => match.potential);
     if (candidates.length) {
       const { candidate, match } = candidates.sort((a, b) => Number(b.match.strong) - Number(a.match.strong) || a.candidate.id - b.candidate.id)[0];
       result.status = "POSSIBLE_DUPLICATE";
       result.matchedProductionTitle = candidate.title;
       result.matchedProductionId = candidate.id;
       result.matchedProductionSlug = candidate.slug;
-      result.reason = `Možná vecná duplicita (${match.signals || "podobná identita"}); ${candidates.length} produkčných kandidátov. Rozhodnúť ručne.`;
+      result.reason = `Možná vecná duplicita v rovnakej kategórii (${match.signals || "podobná identita"}); ${candidates.length} produkčných kandidátov. Rozhodnúť ručne.`;
       rows.push(result); continue;
     }
-    const internal = identities.some((other, otherIndex) => otherIndex !== index && other && matches(identities[index]!, other).potential);
-    if (internal) { result.status = "POSSIBLE_DUPLICATE"; result.reason = "Možná vecná duplicita s iným riadkom vstupu; rozhodnúť ručne."; rows.push(result); continue; }
+    const internal = identities.some((other, otherIndex) => otherIndex !== index && other && itemCategories[otherIndex] === category && matches(identities[index]!, other, category).potential);
+    if (internal) { result.status = "POSSIBLE_DUPLICATE"; result.reason = "Možná vecná duplicita s iným riadkom vstupu v rovnakej kategórii; rozhodnúť ručne."; rows.push(result); continue; }
     result.status = "NEW";
     result.safeForImport = true;
-    result.reason = "Validácia prešla; bez slug alebo identitnej zhody v celej produkčnej tabuľke a vo vstupe.";
+    result.reason = "Validácia prešla; bez slug alebo identitnej zhody v rovnakej kategórii produkcie a vo vstupe.";
     rows.push(result);
   }
   const summary: HelpPreview = { total: rows.length, NEW: 0, EXISTING_SAME: 0, POSSIBLE_DUPLICATE: 0, CONFLICT: 0, BLOCKED: 0, SAFE_FOR_IMPORT: 0, rows };
@@ -214,8 +265,8 @@ export function classifyHelpItems(items: unknown[], existing: ExistingHelpRow[],
 }
 
 export async function previewHelpItems(database: HelpSelectDatabase, items: unknown[], categories: readonly string[], regions: readonly string[]) {
-  // Intentionally no status/category filter or LIMIT: drafts, unpublished and cross-category identities are relevant.
-  const result = await database.prepare(`SELECT id, slug, title, category, status, excerpt, description, organization, city, region,
+  // Intentionally no status/category filter or LIMIT: drafts and mixed-category imports still need the complete table.
+  const result = await database.prepare(`SELECT id, slug, title, category, status, excerpt, description, organization, dog_name, city, region,
     location_note, contact_note, action_url FROM help_cases ORDER BY id`).all<ExistingHelpRow>();
   if (!result.success || !Array.isArray(result.results)) throw new Error("Nepodarilo sa načítať úplný zoznam help_cases.");
   return classifyHelpItems(items, result.results, categories, regions);
