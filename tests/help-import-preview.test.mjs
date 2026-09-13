@@ -12,7 +12,7 @@ function input(overrides = {}) {
     excerpt: "Pomáhame psom v núdzi a hľadáme im domovy.",
     description: "Pomáhame psom v núdzi a sprostredkúvame im zodpovedné adopcie na Slovensku.",
     organization: "OZ Priateľ", dogName: "", city: "Nitra", region: "Nitriansky kraj", locationNote: "Okres: Nitra",
-    actionLabel: "Pomôť organizácii",
+    actionLabel: "Pomôcť organizácii",
     contactNote: "E-mail: ahoj@priatel.sk\nTelefón: +421 900 123 456\nFacebook: https://facebook.com/priatel",
     actionUrl: "https://priatel.sk", ...overrides,
   };
