@@ -60,7 +60,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
         <span className={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}>{dogReportTypeLabel(type)}</span>
         <h1 id={`dog-report-${report.id}`}>{report.dogName || report.breed || "Pes bez známeho mena"}</h1>
         <div className={styles.detailMeta}><span><strong>Lokalita</strong> {report.city}{report.district ? ` · ${report.district}` : ""} · {report.region}</span><span><strong>Dátum</strong> {formatDogReportDate(report.eventDate)}</span></div>
-        {type === "LOST" && <div className={styles.lastSeen}><strong>Naposledy videný</strong><span>{formatDogReportDate(report.lastSeenDateTime || report.eventDate, Boolean(report.lastSeenDateTime))} · {report.locationDescription || report.city}</span></div>}
+        {type === "LOST" && <div className={styles.lastSeen}><strong>Naposledy videný:</strong><span>{formatDogReportDate(report.lastSeenDateTime || report.eventDate, Boolean(report.lastSeenDateTime))} · {report.locationDescription || report.city}</span></div>}
         {type === "FOUND" && report.locationDescription && <div className={styles.foundAt}><strong>Miesto nájdenia</strong><span>{report.locationDescription}</span></div>}
         <div className={styles.detailActions}>{report.sourceUrl ? <a className={styles.cta} href={report.sourceUrl} target="_blank" rel="nofollow noreferrer">Otvoriť pôvodné hlásenie ↗</a> : active ? <Link className={styles.cta} href={relayHref}>Kontaktovať cez Psipediu</Link> : null}</div>
       </div>
