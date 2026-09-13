@@ -3,6 +3,9 @@ import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { isDirectoryCategory } from "@/lib/directory";
 import { normalizeDirectoryRegion, normalizeDirectorySearchText } from "@/lib/directory-store";
 import { importFciBreeds, previewFciBreedImport } from "@/lib/breed-import";
+import { allHelpCategories } from "@/lib/help";
+import { slovakRegions } from "@/lib/events";
+import { previewHelpItems } from "@/lib/help-import-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +113,16 @@ export async function POST(request: Request) {
     const inquiries = list(payload.inquiries);
     const legal = payload.legal ? object(payload.legal) : null;
     const selectedProfileCategory = text(payload.profileCategory);
+
+    if (helpItems.length) {
+      const helpPreview = await previewHelpItems(database, helpItems, allHelpCategories.map((item) => item.slug), slovakRegions);
+      const unsafeRows = helpPreview.rows.filter((row) => !row.safeForImport);
+      if (unsafeRows.length) {
+        const sample = unsafeRows.slice(0, 3).map((row) => `${row.index}: ${row.title || row.slug || "bez názvu"} [${row.status}]`).join(", ");
+        throw new Error(`Import Pomoc psom zastavený: ${unsafeRows.length} položiek už nie je SAFE FOR IMPORT${sample ? ` (${sample})` : ""}. Spustite Preview znova.`);
+      }
+    }
+
     const statements: D1PreparedStatement[] = [];
 
     for (const row of articles) {
@@ -229,16 +242,6 @@ export async function POST(request: Request) {
           goal_amount, raised_amount, image_url, image_key, verified, urgent, resolved,
           created_at, updated_at, published_at, created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(category, slug) DO UPDATE SET
-          title=excluded.title, status=excluded.status, excerpt=excluded.excerpt, description=excluded.description,
-          organization=excluded.organization, dog_name=excluded.dog_name, breed=excluded.breed,
-          age_note=excluded.age_note, city=excluded.city, region=excluded.region,
-          location_note=excluded.location_note, reported_date=excluded.reported_date,
-          deadline_date=excluded.deadline_date, action_label=excluded.action_label, action_url=excluded.action_url,
-          contact_note=excluded.contact_note, goal_amount=excluded.goal_amount, raised_amount=excluded.raised_amount,
-          image_url=excluded.image_url, verified=excluded.verified, urgent=excluded.urgent, resolved=excluded.resolved,
-          created_at=excluded.created_at, updated_at=excluded.updated_at, published_at=excluded.published_at,
-          created_by=excluded.created_by, updated_by=excluded.updated_by
       `).bind(
         required(row.slug, "adresa pomoci"), required(row.title, "názov pomoci"), required(row.category, "kategória pomoci"),
         text(row.status, "draft"), text(row.excerpt), text(row.description), text(row.organization),
