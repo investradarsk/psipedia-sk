@@ -109,7 +109,7 @@ type HelpCaseSummaryRow = {
 
 type RuntimeBindings = { DB?: D1Database };
 
-function getD1Binding() {
+export function getD1Binding() {
   const database = (env as unknown as RuntimeBindings).DB;
   return database && typeof database.prepare === "function" ? database : null;
 }

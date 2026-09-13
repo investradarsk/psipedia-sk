@@ -9454,6 +9454,17 @@ h3 {
 .admin-fci-editor-section > div { padding: 0 16px 16px; }
 .admin-breed-import { margin-bottom: 24px; }
 .admin-import-preview { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 10px; margin-top: 18px; }
+.admin-help-import-counts { grid-template-columns: repeat(auto-fit,minmax(115px,1fr)); }
+.admin-help-import-table-wrap { overflow-x: auto; margin-top: 18px; }
+.admin-help-import-table { width: 100%; min-width: 1050px; border-collapse: collapse; font-size: .88rem; }
+.admin-help-import-table th, .admin-help-import-table td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.admin-help-import-table th { white-space: nowrap; }
+.admin-help-import-status { display: inline-block; padding: 4px 9px; border-radius: 9px; font-weight: 700; white-space: nowrap; }
+.admin-help-import-status--NEW { color: #185638; background: #e5f4e8; }
+.admin-help-import-status--EXISTING_SAME { color: #2d4868; background: #e8f0f8; }
+.admin-help-import-status--POSSIBLE_DUPLICATE { color: #755012; background: #fff1cf; }
+.admin-help-import-status--CONFLICT { color: #852f2b; background: #fbe6e3; }
+.admin-help-import-status--BLOCKED { color: #632d56; background: #f2e5f0; }
 .admin-import-preview > div { padding: 13px; border: 1px solid var(--line); border-radius: 12px; }
 .admin-import-preview span { display: block; color: var(--muted); font-size: .78rem; }
 .admin-import-preview strong { display: block; margin-top: 5px; font-size: 1.35rem; }
