@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { directoryCategories } from "@/lib/directory";
+import { AdminHelpImportPreview } from "@/components/admin-help-import-preview";
 
 type ImportPayload = {
   articles?: unknown[];
@@ -84,6 +85,7 @@ export function AdminDataImport() {
 
   return (<>
     <AdminBreedImport />
+    <AdminHelpImportPreview />
     <form className="admin-panel admin-import-panel" onSubmit={submit}>
       <p>Vyber jeden alebo viac JSON súborov. Import aktualizuje existujúce záznamy podľa stabilného importného kľúča a nepridá ich znova.</p>
       <div className="admin-import-grid">
