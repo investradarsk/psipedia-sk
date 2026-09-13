@@ -1,3 +1,4 @@
+import { queryHelpAdmin, type HelpAdminFilters } from "@/lib/help-admin-query";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { slugifyArticleTitle } from "@/lib/article-store";
@@ -306,6 +307,12 @@ export async function listManagedHelpCaseSummaries(limit = 100) {
     LIMIT ?
   `).bind(safeLimit).all<HelpCaseSummaryRow>();
   return result.results.map(rowToHelpCaseSummary);
+}
+
+export async function getManagedHelpDashboard(filters: HelpAdminFilters) {
+  const database = requireD1Binding();
+  const result = await queryHelpAdmin<HelpCaseSummaryRow>(database, filters);
+  return { ...result, items: result.items.map(rowToHelpCaseSummary) };
 }
 
 export async function getManagedHelpCaseById(id: number) {

@@ -14223,3 +14223,18 @@ a.breed-fci-path-node:focus-visible {
     font-size: clamp(2.05rem, 3.2vw, 3.2rem);
   }
 }
+
+.admin-help-categories { display: flex; flex-wrap: wrap; gap: 8px; padding: 17px 17px 0; }
+.admin-help-categories a { display: inline-flex; gap: 8px; align-items: center; padding: 9px 12px; border: 1px solid #dce5dc; border-radius: 10px; color: #245644; font-size: .82rem; font-weight: 700; text-decoration: none; background: #f8faf6; }
+.admin-help-categories a[aria-current="page"] { color: #fff; border-color: #245d47; background: #245d47; }
+.admin-help-categories strong { font-variant-numeric: tabular-nums; }
+.admin-help-toolbar { flex-wrap: wrap; margin-top: 12px; }
+.admin-help-toolbar .admin-search { width: min(560px, 100%); }
+.admin-help-toolbar .admin-search button { border: 0; color: #245d47; background: transparent; cursor: pointer; font-weight: 800; }
+.admin-help-toolbar .admin-status-filter a { padding: 8px 12px; border-radius: 8px; color: #60756c; font-size: .75rem; font-weight: 750; text-decoration: none; }
+.admin-help-toolbar .admin-status-filter a.is-active { color: #17352b; background: #fff; box-shadow: 0 2px 8px rgba(23,53,43,.08); }
+.admin-help-results { margin: 14px 17px 0; color: #506b5d; font-size: .85rem; }
+.admin-help-pagination { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 17px; border-top: 1px solid #e6e9e2; font-size: .85rem; }
+.admin-help-pagination a { color: #245d47; font-weight: 800; }
+.admin-help-pagination span { color: #83928a; }
+@media (max-width: 640px) { .admin-help-pagination { flex-wrap: wrap; } .admin-help-toolbar .admin-status-filter { flex-wrap: wrap; } }
