@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 
 export function DirectoryContactForm({ profileId, profileName }: { profileId: number; profileName: string }) {
   const [senderName, setSenderName] = useState("");
@@ -13,19 +13,32 @@ export function DirectoryContactForm({ profileId, profileName }: { profileId: nu
   const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const submissionKey = useRef<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSending(true); setResult(null);
     try {
+      submissionKey.current ??= crypto.randomUUID();
       const response = await fetch("/api/directory/inquiries", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ profileId, senderName, senderEmail, senderPhone, dogInfo, message, company, consent }),
+        body: JSON.stringify({
+          profileId,
+          senderName,
+          senderEmail,
+          senderPhone,
+          dogInfo,
+          message,
+          company,
+          consent,
+          submissionKey: submissionKey.current,
+        }),
       });
       const data = await response.json() as { success?: boolean; error?: string };
       if (!response.ok || !data.success) throw new Error(data.error || "Dopyt sa nepodarilo odoslať.");
       setResult({ type: "success", text: `Dopyt pre ${profileName} sme prijali. Redakcia Psipedie ho skontroluje a ozve sa ti na uvedený e-mail.` });
+      submissionKey.current = null;
       setSenderName(""); setSenderEmail(""); setSenderPhone(""); setDogInfo(""); setMessage(""); setConsent(false);
     } catch (error) {
       setResult({ type: "error", text: error instanceof Error ? error.message : "Dopyt sa nepodarilo odoslať." });

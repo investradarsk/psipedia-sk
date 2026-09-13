@@ -1,4 +1,5 @@
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
+import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -11,6 +12,8 @@ interface Env {
   AUTH_MODE?: "cloudflare-access";
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
+  RESEND_API_KEY?: string;
+  EDITORIAL_FROM_EMAIL?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -135,6 +138,17 @@ const worker = {
     const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));
     ctx.waitUntil(cache.storage.put(cache.key, cacheable.clone()));
     return cacheable;
+  },
+
+  async scheduled(_controller: unknown, env: Env, _ctx: ExecutionContext): Promise<void> {
+    const summary = await runDirectoryInquiryReminderSweep({
+      database: env.DB,
+      bindings: env,
+    });
+    console.info(JSON.stringify({
+      event: "directory_inquiry_reminder_sweep",
+      ...summary,
+    }));
   },
 };
 

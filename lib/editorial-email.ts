@@ -7,15 +7,28 @@ import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 const ADMIN_ORIGIN = "https://psipedia.sk";
 const RESEND_EMAIL_ENDPOINT = "https://api.resend.com/emails";
 const RESEND_TIMEOUT_MS = 8_000;
+const INQUIRY_PREVIEW_LENGTH = 260;
 
-type RuntimeBindings = {
+export type EditorialEmailBindings = {
   RESEND_API_KEY?: string;
   EDITORIAL_FROM_EMAIL?: string;
 };
 
+export type EditorialEmailDeliveryResult =
+  | { ok: true; providerMessageId: string | null }
+  | { ok: false; error: string };
+
+export type DirectoryInquiryNotificationType = "new" | "stale-24h";
+
 type EditorialMessage = {
   subject: string;
   lines: Array<string | null | undefined | false>;
+  html?: string;
+};
+
+type EditorialEmailOptions = {
+  bindings?: EditorialEmailBindings;
+  idempotencyKey?: string;
 };
 
 function formatDate(value: string) {
@@ -31,47 +44,96 @@ function line(label: string, value: string | null | undefined) {
   return clean ? `${label}: ${clean}` : null;
 }
 
-/**
- * Best-effort notification only. The caller's primary D1 operation has already
- * succeeded, so this helper deliberately absorbs binding and delivery errors.
- */
-export async function sendEditorialEmail(message: EditorialMessage) {
-  const bindings = env as unknown as RuntimeBindings;
+function safeSubject(value: string) {
+  return value.replace(/[\r\n]+/g, " ").trim().slice(0, 240);
+}
+
+export function escapeEmailHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function directoryInquiryMessagePreview(value: string) {
+  const clean = value.replace(/\s+/g, " ").trim();
+  return clean.length > INQUIRY_PREVIEW_LENGTH ? `${clean.slice(0, INQUIRY_PREVIEW_LENGTH - 1)}…` : clean;
+}
+
+function directoryInquiryEmailHtml(input: {
+  profileName: string;
+  category: string;
+  senderName: string;
+  preview: string;
+  adminUrl: string;
+}) {
+  return [
+    "<p>Prišiel nový dopyt cez Psipediu.</p>",
+    "<dl>",
+    `<dt><strong>Profil</strong></dt><dd>${escapeEmailHtml(input.profileName)}</dd>`,
+    `<dt><strong>Kategória</strong></dt><dd>${escapeEmailHtml(input.category)}</dd>`,
+    `<dt><strong>Meno</strong></dt><dd>${escapeEmailHtml(input.senderName)}</dd>`,
+    `<dt><strong>Náhľad správy</strong></dt><dd>${escapeEmailHtml(input.preview)}</dd>`,
+    "</dl>",
+    `<p><a href="${escapeEmailHtml(input.adminUrl)}">Otvoriť dopyt v administrácii</a></p>`,
+  ].join("");
+}
+
+export async function sendEditorialEmailDetailed(message: EditorialMessage, options: EditorialEmailOptions = {}): Promise<EditorialEmailDeliveryResult> {
+  const bindings = options.bindings ?? env as unknown as EditorialEmailBindings;
   const apiKey = bindings.RESEND_API_KEY?.trim();
   const sender = bindings.EDITORIAL_FROM_EMAIL?.trim();
-  if (!apiKey) {
-    console.warn("Editorial email skipped: RESEND_API_KEY is not configured.");
-    return false;
-  }
-  if (!sender) {
-    console.warn("Editorial email skipped: EDITORIAL_FROM_EMAIL is not configured.");
-    return false;
-  }
+  if (!apiKey) return { ok: false, error: "missing_resend_api_key" };
+  if (!sender) return { ok: false, error: "missing_editorial_from_email" };
 
   try {
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    };
+    if (options.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
+
     const response = await fetch(RESEND_EMAIL_ENDPOINT, {
       method: "POST",
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         from: sender,
         to: EDITORIAL_EMAIL_ADDRESS,
-        subject: message.subject.replace(/[\r\n]+/g, " ").slice(0, 240),
+        subject: safeSubject(message.subject),
         text: message.lines.filter((item): item is string => typeof item === "string" && item.length > 0).join("\n"),
+        ...(message.html ? { html: message.html } : {}),
       }),
       signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
     });
-    if (!response.ok) {
-      console.error(`Editorial email notification failed: Resend returned ${response.status}.`);
-      return false;
+    if (!response.ok) return { ok: false, error: `resend_http_${response.status}` };
+
+    try {
+      const result = await response.json() as { id?: unknown };
+      return { ok: true, providerMessageId: typeof result.id === "string" ? result.id : null };
+    } catch {
+      return { ok: true, providerMessageId: null };
     }
-    return true;
-  } catch (error) {
-    console.error("Editorial email notification failed: Resend request error.", error);
-    return false;
+  } catch {
+    return { ok: false, error: "resend_request_failed" };
   }
+}
+
+/**
+ * Best-effort notification for legacy editorial flows. Their primary D1
+ * operation has already succeeded, so delivery errors are logged and absorbed.
+ */
+export async function sendEditorialEmail(message: EditorialMessage) {
+  const result = await sendEditorialEmailDetailed(message);
+  if (!result.ok) {
+    console.error(JSON.stringify({
+      event: "editorial_email_delivery",
+      result: "failed",
+      error: result.error,
+    }));
+  }
+  return result.ok;
 }
 
 export function notifyDirectoryProfileChangeRequest(request: DirectoryProfileChangeRequest) {
@@ -91,20 +153,37 @@ export function notifyDirectoryProfileChangeRequest(request: DirectoryProfileCha
   });
 }
 
-export function notifyDirectoryInquiry(inquiry: DirectoryInquiry) {
-  return sendEditorialEmail({
-    subject: `[Dopyt] ${inquiry.profileName}`,
+export function notifyDirectoryInquiry(
+  inquiry: DirectoryInquiry,
+  notificationType: DirectoryInquiryNotificationType = "new",
+  options: { bindings?: EditorialEmailBindings } = {},
+) {
+  const category = directoryCategoryLabel(inquiry.profileCategory);
+  const preview = directoryInquiryMessagePreview(inquiry.message);
+  const adminUrl = `${ADMIN_ORIGIN}/admin/dopyty#dopyt-${inquiry.id}`;
+  const subject = notificationType === "new"
+    ? `Nový dopyt: ${inquiry.profileName}`
+    : `Nevybavený dopyt po 24 h: ${inquiry.profileName}`;
+
+  return sendEditorialEmailDetailed({
+    subject,
     lines: [
       line("Profil", inquiry.profileName),
-      line("Kategória", directoryCategoryLabel(inquiry.profileCategory)),
+      line("Kategória", category),
       line("Meno", inquiry.senderName),
-      line("E-mail", inquiry.senderEmail),
-      line("Telefón", inquiry.senderPhone),
-      line("Informácie o psovi", inquiry.dogInfo),
-      line("Správa", inquiry.message),
-      line("Dátum", formatDate(inquiry.createdAt)),
-      line("Admin", `${ADMIN_ORIGIN}/admin/dopyty#dopyt-${inquiry.id}`),
+      line("Náhľad správy", preview),
+      line("Admin", adminUrl),
     ],
+    html: directoryInquiryEmailHtml({
+      profileName: inquiry.profileName,
+      category,
+      senderName: inquiry.senderName,
+      preview,
+      adminUrl,
+    }),
+  }, {
+    bindings: options.bindings,
+    idempotencyKey: `directory-inquiry/${notificationType}/${inquiry.id}`,
   });
 }
 

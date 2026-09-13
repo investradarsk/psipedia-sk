@@ -55,6 +55,7 @@ function createDatabase() {
     "../drizzle/0006_solid_captain_marvel.sql",
     "../drizzle/0011_purple_morlocks.sql",
     "../drizzle/0021_mysterious_darkhawk.sql",
+    "../drizzle/0031_directory_inquiry_notifications.sql",
   ]) {
     const migration = readFileSync(new URL(file, import.meta.url), "utf8");
     for (const sql of migration.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) sqlite.exec(sql);
@@ -212,20 +213,21 @@ test("editorial notifications follow successful inserts and email failures never
 
   const invalidInquiry = await request(worker, d1, "/api/directory/inquiries", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ profileId: 1, senderName: "Ján", senderEmail: "zly-email", message: "Dostatočne dlhá testovacia správa.", consent: true }),
+    body: JSON.stringify({ profileId: 1, senderName: "Ján", senderEmail: "zly-email", message: "Dostatočne dlhá testovacia správa.", consent: true, submissionKey: "10000000-0000-4000-8000-000000000001" }),
   });
   assert.equal(invalidInquiry.status, 400);
   assert.equal(resendRequests.length, 0);
 
   const inquiry = await request(worker, d1, "/api/directory/inquiries", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ profileId: 1, senderName: "Ján Klient", senderEmail: "jan@example.sk", senderPhone: "+421900123456", dogInfo: "Dvojročný labrador", message: "Prosím o termín preventívnej prehliadky môjho psa.", consent: true }),
+    body: JSON.stringify({ profileId: 1, senderName: "Ján Klient", senderEmail: "jan@example.sk", senderPhone: "+421900123456", dogInfo: "Dvojročný labrador", message: "Prosím o termín preventívnej prehliadky môjho psa.", consent: true, submissionKey: "10000000-0000-4000-8000-000000000002" }),
   });
   assert.equal(inquiry.status, 201);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, 1);
-  assert.match(resendRequests.at(-1).body.subject, /^\[Dopyt\] Veterina Test$/);
+  assert.match(resendRequests.at(-1).body.subject, /^Nový dopyt: Veterina Test$/);
   assert.match(resendRequests.at(-1).body.text, /preventívnej prehliadky/);
   assert.match(resendRequests.at(-1).body.text, /admin\/dopyty#dopyt-1/);
+  assert.doesNotMatch(resendRequests.at(-1).body.text, /jan@example\.sk|\+421900123456|Dvojročný labrador/);
 
   const tip = await request(worker, d1, "/api/news-tips", {
     method: "POST", headers: { "content-type": "application/json" },
@@ -253,17 +255,17 @@ test("editorial notifications follow successful inserts and email failures never
   assert.match(resendRequests.at(-1).body.text, /V článku chýba dôležitý zdroj/);
 
   const failureCases = [
-    { label: "missing API key", email: "missing-key@example.sk", prepare() { delete runtimeEnv.RESEND_API_KEY; globalThis.fetch = async () => { throw new Error("fetch must not run without key"); }; } },
-    { label: "Resend 400", email: "resend-400@example.sk", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => new Response("bad request", { status: 400 }); } },
-    { label: "Resend 500", email: "resend-500@example.sk", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => new Response("server error", { status: 500 }); } },
-    { label: "network exception", email: "network-error@example.sk", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => { throw new Error("simulated network failure"); }; } },
+    { label: "missing API key", email: "missing-key@example.sk", key: "10000000-0000-4000-8000-000000000010", prepare() { delete runtimeEnv.RESEND_API_KEY; globalThis.fetch = async () => { throw new Error("fetch must not run without key"); }; } },
+    { label: "Resend 400", email: "resend-400@example.sk", key: "10000000-0000-4000-8000-000000000011", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => new Response("bad request", { status: 400 }); } },
+    { label: "Resend 500", email: "resend-500@example.sk", key: "10000000-0000-4000-8000-000000000012", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => new Response("server error", { status: 500 }); } },
+    { label: "network exception", email: "network-error@example.sk", key: "10000000-0000-4000-8000-000000000013", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => { throw new Error("simulated network failure"); }; } },
   ];
   for (const [index, failure] of failureCases.entries()) {
     failure.prepare();
     const beforeCount = sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count;
     const response = await request(worker, d1, "/api/directory/inquiries", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ profileId: 1, senderName: `Klient ${index + 1}`, senderEmail: failure.email, message: "Prosím o ďalší dostupný termín pre môjho psa.", consent: true }),
+      body: JSON.stringify({ profileId: 1, senderName: `Klient ${index + 1}`, senderEmail: failure.email, message: "Prosím o ďalší dostupný termín pre môjho psa.", consent: true, submissionKey: failure.key }),
     });
     assert.equal(response.status, 201, failure.label);
     assert.deepEqual(await response.json(), { success: true }, failure.label);

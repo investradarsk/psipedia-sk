@@ -13,6 +13,9 @@
   "images": {
     "binding": "IMAGES"
   },
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
   "vars": {
     "AUTH_MODE": "cloudflare-access",
     "ACCESS_TEAM_DOMAIN": "https://autumn-sea-d25d.cloudflareaccess.com",
