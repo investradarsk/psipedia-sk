@@ -33,6 +33,8 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
       - name: Production build
         run: npm run build
       - name: Unit and integration tests
@@ -102,6 +104,9 @@ jobs:
         run: |
           mkdir -p .e2e-artifacts/lost-found
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/lost-found-e2e.sql
+      - name: Seed Directory admin filter fixtures into local CI D1 only
+        id: directory_seed
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
       - name: All-breed regression — exactly 343 published URLs
         id: audit
         env:
@@ -118,6 +123,18 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/breed-profile.spec.ts --project=mobile-chromium
+      - name: Directory admin filter Playwright — desktop
+        id: directory_desktop
+        if: ${{ always() && steps.directory_seed.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts --project=desktop-chromium
+      - name: Directory admin filter Playwright — mobile
+        id: directory_mobile
+        if: ${{ always() && steps.directory_seed.outcome == 'success' && steps.directory_desktop.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts --project=mobile-chromium
       - name: Lost/found dogs Playwright + accessibility — desktop
         id: lost_found_desktop
         if: ${{ always() && steps.seed.outcome == 'success' && steps.lost_found_seed.outcome == 'success' }}
