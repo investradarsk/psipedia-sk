@@ -144,5 +144,5 @@ export function HelpOptions({ options }: { options: Array<{ label: string; value
 export function HelpProgressCard({ item }: { item: HelpCase }) {
   const progress = helpProgress(item);
   if (progress === null) return null;
-  return <section className={`${styles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}><span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount ?? 0)}</strong></span><span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span></div><div className={styles.progressTrack} aria-label={`${progress} % cieľa`}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></section>;
+  return <section className={`${styles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}><span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount ?? 0)}</strong></span><span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span></div><div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></section>;
 }
