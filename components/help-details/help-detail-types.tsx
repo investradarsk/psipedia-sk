@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentType } from "react";
 import { formatHelpDate, type HelpCase, type HelpCategorySlug } from "@/lib/help";
 import { getHelpPresentation, sameLooseText, usefulHelpValue } from "@/lib/help-detail-presentation";
 import {
@@ -9,12 +9,22 @@ import {
   HelpParagraphs,
   HelpProgressCard,
   HelpSection,
+  type HelpFact,
 } from "./help-detail-shell";
 
 type Props = { item: HelpCase };
 
 function location(item: HelpCase) {
   return [usefulHelpValue(item.locationNote), usefulHelpValue(item.city), usefulHelpValue(item.region)].filter(Boolean).join(" · ");
+}
+
+function textFact(label: string, value: string | null | undefined): HelpFact | null {
+  const clean = usefulHelpValue(value);
+  return clean ? { label, value: clean } : null;
+}
+
+function rawFact(label: string, value: string | null | undefined): HelpFact | null {
+  return value ? { label, value } : null;
 }
 
 function GenericContacts({ item }: Props) {
@@ -27,10 +37,10 @@ export function OrganizationHelpDetail({ item }: Props) {
   const operator = !sameLooseText(item.organization, item.title) ? usefulHelpValue(item.organization) : null;
   return <HelpDetailShell item={item} sidebar={<>
     <HelpFactsCard facts={[
-      presentation.organizationType && { label: "Typ organizácie", value: presentation.organizationType },
-      operator && { label: "Prevádzkovateľ", value: operator },
-      location(item) && { label: "Lokalita", value: location(item) },
-      presentation.coverage && { label: "Oblasť pôsobenia", value: presentation.coverage },
+      textFact("Typ organizácie", presentation.organizationType),
+      textFact("Prevádzkovateľ", operator),
+      textFact("Lokalita", location(item)),
+      textFact("Oblasť pôsobenia", presentation.coverage),
     ]} />
     <HelpContactsCard contacts={presentation.contacts} note={presentation.contactNote} />
   </>}>
@@ -44,11 +54,11 @@ export function AdoptionHelpDetail({ item }: Props) {
   const dogTitle = usefulHelpValue(item.dogName) ?? item.title;
   return <HelpDetailShell item={item} title={dogTitle} contextTitle={dogTitle !== item.title ? item.title : null} sidebar={<>
     <HelpFactsCard facts={[
-      usefulHelpValue(item.breed) && { label: "Plemeno / typ", value: item.breed },
-      usefulHelpValue(item.ageNote) && { label: "Vek", value: item.ageNote },
-      location(item) && { label: "Lokalita", value: location(item) },
-      usefulHelpValue(item.organization) && { label: "Organizácia", value: item.organization },
-      item.reportedDate && { label: "Zverejnené / hlásené", value: formatHelpDate(item.reportedDate) },
+      textFact("Plemeno / typ", item.breed),
+      textFact("Vek", item.ageNote),
+      textFact("Lokalita", location(item)),
+      textFact("Organizácia", item.organization),
+      rawFact("Zverejnené / hlásené", formatHelpDate(item.reportedDate)),
     ]} />
     <GenericContacts item={item} />
   </>}>
@@ -62,11 +72,11 @@ export function FosterHelpDetail({ item }: Props) {
   const dogTitle = usefulHelpValue(item.dogName) ?? item.title;
   return <HelpDetailShell item={item} title={dogTitle} contextTitle={dogTitle !== item.title ? item.title : null} sidebar={<>
     <HelpFactsCard facts={[
-      usefulHelpValue(item.organization) && { label: "Organizácia", value: item.organization },
-      usefulHelpValue(item.breed) && { label: "Plemeno / typ", value: item.breed },
-      usefulHelpValue(item.ageNote) && { label: "Vek", value: item.ageNote },
-      location(item) && { label: "Lokalita", value: location(item) },
-      item.deadlineDate && { label: "Termín", value: formatHelpDate(item.deadlineDate) },
+      textFact("Organizácia", item.organization),
+      textFact("Plemeno / typ", item.breed),
+      textFact("Vek", item.ageNote),
+      textFact("Lokalita", location(item)),
+      rawFact("Termín", formatHelpDate(item.deadlineDate)),
     ]} />
     <GenericContacts item={item} />
   </>}>
@@ -78,9 +88,9 @@ export function FundraiserHelpDetail({ item }: Props) {
   const presentation = getHelpPresentation(item);
   return <HelpDetailShell item={item} sidebar={<>
     <HelpFactsCard facts={[
-      usefulHelpValue(item.organization) && { label: "Organizátor", value: item.organization },
-      location(item) && { label: "Lokalita", value: location(item) },
-      item.deadlineDate && { label: "Termín", value: formatHelpDate(item.deadlineDate) },
+      textFact("Organizátor", item.organization),
+      textFact("Lokalita", location(item)),
+      rawFact("Termín", formatHelpDate(item.deadlineDate)),
       { label: "Overenie", value: item.verified ? "Overené Psipediou" : "Odkaz zatiaľ nie je redakčne overený" },
     ]} />
     <HelpProgressCard item={item} />
@@ -95,9 +105,9 @@ export function VolunteerHelpDetail({ item }: Props) {
   const presentation = getHelpPresentation(item);
   return <HelpDetailShell item={item} sidebar={<>
     <HelpFactsCard facts={[
-      usefulHelpValue(item.organization) && { label: "Organizácia", value: item.organization },
-      location(item) && { label: "Lokalita", value: location(item) },
-      item.deadlineDate && { label: "Termín", value: formatHelpDate(item.deadlineDate) },
+      textFact("Organizácia", item.organization),
+      textFact("Lokalita", location(item)),
+      rawFact("Termín", formatHelpDate(item.deadlineDate)),
     ]} />
     <GenericContacts item={item} />
   </>}>
@@ -111,12 +121,12 @@ export function GenericCaseHelpDetail({ item }: Props) {
   const dogTitle = usefulHelpValue(item.dogName) ?? item.title;
   return <HelpDetailShell item={item} title={dogTitle} contextTitle={dogTitle !== item.title ? item.title : null} sidebar={<>
     <HelpFactsCard facts={[
-      usefulHelpValue(item.organization) && { label: "Zodpovedá", value: item.organization },
-      usefulHelpValue(item.breed) && { label: "Plemeno / typ", value: item.breed },
-      usefulHelpValue(item.ageNote) && { label: "Vek", value: item.ageNote },
-      location(item) && { label: "Lokalita", value: location(item) },
-      item.reportedDate && { label: "Dátum prípadu", value: formatHelpDate(item.reportedDate) },
-      item.deadlineDate && { label: "Termín", value: formatHelpDate(item.deadlineDate) },
+      textFact("Zodpovedá", item.organization),
+      textFact("Plemeno / typ", item.breed),
+      textFact("Vek", item.ageNote),
+      textFact("Lokalita", location(item)),
+      rawFact("Dátum prípadu", formatHelpDate(item.reportedDate)),
+      rawFact("Termín", formatHelpDate(item.deadlineDate)),
     ]} />
     <GenericContacts item={item} />
   </>}>
@@ -124,7 +134,7 @@ export function GenericCaseHelpDetail({ item }: Props) {
   </HelpDetailShell>;
 }
 
-export const helpDetailViews: Record<HelpCategorySlug, (props: Props) => ReactNode> = {
+export const helpDetailViews: Record<HelpCategorySlug, ComponentType<Props>> = {
   utulky: OrganizationHelpDetail,
   adopcia: AdoptionHelpDetail,
   "docasna-opatera": FosterHelpDetail,
