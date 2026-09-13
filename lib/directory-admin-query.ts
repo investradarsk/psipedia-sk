@@ -37,6 +37,25 @@ export function directoryAdminMembershipFilters(filters: DirectoryAdminFilters):
   return { category: filters.category, status: filters.status, q: filters.q };
 }
 
+export function normalizeDirectoryAdminMembershipFilters(
+  filters: DirectoryAdminMembershipFilters,
+): DirectoryAdminMembershipFilters {
+  return {
+    category: filters.category.trim(),
+    status: filters.status === "published" || filters.status === "draft" ? filters.status : "all",
+    q: filters.q.trim().slice(0, 100),
+  };
+}
+
+export function directoryAdminMembershipFingerprint(filters: DirectoryAdminMembershipFilters) {
+  const normalized = normalizeDirectoryAdminMembershipFilters(filters);
+  const params = new URLSearchParams();
+  params.set("category", normalized.category);
+  params.set("status", normalized.status);
+  params.set("q", normalized.q);
+  return `directory:v1:${params.toString()}`;
+}
+
 export function directoryAdminHref(filters: DirectoryAdminFilters) {
   const params = new URLSearchParams();
   if (filters.category) params.set("category", filters.category);
@@ -85,22 +104,11 @@ function adminSearchExpression(categories: readonly DirectoryAdminCategoryOption
   return sqlNormalizedExpression(`coalesce(name, '') || ' ' || coalesce(city, '') || ' ' || coalesce(region, '') || ' ' || (${categoryLabel}) || ' ' || coalesce(services_json, '')`);
 }
 
-function normalizedMembership(filters: DirectoryAdminFilters) {
-  return {
-    category: filters.category.trim(),
-    status: filters.status === "published" || filters.status === "draft" ? filters.status : "all" as DirectoryAdminStatus,
-    q: filters.q.trim().slice(0, 100),
-  };
-}
-
-export async function queryDirectoryAdmin<T>(
-  database: ReadDatabase,
-  filters: DirectoryAdminFilters,
+export function directoryAdminMembershipQuery(
+  filters: DirectoryAdminMembershipFilters,
   categories: readonly DirectoryAdminCategoryOption[],
-  pageSize = DIRECTORY_ADMIN_PAGE_SIZE,
 ) {
-  const membership = normalizedMembership(filters);
-  const safePageSize = Math.max(1, Math.min(100, Math.trunc(pageSize)));
+  const membership = normalizeDirectoryAdminMembershipFilters(filters);
   const clauses: string[] = [];
   const args: (string | number)[] = [];
   if (membership.category) { clauses.push("category = ?"); args.push(membership.category); }
@@ -112,7 +120,22 @@ export async function queryDirectoryAdmin<T>(
       args.push(`%${normalized}%`);
     }
   }
-  const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
+  return {
+    membership,
+    where: clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "",
+    args,
+  };
+}
+
+export async function queryDirectoryAdmin<T>(
+  database: ReadDatabase,
+  filters: DirectoryAdminFilters,
+  categories: readonly DirectoryAdminCategoryOption[],
+  pageSize = DIRECTORY_ADMIN_PAGE_SIZE,
+) {
+  const membershipQuery = directoryAdminMembershipQuery(directoryAdminMembershipFilters(filters), categories);
+  const membership = membershipQuery.membership;
+  const safePageSize = Math.max(1, Math.min(100, Math.trunc(pageSize)));
   const categoryWhere = membership.category ? " WHERE category = ?" : "";
   const categoryArgs = membership.category ? [membership.category] : [];
 
@@ -120,13 +143,13 @@ export async function queryDirectoryAdmin<T>(
     COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
     COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft
     FROM directory_profiles${categoryWhere}`).bind(...categoryArgs).first<TotalsRow>();
-  const count = await database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${where}`).bind(...args).first<CountRow>();
+  const count = await database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${membershipQuery.where}`).bind(...membershipQuery.args).first<CountRow>();
   const resultCount = Number(count?.count ?? 0);
   const pages = Math.max(1, Math.ceil(resultCount / safePageSize));
   const page = Math.min(Math.max(1, Math.trunc(filters.page || 1)), pages);
   const result = await database.prepare(`SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured
-    FROM directory_profiles${where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
-    .bind(...args, safePageSize, (page - 1) * safePageSize).all<T>();
+    FROM directory_profiles${membershipQuery.where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
+    .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();
 
   return {
     counts: totals ?? { total: 0, published: 0, draft: 0 },
