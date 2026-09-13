@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { formatHelpDate, type HelpCase, type HelpCategorySlug } from "@/lib/help";
 import { getHelpPresentation, sameLooseText, usefulHelpValue } from "@/lib/help-detail-presentation";
 import {
@@ -70,7 +71,6 @@ export function FosterHelpDetail({ item }: Props) {
     <GenericContacts item={item} />
   </>}>
     {presentation.description && <HelpSection eyebrow="Dočasná opatera" title="O výzve"><HelpParagraphs value={presentation.description} /></HelpSection>}
-    {presentation.contactNote && <HelpSection title="Podmienky a dôležité informácie"><HelpParagraphs value={presentation.contactNote} /></HelpSection>}
   </HelpDetailShell>;
 }
 
@@ -124,7 +124,7 @@ export function GenericCaseHelpDetail({ item }: Props) {
   </HelpDetailShell>;
 }
 
-export const helpDetailViews: Record<HelpCategorySlug, (props: Props) => React.ReactNode> = {
+export const helpDetailViews: Record<HelpCategorySlug, (props: Props) => ReactNode> = {
   utulky: OrganizationHelpDetail,
   adopcia: AdoptionHelpDetail,
   "docasna-opatera": FosterHelpDetail,
