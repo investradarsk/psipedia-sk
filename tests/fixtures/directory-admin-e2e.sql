@@ -1,5 +1,6 @@
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-directory-%';
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-services-detail-%';
+DELETE FROM directory_profiles WHERE slug LIKE 'health-fixture-%';
 
 WITH RECURSIVE seq(n) AS (
   SELECT 1
@@ -106,4 +107,97 @@ INSERT INTO directory_profiles (
   '2026-09-14T08:05:00.000Z',
   'e2e@psipedia.local',
   'e2e@psipedia.local'
+);
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'health-fixture-vet-rich',
+  'Health veterinárna klinika',
+  'veterinari',
+  'published',
+  'Veterinárny testovací profil s vyplnenými odbornými údajmi.',
+  'Deterministický lokálny profil určený iba na overenie Health variantu v CI.',
+  '["Preventívna starostlivosť","Chirurgia"]',
+  '["Veterinárny tím"]',
+  'Nitra',
+  'Nitra',
+  'Nitriansky kraj',
+  'Testovacia 21',
+  0,
+  '',
+  NULL,
+  NULL,
+  '{"Špecializácie":"Interná medicína, chirurgia","Pohotovosť":"Áno","Hospitalizácia":"Áno","RTG":"Digitálne RTG","USG":"Áno","Laboratórium":"Interné laboratórium"}',
+  1,
+  0,
+  '2026-09-14T09:00:00.000Z',
+  '2026-09-14T09:00:00.000Z',
+  '2026-09-14T09:00:00.000Z',
+  'health-fixture@psipedia.local',
+  'health-fixture@psipedia.local'
+);
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'health-fixture-vet-minimum',
+  'Health veterinár minimum',
+  'veterinari',
+  'published',
+  'Veterinárny testovací profil bez použiteľných odborných údajov.',
+  '',
+  '["Preventívna starostlivosť"]',
+  '[]',
+  'Trnava',
+  'Trnava',
+  'Trnavský kraj',
+  '',
+  0,
+  '',
+  NULL,
+  NULL,
+  '{"Pohotovosť":"Neuvedené","Hospitalizácia":"Neoverené","RTG":"Nezistené"}',
+  0,
+  0,
+  '2026-09-14T09:05:00.000Z',
+  '2026-09-14T09:05:00.000Z',
+  '2026-09-14T09:05:00.000Z',
+  'health-fixture@psipedia.local',
+  'health-fixture@psipedia.local'
+);
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'health-fixture-fyzioterapia',
+  'Health fyzioterapia',
+  'fyzioterapia',
+  'published',
+  'Fyzioterapeutický testovací profil s terapeutickými a rehabilitačnými údajmi.',
+  'Deterministický lokálny profil určený iba na overenie Health variantu v CI.',
+  '["Rehabilitácia","Regenerácia"]',
+  '["Veterinárny fyzioterapeut"]',
+  'Bratislava',
+  'Bratislava V',
+  'Bratislavský kraj',
+  'Testovacia 31',
+  0,
+  '',
+  NULL,
+  NULL,
+  '{"Hydroterapia":"Áno","Laserterapia":"Áno","Manuálne techniky":"Mäkké a mobilizačné techniky","Pooperačná rehabilitácia":"Áno","Ortopedickí pacienti":"Áno","Odborník / certifikácia":"Veterinárny fyzioterapeut"}',
+  1,
+  0,
+  '2026-09-14T09:10:00.000Z',
+  '2026-09-14T09:10:00.000Z',
+  '2026-09-14T09:10:00.000Z',
+  'health-fixture@psipedia.local',
+  'health-fixture@psipedia.local'
 );

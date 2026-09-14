@@ -65,8 +65,76 @@ test("category-specific legacy facts and coverage aliases are normalized without
     { label: "Individuálny výcvik", value: "Áno" },
     { label: "Behaviorálne poradenstvo", value: "Na objednávku" },
   ]);
+  assert.equal(presentation.health, null);
   assert.equal(presentation.coverage, "Nitra a okolie");
   assert.equal("importData" in presentation, false);
+});
+
+test("veterinary Health variant exposes only populated existing veterinary fields", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    category: "veterinari",
+    importData: {
+      "Špecializácie": "Interná medicína, chirurgia",
+      "Pohotovosť": "Áno",
+      "Hospitalizácia": "Áno",
+      "RTG": "Digitálne RTG",
+      "USG": "Áno",
+      "Laboratórium": "Nezistené",
+    },
+  }));
+
+  assert.deepEqual(presentation.health, {
+    variant: "veterinari",
+    eyebrow: "Zdravie a starostlivosť",
+    title: "Veterinárna starostlivosť a vybavenie",
+    facts: [
+      { label: "Špecializácie", value: "Interná medicína, chirurgia" },
+      { label: "Pohotovosť", value: "Áno" },
+      { label: "Hospitalizácia", value: "Áno" },
+      { label: "RTG", value: "Digitálne RTG" },
+      { label: "USG", value: "Áno" },
+    ],
+  });
+});
+
+test("veterinary Health variant is omitted when no useful health data exists", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    category: "veterinari",
+    importData: {
+      "Pohotovosť": "Neuvedené",
+      "Hospitalizácia": "Neoverené",
+    },
+  }));
+
+  assert.deepEqual(presentation.facts, []);
+  assert.equal(presentation.health, null);
+});
+
+test("physiotherapy Health variant exposes only populated therapy and rehabilitation fields", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    category: "fyzioterapia",
+    importData: {
+      "Hydroterapia": "Áno",
+      "Laserterapia": "Neoverené",
+      "Manuálne techniky": "Mäkké a mobilizačné techniky",
+      "Pooperačná rehabilitácia": "Áno",
+      "Neurologickí pacienti": "Áno",
+      "Odborník / certifikácia": "Veterinárny fyzioterapeut",
+    },
+  }));
+
+  assert.deepEqual(presentation.health, {
+    variant: "fyzioterapia",
+    eyebrow: "Zdravie a starostlivosť",
+    title: "Terapie a rehabilitácia",
+    facts: [
+      { label: "Hydroterapia", value: "Áno" },
+      { label: "Manuálne techniky", value: "Mäkké a mobilizačné techniky" },
+      { label: "Pooperačná rehabilitácia", value: "Áno" },
+      { label: "Neurologickí pacienti", value: "Áno" },
+      { label: "Odborník / certifikácia", value: "Veterinárny fyzioterapeut" },
+    ],
+  });
 });
 
 test("description, URL fallback and navigation preserve the current detail behavior", () => {

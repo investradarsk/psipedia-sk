@@ -3,6 +3,12 @@ import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/direct
 export type DirectoryDetailFact = { label: string; value: string };
 export type DirectoryDetailPhone = { value: string; href: string };
 export type DirectoryDetailEmail = { value: string; href: string };
+export type DirectoryDetailHealth = {
+  variant: "veterinari" | "fyzioterapia";
+  eyebrow: string;
+  title: string;
+  facts: DirectoryDetailFact[];
+};
 
 export type DirectoryDetailPresentation = {
   id: number;
@@ -25,6 +31,7 @@ export type DirectoryDetailPresentation = {
   descriptionParagraphs: string[];
   coverage: string | null;
   facts: DirectoryDetailFact[];
+  health: DirectoryDetailHealth | null;
   phone: DirectoryDetailPhone | null;
   emails: DirectoryDetailEmail[];
   websiteUrl: string | null;
@@ -90,6 +97,21 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     const value = usefulDirectoryDetailValue(importedValue(profile, label));
     return value ? [{ label, value }] : [];
   });
+  const health = profile.category === "veterinari" && facts.length > 0
+    ? {
+        variant: "veterinari" as const,
+        eyebrow: "Zdravie a starostlivosť",
+        title: "Veterinárna starostlivosť a vybavenie",
+        facts,
+      }
+    : profile.category === "fyzioterapia" && facts.length > 0
+      ? {
+          variant: "fyzioterapia" as const,
+          eyebrow: "Zdravie a starostlivosť",
+          title: "Terapie a rehabilitácia",
+          facts,
+        }
+      : null;
   const coverage = usefulDirectoryDetailValue(importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"));
   const description = profile.description || profile.excerpt || null;
 
@@ -114,6 +136,7 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     descriptionParagraphs: splitDescription(description),
     coverage,
     facts,
+    health,
     phone: phoneValue ? { value: phoneValue, href: `tel:${phoneValue.replace(/[^+\d]/g, "")}` } : null,
     emails: emails.map((value) => ({ value, href: `mailto:${value}` })),
     websiteUrl,

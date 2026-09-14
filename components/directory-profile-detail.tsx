@@ -3,6 +3,7 @@ import { DirectoryContactForm } from "@/components/directory-contact-form";
 import {
   DetailContactsCard,
   DetailFactsCard,
+  DetailOptionGrid,
   DetailParagraphs,
   DetailSection,
 } from "@/components/detail-primitives/detail-primitives";
@@ -129,6 +130,12 @@ export function DirectoryProfileDetail({ presentation }: { presentation: Directo
             </DetailSection>
           )}
 
+          {presentation.health && (
+            <DetailSection eyebrow={presentation.health.eyebrow} title={presentation.health.title}>
+              <DetailOptionGrid options={presentation.health.facts} />
+            </DetailSection>
+          )}
+
           {presentation.qualifications.length > 0 && (
             <DetailSection eyebrow="Skúsenosti" title="Kvalifikácie a zameranie">
               <ul className={styles.qualificationsList}>
@@ -141,7 +148,7 @@ export function DirectoryProfileDetail({ presentation }: { presentation: Directo
         <aside className={styles.sidebar} aria-label="Kontaktné a praktické informácie">
           <DetailContactsCard title="Kontakt" contacts={contacts} />
           <DetailFactsCard title="Praktické informácie" facts={practicalFacts} />
-          <DetailFactsCard title="Odborné údaje" facts={presentation.facts} />
+          {!presentation.health && <DetailFactsCard title="Odborné údaje" facts={presentation.facts} />}
         </aside>
       </section>
 
