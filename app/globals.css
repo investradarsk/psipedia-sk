@@ -3630,7 +3630,7 @@ h3 {
   color: var(--muted);
 }
 
-@media (max-width: 1400px) {
+@media (max-width: 1600px) {
   .desktop-nav,
   .search-trigger span {
     display: none;
@@ -8421,7 +8421,7 @@ h3 {
   margin-top: 5px;
 }
 
-@media (min-width: 1401px) {
+@media (min-width: 1601px) {
   .brand {
     margin-right: clamp(12px, 1vw, 18px);
   }
