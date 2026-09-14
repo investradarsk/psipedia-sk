@@ -97,6 +97,23 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/public-navigation.spec.ts
+      - name: Seed breeds into local CI D1 only
+        id: seed
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-breed-e2e.mjs seed
+      - name: Seed LOST/FOUND fixtures into local CI D1 only
+        id: lost_found_seed
+        run: |
+          mkdir -p .e2e-artifacts/lost-found
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/lost-found-e2e.sql
+      - name: Seed Help detail fixtures into local CI D1 only
+        id: help_detail_seed
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
+      - name: Seed Directory admin filter fixtures into local CI D1 only
+        id: directory_seed
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
       - name: Seed adoption fixtures into local CI D1 only
         id: adoption_seed
         env:
@@ -115,23 +132,6 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/adoption.spec.ts --project=mobile-chromium
-      - name: Seed breeds into local CI D1 only
-        id: seed
-        env:
-          E2E_BASE_URL: http://localhost:5173
-          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
-        run: node scripts/bootstrap-breed-e2e.mjs seed
-      - name: Seed LOST/FOUND fixtures into local CI D1 only
-        id: lost_found_seed
-        run: |
-          mkdir -p .e2e-artifacts/lost-found
-          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/lost-found-e2e.sql
-      - name: Seed Help detail fixtures into local CI D1 only
-        id: help_detail_seed
-        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
-      - name: Seed Directory admin filter fixtures into local CI D1 only
-        id: directory_seed
-        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
       - name: All-breed regression — exactly 343 published URLs
         id: audit
         env:
