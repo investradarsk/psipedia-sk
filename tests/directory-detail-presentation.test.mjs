@@ -48,6 +48,7 @@ test("legacy contact aliases are normalized into presentation-only contacts", ()
   assert.equal(presentation.websiteUrl, "https://example.org/");
   assert.equal(presentation.facebookUrl, null);
   assert.equal(presentation.instagramUrl, "https://instagram.com/example");
+  assert.equal(presentation.verified, true);
 });
 
 test("category-specific legacy facts and coverage aliases are normalized without exposing importData", () => {
