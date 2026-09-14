@@ -91,6 +91,10 @@ jobs:
             tail -200 .e2e-artifacts/local-server.log
             exit 1
           fi
+      - name: Public navigation Playwright — desktop and mobile
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/public-navigation.spec.ts
       - name: Seed breeds into local CI D1 only
         id: seed
         env:
