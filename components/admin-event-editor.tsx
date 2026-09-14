@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
 import { ChangeEvent, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
@@ -108,8 +109,8 @@ export function AdminEventEditor({ event }: { event?: DogEvent }) {
 
           <section className="admin-form-card">
             <div className="admin-card-heading"><div><span>03</span><div><h2>Popis a praktické informácie</h2><p>Vysvetli program, podmienky a čo si priniesť.</p></div></div></div>
-            <div className="admin-field"><label htmlFor="event-description">Podrobný popis</label><textarea id="event-description" rows={9} value={description} onChange={(input) => setDescription(input.target.value)} placeholder={"Program a priebeh podujatia…\n\nNový odsek začni po prázdnom riadku."} required /></div>
-            <div className="admin-field"><label htmlFor="event-practical">Praktické informácie</label><textarea id="event-practical" rows={5} value={practicalInfo} onChange={(input) => setPracticalInfo(input.target.value)} placeholder="Vstupné, parkovanie, podmienky účasti, doklady…" /></div>
+            <AdminEventMarkdownEditor id="event-description" label="Podrobný popis" value={description} onChange={setDescription} required />
+            <AdminEventMarkdownEditor id="event-practical" label="Praktické informácie" value={practicalInfo} onChange={setPracticalInfo} />
           </section>
 
           <section className="admin-form-card">

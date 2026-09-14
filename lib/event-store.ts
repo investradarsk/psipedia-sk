@@ -1,3 +1,4 @@
+import { bulkEventStatusSql, validateBulkEvents } from "./admin-events";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import {
@@ -39,21 +40,7 @@ export type ManagedEventInput = {
   seo?: EditableSeo;
 };
 
-export type ManagedEventSummary = Pick<
-  DogEvent,
-  | "id"
-  | "slug"
-  | "title"
-  | "eventType"
-  | "status"
-  | "startDate"
-  | "startTime"
-  | "endDate"
-  | "endTime"
-  | "city"
-  | "organizer"
-  | "cancelled"
->;
+export type ManagedEventSummary = import("./admin-events").AdminEventSummary;
 
 type EventRow = {
   id: number;
@@ -87,6 +74,9 @@ type EventRow = {
 };
 
 type EventSummaryRow = {
+  venue: string;
+  region: string;
+  updated_at: string;
   id: number;
   slug: string;
   title: string;
@@ -156,6 +146,9 @@ function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JS
 
 function rowToEventSummary(row: EventSummaryRow): ManagedEventSummary {
   return {
+    venue: row.venue,
+    region: row.region,
+    updatedAt: row.updated_at,
     id: row.id,
     slug: row.slug,
     title: row.title,
@@ -268,16 +261,14 @@ const getPublishedEventUncached = async (slug: string) => {
 };
 export const getPublishedEvent = cache(getPublishedEventUncached);
 
-export async function listManagedEventSummaries(limit = 100) {
+export async function listManagedEventSummaries() {
   const database = requireD1Binding();
   await ensureEventStore(database);
-  const safeLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
   const result = await database.prepare(`
-    SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, organizer, cancelled
+    SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, venue, region, organizer, cancelled, updated_at
     FROM managed_events
     ORDER BY start_date DESC, updated_at DESC, id DESC
-    LIMIT ?
-  `).bind(safeLimit).all<EventSummaryRow>();
+  `).all<EventSummaryRow>();
   return result.results.map(rowToEventSummary);
 }
 
@@ -345,4 +336,13 @@ export async function deleteManagedEvent(id: number) {
 export function isEventSlugConflict(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes("UNIQUE constraint failed") || message.includes("managed_events.slug");
+}
+
+export async function bulkUpdateEventStatus(input: unknown, editorEmail: string) {
+  const { events, status } = validateBulkEvents(input);
+  const now = new Date().toISOString();
+  const result = await requireD1Binding().prepare(bulkEventStatusSql)
+    .bind(JSON.stringify(events), status, now, editorEmail, status, now, events.length).all<{ id: number }>();
+  if (result.results.length !== events.length) throw new Error("Výber sa medzičasom zmenil alebo bol odstránený. Žiadne podujatie nebolo zmenené; obnov zoznam a potvrď nový výber.");
+  return { changed: result.results.length };
 }

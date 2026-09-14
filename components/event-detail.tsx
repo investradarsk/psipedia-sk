@@ -1,3 +1,4 @@
+import { EventMarkdown } from "@/components/event-markdown";
 import Link from "next/link";
 import { ArrowIcon, PawMark } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
@@ -16,10 +17,6 @@ function eventLocationLines(event: DogEvent) {
     ? [event.venue, event.city, "Online"]
     : [event.venue, event.address, event.city, event.region];
   return [...new Set(raw.map((value) => value.trim()).filter(Boolean))];
-}
-
-function paragraphs(value: string) {
-  return value.split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
 }
 
 export function EventDetail({ event, related = [] }: { event: DogEvent; related?: DogEvent[] }) {
@@ -82,14 +79,14 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
               <section aria-labelledby="event-about-title">
                 <span className="eyebrow">O podujatí</span>
                 <h2 id="event-about-title">Čo potrebuješ vedieť</h2>
-                {paragraphs(event.description).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                <EventMarkdown value={event.description} />
               </section>
             )}
             {event.practicalInfo && (
               <section className={`event-practical-info ${cardShellClassName}`} aria-labelledby="event-practical-title">
                 <span className="eyebrow">Pred návštevou</span>
                 <h2 id="event-practical-title">Praktické informácie</h2>
-                {paragraphs(event.practicalInfo).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                <EventMarkdown value={event.practicalInfo} />
               </section>
             )}
           </article>
