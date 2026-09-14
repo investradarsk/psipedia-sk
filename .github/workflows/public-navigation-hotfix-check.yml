@@ -64,10 +64,20 @@ jobs:
             tail -200 .e2e-artifacts/public-navigation-hotfix.log
             exit 1
           fi
-      - name: Public navigation Playwright desktop and mobile
+      - name: Public navigation order and submenus
         env:
           E2E_BASE_URL: http://localhost:5173
-        run: npm run e2e -- tests/e2e/public-navigation.spec.ts
+        run: npx playwright test tests/e2e/public-navigation.spec.ts --grep "public navigation keeps order and exposes only requested submenus"
+      - name: Desktop dropdown interaction
+        if: success() || failure()
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npx playwright test tests/e2e/public-navigation.spec.ts --grep "desktop dropdown supports hover and keyboard focus without submenu accent line"
+      - name: Mobile expanded-menu scrolling
+        if: success() || failure()
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npx playwright test tests/e2e/public-navigation.spec.ts --grep "mobile menu scrolls to the final items with Šteniatka expanded"
       - name: Stop local app server
         if: always()
         run: |
