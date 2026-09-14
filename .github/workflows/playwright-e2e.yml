@@ -189,6 +189,63 @@ jobs:
           retention-days: 14
           include-hidden-files: true
 
+  admin-events-e2e:
+    name: Admin Events — desktop and mobile
+    if: github.event_name == 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+      PSIPEDIA_ADMIN_EVENTS_E2E: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start isolated local app and materialize local D1
+        run: |
+          mkdir -p .e2e-artifacts/admin-events
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-events/server.log 2>&1 &
+          echo $! > .e2e-artifacts/admin-events/server.pid
+          ready=0
+          for attempt in $(seq 1 60); do
+            # Missing-table HTTP 500 is expected before the fixture schema exists.
+            if curl --silent --max-time 2 http://localhost:5173/api/admin/events > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+      - name: Seed 175 disposable events in local D1 only
+        run: node scripts/bootstrap-admin-events-e2e.mjs
+      - name: Check counts and guarded API without modifying events
+        run: node scripts/check-admin-events-local.mjs
+      - name: Admin Events Playwright — desktop and mobile
+        run: npx playwright test tests/e2e/admin-events.spec.ts --workers=1 --retries=0
+      - name: Stop local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/admin-events/server.pid ]; then
+            kill "$(cat .e2e-artifacts/admin-events/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload admin screenshots, report and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-events-desktop-mobile-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/admin-events/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: warn
+          retention-days: 14
+
   production-smoke:
     name: Playwright production smoke (${{ matrix.label }})
     needs: validate
