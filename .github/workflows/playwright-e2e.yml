@@ -37,6 +37,8 @@ jobs:
         run: npm run build
       - name: Unit and integration tests
         run: npm test
+      - name: Adoption unit/integration suite
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/adoption-foundation.test.mjs tests/adoption-catalog.test.mjs tests/adoption-detail.test.mjs tests/adoption-sitemap-integration.test.mjs tests/adoption-admin-list.test.mjs tests/adoption-admin-editor.test.mjs
 
   pull-request-e2e:
     name: Breed CI bootstrap, all-breed regression and Playwright
@@ -91,6 +93,28 @@ jobs:
             tail -200 .e2e-artifacts/local-server.log
             exit 1
           fi
+      - name: Public navigation Playwright — desktop and mobile
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/public-navigation.spec.ts
+      - name: Seed adoption fixtures into local CI D1 only
+        id: adoption_seed
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-adoption-e2e.mjs
+      - name: Adoption Playwright + accessibility — desktop
+        id: adoption_desktop
+        if: ${{ always() && steps.adoption_seed.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/adoption.spec.ts --project=desktop-chromium
+      - name: Adoption Playwright + accessibility — mobile
+        id: adoption_mobile
+        if: ${{ always() && steps.adoption_seed.outcome == 'success' && steps.adoption_desktop.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/adoption.spec.ts --project=mobile-chromium
       - name: Seed breeds into local CI D1 only
         id: seed
         env:
