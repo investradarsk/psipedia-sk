@@ -61,10 +61,18 @@
   border: 1px solid rgba(23, 75, 56, 0.15);
 }
 
+.verifiedBadge::before {
+  content: "✓";
+}
+
 .featuredBadge {
   color: #963f2d;
   background: #fff0e9;
   border: 1px solid rgba(185, 71, 50, 0.16);
+}
+
+.featuredBadge::before {
+  content: "★";
 }
 
 .heroCopy h1 {
