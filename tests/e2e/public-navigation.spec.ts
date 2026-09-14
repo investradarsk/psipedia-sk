@@ -93,16 +93,19 @@ test("desktop dropdown supports hover and keyboard focus without submenu accent 
   await expect(submenuLink).toBeVisible();
   expect(await submenuLink.evaluate((element) => getComputedStyle(element, "::after").content)).toBe("none");
 
-  await submenuLink.focus();
-  await expect(submenuLink).toBeFocused();
-  expect(await submenuLink.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
-  await page.keyboard.press("Escape");
+  await page.locator("main").hover();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
 
   await toggle.focus();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(submenuLink).toBeVisible();
+  await submenuLink.focus();
+  await expect(submenuLink).toBeFocused();
+  expect(await submenuLink.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
+
   await page.keyboard.press("Escape");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toBeFocused();
 });
 
 test("mobile menu scrolls to the final items with Šteniatka expanded", async ({ page, isMobile }) => {
