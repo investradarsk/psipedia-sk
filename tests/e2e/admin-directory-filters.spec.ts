@@ -144,7 +144,8 @@ test.describe("admin directory server filters", () => {
 
   test("selection is keyboard operable and new selection UI remains axe-clean", async ({ page }) => {
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
-    const first = page.getByLabel("Vybrať profil E2E Veterina 001");
+    const first = page.getByLabel("Vybrať profil E2E Veterina 059");
+    await expect(first).toBeVisible();
     await first.focus();
     await page.keyboard.press("Space");
     await expect(first).toBeChecked();
