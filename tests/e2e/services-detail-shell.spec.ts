@@ -64,4 +64,73 @@ test.describe("public services detail shell", () => {
       .analyze();
     expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
   });
+
+  test("Health variant renders rich veterinary data from existing fields only", async ({ page }) => {
+    const response = await page.goto("/adresar/veterinari/e2e-services-detail-health-vet-rich", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+
+    const main = page.locator("main#obsah");
+    await expect(main.getByRole("heading", { level: 1, name: "E2E Veterinárna klinika Health" })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true })).toBeVisible();
+    await expect(main.getByText("Špecializácie", { exact: true })).toBeVisible();
+    await expect(main.getByText("Interná medicína, chirurgia", { exact: true })).toBeVisible();
+    await expect(main.getByText("Pohotovosť", { exact: true })).toBeVisible();
+    await expect(main.getByText("Hospitalizácia", { exact: true })).toBeVisible();
+    await expect(main.getByText("Digitálne RTG", { exact: true })).toBeVisible();
+    await expect(main.getByText("Interné laboratórium", { exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+    const accessibility = await new AxeBuilder({ page })
+      .include("main#obsah")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
+  });
+
+  test("Health variant omits veterinary section when only placeholder data exists", async ({ page }) => {
+    const response = await page.goto("/adresar/veterinari/e2e-services-detail-health-vet-minimum", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+
+    const main = page.locator("main#obsah");
+    await expect(main.getByRole("heading", { level: 1, name: "E2E Veterinár minimum Health" })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true })).toHaveCount(0);
+    await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
+    await expect(main.getByText("Neuvedené", { exact: true })).toHaveCount(0);
+    await expect(main.getByText("Neoverené", { exact: true })).toHaveCount(0);
+    await expect(main.getByText("Nezistené", { exact: true })).toHaveCount(0);
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+    const accessibility = await new AxeBuilder({ page })
+      .include("main#obsah")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
+  });
+
+  test("Health variant renders physiotherapy therapies and rehabilitation data", async ({ page }) => {
+    const response = await page.goto("/adresar/fyzioterapia/e2e-services-detail-health-fyzioterapia", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+
+    const main = page.locator("main#obsah");
+    await expect(main.getByRole("heading", { level: 1, name: "E2E Fyzioterapia Health" })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Terapie a rehabilitácia", exact: true })).toBeVisible();
+    await expect(main.getByText("Hydroterapia", { exact: true })).toBeVisible();
+    await expect(main.getByText("Laserterapia", { exact: true })).toBeVisible();
+    await expect(main.getByText("Mäkké a mobilizačné techniky", { exact: true })).toBeVisible();
+    await expect(main.getByText("Pooperačná rehabilitácia", { exact: true })).toBeVisible();
+    await expect(main.getByText("Ortopedickí pacienti", { exact: true })).toBeVisible();
+    await expect(main.getByText("Veterinárny fyzioterapeut", { exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+    const accessibility = await new AxeBuilder({ page })
+      .include("main#obsah")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
+  });
 });
