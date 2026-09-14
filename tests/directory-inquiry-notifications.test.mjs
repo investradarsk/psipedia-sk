@@ -86,7 +86,7 @@ function createDatabase() {
   `);
   const migration = readFileSync(new URL("../drizzle/0031_directory_inquiry_notifications.sql", import.meta.url), "utf8");
   sqlite.exec(migration);
-  sqlite.exec(readFileSync(new URL("../drizzle/0034_editorial_notification_outbox.sql", import.meta.url), "utf8"));
+  sqlite.exec(readFileSync(new URL("../drizzle/0035_editorial_notification_outbox.sql", import.meta.url), "utf8"));
   sqlite.exec(`
     CREATE TABLE directory_profile_change_requests (id INTEGER PRIMARY KEY);
     CREATE TABLE news_tips (id INTEGER PRIMARY KEY);

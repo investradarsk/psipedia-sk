@@ -56,7 +56,7 @@ function createDatabase() {
     "../drizzle/0011_purple_morlocks.sql",
     "../drizzle/0021_mysterious_darkhawk.sql",
     "../drizzle/0031_directory_inquiry_notifications.sql",
-    "../drizzle/0034_editorial_notification_outbox.sql",
+    "../drizzle/0035_editorial_notification_outbox.sql",
   ]) {
     const migration = readFileSync(new URL(file, import.meta.url), "utf8");
     for (const sql of migration.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) sqlite.exec(sql);
