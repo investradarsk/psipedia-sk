@@ -211,7 +211,12 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                   )}
                 </div>
                 {item.children.length > 0 && (
-                  <div id={`mobile-submenu-${item.id}`} className="mobile-nav-children">
+                  <div
+                    id={`mobile-submenu-${item.id}`}
+                    className="mobile-nav-children"
+                    aria-hidden={openMobileMenu !== item.id}
+                    inert={openMobileMenu !== item.id}
+                  >
                     <div>{item.children.map((child) => <Link href={child.href} key={child.id} onClick={() => setMenuOpen(false)}>{child.label}</Link>)}</div>
                   </div>
                 )}
