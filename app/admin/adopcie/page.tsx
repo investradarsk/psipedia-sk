@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminAdoptionDashboard } from "@/components/admin-adoption-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -40,6 +41,7 @@ export default async function AdoptionAdminPage({ searchParams }: { searchParams
     eyebrow="Pomoc psom"
     title="Adopcie"
     description="Read-only prehľad adopčných profilov, lifecycle stavov a potreby opätovného overenia."
+    actions={<Link className="admin-primary-action" href="/admin/adopcie/novy">+ Pridať psa</Link>}
   >
     <AdminAdoptionDashboard result={result} filters={filters} />
   </AdminShell>;
