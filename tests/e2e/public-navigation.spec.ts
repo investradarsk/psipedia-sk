@@ -115,9 +115,21 @@ test("mobile menu scrolls to the final items with Šteniatka expanded", async ({
   const menu = page.locator("#mobile-menu");
   const nav = menu.locator(":scope > nav");
   const puppyToggle = nav.locator('[aria-controls="mobile-submenu-steniatka"]');
+  const puppySubmenu = nav.locator("#mobile-submenu-steniatka");
 
   await puppyToggle.click();
   await expect(puppyToggle).toHaveAttribute("aria-expanded", "true");
+
+  const transitionMs = await puppySubmenu.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const toMilliseconds = (value: string) => value.trim().endsWith("ms")
+      ? Number.parseFloat(value)
+      : Number.parseFloat(value) * 1000;
+    const durations = style.transitionDuration.split(",").map(toMilliseconds);
+    const delays = style.transitionDelay.split(",").map(toMilliseconds);
+    return Math.max(0, ...durations.map((duration, index) => duration + (delays[index] ?? delays[0] ?? 0)));
+  });
+  await page.waitForTimeout(transitionMs + 50);
 
   const metrics = await nav.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -135,12 +147,9 @@ test("mobile menu scrolls to the final items with Šteniatka expanded", async ({
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
   expect(await menu.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 
-  await nav.evaluate((element) => { element.scrollTop = element.scrollHeight; });
-  const bottom = await nav.evaluate((element) => ({
-    scrollTop: element.scrollTop,
-    clientHeight: element.clientHeight,
-    scrollHeight: element.scrollHeight,
-  }));
-  expect(bottom.scrollTop + bottom.clientHeight).toBeGreaterThanOrEqual(bottom.scrollHeight - 1);
+  await expect.poll(async () => nav.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    return element.scrollTop + element.clientHeight >= element.scrollHeight - 1;
+  })).toBe(true);
   await expect(menu.getByRole("link", { name: "Kontakt", exact: true })).toBeInViewport();
 });
