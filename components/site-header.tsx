@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { NavigationItem } from "@/lib/navigation";
 import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
@@ -13,20 +14,72 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [favoriteCount, setFavoriteCount] = useState(0);
+  const [openDesktopMenu, setOpenDesktopMenu] = useState<string | null>(null);
+  const [openMobileMenu, setOpenMobileMenu] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const suppressMenuFocus = useRef(false);
+  const pathname = usePathname();
   const nav = useMemo(() => {
     const visible = navigationItems.filter((item) => item.visible);
     return visible.filter((item) => !item.parentId).map((item) => {
       const slug = item.href.split("/").filter(Boolean)[0] ?? "";
       const section = portalSections.find((candidate) => candidate.slug === slug);
+      const storedChildren = visible.filter((child) => child.parentId === item.id);
+      const fallbackChildren = ["steniatka", "starostlivost", "aktivity"].includes(slug)
+        ? (section?.subpages ?? []).filter((subpage) => subpage.visible !== false).map((subpage, position) => ({
+            id: `portal-${slug}-${subpage.slug}`,
+            label: subpage.label,
+            href: subpage.href ?? `/${slug}/${subpage.slug}`,
+            parentId: item.id,
+            position,
+            visible: true,
+          }))
+        : [];
       return {
         ...item,
         className: slug === "pomoc-psom" ? "nav-help" : slug === "novinky" ? "nav-news" : undefined,
         title: section?.description,
-        children: visible.filter((child) => child.parentId === item.id),
+        children: storedChildren.length ? storedChildren : fallbackChildren,
       };
     });
   }, [navigationItems]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setOpenDesktopMenu(null);
+      setOpenMobileMenu(null);
+      setMenuOpen(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pathname]);
+
+  useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      if (!headerRef.current?.contains(event.target as Node)) {
+        setOpenDesktopMenu(null);
+        setOpenMobileMenu(null);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpenDesktopMenu((current) => {
+        if (current) {
+          suppressMenuFocus.current = true;
+          headerRef.current?.querySelector<HTMLButtonElement>(`[data-menu-toggle="${current}"]`)?.focus();
+          queueMicrotask(() => { suppressMenuFocus.current = false; });
+        }
+        return null;
+      });
+      setOpenMobileMenu(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     function updateCount() {
@@ -77,7 +130,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
       <nav aria-label="Rýchla navigácia">
         <a className="skip-link" href="#obsah">Preskočiť na obsah</a>
       </nav>
-      <header className="site-header">
+      <header className="site-header" ref={headerRef}>
         <div className="header-inner shell">
           <Link href="/" className="brand" aria-label="Psipedia.sk – domov">
             <span className="brand-mark"><PawMark size={29} /></span>
@@ -86,9 +139,34 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
 
           <nav className="desktop-nav" aria-label="Hlavná navigácia">
             {nav.map((item) => item.children.length ? (
-              <div className="nav-group" key={item.id}>
-                <Link href={item.href} className={item.className} title={item.title}>{item.label}<span aria-hidden="true">⌄</span></Link>
-                <div className="nav-submenu">{item.children.map((child) => <Link href={child.href} key={child.id}>{child.label}</Link>)}</div>
+              <div
+                className={`nav-group ${openDesktopMenu === item.id ? "is-open" : ""}`}
+                key={item.id}
+                onMouseEnter={() => setOpenDesktopMenu(item.id)}
+                onMouseLeave={(event) => {
+                  if (!event.currentTarget.contains(document.activeElement)) setOpenDesktopMenu(null);
+                }}
+                onFocusCapture={() => {
+                  if (!suppressMenuFocus.current) setOpenDesktopMenu(item.id);
+                }}
+                onBlurCapture={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenDesktopMenu(null);
+                }}
+              >
+                <Link href={item.href} className={item.className} title={item.title} onClick={() => setOpenDesktopMenu(null)}>{item.label}</Link>
+                <button
+                  type="button"
+                  className="nav-submenu-toggle"
+                  data-menu-toggle={item.id}
+                  aria-label={`${openDesktopMenu === item.id ? "Zavrieť" : "Otvoriť"} podmenu ${item.label}`}
+                  aria-expanded={openDesktopMenu === item.id}
+                  aria-controls={`desktop-submenu-${item.id}`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => setOpenDesktopMenu((current) => current === item.id ? null : item.id)}
+                ><span aria-hidden="true">⌄</span></button>
+                <div id={`desktop-submenu-${item.id}`} className="nav-submenu">
+                  {item.children.map((child) => <Link href={child.href} key={child.id} onClick={() => setOpenDesktopMenu(null)}>{child.label}</Link>)}
+                </div>
               </div>
             ) : <Link href={item.href} className={item.className} title={item.title} key={item.id}>{item.label}</Link>)}
           </nav>
@@ -106,7 +184,10 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
             <button
               className="icon-button menu-trigger"
               type="button"
-              onClick={() => setMenuOpen((value) => !value)}
+              onClick={() => setMenuOpen((value) => {
+                if (value) setOpenMobileMenu(null);
+                return !value;
+              })}
               aria-expanded={menuOpen}
               aria-controls="mobile-menu"
               aria-label={menuOpen ? "Zavrieť menu" : "Otvoriť menu"}
@@ -119,9 +200,30 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
         <div id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell" aria-label="Mobilná navigácia">
             {nav.map((item) => (
-              <div className="mobile-nav-group" key={item.id}>
-                <Link href={item.href} className={item.className} title={item.title} onClick={() => setMenuOpen(false)}>{item.label}</Link>
-                {item.children.length > 0 && <div className="mobile-nav-children">{item.children.map((child) => <Link href={child.href} key={child.id} onClick={() => setMenuOpen(false)}>{child.label}</Link>)}</div>}
+              <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>
+                <div className="mobile-nav-parent">
+                  <Link href={item.href} className={item.className} title={item.title} onClick={() => setMenuOpen(false)}>{item.label}</Link>
+                  {item.children.length > 0 && (
+                    <button
+                      type="button"
+                      className="mobile-submenu-toggle"
+                      aria-label={`${openMobileMenu === item.id ? "Zavrieť" : "Otvoriť"} podmenu ${item.label}`}
+                      aria-expanded={openMobileMenu === item.id}
+                      aria-controls={`mobile-submenu-${item.id}`}
+                      onClick={() => setOpenMobileMenu((current) => current === item.id ? null : item.id)}
+                    ><span aria-hidden="true">⌄</span></button>
+                  )}
+                </div>
+                {item.children.length > 0 && (
+                  <div
+                    id={`mobile-submenu-${item.id}`}
+                    className="mobile-nav-children"
+                    aria-hidden={openMobileMenu !== item.id}
+                    inert={openMobileMenu !== item.id}
+                  >
+                    <div>{item.children.map((child) => <Link href={child.href} key={child.id} onClick={() => setMenuOpen(false)}>{child.label}</Link>)}</div>
+                  </div>
+                )}
               </div>
             ))}
             <Link href="/o-nas#kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link>
