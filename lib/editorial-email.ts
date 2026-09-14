@@ -136,8 +136,8 @@ export async function sendEditorialEmail(message: EditorialMessage) {
   return result.ok;
 }
 
-export function notifyDirectoryProfileChangeRequest(request: DirectoryProfileChangeRequest) {
-  return sendEditorialEmail({
+export function notifyDirectoryProfileChangeRequest(request: DirectoryProfileChangeRequest, options: EditorialEmailOptions = {}) {
+  return sendEditorialEmailDetailed({
     subject: `[Návrh profilu] ${request.profileName}`,
     lines: [
       line("Profil", request.profileName),
@@ -150,7 +150,7 @@ export function notifyDirectoryProfileChangeRequest(request: DirectoryProfileCha
       line("Dátum", formatDate(request.createdAt)),
       line("Admin", `${ADMIN_ORIGIN}/admin/adresar/navrhy#navrh-${request.id}`),
     ],
-  });
+  }, options);
 }
 
 export function notifyDirectoryInquiry(
@@ -187,8 +187,8 @@ export function notifyDirectoryInquiry(
   });
 }
 
-export function notifyNewsTip(tip: NewsTip) {
-  return sendEditorialEmail({
+export function notifyNewsTip(tip: NewsTip, options: EditorialEmailOptions = {}) {
+  return sendEditorialEmailDetailed({
     subject: `[Tip pre redakciu] ${tip.title}`,
     lines: [
       line("Názov", tip.title),
@@ -202,12 +202,12 @@ export function notifyNewsTip(tip: NewsTip) {
       line("Dátum prijatia", formatDate(tip.createdAt)),
       line("Admin", `${ADMIN_ORIGIN}/admin/tipy#tip-${tip.id}`),
     ],
-  });
+  }, options);
 }
 
-export function notifyNegativeArticleFeedback(feedback: ArticleFeedback) {
-  if (feedback.helpful) return Promise.resolve(false);
-  return sendEditorialEmail({
+export function notifyNegativeArticleFeedback(feedback: ArticleFeedback, options: EditorialEmailOptions = {}) {
+  if (feedback.helpful) return Promise.resolve({ ok: false, error: "positive_feedback_not_notifiable" } as const);
+  return sendEditorialEmailDetailed({
     subject: `[Podnet k článku] ${feedback.articleTitle}`,
     lines: [
       line("Článok", feedback.articleTitle),
@@ -216,5 +216,5 @@ export function notifyNegativeArticleFeedback(feedback: ArticleFeedback) {
       line("Dátum", formatDate(feedback.createdAt)),
       line("Admin", `${ADMIN_ORIGIN}/admin/hodnotenia#hodnotenie-${feedback.id}`),
     ],
-  });
+  }, options);
 }

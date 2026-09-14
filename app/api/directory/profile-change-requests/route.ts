@@ -1,5 +1,5 @@
 import { createDirectoryProfileChangeRequest, DirectoryRateLimitError, type DirectoryProfileChangeRequestInput } from "@/lib/directory-store";
-import { notifyDirectoryProfileChangeRequest } from "@/lib/editorial-email";
+import { processEditorialNotification } from "@/lib/editorial-notifications";
 
 export const dynamic = "force-dynamic";
 type PublicPayload = DirectoryProfileChangeRequestInput & { company?: string };
@@ -10,7 +10,9 @@ export async function POST(request: Request) {
     const payload = await request.json() as PublicPayload;
     if (payload.company?.trim()) return Response.json({ success: true }, { status: 201 });
     const saved = await createDirectoryProfileChangeRequest(payload);
-    await notifyDirectoryProfileChangeRequest(saved);
+    await processEditorialNotification("directory_profile_change_request", saved).catch(() => {
+      console.error(JSON.stringify({ event: "editorial_notification", resourceType: "directory_profile_change_request", resourceId: saved.id, result: "failed", error: "outbox_processing_failed" }));
+    });
     return Response.json({ success: true }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Návrh sa nepodarilo odoslať." }, { status: error instanceof DirectoryRateLimitError ? 429 : 400 });

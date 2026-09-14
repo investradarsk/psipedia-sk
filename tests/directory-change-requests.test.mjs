@@ -56,6 +56,7 @@ function createDatabase() {
     "../drizzle/0011_purple_morlocks.sql",
     "../drizzle/0021_mysterious_darkhawk.sql",
     "../drizzle/0031_directory_inquiry_notifications.sql",
+    "../drizzle/0034_editorial_notification_outbox.sql",
   ]) {
     const migration = readFileSync(new URL(file, import.meta.url), "utf8");
     for (const sql of migration.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) sqlite.exec(sql);
@@ -244,6 +245,7 @@ test("editorial notifications follow successful inserts and email failures never
   });
   assert.equal(positive.status, 201);
   assert.equal(resendRequests.length, 2, "positive usefulness votes do not require editorial action");
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM editorial_notifications WHERE resource_type = 'article_feedback'").get().count, 0);
 
   const negative = await request(worker, d1, "/api/article-feedback", {
     method: "POST", headers: { "content-type": "application/json" },
@@ -271,6 +273,80 @@ test("editorial notifications follow successful inserts and email failures never
     assert.deepEqual(await response.json(), { success: true }, failure.label);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, beforeCount + 1, `${failure.label}: stored inquiry survives email failure`);
   }
+});
+
+test("all three legacy editorial flows persist failed outbox entries and scheduled retry sends each exactly once", async () => {
+  const { sqlite, d1 } = createDatabase();
+  const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
+  Object.assign(runtimeEnv, {
+    DB: d1,
+    ADMIN_EMAILS: "admin@psipedia.sk",
+    EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
+    RESEND_API_KEY: "re_test_key",
+  });
+  const failedRequests = [];
+  globalThis.fetch = async (url, init) => {
+    failedRequests.push({ url: String(url), init });
+    return new Response("temporary failure", { status: 503 });
+  };
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("editorial-outbox", String(Date.now()));
+  const { default: worker } = await import(workerUrl.href);
+
+  const change = await request(worker, d1, "/api/directory/profile-change-requests", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal({ requesterEmail: "outbox-change@example.sk" })),
+  });
+  const tip = await request(worker, d1, "/api/news-tips", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ topic: "iny", title: "Outbox test podujatia", summary: "Dostatočne podrobný opis testovacieho podujatia pre spoľahlivú notifikáciu.", contactEmail: "outbox-tip@example.sk", consent: true }),
+  });
+  const negative = await request(worker, d1, "/api/article-feedback", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ articlePath: "/clanky/outbox-test", articleTitle: "Outbox test článku", helpful: false, missingText: "Chýba zdroj." }),
+  });
+  assert.deepEqual([change.status, tip.status, negative.status], [201, 201, 201], "Resend failure must not fail saved submissions");
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 1);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
+  const failed = sqlite.prepare("SELECT * FROM editorial_notifications ORDER BY resource_type").all();
+  assert.equal(failed.length, 3);
+  for (const row of failed) {
+    assert.equal(row.status, "failed");
+    assert.equal(row.attempts, 1);
+    assert.equal(row.last_error, "resend_http_503");
+    assert.equal(row.provider_message_id, null);
+  }
+  assert.equal(failedRequests.length, 3);
+  const firstAttemptKeys = failedRequests.map((entry) => entry.init.headers["Idempotency-Key"]).sort();
+
+  const sentRequests = [];
+  globalThis.fetch = async (url, init) => {
+    sentRequests.push({ url: String(url), init });
+    return Response.json({ id: `provider-${sentRequests.length}` }, { status: 200 });
+  };
+  const scheduledEnv = { DB: d1, RESEND_API_KEY: "re_test_key", EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk" };
+  Object.assign(runtimeEnv, scheduledEnv);
+  await worker.scheduled({}, scheduledEnv, { waitUntil() {}, passThroughOnException() {} });
+  assert.equal(sentRequests.length, 3);
+  const keys = sentRequests.map((entry) => entry.init.headers["Idempotency-Key"]).sort();
+  assert.deepEqual(keys, [
+    "editorial/article_feedback/new/1",
+    "editorial/directory_profile_change_request/new/1",
+    "editorial/news_tip/new/1",
+  ]);
+  assert.deepEqual(keys, firstAttemptKeys, "retry must reuse the original Resend idempotency keys");
+  const sent = sqlite.prepare("SELECT * FROM editorial_notifications ORDER BY resource_type").all();
+  for (const row of sent) {
+    assert.equal(row.status, "sent");
+    assert.equal(row.attempts, 2);
+    assert.ok(row.sent_at);
+    assert.match(row.provider_message_id, /^provider-/);
+    assert.equal(row.last_error, null);
+  }
+  await worker.scheduled({}, scheduledEnv, { waitUntil() {}, passThroughOnException() {} });
+  assert.equal(sentRequests.length, 3, "sent notifications must not be delivered twice");
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 1);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
 });
 
 test("admin endpoints are protected and review uses the safe manual workflow", async () => {

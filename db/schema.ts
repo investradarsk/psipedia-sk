@@ -227,6 +227,28 @@ export const articleFeedback = sqliteTable(
   ],
 );
 
+export const editorialNotifications = sqliteTable(
+  "editorial_notifications",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    resourceType: text("resource_type").notNull(),
+    resourceId: integer("resource_id").notNull(),
+    notificationType: text("notification_type").notNull().default("new"),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastAttemptAt: text("last_attempt_at"),
+    sentAt: text("sent_at"),
+    lastError: text("last_error"),
+    providerMessageId: text("provider_message_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("editorial_notifications_resource_type_unique").on(table.resourceType, table.resourceId, table.notificationType),
+    index("editorial_notifications_status_updated_idx").on(table.status, table.updatedAt),
+  ],
+);
+
 export const legalSettings = sqliteTable("legal_settings", {
   id: integer("id").primaryKey(),
   operatorType: text("operator_type").notNull().default("individual"),

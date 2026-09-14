@@ -1,5 +1,6 @@
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
+import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -141,14 +142,15 @@ const worker = {
   },
 
   async scheduled(_controller: unknown, env: Env, _ctx: ExecutionContext): Promise<void> {
-    const summary = await runDirectoryInquiryReminderSweep({
-      database: env.DB,
-      bindings: env,
-    });
+    const [summary, editorial] = await Promise.all([
+      runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
+      runEditorialNotificationSweep({ database: env.DB, bindings: env }),
+    ]);
     console.info(JSON.stringify({
       event: "directory_inquiry_reminder_sweep",
       ...summary,
     }));
+    console.info(JSON.stringify({ event: "editorial_notification_sweep", ...editorial }));
   },
 };
 
