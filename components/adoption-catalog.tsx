@@ -8,6 +8,7 @@ import {
   buildAdoptionCatalogView,
   formatAdoptionCatalogAge,
   type AdoptionCatalogFilters,
+  type AdoptionPublicDog,
 } from "@/lib/adoption-catalog";
 import type { AdoptionBreedOption, AdoptionPagination } from "@/lib/adoption-store";
 import type { AdoptionDog } from "@/lib/adoption";
@@ -29,7 +30,7 @@ function DogImage({ dog }: { dog: AdoptionDog }) {
   return <div className={styles.imageFallback} aria-hidden="true"><span /></div>;
 }
 
-function DogCard({ dog }: { dog: AdoptionDog }) {
+function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   return <article className={styles.card}>
     <div className={styles.visual}>
       <DogImage dog={dog} />
