@@ -1,0 +1,127 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+import {
+  buildAdoptionAdminListQuery,
+  listAdoptionAdminDashboard,
+} from "../lib/adoption-admin-store.ts";
+
+const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+const now = new Date("2026-09-14T12:00:00.000Z");
+
+function row(id) {
+  return {
+    id,
+    name: `Pes ${id}`,
+    slug: `pes-${id}`,
+    status: "ACTIVE",
+    breed_name: "Labradorský retriever",
+    organization_name: "OZ Test",
+    city: "Nitra",
+    district: "Nitra",
+    region: "Nitriansky kraj",
+    main_image: "/images/pes.webp",
+    description: "Dostatočne dlhý overený opis psa na adopciu, ktorý spĺňa kvalitatívne podmienky verejného indexovateľného profilu.",
+    last_verified_at: "2026-09-10T08:00:00.000Z",
+    published_at: "2026-09-01T08:00:00.000Z",
+    updated_at: "2026-09-12T08:00:00.000Z",
+  };
+}
+
+function adminDatabase() {
+  const calls = [];
+  const lifecycle = [
+    { status: "DRAFT", count: 11 },
+    { status: "ACTIVE", count: 52 },
+    { status: "RESERVED", count: 8 },
+    { status: "ADOPTED", count: 24 },
+    { status: "ARCHIVED", count: 10 },
+  ];
+  return {
+    calls,
+    prepare(query) {
+      const statement = {
+        bindings: [],
+        bind(...values) {
+          this.bindings = values;
+          calls.push({ query, bindings: values });
+          return this;
+        },
+        async first() {
+          if (/status IN \('ACTIVE','RESERVED'\).*last_verified_at/.test(query)) return { count: 7 };
+          if (/SELECT COUNT\(\*\) AS count FROM adoption_dogs/.test(query)) return { count: 85 };
+          return null;
+        },
+        async all() {
+          if (/GROUP BY status/.test(query)) return { results: lifecycle };
+          if (/SELECT id, name, slug, status, breed_name/.test(query)) return { results: Array.from({ length: 40 }, (_, index) => row(index + 41)) };
+          return { results: [] };
+        },
+        async run() { return {}; },
+      };
+      return statement;
+    },
+  };
+}
+
+test("admin query supports search, lifecycle filter and pagination", () => {
+  const query = buildAdoptionAdminListQuery({ q: "Žltý Ben", status: "ACTIVE", page: 2 }, now);
+  assert.match(query.where, /search_text LIKE \?/);
+  assert.match(query.where, /status = \?/);
+  assert.deepEqual(query.bindings, ["%zlty ben%", "ACTIVE"]);
+  assert.equal(query.pageSize, 40);
+  assert.equal(query.offset, 40);
+});
+
+test("admin query supports stale and fresh filtering", () => {
+  const stale = buildAdoptionAdminListQuery({ freshness: "stale" }, now);
+  assert.match(stale.where, /last_verified_at IS NULL OR last_verified_at < \?/);
+  assert.equal(stale.bindings.length, 1);
+  const fresh = buildAdoptionAdminListQuery({ freshness: "fresh" }, now);
+  assert.match(fresh.where, /last_verified_at IS NOT NULL AND last_verified_at >= \?/);
+  assert.equal(fresh.bindings[0], stale.bindings[0]);
+});
+
+test("admin query combines breed, region, locality and sorting server-side", () => {
+  const query = buildAdoptionAdminListQuery({
+    breed: "Labrador",
+    region: "Nitriansky kraj",
+    locality: "Nitra",
+    sort: "name-asc",
+  }, now);
+  assert.match(query.where, /breed_name LIKE \?/);
+  assert.match(query.where, /region = \?/);
+  assert.match(query.where, /city LIKE \?.*district LIKE \?/);
+  assert.deepEqual(query.bindings, ["%Labrador%", "Nitriansky kraj", "%Nitra%", "%Nitra%"]);
+  assert.equal(query.orderBy, "name COLLATE NOCASE ASC, id ASC");
+});
+
+test("admin list paginates filtered results while global counts stay independent of the current page", async () => {
+  const db = adminDatabase();
+  const result = await listAdoptionAdminDashboard({ q: "Ben", page: 2 }, db, now);
+  assert.equal(result.pagination.page, 2);
+  assert.equal(result.pagination.pageSize, 40);
+  assert.equal(result.pagination.total, 85);
+  assert.equal(result.pagination.totalPages, 3);
+  assert.equal(result.items.length, 40);
+  assert.equal(result.counts.total, 105);
+  assert.equal(result.counts.DRAFT, 11);
+  assert.equal(result.counts.ACTIVE, 52);
+  assert.equal(result.counts.RESERVED, 8);
+  assert.equal(result.counts.ADOPTED, 24);
+  assert.equal(result.counts.ARCHIVED, 10);
+  assert.equal(result.counts.stale, 7);
+  assert.notEqual(result.counts.total, result.pagination.total);
+});
+
+test("admin route is read-only, protected by AdminShell auth, and AdminShell navigation remains unchanged", () => {
+  const route = read("../app/admin/adopcie/page.tsx");
+  const component = read("../components/admin-adoption-dashboard.tsx");
+  const shell = read("../components/admin-shell.tsx");
+  assert.match(route, /requireAdminPageUser\("\/admin\/adopcie"\)/);
+  assert.match(route, /listAdoptionAdminDashboard\(filters\)/);
+  assert.match(route, /<AdminShell/);
+  assert.match(component, /method="get"/);
+  assert.doesNotMatch(component, /method="post"|Upraviť|Nová adopcia|\/admin\/adopcie\/nov/);
+  assert.doesNotMatch(shell, /href="\/admin\/adopcie"/);
+});
