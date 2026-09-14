@@ -3,6 +3,17 @@
 import { useMemo, useState } from "react";
 import { defaultNavigationItems, type NavigationItem } from "@/lib/navigation";
 
+type AutomaticNavigationItem = {
+  id: string;
+  label: string;
+  href: string;
+};
+
+type AdminNavigationEditorProps = {
+  initialItems: NavigationItem[];
+  automaticChildren?: Record<string, AutomaticNavigationItem[]>;
+};
+
 function makeId() {
   return `menu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -11,7 +22,12 @@ function normalizePositions(items: NavigationItem[]) {
   return items.map((item, position) => ({ ...item, position }));
 }
 
-export function AdminNavigationEditor({ initialItems }: { initialItems: NavigationItem[] }) {
+function getRootSlug(href: string) {
+  const path = href.split(/[?#]/)[0];
+  return path.split("/").filter(Boolean)[0] ?? "";
+}
+
+export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: AdminNavigationEditorProps) {
   const [items, setItems] = useState(() => normalizePositions(initialItems));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -116,12 +132,35 @@ export function AdminNavigationEditor({ initialItems }: { initialItems: Navigati
     );
   }
 
+  function renderAutomaticRow(item: AutomaticNavigationItem) {
+    return (
+      <div className="admin-navigation-row is-child admin-navigation-automatic" key={`automatic-${item.id}`}>
+        <span className="admin-navigation-handle" aria-hidden="true">↳</span>
+        <div className="admin-navigation-fields">
+          <label>Názov<input value={item.label} readOnly aria-readonly="true" /></label>
+          <label>Adresa<input value={item.href} readOnly aria-readonly="true" /></label>
+          <label>Zdroj<input value="Automaticky zo sekcie" readOnly aria-readonly="true" /></label>
+        </div>
+        <div className="admin-navigation-actions admin-navigation-automatic-note">
+          <strong>Automaticky zo sekcie</strong>
+          <span>Len na čítanie · neukladá sa</span>
+        </div>
+      </div>
+    );
+  }
+
   return <section className="admin-navigation-editor">
     <div className="admin-navigation-toolbar">
       <div><strong>Položky hlavného menu</strong><span>Potiahni položku alebo použi šípky. Podmenu môže mať jednu úroveň.</span></div>
       <button type="button" className="admin-primary-action" onClick={() => addItem()}>+ Pridať položku</button>
     </div>
-    <div className="admin-navigation-list">{roots.map((root) => <div className="admin-navigation-family" key={root.id}>{renderRow(root)}{items.filter((item) => item.parentId === root.id).map(renderRow)}</div>)}</div>
+    <div className="admin-navigation-list">
+      {roots.map((root) => {
+        const managedChildren = items.filter((item) => item.parentId === root.id);
+        const effectiveAutomaticChildren = managedChildren.length === 0 ? (automaticChildren[getRootSlug(root.href)] ?? []) : [];
+        return <div className="admin-navigation-family" key={root.id}>{renderRow(root)}{managedChildren.map(renderRow)}{effectiveAutomaticChildren.map(renderAutomaticRow)}</div>;
+      })}
+    </div>
     <div className="admin-navigation-savebar">
       <button type="button" className="admin-navigation-reset" onClick={() => { setItems(normalizePositions(defaultNavigationItems)); setMessage(""); }}>Obnoviť predvolené menu</button>
       {message && <p role="status">{message}</p>}

@@ -1,0 +1,48 @@
+.desktop-nav .nav-submenu a::after {
+  display: none !important;
+  content: none !important;
+}
+
+.nav-submenu a:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+
+#mobile-menu.is-open {
+  grid-template-rows: minmax(0, 1fr);
+  max-height: calc(100dvh - 68px);
+  overflow: hidden;
+}
+
+#mobile-menu.is-open > nav {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-navigation-row.admin-navigation-automatic {
+  opacity: 0.82;
+  cursor: default;
+}
+
+.admin-navigation-row.admin-navigation-automatic input[readonly] {
+  cursor: default;
+}
+
+.admin-navigation-automatic-note {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.admin-navigation-automatic-note span {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
