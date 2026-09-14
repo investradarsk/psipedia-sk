@@ -767,8 +767,8 @@ h3 {
   flex: 1;
   align-items: center;
   justify-content: center;
-  gap: clamp(7px, 1vw, 14px);
-  font-size: 0.76rem;
+  gap: clamp(4px, .55vw, 8px);
+  font-size: 0.69rem;
   font-weight: 650;
 }
 
@@ -799,7 +799,7 @@ h3 {
 }
 
 .desktop-nav .nav-help {
-  padding: 8px 11px;
+  padding: 8px;
   border-radius: 999px;
   color: white;
   background: var(--coral-dark);
@@ -8423,7 +8423,7 @@ h3 {
 
 @media (min-width: 1401px) {
   .brand {
-    margin-right: clamp(28px, 2.5vw, 44px);
+    margin-right: clamp(12px, 1vw, 18px);
   }
 
   .desktop-nav {
