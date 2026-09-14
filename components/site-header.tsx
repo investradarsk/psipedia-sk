@@ -46,9 +46,12 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
   }, [navigationItems]);
 
   useEffect(() => {
-    setOpenDesktopMenu(null);
-    setOpenMobileMenu(null);
-    setMenuOpen(false);
+    const timer = window.setTimeout(() => {
+      setOpenDesktopMenu(null);
+      setOpenMobileMenu(null);
+      setMenuOpen(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [pathname]);
 
   useEffect(() => {
