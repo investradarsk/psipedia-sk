@@ -7,7 +7,7 @@ import { PawMark } from "./icons";
 async function AdminNavigation() {
   const newInquiryCount = await getNewDirectoryInquiryCount();
   return (
-    <nav className="admin-section-nav" aria-label="Redakčné moduly">
+    <nav className="admin-section-nav flex-wrap max-[760px]:flex-nowrap" aria-label="Redakčné moduly">
       <div className="admin-nav-group"><span>Obsah</span><div><Link href="/admin">Články</Link><Link href="/admin/steniatka">Šteniatka</Link><Link href="/admin/plemena">Plemená</Link><Link href="/admin/sekcie">Sekcie</Link></div></div>
       <div className="admin-nav-group"><span>Komunita</span><div><Link href="/admin/tipy">Tipy</Link><Link href="/admin/hodnotenia">Hodnotenia</Link><Link href="/admin/dopyty">Dopyty{newInquiryCount > 0 && <span className="admin-inquiry-status is-new" aria-label={`${newInquiryCount} nových dopytov`}>{newInquiryCount}</span>}</Link></div></div>
       <div className="admin-nav-group"><span>Portál</span><div><Link href="/admin/podujatia">Podujatia</Link><Link href="/admin/adresar">Adresár</Link><Link href="/admin/adresar/navrhy">Návrhy úprav</Link><Link href="/admin/pomoc">Pomoc</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link></div></div>
