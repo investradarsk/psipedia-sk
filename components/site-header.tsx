@@ -161,6 +161,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                   aria-label={`${openDesktopMenu === item.id ? "Zavrieť" : "Otvoriť"} podmenu ${item.label}`}
                   aria-expanded={openDesktopMenu === item.id}
                   aria-controls={`desktop-submenu-${item.id}`}
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => setOpenDesktopMenu((current) => current === item.id ? null : item.id)}
                 ><span aria-hidden="true">⌄</span></button>
                 <div id={`desktop-submenu-${item.id}`} className="nav-submenu">
