@@ -71,13 +71,15 @@ test.describe("public services detail shell", () => {
 
     const main = page.locator("main#obsah");
     await expect(main.getByRole("heading", { level: 1, name: "E2E Veterinárna klinika Health" })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true })).toBeVisible();
-    await expect(main.getByText("Špecializácie", { exact: true })).toBeVisible();
-    await expect(main.getByText("Interná medicína, chirurgia", { exact: true })).toBeVisible();
-    await expect(main.getByText("Pohotovosť", { exact: true })).toBeVisible();
-    await expect(main.getByText("Hospitalizácia", { exact: true })).toBeVisible();
-    await expect(main.getByText("Digitálne RTG", { exact: true })).toBeVisible();
-    await expect(main.getByText("Interné laboratórium", { exact: true })).toBeVisible();
+    const healthHeading = main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true });
+    await expect(healthHeading).toBeVisible();
+    const healthSection = healthHeading.locator("..");
+    await expect(healthSection.getByText("Špecializácie", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Interná medicína, chirurgia", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Pohotovosť", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Hospitalizácia", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Digitálne RTG", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Interné laboratórium", { exact: true })).toBeVisible();
     await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -116,13 +118,15 @@ test.describe("public services detail shell", () => {
 
     const main = page.locator("main#obsah");
     await expect(main.getByRole("heading", { level: 1, name: "E2E Fyzioterapia Health" })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Terapie a rehabilitácia", exact: true })).toBeVisible();
-    await expect(main.getByText("Hydroterapia", { exact: true })).toBeVisible();
-    await expect(main.getByText("Laserterapia", { exact: true })).toBeVisible();
-    await expect(main.getByText("Mäkké a mobilizačné techniky", { exact: true })).toBeVisible();
-    await expect(main.getByText("Pooperačná rehabilitácia", { exact: true })).toBeVisible();
-    await expect(main.getByText("Ortopedickí pacienti", { exact: true })).toBeVisible();
-    await expect(main.getByText("Veterinárny fyzioterapeut", { exact: true })).toBeVisible();
+    const healthHeading = main.getByRole("heading", { name: "Terapie a rehabilitácia", exact: true });
+    await expect(healthHeading).toBeVisible();
+    const healthSection = healthHeading.locator("..");
+    await expect(healthSection.getByText("Hydroterapia", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Laserterapia", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Mäkké a mobilizačné techniky", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Pooperačná rehabilitácia", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Ortopedickí pacienti", { exact: true })).toBeVisible();
+    await expect(healthSection.getByText("Veterinárny fyzioterapeut", { exact: true })).toBeVisible();
     await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
