@@ -48,6 +48,8 @@ test.beforeEach(async ({ page, baseURL, isMobile }) => {
   await page.setViewportSize(isMobile ? { width: 390, height: 844 } : { width: 1500, height: 900 });
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
   await page.goto("/");
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await page.waitForTimeout(100);
 });
 
 test("public navigation keeps order and exposes only requested submenus", async ({ page, isMobile }) => {
