@@ -73,7 +73,7 @@ test.describe("public services detail shell", () => {
     await expect(main.getByRole("heading", { level: 1, name: "E2E Veterinárna klinika Health" })).toBeVisible();
     const healthHeading = main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true });
     await expect(healthHeading).toBeVisible();
-    const healthSection = healthHeading.locator("..");
+    const healthSection = healthHeading.locator("xpath=ancestor::section[1]");
     await expect(healthSection.getByText("Špecializácie", { exact: true })).toBeVisible();
     await expect(healthSection.getByText("Interná medicína, chirurgia", { exact: true })).toBeVisible();
     await expect(healthSection.getByText("Pohotovosť", { exact: true })).toBeVisible();
@@ -120,7 +120,7 @@ test.describe("public services detail shell", () => {
     await expect(main.getByRole("heading", { level: 1, name: "E2E Fyzioterapia Health" })).toBeVisible();
     const healthHeading = main.getByRole("heading", { name: "Terapie a rehabilitácia", exact: true });
     await expect(healthHeading).toBeVisible();
-    const healthSection = healthHeading.locator("..");
+    const healthSection = healthHeading.locator("xpath=ancestor::section[1]");
     await expect(healthSection.getByText("Hydroterapia", { exact: true })).toBeVisible();
     await expect(healthSection.getByText("Laserterapia", { exact: true })).toBeVisible();
     await expect(healthSection.getByText("Mäkké a mobilizačné techniky", { exact: true })).toBeVisible();
