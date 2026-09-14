@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { HELP_ADMIN_CATEGORIES, type HelpAdminFilters } from "@/lib/help-admin-query";
@@ -40,15 +40,8 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   const [selectionMode, setSelectionMode] = useState<"ids" | "filter">("ids");
   const [bulkBusy, setBulkBusy] = useState(false);
   const { items, totals, categoryCounts, resultCount, page, pages } = data;
-  const filterKey = `${filters.category}|${filters.status}|${filters.q}`;
   const selectedCount = selectionMode === "filter" ? resultCount : selected.size;
   const pageSelected = !!items.length && items.every((item) => selected.has(item.id));
-
-  useEffect(() => {
-    setSelected(new Set());
-    setSelectionMode("ids");
-    setMessage("");
-  }, [filterKey]);
 
   function toggle(id: number) {
     if (selectionMode === "filter") return;
