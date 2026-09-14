@@ -66,11 +66,11 @@ test.describe("public services detail shell", () => {
   });
 
   test("Health variant renders rich veterinary data from existing fields only", async ({ page }) => {
-    const response = await page.goto("/adresar/veterinari/e2e-services-detail-health-vet-rich", { waitUntil: "domcontentloaded" });
+    const response = await page.goto("/adresar/veterinari/health-fixture-vet-rich", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
 
     const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "E2E Veterinárna klinika Health" })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 1, name: "Health veterinárna klinika" })).toBeVisible();
     const healthHeading = main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true });
     await expect(healthHeading).toBeVisible();
     const healthSection = healthHeading.locator("xpath=ancestor::section[1]");
@@ -92,11 +92,11 @@ test.describe("public services detail shell", () => {
   });
 
   test("Health variant omits veterinary section when only placeholder data exists", async ({ page }) => {
-    const response = await page.goto("/adresar/veterinari/e2e-services-detail-health-vet-minimum", { waitUntil: "domcontentloaded" });
+    const response = await page.goto("/adresar/veterinari/health-fixture-vet-minimum", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
 
     const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "E2E Veterinár minimum Health" })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 1, name: "Health veterinár minimum" })).toBeVisible();
     await expect(main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
     await expect(main.getByText("Neuvedené", { exact: true })).toHaveCount(0);
@@ -113,11 +113,11 @@ test.describe("public services detail shell", () => {
   });
 
   test("Health variant renders physiotherapy therapies and rehabilitation data", async ({ page }) => {
-    const response = await page.goto("/adresar/fyzioterapia/e2e-services-detail-health-fyzioterapia", { waitUntil: "domcontentloaded" });
+    const response = await page.goto("/adresar/fyzioterapia/health-fixture-fyzioterapia", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
 
     const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "E2E Fyzioterapia Health" })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 1, name: "Health fyzioterapia" })).toBeVisible();
     const healthHeading = main.getByRole("heading", { name: "Terapie a rehabilitácia", exact: true });
     await expect(healthHeading).toBeVisible();
     const healthSection = healthHeading.locator("xpath=ancestor::section[1]");
