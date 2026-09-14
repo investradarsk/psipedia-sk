@@ -25,3 +25,18 @@ INSERT INTO help_cases (
    'Popis: Pomôžte venčením. Dobrovoľníctvo: prechádzky', 'E2E pomocná organizácia', '', '', '',
    'Nitra', 'Nitriansky kraj', '', NULL, NULL, 'Zistiť viac', NULL, '', NULL, NULL, 0, 0, 0,
    '2026-09-14T10:00:00Z', '2026-09-14T10:00:00Z', '2026-09-14T10:00:00Z', 'E2E_LOCAL', 'E2E_LOCAL');
+
+-- Disposable drafts for Admin Help bulk-selection/pagination tests. They are never published by E2E.
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 65)
+INSERT INTO help_cases (
+  id, slug, title, category, status, excerpt, description, organization, dog_name, breed, age_note,
+  city, region, location_note, reported_date, deadline_date, action_label, action_url, contact_note,
+  goal_amount, raised_amount, verified, urgent, resolved, created_at, updated_at, published_at, created_by, updated_by
+)
+SELECT
+  930000 + n, 'e2e-bulk-draft-' || n, 'E2E bulk koncept ' || n, 'adopcia', 'draft',
+  'Lokálny koncept pre bezpečný E2E test.', 'Tento záznam existuje iba v lokálnej testovacej D1 a nesmie sa publikovať.',
+  'E2E bulk organizácia', '', '', '', CASE WHEN n % 2 = 0 THEN 'Trnava' ELSE 'Nitra' END, 'Nitriansky kraj', '',
+  NULL, NULL, 'Zistiť viac', NULL, '', NULL, NULL, 0, 0, 0,
+  '2026-09-14T11:00:00Z', printf('2026-09-14T11:%02d:00Z', n % 60), NULL, 'E2E_LOCAL', 'E2E_LOCAL'
+FROM seq;

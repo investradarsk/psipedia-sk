@@ -44,3 +44,54 @@ test("contact actions and help options remain operable; absent data creates no e
   await expect(page.getByRole("link", { name: /Podporiť/ })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Prečo odkaz nemusí byť dostupný" })).toBeVisible();
 });
+
+test("Admin Help selects one, many, a page and all filtered drafts without writing local D1", async ({ page }) => {
+  await page.goto("/admin/pomoc?status=draft");
+  await expect(page.locator(".admin-help-row")).toHaveCount(50);
+  await expect(page.getByText("Nájdené:").locator(".." )).toContainText("65");
+
+  const rowChecks = page.locator('.admin-help-row input[type="checkbox"]');
+  await rowChecks.nth(0).check();
+  await expect(page.getByText("Označené: 1", { exact: true })).toBeVisible();
+  await rowChecks.nth(1).check();
+  await expect(page.getByText("Označené: 2", { exact: true })).toBeVisible();
+  await rowChecks.nth(1).uncheck();
+  await expect(page.getByText("Označené: 1", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Označiť všetky na tejto strane", { exact: true }).check();
+  await expect(page.getByText("Označené: 50", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Označiť všetkých 65 výsledkov filtra", exact: true }).click();
+  await expect(page.getByText("Označené: 65", { exact: true })).toBeVisible();
+  await expect(page.getByText(/všetkých 65 výsledkov aktuálneho filtra naprieč 2 stranami/)).toBeVisible();
+
+  let preflights = 0;
+  let applies = 0;
+  await page.route("**/api/admin/help/bulk", async (route) => {
+    const body = route.request().postDataJSON();
+    if (body.action === "preflight") {
+      preflights++;
+      expect(body.targetStatus).toBe("published");
+      expect(body.selection).toEqual({ mode: "filter", filters: { category: "all", status: "draft", q: "" }, expectedCount: 65 });
+      const items = Array.from({ length: 65 }, (_, index) => ({ id: 930001 + index, status: "draft", updatedAt: `snapshot-${index + 1}` }));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ selectedCount: 65, changeCount: 65, items, targetStatus: "published" }) });
+      return;
+    }
+    applies++;
+    expect(body.action).toBe("apply");
+    expect(body.confirmedCount).toBe(65);
+    expect(body.items).toHaveLength(65);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ changed: 65 }) });
+  });
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("Publikovať 65 záznamov?");
+    await dialog.accept();
+  });
+  await page.getByRole("button", { name: "Publikovať", exact: true }).click();
+  await expect(page.getByText("Zmenených záznamov: 65.", { exact: true })).toBeVisible();
+  expect(preflights).toBe(1);
+  expect(applies).toBe(1);
+  await expect(page.getByText("Označené: 0", { exact: true })).toBeVisible();
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
