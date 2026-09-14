@@ -107,3 +107,96 @@ INSERT INTO directory_profiles (
   'e2e@psipedia.local',
   'e2e@psipedia.local'
 );
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'e2e-services-detail-health-vet-rich',
+  'E2E Veterinárna klinika Health',
+  'veterinari',
+  'published',
+  'Veterinárny E2E profil s vyplnenými odbornými údajmi.',
+  'Deterministický lokálny profil určený iba na overenie Health variantu v CI.',
+  '["Preventívna starostlivosť","Chirurgia"]',
+  '["Veterinárny tím"]',
+  'Nitra',
+  'Nitra',
+  'Nitriansky kraj',
+  'Testovacia 21',
+  0,
+  '',
+  NULL,
+  NULL,
+  '{"Špecializácie":"Interná medicína, chirurgia","Pohotovosť":"Áno","Hospitalizácia":"Áno","RTG":"Digitálne RTG","USG":"Áno","Laboratórium":"Interné laboratórium"}',
+  1,
+  0,
+  '2026-09-14T09:00:00.000Z',
+  '2026-09-14T09:00:00.000Z',
+  '2026-09-14T09:00:00.000Z',
+  'e2e@psipedia.local',
+  'e2e@psipedia.local'
+);
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'e2e-services-detail-health-vet-minimum',
+  'E2E Veterinár minimum Health',
+  'veterinari',
+  'published',
+  'Veterinárny E2E profil bez použiteľných odborných údajov.',
+  '',
+  '["Preventívna starostlivosť"]',
+  '[]',
+  'Trnava',
+  'Trnava',
+  'Trnavský kraj',
+  '',
+  0,
+  '',
+  NULL,
+  NULL,
+  '{"Pohotovosť":"Neuvedené","Hospitalizácia":"Neoverené","RTG":"Nezistené"}',
+  0,
+  0,
+  '2026-09-14T09:05:00.000Z',
+  '2026-09-14T09:05:00.000Z',
+  '2026-09-14T09:05:00.000Z',
+  'e2e@psipedia.local',
+  'e2e@psipedia.local'
+);
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'e2e-services-detail-health-fyzioterapia',
+  'E2E Fyzioterapia Health',
+  'fyzioterapia',
+  'published',
+  'Fyzioterapeutický E2E profil s terapeutickými a rehabilitačnými údajmi.',
+  'Deterministický lokálny profil určený iba na overenie Health variantu v CI.',
+  '["Rehabilitácia","Regenerácia"]',
+  '["Veterinárny fyzioterapeut"]',
+  'Bratislava',
+  'Bratislava V',
+  'Bratislavský kraj',
+  'Testovacia 31',
+  0,
+  '',
+  NULL,
+  NULL,
+  '{"Hydroterapia":"Áno","Laserterapia":"Áno","Manuálne techniky":"Mäkké a mobilizačné techniky","Pooperačná rehabilitácia":"Áno","Ortopedickí pacienti":"Áno","Odborník / certifikácia":"Veterinárny fyzioterapeut"}',
+  1,
+  0,
+  '2026-09-14T09:10:00.000Z',
+  '2026-09-14T09:10:00.000Z',
+  '2026-09-14T09:10:00.000Z',
+  'e2e@psipedia.local',
+  'e2e@psipedia.local'
+);
