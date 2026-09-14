@@ -13,6 +13,11 @@ function fixture() {
   for (let i = 1; i <= 75; i++) insert.run(i, `Koncept ${i}`, "", "OZ Test", i % 2 ? "Nitra" : "Trnava", "adopcia", "draft", 0, null, null, `2026-09-14T10:${String(i).padStart(2, "0")}:00Z`, "seed", null);
   insert.run(101, "Publikovaný", "", "OZ Test", "Nitra", "adopcia", "published", 0, null, null, "2026-09-14T12:00:00Z", "seed", "2026-09-14T12:00:00Z");
   insert.run(102, "Neplatná zbierka", "", "OZ Test", "Nitra", "zbierky", "draft", 0, null, null, "2026-09-14T12:01:00Z", "seed", null);
+  insert.run(103, "Zbierka s cieľom", "", "OZ Test", "Nitra", "zbierky", "draft", 1, "https://example.test/zbierka-s-cielom", 2500, "2026-09-14T12:02:00Z", "seed", null);
+  insert.run(104, "Zbierka bez cieľa", "", "OZ Test", "Nitra", "zbierky", "draft", 1, "https://example.test/zbierka-bez-ciela", null, "2026-09-14T12:03:00Z", "seed", null);
+  insert.run(105, "Neoverená zbierka", "", "OZ Test", "Nitra", "zbierky", "draft", 0, "https://example.test/neoverena", 1000, "2026-09-14T12:04:00Z", "seed", null);
+  insert.run(106, "Zbierka bez odkazu", "", "OZ Test", "Nitra", "zbierky", "draft", 1, null, 1000, "2026-09-14T12:05:00Z", "seed", null);
+  insert.run(107, "Zbierka s nulovým cieľom", "", "OZ Test", "Nitra", "zbierky", "draft", 1, "https://example.test/nulovy-ciel", 0, "2026-09-14T12:06:00Z", "seed", null);
   const db = { prepare(query) { return { bind(...args) { this.args = args; return this; }, async all() { return { results: sqlite.prepare(query).all(...(this.args ?? [])) }; } }; } };
   return { sqlite, db };
 }
@@ -22,7 +27,7 @@ function apply(sqlite, items, status) {
   return sqlite.prepare(bulkHelpStatusSql).all(JSON.stringify(items), status, now, "admin@example.invalid", status, now, status, items.length);
 }
 
-test("one and multiple explicit selections resolve exact snapshots", async () => {
+test("one and multiple explicit selections resolve exact snapshots for unchanged categories", async () => {
   const { db } = fixture();
   const one = await resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [1] } });
   assert.equal(one.selectedCount, 1); assert.equal(one.changeCount, 1); assert.deepEqual(one.items.map((item) => item.id), [1]);
@@ -71,9 +76,34 @@ test("stale snapshot makes the atomic statement change nothing", async () => {
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM help_cases WHERE id IN (1,2) AND status='published'").get().count, 0);
 });
 
-test("publishing cannot bypass the existing collection lifecycle rule", async () => {
+test("verified collections publish with a positive or missing goal amount", async () => {
   const { db } = fixture();
-  await assert.rejects(() => resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [102] } }), /zbierka nespĺňa podmienky/);
+  const withGoal = await resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [103] } });
+  const withoutGoal = await resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [104] } });
+  assert.deepEqual(withGoal.items.map((item) => item.id), [103]);
+  assert.deepEqual(withoutGoal.items.map((item) => item.id), [104]);
+});
+
+test("collections still require verification and an action URL, and an entered goal remains valid", async () => {
+  const { db } = fixture();
+  await assert.rejects(() => resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [105] } }), /zbierka nespĺňa podmienky/);
+  await assert.rejects(() => resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [106] } }), /zbierka nespĺňa podmienky/);
+  await assert.rejects(() => resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [107] } }), /zbierka nespĺňa podmienky/);
+});
+
+test("bulk publish accepts a mixed valid collection batch when some goal amounts are null", async () => {
+  const { db, sqlite } = fixture();
+  const preview = await resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [103, 104] } });
+  assert.equal(preview.changeCount, 2);
+  assert.equal(apply(sqlite, preview.items, "published").length, 2);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM help_cases WHERE id IN (103,104) AND status='published'").get().count, 2);
+});
+
+test("atomic apply re-check cannot bypass collection publishability", () => {
+  const { sqlite } = fixture();
+  const invalid = [{ id: 105, status: "draft", updatedAt: "2026-09-14T12:04:00Z" }];
+  assert.equal(apply(sqlite, invalid, "published").length, 0);
+  assert.equal(sqlite.prepare("SELECT status FROM help_cases WHERE id = 105").get().status, "draft");
 });
 
 test("apply payload requires exact confirmation, unique IDs and a real state change", () => {
