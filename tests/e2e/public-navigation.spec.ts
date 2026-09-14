@@ -82,15 +82,62 @@ test("public navigation keeps order and exposes only requested submenus", async 
   })).toBe(true);
 });
 
-test("desktop dropdown supports hover and keyboard focus", async ({ page, isMobile }) => {
+test("desktop dropdown supports hover and keyboard focus without submenu accent line", async ({ page, isMobile }) => {
   test.skip(isMobile, "Desktop-only interaction");
   const group = page.locator('.nav-group:has(> a[href="/steniatka"])');
   const toggle = group.getByRole("button");
+  const submenuLink = group.locator(".nav-submenu a").first();
+
   await group.hover();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await page.mouse.move(0, 0);
+  await expect(submenuLink).toBeVisible();
+  expect(await submenuLink.evaluate((element) => getComputedStyle(element, "::after").content)).toBe("none");
+
+  await submenuLink.focus();
+  await expect(submenuLink).toBeFocused();
+  expect(await submenuLink.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
+  await page.keyboard.press("Escape");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
   await toggle.focus();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("Escape");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("mobile menu scrolls to the final items with Šteniatka expanded", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "Mobile-only scroll regression");
+
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  const menu = page.locator("#mobile-menu");
+  const nav = menu.locator(":scope > nav");
+  const puppyToggle = nav.locator('[aria-controls="mobile-submenu-steniatka"]');
+
+  await puppyToggle.click();
+  await expect(puppyToggle).toHaveAttribute("aria-expanded", "true");
+
+  const metrics = await nav.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      overflowY: style.overflowY,
+    };
+  });
+
+  expect(metrics.overflowY).toBe("auto");
+  expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+  expect(await menu.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await nav.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  const bottom = await nav.evaluate((element) => ({
+    scrollTop: element.scrollTop,
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(bottom.scrollTop + bottom.clientHeight).toBeGreaterThanOrEqual(bottom.scrollHeight - 1);
+  await expect(menu.getByRole("link", { name: "Kontakt", exact: true })).toBeInViewport();
 });
