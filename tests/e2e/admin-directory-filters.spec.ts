@@ -65,7 +65,7 @@ test.describe("admin directory server filters", () => {
     await expect(page.getByText("Vybrané: 2")).toBeVisible();
 
     await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Publikovať 2 profilov?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
     await expect(dialog).toContainText("2 výsledkov / 1 eligible / 1 by boli preskočené");
@@ -144,7 +144,7 @@ test.describe("admin directory server filters", () => {
 
   test("selection is keyboard operable and new selection UI remains axe-clean", async ({ page }) => {
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
-    const first = page.getByLabel(/Vybrať profil E2E Veterina/).first();
+    const first = page.getByLabel("Vybrať profil E2E Veterina 001");
     await first.focus();
     await page.keyboard.press("Space");
     await expect(first).toBeChecked();
@@ -156,7 +156,7 @@ test.describe("admin directory server filters", () => {
     expect(toolbarScan.violations).toEqual([]);
 
     await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Publikovať 1 profilov?" });
     await expect(dialog).toBeVisible();
     const dialogScan = await new AxeBuilder({ page })
       .include("dialog")
