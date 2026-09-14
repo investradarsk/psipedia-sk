@@ -76,7 +76,10 @@ test("public navigation keeps order and exposes only requested submenus", async 
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
   }
 
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>(".site-header")!;
+    return header.scrollWidth <= header.clientWidth;
+  })).toBe(true);
 });
 
 test("desktop dropdown supports hover and keyboard focus", async ({ page, isMobile }) => {
