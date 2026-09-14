@@ -3,10 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  AdminBulkSelectionControls,
+  BulkSelectionCheckbox,
+  adminBulkSelectionStyles,
+  useAdminBulkSelection,
+} from "@/components/admin-bulk-selection";
 import { AdminPagination } from "@/components/admin-pagination";
 import { SearchIcon } from "@/components/icons";
 import { allDirectoryCategories, directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
-import { directoryAdminHref, type DirectoryAdminFilters } from "@/lib/directory-admin-query";
+import {
+  directoryAdminHref,
+  directoryAdminMembershipFilters,
+  directoryAdminMembershipFingerprint,
+  type DirectoryAdminFilters,
+} from "@/lib/directory-admin-query";
 import type { ManagedDirectoryAdminPage } from "@/lib/directory-admin-store";
 import type { ManagedDirectoryProfileSummary } from "@/lib/directory-store";
 
@@ -18,6 +29,15 @@ export function AdminDirectoryDashboard({ data, filters }: {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const { profiles, counts, resultCount, pagination } = data;
+  const membershipFilter = directoryAdminMembershipFilters(filters);
+  const membershipFingerprint = directoryAdminMembershipFingerprint(membershipFilter);
+  const pageIds = profiles.map((profile) => profile.id);
+  const bulkSelection = useAdminBulkSelection({
+    module: "directory",
+    membershipFingerprint,
+    pageIds,
+    resultCount,
+  });
 
   async function removeProfile(profile: ManagedDirectoryProfileSummary) {
     if (!window.confirm(`Naozaj chceš natrvalo odstrániť profil „${profile.name}“? Prijaté dopyty zostanú zachované.`)) return;
@@ -27,6 +47,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error || "Profil sa nepodarilo odstrániť.");
       setMessage("Profil bol odstránený.");
+      bulkSelection.clear();
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Profil sa nepodarilo odstrániť.");
@@ -76,24 +97,49 @@ export function AdminDirectoryDashboard({ data, filters }: {
         {message && <p className="admin-flash" role="status">{message}</p>}
         <p className="admin-help-results admin-directory-results">Nájdené: <strong>{resultCount}</strong> · Strana {pagination.page} z {pagination.totalPages}</p>
         {profiles.length ? (
-          <div className="admin-article-list">
-            {profiles.map((profile) => {
-              const category = getDirectoryCategory(profile.category);
-              return <article className="admin-article-row admin-directory-row" key={profile.id}>
-                <div className="admin-directory-thumb">{profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
-                <div className="admin-article-main">
-                  <div className="admin-article-tags"><span className={`admin-status admin-status--${profile.status}`}>{profile.status === "published" ? "Publikované" : "Koncept"}</span><span>{category?.label}</span>{profile.verified && <span>Overené</span>}{profile.featured && <span>Odporúčame</span>}</div>
-                  <h2><Link href={`/admin/adresar/${profile.id}`}>{profile.name}</Link></h2>
-                  <p>{profile.city} · {profile.region} · {profile.services.slice(0, 2).join(" · ") || "Bez uvedených služieb"}</p>
-                </div>
-                <div className="admin-row-actions">
-                  {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank">Pozrieť ↗</Link>}
-                  <Link className="admin-row-edit" href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
-                  <button type="button" disabled={deletingId === profile.id} onClick={() => void removeProfile(profile)}>{deletingId === profile.id ? "Odstraňujem…" : "Odstrániť"}</button>
-                </div>
-              </article>;
-            })}
-          </div>
+          <>
+            <AdminBulkSelectionControls
+              module="directory"
+              membershipFilter={membershipFilter}
+              membershipFingerprint={membershipFingerprint}
+              resultCount={resultCount}
+              pageIds={pageIds}
+              selection={bulkSelection.selection}
+              selectionReady={bulkSelection.ready}
+              selectedCount={bulkSelection.selectedCount}
+              currentPageSelected={bulkSelection.currentPageSelected}
+              currentPageAllSelected={bulkSelection.currentPageAllSelected}
+              currentPageSomeSelected={bulkSelection.currentPageSomeSelected}
+              toggleCurrentPage={bulkSelection.toggleCurrentPage}
+              selectAllMatching={bulkSelection.selectAllMatching}
+              clear={bulkSelection.clear}
+            />
+            <div className="admin-article-list">
+              {profiles.map((profile) => {
+                const category = getDirectoryCategory(profile.category);
+                return <article className="admin-article-row admin-directory-row" key={profile.id}>
+                  <BulkSelectionCheckbox
+                    checked={bulkSelection.isSelected(profile.id)}
+                    disabled={!bulkSelection.ready}
+                    label={`Vybrať profil ${profile.name}`}
+                    onChange={() => bulkSelection.toggleRow(profile.id)}
+                    className={adminBulkSelectionStyles.rowCheck}
+                  />
+                  <div className="admin-directory-thumb">{profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
+                  <div className="admin-article-main">
+                    <div className="admin-article-tags"><span className={`admin-status admin-status--${profile.status}`}>{profile.status === "published" ? "Publikované" : "Koncept"}</span><span>{category?.label}</span>{profile.verified && <span>Overené</span>}{profile.featured && <span>Odporúčame</span>}</div>
+                    <h2><Link href={`/admin/adresar/${profile.id}`}>{profile.name}</Link></h2>
+                    <p>{profile.city} · {profile.region} · {profile.services.slice(0, 2).join(" · ") || "Bez uvedených služieb"}</p>
+                  </div>
+                  <div className="admin-row-actions">
+                    {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank">Pozrieť ↗</Link>}
+                    <Link className="admin-row-edit" href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
+                    <button type="button" disabled={deletingId === profile.id} onClick={() => void removeProfile(profile)}>{deletingId === profile.id ? "Odstraňujem…" : "Odstrániť"}</button>
+                  </div>
+                </article>;
+              })}
+            </div>
+          </>
         ) : <div className="admin-empty"><span>📍</span><h2>Žiadne profily</h2><p>Pridaj prvý profil alebo zmeň filter.</p></div>}
         <AdminPagination pagination={pagination} basePath={directoryAdminHref({ ...filters, page: 1 })} />
       </section>

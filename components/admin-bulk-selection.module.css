@@ -1,0 +1,162 @@
+.pageSelect {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+}
+
+.checkLabel,
+.rowCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.checkLabel input,
+.rowCheck input {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+}
+
+.rowCheck {
+  align-self: flex-start;
+  padding-top: 0.25rem;
+}
+
+.toolbar {
+  position: sticky;
+  bottom: 0.75rem;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  width: min(100%, 70rem);
+  margin: 0.85rem auto;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 0.85rem;
+  background: Canvas;
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 14%);
+}
+
+.summary {
+  min-width: 12rem;
+  flex: 1 1 16rem;
+}
+
+.summary strong,
+.summary span {
+  display: block;
+}
+
+.summary span {
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  opacity: 0.72;
+}
+
+.actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.actions button,
+.selectAllButton,
+.clearButton,
+.dialogActions button {
+  min-height: 2.45rem;
+}
+
+.selectAllButton,
+.clearButton {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dialog {
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: 1rem;
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 28%);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 48%);
+}
+
+.dialogBody {
+  display: grid;
+  gap: 1rem;
+  padding: 1.2rem;
+}
+
+.dialogBody h2,
+.dialogBody p {
+  margin: 0;
+}
+
+.preflightResult {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, CanvasText 6%, Canvas);
+}
+
+.preflightResult ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.futureAction {
+  opacity: 0.62;
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    bottom: 0.45rem;
+    width: 100%;
+    margin-inline: 0;
+    padding: 0.7rem;
+    border-radius: 0.75rem;
+  }
+
+  .summary {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actions button {
+    flex: 1 1 9rem;
+  }
+
+  .dialogActions {
+    flex-direction: column-reverse;
+  }
+
+  .dialogActions button {
+    width: 100%;
+  }
+}
