@@ -146,6 +146,7 @@ test.describe("admin directory server filters", () => {
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
     const first = page.getByLabel("Vybrať profil E2E Veterina 059");
     await expect(first).toBeVisible();
+    await expect(first).toBeEnabled();
     await first.focus();
     await page.keyboard.press("Space");
     await expect(first).toBeChecked();
