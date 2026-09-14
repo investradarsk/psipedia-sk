@@ -105,6 +105,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
               resultCount={resultCount}
               pageIds={pageIds}
               selection={bulkSelection.selection}
+              selectionReady={bulkSelection.ready}
               selectedCount={bulkSelection.selectedCount}
               currentPageSelected={bulkSelection.currentPageSelected}
               currentPageAllSelected={bulkSelection.currentPageAllSelected}
@@ -119,6 +120,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
                 return <article className="admin-article-row admin-directory-row" key={profile.id}>
                   <BulkSelectionCheckbox
                     checked={bulkSelection.isSelected(profile.id)}
+                    disabled={!bulkSelection.ready}
                     label={`Vybrať profil ${profile.name}`}
                     onChange={() => bulkSelection.toggleRow(profile.id)}
                     className={adminBulkSelectionStyles.rowCheck}
