@@ -20,13 +20,7 @@ export function parseHelpAdminFilters(params: { get(name: string): string | null
   };
 }
 
-export async function queryHelpAdmin<T>(database: ReadDatabase, filters: HelpAdminFilters) {
-  const totals = await database.prepare(`SELECT COUNT(*) AS total,
-    COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
-    COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
-    COUNT(CASE WHEN status = 'published' AND urgent = 1 AND resolved = 0 THEN 1 END) AS urgent
-    FROM help_cases`).first<{ total: number; published: number; draft: number; urgent: number }>();
-  const grouped = await database.prepare("SELECT category, COUNT(*) AS count FROM help_cases GROUP BY category").all<{ category: string; count: number }>();
+export function buildHelpAdminWhere(filters: HelpAdminFilters) {
   const clauses: string[] = [];
   const args: string[] = [];
   if (filters.category !== "all") { clauses.push("category = ?"); args.push(filters.category); }
@@ -36,7 +30,17 @@ export async function queryHelpAdmin<T>(database: ReadDatabase, filters: HelpAdm
     clauses.push("(title LIKE ? ESCAPE '\\' OR dog_name LIKE ? ESCAPE '\\' OR organization LIKE ? ESCAPE '\\' OR city LIKE ? ESCAPE '\\')");
     args.push(needle, needle, needle, needle);
   }
-  const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
+  return { where: clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "", args };
+}
+
+export async function queryHelpAdmin<T>(database: ReadDatabase, filters: HelpAdminFilters) {
+  const totals = await database.prepare(`SELECT COUNT(*) AS total,
+    COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
+    COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
+    COUNT(CASE WHEN status = 'published' AND urgent = 1 AND resolved = 0 THEN 1 END) AS urgent
+    FROM help_cases`).first<{ total: number; published: number; draft: number; urgent: number }>();
+  const grouped = await database.prepare("SELECT category, COUNT(*) AS count FROM help_cases GROUP BY category").all<{ category: string; count: number }>();
+  const { where, args } = buildHelpAdminWhere(filters);
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM help_cases${where}`).bind(...args).first<{ count: number }>();
   const resultCount = count?.count ?? 0;
   const pages = Math.max(1, Math.ceil(resultCount / HELP_ADMIN_PAGE_SIZE));
