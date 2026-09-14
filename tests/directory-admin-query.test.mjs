@@ -5,6 +5,8 @@ import {
   DIRECTORY_ADMIN_PAGE_SIZE,
   directoryAdminHref,
   directoryAdminMembershipFilters,
+  directoryAdminMembershipFingerprint,
+  directoryAdminMembershipQuery,
   parseDirectoryAdminFilters,
   queryDirectoryAdmin,
 } from "../lib/directory-admin-query.ts";
@@ -98,4 +100,19 @@ test("pagination URLs preserve membership filters while filter changes can reset
   assert.equal(directoryAdminHref(current), "/admin/adresar?category=veterinari&status=draft&q=klinika&page=2");
   assert.equal(directoryAdminHref({ ...current, page: 1 }), "/admin/adresar?category=veterinari&status=draft&q=klinika");
   assert.deepEqual(directoryAdminMembershipFilters(current), { category: "veterinari", status: "draft", q: "klinika" });
+});
+
+test("membership fingerprint excludes page and uses the exact shared WHERE builder", () => {
+  const first = filters({ category: "veterinari", status: "draft", q: " E2E ", page: 1 });
+  const second = { ...first, page: 2 };
+  const membership = directoryAdminMembershipFilters(first);
+  assert.equal(
+    directoryAdminMembershipFingerprint(membership),
+    directoryAdminMembershipFingerprint(directoryAdminMembershipFilters(second)),
+  );
+  assert.equal(directoryAdminMembershipFingerprint(membership), "directory:v1:category=veterinari&status=draft&q=E2E");
+  const query = directoryAdminMembershipQuery(membership, categories);
+  assert.match(query.where, /category = \?/);
+  assert.match(query.where, /status = \?/);
+  assert.deepEqual(query.args.slice(0, 2), ["veterinari", "draft"]);
 });
