@@ -1,5 +1,6 @@
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-directory-%';
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-services-detail-%';
+DELETE FROM directory_profiles WHERE slug LIKE 'health-fixture-%';
 
 WITH RECURSIVE seq(n) AS (
   SELECT 1
@@ -113,11 +114,11 @@ INSERT INTO directory_profiles (
   city, district, region, address, online, price_note, website_url, image_url,
   source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
 ) VALUES (
-  'e2e-services-detail-health-vet-rich',
-  'E2E Veterinárna klinika Health',
+  'health-fixture-vet-rich',
+  'Health veterinárna klinika',
   'veterinari',
   'published',
-  'Veterinárny E2E profil s vyplnenými odbornými údajmi.',
+  'Veterinárny testovací profil s vyplnenými odbornými údajmi.',
   'Deterministický lokálny profil určený iba na overenie Health variantu v CI.',
   '["Preventívna starostlivosť","Chirurgia"]',
   '["Veterinárny tím"]',
@@ -135,8 +136,8 @@ INSERT INTO directory_profiles (
   '2026-09-14T09:00:00.000Z',
   '2026-09-14T09:00:00.000Z',
   '2026-09-14T09:00:00.000Z',
-  'e2e@psipedia.local',
-  'e2e@psipedia.local'
+  'health-fixture@psipedia.local',
+  'health-fixture@psipedia.local'
 );
 
 INSERT INTO directory_profiles (
@@ -144,11 +145,11 @@ INSERT INTO directory_profiles (
   city, district, region, address, online, price_note, website_url, image_url,
   source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
 ) VALUES (
-  'e2e-services-detail-health-vet-minimum',
-  'E2E Veterinár minimum Health',
+  'health-fixture-vet-minimum',
+  'Health veterinár minimum',
   'veterinari',
   'published',
-  'Veterinárny E2E profil bez použiteľných odborných údajov.',
+  'Veterinárny testovací profil bez použiteľných odborných údajov.',
   '',
   '["Preventívna starostlivosť"]',
   '[]',
@@ -166,8 +167,8 @@ INSERT INTO directory_profiles (
   '2026-09-14T09:05:00.000Z',
   '2026-09-14T09:05:00.000Z',
   '2026-09-14T09:05:00.000Z',
-  'e2e@psipedia.local',
-  'e2e@psipedia.local'
+  'health-fixture@psipedia.local',
+  'health-fixture@psipedia.local'
 );
 
 INSERT INTO directory_profiles (
@@ -175,11 +176,11 @@ INSERT INTO directory_profiles (
   city, district, region, address, online, price_note, website_url, image_url,
   source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
 ) VALUES (
-  'e2e-services-detail-health-fyzioterapia',
-  'E2E Fyzioterapia Health',
+  'health-fixture-fyzioterapia',
+  'Health fyzioterapia',
   'fyzioterapia',
   'published',
-  'Fyzioterapeutický E2E profil s terapeutickými a rehabilitačnými údajmi.',
+  'Fyzioterapeutický testovací profil s terapeutickými a rehabilitačnými údajmi.',
   'Deterministický lokálny profil určený iba na overenie Health variantu v CI.',
   '["Rehabilitácia","Regenerácia"]',
   '["Veterinárny fyzioterapeut"]',
@@ -197,6 +198,6 @@ INSERT INTO directory_profiles (
   '2026-09-14T09:10:00.000Z',
   '2026-09-14T09:10:00.000Z',
   '2026-09-14T09:10:00.000Z',
-  'e2e@psipedia.local',
-  'e2e@psipedia.local'
+  'health-fixture@psipedia.local',
+  'health-fixture@psipedia.local'
 );
