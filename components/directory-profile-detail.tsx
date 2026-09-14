@@ -1,101 +1,47 @@
 import Link from "next/link";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { Breadcrumbs, MediaFrame, cardShellClassName } from "@/components/page-system";
-import { getDirectoryCategory, type DirectoryCategorySlug, type PublicDirectoryProfile } from "@/lib/directory";
+import { getDirectoryCategory } from "@/lib/directory";
+import type { DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
 
-function paragraphs(value: string) {
-  return value.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
-}
-
-function importedValue(profile: PublicDirectoryProfile, ...keys: string[]) {
-  for (const key of keys) {
-    const value = profile.importData?.[key];
-    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
-  }
-  return null;
-}
-
-function usefulValue(value: string | null) {
-  if (!value) return null;
-  return /^(neoveren[eé]|nezisten[eé]|neuveden[eé]|n\/a|nie je uveden[eé])$/i.test(value) ? null : value;
-}
-
-function publicUrl(value: string | null) {
-  if (!value) return null;
-  const candidate = /^https?:\/\//i.test(value) ? value : /^[\w.-]+\.[a-z]{2,}(?:\/|$)/i.test(value) ? `https://${value}` : null;
-  if (!candidate) return null;
-  try {
-    const url = new URL(candidate);
-    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
-  veterinari: ["Špecializácie", "Pohotovosť", "Hospitalizácia", "RTG", "USG", "Laboratórium"],
-  treneri: ["Individuálny výcvik", "Skupinový výcvik", "Výcvik šteniat", "Behaviorálne poradenstvo", "Online konzultácie"],
-  "kynologicke-kluby": ["Typ klubu", "Zameranie", "Organizácia", "Výcvik šteniat", "Individuálny výcvik", "Skupinový výcvik", "Športová kynológia", "Obrany", "Stopy", "Agility", "Rally obedience", "Retriever / poľovnícka kynológia"],
-  "chovatelske-kluby": ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Zastrešujúca organizácia"],
-  "chovatelske-stanice": ["Plemeno", "Plemená", "FCI skupina", "Aktívny chov", "Aktuálne vrhy", "Plánované vrhy"],
-  "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa", "Online objednanie"],
-  vencenie: ["Individuálne venčenie", "Skupinové venčenie", "Venčenie s tréningom", "Šteňatá", "Veľké psy", "Seniori / špeciálne potreby", "Vyzdvihnutie psa", "GPS / foto report", "Typ poskytovateľa"],
-  fyzioterapia: ["Hydroterapia", "Laserterapia", "Magnetoterapia", "Elektroterapia", "Manuálne techniky", "Dogfitness / prevencia", "Pooperačná rehabilitácia", "Ortopedickí pacienti", "Neurologickí pacienti", "Športové / pracovné psy", "Mobilná služba", "Odborník / certifikácia"],
-  "dalsie-sluzby": ["Typ služby", "Pokrytie", "Výjazd ku klientovi", "Celoslovenská dostupnosť", "Orientačná cena"],
-};
-
-export function DirectoryProfileDetail({ profile }: { profile: PublicDirectoryProfile }) {
-  const category = getDirectoryCategory(profile.category);
-  const phone = usefulValue(importedValue(profile, "Telefón", "Telefon", "phone"));
-  const rawEmail = usefulValue(importedValue(profile, "E-mail", "Email", "email"));
-  const emails = rawEmail?.split(/[;,]/).map((item) => item.trim()).filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item)) ?? [];
-  const website = publicUrl(importedValue(profile, "Web", "Webstránka") ?? profile.websiteUrl);
-  const facebook = publicUrl(importedValue(profile, "Facebook"));
-  const instagram = publicUrl(importedValue(profile, "Instagram"));
-  const phoneHref = phone ? `tel:${phone.replace(/[^+\d]/g, "")}` : null;
-  const navigationQuery = [profile.address, profile.city, profile.district, profile.region, "Slovensko"].filter(Boolean).join(", ");
-  const navigationUrl = profile.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(navigationQuery)}` : null;
-  const facts = (detailFields[profile.category] ?? []).flatMap((label) => {
-    const value = usefulValue(importedValue(profile, label));
-    return value ? [{ label, value }] : [];
-  });
-  const coverage = usefulValue(importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"));
-  const description = profile.description || profile.excerpt;
+export function DirectoryProfileDetail({ presentation }: { presentation: DirectoryDetailPresentation }) {
+  const category = getDirectoryCategory(presentation.category);
+  const firstEmail = presentation.emails[0] ?? null;
 
   return (
     <main id="obsah">
       <header className="directory-detail-hero"><div className="shell">
-        <Breadcrumbs><Link href="/">Domov</Link><span>/</span><Link href="/adresar">Služby pre psov</Link><span>/</span><Link href={`/adresar/${profile.category}`}>{category?.label}</Link><span>/</span><span>{profile.name}</span></Breadcrumbs>
+        <Breadcrumbs><Link href="/">Domov</Link><span>/</span><Link href="/adresar">Služby pre psov</Link><span>/</span><Link href={`/adresar/${presentation.category}`}>{category?.label}</Link><span>/</span><span>{presentation.name}</span></Breadcrumbs>
         <div className="directory-detail-hero-grid"><div>
-          <div className="directory-detail-tags"><span>{category?.singular}</span>{profile.featured && <b>Odporúčame</b>}</div>
-          <h1>{profile.name}</h1>
-          {profile.excerpt && <p>{profile.excerpt}</p>}
-          <div className="directory-detail-location"><span aria-hidden="true">📍</span><strong>{profile.city}</strong>{profile.district && <span>okres {profile.district}</span>}<Link href={`/adresar/${profile.category}?region=${encodeURIComponent(profile.region)}`}>{profile.region}</Link>{profile.online && <span>služby aj online</span>}</div>
-          {(phoneHref || emails[0] || website || navigationUrl) && <div className="directory-direct-actions">
-            {phoneHref && <a href={phoneHref}>Zavolať</a>}{emails[0] && <a href={`mailto:${emails[0]}`}>E-mail</a>}{website && <a href={website} target="_blank" rel="noreferrer">Web ↗</a>}{navigationUrl && <a href={navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}
+          <div className="directory-detail-tags"><span>{category?.singular}</span>{presentation.featured && <b>Odporúčame</b>}</div>
+          <h1>{presentation.name}</h1>
+          {presentation.excerpt && <p>{presentation.excerpt}</p>}
+          <div className="directory-detail-location"><span aria-hidden="true">📍</span><strong>{presentation.city}</strong>{presentation.district && <span>okres {presentation.district}</span>}<Link href={`/adresar/${presentation.category}?region=${encodeURIComponent(presentation.region)}`}>{presentation.region}</Link>{presentation.online && <span>služby aj online</span>}</div>
+          {(presentation.phone || firstEmail || presentation.websiteUrl || presentation.navigationUrl) && <div className="directory-direct-actions">
+            {presentation.phone && <a href={presentation.phone.href}>Zavolať</a>}{firstEmail && <a href={firstEmail.href}>E-mail</a>}{presentation.websiteUrl && <a href={presentation.websiteUrl} target="_blank" rel="noreferrer">Web ↗</a>}{presentation.navigationUrl && <a href={presentation.navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}
           </div>}
-        </div><MediaFrame className="directory-detail-visual" variant="landscape">{profile.imageUrl ? <img src={profile.imageUrl} alt={`Profil ${profile.name}`} /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</MediaFrame></div>
+        </div><MediaFrame className="directory-detail-visual" variant="landscape">{presentation.imageUrl ? <img src={presentation.imageUrl} alt={`Profil ${presentation.name}`} /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</MediaFrame></div>
       </div></header>
 
       <section className="section shell directory-detail-layout">
         <article className="directory-detail-copy">
-          {description && <section><span className="eyebrow">O službe</span><h2>O službe</h2>{paragraphs(description).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</section>}
-          {profile.services.length > 0 && <section className="directory-detail-services"><h3>Ponúkané služby</h3><ul>{profile.services.map((service) => <li key={service}><span aria-hidden="true">✓</span>{service}</li>)}</ul></section>}
-          {(profile.address || profile.city || coverage || profile.online) && <section className="directory-detail-qualifications"><h3>Lokalita / pokrytie</h3><dl>
-            {profile.address && <div><dt>Adresa</dt><dd>{profile.address}</dd></div>}{profile.city && <div><dt>Mesto / obec</dt><dd>{profile.city}</dd></div>}{profile.district && <div><dt>Okres</dt><dd>{profile.district}</dd></div>}{profile.region && <div><dt>Kraj</dt><dd>{profile.region}</dd></div>}{coverage && <div><dt>Pokrytie</dt><dd>{coverage}</dd></div>}{profile.online && <div><dt>Online</dt><dd>Áno</dd></div>}
+          {presentation.description && <section><span className="eyebrow">O službe</span><h2>O službe</h2>{presentation.descriptionParagraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</section>}
+          {presentation.services.length > 0 && <section className="directory-detail-services"><h3>Ponúkané služby</h3><ul>{presentation.services.map((service) => <li key={service}><span aria-hidden="true">✓</span>{service}</li>)}</ul></section>}
+          {(presentation.address || presentation.city || presentation.coverage || presentation.online) && <section className="directory-detail-qualifications"><h3>Lokalita / pokrytie</h3><dl>
+            {presentation.address && <div><dt>Adresa</dt><dd>{presentation.address}</dd></div>}{presentation.city && <div><dt>Mesto / obec</dt><dd>{presentation.city}</dd></div>}{presentation.district && <div><dt>Okres</dt><dd>{presentation.district}</dd></div>}{presentation.region && <div><dt>Kraj</dt><dd>{presentation.region}</dd></div>}{presentation.coverage && <div><dt>Pokrytie</dt><dd>{presentation.coverage}</dd></div>}{presentation.online && <div><dt>Online</dt><dd>Áno</dd></div>}
           </dl></section>}
-          {profile.priceNote && <section className="directory-detail-qualifications"><h3>Cenník</h3><p>{profile.priceNote}</p></section>}
-          {(profile.qualifications.length > 0 || facts.length > 0) && <section className="directory-detail-qualifications"><h3>Špecializácie / odborné údaje</h3>
-            {profile.qualifications.length > 0 && <ul>{profile.qualifications.map((item) => <li key={item}>{item}</li>)}</ul>}{facts.length > 0 && <dl>{facts.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}
+          {presentation.priceNote && <section className="directory-detail-qualifications"><h3>Cenník</h3><p>{presentation.priceNote}</p></section>}
+          {(presentation.qualifications.length > 0 || presentation.facts.length > 0) && <section className="directory-detail-qualifications"><h3>Špecializácie / odborné údaje</h3>
+            {presentation.qualifications.length > 0 && <ul>{presentation.qualifications.map((item) => <li key={item}>{item}</li>)}</ul>}{presentation.facts.length > 0 && <dl>{presentation.facts.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}
           </section>}
         </article>
         <aside className={`directory-detail-facts ${cardShellClassName}`}><h2>Kontakty</h2><dl>
-          {phone && <div><dt>Telefón</dt><dd><a href={phoneHref ?? undefined}>{phone}</a></dd></div>}{emails.length > 0 && <div><dt>E-mail</dt><dd>{emails.map((email) => <a href={`mailto:${email}`} key={email}>{email}</a>)}</dd></div>}{website && <div><dt>Web</dt><dd><a href={website} target="_blank" rel="noreferrer">Otvoriť web ↗</a></dd></div>}{facebook && <div><dt>Facebook</dt><dd><a href={facebook} target="_blank" rel="noreferrer">Otvoriť Facebook ↗</a></dd></div>}{instagram && <div><dt>Instagram</dt><dd><a href={instagram} target="_blank" rel="noreferrer">Otvoriť Instagram ↗</a></dd></div>}
-        </dl>{navigationUrl && <a className="text-link" href={navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}<a className="button button--primary" href="#kontakt">Poslať dopyt cez Psipediu</a></aside>
+          {presentation.phone && <div><dt>Telefón</dt><dd><a href={presentation.phone.href}>{presentation.phone.value}</a></dd></div>}{presentation.emails.length > 0 && <div><dt>E-mail</dt><dd>{presentation.emails.map((email) => <a href={email.href} key={email.value}>{email.value}</a>)}</dd></div>}{presentation.websiteUrl && <div><dt>Web</dt><dd><a href={presentation.websiteUrl} target="_blank" rel="noreferrer">Otvoriť web ↗</a></dd></div>}{presentation.facebookUrl && <div><dt>Facebook</dt><dd><a href={presentation.facebookUrl} target="_blank" rel="noreferrer">Otvoriť Facebook ↗</a></dd></div>}{presentation.instagramUrl && <div><dt>Instagram</dt><dd><a href={presentation.instagramUrl} target="_blank" rel="noreferrer">Otvoriť Instagram ↗</a></dd></div>}
+        </dl>{presentation.navigationUrl && <a className="text-link" href={presentation.navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}<a className="button button--primary" href="#kontakt">Poslať dopyt cez Psipediu</a></aside>
       </section>
 
-      <section className="shell directory-owner-box"><div><span aria-hidden="true">✎</span><div><strong>Ste majiteľom tohto profilu?</strong><p>Doplňte alebo opravte údaje o svojej službe.</p></div></div><Link href={`/adresar/${profile.category}/${profile.slug}/upravit`}>Navrhnúť úpravu profilu</Link></section>
-      <section className="section section--tint" id="kontakt"><div className="shell directory-contact-shell"><DirectoryContactForm profileId={profile.id} profileName={profile.name} /></div></section>
+      <section className="shell directory-owner-box"><div><span aria-hidden="true">✎</span><div><strong>Ste majiteľom tohto profilu?</strong><p>Doplňte alebo opravte údaje o svojej službe.</p></div></div><Link href={`/adresar/${presentation.category}/${presentation.slug}/upravit`}>Navrhnúť úpravu profilu</Link></section>
+      <section className="section section--tint" id="kontakt"><div className="shell directory-contact-shell"><DirectoryContactForm profileId={presentation.id} profileName={presentation.name} /></div></section>
     </main>
   );
 }

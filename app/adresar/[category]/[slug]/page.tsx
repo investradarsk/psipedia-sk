@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { DirectoryProfileDetail } from "@/components/directory-profile-detail";
 import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
+import { getDirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
 import { getPublishedDirectoryProfile } from "@/lib/directory-store";
 import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, directorySeoFallback, resolvedCanonical } from "@/lib/content-seo";
@@ -49,5 +50,6 @@ export default async function DirectoryProfilePage({ params }: Props) {
       {"@type":"ListItem",position:1,name:"Domov",item:SITE_URL}, {"@type":"ListItem",position:2,name:"Služby pre psov",item:`${SITE_URL}/adresar`},
       {"@type":"ListItem",position:3,name:getDirectoryCategory(profile.category)?.label,item:`${SITE_URL}/adresar/${profile.category}`}, {"@type":"ListItem",position:4,name:profile.name,item:canonical}]}
   ]};
-  return <><StructuredData value={schema}/><DirectoryProfileDetail profile={profile} /></>;
+  const presentation = getDirectoryDetailPresentation(profile);
+  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} /></>;
 }
