@@ -3,9 +3,18 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { formatHelpAmount, formatHelpDate, getHelpCategory, helpProgress, type HelpCase } from "@/lib/help";
 import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-presentation";
+import {
+  DetailContactsCard,
+  DetailFactsCard,
+  DetailOptionGrid,
+  DetailParagraphs,
+  DetailSection,
+  type DetailFact,
+} from "@/components/detail-primitives/detail-primitives";
+import detailStyles from "@/components/detail-primitives/detail-primitives.module.css";
 import styles from "./help-detail.module.css";
 
-export type HelpFact = { label: string; value: ReactNode };
+export type HelpFact = DetailFact;
 
 function externalAction(item: HelpCase) {
   return Boolean(item.actionUrl && (item.category !== "zbierky" || item.verified) && !item.resolved);
@@ -116,33 +125,28 @@ export function HelpDetailShell({
   </main>;
 }
 
-export function HelpSection({ eyebrow, title, children }: { eyebrow?: string; title: string; children: ReactNode }) {
-  return <section className={styles.section}>{eyebrow && <span className={styles.eyebrow}>{eyebrow}</span>}<h2>{title}</h2>{children}</section>;
-}
-
-export function HelpParagraphs({ value }: { value: string | null | undefined }) {
-  const paragraphs = value?.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean) ?? [];
-  return <>{paragraphs.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 32)}`}>{paragraph}</p>)}</>;
-}
+export { DetailSection as HelpSection, DetailParagraphs as HelpParagraphs };
 
 export function HelpFactsCard({ title = "Základné informácie", facts }: { title?: string; facts: Array<HelpFact | null | false | undefined> }) {
-  const visible = facts.filter((fact): fact is HelpFact => Boolean(fact));
-  if (!visible.length) return null;
-  return <section className={styles.card}><h2>{title}</h2><dl className={styles.facts}>{visible.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl></section>;
+  return <DetailFactsCard title={title} facts={facts} />;
 }
 
 export function HelpContactsCard({ contacts, note }: { contacts: HelpContact[]; note?: string | null }) {
-  if (!contacts.length && !note) return null;
-  return <section className={styles.card}><h2>Kontakty</h2>{contacts.length > 0 && <div className={styles.contacts}>{contacts.map((contact) => <div className={styles.contact} key={`${contact.label}-${contact.value}`}><span>{contact.label}</span>{contact.href ? <a href={contact.href} target={contact.external ? "_blank" : undefined} rel={contact.external ? "noreferrer" : undefined}>{contact.external ? `${contact.value} ↗` : contact.value}</a> : <strong>{contact.value}</strong>}</div>)}</div>}{note && <p className={styles.note}>{note}</p>}</section>;
+  return <DetailContactsCard title="Kontakty" contacts={contacts.map((contact) => ({
+    label: contact.label,
+    id: `${contact.label}-${contact.value}`,
+    value: contact.href
+      ? <a href={contact.href} target={contact.external ? "_blank" : undefined} rel={contact.external ? "noreferrer" : undefined}>{contact.external ? `${contact.value} ↗` : contact.value}</a>
+      : <strong>{contact.value}</strong>,
+  }))} note={note} />;
 }
 
 export function HelpOptions({ options }: { options: Array<{ label: string; value: string }> }) {
-  if (!options.length) return null;
-  return <ul className={styles.optionGrid}>{options.map((option) => <li key={option.label}><strong>{option.label}</strong><span>{option.value}</span></li>)}</ul>;
+  return <DetailOptionGrid options={options} />;
 }
 
 export function HelpProgressCard({ item }: { item: HelpCase }) {
   const progress = helpProgress(item);
   if (progress === null) return null;
-  return <section className={`${styles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}><span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount ?? 0)}</strong></span><span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span></div><div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></section>;
+  return <section className={`${detailStyles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}><span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount ?? 0)}</strong></span><span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span></div><div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></section>;
 }
