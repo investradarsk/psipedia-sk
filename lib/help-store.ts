@@ -229,8 +229,8 @@ function normalizeInput(payload: ManagedHelpCaseInput) {
   if (!organization) throw new Error("Doplň zodpovednú organizáciu alebo osobu.");
   if (!city) throw new Error("Doplň mesto alebo uveď Online.");
   if (!region) throw new Error("Vyber kraj.");
-  if (category === "zbierky" && status === "published" && (!verified || !actionUrl || !goalAmount)) {
-    throw new Error("Zbierku možno publikovať až po overení, s platným odkazom a cieľovou sumou.");
+  if (category === "zbierky" && status === "published" && (!verified || !actionUrl || (goalAmount !== null && goalAmount <= 0))) {
+    throw new Error("Zbierku možno publikovať až po overení, s platným odkazom a kladnou cieľovou sumou, ak je zadaná.");
   }
   if (goalAmount !== null && raisedAmount !== null && raisedAmount > goalAmount * 10) throw new Error("Skontroluj vyzbieranú sumu; výrazne presahuje cieľ.");
 
