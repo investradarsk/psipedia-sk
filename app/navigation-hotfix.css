@@ -1,4 +1,5 @@
-.nav-submenu a::after {
+.desktop-nav .nav-submenu a::after {
+  display: none !important;
   content: none !important;
 }
 
@@ -8,8 +9,9 @@
 }
 
 #mobile-menu.is-open {
+  grid-template-rows: minmax(0, 1fr);
   max-height: calc(100dvh - 68px);
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 #mobile-menu.is-open > nav {
@@ -17,7 +19,7 @@
   min-width: 0;
   min-height: 0;
   max-width: 100%;
-  max-height: calc(100dvh - 91px);
+  height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
@@ -30,7 +32,6 @@
 }
 
 .admin-navigation-row.admin-navigation-automatic input[readonly] {
-  background: var(--input-bg);
   cursor: default;
 }
 
