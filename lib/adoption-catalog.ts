@@ -20,6 +20,7 @@ export type AdoptionCatalogFilters = AdoptionPublicFilters & {
   breedId?: number | null;
   status?: AdoptionPublicStatus | "";
 };
+export type AdoptionPublicDog = AdoptionDog & { status: AdoptionPublicStatus };
 
 export const adoptionCatalogAgeLabels: Record<AdoptionAgeCategory, string> = {
   PUPPY: "Šteniatko do 1 roka",
@@ -75,10 +76,7 @@ export function parseAdoptionCatalogFilters(params: AdoptionCatalogSearchParams)
 }
 
 export function adoptionCatalogHasFacet(params: AdoptionCatalogSearchParams) {
-  return Object.values(params).some((value) => {
-    const first = scalar(value);
-    return first.trim().length > 0;
-  });
+  return Object.values(params).some((value) => scalar(value).trim().length > 0);
 }
 
 export function adoptionCatalogHref(filters: AdoptionCatalogFilters, patch: Partial<AdoptionCatalogFilters> = {}) {
@@ -100,8 +98,12 @@ export function adoptionCatalogHref(filters: AdoptionCatalogFilters, patch: Part
   return `/pomoc-psom/adopcia${query ? `?${query}` : ""}`;
 }
 
+function isPublicDog(dog: AdoptionDog): dog is AdoptionPublicDog {
+  return (adoptionPublicStatuses as readonly string[]).includes(dog.status);
+}
+
 export function buildAdoptionCatalogView(items: AdoptionDog[]) {
-  const visibleItems = items.filter((dog) => (adoptionPublicStatuses as readonly string[]).includes(dog.status));
+  const visibleItems = items.filter(isPublicDog);
   return { items: visibleItems, isEmpty: visibleItems.length === 0 };
 }
 
