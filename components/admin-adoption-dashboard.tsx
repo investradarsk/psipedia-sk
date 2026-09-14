@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adoptionRegions, adoptionStatusLabels, adoptionStatuses, type AdoptionStatus } from "@/lib/adoption";
+import { adoptionRegions, adoptionStatusLabels, adoptionStatuses } from "@/lib/adoption";
 import {
   adoptionAdminSorts,
   type AdoptionAdminListFilters,
