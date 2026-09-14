@@ -8,6 +8,7 @@ import "./globals.css";
 import "./design-system.css";
 import "./breed-hero-safe-zone.css";
 import "./navigation-loading.css";
+import "./navigation-hotfix.css";
 
 // The shared navigation is D1-backed. Keep the layout runtime-rendered; public
 // anonymous HTML is cached at the Worker edge after a successful render.
