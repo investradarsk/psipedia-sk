@@ -18,6 +18,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
   const [openMobileMenu, setOpenMobileMenu] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const headerRef = useRef<HTMLElement>(null);
+  const suppressMenuFocus = useRef(false);
   const pathname = usePathname();
   const nav = useMemo(() => {
     const visible = navigationItems.filter((item) => item.visible);
@@ -60,7 +61,11 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setOpenDesktopMenu((current) => {
-        if (current) headerRef.current?.querySelector<HTMLButtonElement>(`[data-menu-toggle="${current}"]`)?.focus();
+        if (current) {
+          suppressMenuFocus.current = true;
+          headerRef.current?.querySelector<HTMLButtonElement>(`[data-menu-toggle="${current}"]`)?.focus();
+          queueMicrotask(() => { suppressMenuFocus.current = false; });
+        }
         return null;
       });
       setOpenMobileMenu(null);
@@ -138,7 +143,9 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                 onMouseLeave={(event) => {
                   if (!event.currentTarget.contains(document.activeElement)) setOpenDesktopMenu(null);
                 }}
-                onFocusCapture={() => setOpenDesktopMenu(item.id)}
+                onFocusCapture={() => {
+                  if (!suppressMenuFocus.current) setOpenDesktopMenu(item.id);
+                }}
                 onBlurCapture={(event) => {
                   if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenDesktopMenu(null);
                 }}
@@ -173,7 +180,10 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
             <button
               className="icon-button menu-trigger"
               type="button"
-              onClick={() => setMenuOpen((value) => !value)}
+              onClick={() => setMenuOpen((value) => {
+                if (value) setOpenMobileMenu(null);
+                return !value;
+              })}
               aria-expanded={menuOpen}
               aria-controls="mobile-menu"
               aria-label={menuOpen ? "Zavrieť menu" : "Otvoriť menu"}
