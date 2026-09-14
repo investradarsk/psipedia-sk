@@ -10,6 +10,7 @@ import {
   type AdoptionCatalogFilters,
   type AdoptionPublicDog,
 } from "@/lib/adoption-catalog";
+import { adoptionDetailPath } from "@/lib/adoption-detail";
 import type { AdoptionBreedOption, AdoptionPagination } from "@/lib/adoption-store";
 import type { AdoptionDog } from "@/lib/adoption";
 import styles from "./adoption.module.css";
@@ -31,16 +32,17 @@ function DogImage({ dog }: { dog: AdoptionDog }) {
 }
 
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
+  const href = adoptionDetailPath(dog.slug);
   return <article className={styles.card}>
-    <div className={styles.visual}>
+    <Link className={styles.visual} href={href} aria-label={`Zobraziť profil ${dog.name}`}>
       <DogImage dog={dog} />
       <span className={`${styles.statusBadge} ${dog.status === "RESERVED" ? styles.reserved : styles.active}`}>
         {adoptionCatalogStatusLabels[dog.status]}
       </span>
-    </div>
+    </Link>
     <div className={styles.cardBody}>
       {(dog.city || dog.region) && <p className={styles.location}>{[dog.city, dog.region].filter(Boolean).join(" · ")}</p>}
-      <h2>{dog.name}</h2>
+      <h2><Link href={href}>{dog.name}</Link></h2>
       {dog.breedName && <p className={styles.breed}>{dog.breedMix ? "Kríženec · " : ""}{dog.breedName}</p>}
       {dog.shortDescription && <p className={styles.description}>{dog.shortDescription}</p>}
       <dl className={styles.quickFacts}>
@@ -49,6 +51,7 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
         <div><dt>Veľkosť</dt><dd>{adoptionCatalogSizeLabels[dog.size]}</dd></div>
       </dl>
       {dog.status === "RESERVED" && <p className={styles.reservedNote}>Tento pes je momentálne rezervovaný.</p>}
+      <Link href={href}>Zobraziť profil →</Link>
     </div>
   </article>;
 }
