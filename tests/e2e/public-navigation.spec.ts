@@ -45,7 +45,7 @@ const expectedSubmenus = {
 
 test.beforeEach(async ({ page, baseURL, isMobile }) => {
   expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\.0\.0\.1)$/);
-  await page.setViewportSize(isMobile ? { width: 390, height: 844 } : { width: 1500, height: 900 });
+  await page.setViewportSize(isMobile ? { width: 390, height: 844 } : { width: 1700, height: 900 });
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
   await page.goto("/");
   await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
