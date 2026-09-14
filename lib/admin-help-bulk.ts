@@ -36,7 +36,11 @@ function validIds(value: unknown) {
 }
 
 function publishable(row: BulkRow) {
-  return row.category !== "zbierky" || (Boolean(row.verified) && Boolean(row.actionUrl?.trim()) && typeof row.goalAmount === "number" && row.goalAmount > 0);
+  return row.category !== "zbierky" || (
+    Boolean(row.verified)
+    && Boolean(row.actionUrl?.trim())
+    && (row.goalAmount === null || (typeof row.goalAmount === "number" && row.goalAmount > 0))
+  );
 }
 
 export async function resolveHelpBulkSelection(database: HelpBulkDatabase, value: unknown) {
@@ -66,7 +70,7 @@ export async function resolveHelpBulkSelection(database: HelpBulkDatabase, value
   const candidates = rows.filter((row) => row.status !== status);
   if (candidates.some((row) => row.status !== "draft" && row.status !== "published")) throw new Error("Výber obsahuje neplatný publikačný stav.");
   if (status === "published" && candidates.some((row) => !publishable(row))) {
-    throw new Error("Niektorá zbierka nespĺňa podmienky publikovania: musí byť overená a mať platný odkaz aj cieľovú sumu.");
+    throw new Error("Niektorá zbierka nespĺňa podmienky publikovania: musí byť overená, mať platný odkaz a zadaná cieľová suma musí byť kladná.");
   }
   return {
     selectedCount: rows.length,
@@ -107,6 +111,6 @@ export const bulkHelpStatusSql = `
     AND (SELECT COUNT(*) FROM help_cases h JOIN requested r ON h.id = r.id
          AND h.status = r.status AND h.updated_at = r.updated_at
          WHERE ? <> 'published' OR h.category <> 'zbierky'
-           OR (h.verified = 1 AND h.action_url IS NOT NULL AND trim(h.action_url) <> '' AND h.goal_amount IS NOT NULL AND h.goal_amount > 0)) = ?
+           OR (h.verified = 1 AND h.action_url IS NOT NULL AND trim(h.action_url) <> '' AND (h.goal_amount IS NULL OR h.goal_amount > 0))) = ?
   RETURNING id
 `;
