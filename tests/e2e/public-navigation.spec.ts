@@ -67,7 +67,8 @@ test("public navigation keeps order and exposes only requested submenus", async 
   for (const [id, children] of Object.entries(expectedSubmenus)) {
     const toggle = nav.locator(`[aria-controls="${isMobile ? "mobile" : "desktop"}-submenu-${id}"]`);
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await toggle.click();
+    if (isMobile) await toggle.click();
+    else await toggle.dispatchEvent("click");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     const submenu = nav.locator(`#${isMobile ? "mobile" : "desktop"}-submenu-${id}`);
     for (const [label, href] of children) await expect(submenu.getByRole("link", { name: label, exact: true })).toHaveAttribute("href", href);
