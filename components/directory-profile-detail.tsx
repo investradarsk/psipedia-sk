@@ -73,8 +73,8 @@ export function DirectoryProfileDetail({ presentation }: { presentation: Directo
             <div className={styles.heroCopy}>
               <div className={styles.badges}>
                 <span className={styles.categoryBadge}>{category?.singular ?? category?.label}</span>
-                {presentation.verified && <span className={styles.verifiedBadge}><span aria-hidden="true">✓</span> Overené</span>}
-                {presentation.featured && <span className={styles.featuredBadge}><span aria-hidden="true">★</span> Odporúčame</span>}
+                {presentation.verified && <span className={styles.verifiedBadge}>Overené</span>}
+                {presentation.featured && <span className={styles.featuredBadge}>Odporúčame</span>}
               </div>
 
               <h1>{presentation.name}</h1>
