@@ -119,6 +119,7 @@ export function useAdminBulkSelection({
   const currentPageSomeSelected = currentPageSelected > 0 && !currentPageAllSelected;
 
   function toggleRow(id: number) {
+    if (!restored) return;
     setSelection((current) => {
       if (current.mode === "all-matching") {
         return { mode: "explicit", ids: pageIds.filter((pageId) => pageId !== id) };
@@ -131,6 +132,7 @@ export function useAdminBulkSelection({
   }
 
   function toggleCurrentPage(checked: boolean) {
+    if (!restored) return;
     setSelection((current) => {
       if (!checked && current.mode === "all-matching") return { mode: "explicit", ids: [] };
       const ids = new Set(current.mode === "explicit" ? current.ids : []);
@@ -144,6 +146,7 @@ export function useAdminBulkSelection({
 
   return {
     selection,
+    ready: restored,
     selectedCount,
     currentPageSelected,
     currentPageAllSelected,
@@ -151,7 +154,9 @@ export function useAdminBulkSelection({
     isSelected: (id: number) => selection.mode === "all-matching" || explicitSet.has(id),
     toggleRow,
     toggleCurrentPage,
-    selectAllMatching: () => setSelection({ mode: "all-matching" }),
+    selectAllMatching: () => {
+      if (restored) setSelection({ mode: "all-matching" });
+    },
     clear: () => setSelection({ mode: "explicit", ids: [] }),
   };
 }
@@ -159,12 +164,14 @@ export function useAdminBulkSelection({
 export function BulkSelectionCheckbox({
   checked,
   indeterminate = false,
+  disabled = false,
   label,
   onChange,
   className,
 }: {
   checked: boolean;
   indeterminate?: boolean;
+  disabled?: boolean;
   label: string;
   onChange: (checked: boolean) => void;
   className?: string;
@@ -180,6 +187,7 @@ export function BulkSelectionCheckbox({
         ref={ref}
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         aria-label={label}
         onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.currentTarget.checked)}
       />
@@ -195,6 +203,7 @@ export function AdminBulkSelectionControls({
   resultCount,
   pageIds,
   selection,
+  selectionReady,
   selectedCount,
   currentPageSelected,
   currentPageAllSelected,
@@ -209,6 +218,7 @@ export function AdminBulkSelectionControls({
   resultCount: number;
   pageIds: number[];
   selection: AdminBulkSelectionState;
+  selectionReady: boolean;
   selectedCount: number;
   currentPageSelected: number;
   currentPageAllSelected: boolean;
@@ -283,6 +293,7 @@ export function AdminBulkSelectionControls({
         <BulkSelectionCheckbox
           checked={currentPageAllSelected}
           indeterminate={currentPageSomeSelected}
+          disabled={!selectionReady}
           label="Vybrať všetky profily na tejto strane"
           onChange={toggleCurrentPage}
         />
