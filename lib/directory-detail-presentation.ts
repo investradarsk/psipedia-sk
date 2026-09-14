@@ -19,6 +19,7 @@ export type DirectoryDetailPresentation = {
   online: boolean;
   priceNote: string;
   imageUrl: string | null;
+  verified: boolean;
   featured: boolean;
   description: string | null;
   descriptionParagraphs: string[];
@@ -107,6 +108,7 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     online: profile.online,
     priceNote: profile.priceNote,
     imageUrl: profile.imageUrl,
+    verified: profile.verified,
     featured: profile.featured,
     description,
     descriptionParagraphs: splitDescription(description),

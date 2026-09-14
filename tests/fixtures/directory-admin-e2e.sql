@@ -1,4 +1,5 @@
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-directory-%';
+DELETE FROM directory_profiles WHERE slug LIKE 'e2e-services-detail-%';
 
 WITH RECURSIVE seq(n) AS (
   SELECT 1
@@ -43,4 +44,66 @@ INSERT INTO directory_profiles (
   'E2E tréner pre test kategórie.', 'Deterministický lokálny E2E profil používaný iba v CI.',
   '["Poslušnosť"]', 'Trnava', 'Trnavský kraj', '2026-09-13T12:00:00.000Z', '2026-09-13T14:00:00.000Z',
   'e2e@psipedia.local', 'e2e@psipedia.local'
+);
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'e2e-services-detail-long',
+  'E2E Centrum komplexného výcviku, socializácie a behaviorálneho poradenstva pre psy',
+  'treneri',
+  'published',
+  'Individuálny tréning, práca so správaním a podpora psov aj ich ľudí v Nitre a okolí.',
+  'Pomáhame s praktickým tréningom v každodenných situáciách. Program prispôsobujeme konkrétnemu psovi a cieľu.',
+  '["Individuálny výcvik","Výcvik šteniat","Behaviorálne poradenstvo","Online konzultácie"]',
+  '["Certifikovaný tréner","Skúsenosti s citlivými psami"]',
+  'Nitra',
+  'Nitra',
+  'Nitriansky kraj',
+  'Testovacia 12',
+  1,
+  'Cena podľa typu konzultácie',
+  'https://example.org',
+  NULL,
+  '{"Telefón":"+421 900 123 456","E-mail":"detail-e2e@example.invalid","Facebook":"https://facebook.com/example","Instagram":"https://instagram.com/example","Pokrytie":"Nitra a okolie","Individuálny výcvik":"Áno","Behaviorálne poradenstvo":"Na objednávku","Online konzultácie":"Áno"}',
+  1,
+  1,
+  '2026-09-14T08:00:00.000Z',
+  '2026-09-14T08:00:00.000Z',
+  '2026-09-14T08:00:00.000Z',
+  'e2e@psipedia.local',
+  'e2e@psipedia.local'
+);
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'e2e-services-detail-minimum',
+  'E2E Minimálna služba',
+  'dalsie-sluzby',
+  'published',
+  '',
+  '',
+  '[]',
+  '[]',
+  'Nitra',
+  '',
+  'Nitriansky kraj',
+  '',
+  0,
+  '',
+  NULL,
+  NULL,
+  '{}',
+  0,
+  0,
+  '2026-09-14T08:05:00.000Z',
+  '2026-09-14T08:05:00.000Z',
+  '2026-09-14T08:05:00.000Z',
+  'e2e@psipedia.local',
+  'e2e@psipedia.local'
 );

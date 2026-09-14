@@ -124,20 +124,20 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/breed-profile.spec.ts --project=mobile-chromium
-      - name: Directory admin filter Playwright — desktop
+      - name: Directory Playwright — desktop
         id: directory_desktop
         if: ${{ always() && steps.directory_seed.outcome == 'success' }}
         env:
           E2E_BASE_URL: http://localhost:5173
           PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/playwright/directory-desktop/html
-        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts --project=desktop-chromium --output=.e2e-artifacts/playwright/directory-desktop/results
-      - name: Directory admin filter Playwright — mobile
+        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts tests/e2e/services-detail-shell.spec.ts --project=desktop-chromium --output=.e2e-artifacts/playwright/directory-desktop/results
+      - name: Directory Playwright — mobile
         id: directory_mobile
         if: ${{ always() && steps.directory_seed.outcome == 'success' && steps.directory_desktop.outcome == 'success' }}
         env:
           E2E_BASE_URL: http://localhost:5173
           PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/playwright/directory-mobile/html
-        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts --project=mobile-chromium --output=.e2e-artifacts/playwright/directory-mobile/results
+        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts tests/e2e/services-detail-shell.spec.ts --project=mobile-chromium --output=.e2e-artifacts/playwright/directory-mobile/results
       - name: Lost/found dogs Playwright + accessibility — desktop
         id: lost_found_desktop
         if: ${{ always() && steps.seed.outcome == 'success' && steps.lost_found_seed.outcome == 'success' }}
@@ -187,6 +187,7 @@ jobs:
             .e2e-artifacts/
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
 
   production-smoke:
     name: Playwright production smoke (${{ matrix.label }})
