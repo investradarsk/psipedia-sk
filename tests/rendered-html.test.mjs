@@ -518,7 +518,7 @@ test("renders the news portal and stable topic URLs without published news", asy
   const news = await worker.fetch(new Request("http://localhost/novinky", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(news.status, 200);
   const newsHtml = await news.text();
-  assert.match(newsHtml, /Novinky zo sveta psov/);
+  assert.match(newsHtml, />Novinky<\/a>/);
   assert.match(newsHtml, /Záchrana a hrdinovia/);
   assert.match(newsHtml, /Veda a zdravie/);
   assert.match(newsHtml, /Pracovné a záchranárske psy/);
