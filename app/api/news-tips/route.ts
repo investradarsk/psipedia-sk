@@ -1,5 +1,5 @@
 import { createNewsTip, NewsTipRateLimitError, type NewsTipInput } from "@/lib/news-tip-store";
-import { notifyNewsTip } from "@/lib/editorial-email";
+import { processEditorialNotification } from "@/lib/editorial-notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,9 @@ export async function POST(request: Request) {
     const payload = await request.json() as PublicNewsTipInput;
     if (payload.company?.trim()) return Response.json({ success: true }, { status: 201 });
     const saved = await createNewsTip(payload);
-    await notifyNewsTip(saved);
+    await processEditorialNotification("news_tip", saved).catch(() => {
+      console.error(JSON.stringify({ event: "editorial_notification", resourceType: "news_tip", resourceId: saved.id, result: "failed", error: "outbox_processing_failed" }));
+    });
     return Response.json({ success: true }, { status: 201 });
   } catch (error) {
     const status = error instanceof NewsTipRateLimitError ? 429 : 400;
