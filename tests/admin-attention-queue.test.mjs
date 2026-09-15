@@ -82,9 +82,9 @@ test("directory inquiry adapter reuses the existing 24h stale attention contract
 });
 
 test("adoption adapter reuses 30d stale and 45d markedly-stale contracts", () => {
-  const stale = mapAdoptionStaleAttention({ id: 11, name: "Neo", status: "ACTIVE", organizationName: "OZ", lastVerifiedAt: "2026-08-11T12:00:00.000Z", createdAt: "2026-05-01T12:00:00.000Z" }, NOW);
-  const veryStale = mapAdoptionStaleAttention({ id: 12, name: "Rex", status: "RESERVED", organizationName: "OZ", lastVerifiedAt: "2026-07-20T12:00:00.000Z", createdAt: "2026-05-01T12:00:00.000Z" }, NOW);
-  const neverVerified = mapAdoptionStaleAttention({ id: 13, name: "Luna", status: "ACTIVE", organizationName: "", lastVerifiedAt: null, createdAt: "2026-06-01T12:00:00.000Z" }, NOW);
+  const stale = mapAdoptionStaleAttention({ id: 11, name: "Neo", status: "ACTIVE", lastVerifiedAt: "2026-08-11T12:00:00.000Z", createdAt: "2026-05-01T12:00:00.000Z" }, NOW);
+  const veryStale = mapAdoptionStaleAttention({ id: 12, name: "Rex", status: "RESERVED", lastVerifiedAt: "2026-07-20T12:00:00.000Z", createdAt: "2026-05-01T12:00:00.000Z" }, NOW);
+  const neverVerified = mapAdoptionStaleAttention({ id: 13, name: "Luna", status: "ACTIVE", lastVerifiedAt: null, createdAt: "2026-06-01T12:00:00.000Z" }, NOW);
   assert.equal(stale.priority, "MEDIUM");
   assert.equal(veryStale.priority, "HIGH");
   assert.equal(neverVerified.priority, "HIGH");
@@ -139,7 +139,7 @@ test("all source queries are bounded and the store is read-only", () => {
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
-  assert.doesNotMatch(store, /sender_email|requester_email|proposed_patch_json|source_data_json/i);
+  assert.doesNotMatch(store, /sender_email|requester_email|proposed_patch_json|source_data_json|organization_name/i);
 });
 
 test("target hrefs point to existing admin route patterns", () => {
