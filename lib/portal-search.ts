@@ -11,6 +11,8 @@ import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSubpageHref, type PortalSection } from "@/lib/portal";
 import { listManagedPortalSections } from "@/lib/section-store";
 import { articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
+import { listAllPublicAdoptions } from "@/lib/adoption-store";
+import { adoptionDetailPath } from "@/lib/adoption-detail";
 
 export type PortalSearchItem = {
   href: string;
@@ -66,13 +68,14 @@ export async function getHeaderSearchIndex() {
 }
 
 export async function getPortalSearchIndex() {
-  const [articles, events, profiles, helpCases, sections, breeds] = await Promise.all([
+  const [articles, events, profiles, helpCases, sections, breeds, adoptions] = await Promise.all([
     getPublishedArticles(),
     getPublishedEvents(),
     getPublishedDirectoryProfiles(),
     getPublishedHelpCases(),
     listManagedPortalSections(),
     listPublishedBreedIndex(),
+    listAllPublicAdoptions(),
   ]);
 
   const items: PortalSearchItem[] = [
@@ -83,6 +86,7 @@ export async function getPortalSearchIndex() {
       return { href: directoryProfileHref(profile), title: profile.name, type, description: `${profile.excerpt} · ${profile.city}`, keywords: `${getDirectoryCategory(profile.category)?.label ?? ""} ${profile.region} ${profile.address} ${profile.description} ${profile.services.join(" ")} ${profile.qualifications.join(" ")}` };
     }),
     ...helpCases.map((item) => ({ href: helpCaseHref(item), title: item.title, type: item.category === "utulky" ? "Útulok" : "Pomoc psom", description: `${item.excerpt} · ${item.city}`, keywords: `${getHelpCategory(item.category)?.label ?? ""} ${item.organization} ${item.region} ${item.dogName} ${item.breed} ${item.description}` })),
+    ...adoptions.map((dog) => ({ href: adoptionDetailPath(dog.slug), title: dog.name, type: "Pes na adopciu", description: `${dog.shortDescription} · ${dog.city}`, keywords: `${dog.breedName} ${dog.organizationName} ${dog.region} ${dog.district} ${dog.city} ${dog.description}` })),
   ];
 
   return uniqueItems(items);

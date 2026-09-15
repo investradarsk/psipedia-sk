@@ -10,9 +10,9 @@ import {
   type HelpCategorySlug,
 } from "@/lib/help";
 
-export function HelpPage({ items, initialCategory = "all" }: { items: HelpCase[]; initialCategory?: "all" | HelpCategorySlug }) {
+export function HelpPage({ items, initialCategory = "all", adoptionCount = 0 }: { items: HelpCase[]; initialCategory?: "all" | HelpCategorySlug; adoptionCount?: number }) {
   const active = initialCategory === "all" ? null : getHelpCategory(initialCategory);
-  const activeCount = items.filter((item) => !item.resolved).length;
+  const activeCount = items.filter((item) => !item.resolved).length + adoptionCount;
   const verifiedCount = items.filter((item) => item.verified).length;
   const heroImage = items.find((item) => item.imageUrl)?.imageUrl || "/images/hero-labrador.webp";
   return (
@@ -25,7 +25,7 @@ export function HelpPage({ items, initialCategory = "all" }: { items: HelpCase[]
 
       <section className="section shell help-categories" aria-labelledby="help-categories-heading">
         <div className="section-heading split-heading"><div><span className="eyebrow">Vyber si spôsob</span><h2 id="help-categories-heading">Ako chceš pomôcť?</h2></div><p>Každá kategória aj každý prípad má vlastnú adresu na jednoduché uloženie a zdieľanie.</p></div>
-        <div className="help-category-grid">{helpCategories.map((category) => { const count = items.filter((item) => item.category === category.slug && !item.resolved).length; return <Link className={active?.slug === category.slug ? "is-active" : ""} href={helpCategoryHref(category)} key={category.slug}><span aria-hidden="true">{category.icon}</span><div><h3>{category.label}</h3><p>{category.description}</p><small>{count} aktívnych</small></div><ArrowIcon size={20} /></Link>; })}</div>
+        <div className="help-category-grid">{helpCategories.map((category) => { const count = category.slug === "adopcia" ? adoptionCount : items.filter((item) => item.category === category.slug && !item.resolved).length; return <Link className={active?.slug === category.slug ? "is-active" : ""} href={helpCategoryHref(category)} key={category.slug}><span aria-hidden="true">{category.icon}</span><div><h3>{category.label}</h3><p>{category.description}</p><small>{count} aktívnych</small></div><ArrowIcon size={20} /></Link>; })}</div>
         <div className="help-report-banner"><div><span aria-hidden="true">🚨</span><div><strong>Našiel si psa v núdzi?</strong><p>Najprv zaisti bezpečnosť a potom postupuj podľa krátkeho kontrolného zoznamu.</p></div></div><Link href="/pomoc-psom/nahlasit-psa-v-nudzi">Čo urobiť teraz <ArrowIcon size={18} /></Link></div>
       </section>
 

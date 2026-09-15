@@ -57,7 +57,7 @@ export function AdoptionDetail({ dog }: { dog: PublicAdoptionDetailDog }) {
   const location = [dog.city, dog.district ? `okres ${dog.district}` : "", dog.region].filter(Boolean).join(" · ");
   const phoneHref = dog.contactPhone ? `tel:${dog.contactPhone.replace(/\s+/g, "")}` : null;
 
-  return <main id="obsah" tabIndex={-1} className={styles.detailShell}>
+  return <main id="obsah" tabIndex={-1} className={styles.detailShell} data-adoption-source="canonical">
     <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
       <Link href="/">Domov</Link><span>/</span><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><Link href="/pomoc-psom/adopcia">Psy na adopciu</Link><span>/</span><span>{dog.name}</span>
     </nav>

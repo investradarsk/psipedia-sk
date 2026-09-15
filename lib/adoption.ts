@@ -477,11 +477,10 @@ export function adoptionFreshness(lastVerifiedAt: string | null, now = new Date(
 }
 
 export function adoptionIsIndexable(
-  dog: Pick<AdoptionDog, "status" | "mainImage" | "description" | "lastVerifiedAt">,
+  dog: Pick<AdoptionDog, "status" | "description" | "lastVerifiedAt">,
   now = new Date(),
 ) {
   return dog.status === "ACTIVE"
-    && Boolean(dog.mainImage)
     && dog.description.trim().length >= 80
     && !adoptionIsStale(dog.lastVerifiedAt, now, ADOPTION_NOINDEX_STALE_DAYS);
 }

@@ -1,5 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+const migrationManifest = JSON.parse(readFileSync("data/imports/adoptions-ready-2026-09-13.json", "utf8")) as { ready: Array<{ slug: string; dogName: string }> };
 
 const catalogPath = "/pomoc-psom/adopcia";
 const rexPath = `${catalogPath}/e2e-adoption-rex-active`;
@@ -57,4 +60,15 @@ test("private adoption fixture has no public detail", async ({ page }) => {
   expect(response?.status()).toBe(404);
   await expect(page.getByRole("heading", { level: 1, name: "E2E Draft Private" })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
+});
+
+test("all 36 activated migration profiles resolve to canonical detail", async ({ request }) => {
+  expect(migrationManifest.ready).toHaveLength(36);
+  for (const dog of migrationManifest.ready) {
+    const response = await request.get(`${catalogPath}/${dog.slug}`);
+    expect(response.status(), dog.slug).toBe(200);
+    const html = await response.text();
+    expect(html, dog.slug).toContain('data-adoption-source="canonical"');
+    expect(html, dog.slug).toContain(dog.dogName);
+  }
 });

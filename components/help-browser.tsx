@@ -34,7 +34,7 @@ export function HelpBrowser({ items, initialCategory = "all" }: { items: HelpCas
     <section className="help-results" aria-labelledby="help-results-heading">
       <div className="help-toolbar">
         <label className="help-search"><span>Hľadať pomoc</span><div><SearchIcon size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Meno psa, mesto alebo organizácia" /></div></label>
-        <label><span>Kategória</span><select value={category} onChange={(event) => setCategory(event.target.value as CategoryFilter)}><option value="all">Všetky kategórie</option>{helpCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></label>
+        <label><span>Kategória</span><select value={category} onChange={(event) => setCategory(event.target.value as CategoryFilter)}><option value="all">Všetky kategórie</option>{helpCategories.filter((item) => item.slug !== "adopcia").map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></label>
         <label><span>Kraj</span><select value={region} onChange={(event) => setRegion(event.target.value as RegionFilter)}><option value="all">Všetky kraje</option>{slovakRegions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
         <label className="help-active-filter"><input type="checkbox" checked={activeOnly} onChange={(event) => setActiveOnly(event.target.checked)} /><span>Len aktívne prípady</span></label>
       </div>

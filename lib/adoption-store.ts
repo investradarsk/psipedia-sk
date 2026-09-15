@@ -293,6 +293,14 @@ export async function listPublicAdoptions(filters: AdoptionPublicQueryFilters = 
 }
 export const getPublicAdoptions = listPublicAdoptions;
 
+export async function listAllPublicAdoptions(database?: AdoptionD1Database) {
+  const db = database ?? getD1Binding();
+  if (!db) return [] as AdoptionDog[];
+  const result = await db.prepare(`${PUBLIC_SELECT} WHERE d.status IN ('ACTIVE','RESERVED')
+    ORDER BY COALESCE(d.published_at, d.updated_at) DESC, d.id DESC`).all<AdoptionDogRow>();
+  return result.results.map(rowToDog);
+}
+
 export async function getAdoptionLifecycleCounts(database?: AdoptionD1Database) {
   const db = requireD1Binding(database);
   const result = await db.prepare("SELECT status, COUNT(*) AS count FROM adoption_dogs GROUP BY status").all<LifecycleCountRow>();

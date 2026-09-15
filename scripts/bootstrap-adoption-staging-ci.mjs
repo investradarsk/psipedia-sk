@@ -27,6 +27,23 @@ function localDatabasePath() {
 assertCiLocalOnly();
 const db = new DatabaseSync(localDatabasePath());
 try {
+  if (process.argv[2] === "verify") {
+    const cohort = db.prepare(`SELECT COUNT(*) AS total,
+      SUM(status = 'ACTIVE') AS active, SUM(status = 'DRAFT') AS drafts,
+      SUM(published_at IS NOT NULL) AS published, COUNT(DISTINCT slug) AS slugs,
+      SUM(organization_id IS NOT NULL) AS linked, COUNT(DISTINCT organization_id) AS organizations
+      FROM adoption_dogs WHERE created_by = 'adoption-staging-import:v1'`).get();
+    const snapshotMatches = db.prepare(`SELECT COUNT(*) AS count FROM adoption_dogs dog
+      JOIN help_organizations organization ON organization.id = dog.organization_id
+      WHERE dog.created_by = 'adoption-staging-import:v1'
+        AND dog.organization_name = organization.name AND dog.organization_slug = organization.slug`).get().count;
+    if (cohort.total !== 36 || cohort.active !== 36 || cohort.drafts !== 0 || cohort.published !== 36
+      || cohort.slugs !== 36 || cohort.linked !== 36 || cohort.organizations !== 4 || snapshotMatches !== 36) {
+      throw new Error(`Canonical adoption activation verification failed: ${JSON.stringify(cohort)}, snapshots=${snapshotMatches}.`);
+    }
+    console.log("[adoption-staging-ci] LOCAL CI ONLY: activation verified 36/36 ACTIVE, published and canonically linked.");
+    process.exit(0);
+  }
   const existingLegacy = db.prepare("SELECT COUNT(*) AS count FROM help_cases WHERE category = 'adopcia'").get().count;
   const existingTargets = db.prepare("SELECT COUNT(*) AS count FROM adoption_dogs").get().count;
   if (existingLegacy !== 0 || existingTargets !== 0) {
