@@ -93,7 +93,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: latestModified([profile.updatedAt]), changeFrequency: "monthly", priority: 0.6,
       images: profile.imageUrl ? [profile.imageUrl.startsWith("https://") ? profile.imageUrl : `${SITE_URL}${profile.imageUrl}`] : undefined,
     })),
-    ...helpCases.filter((item) => isSelfCanonical(item.seo, helpCaseHref(item))).map((item) => sitemapEntry(helpCaseHref(item), {
+    ...helpCases.filter((item) => item.category !== "adopcia" && isSelfCanonical(item.seo, helpCaseHref(item))).map((item) => sitemapEntry(helpCaseHref(item), {
       lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.8,
       images: item.imageUrl ? [item.imageUrl.startsWith("https://") ? item.imageUrl : `${SITE_URL}${item.imageUrl}`] : undefined,
     })),

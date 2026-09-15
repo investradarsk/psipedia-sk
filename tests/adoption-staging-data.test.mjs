@@ -10,6 +10,7 @@ const adoptionFoundation = read("../drizzle/0034_adoption_dogs_foundation.sql");
 const organizationFoundation = read("../drizzle/0036_help_organizations_foundation.sql");
 const organizationImport = read("../drizzle/0037_import_ready_help_organizations.sql");
 const stagingImport = read("../drizzle/0038_adoption_staging_data.sql");
+const activation = read("../drizzle/0039_activate_canonical_adoptions.sql");
 const adoptionStore = read("../lib/adoption-store.ts");
 const holdSlugs = [
   "charlie-hlada-novy-domov",
@@ -80,6 +81,12 @@ function database() {
       createdAt, updatedAt, createdAt,
     );
   });
+  for (let index = 1; index <= 104; index += 1) {
+    const timestamp = "2026-09-01T00:00:00.000Z";
+    insert.run(`utulok-${index}`, `Útulok ${index}`, "Profil útulku pre migračný test.", "Legacy shelter description.",
+      `Útulok ${index}`, "", "", "Bratislava", "Bratislavský kraj", null, "", null, timestamp, timestamp, timestamp);
+    db.prepare("UPDATE help_cases SET category = 'utulky' WHERE slug = ?").run(`utulok-${index}`);
+  }
   return db;
 }
 
@@ -150,4 +157,45 @@ test("migration is create-only, denylisted and resolves organizations without nu
   assert.doesNotMatch(stagingImport, /UPDATE\s+(?:help_cases|help_organizations)/i);
   assert.doesNotMatch(stagingImport, /DELETE\s+FROM\s+(?:help_cases|help_organizations)/i);
   assert.doesNotMatch(stagingImport, /'ACTIVE'|'RESERVED'/);
+});
+
+test("0039 activates exactly the reviewed cohort and preserves legacy and canonical organizations", () => {
+  const db = database();
+  db.exec(stagingImport);
+  const legacyBefore = db.prepare("SELECT category, COUNT(*) AS count, group_concat(id || ':' || slug || ':' || updated_at, '|') AS content FROM help_cases GROUP BY category ORDER BY category").all().map((row) => ({ ...row }));
+  const organizationsBefore = db.prepare("SELECT COUNT(*) AS count, SUM(status = 'DRAFT') AS drafts, SUM(published_at IS NOT NULL) AS published FROM help_organizations").get();
+  const contentBefore = db.prepare("SELECT group_concat(id || ':' || slug || ':' || organization_id || ':' || organization_name || ':' || organization_slug || ':' || name, '|') AS content FROM adoption_dogs ORDER BY id").get();
+
+  db.exec(activation);
+
+  assert.equal(scalar(db, "SELECT COUNT(*) AS value FROM adoption_dogs WHERE created_by = 'adoption-staging-import:v1'"), 36);
+  assert.equal(scalar(db, "SELECT COUNT(*) AS value FROM adoption_dogs WHERE created_by = 'adoption-staging-import:v1' AND status = 'ACTIVE'"), 36);
+  assert.equal(scalar(db, "SELECT COUNT(*) AS value FROM adoption_dogs WHERE created_by = 'adoption-staging-import:v1' AND status IN ('DRAFT','RESERVED')"), 0);
+  assert.equal(scalar(db, "SELECT COUNT(*) AS value FROM adoption_dogs WHERE created_by = 'adoption-staging-import:v1' AND published_at IS NOT NULL"), 36);
+  assert.equal(scalar(db, "SELECT COUNT(DISTINCT organization_id) AS value FROM adoption_dogs WHERE created_by = 'adoption-staging-import:v1'"), 4);
+  assert.equal(scalar(db, `SELECT COUNT(*) AS value FROM adoption_dogs dog JOIN help_organizations organization ON organization.id = dog.organization_id
+    WHERE dog.created_by = 'adoption-staging-import:v1' AND dog.organization_name = organization.name AND dog.organization_slug = organization.slug`), 36);
+  assert.equal(scalar(db, `SELECT COUNT(*) AS value FROM adoption_dogs WHERE slug IN (${holdSlugs.map(() => "?").join(",")})`, ...holdSlugs), 0);
+  assert.deepEqual(db.prepare("SELECT category, COUNT(*) AS count, group_concat(id || ':' || slug || ':' || updated_at, '|') AS content FROM help_cases GROUP BY category ORDER BY category").all().map((row) => ({ ...row })), legacyBefore);
+  assert.deepEqual(legacyBefore.map(({ category, count }) => ({ category, count })), [{ category: "adopcia", count: 36 }, { category: "utulky", count: 104 }]);
+  assert.deepEqual(db.prepare("SELECT COUNT(*) AS count, SUM(status = 'DRAFT') AS drafts, SUM(published_at IS NOT NULL) AS published FROM help_organizations").get(), organizationsBefore);
+  assert.deepEqual({ ...organizationsBefore }, { count: 106, drafts: 106, published: 0 });
+  assert.deepEqual(db.prepare("SELECT group_concat(id || ':' || slug || ':' || organization_id || ':' || organization_name || ':' || organization_slug || ':' || name, '|') AS content FROM adoption_dogs ORDER BY id").get(), contentBefore);
+});
+
+test("0039 preflight fails before activation if the cohort snapshot is invalid", () => {
+  const db = database();
+  db.exec(stagingImport);
+  db.prepare("UPDATE adoption_dogs SET organization_slug = 'invalid' WHERE id = (SELECT MIN(id) FROM adoption_dogs)").run();
+  assert.throws(() => db.exec(activation), /CHECK constraint failed/);
+  assert.equal(scalar(db, "SELECT COUNT(*) AS value FROM adoption_dogs WHERE status = 'DRAFT'"), 36);
+  assert.equal(scalar(db, "SELECT COUNT(*) AS value FROM adoption_dogs WHERE status = 'ACTIVE'"), 0);
+});
+
+test("activation is cohort-scoped, deterministic and never mutates legacy tables", () => {
+  assert.match(activation, /WHERE created_by = 'adoption-staging-import:v1' AND status = 'DRAFT'/);
+  assert.match(activation, /published_at = '2026-09-15T16:00:00\.000Z'/);
+  assert.match(activation, /updated_by = 'adoption-public-cutover:v1'/);
+  assert.doesNotMatch(activation, /UPDATE\s+(?:help_cases|help_organizations)/i);
+  assert.doesNotMatch(activation, /DELETE\s+FROM/i);
 });

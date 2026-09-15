@@ -69,7 +69,8 @@ jobs:
       - name: Apply foundation migrations to local D1 only
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
-          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql' EXIT
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Seed adoption staging prerequisites into isolated local CI only
         env:
@@ -77,6 +78,10 @@ jobs:
         run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs
       - name: Apply adoption staging migration to local D1 only
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Verify canonical adoption activation in local D1 only
+        env:
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs verify
       - name: Prepare deterministic breed CI fixture and White Swiss image
         env:
           E2E_BASE_URL: http://localhost:5173

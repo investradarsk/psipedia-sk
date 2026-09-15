@@ -70,7 +70,7 @@ test("Pomoc psom keeps the existing adoption category entry pointed at the new c
   assert.match(page, /href=\{helpCategoryHref\(category\)\}/);
 });
 
-test("sitemap adoption filter includes only indexable ACTIVE profiles", () => {
+test("sitemap adoption filter includes fresh described ACTIVE profiles even without an optional image", () => {
   const now = new Date("2026-09-14T12:00:00.000Z");
   const items = filterIndexableAdoptionsForSitemap([
     dog(1, "ACTIVE"),
@@ -82,7 +82,7 @@ test("sitemap adoption filter includes only indexable ACTIVE profiles", () => {
     dog(7, "ADOPTED"),
     dog(8, "ARCHIVED"),
   ], now);
-  assert.deepEqual(items.map((item) => item.slug), ["pes-1"]);
+  assert.deepEqual(items.map((item) => item.slug), ["pes-1", "pes-3"]);
 });
 
 test("sitemap source contains the catalog and indexable new details without duplicating legacy adoption loading", () => {
@@ -92,5 +92,19 @@ test("sitemap source contains the catalog and indexable new details without dupl
   assert.match(sitemap, /adoptionDetailPath\(item\.slug\)/);
   assert.match(sitemap, /getPublishedHelpCases\(\)/);
   assert.equal((sitemap.match(/getPublishedHelpCases\(\)/g) ?? []).length, 1);
+  assert.match(sitemap, /item\.category !== "adopcia"/);
   assert.match(sitemap, /new Map\(entries\.map\(\(entry\) => \[entry\.url, entry\]\)\)/);
+});
+
+test("public help, homepage and portal search no longer source legacy adoption rows", () => {
+  const helpStore = read("../lib/help-store.ts");
+  const helpRoot = read("../app/pomoc-psom/page.tsx");
+  const portalSearch = read("../lib/portal-search.ts");
+  assert.match(helpStore, /status = 'published' AND category <> 'adopcia'/);
+  assert.match(helpStore, /category === "adopcia"\) return \[\]/);
+  assert.match(helpStore, /category <> 'adopcia' AND resolved = 0/);
+  assert.match(helpRoot, /getPublicAdoptions\(\{ page: 1 \}\)/);
+  assert.match(helpRoot, /adoptionCount=\{adoptions\.pagination\.total\}/);
+  assert.match(portalSearch, /listAllPublicAdoptions\(\)/);
+  assert.match(portalSearch, /adoptionDetailPath\(dog\.slug\)/);
 });
