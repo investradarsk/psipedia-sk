@@ -71,8 +71,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<DirectoryInquiryAttentionRow>();
 
   const adoptionsPromise = db.prepare(`
-    SELECT id, name, status, organization_name AS organizationName,
-      last_verified_at AS lastVerifiedAt, created_at AS createdAt
+    SELECT id, name, status, last_verified_at AS lastVerifiedAt, created_at AS createdAt
     FROM adoption_dogs
     WHERE status IN ('ACTIVE', 'RESERVED')
       AND (last_verified_at IS NULL OR last_verified_at < ?)
