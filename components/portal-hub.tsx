@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { EventCard } from "@/components/event-card";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
+import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import type { DogEvent } from "@/lib/events";
@@ -72,7 +73,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
   ];
 
   const latestContent = <section className="section section--tint portal-hub-content">
-    <div className="shell">
+    <PageContainer>
       <div className="section-heading split-heading">
         <div>
           <span className="eyebrow">{hasEventCalendar ? "Najbližšie termíny" : isReviews ? "Najnovšie recenzie a testy" : isEditorialHub && featuredArticles.length ? "Odporúčané a najnovšie" : "Najnovšie v sekcii"}</span>
@@ -96,59 +97,61 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
           <div><h3>{hasEventCalendar ? "Prvé termíny pripravujeme" : isReviews ? "Prvé recenzie pripravujeme" : "Prvé články pripravujeme"}</h3><p>{hasEventCalendar ? "Kalendár je pripravený a nové podujatia sa sem pridávajú cez redakčnú administráciu." : isReviews ? "Kategórie sú pripravené. Publikované recenzie a testy sa zobrazia priamo tu aj vo svojej produktovej kategórii." : "Štruktúra sekcie je už pripravená a redakcia sem môže články pridávať priamo cez administráciu."}</p></div>
         </div>
       )}
-    </div>
+    </PageContainer>
   </section>;
 
   return (
     <main id="obsah">
-      <header className={`portal-hero portal-hero--${section.accent}${heroImage ? " portal-hero--photo" : ""}`}>
-        {heroImage && <img className="portal-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}
-        <div className="shell portal-hero-inner">
-          <nav className="article-breadcrumbs" aria-label="Navigácia">
-            <Link href="/">Domov</Link><span>/</span><span>{section.label}</span>
-          </nav>
-          <div className="portal-hero-copy">
-            <span className="portal-hero-icon" aria-hidden="true">{section.icon}</span>
-            <div>
-              <span className="eyebrow">{section.eyebrow}</span>
-              <h1>{section.label}</h1>
-              <p>{section.description}</p>
-            </div>
+      <SectionHero
+        image={heroImage}
+        className={`portal-hero portal-hero--${section.accent}${heroImage ? " portal-hero--photo" : ""}`}
+        imageClassName="portal-hero-photo"
+        containerClassName="portal-hero-inner"
+      >
+        <Breadcrumbs>
+          <Link href="/">Domov</Link><span>/</span><span>{section.label}</span>
+        </Breadcrumbs>
+        <div className="portal-hero-copy">
+          <span className="portal-hero-icon" aria-hidden="true">{section.icon}</span>
+          <div>
+            <span className="eyebrow">{section.eyebrow}</span>
+            <h1>{section.label}</h1>
+            <p>{section.description}</p>
           </div>
-          <p className="portal-hero-intro">{section.intro}</p>
-          {isCare && <form className="care-search" action="/hladat" method="get">
-            <SearchIcon size={22} />
-            <input type="hidden" name="sekcia" value="starostlivost" />
-            <label className="sr-only" htmlFor="care-search-query">Čo riešiš so svojím psom?</label>
-            <input id="care-search-query" name="q" maxLength={120} placeholder="Čo riešiš? Napríklad hnačka, svrbenie alebo samota…" />
-            <button type="submit">Nájsť odpoveď</button>
-          </form>}
-          {isActivities && <form className="care-search activity-search" action="/hladat" method="get">
-            <SearchIcon size={22} />
-            <input type="hidden" name="sekcia" value="aktivity" />
-            <label className="sr-only" htmlFor="activity-search-query">Akú aktivitu alebo šport hľadáš?</label>
-            <input id="activity-search-query" name="q" maxLength={120} placeholder="Hľadaj šport, výlet, výbavu alebo cestovanie…" />
-            <button type="submit">Hľadať v aktivitách</button>
-          </form>}
-          {isPuppies && <form className="care-search puppy-search" action="/hladat" method="get">
-            <SearchIcon size={22} />
-            <input type="hidden" name="sekcia" value="steniatka" />
-            <label className="sr-only" htmlFor="puppy-search-query">Čo potrebuješ vedieť o šteniatku?</label>
-            <input id="puppy-search-query" name="q" maxLength={120} placeholder="Hľadaj prvú noc, socializáciu, kŕmenie alebo očkovanie…" />
-            <button type="submit">Hľadať v sprievodcovi</button>
-          </form>}
         </div>
-      </header>
+        <p className="portal-hero-intro">{section.intro}</p>
+        {isCare && <form className="care-search" action="/hladat" method="get">
+          <SearchIcon size={22} />
+          <input type="hidden" name="sekcia" value="starostlivost" />
+          <label className="sr-only" htmlFor="care-search-query">Čo riešiš so svojím psom?</label>
+          <input id="care-search-query" name="q" maxLength={120} placeholder="Čo riešiš? Napríklad hnačka, svrbenie alebo samota…" />
+          <button type="submit">Nájsť odpoveď</button>
+        </form>}
+        {isActivities && <form className="care-search activity-search" action="/hladat" method="get">
+          <SearchIcon size={22} />
+          <input type="hidden" name="sekcia" value="aktivity" />
+          <label className="sr-only" htmlFor="activity-search-query">Akú aktivitu alebo šport hľadáš?</label>
+          <input id="activity-search-query" name="q" maxLength={120} placeholder="Hľadaj šport, výlet, výbavu alebo cestovanie…" />
+          <button type="submit">Hľadať v aktivitách</button>
+        </form>}
+        {isPuppies && <form className="care-search puppy-search" action="/hladat" method="get">
+          <SearchIcon size={22} />
+          <input type="hidden" name="sekcia" value="steniatka" />
+          <label className="sr-only" htmlFor="puppy-search-query">Čo potrebuješ vedieť o šteniatku?</label>
+          <input id="puppy-search-query" name="q" maxLength={120} placeholder="Hľadaj prvú noc, socializáciu, kŕmenie alebo očkovanie…" />
+          <button type="submit">Hľadať v sprievodcovi</button>
+        </form>}
+      </SectionHero>
 
       {showSectionTabs && <PortalSectionTabs section={section} />}
 
-      {isCare && <section className="shell care-urgent" aria-labelledby="care-urgent-heading">
+      {isCare && <section className="shell public-shell care-urgent" aria-labelledby="care-urgent-heading">
         <span className="care-urgent-icon" aria-hidden="true">!</span>
         <div><span className="eyebrow">Keď ide o čas</span><h2 id="care-urgent-heading">Má pes akútny problém?</h2><p>Pri sťaženom dýchaní, kolapse, silnom krvácaní, nafúknutom tvrdom bruchu alebo podozrení na otravu nečakaj na odpoveď z internetu.</p></div>
         <div className="care-urgent-actions"><Link href="/starostlivost/kedy-ist-so-psom-k-veterinarovi">Kedy volať ihneď</Link><Link href="/adresar/veterinari" className="is-primary">Nájsť veterinára</Link></div>
       </section>}
 
-      {isActivities && <section className="shell activity-fit" aria-labelledby="activity-fit-heading">
+      {isActivities && <section className="shell public-shell activity-fit" aria-labelledby="activity-fit-heading">
         <div className="activity-fit-heading"><span className="activity-fit-icon" aria-hidden="true">↗</span><div><span className="eyebrow">Vyber rozumne</span><h2 id="activity-fit-heading">Dobrá aktivita sedí konkrétnemu psovi</h2></div></div>
         <div className="activity-fit-factors">
           <div><strong>Vek a zdravie</strong><span>Rast, kĺby, hmotnosť a aktuálna kondícia.</span></div>
@@ -158,7 +161,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
         <Link href="/aktivity/psie-sporty">Porovnať možnosti <ArrowIcon size={18} /></Link>
       </section>}
 
-      {isPuppies && <section className="shell puppy-start" aria-labelledby="puppy-start-heading">
+      {isPuppies && <section className="shell public-shell puppy-start" aria-labelledby="puppy-start-heading">
         <div><span className="eyebrow">Začni podľa situácie</span><h2 id="puppy-start-heading">Čakáš šteniatko alebo je už doma?</h2><p>Vyber si správny začiatok a pokračuj krok za krokom bez zahltenia.</p></div>
         <div className="puppy-start-actions"><Link href="/steniatka/pred-kupou-psa">Ešte sa rozhodujem</Link><Link href="/steniatka/prve-dni" className="is-primary">Šteniatko je doma</Link></div>
       </section>}
@@ -167,7 +170,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
 
       {isReviews && latestContent}
 
-      {!isReviews && <section className="section shell portal-directory" aria-labelledby="portal-directory-heading">
+      {!isReviews && <section className="section shell public-shell portal-directory" aria-labelledby="portal-directory-heading">
         <div className="section-heading split-heading">
           <div>
             <span className="eyebrow">Vyber si oblasť</span>
@@ -191,7 +194,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
 
       {!isEditorialHub && !isReviews && latestContent}
 
-      <section className="section shell">
+      <section className="section shell public-shell">
         <div className="portal-more-heading"><span className="eyebrow">{isCare ? "Pomoc nablízku" : isActivities ? "Tréning a zážitky nablízku" : isPuppies ? "Ďalší bezpečný krok" : "Celá Psipedia"}</span><h2>{isCare ? "Užitočné služby a kontakty" : isActivities ? "Kam pokračovať" : isPuppies ? "Výber, zdravie a vedenie na jednom mieste" : "Pokračuj ďalšou sekciou"}</h2>{isCare && <p>Keď článok nestačí, pokračuj priamo k vhodnému odborníkovi alebo službe.</p>}{isActivities && <p>Nájdi vedenie, klub, podujatie alebo bezpečné riešenie na čas, keď pes nemôže cestovať s tebou.</p>}{isPuppies && <p>Over si rozhodnutie, pôvod šteniatka aj odbornú pomoc skôr, než ju budeš súrne potrebovať.</p>}</div>
         <div className={`portal-more-grid ${isEditorialHub ? "care-service-grid" : ""}`}>
           {(isCare ? careServices : isActivities ? activityServices : isPuppies ? puppyServices : allSections.filter((item) => item.slug !== section.slug).map((item) => ({ icon: item.icon, title: item.label, text: "", href: `/${item.slug}` }))).map((item) => (
