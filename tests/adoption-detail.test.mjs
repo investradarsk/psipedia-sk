@@ -8,6 +8,7 @@ import {
   buildAdoptionDetailSeo,
   buildAdoptionDetailStructuredData,
   isLegacyAdoptionFallbackCandidate,
+  resolveAdoptionDetailSource,
 } from "../lib/adoption-detail.ts";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -137,6 +138,20 @@ test("legacy fallback accepts only a published Help adoption", () => {
   const route = read("../app/pomoc-psom/adopcia/[slug]/page.tsx");
   assert.match(route, /getPublishedHelpCase\("adopcia", slug\)/);
   assert.ok(route.indexOf("getAdoptionBySlug(slug)") < route.indexOf("getLegacyAdoption(slug)"));
+});
+
+test("detail source respects canonical lifecycle before considering legacy fallback", () => {
+  const legacy = { category: "adopcia", status: "published", slug: "ben" };
+  const draft = resolveAdoptionDetailSource(dog("DRAFT"), legacy);
+  assert.equal(draft?.kind, "legacy");
+  assert.equal(draft?.item, legacy);
+  assert.equal(resolveAdoptionDetailSource(dog("ACTIVE"), legacy)?.kind, "canonical");
+  assert.equal(resolveAdoptionDetailSource(dog("RESERVED"), legacy)?.kind, "canonical");
+  assert.equal(resolveAdoptionDetailSource(dog("ADOPTED"), legacy), null);
+  assert.equal(resolveAdoptionDetailSource(dog("ARCHIVED"), legacy), null);
+  assert.equal(resolveAdoptionDetailSource(null, legacy)?.kind, "legacy");
+  assert.equal(resolveAdoptionDetailSource(dog("DRAFT"), { ...legacy, status: "draft" }), null);
+  assert.equal(resolveAdoptionDetailSource(null, { ...legacy, category: "zbierky" }), null);
 });
 
 test("catalog cards link to the new detail route", () => {
