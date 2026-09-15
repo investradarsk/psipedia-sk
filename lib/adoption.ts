@@ -434,23 +434,20 @@ export function isAdoptionPublicStatus(status: AdoptionStatus): status is Adopti
   return (adoptionPublicStatuses as readonly AdoptionStatus[]).includes(status);
 }
 
-export function adoptionPublicationErrors(dog: Pick<NormalizedAdoptionInput, "name" | "slug" | "sex" | "birthDate" | "approximateAgeMonths" | "size" | "region" | "city" | "organizationName" | "mainImage" | "shortDescription" | "description" | "lastVerifiedAt">) {
+export function adoptionPublicationErrors(dog: Pick<NormalizedAdoptionInput, "name" | "slug" | "sex" | "birthDate" | "approximateAgeMonths" | "region" | "city" | "organizationName" | "shortDescription" | "lastVerifiedAt">) {
   const errors: string[] = [];
   if (!dog.name) errors.push("Doplň meno psa.");
   if (!dog.slug) errors.push("Doplň adresu profilu.");
   if (!dog.birthDate && dog.approximateAgeMonths === null) errors.push("Doplň dátum narodenia alebo približný vek.");
   if (dog.sex === "UNKNOWN") errors.push("Doplň pohlavie.");
-  if (dog.size === "UNKNOWN") errors.push("Doplň veľkosť.");
   if (!dog.region || !dog.city) errors.push("Doplň kraj a mesto.");
   if (!dog.organizationName) errors.push("Doplň organizáciu alebo zodpovednú osobu.");
-  if (!dog.mainImage) errors.push("Doplň hlavnú fotografiu.");
   if (dog.shortDescription.length < 30) errors.push("Krátky popis musí mať aspoň 30 znakov.");
-  if (dog.description.length < 80) errors.push("Príbeh psa musí mať aspoň 80 znakov.");
   if (!dog.lastVerifiedAt) errors.push("Doplň dátum posledného overenia.");
   return errors;
 }
 
-export function adoptionIsPublishable(dog: Pick<NormalizedAdoptionInput, "name" | "slug" | "sex" | "birthDate" | "approximateAgeMonths" | "size" | "region" | "city" | "organizationName" | "mainImage" | "shortDescription" | "description" | "lastVerifiedAt">) {
+export function adoptionIsPublishable(dog: Pick<NormalizedAdoptionInput, "name" | "slug" | "sex" | "birthDate" | "approximateAgeMonths" | "region" | "city" | "organizationName" | "shortDescription" | "lastVerifiedAt">) {
   return adoptionPublicationErrors(dog).length === 0;
 }
 

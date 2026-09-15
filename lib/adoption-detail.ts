@@ -64,6 +64,13 @@ export function isLegacyAdoptionFallbackCandidate(item: HelpCase | null) {
   return Boolean(item && item.category === "adopcia" && item.status === "published");
 }
 
+export function resolveAdoptionDetailSource(dog: AdoptionDog | null, legacy: HelpCase | null) {
+  const current = asPublicAdoptionDetail(dog);
+  if (current) return { kind: "canonical" as const, dog: current };
+  if (isLegacyAdoptionFallbackCandidate(legacy)) return { kind: "legacy" as const, item: legacy! };
+  return null;
+}
+
 export function formatAdoptionDetailAge(
   dog: Pick<AdoptionDog, "birthDate" | "approximateAgeMonths">,
   now = new Date(),

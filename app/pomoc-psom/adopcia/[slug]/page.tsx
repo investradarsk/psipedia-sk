@@ -8,6 +8,7 @@ import {
   buildAdoptionDetailSeo,
   buildAdoptionDetailStructuredData,
   isLegacyAdoptionFallbackCandidate,
+  resolveAdoptionDetailSource,
 } from "@/lib/adoption-detail";
 import { getAdoptionBySlug } from "@/lib/adoption-store";
 import { buildContentMetadata, helpSeoFallback } from "@/lib/content-seo";
@@ -26,9 +27,8 @@ async function getLegacyAdoption(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const current = await getAdoptionBySlug(slug);
-  if (current) {
-    const dog = asPublicAdoptionDetail(current);
-    if (!dog) return { robots: { index: false, follow: true } };
+  const dog = asPublicAdoptionDetail(current);
+  if (dog) {
     const seo = buildAdoptionDetailSeo(dog);
     return buildPageMetadata({
       title: seo.title,
@@ -44,18 +44,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const legacy = await getLegacyAdoption(slug);
-  if (!legacy) return {};
-  const fallback = helpSeoFallback(legacy.title, getHelpCategory(legacy.category)?.singular ?? "Pes na adopciu", legacy.city);
+  const fallback = resolveAdoptionDetailSource(current, legacy);
+  if (fallback?.kind !== "legacy") return current ? { robots: { index: false, follow: true } } : {};
+  const item = fallback.item;
+  const seoFallback = helpSeoFallback(item.title, getHelpCategory(item.category)?.singular ?? "Pes na adopciu", item.city);
   return buildContentMetadata({
-    seo: legacy.seo,
-    fallbackTitle: fallback.title,
-    fallbackDescription: fallback.description,
-    path: helpCaseHref(legacy),
-    image: legacy.imageUrl,
-    imageAlt: legacy.title,
+    seo: item.seo,
+    fallbackTitle: seoFallback.title,
+    fallbackDescription: seoFallback.description,
+    path: helpCaseHref(item),
+    image: item.imageUrl,
+    imageAlt: item.title,
     type: "article",
-    publishedTime: legacy.publishedAt || legacy.createdAt,
-    modifiedTime: legacy.updatedAt,
+    publishedTime: item.publishedAt || item.createdAt,
+    modifiedTime: item.updatedAt,
     section: "Pomoc psom",
   });
 }
@@ -63,9 +65,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AdoptionDogPage({ params }: Props) {
   const { slug } = await params;
   const current = await getAdoptionBySlug(slug);
-  if (current) {
-    const dog = asPublicAdoptionDetail(current);
-    if (!dog) notFound();
+  const dog = asPublicAdoptionDetail(current);
+  if (dog) {
     return <>
       <StructuredData value={buildAdoptionDetailStructuredData(dog, SITE_URL)} />
       <AdoptionDetail dog={dog} />
@@ -73,6 +74,7 @@ export default async function AdoptionDogPage({ params }: Props) {
   }
 
   const legacy = await getLegacyAdoption(slug);
-  if (!legacy) notFound();
-  return <HelpDetail item={legacy} />;
+  const fallback = resolveAdoptionDetailSource(current, legacy);
+  if (fallback?.kind !== "legacy") notFound();
+  return <HelpDetail item={fallback.item} />;
 }

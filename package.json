@@ -19,6 +19,7 @@
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
     "audit:breeds": "node scripts/audit-breeds.mjs",
     "audit:production": "node scripts/audit-production-site.mjs",
+    "preflight:adoptions": "node --experimental-strip-types scripts/preflight-adoption-migration.mjs",
     "audit:breed-profiles": "node scripts/audit-breed-profiles.mjs",
     "e2e:install": "playwright install chromium",
     "e2e": "playwright test",

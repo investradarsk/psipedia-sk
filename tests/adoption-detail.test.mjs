@@ -8,6 +8,7 @@ import {
   buildAdoptionDetailSeo,
   buildAdoptionDetailStructuredData,
   isLegacyAdoptionFallbackCandidate,
+  resolveAdoptionDetailSource,
 } from "../lib/adoption-detail.ts";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -137,6 +138,14 @@ test("legacy fallback accepts only a published Help adoption", () => {
   const route = read("../app/pomoc-psom/adopcia/[slug]/page.tsx");
   assert.match(route, /getPublishedHelpCase\("adopcia", slug\)/);
   assert.ok(route.indexOf("getAdoptionBySlug(slug)") < route.indexOf("getLegacyAdoption(slug)"));
+});
+
+test("a DRAFT canonical row cannot shadow a published legacy adoption", () => {
+  const legacy = { category: "adopcia", status: "published", slug: "ben" };
+  const selected = resolveAdoptionDetailSource(dog("DRAFT"), legacy);
+  assert.equal(selected?.kind, "legacy");
+  assert.equal(selected?.item, legacy);
+  assert.equal(resolveAdoptionDetailSource(dog("ACTIVE"), legacy)?.kind, "canonical");
 });
 
 test("catalog cards link to the new detail route", () => {
