@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { resolveAdoptionDetailSource } from "../lib/adoption-detail.ts";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const manifest = JSON.parse(read("../data/imports/adoptions-ready-2026-09-13.json"));
@@ -127,9 +126,6 @@ test("0038 inserts exactly the reviewed draft cohort and preserves source tables
 
   assert.match(adoptionStore, /d\.status IN \('ACTIVE','RESERVED'\)/);
   assert.equal(scalar(db, "SELECT COUNT(*) AS value FROM adoption_dogs WHERE status IN ('ACTIVE','RESERVED')"), 0);
-  const draft = { status: "DRAFT" };
-  const legacy = { category: "adopcia", status: "published" };
-  assert.equal(resolveAdoptionDetailSource(draft, legacy)?.kind, "legacy");
 });
 
 test("a second staging attempt fails on preflight collision without changing the cohort", () => {

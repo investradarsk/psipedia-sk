@@ -6,7 +6,11 @@ const migrationManifest = JSON.parse(readFileSync("data/imports/adoptions-ready-
 
 const catalogPath = "/pomoc-psom/adopcia";
 const rexPath = `${catalogPath}/e2e-adoption-rex-active`;
-const privatePath = `${catalogPath}/e2e-adoption-draft-private`;
+const nonPublicCanonicalPaths = [
+  "e2e-adoption-draft-private",
+  "e2e-adoption-adopted-private",
+  "e2e-adoption-archived-private",
+];
 const privateNames = ["E2E Draft Private", "E2E Adopted Private", "E2E Archived Private"];
 
 async function expectNoCriticalAxeViolations(page: Page) {
@@ -55,10 +59,19 @@ test("seeded adoption catalogue, filters and detail stay public-safe and accessi
   await expectNoHorizontalOverflow(page);
 });
 
-test("private adoption fixture has no public detail", async ({ page }) => {
-  const response = await page.goto(privatePath, { waitUntil: "domcontentloaded" });
+test("non-public canonical lifecycle never falls back to matching published legacy adoption", async ({ page }) => {
+  for (const slug of nonPublicCanonicalPaths) {
+    const response = await page.goto(`${catalogPath}/${slug}`, { waitUntil: "domcontentloaded" });
+    expect(response?.status(), slug).toBe(404);
+    await expect(page.locator('[data-adoption-source="canonical"]')).toHaveCount(0);
+  }
+  await expectNoHorizontalOverflow(page);
+});
+
+test("missing canonical adoption never falls back to an existing published legacy adoption", async ({ page }) => {
+  const response = await page.goto(`${catalogPath}/e2e-adopcia`, { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(404);
-  await expect(page.getByRole("heading", { level: 1, name: "E2E Draft Private" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1, name: "E2E adopcia psa" })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
 
