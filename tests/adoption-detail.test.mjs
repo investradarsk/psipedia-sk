@@ -140,12 +140,18 @@ test("legacy fallback accepts only a published Help adoption", () => {
   assert.ok(route.indexOf("getAdoptionBySlug(slug)") < route.indexOf("getLegacyAdoption(slug)"));
 });
 
-test("a DRAFT canonical row cannot shadow a published legacy adoption", () => {
+test("detail source respects canonical lifecycle before considering legacy fallback", () => {
   const legacy = { category: "adopcia", status: "published", slug: "ben" };
-  const selected = resolveAdoptionDetailSource(dog("DRAFT"), legacy);
-  assert.equal(selected?.kind, "legacy");
-  assert.equal(selected?.item, legacy);
+  const draft = resolveAdoptionDetailSource(dog("DRAFT"), legacy);
+  assert.equal(draft?.kind, "legacy");
+  assert.equal(draft?.item, legacy);
   assert.equal(resolveAdoptionDetailSource(dog("ACTIVE"), legacy)?.kind, "canonical");
+  assert.equal(resolveAdoptionDetailSource(dog("RESERVED"), legacy)?.kind, "canonical");
+  assert.equal(resolveAdoptionDetailSource(dog("ADOPTED"), legacy), null);
+  assert.equal(resolveAdoptionDetailSource(dog("ARCHIVED"), legacy), null);
+  assert.equal(resolveAdoptionDetailSource(null, legacy)?.kind, "legacy");
+  assert.equal(resolveAdoptionDetailSource(dog("DRAFT"), { ...legacy, status: "draft" }), null);
+  assert.equal(resolveAdoptionDetailSource(null, { ...legacy, category: "zbierky" }), null);
 });
 
 test("catalog cards link to the new detail route", () => {
