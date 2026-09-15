@@ -66,7 +66,16 @@ jobs:
           PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
           PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
           EOF
-      - name: Apply migrations to local D1 only
+      - name: Apply foundation migrations to local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed adoption staging prerequisites into isolated local CI only
+        env:
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs
+      - name: Apply adoption staging migration to local D1 only
         run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Prepare deterministic breed CI fixture and White Swiss image
         env:
