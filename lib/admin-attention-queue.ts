@@ -196,7 +196,6 @@ export type AdoptionStaleAttentionRow = {
   id: number;
   name: string;
   status: string;
-  organizationName: string;
   lastVerifiedAt: string | null;
   createdAt: string;
 };
@@ -222,7 +221,6 @@ export function mapAdoptionStaleAttention(row: AdoptionStaleAttentionRow, now = 
     relevantAt,
     ageDays: ageDays(relevantAt, now),
     targetHref: `/admin/adopcie/${row.id}`,
-    metadata: row.organizationName ? [{ label: "Organizácia", value: row.organizationName }] : undefined,
   };
 }
 
