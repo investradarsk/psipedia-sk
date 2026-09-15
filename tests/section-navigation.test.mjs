@@ -49,8 +49,18 @@ test("portal hub callouts cannot pull back over section tabs", () => {
 
   assert.match(
     css,
-    /\.portal-section-tabs\s*\+\s*\.shell\s*\{[\s\S]*?margin-top:\s*var\(--ps-space-stack\);[\s\S]*?\}/,
-    "spoločný layout musí po SectionTabs rezervovať kladnú vertikálnu medzeru",
+    /\.portal-section-tabs\s*\+\s*\.care-urgent,\s*\.portal-section-tabs\s*\+\s*\.activity-fit,\s*\.portal-section-tabs\s*\+\s*\.puppy-start\s*\{[\s\S]*?margin-top:\s*var\(--ps-space-stack\);[\s\S]*?\}/,
+    "hub callouty musia po SectionTabs rezervovať kladnú vertikálnu medzeru",
+  );
+  assert.match(
+    css,
+    /\.portal-section-tabs\s*\+\s*\.portal-topic-body\s*\{[\s\S]*?margin-top:\s*0;[\s\S]*?padding-top:\s*var\(--ps-space-stack\);[\s\S]*?\}/,
+    "PortalTopic musí používať jedinú kladnú medzeru bez dvojitého marginu",
+  );
+  assert.doesNotMatch(
+    css,
+    /\.portal-section-tabs\s*\+\s*\.shell\s*\{/,
+    "spacing nesmie byť naviazaný na globálny shell, ktorý zdieľa aj admin",
   );
 
   const tabsPosition = hub.indexOf("<PortalSectionTabs section={section}");
@@ -78,4 +88,5 @@ test("section tabs remain compact and horizontally scrollable on small screens",
   assert.match(css, /scroll-snap-type: x proximity/);
   assert.match(css, /\.section-tab\.is-active/);
   assert.match(css, /\.section-tab\[aria-current="page"\]/);
+  assert.match(css, /\.section-tab\s*\{[\s\S]*?min-height:\s*44px/);
 });

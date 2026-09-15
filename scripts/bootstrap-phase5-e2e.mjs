@@ -160,8 +160,14 @@ async function verifyPublicRoutes(baseUrl) {
   console.log(`[phase5-e2e-bootstrap] HTTP smoke PASS: /recenzie 200, 8 managed review tabs, seeded review card, /recenzie/krmiva 200, /recenzie/${REVIEW_SLUG} 200.`);
 }
 
+const mode = process.argv[2] || "full";
 const baseUrl = requireLocalBaseUrl();
 await materializeReviewSection(baseUrl);
-await upsertSeedArticle(baseUrl);
-await verifyPublicRoutes(baseUrl);
-console.log(`[phase5-e2e-bootstrap] Bootstrap PASS at ${baseUrl}. Re-running is idempotent for ${REVIEW_SLUG}.`);
+if (mode === "sections-only") {
+  console.log(`[phase5-e2e-bootstrap] Managed Portal section bootstrap PASS at ${baseUrl}.`);
+} else {
+  if (mode !== "full") fail(`Unknown mode ${JSON.stringify(mode)}.`);
+  await upsertSeedArticle(baseUrl);
+  await verifyPublicRoutes(baseUrl);
+  console.log(`[phase5-e2e-bootstrap] Bootstrap PASS at ${baseUrl}. Re-running is idempotent for ${REVIEW_SLUG}.`);
+}

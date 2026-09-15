@@ -131,7 +131,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
         <a className="skip-link" href="#obsah">Preskočiť na obsah</a>
       </nav>
       <header className="site-header" ref={headerRef}>
-        <div className="header-inner shell">
+        <div className="header-inner shell public-shell">
           <Link href="/" className="brand" aria-label="Psipedia.sk – domov">
             <span className="brand-mark"><PawMark size={29} /></span>
             <span>psi<span>pedia</span><small>.sk</small></span>
@@ -198,7 +198,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
         </div>
 
         <div id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
-          <nav className="shell" aria-label="Mobilná navigácia">
+          <nav className="shell public-shell" aria-label="Mobilná navigácia">
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>
                 <div className="mobile-nav-parent">

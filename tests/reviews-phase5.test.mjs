@@ -11,7 +11,7 @@ test("Phase 5 review hub uses managed canonical category navigation and surfaces
   assert.match(hub, /showSectionTabs && <PortalSectionTabs section=\{section\}/);
   assert.match(hub, /isEditorialHub && latestContent/);
   assert.match(hub, /isReviews && latestContent/);
-  assert.match(hub, /!isReviews && <section className="section shell portal-directory"/);
+  assert.match(hub, /!isReviews && <section className="section shell public-shell portal-directory"/);
   assert.match(hub, /subpages\.find\(\(item\) => item\.slug === article\.portalSubpage\)/);
   assert.match(hub, /portalSubpageHref\(section, category\)/);
   assert.match(hub, /actionLabel: "Čítať recenziu"/);
@@ -24,8 +24,8 @@ test("Phase 5 review category pages are direct filtered listings, not generic in
   assert.match(topic, /section\.slug !== "recenzie" \|\| article\.portalSubpage === subpage\.slug/);
   assert.match(topic, /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
   assert.match(topic, /isReviews && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
-  assert.match(topic, /!isReviews && <section className="section shell portal-topic-body"/);
-  assert.match(topic, /hasReviewGuide && <section className="section shell portal-topic-body review-topic-guide"/);
+  assert.match(topic, /!isReviews && <section className="section shell public-shell portal-topic-body"/);
+  assert.match(topic, /hasReviewGuide && <section className="section shell public-shell portal-topic-body review-topic-guide"/);
   assert.match(topic, /Recenzie v kategórii/);
   assert.match(topic, /Všetky recenzie/);
 });

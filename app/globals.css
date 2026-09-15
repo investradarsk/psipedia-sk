@@ -37,7 +37,7 @@
 .care-search svg { color: var(--forest); }
 .care-search input { min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font: inherit; }
 .care-search button { min-height: 46px; padding: 0 20px; border: 0; border-radius: 12px; color: white; background: var(--forest); font-weight: 800; cursor: pointer; }
-.care-urgent { position: relative; z-index: 2; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 22px; align-items: center; margin-top: -29px; padding: 24px 28px; border: 1px solid rgba(178, 75, 54, .22); border-radius: 22px; background: #fffaf6; box-shadow: 0 14px 38px rgba(80, 42, 29, .09); }
+.care-urgent { position: relative; z-index: 2; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 22px; align-items: center;  padding: 24px 28px; border: 1px solid rgba(178, 75, 54, .22); border-radius: 22px; background: #fffaf6; box-shadow: 0 14px 38px rgba(80, 42, 29, .09); }
 .care-urgent-icon { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 50%; color: white; background: var(--coral-dark); font-family: Georgia, serif; font-size: 1.8rem; }
 .care-urgent .eyebrow { margin: 0 0 3px; color: var(--coral-dark); }
 .care-urgent h2 { margin: 0 0 4px; font-size: clamp(1.45rem, 2.4vw, 2rem); }
@@ -74,7 +74,7 @@
 
 /* Výcvik a aktivity — výber podľa psa a bezpečný začiatok */
 .activity-search button { color: var(--ink); background: var(--gold); }
-.activity-fit { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(240px,.85fr) minmax(0,1.35fr) auto; gap: 24px; align-items: center; margin-top: -29px; padding: 24px 28px; border: 1px solid rgba(177,128,25,.2); border-radius: 22px; background: #fffaf0; box-shadow: 0 14px 38px rgba(91,67,19,.09); }
+.activity-fit { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(240px,.85fr) minmax(0,1.35fr) auto; gap: 24px; align-items: center;  padding: 24px 28px; border: 1px solid rgba(177,128,25,.2); border-radius: 22px; background: #fffaf0; box-shadow: 0 14px 38px rgba(91,67,19,.09); }
 .activity-fit-heading { display: flex; gap: 14px; align-items: center; }
 .activity-fit-heading .eyebrow { margin-bottom: 3px; color: #8b681e; }
 .activity-fit-heading h2 { margin: 0; font-size: clamp(1.35rem,2vw,1.8rem); }
@@ -94,7 +94,7 @@
 
 /* Šteniatka — sprievodca od rozhodnutia po dospievanie */
 .puppy-search button { background: var(--coral-dark); }
-.puppy-start { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 24px; align-items: center; margin-top: -29px; padding: 24px 28px; border: 1px solid rgba(217,88,62,.2); border-radius: 22px; background: #fff8f3; box-shadow: 0 14px 38px rgba(111,54,39,.09); }
+.puppy-start { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 24px; align-items: center;  padding: 24px 28px; border: 1px solid rgba(217,88,62,.2); border-radius: 22px; background: #fff8f3; box-shadow: 0 14px 38px rgba(111,54,39,.09); }
 .puppy-start .eyebrow { margin-bottom: 3px; color: var(--coral-dark); }
 .puppy-start h2 { margin: 0 0 5px; font-size: clamp(1.45rem,2.4vw,2rem); }
 .puppy-start p { margin: 0; color: var(--muted); font-size: .82rem; }
@@ -195,13 +195,13 @@
 @media (max-width: 620px) {
   .care-search { grid-template-columns: auto minmax(0,1fr); padding: 12px 14px; }
   .care-search button { grid-column: 1 / -1; width: 100%; }
-  .care-urgent { grid-template-columns: 1fr; margin-top: -18px; padding: 20px; }
+  .care-urgent { grid-template-columns: 1fr;  padding: 20px; }
   .care-urgent-actions { grid-column: auto; }
   .care-urgent-actions a { width: 100%; justify-content: center; }
-  .activity-fit { margin-top: -18px; padding: 20px; }
+  .activity-fit {  padding: 20px; }
   .activity-fit-factors { grid-template-columns: 1fr; gap: 10px; }
   .activity-fit > a { width: 100%; justify-self: stretch; }
-  .puppy-start { margin-top: -18px; padding: 20px; }
+  .puppy-start {  padding: 20px; }
   .puppy-start-actions { display: grid; }
   .puppy-start-actions a { justify-content: center; }
   .portal-subpage-card.care-area-card { min-height: 0; grid-template-columns: auto minmax(0,1fr); padding: 20px; }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
+import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
@@ -88,22 +89,20 @@ export function PortalTopic({
 
   return (
     <main id="obsah">
-      <header className={`portal-topic-hero portal-topic-hero--${section.accent}`}>
-        <div className="shell">
-          <nav className="article-breadcrumbs" aria-label="Navigácia">
-            <Link href="/">Domov</Link><span>/</span><Link href={`/${section.slug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
-          </nav>
-          <span className="eyebrow">{section.eyebrow}</span>
-          <div className="portal-topic-title">{subpage.icon && <span aria-hidden="true">{subpage.icon}</span>}<h1>{subpage.label}</h1></div>
-          <p>{subpage.description}</p>
-        </div>
-      </header>
+      <SectionHero className={`portal-topic-hero portal-topic-hero--${section.accent}`} containerClassName="portal-topic-hero-inner">
+        <Breadcrumbs>
+          <Link href="/">Domov</Link><span>/</span><Link href={`/${section.slug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
+        </Breadcrumbs>
+        <span className="eyebrow">{section.eyebrow}</span>
+        <div className="portal-topic-title">{subpage.icon && <span aria-hidden="true">{subpage.icon}</span>}<h1>{subpage.label}</h1></div>
+        <p>{subpage.description}</p>
+      </SectionHero>
 
       {isStructuredTopic && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
 
       {isReviews && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
 
-      {!isReviews && <section className="section shell portal-topic-body">
+      {!isReviews && <section className="section shell public-shell portal-topic-body">
         <div className="portal-topic-copy">
           {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
           <span className="eyebrow">Čo tu nájdeš</span>
@@ -119,7 +118,7 @@ export function PortalTopic({
         </aside>
       </section>}
 
-      {hasReviewGuide && <section className="section shell portal-topic-body review-topic-guide">
+      {hasReviewGuide && <section className="section shell public-shell portal-topic-body review-topic-guide">
         <div className="portal-topic-copy">
           {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
           <span className="eyebrow">Sprievodca kategóriou</span>
@@ -140,7 +139,7 @@ export function PortalTopic({
       </section>}
 
       {isCare && <section className="section section--tint care-guidance-section">
-        <div className="shell">
+        <PageContainer>
           <div className="section-heading"><span className="eyebrow">Rýchla orientácia</span><h2>Čo môžeš sledovať a kedy už nečakať</h2></div>
           <div className="care-guidance-grid">
             <article className="care-guidance-card"><span aria-hidden="true">✓</span><h3>Čo môžeš urobiť doma</h3><ul>{(subpage.homeSteps ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
@@ -148,11 +147,11 @@ export function PortalTopic({
           </div>
           {subpage.expertAdvice && <div className="care-expert-callout"><span aria-hidden="true">🩺</span><div><strong>Kedy vyhľadať odborníka</strong><p>{subpage.expertAdvice}</p></div></div>}
           {!!subpage.serviceLinks?.length && <div className="care-topic-services"><div><span className="eyebrow">Pomoc nablízku</span><h3>Užitočné kontakty</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
-        </div>
+        </PageContainer>
       </section>}
 
       {isActivities && <section className="section section--tint care-guidance-section activity-guidance-section">
-        <div className="shell">
+        <PageContainer>
           <div className="section-heading"><span className="eyebrow">Od prvého kroku bezpečne</span><h2>Ako začať a čo si postrážiť</h2></div>
           <div className="care-guidance-grid">
             <article className="care-guidance-card activity-guidance-card"><span aria-hidden="true">1</span><h3>Ako začať</h3><ul>{(subpage.homeSteps ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
@@ -160,11 +159,11 @@ export function PortalTopic({
           </div>
           {subpage.expertAdvice && <div className="care-expert-callout activity-expert-callout"><span aria-hidden="true">🐕</span><div><strong>Čo zvážiť pri výbere</strong><p>{subpage.expertAdvice}</p></div></div>}
           {!!subpage.serviceLinks?.length && <div className="care-topic-services activity-topic-services"><div><span className="eyebrow">Užitočné pokračovanie</span><h3>Kontakty a súvisiace služby</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
-        </div>
+        </PageContainer>
       </section>}
 
       {isPuppies && <section className="section section--tint care-guidance-section puppy-guidance-section">
-        <div className="shell">
+        <PageContainer>
           <div className="section-heading"><span className="eyebrow">Krok za krokom</span><h2>Čo urobiť teraz a čo radšej neprehliadnuť</h2></div>
           <div className="care-guidance-grid">
             <article className="care-guidance-card puppy-guidance-card"><span aria-hidden="true">✓</span><h3>Čo urobiť teraz</h3><ul>{(subpage.homeSteps ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
@@ -172,11 +171,11 @@ export function PortalTopic({
           </div>
           {subpage.expertAdvice && <div className="care-expert-callout puppy-expert-callout"><span aria-hidden="true">🐶</span><div><strong>Dôležité pre túto fázu</strong><p>{subpage.expertAdvice}</p></div></div>}
           {!!subpage.serviceLinks?.length && <div className="care-topic-services puppy-topic-services"><div><span className="eyebrow">Užitočné pokračovanie</span><h3>Kontakty a súvisiace služby</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
-        </div>
+        </PageContainer>
       </section>}
 
       <section className={`section ${isStructuredTopic || isReviews ? "" : "section--tint"}`}>
-        <div className="shell">
+        <PageContainer>
           <div className="section-heading split-heading">
             <div><span className="eyebrow">{newsCategory ? "Najnovšie správy" : isReviews ? "Recenzie v kategórii" : "Súvisiace čítanie"}</span><h2>{newsCategory ? newsCategory.label : isReviews ? subpage.label : isActivities || isPuppies ? `Články: ${subpage.label}` : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`}</h2></div>
             <Link href={newsCategory ? "/novinky" : isReviews ? "/recenzie" : "/clanky"} className="text-link text-link--large">{newsCategory ? "Všetky novinky" : isReviews ? "Všetky recenzie" : "Všetky články"} <ArrowIcon /></Link>
@@ -189,7 +188,7 @@ export function PortalTopic({
           {isCare && <p className="care-medical-note"><strong>Bezpečnostná poznámka:</strong> Informácie slúžia na orientáciu a nenahrádzajú diagnózu ani veterinárne vyšetrenie.</p>}
           {isActivities && <p className="care-medical-note activity-safety-note"><strong>Primeraná záťaž:</strong> Pri bolesti, krívaní, neobvyklej únave alebo prehrievaní aktivitu ukonči. Ďalší postup podľa stavu konzultuj s veterinárom.</p>}
           {isPuppies && <p className="care-medical-note puppy-safety-note"><strong>Bezpečný vývoj:</strong> Každé šteniatko rastie inak. Zdravie, očkovanie, výživu a primeranú záťaž konzultuj s veterinárom, ktorý pozná jeho stav.</p>}
-        </div>
+        </PageContainer>
       </section>
     </main>
   );
