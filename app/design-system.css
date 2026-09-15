@@ -13,8 +13,10 @@
   --ps-space-stack: 20px;
 }
 
-/* Shared public-page primitives. `.shell` remains the canonical width source. */
-.page-container {
+/* Shared public-page primitives. `.shell` remains the canonical width source;
+   `.public-shell` narrows only the public mobile gutter without touching admin. */
+.page-container,
+.public-shell {
   max-width: var(--ps-content-max);
 }
 
@@ -118,7 +120,7 @@
 .section-tab {
   display: inline-flex;
   flex: 0 0 auto;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   padding: 8px 13px;
@@ -147,9 +149,45 @@
   background: var(--forest);
 }
 
-/* Portal flow: hero → tabs → following shell content stays below the navigation. */
-.portal-section-tabs + .shell {
+/* Public navigation belongs to the shared public foundation; admin-only rules stay in navigation-hotfix.css. */
+.desktop-nav .nav-submenu a::after {
+  display: none !important;
+  content: none !important;
+}
+
+.nav-submenu a:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+
+#mobile-menu.is-open {
+  grid-template-rows: minmax(0, 1fr);
+  max-height: calc(100dvh - 68px);
+  overflow: hidden;
+}
+
+#mobile-menu.is-open > nav {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Portal flow: tabs and the first content block use one positive spacing token. */
+.portal-section-tabs + .care-urgent,
+.portal-section-tabs + .activity-fit,
+.portal-section-tabs + .puppy-start {
   margin-top: var(--ps-space-stack);
+}
+
+.portal-section-tabs + .portal-topic-body {
+  margin-top: 0;
+  padding-top: var(--ps-space-stack);
 }
 
 .filter-bar {
@@ -280,7 +318,7 @@
 .event-detail-summary dt {
   margin-bottom: 7px;
   color: var(--ink-3, var(--ink-2));
-  font-size: 0.72rem;
+  font-size: 0.72em;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -437,15 +475,26 @@
     --ps-space-block: 24px;
   }
 
+  .public-shell,
+  .site-header .shell {
+    width: min(100% - 32px, 520px);
+  }
+
   .section-tabs-inner {
     gap: 6px;
     padding-block: 9px;
   }
 
   .section-tab {
-    min-height: 36px;
-    padding: 7px 11px;
+    min-height: 44px;
+    padding: 8px 11px;
     font-size: 0.74rem;
+  }
+
+  .menu-trigger,
+  #mobile-menu a,
+  #mobile-menu button {
+    min-height: 44px;
   }
 
   .event-detail-hero {
