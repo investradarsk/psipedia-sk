@@ -5,7 +5,7 @@ function cx(...values: Array<string | false | null | undefined>) {
 }
 
 export function PageContainer({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div {...props} className={cx("shell", "page-container", className)} />;
+  return <div {...props} className={cx("shell", "public-shell", "page-container", className)} />;
 }
 
 export function Breadcrumbs({
