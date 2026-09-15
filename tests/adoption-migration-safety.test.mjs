@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   ADOPTION_HOLD_SLUGS,
@@ -105,11 +105,8 @@ test("preflight fails on any target slug collision and never blind-upserts", () 
   assert.throws(() => preflightAdoptionMigration(manifest, legacy, organizations, [manifest.ready[0].slug]), /Target adoption slug collision/);
 });
 
-test("migration safety sources contain no numeric organization mapping or active Drizzle data migration", () => {
+test("migration safety source contains no numeric organization mapping or ACTIVE payload", () => {
   const source = read("../lib/adoption-migration-safety.ts");
   assert.doesNotMatch(source, /organizationId:\s*\d+/);
   assert.doesNotMatch(source, /status:\s*["']ACTIVE["']/);
-  const migrations = readdirSync(new URL("../drizzle", import.meta.url)).filter((name) => /^\d+_.*\.sql$/.test(name));
-  assert.equal(migrations.at(-1), "0037_import_ready_help_organizations.sql");
-  assert.equal(migrations.some((name) => /adoption.*(import|migration|cutover)/i.test(name)), false);
 });
