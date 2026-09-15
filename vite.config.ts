@@ -12,6 +12,7 @@ const isExplicitLocalE2eBootstrap = process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP ===
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_date: "2026-05-22",
+  version_metadata: { binding: "CF_VERSION_METADATA" },
   // Production keeps Cloudflare Access from wrangler.jsonc. Only the explicit
   // local E2E bootstrap disables that Worker-level gate so the existing
   // localhost preview admin identity can reach the normal admin API routes.

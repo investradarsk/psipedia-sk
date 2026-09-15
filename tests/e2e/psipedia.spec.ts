@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
+const NO_CONSENT_TEST = "@production cookie banner is operable and navigation works before consent";
 
 async function useNecessaryCookies(page: Page) {
   await page.addInitScript(([key]) => localStorage.setItem(key, "necessary"), [CONSENT_KEY]);
@@ -89,7 +90,9 @@ async function expectSectionTabsClear(page: Page, path: string, minimumGap = 0) 
   expect(hit, `${path}: active tab is covered by another layer`).toBe(true);
 }
 
-test.beforeEach(async ({ page }) => useNecessaryCookies(page));
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title !== NO_CONSENT_TEST) await useNecessaryCookies(page);
+});
 
 test("desktop and mobile menus expose the same primary destinations without hidden focus targets", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 900 });
@@ -231,7 +234,7 @@ test("@production robots and sitemaps are available and valid", async ({ request
   }
 });
 
-test("@production cookie banner is operable and navigation works before consent", async ({ page }) => {
+test(NO_CONSENT_TEST, async ({ page }) => {
   await page.addInitScript(([key]) => localStorage.removeItem(key), [CONSENT_KEY]);
   await page.goto("/");
   const dialog = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
