@@ -190,6 +190,12 @@
   padding-top: var(--ps-space-stack);
 }
 
+.portal-section-tabs
+  + .portal-topic-body:not(.review-topic-guide)
+  > .portal-topic-copy:first-child {
+  margin-top: 0;
+}
+
 .filter-bar {
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-filter);
@@ -475,8 +481,7 @@
     --ps-space-block: 24px;
   }
 
-  .public-shell,
-  .site-header .shell {
+  .public-shell {
     width: min(100% - 32px, 520px);
   }
 
