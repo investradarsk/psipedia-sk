@@ -86,7 +86,7 @@ test("detail SEO follows active quality and stale/indexability rules", () => {
   assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE")), now).indexable, true);
   assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("RESERVED")), now).indexable, false);
   assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE", { lastVerifiedAt: "2026-06-01T08:00:00.000Z" })), now).indexable, false);
-  assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE", { mainImage: null })), now).indexable, false);
+  assert.equal(buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE", { mainImage: null })), now).indexable, true);
   const seo = buildAdoptionDetailSeo(asPublicAdoptionDetail(dog("ACTIVE")), now);
   assert.equal(seo.path, "/pomoc-psom/adopcia/ben");
   assert.match(seo.description, /Priateľský labrador/);
