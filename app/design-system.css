@@ -318,7 +318,7 @@
 .event-detail-summary dt {
   margin-bottom: 7px;
   color: var(--ink-3, var(--ink-2));
-  font-size: 0.72em;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
