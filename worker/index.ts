@@ -1,6 +1,7 @@
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
+import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -15,6 +16,7 @@ interface Env {
   ACCESS_AUD?: string;
   RESEND_API_KEY?: string;
   EDITORIAL_FROM_EMAIL?: string;
+  CF_VERSION_METADATA: WorkerVersionMetadata;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -79,7 +81,7 @@ const worker = {
       return Response.redirect(url, 301);
     }
 
-    const cache = publicHtmlCache(request, url);
+    const cache = publicHtmlCache(request, url, env.CF_VERSION_METADATA?.id);
     if (cache) {
       const cached = await cache.storage.match(cache.key);
       if (cached) return responseWithHeaders(cached, publicHtmlCacheHeaders("HIT"));
@@ -154,14 +156,15 @@ const worker = {
   },
 };
 
-function publicHtmlCache(request: Request, url: URL): { storage: Cache; key: Request } | null {
+function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): { storage: Cache; key: Request } | null {
   if (request.method !== "GET" || url.search || isAdminAuthPath(url.pathname)) return null;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/media/") || url.pathname.startsWith("/_")) return null;
   if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
   const accept = request.headers.get("accept") ?? "";
   if (accept && !accept.includes("text/html") && !accept.includes("*/*")) return null;
   const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
-  return storage ? { storage, key: new Request(url.toString(), { method: "GET" }) } : null;
+  if (!storage || !workerVersionId) return null;
+  return { storage, key: new Request(versionedPublicHtmlCacheUrl(url, workerVersionId), { method: "GET" }) };
 }
 
 function publicHtmlCacheHeaders(status: "HIT" | "MISS"): Record<string, string> {
