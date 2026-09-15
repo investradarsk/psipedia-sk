@@ -1,6 +1,6 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { adminAuditActorRef } from "@/lib/audit-identity";
-import { getModerationSubmission, isFoundationSubmissionStatus, transitionModerationSubmission } from "@/lib/moderation-store";
+import { getModerationSubmission, isFoundationSubmissionStatus, ModerationStateConflictError, transitionModerationSubmission } from "@/lib/moderation-store";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +27,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     const item = await transitionModerationSubmission({ id, toStatus: body.status, actorRef: await adminAuditActorRef(user.email), reasonCode: typeof body.reasonCode === "string" ? body.reasonCode : null, requestId: request.headers.get("cf-ray") });
     return item ? Response.json(item, { headers: { "cache-control": "no-store" } }) : Response.json({ error: "Nenájdené." }, { status: 404 });
   } catch (error) {
+    if (error instanceof ModerationStateConflictError) return Response.json({ error: "Stav moderácie sa medzičasom zmenil. Obnov záznam a skús akciu znova." }, { status: 409 });
     if (error instanceof Error && error.message === "Invalid moderation state transition") return Response.json({ error: "Nepovolený prechod stavu." }, { status: 409 });
     console.error("Moderation transition failed.", error instanceof Error ? error.message : "unknown error");
     return Response.json({ error: "Operáciu sa nepodarilo dokončiť." }, { status: 503 });
