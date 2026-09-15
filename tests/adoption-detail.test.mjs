@@ -7,8 +7,6 @@ import {
   buildAdoptionDetailSections,
   buildAdoptionDetailSeo,
   buildAdoptionDetailStructuredData,
-  isLegacyAdoptionFallbackCandidate,
-  resolveAdoptionDetailSource,
 } from "../lib/adoption-detail.ts";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -130,28 +128,23 @@ test("missing optional data does not create empty information sections", () => {
   assert.equal(sections.gallery, false);
 });
 
-test("legacy fallback accepts only a published Help adoption", () => {
-  const legacy = { category: "adopcia", status: "published" };
-  assert.equal(isLegacyAdoptionFallbackCandidate(legacy), true);
-  assert.equal(isLegacyAdoptionFallbackCandidate({ category: "adopcia", status: "draft" }), false);
-  assert.equal(isLegacyAdoptionFallbackCandidate({ category: "zbierky", status: "published" }), false);
+test("detail route is canonical-only and cannot reach the legacy Help renderer", () => {
   const route = read("../app/pomoc-psom/adopcia/[slug]/page.tsx");
-  assert.match(route, /getPublishedHelpCase\("adopcia", slug\)/);
-  assert.ok(route.indexOf("getAdoptionBySlug(slug)") < route.indexOf("getLegacyAdoption(slug)"));
+  assert.match(route, /getAdoptionBySlug\(slug\)/);
+  assert.match(route, /asPublicAdoptionDetail\(current\)/);
+  assert.match(route, /if \(dog\)/);
+  assert.match(route, /<AdoptionDetail dog=\{dog\}/);
+  assert.match(route, /notFound\(\)/);
+  assert.doesNotMatch(route, /getPublishedHelpCase|getLegacyAdoption|HelpDetail|help_cases|resolveAdoptionDetailSource/);
 });
 
-test("detail source respects canonical lifecycle before considering legacy fallback", () => {
-  const legacy = { category: "adopcia", status: "published", slug: "ben" };
-  const draft = resolveAdoptionDetailSource(dog("DRAFT"), legacy);
-  assert.equal(draft?.kind, "legacy");
-  assert.equal(draft?.item, legacy);
-  assert.equal(resolveAdoptionDetailSource(dog("ACTIVE"), legacy)?.kind, "canonical");
-  assert.equal(resolveAdoptionDetailSource(dog("RESERVED"), legacy)?.kind, "canonical");
-  assert.equal(resolveAdoptionDetailSource(dog("ADOPTED"), legacy), null);
-  assert.equal(resolveAdoptionDetailSource(dog("ARCHIVED"), legacy), null);
-  assert.equal(resolveAdoptionDetailSource(null, legacy)?.kind, "legacy");
-  assert.equal(resolveAdoptionDetailSource(dog("DRAFT"), { ...legacy, status: "draft" }), null);
-  assert.equal(resolveAdoptionDetailSource(null, { ...legacy, category: "zbierky" }), null);
+test("only ACTIVE and RESERVED can reach the canonical renderer", () => {
+  assert.equal(asPublicAdoptionDetail(dog("ACTIVE"))?.status, "ACTIVE");
+  assert.equal(asPublicAdoptionDetail(dog("RESERVED"))?.status, "RESERVED");
+  assert.equal(asPublicAdoptionDetail(dog("DRAFT")), null);
+  assert.equal(asPublicAdoptionDetail(dog("ADOPTED")), null);
+  assert.equal(asPublicAdoptionDetail(dog("ARCHIVED")), null);
+  assert.equal(asPublicAdoptionDetail(null), null);
 });
 
 test("catalog cards link to the new detail route", () => {

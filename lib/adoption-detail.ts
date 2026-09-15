@@ -7,7 +7,6 @@ import {
   type AdoptionDog,
   type AdoptionPublicStatus,
 } from "./adoption.ts";
-import type { HelpCase } from "./help.ts";
 
 export type PublicAdoptionDetailDog = AdoptionDog & { status: AdoptionPublicStatus };
 
@@ -58,18 +57,6 @@ export function adoptionDetailPath(slug: string) {
 
 export function asPublicAdoptionDetail(dog: AdoptionDog | null): PublicAdoptionDetailDog | null {
   return dog && isAdoptionPublicStatus(dog.status) ? dog as PublicAdoptionDetailDog : null;
-}
-
-export function isLegacyAdoptionFallbackCandidate(item: HelpCase | null) {
-  return Boolean(item && item.category === "adopcia" && item.status === "published");
-}
-
-export function resolveAdoptionDetailSource(dog: AdoptionDog | null, legacy: HelpCase | null) {
-  const current = asPublicAdoptionDetail(dog);
-  if (current) return { kind: "canonical" as const, dog: current };
-  if (dog && dog.status !== "DRAFT") return null;
-  if (isLegacyAdoptionFallbackCandidate(legacy)) return { kind: "legacy" as const, item: legacy! };
-  return null;
 }
 
 export function formatAdoptionDetailAge(

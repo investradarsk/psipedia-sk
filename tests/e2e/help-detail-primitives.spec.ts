@@ -3,7 +3,6 @@ import { expect, test } from "@playwright/test";
 
 const cases = [
   { path: "/pomoc-psom/utulky/e2e-organizacia", title: "E2E pomocná organizácia", facts: "Typ organizácie" },
-  { path: "/pomoc-psom/adopcia/e2e-adopcia", title: "Beny", facts: "Plemeno / typ" },
   { path: "/pomoc-psom/docasna-opatera/e2e-docasna-opatera", title: "Max", facts: "Organizácia" },
   { path: "/pomoc-psom/zbierky/e2e-zbierka", title: "E2E finančná výzva", facts: "Overenie" },
   { path: "/pomoc-psom/dobrovolnictvo/e2e-dobrovolnictvo", title: "E2E dobrovoľnícka výzva", facts: "Organizácia" },
@@ -33,12 +32,12 @@ test("contact actions and help options remain operable; absent data creates no e
   await expect(page.getByRole("link", { name: "https://example.org ↗" })).toHaveAttribute("href", "https://example.org/");
   await expect(page.getByText("venčenie", { exact: true })).toBeVisible();
 
-  await page.goto(cases[2].path);
+  await page.goto(cases[1].path);
   await expect(page.getByRole("heading", { name: "Kontakty" })).toHaveCount(0);
   await expect(page.locator("dt", { hasText: "Vek" })).toHaveCount(0);
   await expect(page.getByText("Nezistené", { exact: true })).toHaveCount(0);
 
-  await page.goto(cases[3].path);
+  await page.goto(cases[2].path);
   await expect(page.getByRole("heading", { name: "Stav zbierky" })).toBeVisible();
   await expect(page.getByRole("progressbar", { name: "Priebeh zbierky" })).toHaveAttribute("aria-valuenow", "35");
   await expect(page.getByRole("link", { name: /Podporiť/ })).toHaveCount(0);
