@@ -107,6 +107,11 @@ jobs:
             tail -200 .e2e-artifacts/local-server.log
             exit 1
           fi
+      - name: Materialize canonical managed Portal sections in isolated local CI only
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-phase5-e2e.mjs sections-only
       - name: Public navigation Playwright — desktop and mobile
         env:
           E2E_BASE_URL: http://localhost:5173
