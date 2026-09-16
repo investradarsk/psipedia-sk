@@ -1,4 +1,5 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { assertAdminDogReportTypeChangeKeepsDuplicateInvariant } from "@/lib/lost-found-duplicate-invariant";
 import { getAdminDogReport, updateAdminDogReport, type ManagedDogReportInput } from "@/lib/lost-found-dog-store";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,9 @@ export async function PUT(request: Request, { params }: Context) {
     const input = await request.json() as ManagedDogReportInput;
     const existing = await getAdminDogReport(numericId);
     if (!existing) return Response.json({ error: "Hlásenie neexistuje." }, { status: 404 });
+    if (input.type !== undefined && input.type !== existing.type) {
+      await assertAdminDogReportTypeChangeKeepsDuplicateInvariant(numericId, input.type);
+    }
     const report = await updateAdminDogReport(numericId, input.gallery === undefined ? { ...input, gallery: existing.gallery } : input, user.email);
     return Response.json({ report });
   } catch (error) {
