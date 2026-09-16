@@ -10,6 +10,8 @@ export const SITEMAP_REDIRECT_SOURCES = new Set([
   "/podujatia/kalendar",
 ]);
 
+export const NEWS_SITEMAP_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+
 const FORBIDDEN_PREFIXES = ["/admin", "/api", "/hladat", "/oblubene", "/media"];
 
 export function latestModified(values: Array<string | null | undefined>) {
@@ -20,6 +22,11 @@ export function latestModified(values: Array<string | null | undefined>) {
     if (Number.isFinite(timestamp) && timestamp > latest) latest = timestamp;
   }
   return Number.isFinite(latest) ? new Date(latest) : undefined;
+}
+
+export function isNewsSitemapEligibleDate(value: string | Date | null | undefined, now = Date.now()) {
+  const timestamp = value instanceof Date ? value.getTime() : value ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(timestamp) && timestamp <= now && now - timestamp <= NEWS_SITEMAP_WINDOW_MS;
 }
 
 export function isSelfCanonical(seo: ArticleSeo | undefined, path: string) {
