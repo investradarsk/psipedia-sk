@@ -1,0 +1,56 @@
+name: Clean D1 migration validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "drizzle/**"
+      - "db/**"
+      - "scripts/validate-clean-d1.mjs"
+      - "tests/clean-d1-migration.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "migration-safety.baseline.json"
+      - ".github/workflows/clean-d1-migration-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-d1:
+    name: Fresh local D1 — full migration chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Diagnostic — apply unchanged full chain to empty local D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .tmp/clean-d1
+          mkdir -p .tmp/clean-d1
+          cat > .tmp/clean-d1/wrangler.json <<'EOF'
+          {
+            "name": "psipedia-clean-d1-validation",
+            "main": "../../worker/index.ts",
+            "compatibility_date": "2026-08-23",
+            "d1_databases": [
+              {
+                "binding": "DB",
+                "database_name": "psipedia-clean-d1-validation",
+                "database_id": "00000000-0000-0000-0000-000000000000",
+                "migrations_dir": "../../drizzle"
+              }
+            ]
+          }
+          EOF
+          npx wrangler d1 migrations apply DB \
+            --local \
+            --config .tmp/clean-d1/wrangler.json \
+            --persist-to .tmp/clean-d1/state
