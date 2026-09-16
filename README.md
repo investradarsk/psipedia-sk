@@ -23,6 +23,7 @@ npm run build
 
 ## Dôležitá dokumentácia
 
+- [DEPLOY-1: fresh artifact pred produkčnou DB mutation](docs/DEPLOYMENT-SAFETY-SK.md)
 - [MIG-0: bezpečnostný kontrakt databázových migrácií](docs/MIGRATION-SAFETY-SK.md)
 - [Technická prevádzka, úpravy, nasadenie, záloha a obnova](docs/TECHNICKA-DOKUMENTACIA-SK.md)
 - [Kontrolný zoznam migrácie na vlastný GitHub a Cloudflare](docs/MIGRACIA-NA-VLASTNY-HOSTING-SK.md)
