@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminPuppyCoverage } from "@/components/admin-puppy-coverage";
+import styles from "@/components/admin-puppy-coverage.module.css";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { buildPuppyCoverageMatrix } from "@/lib/puppy-coverage";
@@ -18,7 +19,7 @@ export default async function AdminPuppyCoveragePage() {
       eyebrow="Redakčné plánovanie"
       title="Pokrytie obsahu: Šteniatka"
       description="Read-only prehľad existujúcej taxonómie a článkov. Coverage sa odvodzuje výhradne z priradenej oblasti a publikačného statusu."
-      actions={<Link className="admin-primary-action" href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link>}
+      actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link>}
     >
       <AdminPuppyCoverage rows={rows} />
     </AdminShell>
