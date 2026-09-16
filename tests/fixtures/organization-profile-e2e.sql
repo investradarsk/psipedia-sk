@@ -113,3 +113,19 @@ INSERT INTO adoption_dogs (
   'org3b-e2e-local-fixture',
   'org3b-e2e-local-fixture'
 );
+
+INSERT INTO help_organizations (
+  id, name, slug, status, published_at, archived_at,
+  created_at, updated_at, created_by, updated_by
+) VALUES
+  (
+    990002, 'E2E Draft organizácia', 'org-3b-e2e-draft-organizacia', 'DRAFT', NULL, NULL,
+    '2026-09-16T10:00:00.000Z', '2026-09-16T10:00:00.000Z',
+    'org3b-e2e-local-fixture', 'org3b-e2e-local-fixture'
+  ),
+  (
+    990003, 'E2E Archivovaná organizácia', 'org-3b-e2e-archivovana-organizacia', 'ARCHIVED',
+    '2026-09-16T10:00:00.000Z', '2026-09-16T11:00:00.000Z',
+    '2026-09-16T10:00:00.000Z', '2026-09-16T11:00:00.000Z',
+    'org3b-e2e-local-fixture', 'org3b-e2e-local-fixture'
+  );

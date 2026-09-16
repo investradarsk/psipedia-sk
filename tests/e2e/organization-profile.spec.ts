@@ -55,6 +55,22 @@ test.describe("organization public profile", () => {
     await expectNoSeriousAccessibilityViolations(page);
   });
 
+  test("non-public, unknown and non-exact organization slugs fail closed", async ({ page }) => {
+    for (const slug of [
+      "org-3b-e2e-draft-organizacia",
+      "org-3b-e2e-archivovana-organizacia",
+      "org-3b-e2e-unknown-organizacia",
+      "org-3b-e2e-kanonicka",
+      "e2e-kanonicka-organizacia",
+    ]) {
+      const response = await page.goto(`/organizacie/${slug}`);
+      expect(response?.status(), slug).toBe(404);
+      expect(new URL(page.url()).pathname, slug).toBe(`/organizacie/${slug}`);
+      await expect(page.getByRole("heading", { level: 1 }), slug).not.toHaveText(/E2E Kanonická organizácia/);
+      await expectNoHorizontalOverflow(page);
+    }
+  });
+
   test("@production canonical route fails closed for an ineligible legacy-only slug", async ({ page }) => {
     const response = await page.goto("/organizacie/e2e-organizacia");
 
