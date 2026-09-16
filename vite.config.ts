@@ -1,9 +1,35 @@
+import { readFileSync } from "node:fs";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
 const { d1, r2 } = hostingConfig;
+const wranglerConfig = JSON.parse(
+  readFileSync(new URL("./wrangler.jsonc", import.meta.url), "utf8"),
+) as {
+  compatibility_date: string;
+  version_metadata?: { binding?: string };
+  d1_databases?: Array<{
+    binding: string;
+    database_name: string;
+    database_id: string;
+    migrations_dir?: string;
+  }>;
+  r2_buckets?: Array<{ binding: string; bucket_name: string }>;
+};
+
+const canonicalD1 = d1
+  ? wranglerConfig.d1_databases?.find((database) => database.binding === d1)
+  : undefined;
+const canonicalR2 = r2
+  ? wranglerConfig.r2_buckets?.find((bucket) => bucket.binding === r2)
+  : undefined;
+const versionMetadataBinding = wranglerConfig.version_metadata?.binding;
+
+if (d1 && !canonicalD1) throw new Error(`wrangler.jsonc is missing canonical D1 binding ${d1}`);
+if (r2 && !canonicalR2) throw new Error(`wrangler.jsonc is missing canonical R2 binding ${r2}`);
+if (!versionMetadataBinding) throw new Error("wrangler.jsonc is missing version_metadata.binding");
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
@@ -11,30 +37,23 @@ const isExplicitLocalE2eBootstrap = process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP ===
 
 const localBindingConfig = {
   main: "./worker/index.ts",
-  compatibility_date: "2026-05-22",
-  version_metadata: { binding: "CF_VERSION_METADATA" },
+  compatibility_date: wranglerConfig.compatibility_date,
+  version_metadata: { binding: versionMetadataBinding },
   // Production keeps Cloudflare Access from wrangler.jsonc. Only the explicit
   // local E2E bootstrap disables that Worker-level gate so the existing
   // localhost preview admin identity can reach the normal admin API routes.
   ...(isExplicitLocalE2eBootstrap ? { vars: { AUTH_MODE: "local-e2e-preview" } } : {}),
-  d1_databases: d1
+  d1_databases: canonicalD1
     ? [
         {
-          binding: d1,
-          database_name: "psipedia-sk-db",
-          database_id: "8f7a0c3e-4d77-4a35-8192-a7bd57147950",
+          ...canonicalD1,
+          // The Vite/Miniflare generated config resolves migrations relative
+          // to its own location; production keeps ./drizzle in wrangler.jsonc.
           migrations_dir: "../../drizzle",
         },
       ]
     : [],
-  r2_buckets: r2
-    ? [
-        {
-          binding: r2,
-          bucket_name: "psipedia-sk-bucket",
-        },
-      ]
-    : [],
+  r2_buckets: canonicalR2 ? [canonicalR2] : [],
 };
 
 export default defineConfig(async () => {
