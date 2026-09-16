@@ -22,7 +22,12 @@ function ContactLink({
   external: boolean;
 }) {
   return (
-    <a href={href} target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined}>
+    <a
+      className={styles.contactLink}
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noreferrer" : undefined}
+    >
       {value}{external ? " ↗" : ""}
     </a>
   );
@@ -71,7 +76,7 @@ export function OrganizationProfileDetail({ composition }: { composition: Public
     <main id="obsah" tabIndex={-1}>
       <PageContainer className={styles.breadcrumbWrap}>
         <Breadcrumbs label="Drobečková navigácia">
-          <Link href="/">Domov</Link>
+          <Link className={styles.breadcrumbLink} href="/">Domov</Link>
           <span aria-hidden="true">›</span>
           <span>Organizácie</span>
           <span aria-hidden="true">›</span>
