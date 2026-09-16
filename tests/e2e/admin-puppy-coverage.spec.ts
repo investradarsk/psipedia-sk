@@ -27,9 +27,11 @@ test("puppy coverage matrix is authenticated, readable, responsive and mutation-
 
   await expect(page.getByRole("heading", { name: "Pokrytie obsahu: Šteniatka", exact: true })).toBeVisible();
   await expect(page.getByTestId("admin-puppy-coverage")).toBeVisible();
-  await expect(page.getByText("COVERED = oblasť má aspoň jeden publikovaný článok.", { exact: true })).toBeVisible();
-  await expect(page.getByText("PARTIAL = existuje iba draft alebo naplánovaný článok.", { exact: true })).toBeVisible();
-  await expect(page.getByText("MISSING = k oblasti nie je priradený žiadny článok.", { exact: true })).toBeVisible();
+
+  const legend = page.locator('section[aria-label="Definícia stavov pokrytia"]');
+  await expect(legend).toContainText("COVERED = oblasť má aspoň jeden publikovaný článok.");
+  await expect(legend).toContainText("PARTIAL = existuje iba draft alebo naplánovaný článok.");
+  await expect(legend).toContainText("MISSING = k oblasti nie je priradený žiadny článok.");
   await expect(page.getByRole("link", { name: "+ Pridať článok", exact: true }).first()).toBeVisible();
 
   const statusCount = await page.locator('[data-testid^="coverage-status-"]').count();
