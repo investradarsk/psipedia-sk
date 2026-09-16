@@ -26,6 +26,18 @@ export type PuppyCoverageRow = {
   articles: PuppyCoverageArticle[];
 };
 
+export async function requirePuppyCoverageArticleRows<T>(
+  query: Promise<{ results: T[] }>,
+): Promise<T[]> {
+  try {
+    const result = await query;
+    return result.results;
+  } catch (error) {
+    const detail = error instanceof Error && error.message ? `: ${error.message}` : "";
+    throw new Error(`Puppy coverage article SELECT failed${detail}`);
+  }
+}
+
 export function classifyPuppyCoverage(articles: PuppyCoverageArticle[]): PuppyCoverageStatus {
   if (articles.some((article) => article.status === "published")) return "COVERED";
   if (articles.length > 0) return "PARTIAL";
