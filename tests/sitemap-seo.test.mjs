@@ -2,12 +2,62 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "../lib/sitemap-seo.ts";
+import { eventDateTimeIso } from "../lib/events.ts";
+import { articleAuthorJsonLd, serializeJsonLd } from "../lib/seo.ts";
+import {
+  assertValidSitemap,
+  isNewsSitemapEligibleDate,
+  isSelfCanonical,
+  latestModified,
+  NEWS_SITEMAP_WINDOW_MS,
+  sitemapEntry,
+  SITEMAP_REDIRECT_SOURCES,
+} from "../lib/sitemap-seo.ts";
 
 test("lastModified uses the latest real timestamp and omits unknown dates", () => {
   assert.equal(latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(), "2026-09-07T12:30:00.000Z");
   assert.equal(latestModified([undefined, "", "not-a-date"]), undefined);
   assert.equal("lastModified" in sitemapEntry("/sukromie", { changeFrequency: "monthly", priority: 0.5 }), false);
+});
+
+test("article JSON-LD distinguishes a named person from the Psipedia editorial organization", () => {
+  assert.deepEqual(articleAuthorJsonLd("Martin"), { "@type": "Person", name: "Martin" });
+  assert.deepEqual(articleAuthorJsonLd("Redakcia Psipedia"), {
+    "@type": "Organization",
+    "@id": "https://psipedia.sk/#organization",
+    name: "Redakcia Psipedia",
+    url: "https://psipedia.sk",
+  });
+  assert.deepEqual(JSON.parse(serializeJsonLd({ author: articleAuthorJsonLd("Martin") })), {
+    author: { "@type": "Person", name: "Martin" },
+  });
+
+  const detail = fs.readFileSync(new URL("../components/article-detail.tsx", import.meta.url), "utf8");
+  assert.match(detail, /author:\s*articleAuthorJsonLd\(article\.author\)/);
+  assert.doesNotMatch(detail, /author:\s*\{\s*"@type":\s*"Organization",\s*name:\s*article\.author/s);
+  assert.equal((detail.match(/application\/ld\+json/g) ?? []).length, 1);
+});
+
+test("Event JSON-LD keeps a known Bratislava time and DST offset", () => {
+  assert.equal(eventDateTimeIso("2026-09-16", "18:00"), "2026-09-16T18:00:00+02:00");
+  const eventPage = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+  assert.match(eventPage, /startDate:\s*eventDateTimeIso\(event\.startDate, event\.startTime\)/);
+  assert.match(eventPage, /endDate:\s*event\.endDate\s*\?\s*eventDateTimeIso\(event\.endDate, event\.endTime\)/);
+});
+
+test("News sitemap admits only publication dates from the last two days", () => {
+  const now = Date.parse("2026-09-16T12:00:00.000Z");
+  assert.equal(isNewsSitemapEligibleDate(new Date(now - NEWS_SITEMAP_WINDOW_MS), now), true);
+  assert.equal(isNewsSitemapEligibleDate(new Date(now - NEWS_SITEMAP_WINDOW_MS - 1), now), false);
+  assert.equal(isNewsSitemapEligibleDate(new Date(now + 1), now), false);
+  assert.equal(isNewsSitemapEligibleDate("not-a-date", now), false);
+
+  const route = fs.readFileSync(new URL("../app/news-sitemap.xml/route.ts", import.meta.url), "utf8");
+  assert.match(route, /isNewsSitemapEligibleDate\(published, now\)/);
+  for (const requiredTag of ["<news:news>", "<news:publication>", "<news:name>", "<news:language>sk</news:language>", "<news:publication_date>", "<news:title>"]) {
+    assert.ok(route.includes(requiredTag), `News sitemap musí obsahovať ${requiredTag}`);
+  }
+  assert.doesNotMatch(route, /newsMetadata\s*=|:\s*"";\s*\n\s*return `\n\s*<url>/s);
 });
 
 test("only indexable self-canonical content is eligible for sitemap", () => {

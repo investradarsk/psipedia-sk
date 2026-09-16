@@ -112,6 +112,19 @@ export function searchResultTitle(title: string, maxLength = 52) {
   return `${shortened.replace(/[\s,:;.!?–—-]+$/u, "")}…`;
 }
 
+export function articleAuthorJsonLd(author: string) {
+  const name = author.trim();
+  if (name.toLocaleLowerCase("sk-SK") === "redakcia psipedia") {
+    return {
+      "@type": "Organization",
+      "@id": ORGANIZATION_ID,
+      name,
+      url: SITE_URL,
+    };
+  }
+  return { "@type": "Person", name };
+}
+
 export function serializeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }

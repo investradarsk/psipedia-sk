@@ -1,10 +1,10 @@
 import { getPublishedArticleIndex } from "@/lib/article-store";
 import { articleHref, articlePortalSection } from "@/lib/portal";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import { isNewsSitemapEligibleDate } from "@/lib/sitemap-seo";
 
 export const dynamic = "force-dynamic";
 
-const NEWS_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 const MAX_NEWS_ITEMS = 1000;
 
 type PublishedArticle = Awaited<ReturnType<typeof getPublishedArticleIndex>>[number];
@@ -45,17 +45,15 @@ export async function GET() {
       if (articlePortalSection(article) !== "novinky" || article.seo?.noindex || !article.title.trim()) return [];
       const published = publicationDate(article);
       const loc = canonicalArticleUrl(article);
-      if (!published || !loc || published.getTime() > now) return [];
+      if (!published || !loc || !isNewsSitemapEligibleDate(published, now)) return [];
       return [{ article, loc, published }];
     })
     .sort((a, b) => b.published.getTime() - a.published.getTime())
     .slice(0, MAX_NEWS_ITEMS);
 
-  const urls = articles.map(({ article, loc, published }) => {
-    // Google allows older article URLs to stay in this base sitemap after the
-    // News extension is removed. That prevents an empty urlset between
-    // publishing days without presenting old content as fresh news.
-    const newsMetadata = now - published.getTime() <= NEWS_WINDOW_MS ? `
+  const urls = articles.map(({ article, loc, published }) => `
+  <url>
+    <loc>${escapeXml(loc)}</loc>
     <news:news>
       <news:publication>
         <news:name>${escapeXml(SITE_NAME)}</news:name>
@@ -63,13 +61,8 @@ export async function GET() {
       </news:publication>
       <news:publication_date>${escapeXml(published.toISOString())}</news:publication_date>
       <news:title>${escapeXml(article.title)}</news:title>
-    </news:news>` : "";
-
-    return `
-  <url>
-    <loc>${escapeXml(loc)}</loc>${newsMetadata}
-  </url>`;
-  }).join("");
+    </news:news>
+  </url>`).join("");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">${urls}
