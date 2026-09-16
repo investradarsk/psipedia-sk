@@ -40,7 +40,7 @@ function OrganizationAdoptionCard({ adoption }: { adoption: OrganizationPublicAd
   const href = adoptionDetailPath(adoption.slug);
 
   return (
-    <article className={styles.adoptionCard}>
+    <article className={styles.adoptionCard} data-adoption-card={adoption.slug}>
       <AdoptionCardMedia
         href={href}
         name={adoption.name}
