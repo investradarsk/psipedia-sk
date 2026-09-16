@@ -3,6 +3,12 @@
   gap: 1rem;
 }
 
+:global(.admin-primary-action).primaryAction,
+:global(.admin-primary-action).primaryAction:hover,
+:global(.admin-primary-action).primaryAction:focus-visible {
+  color: var(--color-text-primary, #2e261e);
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
