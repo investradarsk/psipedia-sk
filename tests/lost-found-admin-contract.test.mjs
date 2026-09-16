@@ -8,6 +8,7 @@ import {
   assertLostFoundStatusTransition,
   canTransitionLostFoundStatus,
 } from "../lib/lost-found-lifecycle.js";
+import { assertLostFoundDuplicateTypeInvariant } from "../lib/lost-found-duplicate-invariant.ts";
 
 function section(source, start, end) {
   const startIndex = source.indexOf(start);
@@ -64,6 +65,46 @@ test("duplicate moderation validates target existence and LOST/FOUND type", () =
   assert.throws(() => assertLostFoundDuplicateTarget(12, "LOST", 12, { id: 12, type: "LOST" }), /samého seba/);
 });
 
+test("duplicate type invariant rejects outbound child type changes in both directions", () => {
+  assert.throws(
+    () => assertLostFoundDuplicateTypeInvariant("FOUND", { outboundTargetType: "LOST" }),
+    /outbound duplicate väzbu/,
+  );
+  assert.throws(
+    () => assertLostFoundDuplicateTypeInvariant("LOST", { outboundTargetType: "FOUND" }),
+    /outbound duplicate väzbu/,
+  );
+});
+
+test("duplicate type invariant rejects inbound target type changes in both directions", () => {
+  assert.throws(
+    () => assertLostFoundDuplicateTypeInvariant("FOUND", { inboundDuplicateTypes: ["LOST"] }),
+    /inbound duplicate väzbu/,
+  );
+  assert.throws(
+    () => assertLostFoundDuplicateTypeInvariant("LOST", { inboundDuplicateTypes: ["FOUND"] }),
+    /inbound duplicate väzbu/,
+  );
+});
+
+test("duplicate type invariant allows content-only edits and ordinary unlinked type changes", () => {
+  assert.doesNotThrow(() => assertLostFoundDuplicateTypeInvariant("LOST", { outboundTargetType: "LOST", inboundDuplicateTypes: ["LOST"] }));
+  assert.doesNotThrow(() => assertLostFoundDuplicateTypeInvariant("FOUND", { outboundTargetType: "FOUND", inboundDuplicateTypes: ["FOUND", "FOUND"] }));
+  assert.doesNotThrow(() => assertLostFoundDuplicateTypeInvariant("FOUND", {}));
+  assert.doesNotThrow(() => assertLostFoundDuplicateTypeInvariant("LOST", {}));
+});
+
+test("generic PUT enforces duplicate type invariant on the server before update", async () => {
+  const route = await readFile(new URL("../app/api/admin/lost-found/[id]/route.ts", import.meta.url), "utf8");
+  assert.match(route, /input\.type !== undefined && input\.type !== existing\.type/);
+  assert.match(route, /assertAdminDogReportTypeChangeKeepsDuplicateInvariant\(numericId, input\.type\)/);
+  assert.ok(route.indexOf("assertAdminDogReportTypeChangeKeepsDuplicateInvariant") < route.indexOf("updateAdminDogReport(numericId"));
+
+  const invariant = await readFile(new URL("../lib/lost-found-duplicate-invariant.ts", import.meta.url), "utf8");
+  assert.match(invariant, /JOIN lost_found_dog_reports target ON target\.id = child\.duplicate_of_id/);
+  assert.match(invariant, /WHERE duplicate_of_id = \?/);
+});
+
 test("duplicate is an explicit admin operation instead of a generic save side effect", async () => {
   const store = await readFile(new URL("../lib/lost-found-dog-store.ts", import.meta.url), "utf8");
   const duplicate = section(store, "export async function markAdminDogReportDuplicate", "function lifecycleFields");
@@ -71,6 +112,10 @@ test("duplicate is an explicit admin operation instead of a generic save side ef
   assert.match(duplicate, /Duplicitné hlásenia musia mať rovnaký typ LOST\/FOUND/);
   assert.match(duplicate, /assertLostFoundStatusTransition\(existing\.status, "ARCHIVED"\)/);
   assert.match(duplicate, /status='ARCHIVED'/);
+
+  const update = section(store, "export async function updateAdminDogReport", "export async function markAdminDogReportDuplicate");
+  assert.match(update, /assertNoDuplicateMutation\(input\)/);
+  assert.match(update, /existing\.duplicateOfId, existing\.duplicateReason/);
 
   const route = await readFile(new URL("../app/api/admin/lost-found/[id]/duplicate/route.ts", import.meta.url), "utf8");
   assert.match(route, /export async function POST/);
