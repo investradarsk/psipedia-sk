@@ -1,0 +1,89 @@
+name: Admin Puppy Coverage Matrix
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/steniatka/**"
+      - "components/admin-puppy-coverage*"
+      - "lib/puppy-coverage*"
+      - "tests/admin-puppy-coverage.test.mjs"
+      - "tests/e2e/admin-puppy-coverage.spec.ts"
+      - ".github/workflows/admin-puppy-coverage-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  puppy-coverage:
+    name: Coverage contract, desktop and mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Migration safety
+        run: npm run test:migration-safety
+      - name: Focused ADMIN-2C tests
+        run: node --experimental-strip-types --test tests/admin-puppy-coverage.test.mjs
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Configure CI-only local PII keys
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          EOF
+      - name: Apply schema migrations to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/admin-puppy-coverage
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-puppy-coverage/server.log 2>&1 &
+          echo $! > .e2e-artifacts/admin-puppy-coverage/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/admin-puppy-coverage/server.log
+            exit 1
+          fi
+      - name: Puppy Coverage Playwright — desktop and mobile
+        run: npx playwright test tests/e2e/admin-puppy-coverage.spec.ts --workers=1 --retries=0
+      - name: Stop local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/admin-puppy-coverage/server.pid ]; then
+            kill "$(cat .e2e-artifacts/admin-puppy-coverage/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-puppy-coverage-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/admin-puppy-coverage/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
