@@ -116,6 +116,13 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/public-navigation.spec.ts
+      - name: HOME-1 focused Playwright, accessibility and screenshots
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          HOME1_CAPTURE_PRODUCTION: "1"
+        run: |
+          mkdir -p .e2e-artifacts/home-1
+          npm run e2e -- tests/e2e/home-mobile-refinement.spec.ts --project=desktop-chromium
       - name: Seed breeds into local CI D1 only
         id: seed
         env:
@@ -204,6 +211,14 @@ jobs:
         with:
           name: lost-found-public-screenshots-${{ github.run_attempt }}
           path: .e2e-artifacts/lost-found/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload HOME-1 visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-1-visual-evidence-${{ github.run_attempt }}
+          path: .e2e-artifacts/home-1/
           if-no-files-found: error
           retention-days: 14
       - name: Stop local app server
