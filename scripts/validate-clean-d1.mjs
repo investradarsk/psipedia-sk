@@ -154,8 +154,12 @@ async function writeLegacyAdoptionBootstrap() {
     `-- Reconstructs the exact legacy adoption precondition required by immutable migration 0038.\n` +
     `DELETE FROM help_cases WHERE category = 'adopcia' AND slug IN (${slugs});\n` +
     `INSERT INTO help_cases (${columns.join(", ")}) VALUES\n  (${values.join("),\n  (")});\n` +
-    `SELECT CASE WHEN COUNT(*) = 36 THEN 1 ELSE RAISE(ABORT, 'clean-D1 adoption bootstrap expected 36 rows') END\n` +
-    `FROM help_cases WHERE category = 'adopcia' AND status = 'published' AND slug IN (${slugs});\n`;
+    `DROP TABLE IF EXISTS __psipedia_clean_d1_fixture_guard;\n` +
+    `CREATE TABLE __psipedia_clean_d1_fixture_guard (ok INTEGER NOT NULL CHECK (ok = 1));\n` +
+    `INSERT INTO __psipedia_clean_d1_fixture_guard (ok)\n` +
+    `SELECT CASE WHEN COUNT(*) = 36 THEN 1 ELSE 0 END\n` +
+    `FROM help_cases WHERE category = 'adopcia' AND status = 'published' AND slug IN (${slugs});\n` +
+    `DROP TABLE __psipedia_clean_d1_fixture_guard;\n`;
 
   await fs.writeFile(bootstrapPath, bootstrap);
 }
