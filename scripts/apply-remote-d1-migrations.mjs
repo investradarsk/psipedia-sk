@@ -1,12 +1,12 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 
-const hostingConfig = JSON.parse(
-  fs.readFileSync(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+const resourceConfig = JSON.parse(
+  fs.readFileSync(new URL("../config/cloudflare-resources.json", import.meta.url), "utf8"),
 );
-
-if (typeof hostingConfig.d1 !== "string" || !hostingConfig.d1) {
-  throw new Error(".openai/hosting.json must declare the canonical D1 binding");
+const d1Binding = resourceConfig.d1?.binding;
+if (typeof d1Binding !== "string" || !d1Binding) {
+  throw new Error("config/cloudflare-resources.json must declare the canonical D1 binding");
 }
 
 const npx = process.platform === "win32" ? "npx.cmd" : "npx";
@@ -17,7 +17,7 @@ const result = spawnSync(
     "d1",
     "migrations",
     "apply",
-    hostingConfig.d1,
+    d1Binding,
     "--remote",
     "--config",
     "dist/server/wrangler.json",
