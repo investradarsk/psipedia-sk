@@ -43,7 +43,10 @@ const articleRegistryAdapter: BulkModuleAdapter = {
     articleBulkAdapter.normalizeFilter(filter),
   ),
   resolveExplicit: articleBulkAdapter.resolveExplicit,
-  resolveAllMatching: async () => articleBulkAdapter.resolveAllMatching(),
+  resolveAllMatching: async (database, filter) => {
+    articleBulkAdapter.normalizeFilter(filter);
+    return articleBulkAdapter.resolveAllMatching(database, filter);
+  },
   resolveSnapshot: articleBulkAdapter.resolveSnapshot,
   evaluate: articleBulkAdapter.evaluate,
 };
