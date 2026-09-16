@@ -6,8 +6,9 @@ on:
     paths:
       - "drizzle/**"
       - "db/**"
+      - "data/imports/adoptions-ready-2026-09-13.json"
+      - "scripts/check-migration-safety.mjs"
       - "scripts/validate-clean-d1.mjs"
-      - "tests/clean-d1-migration.test.mjs"
       - "package.json"
       - "package-lock.json"
       - "migration-safety.baseline.json"
@@ -29,28 +30,7 @@ jobs:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
-      - name: Diagnostic — apply unchanged full chain to empty local D1
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf .tmp/clean-d1
-          mkdir -p .tmp/clean-d1
-          cat > .tmp/clean-d1/wrangler.json <<'EOF'
-          {
-            "name": "psipedia-clean-d1-validation",
-            "main": "../../worker/index.ts",
-            "compatibility_date": "2026-08-23",
-            "d1_databases": [
-              {
-                "binding": "DB",
-                "database_name": "psipedia-clean-d1-validation",
-                "database_id": "00000000-0000-0000-0000-000000000000",
-                "migrations_dir": "../../drizzle"
-              }
-            ]
-          }
-          EOF
-          npx wrangler d1 migrations apply DB \
-            --local \
-            --config .tmp/clean-d1/wrangler.json \
-            --persist-to .tmp/clean-d1/state
+      - name: Migration safety contract
+        run: npm run db:check-migrations
+      - name: Empty local D1 → full chain → current schema
+        run: npm run db:validate-clean
