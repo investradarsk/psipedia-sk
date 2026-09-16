@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import {
   DetailActions,
   DetailContactsCard,
@@ -8,7 +9,9 @@ import {
   DetailSection,
 } from "@/components/detail-primitives/detail-primitives";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
+import { adoptionDetailPath } from "@/lib/adoption-detail";
 import type { PublicOrganizationComposition } from "@/lib/help-organization-store";
+import type { OrganizationPublicAdoption } from "@/lib/organization-adoption-store";
 import { buildOrganizationProfilePresentation } from "@/lib/organization-profile-presentation";
 import styles from "./organization-profile-detail.module.css";
 
@@ -30,6 +33,31 @@ function ContactLink({
     >
       {value}{external ? " ↗" : ""}
     </a>
+  );
+}
+
+function OrganizationAdoptionCard({ adoption }: { adoption: OrganizationPublicAdoption }) {
+  const href = adoptionDetailPath(adoption.slug);
+
+  return (
+    <article className={styles.adoptionCard}>
+      <AdoptionCardMedia
+        href={href}
+        name={adoption.name}
+        status={adoption.status}
+        mainImage={adoption.mainImage}
+      />
+      <div className={styles.adoptionCardBody}>
+        {adoption.city ? <p className={styles.adoptionLocation}>{adoption.city}</p> : null}
+        <h3><Link href={href}>{adoption.name}</Link></h3>
+        {adoption.status === "RESERVED" ? (
+          <p className={styles.adoptionReserved}>Tento pes je momentálne rezervovaný.</p>
+        ) : null}
+        <Link className={styles.adoptionCta} href={href}>
+          Zobraziť profil <span aria-hidden="true">→</span>
+        </Link>
+      </div>
+    </article>
   );
 }
 
@@ -101,19 +129,11 @@ export function OrganizationProfileDetail({ composition }: { composition: Public
 
           {adoptions.length > 0 ? (
             <DetailSection eyebrow="Adopcie" title="Psy na adopciu">
-              <ul className={styles.adoptionList}>
+              <div className={styles.adoptionGrid}>
                 {adoptions.map((adoption) => (
-                  <li key={adoption.id}>
-                    <Link className={styles.adoptionLink} href={`/pomoc-psom/adopcia/${adoption.slug}`}>
-                      <span>
-                        <strong>{adoption.name}</strong>
-                        {adoption.city ? <small>{adoption.city}</small> : null}
-                      </span>
-                      <b>{adoption.status === "RESERVED" ? "Rezervovaný" : "Na adopciu"}</b>
-                    </Link>
-                  </li>
+                  <OrganizationAdoptionCard adoption={adoption} key={adoption.id} />
                 ))}
-              </ul>
+              </div>
             </DetailSection>
           ) : null}
         </DetailContentLayout>
