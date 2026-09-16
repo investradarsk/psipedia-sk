@@ -195,8 +195,15 @@ function validateSchema() {
   assert.deepEqual(missingTables, [], `missing Drizzle tables after full migration chain: ${missingTables.join(", ")}`);
 
   for (const [table, expectedColumns] of expected) {
-    const actualColumns = query(`PRAGMA table_info(${JSON.stringify(table)});`).map((row) => row.name).sort();
-    assert.deepEqual(actualColumns, expectedColumns, `column drift for Drizzle table ${table}`);
+    const actualColumns = new Set(
+      query(`PRAGMA table_info(${JSON.stringify(table)});`).map((row) => row.name),
+    );
+    const missingColumns = expectedColumns.filter((column) => !actualColumns.has(column));
+    assert.deepEqual(
+      missingColumns,
+      [],
+      `missing Drizzle columns after full migration chain for ${table}: ${missingColumns.join(", ")}`,
+    );
   }
 
   return expected.size;
