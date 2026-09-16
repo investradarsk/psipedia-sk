@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { configFlagEnabled, validateRuntimeEnvironment } from "../config/runtime-env";
+import { validateRuntimeEnvironment } from "../config/runtime-env";
 
 type SubmissionFeatureEnv = {
   LOST_FOUND_SUBMISSIONS_ENABLED?: string;
@@ -10,12 +10,16 @@ type SubmissionFeatureEnv = {
   PII_HASH_KEY?: string;
 };
 
+function enabled(value: string | undefined) {
+  return value === "1" || value?.toLowerCase() === "true";
+}
+
 export function submissionFeatureFlags() {
   const runtime = env as unknown as SubmissionFeatureEnv;
   validateRuntimeEnvironment(runtime);
   return Object.freeze({
-    lostFound: configFlagEnabled(runtime.LOST_FOUND_SUBMISSIONS_ENABLED),
-    adoption: configFlagEnabled(runtime.ADOPTION_SUBMISSIONS_ENABLED),
-    organization: configFlagEnabled(runtime.ORGANIZATION_SUBMISSIONS_ENABLED),
+    lostFound: enabled(runtime.LOST_FOUND_SUBMISSIONS_ENABLED),
+    adoption: enabled(runtime.ADOPTION_SUBMISSIONS_ENABLED),
+    organization: enabled(runtime.ORGANIZATION_SUBMISSIONS_ENABLED),
   });
 }
