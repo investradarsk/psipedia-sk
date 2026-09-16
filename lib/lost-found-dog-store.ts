@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { cache } from "react";
-import { defaultLostFoundExpiresAt, effectiveLostFoundStatus, expiredArchiveThreshold, LOST_FOUND_STATUSES, type LostFoundStatus } from "@/lib/lost-found-lifecycle.js";
+import { assertLostFoundStatusTransition, defaultLostFoundExpiresAt, effectiveLostFoundStatus, expiredArchiveThreshold, LOST_FOUND_STATUSES, type LostFoundStatus } from "@/lib/lost-found-lifecycle.js";
 import { decryptPii, encryptPii, hashPii, normalizeEmail, normalizePhone } from "@/lib/pii-crypto";
 import {
   chipStates,
@@ -113,6 +113,11 @@ export type ManagedDogReportInput = {
   duplicateOfId?: number | string | null;
   duplicateReason?: string;
   internalNote?: string;
+};
+
+export type MarkDogReportDuplicateInput = {
+  duplicateOfId?: number | string | null;
+  duplicateReason?: string;
 };
 
 function getBindings() {
@@ -241,6 +246,7 @@ export const listPublishedBreedOptions = cache(async (): Promise<BreedOption[]> 
   return result.results ?? [];
 });
 
+// Explicit write-side maintenance only. Never call this from list/detail/count read paths.
 export async function persistLostFoundLifecycle(database: D1Database, now = new Date()) {
   const nowIso = now.toISOString();
   await database.prepare(`UPDATE lost_found_dog_reports SET status = 'EXPIRED', updated_at = ? WHERE status = 'ACTIVE' AND expires_at IS NOT NULL AND expires_at <= ?`).bind(nowIso, nowIso).run();
@@ -292,7 +298,6 @@ export async function listSitemapDogReports() {
 
 export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const database = requireD1Binding();
-  await persistLostFoundLifecycle(database);
   const page = clampPage(filters.page);
   const pageSize = clampPageSize(filters.pageSize, 50);
   const where: string[] = [];
@@ -313,7 +318,6 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
 
 export async function getAdminDogReport(id: number) {
   const database = requireD1Binding();
-  await persistLostFoundLifecycle(database);
   const row = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id WHERE r.id = ? LIMIT 1`).bind(id).first<ReportRow>();
   if (!row) return null;
   const { encryptionKey } = requirePiiKeys();
@@ -322,7 +326,6 @@ export async function getAdminDogReport(id: number) {
 
 export async function getAdminDogReportCounts() {
   const database = requireD1Binding();
-  await persistLostFoundLifecycle(database);
   const result = await database.prepare("SELECT status, COUNT(*) AS count FROM lost_found_dog_reports GROUP BY status").all<{ status: string; count: number }>();
   const counts = Object.fromEntries(LOST_FOUND_STATUSES.map((status) => [status, 0])) as Record<LostFoundStatus, number>;
   let total = 0;
@@ -348,12 +351,19 @@ async function preparePrivatePii(clean: { contactName: string | null; contactPho
   return { contactNameEncrypted, contactPhoneEncrypted, contactPhoneHash, contactEmailEncrypted, contactEmailHash, privateNoteEncrypted };
 }
 
+function assertNoDuplicateMutation(input: ManagedDogReportInput) {
+  if (input.duplicateOfId !== undefined || input.duplicateReason !== undefined) {
+    throw new Error("Duplicitu označ samostatnou moderátorskou akciou.");
+  }
+}
+
 export async function createAdminDogReport(input: ManagedDogReportInput, actor: string) {
   const database = requireD1Binding();
-  const clean = await cleanInput(database, input, null);
+  if (input.status !== undefined && input.status !== "DRAFT") throw new Error("Nové hlásenie možno vytvoriť iba ako DRAFT.");
+  assertNoDuplicateMutation(input);
+  const clean = await cleanInput(database, { ...input, status: "DRAFT" });
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
-  const lifecycle = lifecycleFields(clean.status, null, clean.expiresAt, now);
 
   const result = await database.prepare(`INSERT INTO lost_found_dog_reports (
     type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,description,distinguishing_marks,collar_description,chipped,
@@ -362,11 +372,11 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
   ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
     clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
-    clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, clean.duplicateOfId, clean.duplicateReason, now, now, null, null, null, null
+    clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, null, "", now, now, null, null, null, null
   ).run();
   const reportId = Number(result.meta.last_row_id);
 
-  const privateInsert = database.prepare(`INSERT INTO lost_found_dog_private_details (
+  await database.prepare(`INSERT INTO lost_found_dog_private_details (
     report_id,contact_name_encrypted,contact_phone_encrypted,contact_phone_hash,contact_email_encrypted,contact_email_hash,private_note_encrypted,created_by,updated_by,created_at,updated_at
   ) VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(
     reportId,
@@ -380,11 +390,7 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
     actor,
     now,
     now,
-  );
-  const publishCase = database.prepare(`UPDATE lost_found_dog_reports SET status=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
-    clean.status, now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, reportId
-  );
-  await database.batch([privateInsert, publishCase]);
+  ).run();
   return getAdminDogReport(reportId);
 }
 
@@ -392,7 +398,11 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const database = requireD1Binding();
   const existing = await getAdminDogReport(id);
   if (!existing) throw new Error("Hlásenie neexistuje.");
-  const clean = await cleanInput(database, input, id);
+  assertNoDuplicateMutation(input);
+  if (input.status !== undefined && !LOST_FOUND_STATUSES.includes(input.status as LostFoundStatus)) throw new Error("Neplatný cieľový stav hlásenia.");
+  const requestedStatus = (input.status ?? existing.status) as LostFoundStatus;
+  assertLostFoundStatusTransition(existing.status, requestedStatus);
+  const clean = await cleanInput(database, { ...input, status: requestedStatus });
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);
@@ -403,7 +413,7 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
     public_contact_note=?,source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
     clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
-    clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, clean.duplicateOfId, clean.duplicateReason,
+    clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, existing.duplicateOfId, existing.duplicateReason,
     now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, id
   );
   const privateUpsert = database.prepare(`INSERT INTO lost_found_dog_private_details (
@@ -434,6 +444,29 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   return getAdminDogReport(id);
 }
 
+export async function markAdminDogReportDuplicate(id: number, input: MarkDogReportDuplicateInput, actor: string) {
+  const database = requireD1Binding();
+  const existing = await getAdminDogReport(id);
+  if (!existing) throw new Error("Hlásenie neexistuje.");
+  const duplicateOfId = positiveInt(input.duplicateOfId);
+  if (!duplicateOfId) throw new Error("Zadaj ID kanonického hlásenia pre duplicitu.");
+  if (duplicateOfId === id) throw new Error("Hlásenie nemôže byť duplicitou samého seba.");
+  const target = await database.prepare("SELECT id, type FROM lost_found_dog_reports WHERE id = ? LIMIT 1").bind(duplicateOfId).first<{ id: number; type: string }>();
+  if (!target) throw new Error("Kanonické hlásenie pre duplicitu neexistuje.");
+  if (target.type !== existing.type) throw new Error("Duplicitné hlásenia musia mať rovnaký typ LOST/FOUND.");
+  assertLostFoundStatusTransition(existing.status, "ARCHIVED");
+
+  const duplicateReason = cleanText(input.duplicateReason, 500);
+  const now = new Date().toISOString();
+  const lifecycle = lifecycleFields("ARCHIVED", existing, existing.expiresAt, now);
+  const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET status='ARCHIVED',duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
+    duplicateOfId, duplicateReason, now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, id
+  );
+  const privateTouch = database.prepare("UPDATE lost_found_dog_private_details SET updated_by = ?, updated_at = ? WHERE report_id = ?").bind(actor, now, id);
+  await database.batch([publicUpdate, privateTouch]);
+  return getAdminDogReport(id);
+}
+
 function lifecycleFields(status: LostFoundStatus, existing: AdminDogReport | null, requestedExpiry: string | null, now: string) {
   const publicStatus = ["ACTIVE", "RESOLVED", "EXPIRED", "ARCHIVED"].includes(status);
   const publishedAt = publicStatus ? (existing?.publishedAt || now) : existing?.publishedAt || null;
@@ -443,9 +476,9 @@ function lifecycleFields(status: LostFoundStatus, existing: AdminDogReport | nul
   return { publishedAt, expiresAt, resolvedAt, archivedAt };
 }
 
-async function cleanInput(database: D1Database, input: ManagedDogReportInput, currentId: number | null) {
+async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
   const type = oneOf(input.type, dogReportTypes, "LOST") as DogReportType;
-  let status = oneOf(input.status, LOST_FOUND_STATUSES, "DRAFT") as LostFoundStatus;
+  const status = oneOf(input.status, LOST_FOUND_STATUSES, "DRAFT") as LostFoundStatus;
   const dogName = cleanNullable(input.dogName, 120);
   const eventDate = cleanText(input.eventDate, 10);
   const region = cleanText(input.region, 80);
@@ -470,16 +503,6 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput, cu
     const linked = await database.prepare("SELECT id, name FROM managed_breeds WHERE id = ? AND status = 'published' LIMIT 1").bind(breedId).first<{ id: number; name: string }>();
     if (!linked) throw new Error("Vybrané plemeno nie je publikované v atlase.");
     breed = linked.name;
-  }
-
-  const duplicateOfId = positiveInt(input.duplicateOfId);
-  const duplicateReason = cleanText(input.duplicateReason, 500);
-  if (duplicateOfId) {
-    if (currentId && duplicateOfId === currentId) throw new Error("Hlásenie nemôže byť duplicitou samého seba.");
-    const target = await database.prepare("SELECT id, type FROM lost_found_dog_reports WHERE id = ? LIMIT 1").bind(duplicateOfId).first<{ id: number; type: string }>();
-    if (!target) throw new Error("Kanonické hlásenie pre duplicitu neexistuje.");
-    if (target.type !== type) throw new Error("Duplicitné hlásenia musia mať rovnaký typ LOST/FOUND.");
-    status = "ARCHIVED";
   }
 
   const publicLatitude = optionalNumber(input.publicLatitude);
@@ -512,7 +535,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput, cu
     publicLatitude, publicLongitude, publicLocationPrecision: oneOf(input.publicLocationPrecision, publicLocationPrecisions, "MUNICIPALITY") as PublicLocationPrecision,
     contactName: cleanNullable(input.contactName, 160), contactPhone, contactEmail,
     publicContactNote: cleanText(input.publicContactNote, 800), source: cleanText(input.source, 160) || "EDITORIAL", sourceUrl,
-    expiresAt, duplicateOfId, duplicateReason, internalNote: cleanText(input.internalNote, 4000),
+    expiresAt, internalNote: cleanText(input.internalNote, 4000),
   };
   return { ...cleaned, searchText: normalizeSearch([type, dogName, breed, cleaned.color, cleaned.description, cleaned.distinguishingMarks, region, district, city, cleaned.locationDescription, cleaned.source].filter(Boolean).join(" ")) };
 }
