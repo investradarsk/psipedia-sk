@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,10 +25,37 @@ function parseEnvFile(source) {
   return entries;
 }
 
+async function auditTrackedSecretAssignments(root, workflowText) {
+  const output = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" });
+  const files = output.split("\0").filter(Boolean).filter((file) =>
+    file.startsWith(".github/workflows/")
+    || /^\.env/i.test(path.basename(file))
+    || /^wrangler\.(jsonc?|toml)$/i.test(path.basename(file))
+    || file.startsWith("config/"),
+  );
+
+  for (const file of files) {
+    const source = await fs.readFile(path.join(root, file), "utf8");
+    for (const secretName of SECRET_ENV_NAMES) {
+      const shellAssignment = new RegExp(`^\\s*(?:export\\s+)?${secretName}=([^\\r\\n]*)$`, "m").exec(source)?.[1]?.trim();
+      const yamlAssignment = new RegExp(`^\\s*${secretName}:\\s*([^#\\r\\n]+)$`, "m").exec(source)?.[1]?.trim();
+      const jsonAssignment = new RegExp(`"${secretName}"\\s*:\\s*"([^"]+)"`).exec(source)?.[1]?.trim();
+      const value = shellAssignment || yamlAssignment || jsonAssignment;
+      if (!value) continue;
+
+      const intentionalCiFixture = file === ".github/workflows/playwright-e2e.yml"
+        && (secretName === "PII_ENCRYPTION_KEY" || secretName === "PII_HASH_KEY")
+        && workflowText.includes("Configure CI-only local PII keys");
+      assert.equal(intentionalCiFixture, true, `${file} contains a tracked value for ${secretName}`);
+    }
+  }
+}
+
 export async function auditConfigurationContract(root = defaultRoot) {
   const read = (relativePath) => fs.readFile(path.join(root, relativePath), "utf8");
-  const [wranglerText, hostingText, envExampleText, packageText, workflowText, viteText, cleanD1Text, seoText] = await Promise.all([
+  const [wranglerText, resourcesText, hostingText, envExampleText, packageText, workflowText, viteText, cleanD1Text, seoText] = await Promise.all([
     read("wrangler.jsonc"),
+    read("config/cloudflare-resources.json"),
     read(".openai/hosting.json"),
     read(".env.example"),
     read("package.json"),
@@ -38,20 +66,25 @@ export async function auditConfigurationContract(root = defaultRoot) {
   ]);
 
   const wrangler = JSON.parse(wranglerText);
+  const resources = JSON.parse(resourcesText);
   const hosting = JSON.parse(hostingText);
   const envExample = parseEnvFile(envExampleText);
 
   assert.equal(typeof wrangler.compatibility_date, "string", "wrangler.jsonc must own compatibility_date");
   assert.ok(wrangler.compatibility_date, "wrangler.jsonc compatibility_date must not be empty");
+  assert.equal(wrangler.d1_databases, undefined, "root wrangler.jsonc must not duplicate generated D1 bindings");
+  assert.equal(wrangler.r2_buckets, undefined, "root wrangler.jsonc must not duplicate generated R2 bindings");
 
-  const d1 = wrangler.d1_databases?.find((database) => database.binding === hosting.d1);
-  assert.ok(d1, `wrangler.jsonc must own D1 resource config for ${hosting.d1}`);
+  const d1 = resources.d1;
+  assert.equal(typeof d1?.binding, "string", "canonical resource config must own D1 binding");
   assert.ok(d1.database_name && d1.database_id, "canonical D1 config must include database_name and database_id");
   assert.equal(d1.migrations_dir, "./drizzle", "canonical D1 migrations_dir must be ./drizzle");
+  assert.equal(hosting.d1, d1.binding, ".openai/hosting.json must mirror the canonical D1 binding");
 
-  const r2 = wrangler.r2_buckets?.find((bucket) => bucket.binding === hosting.r2);
-  assert.ok(r2, `wrangler.jsonc must own R2 resource config for ${hosting.r2}`);
+  const r2 = resources.r2;
+  assert.equal(typeof r2?.binding, "string", "canonical resource config must own R2 binding");
   assert.ok(r2.bucket_name, "canonical R2 config must include bucket_name");
+  assert.equal(hosting.r2, r2.binding, ".openai/hosting.json must mirror the canonical R2 binding");
 
   assert.equal(wrangler.assets?.binding, "ASSETS", "wrangler.jsonc must own ASSETS binding");
   assert.equal(wrangler.images?.binding, "IMAGES", "wrangler.jsonc must own IMAGES binding");
@@ -87,28 +120,20 @@ export async function auditConfigurationContract(root = defaultRoot) {
     assert.equal(source.includes(SITE_URL), false, `${file} must consume canonical SITE_URL instead of hard-coding it`);
   }
 
-  // The workflow contains deterministic CI-only PII fixtures. They are not
-  // production secrets and must remain explicitly labelled as such.
-  if (workflowText.includes("PII_ENCRYPTION_KEY=") || workflowText.includes("PII_HASH_KEY=")) {
-    assert.ok(
-      workflowText.includes("Configure CI-only local PII keys"),
-      "tracked PII fixture values are allowed only in the explicitly labelled CI-only fixture step",
-    );
-  }
-  assert.equal(workflowText.includes("RESEND_API_KEY="), false, "workflow must not contain a tracked Resend secret value");
-  assert.equal(workflowText.includes("TURNSTILE_SECRET_KEY="), false, "workflow must not contain a tracked Turnstile secret value");
-
   assert.equal(viteText.includes(d1.database_id), false, "vite.config.ts must not duplicate the canonical D1 database_id");
   assert.equal(viteText.includes(d1.database_name), false, "vite.config.ts must not duplicate the canonical D1 database_name");
   assert.equal(viteText.includes(r2.bucket_name), false, "vite.config.ts must not duplicate the canonical R2 bucket_name");
+  assert.ok(viteText.includes("cloudflare-resources.json"), "vite.config.ts must consume the canonical resource contract");
   assert.equal(cleanD1Text.includes(`compatibility_date: \"${wrangler.compatibility_date}\"`), false, "clean-D1 config must derive compatibility_date");
-  assert.equal(cleanD1Text.includes(`binding: \"${hosting.d1}\"`), false, "clean-D1 config must derive the D1 binding");
+  assert.equal(cleanD1Text.includes(`binding: \"${d1.binding}\"`), false, "clean-D1 config must derive the D1 binding");
+
+  await auditTrackedSecretAssignments(root, workflowText);
 
   return Object.freeze({
     siteUrl: SITE_URL,
     compatibilityDate: wrangler.compatibility_date,
-    d1Binding: hosting.d1,
-    r2Binding: hosting.r2,
+    d1Binding: d1.binding,
+    r2Binding: r2.binding,
     secretEnvNames: [...SECRET_ENV_NAMES],
   });
 }
