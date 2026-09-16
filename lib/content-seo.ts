@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ArticleSeo } from "@/lib/content";
-import { absoluteUrl, buildPageMetadata, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, buildPageMetadata, SITE_URL } from "@/lib/seo";
 
 export type EditableSeo = ArticleSeo;
 
@@ -55,16 +55,17 @@ export function buildContentMetadata(input: ContentMetadataInput): Metadata {
   const title = input.seo?.title?.trim() || input.fallbackTitle;
   const description = input.seo?.description?.trim() || input.fallbackDescription;
   const canonical = resolvedCanonical(input.seo, input.path);
-  const image = input.seo?.ogImage?.trim() || input.image || null;
-  const imageUrl = image ? absoluteUrl(image) : null;
   const socialTitle = input.seo?.ogTitle?.trim() || title;
   const socialDescription = input.seo?.ogDescription?.trim() || description;
   const base = buildPageMetadata({
     title,
     description,
     path: input.path,
-    image,
+    canonical,
+    image: input.seo?.ogImage?.trim() || input.image,
     imageAlt: input.imageAlt,
+    socialTitle,
+    socialDescription,
     type: input.type,
     publishedTime: input.publishedTime,
     modifiedTime: input.modifiedTime,
@@ -77,10 +78,6 @@ export function buildContentMetadata(input: ContentMetadataInput): Metadata {
     ...base,
     title: { absolute: title },
     keywords: input.seo?.focusKeyword ? [input.seo.focusKeyword] : undefined,
-    alternates: { canonical },
-    openGraph: { ...base.openGraph, title: socialTitle, description: socialDescription, url: canonical,
-      siteName: SITE_NAME, images: imageUrl ? [{ url: imageUrl, alt: input.imageAlt }] : [] },
-    twitter: { card: "summary_large_image", title: socialTitle, description: socialDescription, images: imageUrl ? [imageUrl] : [] },
   };
 }
 
