@@ -24,7 +24,7 @@ export const DEPLOYMENT_STEPS = Object.freeze({
   deploy: Object.freeze({
     id: "deploy",
     command: wrangler,
-    args: ["deploy", "--config", "dist/server/wrangler.json", "--keep-vars"],
+    args: ["deploy", "--config", "dist/server/wrangler.json", "--keep-vars", "--no-bundle"],
   }),
 });
 
@@ -65,7 +65,8 @@ export async function runSafeCloudflareDeployment({
   console.log(`[deploy] artifact identity unchanged sha256=${beforeDeploy.fingerprint}`);
 
   // Phase C — deploy exactly the artifact prepared above. Generated config validation
-  // rejects build.command, so Wrangler cannot invoke a second application build hook.
+  // rejects build.command and --no-bundle prevents Wrangler from compiling a new
+  // Worker bundle after the remote DB gate.
   await runCommand(DEPLOYMENT_STEPS.deploy);
 
   return Object.freeze({ fingerprint: prepared.fingerprint });
