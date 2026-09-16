@@ -165,4 +165,88 @@ test.describe("admin directory server filters", () => {
       .analyze();
     expect(dialogScan.violations).toEqual([]);
   });
+
+  test("directory rows and filters stay scoped and overflow-free at desktop and 390px", async ({ page }) => {
+    const expectInsideViewport = async (locator: ReturnType<typeof page.locator>) => {
+      const box = await locator.boundingBox();
+      const viewport = page.viewportSize();
+      expect(box).not.toBeNull();
+      expect(viewport).not.toBeNull();
+      if (!box || !viewport) throw new Error("Layout target or viewport was not measurable.");
+      expect(box.x).toBeGreaterThanOrEqual(-1);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+      return box;
+    };
+
+    for (const viewport of [
+      { width: 1280, height: 800 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
+
+      const row = page.locator(".admin-directory-row").first();
+      const checkbox = row.getByRole("checkbox");
+      const thumb = row.locator(".admin-directory-thumb");
+      const main = row.locator(".admin-article-main");
+      const actions = row.locator(".admin-row-actions");
+      const filter = page.locator(".admin-directory-category-filter");
+      const searchControl = filter.locator(".admin-search");
+      const categoryControl = page.getByLabel("Kategória");
+      const submit = filter.getByRole("button", { name: "Použiť filtre" });
+
+      await expect(row).toBeVisible();
+      await expect(checkbox).toBeVisible();
+      await expect(actions.getByRole("link", { name: "Upraviť" })).toBeVisible();
+      await expect(actions.getByRole("button", { name: "Odstrániť" })).toBeVisible();
+
+      const rowBox = await expectInsideViewport(row);
+      const checkboxBox = await expectInsideViewport(checkbox);
+      const thumbBox = await expectInsideViewport(thumb);
+      const mainBox = await expectInsideViewport(main);
+      const actionsBox = await expectInsideViewport(actions);
+      const filterBox = await expectInsideViewport(filter);
+      const searchBox = await expectInsideViewport(searchControl);
+      const categoryBox = await expectInsideViewport(categoryControl);
+      const submitBox = await expectInsideViewport(submit);
+
+      const trackCount = await row.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length);
+      expect(trackCount).toBe(viewport.width <= 720 ? 3 : 4);
+
+      expect(checkboxBox.x + checkboxBox.width).toBeLessThanOrEqual(thumbBox.x + 1);
+      expect(thumbBox.x + thumbBox.width).toBeLessThanOrEqual(mainBox.x + 1);
+      if (viewport.width > 720) {
+        expect(mainBox.x + mainBox.width).toBeLessThanOrEqual(actionsBox.x + 1);
+      } else {
+        expect(actionsBox.y).toBeGreaterThanOrEqual(Math.max(thumbBox.y + thumbBox.height, mainBox.y + mainBox.height) - 1);
+        expect(searchBox.y + searchBox.height).toBeLessThanOrEqual(categoryBox.y + 1);
+        expect(categoryBox.y + categoryBox.height).toBeLessThanOrEqual(submitBox.y + 1);
+        expect(searchBox.height).toBeGreaterThanOrEqual(44);
+        expect(categoryBox.height).toBeGreaterThanOrEqual(44);
+        expect(submitBox.height).toBeGreaterThanOrEqual(44);
+      }
+
+      const overflow = await page.evaluate(() => ({
+        document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        row: document.querySelector<HTMLElement>(".admin-directory-row")!.scrollWidth - document.querySelector<HTMLElement>(".admin-directory-row")!.clientWidth,
+        filter: document.querySelector<HTMLElement>(".admin-directory-category-filter")!.scrollWidth - document.querySelector<HTMLElement>(".admin-directory-category-filter")!.clientWidth,
+      }));
+      expect(overflow.document).toBeLessThanOrEqual(1);
+      expect(overflow.row).toBeLessThanOrEqual(1);
+      expect(overflow.filter).toBeLessThanOrEqual(1);
+      expect(rowBox.width).toBeLessThanOrEqual(viewport.width + 1);
+      expect(filterBox.width).toBeLessThanOrEqual(viewport.width + 1);
+
+      const sharedArticleTrackCount = await page.evaluate(() => {
+        const probe = document.createElement("article");
+        probe.className = "admin-article-row";
+        probe.innerHTML = "<div></div><div></div><div></div>";
+        document.body.append(probe);
+        const count = getComputedStyle(probe).gridTemplateColumns.trim().split(/\s+/).length;
+        probe.remove();
+        return count;
+      });
+      expect(sharedArticleTrackCount).toBe(viewport.width <= 720 ? 2 : 3);
+    }
+  });
 });
