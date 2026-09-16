@@ -4,6 +4,9 @@
   --ps-radius-filter: 18px;
   --ps-radius-card: 22px;
   --ps-radius-media: 22px;
+  --ps-control-min-height: 44px;
+  --ps-card-padding: 26px;
+  --ps-heading-section: clamp(2.2rem, 4vw, 3.75rem);
   --ps-border-soft: rgba(23, 53, 43, 0.1);
   --ps-border-strong: rgba(23, 75, 56, 0.18);
   --ps-surface: var(--paper);
@@ -45,6 +48,44 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Parent hubs and their structured child pages share one image-led hero language. */
+.portal-section-hero--photo {
+  color: var(--white);
+  background: var(--forest-dark);
+}
+
+.portal-section-hero--photo::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, rgba(11, 42, 32, 0.96) 0%, rgba(15, 57, 42, 0.84) 48%, rgba(15, 57, 42, 0.28) 100%);
+  pointer-events: none;
+}
+
+.portal-section-hero--photo > .page-container {
+  position: relative;
+  z-index: 2;
+}
+
+.portal-section-hero--photo .page-breadcrumbs,
+.portal-section-hero--photo .page-breadcrumbs a,
+.portal-section-hero--photo .eyebrow,
+.portal-section-hero--photo h1 {
+  color: var(--white);
+}
+
+.portal-section-hero--photo p {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.portal-section-hero--photo .portal-hero-icon,
+.portal-section-hero--photo .portal-topic-title > span {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .page-breadcrumbs,
@@ -120,7 +161,7 @@
 .section-tab {
   display: inline-flex;
   flex: 0 0 auto;
-  min-height: 44px;
+  min-height: var(--ps-control-min-height);
   align-items: center;
   justify-content: center;
   padding: 8px 13px;
@@ -206,6 +247,15 @@
   background: var(--ps-surface-raised);
 }
 
+.portal-topic-copy h2 {
+  font-size: var(--ps-heading-section);
+}
+
+.portal-directory,
+.care-guidance-section {
+  padding-block: var(--ps-space-section);
+}
+
 /* Existing cards keep their section identity but now share one shell radius. */
 .article-card,
 .event-card,
@@ -217,6 +267,19 @@
 .directory-category-grid > a,
 .care-guidance-card {
   border-radius: var(--ps-radius-card);
+}
+
+.portal-subpage-card,
+.care-guidance-card {
+  padding: var(--ps-card-padding);
+}
+
+.care-urgent-actions a,
+.activity-fit > a,
+.puppy-start-actions a,
+.care-topic-services a {
+  min-height: var(--ps-control-min-height);
+  border-radius: var(--ps-radius-control);
 }
 
 /* Existing search/filter implementations share the same visual boundary. */
@@ -477,6 +540,7 @@
     --ps-radius-media: 18px;
     --ps-space-section: 64px;
     --ps-space-block: 24px;
+    --ps-card-padding: 20px;
   }
 
   .public-shell {

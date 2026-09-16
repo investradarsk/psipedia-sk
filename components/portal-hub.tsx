@@ -8,17 +8,14 @@ import type { Article } from "@/lib/content";
 import type { DogEvent } from "@/lib/events";
 import {
   articlePortalSection,
+  portalSectionHeroImage,
   portalSubpageHref,
   type PortalSection,
 } from "@/lib/portal";
 
 export function PortalHub({ section, articles, events, allSections = [] }: { section: PortalSection; articles: Article[]; events?: DogEvent[]; allSections?: PortalSection[] }) {
   const sectionArticles = articles.filter((article) => articlePortalSection(article) === section.slug);
-  const heroImage = sectionArticles.find((article) => article.image)?.image || ({
-    steniatka: "/images/hero-labrador.webp",
-    starostlivost: "/images/zdravie-veterinar.webp",
-    aktivity: "/images/trening-pri-nohe.webp",
-  } as Record<string, string>)[section.slug];
+  const heroImage = sectionArticles.find((article) => article.image)?.image || portalSectionHeroImage(section.slug);
   const hasEventCalendar = events !== undefined;
   const isCare = section.slug === "starostlivost";
   const isActivities = section.slug === "aktivity";
@@ -104,7 +101,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
     <main id="obsah">
       <SectionHero
         image={heroImage}
-        className={`portal-hero portal-hero--${section.accent}${heroImage ? " portal-hero--photo" : ""}`}
+        className={`portal-hero portal-section-hero portal-hero--${section.accent}${heroImage ? " portal-hero--photo portal-section-hero--photo" : ""}`}
         imageClassName="portal-hero-photo"
         containerClassName="portal-hero-inner"
       >

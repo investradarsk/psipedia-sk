@@ -50,6 +50,13 @@ const uxFoundationRoutes = [
   { path: "/aktivity", firstContent: ".activity-fit" },
   { path: "/aktivity/trening", firstContent: ".portal-topic-body" },
   { path: "/steniatka", firstContent: ".puppy-start" },
+  { path: "/steniatka/pred-kupou-psa", firstContent: ".portal-topic-body" },
+] as const;
+
+const visualConsistencyPairs = [
+  ["/steniatka", "/steniatka/pred-kupou-psa"],
+  ["/starostlivost", "/starostlivost/vyziva"],
+  ["/aktivity", "/aktivity/trening"],
 ] as const;
 
 async function measuredBox(locator: Locator, label: string) {
@@ -243,6 +250,19 @@ test("PortalHub and PortalTopic share gutters, spacing and visible SectionTabs",
     } else {
       expect(heroBox.width, `${route.path}: desktop container exceeds 1180px`).toBeLessThanOrEqual(1180.5);
       expect(tabsInnerBox.width, `${route.path}: desktop tabs exceed 1180px`).toBeLessThanOrEqual(1180.5);
+    }
+  }
+});
+
+test("structured parent and child pages share the image-led hero system", async ({ page }) => {
+  for (const pair of visualConsistencyPairs) {
+    for (const path of pair) {
+      await page.goto(path);
+      const hero = page.locator(".portal-section-hero");
+      await expect(hero, `${path}: shared portal hero missing`).toBeVisible();
+      await expect(hero, `${path}: image-led portal hero missing`).toHaveClass(/portal-section-hero--photo/);
+      await expect(hero.locator(":scope > .section-hero-photo"), `${path}: hero image missing`).toHaveCount(1);
+      await expectNoHorizontalOverflow(page, path);
     }
   }
 });
