@@ -1,10 +1,10 @@
 import Link from "next/link";
+import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import {
   adoptionCatalogAgeLabels,
   adoptionCatalogHref,
   adoptionCatalogSexLabels,
   adoptionCatalogSizeLabels,
-  adoptionCatalogStatusLabels,
   buildAdoptionCatalogView,
   formatAdoptionCatalogAge,
   type AdoptionCatalogFilters,
@@ -26,20 +26,15 @@ type Props = {
   breeds: AdoptionBreedOption[];
 };
 
-function DogImage({ dog }: { dog: AdoptionDog }) {
-  if (dog.mainImage) return <img src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} />;
-  return <div className={styles.imageFallback} aria-hidden="true"><span /></div>;
-}
-
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
   return <article className={styles.card}>
-    <Link className={styles.visual} href={href} aria-label={`Zobraziť profil ${dog.name}`}>
-      <DogImage dog={dog} />
-      <span className={`${styles.statusBadge} ${dog.status === "RESERVED" ? styles.reserved : styles.active}`}>
-        {adoptionCatalogStatusLabels[dog.status]}
-      </span>
-    </Link>
+    <AdoptionCardMedia
+      href={href}
+      name={dog.name}
+      status={dog.status}
+      mainImage={dog.mainImage}
+    />
     <div className={styles.cardBody}>
       {(dog.city || dog.region) && <p className={styles.location}>{[dog.city, dog.region].filter(Boolean).join(" · ")}</p>}
       <h2><Link href={href}>{dog.name}</Link></h2>
