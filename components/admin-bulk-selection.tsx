@@ -58,11 +58,13 @@ export function useAdminBulkSelection({
   membershipFingerprint,
   pageIds,
   resultCount,
+  supportsAllMatching = true,
 }: {
   module: string;
   membershipFingerprint: string;
   pageIds: number[];
   resultCount: number;
+  supportsAllMatching?: boolean;
 }) {
   const [selection, setSelection] = useState<AdminBulkSelectionState>({ mode: "explicit", ids: [] });
   const [restored, setRestored] = useState(false);
@@ -77,7 +79,7 @@ export function useAdminBulkSelection({
         const normalized = stored.membershipFingerprint === membershipFingerprint
           ? normalizeStoredState(stored.selection)
           : null;
-        if (normalized) {
+        if (normalized && (supportsAllMatching || normalized.mode !== "all-matching")) {
           nextSelection = normalized;
         } else {
           sessionStorage.removeItem(key);
@@ -96,7 +98,7 @@ export function useAdminBulkSelection({
     return () => {
       active = false;
     };
-  }, [membershipFingerprint, module]);
+  }, [membershipFingerprint, module, supportsAllMatching]);
 
   useEffect(() => {
     if (!restored) return;
@@ -155,7 +157,7 @@ export function useAdminBulkSelection({
     toggleRow,
     toggleCurrentPage,
     selectAllMatching: () => {
-      if (restored) setSelection({ mode: "all-matching" });
+      if (restored && supportsAllMatching) setSelection({ mode: "all-matching" });
     },
     clear: () => setSelection({ mode: "explicit", ids: [] }),
   };
@@ -211,9 +213,10 @@ export function AdminBulkSelectionControls({
   toggleCurrentPage,
   selectAllMatching,
   clear,
+  supportsAllMatching = true,
 }: {
-  module: "directory";
-  membershipFilter: { category: string; status: "all" | "published" | "draft"; q: string };
+  module: "directory" | "articles";
+  membershipFilter: unknown;
   membershipFingerprint: string;
   resultCount: number;
   pageIds: number[];
@@ -226,6 +229,7 @@ export function AdminBulkSelectionControls({
   toggleCurrentPage: (checked: boolean) => void;
   selectAllMatching: () => void;
   clear: () => void;
+  supportsAllMatching?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -233,8 +237,10 @@ export function AdminBulkSelectionControls({
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<PreflightResult | null>(null);
   const [error, setError] = useState("");
+  const isArticles = module === "articles";
   const canOfferAllMatching = (
-    selection.mode === "explicit"
+    supportsAllMatching
+    && selection.mode === "explicit"
     && currentPageAllSelected
     && resultCount > pageIds.length
   );
@@ -286,6 +292,11 @@ export function AdminBulkSelectionControls({
   }
 
   const actionLabel = action === "publish" ? "Publikovať" : "Presunúť do konceptov";
+  const pageSelectionLabel = isArticles
+    ? "Vybrať všetky články na tejto strane"
+    : "Vybrať všetky profily na tejto strane";
+  const dialogObjectLabel = isArticles ? "článkov" : "profilov";
+  const noMutationLabel = isArticles ? "Články" : "Profily";
 
   return (
     <>
@@ -294,7 +305,7 @@ export function AdminBulkSelectionControls({
           checked={currentPageAllSelected}
           indeterminate={currentPageSomeSelected}
           disabled={!selectionReady}
-          label="Vybrať všetky profily na tejto strane"
+          label={pageSelectionLabel}
           onChange={toggleCurrentPage}
         />
         {currentPageSelected > 0 && (
@@ -305,14 +316,14 @@ export function AdminBulkSelectionControls({
             Vybrať všetkých {resultCount} výsledkov zodpovedajúcich filtrom
           </button>
         )}
-        {selection.mode === "all-matching" && (
+        {selection.mode === "all-matching" && supportsAllMatching && (
           <strong>Vybraných všetkých {resultCount} výsledkov</strong>
         )}
       </div>
 
       {selectedCount > 0 && (
         <aside className={styles.toolbar} aria-label="Hromadný výber">
-          <div className={styles.summary}>
+          <div className={styles.summary} aria-live="polite" aria-atomic="true">
             <strong>Vybrané: {selectedCount}</strong>
             <span>{selection.mode === "all-matching" ? "Všetky výsledky filtra" : "Explicitný výber"}</span>
           </div>
@@ -340,8 +351,8 @@ export function AdminBulkSelectionControls({
         }}
       >
         <div className={styles.dialogBody}>
-          <h2 id="bulk-preflight-title">{actionLabel} {selectedCount} profilov?</h2>
-          <p>Táto fáza vykoná iba serverovú kontrolu a vytvorí krátkodobý selection snapshot. Profily nezmení.</p>
+          <h2 id="bulk-preflight-title">{actionLabel} {selectedCount} {dialogObjectLabel}?</h2>
+          <p>Táto fáza vykoná iba serverovú kontrolu a vytvorí krátkodobý selection snapshot. {noMutationLabel} nezmení.</p>
 
           <div aria-live="polite" aria-atomic="true">
             {pending && <p>Kontrolujem výber…</p>}
