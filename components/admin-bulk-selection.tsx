@@ -38,6 +38,8 @@ const skipLabels: Record<PreflightResult["skips"][number]["reason"], string> = {
   "record-changed-since-snapshot": "záznam sa od snapshotu zmenil",
 };
 
+const emptySelection: AdminBulkSelectionState = { mode: "explicit", ids: [] };
+
 function storageKey(module: string) {
   return `psipedia-admin-bulk-selection:${module}`;
 }
@@ -58,18 +60,22 @@ export function useAdminBulkSelection({
   membershipFingerprint,
   pageIds,
   resultCount,
+  supportsAllMatching = true,
 }: {
   module: string;
   membershipFingerprint: string;
   pageIds: number[];
   resultCount: number;
+  supportsAllMatching?: boolean;
 }) {
-  const [selection, setSelection] = useState<AdminBulkSelectionState>({ mode: "explicit", ids: [] });
-  const [restored, setRestored] = useState(false);
+  const [selectionState, setSelectionState] = useState<{
+    membershipFingerprint: string | null;
+    selection: AdminBulkSelectionState;
+  }>({ membershipFingerprint: null, selection: emptySelection });
 
   useEffect(() => {
     const key = storageKey(module);
-    let nextSelection: AdminBulkSelectionState = { mode: "explicit", ids: [] };
+    let nextSelection: AdminBulkSelectionState = emptySelection;
     try {
       const raw = sessionStorage.getItem(key);
       if (raw) {
@@ -77,7 +83,7 @@ export function useAdminBulkSelection({
         const normalized = stored.membershipFingerprint === membershipFingerprint
           ? normalizeStoredState(stored.selection)
           : null;
-        if (normalized) {
+        if (normalized && (supportsAllMatching || normalized.mode !== "all-matching")) {
           nextSelection = normalized;
         } else {
           sessionStorage.removeItem(key);
@@ -90,16 +96,18 @@ export function useAdminBulkSelection({
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      setSelection(nextSelection);
-      setRestored(true);
+      setSelectionState({ membershipFingerprint, selection: nextSelection });
     });
     return () => {
       active = false;
     };
-  }, [membershipFingerprint, module]);
+  }, [membershipFingerprint, module, supportsAllMatching]);
+
+  const ready = selectionState.membershipFingerprint === membershipFingerprint;
+  const selection = ready ? selectionState.selection : emptySelection;
 
   useEffect(() => {
-    if (!restored) return;
+    if (!ready) return;
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
     if (selectedCount === 0) {
@@ -107,7 +115,7 @@ export function useAdminBulkSelection({
       return;
     }
     sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint, selection }));
-  }, [membershipFingerprint, module, restored, resultCount, selection]);
+  }, [membershipFingerprint, module, ready, resultCount, selection]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
   const explicitSet = new Set(explicitIds);
@@ -118,9 +126,16 @@ export function useAdminBulkSelection({
   const currentPageAllSelected = pageIds.length > 0 && currentPageSelected === pageIds.length;
   const currentPageSomeSelected = currentPageSelected > 0 && !currentPageAllSelected;
 
+  function updateSelection(updater: (current: AdminBulkSelectionState) => AdminBulkSelectionState) {
+    if (!ready) return;
+    setSelectionState((current) => {
+      if (current.membershipFingerprint !== membershipFingerprint) return current;
+      return { ...current, selection: updater(current.selection) };
+    });
+  }
+
   function toggleRow(id: number) {
-    if (!restored) return;
-    setSelection((current) => {
+    updateSelection((current) => {
       if (current.mode === "all-matching") {
         return { mode: "explicit", ids: pageIds.filter((pageId) => pageId !== id) };
       }
@@ -132,9 +147,8 @@ export function useAdminBulkSelection({
   }
 
   function toggleCurrentPage(checked: boolean) {
-    if (!restored) return;
-    setSelection((current) => {
-      if (!checked && current.mode === "all-matching") return { mode: "explicit", ids: [] };
+    updateSelection((current) => {
+      if (!checked && current.mode === "all-matching") return emptySelection;
       const ids = new Set(current.mode === "explicit" ? current.ids : []);
       for (const id of pageIds) {
         if (checked) ids.add(id);
@@ -146,7 +160,7 @@ export function useAdminBulkSelection({
 
   return {
     selection,
-    ready: restored,
+    ready,
     selectedCount,
     currentPageSelected,
     currentPageAllSelected,
@@ -155,9 +169,9 @@ export function useAdminBulkSelection({
     toggleRow,
     toggleCurrentPage,
     selectAllMatching: () => {
-      if (restored) setSelection({ mode: "all-matching" });
+      if (supportsAllMatching) updateSelection(() => ({ mode: "all-matching" }));
     },
-    clear: () => setSelection({ mode: "explicit", ids: [] }),
+    clear: () => updateSelection(() => emptySelection),
   };
 }
 
@@ -211,9 +225,10 @@ export function AdminBulkSelectionControls({
   toggleCurrentPage,
   selectAllMatching,
   clear,
+  supportsAllMatching = true,
 }: {
-  module: "directory";
-  membershipFilter: { category: string; status: "all" | "published" | "draft"; q: string };
+  module: "directory" | "articles";
+  membershipFilter: unknown;
   membershipFingerprint: string;
   resultCount: number;
   pageIds: number[];
@@ -226,6 +241,7 @@ export function AdminBulkSelectionControls({
   toggleCurrentPage: (checked: boolean) => void;
   selectAllMatching: () => void;
   clear: () => void;
+  supportsAllMatching?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -233,8 +249,10 @@ export function AdminBulkSelectionControls({
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<PreflightResult | null>(null);
   const [error, setError] = useState("");
+  const isArticles = module === "articles";
   const canOfferAllMatching = (
-    selection.mode === "explicit"
+    supportsAllMatching
+    && selection.mode === "explicit"
     && currentPageAllSelected
     && resultCount > pageIds.length
   );
@@ -286,6 +304,11 @@ export function AdminBulkSelectionControls({
   }
 
   const actionLabel = action === "publish" ? "Publikovať" : "Presunúť do konceptov";
+  const pageSelectionLabel = isArticles
+    ? "Vybrať všetky články na tejto strane"
+    : "Vybrať všetky profily na tejto strane";
+  const dialogObjectLabel = isArticles ? "článkov" : "profilov";
+  const noMutationLabel = isArticles ? "Články" : "Profily";
 
   return (
     <>
@@ -294,7 +317,7 @@ export function AdminBulkSelectionControls({
           checked={currentPageAllSelected}
           indeterminate={currentPageSomeSelected}
           disabled={!selectionReady}
-          label="Vybrať všetky profily na tejto strane"
+          label={pageSelectionLabel}
           onChange={toggleCurrentPage}
         />
         {currentPageSelected > 0 && (
@@ -305,14 +328,14 @@ export function AdminBulkSelectionControls({
             Vybrať všetkých {resultCount} výsledkov zodpovedajúcich filtrom
           </button>
         )}
-        {selection.mode === "all-matching" && (
+        {selection.mode === "all-matching" && supportsAllMatching && (
           <strong>Vybraných všetkých {resultCount} výsledkov</strong>
         )}
       </div>
 
       {selectedCount > 0 && (
         <aside className={styles.toolbar} aria-label="Hromadný výber">
-          <div className={styles.summary}>
+          <div className={styles.summary} aria-live="polite" aria-atomic="true">
             <strong>Vybrané: {selectedCount}</strong>
             <span>{selection.mode === "all-matching" ? "Všetky výsledky filtra" : "Explicitný výber"}</span>
           </div>
@@ -340,8 +363,8 @@ export function AdminBulkSelectionControls({
         }}
       >
         <div className={styles.dialogBody}>
-          <h2 id="bulk-preflight-title">{actionLabel} {selectedCount} profilov?</h2>
-          <p>Táto fáza vykoná iba serverovú kontrolu a vytvorí krátkodobý selection snapshot. Profily nezmení.</p>
+          <h2 id="bulk-preflight-title">{actionLabel} {selectedCount} {dialogObjectLabel}?</h2>
+          <p>Táto fáza vykoná iba serverovú kontrolu a vytvorí krátkodobý selection snapshot. {noMutationLabel} nezmení.</p>
 
           <div aria-live="polite" aria-atomic="true">
             {pending && <p>Kontrolujem výber…</p>}
