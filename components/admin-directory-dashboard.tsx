@@ -20,6 +20,7 @@ import {
 } from "@/lib/directory-admin-query";
 import type { ManagedDirectoryAdminPage } from "@/lib/directory-admin-store";
 import type { ManagedDirectoryProfileSummary } from "@/lib/directory-store";
+import styles from "./admin-directory-dashboard.module.css";
 
 export function AdminDirectoryDashboard({ data, filters }: {
   data: ManagedDirectoryAdminPage;
@@ -63,7 +64,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
       </section>
       <section className="admin-panel">
         <div className="admin-toolbar">
-          <form className="admin-directory-category-filter" action="/admin/adresar" method="get" role="search">
+          <form className={`admin-directory-category-filter ${styles.categoryFilter}`} action="/admin/adresar" method="get" role="search">
             <label className="admin-search">
               <SearchIcon size={19} />
               <span className="sr-only">Hľadať profil</span>
@@ -117,21 +118,21 @@ export function AdminDirectoryDashboard({ data, filters }: {
             <div className="admin-article-list">
               {profiles.map((profile) => {
                 const category = getDirectoryCategory(profile.category);
-                return <article className="admin-article-row admin-directory-row" key={profile.id}>
+                return <article className={`admin-article-row admin-directory-row ${styles.row}`} key={profile.id}>
                   <BulkSelectionCheckbox
                     checked={bulkSelection.isSelected(profile.id)}
                     disabled={!bulkSelection.ready}
                     label={`Vybrať profil ${profile.name}`}
                     onChange={() => bulkSelection.toggleRow(profile.id)}
-                    className={adminBulkSelectionStyles.rowCheck}
+                    className={`${adminBulkSelectionStyles.rowCheck} ${styles.rowCheck}`}
                   />
-                  <div className="admin-directory-thumb">{profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
-                  <div className="admin-article-main">
+                  <div className={`admin-directory-thumb ${styles.thumb}`}>{profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
+                  <div className={`admin-article-main ${styles.main}`}>
                     <div className="admin-article-tags"><span className={`admin-status admin-status--${profile.status}`}>{profile.status === "published" ? "Publikované" : "Koncept"}</span><span>{category?.label}</span>{profile.verified && <span>Overené</span>}{profile.featured && <span>Odporúčame</span>}</div>
                     <h2><Link href={`/admin/adresar/${profile.id}`}>{profile.name}</Link></h2>
                     <p>{profile.city} · {profile.region} · {profile.services.slice(0, 2).join(" · ") || "Bez uvedených služieb"}</p>
                   </div>
-                  <div className="admin-row-actions">
+                  <div className={`admin-row-actions ${styles.actions}`}>
                     {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank">Pozrieť ↗</Link>}
                     <Link className="admin-row-edit" href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
                     <button type="button" disabled={deletingId === profile.id} onClick={() => void removeProfile(profile)}>{deletingId === profile.id ? "Odstraňujem…" : "Odstrániť"}</button>
