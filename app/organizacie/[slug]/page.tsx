@@ -7,7 +7,8 @@ import {
   getPublicOrganizationBySlug,
   getPublicOrganizationCompositionBySlug,
 } from "@/lib/help-organization-store";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildOrganizationJsonLd, buildOrganizationMetadata } from "@/lib/organization-seo";
+import { serializeJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -27,13 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const organization = await getPublicOrganizationBySlug(slug, requireDatabase());
   if (!organization) return {};
 
-  return buildPageMetadata({
-    title: organization.name,
-    description: organization.shortDescription || organization.description,
-    path: `/organizacie/${organization.slug}`,
-    image: organization.imageUrl,
-    imageAlt: organization.name,
-  });
+  return buildOrganizationMetadata(organization);
 }
 
 export default async function OrganizationProfilePage({ params }: Props) {
@@ -42,5 +37,15 @@ export default async function OrganizationProfilePage({ params }: Props) {
 
   if (!composition) notFound();
 
-  return <OrganizationProfileDetail composition={composition} />;
+  const jsonLd = buildOrganizationJsonLd(composition.organization);
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
+      <OrganizationProfileDetail composition={composition} />
+    </>
+  );
 }
