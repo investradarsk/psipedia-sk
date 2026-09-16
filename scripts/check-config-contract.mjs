@@ -53,12 +53,25 @@ async function auditTrackedSecretAssignments(root) {
 
 export async function auditConfigurationContract(root = defaultRoot) {
   const read = (relativePath) => fs.readFile(path.join(root, relativePath), "utf8");
-  const [wranglerText, resourcesText, hostingText, envExampleText, packageText, viteText, cleanD1Text, seoText] = await Promise.all([
+  const [
+    wranglerText,
+    resourcesText,
+    hostingText,
+    localToolingText,
+    envExampleText,
+    packageText,
+    packageLockText,
+    viteText,
+    cleanD1Text,
+    seoText,
+  ] = await Promise.all([
     read("wrangler.jsonc"),
     read("config/cloudflare-resources.json"),
     read(".openai/hosting.json"),
+    read("config/local-cloudflare-tooling.json"),
     read(".env.example"),
     read("package.json"),
+    read("package-lock.json"),
     read("vite.config.ts"),
     read("scripts/validate-clean-d1.mjs"),
     read("lib/seo.ts"),
@@ -67,12 +80,35 @@ export async function auditConfigurationContract(root = defaultRoot) {
   const wrangler = JSON.parse(wranglerText);
   const resources = JSON.parse(resourcesText);
   const hosting = JSON.parse(hostingText);
+  const localTooling = JSON.parse(localToolingText);
+  const packageLock = JSON.parse(packageLockText);
   const envExample = parseEnvFile(envExampleText);
 
-  assert.equal(typeof wrangler.compatibility_date, "string", "wrangler.jsonc must own compatibility_date");
-  assert.ok(wrangler.compatibility_date, "wrangler.jsonc compatibility_date must not be empty");
+  assert.equal(typeof wrangler.compatibility_date, "string", "wrangler.jsonc must own production compatibility_date");
+  assert.match(wrangler.compatibility_date, /^\d{4}-\d{2}-\d{2}$/, "production compatibility_date must be YYYY-MM-DD");
   assert.equal(wrangler.d1_databases, undefined, "root wrangler.jsonc must not duplicate generated D1 bindings");
   assert.equal(wrangler.r2_buckets, undefined, "root wrangler.jsonc must not duplicate generated R2 bindings");
+
+  assert.equal(typeof localTooling.compatibility_date, "string", "local Cloudflare tooling contract must declare compatibility_date");
+  assert.match(localTooling.compatibility_date, /^\d{4}-\d{2}-\d{2}$/, "local tooling compatibility_date must be YYYY-MM-DD");
+  assert.ok(
+    localTooling.compatibility_date <= wrangler.compatibility_date,
+    "local tooling compatibility target must not be newer than the production Worker contract",
+  );
+
+  const resolvedVitePlugin = packageLock.packages?.["node_modules/@cloudflare/vite-plugin"]?.version;
+  const resolvedWrangler = packageLock.packages?.["node_modules/wrangler"]?.version;
+  const resolvedMiniflare = packageLock.packages?.["node_modules/miniflare"]?.version;
+  const resolvedWorkerd = packageLock.packages?.["node_modules/workerd"]?.version;
+  for (const [name, version] of [
+    ["@cloudflare/vite-plugin", resolvedVitePlugin],
+    ["wrangler", resolvedWrangler],
+    ["miniflare", resolvedMiniflare],
+    ["workerd", resolvedWorkerd],
+  ]) {
+    assert.equal(typeof version, "string", `package-lock.json must resolve ${name}`);
+    assert.ok(version, `package-lock.json resolved ${name} must not be empty`);
+  }
 
   const d1 = resources.d1;
   assert.equal(typeof d1?.binding, "string", "canonical resource config must own D1 binding");
@@ -122,8 +158,11 @@ export async function auditConfigurationContract(root = defaultRoot) {
   assert.equal(viteText.includes(d1.database_id), false, "vite.config.ts must not duplicate the canonical D1 database_id");
   assert.equal(viteText.includes(d1.database_name), false, "vite.config.ts must not duplicate the canonical D1 database_name");
   assert.equal(viteText.includes(r2.bucket_name), false, "vite.config.ts must not duplicate the canonical R2 bucket_name");
+  assert.equal(viteText.includes(wrangler.compatibility_date), false, "vite.config.ts must not hard-code the production compatibility date");
+  assert.equal(viteText.includes(localTooling.compatibility_date), false, "vite.config.ts must not hard-code the local tooling compatibility date");
+  assert.ok(viteText.includes("local-cloudflare-tooling.json"), "vite.config.ts must consume the explicit local tooling compatibility contract");
   assert.ok(viteText.includes("cloudflare-resources.json"), "vite.config.ts must consume the canonical resource contract");
-  assert.equal(cleanD1Text.includes(`compatibility_date: \"${wrangler.compatibility_date}\"`), false, "clean-D1 config must derive compatibility_date");
+  assert.equal(cleanD1Text.includes(`compatibility_date: \"${wrangler.compatibility_date}\"`), false, "clean-D1 config must derive production compatibility_date");
   assert.equal(cleanD1Text.includes(`binding: \"${d1.binding}\"`), false, "clean-D1 config must derive the D1 binding");
 
   await auditTrackedSecretAssignments(root);
@@ -131,6 +170,13 @@ export async function auditConfigurationContract(root = defaultRoot) {
   return Object.freeze({
     siteUrl: SITE_URL,
     compatibilityDate: wrangler.compatibility_date,
+    localCompatibilityDate: localTooling.compatibility_date,
+    localCloudflareToolchain: Object.freeze({
+      vitePlugin: resolvedVitePlugin,
+      wrangler: resolvedWrangler,
+      miniflare: resolvedMiniflare,
+      workerd: resolvedWorkerd,
+    }),
     d1Binding: d1.binding,
     r2Binding: r2.binding,
     secretEnvNames: [...SECRET_ENV_NAMES],
@@ -139,5 +185,7 @@ export async function auditConfigurationContract(root = defaultRoot) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const result = await auditConfigurationContract();
-  console.log(`[config] PASS — ${result.siteUrl}; D1=${result.d1Binding}; R2=${result.r2Binding}; compatibility=${result.compatibilityDate}`);
+  console.log(
+    `[config] PASS — ${result.siteUrl}; D1=${result.d1Binding}; R2=${result.r2Binding}; productionCompatibility=${result.compatibilityDate}; localCompatibility=${result.localCompatibilityDate}; workerd=${result.localCloudflareToolchain.workerd}`,
+  );
 }

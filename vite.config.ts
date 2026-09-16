@@ -3,6 +3,7 @@ import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import resourceConfig from "./config/cloudflare-resources.json";
+import localToolingConfig from "./config/local-cloudflare-tooling.json";
 import { sites } from "./build/sites-vite-plugin";
 
 const { d1, r2 } = hostingConfig;
@@ -28,7 +29,11 @@ const isExplicitLocalE2eBootstrap = process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP ===
 
 const localBindingConfig = {
   main: "./worker/index.ts",
-  compatibility_date: wranglerConfig.compatibility_date,
+  // Production owns its compatibility date in wrangler.jsonc. The currently
+  // pinned local workerd binary cannot boot that newer date, so local Vite/
+  // Miniflare uses the explicit reviewed tooling target instead of a hidden
+  // literal. config:check keeps this separation visible and deterministic.
+  compatibility_date: localToolingConfig.compatibility_date,
   version_metadata: { binding: versionMetadataBinding },
   // Production keeps Cloudflare Access from wrangler.jsonc. Only the explicit
   // local E2E bootstrap disables that Worker-level gate so the existing

@@ -48,3 +48,15 @@ test("repository configuration contract is production-safe and secret-free", asy
   assert.equal(result.r2Binding, "BUCKET");
   assert.ok(result.secretEnvNames.includes("PII_ENCRYPTION_KEY"));
 });
+
+test("local Cloudflare tooling target is explicit and tied to the resolved toolchain", async () => {
+  const result = await auditConfigurationContract();
+  assert.equal(result.compatibilityDate, "2026-08-23");
+  assert.equal(result.localCompatibilityDate, "2026-05-22");
+  assert.deepEqual(result.localCloudflareToolchain, {
+    vitePlugin: "1.37.1",
+    wrangler: "4.92.0",
+    miniflare: "4.20260515.0",
+    workerd: "1.20260515.1",
+  });
+});
