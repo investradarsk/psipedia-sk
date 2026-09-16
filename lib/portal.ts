@@ -49,6 +49,16 @@ export type PortalSection = {
   articleEnabled: boolean;
 };
 
+const portalSectionHeroImages: Partial<Record<ArticlePortalSection, string>> = {
+  steniatka: "/images/hero-labrador.webp",
+  starostlivost: "/images/zdravie-veterinar.webp",
+  aktivity: "/images/trening-pri-nohe.webp",
+};
+
+export function portalSectionHeroImage(sectionSlug: string) {
+  return portalSectionHeroImages[sectionSlug as ArticlePortalSection] ?? null;
+}
+
 export const portalSections: PortalSection[] = [
   {
     slug: "novinky",

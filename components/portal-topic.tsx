@@ -5,7 +5,7 @@ import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-syste
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
-import { articlePortalSection, portalSubpageHref, type PortalSection, type PortalSubpage } from "@/lib/portal";
+import { articlePortalSection, portalSectionHeroImage, portalSubpageHref, type PortalSection, type PortalSubpage } from "@/lib/portal";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 
 const specialNotes: Record<string, { title: string; text: string; items: string[] }> = {
@@ -66,6 +66,7 @@ export function PortalTopic({
   const isPuppies = section.slug === "steniatka";
   const isReviews = section.slug === "recenzie";
   const isStructuredTopic = isCare || isActivities || isPuppies;
+  const heroImage = isStructuredTopic ? (subpage.imageUrl || portalSectionHeroImage(section.slug)) : null;
   const hasReviewGuide = isReviews && portalSubpageHasEditorialValue(subpage);
   const legacyCareArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
   const legacyActivityArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
@@ -89,7 +90,12 @@ export function PortalTopic({
 
   return (
     <main id="obsah">
-      <SectionHero className={`portal-topic-hero portal-topic-hero--${section.accent}`} containerClassName="portal-topic-hero-inner">
+      <SectionHero
+        image={heroImage}
+        className={`portal-topic-hero portal-section-hero portal-topic-hero--${section.accent}${heroImage ? " portal-section-hero--photo" : ""}`}
+        imageClassName="portal-hero-photo"
+        containerClassName="portal-topic-hero-inner"
+      >
         <Breadcrumbs>
           <Link href="/">Domov</Link><span>/</span><Link href={`/${section.slug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
         </Breadcrumbs>
@@ -104,7 +110,7 @@ export function PortalTopic({
 
       {!isReviews && <section className="section shell public-shell portal-topic-body">
         <div className="portal-topic-copy">
-          {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
+          {subpage.imageUrl && !heroImage && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
           <span className="eyebrow">Čo tu nájdeš</span>
           <h2>{isCare ? `Praktická poradňa: ${subpage.label}` : isActivities ? `Praktický sprievodca: ${subpage.label}` : isPuppies ? `Sprievodca: ${subpage.label}` : note.title}</h2>
           <p>{isStructuredTopic ? (subpage.intro || subpage.description) : note.text}</p>
