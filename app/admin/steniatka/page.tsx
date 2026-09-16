@@ -22,7 +22,7 @@ export default async function AdminPuppiesPage({ searchParams }: { searchParams:
       eyebrow="Obsah pre nových majiteľov"
       title="Šteniatka"
       description="Pridávaj články priamo do konkrétnych oblastí a spravuj celý obsah sekcie Šteniatka."
-      actions={<Link className="admin-primary-action" href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link>}
+      actions={<><Link className="admin-primary-action" href="/admin/steniatka/pokrytie">Coverage Matrix</Link><Link className="admin-primary-action" href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link></>}
     >
       <AdminPuppyAreaEditor initialSections={sections} />
       <AdminDashboard initialArticles={result.articles} initialCounts={result.counts} pagination={result.pagination} fixedPortalSection="steniatka" />
