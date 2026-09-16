@@ -86,6 +86,7 @@ test("orchestration is fully injectable so tests execute no production commands"
   assert.ok(DEPLOYMENT_STEPS.remoteAudit.args.includes("--remote"));
   assert.ok(DEPLOYMENT_STEPS.remoteAudit.args.includes("--strict"));
   assert.deepEqual(DEPLOYMENT_STEPS.deploy.args.slice(0, 3), ["deploy", "--config", "dist/server/wrangler.json"]);
+  assert.ok(DEPLOYMENT_STEPS.deploy.args.includes("--no-bundle"), "production deploy must not create a new Wrangler bundle after DB mutation");
 });
 
 async function createArtifactFixture({ buildCommand = null } = {}) {
