@@ -25,7 +25,7 @@ function run(command, args, options = {}) {
     cwd: root,
     encoding: "utf8",
     stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
-    env: { ...process.env, WRANGLER_LOG: "error" },
+    env: process.env,
   });
 
   if (result.error) throw result.error;
