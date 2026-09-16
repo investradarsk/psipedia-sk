@@ -1,6 +1,10 @@
 import { env } from "cloudflare:workers";
 import { portalSections, type PortalSubpage } from "@/lib/portal";
-import type { PuppyCoverageArticle, PuppyCoverageArea } from "@/lib/puppy-coverage";
+import {
+  requirePuppyCoverageArticleRows,
+  type PuppyCoverageArticle,
+  type PuppyCoverageArea,
+} from "@/lib/puppy-coverage";
 
 type RuntimeBindings = { DB?: D1Database };
 type PuppySectionRow = { subpages_json: string };
@@ -71,20 +75,23 @@ export async function getPuppyCoverageSource(): Promise<{
   articles: PuppyCoverageArticle[];
 }> {
   const db = database();
-  if (!db) return { areas: mergeManagedPuppyAreas(null), articles: [] };
+  if (!db) throw new Error("Puppy coverage database binding is unavailable");
 
-  const [sectionResult, articleResult] = await Promise.allSettled([
-    db.prepare("SELECT subpages_json FROM portal_section_settings WHERE slug = 'steniatka' LIMIT 1").first<PuppySectionRow>(),
+  const sectionQuery = db
+    .prepare("SELECT subpages_json FROM portal_section_settings WHERE slug = 'steniatka' LIMIT 1")
+    .first<PuppySectionRow>()
+    .catch(() => null);
+
+  const articleQuery = requirePuppyCoverageArticleRows(
     db.prepare(`
       SELECT id, slug, title, portal_subpage, status
       FROM managed_articles
       WHERE portal_section = 'steniatka'
       ORDER BY portal_subpage, updated_at DESC, id DESC
     `).all<PuppyArticleRow>(),
-  ]);
+  );
 
-  const sectionRow = sectionResult.status === "fulfilled" ? sectionResult.value : null;
-  const articleRows = articleResult.status === "fulfilled" ? articleResult.value.results : [];
+  const [sectionRow, articleRows] = await Promise.all([sectionQuery, articleQuery]);
 
   return {
     areas: mergeManagedPuppyAreas(sectionRow?.subpages_json),
