@@ -6,7 +6,7 @@ import {
   DetailFactsCard,
   DetailParagraphs,
   DetailSection,
-} from "@/components/detail-primitives";
+} from "@/components/detail-primitives/detail-primitives";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
 import type { PublicOrganizationComposition } from "@/lib/help-organization-store";
 import { buildOrganizationProfilePresentation } from "@/lib/organization-profile-presentation";
