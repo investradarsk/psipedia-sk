@@ -80,14 +80,23 @@ export async function auditConfigurationContract(root = defaultRoot) {
     assert.equal(envExample.has(name), false, `${name} is canonical wrangler config, not a local secret/example env`);
   }
 
-  const siteUrlDuplicateTargets = [
-    ["package.json", packageText],
-    [".github/workflows/playwright-e2e.yml", workflowText],
-    ["lib/seo.ts", seoText],
-  ];
-  for (const [file, source] of siteUrlDuplicateTargets) {
+  // E2E_BASE_URL is intentionally CI/test-specific: localhost jobs and the
+  // read-only production smoke use different targets. It is not the site's
+  // canonical URL source. The application/package production path uses SITE_URL.
+  for (const [file, source] of [["package.json", packageText], ["lib/seo.ts", seoText]]) {
     assert.equal(source.includes(SITE_URL), false, `${file} must consume canonical SITE_URL instead of hard-coding it`);
   }
+
+  // The workflow contains deterministic CI-only PII fixtures. They are not
+  // production secrets and must remain explicitly labelled as such.
+  if (workflowText.includes("PII_ENCRYPTION_KEY=") || workflowText.includes("PII_HASH_KEY=")) {
+    assert.ok(
+      workflowText.includes("Configure CI-only local PII keys"),
+      "tracked PII fixture values are allowed only in the explicitly labelled CI-only fixture step",
+    );
+  }
+  assert.equal(workflowText.includes("RESEND_API_KEY="), false, "workflow must not contain a tracked Resend secret value");
+  assert.equal(workflowText.includes("TURNSTILE_SECRET_KEY="), false, "workflow must not contain a tracked Turnstile secret value");
 
   assert.equal(viteText.includes(d1.database_id), false, "vite.config.ts must not duplicate the canonical D1 database_id");
   assert.equal(viteText.includes(d1.database_name), false, "vite.config.ts must not duplicate the canonical D1 database_name");
