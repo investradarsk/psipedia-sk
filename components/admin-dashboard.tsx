@@ -2,12 +2,23 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import {
+  AdminBulkSelectionControls,
+  BulkSelectionCheckbox,
+  adminBulkSelectionStyles,
+  useAdminBulkSelection,
+} from "@/components/admin-bulk-selection";
+import {
+  articleAdminBulkFingerprint,
+  normalizeArticleAdminBulkFilter,
+} from "@/lib/article-admin-bulk-filter";
 import type { ManagedArticleSummary, ManagedArticleSummaryPage } from "@/lib/article-store";
 import type { AdminModuleCounts } from "@/lib/admin-dashboard-store";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, portalSectionLabel } from "@/lib/portal";
 import { AdminPagination } from "./admin-pagination";
 import { SearchIcon } from "./icons";
+import styles from "./admin-article-dashboard.module.css";
 
 type StatusFilter = "all" | "published" | "scheduled" | "draft";
 
@@ -56,6 +67,21 @@ export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, p
     });
   }, [articles, fixedPortalSection, query, status]);
 
+  const membershipFilter = useMemo(() => normalizeArticleAdminBulkFilter({
+    portalSection: fixedPortalSection ?? "",
+    status,
+    q: query,
+  }), [fixedPortalSection, query, status]);
+  const membershipFingerprint = articleAdminBulkFingerprint(membershipFilter);
+  const pageIds = visibleArticles.map((article) => article.id);
+  const bulkSelection = useAdminBulkSelection({
+    module: "articles",
+    membershipFingerprint,
+    pageIds,
+    resultCount: visibleArticles.length,
+    supportsAllMatching: false,
+  });
+
   async function removeArticle(article: ManagedArticleSummary) {
     const confirmed = window.confirm(`Naozaj chceš natrvalo odstrániť ${article.portalSection === "novinky" ? "novinku" : "článok"} „${article.title}“?`);
     if (!confirmed) return;
@@ -72,6 +98,7 @@ export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, p
         total: Math.max(0, current.total - 1),
         [article.status]: Math.max(0, current[article.status] - 1),
       }));
+      bulkSelection.clear();
       setMessage("Článok bol odstránený.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Článok sa nepodarilo odstrániť.");
@@ -120,7 +147,13 @@ export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, p
               ["scheduled", "Naplánované"],
               ["draft", "Koncepty"],
             ] as const).map(([value, label]) => (
-              <button key={value} type="button" className={status === value ? "is-active" : ""} onClick={() => setStatus(value)}>
+              <button
+                key={value}
+                type="button"
+                className={status === value ? "is-active" : ""}
+                aria-pressed={status === value}
+                onClick={() => setStatus(value)}
+              >
                 {label}
               </button>
             ))}
@@ -130,34 +163,60 @@ export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, p
         {message && <p className="admin-flash" role="status">{message}</p>}
 
         {visibleArticles.length ? (
-          <div className="admin-article-list">
-            {visibleArticles.map((article) => (
-              <article className="admin-article-row" key={article.id}>
-                <div className={`admin-article-thumb admin-article-thumb--${article.accent}`}>
-                  {article.image ? <img src={article.image} alt="" /> : <span>🐾</span>}
-                </div>
-                <div className="admin-article-main">
-                  <div className="admin-article-tags">
-                    <span className={`admin-status admin-status--${article.status}`}>
-                      {article.status === "published" ? "Publikovaný" : article.status === "scheduled" ? "Naplánovaný" : "Koncept"}
-                    </span>
-                    <span>{article.category}</span>
-                    <span>{portalSectionLabel(article.portalSection)}</span>
-                    {article.newsCategory && <span>{getNewsCategory(article.newsCategory)?.shortLabel}</span>}
+          <>
+            <AdminBulkSelectionControls
+              module="articles"
+              membershipFilter={membershipFilter}
+              membershipFingerprint={membershipFingerprint}
+              resultCount={visibleArticles.length}
+              pageIds={pageIds}
+              selection={bulkSelection.selection}
+              selectionReady={bulkSelection.ready}
+              selectedCount={bulkSelection.selectedCount}
+              currentPageSelected={bulkSelection.currentPageSelected}
+              currentPageAllSelected={bulkSelection.currentPageAllSelected}
+              currentPageSomeSelected={bulkSelection.currentPageSomeSelected}
+              toggleCurrentPage={bulkSelection.toggleCurrentPage}
+              selectAllMatching={bulkSelection.selectAllMatching}
+              clear={bulkSelection.clear}
+              supportsAllMatching={false}
+            />
+            <div className="admin-article-list">
+              {visibleArticles.map((article) => (
+                <article className={`admin-article-row ${styles.row}`} key={article.id}>
+                  <BulkSelectionCheckbox
+                    checked={bulkSelection.isSelected(article.id)}
+                    disabled={!bulkSelection.ready}
+                    label={`Vybrať článok ${article.title}`}
+                    onChange={() => bulkSelection.toggleRow(article.id)}
+                    className={`${adminBulkSelectionStyles.rowCheck} ${styles.rowCheck}`}
+                  />
+                  <div className={`admin-article-thumb admin-article-thumb--${article.accent} ${styles.thumb}`}>
+                    {article.image ? <img src={article.image} alt="" /> : <span>🐾</span>}
                   </div>
-                  <h2><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></h2>
-                  <p>Naposledy upravené {formattedDate(article.updatedAt)}</p>
-                </div>
-                <div className="admin-row-actions">
-                  {article.status === "published" && <Link href={articleHref(article)} target="_blank">Pozrieť ↗</Link>}
-                  <Link className="admin-row-edit" href={`/admin/clanky/${article.id}`}>Upraviť</Link>
-                  <button type="button" disabled={deletingId === article.id} onClick={() => removeArticle(article)}>
-                    {deletingId === article.id ? "Odstraňujem…" : "Odstrániť"}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+                  <div className={`admin-article-main ${styles.main}`}>
+                    <div className="admin-article-tags">
+                      <span className={`admin-status admin-status--${article.status}`}>
+                        {article.status === "published" ? "Publikovaný" : article.status === "scheduled" ? "Naplánovaný" : "Koncept"}
+                      </span>
+                      <span>{article.category}</span>
+                      <span>{portalSectionLabel(article.portalSection)}</span>
+                      {article.newsCategory && <span>{getNewsCategory(article.newsCategory)?.shortLabel}</span>}
+                    </div>
+                    <h2><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></h2>
+                    <p>Naposledy upravené {formattedDate(article.updatedAt)}</p>
+                  </div>
+                  <div className={`admin-row-actions ${styles.actions}`}>
+                    {article.status === "published" && <Link href={articleHref(article)} target="_blank">Pozrieť ↗</Link>}
+                    <Link className="admin-row-edit" href={`/admin/clanky/${article.id}`}>Upraviť</Link>
+                    <button type="button" disabled={deletingId === article.id} onClick={() => removeArticle(article)}>
+                      {deletingId === article.id ? "Odstraňujem…" : "Odstrániť"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="admin-empty">
             <span>🐾</span>
