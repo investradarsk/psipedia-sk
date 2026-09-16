@@ -15,6 +15,16 @@ async function expectNoHorizontalOverflow(page: Page, label: string) {
   expect(overflow, `${label} horizontal overflow`).toBeLessThanOrEqual(1);
 }
 
+async function expectDirectoryLocation(page: Page, pathname: string, sort: string | null = null) {
+  await expect.poll(() => {
+    const url = new URL(page.url());
+    return {
+      pathname: url.pathname,
+      sort: url.searchParams.get("sort"),
+    };
+  }).toEqual({ pathname, sort });
+}
+
 test.describe("public services search layout", () => {
   test("keeps the search controls inside the mobile public shell", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "mobile-chromium", "Mobile layout contract");
@@ -91,14 +101,18 @@ test.describe("public services search layout", () => {
     expect(collapsedBox).not.toBeNull();
     expect(collapsedBox!.height, "Collapsed mobile filter form is too tall").toBeLessThan(300);
 
+    await page.waitForLoadState("networkidle");
+    await expect(filterToggle).toBeEnabled();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
     await filterToggle.click();
     await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
     await expect(sort).toBeVisible();
     await sort.selectOption("name-asc");
     await Promise.all([
-      page.waitForURL(/\/adresar\/veterinari\?sort=name-asc$/),
+      page.waitForURL((url) => url.pathname === "/adresar/veterinari" && url.searchParams.get("sort") === "name-asc"),
       form.getByRole("button", { name: "Zobraziť výsledky" }).click(),
     ]);
+    await expectDirectoryLocation(page, "/adresar/veterinari", "name-asc");
 
     await expect(filterToggle).toContainText("1 aktívny");
     await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
@@ -112,14 +126,14 @@ test.describe("public services search layout", () => {
     });
 
     await reset.click();
-    await expect(page).toHaveURL(/\/adresar\/veterinari$/);
+    await expectDirectoryLocation(page, "/adresar/veterinari");
     await expect(filterToggle).not.toContainText("aktívny");
 
     await page.goBack();
-    await expect(page).toHaveURL(/\/adresar\/veterinari\?sort=name-asc$/);
+    await expectDirectoryLocation(page, "/adresar/veterinari", "name-asc");
     await expect(filterToggle).toContainText("1 aktívny");
     await page.goForward();
-    await expect(page).toHaveURL(/\/adresar\/veterinari$/);
+    await expectDirectoryLocation(page, "/adresar/veterinari");
 
     await page.goto("/adresar/veterinari?q=ux1cb-no-match-7e39b2");
     const empty = page.locator(".directory-empty");
