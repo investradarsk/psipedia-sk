@@ -38,6 +38,8 @@ const skipLabels: Record<PreflightResult["skips"][number]["reason"], string> = {
   "record-changed-since-snapshot": "záznam sa od snapshotu zmenil",
 };
 
+const emptySelection: AdminBulkSelectionState = { mode: "explicit", ids: [] };
+
 function storageKey(module: string) {
   return `psipedia-admin-bulk-selection:${module}`;
 }
@@ -66,12 +68,14 @@ export function useAdminBulkSelection({
   resultCount: number;
   supportsAllMatching?: boolean;
 }) {
-  const [selection, setSelection] = useState<AdminBulkSelectionState>({ mode: "explicit", ids: [] });
-  const [restored, setRestored] = useState(false);
+  const [selectionState, setSelectionState] = useState<{
+    membershipFingerprint: string | null;
+    selection: AdminBulkSelectionState;
+  }>({ membershipFingerprint: null, selection: emptySelection });
 
   useEffect(() => {
     const key = storageKey(module);
-    let nextSelection: AdminBulkSelectionState = { mode: "explicit", ids: [] };
+    let nextSelection: AdminBulkSelectionState = emptySelection;
     try {
       const raw = sessionStorage.getItem(key);
       if (raw) {
@@ -92,16 +96,18 @@ export function useAdminBulkSelection({
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      setSelection(nextSelection);
-      setRestored(true);
+      setSelectionState({ membershipFingerprint, selection: nextSelection });
     });
     return () => {
       active = false;
     };
   }, [membershipFingerprint, module, supportsAllMatching]);
 
+  const ready = selectionState.membershipFingerprint === membershipFingerprint;
+  const selection = ready ? selectionState.selection : emptySelection;
+
   useEffect(() => {
-    if (!restored) return;
+    if (!ready) return;
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
     if (selectedCount === 0) {
@@ -109,7 +115,7 @@ export function useAdminBulkSelection({
       return;
     }
     sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint, selection }));
-  }, [membershipFingerprint, module, restored, resultCount, selection]);
+  }, [membershipFingerprint, module, ready, resultCount, selection]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
   const explicitSet = new Set(explicitIds);
@@ -120,9 +126,16 @@ export function useAdminBulkSelection({
   const currentPageAllSelected = pageIds.length > 0 && currentPageSelected === pageIds.length;
   const currentPageSomeSelected = currentPageSelected > 0 && !currentPageAllSelected;
 
+  function updateSelection(updater: (current: AdminBulkSelectionState) => AdminBulkSelectionState) {
+    if (!ready) return;
+    setSelectionState((current) => {
+      if (current.membershipFingerprint !== membershipFingerprint) return current;
+      return { ...current, selection: updater(current.selection) };
+    });
+  }
+
   function toggleRow(id: number) {
-    if (!restored) return;
-    setSelection((current) => {
+    updateSelection((current) => {
       if (current.mode === "all-matching") {
         return { mode: "explicit", ids: pageIds.filter((pageId) => pageId !== id) };
       }
@@ -134,9 +147,8 @@ export function useAdminBulkSelection({
   }
 
   function toggleCurrentPage(checked: boolean) {
-    if (!restored) return;
-    setSelection((current) => {
-      if (!checked && current.mode === "all-matching") return { mode: "explicit", ids: [] };
+    updateSelection((current) => {
+      if (!checked && current.mode === "all-matching") return emptySelection;
       const ids = new Set(current.mode === "explicit" ? current.ids : []);
       for (const id of pageIds) {
         if (checked) ids.add(id);
@@ -148,7 +160,7 @@ export function useAdminBulkSelection({
 
   return {
     selection,
-    ready: restored,
+    ready,
     selectedCount,
     currentPageSelected,
     currentPageAllSelected,
@@ -157,9 +169,9 @@ export function useAdminBulkSelection({
     toggleRow,
     toggleCurrentPage,
     selectAllMatching: () => {
-      if (restored && supportsAllMatching) setSelection({ mode: "all-matching" });
+      if (supportsAllMatching) updateSelection(() => ({ mode: "all-matching" }));
     },
-    clear: () => setSelection({ mode: "explicit", ids: [] }),
+    clear: () => updateSelection(() => emptySelection),
   };
 }
 
