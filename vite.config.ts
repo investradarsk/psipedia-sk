@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
+import resourceConfig from "./config/cloudflare-resources.json";
 import { sites } from "./build/sites-vite-plugin";
 
 const { d1, r2 } = hostingConfig;
@@ -10,25 +11,15 @@ const wranglerConfig = JSON.parse(
 ) as {
   compatibility_date: string;
   version_metadata?: { binding?: string };
-  d1_databases?: Array<{
-    binding: string;
-    database_name: string;
-    database_id: string;
-    migrations_dir?: string;
-  }>;
-  r2_buckets?: Array<{ binding: string; bucket_name: string }>;
 };
 
-const canonicalD1 = d1
-  ? wranglerConfig.d1_databases?.find((database) => database.binding === d1)
-  : undefined;
-const canonicalR2 = r2
-  ? wranglerConfig.r2_buckets?.find((bucket) => bucket.binding === r2)
-  : undefined;
+if (d1 !== resourceConfig.d1.binding) {
+  throw new Error(`.openai/hosting.json D1 binding ${d1} does not match canonical ${resourceConfig.d1.binding}`);
+}
+if (r2 !== resourceConfig.r2.binding) {
+  throw new Error(`.openai/hosting.json R2 binding ${r2} does not match canonical ${resourceConfig.r2.binding}`);
+}
 const versionMetadataBinding = wranglerConfig.version_metadata?.binding;
-
-if (d1 && !canonicalD1) throw new Error(`wrangler.jsonc is missing canonical D1 binding ${d1}`);
-if (r2 && !canonicalR2) throw new Error(`wrangler.jsonc is missing canonical R2 binding ${r2}`);
 if (!versionMetadataBinding) throw new Error("wrangler.jsonc is missing version_metadata.binding");
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
@@ -43,17 +34,17 @@ const localBindingConfig = {
   // local E2E bootstrap disables that Worker-level gate so the existing
   // localhost preview admin identity can reach the normal admin API routes.
   ...(isExplicitLocalE2eBootstrap ? { vars: { AUTH_MODE: "local-e2e-preview" } } : {}),
-  d1_databases: canonicalD1
+  d1_databases: d1
     ? [
         {
-          ...canonicalD1,
+          ...resourceConfig.d1,
           // The Vite/Miniflare generated config resolves migrations relative
-          // to its own location; production keeps ./drizzle in wrangler.jsonc.
+          // to its own location; the source contract keeps ./drizzle.
           migrations_dir: "../../drizzle",
         },
       ]
     : [],
-  r2_buckets: canonicalR2 ? [canonicalR2] : [],
+  r2_buckets: r2 ? [resourceConfig.r2] : [],
 };
 
 export default defineConfig(async () => {
