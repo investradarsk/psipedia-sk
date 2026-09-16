@@ -54,7 +54,13 @@ export function DirectoryFilterForm({ filters, options, basePath, category, show
   };
 
   return (
-    <form ref={formRef} className={`directory-toolbar ${styles.toolbar}`} method="get" action={basePath}>
+    <form
+      ref={formRef}
+      className={`directory-toolbar ${styles.toolbar}`}
+      method="get"
+      action={basePath}
+      onSubmit={() => setSecondaryFiltersOpen(false)}
+    >
       <label className="directory-search"><span>Vyhľadávanie</span><div><SearchIcon size={19} /><input name="q" defaultValue={filters.query} placeholder="Názov, služba, plemeno alebo lokalita" /></div></label>
 
       <button
