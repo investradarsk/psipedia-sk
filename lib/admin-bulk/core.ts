@@ -1,4 +1,4 @@
-export const BULK_MODULES = ["directory"] as const;
+export const BULK_MODULES = ["directory", "articles"] as const;
 export type BulkModule = (typeof BULK_MODULES)[number];
 
 export const BULK_ACTIONS = ["publish", "move-to-draft"] as const;
@@ -76,12 +76,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseBulkPreflightRequest(payload: unknown): BulkPreflightRequest {
   if (!isRecord(payload)) throw new BulkPreflightError("Neplatná preflight požiadavka.");
 
-  if (payload.module !== "directory") {
+  if (payload.module !== "directory" && payload.module !== "articles") {
     throw new BulkPreflightError("Neplatný bulk modul.", 400, "invalid-module");
   }
+  const module: BulkModule = payload.module;
+
   if (payload.action !== "publish" && payload.action !== "move-to-draft") {
     throw new BulkPreflightError("Neplatná bulk akcia.", 400, "invalid-action");
   }
+  const action: BulkAction = payload.action;
 
   const selection = payload.selection;
   if (!isRecord(selection)) {
@@ -99,8 +102,8 @@ export function parseBulkPreflightRequest(payload: unknown): BulkPreflightReques
       return Number(value);
     });
     return {
-      module: "directory",
-      action: payload.action,
+      module,
+      action,
       selection: {
         mode: "explicit",
         ids: [...new Set(ids)],
@@ -110,12 +113,19 @@ export function parseBulkPreflightRequest(payload: unknown): BulkPreflightReques
   }
 
   if (selection.mode === "all-matching") {
+    if (module !== "directory") {
+      throw new BulkPreflightError(
+        "All-matching výber nie je pre tento modul podporovaný.",
+        400,
+        "unsupported-selection-mode",
+      );
+    }
     if (!isRecord(selection.filter)) {
       throw new BulkPreflightError("All-matching výber musí obsahovať filter.", 400, "invalid-selection");
     }
     return {
-      module: "directory",
-      action: payload.action,
+      module,
+      action,
       selection: { mode: "all-matching", filter: selection.filter },
     };
   }
