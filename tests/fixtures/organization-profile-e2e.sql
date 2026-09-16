@@ -40,7 +40,7 @@ INSERT INTO help_organizations (
   'CIVIC_ASSOCIATION',
   'PUBLISHED',
   'Izolovaný lokálny CI profil pre ORG-3B.',
-  'Pomáhame psom v núdzi a hľadáme im bezpečné domovy.\n\nTento text existuje iba v izolovanom lokálnom CI fixture.',
+  'Pomáhame psom v núdzi a hľadáme im bezpečné domovy.' || char(10) || char(10) || 'Tento text existuje iba v izolovanom lokálnom CI fixture.',
   'org3b-e2e@example.invalid',
   '+421 900 987 654',
   'https://example.org/organization',
