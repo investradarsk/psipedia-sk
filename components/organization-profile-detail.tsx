@@ -31,7 +31,6 @@ function ContactLink({
 export function OrganizationProfileDetail({ composition }: { composition: PublicOrganizationComposition }) {
   const { organization, adoptions } = composition;
   const presentation = buildOrganizationProfilePresentation(organization);
-  const hasMainContent = Boolean(presentation.description || adoptions.length);
 
   const aside = (
     <div className={styles.asideStack}>
@@ -103,7 +102,7 @@ export function OrganizationProfileDetail({ composition }: { composition: Public
                     <Link className={styles.adoptionLink} href={`/pomoc-psom/adopcia/${adoption.slug}`}>
                       <span>
                         <strong>{adoption.name}</strong>
-                        <small>{adoption.city || ""}</small>
+                        {adoption.city ? <small>{adoption.city}</small> : null}
                       </span>
                       <b>{adoption.status === "RESERVED" ? "Rezervovaný" : "Na adopciu"}</b>
                     </Link>
@@ -112,8 +111,6 @@ export function OrganizationProfileDetail({ composition }: { composition: Public
               </ul>
             </DetailSection>
           ) : null}
-
-          {!hasMainContent ? null : null}
         </DetailContentLayout>
       </PageContainer>
     </main>
