@@ -20,6 +20,7 @@
     "prelint": "npm run db:check-migrations",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:check-migrations": "node scripts/check-migration-safety.mjs",
+    "db:validate-clean": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs scripts/validate-clean-d1.mjs",
     "db:generate": "node scripts/block-db-generate.mjs",
     "audit:breeds": "node scripts/audit-breeds.mjs",
     "audit:production": "node scripts/audit-production-site.mjs",
