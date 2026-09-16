@@ -12,15 +12,12 @@ import * as helpOrganizationSchema from "../db/help-organization-schema.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const hostingConfig = JSON.parse(await fs.readFile(path.join(root, ".openai", "hosting.json"), "utf8"));
+const resourceConfig = JSON.parse(await fs.readFile(path.join(root, "config", "cloudflare-resources.json"), "utf8"));
 const sourceWranglerConfig = JSON.parse(await fs.readFile(path.join(root, "wrangler.jsonc"), "utf8"));
-const canonicalD1Binding = hostingConfig.d1;
-assert.equal(typeof canonicalD1Binding, "string", ".openai/hosting.json must declare the canonical D1 binding");
-assert.ok(canonicalD1Binding, ".openai/hosting.json D1 binding must not be empty");
-assert.equal(
-  sourceWranglerConfig.d1_databases?.some((database) => database.binding === canonicalD1Binding),
-  true,
-  `wrangler.jsonc must declare canonical D1 binding ${canonicalD1Binding}`,
-);
+const canonicalD1Binding = resourceConfig.d1?.binding;
+assert.equal(typeof canonicalD1Binding, "string", "canonical Cloudflare resource config must declare the D1 binding");
+assert.ok(canonicalD1Binding, "canonical D1 binding must not be empty");
+assert.equal(hostingConfig.d1, canonicalD1Binding, ".openai/hosting.json must mirror the canonical D1 binding");
 assert.equal(typeof sourceWranglerConfig.compatibility_date, "string", "wrangler.jsonc must declare compatibility_date");
 
 const canonicalMigrationsDir = path.join(root, "drizzle");
