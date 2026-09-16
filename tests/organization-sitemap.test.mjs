@@ -85,7 +85,7 @@ test("organization sitemap query reuses the fail-closed public lifecycle contrac
   assert.match(query, /o\.status = 'PUBLISHED'/);
   assert.match(query, /o\.published_at IS NOT NULL/);
   assert.match(query, /o\.archived_at IS NULL/);
-  assert.doesNotMatch(query, /UPDATE|INSERT|DELETE/i);
+  assert.doesNotMatch(query, /\b(?:UPDATE|INSERT|DELETE)\b/i);
 
   const database = createDatabase([
     row({ slug: "published" }),
