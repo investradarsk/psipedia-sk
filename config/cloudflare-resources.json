@@ -1,0 +1,12 @@
+{
+  "d1": {
+    "binding": "DB",
+    "database_name": "psipedia-sk-db",
+    "database_id": "8f7a0c3e-4d77-4a35-8192-a7bd57147950",
+    "migrations_dir": "./drizzle"
+  },
+  "r2": {
+    "binding": "BUCKET",
+    "bucket_name": "psipedia-sk-bucket"
+  }
+}

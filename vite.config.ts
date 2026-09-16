@@ -1,9 +1,27 @@
+import { readFileSync } from "node:fs";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
+import resourceConfig from "./config/cloudflare-resources.json";
+import localToolingConfig from "./config/local-cloudflare-tooling.json";
 import { sites } from "./build/sites-vite-plugin";
 
 const { d1, r2 } = hostingConfig;
+const wranglerConfig = JSON.parse(
+  readFileSync(new URL("./wrangler.jsonc", import.meta.url), "utf8"),
+) as {
+  compatibility_date: string;
+  version_metadata?: { binding?: string };
+};
+
+if (d1 !== resourceConfig.d1.binding) {
+  throw new Error(`.openai/hosting.json D1 binding ${d1} does not match canonical ${resourceConfig.d1.binding}`);
+}
+if (r2 !== resourceConfig.r2.binding) {
+  throw new Error(`.openai/hosting.json R2 binding ${r2} does not match canonical ${resourceConfig.r2.binding}`);
+}
+const versionMetadataBinding = wranglerConfig.version_metadata?.binding;
+if (!versionMetadataBinding) throw new Error("wrangler.jsonc is missing version_metadata.binding");
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
@@ -11,8 +29,12 @@ const isExplicitLocalE2eBootstrap = process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP ===
 
 const localBindingConfig = {
   main: "./worker/index.ts",
-  compatibility_date: "2026-05-22",
-  version_metadata: { binding: "CF_VERSION_METADATA" },
+  // Production owns its compatibility date in wrangler.jsonc. The currently
+  // pinned local workerd binary cannot boot that newer date, so local Vite/
+  // Miniflare uses the explicit reviewed tooling target instead of a hidden
+  // literal. config:check keeps this separation visible and deterministic.
+  compatibility_date: localToolingConfig.compatibility_date,
+  version_metadata: { binding: versionMetadataBinding },
   // Production keeps Cloudflare Access from wrangler.jsonc. Only the explicit
   // local E2E bootstrap disables that Worker-level gate so the existing
   // localhost preview admin identity can reach the normal admin API routes.
@@ -20,21 +42,14 @@ const localBindingConfig = {
   d1_databases: d1
     ? [
         {
-          binding: d1,
-          database_name: "psipedia-sk-db",
-          database_id: "8f7a0c3e-4d77-4a35-8192-a7bd57147950",
+          ...resourceConfig.d1,
+          // The Vite/Miniflare generated config resolves migrations relative
+          // to its own location; the source contract keeps ./drizzle.
           migrations_dir: "../../drizzle",
         },
       ]
     : [],
-  r2_buckets: r2
-    ? [
-        {
-          binding: r2,
-          bucket_name: "psipedia-sk-bucket",
-        },
-      ]
-    : [],
+  r2_buckets: r2 ? [resourceConfig.r2] : [],
 };
 
 export default defineConfig(async () => {
