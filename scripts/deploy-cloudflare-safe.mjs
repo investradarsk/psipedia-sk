@@ -1,0 +1,80 @@
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { validatePreparedDeployArtifact } from "./validate-deploy-artifact.mjs";
+
+const isWindows = process.platform === "win32";
+const npm = isWindows ? "npm.cmd" : "npm";
+const wrangler = isWindows ? "wrangler.cmd" : "wrangler";
+
+export const DEPLOYMENT_STEPS = Object.freeze({
+  configCheck: Object.freeze({ id: "config-check", command: npm, args: ["run", "config:check"] }),
+  build: Object.freeze({ id: "build", command: npm, args: ["run", "build"] }),
+  artifactValidation: Object.freeze({ id: "artifact-validation", command: npm, args: ["run", "validate:artifact"] }),
+  remoteMigration: Object.freeze({
+    id: "remote-migration",
+    command: process.execPath,
+    args: ["scripts/apply-remote-d1-migrations.mjs"],
+  }),
+  remoteAudit: Object.freeze({
+    id: "remote-audit",
+    command: npm,
+    args: ["run", "audit:breeds", "--", "--remote", "--strict"],
+  }),
+  deploy: Object.freeze({
+    id: "deploy",
+    command: wrangler,
+    args: ["deploy", "--config", "dist/server/wrangler.json", "--keep-vars", "--no-bundle"],
+  }),
+});
+
+export function runDeploymentCommand(step, { env = process.env } = {}) {
+  console.log(`[deploy] ${step.id}: ${step.command} ${step.args.join(" ")}`);
+  const result = spawnSync(step.command, step.args, {
+    stdio: "inherit",
+    env,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`[deploy] ${step.id} failed with exit code ${result.status ?? "unknown"}`);
+  }
+}
+
+export async function runSafeCloudflareDeployment({
+  runCommand = runDeploymentCommand,
+  validateArtifact = validatePreparedDeployArtifact,
+} = {}) {
+  // Phase A — local preparation. Nothing remote is allowed before all of this passes.
+  await runCommand(DEPLOYMENT_STEPS.configCheck);
+  await runCommand(DEPLOYMENT_STEPS.build);
+  await runCommand(DEPLOYMENT_STEPS.artifactValidation);
+  const prepared = await validateArtifact({ phase: "before-remote" });
+  console.log(`[deploy] prepared artifact sha256=${prepared.fingerprint}`);
+
+  // Phase B — remote DB gate. Fail closed: any failure stops before deploy.
+  await runCommand(DEPLOYMENT_STEPS.remoteMigration);
+  await runCommand(DEPLOYMENT_STEPS.remoteAudit);
+
+  // Revalidate identity after remote operations. This does not rebuild anything.
+  const beforeDeploy = await validateArtifact({ phase: "before-deploy" });
+  if (beforeDeploy.fingerprint !== prepared.fingerprint) {
+    throw new Error(
+      `[deploy] prepared artifact changed after validation: ${prepared.fingerprint} -> ${beforeDeploy.fingerprint}`,
+    );
+  }
+  console.log(`[deploy] artifact identity unchanged sha256=${beforeDeploy.fingerprint}`);
+
+  // Phase C — deploy exactly the artifact prepared above. Generated config validation
+  // rejects build.command and --no-bundle prevents Wrangler from compiling a new
+  // Worker bundle after the remote DB gate.
+  await runCommand(DEPLOYMENT_STEPS.deploy);
+
+  return Object.freeze({ fingerprint: prepared.fingerprint });
+}
+
+const invokedDirectly = process.argv[1]
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (invokedDirectly) {
+  await runSafeCloudflareDeployment();
+}
