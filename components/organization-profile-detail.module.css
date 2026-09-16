@@ -86,64 +86,86 @@
 .breadcrumbLink:focus-visible,
 .contactLink:focus-visible,
 .actionLink:focus-visible,
-.adoptionLink:focus-visible {
+.adoptionCardBody a:focus-visible {
   outline: 2px solid var(--forest);
   outline-offset: 3px;
 }
 
-.adoptionList {
+.adoptionGrid {
   display: grid;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ps-space-stack);
+  min-width: 0;
 }
 
-.adoptionList li {
-  border-top: 1px solid var(--ps-border-soft);
-}
-
-.adoptionList li:last-child {
-  border-bottom: 1px solid var(--ps-border-soft);
-}
-
-.adoptionLink {
+.adoptionCard {
   display: flex;
-  min-height: var(--ps-control-min-height);
   min-width: 0;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 13px 2px;
-  color: var(--ink);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: 0 10px 30px rgb(25 62 44 / 6%);
 }
 
-.adoptionLink > span {
+.adoptionCardBody {
+  display: grid;
   min-width: 0;
+  gap: 9px;
+  padding: 17px;
 }
 
-.adoptionLink strong,
-.adoptionLink small {
-  display: block;
+.adoptionLocation {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 
-.adoptionLink strong {
-  font-size: 0.96rem;
+.adoptionCard h3 {
+  margin: 0;
+  color: var(--forest-dark);
+  font-size: 1.2rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
-.adoptionLink small {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 650;
+.adoptionCard h3 a {
+  color: inherit;
 }
 
-.adoptionLink b {
-  flex: 0 0 auto;
+.adoptionReserved {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  color: #70521c;
+  background: #fff8e8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.adoptionCta {
+  display: inline-flex;
+  width: fit-content;
+  min-height: var(--ps-control-min-height);
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
   color: var(--forest);
-  font-size: 0.75rem;
-  white-space: nowrap;
+  font-size: 0.86rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .adoptionGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 620px) {
@@ -158,14 +180,5 @@
 
   .content {
     padding-block: var(--ps-space-section);
-  }
-
-  .adoptionLink {
-    gap: 10px;
-  }
-
-  .adoptionLink b {
-    white-space: normal;
-    text-align: right;
   }
 }

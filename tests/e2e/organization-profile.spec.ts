@@ -18,8 +18,20 @@ async function expectNoSeriousAccessibilityViolations(page: import("@playwright/
   expect(seriousOrCritical, JSON.stringify(seriousOrCritical, null, 2)).toEqual([]);
 }
 
+async function setOrganizationProfileViewport(
+  page: import("@playwright/test").Page,
+  projectName: string,
+) {
+  await page.setViewportSize(
+    projectName.includes("mobile")
+      ? { width: 390, height: 844 }
+      : { width: 1440, height: 900 },
+  );
+}
+
 test.describe("organization public profile", () => {
-  test("published canonical fixture renders public fields, relation, layout and accessibility", async ({ page }) => {
+  test("published canonical fixture renders public fields, adoption cards, layout and accessibility", async ({ page }, testInfo) => {
+    await setOrganizationProfileViewport(page, testInfo.project.name);
     const response = await page.goto("/organizacie/org-3b-e2e-kanonicka-organizacia", {
       waitUntil: "domcontentloaded",
     });
@@ -47,9 +59,44 @@ test.describe("organization public profile", () => {
     );
     await expect(main.getByText("https://provenance.example.invalid/internal-only", { exact: true })).toHaveCount(0);
 
-    const adoption = main.getByRole("link", { name: /E2E Neo na adopciu/ });
-    await expect(adoption).toHaveAttribute("href", "/pomoc-psom/adopcia/org-3b-e2e-neo-na-adopciu");
-    await expect(adoption).toContainText("Na adopciu");
+    await expect(main.getByRole("heading", { name: "Psy na adopciu" })).toBeVisible();
+    const cards = main.locator("[data-adoption-card]");
+    await expect(cards).toHaveCount(2);
+    await expect(cards.nth(0)).toHaveAttribute("data-adoption-card", "org-3c-e2e-luna-rezervovana");
+    await expect(cards.nth(1)).toHaveAttribute("data-adoption-card", "org-3b-e2e-neo-na-adopciu");
+
+    const luna = main.locator('[data-adoption-card="org-3c-e2e-luna-rezervovana"]');
+    await expect(luna).toContainText("E2E Luna rezervovaná");
+    await expect(luna).toContainText("Rezervovaný");
+    await expect(luna.locator('[data-adoption-media="fallback"]')).toHaveCount(1);
+    await expect(luna.getByRole("link", { name: "Zobraziť profil", exact: true })).toHaveAttribute(
+      "href",
+      "/pomoc-psom/adopcia/org-3c-e2e-luna-rezervovana",
+    );
+
+    const neo = main.locator('[data-adoption-card="org-3b-e2e-neo-na-adopciu"]');
+    await expect(neo).toContainText("E2E Neo na adopciu");
+    await expect(neo).toContainText("Na adopciu");
+    await expect(neo.locator('[data-adoption-media="fallback"]')).toHaveCount(1);
+    await expect(neo.getByRole("link", { name: "Zobraziť profil", exact: true })).toHaveAttribute(
+      "href",
+      "/pomoc-psom/adopcia/org-3b-e2e-neo-na-adopciu",
+    );
+    await expect(main.getByText("E2E Skrytý draft", { exact: true })).toHaveCount(0);
+
+    const media = luna.getByRole("link", { name: "Zobraziť profil E2E Luna rezervovaná" });
+    const mediaBox = await media.boundingBox();
+    expect(mediaBox).not.toBeNull();
+    expect(Math.abs((mediaBox?.width ?? 0) / (mediaBox?.height ?? 1) - (4 / 3))).toBeLessThan(0.04);
+
+    const ctaBox = await luna.getByRole("link", { name: "Zobraziť profil", exact: true }).boundingBox();
+    expect(ctaBox).not.toBeNull();
+    expect(ctaBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+    for (const card of await cards.all()) {
+      const overflow = await card.evaluate((element) => Math.max(0, element.scrollWidth - element.clientWidth));
+      expect(overflow).toBeLessThanOrEqual(1);
+    }
 
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAccessibilityViolations(page);
