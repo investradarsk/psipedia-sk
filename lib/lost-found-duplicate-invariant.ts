@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { dogReportTypes, type DogReportType } from "./lost-found-dogs";
+import { dogReportTypes, type DogReportType } from "./lost-found-dogs.ts";
 
 type RuntimeBindings = { DB?: D1Database };
 
