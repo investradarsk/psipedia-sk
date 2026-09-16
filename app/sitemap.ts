@@ -1,4 +1,6 @@
+import { env } from "cloudflare:workers";
 import type { MetadataRoute } from "next";
+import type { AdoptionD1Database } from "@/lib/adoption-store";
 import { categories } from "@/lib/content";
 import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
 import { getPublishedArticleIndex } from "@/lib/article-store";
@@ -8,10 +10,12 @@ import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
 import { directoryCategories, directoryProfileHref } from "@/lib/directory";
 import { getPublishedHelpCases } from "@/lib/help-store";
 import { helpCaseHref } from "@/lib/help";
+import { listPublishedOrganizationsForSitemap } from "@/lib/help-organization-store";
 import { listSitemapDogReports } from "@/lib/lost-found-dog-store";
 import { dogReportHref } from "@/lib/lost-found-dogs";
 import { adoptionDetailPath } from "@/lib/adoption-detail";
 import { listIndexableAdoptionsForSitemap } from "@/lib/adoption-sitemap";
+import { buildOrganizationSitemapEntries } from "@/lib/organization-sitemap";
 import { articleHref, portalSubpageHref } from "@/lib/portal";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { listManagedPortalSections } from "@/lib/section-store";
@@ -19,10 +23,14 @@ import { SITE_URL } from "@/lib/seo";
 import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports, adoptions] = await Promise.all([
+  const organizationDatabase = (env as unknown as { DB?: AdoptionD1Database }).DB;
+  const organizationPromise = organizationDatabase
+    ? listPublishedOrganizationsForSitemap(organizationDatabase).catch(() => [])
+    : Promise.resolve([]);
+  const [articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports, adoptions, organizations] = await Promise.all([
     getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectoryProfiles(),
     getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports().catch(() => []),
-    listIndexableAdoptionsForSitemap().catch(() => []),
+    listIndexableAdoptionsForSitemap().catch(() => []), organizationPromise,
   ]);
   const portalSections = managedSections.filter((section) => section.visible);
   const articleModified = (article: (typeof articles)[number]) => article.updatedDateIso;
@@ -101,6 +109,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.8,
       images: item.mainImage ? [item.mainImage.startsWith("https://") ? item.mainImage : `${SITE_URL}${item.mainImage}`] : undefined,
     })),
+    ...buildOrganizationSitemapEntries(organizations),
     ...lostFoundReports.map((item) => sitemapEntry(dogReportHref(item), {
       lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.85,
       images: item.mainImage ? [item.mainImage.startsWith("https://") ? item.mainImage : `${SITE_URL}${item.mainImage}`] : undefined,

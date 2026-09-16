@@ -174,6 +174,7 @@ test("organization profile metadata has a complete fallback social preview", () 
 test("representative page builders delegate social metadata to the shared helper", () => {
   const articleSeo = fs.readFileSync(new URL("../lib/article-seo.ts", import.meta.url), "utf8");
   const contentSeo = fs.readFileSync(new URL("../lib/content-seo.ts", import.meta.url), "utf8");
+  const organizationSeo = fs.readFileSync(new URL("../lib/organization-seo.ts", import.meta.url), "utf8");
   const breedPage = fs.readFileSync(new URL("../app/plemena/[slug]/page.tsx", import.meta.url), "utf8");
   const portalPage = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
   const directoryPage = fs.readFileSync(new URL("../app/adresar/[category]/[slug]/page.tsx", import.meta.url), "utf8");
@@ -194,5 +195,8 @@ test("representative page builders delegate social metadata to the shared helper
   assert.match(adoptionPage, /buildPageMetadata\(\{/);
   assert.match(organizationPage, /export async function generateMetadata/);
   assert.match(organizationPage, /getPublicOrganizationBySlug/);
-  assert.match(organizationPage, /buildPageMetadata\(\{/);
+  assert.match(organizationPage, /buildOrganizationMetadata\(organization\)/);
+  assert.match(organizationSeo, /buildPageMetadata\(\{/);
+  assert.doesNotMatch(organizationSeo, /openGraph:\s*\{/);
+  assert.doesNotMatch(organizationSeo, /twitter:\s*\{/);
 });
