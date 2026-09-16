@@ -33,3 +33,12 @@ export function DetailOptionGrid({ options }: { options: Array<{ label: string; 
   if (!options.length) return null;
   return <ul className={styles.optionGrid}>{options.map((option) => <li key={option.label}><strong>{option.label}</strong><span>{option.value}</span></li>)}</ul>;
 }
+
+export function DetailActions({ children }: { children: ReactNode }) {
+  return <div className={styles.actions}>{children}</div>;
+}
+
+export function DetailContentLayout({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
+  const className = aside ? `${styles.contentLayout} ${styles.contentLayoutWithAside}` : styles.contentLayout;
+  return <div className={className}><div className={styles.contentMain}>{children}</div>{aside ? <aside className={styles.contentAside}>{aside}</aside> : null}</div>;
+}
