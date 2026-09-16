@@ -50,6 +50,12 @@ export type PublicOrganizationComposition = {
   adoptions: OrganizationPublicAdoption[];
 };
 
+export type PublicOrganizationSitemapRecord = {
+  slug: string;
+  publishedAt: string;
+  updatedAt: string;
+};
+
 type PublicOrganizationRow = {
   id: number;
   name: string;
@@ -76,6 +82,12 @@ type PublicOrganizationRow = {
   directory_profile_id: number | null;
 };
 
+type PublicOrganizationSitemapRow = {
+  slug: string;
+  published_at: string;
+  updated_at: string;
+};
+
 type PublicDirectoryRow = {
   id: number;
   name: string;
@@ -100,6 +112,13 @@ export function buildPublicOrganizationBySlugQuery(slug: string) {
       LIMIT 1`,
     bindings: [slug] as const,
   };
+}
+
+export function buildPublishedOrganizationSitemapQuery() {
+  return `SELECT o.slug, o.published_at, o.updated_at
+    FROM help_organizations o
+    WHERE ${PUBLIC_ORGANIZATION_PREDICATE}
+    ORDER BY o.slug ASC`;
 }
 
 function buildPublishedDirectoryQuery(directoryProfileId: number) {
@@ -171,6 +190,19 @@ export async function getPublicOrganizationBySlug(
   if (!row) return null;
   const directory = await findPublishedDirectoryRelation(row.directory_profile_id, database);
   return toPublicOrganization(row, directory);
+}
+
+export async function listPublishedOrganizationsForSitemap(
+  database: AdoptionD1Database,
+): Promise<PublicOrganizationSitemapRecord[]> {
+  const { results } = await database
+    .prepare(buildPublishedOrganizationSitemapQuery())
+    .all<PublicOrganizationSitemapRow>();
+  return results.map((row) => ({
+    slug: row.slug,
+    publishedAt: row.published_at,
+    updatedAt: row.updated_at,
+  }));
 }
 
 export async function getPublicOrganizationCompositionBySlug(
