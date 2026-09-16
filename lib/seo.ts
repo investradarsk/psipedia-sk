@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "../config/public-site";
 
+export { SITE_URL } from "../config/public-site";
 export const SITE_NAME = "Psipedia.sk";
-export const SITE_URL = "https://psipedia.sk";
 export const SITE_DESCRIPTION =
   "Praktické a zrozumiteľné články o výcviku, zdraví, výžive a živote so psom.";
 export const SOCIAL_LOCALE = "sk_SK";
