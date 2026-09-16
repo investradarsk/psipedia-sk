@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPuppyCoverageMatrix, classifyPuppyCoverage } from "../lib/puppy-coverage.ts";
+import {
+  buildPuppyCoverageMatrix,
+  classifyPuppyCoverage,
+  requirePuppyCoverageArticleRows,
+} from "../lib/puppy-coverage.ts";
 
 const AREA = {
   slug: "prve-dni",
@@ -74,4 +78,16 @@ test("safe empty state produces an empty matrix and classifier handles no articl
 test("linked non-coverage subpages are excluded from the matrix", () => {
   const linkedArea = { ...AREA, slug: "external", href: "/niekam" };
   assert.deepEqual(buildPuppyCoverageMatrix([linkedArea], []), []);
+});
+
+test("article SELECT failure is fail-closed and cannot become false MISSING coverage", async () => {
+  await assert.rejects(
+    async () => {
+      const rows = await requirePuppyCoverageArticleRows(
+        Promise.reject(new Error("D1 read unavailable")),
+      );
+      return buildPuppyCoverageMatrix([AREA], rows);
+    },
+    /Puppy coverage article SELECT failed: D1 read unavailable/,
+  );
 });
