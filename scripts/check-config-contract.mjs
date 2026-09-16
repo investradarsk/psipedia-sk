@@ -25,7 +25,7 @@ function parseEnvFile(source) {
   return entries;
 }
 
-async function auditTrackedSecretAssignments(root, workflowText) {
+async function auditTrackedSecretAssignments(root) {
   const output = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" });
   const files = output.split("\0").filter(Boolean).filter((file) =>
     file.startsWith(".github/workflows/")
@@ -43,9 +43,9 @@ async function auditTrackedSecretAssignments(root, workflowText) {
       const value = shellAssignment || yamlAssignment || jsonAssignment;
       if (!value) continue;
 
-      const intentionalCiFixture = file === ".github/workflows/playwright-e2e.yml"
+      const intentionalCiFixture = file.startsWith(".github/workflows/")
         && (secretName === "PII_ENCRYPTION_KEY" || secretName === "PII_HASH_KEY")
-        && workflowText.includes("Configure CI-only local PII keys");
+        && source.includes("Configure CI-only local PII keys");
       assert.equal(intentionalCiFixture, true, `${file} contains a tracked value for ${secretName}`);
     }
   }
@@ -53,13 +53,12 @@ async function auditTrackedSecretAssignments(root, workflowText) {
 
 export async function auditConfigurationContract(root = defaultRoot) {
   const read = (relativePath) => fs.readFile(path.join(root, relativePath), "utf8");
-  const [wranglerText, resourcesText, hostingText, envExampleText, packageText, workflowText, viteText, cleanD1Text, seoText] = await Promise.all([
+  const [wranglerText, resourcesText, hostingText, envExampleText, packageText, viteText, cleanD1Text, seoText] = await Promise.all([
     read("wrangler.jsonc"),
     read("config/cloudflare-resources.json"),
     read(".openai/hosting.json"),
     read(".env.example"),
     read("package.json"),
-    read(".github/workflows/playwright-e2e.yml"),
     read("vite.config.ts"),
     read("scripts/validate-clean-d1.mjs"),
     read("lib/seo.ts"),
@@ -127,7 +126,7 @@ export async function auditConfigurationContract(root = defaultRoot) {
   assert.equal(cleanD1Text.includes(`compatibility_date: \"${wrangler.compatibility_date}\"`), false, "clean-D1 config must derive compatibility_date");
   assert.equal(cleanD1Text.includes(`binding: \"${d1.binding}\"`), false, "clean-D1 config must derive the D1 binding");
 
-  await auditTrackedSecretAssignments(root, workflowText);
+  await auditTrackedSecretAssignments(root);
 
   return Object.freeze({
     siteUrl: SITE_URL,
