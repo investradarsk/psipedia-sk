@@ -9,7 +9,7 @@ import { ShareButton } from "@/components/share-button";
 import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel, portalSubpageHref, type PortalSection } from "@/lib/portal";
-import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, articleAuthorJsonLd, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 import { articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
 
 export function ArticleDetail({ article, related, portalSection }: { article: Article; related: Article[]; portalSection?: PortalSection }) {
@@ -54,7 +54,7 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
         articleSection: topicLabel,
         keywords: [article.seo?.focusKeyword, portalSectionLabel(section), topicLabel, article.category, "psy"].filter(Boolean),
         wordCount,
-        author: { "@type": "Organization", name: article.author, url: `${SITE_URL}/o-nas` },
+        author: articleAuthorJsonLd(article.author),
         publisher: {
           "@type": "Organization",
           "@id": ORGANIZATION_ID,
