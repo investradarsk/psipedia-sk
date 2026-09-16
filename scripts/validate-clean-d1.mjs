@@ -168,8 +168,8 @@ function collectExpectedSchema() {
   const expected = new Map();
   const modules = [schema, foundationSchema, lostFoundSchema, adoptionSchema, helpOrganizationSchema];
 
-  for (const module of modules) {
-    for (const value of Object.values(module)) {
+  for (const schemaModule of modules) {
+    for (const value of Object.values(schemaModule)) {
       try {
         const config = getTableConfig(value);
         if (!config?.name || !Array.isArray(config.columns)) continue;
