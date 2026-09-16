@@ -79,7 +79,7 @@ export function parseBulkPreflightRequest(payload: unknown): BulkPreflightReques
   if (payload.module !== "directory" && payload.module !== "articles") {
     throw new BulkPreflightError("Neplatný bulk modul.", 400, "invalid-module");
   }
-  const module: BulkModule = payload.module;
+  const bulkModule: BulkModule = payload.module;
 
   if (payload.action !== "publish" && payload.action !== "move-to-draft") {
     throw new BulkPreflightError("Neplatná bulk akcia.", 400, "invalid-action");
@@ -102,7 +102,7 @@ export function parseBulkPreflightRequest(payload: unknown): BulkPreflightReques
       return Number(value);
     });
     return {
-      module,
+      module: bulkModule,
       action,
       selection: {
         mode: "explicit",
@@ -113,7 +113,7 @@ export function parseBulkPreflightRequest(payload: unknown): BulkPreflightReques
   }
 
   if (selection.mode === "all-matching") {
-    if (module !== "directory") {
+    if (bulkModule !== "directory") {
       throw new BulkPreflightError(
         "All-matching výber nie je pre tento modul podporovaný.",
         400,
@@ -124,7 +124,7 @@ export function parseBulkPreflightRequest(payload: unknown): BulkPreflightReques
       throw new BulkPreflightError("All-matching výber musí obsahovať filter.", 400, "invalid-selection");
     }
     return {
-      module,
+      module: bulkModule,
       action,
       selection: { mode: "all-matching", filter: selection.filter },
     };
