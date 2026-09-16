@@ -64,12 +64,14 @@ build once → validate → mutate DB → deploy same artifact
 Až po úspešnej identity kontrole sa spustí:
 
 ```text
-wrangler deploy --config dist/server/wrangler.json --keep-vars
+wrangler deploy --config dist/server/wrangler.json --keep-vars --no-bundle
 ```
 
-Wrangler dostane generated config z už pripraveného `dist/`; orchestration medzi
-DB mutation a deployom nespúšťa `npm run build`, `vinext build` ani iný application
-build krok.
+`--no-bundle` je zámerný safety prvok: Worker entry už vytvoril produkčný build,
+a Wrangler po remote DB gate nesmie znovu kompilovať alebo prebundlovať iný
+Worker artifact. Deploy používa generated config a presne pripravený `dist/`.
+Orchestration medzi DB mutation a deployom nespúšťa `npm run build`, `vinext build`
+ani iný application build krok.
 
 ## Failure semantics
 
@@ -85,7 +87,7 @@ build krok.
 
 Posledné riziko nemožno odstrániť iba zmenou order-of-operations. DEPLOY-1 ho
 minimalizuje tým, že Worker a assets sú kompletne vytvorené a validované ešte pred
-remote mutation a po mutation sa nevytvára nový application artifact.
+remote mutation a po mutation sa nevytvára nový application ani Wrangler bundle.
 
 ## Testovateľnosť a PR bezpečnosť
 
