@@ -11050,8 +11050,23 @@ h3 {
 
 @media (max-width: 620px) {
   .hero-card,
-  .hero-copy { min-height: 520px; }
-  .hero-copy { bottom: auto; justify-content: center; padding: 44px 22px 70px; }
+  .hero-copy { min-height: 430px; }
+  .hero-image { object-position: 62% center; }
+  .hero-copy {
+    bottom: auto;
+    justify-content: flex-end;
+    padding: 34px 22px 38px;
+  }
+  .hero-kicker { margin-bottom: 14px; }
+  .hero-copy h1 {
+    margin-bottom: 14px;
+    font-size: clamp(2.45rem, 11.7vw, 3.2rem);
+    line-height: .98;
+  }
+  .hero-copy > p {
+    margin-bottom: 0;
+    line-height: 1.5;
+  }
   .home-section-cta { justify-content: stretch; }
   .home-section-cta .button { width: 100%; }
   .home-section-cta--quiet { justify-content: center; }
