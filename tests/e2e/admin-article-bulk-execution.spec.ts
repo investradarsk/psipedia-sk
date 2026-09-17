@@ -1,8 +1,37 @@
+import { execFileSync } from "node:child_process";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+function resetAdminArticleFixtures() {
+  if (process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP !== "1") {
+    throw new Error("ADMIN-2E focused E2E fixture reset is restricted to the isolated local bootstrap environment.");
+  }
+
+  execFileSync(
+    process.platform === "win32" ? "npx.cmd" : "npx",
+    [
+      "wrangler",
+      "d1",
+      "execute",
+      "DB",
+      "--local",
+      "--config",
+      "dist/server/wrangler.json",
+      "--persist-to",
+      ".wrangler/state",
+      "--file",
+      "tests/fixtures/article-admin-bulk-e2e.sql",
+    ],
+    { stdio: "inherit", env: process.env },
+  );
+}
+
 test.describe("ADMIN-2E article bulk execution", () => {
   test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(() => {
+    resetAdminArticleFixtures();
+  });
 
   const rowFor = (page: import("@playwright/test").Page, title: string) =>
     page.locator(".admin-article-row").filter({ hasText: title });
