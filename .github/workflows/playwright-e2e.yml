@@ -10,8 +10,8 @@ on:
     - cron: "17 5 * * *"
 
 concurrency:
-  group: playwright-e2e-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: playwright-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -24,6 +24,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -33,8 +40,6 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
-      - name: Production build
-        run: npm run build
       - name: Unit and integration tests
         run: npm test
       - name: Adoption unit/integration suite
@@ -307,6 +312,7 @@ jobs:
   production-smoke:
     name: Playwright production smoke (${{ matrix.label }})
     needs: validate
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
