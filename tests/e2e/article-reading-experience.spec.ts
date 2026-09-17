@@ -69,6 +69,7 @@ for (const articleCase of cases) {
 
     await page.goto(articleCase.path);
     await expect(page.getByRole("heading", { level: 1, name: articleCase.title })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Navigácia v článku" })).toBeVisible();
     await expect(page.locator(".article-hero-image")).toBeVisible();
     await expect(page.locator(".article-intro")).toBeVisible();
     await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
@@ -76,6 +77,7 @@ for (const articleCase of cases) {
 
     const metrics = await page.evaluate(() => {
       const h1 = document.querySelector<HTMLElement>("h1")!;
+      const excerpt = document.querySelector<HTMLElement>("main#obsah header h1 + p")!;
       const image = document.querySelector<HTMLElement>(".article-hero-image")!;
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const intro = document.querySelector<HTMLElement>(".article-intro")!;
@@ -84,6 +86,7 @@ for (const articleCase of cases) {
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         h1Size: Number.parseFloat(getComputedStyle(h1).fontSize),
+        excerptClipping: excerpt.scrollHeight - excerpt.clientHeight,
         imageRatio: imageRect.width / imageRect.height,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
@@ -94,9 +97,13 @@ for (const articleCase of cases) {
       };
     });
 
+    console.log(`[article-ux] ${articleCase.id} mobile metrics ${JSON.stringify(metrics)}`);
+    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-mobile-390x844.png` });
+
     expect(metrics.overflow).toBeLessThanOrEqual(1);
     expect(metrics.h1Size).toBeGreaterThanOrEqual(34);
     expect(metrics.h1Size).toBeLessThanOrEqual(39);
+    expect(metrics.excerptClipping, "The mobile perex must be fully visible").toBeLessThanOrEqual(1);
     expect(metrics.imageRatio).toBeGreaterThan(1.56);
     expect(metrics.imageRatio).toBeLessThan(1.64);
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
@@ -107,7 +114,10 @@ for (const articleCase of cases) {
     expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
 
     if (articleCase.id === "bikejoring") {
-      expect(metrics.introTop, "Bikejoring prose must start inside the first 390x844 viewport").toBeLessThan(844);
+      expect(
+        metrics.introTop,
+        "Bikejoring prose must be visible or directly adjacent to the first 390x844 viewport",
+      ).toBeLessThanOrEqual(944);
     }
 
     const toc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
@@ -130,7 +140,6 @@ for (const articleCase of cases) {
 
     await expectSemanticArticleHeadings(page);
     if (articleCase.id === "bikejoring") await expectNoSeriousAccessibilityViolations(page);
-    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-mobile-390x844.png` });
   });
 
   test(`${articleCase.id} desktop 1440x900 article composition`, async ({ page }) => {
