@@ -10,6 +10,7 @@ import {
 } from "./adoption-store.ts";
 
 export type AdoptionAdminBreedOption = { id: number; name: string; slug: string };
+export type AdoptionAdminOrganizationOption = { id: number; name: string; slug: string };
 type RuntimeBindings = { DB?: AdoptionD1Database };
 type RunResult = { meta?: { changes?: number }; changes?: number };
 
@@ -61,6 +62,13 @@ export function isAdoptionAdminConflict(error: unknown) {
 export async function listAdoptionAdminBreedOptions(database?: AdoptionD1Database) {
   const db = requireD1Binding(database);
   const result = await db.prepare("SELECT id, name, slug FROM managed_breeds ORDER BY name COLLATE NOCASE ASC").all<AdoptionAdminBreedOption>();
+  return result.results.map((row) => ({ id: Number(row.id), name: row.name, slug: row.slug }));
+}
+
+export async function listAdoptionAdminOrganizationOptions(database?: AdoptionD1Database) {
+  const db = requireD1Binding(database);
+  const result = await db.prepare("SELECT id, name, slug FROM help_organizations WHERE archived_at IS NULL ORDER BY name COLLATE NOCASE ASC, id ASC")
+    .all<AdoptionAdminOrganizationOption>();
   return result.results.map((row) => ({ id: Number(row.id), name: row.name, slug: row.slug }));
 }
 

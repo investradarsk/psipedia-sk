@@ -10,7 +10,7 @@ import {
   type AdoptionStatus,
   type ManagedAdoptionInput,
 } from "@/lib/adoption";
-import type { AdoptionAdminBreedOption } from "@/lib/adoption-admin-write";
+import type { AdoptionAdminBreedOption, AdoptionAdminOrganizationOption } from "@/lib/adoption-admin-write";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminAdoptionEditorProfile } from "./admin-adoption-editor-profile";
 import { AdminAdoptionEditorDetails } from "./admin-adoption-editor-details";
@@ -21,7 +21,7 @@ const nullableNumber = (data: FormData, key: string) => { const value = text(dat
 const nullableBoolean = (data: FormData, key: string) => { const value = text(data, key); return value === "true" ? true : value === "false" ? false : null; };
 const checked = (data: FormData, key: string) => data.get(key) === "on";
 
-export function AdminAdoptionEditor({ item, breeds }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOption[] }) {
+export function AdminAdoptionEditor({ item, breeds, organizations }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOption[]; organizations: AdoptionAdminOrganizationOption[] }) {
   const [name, setName] = useState(item?.name ?? "");
   const [slug, setSlug] = useState(item?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(item));
@@ -70,7 +70,7 @@ export function AdminAdoptionEditor({ item, breeds }: { item?: AdoptionDog; bree
         approximateAgeMonths: nullableNumber(data, "approximateAgeMonths"), size: text(data, "size"), weight: nullableNumber(data, "weight"),
         breedId: nullableNumber(data, "breedId"), breedName: text(data, "breedName"), breedMix: checked(data, "breedMix"), color: text(data, "color"),
         region: text(data, "region"), district: text(data, "district"), city: text(data, "city"),
-        organizationId: item?.organizationId ?? null, organizationName: text(data, "organizationName"), organizationSlug: text(data, "organizationSlug") || null,
+        organizationId: nullableNumber(data, "organizationId"), organizationName: text(data, "organizationName"), organizationSlug: text(data, "organizationSlug") || null,
         mainImage: mainImage || null, gallery: text(data, "gallery"), shortDescription: text(data, "shortDescription"), description: text(data, "description"),
         temperament: text(data, "temperament"), activityLevel: text(data, "activityLevel"),
         suitableForChildren: text(data, "suitableForChildren"), suitableForDogs: text(data, "suitableForDogs"), suitableForCats: text(data, "suitableForCats"), suitableForOtherAnimals: text(data, "suitableForOtherAnimals"),
@@ -104,10 +104,10 @@ export function AdminAdoptionEditor({ item, breeds }: { item?: AdoptionDog; bree
           <div className="admin-field"><label htmlFor="adoption-slug">Slug *</label><input id="adoption-slug" value={slug} onChange={(event: ChangeEvent<HTMLInputElement>) => { setSlugEdited(true); setSlug(slugifyAdoptionSlug(event.target.value)); }} required/></div>
           <div className="admin-field"><label htmlFor="adoption-status">Lifecycle stav *</label><select id="adoption-status" value={status} onChange={(event: ChangeEvent<HTMLSelectElement>) => setStatus(event.target.value as AdoptionStatus)}>{lifecycleOptions.map((value) => <option key={value} value={value}>{adoptionStatusLabels[value]}</option>)}</select></div>
         </div>
-        {publishing && <p className="admin-help">Pri ACTIVE/RESERVED server vyžaduje všetky publikačné údaje a znovu ich validuje.</p>}
+        {publishing && <p className="admin-help">Pri ACTIVE/RESERVED server vyžaduje všetky publikačné údaje vrátane canonical organization_id a znovu ich validuje.</p>}
       </section>
       <AdminAdoptionEditorProfile item={item} breeds={breeds} publishing={publishing}/>
-      <AdminAdoptionEditorDetails item={item} publishing={publishing} mainImage={mainImage} uploading={uploading} onMainImageChange={setMainImage} onUpload={uploadImage}/>
+      <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading} onMainImageChange={setMainImage} onUpload={uploadImage}/>
     </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><img src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný stav – server vyžaduje kompletné publikačné údaje." : "Koncept môže zostať neúplný."}</p><Link href="/admin/adopcie">← Späť na adopcie</Link></aside></div>
     {message && <p className="admin-message">{message}</p>}{error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
     <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>

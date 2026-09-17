@@ -1,5 +1,6 @@
 import type { ChangeEvent } from "react";
 import { adoptionVaccinationStatuses, type AdoptionDog } from "@/lib/adoption";
+import type { AdoptionAdminOrganizationOption } from "@/lib/adoption-admin-write";
 
 const vaccinationLabels = { UNKNOWN: "Neuvedené", NONE: "Nie", PARTIAL: "Čiastočne", UP_TO_DATE: "Aktuálne" } as const;
 const triState = (value: boolean | null | undefined) => value === true ? "true" : value === false ? "false" : "";
@@ -7,6 +8,7 @@ const dateInput = (value: string | null | undefined) => value ? value.slice(0, 1
 
 export function AdminAdoptionEditorDetails({
   item,
+  organizations,
   publishing,
   mainImage,
   uploading,
@@ -14,6 +16,7 @@ export function AdminAdoptionEditorDetails({
   onUpload,
 }: {
   item?: AdoptionDog;
+  organizations: AdoptionAdminOrganizationOption[];
   publishing: boolean;
   mainImage: string;
   uploading: boolean;
@@ -33,10 +36,11 @@ export function AdminAdoptionEditorDetails({
     </section>
 
     <section className="admin-form-card">
-      <div className="admin-card-heading"><div><span>06</span><div><h2>Organizácia a kontakt</h2><p>Kontakt na zodpovednú organizáciu alebo osobu.</p></div></div></div>
+      <div className="admin-card-heading"><div><span>06</span><div><h2>Organizácia a kontakt</h2><p>Canonical väzba je autoritatívna cez organization_id; snapshot polia ostávajú iba pre kompatibilitu.</p></div></div></div>
       <div className="admin-field-grid">
-        <div className="admin-field"><label htmlFor="adoption-organization">Organizácia{publishing ? " *" : ""}</label><input id="adoption-organization" name="organizationName" defaultValue={item?.organizationName ?? ""} required={publishing}/></div>
-        <div className="admin-field"><label htmlFor="adoption-org-slug">Slug organizácie</label><input id="adoption-org-slug" name="organizationSlug" defaultValue={item?.organizationSlug ?? ""}/></div>
+        <div className="admin-field"><label htmlFor="adoption-organization-id">Canonical organizácia{publishing ? " *" : ""}</label><select id="adoption-organization-id" name="organizationId" defaultValue={item?.organizationId ?? ""} required={publishing}><option value="">Bez canonical väzby</option>{organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}</select><small>Pri vybranej organizácii server vždy odvodí názov a slug z help_organizations.</small></div>
+        <div className="admin-field"><label htmlFor="adoption-organization">Compatibility snapshot / zodpovedná osoba</label><input id="adoption-organization" name="organizationName" defaultValue={item?.organizationName ?? ""}/><small>Pri organization_id sa táto hodnota nepoužíva ako zdroj identity.</small></div>
+        <div className="admin-field"><label htmlFor="adoption-org-slug">Compatibility snapshot slug</label><input id="adoption-org-slug" name="organizationSlug" defaultValue={item?.organizationSlug ?? ""}/></div>
         <div className="admin-field"><label htmlFor="adoption-email">E-mail</label><input id="adoption-email" type="email" name="contactEmail" defaultValue={item?.contactEmail ?? ""}/></div>
         <div className="admin-field"><label htmlFor="adoption-phone">Telefón</label><input id="adoption-phone" name="contactPhone" defaultValue={item?.contactPhone ?? ""}/></div>
         <div className="admin-field"><label htmlFor="adoption-contact-url">Kontaktný odkaz</label><input id="adoption-contact-url" type="url" name="contactUrl" defaultValue={item?.contactUrl ?? ""}/></div>
