@@ -1,4 +1,5 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { directoryProfiles } from "./schema";
 
 export const helpOrganizations = sqliteTable(
@@ -46,5 +47,37 @@ export const helpOrganizations = sqliteTable(
     index("help_organizations_type_status_idx").on(table.type, table.status),
     index("help_organizations_registration_idx").on(table.registrationNumber),
     index("help_organizations_updated_idx").on(table.updatedAt, table.id),
+  ],
+);
+
+export const organizationLocationRoles = ["UNSPECIFIED", "SITE", "LEGAL_SEAT", "SERVICE_AREA"] as const;
+
+export const organizationLocations = sqliteTable(
+  "organization_locations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => helpOrganizations.id, { onDelete: "cascade" }),
+    role: text("role").notNull().default("UNSPECIFIED"),
+    label: text("label").notNull().default(""),
+    address: text("address").notNull().default(""),
+    city: text("city").notNull().default(""),
+    district: text("district").notNull().default(""),
+    region: text("region").notNull().default(""),
+    countryCode: text("country_code").notNull().default("SK"),
+    isPrimary: integer("is_primary").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    check(
+      "organization_locations_role_check",
+      sql`${table.role} IN ('UNSPECIFIED', 'SITE', 'LEGAL_SEAT', 'SERVICE_AREA')`,
+    ),
+    check("organization_locations_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
+    index("organization_locations_org_order_idx").on(table.organizationId, table.sortOrder, table.id),
+    uniqueIndex("organization_locations_one_primary_idx")
+      .on(table.organizationId)
+      .where(sql`${table.isPrimary} = 1`),
   ],
 );
