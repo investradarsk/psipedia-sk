@@ -80,6 +80,7 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
     ],
   };
   const shareLabel = section === "novinky" ? "Zdieľať novinku" : section === "recenzie" ? "Zdieľať recenziu" : "Zdieľať článok";
+  const favoriteHint = "Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr.";
   const relatedItems = related.slice(0, 3);
 
   return (
@@ -105,6 +106,7 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
               </div>
               <div className={styles.favoriteAction} aria-label="Uložiť článok">
                 <FavoriteButton slug={article.slug} />
+                <span className={styles.favoriteDescription}>{favoriteHint}</span>
               </div>
             </div>
           </div>
