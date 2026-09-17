@@ -35,6 +35,13 @@ jobs:
       PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
     steps:
       - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
       - uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
