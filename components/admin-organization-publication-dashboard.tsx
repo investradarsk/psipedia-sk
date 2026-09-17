@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
-import styles from "./admin-lost-found.module.css";
+import styles from "./admin-organization-publication.module.css";
 
 const statusLabels = {
   DRAFT: "Koncept",
