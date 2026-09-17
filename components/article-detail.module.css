@@ -381,65 +381,78 @@
 
 @media (max-width: 767px) {
   .hero {
-    padding-block: 16px 18px;
+    padding-block: 8px 10px;
   }
 
-  .hero :global(.article-breadcrumbs) {
-    gap: 5px;
-    margin-bottom: 11px;
-    font-size: 0.7rem;
-    line-height: 1.35;
+  .hero :global(.article-breadcrumbs),
+  .kicker {
+    display: none;
   }
 
   .heroGrid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-  }
-
-  .kicker {
-    margin-bottom: 7px;
-    font-size: 0.69rem;
+    gap: 8px;
   }
 
   .title h1 {
     max-width: none;
-    margin-bottom: 10px;
-    font-size: clamp(2.125rem, 9.1vw, 2.375rem);
-    line-height: 1.045;
+    margin-bottom: 6px;
+    font-size: clamp(2.125rem, 8.8vw, 2.25rem);
+    line-height: 1.01;
     text-wrap: pretty;
   }
 
   .title > p {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     font-size: 1.0625rem;
-    line-height: 1.5;
+    line-height: 1.42;
   }
 
   .metaActions {
-    gap: 8px 12px;
-    margin-top: 11px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 8px;
+    margin-top: 7px;
   }
 
   .metaActions :global(.article-byline) {
-    gap: 4px 8px;
-    flex-basis: 270px;
-    font-size: 0.7rem;
-    line-height: 1.45;
+    gap: 2px 6px;
+    flex-basis: auto;
+    font-size: 0.68rem;
+    line-height: 1.35;
   }
 
   .metaActions :global(.article-byline) > *:not(:last-child)::after {
-    margin-left: 8px;
+    margin-left: 6px;
+  }
+
+  .favoriteAction :global(.favorite-button) {
+    min-width: 40px;
+    min-height: 40px;
+    padding-inline: 10px;
+  }
+
+  .favoriteAction :global(.favorite-button span) {
+    display: none;
   }
 
   .heroMedia :global(.article-hero-image),
   .heroMedia :global(.article-hero-placeholder) {
+    display: block;
+    width: 100%;
+    height: auto;
     max-height: none;
     aspect-ratio: 16 / 10;
+    object-fit: cover;
     border-radius: 14px;
   }
 
   .readingShell {
     max-width: none;
-    padding: 8px 16px 64px;
+    padding: 4px 16px 64px;
   }
 
   .readingShell :global(.article-prose) {
