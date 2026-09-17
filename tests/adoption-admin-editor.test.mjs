@@ -25,6 +25,7 @@ function breedDb(valid = true) {
         bind(...values) { bindings = values; return this; },
         async first() {
           if (/managed_breeds/.test(query) && valid && bindings[0] === 42) return { id: 42, name: "Labradorský retriever", slug: "labradorsky-retriever" };
+          if (/help_organizations/.test(query) && bindings[0] === 7) return { id: 7, name: "OZ Test", slug: "oz-test" };
           if (/^INSERT INTO adoption_dogs/.test(query)) return { id: 1 };
           if (/FROM adoption_dogs d/.test(query) && /WHERE d\.id = \?/.test(query) && bindings[0] === 1) return draftRow;
           return null;
@@ -35,7 +36,7 @@ function breedDb(valid = true) {
     },
   };
 }
-const publicPayload=(overrides={})=>({name:"Ben",slug:"ben",status:"ACTIVE",sex:"MALE",approximateAgeMonths:30,size:"LARGE",breedId:42,region:"Nitriansky kraj",city:"Nitra",organizationName:"OZ Test",mainImage:"/images/ben.webp",shortDescription:"Priateľský pes hľadá bezpečný a zodpovedný nový domov.",description:"Ben je priateľský a aktívny pes, ktorý hľadá zodpovedný nový domov. Profil obsahuje dostatok overených informácií pre bezpečné publikovanie.",lastVerifiedAt:"2026-09-14",...overrides});
+const publicPayload=(overrides={})=>({name:"Ben",slug:"ben",status:"ACTIVE",sex:"MALE",approximateAgeMonths:30,size:"LARGE",breedId:42,region:"Nitriansky kraj",city:"Nitra",organizationId:7,organizationName:"OZ Test",mainImage:"/images/ben.webp",shortDescription:"Priateľský pes hľadá bezpečný a zodpovedný nový domov.",description:"Ben je priateľský a aktívny pes, ktorý hľadá zodpovedný nový domov. Profil obsahuje dostatok overených informácií pre bezpečné publikovanie.",lastVerifiedAt:"2026-09-14",...overrides});
 
 test("new admin adoption defaults to DRAFT when status is omitted", async()=>{const created=await createAdoptionFromAdmin({name:"Ben",slug:"ben"},"editor@psipedia.sk",breedDb());assert.equal(created.status,"DRAFT")});
 test("server-domain validation rejects missing required profile fields",async()=>{await assert.rejects(()=>prepareAdoptionWritePayload(breedDb(),{name:"",slug:""},"editor@psipedia.sk"),/Doplň meno psa|adresa profilu/)});
