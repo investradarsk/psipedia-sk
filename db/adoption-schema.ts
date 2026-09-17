@@ -1,4 +1,5 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { helpOrganizations } from "./help-organization-schema";
 import { managedBreeds } from "./schema";
 
 export const adoptionDogs = sqliteTable(
@@ -20,7 +21,7 @@ export const adoptionDogs = sqliteTable(
     region: text("region").notNull().default(""),
     district: text("district").notNull().default(""),
     city: text("city").notNull().default(""),
-    organizationId: integer("organization_id"),
+    organizationId: integer("organization_id").references(() => helpOrganizations.id, { onDelete: "restrict" }),
     organizationName: text("organization_name").notNull().default(""),
     organizationSlug: text("organization_slug"),
     mainImage: text("main_image"),
