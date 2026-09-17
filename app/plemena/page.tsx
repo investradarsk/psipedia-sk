@@ -26,8 +26,10 @@ export const dynamic = "force-dynamic";
 
 export default async function BreedsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedCanonicalBreedIndex()]);
-  const initialFilters = parseBreedAtlasFilters(await searchParams);
-  const schema = buildCollectionPageJsonLd({
+  const rawSearchParams = await searchParams;
+  const initialFilters = parseBreedAtlasFilters(rawSearchParams);
+  const hasQuery = Object.values(rawSearchParams).some((value) => Array.isArray(value) ? value.some(Boolean) : Boolean(value));
+  const schema = hasQuery ? null : buildCollectionPageJsonLd({
     name: portalSection?.label ?? "Plemená",
     description: portalSection?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, energia, starostlivosť a vhodnosť do rodiny.",
     path: "/plemena",
@@ -39,7 +41,7 @@ export default async function BreedsPage({ searchParams }: { searchParams: Promi
   });
   return (
     <>
-      <StructuredData value={schema} />
+      {schema && <StructuredData value={schema} />}
       <main id="obsah">
         <header className="page-hero page-hero--breed-atlas page-hero--photo shell">
           <img className="page-hero-photo" src="/images/breeds/australsky-ovciak.webp" alt="" aria-hidden="true" decoding="async" />

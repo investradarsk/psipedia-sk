@@ -29,7 +29,7 @@ test("SEO-3 listing metadata keeps title, description, canonical, social and ind
   assert.equal(metadata.robots?.follow, true);
 });
 
-test("SEO-3 CollectionPage graph is valid JSON with canonical ItemList URLs and one top-level entity per type", () => {
+test("SEO-3 CollectionPage graph is valid JSON with canonical ItemList URLs and no duplicate detail entities", () => {
   const schema = buildCollectionPageJsonLd({
     name: "Testovací katalóg",
     description: "Iba verejné položky.",
@@ -61,29 +61,41 @@ test("SEO-3 CollectionPage graph is valid JSON with canonical ItemList URLs and 
   assert.equal(schema["@graph"].filter((item) => item["@type"] === "CollectionPage").length, 1);
   assert.equal(schema["@graph"].filter((item) => item["@type"] === "ItemList").length, 1);
   assert.equal(schema["@graph"].filter((item) => item["@type"] === "BreadcrumbList").length, 1);
+  for (const detailType of ["Article", "Event", "Organization"]) {
+    assert.equal(schema["@graph"].filter((item) => item["@type"] === detailType).length, 0);
+  }
   assert.doesNotMatch(serialized, /aggregateRating|ratingValue|author|image/);
 });
 
-test("SEO-3 public listing routes source schema items only from public/published reads", () => {
+test("SEO-3 public listing routes source schema items only from the confirmed public reads", () => {
   const articlePage = fs.readFileSync(new URL("../app/clanky/page.tsx", import.meta.url), "utf8");
   const breedPage = fs.readFileSync(new URL("../app/plemena/page.tsx", import.meta.url), "utf8");
   const sectionPage = fs.readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
   const directoryPage = fs.readFileSync(new URL("../app/adresar/[category]/page.tsx", import.meta.url), "utf8");
   const adoptionPage = fs.readFileSync(new URL("../app/pomoc-psom/adopcia/page.tsx", import.meta.url), "utf8");
 
-  assert.match(articlePage, /getPublishedArticleSummaries/);
-  assert.match(breedPage, /listPublishedCanonicalBreedIndex/);
-  assert.match(sectionPage, /getPublishedEvents/);
-  assert.match(directoryPage, /listPublishedDirectoryProfiles/);
-  assert.match(adoptionPage, /getPublicAdoptions/);
+  assert.match(articlePage, /const articles = await getPublishedArticleSummaries\(/);
+  assert.match(articlePage, /items: articles\.map\(/);
+  assert.match(breedPage, /listPublishedCanonicalBreedIndex\(\)/);
+  assert.match(breedPage, /items: breeds\.map\(/);
+  assert.match(sectionPage, /slug === "podujatia" \? getPublishedEvents\(\)/);
+  assert.match(sectionPage, /items: eventList\.map\(/);
+  assert.match(directoryPage, /listPublishedDirectoryProfiles\(\{/);
+  assert.match(directoryPage, /items: result\.profiles\.map\(/);
+  assert.match(adoptionPage, /getPublicAdoptions\(filters\)/);
+  assert.match(adoptionPage, /items: result\.items\.map\(/);
+
   for (const source of [articlePage, breedPage, sectionPage, directoryPage, adoptionPage]) {
     assert.match(source, /buildCollectionPageJsonLd/);
-    assert.doesNotMatch(source, /listManaged|status:\s*["']draft["']/i);
+    assert.match(source, /hasQuery \? null : buildCollectionPageJsonLd/);
+    assert.doesNotMatch(source, /status:\s*["']draft["']/i);
   }
 });
 
-test("SEO-3 section listing metadata delegates to shared social metadata contract", () => {
+test("SEO-3 section listing metadata delegates to shared social metadata contract and preserves Novinky copy", () => {
   const sectionPage = fs.readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
+  assert.match(sectionPage, /const NOVINKY_DESCRIPTION = "Výber príbehov, zaujímavostí, výskumu a užitočných tém zo sveta psov\.";/);
+  assert.match(sectionPage, /const description = slug === "novinky" \? NOVINKY_DESCRIPTION : section\.description;/);
   assert.match(sectionPage, /buildPageMetadata\(\{/);
   assert.doesNotMatch(sectionPage, /openGraph:\s*\{/);
   assert.doesNotMatch(sectionPage, /twitter:\s*\{/);

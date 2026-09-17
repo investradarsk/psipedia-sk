@@ -28,7 +28,8 @@ export default async function ArticlesPage({
     "zivot-so-psom": "Život so psom",
   };
   const heroImage = articles.find((article) => article.image)?.image;
-  const schema = buildCollectionPageJsonLd({
+  const hasQuery = Object.values(params).some(Boolean);
+  const schema = hasQuery ? null : buildCollectionPageJsonLd({
     name: "Články o psoch",
     description: "Praktické články o výcviku, zdraví, výžive a každodennom živote so psom.",
     path: "/clanky",
@@ -41,7 +42,7 @@ export default async function ArticlesPage({
 
   return (
     <>
-      <StructuredData value={schema} />
+      {schema && <StructuredData value={schema} />}
       <main id="obsah">
         <header className={`page-hero page-hero--editorial shell${heroImage ? " page-hero--photo" : ""}`}>
           {heroImage && <img className="page-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}

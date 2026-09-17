@@ -46,7 +46,9 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   if (slug === "novinky") return <NewsHub articles={articles} section={section} />;
   if (slug === "podujatia") {
     const eventList = events ?? [];
-    const schema = buildCollectionPageJsonLd({
+    const rawSearchParams = await searchParams;
+    const hasQuery = Object.values(rawSearchParams).some((value) => Array.isArray(value) ? value.some(Boolean) : Boolean(value));
+    const schema = hasQuery ? null : buildCollectionPageJsonLd({
       name: section.label,
       description: section.description,
       path: "/podujatia",
@@ -56,7 +58,7 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
       ],
       items: eventList.map((event) => ({ name: event.title, path: eventHref(event) })),
     });
-    return <><StructuredData value={schema} /><EventsPage events={eventList} section={section} initialTime={eventTimeFilterFromParam((await searchParams).termin)} /></>;
+    return <>{schema && <StructuredData value={schema} />}<EventsPage events={eventList} section={section} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} /></>;
   }
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }
