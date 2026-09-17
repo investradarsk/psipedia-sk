@@ -1,0 +1,73 @@
+.tabs {
+  composes: tabs from "./admin-data-table.module.css";
+}
+
+.tableWrap {
+  composes: tableWrap from "./admin-data-table.module.css";
+}
+
+.table {
+  composes: table from "./admin-data-table.module.css";
+}
+
+.type {
+  composes: type from "./admin-data-table.module.css";
+}
+
+.status {
+  composes: status from "./admin-data-table.module.css";
+}
+
+.rowTitle {
+  composes: rowTitle from "./admin-data-table.module.css";
+}
+
+.edit {
+  composes: edit from "./admin-data-table.module.css";
+}
+
+.message {
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #edf6ef;
+  color: #174a30;
+}
+
+.error {
+  background: #fff0ed;
+  color: #913c2b;
+}
+
+.action {
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primary {
+  composes: action;
+  border: 0;
+  background: #173f2d;
+  color: #fff;
+}
+
+.danger {
+  composes: action;
+  border: 1px solid #d7b8af;
+  background: #fff7f5;
+  color: #8c3e2d;
+}
+
+.help {
+  color: #66746d;
+  font-size: 0.82rem;
+}
