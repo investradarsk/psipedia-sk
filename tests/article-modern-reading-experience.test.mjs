@@ -67,6 +67,8 @@ test("article reading CSS preserves editorial measures and mobile overflow safet
   assert.match(styles, /border-radius:\s*14px/);
   assert.match(styles, /\.article-block-table-wrap\)[^{]*\{[^}]*overflow-x:\s*auto/s);
   assert.match(styles, /\.article-block-image--wide\)[^{]*\{[^}]*max-width:\s*calc\(100vw - 16px\)/s);
+  assert.doesNotMatch(styles, /-webkit-line-clamp/);
+  assert.doesNotMatch(styles, /\.hero\s+:global\(\.article-breadcrumbs\)[^{]*\{[^}]*display:\s*none/s);
 });
 
 test("end recommendations are text-led and mobile limits the list to two items", () => {
