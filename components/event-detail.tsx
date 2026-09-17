@@ -59,7 +59,7 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
             </div>
 
             <MediaFrame className="event-detail-visual" variant="landscape">
-              {event.imageUrl ? <img src={event.imageUrl} alt={event.title} /> : <PawMark size={92} />}
+              {event.imageUrl ? <img src={event.imageUrl} alt={event.title} loading="eager" fetchPriority="high" decoding="async" /> : <PawMark size={92} />}
             </MediaFrame>
           </div>
 
