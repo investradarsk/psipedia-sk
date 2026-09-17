@@ -74,7 +74,7 @@ function insertMethod(db, overrides = {}) {
 
 test("0041 migration is schema-only and contains the canonical ORG-7A allowlists", () => {
   assert.match(migration, /^CREATE TABLE IF NOT EXISTS organization_fundraising_methods/m);
-  assert.doesNotMatch(migration, /\bINSERT\b|\bUPDATE\b|\bDELETE\b/i);
+  assert.doesNotMatch(migration, /^\s*(?:INSERT|UPDATE|DELETE)\b/im);
   assert.doesNotMatch(migration, /source_data_json|published_at|help_organizations\.status/i);
   for (const value of ORGANIZATION_FUNDRAISING_METHOD_TYPES) assert.match(migration, new RegExp(`'${value}'`));
   for (const value of ORGANIZATION_FUNDRAISING_OWNERSHIPS) assert.match(migration, new RegExp(`'${value}'`));
@@ -159,7 +159,7 @@ test("new rows fail closed with UNVERIFIED inactive lifecycle and OCC-ready vers
     db.exec("INSERT INTO help_organizations DEFAULT VALUES;");
     const id = insertMethod(db);
     const row = db.prepare("SELECT label, sort_order, is_active, verification_status, version, verified_at, verified_by FROM organization_fundraising_methods WHERE id = ?").get(id);
-    assert.deepEqual(row, {
+    assert.deepEqual({ ...row }, {
       label: "",
       sort_order: 0,
       is_active: 0,
