@@ -210,6 +210,7 @@ export function AdminBulkSelectionControls({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const [action, setAction] = useState<"publish" | "move-to-draft">("publish");
+  const [dialogSelectedCount, setDialogSelectedCount] = useState(0);
   const [pending, setPending] = useState(false);
   const [preflight, setPreflight] = useState<PreflightResult | null>(null);
   const [execution, setExecution] = useState<ExecutionResult | null>(null);
@@ -220,6 +221,7 @@ export function AdminBulkSelectionControls({
   function openDialog(nextAction: "publish" | "move-to-draft", trigger: HTMLButtonElement) {
     restoreFocusRef.current = trigger;
     setAction(nextAction);
+    setDialogSelectedCount(selectedCount);
     setPreflight(null);
     setExecution(null);
     setError("");
@@ -328,7 +330,7 @@ export function AdminBulkSelectionControls({
       <dialog className={styles.dialog} ref={dialogRef} aria-labelledby="bulk-preflight-title"
         onClose={() => { setPending(false); if (!execution) requestAnimationFrame(() => restoreFocusRef.current?.focus()); }}>
         <div className={styles.dialogBody}>
-          <h2 id="bulk-preflight-title">{actionLabel} {selectedCount} {dialogObjectLabel}?</h2>
+          <h2 id="bulk-preflight-title">{actionLabel} {dialogSelectedCount} {dialogObjectLabel}?</h2>
           <p>Najprv server overí aktuálny lifecycle a vytvorí krátkodobý snapshot. Zmena sa vykoná až po potvrdení.</p>
 
           <div aria-live="polite" aria-atomic="true">
