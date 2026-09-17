@@ -1,0 +1,148 @@
+import { execFileSync } from "node:child_process";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "@playwright/test";
+
+function resetAdminArticleFixtures() {
+  if (process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP !== "1") {
+    throw new Error("ADMIN-2E focused E2E fixture reset is restricted to the isolated local bootstrap environment.");
+  }
+
+  execFileSync(
+    process.platform === "win32" ? "npx.cmd" : "npx",
+    [
+      "wrangler",
+      "d1",
+      "execute",
+      "DB",
+      "--local",
+      "--config",
+      "dist/server/wrangler.json",
+      "--persist-to",
+      ".wrangler/state",
+      "--file",
+      "tests/fixtures/article-admin-bulk-e2e.sql",
+    ],
+    { stdio: "inherit", env: process.env },
+  );
+}
+
+test.describe("ADMIN-2E article bulk execution", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(() => {
+    resetAdminArticleFixtures();
+  });
+
+  const rowFor = (page: import("@playwright/test").Page, title: string) =>
+    page.locator(".admin-article-row").filter({ hasText: title });
+
+  async function findArticleRowAcrossPages(page: import("@playwright/test").Page, title: string) {
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    for (let pageNumber = 1; pageNumber <= 20; pageNumber += 1) {
+      const row = rowFor(page, title);
+      if ((await row.count()) > 0) return row;
+      const next = page.getByRole("link", { name: "Ďalšia →" });
+      if ((await next.count()) === 0) break;
+      const nextHref = await next.getAttribute("href");
+      if (!nextHref) break;
+      await page.goto(nextHref, { waitUntil: "domcontentloaded" });
+    }
+    throw new Error(`Article row "${title}" was not found in admin pagination.`);
+  }
+
+  test("keeps explicit selection across pagination and publishes only selected eligible articles", async ({ page }) => {
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("Vybrať článok ADMIN-2E Draft A").check();
+    await expect(page.getByText("Vybrané: 1")).toBeVisible();
+
+    await page.getByRole("link", { name: "Ďalšia →" }).click();
+    await expect(page).toHaveURL(/\/admin\?page=2$/);
+    await expect(page.getByText("Vybrané: 1")).toBeVisible();
+    await page.getByLabel("Vybrať článok ADMIN-2E Page 001").check();
+    await expect(page.getByText("Vybrané: 2")).toBeVisible();
+
+    await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
+    const dialog = page.getByRole("dialog", { name: "Publikovať 2 článkov?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
+    await expect(dialog).toContainText("2 výsledkov / 2 eligible / 0 by boli preskočené");
+    await dialog.getByRole("button", { name: "Potvrdiť a vykonať: publikovať" }).click();
+    await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
+    await expect(dialog).toContainText("Výber bol vyčistený");
+    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+
+    await expect(rowFor(page, "ADMIN-2E Page 001")).toContainText("Publikovaný");
+    await page.getByRole("link", { name: "← Predchádzajúca" }).click();
+    await expect(rowFor(page, "ADMIN-2E Draft A")).toContainText("Publikovaný");
+    await expect(page.getByText("Vybrané: 2")).toHaveCount(0);
+  });
+
+  test("reports mixed publish result and then moves published and scheduled lifecycle records to draft", async ({ page }) => {
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("Vybrať článok ADMIN-2E Scheduled B").check();
+    await page.getByLabel("Vybrať článok ADMIN-2E Published C").check();
+
+    await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
+    let dialog = page.getByRole("dialog", { name: "Publikovať 2 článkov?" });
+    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
+    await expect(dialog).toContainText("2 výsledkov / 1 eligible / 1 by boli preskočené");
+    await expect(dialog).toContainText("už sú v cieľovom stave");
+    await dialog.getByRole("button", { name: "Potvrdiť a vykonať: publikovať" }).click();
+    await expect(dialog).toContainText("Hotovo: 1 zmenených / 1 preskočených / 0 zlyhaní");
+    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Publikovaný");
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Publikovaný");
+
+    await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B");
+    await page.getByLabel("Vybrať článok ADMIN-2E Scheduled B").check();
+    await findArticleRowAcrossPages(page, "ADMIN-2E Published C");
+    await page.getByLabel("Vybrať článok ADMIN-2E Published C").check();
+    await expect(page.getByText("Vybrané: 2")).toBeVisible();
+    await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
+    dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 2 článkov?" });
+    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
+    await expect(dialog).toContainText("2 výsledkov / 2 eligible / 0 by boli preskočené");
+    await dialog.getByRole("button", { name: "Potvrdiť a vykonať: presunúť do konceptov" }).click();
+    await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
+    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Koncept");
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Koncept");
+  });
+
+  test("selection, confirmation dialog and result controls stay keyboard-operable, axe-clean and overflow-free", async ({ page }) => {
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    const checkbox = page.getByLabel("Vybrať článok ADMIN-2E Draft A");
+    await expect(checkbox).toBeEnabled();
+    await checkbox.focus();
+    await expect(checkbox).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(checkbox).toBeChecked();
+
+    const toolbarScan = await new AxeBuilder({ page })
+      .include('aside[aria-label="Hromadný výber"]')
+      .analyze();
+    expect(toolbarScan.violations).toEqual([]);
+
+    await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
+    const dialog = page.getByRole("dialog", { name: "Publikovať 1 článkov?" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Spustiť preflight" })).toBeFocused();
+
+    const dialogScan = await new AxeBuilder({ page }).include("dialog").analyze();
+    expect(dialogScan.violations).toEqual([]);
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+    const box = await dialog.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    if (!box || !viewport) throw new Error("Dialog or viewport was not measurable.");
+    expect(box.x).toBeGreaterThanOrEqual(-1);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+
+    await dialog.getByRole("button", { name: "Zavrieť" }).click();
+  });
+});

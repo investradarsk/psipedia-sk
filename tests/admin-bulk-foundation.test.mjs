@@ -141,13 +141,13 @@ test("foundation migration materializes selection only and contains no directory
   assert.doesNotMatch(sql, /DELETE\s+FROM\s+directory_profiles/i);
 });
 
-test("article adapter owns explicit membership SQL and performs zero article mutation", () => {
+test("article adapter owns explicit membership SQL against canonical managed_articles and performs zero article mutation", () => {
   const source = readFileSync(new URL("../lib/admin-bulk/article-adapter.ts", import.meta.url), "utf8");
-  assert.match(source, /SELECT id, status, updated_at[\s\S]*FROM articles WHERE id IN/);
+  assert.match(source, /SELECT id, status, updated_at[\s\S]*FROM managed_articles WHERE id IN/);
   assert.match(source, /record\.status !== "draft"[\s\S]*record\.status !== "scheduled"[\s\S]*record\.status !== "published"/);
-  assert.doesNotMatch(source, /UPDATE\s+articles/i);
-  assert.doesNotMatch(source, /DELETE\s+FROM\s+articles/i);
-  assert.doesNotMatch(source, /INSERT\s+INTO\s+articles/i);
+  assert.doesNotMatch(source, /UPDATE\s+managed_articles/i);
+  assert.doesNotMatch(source, /DELETE\s+FROM\s+managed_articles/i);
+  assert.doesNotMatch(source, /INSERT\s+INTO\s+managed_articles/i);
 });
 
 test("article membership fingerprint excludes pagination and includes q/status/portal section", () => {
