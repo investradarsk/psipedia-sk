@@ -48,6 +48,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@cloudflare/vite-plugin": "1.37.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -57,11 +58,12 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
-    "@playwright/test": "1.63.0",
+    "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
-    "vite": "8.0.13"
+    "vite": "8.0.13",
+    "wrangler": "4.92.0"
   },
   "type": "module",
   "displayName": "Psipedia.sk"
