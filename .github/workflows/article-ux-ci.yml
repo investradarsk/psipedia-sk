@@ -24,6 +24,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -77,8 +85,11 @@ jobs:
       - name: Materialize ARTICLE-UX-1 fixtures in isolated local D1 only
         run: node scripts/bootstrap-article-ux-e2e.mjs
 
-      - name: ARTICLE-UX-1 Playwright, accessibility and screenshots
+      - name: ARTICLE-UX-1 Playwright, accessibility and screenshots — desktop
         run: npm run e2e -- tests/e2e/article-reading-experience.spec.ts --project=desktop-chromium --workers=1 --retries=0
+
+      - name: ARTICLE-UX-1 Playwright, accessibility and screenshots — mobile
+        run: npm run e2e -- tests/e2e/article-reading-experience.spec.ts --project=mobile-chromium --workers=1 --retries=0
 
       - name: Upload ARTICLE-UX-1 visual evidence
         if: always()
@@ -87,6 +98,18 @@ jobs:
           name: article-ux-1-visual-evidence-${{ github.run_attempt }}
           path: .e2e-artifacts/article-ux-1/
           if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true
+
+      - name: Upload ARTICLE-UX-1 Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-ux-1-playwright-failure-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
           retention-days: 14
           include-hidden-files: true
 
