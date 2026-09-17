@@ -47,8 +47,10 @@ export type AdoptionD1Statement = {
 export type AdoptionD1Database = { prepare(query: string): AdoptionD1Statement };
 type RuntimeBindings = { DB?: AdoptionD1Database };
 type ManagedBreedRow = { id: number; name: string; slug: string };
+type ManagedOrganizationRow = { id: number; name: string; slug: string };
 
 export type AdoptionBreedOption = ManagedBreedRow;
+export type AdoptionOrganizationReference = { organizationId: number | null; organizationName: string; organizationSlug: string | null };
 export type AdoptionPublicQueryFilters = AdoptionPublicFilters & {
   breedId?: number | null;
   status?: AdoptionPublicStatus | "";
@@ -59,7 +61,8 @@ type AdoptionDogRow = {
   approximate_age_months: number | null; size: string; weight: number | null; breed_id: number | null;
   breed_name: string; breed_slug: string | null; breed_profile_name: string | null; breed_mix: number; color: string;
   region: string; district: string; city: string; organization_id: number | null; organization_name: string;
-  organization_slug: string | null; main_image: string | null; gallery_json: string; short_description: string;
+  organization_slug: string | null; canonical_organization_name: string | null; canonical_organization_slug: string | null;
+  main_image: string | null; gallery_json: string; short_description: string;
   description: string; temperament: string; activity_level: string; suitable_for_children: string; suitable_for_dogs: string;
   suitable_for_cats: string; suitable_for_other_animals: string; apartment_suitable: number | null;
   beginner_suitable: number | null; needs_experienced_owner: number; vaccination_status: string; chipped: number | null;
@@ -85,9 +88,11 @@ export type PreparedAdoptionWrite = NormalizedAdoptionInput & {
   breedSlug: string | null; publishedAt: string | null; updatedAt: string; updatedBy: string;
 };
 
-const PUBLIC_SELECT = `SELECT d.*, b.slug AS breed_slug, b.name AS breed_profile_name
+const PUBLIC_SELECT = `SELECT d.*, b.slug AS breed_slug, b.name AS breed_profile_name,
+    o.name AS canonical_organization_name, o.slug AS canonical_organization_slug
   FROM adoption_dogs d
-  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.status = 'published'`;
+  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.status = 'published'
+  LEFT JOIN help_organizations o ON o.id = d.organization_id`;
 const AGE_MONTHS_SQL = `COALESCE(d.approximate_age_months, CAST((julianday('now') - julianday(d.birth_date)) / 30.4375 AS INTEGER))`;
 const MUTABLE_COLUMNS = [
   "name", "slug", "status", "sex", "birth_date", "approximate_age_months", "size", "weight", "breed_id", "breed_name",
@@ -118,14 +123,17 @@ function parseGallery(value: string) {
 }
 function rowToDog(row: AdoptionDogRow): AdoptionDog {
   const region = (adoptionRegions as readonly string[]).includes(row.region) ? row.region as AdoptionRegion : "";
+  const linkedOrganization = row.organization_id !== null;
+  const organizationName = linkedOrganization ? normalizeAdoptionText(row.canonical_organization_name) : row.organization_name;
+  const organizationSlug = linkedOrganization ? normalizeAdoptionText(row.canonical_organization_slug) || null : row.organization_slug;
   return {
     id: Number(row.id), name: row.name, slug: row.slug, status: normalizeRowChoice(row.status, adoptionStatuses, "DRAFT"),
     sex: normalizeRowChoice(row.sex, adoptionSexes, "UNKNOWN"), birthDate: row.birth_date,
     approximateAgeMonths: row.approximate_age_months, size: normalizeRowChoice(row.size, adoptionSizes, "UNKNOWN"), weight: row.weight,
     breedId: row.breed_id, breedName: normalizeAdoptionText(row.breed_profile_name) || row.breed_name,
     breedSlug: normalizeAdoptionText(row.breed_slug) || null, breedMix: Boolean(row.breed_mix), color: row.color, region,
-    district: row.district, city: row.city, organizationId: row.organization_id, organizationName: row.organization_name,
-    organizationSlug: row.organization_slug, mainImage: row.main_image, gallery: parseGallery(row.gallery_json),
+    district: row.district, city: row.city, organizationId: row.organization_id, organizationName,
+    organizationSlug, mainImage: row.main_image, gallery: parseGallery(row.gallery_json),
     shortDescription: row.short_description, description: row.description, temperament: row.temperament,
     activityLevel: normalizeRowChoice(row.activity_level, adoptionActivityLevels, "UNKNOWN") as AdoptionActivityLevel,
     suitableForChildren: normalizeRowChoice(row.suitable_for_children, adoptionCompatibilityValues, "UNKNOWN") as AdoptionCompatibility,
@@ -167,6 +175,19 @@ export async function resolveBreed(database: AdoptionD1Database, breedId: unknow
   return { breedId: row.id, breedName: row.name.trim(), breedSlug: row.slug.trim() || null };
 }
 
+export async function resolveOrganization(database: AdoptionD1Database, organizationId: unknown): Promise<AdoptionOrganizationReference> {
+  const normalizedOrganizationId = normalizeOptionalPositiveId(organizationId, "Organizácia");
+  if (normalizedOrganizationId === null) return { organizationId: null, organizationName: "", organizationSlug: null };
+  const row = await database.prepare("SELECT id, name, slug FROM help_organizations WHERE id = ? LIMIT 1")
+    .bind(normalizedOrganizationId).first<ManagedOrganizationRow>();
+  if (!row) throw new Error("Vybraná organizácia neexistuje v help_organizations.");
+  return {
+    organizationId: Number(row.id),
+    organizationName: normalizeAdoptionText(row.name),
+    organizationSlug: normalizeAdoptionText(row.slug) || null,
+  };
+}
+
 function writeValues(input: PreparedAdoptionWrite) {
   return [
     input.name, input.slug, input.status, input.sex, input.birthDate, input.approximateAgeMonths, input.size, input.weight,
@@ -194,8 +215,21 @@ export async function prepareAdoptionWritePayload(
     throw new Error("Nový adopčný profil musí začať ako koncept alebo verejný stav.");
   }
   const breed = await resolveBreed(database, normalized.breedId);
+  const organization = await resolveOrganization(database, normalized.organizationId);
+  if ((adoptionPublicStatuses as readonly AdoptionStatus[]).includes(normalized.status) && organization.organizationId === null) {
+    throw new Error("Verejný adopčný profil musí mať canonical organization_id.");
+  }
   const breedName = breed.breedId === null ? normalized.breedName : breed.breedName;
-  const preparedBase = { ...normalized, breedId: breed.breedId, breedName };
+  const organizationName = organization.organizationId === null ? normalized.organizationName : organization.organizationName;
+  const organizationSlug = organization.organizationId === null ? normalized.organizationSlug : organization.organizationSlug;
+  const preparedBase = {
+    ...normalized,
+    breedId: breed.breedId,
+    breedName,
+    organizationId: organization.organizationId,
+    organizationName,
+    organizationSlug,
+  };
   const searchText = buildAdoptionSearchText(preparedBase);
   const timestamp = now.toISOString();
   const publishedAt = (adoptionPublicStatuses as readonly AdoptionStatus[]).includes(normalized.status)
