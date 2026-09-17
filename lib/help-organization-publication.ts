@@ -108,6 +108,7 @@ export function buildOrganizationPublicationPreflight(
     district: organization.district,
     region: organization.region,
     countryCode: organization.countryCode,
+    locations: [],
     imageUrl: organization.imageUrl,
     sourceUrl: organization.sourceUrl,
     publishedAt: organization.publishedAt ?? organization.updatedAt,
