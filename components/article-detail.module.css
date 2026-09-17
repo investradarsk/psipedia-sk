@@ -384,14 +384,34 @@
     padding-block: 8px 10px;
   }
 
-  .hero :global(.article-breadcrumbs),
-  .kicker {
-    display: none;
+  .hero :global(.article-breadcrumbs) {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 5px;
+    overflow: hidden;
+    font-size: 0.66rem;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .hero :global(.article-breadcrumbs a) {
+    min-width: 0;
+  }
+
+  .hero :global(.article-breadcrumbs a:last-child) {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .heroGrid {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
+  }
+
+  .kicker {
+    margin-bottom: 5px;
+    font-size: 0.65rem;
+    line-height: 1.2;
   }
 
   .title h1 {
@@ -403,12 +423,8 @@
   }
 
   .title > p {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    font-size: 1.0625rem;
-    line-height: 1.42;
+    font-size: 1rem;
+    line-height: 1.38;
   }
 
   .metaActions {
