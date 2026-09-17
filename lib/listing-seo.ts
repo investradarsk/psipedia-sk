@@ -1,4 +1,4 @@
-import { absoluteUrl } from "@/lib/seo";
+import { absoluteUrl } from "./seo.ts";
 
 export type ListingSchemaItem = {
   name: string;
