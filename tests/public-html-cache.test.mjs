@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache.ts";
+import {
+  invalidateVersionedPublicHtmlCacheUrl,
+  versionedPublicHtmlCacheUrl,
+} from "../lib/public-html-cache.ts";
 
 const workerSource = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const smokeSource = readFileSync(new URL("./e2e/psipedia.spec.ts", import.meta.url), "utf8");
@@ -30,6 +33,41 @@ test("new Worker HTML cannot resolve an old-version cache entry", () => {
 
   assert.equal(simulatedCache.get(oldVersionKey), "<html>old asset hashes</html>");
   assert.equal(simulatedCache.get(newVersionKey), undefined);
+});
+
+test("publication invalidation deletes the exact versioned public HTML key", async () => {
+  const deleted = [];
+  const storage = {
+    async delete(request) {
+      deleted.push(request);
+      return true;
+    },
+  };
+  const publicUrl = new URL("https://psipedia.sk/organizacie/testovacia-organizacia");
+
+  assert.equal(await invalidateVersionedPublicHtmlCacheUrl(publicUrl, "version-123", storage), true);
+  assert.equal(deleted.length, 1);
+  assert.equal(
+    deleted[0].url,
+    "https://psipedia.sk/organizacie/testovacia-organizacia?__psipedia_worker_version=version-123",
+  );
+  assert.equal(publicUrl.search, "");
+});
+
+test("publication invalidation is a safe no-op without Worker version metadata", async () => {
+  let deleteCalls = 0;
+  const storage = {
+    async delete() {
+      deleteCalls += 1;
+      return true;
+    },
+  };
+
+  assert.equal(
+    await invalidateVersionedPublicHtmlCacheUrl(new URL("https://psipedia.sk/organizacie/test"), undefined, storage),
+    false,
+  );
+  assert.equal(deleteCalls, 0);
 });
 
 test("public cache version is internal and absent from canonical URLs", () => {

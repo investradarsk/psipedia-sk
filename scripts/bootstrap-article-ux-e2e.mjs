@@ -1,0 +1,222 @@
+const REQUIRED_FLAG = "PSIPEDIA_E2E_LOCAL_BOOTSTRAP";
+const DEFAULT_BASE_URL = "http://localhost:5173";
+
+const sectionFixtures = [
+  {
+    slug: "aktivity",
+    label: "Výcvik a aktivity",
+    eyebrow: "Spolupráca v praxi",
+    description: "Výcvik, šport a aktivity so psom.",
+    intro: "Praktické návody pre zrozumiteľný tréning a bezpečný pohyb.",
+    visible: true,
+    subpages: [{ slug: "trening", label: "Výcvik", description: "Základy aj pokročilý tréning." }],
+  },
+  {
+    slug: "starostlivost",
+    label: "Zdravie a starostlivosť",
+    eyebrow: "Každodenná starostlivosť",
+    description: "Zdravie, výživa a praktická starostlivosť o psa.",
+    intro: "Rozhodovanie podľa potrieb konkrétneho psa a overiteľných zdrojov.",
+    visible: true,
+    subpages: [{ slug: "vyziva", label: "Výživa", description: "Krmivá, dávky a zdravá kondícia." }],
+  },
+];
+
+const bikeBlocks = [
+  { id: "bike-h2-1", type: "h2", text: "Čo je bikejoring a ako funguje" },
+  { id: "bike-text-1", type: "text", content: "Bikejoring je tímový šport, pri ktorom pes beží pred bicyklom a s jazdcom je spojený pružnou ťažnou šnúrou. Bezpečný začiatok stojí na ovládateľnosti psa, kondícii a správnej výbave." },
+  { id: "bike-tip-1", type: "tip", content: "Najskôr nacvičte prácu pred človekom a smerové povely bez bicykla." },
+  { id: "bike-h2-2", type: "h2", text: "Aký pes je vhodný na bikejoring" },
+  { id: "bike-text-2", type: "text", content: "Dôležitejšia než konkrétne plemeno je zdravá pohybová sústava, primeraná hmotnosť, kondícia a schopnosť pracovať aj pri rušení." },
+  { id: "bike-h2-3", type: "h2", text: "Kedy môže pes s bikejoringom začať" },
+  { id: "bike-warning-1", type: "warning", content: "Intenzívny ťah patrí až k fyzicky pripravenému psovi. Pri mladom psovi rešpektujte vývoj kostí, kĺbov, svalov a šliach." },
+  { id: "bike-h2-4", type: "h2", text: "Výbava na bikejoring: čo skutočne potrebujete" },
+  { id: "bike-list-1", type: "bullet-list", items: ["dobre sediaci ťažný postroj", "pružná ťažná šnúra", "bikejoringová anténa", "spoľahlivý bicykel a prilba"] },
+  { id: "bike-image-1", type: "image", url: "/images/trening-pri-nohe.webp", alt: "Pes pri tréningu s človekom", caption: "Testovací lokálny vizuál používa existujúcu fotografiu Psipedie.", credit: "Psipedia", size: "wide" },
+  { id: "bike-h2-5", type: "h2", text: "Najdôležitejšie povely pre bikejoring" },
+  { id: "bike-h3-1", type: "h3", text: "Smer a zastavenie" },
+  { id: "bike-text-3", type: "text", content: "Povely musia byť krátke, konzistentné a naučené ešte predtým, než ich pes potrebuje použiť vo vyššej rýchlosti." },
+  { id: "bike-h2-6", type: "h2", text: "Ako začať s bikejoringom krok za krokom" },
+  { id: "bike-table-1", type: "table", headers: ["Fáza", "Cieľ", "Prostredie"], rows: [["1", "povely", "pokoj"], ["2", "ťah", "krátky úsek"], ["3", "bicykel", "prehľadná trasa"]] },
+  { id: "bike-source-1", type: "source", label: "International Federation of Sleddog Sports", url: "https://sleddogsport.net/", note: "Pravidlá a bezpečnostný rámec športov psích záprahov." },
+];
+
+const stimulusBlocks = [
+  { id: "stim-h2-1", type: "h2", text: "Čo stimulus control v skutočnosti znamená" },
+  { id: "stim-text-1", type: "text", content: "Konkrétny signál má spoľahlivo vyvolať konkrétne správanie bez hádania a bez závislosti od pomocných pohybov človeka." },
+  { id: "stim-h2-2", type: "h2", text: "Štyri podmienky stimulus control" },
+  { id: "stim-h3-1", type: "h3", text: "Po signále príde správne správanie" },
+  { id: "stim-list-1", type: "numbered-list", items: ["správna reakcia po cue", "žiadne automatické ponúkanie bez cue", "iné signály nevyvolajú rovnakú reakciu", "po cue nepríde iná odpoveď"] },
+  { id: "stim-h2-3", type: "h2", text: "Najčastejší problém: pes reaguje na vaše telo" },
+  { id: "stim-text-2", type: "text", content: "Slovný a gestický signál testujte oddelene, aby bolo jasné, ktorý podnet správanie naozaj riadi." },
+  { id: "stim-h2-4", type: "h2", text: "Anticipácia nie je vždy znakom výborného psa" },
+  { id: "stim-h2-5", type: "h2", text: "Ako stimulus control testovať" },
+  { id: "stim-source-1", type: "source", label: "Karen Pryor Clicker Training", url: "https://www.clickertraining.com/" },
+];
+
+const granuleBlocks = [
+  { id: "food-h2-1", type: "h2", text: "Začnite označením kompletného krmiva" },
+  { id: "food-text-1", type: "text", content: "Na každodenné kŕmenie hľadajte kompletné krmivo pre príslušnú vekovú kategóriu a potreby konkrétneho psa." },
+  { id: "food-h2-2", type: "h2", text: "Kalórie rozhodujú o dávke" },
+  { id: "food-list-1", type: "bullet-list", items: ["ľahko hmatateľné rebrá", "viditeľný pás zhora", "brucho mierne vtiahnuté zboku"] },
+  { id: "food-h2-3", type: "h2", text: "Zmena patrí do viacerých dní" },
+  { id: "food-tip-1", type: "tip", content: "Nové a pôvodné krmivo miešajte postupne a sledujte toleranciu psa." },
+  { id: "food-h2-4", type: "h2", text: "Kedy riešiť veterinára" },
+  { id: "food-warning-1", type: "warning", content: "Dlhodobá hnačka, vracanie, chudnutie alebo výrazné svrbenie si zaslúžia veterinárne vyšetrenie." },
+  { id: "food-source-1", type: "source", label: "WSAVA Global Nutrition Guidelines", url: "https://wsava.org/global-guidelines/global-nutrition-guidelines/" },
+  { id: "food-source-2", type: "source", label: "WSAVA Global Nutrition Toolkit", url: "https://wsava.org/global-guidelines/global-nutrition-guidelines/" },
+];
+
+const articleFixtures = [
+  {
+    slug: "bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku",
+    title: "Bikejoring so psom: kompletný sprievodca od prvého tréningu až po preteky na Slovensku",
+    excerpt: "Bikejoring spája rýchlosť horskej cyklistiky s prácou psa v ťahu. Zistite, akú výbavu potrebujete, ako bezpečne začať trénovať a kde sa bikejoringu venovať či pretekať na Slovensku.",
+    category: "Výcvik",
+    portalSection: "aktivity",
+    portalSubpage: "trening",
+    status: "published",
+    accent: "forest",
+    author: "Redakcia Psipedia",
+    intro: "Bikejoring patrí medzi najdynamickejšie športy, ktoré môže človek robiť spolu so psom. Pes beží pred bicyklom, je s jazdcom spojený pružnou ťažnou šnúrou a svojím pohybom mu pomáha zrýchľovať. Nejde však o obyčajnú jazdu na bicykli so psom na vodítku.",
+    takeaway: "Bikejoring je tímový šport, v ktorom musí byť pes fyzicky pripravený, ovládateľný a vybavený správnym postrojom, zatiaľ čo jazdec aktívne šliape a kontroluje rýchlosť.",
+    blocks: bikeBlocks,
+    sections: [],
+    sources: [],
+    imageUrl: "/images/trening-pri-nohe.webp",
+    readingMinutes: 14,
+    publishedAt: "2026-08-17T08:00:00.000Z",
+    showUpdated: false,
+    noindex: true,
+  },
+  {
+    slug: "stimulus-control-u-psa",
+    title: "Stimulus control: kedy pes povel naozaj ovláda",
+    excerpt: "Pes si sadne na „sadni“. Znamená to, že povel naozaj ovláda? Nie vždy. Skutočný stimulus control má štyri podmienky a odhalí presnosť vášho tréningu.",
+    category: "Výcvik",
+    portalSection: "aktivity",
+    portalSubpage: "trening",
+    status: "published",
+    accent: "coral",
+    author: "Martin",
+    intro: "Pes si sadne, keď poviete „sadni“. Pri presnejšom tréningu však jedna správna reakcia nestačí. Pes môže reagovať na maškrtu, pohyb ruky alebo známe prostredie namiesto samotného signálu.",
+    takeaway: "Správanie je pod kontrolou signálu až vtedy, keď pes vykoná správny cvik po správnom cue a nerozhoduje sa podľa náhodných pomocných podnetov.",
+    blocks: stimulusBlocks,
+    sections: [],
+    sources: [],
+    imageUrl: "/images/trening-pri-nohe.webp",
+    readingMinutes: 5,
+    publishedAt: "2026-09-07T08:00:00.000Z",
+    showUpdated: false,
+    noindex: true,
+  },
+  {
+    slug: "ako-vybrat-granule-bez-marketingovych-mytov",
+    title: "Ako vybrať granule bez marketingových mýtov",
+    excerpt: "Zloženie, energia, tolerancia a kondícia psa: štyri veci, ktoré majú väčšiu váhu než predná strana obalu.",
+    category: "Výživa",
+    portalSection: "starostlivost",
+    portalSubpage: "vyziva",
+    status: "published",
+    accent: "gold",
+    author: "Redakcia Psipedia",
+    intro: "Dobré krmivo nie je to s najdlhším zoznamom módnych surovín. Je to kompletná strava, ktorú konkrétny pes dobre trávi, prospieva na nej a zodpovedá jeho veku, aktivite aj zdravotnému stavu.",
+    takeaway: "Obal je začiatok, nie verdikt. Sledujte kondíciu, stolicu, kožu, srsť a energiu psa počas niekoľkých týždňov.",
+    blocks: granuleBlocks,
+    sections: [],
+    sources: [],
+    imageUrl: "/images/zdravie-veterinar.webp",
+    readingMinutes: 9,
+    publishedAt: "2026-08-09T08:00:00.000Z",
+    contentUpdatedAt: "2026-08-16T08:00:00.000Z",
+    showUpdated: true,
+    noindex: true,
+  },
+];
+
+function fail(message) {
+  throw new Error(`[article-ux-e2e-bootstrap] ${message}`);
+}
+
+function requireLocalBaseUrl() {
+  if (process.env[REQUIRED_FLAG] !== "1") fail(`Refusing to run without ${REQUIRED_FLAG}=1.`);
+  if (process.env.NODE_ENV === "production") fail("Refusing to run with NODE_ENV=production.");
+  const url = new URL(process.env.E2E_BASE_URL || DEFAULT_BASE_URL);
+  if (url.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(url.hostname) || url.port !== "5173") {
+    fail(`Refusing non-local target ${url.origin}.`);
+  }
+  return url.origin;
+}
+
+async function request(baseUrl, pathname, init = {}) {
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    ...init,
+    headers: {
+      accept: "application/json, text/html;q=0.9",
+      ...(init.body ? { "content-type": "application/json" } : {}),
+      ...init.headers,
+    },
+  });
+  const body = await response.text();
+  if (!response.ok) fail(`${init.method || "GET"} ${pathname} returned ${response.status}: ${body.slice(0, 500)}`);
+  return { response, body };
+}
+
+async function requestJson(baseUrl, pathname, init = {}) {
+  const { body } = await request(baseUrl, pathname, init);
+  try {
+    return JSON.parse(body);
+  } catch {
+    fail(`${init.method || "GET"} ${pathname} did not return JSON.`);
+  }
+}
+
+async function materializeSections(baseUrl) {
+  const current = await requestJson(baseUrl, "/api/admin/sections");
+  const fixtureSlugs = new Set(sectionFixtures.map((section) => section.slug));
+  const preserved = (current.sections || []).filter((section) => !fixtureSlugs.has(section.slug));
+  const saved = await requestJson(baseUrl, "/api/admin/sections", {
+    method: "PUT",
+    body: JSON.stringify({ sections: [...preserved, ...sectionFixtures] }),
+  });
+  for (const expected of sectionFixtures) {
+    const section = saved.sections?.find((item) => item.slug === expected.slug);
+    if (!section?.visible) fail(`Managed section ${expected.slug} was not materialized.`);
+  }
+}
+
+async function findArticle(baseUrl, slug) {
+  let page = 1;
+  while (true) {
+    const result = await requestJson(baseUrl, `/api/admin/articles?page=${page}&limit=100`);
+    const match = result.articles?.find((article) => article.slug === slug);
+    if (match) return match;
+    if (page >= Number(result.pagination?.totalPages || 1)) return null;
+    page += 1;
+  }
+}
+
+async function upsertArticle(baseUrl, fixture) {
+  const existing = await findArticle(baseUrl, fixture.slug);
+  const result = existing
+    ? await requestJson(baseUrl, `/api/admin/articles/${existing.id}`, { method: "PUT", body: JSON.stringify(fixture) })
+    : await requestJson(baseUrl, "/api/admin/articles", { method: "POST", body: JSON.stringify(fixture) });
+  if (result.article?.slug !== fixture.slug || result.article?.status !== "published") {
+    fail(`Article ${fixture.slug} was not persisted as published.`);
+  }
+}
+
+async function verifyPublicRoutes(baseUrl) {
+  for (const fixture of articleFixtures) {
+    const route = `/${fixture.portalSection}/${fixture.slug}`;
+    const result = await request(baseUrl, route);
+    if (result.response.status !== 200) fail(`${route} returned ${result.response.status}.`);
+    if (!result.body.includes(fixture.title)) fail(`${route} is missing its title.`);
+  }
+}
+
+const baseUrl = requireLocalBaseUrl();
+await materializeSections(baseUrl);
+for (const fixture of articleFixtures) await upsertArticle(baseUrl, fixture);
+await verifyPublicRoutes(baseUrl);
+console.log(`[article-ux-e2e-bootstrap] PASS: ${articleFixtures.length} isolated local article fixtures are ready at ${baseUrl}.`);
