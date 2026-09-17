@@ -41,6 +41,11 @@ jobs:
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/admin-bulk-foundation.test.mjs tests/admin-bulk-execution.test.mjs
       - name: Production build
         run: npm run build
+      - name: Configure CI-only local PII keys
+        run: |
+          encryption_key="$(printf '%s' '0123456789abcdef0123456789abcdef' | base64 -w0 | tr -d '=')"
+          hash_key="$(printf '%s' 'fedcba9876543210fedcba9876543210' | base64 -w0 | tr -d '=')"
+          printf 'PII_ENCRYPTION_KEY=%s\nPII_HASH_KEY=%s\n' "$encryption_key" "$hash_key" > .dev.vars
       - name: Apply required migrations to isolated local D1 only
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
