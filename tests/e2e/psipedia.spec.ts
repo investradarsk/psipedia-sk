@@ -173,7 +173,10 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   await expect(page.getByRole("link", { name: /Všetky novinky/ })).toHaveAttribute("href", "/novinky");
   const search = page.getByRole("search").filter({ has: page.locator("#home-search") });
   await search.locator("input[name=q]").fill("labrador");
-  await Promise.all([page.waitForURL(/\/hladat\?q=labrador/), search.getByRole("button", { name: "Nájsť všetko" }).click()]);
+  await Promise.all([
+    page.waitForURL(/\/hladat\?q=labrador/, { waitUntil: "commit" }),
+    search.getByRole("button", { name: "Nájsť všetko" }).click(),
+  ]);
   await expect(page.locator("h1")).toContainText(/Čo hľadáš\?|Hľadať|Výsledky/i);
   await gotoProductionPage(page, "/");
   const breedSection = page.locator(".home-breed-day-section");
@@ -203,7 +206,10 @@ test("@production directory listing, veterinarians, profile and filters work", a
   await expect(page.locator("h1")).toContainText("Veterinári");
   const filter = page.locator(".directory-results form").first();
   await filter.locator('input[name="q"]').fill("Nitra");
-  await Promise.all([page.waitForURL(/q=Nitra/i), filter.getByRole("button", { name: "Zobraziť výsledky" }).click()]);
+  await Promise.all([
+    page.waitForURL(/q=Nitra/i, { waitUntil: "commit" }),
+    filter.getByRole("button", { name: "Zobraziť výsledky" }).click(),
+  ]);
   await expect(page.locator("main")).toBeVisible();
   await gotoProductionPage(page, "/adresar/veterinari");
   const detailHref = await firstPublicLink(page, ".directory-grid", /^\/adresar\/veterinari\/[^/?#]+$/);
@@ -249,7 +255,10 @@ test(NO_CONSENT_TEST, async ({ page }) => {
   const dialog = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
   await expect(dialog).toBeVisible();
   await expect(page.locator('script[src*="googletagmanager.com"]')).toHaveCount(0);
-  await Promise.all([page.waitForURL(/\/plemena$/), page.locator(".home-search-shortcuts").getByRole("link", { name: "Plemená", exact: true }).click()]);
+  await Promise.all([
+    page.waitForURL(/\/plemena$/, { waitUntil: "commit" }),
+    page.locator(".home-search-shortcuts").getByRole("link", { name: "Plemená", exact: true }).click(),
+  ]);
   await expect(page.locator("h1")).toBeVisible();
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Odmietnuť analytiku" }).click();
