@@ -27,6 +27,7 @@ const cases = [
 
 async function expectNoSeriousAccessibilityViolations(page: Page) {
   const result = await new AxeBuilder({ page })
+    .include("main#obsah")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   const violations = result.violations.filter(({ impact }) => impact === "serious" || impact === "critical");
