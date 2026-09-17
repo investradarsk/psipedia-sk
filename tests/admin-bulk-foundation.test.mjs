@@ -199,10 +199,13 @@ test("bulk preflight route denies unauthorized callers before database access", 
   assert.ok(databaseIndex > denyIndex);
 });
 
-test("article mobile row contract gives checkbox its own grid column without changing shared row CSS", () => {
-  const source = readFileSync(new URL("../components/admin-article-dashboard.module.css", import.meta.url), "utf8");
-  assert.match(source, /grid-template-columns: 24px 76px minmax\(0, 1fr\) auto/);
-  assert.match(source, /@media \(max-width: 720px\)/);
-  assert.match(source, /grid-template-columns: 24px 62px minmax\(0, 1fr\)/);
-  assert.match(source, /\.actions[\s\S]*grid-column: 1 \/ -1/);
+test("article mobile row contract gives checkbox its own shared grid column without changing business UI", () => {
+  const articleSource = readFileSync(new URL("../components/admin-article-dashboard.module.css", import.meta.url), "utf8");
+  const sharedSource = readFileSync(new URL("../components/admin-list-row.module.css", import.meta.url), "utf8");
+  assert.match(articleSource, /composes: row from "\.\/admin-list-row\.module\.css"/);
+  assert.match(articleSource, /composes: rowCheck from "\.\/admin-list-row\.module\.css"/);
+  assert.match(sharedSource, /grid-template-columns: 24px 76px minmax\(0, 1fr\) auto/);
+  assert.match(sharedSource, /@media \(max-width: 720px\)/);
+  assert.match(sharedSource, /grid-template-columns: 24px 62px minmax\(0, 1fr\)/);
+  assert.match(sharedSource, /\.actions[\s\S]*grid-column: 1 \/ -1/);
 });
