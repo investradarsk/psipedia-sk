@@ -4,7 +4,7 @@ import type {
   BulkMaterializedItem,
   BulkModule,
   BulkSelectionMode,
-} from "./core";
+} from "./core.ts";
 
 export type BulkStatement = {
   bind(...values: (string | number | null)[]): BulkStatement;

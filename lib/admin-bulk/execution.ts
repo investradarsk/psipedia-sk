@@ -1,16 +1,16 @@
-import { articleBulkAdapter } from "./article-adapter";
+import { articleBulkAdapter } from "./article-adapter.ts";
 import {
   BulkPreflightError,
   parseBulkExecutionRequest,
   revalidateMaterializedSelection,
   type BulkMaterializedItem,
   type BulkSkipReason,
-} from "./core";
+} from "./core.ts";
 import {
   getBulkSelectionSnapshot,
   type BulkDatabase,
   type BulkStatement,
-} from "./snapshot-store";
+} from "./snapshot-store.ts";
 
 type RunResult = {
   meta?: { changes?: number };

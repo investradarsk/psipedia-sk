@@ -1,14 +1,14 @@
 import {
   articleAdminBulkFingerprint,
   normalizeArticleAdminBulkFilter,
-} from "../article-admin-bulk-filter";
+} from "../article-admin-bulk-filter.ts";
 import {
   BulkPreflightError,
   type BulkAction,
   type BulkEligibility,
   type BulkResolvedRecord,
-} from "./core";
-import type { BulkDatabase } from "./snapshot-store";
+} from "./core.ts";
+import type { BulkDatabase } from "./snapshot-store.ts";
 
 export function articleBulkEligibility(action: BulkAction, record: BulkResolvedRecord): BulkEligibility {
   if (record.status !== "draft" && record.status !== "scheduled" && record.status !== "published") {
