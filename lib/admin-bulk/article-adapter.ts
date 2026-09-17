@@ -1,17 +1,20 @@
 import {
   articleAdminBulkFingerprint,
   normalizeArticleAdminBulkFilter,
-} from "../article-admin-bulk-filter";
+} from "../article-admin-bulk-filter.ts";
 import {
   BulkPreflightError,
   type BulkAction,
   type BulkEligibility,
   type BulkResolvedRecord,
-} from "./core";
-import type { BulkDatabase } from "./snapshot-store";
+} from "./core.ts";
+import type { BulkDatabase } from "./snapshot-store.ts";
 
 export function articleBulkEligibility(action: BulkAction, record: BulkResolvedRecord): BulkEligibility {
   if (record.status !== "draft" && record.status !== "scheduled" && record.status !== "published") {
+    return { eligible: false, reason: "invalid-lifecycle" };
+  }
+  if (!record.updatedAt) {
     return { eligible: false, reason: "invalid-lifecycle" };
   }
   if (action === "publish") {
@@ -31,7 +34,7 @@ export async function resolveArticleExplicit(
   if (!ids.length) return [];
   const placeholders = ids.map(() => "?").join(", ");
   const result = await database.prepare(`SELECT id, status, updated_at
-    FROM articles WHERE id IN (${placeholders}) ORDER BY id`)
+    FROM managed_articles WHERE id IN (${placeholders}) ORDER BY id`)
     .bind(...ids).all<{ id: number; status: string; updated_at: string | null }>();
   return result.results.map((row) => ({
     id: String(row.id),

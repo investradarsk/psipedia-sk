@@ -24,7 +24,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       description="Napíš článok alebo aktuálnu správu, dokonči koncept a publikuj ho na správnej adrese."
       actions={<Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link>}
     >
-      <AdminDashboard initialArticles={result.articles} initialCounts={result.counts} moduleCounts={moduleCounts} pagination={result.pagination} />
+      <AdminDashboard key={result.pagination.page} initialArticles={result.articles} initialCounts={result.counts} moduleCounts={moduleCounts} pagination={result.pagination} />
     </AdminShell>
   );
 }

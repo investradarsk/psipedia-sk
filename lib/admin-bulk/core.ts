@@ -57,6 +57,17 @@ export type BulkPreflightRequest =
       };
     };
 
+export type BulkExecutionRequest = {
+  module: "articles";
+  action: BulkAction;
+  snapshotId: string;
+  membershipFingerprint: string;
+  selection: {
+    mode: "explicit";
+    ids: number[];
+  };
+};
+
 export class BulkPreflightError extends Error {
   status: number;
   code: string;
@@ -71,6 +82,24 @@ export class BulkPreflightError extends Error {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]) {
+  const allowedKeys = new Set(allowed);
+  return Object.keys(value).every((key) => allowedKeys.has(key));
+}
+
+function parseExplicitIds(value: unknown) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 500) {
+    throw new BulkPreflightError("Explicitný výber musí obsahovať 1 až 500 ID.", 400, "invalid-selection");
+  }
+  const ids = value.map((id) => {
+    if (!Number.isSafeInteger(id) || Number(id) <= 0) {
+      throw new BulkPreflightError("Výber obsahuje neplatné ID.", 400, "invalid-selection-id");
+    }
+    return Number(id);
+  });
+  return [...new Set(ids)];
 }
 
 export function parseBulkPreflightRequest(payload: unknown): BulkPreflightRequest {
@@ -92,21 +121,12 @@ export function parseBulkPreflightRequest(payload: unknown): BulkPreflightReques
   }
 
   if (selection.mode === "explicit") {
-    if (!Array.isArray(selection.ids) || selection.ids.length === 0 || selection.ids.length > 500) {
-      throw new BulkPreflightError("Explicitný výber musí obsahovať 1 až 500 ID.", 400, "invalid-selection");
-    }
-    const ids = selection.ids.map((value) => {
-      if (!Number.isSafeInteger(value) || Number(value) <= 0) {
-        throw new BulkPreflightError("Výber obsahuje neplatné ID.", 400, "invalid-selection-id");
-      }
-      return Number(value);
-    });
     return {
       module: bulkModule,
       action,
       selection: {
         mode: "explicit",
-        ids: [...new Set(ids)],
+        ids: parseExplicitIds(selection.ids),
         filter: selection.filter,
       },
     };
@@ -131,6 +151,54 @@ export function parseBulkPreflightRequest(payload: unknown): BulkPreflightReques
   }
 
   throw new BulkPreflightError("Neplatný režim výberu.", 400, "invalid-selection-mode");
+}
+
+export function parseBulkExecutionRequest(payload: unknown): BulkExecutionRequest {
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ["module", "action", "snapshotId", "membershipFingerprint", "selection"])) {
+    throw new BulkPreflightError("Neplatná execution požiadavka.", 400, "invalid-request");
+  }
+  if (payload.module !== "articles") {
+    throw new BulkPreflightError("Neplatný bulk modul pre execution.", 400, "invalid-module");
+  }
+  if (payload.action !== "publish" && payload.action !== "move-to-draft") {
+    throw new BulkPreflightError("Neplatná bulk akcia.", 400, "invalid-action");
+  }
+  if (typeof payload.snapshotId !== "string" || !payload.snapshotId || payload.snapshotId.length > 100) {
+    throw new BulkPreflightError("Neplatný snapshot.", 400, "invalid-snapshot");
+  }
+  if (
+    typeof payload.membershipFingerprint !== "string"
+    || !payload.membershipFingerprint
+    || payload.membershipFingerprint.length > 1000
+  ) {
+    throw new BulkPreflightError("Neplatný membership fingerprint.", 400, "invalid-membership");
+  }
+
+  const selection = payload.selection;
+  if (!isRecord(selection) || !hasOnlyKeys(selection, ["mode", "ids"])) {
+    throw new BulkPreflightError("Chýba platný výber.", 400, "invalid-selection");
+  }
+  if (selection.mode === "all-matching") {
+    throw new BulkPreflightError(
+      "All-matching execution článkov nie je podporovaný.",
+      400,
+      "unsupported-selection-mode",
+    );
+  }
+  if (selection.mode !== "explicit") {
+    throw new BulkPreflightError("Neplatný režim výberu.", 400, "invalid-selection-mode");
+  }
+
+  return {
+    module: "articles",
+    action: payload.action,
+    snapshotId: payload.snapshotId,
+    membershipFingerprint: payload.membershipFingerprint,
+    selection: {
+      mode: "explicit",
+      ids: parseExplicitIds(selection.ids),
+    },
+  };
 }
 
 export function materializeBulkSelection(
