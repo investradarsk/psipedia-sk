@@ -68,6 +68,7 @@ function createDatabase(rows = []) {
             matches.sort((left, right) => left.slug.localeCompare(right.slug));
             return { results: matches };
           }
+          if (sql.includes("FROM organization_locations l")) return { results: [] };
           if (sql.includes("FROM adoption_dogs d")) return { results: [] };
           throw new Error(`Unexpected all query: ${sql}`);
         },

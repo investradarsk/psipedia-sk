@@ -71,9 +71,8 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(dialog).toContainText("Výber bol vyčistený");
     await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
 
-    await expect(rowFor(page, "ADMIN-2E Page 001")).toContainText("Publikovaný");
-    await page.getByRole("link", { name: "← Predchádzajúca" }).click();
-    await expect(rowFor(page, "ADMIN-2E Draft A")).toContainText("Publikovaný");
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Page 001")).toContainText("Publikovaný");
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Draft A")).toContainText("Publikovaný");
     await expect(page.getByText("Vybrané: 2")).toHaveCount(0);
   });
 

@@ -12,6 +12,21 @@ export type PublicOrganizationType =
   | "NONPROFIT"
   | "OTHER";
 
+export type PublicOrganizationLocationRole = "UNSPECIFIED" | "SITE" | "LEGAL_SEAT" | "SERVICE_AREA";
+
+export type PublicOrganizationLocation = {
+  id: number | null;
+  organizationId: number;
+  role: PublicOrganizationLocationRole;
+  label: string;
+  city: string;
+  district: string;
+  region: string;
+  countryCode: string;
+  isPrimary: boolean;
+  sortOrder: number;
+};
+
 export type PublicOrganizationDirectoryRelation = {
   id: number;
   name: string;
@@ -37,6 +52,7 @@ export type PublicHelpOrganization = {
   district: string;
   region: string;
   countryCode: string;
+  locations: PublicOrganizationLocation[];
   imageUrl: string | null;
   sourceUrl: string | null;
   publishedAt: string;
@@ -82,6 +98,19 @@ type PublicOrganizationRow = {
   directory_profile_id: number | null;
 };
 
+type PublicOrganizationLocationRow = {
+  id: number;
+  organization_id: number;
+  role: string;
+  label: string;
+  city: string;
+  district: string;
+  region: string;
+  country_code: string;
+  is_primary: number;
+  sort_order: number;
+};
+
 type PublicOrganizationSitemapRow = {
   slug: string;
   published_at: string;
@@ -114,6 +143,18 @@ export function buildPublicOrganizationBySlugQuery(slug: string) {
   };
 }
 
+export function buildPublicOrganizationLocationsQuery(organizationId: number) {
+  if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
+  return {
+    sql: `SELECT l.id, l.organization_id, l.role, l.label, l.city, l.district, l.region,
+      l.country_code, l.is_primary, l.sort_order
+      FROM organization_locations l
+      WHERE l.organization_id = ?
+      ORDER BY l.sort_order ASC, l.id ASC`,
+    bindings: [organizationId] as const,
+  };
+}
+
 export function buildPublishedOrganizationSitemapQuery() {
   return `SELECT o.slug, o.published_at, o.updated_at
     FROM help_organizations o
@@ -140,6 +181,50 @@ async function findPublicOrganizationRowBySlug(
   return database.prepare(query.sql).bind(...query.bindings).first<PublicOrganizationRow>();
 }
 
+function toPublicOrganizationLocation(row: PublicOrganizationLocationRow): PublicOrganizationLocation {
+  return {
+    id: Number(row.id),
+    organizationId: Number(row.organization_id),
+    role: row.role as PublicOrganizationLocationRole,
+    label: row.label,
+    city: row.city,
+    district: row.district,
+    region: row.region,
+    countryCode: row.country_code,
+    isPrimary: Boolean(row.is_primary),
+    sortOrder: Number(row.sort_order),
+  };
+}
+
+function legacyPublicOrganizationLocation(row: PublicOrganizationRow): PublicOrganizationLocation {
+  return {
+    id: null,
+    organizationId: Number(row.id),
+    role: "UNSPECIFIED",
+    label: "",
+    city: row.city,
+    district: row.district,
+    region: row.region,
+    countryCode: row.country_code,
+    isPrimary: true,
+    sortOrder: 0,
+  };
+}
+
+async function listPublicOrganizationLocations(
+  row: PublicOrganizationRow,
+  database: AdoptionD1Database,
+): Promise<PublicOrganizationLocation[]> {
+  const query = buildPublicOrganizationLocationsQuery(Number(row.id));
+  if (!query) return [legacyPublicOrganizationLocation(row)];
+  const result = await database
+    .prepare(query.sql)
+    .bind(...query.bindings)
+    .all<PublicOrganizationLocationRow>();
+  if (!result.results.length) return [legacyPublicOrganizationLocation(row)];
+  return result.results.map(toPublicOrganizationLocation);
+}
+
 async function findPublishedDirectoryRelation(
   directoryProfileId: number | null,
   database: AdoptionD1Database,
@@ -154,7 +239,9 @@ async function findPublishedDirectoryRelation(
 function toPublicOrganization(
   row: PublicOrganizationRow,
   directory: PublicOrganizationDirectoryRelation | null,
+  locations: PublicOrganizationLocation[],
 ): PublicHelpOrganization {
+  const primaryLocation = locations.find((location) => location.isPrimary) ?? locations[0];
   return {
     id: Number(row.id),
     name: row.name,
@@ -169,10 +256,11 @@ function toPublicOrganization(
     websiteUrl: row.website_url,
     facebookUrl: row.facebook_url,
     instagramUrl: row.instagram_url,
-    city: row.city,
-    district: row.district,
-    region: row.region,
-    countryCode: row.country_code,
+    city: primaryLocation?.city ?? row.city,
+    district: primaryLocation?.district ?? row.district,
+    region: primaryLocation?.region ?? row.region,
+    countryCode: primaryLocation?.countryCode ?? row.country_code,
+    locations,
     imageUrl: row.image_url,
     sourceUrl: row.source_url,
     publishedAt: row.published_at,
@@ -188,8 +276,11 @@ export async function getPublicOrganizationBySlug(
 ): Promise<PublicHelpOrganization | null> {
   const row = await findPublicOrganizationRowBySlug(slug, database);
   if (!row) return null;
-  const directory = await findPublishedDirectoryRelation(row.directory_profile_id, database);
-  return toPublicOrganization(row, directory);
+  const [locations, directory] = await Promise.all([
+    listPublicOrganizationLocations(row, database),
+    findPublishedDirectoryRelation(row.directory_profile_id, database),
+  ]);
+  return toPublicOrganization(row, directory, locations);
 }
 
 export async function listPublishedOrganizationsForSitemap(
@@ -211,12 +302,13 @@ export async function getPublicOrganizationCompositionBySlug(
 ): Promise<PublicOrganizationComposition | null> {
   const row = await findPublicOrganizationRowBySlug(slug, database);
   if (!row) return null;
-  const [adoptions, directory] = await Promise.all([
+  const [locations, adoptions, directory] = await Promise.all([
+    listPublicOrganizationLocations(row, database),
     listPublicAdoptionsByOrganizationId(Number(row.id), database),
     findPublishedDirectoryRelation(row.directory_profile_id, database),
   ]);
   return {
-    organization: toPublicOrganization(row, directory),
+    organization: toPublicOrganization(row, directory, locations),
     adoptions,
   };
 }

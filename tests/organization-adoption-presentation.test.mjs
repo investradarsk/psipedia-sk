@@ -51,7 +51,7 @@ function adoption(overrides = {}) {
   };
 }
 
-function createDatabase({ organizations = [], adoptions = [] } = {}) {
+function createDatabase({ organizations = [], locations = [], adoptions = [] } = {}) {
   const queries = [];
   return {
     queries,
@@ -75,6 +75,13 @@ function createDatabase({ organizations = [], adoptions = [] } = {}) {
           ) ?? null;
         },
         async all() {
+          if (sql.includes("FROM organization_locations l")) {
+            const [organizationId] = call.bindings;
+            const results = locations
+              .filter((row) => row.organization_id === organizationId)
+              .toSorted((left, right) => left.sort_order - right.sort_order || left.id - right.id);
+            return { results };
+          }
           if (!sql.includes("FROM adoption_dogs d")) {
             throw new Error(`Unexpected all() query: ${sql}`);
           }
@@ -115,6 +122,7 @@ test("published organization exposes only its explicit public adoptions and keep
   assert.equal(composition.adoptions[0].city, "");
   assert.equal(composition.adoptions[0].mainImage, null);
   assert.equal(database.queries.filter((query) => query.sql.includes("FROM adoption_dogs d")).length, 1);
+  assert.equal(database.queries.filter((query) => query.sql.includes("FROM organization_locations l")).length, 1);
 });
 
 test("published organization with zero public adoptions remains a valid composition", async () => {
@@ -123,7 +131,7 @@ test("published organization with zero public adoptions remains a valid composit
 
   assert.ok(composition);
   assert.deepEqual(composition.adoptions, []);
-  assert.equal(database.queries.length, 2, "organization read plus one bounded relation read");
+  assert.equal(database.queries.length, 3, "organization read plus bounded location and adoption relation reads");
 });
 
 test("draft, archived and unknown organizations fail closed before any adoption relation read", async () => {
@@ -141,6 +149,11 @@ test("draft, archived and unknown organizations fail closed before any adoption 
       database.queries.some((query) => query.sql.includes("FROM adoption_dogs d")),
       false,
       `${slug} must not reach adoption relation reads`,
+    );
+    assert.equal(
+      database.queries.some((query) => query.sql.includes("FROM organization_locations l")),
+      false,
+      `${slug} must not reach location relation reads`,
     );
   }
 });
