@@ -14,8 +14,9 @@ test.describe("ADMIN-2E article bulk execution", () => {
       if ((await row.count()) > 0) return row;
       const next = page.getByRole("link", { name: "Ďalšia →" });
       if ((await next.count()) === 0) break;
-      await next.click();
-      await page.waitForLoadState("domcontentloaded");
+      const nextHref = await next.getAttribute("href");
+      if (!nextHref) break;
+      await page.goto(nextHref, { waitUntil: "domcontentloaded" });
     }
     throw new Error(`Article row "${title}" was not found in admin pagination.`);
   }
