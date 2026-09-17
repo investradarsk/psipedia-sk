@@ -9,8 +9,8 @@ async function useNecessaryCookies(page: Page) {
 }
 
 async function gotoProductionPage(page: Page, path: string) {
-  // Production smoke validates rendered app content, not completion of every external image/analytics request.
-  const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+  // Production smoke validates the committed response and rendered app content, not DOMContentLoaded timing.
+  const response = await page.goto(path, { waitUntil: "commit" });
   expect(response, `No navigation response for ${path}`).not.toBeNull();
   expect(response?.status(), `${path} returned HTTP ${response?.status()}`).toBeLessThan(400);
   await expect(page.locator("main"), `${path} did not render public content`).toBeVisible();
@@ -27,7 +27,7 @@ async function expectHealthyPage(page: Page, path: string) {
     if (/Failed to load resource|googletagmanager|Google Analytics/i.test(text)) return;
     consoleErrors.push(text);
   });
-  const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+  const response = await page.goto(path, { waitUntil: "commit" });
   expect(response, `No navigation response for ${path}`).not.toBeNull();
   expect(response?.status(), `${path} returned HTTP ${response?.status()}`).toBeLessThan(400);
   await expect(page.locator("body"), `${path} rendered an empty document`).not.toBeEmpty();
@@ -190,7 +190,7 @@ test("@production breed listing filters, detail, 404 and comparison work", async
   const detailHref = await firstPublicLink(page, ".breed-grid", /^\/plemena\/(?!vyber-plemena$)[^/?#]+$/);
   await gotoProductionPage(page, detailHref);
   await expect(page.locator("h1")).toBeVisible();
-  const missing = await page.goto("/plemena/neexistujuce-plemeno-e2e", { waitUntil: "domcontentloaded" });
+  const missing = await page.goto("/plemena/neexistujuce-plemeno-e2e", { waitUntil: "commit" });
   expect(missing?.status(), "Unknown breed must return HTTP 404").toBe(404);
   await gotoProductionPage(page, "/porovnat-plemena");
   await expect(page.locator("h1")).toContainText(/Dve plemená|Porovnanie plemien/i);
