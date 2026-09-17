@@ -8,6 +8,14 @@ async function useNecessaryCookies(page: Page) {
   await page.addInitScript(([key]) => localStorage.setItem(key, "necessary"), [CONSENT_KEY]);
 }
 
+async function gotoProductionPage(page: Page, path: string) {
+  const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+  expect(response, `No navigation response for ${path}`).not.toBeNull();
+  expect(response?.status(), `${path} returned HTTP ${response?.status()}`).toBeLessThan(400);
+  await expect(page.locator("main"), `${path} did not render public content`).toBeVisible();
+  return response;
+}
+
 async function expectHealthyPage(page: Page, path: string) {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
@@ -166,7 +174,7 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   await search.locator("input[name=q]").fill("labrador");
   await Promise.all([page.waitForURL(/\/hladat\?q=labrador/), search.getByRole("button", { name: "Nájsť všetko" }).click()]);
   await expect(page.locator("h1")).toContainText(/Čo hľadáš\?|Hľadať|Výsledky/i);
-  await page.goto("/");
+  await gotoProductionPage(page, "/");
   const breedSection = page.locator(".home-breed-day-section");
   await expect(breedSection).toBeVisible();
   await expect(breedSection.locator("h3")).not.toHaveText("");
@@ -174,54 +182,54 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
 });
 
 test("@production breed listing filters, detail, 404 and comparison work", async ({ page }) => {
-  await page.goto("/plemena");
+  await gotoProductionPage(page, "/plemena");
   await expect(page.locator("h1")).toBeVisible();
   await page.getByPlaceholder("Hľadať plemeno, krajinu alebo FCI skupinu").fill("labrador");
   await expect(page.locator(".breed-card")).toHaveCount(1);
   const detailHref = await firstPublicLink(page, ".breed-grid", /^\/plemena\/(?!vyber-plemena$)[^/?#]+$/);
-  await page.goto(detailHref);
+  await gotoProductionPage(page, detailHref);
   await expect(page.locator("h1")).toBeVisible();
-  const missing = await page.goto("/plemena/neexistujuce-plemeno-e2e");
+  const missing = await page.goto("/plemena/neexistujuce-plemeno-e2e", { waitUntil: "domcontentloaded" });
   expect(missing?.status(), "Unknown breed must return HTTP 404").toBe(404);
-  await page.goto("/porovnat-plemena");
+  await gotoProductionPage(page, "/porovnat-plemena");
   await expect(page.locator("h1")).toContainText(/Dve plemená|Porovnanie plemien/i);
 });
 
 test("@production directory listing, veterinarians, profile and filters work", async ({ page }) => {
-  await page.goto("/adresar");
+  await gotoProductionPage(page, "/adresar");
   await expect(page.locator("h1")).toBeVisible();
-  await page.goto("/adresar/veterinari");
+  await gotoProductionPage(page, "/adresar/veterinari");
   await expect(page.locator("h1")).toContainText("Veterinári");
   const filter = page.locator(".directory-results form").first();
   await filter.locator('input[name="q"]').fill("Nitra");
   await Promise.all([page.waitForURL(/q=Nitra/i), filter.getByRole("button", { name: "Zobraziť výsledky" }).click()]);
   await expect(page.locator("main")).toBeVisible();
-  await page.goto("/adresar/veterinari");
+  await gotoProductionPage(page, "/adresar/veterinari");
   const detailHref = await firstPublicLink(page, ".directory-grid", /^\/adresar\/veterinari\/[^/?#]+$/);
-  await page.goto(detailHref);
+  await gotoProductionPage(page, detailHref);
   await expect(page.locator("h1")).toBeVisible();
 });
 
 test("@production events listing, detail and past/upcoming separation work", async ({ page }) => {
-  await page.goto("/podujatia/kalendar");
+  await gotoProductionPage(page, "/podujatia/kalendar");
   await expect(page.locator("h1")).toBeVisible();
   const upcomingLinks = await page.locator('.event-grid a[href^="/podujatia/"]').evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)))]);
   expect(upcomingLinks.length, "Upcoming event listing is empty").toBeGreaterThan(0);
   await page.getByRole("button", { name: "Ukončené" }).click();
   const pastLinks = await page.locator('.event-grid a[href^="/podujatia/"]').evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)))]);
   expect(upcomingLinks.filter((href) => pastLinks.includes(href)).length, "A past event also appears among upcoming events").toBe(0);
-  await page.goto(upcomingLinks[0]!);
+  await gotoProductionPage(page, upcomingLinks[0]!);
   await expect(page.locator("h1")).toBeVisible();
 });
 
 test("@production help listing and an existing case detail work", async ({ page }) => {
-  await page.goto("/pomoc-psom");
+  await gotoProductionPage(page, "/pomoc-psom");
   await expect(page.locator("h1")).toBeVisible();
   if (await page.locator(".help-card").count() === 0) {
     await page.getByRole("checkbox", { name: "Len aktívne prípady" }).uncheck();
   }
   const detailHref = await firstPublicLink(page, ".help-card", /^\/pomoc-psom\/[^/?#]+\/[^/?#]+$/);
-  await page.goto(detailHref);
+  await gotoProductionPage(page, detailHref);
   await expect(page.locator("h1")).toBeVisible();
 });
 
@@ -249,14 +257,14 @@ test(NO_CONSENT_TEST, async ({ page }) => {
 });
 
 test("@production key public pages have no serious axe violations", async ({ page }) => {
-  await page.goto("/");
+  await gotoProductionPage(page, "/");
   await expectAxeClean(page, "Homepage");
-  await page.goto("/plemena");
-  await page.goto(await firstPublicLink(page, ".breed-grid", /^\/plemena\/(?!vyber-plemena$)[^/?#]+$/));
+  await gotoProductionPage(page, "/plemena");
+  await gotoProductionPage(page, await firstPublicLink(page, ".breed-grid", /^\/plemena\/(?!vyber-plemena$)[^/?#]+$/));
   await expectAxeClean(page, "Breed detail");
-  await page.goto("/adresar/veterinari");
-  await page.goto(await firstPublicLink(page, ".directory-grid", /^\/adresar\/veterinari\/[^/?#]+$/));
+  await gotoProductionPage(page, "/adresar/veterinari");
+  await gotoProductionPage(page, await firstPublicLink(page, ".directory-grid", /^\/adresar\/veterinari\/[^/?#]+$/));
   await expectAxeClean(page, "Directory detail");
-  await page.goto("/podujatia");
+  await gotoProductionPage(page, "/podujatia");
   await expectAxeClean(page, "Event listing");
 });
