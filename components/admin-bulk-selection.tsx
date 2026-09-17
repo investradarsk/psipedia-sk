@@ -336,7 +336,7 @@ export function AdminBulkSelectionControls({
             {error && <p role="alert">{error}</p>}
             {preflight && !execution && (
               <div className={styles.preflightResult}>
-                <strong>{preflight.matched} vybraných / {preflight.eligible} eligible / {preflight.wouldBeSkipped} bude preskočených</strong>
+                <strong>{preflight.matched} výsledkov / {preflight.eligible} eligible / {preflight.wouldBeSkipped} by boli preskočené</strong>
                 {preflight.skips.length > 0 && <ul>{preflight.skips.map((skip) => <li key={skip.reason}>{skip.count} × {skipLabels[skip.reason]}</li>)}</ul>}
                 <span>Snapshot platí do {new Date(preflight.snapshot.expiresAt).toLocaleTimeString("sk-SK")}.</span>
               </div>
