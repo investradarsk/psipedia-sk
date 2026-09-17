@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
@@ -6,8 +7,10 @@ import {
   OrganizationPublicationBlockedError,
   type OrganizationPublicationAction,
 } from "@/lib/help-organization-admin-write";
+import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 
 type RouteContext = { params: Promise<{ id: string }> };
+type PublicationRuntimeEnv = { CF_VERSION_METADATA?: { id?: string } };
 
 type PublicationRequest = {
   action?: unknown;
@@ -44,6 +47,11 @@ export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const item = await changeOrganizationPublicationFromAdmin(id, action, user.email, expectedUpdatedAt);
     if (!item) return NextResponse.json({ error: "Organizácia neexistuje." }, { status: 404 });
+
+    const workerVersionId = (env as unknown as PublicationRuntimeEnv).CF_VERSION_METADATA?.id;
+    const publicProfileUrl = new URL(`/organizacie/${item.slug}`, request.url);
+    await invalidateVersionedPublicHtmlCacheUrl(publicProfileUrl, workerVersionId);
+
     return NextResponse.json({ item });
   } catch (error) {
     if (error instanceof OrganizationPublicationBlockedError) {
