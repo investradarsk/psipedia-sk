@@ -114,7 +114,9 @@ test.describe("ADMIN-2E article bulk execution", () => {
   test("selection, confirmation dialog and result controls stay keyboard-operable, axe-clean and overflow-free", async ({ page }) => {
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     const checkbox = page.getByLabel("Vybrať článok ADMIN-2E Draft A");
+    await expect(checkbox).toBeEnabled();
     await checkbox.focus();
+    await expect(checkbox).toBeFocused();
     await page.keyboard.press("Space");
     await expect(checkbox).toBeChecked();
 
