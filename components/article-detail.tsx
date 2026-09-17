@@ -104,7 +104,7 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
                 {showUpdated && <span className="article-updated">Aktualizované <time dateTime={article.updatedDateIso}>{article.updatedDate}</time></span>}
                 <span>{article.readTime} čítania</span>
               </div>
-              <div className={styles.favoriteAction} aria-label={favoriteHint}>
+              <div className={styles.favoriteAction} title={favoriteHint}>
                 <FavoriteButton slug={article.slug} />
               </div>
             </div>
