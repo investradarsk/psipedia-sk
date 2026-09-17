@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import {
+  canTransitionOrganizationFundraisingVerification,
   ORGANIZATION_FUNDRAISING_METHOD_TYPES,
   ORGANIZATION_FUNDRAISING_OWNERSHIPS,
   type OrganizationFundraisingMethodType,
   type OrganizationFundraisingOwnership,
+  type OrganizationFundraisingVerificationStatus,
 } from "@/lib/organization-fundraising-contract";
 import type { OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
 import type { OrganizationFundraisingMethodRecord } from "@/lib/organization-fundraising-store";
@@ -22,13 +24,14 @@ const ownershipLabels: Record<OrganizationFundraisingOwnership, string> = {
   ORGANIZATION_OWNED: "Vlastní organizácia",
   THIRD_PARTY_CAMPAIGN: "Kampaň tretej strany",
 };
-const verificationLabels = {
+const verificationLabels: Record<OrganizationFundraisingVerificationStatus, string> = {
   UNVERIFIED: "Neoverené",
   VERIFIED: "Overené",
   STALE: "Zastarané overenie",
   REJECTED: "Zamietnuté",
-} as const;
+};
 
+type VerificationAction = "verify" | "unverify" | "mark-stale" | "reject";
 type EditableDraft = {
   type: OrganizationFundraisingMethodType;
   label: string;
@@ -39,6 +42,10 @@ type EditableDraft = {
   ownership: OrganizationFundraisingOwnership;
   sortOrder: number;
   isActive: boolean;
+};
+type VerificationDraft = {
+  sourceUrl: string;
+  expiresAt: string;
 };
 
 function emptyDraft(): EditableDraft {
@@ -79,6 +86,21 @@ function toPayload(draft: EditableDraft) {
   };
 }
 
+function toDateTimeLocal(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toVerificationDraft(item: OrganizationFundraisingMethodRecord): VerificationDraft {
+  return {
+    sourceUrl: item.verificationSourceUrl ?? "",
+    expiresAt: toDateTimeLocal(item.verificationExpiresAt),
+  };
+}
+
 function sortMethods(items: OrganizationFundraisingMethodRecord[]) {
   return [...items].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
 }
@@ -109,6 +131,7 @@ export function AdminOrganizationFundraising({ organization, initialMethods }: {
 }) {
   const [methods, setMethods] = useState(() => sortMethods(initialMethods));
   const [drafts, setDrafts] = useState<Record<number, EditableDraft>>(() => Object.fromEntries(initialMethods.map((item) => [item.id, toDraft(item)])));
+  const [verificationDrafts, setVerificationDrafts] = useState<Record<number, VerificationDraft>>(() => Object.fromEntries(initialMethods.map((item) => [item.id, toVerificationDraft(item)])));
   const [createDraft, setCreateDraft] = useState<EditableDraft>(() => emptyDraft());
   const [busyId, setBusyId] = useState<number | "create" | null>(null);
   const [message, setMessage] = useState("");
@@ -127,6 +150,7 @@ export function AdminOrganizationFundraising({ organization, initialMethods }: {
       ? current.map((candidate) => candidate.id === item.id ? item : candidate)
       : [...current, item]));
     setDrafts((current) => ({ ...current, [item.id]: toDraft(item) }));
+    setVerificationDrafts((current) => ({ ...current, [item.id]: toVerificationDraft(item) }));
   }
 
   async function createMethod(event: FormEvent<HTMLFormElement>) {
@@ -151,7 +175,7 @@ export function AdminOrganizationFundraising({ organization, initialMethods }: {
         method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ payload: toPayload(draft), expectedVersion: item.version }),
       });
       mergeItem(await responseItem(response));
-      setMessage("Fundraising metóda bola uložená. Verification stav sa nemení bez samostatného verification workflow; citlivá zmena ho môže resetovať na UNVERIFIED.");
+      setMessage("Fundraising metóda bola uložená. Verification stav sa nemení bežným Save; citlivá zmena ho môže resetovať na UNVERIFIED.");
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Fundraising metódu sa nepodarilo uložiť."); }
     finally { setBusyId(null); }
   }
@@ -168,12 +192,33 @@ export function AdminOrganizationFundraising({ organization, initialMethods }: {
     finally { setBusyId(null); }
   }
 
+  async function runVerification(item: OrganizationFundraisingMethodRecord, action: VerificationAction) {
+    const actionLabel = action === "verify" ? "overiť" : action === "unverify" ? "zrušiť overenie" : action === "mark-stale" ? "označiť overenie ako zastarané" : "zamietnuť";
+    if (!window.confirm(`Naozaj ${actionLabel} fundraising metódu „${item.label || typeLabels[item.type]}“? Ide o samostatnú dôveryhodnostnú akciu.`)) return;
+    const draft = verificationDrafts[item.id] ?? toVerificationDraft(item);
+    setBusyId(item.id); setMessage(""); setError("");
+    try {
+      const body: Record<string, unknown> = { action, expectedVersion: item.version };
+      if (action === "verify") {
+        body.verificationSourceUrl = draft.sourceUrl.trim() || null;
+        body.verificationExpiresAt = draft.expiresAt ? new Date(draft.expiresAt).toISOString() : null;
+      }
+      const response = await fetch(`/api/admin/organizations/${organization.id}/fundraising/${item.id}/verification`, {
+        method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      });
+      const next = await responseItem(response); mergeItem(next);
+      const statusMessage = action === "verify" ? "overená" : action === "unverify" ? "nastavená na UNVERIFIED" : action === "mark-stale" ? "označená ako STALE" : "zamietnutá";
+      setMessage(`Fundraising metóda bola ${statusMessage}.`);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Verification akciu sa nepodarilo uložiť."); }
+    finally { setBusyId(null); }
+  }
+
   return <div className="admin-event-editor">
     <div className="admin-event-fields">
       <section className="admin-form-card admin-form-card--intro">
-        <div className="admin-card-heading"><div><span>01</span><div><h2>Fundraising</h2><p>Správa canonical fundraising metód tejto organizácie. Verification je iba na čítanie a ORG-7D zostáva samostatný workflow.</p></div></div></div>
-        <p className="admin-help"><strong>Trust contract:</strong> uloženie nikdy automaticky neznamená VERIFIED. Nová metóda vzniká vždy neaktívna + UNVERIFIED; zmena typu, cieľa, vlastníctva alebo identity príjemcu resetuje existujúce overenie.</p>
-        <p className="admin-help">Organizácia: <strong>{organization.name}</strong> · stav {organization.status} · aktívne/nearchivované metódy {activeMethods.length}</p>{parentArchived && <p className="admin-message admin-message--error">Archivovaná organizácia je v ORG-7C iba na čítanie.</p>}
+        <div className="admin-card-heading"><div><span>01</span><div><h2>Fundraising</h2><p>Správa canonical fundraising metód a explicitného verification workflow tejto organizácie.</p></div></div></div>
+        <p className="admin-help"><strong>Trust contract:</strong> uloženie ani aktivácia nikdy automaticky neznamenajú VERIFIED. Nová metóda vzniká vždy neaktívna + UNVERIFIED; zmena typu, cieľa, vlastníctva alebo identity príjemcu resetuje existujúce overenie.</p>
+        <p className="admin-help">Organizácia: <strong>{organization.name}</strong> · stav {organization.status} · aktívne/nearchivované metódy {activeMethods.length}</p>{parentArchived && <p className="admin-message admin-message--error">Archivovaná organizácia je iba na čítanie.</p>}
       </section>
 
       <form className="admin-form-card" onSubmit={createMethod}>
@@ -183,26 +228,45 @@ export function AdminOrganizationFundraising({ organization, initialMethods }: {
       </form>
 
       <section className="admin-form-card">
-        <div className="admin-card-heading"><div><span>03</span><div><h2>Existujúce metódy</h2><p>Poradie sa ukladá číslom. Archivovanie je soft-delete a automaticky deaktivuje metódu.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>03</span><div><h2>Existujúce metódy</h2><p>Bežné editovanie, aktivácia a verification sú oddelené akcie. Archivovanie je soft-delete a deaktivuje metódu.</p></div></div></div>
         {!methods.length && <p className="admin-help">Táto organizácia zatiaľ nemá fundraising metódy.</p>}
         {methods.map((item) => {
           const draft = drafts[item.id] ?? toDraft(item);
+          const verificationDraft = verificationDrafts[item.id] ?? toVerificationDraft(item);
           const archived = Boolean(item.archivedAt);
+          const disabled = parentArchived || archived || busyId === item.id;
+          const canVerify = canTransitionOrganizationFundraisingVerification(item.verificationStatus, "VERIFIED");
+          const canUnverify = item.verificationStatus !== "UNVERIFIED" && canTransitionOrganizationFundraisingVerification(item.verificationStatus, "UNVERIFIED");
+          const canMarkStale = item.verificationStatus !== "STALE" && canTransitionOrganizationFundraisingVerification(item.verificationStatus, "STALE");
+          const canReject = item.verificationStatus !== "REJECTED" && canTransitionOrganizationFundraisingVerification(item.verificationStatus, "REJECTED");
           return <article className="admin-form-card" key={item.id} data-fundraising-method-id={item.id}>
             <div className="admin-card-heading"><div><span>#{item.id}</span><div><h3>{item.label || typeLabels[item.type]}</h3><p>{typeLabels[item.type]} · {ownershipLabels[item.ownership]} · verzia {item.version}{archived ? " · ARCHIVED" : ""}</p></div></div></div>
-            <MethodFields draft={draft} disabled={parentArchived || archived || busyId === item.id} onChange={(next) => setDrafts((current) => ({ ...current, [item.id]: next }))} prefix={`fundraising-${item.id}`} />
+            <MethodFields draft={draft} disabled={disabled} onChange={(next) => setDrafts((current) => ({ ...current, [item.id]: next }))} prefix={`fundraising-${item.id}`} />
             <div className="admin-field">
-              <label><input type="checkbox" checked={draft.isActive} disabled={parentArchived || archived || busyId === item.id} onChange={(event) => setDrafts((current) => ({ ...current, [item.id]: { ...draft, isActive: event.target.checked } }))}/> Aktívna metóda</label>
+              <label><input type="checkbox" checked={draft.isActive} disabled={disabled} onChange={(event) => setDrafts((current) => ({ ...current, [item.id]: { ...draft, isActive: event.target.checked } }))}/> Aktívna metóda</label>
               <small>Aktivácia sama osebe nezabezpečí verejnú oprávnenosť; bez VERIFIED zostáva public eligibility fail-closed.</small>
             </div>
             <div className="admin-field-grid">
-              <div className="admin-field"><label>Verification stav</label><input value={verificationLabels[item.verificationStatus]} readOnly aria-readonly="true"/><small>Spravuje ORG-7D, nie bežné CRUD uloženie.</small></div>
+              <div className="admin-field"><label>Verification stav</label><input value={verificationLabels[item.verificationStatus]} readOnly aria-readonly="true"/><small>Mení sa iba samostatnou dôveryhodnostnou akciou.</small></div>
               <div className="admin-field"><label>Verification source</label><input value={item.verificationSourceUrl ?? "—"} readOnly aria-readonly="true"/></div>
               <div className="admin-field"><label>Overené</label><input value={item.verifiedAt ?? "—"} readOnly aria-readonly="true"/></div>
+              <div className="admin-field"><label>Overil</label><input value={item.verifiedBy ?? "—"} readOnly aria-readonly="true"/></div>
               <div className="admin-field"><label>Overenie expiruje</label><input value={item.verificationExpiresAt ?? "—"} readOnly aria-readonly="true"/></div>
               <div className="admin-field"><label>Platné do</label><input value={item.validUntil ?? "—"} readOnly aria-readonly="true"/></div>
             </div>
-            {!archived && !parentArchived && <div className="admin-editor-actions"><button type="button" disabled={busyId !== null} onClick={() => saveMethod(item)}>{busyId === item.id ? "Ukladám…" : "Uložiť metódu"}</button><button type="button" disabled={busyId !== null} onClick={() => archiveMethod(item)}>Archivovať</button></div>}
+            {!archived && !parentArchived && <>
+              <div className="admin-field-grid" data-fundraising-verification-controls>
+                <div className="admin-field"><label htmlFor={`fundraising-${item.id}-verification-source`}>Zdroj pre nové overenie</label><input id={`fundraising-${item.id}-verification-source`} type="url" inputMode="url" placeholder="https://…" value={verificationDraft.sourceUrl} disabled={disabled} onChange={(event) => setVerificationDrafts((current) => ({ ...current, [item.id]: { ...verificationDraft, sourceUrl: event.target.value } }))}/><small>Použije sa iba pri tlačidle Overiť; URL sa automaticky nekontroluje externou službou.</small></div>
+                <div className="admin-field"><label htmlFor={`fundraising-${item.id}-verification-expiry`}>Expirácia nového overenia</label><input id={`fundraising-${item.id}-verification-expiry`} type="datetime-local" value={verificationDraft.expiresAt} disabled={disabled} onChange={(event) => setVerificationDrafts((current) => ({ ...current, [item.id]: { ...verificationDraft, expiresAt: event.target.value } }))}/><small>Voliteľné. Aktuálne system-managed metadata vyššie zostávajú read-only.</small></div>
+              </div>
+              <div className="admin-editor-actions" data-fundraising-verification-actions>
+                {canVerify && <button type="button" disabled={busyId !== null} onClick={() => runVerification(item, "verify")}>Overiť</button>}
+                {canMarkStale && <button type="button" disabled={busyId !== null} onClick={() => runVerification(item, "mark-stale")}>Označiť ako zastarané</button>}
+                {canUnverify && <button type="button" disabled={busyId !== null} onClick={() => runVerification(item, "unverify")}>Zrušiť overenie</button>}
+                {canReject && <button type="button" disabled={busyId !== null} onClick={() => runVerification(item, "reject")}>Zamietnuť</button>}
+              </div>
+            </>}
+            {!archived && !parentArchived && <div className="admin-editor-actions"><button type="button" disabled={busyId !== null} onClick={() => saveMethod(item)}>{busyId === item.id ? "Pracujem…" : "Uložiť metódu"}</button><button type="button" disabled={busyId !== null} onClick={() => archiveMethod(item)}>Archivovať</button></div>}
           </article>;
         })}
       </section>
