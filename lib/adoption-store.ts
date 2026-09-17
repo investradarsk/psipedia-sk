@@ -209,26 +209,33 @@ export async function prepareAdoptionWritePayload(
   existing: AdoptionDog | null = null,
   now = new Date(),
 ): Promise<PreparedAdoptionWrite> {
-  const normalized = normalizeAdoptionInput(existing ? { ...dogToInput(existing), ...payload } : payload);
+  const mergedInput = existing ? { ...dogToInput(existing), ...payload } : payload;
+  const organization = await resolveOrganization(database, mergedInput.organizationId);
+  const canonicalInput = organization.organizationId === null
+    ? mergedInput
+    : {
+        ...mergedInput,
+        organizationId: organization.organizationId,
+        organizationName: organization.organizationName,
+        organizationSlug: organization.organizationSlug,
+      };
+  const normalized = normalizeAdoptionInput(canonicalInput);
   if (existing) assertAdoptionStatusTransition(existing.status, normalized.status);
   if (!existing && (normalized.status === "ADOPTED" || normalized.status === "ARCHIVED")) {
     throw new Error("Nový adopčný profil musí začať ako koncept alebo verejný stav.");
   }
-  const breed = await resolveBreed(database, normalized.breedId);
-  const organization = await resolveOrganization(database, normalized.organizationId);
   if ((adoptionPublicStatuses as readonly AdoptionStatus[]).includes(normalized.status) && organization.organizationId === null) {
     throw new Error("Verejný adopčný profil musí mať canonical organization_id.");
   }
+  const breed = await resolveBreed(database, normalized.breedId);
   const breedName = breed.breedId === null ? normalized.breedName : breed.breedName;
-  const organizationName = organization.organizationId === null ? normalized.organizationName : organization.organizationName;
-  const organizationSlug = organization.organizationId === null ? normalized.organizationSlug : organization.organizationSlug;
   const preparedBase = {
     ...normalized,
     breedId: breed.breedId,
     breedName,
     organizationId: organization.organizationId,
-    organizationName,
-    organizationSlug,
+    organizationName: organization.organizationId === null ? normalized.organizationName : organization.organizationName,
+    organizationSlug: organization.organizationId === null ? normalized.organizationSlug : organization.organizationSlug,
   };
   const searchText = buildAdoptionSearchText(preparedBase);
   const timestamp = now.toISOString();
