@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { StructuredData } from "@/components/structured-data";
 import { EventsPage } from "@/components/events-page";
 import { PortalHub } from "@/components/portal-hub";
 import { NewsHub } from "@/components/news-hub";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
-import { eventTimeFilterFromParam } from "@/lib/events";
+import { eventHref, eventTimeFilterFromParam } from "@/lib/events";
+import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
+import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -23,30 +26,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { section: slug } = await params;
   const section = await getManagedPortalSection(slug);
   if (!section?.visible) return {};
-  if (slug === "novinky" && section) {
-    return {
-      title: section.label,
-      description: NOVINKY_DESCRIPTION,
-      alternates: { canonical: "/novinky" },
-      openGraph: {
-        type: "website",
-        title: `${section.label} | Psipedia.sk`,
-        description: NOVINKY_DESCRIPTION,
-        url: "/novinky",
-      },
-    };
-  }
-  return section ? {
+  const description = slug === "novinky" ? NOVINKY_DESCRIPTION : section.description;
+  return buildPageMetadata({
     title: section.label,
-    description: section.description,
-    alternates: { canonical: `/${section.slug}` },
-    openGraph: {
-      type: "website",
-      title: `${section.label} | Psipedia.sk`,
-      description: section.description,
-      url: `/${section.slug}`,
-    },
-  } : {};
+    description,
+    path: `/${section.slug}`,
+  });
 }
 
 export default async function PortalSectionPage({ params, searchParams }: Props) {
@@ -59,6 +44,19 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   ]);
   if (!section?.visible) notFound();
   if (slug === "novinky") return <NewsHub articles={articles} section={section} />;
-  if (slug === "podujatia") return <EventsPage events={events ?? []} section={section} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
+  if (slug === "podujatia") {
+    const eventList = events ?? [];
+    const schema = buildCollectionPageJsonLd({
+      name: section.label,
+      description: section.description,
+      path: "/podujatia",
+      breadcrumbs: [
+        { name: "Domov", path: "/" },
+        { name: section.label, path: "/podujatia" },
+      ],
+      items: eventList.map((event) => ({ name: event.title, path: eventHref(event) })),
+    });
+    return <><StructuredData value={schema} /><EventsPage events={eventList} section={section} initialTime={eventTimeFilterFromParam((await searchParams).termin)} /></>;
+  }
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }

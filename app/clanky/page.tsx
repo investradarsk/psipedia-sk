@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { ArticleBrowser } from "@/components/article-browser";
+import { StructuredData } from "@/components/structured-data";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
+import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
+import { articleHref } from "@/lib/portal";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -25,24 +28,37 @@ export default async function ArticlesPage({
     "zivot-so-psom": "Život so psom",
   };
   const heroImage = articles.find((article) => article.image)?.image;
+  const schema = buildCollectionPageJsonLd({
+    name: "Články o psoch",
+    description: "Praktické články o výcviku, zdraví, výžive a každodennom živote so psom.",
+    path: "/clanky",
+    breadcrumbs: [
+      { name: "Domov", path: "/" },
+      { name: "Články", path: "/clanky" },
+    ],
+    items: articles.map((article) => ({ name: article.title, path: articleHref(article) })),
+  });
 
   return (
-    <main id="obsah">
-      <header className={`page-hero page-hero--editorial shell${heroImage ? " page-hero--photo" : ""}`}>
-        {heroImage && <img className="page-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}
-        <div className="page-hero-inner">
-          <span className="eyebrow">Psia knižnica</span>
-          <h1>Články, ku ktorým sa oplatí vrátiť</h1>
-          <p>Bez zbytočných skratiek. Vyberáme praktické témy a vysvetľujeme ich tak, aby dávali zmysel v skutočnom živote so psom.</p>
-        </div>
-      </header>
-      <section className="page-body shell">
-        <ArticleBrowser
-          articles={articles}
-          initialQuery={params.hladat ?? ""}
-          initialCategory={categories[params.tema ?? ""] ?? "Všetky"}
-        />
-      </section>
-    </main>
+    <>
+      <StructuredData value={schema} />
+      <main id="obsah">
+        <header className={`page-hero page-hero--editorial shell${heroImage ? " page-hero--photo" : ""}`}>
+          {heroImage && <img className="page-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}
+          <div className="page-hero-inner">
+            <span className="eyebrow">Psia knižnica</span>
+            <h1>Články, ku ktorým sa oplatí vrátiť</h1>
+            <p>Bez zbytočných skratiek. Vyberáme praktické témy a vysvetľujeme ich tak, aby dávali zmysel v skutočnom živote so psom.</p>
+          </div>
+        </header>
+        <section className="page-body shell">
+          <ArticleBrowser
+            articles={articles}
+            initialQuery={params.hladat ?? ""}
+            initialCategory={categories[params.tema ?? ""] ?? "Všetky"}
+          />
+        </section>
+      </main>
+    </>
   );
 }
