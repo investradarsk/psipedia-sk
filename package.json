@@ -21,7 +21,7 @@
     "test:foundation": "npm run test:migration-safety && npm run test:deploy-safety && node --experimental-strip-types --test tests/submission-foundation.test.mjs tests/moderation-atomicity.test.mjs tests/help-detail-presentation.test.mjs tests/directory-detail-presentation.test.mjs tests/detail-primitives.test.mjs tests/organization-profile-presentation.test.mjs tests/organization-profile-route.test.mjs tests/help-organization-public-read.test.mjs tests/organization-adoption-presentation.test.mjs tests/organization-seo.test.mjs tests/organization-sitemap.test.mjs tests/help-organizations-import.test.mjs tests/adoption-staging-data.test.mjs tests/organization-adoption-relation.test.mjs tests/admin-attention-queue.test.mjs",
     "test:social-metadata": "node --experimental-strip-types --test tests/social-metadata.test.mjs",
     "test:social-metadata-rendered": "node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/social-metadata-rendered.test.mjs",
-    "test": "npm run build && npm run validate:deploy-artifact && npm run test:config && npm run test:foundation && npm run test:social-metadata && npm run test:social-metadata-rendered && node --experimental-strip-types --test tests/public-html-cache.test.mjs && node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/worker-performance.test.mjs tests/event-dates.test.mjs tests/events-phase4.test.mjs tests/reviews-phase5.test.mjs tests/sitemap-seo.test.mjs tests/directory-admin-query.test.mjs tests/admin-bulk-foundation.test.mjs tests/directory-import-sql.test.mjs tests/directory-clubs.test.mjs tests/directory-change-requests.test.mjs tests/directory-inquiry-notifications.test.mjs tests/breed-fci-import.test.mjs tests/production-audit.test.mjs tests/section-navigation.test.mjs tests/events-phase3.test.mjs tests/navigation-progress.test.mjs tests/lost-found-lifecycle.test.mjs tests/lost-found-admin-contract.test.mjs && npm run test:admin-events",
+    "test": "npm run build && npm run validate:deploy-artifact && npm run test:config && npm run test:foundation && npm run test:social-metadata && npm run test:social-metadata-rendered && node --experimental-strip-types --test tests/public-html-cache.test.mjs && node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/worker-performance.test.mjs tests/event-dates.test.mjs tests/events-phase4.test.mjs tests/reviews-phase5.test.mjs tests/sitemap-seo.test.mjs tests/directory-admin-query.test.mjs tests/admin-bulk-foundation.test.mjs tests/admin-bulk-execution.test.mjs tests/directory-import-sql.test.mjs tests/directory-clubs.test.mjs tests/directory-change-requests.test.mjs tests/directory-inquiry-notifications.test.mjs tests/breed-fci-import.test.mjs tests/production-audit.test.mjs tests/section-navigation.test.mjs tests/events-phase3.test.mjs tests/navigation-progress.test.mjs tests/lost-found-lifecycle.test.mjs tests/lost-found-admin-contract.test.mjs && npm run test:admin-events",
     "validate:artifact": "bash scripts/validate-artifact.sh",
     "validate:deploy-artifact": "node scripts/validate-deploy-artifact.mjs",
     "prelint": "npm run config:check && npm run db:check-migrations",
@@ -48,7 +48,6 @@
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@cloudflare/vite-plugin": "1.37.1",
-    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -58,12 +57,10 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
-    "react-server-dom-webpack": "19.2.6",
-    "tailwindcss": "4.2.1",
+    "playwright": "1.63.0",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
-    "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "vite": "8.0.13"
   },
   "type": "module",
   "displayName": "Psipedia.sk"
