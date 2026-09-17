@@ -9,6 +9,7 @@ async function useNecessaryCookies(page: Page) {
 }
 
 async function gotoProductionPage(page: Page, path: string) {
+  // Production smoke validates rendered app content, not completion of every external image/analytics request.
   const response = await page.goto(path, { waitUntil: "domcontentloaded" });
   expect(response, `No navigation response for ${path}`).not.toBeNull();
   expect(response?.status(), `${path} returned HTTP ${response?.status()}`).toBeLessThan(400);
