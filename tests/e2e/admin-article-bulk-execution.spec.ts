@@ -7,6 +7,19 @@ test.describe("ADMIN-2E article bulk execution", () => {
   const rowFor = (page: import("@playwright/test").Page, title: string) =>
     page.locator(".admin-article-row").filter({ hasText: title });
 
+  async function findArticleRowAcrossPages(page: import("@playwright/test").Page, title: string) {
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    for (let pageNumber = 1; pageNumber <= 20; pageNumber += 1) {
+      const row = rowFor(page, title);
+      if ((await row.count()) > 0) return row;
+      const next = page.getByRole("link", { name: "Ďalšia →" });
+      if ((await next.count()) === 0) break;
+      await next.click();
+      await page.waitForLoadState("domcontentloaded");
+    }
+    throw new Error(`Article row "${title}" was not found in admin pagination.`);
+  }
+
   test("keeps explicit selection across pagination and publishes only selected eligible articles", async ({ page }) => {
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await page.getByLabel("Vybrať článok ADMIN-2E Draft A").check();
@@ -48,11 +61,14 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(dialog).toContainText("Hotovo: 1 zmenených / 1 preskočených / 0 zlyhaní");
     await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
 
-    await expect(rowFor(page, "ADMIN-2E Scheduled B")).toContainText("Publikovaný");
-    await expect(rowFor(page, "ADMIN-2E Published C")).toContainText("Publikovaný");
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Publikovaný");
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Publikovaný");
 
+    await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B");
     await page.getByLabel("Vybrať článok ADMIN-2E Scheduled B").check();
+    await findArticleRowAcrossPages(page, "ADMIN-2E Published C");
     await page.getByLabel("Vybrať článok ADMIN-2E Published C").check();
+    await expect(page.getByText("Vybrané: 2")).toBeVisible();
     await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
     dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 2 článkov?" });
     await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
@@ -61,8 +77,8 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
     await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
 
-    await expect(rowFor(page, "ADMIN-2E Scheduled B")).toContainText("Koncept");
-    await expect(rowFor(page, "ADMIN-2E Published C")).toContainText("Koncept");
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Koncept");
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Koncept");
   });
 
   test("selection, confirmation dialog and result controls stay keyboard-operable, axe-clean and overflow-free", async ({ page }) => {
