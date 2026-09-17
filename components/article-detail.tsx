@@ -111,7 +111,7 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
           </div>
           <MediaFrame className={styles.heroMedia} variant="article">
             {article.image ? (
-              <img className="article-hero-image" src={article.image} alt={article.title} decoding="async" />
+              <img className="article-hero-image" src={article.image} alt={article.title} loading="eager" fetchPriority="high" decoding="async" />
             ) : (
               <div className={`article-hero-placeholder article-hero-placeholder--${article.accent}`}><PawMark size={86} /></div>
             )}

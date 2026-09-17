@@ -18,6 +18,8 @@ export function AdoptionCardMedia({ href, name, status, mainImage }: AdoptionCar
         <img
           src={mainImage}
           alt={`${name} – pes na adopciu`}
+          loading="lazy"
+          decoding="async"
           data-adoption-media="image"
         />
       ) : (

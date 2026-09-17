@@ -105,7 +105,7 @@ export function DirectoryProfileDetail({ presentation }: { presentation: Directo
 
             {presentation.imageUrl && (
               <MediaFrame className={styles.heroMedia} variant="landscape">
-                <img src={presentation.imageUrl} alt={`Fotografia služby ${presentation.name}`} />
+                <img src={presentation.imageUrl} alt={`Fotografia služby ${presentation.name}`} loading="eager" fetchPriority="high" decoding="async" />
               </MediaFrame>
             )}
           </div>
