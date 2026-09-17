@@ -81,3 +81,51 @@ export const organizationLocations = sqliteTable(
       .where(sql`${table.isPrimary} = 1`),
   ],
 );
+
+export const organizationFundraisingMethods = sqliteTable(
+  "organization_fundraising_methods",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => helpOrganizations.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    label: text("label").notNull().default(""),
+    url: text("url"),
+    value: text("value"),
+    instructions: text("instructions"),
+    beneficiaryIdentity: text("beneficiary_identity"),
+    ownership: text("ownership").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: integer("is_active").notNull().default(0),
+    verificationStatus: text("verification_status").notNull().default("UNVERIFIED"),
+    verifiedAt: text("verified_at"),
+    verifiedBy: text("verified_by"),
+    verificationSourceUrl: text("verification_source_url"),
+    verificationExpiresAt: text("verification_expires_at"),
+    validUntil: text("valid_until"),
+    version: integer("version").notNull().default(1),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  (table) => [
+    check(
+      "organization_fundraising_methods_type_check",
+      sql`${table.type} IN ('MATERIAL_DONATION', 'DONATION_PAGE', 'BANK_TRANSFER', 'TRANSPARENT_ACCOUNT', 'EXTERNAL_FUNDRAISER')`,
+    ),
+    check(
+      "organization_fundraising_methods_ownership_check",
+      sql`${table.ownership} IN ('ORGANIZATION_OWNED', 'THIRD_PARTY_CAMPAIGN')`,
+    ),
+    check(
+      "organization_fundraising_methods_verification_status_check",
+      sql`${table.verificationStatus} IN ('UNVERIFIED', 'VERIFIED', 'STALE', 'REJECTED')`,
+    ),
+    check("organization_fundraising_methods_is_active_check", sql`${table.isActive} IN (0, 1)`),
+    check("organization_fundraising_methods_version_check", sql`${table.version} >= 1`),
+    index("organization_fundraising_methods_org_order_idx").on(table.organizationId, table.sortOrder, table.id),
+  ],
+);
