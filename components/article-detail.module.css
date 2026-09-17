@@ -256,6 +256,11 @@
   line-height: 1.45;
 }
 
+.readingShell :global(.article-block-caption),
+.readingShell :global(.article-block-credit) {
+  color: var(--muted);
+}
+
 .readingShell :global(.article-block-callout) {
   padding: 15px 18px;
   border-radius: 0 10px 10px 0;
@@ -377,6 +382,12 @@
 .relatedItem:hover > strong {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+@media (min-width: 768px) {
+  .modernArticle .heroMedia {
+    aspect-ratio: 16 / 10;
+  }
 }
 
 @media (max-width: 767px) {
