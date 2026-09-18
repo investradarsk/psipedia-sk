@@ -113,7 +113,7 @@ test("global public article surfaces use the shared minimal presentation", () =>
   assert.match(newsHub, /<ArticleListItem/);
   assert.match(editorialSection, /<ArticleListItem/);
   assert.match(breedDetail, /<PublicContentList label="Súvisiace články k plemenu">/);
-  assert.match(breedDetail, /<ArticleListItem article=\{article\}/);
+  assert.match(breedDetail, /<PublicArticleListItem/);
   assert.match(searchPage, /<PublicArticleListItem/);
   for (const [label, value] of [["article card", articleCard], ["news hub", newsHub], ["section lists", editorialSection]]) {
     assert.doesNotMatch(value, /readTime[^\n]*čítania/, `${label} renders reading time`);
