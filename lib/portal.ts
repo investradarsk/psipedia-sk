@@ -122,13 +122,15 @@ export const portalSections: PortalSection[] = [
       },
       {
         slug: "prve-dni", label: "Prvé dni doma", icon: "🏠", description: "Režim, spánok, čistotnosť a pokojné zoznámenie s domácnosťou.",
-        intro: "Prvé dni majú byť predvídateľné a pokojné. Šteniatku priprav bezpečné miesto, jednoduchý režim a čas na spánok bez priveľa návštev a nových podnetov naraz.",
+        intro: "Prvé dni doma sú najmä o bezpečí, odpočinku a predvídateľnom režime. Priprav šteniatku pokojné miesto, obmedz množstvo nových podnetov naraz a prvé povinnosti rozdeľ na malé, zvládnuteľné kroky.",
         popularTopics: ["Prvá noc", "Bezpečné miesto", "Denný režim", "Čistotnosť"],
         commonQuestions: ["Čo robiť, keď šteňa v noci plače?", "Ako často ho brať von?", "Koľko má šteniatko spať?"],
         homeSteps: ["Zabezpeč káble, lieky, rastliny a malé predmety.", "Po spánku, jedle a hre ponúkni možnosť vyvenčenia.", "Striedaj krátke aktivity s nerušeným spánkom."],
         warningSigns: ["Šteňa je dlhšie apatické, neje alebo opakovane vracia.", "Má silnú hnačku, sťažené dýchanie alebo bolestivé brucho.", "Je vystavené neustálym návštevám a nemá kam ustúpiť."],
         expertAdvice: "Po príchode si dohodni vstupnú veterinárnu prehliadku. Pri rýchlom zhoršení zdravotného stavu nečakaj na plánovaný termín.",
-        serviceLinks: [{ label: "Nájsť veterinára", href: "/adresar/veterinari" }, { label: "Tréneri a školy", href: "/adresar/treneri" }],
+        serviceLinks: [{ label: "Nájsť veterinára", href: "/adresar/veterinari" }, { label: "Tréneri a školy", href: "/adresar/treneri" }, { label: "Zdravie a starostlivosť", href: "/starostlivost" }],
+        seoTitle: "Prvé dni so šteniatkom – pokojný štart doma",
+        metaDescription: "Praktický prehľad prvých dní so šteniatkom: bezpečné miesto, denný režim, čistotnosť, spánok a užitočné kontakty na ďalšiu pomoc.",
       },
       {
         slug: "socializacia", label: "Socializácia", icon: "🌍", description: "Dobré skúsenosti s ľuďmi, psami, prostredím a manipuláciou.",
