@@ -127,7 +127,12 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
     function onMenuKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        setOpenMobileMenu(null);
+        if (openMobileMenu) {
+          const submenuToggle = menu.querySelector<HTMLButtonElement>(`[aria-controls="mobile-submenu-${openMobileMenu}"]`);
+          setOpenMobileMenu(null);
+          submenuToggle?.focus();
+          return;
+        }
         setMenuOpen(false);
         trigger.focus();
         return;
@@ -155,7 +160,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
 
     document.addEventListener("keydown", onMenuKeyDown);
     return () => document.removeEventListener("keydown", onMenuKeyDown);
-  }, [menuOpen]);
+  }, [menuOpen, openMobileMenu]);
 
   useEffect(() => {
     if (!searchOpen) return;
