@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { EventCard } from "@/components/event-card";
+import { EditorialSectionHub } from "@/components/editorial-section";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
@@ -24,6 +25,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
   const isEditorialHub = isCare || isActivities || isPuppies;
   const showSectionTabs = isEditorialHub || isReviews;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
+  if (isEditorialHub) return <EditorialSectionHub section={section} articles={articles} />;
   const careArticleArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
   const activityArticleArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
   const articleArea = (article: Article) => isCare ? careArticleArea(article) : activityArticleArea(article);
