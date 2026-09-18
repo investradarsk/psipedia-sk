@@ -4,6 +4,7 @@ import {
   getManagedArticleById,
   isArticleSlugConflict,
   updateManagedArticle,
+  type ManagedArticle,
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import type { ArticleBlock } from "@/lib/article-blocks";
@@ -14,6 +15,7 @@ export type NotionSyncBindings = {
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
+  BUCKET?: R2Bucket;
 };
 
 type NotionPage = {
@@ -58,6 +60,14 @@ const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_VERSION = "2025-09-03";
 const SYNC_ACTOR = "notion-sync@psipedia.sk";
 const MAX_SYNC_ITEMS = 100;
+const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_REMOTE_IMAGE_REDIRECTS = 3;
+const REMOTE_IMAGE_EXTENSIONS = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/avif", "avif"],
+]);
 
 function flagEnabled(value: unknown) {
   return typeof value === "string" && (value === "1" || value.toLowerCase() === "true");
@@ -89,12 +99,247 @@ function richTextProperty(page: NotionPage, name: string) {
   return richTextPlainText(propertyRecord(page, name)?.rich_text);
 }
 
+function urlProperty(page: NotionPage, name: string) {
+  const value = propertyRecord(page, name)?.url;
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function selectProperty(page: NotionPage, name: string) {
   const select = propertyRecord(page, name)?.select;
   return select && typeof select === "object" && typeof (select as Record<string, unknown>).name === "string"
     ? String((select as Record<string, unknown>).name)
     : "";
 }
+
+
+function safeRemoteImageUrl(value: string) {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Hlavný obrázok URL nie je platná webová adresa.");
+  }
+
+  if (url.protocol !== "https:") {
+    throw new Error("Hlavný obrázok musí používať HTTPS adresu.");
+  }
+  if (url.username || url.password || (url.port && url.port !== "443")) {
+    throw new Error("Hlavný obrázok URL obsahuje nepovolené prihlasovacie údaje alebo port.");
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  const isIpv4 = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname);
+  const isIpv6 = hostname.includes(":");
+  if (
+    !hostname
+    || hostname === "localhost"
+    || hostname.endsWith(".localhost")
+    || hostname.endsWith(".local")
+    || hostname.endsWith(".internal")
+    || isIpv4
+    || isIpv6
+  ) {
+    throw new Error("Hlavný obrázok URL musí smerovať na verejnú HTTPS doménu.");
+  }
+
+  return url;
+}
+
+function detectedRemoteImageType(bytes: Uint8Array) {
+  const decoder = new TextDecoder();
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (
+    bytes.length >= 8
+    && [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((byte, index) => bytes[index] === byte)
+  ) return "image/png";
+  if (
+    bytes.length >= 12
+    && decoder.decode(bytes.slice(0, 4)) === "RIFF"
+    && decoder.decode(bytes.slice(8, 12)) === "WEBP"
+  ) return "image/webp";
+  if (bytes.length >= 16 && decoder.decode(bytes.slice(4, 8)) === "ftyp") {
+    const brands = decoder.decode(bytes.slice(8, Math.min(bytes.length, 40)));
+    if (brands.includes("avif") || brands.includes("avis")) return "image/avif";
+  }
+  return null;
+}
+
+async function readRemoteImageBody(response: Response) {
+  if (!response.body) throw new Error("Zdroj hlavného obrázka nevrátil dáta.");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value?.byteLength) continue;
+      total += value.byteLength;
+      if (total > MAX_REMOTE_IMAGE_BYTES) {
+        await reader.cancel();
+        throw new Error("Hlavný obrázok môže mať najviac 8 MB.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+async function downloadRemoteImage(sourceUrl: string) {
+  let url = safeRemoteImageUrl(sourceUrl);
+
+  for (let redirectCount = 0; redirectCount <= MAX_REMOTE_IMAGE_REDIRECTS; redirectCount += 1) {
+    const response = await fetch(url.toString(), {
+      redirect: "manual",
+      headers: { Accept: "image/avif,image/webp,image/png,image/jpeg" },
+    });
+
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      if (redirectCount >= MAX_REMOTE_IMAGE_REDIRECTS) {
+        throw new Error("Hlavný obrázok má príliš veľa presmerovaní.");
+      }
+      const location = response.headers.get("location");
+      if (!location) throw new Error("Presmerovanie hlavného obrázka nemá cieľovú adresu.");
+      url = safeRemoteImageUrl(new URL(location, url).toString());
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Hlavný obrázok sa nepodarilo stiahnuť (HTTP ${response.status}).`);
+    }
+
+    const declaredLength = Number(response.headers.get("content-length") || "0");
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_REMOTE_IMAGE_BYTES) {
+      throw new Error("Hlavný obrázok môže mať najviac 8 MB.");
+    }
+
+    const bytes = await readRemoteImageBody(response);
+    const contentType = detectedRemoteImageType(bytes);
+    const extension = contentType ? REMOTE_IMAGE_EXTENSIONS.get(contentType) : null;
+    if (!contentType || !extension) {
+      throw new Error("Hlavný obrázok musí byť JPG, PNG, WebP alebo AVIF.");
+    }
+    return { bytes, contentType, extension };
+  }
+
+  throw new Error("Hlavný obrázok sa nepodarilo stiahnuť.");
+}
+
+function storedImageUrl(imageKey: string | null | undefined) {
+  return imageKey ? `/media/${imageKey}` : null;
+}
+
+type PreparedNotionImage = {
+  payload: ManagedArticleInput;
+  uploadedKey: string | null;
+  replacedKeys: string[];
+};
+
+async function prepareNotionMainImage(
+  bindings: NotionSyncBindings,
+  page: NotionPage,
+  payload: ManagedArticleInput,
+  existing?: ManagedArticle | null,
+): Promise<PreparedNotionImage> {
+  const sourceUrl = urlProperty(page, "Hlavný obrázok URL");
+
+  if (!sourceUrl) {
+    if (!existing) return { payload, uploadedKey: null, replacedKeys: [] };
+    const existingImageUrl = existing.image ?? storedImageUrl(existing.imageKey);
+    const existingOgImageUrl = existing.seo?.ogImage ?? storedImageUrl(existing.ogImageKey) ?? existingImageUrl;
+    return {
+      payload: {
+        ...payload,
+        imageUrl: existingImageUrl,
+        imageKey: existing.imageKey,
+        ogImageUrl: existingOgImageUrl,
+        ogImageKey: existing.ogImageKey,
+      },
+      uploadedKey: null,
+      replacedKeys: [],
+    };
+  }
+
+  const bucket = bindings.BUCKET;
+  if (!bucket) {
+    throw new Error("Cloudflare R2 úložisko nie je pripojené; hlavný obrázok sa nedá synchronizovať.");
+  }
+
+  const sourceFingerprint = await sha256(sourceUrl);
+
+  if (existing?.imageKey) {
+    const currentObject = await bucket.head(existing.imageKey);
+    if (currentObject?.customMetadata?.notionSourceHash === sourceFingerprint) {
+      const existingImageUrl = existing.image ?? storedImageUrl(existing.imageKey);
+      const existingOgImageUrl = existing.seo?.ogImage ?? storedImageUrl(existing.ogImageKey) ?? existingImageUrl;
+      return {
+        payload: {
+          ...payload,
+          imageUrl: existingImageUrl,
+          imageKey: existing.imageKey,
+          ogImageUrl: existingOgImageUrl,
+          ogImageKey: existing.ogImageKey ?? existing.imageKey,
+        },
+        uploadedKey: null,
+        replacedKeys: [],
+      };
+    }
+  }
+
+  const remote = await downloadRemoteImage(sourceUrl);
+  const key = `articles/${new Date().getUTCFullYear()}/${crypto.randomUUID()}.${remote.extension}`;
+  const imageUrl = storedImageUrl(key);
+  const imageSourceUrl = urlProperty(page, "Zdroj obrázka");
+  const altText = richTextProperty(page, "Alt text obrázka");
+
+  await bucket.put(key, remote.bytes, {
+    httpMetadata: {
+      contentType: remote.contentType,
+      cacheControl: "public, max-age=31536000, immutable",
+    },
+    customMetadata: {
+      source: "notion-sync",
+      notionSourceHash: sourceFingerprint,
+      notionSourceUrl: sourceUrl.slice(0, 400),
+      imageSourceUrl: imageSourceUrl.slice(0, 400),
+      altText: altText.slice(0, 250),
+    },
+  });
+
+  const replacedKeys = [...new Set(
+    [existing?.imageKey, existing?.ogImageKey]
+      .filter((value): value is string => Boolean(value) && value !== key),
+  )];
+
+  return {
+    payload: {
+      ...payload,
+      imageUrl,
+      imageKey: key,
+      ogImageUrl: imageUrl,
+      ogImageKey: key,
+    },
+    uploadedKey: key,
+    replacedKeys,
+  };
+}
+
+async function cleanupImageKeys(bucket: R2Bucket | undefined, keys: Array<string | null | undefined>) {
+  if (!bucket) return;
+  const unique = [...new Set(keys.filter((value): value is string => Boolean(value)))];
+  await Promise.all(unique.map((key) => bucket.delete(key).catch(() => undefined)));
+}
+
 
 function blockPayload(block: NotionBlock) {
   const value = block[block.type];
@@ -555,8 +800,9 @@ async function syncOneNotionPage(
 ): Promise<"created" | "updated" | "unchanged"> {
   validateSyncGate(page);
   const blocks = await getPageBlocks(bindings, page.id);
-  const payload = notionPageToManagedArticleInput(page, blocks);
-  const contentHash = await sha256(JSON.stringify(payload));
+  const basePayload = notionPageToManagedArticleInput(page, blocks);
+  const notionImageSourceUrl = urlProperty(page, "Hlavný obrázok URL");
+  const contentHash = await sha256(JSON.stringify({ payload: basePayload, notionImageSourceUrl }));
   const mapping = await loadMapping(database, page.id);
   const now = new Date().toISOString();
 
@@ -578,8 +824,19 @@ async function syncOneNotionPage(
       return "unchanged";
     }
 
-    const updated = await updateManagedArticle(existing.id, payload, SYNC_ACTOR, existing);
-    if (!updated) throw new Error("Prepojený článok sa nepodarilo aktualizovať.");
+    const prepared = await prepareNotionMainImage(bindings, page, basePayload, existing);
+    let updated: Awaited<ReturnType<typeof updateManagedArticle>> | null = null;
+    try {
+      updated = await updateManagedArticle(existing.id, prepared.payload, SYNC_ACTOR, existing);
+    } catch (error) {
+      await cleanupImageKeys(bindings.BUCKET, [prepared.uploadedKey]);
+      throw error;
+    }
+    if (!updated) {
+      await cleanupImageKeys(bindings.BUCKET, [prepared.uploadedKey]);
+      throw new Error("Prepojený článok sa nepodarilo aktualizovať.");
+    }
+    await cleanupImageKeys(bindings.BUCKET, prepared.replacedKeys);
     await upsertMapping(database, page, updated.id, contentHash, now);
     await updateNotionSyncState(bindings, page.id, {
       state: "Synchronizované",
@@ -589,9 +846,10 @@ async function syncOneNotionPage(
     return "updated";
   }
 
+  const prepared = await prepareNotionMainImage(bindings, page, basePayload);
   let created: Awaited<ReturnType<typeof createManagedArticle>> | null = null;
   try {
-    created = await createManagedArticle(payload, SYNC_ACTOR);
+    created = await createManagedArticle(prepared.payload, SYNC_ACTOR);
     await upsertMapping(database, page, created.id, contentHash, now);
   } catch (error) {
     if (created) {
@@ -601,6 +859,7 @@ async function syncOneNotionPage(
         // Keep the original sync failure as the primary error.
       }
     }
+    await cleanupImageKeys(bindings.BUCKET, [prepared.uploadedKey]);
     if (isArticleSlugConflict(error)) {
       throw new Error("Slug už používa iný článok v Psipedii. Zmeň slug v Notione alebo prepojenie vyrieš ručne.");
     }
