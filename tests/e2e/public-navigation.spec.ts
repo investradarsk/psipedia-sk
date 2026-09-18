@@ -274,9 +274,12 @@ test("mobile hamburger and menu align to the public gutter with safe targets", a
   const menuTrigger = page.getByRole("button", { name: "Otvoriť menu", exact: true });
   const triggerBox = await measuredBox(menuTrigger, "menu trigger");
   expect(triggerBox.height).toBeGreaterThanOrEqual(44);
-  expect(Math.abs(390 - (triggerBox.x + triggerBox.width) - 16), "hamburger right gutter").toBeLessThanOrEqual(1);
+  expect(Math.abs(triggerBox.x - 16), "hamburger left gutter").toBeLessThanOrEqual(1);
 
-  await menuTrigger.click();
+  await menuTrigger.focus();
+  await expect(menuTrigger).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(menuTrigger).toHaveAttribute("aria-expanded", "true");
   const mobileNav = page.locator("#mobile-menu > nav");
   await expect(mobileNav).toBeVisible();
   const navBox = await measuredBox(mobileNav, "mobile menu shell");
@@ -289,6 +292,12 @@ test("mobile hamburger and menu align to the public gutter with safe targets", a
     if (targetBox) expect(targetBox.height, `mobile menu target ${index}`).toBeGreaterThanOrEqual(44);
   }
   await expectNoHorizontalOverflow(page, "/starostlivost mobile menu");
+
+  await page.keyboard.press("Tab");
+  await expect(mobileNav.getByRole("link").first()).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menuTrigger).toBeFocused();
+  await expect(menuTrigger).toHaveAttribute("aria-expanded", "false");
 });
 
 test("representative PortalHub and PortalTopic pages stay Axe-clean", async ({ page }) => {
