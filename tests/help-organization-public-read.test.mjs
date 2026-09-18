@@ -218,6 +218,20 @@ test("slug lookup is exact and canonical identity remains numeric organization.i
   assert.equal(database.queries[1].bindings[0], "alpha-rescue-east");
 });
 
+test("canonical rename and slug change need no legacy shelter row or fallback", async () => {
+  const database = createDatabase({
+    organizations: [organization({ id: 77, name: "Nový canonical názov", slug: "novy-canonical-slug" })],
+    locations: [location({ organization_id: 77 })],
+  });
+
+  const current = await getPublicOrganizationBySlug("novy-canonical-slug", database);
+  assert.equal(current?.id, 77);
+  assert.equal(current?.name, "Nový canonical názov");
+  assert.equal(current?.slug, "novy-canonical-slug");
+  assert.equal(await getPublicOrganizationBySlug("historicky-legacy-slug", database), null);
+  assert.ok(database.queries.every((query) => !/help_cases/i.test(query.sql)));
+});
+
 test("public model is an explicit allowlist and omits internal/provenance and street-address fields", async () => {
   const database = createDatabase({ organizations: [organization()], locations: [location()] });
   const result = await getPublicOrganizationBySlug("psia-nadej", database);

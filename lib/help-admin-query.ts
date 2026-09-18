@@ -1,6 +1,6 @@
 /** Read-only, server-side queries for the help_cases admin listing. */
 export const HELP_ADMIN_PAGE_SIZE = 50;
-export const HELP_ADMIN_CATEGORIES = ["adopcia", "utulky", "docasna-opatera", "zbierky", "dobrovolnictvo"] as const;
+export const HELP_ADMIN_CATEGORIES = ["adopcia", "docasna-opatera", "zbierky", "dobrovolnictvo"] as const;
 export type HelpAdminCategory = (typeof HELP_ADMIN_CATEGORIES)[number] | "all";
 export type HelpAdminStatus = "all" | "published" | "draft";
 export type HelpAdminFilters = { category: HelpAdminCategory; status: HelpAdminStatus; q: string; page: number };
@@ -21,7 +21,7 @@ export function parseHelpAdminFilters(params: { get(name: string): string | null
 }
 
 export function buildHelpAdminWhere(filters: HelpAdminFilters) {
-  const clauses: string[] = [];
+  const clauses: string[] = ["category <> 'utulky'"];
   const args: string[] = [];
   if (filters.category !== "all") { clauses.push("category = ?"); args.push(filters.category); }
   if (filters.status !== "all") { clauses.push("status = ?"); args.push(filters.status); }
@@ -38,8 +38,9 @@ export async function queryHelpAdmin<T>(database: ReadDatabase, filters: HelpAdm
     COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
     COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
     COUNT(CASE WHEN status = 'published' AND urgent = 1 AND resolved = 0 THEN 1 END) AS urgent
-    FROM help_cases`).first<{ total: number; published: number; draft: number; urgent: number }>();
-  const grouped = await database.prepare("SELECT category, COUNT(*) AS count FROM help_cases GROUP BY category").all<{ category: string; count: number }>();
+    FROM help_cases
+    WHERE category <> 'utulky'`).first<{ total: number; published: number; draft: number; urgent: number }>();
+  const grouped = await database.prepare("SELECT category, COUNT(*) AS count FROM help_cases WHERE category <> 'utulky' GROUP BY category").all<{ category: string; count: number }>();
   const { where, args } = buildHelpAdminWhere(filters);
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM help_cases${where}`).bind(...args).first<{ count: number }>();
   const resultCount = count?.count ?? 0;

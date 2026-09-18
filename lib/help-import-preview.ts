@@ -265,9 +265,10 @@ export function classifyHelpItems(items: unknown[], existing: ExistingHelpRow[],
 }
 
 export async function previewHelpItems(database: HelpSelectDatabase, items: unknown[], categories: readonly string[], regions: readonly string[]) {
-  // Intentionally no status/category filter or LIMIT: drafts and mixed-category imports still need the complete table.
+  // Legacy shelter rows are no longer an import source after the canonical organization cutover.
+  // Other help categories still need the complete draft/published table and no LIMIT.
   const result = await database.prepare(`SELECT id, slug, title, category, status, excerpt, description, organization, dog_name, city, region,
-    location_note, contact_note, action_url FROM help_cases ORDER BY id`).all<ExistingHelpRow>();
+    location_note, contact_note, action_url FROM help_cases WHERE category <> 'utulky' ORDER BY id`).all<ExistingHelpRow>();
   if (!result.success || !Array.isArray(result.results)) throw new Error("Nepodarilo sa načítať úplný zoznam help_cases.");
-  return classifyHelpItems(items, result.results, categories, regions);
+  return classifyHelpItems(items, result.results, categories.filter((category) => category !== "utulky"), regions);
 }

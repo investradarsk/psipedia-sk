@@ -102,6 +102,7 @@ export function helpCategoryHref(category: Pick<(typeof helpCategories)[number],
 }
 
 export function helpCaseHref(item: Pick<HelpCase, "category" | "slug">) {
+  if (item.category === "utulky") return `/organizacie/${item.slug}`;
   return `/pomoc-psom/${item.category}/${item.slug}`;
 }
 

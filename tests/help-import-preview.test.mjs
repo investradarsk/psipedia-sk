@@ -38,8 +38,8 @@ test("new valid organization is NEW and safe", () => {
 
 test("same (category, slug) reads a match and never writes; identical record is EXISTING_SAME", async () => {
   const sql = [];
-  const db = { prepare(query) { sql.push(query); return { async all() { return { success: true, results: [production()] }; } }; } };
-  const preview = await previewHelpItems(db, [input()], categories, regions);
+  const db = { prepare(query) { sql.push(query); return { async all() { return { success: true, results: [production({ category: "dobrovolnictvo" })] }; } }; } };
+  const preview = await previewHelpItems(db, [input({ category: "dobrovolnictvo", actionLabel: "Chcem pomôcť" })], categories, regions);
   assert.equal(preview.EXISTING_SAME, 1);
   assert.equal(preview.rows[0].matchedProductionId, 1);
   assert.equal(preview.SAFE_FOR_IMPORT, 0);
@@ -69,10 +69,10 @@ test("two regions and invalid region are BLOCKED without silent reduction", () =
 });
 
 test("drafts and over 100 production rows are checked without LIMIT", async () => {
-  const rows = Array.from({ length: 151 }, (_, index) => production({ id: index + 1, slug: `historicky-${index}`, title: `Starý útulok ${index}`, organization: `Iné OZ ${index}`, city: "Košice", action_url: null, contact_note: "" }));
-  rows[150] = production({ id: 151, status: "draft" });
+  const rows = Array.from({ length: 151 }, (_, index) => production({ id: index + 1, category: "dobrovolnictvo", slug: `historicky-${index}`, title: `Historická výzva ${index}`, organization: `Iné OZ ${index}`, city: "Košice", action_url: null, contact_note: "" }));
+  rows[150] = production({ id: 151, category: "dobrovolnictvo", status: "draft" });
   const db = { prepare(sql) { assert.match(sql, /^SELECT\b/); assert.doesNotMatch(sql, /\bLIMIT\b/i); return { async all() { return { success: true, results: rows }; } }; } };
-  const preview = await previewHelpItems(db, [input()], categories, regions);
+  const preview = await previewHelpItems(db, [input({ category: "dobrovolnictvo", actionLabel: "Chcem pomôcť" })], categories, regions);
   assert.equal(preview.EXISTING_SAME, 1);
   assert.equal(preview.rows[0].matchedProductionId, 151);
 });
@@ -87,12 +87,21 @@ test("106 inputs perform only one SELECT and no D1 write", async () => {
     },
     batch() { throw new Error("batch must never run"); },
   };
-  const items = Array.from({ length: 106 }, (_, index) => input({ title: `Útulok ${index}`, slug: `utulok-${index}`, organization: `OZ ${index}`, city: `Mesto ${index}`, actionUrl: `https://utulok-${index}.sk`, contactNote: "" }));
+  const items = Array.from({ length: 106 }, (_, index) => input({ category: "dobrovolnictvo", title: `Výzva ${index}`, slug: `vyzva-${index}`, organization: `OZ ${index}`, city: `Mesto ${index}`, actionLabel: "Chcem pomôcť", actionUrl: `https://vyzva-${index}.sk`, contactNote: "" }));
   const preview = await previewHelpItems(db, items, categories, regions);
   assert.equal(selects, 1);
   assert.equal(preview.total, 106);
   assert.equal(preview.NEW, 106);
   assert.equal(preview.SAFE_FOR_IMPORT, 106);
+});
+
+test("runtime preview excludes legacy shelter rows and blocks utulky as a legacy help import category", async () => {
+  let query = "";
+  const db = { prepare(sql) { query = sql; return { async all() { return { success: true, results: [] }; } }; } };
+  const preview = await previewHelpItems(db, [input()], categories, regions);
+  assert.ok(query.includes("FROM help_cases WHERE category <> 'utulky'"));
+  assert.equal(preview.BLOCKED, 1);
+  assert.match(preview.rows[0].reason, /neplatná category/);
 });
 
 test("an incomplete or failed production SELECT aborts preview instead of marking items NEW", async () => {

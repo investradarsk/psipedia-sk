@@ -41,11 +41,27 @@ test("drizzle config includes canonical organizations without removing existing 
   ]) assert.match(config, new RegExp(schema.replaceAll(".", "\\.")));
 });
 
-test("public and admin help compatibility routes remain backed by help_cases", () => {
+test("ORG-6C cuts shelter runtime identity over to canonical help_organizations without deleting legacy data", () => {
   const helpStore = read("../lib/help-store.ts");
-  const publicRoute = read("../app/pomoc-psom/[category]/page.tsx");
-  const adminRoute = read("../app/admin/pomoc/page.tsx");
-  assert.match(helpStore, /FROM help_cases/);
-  assert.match(publicRoute, /getPublishedHelpCases/);
-  assert.match(adminRoute, /getManagedHelpDashboard/);
+  const organizationStore = read("../lib/help-organization-store.ts");
+  const legacyDetailRoute = read("../app/pomoc-psom/[category]/[slug]/page.tsx");
+  const adminQuery = read("../lib/help-admin-query.ts");
+  const adminBulk = read("../lib/admin-help-bulk.ts");
+  const importRoute = read("../app/api/admin/import/route.ts");
+  const sitemap = read("../app/sitemap.ts");
+
+  assert.match(helpStore, /category === "utulky"[\s\S]*listPublishedOrganizations/);
+  assert.match(helpStore, /category === "utulky"[\s\S]*getPublicOrganizationBySlug/);
+  assert.ok(helpStore.includes("category NOT IN ('adopcia', 'utulky')"));
+  assert.match(organizationStore, /FROM help_organizations o/);
+  assert.doesNotMatch(organizationStore, /help_cases/);
+  assert.match(legacyDetailRoute, /category === "utulky"[\s\S]*permanentRedirect/);
+  assert.ok(legacyDetailRoute.includes("/organizacie/${item.slug}"));
+  assert.ok(adminQuery.includes("category <> 'utulky'"));
+  assert.ok(adminBulk.includes("category <> 'utulky'"));
+  assert.match(importRoute, /row\.category[\s\S]*=== "utulky"/);
+  assert.match(sitemap, /item\.category !== "utulky"/);
+
+  const schema = read("../db/schema.ts");
+  assert.match(schema, /"help_cases"/);
 });
