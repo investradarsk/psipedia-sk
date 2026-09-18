@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
@@ -23,6 +24,17 @@ async function expectNoHorizontalOverflow(page: Page, label: string) {
   expect(dimensions.scroll, `${label}: horizontal overflow ${dimensions.scroll}px > ${dimensions.viewport}px`).toBeLessThanOrEqual(dimensions.viewport + 1);
 }
 
+async function expectAxeClean(page: Page, label: string) {
+  const result = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const violations = result.violations.filter((item) => item.impact === "critical" || item.impact === "serious");
+  const details = violations.map((item) =>
+    `${item.id} (${item.impact}): ${item.help}\n${item.nodes.slice(0, 5).map((node) => `  ${node.target.join(" ")} – ${node.failureSummary ?? "failed"}`).join("\n")}`
+  ).join("\n\n");
+  expect(violations, `${label} accessibility violations:\n${details}`).toEqual([]);
+}
+
 function boxesOverlap(
   first: { x: number; y: number; width: number; height: number },
   second: { x: number; y: number; width: number; height: number },
@@ -36,6 +48,64 @@ function boxesOverlap(
 }
 
 test.beforeEach(async ({ page }) => useNecessaryCookies(page));
+
+test("breed atlas: compact header, legacy energy normalization, filters and compare flow work", async ({ page }) => {
+  await page.goto("/plemena");
+  await expect(page.getByRole("heading", { level: 1, name: "Plemená" })).toBeVisible();
+  const compareCta = page.getByRole("link", { name: "Porovnať plemená" });
+  await expect(compareCta).toBeVisible();
+  await expect(compareCta).toHaveAttribute("href", "/porovnat-plemena");
+  await expect(page.getByRole("button", { name: "Pokojnejšie" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Aktívne" })).toHaveCount(0);
+  const baselineCount = (await page.locator(".result-count").textContent())?.trim();
+
+  await page.goto("/plemena?energy=active");
+  await expect(page).toHaveURL(/\/plemena$/);
+  await expect(page.locator(".result-count")).toHaveText(baselineCount ?? "");
+  await expect(page.getByRole("button", { name: "Pokojnejšie" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Aktívne" })).toHaveCount(0);
+
+  const search = page.getByPlaceholder("Hľadať plemeno, krajinu alebo FCI skupinu");
+  await search.fill("labrador");
+  await expect(page.locator(".breed-card")).toHaveCount(1);
+  await expect(page).toHaveURL(/q=labrador/);
+  await search.fill("");
+
+  const origin = page.locator(".breed-origin-filter select");
+  await origin.selectOption({ index: 1 });
+  await expect(page).toHaveURL(/origin=/);
+  expect(await page.locator(".breed-card").count()).toBeGreaterThan(0);
+  await origin.selectOption("all");
+
+  const groupEight = page.getByRole("button", { name: /FCI skupina 8:/ });
+  await groupEight.click();
+  await expect(page).toHaveURL(/fciGroup=8/);
+  const section = page.locator(".fci-section-filter select");
+  await expect(section).toBeEnabled();
+  if (await section.locator("option").count() > 1) {
+    await section.selectOption({ index: 1 });
+    await expect(page).toHaveURL(/fciSection=/);
+  }
+  await expectNoHorizontalOverflow(page, "Breed atlas desktop/mobile");
+  await expectAxeClean(page, "Breed atlas");
+
+  await compareCta.click();
+  await expect(page).toHaveURL(/\/porovnat-plemena$/);
+  const first = page.getByLabel("Prvé plemeno");
+  const second = page.getByLabel("Druhé plemeno");
+  await expect(first).toBeVisible();
+  await expect(second).toBeVisible();
+  const firstValue = await first.inputValue();
+  await expect(second.locator(`option[value="${firstValue}"]`)).toHaveAttribute("disabled", "");
+  const beforeFirstValue = await first.inputValue();
+  const beforeSecondValue = await second.inputValue();
+  await page.getByRole("button", { name: "Vymeniť poradie plemien" }).click();
+  await expect(first).toHaveValue(beforeSecondValue);
+  await expect(second).toHaveValue(beforeFirstValue);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page, "Breed compare at 390px");
+});
 
 test("breed profile: representative canonical details return 200, keep canonical metadata and avoid layout overflow", async ({ page }) => {
   for (const breed of REPRESENTATIVE_BREEDS) {
@@ -158,6 +228,51 @@ test("breed profile: suitability, accessible accordion controls and normalized s
   );
   expect(sportKeys.length, "Expected at least one normalized sport").toBeGreaterThan(0);
   expect(new Set(sportKeys).size, `Duplicate normalized sport keys: ${sportKeys.join(", ")}`).toBe(sportKeys.length);
+});
+
+test("breed profile: sticky section navigation, no-crop media, useful cards and accessibility work", async ({ page }) => {
+  await page.goto("/plemena/biely-svajciarsky-ovciak");
+  const nav = page.getByRole("navigation", { name: "Navigácia v profile plemena" });
+  await expect(nav).toBeVisible();
+
+  const position = await nav.evaluate((element) => getComputedStyle(element).position);
+  expect(position).toBe("sticky");
+  const expectedTop = (page.viewportSize()?.width ?? 0) <= 820 ? "68px" : "76px";
+  expect(await nav.evaluate((element) => getComputedStyle(element).top)).toBe(expectedTop);
+
+  const image = page.getByTestId("breed-hero-image");
+  await expect(image).toBeVisible();
+  expect(await image.evaluate((element) => getComputedStyle(element).objectFit)).toBe("contain");
+  expect(await image.evaluate((element) => getComputedStyle(element).objectPosition)).toContain("50%");
+
+  const fciLink = nav.getByRole("link", { name: "FCI", exact: true });
+  await fciLink.focus();
+  await expect(fciLink).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#fci$/);
+  await expect(page.locator("#fci")).toBeVisible();
+  await expect(fciLink).toHaveAttribute("aria-current", "location");
+
+  const sportsLink = nav.getByRole("link", { name: "Športy", exact: true });
+  if (await sportsLink.count()) {
+    await page.locator("#sporty").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(250);
+    await expect(sportsLink).toHaveAttribute("aria-current", "location");
+  }
+
+  for (const href of [
+    "/adresar/chovatelske-kluby",
+    "/adresar/chovatelske-stanice",
+    "/adresar/kynologicke-kluby",
+  ]) {
+    await expect(page.locator(`a[href="${href}"]`)).toBeVisible();
+  }
+  await expect(page.locator('a[href^="/adresar/treneri?breed="]')).toBeVisible();
+  await expectNoHorizontalOverflow(page, "Breed profile sticky navigation");
+  await expectAxeClean(page, "Breed profile");
+
+  await page.goto("/plemena/nova-scotia-duck-tolling-retriever");
+  await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();
 });
 
 test("breed profile: FCI CTA opens the production standard with seven adaptive groups and global controls", async ({ page }) => {
