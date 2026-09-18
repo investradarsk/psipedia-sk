@@ -78,6 +78,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.getByLabel("Krátky úvod v hero (2–4 vety)").fill("Izolovaný lokálny koncept pre BREEDS-ADMIN E2E.");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/plemena\/\d+$/);
+    await waitForBreedEditor(page);
 
     await page.getByLabel("Prehľad plemena").fill("Overený lokálny prehľad používaný iba v izolovanom CI.");
     await page.getByLabel("Každodenné potreby").fill("Lokálny test praktického obsahu.");
@@ -86,6 +87,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je uložený.")).toBeVisible();
     await page.reload();
+    await waitForBreedEditor(page);
     await expect(page.getByLabel("Prehľad plemena")).toHaveValue("Overený lokálny prehľad používaný iba v izolovanom CI.");
     await expect(page.getByLabel("Každodenné potreby")).toHaveValue("Lokálny test praktického obsahu.");
   });
@@ -123,8 +125,9 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je uložený.")).toBeVisible();
     await page.reload();
+    await waitForBreedEditor(page);
 
-    await expect(page.getByText("Nosework", { exact: true })).toBeVisible();
+    await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
     await expect(page.getByLabel(/BREEDS-ADMIN súvisiaci článok/)).toBeChecked();
     await expect(page.getByLabel(/BREEDS-ADMIN Chovateľská stanica/)).toBeChecked();
     await expect(page.getByLabel(/BREEDS-ADMIN Chovateľský klub/)).toBeChecked();
