@@ -41,7 +41,7 @@ export function AdminEditorialAuthorField({
 }: {
   selectedProfileId: number | null | undefined;
   legacyAuthor: string;
-  onSelectionChange: (id: number | null, displayName?: string) => void;
+  onSelectionChange: (id: number | null, displayName?: string, markDirty?: boolean) => void;
   onLegacyAuthorChange: (value: string) => void;
   onMessage: (value: string) => void;
   onError: (value: string) => void;
@@ -69,7 +69,7 @@ export function AdminEditorialAuthorField({
       if (selectDefault && selectedProfileId === undefined) {
         const defaultAuthor = nextAuthors.find((author) => author.active && author.isDefault)
           ?? nextAuthors.find((author) => author.active && author.displayName === "Redakcia Psipedia");
-        if (defaultAuthor) onSelectionChange(defaultAuthor.id, defaultAuthor.displayName);
+        if (defaultAuthor) onSelectionChange(defaultAuthor.id, defaultAuthor.displayName, false);
       }
     } catch (error) {
       onError(error instanceof Error ? error.message : "Autorov sa nepodarilo načítať.");
