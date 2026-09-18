@@ -94,3 +94,134 @@ export async function resolveArticleAuthorSelection(
   if (defaultProfile) return { authorProfileId: defaultProfile.id, author: defaultProfile.displayName };
   return { authorProfileId: null, author: legacyAuthor || "Redakcia Psipedia" };
 }
+
+
+export type EditorialAuthorProfileInput = {
+  displayName?: unknown;
+  kind?: unknown;
+  avatarUrl?: unknown;
+  shortBio?: unknown;
+  role?: unknown;
+  active?: unknown;
+  isDefault?: unknown;
+};
+
+function safeAuthorText(value: unknown, max: number) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+export function slugifyEditorialAuthorName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 70) || "autor";
+}
+
+export function normalizeEditorialAuthorProfileInput(input: EditorialAuthorProfileInput) {
+  const displayName = safeAuthorText(input.displayName, 160);
+  const kind: EditorialAuthorKind = input.kind === "individual" || input.kind === "external" ? input.kind : "team";
+  const avatarUrl = safeAuthorText(input.avatarUrl, 2_000);
+  const shortBio = safeAuthorText(input.shortBio, 1_200);
+  const role = safeAuthorText(input.role, 160);
+  const active = input.active !== false;
+  const isDefault = input.isDefault === true;
+
+  if (displayName.length < 2) throw new Error("Meno autora musí mať aspoň 2 znaky.");
+  if (avatarUrl && !avatarUrl.startsWith("/media/")) {
+    let parsed: URL;
+    try {
+      parsed = new URL(avatarUrl);
+    } catch {
+      throw new Error("Avatar musí byť platná HTTPS adresa alebo interný obrázok.");
+    }
+    if (parsed.protocol !== "https:") throw new Error("Avatar musí používať HTTPS.");
+  }
+  if (isDefault && !active) throw new Error("Predvolený autor musí zostať aktívny.");
+
+  return { displayName, kind, avatarUrl: avatarUrl || null, shortBio, role, active, isDefault };
+}
+
+async function uniqueEditorialAuthorSlug(database: D1Database, displayName: string, excludeId?: number) {
+  const base = slugifyEditorialAuthorName(displayName);
+  for (let suffix = 1; suffix <= 100; suffix += 1) {
+    const slug = suffix === 1 ? base : `${base}-${suffix}`;
+    const row = await database.prepare(
+      `SELECT id FROM editorial_author_profiles WHERE slug = ? ${excludeId ? "AND id <> ?" : ""} LIMIT 1`,
+    ).bind(...(excludeId ? [slug, excludeId] : [slug])).first<{ id: number }>();
+    if (!row) return slug;
+  }
+  throw new Error("Pre autora sa nepodarilo vytvoriť jedinečnú adresu.");
+}
+
+export async function createEditorialAuthorProfile(
+  database: D1Database,
+  rawInput: EditorialAuthorProfileInput,
+) {
+  const input = normalizeEditorialAuthorProfileInput(rawInput);
+  const slug = await uniqueEditorialAuthorSlug(database, input.displayName);
+
+  if (input.isDefault) {
+    await database.prepare("UPDATE editorial_author_profiles SET is_default = 0 WHERE is_default = 1").run();
+  }
+
+  const row = await database.prepare(`
+    INSERT INTO editorial_author_profiles (
+      slug, kind, display_name, avatar_url, short_bio, role, is_active, is_default
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    RETURNING id, slug, kind, display_name, avatar_url, short_bio, role, is_active, is_default
+  `).bind(
+    slug,
+    input.kind,
+    input.displayName,
+    input.avatarUrl,
+    input.shortBio,
+    input.role,
+    input.active ? 1 : 0,
+    input.isDefault ? 1 : 0,
+  ).first<EditorialAuthorProfileRow>();
+
+  if (!row) throw new Error("Profil autora sa nepodarilo vytvoriť.");
+  return rowToProfile(row);
+}
+
+export async function updateEditorialAuthorProfile(
+  database: D1Database,
+  id: number,
+  rawInput: EditorialAuthorProfileInput,
+) {
+  const current = await getEditorialAuthorProfile(database, id, false);
+  if (!current) throw new Error("Profil autora sa nenašiel.");
+  const input = normalizeEditorialAuthorProfileInput(rawInput);
+  if (current.isDefault && !input.active) {
+    throw new Error("Predvoleného autora nemožno deaktivovať. Najprv nastav iný predvolený profil.");
+  }
+  const slug = await uniqueEditorialAuthorSlug(database, input.displayName, id);
+
+  if (input.isDefault) {
+    await database.prepare("UPDATE editorial_author_profiles SET is_default = 0 WHERE is_default = 1 AND id <> ?").bind(id).run();
+  }
+
+  const row = await database.prepare(`
+    UPDATE editorial_author_profiles SET
+      slug = ?, kind = ?, display_name = ?, avatar_url = ?, short_bio = ?, role = ?,
+      is_active = ?, is_default = ?
+    WHERE id = ?
+    RETURNING id, slug, kind, display_name, avatar_url, short_bio, role, is_active, is_default
+  `).bind(
+    slug,
+    input.kind,
+    input.displayName,
+    input.avatarUrl,
+    input.shortBio,
+    input.role,
+    input.active ? 1 : 0,
+    input.isDefault ? 1 : current.isDefault ? 1 : 0,
+    id,
+  ).first<EditorialAuthorProfileRow>();
+
+  if (!row) throw new Error("Profil autora sa nepodarilo uložiť.");
+  return rowToProfile(row);
+}
