@@ -14368,3 +14368,72 @@ a.breed-fci-path-node:focus-visible {
   .admin-event-row-v2 .admin-row-actions { grid-column: 2; flex-wrap: wrap; }
   .admin-markdown-toolbar button { min-height: 42px; }
 }
+
+
+/* ARTICLE-ADMIN Word-like editor */
+.admin-optional-settings {
+  min-width: 0;
+}
+
+.admin-optional-settings > summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.admin-editor-dirty-state {
+  align-self: center;
+  color: var(--muted, #5f6f67);
+  font-size: 0.86rem;
+}
+
+.admin-video-editor {
+  min-width: 0;
+}
+
+.admin-video-preview {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.admin-video-preview iframe {
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 12px;
+  background: #111;
+}
+
+.admin-video-preview button {
+  justify-self: start;
+}
+
+.admin-field [aria-invalid="true"] {
+  border-color: #a73636;
+}
+
+.admin-field [role="alert"] {
+  color: #8b1f1f;
+}
+
+@media (max-width: 600px) {
+  .admin-editor,
+  .admin-editor-form,
+  .admin-form-card,
+  .admin-block-card,
+  .admin-video-editor {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-editor-actions > div {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .admin-video-preview iframe {
+    max-width: 100%;
+  }
+}
