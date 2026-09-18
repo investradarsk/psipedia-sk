@@ -5,7 +5,6 @@ export type BreedAtlasFilters = {
   fciGroup: string;
   fciSection: string;
   origin: string;
-  energy: "all" | "calm" | "active";
 };
 
 export type FciSectionOption = { number: string; name: string; count: number };
@@ -16,13 +15,11 @@ function first(value: string | string[] | undefined) {
 
 export function parseBreedAtlasFilters(params: Record<string, string | string[] | undefined>): BreedAtlasFilters {
   const group = first(params.fciGroup).trim();
-  const energy = first(params.energy);
   return {
     query: first(params.q).trim().slice(0, 120),
     fciGroup: /^(?:[1-9]|10)$/.test(group) ? group : "",
     fciSection: first(params.fciSection).trim().slice(0, 20),
     origin: first(params.origin).trim().slice(0, 160),
-    energy: energy === "calm" || energy === "active" ? energy : "all",
   };
 }
 
@@ -32,7 +29,6 @@ export function breedAtlasHref(filters: BreedAtlasFilters) {
   if (filters.fciGroup) params.set("fciGroup", filters.fciGroup);
   if (filters.fciGroup && filters.fciSection) params.set("fciSection", filters.fciSection);
   if (filters.origin) params.set("origin", filters.origin);
-  if (filters.energy !== "all") params.set("energy", filters.energy);
   const query = params.toString();
   return `/plemena${query ? `?${query}` : ""}`;
 }

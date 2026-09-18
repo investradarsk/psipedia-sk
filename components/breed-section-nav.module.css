@@ -1,0 +1,37 @@
+.nav {
+  position: sticky;
+  z-index: 40;
+  top: 76px;
+  box-shadow: 0 10px 26px rgba(23, 53, 43, 0.06);
+}
+
+.nav :global(.section-tabs-inner) {
+  min-height: 60px;
+  padding-block: 8px;
+}
+
+.nav :global(.section-tab) {
+  min-height: 44px;
+}
+
+.nav :global(.section-tab[aria-current="location"]) {
+  border-color: var(--forest);
+  color: var(--white);
+  background: var(--forest);
+}
+
+.nav :global(.section-tab:focus-visible) {
+  outline: 3px solid rgba(23, 75, 56, 0.28);
+  outline-offset: 2px;
+}
+
+@media (max-width: 820px) {
+  .nav {
+    top: 68px;
+  }
+
+  .nav :global(.section-tabs-inner) {
+    min-height: 56px;
+    padding-block: 6px;
+  }
+}

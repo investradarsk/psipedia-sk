@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
 import { ArrowIcon } from "@/components/icons";
+import {
+  PublicActionLink,
+  PublicFoundation,
+  PublicSectionHeader,
+} from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
 import { fciGroups } from "@/lib/content";
 import { parseBreedAtlasFilters } from "@/lib/breed-atlas";
@@ -15,8 +20,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const section = await getManagedPortalSection("plemena");
   return buildPageMetadata({
     title: section?.label ?? "Atlas plemien psov",
-    description: section?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, energia, starostlivosť a vhodnosť do rodiny.",
-    // FCI, sekcia, pôvod, energia a vyhľadávanie sú používateľské filtre,
+    description: section?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, starostlivosť a vhodnosť do rodiny.",
+    // FCI, sekcia, pôvod a vyhľadávanie sú používateľské filtre,
     // nie samostatné SEO landing pages. Canonical preto zostáva bez query.
     path: "/plemena",
   });
@@ -28,10 +33,10 @@ export default async function BreedsPage({ searchParams }: { searchParams: Promi
   const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedCanonicalBreedIndex()]);
   const rawSearchParams = await searchParams;
   const initialFilters = parseBreedAtlasFilters(rawSearchParams);
-  const hasQuery = Object.values(rawSearchParams).some((value) => Array.isArray(value) ? value.some(Boolean) : Boolean(value));
+  const hasQuery = Object.entries(rawSearchParams).some(([key, value]) => key !== "energy" && (Array.isArray(value) ? value.some(Boolean) : Boolean(value)));
   const schema = hasQuery ? null : buildCollectionPageJsonLd({
     name: portalSection?.label ?? "Plemená",
-    description: portalSection?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, energia, starostlivosť a vhodnosť do rodiny.",
+    description: portalSection?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, starostlivosť a vhodnosť do rodiny.",
     path: "/plemena",
     breadcrumbs: [
       { name: "Domov", path: "/" },
@@ -43,30 +48,36 @@ export default async function BreedsPage({ searchParams }: { searchParams: Promi
     <>
       {schema && <StructuredData value={schema} />}
       <main id="obsah">
-        <header className="page-hero page-hero--breed-atlas page-hero--photo shell">
-          <img className="page-hero-photo" src="/images/breeds/australsky-ovciak.webp" alt="" aria-hidden="true" decoding="async" />
-          <div className="page-hero-inner">
-            <span className="eyebrow">{portalSection?.eyebrow ?? "Atlas plemien"}</span>
-            <h1>{portalSection?.label ?? "Plemená"}</h1>
-            <p>Nájdite plemeno podľa názvu, pôvodu, FCI skupiny alebo sekcie.</p>
+        <PublicFoundation>
+          <div className="shell">
+            <PublicSectionHeader
+              variant="data"
+              eyebrow={portalSection?.eyebrow ?? "Atlas plemien"}
+              title={portalSection?.label ?? "Plemená"}
+              intro="Nájdite plemeno podľa názvu, pôvodu, FCI skupiny alebo sekcie."
+              actions={
+                <PublicActionLink href="/porovnat-plemena" icon={<ArrowIcon size={16} />}>
+                  Porovnať plemená
+                </PublicActionLink>
+              }
+            />
           </div>
-        </header>
-        <section className="page-body shell">
-          <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} />
-          <div className="breed-atlas-footer">
-            <nav className="breed-utility-links" aria-label="Ďalšie možnosti v sekcii Plemená">
-              <Link href="/porovnat-plemena">Porovnať plemená <ArrowIcon size={17} /></Link>
-              {portalSection?.subpages.filter((subpage) => subpage.slug !== "atlas").map((subpage) => (
-                <Link href={portalSubpageHref(portalSection, subpage)} key={subpage.slug}>{subpage.label} <ArrowIcon size={17} /></Link>
-              ))}
-            </nav>
+          <section className="page-body shell">
+            <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} />
+            <div className="breed-atlas-footer">
+              <nav className="breed-utility-links" aria-label="Ďalšie možnosti v sekcii Plemená">
+                {portalSection?.subpages.filter((subpage) => subpage.slug !== "atlas" && subpage.slug !== "porovnanie").map((subpage) => (
+                  <Link href={portalSubpageHref(portalSection, subpage)} key={subpage.slug}>{subpage.label} <ArrowIcon size={17} /></Link>
+                ))}
+              </nav>
             <aside className="fci-source-note">
               <strong>Čo znamená FCI skupina?</strong>
               <p>Medzinárodná kynologická federácia zaraďuje uznané plemená do 10 skupín podľa pôvodu a pracovného využitia. V atlase používame toto oficiálne členenie; obrazové portréty sú ilustračné.</p>
               <a href="https://www.fci.be/nomenclature/" target="_blank" rel="noreferrer">Oficiálna nomenklatúra FCI <ArrowIcon size={17} /></a>
             </aside>
-          </div>
-        </section>
+            </div>
+          </section>
+        </PublicFoundation>
       </main>
     </>
   );
