@@ -269,7 +269,7 @@ INSERT INTO organization_fundraising_methods (
     990206, 990001, 'DONATION_PAGE', 'ORG-7E skrytá expired metóda', 'https://example.org/expired', NULL,
     NULL, 'hidden expired beneficiary', 'ORGANIZATION_OWNED', 32,
     1, 'VERIFIED', '2026-09-18T07:00:00.000Z', 'org7e-verifier@example.invalid',
-    NULL, '2026-09-18T07:59:59.000Z', NULL, 1, NULL,
+    NULL, '2026-09-18T05:00:00.000Z', NULL, 1, NULL,
     '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
     'org7e-e2e-fixture', 'org7e-e2e-fixture'
   ),
