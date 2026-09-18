@@ -78,8 +78,15 @@ test("article reading CSS preserves editorial measures and mobile overflow safet
 test("end recommendations use the FOUNDATION-PUBLIC compact content list", () => {
   assert.match(detail, /const relatedItems = related\.slice\(0, 3\)/);
   assert.match(detail, /<PublicContentList label="Súvisiace články"/);
-  assert.match(detail, /<PublicContentListItem/);
+  assert.match(detail, /<ArticleListItem/);
   assert.doesNotMatch(detail, /<ArticleCard\b/);
+});
+
+test("public article detail and related list do not render reading time, excerpts or redundant CTA", () => {
+  assert.doesNotMatch(detail, /\{article\.readTime\}\s*čítania/);
+  assert.doesNotMatch(detail, /item\.readTime/);
+  assert.doesNotMatch(detail, /excerpt=\{item\.excerpt\}/);
+  assert.doesNotMatch(detail, /actionLabel="Čítať"/);
 });
 
 test("canonical author presentation keeps a safe legacy fallback", () => {
