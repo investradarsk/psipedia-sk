@@ -353,8 +353,8 @@ export function AdminArticleEditor({
             <RichTextInput id="article-intro" rows={5} value={intro} onChange={setIntro} placeholder="Uveď čitateľa do témy…" showLists required />
           </div>
           <div className="admin-field">
-            <label htmlFor="article-takeaway">To najdôležitejšie</label>
-            <RichTextInput id="article-takeaway" rows={3} value={takeaway} onChange={setTakeaway} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists required />
+            <label htmlFor="article-takeaway">To najdôležitejšie <small>nepovinné</small></label>
+            <RichTextInput id="article-takeaway" rows={3} value={takeaway} onChange={setTakeaway} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists />
           </div>
         </section>
 
