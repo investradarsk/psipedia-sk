@@ -142,8 +142,6 @@ export function getHelpPresentation(item: HelpCase) {
   return {
     description: descriptionText,
     contactNote: contactRemainder,
-    organizationType: usefulHelpValue(fieldValue(fields, "Typ organizácie")),
-    coverage: usefulHelpValue(fieldValue(fields, "Oblasť pôsobenia", "Pokrytie")),
     helpOptions: helpOptions.flatMap(([label, value]) => {
       const clean = usefulHelpValue(value);
       return clean && !negativeValue.test(clean) ? [{ label, value: clean }] : [];
@@ -155,9 +153,4 @@ export function getHelpPresentation(item: HelpCase) {
     }),
     lastChecked: usefulHelpValue(fieldValue(fields, "Posledná kontrola")),
   };
-}
-
-export function sameLooseText(left: string | null | undefined, right: string | null | undefined) {
-  const normalize = (value: string | null | undefined) => (value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  return Boolean(normalize(left)) && normalize(left) === normalize(right);
 }
