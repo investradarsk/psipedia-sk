@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 type RuntimeBindings = {
   DB?: D1Database;
+  BUCKET?: R2Bucket;
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
