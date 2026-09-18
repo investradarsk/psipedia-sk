@@ -31,7 +31,7 @@ export function NewsHub({
     ? allNews.filter((article) => article.newsCategory === category.slug)
     : allNews;
   const archivePath = category ? `/novinky/${category.slug}` : "/novinky";
-  const title = category ? category.label : "Novinky zo sveta psov";
+  const title = category ? category.label : `${section.label} zo sveta psov`;
   const intro = category
     ? category.description
     : "Všetky publikované novinky na jednom mieste. Vyber si kategóriu alebo prejdi celý archív od najnovších článkov.";
