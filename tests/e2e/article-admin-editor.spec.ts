@@ -85,7 +85,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await intro.selectText();
     const richWrapper = intro.locator("..");
     await richWrapper.getByRole("button", { name: "Vložiť odkaz" }).click();
-    await richWrapper.getByLabel("Odkaz").fill("javascript:alert(1)");
+    await richWrapper.getByLabel("Odkaz", { exact: true }).fill("javascript:alert(1)");
     await richWrapper.getByRole("button", { name: "Použiť" }).click();
     await expect(richWrapper.getByRole("alert")).toContainText("bezpečný odkaz");
 
