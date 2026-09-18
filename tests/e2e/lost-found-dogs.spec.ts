@@ -109,3 +109,135 @@ test("authorized admin detail receives private contact fields from the private t
   const inputValues = await page.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
   expect(inputValues).toContain("+421900000001");
 });
+
+
+test("authenticated admin LOST/FOUND mutation contract covers create, edit, lifecycle, duplicate and archive", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Mutation contract runs once on desktop; mobile coverage remains read-only for overflow/accessibility.");
+
+  const unique = `${Date.now()}-${testInfo.retry}`;
+  const contactEmail = `lost-found-runtime-${unique}@example.invalid`;
+  const basePayload = {
+    type: "FOUND",
+    slug: `najdeny-runtime-contract-${unique}`,
+    dogName: "Runtime Contract",
+    sex: "UNKNOWN",
+    breedId: null,
+    breed: "",
+    breedUnknown: true,
+    color: "čierna",
+    approximateAge: "neznámy",
+    size: "MEDIUM",
+    description: "Testovacie hlásenie pre overenie LOST/FOUND runtime kontraktu.",
+    distinguishingMarks: "",
+    collarDescription: "",
+    chipped: "UNKNOWN",
+    mainImage: null,
+    mainImageKey: null,
+    gallery: [],
+    eventDate: "2026-09-18",
+    lastSeenDateTime: null,
+    region: "Nitriansky kraj",
+    district: "Nitra",
+    city: "Nitra",
+    locationDescription: "Izolovaná lokálna CI fixture.",
+    publicLatitude: null,
+    publicLongitude: null,
+    publicLocationPrecision: "MUNICIPALITY",
+    contactName: "Runtime Contract CI",
+    contactPhone: "+421900000099",
+    contactEmail,
+    publicContactNote: "Kontakt sprostredkuje administrácia.",
+    source: "EDITORIAL",
+    sourceUrl: null,
+    expiresAt: null,
+    internalNote: "Neverejná runtime contract poznámka.",
+  };
+
+  const createResponse = await page.request.post("/api/admin/lost-found", {
+    data: { ...basePayload, status: "DRAFT" },
+  });
+  expect(createResponse.status()).toBe(201);
+  const created = await createResponse.json() as { report: { id: number; status: string; contactEmail: string | null } };
+  expect(created.report.status).toBe("DRAFT");
+  expect(created.report.contactEmail).toBe(contactEmail);
+  const reportId = created.report.id;
+
+  const put = async (payload: Record<string, unknown>) => page.request.put(`/api/admin/lost-found/${reportId}`, {
+    data: { ...basePayload, ...payload },
+  });
+
+  const pendingResponse = await put({ status: "PENDING" });
+  expect(pendingResponse.status()).toBe(200);
+  const pending = await pendingResponse.json() as { report: { status: string } };
+  expect(pending.report.status).toBe("PENDING");
+
+  const invalidResponse = await put({ status: "RESOLVED" });
+  expect(invalidResponse.status()).toBe(400);
+  const invalid = await invalidResponse.json() as { error?: string };
+  expect(invalid.error).toContain("Nepovolený prechod stavu PENDING -> RESOLVED");
+
+  const activeResponse = await put({ status: "ACTIVE" });
+  expect(activeResponse.status()).toBe(200);
+  const active = await activeResponse.json() as { report: { status: string; publishedAt: string | null; expiresAt: string | null } };
+  expect(active.report.status).toBe("ACTIVE");
+  expect(active.report.publishedAt).toBeTruthy();
+  expect(active.report.expiresAt).toBeTruthy();
+
+  const editedResponse = await put({ status: "ACTIVE", dogName: "Runtime Contract Edited" });
+  expect(editedResponse.status()).toBe(200);
+  const edited = await editedResponse.json() as { report: { status: string; dogName: string; contactEmail: string | null } };
+  expect(edited.report.status).toBe("ACTIVE");
+  expect(edited.report.dogName).toBe("Runtime Contract Edited");
+  expect(edited.report.contactEmail).toBe(contactEmail);
+
+  const resolvedResponse = await put({ status: "RESOLVED", dogName: "Runtime Contract Edited" });
+  expect(resolvedResponse.status()).toBe(200);
+  const resolved = await resolvedResponse.json() as { report: { status: string; resolvedAt: string | null } };
+  expect(resolved.report.status).toBe("RESOLVED");
+  expect(resolved.report.resolvedAt).toBeTruthy();
+
+  const archivedResponse = await put({ status: "ARCHIVED", dogName: "Runtime Contract Edited" });
+  expect(archivedResponse.status()).toBe(200);
+  const archived = await archivedResponse.json() as { report: { status: string; archivedAt: string | null } };
+  expect(archived.report.status).toBe("ARCHIVED");
+  expect(archived.report.archivedAt).toBeTruthy();
+
+  const canonicalCreate = await page.request.post("/api/admin/lost-found", {
+    data: {
+      ...basePayload,
+      slug: `najdeny-runtime-canonical-${unique}`,
+      dogName: "Runtime Canonical",
+      contactEmail: `canonical-${unique}@example.invalid`,
+      status: "DRAFT",
+    },
+  });
+  expect(canonicalCreate.status()).toBe(201);
+  const canonical = await canonicalCreate.json() as { report: { id: number } };
+
+  const duplicateCreate = await page.request.post("/api/admin/lost-found", {
+    data: {
+      ...basePayload,
+      slug: `najdeny-runtime-duplicate-${unique}`,
+      dogName: "Runtime Duplicate",
+      contactEmail: `duplicate-${unique}@example.invalid`,
+      status: "DRAFT",
+    },
+  });
+  expect(duplicateCreate.status()).toBe(201);
+  const duplicate = await duplicateCreate.json() as { report: { id: number } };
+
+  const duplicateResponse = await page.request.post(`/api/admin/lost-found/${duplicate.report.id}/duplicate`, {
+    data: {
+      duplicateOfId: canonical.report.id,
+      duplicateReason: "CI regression duplicate",
+    },
+  });
+  expect(duplicateResponse.status()).toBe(200);
+  const duplicateResult = await duplicateResponse.json() as {
+    report: { status: string; duplicateOfId: number | null; duplicateReason: string; archivedAt: string | null };
+  };
+  expect(duplicateResult.report.status).toBe("ARCHIVED");
+  expect(duplicateResult.report.duplicateOfId).toBe(canonical.report.id);
+  expect(duplicateResult.report.duplicateReason).toBe("CI regression duplicate");
+  expect(duplicateResult.report.archivedAt).toBeTruthy();
+});
