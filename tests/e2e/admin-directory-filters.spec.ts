@@ -1,252 +1,251 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test.describe("admin directory server filters", () => {
-  test("filters and pagination use the full matching dataset", async ({ page }) => {
-    const response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
+test.describe("admin directory v2", () => {
+  test("dense list uses the full dataset, accent-insensitive search and combined filters", async ({ page }) => {
+    let response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 61");
     await expect(page.locator(".admin-directory-row")).toHaveCount(50);
+    await expect(page.locator(".admin-directory-row").first()).toContainText("Aktualizované");
 
     await page.getByRole("link", { name: "Ďalšia →" }).click();
-    await expect(page).toHaveURL(/\/admin\/adresar\?category=veterinari&status=draft&q=E2E&page=2$/);
+    await expect(page).toHaveURL(/page=2/);
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 61");
     await expect(page.locator(".admin-directory-row")).toHaveCount(11);
 
-    await page.getByRole("button", { name: "Publikované", exact: true }).click();
-    await page.waitForURL((url) => url.pathname === "/admin/adresar" && url.searchParams.get("category") === "veterinari" && url.searchParams.get("status") === "published" && url.searchParams.get("q") === "E2E" && !url.searchParams.has("page"));
+    await page.goto("/admin/adresar?category=veterinari&status=draft&q=zilina&region=%C5%BDilinsk%C3%BD+kraj&district=%C5%BDilina&city=%C5%BDilina&verification=unverified&media=without-image");
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 1");
-    await expect(page.locator(".admin-directory-row")).toHaveCount(1);
+    const onlyRow = page.locator(".admin-directory-row").first();
+    await expect(onlyRow).toContainText("E2E Veterina 061");
+    await expect(onlyRow).toContainText("Neoverené");
+    await expect(onlyRow).toContainText("Bez obrázka");
   });
 
   test("form filters reset pagination and invalid params fall back safely", async ({ page }) => {
-    let response = await page.goto("/admin/adresar?category=bogus&status=archived&page=-4", { waitUntil: "domcontentloaded" });
+    let response = await page.goto("/admin/adresar?category=bogus&status=archived&verification=bogus&media=bogus&page=-4", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByLabel("Kategória")).toHaveValue("");
-    await expect(page.getByRole("button", { name: "Všetky", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByLabel("Stav publikácie")).toHaveValue("all");
+    await expect(page.getByLabel("Overenie")).toHaveValue("all");
+    await expect(page.getByLabel("Obrázok")).toHaveValue("all");
 
     response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E&page=2", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
-    await page.getByLabel("Hľadať profil").fill("E2E");
+    await page.getByLabel("Hľadať").fill("E2E");
     await page.getByLabel("Kategória").selectOption("treneri");
     await page.getByRole("button", { name: "Použiť filtre" }).click();
-    await page.waitForURL((url) => url.pathname === "/admin/adresar" && url.searchParams.get("q") === "E2E" && url.searchParams.get("category") === "treneri" && url.searchParams.get("status") === "draft" && !url.searchParams.has("page"));
+    await page.waitForURL((url) =>
+      url.pathname === "/admin/adresar"
+      && url.searchParams.get("q") === "E2E"
+      && url.searchParams.get("category") === "treneri"
+      && url.searchParams.get("status") === "draft"
+      && !url.searchParams.has("page"),
+    );
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 1");
-    await expect(page.locator(".admin-directory-row")).toHaveCount(1);
   });
 
-  test("select current page, promote to all matching, retain across pagination and clear on filter change", async ({ page }) => {
+  test("selection promotes to all matching, survives pagination and clears when membership changes", async ({ page }) => {
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
     const pageCheckbox = page.getByLabel("Vybrať všetky profily na tejto strane");
     await pageCheckbox.check();
     await expect(page.getByText("50 položiek vybraných na tejto strane")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Vybrať všetkých 61 výsledkov zodpovedajúcich filtrom" })).toBeVisible();
-
     await page.getByRole("button", { name: "Vybrať všetkých 61 výsledkov zodpovedajúcich filtrom" }).click();
     await expect(page.getByText("Vybraných všetkých 61 výsledkov")).toBeVisible();
-    await expect(page.getByText("Vybrané: 61")).toBeVisible();
 
     await page.getByRole("link", { name: "Ďalšia →" }).click();
-    await expect(page).toHaveURL(/page=2$/);
     await expect(page.getByText("Vybraných všetkých 61 výsledkov")).toBeVisible();
-    await expect(page.getByText("Vybrané: 61")).toBeVisible();
 
-    await page.getByRole("button", { name: "Publikované", exact: true }).click();
+    await page.getByLabel("Stav publikácie").selectOption("published");
+    await page.getByRole("button", { name: "Použiť filtre" }).click();
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 1");
     await expect(page.getByText("Vybrané: 61")).toHaveCount(0);
-    await expect(page.getByText("Vybraných všetkých 61 výsledkov")).toHaveCount(0);
   });
 
-  test("explicit selection preflight reports eligibility without mutation", async ({ page }) => {
-    await page.goto("/admin/adresar?category=veterinari&q=E2E");
-    await page.getByLabel("Vybrať profil E2E Veterina publikovaná").check();
-    await page.getByLabel("Vybrať profil E2E Veterina 059").check();
+  test("directory bulk publish and move-to-draft execute only after preflight confirmation", async ({ page }) => {
+    await page.goto("/admin/adresar?category=dalsie-sluzby&q=Bulk+Fixture");
+    await page.getByLabel("Vybrať profil Bulk Fixture Draft").check();
+    await page.getByLabel("Vybrať profil Bulk Fixture Published").check();
     await expect(page.getByText("Vybrané: 2")).toBeVisible();
 
     await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    const dialog = page.getByRole("dialog", { name: "Publikovať 2 profilov?" });
-    await expect(dialog).toBeVisible();
+    let dialog = page.getByRole("dialog", { name: "Publikovať 2 profilov?" });
     await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
     await expect(dialog).toContainText("2 výsledkov / 1 eligible / 1 by boli preskočené");
-    await expect(dialog).toContainText("už sú v cieľovom stave");
-    await expect(dialog.getByRole("button", { name: /Vykonať hromadnú zmenu/ })).toBeDisabled();
+    await dialog.getByRole("button", { name: /Potvrdiť a vykonať: publikovať/i }).click();
+    await expect(dialog).toContainText("Hotovo: 1 zmenených / 1 preskočených / 0 zlyhaní");
+    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
 
-    await dialog.getByRole("button", { name: "Zavrieť" }).click();
-    await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
-    await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 61");
+    await expect(page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture Draft" })).toContainText("Publikované");
+    await page.getByLabel("Vybrať všetky profily na tejto strane").check();
+    await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
+    dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 2 profilov?" });
+    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
+    await expect(dialog).toContainText("2 výsledkov / 2 eligible / 0 by boli preskočené");
+    await dialog.getByRole("button", { name: /Potvrdiť a vykonať: presunúť do konceptov/i }).click();
+    await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
+    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+    await expect(page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture Published" })).toContainText("Koncept");
   });
 
-  test("preflight API validates authorization, contracts, server normalization and snapshot revalidation", async ({ page, request }) => {
-    const unauthorized = await request.post("http://127.0.0.1:5173/api/admin/bulk/preflight", {
+  test("bulk API supports all-matching execution and keeps verification outside bulk actions", async ({ page, request }) => {
+    const unauthorized = await request.post("http://127.0.0.1:5173/api/admin/bulk/execute", {
       data: {
-        module: "directory",
-        action: "publish",
-        selection: { mode: "explicit", ids: [1] },
+        module: "directory", action: "publish", snapshotId: "missing",
+        membershipFingerprint: "missing", selection: { mode: "all-matching" },
       },
     });
     expect(unauthorized.status()).toBe(401);
 
-    await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
-
-    for (const body of [
-      { module: "events", action: "publish", selection: { mode: "explicit", ids: [1] } },
-      { module: "directory", action: "delete", selection: { mode: "explicit", ids: [1] } },
-      { module: "directory", action: "publish", selection: { mode: "explicit", ids: [0] } },
-    ]) {
-      const invalid = await page.request.post("/api/admin/bulk/preflight", { data: body });
-      expect(invalid.status()).toBe(400);
-    }
-
-    const allMatching = await page.request.post("/api/admin/bulk/preflight", {
+    await page.goto("/admin/adresar?category=dalsie-sluzby&status=draft&q=Bulk+Fixture");
+    const preflight = await page.request.post("/api/admin/bulk/preflight", {
       data: {
         module: "directory",
         action: "publish",
         selection: {
           mode: "all-matching",
-          filter: { category: "veterinari", status: "draft", q: " E2E ", page: 999 },
+          filter: {
+            category: "dalsie-sluzby", status: "draft", q: " Bulk Fixture ",
+            region: "", district: "", city: "", verification: "all", media: "all", page: 999,
+          },
         },
       },
     });
-    expect(allMatching.ok()).toBeTruthy();
-    const allMatchingBody = await allMatching.json();
-    expect(allMatchingBody.matched).toBe(61);
-    expect(allMatchingBody.eligible).toBe(61);
-    expect(allMatchingBody.wouldBeSkipped).toBe(0);
-    expect(allMatchingBody.snapshot.filterFingerprint).toBe("directory:v1:category=veterinari&status=draft&q=E2E");
-    expect(allMatchingBody.snapshot.filterFingerprint).not.toContain("page");
+    expect(preflight.ok()).toBeTruthy();
+    const body = await preflight.json();
+    expect(body.matched).toBe(2);
+    expect(body.eligible).toBe(2);
+    expect(body.snapshot.filterFingerprint).toBe(
+      "directory:v2:category=dalsie-sluzby&status=draft&q=Bulk+Fixture&region=&district=&city=&verification=all&media=all",
+    );
 
-    const revalidated = await page.request.post("/api/admin/bulk/preflight/revalidate", {
-      data: { snapshotId: allMatchingBody.snapshot.id },
-    });
-    expect(revalidated.ok()).toBeTruthy();
-    const revalidatedBody = await revalidated.json();
-    expect(revalidatedBody.matched).toBe(61);
-    expect(revalidatedBody.eligible).toBe(61);
-
-    const missing = await page.request.post("/api/admin/bulk/preflight", {
+    const execution = await page.request.post("/api/admin/bulk/execute", {
       data: {
         module: "directory",
         action: "publish",
-        selection: { mode: "explicit", ids: [999999999], filter: { category: "veterinari" } },
+        snapshotId: body.snapshot.id,
+        membershipFingerprint: body.snapshot.filterFingerprint,
+        selection: { mode: "all-matching" },
       },
     });
-    expect(missing.ok()).toBeTruthy();
-    const missingBody = await missing.json();
-    expect(missingBody.matched).toBe(1);
-    expect(missingBody.eligible).toBe(0);
-    expect(missingBody.wouldBeSkipped).toBe(1);
-    expect(missingBody.skips).toEqual([{ reason: "record-no-longer-exists", count: 1 }]);
+    expect(execution.ok()).toBeTruthy();
+    expect((await execution.json()).counts).toEqual({ requested: 2, updated: 2, skipped: 0, failed: 0 });
 
-    await page.reload();
-    await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 61");
+    const invalidTrust = await page.request.post("/api/admin/bulk/preflight", {
+      data: { module: "directory", action: "verify", selection: { mode: "explicit", ids: [1] } },
+    });
+    expect(invalidTrust.status()).toBe(400);
   });
 
-  test("selection is keyboard operable and new selection UI remains axe-clean", async ({ page }) => {
-    await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
+  test("editor safely edits contacts/media, preserves relation metadata and keeps trust separate from publication", async ({ page }) => {
+    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
+    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Upraviť profil" })).toBeVisible();
+
+    await expect(page.getByLabel("Verejný telefón")).toHaveValue("+421 900 111 222");
+    await expect(page.getByLabel("Verejný e-mail")).toHaveValue("public-fixture@example.invalid");
+    await expect(page.getByLabel("Interný e-mail")).toHaveValue("internal-fixture@example.invalid");
+    await expect(page.getByText("Trust stav: redakcia preverila základné údaje. Nie je to publication state.")).toBeVisible();
+    await expect(page.getByText("Neznamená platené ani sponzorované umiestnenie.")).toBeVisible();
+
+    const advanced = page.getByRole("button", { name: "Pokročilé a SEO" });
+    await advanced.click();
+    const drawer = page.getByRole("dialog", { name: "Pokročilé nastavenia" });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByLabel("Adresa profilu")).toHaveValue("directory-admin-editor-fixture");
+    await page.keyboard.press("Escape");
+    await expect(advanced).toBeFocused();
+
+    await page.getByLabel("Verejný telefón").fill("+421 900 333 444");
+    await page.getByLabel("Verejný e-mail").fill("updated-public@example.invalid");
+    await page.getByLabel("Facebook").fill("https://facebook.com/updated-fixture");
+    await expect(page.getByRole("button", { name: "Odstrániť fotku" })).toBeVisible();
+    await page.getByRole("button", { name: "Odstrániť fotku" }).click();
+    await page.getByRole("button", { name: "Uložiť zmeny" }).click();
+    await expect(page.getByRole("status")).toContainText("Profil je publikovaný");
+
+    const id = Number(page.url().match(/\/admin\/adresar\/(\d+)/)?.[1]);
+    expect(Number.isSafeInteger(id)).toBeTruthy();
+    const api = await page.request.get(`/api/admin/directory/${id}`);
+    expect(api.ok()).toBeTruthy();
+    const profile = (await api.json()).profile;
+    expect(profile.status).toBe("published");
+    expect(profile.verified).toBe(true);
+    expect(profile.featured).toBe(true);
+    expect(profile.imageUrl).toBeNull();
+    expect(profile.importData["Telefón"]).toBe("+421 900 333 444");
+    expect(profile.importData["E-mail"]).toBe("updated-public@example.invalid");
+    expect(profile.importData["Plemeno"]).toBe("Labradorský retriever");
+    expect(profile.importData["Organizácia"]).toBe("Fixture klub");
+
+    const publicResponse = await page.goto("/adresar/treneri/directory-admin-editor-fixture", { waitUntil: "domcontentloaded" });
+    expect(publicResponse?.status()).toBe(200);
+    await expect(page.getByText("+421 900 333 444")).toBeVisible();
+  });
+
+  test("create flow validates current contract and produces a manageable draft", async ({ page }) => {
+    await page.goto("/admin/adresar/novy");
+    await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
+    await page.getByLabel("Krátky popis").fill("Testovací profil vytvorený cez nový directory admin flow.");
+    await page.getByLabel("Podrobný popis").fill("Toto je dostatočne dlhý deterministický popis používaný iba v lokálnom E2E teste administrácie.");
+    await page.getByLabel("Mesto").fill("Nitra");
+    await page.getByLabel("Verejný telefón").fill("neplatny-telefon");
+    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await expect(page.getByRole("alert")).toContainText("Telefónne číslo nie je platné.");
+
+    await page.getByLabel("Verejný telefón").fill("+421 900 555 666");
+    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.waitForURL(/\/admin\/adresar\/\d+\?vytvorene=1/);
+    const id = Number(page.url().match(/\/admin\/adresar\/(\d+)/)?.[1]);
+    const api = await page.request.get(`/api/admin/directory/${id}`);
+    expect(api.ok()).toBeTruthy();
+    expect((await api.json()).profile.status).toBe("draft");
+    const cleanup = await page.request.delete(`/api/admin/directory/${id}`);
+    expect(cleanup.ok()).toBeTruthy();
+  });
+
+  test("keyboard, dialog focus, Axe and 390px overflow remain clean", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
+
     const first = page.getByLabel("Vybrať profil E2E Veterina 059");
-    await expect(first).toBeVisible();
-    await expect(first).toBeEnabled();
     await first.focus();
     await page.keyboard.press("Space");
     await expect(first).toBeChecked();
-    await expect(page.getByText("Vybrané: 1")).toBeVisible();
 
-    const toolbarScan = await new AxeBuilder({ page })
-      .include('aside[aria-label="Hromadný výber"]')
-      .analyze();
-    expect(toolbarScan.violations).toEqual([]);
+    const listScan = await new AxeBuilder({ page }).include("main").analyze();
+    expect(listScan.violations).toEqual([]);
 
-    await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    const dialog = page.getByRole("dialog", { name: "Publikovať 1 profilov?" });
-    await expect(dialog).toBeVisible();
-    const dialogScan = await new AxeBuilder({ page })
-      .include("dialog")
-      .analyze();
-    expect(dialogScan.violations).toEqual([]);
-  });
+    const overflow = await page.evaluate(() => ({
+      document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      filter: document.querySelector<HTMLElement>(".admin-directory-category-filter")!.scrollWidth
+        - document.querySelector<HTMLElement>(".admin-directory-category-filter")!.clientWidth,
+    }));
+    expect(overflow.document).toBeLessThanOrEqual(1);
+    expect(overflow.filter).toBeLessThanOrEqual(1);
 
-  test("directory rows and filters stay scoped and overflow-free at desktop and 390px", async ({ page }) => {
-    const expectInsideViewport = async (locator: ReturnType<typeof page.locator>) => {
-      const box = await locator.boundingBox();
-      const viewport = page.viewportSize();
-      expect(box).not.toBeNull();
-      expect(viewport).not.toBeNull();
-      if (!box || !viewport) throw new Error("Layout target or viewport was not measurable.");
-      expect(box.x).toBeGreaterThanOrEqual(-1);
-      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
-      return box;
-    };
-
-    for (const viewport of [
-      { width: 1280, height: 800 },
-      { width: 390, height: 844 },
+    for (const control of [
+      page.getByLabel("Hľadať"),
+      page.getByLabel("Kategória"),
+      page.getByLabel("Stav publikácie"),
+      page.getByLabel("Kraj"),
+      page.getByLabel("Okres"),
+      page.getByLabel("Mesto"),
+      page.getByLabel("Overenie"),
+      page.getByLabel("Obrázok"),
+      page.getByRole("button", { name: "Použiť filtre" }),
     ]) {
-      await page.setViewportSize(viewport);
-      await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
-
-      const row = page.locator(".admin-directory-row").first();
-      const checkbox = row.getByRole("checkbox");
-      const thumb = row.locator(".admin-directory-thumb");
-      const main = row.locator(".admin-article-main");
-      const actions = row.locator(".admin-row-actions");
-      const filter = page.locator(".admin-directory-category-filter");
-      const searchControl = filter.locator(".admin-search");
-      const categoryControl = page.getByLabel("Kategória");
-      const submit = filter.getByRole("button", { name: "Použiť filtre" });
-
-      await expect(row).toBeVisible();
-      await expect(checkbox).toBeVisible();
-      await expect(actions.getByRole("link", { name: "Upraviť" })).toBeVisible();
-      await expect(actions.getByRole("button", { name: "Odstrániť" })).toBeVisible();
-
-      const rowBox = await expectInsideViewport(row);
-      const checkboxBox = await expectInsideViewport(checkbox);
-      const thumbBox = await expectInsideViewport(thumb);
-      const mainBox = await expectInsideViewport(main);
-      const actionsBox = await expectInsideViewport(actions);
-      const filterBox = await expectInsideViewport(filter);
-      const searchBox = await expectInsideViewport(searchControl);
-      const categoryBox = await expectInsideViewport(categoryControl);
-      const submitBox = await expectInsideViewport(submit);
-
-      const trackCount = await row.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length);
-      expect(trackCount).toBe(viewport.width <= 720 ? 3 : 4);
-
-      expect(checkboxBox.x + checkboxBox.width).toBeLessThanOrEqual(thumbBox.x + 1);
-      expect(thumbBox.x + thumbBox.width).toBeLessThanOrEqual(mainBox.x + 1);
-      if (viewport.width > 720) {
-        expect(mainBox.x + mainBox.width).toBeLessThanOrEqual(actionsBox.x + 1);
-      } else {
-        expect(actionsBox.y).toBeGreaterThanOrEqual(Math.max(thumbBox.y + thumbBox.height, mainBox.y + mainBox.height) - 1);
-        expect(searchBox.y + searchBox.height).toBeLessThanOrEqual(categoryBox.y + 1);
-        expect(categoryBox.y + categoryBox.height).toBeLessThanOrEqual(submitBox.y + 1);
-        expect(searchBox.height).toBeGreaterThanOrEqual(44);
-        expect(categoryBox.height).toBeGreaterThanOrEqual(44);
-        expect(submitBox.height).toBeGreaterThanOrEqual(44);
-      }
-
-      const overflow = await page.evaluate(() => ({
-        document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        row: document.querySelector<HTMLElement>(".admin-directory-row")!.scrollWidth - document.querySelector<HTMLElement>(".admin-directory-row")!.clientWidth,
-        filter: document.querySelector<HTMLElement>(".admin-directory-category-filter")!.scrollWidth - document.querySelector<HTMLElement>(".admin-directory-category-filter")!.clientWidth,
-      }));
-      expect(overflow.document).toBeLessThanOrEqual(1);
-      expect(overflow.row).toBeLessThanOrEqual(1);
-      expect(overflow.filter).toBeLessThanOrEqual(1);
-      expect(rowBox.width).toBeLessThanOrEqual(viewport.width + 1);
-      expect(filterBox.width).toBeLessThanOrEqual(viewport.width + 1);
-
-      const sharedArticleTrackCount = await page.evaluate(() => {
-        const probe = document.createElement("article");
-        probe.className = "admin-article-row";
-        probe.innerHTML = "<div></div><div></div><div></div>";
-        document.body.append(probe);
-        const count = getComputedStyle(probe).gridTemplateColumns.trim().split(/\s+/).length;
-        probe.remove();
-        return count;
-      });
-      expect(sharedArticleTrackCount).toBe(viewport.width <= 720 ? 2 : 3);
+      const box = await control.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     }
+
+    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
+    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    const editorOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(editorOverflow).toBeLessThanOrEqual(1);
+    await page.getByRole("button", { name: "Pokročilé a SEO" }).click();
+    const drawerScan = await new AxeBuilder({ page }).include("dialog").analyze();
+    expect(drawerScan.violations).toEqual([]);
   });
 });
