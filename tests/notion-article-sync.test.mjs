@@ -102,6 +102,7 @@ test("Notion main image URL is downloaded safely and persisted to R2", () => {
   assert.match(syncSource, /redirect: "manual"/);
   assert.match(syncSource, /detectedRemoteImageType/);
   assert.match(syncSource, /bucket\.put\(key, remote\.bytes/);
+  assert.match(syncSource, /notionSourceHash/);
   assert.match(syncSource, /notionSourceUrl/);
   assert.match(syncSource, /imageUrl,\s*imageKey: key/);
   assert.match(syncSource, /ogImageUrl: imageUrl,\s*ogImageKey: key/);
@@ -109,7 +110,7 @@ test("Notion main image URL is downloaded safely and persisted to R2", () => {
 });
 
 test("Notion image sync is idempotent and cleans up failed or replaced R2 objects", () => {
-  assert.match(syncSource, /currentObject\?\.customMetadata\?\.notionSourceUrl === sourceUrl/);
+  assert.match(syncSource, /currentObject\?\.customMetadata\?\.notionSourceHash === sourceFingerprint/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, prepared\.replacedKeys\)/);
   assert.match(syncSource, /JSON\.stringify\(\{ payload: basePayload, notionImageSourceUrl \}\)/);
