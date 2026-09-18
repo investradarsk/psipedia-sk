@@ -115,9 +115,15 @@ export function AdminArticleEditor({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(true);
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirtyState] = useState(false);
+  const dirtyRef = useRef(false);
   const allowNavigationRef = useRef(false);
   const [relatedBreedIds,setRelatedBreedIds]=useState(article?.relatedBreedIds??[]);
+
+  function setEditorDirty(value: boolean) {
+    dirtyRef.current = value;
+    setDirtyState(value);
+  }
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -141,7 +147,7 @@ export function AdminArticleEditor({
       const data = await uploadAdminImage(file, "articles");
       setImageUrl(data.imageUrl);
       setImageKey(data.imageKey);
-      setDirty(true);
+      setEditorDirty(true);
       setMessage(adminImageUploadMessage(data, "Ulož článok, aby sa zmena zachovala."));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
@@ -157,7 +163,7 @@ export function AdminArticleEditor({
     setUploading(true); setError(""); setMessage("");
     try {
       const data = await uploadAdminImage(file, "articles");
-      setOgImageUrl(data.imageUrl); setOgImageKey(data.imageKey); setDirty(true);
+      setOgImageUrl(data.imageUrl); setOgImageKey(data.imageKey); setEditorDirty(true);
       setMessage(adminImageUploadMessage(data, "Ulož článok, aby sa Open Graph obrázok zachoval."));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Open Graph obrázok sa nepodarilo nahrať.");
@@ -224,7 +230,7 @@ export function AdminArticleEditor({
 
       setStatus(data.article.status);
       setPublishedAt(dateTimeValue(data.article.publishedAt));
-      setDirty(false);
+      setEditorDirty(false);
       setMessage(nextStatus === "published" ? (portalSection === "novinky" ? "Novinka je publikovaná na webe." : "Článok je publikovaný na webe.") : nextStatus === "scheduled" ? "Publikovanie je naplánované." : "Koncept je bezpečne uložený.");
       if (!article) {
         allowNavigationRef.current = true;
@@ -238,15 +244,14 @@ export function AdminArticleEditor({
   }
 
   useEffect(() => {
-    if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => {
-      if (allowNavigationRef.current) return;
+      if (!dirtyRef.current || allowNavigationRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, []);
 
   function cancelEditing() {
     if (dirty && !window.confirm("Máš neuložené zmeny. Naozaj chceš opustiť editor bez uloženia?")) return;
@@ -262,7 +267,7 @@ export function AdminArticleEditor({
 
   return (
     <div className={`admin-editor ${previewOpen ? "has-preview" : ""}`}>
-      <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
+      <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
         <AdminStickyEditorNavigation sections={editorNavigation} ariaLabel="Sekcie editora článku" />
         <section id="article-basics" tabIndex={-1} className="admin-form-card admin-form-card--intro">
           <div className="admin-field admin-field--title">
@@ -302,7 +307,7 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-upload-row admin-og-upload">
             <div className={`admin-upload-preview admin-upload-preview--${accent}`}>{ogImageUrl ? <img src={ogImageUrl} alt="Náhľad Open Graph obrázka" /> : <span>OG</span>}</div>
-            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadOgImage} disabled={uploading} />{ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
+            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadOgImage} disabled={uploading} />{ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setEditorDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
           </div>
           <label className="admin-check"><input type="checkbox" checked={noindex} onChange={(event) => setNoindex(event.target.checked)} /><span><strong>Neindexovať článok (noindex)</strong><small>Článok zostane dostupný cez URL, ale vyhľadávače ho nemajú zaradiť.</small></span></label>
         </section>
@@ -375,9 +380,9 @@ export function AdminArticleEditor({
             onSelectionChange={(id, displayName, markDirty = true) => {
               setAuthorProfileId(id);
               if (displayName) setAuthor(displayName);
-              if (markDirty) setDirty(true);
+              if (markDirty) setEditorDirty(true);
             }}
-            onLegacyAuthorChange={(value) => { setAuthor(value); setDirty(true); }}
+            onLegacyAuthorChange={(value) => { setAuthor(value); setEditorDirty(true); }}
             onMessage={setMessage}
             onError={setError}
           />
@@ -396,7 +401,7 @@ export function AdminArticleEditor({
                 <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />
                 {uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}
               </label>
-              {imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setDirty(true); }}>Odstrániť fotku</button>}
+              {imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setEditorDirty(true); }}>Odstrániť fotku</button>}
               <small>Odporúčaný pomer 16 : 9 a šírka aspoň 1200 px.</small>
             </div>
           </div>
@@ -408,11 +413,11 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-field">
             <label htmlFor="article-intro">Úvod článku</label>
-            <RichTextInput id="article-intro" rows={7} value={intro} richText={introRichText} onChange={(content, richText) => { setIntro(content); setIntroRichText(richText); setDirty(true); }} placeholder="Uveď čitateľa do témy…" showLists required />
+            <RichTextInput id="article-intro" rows={7} value={intro} richText={introRichText} onChange={(content, richText) => { setIntro(content); setIntroRichText(richText); setEditorDirty(true); }} placeholder="Uveď čitateľa do témy…" showLists required />
           </div>
           <div className="admin-field">
             <label htmlFor="article-takeaway">To najdôležitejšie <small>nepovinné</small></label>
-            <RichTextInput id="article-takeaway" rows={4} value={takeaway} richText={takeawayRichText} onChange={(content, richText) => { setTakeaway(content); setTakeawayRichText(richText); setDirty(true); }} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists />
+            <RichTextInput id="article-takeaway" rows={4} value={takeaway} richText={takeawayRichText} onChange={(content, richText) => { setTakeaway(content); setTakeawayRichText(richText); setEditorDirty(true); }} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists />
           </div>
         </section>
 
@@ -424,7 +429,7 @@ export function AdminArticleEditor({
           <p className="admin-block-news-note">Pre viac zdrojov pridaj viac blokov <strong>Zdroj</strong>. Na verejnom článku sa spoja do jedného prehľadného zoznamu.</p>
           <AdminArticleBlockEditor
             blocks={blocks}
-            onChange={(nextBlocks) => { setBlocks(nextBlocks); setDirty(true); }}
+            onChange={(nextBlocks) => { setBlocks(nextBlocks); setEditorDirty(true); }}
             currentArticleId={article?.id}
             onUploadingChange={setUploading}
             onMessage={setMessage}
