@@ -107,7 +107,7 @@ export function AdminArticleEditor({
       ? article.blocks
       : article
         ? legacyArticleBlocks(article.sections, article.sources)
-        : [createArticleBlock("text")],
+        : [createArticleBlock("text", "new-article-initial-text")],
   );
   const [status, setStatus] = useState(article?.status ?? "draft");
   const [saving, setSaving] = useState(false);
