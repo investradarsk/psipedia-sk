@@ -51,7 +51,7 @@ test('all 175 events, global counts, filters, pagination and responsive list', a
   await expect(page.locator('.admin-event-row-v2')).toHaveCount(1);
   await page.getByRole('button',{name:'Zrušiť filtre',exact:true}).click();
   await page.getByLabel('Kraj',{exact:true}).selectOption('Žilinský kraj');
-  await page.getByLabel('Typ podujatia',{exact:true}).selectOption('Preteky');
+  await page.getByRole('group',{name:'Vyhľadávanie a filtre podujatí'}).getByLabel('Typ podujatia',{exact:true}).selectOption('Preteky');
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('sportovy zilina');
   expect(await page.locator('.admin-event-row-v2').count()).toBeGreaterThan(0);
   await page.getByRole('button',{name:'Zrušiť filtre',exact:true}).click();
@@ -167,7 +167,7 @@ test('time filters, start month/year and sorting work across the complete datase
   const target = data.events.find((e: { id: number }) => e.id === 2);
   await page.getByLabel('Mesiac začiatku', { exact: true }).selectOption(target.startDate.slice(5,7));
   await page.getByLabel('Rok začiatku', { exact: true }).selectOption(target.startDate.slice(0,4));
-  await page.getByLabel('Typ podujatia', { exact: true }).selectOption('Preteky');
+  await page.getByRole('group',{name:'Vyhľadávanie a filtre podujatí'}).getByLabel('Typ podujatia', { exact: true }).selectOption('Preteky');
   await page.getByLabel('Kraj', { exact: true }).selectOption('Žilinský kraj');
   const expected = data.events.filter((e: { startDate: string; eventType: string; region: string }) => e.startDate.slice(0,7) === target.startDate.slice(0,7) && e.eventType === 'Preteky' && e.region === 'Žilinský kraj');
   await expect(page.locator('.admin-event-row-v2')).toHaveCount(expected.length);
