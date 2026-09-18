@@ -35,8 +35,11 @@ export type Article = {
   image?: string;
   accent: "forest" | "coral" | "gold" | "blue";
   author: string;
+  authorProfileId?: number | null;
   intro: string;
+  introRichText?: import("@/lib/editorial-content").EditorialRichTextDocument;
   takeaway: string;
+  takeawayRichText?: import("@/lib/editorial-content").EditorialRichTextDocument;
   sources: ArticleSource[];
   sections: ArticleSection[];
   blocks?: import("@/lib/article-blocks").ArticleBlock[];
