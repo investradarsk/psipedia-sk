@@ -194,7 +194,16 @@ function clean(input:ManagedBreedInput){
     ["FCI hmotnosť – pes",fciStandard.hmotnost_pes_kg,"weight",false],["FCI hmotnosť – suka",fciStandard.hmotnost_suka_kg,"weight",false],
   ] as const){const issue=inspectBreedMeasurement(value,kind,{requireUnit}).find((item)=>item.severity==="error");if(issue)throw new Error(`${label}: ${issue.message}`);}
   const rawEditorial=input.editorial??{};const editorial:BreedEditorial={overview:text(rawEditorial.overview,8000),coatCare:text(rawEditorial.coatCare,8000),familyLife:text(rawEditorial.familyLife,8000),otherDogsLife:text(rawEditorial.otherDogsLife,8000),curiosities:text(rawEditorial.curiosities,8000),commonOwnerMistakes:text(rawEditorial.commonOwnerMistakes,8000),exerciseTip:text(rawEditorial.exerciseTip,500),trainingTip:text(rawEditorial.trainingTip,500),healthTip:text(rawEditorial.healthTip,500),coatTip:text(rawEditorial.coatTip,500),heroTraits:Array.isArray(rawEditorial.heroTraits)?rawEditorial.heroTraits.slice(0,3).map((item)=>({label:text(item.label,80),rating:Math.min(5,Math.max(1,Number(item.rating)||1))})).filter((item)=>item.label):[]};
-  const sports=Array.isArray(input.sports)?input.sports.slice(0,30).map((item)=>({key:text(item.key,80),label:text(item.label,120),rating:Math.min(5,Math.max(1,Number(item.rating)||1)),note:text(item.note,500)})).filter((item)=>item.key&&item.label):[];
+  const rawSports=Array.isArray(input.sports)?input.sports.slice(0,30):[];
+  const sportKeys=new Set<string>();
+  const sports=rawSports.map((item)=>{
+    const key=text(item.key,80);const label=text(item.label,120);const rating=Number(item.rating);
+    if(!key||!label)throw new Error("Každý šport musí mať interný kľúč a názov.");
+    if(!Number.isFinite(rating)||rating<1||rating>5)throw new Error(`Šport „${label}“ musí mať vhodnosť od 1 do 5.`);
+    if(sportKeys.has(key))throw new Error(`Šport „${label}“ je v profile uvedený viackrát.`);
+    sportKeys.add(key);
+    return {key,label,rating,note:text(item.note,500)};
+  });
   const fciNumber=Number.isSafeInteger(input.fciNumber)&&Number(input.fciNumber)>0?Number(input.fciNumber):null;
   if(input.status==="published"){
     if(!fciNumber||!input.importKey?.trim())throw new Error("Publikované plemeno musí mať FCI číslo a importný kľúč.");
