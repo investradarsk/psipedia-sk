@@ -6,8 +6,10 @@ import { ArticleFeedback } from "@/components/article-feedback";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PawMark } from "@/components/icons";
 import { Breadcrumbs, MediaFrame } from "@/components/page-system";
+import { PublicContentList, PublicContentListItem } from "@/components/public-visual-system";
 import { ShareButton } from "@/components/share-button";
 import type { Article } from "@/lib/content";
+import type { EditorialAuthorProfile } from "@/lib/editorial-authors";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel, portalSubpageHref, type PortalSection } from "@/lib/portal";
 import { absoluteUrl, articleAuthorJsonLd, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
@@ -15,7 +17,17 @@ import { articleBlockHeadings, articleBlockPlainText, legacyArticleBlocks } from
 import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/editorial-content";
 import styles from "./article-detail.module.css";
 
-export function ArticleDetail({ article, related, portalSection }: { article: Article; related: Article[]; portalSection?: PortalSection }) {
+export function ArticleDetail({
+  article,
+  related,
+  portalSection,
+  authorProfile,
+}: {
+  article: Article;
+  related: Article[];
+  portalSection?: PortalSection;
+  authorProfile?: EditorialAuthorProfile | null;
+}) {
   const section = articlePortalSection(article);
   const sectionHref = section === "clanky" ? "/clanky" : `/${section}`;
   const newsCategory = section === "novinky" ? getNewsCategory(article.newsCategory) : null;
@@ -26,6 +38,7 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
   const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
   const canonical = article.seo?.canonicalUrl || `${SITE_URL}${articleHref(article)}`;
   const image = article.image ? absoluteUrl(article.image) : undefined;
+  const authorName = authorProfile?.displayName || article.author;
   const blocks = article.blocks?.length
     ? article.blocks
     : legacyArticleBlocks(article.sections, article.sources);
@@ -61,7 +74,7 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
         articleSection: topicLabel,
         keywords: [article.seo?.focusKeyword, portalSectionLabel(section), topicLabel, article.category, "psy"].filter(Boolean),
         wordCount,
-        author: articleAuthorJsonLd(article.author),
+        author: articleAuthorJsonLd(authorName),
         publisher: {
           "@type": "Organization",
           "@id": ORGANIZATION_ID,
@@ -103,11 +116,19 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
             <h1>{article.title}</h1>
             <p>{article.excerpt}</p>
             <div className={styles.metaActions}>
-              <div className="article-byline">
-                <strong>{article.author}</strong>
-                <time dateTime={article.dateIso}>{article.date}</time>
-                {showUpdated && <span className="article-updated">Aktualizované <time dateTime={article.updatedDateIso}>{article.updatedDate}</time></span>}
-                <span>{article.readTime} čítania</span>
+              <div className={styles.bylineWrap}>
+                <div className={styles.authorIdentity}>
+                  {authorProfile?.avatarUrl ? <img src={authorProfile.avatarUrl} alt="" loading="lazy" decoding="async" /> : null}
+                  <span>
+                    <strong>{authorName}</strong>
+                    {authorProfile?.role ? <small>{authorProfile.role}</small> : null}
+                  </span>
+                </div>
+                <div className={styles.articleMeta}>
+                  <time dateTime={article.dateIso}>{article.date}</time>
+                  {showUpdated ? <span>Aktualizované <time dateTime={article.updatedDateIso}>{article.updatedDate}</time></span> : null}
+                  <span>{article.readTime} čítania</span>
+                </div>
               </div>
               <div className={styles.favoriteAction} title={favoriteHint}>
                 <FavoriteButton slug={article.slug} />
@@ -118,7 +139,7 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
             {article.image ? (
               <img className="article-hero-image" src={article.image} alt={article.title} loading="eager" fetchPriority="high" decoding="async" />
             ) : (
-              <div className={`article-hero-placeholder article-hero-placeholder--${article.accent}`}><PawMark size={86} /></div>
+              <div className={`article-hero-placeholder article-hero-placeholder--${article.accent}`}><PawMark size={72} /></div>
             )}
           </MediaFrame>
         </div>
@@ -127,8 +148,8 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
       <div className={`${styles.readingShell} shell`}>
         <article className="article-prose">
           <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
-          {showTakeaway && <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside>}
-          {showTableOfContents && (
+          {showTakeaway ? <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside> : null}
+          {showTableOfContents ? (
             <details className={styles.toc}>
               <summary>Obsah článku</summary>
               <nav aria-label="Obsah článku">
@@ -141,34 +162,39 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
                 </ol>
               </nav>
             </details>
-          )}
+          ) : null}
           <ArticleBlocks blocks={contentBlocks} />
-          {sourceBlocks.length > 0 && <ArticleBlocks blocks={sourceBlocks} />}
+          {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}
           <p className="article-disclaimer">{section === "novinky" ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : section === "recenzie" ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
           <div className={styles.endActions}>
-            <ShareButton title={article.title} label={shareLabel} />
+            <ShareButton title={article.title} label={shareLabel} url={canonical} />
           </div>
           <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
         </article>
       </div>
 
-      {relatedItems.length > 0 && (
+      {relatedItems.length > 0 ? (
         <section className={`${styles.relatedSection} related-section`}>
           <div className="shell">
             <span className="eyebrow">Pokračovať v téme</span>
             <h2>{section === "recenzie" ? "Súvisiace recenzie a články" : "Súvisiace články"}</h2>
-            <div className={styles.relatedList}>
+            <PublicContentList label="Súvisiace články" className={styles.relatedList}>
               {relatedItems.map((item) => (
-                <Link className={styles.relatedItem} href={articleHref(item)} key={item.slug}>
-                  <span>{item.category}</span>
-                  <strong>{item.title}</strong>
-                  {item.excerpt && <small>{item.excerpt}</small>}
-                </Link>
+                <PublicContentListItem
+                  key={item.slug}
+                  href={articleHref(item)}
+                  title={item.title}
+                  eyebrow={articlePortalSection(item) === "novinky" ? getNewsCategory(item.newsCategory)?.shortLabel ?? item.category : item.category}
+                  excerpt={item.excerpt}
+                  meta={`${item.date} · ${item.readTime} čítania`}
+                  image={item.image ? { src: item.image, alt: item.title } : undefined}
+                  actionLabel="Čítať"
+                />
               ))}
-            </div>
+            </PublicContentList>
           </div>
         </section>
-      )}
+      ) : null}
     </main>
   );
 }
