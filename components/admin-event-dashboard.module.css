@@ -31,7 +31,7 @@
   display: grid;
   place-items: center;
   padding: 0.5rem;
-  color: #667970;
+  color: #52665d;
   font-size: 0.72rem;
   font-weight: 750;
   text-align: center;
@@ -233,4 +233,18 @@
   .actions > * {
     max-width: 100%;
   }
+}
+
+
+.timeFilters :global(button:not(.is-active)) {
+  color: #4d6258;
+}
+
+.primaryAction {
+  color: #fff;
+  background: #b34830;
+}
+
+.primaryAction:hover {
+  background: #9f3a26;
 }
