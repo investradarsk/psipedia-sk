@@ -53,7 +53,11 @@ type SummaryRow = {
   origin:string;group_name:string;official_fci_name:string;accent:string;updated_at:string;editorial_json:string;sports_json:string;fci_standard_json:string;
   needs:string;exercise:string;training:string;health:string;article_relation_count:number;directory_relation_count:number;
 };
-type IndexRow = SummaryRow & { fci_section:string;fci_section_number:string;fci_standard_json:string;height:string;weight:string;intro:string;energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;seo_json:string;updated_at:string };
+type IndexRow = {
+  id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;fci_section:string;fci_section_number:string;
+  origin:string;group_name:string;official_fci_name:string;accent:string;fci_standard_json:string;height:string;weight:string;intro:string;
+  energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;seo_json:string;updated_at:string;
+};
 type ComparisonRow = {slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string;fci_standard_json:string;origin:string;accent:string;size:string;weight:string;lifespan:string;coat:string;energy:number;trainability:number;family:number;intro:string;good_for_json:string;consider_json:string};
 type BreedOfTheDayRow = {slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string;size:string;energy:number;trainability:number;intro:string};
 type RelationIdRow = { id:number };
