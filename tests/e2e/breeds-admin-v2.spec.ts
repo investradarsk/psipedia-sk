@@ -13,10 +13,15 @@ async function necessaryCookies(page: Page) {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 }
 
+async function waitForBreedEditor(page: Page) {
+  await expect(page.locator('.admin-breed-editor[data-admin-breed-editor-ready="true"]')).toBeVisible();
+}
+
 async function openCreatedDraft(page: Page, testInfo: TestInfo) {
   await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
   await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill(draftName(testInfo));
   await page.getByRole("link", { name: draftName(testInfo) }).click();
+  await waitForBreedEditor(page);
   await expect(page.getByLabel("Názov plemena")).toHaveValue(draftName(testInfo));
 }
 
@@ -68,6 +73,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
   test("create/edit regression keeps plain canonical breed fields editable without a storage migration", async ({ page }, testInfo) => {
     await page.goto("/admin/plemena/novy", { waitUntil: "domcontentloaded" });
+    await waitForBreedEditor(page);
     await page.getByLabel("Názov plemena").fill(draftName(testInfo));
     await page.getByLabel("Krátky úvod v hero (2–4 vety)").fill("Izolovaný lokálny koncept pre BREEDS-ADMIN E2E.");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
@@ -138,6 +144,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
     await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill("Biely svajciarsky");
     await page.getByRole("link", { name: "Biely švajčiarsky ovčiak" }).click();
+    await waitForBreedEditor(page);
 
     const settings = page.getByRole("button", { name: "Nastavenia, FCI a SEO" });
     await settings.focus();
