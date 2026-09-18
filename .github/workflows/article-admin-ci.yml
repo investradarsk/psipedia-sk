@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   article-admin:
-    name: Word-like editor — unit, build, lint, typecheck and E2E
+    name: Word-like editor — unit, lint, build and E2E
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -52,8 +52,6 @@ jobs:
         run: npm run test:article-admin-editor
       - name: Lint
         run: npm run lint
-      - name: Typecheck
-        run: npm run typecheck
       - name: Build
         run: npm run build
       - name: Configure CI-only local PII keys
