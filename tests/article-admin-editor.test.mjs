@@ -99,3 +99,12 @@ test("ARTICLE-ADMIN self-hosted media remains image-only until MEDIA-VIDEO-UPLOA
   assert.match(uploadRoute, /detectedImageType/);
   assert.doesNotMatch(uploadRoute, /video\/mp4/);
 });
+
+
+test("ARTICLE-ADMIN keeps built-in Novinky available for create flow", () => {
+  const newPage = read("app/admin/novy/page.tsx");
+  const editor = read("components/admin-article-editor.tsx");
+  assert.match(newPage, /sekcia === "novinky"/);
+  assert.match(editor, /option\.slug === "clanky" \|\| option\.slug === "novinky"/);
+  assert.match(editor, /section\.slug !== "novinky"/);
+});
