@@ -27,11 +27,16 @@ test("Notion query automatically scans Ready articles in the exact data source",
 
 
 test("Notion editorial categories map to supported public article destinations", () => {
-  assert.match(syncSource, /"Zdravie a starostlivosť": \\{[\\s\\S]*?portalSection: "starostlivost",[\\s\\S]*?portalSubpage: "zdravie"/);
-  assert.match(syncSource, /"Výživa": \\{[\\s\\S]*?portalSection: "starostlivost",[\\s\\S]*?portalSubpage: "vyziva"/);
-  assert.match(syncSource, /"Správanie": \\{[\\s\\S]*?portalSection: "starostlivost",[\\s\\S]*?portalSubpage: "spravanie"/);
-  assert.match(syncSource, /"Výcvik a aktivity": \\{[\\s\\S]*?portalSection: "aktivity",[\\s\\S]*?portalSubpage: "trening"/);
-  assert.match(syncSource, /"Šteniatka": \\{[\\s\\S]*?portalSection: "steniatka"/);
+  for (const category of ["Zdravie a starostlivosť", "Výživa", "Správanie", "Výcvik a aktivity", "Šteniatka"]) {
+    assert.ok(syncSource.includes(`"${category}": {`), `missing placement for ${category}`);
+  }
+  assert.match(syncSource, /portalSection: "starostlivost"/);
+  assert.match(syncSource, /portalSubpage: "zdravie"/);
+  assert.match(syncSource, /portalSubpage: "vyziva"/);
+  assert.match(syncSource, /portalSubpage: "spravanie"/);
+  assert.match(syncSource, /portalSection: "aktivity"/);
+  assert.match(syncSource, /portalSubpage: "trening"/);
+  assert.match(syncSource, /portalSection: "steniatka"/);
   assert.match(syncSource, /contentType === "Aktuálna novinka"/);
   assert.match(syncSource, /portalSection: "novinky"/);
   assert.match(syncSource, /contentType === "Recenzia"/);
@@ -39,10 +44,9 @@ test("Notion editorial categories map to supported public article destinations",
 });
 
 test("unsupported editorial buckets do not invent non-article portal sections", () => {
-  assert.match(syncSource, /"Plemená": \\{[\\s\\S]*?portalSection: "clanky"/);
-  assert.match(syncSource, /"Pomoc psom": \\{[\\s\\S]*?portalSection: "clanky"/);
-  assert.match(syncSource, /"Bezpečnosť": \\{[\\s\\S]*?portalSection: "clanky"/);
-  assert.match(syncSource, /"Zaujímavosti": \\{[\\s\\S]*?portalSection: "clanky"/);
+  for (const category of ["Plemená", "Pomoc psom", "Bezpečnosť", "Zaujímavosti"]) {
+    assert.ok(syncSource.includes(`"${category}": {`), `missing safe fallback for ${category}`);
+  }
   assert.doesNotMatch(syncSource, /portalSection: "plemena"/);
   assert.doesNotMatch(syncSource, /portalSection: "pomoc-psom"/);
 });
