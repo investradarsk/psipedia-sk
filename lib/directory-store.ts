@@ -17,6 +17,7 @@ import {
 import { editableDirectoryProfileData, specializedChangeRequestFields } from "@/lib/directory-change-request";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
+import { mergeDirectoryPublicContactData } from "@/lib/directory-profile-metadata";
 
 export type ManagedDirectoryProfileInput = {
   slug?: string;
@@ -532,38 +533,6 @@ function normalizePublicPhone(value: string | null | undefined) {
   if (!clean) return "";
   if (clean.length > 50 || !/^[+0-9() .\/-]+$/.test(clean)) throw new Error("Telefónne číslo nie je platné.");
   return clean;
-}
-
-function mergeDirectoryPublicContactData(
-  current: Record<string, string | number | null> | null | undefined,
-  input: {
-    publicPhone?: string;
-    publicEmail?: string;
-    websiteUrl?: string | null;
-    facebookUrl?: string;
-    instagramUrl?: string;
-  },
-) {
-  const next: Record<string, string | number | null> = { ...(current ?? {}) };
-  const replace = (keys: string[], canonical: string, value: string | null | undefined) => {
-    if (value === undefined) return;
-    for (const key of keys) delete next[key];
-    if (value) next[canonical] = value;
-  };
-
-  replace(["Telefón", "Telefon", "phone"], "Telefón", input.publicPhone);
-  replace(["E-mail", "Email", "email"], "E-mail", input.publicEmail);
-  replace(["Web", "Webstránka"], "Web", input.websiteUrl);
-  replace(["Facebook"], "Facebook", input.facebookUrl);
-  replace(["Instagram"], "Instagram", input.instagramUrl);
-  return next;
-}
-
-export function mergeDirectoryPublicContactsForTest(
-  current: Record<string, string | number | null> | null | undefined,
-  input: Parameters<typeof mergeDirectoryPublicContactData>[1],
-) {
-  return mergeDirectoryPublicContactData(current, input);
 }
 
 function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData> | undefined, category: DirectoryCategorySlug) {
