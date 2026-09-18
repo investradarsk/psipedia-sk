@@ -243,7 +243,7 @@ test("ARTICLE-PUBLIC Novinky exposes complete archive and category filters", asy
   await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("aria-current", "page");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
-  await page.getByRole("link", { name: "Veda", exact: true }).click();
+  await page.getByRole("link", { name: "Veda a zdravie", exact: true }).click();
   await expect(page).toHaveURL(/\/novinky\/veda-a-zdravie$/);
   await expect(page.getByRole("list", { name: "Novinky: Veda a zdravie" }).getByText("E2E výskum psov 2026")).toBeVisible();
   await expect(page.getByText("E2E zaujímavosť zo sveta psov")).toHaveCount(0);
