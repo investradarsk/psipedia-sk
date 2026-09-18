@@ -58,10 +58,11 @@ function articleArea(article: Article, sectionSlug: EditorialSectionSlug) {
 }
 
 function orderedArticles(section: PortalSection, articles: Article[], subpage?: PortalSubpage) {
-  if (!isEditorialSectionSlug(section.slug)) return [];
+  const sectionSlug = section.slug;
+  if (!isEditorialSectionSlug(sectionSlug)) return [];
   const candidates = articles.filter((article) =>
-    articlePortalSection(article) === section.slug &&
-    (!subpage || articleArea(article, section.slug) === subpage.slug),
+    articlePortalSection(article) === sectionSlug &&
+    (!subpage || articleArea(article, sectionSlug) === subpage.slug),
   );
   const featuredSlugs = subpage
     ? (subpage.featuredArticleSlugs ?? [])
@@ -229,16 +230,17 @@ export function EditorialSectionHub({
   section: PortalSection;
   articles: Article[];
 }) {
-  if (!isEditorialSectionSlug(section.slug)) return null;
+  const sectionSlug = section.slug;
+  if (!isEditorialSectionSlug(sectionSlug)) return null;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
   const visibleArticles = orderedArticles(section, articles);
   const schema = buildCollectionPageJsonLd({
     name: section.label,
     description: section.description,
-    path: `/${section.slug}`,
+    path: `/${sectionSlug}`,
     breadcrumbs: [
       { name: "Domov", path: "/" },
-      { name: section.label, path: `/${section.slug}` },
+      { name: section.label, path: `/${sectionSlug}` },
     ],
     items: subpages.map((subpage) => ({ name: subpage.label, path: portalSubpageHref(section, subpage) })),
   });
@@ -254,37 +256,37 @@ export function EditorialSectionHub({
             eyebrow={section.eyebrow}
             title={section.label}
             intro={<><p>{section.description}</p><p className={styles.headerIntro}>{section.intro}</p></>}
-            visual={<div className={styles.headerMark}>{sectionIcon(section.slug)}</div>}
+            visual={<div className={styles.headerMark}>{sectionIcon(sectionSlug)}</div>}
             className={styles.header}
           />
-          <SearchBox sectionSlug={section.slug} />
+          <SearchBox sectionSlug={sectionSlug} />
         </PageContainer>
 
         <PortalSectionTabs section={section} />
 
         <PageContainer className={styles.calloutShell}>
-          <HubCallout sectionSlug={section.slug} />
+          <HubCallout sectionSlug={sectionSlug} />
         </PageContainer>
 
-        <section className={styles.contentSection} aria-labelledby={`${section.slug}-latest`} data-section-content-list>
+        <section className={styles.contentSection} aria-labelledby={`${sectionSlug}-latest`} data-section-content-list>
           <PageContainer>
             <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>Odporúčané a najnovšie</span><h2 id={`${section.slug}-latest`}>Čítaj priamo zo sekcie</h2></div>
+              <div><span className={styles.eyebrow}>Odporúčané a najnovšie</span><h2 id={`${sectionSlug}-latest`}>Čítaj priamo zo sekcie</h2></div>
               <PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>
             </div>
             <SectionContentList articles={visibleArticles} label={`Články v sekcii ${section.label}`} />
           </PageContainer>
         </section>
 
-        <section className={styles.directorySection} aria-labelledby={`${section.slug}-areas`} data-section-directory>
+        <section className={styles.directorySection} aria-labelledby={`${sectionSlug}-areas`} data-section-directory>
           <PageContainer>
             <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>Oblasti</span><h2 id={`${section.slug}-areas`}>Vyber tému</h2></div>
+              <div><span className={styles.eyebrow}>Oblasti</span><h2 id={`${sectionSlug}-areas`}>Vyber tému</h2></div>
               <p>Stále kategórie s jasnou adresou, stručným kontextom a súvisiacim obsahom.</p>
             </div>
             <div className={styles.dataGrid}>
               {subpages.map((subpage) => {
-                const count = visibleArticles.filter((article) => articleArea(article, section.slug) === subpage.slug).length;
+                const count = visibleArticles.filter((article) => articleArea(article, sectionSlug) === subpage.slug).length;
                 return (
                   <PublicDataCard
                     href={portalSubpageHref(section, subpage)}
@@ -292,7 +294,7 @@ export function EditorialSectionHub({
                     description={subpage.description}
                     eyebrow={subpage.popularTopics?.slice(0, 2).join(" · ")}
                     meta={`${count} ${count === 1 ? "článok" : "článkov"}`}
-                    icon={topicIcon(section.slug, subpage.slug)}
+                    icon={topicIcon(sectionSlug, subpage.slug)}
                     actionLabel="Otvoriť tému"
                     key={subpage.slug}
                   />
@@ -302,13 +304,13 @@ export function EditorialSectionHub({
           </PageContainer>
         </section>
 
-        <section className={styles.nextSection} aria-labelledby={`${section.slug}-next`}>
+        <section className={styles.nextSection} aria-labelledby={`${sectionSlug}-next`}>
           <PageContainer>
             <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>Ďalší krok</span><h2 id={`${section.slug}-next`}>Užitočné služby a pokračovanie</h2></div>
+              <div><span className={styles.eyebrow}>Ďalší krok</span><h2 id={`${sectionSlug}-next`}>Užitočné služby a pokračovanie</h2></div>
             </div>
             <div className={styles.nextGrid}>
-              {nextSteps(section.slug).map((item) => (
+              {nextSteps(sectionSlug).map((item) => (
                 <PublicDataCard
                   href={item.href}
                   title={item.title}
@@ -319,7 +321,7 @@ export function EditorialSectionHub({
                 />
               ))}
             </div>
-            <p className={styles.safetyNote}>{safetyNote(section.slug)}</p>
+            <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
           </PageContainer>
         </section>
       </main>
@@ -346,9 +348,10 @@ export function EditorialSectionTopic({
   subpage: PortalSubpage;
   articles: Article[];
 }) {
-  if (!isEditorialSectionSlug(section.slug)) return null;
+  const sectionSlug = section.slug;
+  if (!isEditorialSectionSlug(sectionSlug)) return null;
   const topicArticles = orderedArticles(section, articles, subpage);
-  const labels = guidanceLabels(section.slug);
+  const labels = guidanceLabels(sectionSlug);
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
     name: `${subpage.label} – ${section.label}`,
@@ -356,7 +359,7 @@ export function EditorialSectionTopic({
     path,
     breadcrumbs: [
       { name: "Domov", path: "/" },
-      { name: section.label, path: `/${section.slug}` },
+      { name: section.label, path: `/${sectionSlug}` },
       { name: subpage.label, path },
     ],
     items: topicArticles.map((article) => ({ name: article.title, path: articleHref(article) })),
@@ -368,7 +371,7 @@ export function EditorialSectionTopic({
         <StructuredData value={schema} />
         <PageContainer className={styles.headerShell}>
           <Breadcrumbs>
-            <Link href="/">Domov</Link><span>/</span><Link href={`/${section.slug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
+            <Link href="/">Domov</Link><span>/</span><Link href={`/${sectionSlug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
           </Breadcrumbs>
           <PublicSectionHeader
             variant="compact"
@@ -381,7 +384,7 @@ export function EditorialSectionTopic({
 
         <PortalSectionTabs section={section} activeSlug={subpage.slug} />
 
-        {section.slug === "starostlivost" && subpage.slug === "zdravie" ? (
+        {sectionSlug === "starostlivost" && subpage.slug === "zdravie" ? (
           <PageContainer className={styles.calloutShell}><HealthUrgent /></PageContainer>
         ) : null}
 
@@ -393,7 +396,7 @@ export function EditorialSectionTopic({
             {!!subpage.popularTopics?.length && (
               <div className={styles.chips} aria-label="Súvisiace témy">
                 {subpage.popularTopics.map((item) => (
-                  <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${section.slug}`} key={item}>{item}</Link>
+                  <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${sectionSlug}`} key={item}>{item}</Link>
                 ))}
               </div>
             )}
@@ -455,7 +458,7 @@ export function EditorialSectionTopic({
             <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} />
           </section>
 
-          <p className={styles.safetyNote}>{safetyNote(section.slug)}</p>
+          <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
         </PageContainer>
       </main>
     </PublicFoundation>
