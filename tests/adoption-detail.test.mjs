@@ -133,9 +133,17 @@ test("detail route is canonical-only and cannot reach the legacy Help renderer",
   assert.match(route, /getAdoptionBySlug\(slug\)/);
   assert.match(route, /asPublicAdoptionDetail\(current\)/);
   assert.match(route, /if \(dog\)/);
-  assert.match(route, /<AdoptionDetail dog=\{dog\}/);
+  assert.match(route, /getPublicAdoptionOrganizationById\(dog\.organizationId\)/);
+  assert.match(route, /<AdoptionDetail dog=\{dog\} organization=\{organization\}/);
   assert.match(route, /notFound\(\)/);
   assert.doesNotMatch(route, /getPublishedHelpCase|getLegacyAdoption|HelpDetail|help_cases|resolveAdoptionDetailSource/);
+});
+
+test("detail links only to the resolved canonical organization profile", () => {
+  const component = read("../components/adoption-detail.tsx");
+  assert.match(component, /organization \? <Link className=\{styles\.organizationLink\}/);
+  assert.match(component, /organization\.slug/);
+  assert.doesNotMatch(component, /dog\.organizationSlug.*organizacie/);
 });
 
 test("only ACTIVE and RESERVED can reach the canonical renderer", () => {
