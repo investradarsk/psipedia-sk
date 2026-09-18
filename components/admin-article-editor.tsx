@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
 import { AdminActionButton, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
@@ -116,6 +116,7 @@ export function AdminArticleEditor({
   const [error, setError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(true);
   const [dirty, setDirty] = useState(false);
+  const allowNavigationRef = useRef(false);
   const [relatedBreedIds,setRelatedBreedIds]=useState(article?.relatedBreedIds??[]);
 
   function changeTitle(value: string) {
@@ -226,6 +227,7 @@ export function AdminArticleEditor({
       setDirty(false);
       setMessage(nextStatus === "published" ? (portalSection === "novinky" ? "Novinka je publikovaná na webe." : "Článok je publikovaný na webe.") : nextStatus === "scheduled" ? "Publikovanie je naplánované." : "Koncept je bezpečne uložený.");
       if (!article) {
+        allowNavigationRef.current = true;
         window.location.assign(`/admin/clanky/${data.article.id}?vytvoreny=1`);
       }
     } catch (saveError) {
@@ -238,6 +240,7 @@ export function AdminArticleEditor({
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => {
+      if (allowNavigationRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -247,6 +250,7 @@ export function AdminArticleEditor({
 
   function cancelEditing() {
     if (dirty && !window.confirm("Máš neuložené zmeny. Naozaj chceš opustiť editor bez uloženia?")) return;
+    allowNavigationRef.current = true;
     window.location.assign("/admin");
   }
 
@@ -258,7 +262,7 @@ export function AdminArticleEditor({
 
   return (
     <div className={`admin-editor ${previewOpen ? "has-preview" : ""}`}>
-      <form className="admin-editor-form" onChange={() => setDirty(true)} onInput={() => setDirty(true)} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
+      <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
         <AdminStickyEditorNavigation sections={editorNavigation} ariaLabel="Sekcie editora článku" />
         <section id="article-basics" tabIndex={-1} className="admin-form-card admin-form-card--intro">
           <div className="admin-field admin-field--title">
@@ -298,7 +302,7 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-upload-row admin-og-upload">
             <div className={`admin-upload-preview admin-upload-preview--${accent}`}>{ogImageUrl ? <img src={ogImageUrl} alt="Náhľad Open Graph obrázka" /> : <span>OG</span>}</div>
-            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadOgImage} disabled={uploading} />{ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
+            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadOgImage} disabled={uploading} />{ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
           </div>
           <label className="admin-check"><input type="checkbox" checked={noindex} onChange={(event) => setNoindex(event.target.checked)} /><span><strong>Neindexovať článok (noindex)</strong><small>Článok zostane dostupný cez URL, ale vyhľadávače ho nemajú zaradiť.</small></span></label>
         </section>
@@ -392,7 +396,7 @@ export function AdminArticleEditor({
                 <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />
                 {uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}
               </label>
-              {imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); }}>Odstrániť fotku</button>}
+              {imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setDirty(true); }}>Odstrániť fotku</button>}
               <small>Odporúčaný pomer 16 : 9 a šírka aspoň 1200 px.</small>
             </div>
           </div>
