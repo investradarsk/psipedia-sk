@@ -1,6 +1,7 @@
 export {
   PublicActionButton,
   PublicActionLink,
+  PublicArticleListItem,
   PublicContentList,
   PublicContentListItem,
   PublicDataCard,
