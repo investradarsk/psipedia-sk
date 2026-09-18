@@ -46,7 +46,6 @@
     "test:org-fundraising-public": "node --experimental-strip-types --test tests/organization-fundraising-public.test.mjs",
     "test:org-locations-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/organization-location-admin.test.mjs",
     "test:editorial-foundation": "node --experimental-strip-types --test tests/editorial-content-foundation.test.mjs",
-    "typecheck": "tsc --noEmit",
     "test:article-admin-editor": "node --experimental-strip-types --test tests/article-admin-editor.test.mjs"
   },
   "dependencies": {
