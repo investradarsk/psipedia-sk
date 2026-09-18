@@ -439,25 +439,37 @@
     flex-basis: 100%;
   }
 
-  .bulkActions,
-  .primaryGroup,
-  .secondaryGroup,
-  .destructiveGroup {
+  .bulkActions {
     width: 100%;
+    align-items: stretch;
+  }
+
+  .primaryGroup,
+  .secondaryGroup {
+    width: auto;
+    flex: 1 1 9rem;
   }
 
   .primaryGroup > *,
-  .secondaryGroup > *,
-  .destructiveGroup > * {
-    flex: 1 1 10rem;
+  .secondaryGroup > * {
+    width: 100%;
   }
 
   .destructiveGroup {
+    width: 100%;
     margin-left: 0;
     padding-top: 0.55rem;
     padding-left: 0;
     border-top: 1px solid #dbc4bd;
     border-left: 0;
+  }
+
+  .destructiveGroup > * {
+    flex: 1 1 10rem;
+  }
+
+  .bulkActions > .link {
+    flex: 1 1 9rem;
   }
 
   .dialog {
