@@ -3,6 +3,10 @@ import {
   listPublicAdoptionsByOrganizationId,
   type OrganizationPublicAdoption,
 } from "./organization-adoption-store.ts";
+import {
+  listPublicOrganizationFundraisingMethods,
+  type PublicOrganizationFundraisingMethod,
+} from "./organization-fundraising-public.ts";
 
 export type PublicOrganizationType =
   | "SHELTER"
@@ -64,6 +68,7 @@ export type PublicHelpOrganization = {
 export type PublicOrganizationComposition = {
   organization: PublicHelpOrganization;
   adoptions: OrganizationPublicAdoption[];
+  fundraisingMethods: PublicOrganizationFundraisingMethod[];
 };
 
 export type PublicOrganizationSitemapRecord = {
@@ -79,6 +84,7 @@ type PublicOrganizationRow = {
   legal_name: string;
   registration_number: string | null;
   type: string;
+  status: string;
   short_description: string;
   description: string;
   public_email: string | null;
@@ -127,7 +133,7 @@ type PublicDirectoryRow = {
 export const PUBLIC_ORGANIZATION_PREDICATE =
   "o.status = 'PUBLISHED' AND o.published_at IS NOT NULL AND o.archived_at IS NULL";
 
-const PUBLIC_ORGANIZATION_SELECT = `o.id, o.name, o.slug, o.legal_name, o.registration_number, o.type,
+const PUBLIC_ORGANIZATION_SELECT = `o.id, o.name, o.slug, o.legal_name, o.registration_number, o.type, o.status,
   o.short_description, o.description, o.public_email, o.public_phone, o.website_url, o.facebook_url,
   o.instagram_url, o.city, o.district, o.region, o.country_code, o.image_url, o.source_url,
   o.published_at, o.last_verified_at, o.updated_at, o.directory_profile_id`;
@@ -302,13 +308,15 @@ export async function getPublicOrganizationCompositionBySlug(
 ): Promise<PublicOrganizationComposition | null> {
   const row = await findPublicOrganizationRowBySlug(slug, database);
   if (!row) return null;
-  const [locations, adoptions, directory] = await Promise.all([
+  const [locations, adoptions, directory, fundraisingMethods] = await Promise.all([
     listPublicOrganizationLocations(row, database),
     listPublicAdoptionsByOrganizationId(Number(row.id), database),
     findPublishedDirectoryRelation(row.directory_profile_id, database),
+    listPublicOrganizationFundraisingMethods(Number(row.id), row.status, database),
   ]);
   return {
     organization: toPublicOrganization(row, directory, locations),
     adoptions,
+    fundraisingMethods,
   };
 }
