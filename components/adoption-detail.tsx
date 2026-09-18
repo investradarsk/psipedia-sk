@@ -13,6 +13,7 @@ import {
   formatAdoptionDetailVerification,
   type PublicAdoptionDetailDog,
 } from "@/lib/adoption-detail";
+import type { AdoptionPublicOrganizationLink } from "@/lib/adoption-store";
 import styles from "./adoption-detail.module.css";
 
 type Fact = { label: string; value: string };
@@ -27,7 +28,7 @@ function DetailImage({ dog }: { dog: PublicAdoptionDetailDog }) {
   return <div className={styles.detailImageFallback} aria-hidden="true"><span /></div>;
 }
 
-export function AdoptionDetail({ dog }: { dog: PublicAdoptionDetailDog }) {
+export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetailDog; organization: AdoptionPublicOrganizationLink | null }) {
   const sections = buildAdoptionDetailSections(dog);
   const age = formatAdoptionDetailAge(dog);
   const verifiedAt = formatAdoptionDetailVerification(dog.lastVerifiedAt);
@@ -93,7 +94,7 @@ export function AdoptionDetail({ dog }: { dog: PublicAdoptionDetailDog }) {
       <aside className={styles.detailAside} aria-label="Kontakt a overenie">
         {sections.contact && <section className={styles.contactCard}>
           <span className={styles.detailEyebrow}>Kontakt</span>
-          <h2>{dog.organizationName || "Kontakt k adopcii"}</h2>
+          <h2>{organization ? <Link className={styles.organizationLink} href={`/organizacie/${organization.slug}`}>{organization.name}</Link> : dog.organizationName || "Kontakt k adopcii"}</h2>
           {dog.status === "ACTIVE" ? <p>O dostupnosti a podmienkach adopcie rozhoduje uvedená organizácia alebo zodpovedná osoba.</p> : <p>Profil je rezervovaný. Aktuálny stav si overte priamo u uvedeného kontaktu.</p>}
           <div className={styles.contactLinks}>
             {dog.contactUrl && <a href={dog.contactUrl} target="_blank" rel="nofollow noreferrer">Kontaktný odkaz ↗</a>}

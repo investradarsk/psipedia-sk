@@ -159,6 +159,30 @@ test.describe("organization public profile", () => {
       expect(overflow).toBeLessThanOrEqual(1);
     }
 
+    const adoptionDetailPage = await page.context().newPage();
+    await setOrganizationProfileViewport(adoptionDetailPage, testInfo.project.name);
+    const adoptionResponse = await adoptionDetailPage.goto("/pomoc-psom/adopcia/org-3b-e2e-neo-na-adopciu", {
+      waitUntil: "domcontentloaded",
+    });
+    expect(adoptionResponse?.status()).toBe(200);
+    const adoptionMain = adoptionDetailPage.locator("main#obsah");
+    await expect(adoptionMain.getByRole("link", { name: "E2E Kanonická organizácia", exact: true })).toHaveAttribute(
+      "href",
+      "/organizacie/org-3b-e2e-kanonicka-organizacia",
+    );
+    await expectNoHorizontalOverflow(adoptionDetailPage);
+    await expectNoSeriousAccessibilityViolations(adoptionDetailPage);
+
+    const draftOrganizationResponse = await adoptionDetailPage.goto(
+      "/pomoc-psom/adopcia/org-3c-e2e-pes-draft-organizacie",
+      { waitUntil: "domcontentloaded" },
+    );
+    expect(draftOrganizationResponse?.status()).toBe(200);
+    const draftOrganizationMain = adoptionDetailPage.locator("main#obsah");
+    await expect(draftOrganizationMain.getByText("E2E Draft organizácia", { exact: true })).toBeVisible();
+    await expect(draftOrganizationMain.getByRole("link", { name: "E2E Draft organizácia", exact: true })).toHaveCount(0);
+    await adoptionDetailPage.close();
+
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAccessibilityViolations(page);
   });

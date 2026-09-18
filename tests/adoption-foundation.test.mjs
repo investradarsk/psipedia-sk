@@ -15,6 +15,7 @@ import {
   buildAdminAdoptionQuery,
   buildPublicAdoptionQuery,
   getPublicAdoptionBySlug,
+  getPublicAdoptionOrganizationById,
   prepareAdoptionWritePayload,
   resolveBreed,
   resolveOrganization,
@@ -134,6 +135,30 @@ test("resolveOrganization rejects nonexistent ids and loads canonical identity",
   assert.deepEqual(await resolveOrganization(db, null), { organizationId: null, organizationName: "", organizationSlug: null });
   assert.deepEqual(await resolveOrganization(db, 7), { organizationId: 7, organizationName: "Canonical OZ", organizationSlug: "canonical-oz" });
   await assert.rejects(() => resolveOrganization(db, 999), /help_organizations/);
+});
+
+test("public adoption organization link is canonical-id based and fail-closed to published profiles", async () => {
+  const queries = [];
+  const db = {
+    prepare(query) {
+      queries.push(query);
+      return {
+        bind(id) {
+          return {
+            async first() {
+              return id === 7 ? { id: 7, name: "Canonical OZ", slug: "canonical-oz" } : null;
+            },
+          };
+        },
+      };
+    },
+  };
+  assert.equal(await getPublicAdoptionOrganizationById(null, db), null);
+  assert.deepEqual(await getPublicAdoptionOrganizationById(7, db), { id: 7, name: "Canonical OZ", slug: "canonical-oz" });
+  assert.equal(await getPublicAdoptionOrganizationById(999, db), null);
+  assert.equal(queries.length, 2);
+  assert.match(queries[0], /WHERE id = \? AND status = 'PUBLISHED' AND published_at IS NOT NULL AND archived_at IS NULL/);
+  assert.doesNotMatch(queries[0], /organization_name|organization_slug/i);
 });
 
 test("create payload derives organization snapshots from canonical organization_id", async () => {

@@ -7,7 +7,7 @@ import {
   buildAdoptionDetailSeo,
   buildAdoptionDetailStructuredData,
 } from "@/lib/adoption-detail";
-import { getAdoptionBySlug } from "@/lib/adoption-store";
+import { getAdoptionBySlug, getPublicAdoptionOrganizationById } from "@/lib/adoption-store";
 import { buildPageMetadata, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -40,9 +40,10 @@ export default async function AdoptionDogPage({ params }: Props) {
   const current = await getAdoptionBySlug(slug);
   const dog = asPublicAdoptionDetail(current);
   if (dog) {
+    const organization = await getPublicAdoptionOrganizationById(dog.organizationId);
     return <>
       <StructuredData value={buildAdoptionDetailStructuredData(dog, SITE_URL)} />
-      <AdoptionDetail dog={dog} />
+      <AdoptionDetail dog={dog} organization={organization} />
     </>;
   }
 
