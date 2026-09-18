@@ -2,11 +2,27 @@
 
 import Link from "next/link";
 import { ChangeEvent, useState } from "react";
+import {
+  AdminActionButton,
+  AdminDrawer,
+  AdminEditorSection,
+  AdminHelpText,
+  AdminStickyEditorNavigation,
+} from "@/components/admin-interaction-system";
+import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
 import { slovakRegions } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
-import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { directorySeoFallback } from "@/lib/content-seo";
+import styles from "./admin-directory-editor.module.css";
+
+const editorSections = [
+  { id: "directory-main", label: "Hlavné" },
+  { id: "directory-location", label: "Lokalita" },
+  { id: "directory-content", label: "Obsah" },
+  { id: "directory-contacts", label: "Kontakty" },
+  { id: "directory-media-trust", label: "Médiá a dôvera" },
+];
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
@@ -14,6 +30,14 @@ function slugify(value: string) {
 
 function listFromText(value: string) {
   return value.split(/\n+/).map((item) => item.trim()).filter(Boolean);
+}
+
+function importedText(profile: ManagedDirectoryProfile | undefined, ...keys: string[]) {
+  for (const key of keys) {
+    const value = profile?.importData?.[key];
+    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
+  }
+  return "";
 }
 
 export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryProfile }) {
@@ -31,7 +55,11 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [address, setAddress] = useState(profile?.address ?? "");
   const [online, setOnline] = useState(profile?.online ?? false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
-  const [websiteUrl, setWebsiteUrl] = useState(profile?.websiteUrl ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(profile?.websiteUrl ?? importedText(profile, "Web", "Webstránka"));
+  const [publicPhone, setPublicPhone] = useState(importedText(profile, "Telefón", "Telefon", "phone"));
+  const [publicEmail, setPublicEmail] = useState(importedText(profile, "E-mail", "Email", "email"));
+  const [facebookUrl, setFacebookUrl] = useState(importedText(profile, "Facebook"));
+  const [instagramUrl, setInstagramUrl] = useState(importedText(profile, "Instagram"));
   const [internalEmail, setInternalEmail] = useState(profile?.internalEmail ?? "");
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? "");
@@ -39,6 +67,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [featured, setFeatured] = useState(profile?.featured ?? false);
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
   const [seo, setSeo] = useState(profile?.seo ?? {});
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -55,10 +84,15 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
     setUploading(true); setError(""); setMessage("");
     try {
       const data = await uploadAdminImage(file, "directory");
-      setImageUrl(data.imageUrl); setImageKey(data.imageKey); setMessage(adminImageUploadMessage(data, "Ulož profil."));
+      setImageUrl(data.imageUrl);
+      setImageKey(data.imageKey);
+      setMessage(adminImageUploadMessage(data, "Ulož profil."));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
-    } finally { setUploading(false); event.target.value = ""; }
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
   }
 
   async function save(nextStatus: DirectoryProfileStatus) {
@@ -67,7 +101,16 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, slug, category, status: nextStatus, excerpt, description, services: listFromText(services), qualifications: listFromText(qualifications), city, district, region, address, online, priceNote, websiteUrl: websiteUrl || null, internalEmail: internalEmail || null, imageUrl: imageUrl || null, imageKey: imageKey || null, verified, featured, seo }),
+        body: JSON.stringify({
+          name, slug, category, status: nextStatus, excerpt, description,
+          services: listFromText(services), qualifications: listFromText(qualifications),
+          city, district, region, address, online, priceNote,
+          websiteUrl: websiteUrl || null,
+          publicPhone, publicEmail, facebookUrl, instagramUrl,
+          internalEmail: internalEmail || null,
+          imageUrl: imageUrl || null, imageKey: imageKey || null,
+          verified, featured, seo,
+        }),
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
@@ -76,63 +119,95 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
       if (!profile) window.location.assign(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }
 
   const categoryInfo = getDirectoryCategory(category);
   return (
-    <form className="admin-event-editor admin-directory-editor" onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
+    <form className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
+      <div className={styles.editorTopline}>
+        <AdminStickyEditorNavigation sections={editorSections} ariaLabel="Sekcie profilu adresára" />
+        <AdminActionButton variant="secondary" onClick={() => setAdvancedOpen(true)}>Pokročilé a SEO</AdminActionButton>
+      </div>
+
       <div className="admin-event-editor-grid">
         <div className="admin-event-fields">
-          <section className="admin-form-card admin-form-card--intro">
+          <AdminEditorSection id="directory-main" className="admin-form-card admin-form-card--intro">
+            <div className="admin-card-heading"><div><span>01</span><div><h2>Hlavné údaje</h2><p>Názov, zaradenie a krátke verejné predstavenie.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="directory-name">Názov profilu</label><input id="directory-name" value={name} onChange={(event) => changeName(event.target.value)} placeholder="Napríklad: Psia škola Pod Zoborom" required /></div>
+            <div className="admin-field"><label htmlFor="directory-category">Kategória</label><select id="directory-category" value={category} onChange={(event) => setCategory(event.target.value as DirectoryCategorySlug)}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
             <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><textarea id="directory-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Čím je profil zaujímavý a komu pomáha?" required /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
-          </section>
+          </AdminEditorSection>
 
-          <section className="admin-form-card">
-            <div className="admin-card-heading"><div><span>01</span><div><h2>Zaradenie a lokalita</h2><p>Kategória, kraj a dostupnosť služby.</p></div></div></div>
+          <AdminEditorSection id="directory-location" className="admin-form-card">
+            <div className="admin-card-heading"><div><span>02</span><div><h2>Lokalita</h2><p>Existujúci directory contract používa jednu adresu profilu.</p></div></div></div>
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-category">Kategória</label><select id="directory-category" value={category} onChange={(event) => setCategory(event.target.value as DirectoryCategorySlug)}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
               <div className="admin-field"><label htmlFor="directory-region">Kraj</label><select id="directory-region" value={region} onChange={(event) => setRegion(event.target.value)}>{slovakRegions.map((item) => <option key={item}>{item}</option>)}</select></div>
               <div className="admin-field"><label htmlFor="directory-city">Mesto</label><input id="directory-city" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Nitra alebo Online" required /></div>
               <div className="admin-field"><label htmlFor="directory-district">Okres <small>nepovinné</small></label><input id="directory-district" value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Nitra" /></div>
               <div className="admin-field"><label htmlFor="directory-address">Adresa <small>nepovinné</small></label><input id="directory-address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Ulica a číslo" /></div>
             </div>
             <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Profil sa dá vyhľadať filtrom „Dostupné online“.</small></span></label>
-          </section>
+          </AdminEditorSection>
 
-          <section className="admin-form-card">
-            <div className="admin-card-heading"><div><span>02</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
-            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={8} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} required /></div>
+          <AdminEditorSection id="directory-content" className="admin-form-card">
+            <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
+            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} required /></div>
+            <AdminHelpText term="Formát">Adresár dnes ukladá popis ako plain text. Editor preto zachováva aktuálny dátový contract; rich-text patrí do samostatnej migrácie.</AdminHelpText>
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => setServices(event.target.value)} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
               <div className="admin-field"><label htmlFor="directory-qualifications">Skúsenosti a kvalifikácie</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={"Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
-          </section>
+          </AdminEditorSection>
 
-          <section className="admin-form-card">
-            <div className="admin-card-heading"><div><span>03</span><div><h2>Kontakt, fotografia a adresa</h2><p>Interný kontakt sa na verejnom profile nezobrazí.</p></div></div></div>
+          <AdminEditorSection id="directory-contacts" className="admin-form-card">
+            <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Verejné kontakty sú oddelené od interného e-mailu Psipedie.</p></div></div></div>
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-email">Interný e-mail <small>neverejný</small></label><input id="directory-email" type="email" value={internalEmail} onChange={(event) => setInternalEmail(event.target.value)} placeholder="kontakt@profil.sk" /></div>
+              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="tel" value={publicPhone} onChange={(event) => setPublicPhone(event.target.value)} placeholder="+421 900 000 000" /></div>
+              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="email" value={publicEmail} onChange={(event) => setPublicEmail(event.target.value)} placeholder="kontakt@profil.sk" /></div>
               <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} placeholder="https://…" /></div>
+              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type="url" value={facebookUrl} onChange={(event) => setFacebookUrl(event.target.value)} placeholder="https://facebook.com/…" /></div>
+              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="url" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
+              <div className="admin-field"><label htmlFor="directory-email">Interný e-mail <small>neverejný</small></label><input id="directory-email" type="email" value={internalEmail} onChange={(event) => setInternalEmail(event.target.value)} placeholder="kontakt@profil.sk" /></div>
             </div>
-            <div className="admin-field"><label htmlFor="directory-slug">Adresa profilu</label><div className="admin-slug-input"><span>psipedia.sk/adresar/{category}/</span><input id="directory-slug" value={slug} onChange={(event) => { setSlugEdited(true); setSlug(slugify(event.target.value)); }} placeholder="nazov-profilu" required /></div></div>
-            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <img src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
-            <div className="admin-directory-flags"><label className="admin-event-cancelled"><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} /><span><strong>Overený profil</strong><small>Redakcia preverila základné údaje.</small></span></label><label className="admin-event-cancelled"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /><span><strong>Odporúčaný profil</strong><small>Zobrazí sa medzi prvými.</small></span></label></div>
-          </section>
+            <AdminHelpText term="Súkromie">Interný e-mail slúži administrácii a nezmiešava sa s verejným kontaktným contractom.</AdminHelpText>
+          </AdminEditorSection>
 
-          <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/adresar/${category}/${slug}`} fallbackTitle={directorySeoFallback(name||"Názov profilu",city,category).title} fallbackDescription={directorySeoFallback(name||"Názov profilu",city,category).description}/>
+          <AdminEditorSection id="directory-media-trust" className="admin-form-card">
+            <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
+            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <img src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            <div className="admin-directory-flags">
+              <label className="admin-event-cancelled"><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} /><span><strong>Overený profil</strong><small>Trust stav: redakcia preverila základné údaje. Nie je to publication state.</small></span></label>
+              <label className="admin-event-cancelled"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /><span><strong>Odporúčaný profil</strong><small>Existujúci featured flag pre poradie. Neznamená platené ani sponzorované umiestnenie.</small></span></label>
+            </div>
+          </AdminEditorSection>
         </div>
 
         <aside className="admin-event-preview admin-directory-preview">
           <span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <img src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div>
           <span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overený" : ""}</span><h2>{name || "Názov profilu"}</h2><p>{excerpt || "Krátky popis profilu sa zobrazí tu."}</p>
-          <dl><div><dt>Lokalita</dt><dd>{city || "Mesto"}{district ? ` · okres ${district}` : ""} · {region}</dd></div><div><dt>Dostupnosť</dt><dd>{online ? "Osobne aj online" : "Osobne"}</dd></div><div><dt>Kontakt</dt><dd>Cez Psipediu</dd></div></dl>
+          <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Mesto"}{district ? ` · okres ${district}` : ""} · {region}</dd></div><div><dt>Dostupnosť</dt><dd>{online ? "Osobne aj online" : "Osobne"}</dd></div></dl>
         </aside>
       </div>
-      {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}
-      <div className="admin-editor-actions"><div><Link href="/admin/adresar">← Späť na adresár</Link></div><div>{status === "published" && <button className="admin-unpublish" type="button" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</button>}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</button><button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</button></div></div>
+
+      <AdminDrawer
+        open={advancedOpen}
+        title="Pokročilé nastavenia"
+        description="Slug a SEO sú sekundárne nastavenia profilu."
+        onClose={() => setAdvancedOpen(false)}
+        footer={<AdminActionButton variant="primary" onClick={() => setAdvancedOpen(false)}>Hotovo</AdminActionButton>}
+      >
+        <div className={styles.drawerFields}>
+          <div className="admin-field"><label htmlFor="directory-slug">Adresa profilu</label><div className="admin-slug-input"><span>psipedia.sk/adresar/{category}/</span><input id="directory-slug" value={slug} onChange={(event) => { setSlugEdited(true); setSlug(slugify(event.target.value)); }} placeholder="nazov-profilu" required /></div></div>
+          <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/adresar/${category}/${slug}`} fallbackTitle={directorySeoFallback(name || "Názov profilu", city, category).title} fallbackDescription={directorySeoFallback(name || "Názov profilu", city, category).description} />
+        </div>
+      </AdminDrawer>
+
+      {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
+      <div className="admin-editor-actions"><div><Link href="/admin/adresar">← Späť na adresár</Link></div><div>{status === "published" && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}<AdminActionButton variant="neutral" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton><AdminActionButton variant="primary" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton></div></div>
     </form>
   );
 }
