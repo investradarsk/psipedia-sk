@@ -190,11 +190,7 @@ test.describe("admin directory v2", () => {
   test("create flow validates current contract and produces a manageable draft", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar/novy");
-    const advanced = page.getByRole("button", { name: "Pokročilé a SEO" });
-    await advanced.click();
-    await expect(page.getByRole("dialog", { name: "Pokročilé nastavenia" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(advanced).toBeFocused();
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
 
     await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
     await page.getByLabel("Krátky popis").fill("Testovací profil vytvorený cez nový directory admin flow.");
@@ -242,7 +238,7 @@ test.describe("admin directory v2", () => {
       page.getByLabel("Stav publikácie"),
       page.getByLabel("Kraj"),
       page.getByLabel("Okres"),
-      page.getByLabel("Mesto"),
+      page.getByLabel("Mesto", { exact: true }),
       page.getByLabel("Overenie"),
       page.getByLabel("Obrázok"),
       page.getByRole("button", { name: "Použiť filtre" }),
