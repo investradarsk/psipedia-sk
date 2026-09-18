@@ -1,7 +1,8 @@
 "use client";
 
-import { ChangeEvent, Fragment, useEffect, useRef, useState } from "react";
+import { ChangeEvent, Fragment, useEffect, useState } from "react";
 import { ArticleBlocks } from "@/components/article-blocks";
+import { AdminRichTextEditor } from "@/components/admin-rich-text-editor";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import {
   articleBlockLabels,
@@ -12,6 +13,8 @@ import {
 } from "@/lib/article-blocks";
 import type { ManagedArticleSummary } from "@/lib/article-store";
 import { articleHref } from "@/lib/portal";
+import { editorialRichTextPlainText, legacyRichTextToDocument, normalizeEditorialRichText, type EditorialRichTextDocument } from "@/lib/editorial-content";
+import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 
 type Props = {
   blocks: ArticleBlock[];
@@ -47,17 +50,19 @@ function cloneBlock(block: ArticleBlock): ArticleBlock {
 
 export function RichTextInput({
   value,
+  richText,
   onChange,
   rows = 5,
   id,
   placeholder,
   required = false,
-  showLists = false,
   alignment = "left",
   onAlignmentChange,
+  allowHeadings = true,
 }: {
   value: string;
-  onChange: (value: string) => void;
+  richText?: EditorialRichTextDocument;
+  onChange: (value: string, richText: EditorialRichTextDocument) => void;
   rows?: number;
   id: string;
   placeholder?: string;
@@ -65,64 +70,40 @@ export function RichTextInput({
   showLists?: boolean;
   alignment?: ArticleTextAlignment;
   onAlignmentChange?: (alignment: ArticleTextAlignment) => void;
+  allowHeadings?: boolean;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  function wrap(before: string, after = before, fallback = "text") {
-    const field = ref.current;
-    if (!field) return;
-    const start = field.selectionStart;
-    const end = field.selectionEnd;
-    const selected = value.slice(start, end) || fallback;
-    const next = `${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`;
-    onChange(next);
-    requestAnimationFrame(() => {
-      field.focus();
-      field.setSelectionRange(start + before.length, start + before.length + selected.length);
-    });
-  }
-
-  function addLink() {
-    const url = window.prompt("Vlož adresu odkazu (https://…):", "https://");
-    if (!url) return;
-    wrap("[", `](${url})`, "text odkazu");
-  }
-
-  function formatSelectedLines(kind: "bullet" | "numbered") {
-    const field = ref.current;
-    if (!field) return;
-    const start = value.lastIndexOf("\n", Math.max(0, field.selectionStart - 1)) + 1;
-    const nextBreak = value.indexOf("\n", field.selectionEnd);
-    const end = nextBreak === -1 ? value.length : nextBreak;
-    const source = value.slice(start, end) || "Položka zoznamu";
-    const formatted = source.split("\n").map((line, index) => {
-      const clean = line.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "");
-      return kind === "bullet" ? `- ${clean}` : `${index + 1}. ${clean}`;
-    }).join("\n");
-    onChange(`${value.slice(0, start)}${formatted}${value.slice(end)}`);
-    requestAnimationFrame(() => {
-      field.focus();
-      field.setSelectionRange(start, start + formatted.length);
-    });
-  }
-
+  const documentValue = normalizeEditorialRichText(richText) ?? legacyRichTextToDocument(value);
   return (
     <div className="admin-rich-text">
-      <div className="admin-rich-toolbar" aria-label="Formátovanie textu">
-        <button type="button" onClick={() => wrap("**", "**", "tučný text")} title="Tučné"><strong>B</strong></button>
-        <button type="button" onClick={() => wrap("_", "_", "kurzíva")} title="Kurzíva"><em>I</em></button>
-        <button type="button" onClick={addLink} title="Vložiť odkaz">🔗 Odkaz</button>
-        {showLists && <button type="button" onClick={() => formatSelectedLines("bullet")} title="Odrážkový zoznam">• Zoznam</button>}
-        {showLists && <button type="button" onClick={() => formatSelectedLines("numbered")} title="Číslovaný zoznam">1. Zoznam</button>}
-        {onAlignmentChange && <span className="admin-rich-toolbar-separator" aria-hidden="true" />}
-        {onAlignmentChange && ([
-          ["left", "Vľavo"],
-          ["center", "Stred"],
-          ["right", "Vpravo"],
-        ] as const).map(([position, label]) => <button type="button" key={position} className={alignment === position ? "is-active" : ""} aria-pressed={alignment === position} onClick={() => onAlignmentChange(position)}>{label}</button>)}
-      </div>
-      <textarea ref={ref} id={id} rows={rows} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} />
-      <small>Označ text a použi formátovanie. Prázdny riadok vytvorí na webe nový odsek.</small>
+      <AdminRichTextEditor
+        id={id}
+        value={documentValue}
+        onChange={(nextDocument) => onChange(editorialRichTextPlainText(nextDocument), nextDocument)}
+        placeholder={placeholder}
+        ariaLabel={required ? "Povinný editor textu" : "Editor textu"}
+        allowHeadings={allowHeadings}
+        allowCallouts={allowHeadings}
+        minHeight={Math.max(120, rows * 28)}
+      />
+      {onAlignmentChange && (
+        <div className="admin-rich-toolbar" role="toolbar" aria-label="Zarovnanie textu">
+          {([
+            ["left", "Vľavo"],
+            ["center", "Stred"],
+            ["right", "Vpravo"],
+          ] as const).map(([position, label]) => (
+            <button
+              type="button"
+              key={position}
+              className={alignment === position ? "is-active" : ""}
+              aria-pressed={alignment === position}
+              onClick={() => onAlignmentChange(position)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -131,6 +112,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/articles?limit=100")
@@ -246,7 +228,14 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
                 <button type="button" onClick={() => move(index, -1)} disabled={index === 0} aria-label="Presunúť hore">↑</button>
                 <button type="button" onClick={() => move(index, 1)} disabled={index === blocks.length - 1} aria-label="Presunúť dole">↓</button>
                 <button type="button" onClick={() => { const next = [...blocks]; next.splice(index + 1, 0, cloneBlock(block)); onChange(next); }} aria-label="Duplikovať blok">⧉</button>
-                <button type="button" className="is-danger" onClick={() => onChange(blocks.filter((item) => item.id !== block.id))} aria-label="Odstrániť blok">×</button>
+                {pendingDeleteId === block.id ? (
+                  <>
+                    <button type="button" className="is-danger" onClick={() => { onChange(blocks.filter((item) => item.id !== block.id)); setPendingDeleteId(null); }} aria-label="Potvrdiť odstránenie bloku">Odstrániť</button>
+                    <button type="button" onClick={() => setPendingDeleteId(null)} aria-label="Zrušiť odstránenie bloku">Zrušiť</button>
+                  </>
+                ) : (
+                  <button type="button" className="is-danger" onClick={() => setPendingDeleteId(block.id)} aria-label="Odstrániť blok">×</button>
+                )}
               </div>
             </header>
 
@@ -256,8 +245,9 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
               showLists
               alignment={block.alignment ?? "left"}
               onAlignmentChange={(alignment) => update(block.id, (item) => item.type === "text" ? { ...item, alignment } : item)}
-              onChange={(content) => update(block.id, (item) => item.type === "text" ? { ...item, content, richText: undefined } : item)}
-              placeholder="Napíš text článku… Prázdnym riadkom oddeľ odseky."
+              richText={block.richText}
+              onChange={(content, richText) => update(block.id, (item) => item.type === "text" ? { ...item, content, richText } : item)}
+              placeholder="Napíš text článku…"
             />}
             {(block.type === "h2" || block.type === "h3") && <div className="admin-field"><label htmlFor={`block-${block.id}`}>{block.type === "h2" ? "Hlavný medzititulok" : "Menší podnadpis"}</label><input id={`block-${block.id}`} value={block.text} onChange={(event) => update(block.id, (item) => item.type === block.type ? { ...item, text: event.target.value } : item)} placeholder={block.type === "h2" ? "Nadpis novej časti" : "Podnadpis v rámci časti"} /></div>}
 
@@ -293,8 +283,8 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
               <button type="button" onClick={() => update(block.id, (item) => item.type === block.type ? { ...item, items: [...item.items, ""] } : item)}>+ Pridať položku</button>
             </div>}
 
-            {(block.type === "tip" || block.type === "warning") && <RichTextInput id={`block-${block.id}`} rows={4} value={block.content} onChange={(content) => update(block.id, (item) => item.type === block.type ? { ...item, content, richText: undefined } : item)} placeholder={block.type === "tip" ? "Praktická rada pre čitateľa…" : "Čo si musí čitateľ všimnúť alebo čomu sa vyhnúť…"} />}
-            {block.type === "quote" && <><RichTextInput id={`block-${block.id}`} rows={4} value={block.content} onChange={(content) => update(block.id, (item) => item.type === "quote" ? { ...item, content, richText: undefined } : item)} placeholder="Text citátu…" /><div className="admin-field"><label>Autor alebo zdroj citátu</label><input value={block.attribution ?? ""} onChange={(event) => update(block.id, (item) => item.type === "quote" ? { ...item, attribution: event.target.value } : item)} /></div></>}
+            {(block.type === "tip" || block.type === "warning") && <RichTextInput id={`block-${block.id}`} rows={4} value={block.content} richText={block.richText} allowHeadings={false} onChange={(content, richText) => update(block.id, (item) => item.type === block.type ? { ...item, content, richText } : item)} placeholder={block.type === "tip" ? "Praktická rada pre čitateľa…" : "Čo si musí čitateľ všimnúť alebo čomu sa vyhnúť…"} />}
+            {block.type === "quote" && <><RichTextInput id={`block-${block.id}`} rows={4} value={block.content} richText={block.richText} allowHeadings={false} onChange={(content, richText) => update(block.id, (item) => item.type === "quote" ? { ...item, content, richText } : item)} placeholder="Text citátu…" /><div className="admin-field"><label>Autor alebo zdroj citátu</label><input value={block.attribution ?? ""} onChange={(event) => update(block.id, (item) => item.type === "quote" ? { ...item, attribution: event.target.value } : item)} /></div></>}
 
             {block.type === "table" && <div className="admin-table-editor">
               <div className="admin-table-scroll"><table><thead><tr>{block.headers.map((header, columnIndex) => <th key={columnIndex}><input value={header} onChange={(event) => update(block.id, (item) => item.type === "table" ? { ...item, headers: item.headers.map((entry, entryIndex) => entryIndex === columnIndex ? event.target.value : entry) } : item)} /><button type="button" onClick={() => update(block.id, (item) => item.type === "table" ? { ...item, headers: item.headers.filter((_, entryIndex) => entryIndex !== columnIndex), rows: item.rows.map((row) => row.filter((_, entryIndex) => entryIndex !== columnIndex)) } : item)} aria-label={`Odstrániť stĺpec ${columnIndex + 1}`}>×</button></th>)}</tr></thead><tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{block.headers.map((_, columnIndex) => <td key={columnIndex}><input value={row[columnIndex] ?? ""} onChange={(event) => update(block.id, (item) => item.type === "table" ? { ...item, rows: item.rows.map((entry, entryIndex) => entryIndex === rowIndex ? item.headers.map((__, cellIndex) => cellIndex === columnIndex ? event.target.value : entry[cellIndex] ?? "") : entry) } : item)} /></td>)}<td><button type="button" onClick={() => update(block.id, (item) => item.type === "table" ? { ...item, rows: item.rows.filter((_, entryIndex) => entryIndex !== rowIndex) } : item)} aria-label={`Odstrániť riadok ${rowIndex + 1}`}>×</button></td></tr>)}</tbody></table></div>
@@ -315,7 +305,40 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
                 <label className="admin-check"><input type="checkbox" checked={block.sponsored} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, sponsored: event.target.checked } : item)} /><span><strong>Affiliate / sponsored</strong><small>Odkaz dostane označenie „Partnerský odkaz“ a atribúty sponsored a nofollow.</small></span></label>
               </div>
             </div>}
-            {block.type === "embed" && <div className="admin-field-grid"><div className="admin-field"><label>Odkaz na YouTube alebo Vimeo</label><input type="url" value={block.url} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, url: event.target.value } : item)} placeholder="https://youtube.com/watch?v=…" /></div><div className="admin-field"><label>Názov videa</label><input value={block.title ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, title: event.target.value } : item)} /></div></div>}
+            {block.type === "embed" && (() => {
+              const video = normalizeEditorialExternalVideo({ url: block.url, title: block.title, caption: block.caption });
+              const invalid = Boolean(block.url.trim()) && !video;
+              return <div className="admin-video-editor">
+                <div className="admin-field-grid">
+                  <div className="admin-field admin-field--full">
+                    <label>Odkaz na YouTube alebo Vimeo</label>
+                    <input
+                      type="url"
+                      value={block.url}
+                      aria-invalid={invalid || undefined}
+                      onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, url: event.target.value } : item)}
+                      placeholder="https://www.youtube.com/watch?v=… alebo https://vimeo.com/…"
+                    />
+                    {invalid
+                      ? <small role="alert">Podporované sú iba bezpečné HTTPS odkazy na YouTube alebo Vimeo. HTML iframe sem nevkladaj.</small>
+                      : <small>Vlož iba URL videa. Embed HTML sa z bezpečnostných dôvodov neprijíma.</small>}
+                  </div>
+                  <div className="admin-field"><label>Názov videa <small>nepovinný</small></label><input value={block.title ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, title: event.target.value } : item)} /></div>
+                  <div className="admin-field"><label>Popis videa <small>nepovinný</small></label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, caption: event.target.value } : item)} /></div>
+                </div>
+                {video && <div className="admin-video-preview">
+                  <iframe
+                    src={video.embedUrl}
+                    title={video.title || "Náhľad videa"}
+                    loading="lazy"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                  <button type="button" onClick={() => update(block.id, (item) => item.type === "embed" ? { ...item, url: "", provider: undefined, videoId: undefined } : item)}>Odstrániť video</button>
+                </div>}
+              </div>;
+            })()}
           </section>
           </Fragment>
         ))}

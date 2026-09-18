@@ -21,6 +21,7 @@ import {
   normalizeEditorialRichText,
   type EditorialRichTextDocument,
 } from "@/lib/editorial-content";
+import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 
 export type ArticleStatus = "draft" | "scheduled" | "published";
 
@@ -525,6 +526,9 @@ async function normalizeInput(
     }
     if (block.type === "related" && (!block.title || !block.href)) {
       throw new Error("Súvisiaci článok potrebuje názov aj odkaz.");
+    }
+    if (block.type === "embed" && block.url && !normalizeEditorialExternalVideo({ url: block.url, title: block.title, caption: block.caption })) {
+      throw new Error("Video musí byť bezpečný HTTPS odkaz na YouTube alebo Vimeo.");
     }
   }
 

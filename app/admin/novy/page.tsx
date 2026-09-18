@@ -11,7 +11,7 @@ export default async function NewArticlePage({ searchParams }: { searchParams: P
   const user = await requireAdminPageUser("/admin/novy");
   const { sekcia, oblast } = await searchParams;
   const [breedOptions, managedSections] = await Promise.all([listManagedBreedSummaries(500), listManagedPortalSections()]);
-  const requestedSection = sekcia && isArticlePortalSection(sekcia) && (sekcia === "clanky" || managedSections.some((section) => section.slug === sekcia && section.articleEnabled && section.visible !== false)) ? sekcia : "steniatka";
+  const requestedSection = sekcia && isArticlePortalSection(sekcia) && (sekcia === "clanky" || sekcia === "novinky" || managedSections.some((section) => section.slug === sekcia && section.articleEnabled && section.visible !== false)) ? sekcia : "steniatka";
 
   return (
     <AdminShell
