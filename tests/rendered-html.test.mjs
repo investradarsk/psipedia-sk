@@ -151,7 +151,7 @@ function createAdminMockDatabase() {
         updated_at: articleRow.updated_at,
       }];
     }
-    if (/SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured FROM directory_profiles/i.test(normalized)) {
+    if (/SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at FROM directory_profiles/i.test(normalized)) {
       return [{
         id: profileRow.id,
         slug: profileRow.slug,
@@ -165,6 +165,7 @@ function createAdminMockDatabase() {
         image_url: profileRow.image_url,
         verified: profileRow.verified,
         featured: profileRow.featured,
+        updated_at: profileRow.updated_at,
       }];
     }
     if (/FROM directory_profiles WHERE status = 'published'.*LIMIT \?/i.test(normalized)) return [profileRow];
