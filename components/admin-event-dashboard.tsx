@@ -389,14 +389,14 @@ export function AdminEventDashboard({ initialEvents }: { initialEvents: AdminEve
         )}
       >
         <div className={styles.quickForm}>
-          <label>
-            Typ podujatia
-            <select value={quickType} onChange={(event) => setQuickType(event.target.value as EventType)}>
+          <div>
+            <label htmlFor="event-quick-type">Typ podujatia</label>
+            <select id="event-quick-type" value={quickType} onChange={(event) => setQuickType(event.target.value as EventType)}>
               {eventTypes.map((value) => <option key={value}>{value}</option>)}
             </select>
-          </label>
-          <label className={styles.quickCheckbox}>
-            <input type="checkbox" checked={quickCancelled} onChange={(event) => setQuickCancelled(event.target.checked)} />
+          </div>
+          <label className={styles.quickCheckbox} htmlFor="event-quick-cancelled">
+            <input id="event-quick-cancelled" type="checkbox" checked={quickCancelled} onChange={(event) => setQuickCancelled(event.target.checked)} />
             <span>Podujatie je zrušené</span>
           </label>
           <p className={styles.quickHint}>Rýchla úprava nemení názov, termín, miesto, text, obrázok, SEO ani publikačný stav. Na tieto zmeny použi celý editor.</p>
