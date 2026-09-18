@@ -41,22 +41,37 @@ test("drizzle config includes canonical organizations without removing existing 
   ]) assert.match(config, new RegExp(schema.replaceAll(".", "\\.")));
 });
 
-test("ORG-6C cuts shelter runtime identity over to canonical help_organizations without deleting legacy data", () => {
+test("ORG-6D preserves canonical shelter compatibility while removing legacy runtime consumers", () => {
   const helpStore = read("../lib/help-store.ts");
   const organizationStore = read("../lib/help-organization-store.ts");
   const legacyDetailRoute = read("../app/pomoc-psom/[category]/[slug]/page.tsx");
+  const helpDetail = read("../components/help-detail.tsx");
+  const helpDetailTypes = read("../components/help-details/help-detail-types.tsx");
+  const helpImportPreview = read("../lib/help-import-preview.ts");
   const adminQuery = read("../lib/help-admin-query.ts");
   const adminBulk = read("../lib/admin-help-bulk.ts");
   const importRoute = read("../app/api/admin/import/route.ts");
   const sitemap = read("../app/sitemap.ts");
 
   assert.match(helpStore, /category === "utulky"[\s\S]*listPublishedOrganizations/);
-  assert.match(helpStore, /category === "utulky"[\s\S]*getPublicOrganizationBySlug/);
+  assert.match(helpStore, /!database \|\| !isHelpCategory\(category\) \|\| category === "utulky"\) return null/);
+  assert.doesNotMatch(helpStore, /getPublicOrganizationBySlug/);
   assert.ok(helpStore.includes("category NOT IN ('adopcia', 'utulky')"));
   assert.match(organizationStore, /FROM help_organizations o/);
   assert.doesNotMatch(organizationStore, /help_cases/);
-  assert.match(legacyDetailRoute, /category === "utulky"[\s\S]*permanentRedirect/);
-  assert.ok(legacyDetailRoute.includes("/organizacie/${item.slug}"));
+
+  assert.match(legacyDetailRoute, /if \(category === "utulky"\) return \{\};/);
+  const pageSource = legacyDetailRoute.slice(legacyDetailRoute.indexOf("export default async function HelpCasePage"));
+  const redirect = pageSource.indexOf('if (category === "utulky") permanentRedirect(\`/organizacie/\${slug}\`);');
+  const lookup = pageSource.indexOf("const item = await getPublishedHelpCase(category, slug);");
+  assert.ok(redirect >= 0 && lookup > redirect, "legacy shelter redirect must happen before any Help lookup");
+
+  assert.match(helpDetail, /item\.category === "utulky"[\s\S]*canonical \/organizacie\/\[slug\] route/);
+  assert.doesNotMatch(helpDetailTypes, /OrganizationHelpDetail/);
+  assert.doesNotMatch(helpDetailTypes, /utulky\s*:/);
+  assert.doesNotMatch(helpImportPreview, /organizationMatch/);
+  assert.ok(helpImportPreview.includes("FROM help_cases WHERE category <> 'utulky'"));
+
   assert.ok(adminQuery.includes("category <> 'utulky'"));
   assert.ok(adminBulk.includes("category <> 'utulky'"));
   assert.match(importRoute, /row\.category[\s\S]*=== "utulky"/);
