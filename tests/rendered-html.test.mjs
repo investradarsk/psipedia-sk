@@ -455,7 +455,10 @@ test("uses light admin lists and loads full records only for detail and save", a
     assert.match(articleDetailHtml, /Pozrieť produkt/);
     assert.match(articleDetailHtml, /Partnerský odkaz/);
     assert.match(articleDetailHtml, /rel="sponsored nofollow noreferrer"/);
-    assert.match(articleDetailHtml, /Prázdny riadok vytvorí na webe nový odsek/);
+    assert.match(articleDetailHtml, /Píš priamo ako v textovom editore/);
+    assert.match(articleDetailHtml, /aria-label="Formátovanie textu"/);
+    assert.match(articleDetailHtml, /aria-label="Vložiť odkaz"/);
+    assert.doesNotMatch(articleDetailHtml, /Prázdny riadok vytvorí na webe nový odsek/);
 
     const profileDetail = await worker.fetch(adminRequest("/admin/adresar/9"), bindings, context);
     assert.equal(profileDetail.status, 200);
