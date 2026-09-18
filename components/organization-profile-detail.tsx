@@ -116,11 +116,31 @@ export function OrganizationProfileDetail({ composition }: { composition: Public
         <p className={styles.eyebrow}>Pomoc psom · organizácia</p>
         <h1>{organization.name}</h1>
         {presentation.shortDescription ? <p className={styles.lead}>{presentation.shortDescription}</p> : null}
-        {presentation.location ? <p className={styles.location}>📍 {presentation.location}</p> : null}
+        {presentation.location ? <p className={styles.location} data-organization-location-summary>📍 {presentation.location}</p> : null}
       </SectionHero>
 
       <PageContainer className={styles.content}>
         <DetailContentLayout aside={aside}>
+          {presentation.locations.length > 1 ? (
+            <DetailSection eyebrow="Lokality" title="Kde organizácia pôsobí">
+              <ul className={styles.locationList}>
+                {presentation.locations.map((location, index) => (
+                  <li
+                    className={styles.locationItem}
+                    data-organization-location={location.id ?? `legacy-${index}`}
+                    key={location.id ?? `legacy-${index}`}
+                  >
+                    <div className={styles.locationHeading}>
+                      <h3>{location.label ?? `Lokalita ${index + 1}`}</h3>
+                      {location.isPrimary ? <span className={styles.primaryBadge}>Hlavná lokalita</span> : null}
+                    </div>
+                    {location.value ? <p>{location.value}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            </DetailSection>
+          ) : null}
+
           {presentation.description ? (
             <DetailSection eyebrow="O organizácii" title="Kto sú a čo robia">
               <DetailParagraphs value={presentation.description} />

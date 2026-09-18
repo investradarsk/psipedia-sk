@@ -18,10 +18,18 @@ export type OrganizationProfileAction = {
   external: boolean;
 };
 
+export type OrganizationProfileLocation = {
+  id: number | null;
+  label: string | null;
+  value: string;
+  isPrimary: boolean;
+};
+
 export type OrganizationProfilePresentation = {
   shortDescription: string | null;
   description: string | null;
   location: string | null;
+  locations: OrganizationProfileLocation[];
   imageUrl: string | null;
   facts: OrganizationProfileFact[];
   contacts: OrganizationProfileContact[];
@@ -35,6 +43,13 @@ const organizationTypeLabels: Record<PublicHelpOrganization["type"], string> = {
   MUNICIPAL_ORGANIZATION: "Mestská alebo obecná organizácia",
   NONPROFIT: "Nezisková organizácia",
   OTHER: "Iná organizácia",
+};
+
+const organizationLocationRoleLabels: Record<PublicHelpOrganization["locations"][number]["role"], string | null> = {
+  UNSPECIFIED: null,
+  SITE: "Prevádzka",
+  LEGAL_SEAT: "Sídlo",
+  SERVICE_AREA: "Pôsobnosť",
 };
 
 function text(value: string | null | undefined) {
@@ -81,17 +96,63 @@ function externalContact(label: string, value: string | null | undefined): Organ
   return { label, value: text(value)!, href, external: true };
 }
 
+function locationValue(location: PublicHelpOrganization["locations"][number]) {
+  const city = text(location.city);
+  const district = text(location.district);
+  const region = text(location.region);
+  const countryCode = text(location.countryCode)?.toUpperCase() ?? null;
+  const parts = [
+    city,
+    district && district !== city ? `okres ${district}` : null,
+    region && region !== city && region !== district ? region : null,
+    countryCode && countryCode !== "SK" ? countryCode : null,
+  ].filter((part): part is string => Boolean(part));
+  return parts.join(" · ");
+}
+
+function presentationLocations(organization: PublicHelpOrganization): OrganizationProfileLocation[] {
+  const canonical = Array.isArray(organization.locations) ? organization.locations : [];
+  const fallback = canonical.length > 0
+    ? canonical
+    : [{
+        id: null,
+        organizationId: organization.id,
+        role: "UNSPECIFIED" as const,
+        label: "",
+        city: organization.city,
+        district: organization.district,
+        region: organization.region,
+        countryCode: organization.countryCode,
+        isPrimary: true,
+        sortOrder: 0,
+      }];
+
+  return [...fallback]
+    .sort((left, right) => left.sortOrder - right.sortOrder || (left.id ?? Number.MAX_SAFE_INTEGER) - (right.id ?? Number.MAX_SAFE_INTEGER))
+    .map((location) => {
+      const value = locationValue(location);
+      const explicitLabel = text(location.label);
+      const roleLabel = organizationLocationRoleLabels[location.role];
+      return {
+        id: location.id,
+        label: explicitLabel ?? roleLabel,
+        value,
+        isPrimary: location.isPrimary,
+      };
+    })
+    .filter((location) => Boolean(location.value || location.label));
+}
+
 export function buildOrganizationProfilePresentation(
   organization: PublicHelpOrganization,
 ): OrganizationProfilePresentation {
   const shortDescription = text(organization.shortDescription);
   const description = text(organization.description);
-  const city = text(organization.city);
-  const district = text(organization.district);
-  const region = text(organization.region);
-  const locationParts = [city, district && district !== city ? `okres ${district}` : null, region].filter(
-    (part): part is string => Boolean(part),
-  );
+  const locations = presentationLocations(organization);
+  const singleLocation = locations.length === 1 ? locations[0] : null;
+  const singleLocationParts = singleLocation
+    ? [singleLocation.label, singleLocation.value].filter((part, index, parts) => Boolean(part) && parts.indexOf(part) === index)
+    : [];
   const website = externalUrl(organization.websiteUrl);
 
   const facts: OrganizationProfileFact[] = [
@@ -102,9 +163,6 @@ export function buildOrganizationProfilePresentation(
     text(organization.registrationNumber)
       ? { label: "Registračné číslo", value: text(organization.registrationNumber)! }
       : null,
-    city ? { label: "Mesto", value: city } : null,
-    district && district !== city ? { label: "Okres", value: district } : null,
-    region ? { label: "Kraj", value: region } : null,
   ].filter((fact): fact is OrganizationProfileFact => Boolean(fact));
 
   const contacts = [
@@ -122,7 +180,8 @@ export function buildOrganizationProfilePresentation(
   return {
     shortDescription,
     description,
-    location: locationParts.length ? locationParts.join(" · ") : null,
+    location: singleLocationParts.length ? singleLocationParts.join(" · ") : null,
+    locations,
     imageUrl: mediaUrl(organization.imageUrl),
     facts,
     contacts,
