@@ -281,7 +281,7 @@ export function AdminEditorialAuthorField({
             </label>
           </div>
           <label className="admin-check">
-            <input type="checkbox" checked={draft.active} disabled={draft.isDefault} onChange={(event) => setDraft((current) => ({ ...current, active: event.target.checked }))} />
+            <input type="checkbox" checked={draft.active} disabled={draft.isDefault || Boolean(draft.id && draft.active)} onChange={(event) => setDraft((current) => ({ ...current, active: event.target.checked }))} />
             <span><strong>Aktívny profil</strong><small>Neaktívny profil nemožno vybrať pre nový článok.</small></span>
           </label>
           <label className="admin-check">
