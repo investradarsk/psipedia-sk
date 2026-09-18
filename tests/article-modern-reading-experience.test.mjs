@@ -76,10 +76,10 @@ test("article reading CSS preserves editorial measures and mobile overflow safet
 });
 
 test("end recommendations use the FOUNDATION-PUBLIC compact content list", () => {
-  assert.match(detail, /const relatedItems = related\\.slice\\(0, 3\\)/);
+  assert.match(detail, /const relatedItems = related\.slice\(0, 3\)/);
   assert.match(detail, /<PublicContentList label="Súvisiace články"/);
   assert.match(detail, /<PublicContentListItem/);
-  assert.doesNotMatch(detail, /<ArticleCard\\b/);
+  assert.doesNotMatch(detail, /<ArticleCard\b/);
 });
 
 test("canonical author presentation keeps a safe legacy fallback", () => {
