@@ -1,0 +1,154 @@
+.wrapper {
+  min-width: 0;
+  border: 1px solid #cfd8d3;
+  border-radius: 14px;
+  background: #fff;
+  overflow: clip;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #dfe6e2;
+  background: #f7faf8;
+}
+
+.toolbar button,
+.linkEditor button {
+  min-height: 40px;
+  min-width: 40px;
+  border: 1px solid #c7d1cc;
+  border-radius: 9px;
+  background: #fff;
+  color: #173e31;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toolbar button:hover,
+.linkEditor button:hover {
+  border-color: currentColor;
+}
+
+.toolbar button:focus-visible,
+.linkEditor button:focus-visible,
+.linkEditor input:focus-visible,
+.editor:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 2px;
+}
+
+.separator {
+  width: 1px;
+  height: 28px;
+  background: #ccd6d1;
+  margin: 0 2px;
+}
+
+.editor {
+  min-width: 0;
+  padding: 18px;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+  color: #1d2924;
+}
+
+.editor:empty::before {
+  content: attr(data-placeholder);
+  color: #64736c;
+  pointer-events: none;
+}
+
+.editor p,
+.editor h2,
+.editor h3,
+.editor blockquote,
+.editor ul,
+.editor ol,
+.editor div[data-editorial-callout] {
+  margin: 0 0 0.9rem;
+}
+
+.editor h2 {
+  font-size: 1.45rem;
+}
+
+.editor h3 {
+  font-size: 1.2rem;
+}
+
+.editor blockquote {
+  padding-left: 1rem;
+  border-left: 4px solid #839b8f;
+}
+
+.callout,
+.editor div[data-editorial-callout] {
+  padding: 12px 14px;
+  border: 1px solid #cbd8d1;
+  border-radius: 10px;
+  background: #f4f8f6;
+}
+
+.linkEditor {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #dfe6e2;
+  background: #fbfcfb;
+}
+
+.linkEditor input {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #bfcac4;
+  border-radius: 9px;
+  padding: 0 10px;
+  font: inherit;
+}
+
+.linkEditor p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #8b1f1f;
+  font-size: 0.9rem;
+}
+
+.help {
+  margin: 0;
+  padding: 0 12px 12px;
+  color: #5c6d65;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .toolbar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    overscroll-behavior-inline: contain;
+  }
+
+  .toolbar button {
+    flex: 0 0 auto;
+  }
+
+  .linkEditor {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .linkEditor label,
+  .linkEditor input,
+  .linkEditor p {
+    grid-column: 1 / -1;
+  }
+
+  .editor {
+    padding: 14px;
+  }
+}
