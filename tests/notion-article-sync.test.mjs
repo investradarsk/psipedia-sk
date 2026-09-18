@@ -4,6 +4,7 @@ import test from "node:test";
 
 const syncSource = await readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8");
 const routeSource = await readFile(new URL("../app/api/admin/notion-sync/route.ts", import.meta.url), "utf8");
+const articleRouteSource = await readFile(new URL("../app/api/admin/articles/[id]/route.ts", import.meta.url), "utf8");
 const workerSource = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
 const migrationSource = await readFile(new URL("../drizzle/0044_notion_article_sync.sql", import.meta.url), "utf8");
 
@@ -69,4 +70,24 @@ test("manual trigger stays behind existing admin authentication", () => {
 test("hourly worker invokes the guarded sync sweep", () => {
   assert.match(workerSource, /runNotionArticleSyncSweep/);
   assert.match(workerSource, /event: "notion_article_sync_sweep"/);
+});
+
+
+test("publishing a Notion-linked draft writes publication metadata back to Notion", () => {
+  assert.match(syncSource, /writeBackPublishedArticleToNotion/);
+  assert.match(syncSource, /SELECT notion_page_id FROM article_notion_sync WHERE article_id = \?/);
+  assert.match(syncSource, /"Stav": \{ select: \{ name: "Publikované" \} \}/);
+  assert.match(syncSource, /"Dátum publikácie": \{ date: \{ start: publishedAt \} \}/);
+  assert.match(syncSource, /"URL Psipedia": \{ url: publicUrl \}/);
+  assert.match(syncSource, /"Sync stav": \{ select: \{ name: "Synchronizované" \} \}/);
+  assert.match(articleRouteSource, /before\.status !== "published" && article\.status === "published"/);
+  assert.match(articleRouteSource, /writeBackPublishedArticleToNotion/);
+  assert.match(articleRouteSource, /notion_article_publish_writeback_failed/);
+});
+
+test("Notion publication writeback is best-effort and does not block the admin publish response", () => {
+  const writebackCall = articleRouteSource.indexOf("await writeBackPublishedArticleToNotion");
+  const responseCall = articleRouteSource.indexOf("return Response.json({ article });");
+  assert.ok(writebackCall >= 0 && responseCall > writebackCall);
+  assert.match(articleRouteSource, /try \{[\s\S]*await writeBackPublishedArticleToNotion[\s\S]*\} catch \(error\) \{/);
 });

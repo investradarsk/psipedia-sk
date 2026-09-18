@@ -8,11 +8,18 @@ import {
 } from "@/lib/article-store";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { articleBlockImageKeys } from "@/lib/article-blocks";
+import {
+  writeBackPublishedArticleToNotion,
+  type NotionSyncBindings,
+} from "@/lib/notion-article-sync";
 
 export const dynamic = "force-dynamic";
 
 type RouteProps = { params: Promise<{ id: string }> };
-type UploadBindings = { BUCKET?: R2Bucket };
+type ArticleRouteBindings = NotionSyncBindings & {
+  BUCKET?: R2Bucket;
+  DB?: D1Database;
+};
 
 async function parsedId(params: RouteProps["params"]) {
   const { id } = await params;
@@ -62,17 +69,36 @@ export async function PUT(request: Request, { params }: RouteProps) {
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
 
     if (before.imageKey && before.imageKey !== article.imageKey) {
-      const bucket = (env as unknown as UploadBindings).BUCKET;
+      const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
     }
     if (before.ogImageKey && before.ogImageKey !== article.ogImageKey) {
-      const bucket = (env as unknown as UploadBindings).BUCKET;
+      const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
       if (bucket) await bucket.delete(before.ogImageKey).catch(() => undefined);
+    }
+
+    if (before.status !== "published" && article.status === "published") {
+      const bindings = env as unknown as ArticleRouteBindings;
+      if (bindings.DB) {
+        try {
+          await writeBackPublishedArticleToNotion({
+            database: bindings.DB,
+            bindings,
+            article,
+          });
+        } catch (error) {
+          console.error(JSON.stringify({
+            event: "notion_article_publish_writeback_failed",
+            articleId: article.id,
+            error: error instanceof Error ? error.message : String(error),
+          }));
+        }
+      }
     }
 
     const currentKeys = new Set(articleBlockImageKeys(article.blocks ?? []));
     const removedKeys = articleBlockImageKeys(before.blocks ?? []).filter((key) => !currentKeys.has(key));
-    const bucket = (env as unknown as UploadBindings).BUCKET;
+    const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
     if (bucket && removedKeys.length) {
       await Promise.all(removedKeys.map((key) => bucket.delete(key).catch(() => undefined)));
     }
@@ -92,7 +118,7 @@ export async function DELETE(_request: Request, { params }: RouteProps) {
   try {
     const article = await deleteManagedArticle(id);
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
-    const bucket = (env as unknown as UploadBindings).BUCKET;
+    const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
     if (bucket) {
       const keys = [...new Set([article.imageKey, article.ogImageKey, ...articleBlockImageKeys(article.blocks ?? [])].filter((key): key is string => Boolean(key)))];
       await Promise.all(keys.map((key) => bucket.delete(key).catch(() => undefined)));

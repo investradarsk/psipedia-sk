@@ -7,8 +7,10 @@ import {
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import type { ArticleBlock } from "@/lib/article-blocks";
+import { articleHref } from "@/lib/portal";
+import { SITE_URL } from "@/config/public-site";
 
-type NotionSyncBindings = {
+export type NotionSyncBindings = {
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
@@ -441,6 +443,70 @@ async function updateNotionSyncState(
     `/pages/${encodeURIComponent(pageId)}`,
     { method: "PATCH", body: JSON.stringify({ properties }) },
   );
+}
+
+
+export async function writeBackPublishedArticleToNotion(args: {
+  database: D1Database;
+  bindings: NotionSyncBindings;
+  article: {
+    id: number;
+    slug: string;
+    portalSection: string;
+    status: string;
+    publishedAt: string | null;
+  };
+}) {
+  if (!flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED)) {
+    return { linked: false, updated: false, reason: "disabled" as const };
+  }
+  if (args.article.status !== "published") {
+    return { linked: false, updated: false, reason: "not-published" as const };
+  }
+
+  const mapping = await args.database.prepare(
+    "SELECT notion_page_id FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(args.article.id).first<{ notion_page_id: string }>();
+
+  if (!mapping?.notion_page_id) {
+    return { linked: false, updated: false, reason: "not-linked" as const };
+  }
+
+  const now = new Date().toISOString();
+  const publishedAt = args.article.publishedAt ?? now;
+  const publicUrl = `${SITE_URL}${articleHref({
+    slug: args.article.slug,
+    portalSection: args.article.portalSection,
+  })}`;
+
+  await notionRequest(
+    args.bindings,
+    `/pages/${encodeURIComponent(mapping.notion_page_id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        properties: {
+          "Stav": { select: { name: "Publikované" } },
+          "Dátum publikácie": { date: { start: publishedAt } },
+          "URL Psipedia": { url: publicUrl },
+          "Sync stav": { select: { name: "Synchronizované" } },
+          "Sync chyba": notionTextValue(""),
+          "Posledný sync": { date: { start: now } },
+        },
+      }),
+    },
+  );
+
+  await args.database.prepare(
+    "UPDATE article_notion_sync SET last_synced_at = ?, updated_at = ? WHERE notion_page_id = ?",
+  ).bind(now, now, mapping.notion_page_id).run();
+
+  return {
+    linked: true,
+    updated: true,
+    notionPageId: mapping.notion_page_id,
+    publicUrl,
+  };
 }
 
 async function sha256(value: string) {
