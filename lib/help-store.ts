@@ -14,9 +14,7 @@ import {
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
 import {
-  getPublicOrganizationBySlug,
   listPublishedOrganizations,
-  type PublicHelpOrganization,
   type PublicOrganizationIndexItem,
 } from "@/lib/help-organization-store";
 
@@ -171,7 +169,7 @@ function rowToHelpCase(row: HelpCaseRow): HelpCase {
 }
 
 function canonicalOrganizationToHelpCase(
-  organization: PublicOrganizationIndexItem | PublicHelpOrganization,
+  organization: PublicOrganizationIndexItem,
 ): HelpCase {
   const region = (slovakRegions as readonly string[]).includes(organization.region)
     ? organization.region as SlovakRegion
@@ -361,11 +359,7 @@ export async function getHighlightedHelpCases(limit = 2) {
 
 const getPublishedHelpCaseUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
-  if (!database || !isHelpCategory(category)) return null;
-  if (category === "utulky") {
-    const organization = await getPublicOrganizationBySlug(slug, database as unknown as AdoptionD1Database);
-    return organization ? canonicalOrganizationToHelpCase(organization) : null;
-  }
+  if (!database || !isHelpCategory(category) || category === "utulky") return null;
   const row = await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 };
