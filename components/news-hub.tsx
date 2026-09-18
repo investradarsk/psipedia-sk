@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { ArticleListItem } from "@/components/article-list-item";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicContentList,
-  PublicContentListItem,
   PublicFoundation,
   PublicSectionHeader,
 } from "@/components/public-visual-system";
@@ -104,18 +104,7 @@ export function NewsHub({
             <PublicContentList label={category ? `Novinky: ${category.label}` : "Všetky novinky"}>
               {newsArticles.map((article) => {
                 const articleCategory = getNewsCategory(article.newsCategory);
-                return (
-                  <PublicContentListItem
-                    key={article.slug}
-                    href={articleHref(article)}
-                    title={article.title}
-                    eyebrow={articleCategory?.label ?? "Zo sveta psov"}
-                    excerpt={article.excerpt}
-                    meta={`${article.date} · ${article.readTime} čítania`}
-                    image={article.image ? { src: article.image, alt: article.title } : undefined}
-                    actionLabel="Čítať novinku"
-                  />
-                );
+                return <ArticleListItem key={article.slug} article={article} topicLabel={articleCategory?.label ?? "Zo sveta psov"} />;
               })}
             </PublicContentList>
           ) : (
