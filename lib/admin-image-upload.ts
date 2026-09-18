@@ -4,7 +4,7 @@ export const MAX_ADMIN_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const ACCEPTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 
-export type AdminImageFolder = "articles" | "breeds" | "directory" | "events" | "help" | "lost-found";
+export type AdminImageFolder = "articles" | "authors" | "breeds" | "directory" | "events" | "help" | "lost-found";
 export type AdminImageUpload = {
   imageUrl: string;
   imageKey: string;
