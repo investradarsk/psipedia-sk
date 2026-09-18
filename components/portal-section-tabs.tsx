@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SectionTabs } from "@/components/page-system";
 import { portalSubpageHref, type PortalSection } from "@/lib/portal";
+import styles from "./portal-section-tabs.module.css";
 
 export function PortalSectionTabs({
   section,
@@ -13,7 +14,7 @@ export function PortalSectionTabs({
   if (!subpages.length) return null;
 
   return (
-    <SectionTabs label={`Navigácia v sekcii ${section.label}`} className={`portal-section-tabs portal-section-tabs--${section.accent}`}>
+    <SectionTabs label={`Navigácia v sekcii ${section.label}`} className={`portal-section-tabs portal-section-tabs--${section.accent} ${styles.nav}`}>
       <Link
         className={`section-tab${activeSlug ? "" : " is-active"}`}
         href={`/${section.slug}`}
