@@ -275,9 +275,11 @@ async function prepareNotionMainImage(
     throw new Error("Cloudflare R2 úložisko nie je pripojené; hlavný obrázok sa nedá synchronizovať.");
   }
 
+  const sourceFingerprint = await sha256(sourceUrl);
+
   if (existing?.imageKey) {
     const currentObject = await bucket.head(existing.imageKey);
-    if (currentObject?.customMetadata?.notionSourceUrl === sourceUrl) {
+    if (currentObject?.customMetadata?.notionSourceHash === sourceFingerprint) {
       const existingImageUrl = existing.image ?? storedImageUrl(existing.imageKey);
       const existingOgImageUrl = existing.seo?.ogImage ?? storedImageUrl(existing.ogImageKey) ?? existingImageUrl;
       return {
@@ -307,9 +309,10 @@ async function prepareNotionMainImage(
     },
     customMetadata: {
       source: "notion-sync",
-      notionSourceUrl: sourceUrl.slice(0, 700),
-      imageSourceUrl: imageSourceUrl.slice(0, 700),
-      altText: altText.slice(0, 400),
+      notionSourceHash: sourceFingerprint,
+      notionSourceUrl: sourceUrl.slice(0, 400),
+      imageSourceUrl: imageSourceUrl.slice(0, 400),
+      altText: altText.slice(0, 250),
     },
   });
 
