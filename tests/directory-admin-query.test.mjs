@@ -18,7 +18,10 @@ const categories = [
 ];
 const categorySlugs = new Set(categories.map((item) => item.slug));
 const isCategory = (value) => categorySlugs.has(value);
-const filters = (overrides = {}) => ({ category: "", status: "all", q: "", page: 1, ...overrides });
+const filters = (overrides = {}) => ({
+  category: "", status: "all", q: "", region: "", district: "", city: "",
+  verification: "all", media: "all", page: 1, ...overrides,
+});
 
 function fixture() {
   const sqlite = new DatabaseSync(":memory:");
@@ -27,13 +30,35 @@ function fixture() {
     city TEXT, district TEXT, region TEXT, image_url TEXT, verified INTEGER, featured INTEGER,
     updated_at TEXT
   )`);
-  const insert = sqlite.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 0, ?)");
+  const insert = sqlite.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)");
   for (let i = 1; i <= 127; i++) {
-    insert.run(i, `vet-${i}`, `Veterina ${String(i).padStart(3, "0")}`, "veterinari", i <= 61 ? "draft" : "published", JSON.stringify(i === 61 ? ["Fyzioterapia", "Kúpanie"] : ["Preventívna starostlivosť"]), i === 61 ? "Žilina" : "Nitra", "", "Nitriansky kraj", String(i).padStart(3, "0"));
+    const zilina = i === 61;
+    insert.run(
+      i,
+      `vet-${i}`,
+      `Veterina ${String(i).padStart(3, "0")}`,
+      "veterinari",
+      i <= 61 ? "draft" : "published",
+      JSON.stringify(zilina ? ["Fyzioterapia", "Kúpanie"] : ["Preventívna starostlivosť"]),
+      zilina ? "Žilina" : "Nitra",
+      zilina ? "Žilina" : "Nitra",
+      zilina ? "Žilinský kraj" : "Nitriansky kraj",
+      i === 1 ? "https://example.test/vet.jpg" : null,
+      i === 2 ? 1 : 0,
+      String(i).padStart(3, "0"),
+    );
   }
-  insert.run(128, "trener-bratislava", "EduDog", "treneri", "draft", JSON.stringify(["Poslušnosť"]), "Bratislava", "", "Bratislavský kraj", "128");
-  insert.run(129, "salon-trnava", "Psí salón", "salony-a-sluzby", "published", JSON.stringify(["Kúpanie"]), "Trnava", "", "Trnavský kraj", "129");
-  const db = { prepare(query) { return { bind(...args) { this.args = args; return this; }, async first() { return sqlite.prepare(query).get(...(this.args ?? [])); }, async all() { return { results: sqlite.prepare(query).all(...(this.args ?? [])) }; } }; } };
+  insert.run(128, "trener-bratislava", "EduDog", "treneri", "draft", JSON.stringify(["Poslušnosť"]), "Bratislava", "Bratislava I", "Bratislavský kraj", null, 1, "128");
+  insert.run(129, "salon-trnava", "Psí salón", "salony-a-sluzby", "published", JSON.stringify(["Kúpanie"]), "Trnava", "Trnava", "Trnavský kraj", "https://example.test/salon.jpg", 0, "129");
+  const db = {
+    prepare(query) {
+      return {
+        bind(...args) { this.args = args; return this; },
+        async first() { return sqlite.prepare(query).get(...(this.args ?? [])); },
+        async all() { return { results: sqlite.prepare(query).all(...(this.args ?? [])) }; },
+      };
+    },
+  };
   return { db };
 }
 
@@ -44,37 +69,34 @@ test("all profiles are counted independently of the 50-row page", async () => {
   assert.equal(result.items.length, DIRECTORY_ADMIN_PAGE_SIZE);
   assert.equal(result.pages, 3);
   assert.deepEqual({ ...result.counts }, { total: 129, published: 67, draft: 62 });
+  assert.ok(result.options.regions.includes("Nitriansky kraj"));
+  assert.ok(result.options.districts.includes("Žilina"));
+  assert.ok(result.options.cities.includes("Bratislava"));
 });
 
-test("category filters work for veterinari and another category", async () => {
+test("category, publication, location, verification and media filters combine", async () => {
   const { db } = fixture();
   assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari" }), categories)).resultCount, 127);
-  assert.equal((await queryDirectoryAdmin(db, filters({ category: "treneri" }), categories)).resultCount, 1);
-});
-
-test("draft and published status filters work across the full dataset", async () => {
-  const { db } = fixture();
-  assert.equal((await queryDirectoryAdmin(db, filters({ status: "draft" }), categories)).resultCount, 62);
-  assert.equal((await queryDirectoryAdmin(db, filters({ status: "published" }), categories)).resultCount, 67);
-});
-
-test("category + status and zero-result combinations share the same WHERE contract", async () => {
-  const { db } = fixture();
   assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari", status: "draft" }), categories)).resultCount, 61);
-  assert.equal((await queryDirectoryAdmin(db, filters({ category: "treneri", status: "published" }), categories)).resultCount, 0);
+  assert.equal((await queryDirectoryAdmin(db, filters({ region: "Žilinský kraj", district: "Žilina", city: "Žilina" }), categories)).resultCount, 1);
+  assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari", verification: "verified" }), categories)).resultCount, 1);
+  assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari", media: "with-image" }), categories)).resultCount, 1);
+  assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari", status: "published", city: "Žilina" }), categories)).resultCount, 0);
 });
 
-test("search covers name, city, region, category label and services", async () => {
+test("accent-insensitive search covers name, city, district, region, category label and services", async () => {
   const { db } = fixture();
   for (const q of ["Veterina 061", "Žilina", "zilina", "Nitriansky", "Veterinári", "Fyzioterapia", "Kupanie"]) {
     assert.ok((await queryDirectoryAdmin(db, filters({ q }), categories)).resultCount >= 1, q);
   }
 });
 
-test("search combines with category and status and empty search is neutral", async () => {
+test("search combines with all other membership filters and empty search is neutral", async () => {
   const { db } = fixture();
-  assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari", status: "draft", q: "Žilina" }), categories)).resultCount, 1);
-  assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari", status: "published", q: "Žilina" }), categories)).resultCount, 0);
+  assert.equal((await queryDirectoryAdmin(db, filters({
+    category: "veterinari", status: "draft", q: "Žilina", region: "Žilinský kraj",
+    district: "Žilina", city: "Žilina", verification: "unverified", media: "without-image",
+  }), categories)).resultCount, 1);
   assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari", q: "   " }), categories)).resultCount, 127);
 });
 
@@ -89,30 +111,49 @@ test("pagination works beyond 50 rows and clamps an out-of-range page", async ()
   assert.equal(last.items.length, 27);
 });
 
-test("URL parsing normalizes category, status, q and page safely", () => {
-  assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("category=veterinari&status=draft&q=%20klinika%20&page=2"), isCategory), filters({ category: "veterinari", status: "draft", q: "klinika", page: 2 }));
-  assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("category=bogus&status=archived&page=-3"), isCategory), filters());
+test("URL parsing normalizes filters safely", () => {
+  assert.deepEqual(
+    parseDirectoryAdminFilters(new URLSearchParams("category=veterinari&status=draft&q=%20klinika%20&region=Nitriansky+kraj&district=Nitra&city=Nitra&verification=verified&media=with-image&page=2"), isCategory),
+    filters({ category: "veterinari", status: "draft", q: "klinika", region: "Nitriansky kraj", district: "Nitra", city: "Nitra", verification: "verified", media: "with-image", page: 2 }),
+  );
+  assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("category=bogus&status=archived&verification=maybe&media=broken&page=-3"), isCategory), filters());
   assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("page=2oops"), isCategory), filters());
 });
 
 test("pagination URLs preserve membership filters while filter changes can reset page", () => {
-  const current = filters({ category: "veterinari", status: "draft", q: "klinika", page: 2 });
-  assert.equal(directoryAdminHref(current), "/admin/adresar?category=veterinari&status=draft&q=klinika&page=2");
-  assert.equal(directoryAdminHref({ ...current, page: 1 }), "/admin/adresar?category=veterinari&status=draft&q=klinika");
-  assert.deepEqual(directoryAdminMembershipFilters(current), { category: "veterinari", status: "draft", q: "klinika" });
+  const current = filters({
+    category: "veterinari", status: "draft", q: "klinika", region: "Nitriansky kraj",
+    district: "Nitra", city: "Nitra", verification: "verified", media: "with-image", page: 2,
+  });
+  assert.equal(
+    directoryAdminHref(current),
+    "/admin/adresar?category=veterinari&status=draft&q=klinika&region=Nitriansky+kraj&district=Nitra&city=Nitra&verification=verified&media=with-image&page=2",
+  );
+  assert.equal(directoryAdminHref({ ...current, page: 1 }).includes("page="), false);
+  assert.deepEqual(directoryAdminMembershipFilters(current), {
+    category: "veterinari", status: "draft", q: "klinika", region: "Nitriansky kraj",
+    district: "Nitra", city: "Nitra", verification: "verified", media: "with-image",
+  });
 });
 
-test("membership fingerprint excludes page and uses the exact shared WHERE builder", () => {
-  const first = filters({ category: "veterinari", status: "draft", q: " E2E ", page: 1 });
+test("membership fingerprint excludes page and binds the exact combined WHERE contract", () => {
+  const first = filters({
+    category: "veterinari", status: "draft", q: " E2E ", region: "Nitriansky kraj",
+    district: "Nitra", city: "Nitra", verification: "unverified", media: "without-image", page: 1,
+  });
   const second = { ...first, page: 2 };
   const membership = directoryAdminMembershipFilters(first);
   assert.equal(
     directoryAdminMembershipFingerprint(membership),
     directoryAdminMembershipFingerprint(directoryAdminMembershipFilters(second)),
   );
-  assert.equal(directoryAdminMembershipFingerprint(membership), "directory:v1:category=veterinari&status=draft&q=E2E");
+  assert.equal(
+    directoryAdminMembershipFingerprint(membership),
+    "directory:v2:category=veterinari&status=draft&q=E2E&region=Nitriansky+kraj&district=Nitra&city=Nitra&verification=unverified&media=without-image",
+  );
   const query = directoryAdminMembershipQuery(membership, categories);
-  assert.match(query.where, /category = \?/);
-  assert.match(query.where, /status = \?/);
-  assert.deepEqual(query.args.slice(0, 2), ["veterinari", "draft"]);
+  for (const expected of [/category = \?/, /status = \?/, /region = \?/, /district = \?/, /city = \?/, /verified = \?/, /image_url/]) {
+    assert.match(query.where, expected);
+  }
+  assert.deepEqual(query.args.slice(0, 6), ["veterinari", "draft", "Nitriansky kraj", "Nitra", "Nitra", 0]);
 });
