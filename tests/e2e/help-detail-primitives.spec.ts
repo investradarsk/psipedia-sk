@@ -27,7 +27,7 @@ for (const entry of cases) {
   });
 }
 
-test("legacy shelter detail resolves through canonical organization without legacy rendering", async ({ page }) => {
+test("legacy shelter detail redirects to canonical organization without a legacy help_cases row", async ({ page }) => {
   const response = await page.goto(legacyShelterPath, { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   expect(new URL(page.url()).pathname).toBe(canonicalShelterPath);
