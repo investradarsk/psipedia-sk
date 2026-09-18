@@ -59,6 +59,25 @@ test.describe("organization public profile", () => {
     );
     await expect(main.getByText("https://provenance.example.invalid/internal-only", { exact: true })).toHaveCount(0);
 
+    await expect(main.locator("[data-organization-location-summary]")).toHaveCount(0);
+    const locations = main.locator("[data-organization-location]");
+    await expect(locations).toHaveCount(2);
+    await expect(locations.nth(0)).toHaveAttribute("data-organization-location", "990101");
+    await expect(locations.nth(0)).toContainText("Pôsobnosť");
+    await expect(locations.nth(0)).toContainText("Šaľa · Nitriansky kraj");
+    await expect(locations.nth(0)).toContainText("Hlavná lokalita");
+    await expect(locations.nth(1)).toHaveAttribute("data-organization-location", "990102");
+    await expect(locations.nth(1)).toContainText("Výdajné miesto");
+    await expect(locations.nth(1)).toContainText("Nitra · Nitriansky kraj");
+    await expect(main.getByText("Legacy mesto", { exact: true })).toHaveCount(0);
+    for (const location of await locations.all()) {
+      const box = await location.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box?.height ?? 0).toBeLessThan(180);
+      const overflow = await location.evaluate((element) => Math.max(0, element.scrollWidth - element.clientWidth));
+      expect(overflow).toBeLessThanOrEqual(1);
+    }
+
     await expect(main.getByRole("heading", { name: "Psy na adopciu" })).toBeVisible();
     const cards = main.locator("[data-adoption-card]");
     await expect(cards).toHaveCount(2);
@@ -100,6 +119,34 @@ test.describe("organization public profile", () => {
 
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAccessibilityViolations(page);
+  });
+
+  test("single canonical location stays compact and empty location data renders no placeholder", async ({ page }, testInfo) => {
+    await setOrganizationProfileViewport(page, testInfo.project.name);
+
+    const singleResponse = await page.goto("/organizacie/org-2b-e2e-jedna-lokalita", {
+      waitUntil: "domcontentloaded",
+    });
+    expect(singleResponse?.status()).toBe(200);
+    const singleMain = page.locator("main#obsah");
+    await expect(singleMain.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
+    await expect(singleMain.locator("[data-organization-location-summary]")).toHaveText(
+      "📍 Prevádzka · Trnava · Trnavský kraj",
+    );
+    await expect(singleMain.locator("[data-organization-location]")).toHaveCount(0);
+    await expect(singleMain.getByText("Legacy mesto", { exact: true })).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+
+    const emptyResponse = await page.goto("/organizacie/org-2b-e2e-bez-lokality", {
+      waitUntil: "domcontentloaded",
+    });
+    expect(emptyResponse?.status()).toBe(200);
+    const emptyMain = page.locator("main#obsah");
+    await expect(emptyMain.getByRole("heading", { level: 1, name: "E2E Bez lokality" })).toBeVisible();
+    await expect(emptyMain.locator("[data-organization-location-summary]")).toHaveCount(0);
+    await expect(emptyMain.locator("[data-organization-location]")).toHaveCount(0);
+    await expect(emptyMain.getByRole("heading", { name: "Kde organizácia pôsobí" })).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
   });
 
   test("non-public, unknown and non-exact organization slugs fail closed", async ({ page }) => {
