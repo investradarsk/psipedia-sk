@@ -309,7 +309,7 @@ test("verification route keeps auth and browser-CSRF boundaries ahead of mutatio
   assert.ok(route.indexOf("getAdminApiUser()") < route.indexOf("request.json()"));
   assert.ok(route.indexOf('content-type') < route.indexOf("request.json()"));
   assert.match(route, /application\/json/);
-  assert.match(route, /expectedVersion/);
+  assert.match(read("../lib/organization-fundraising-verification.ts"), /expectedVersion/);
   assert.doesNotMatch(route, /searchParams|request\.url/);
   assert.doesNotMatch(route, /console\.error\([^\n]*(?:body|verificationSourceUrl|beneficiary|value|url)/i);
   assert.doesNotMatch(ordinaryItemRoute, /changeOrganizationFundraisingVerificationFromAdmin|verification_status\s*=\s*'VERIFIED'/);
