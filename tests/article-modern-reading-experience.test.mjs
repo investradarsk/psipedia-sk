@@ -29,12 +29,13 @@ test("article TOC is deterministic, collapsed and built from existing heading an
 
 test("mobile composition starts with prose and keeps takeaway inline after the intro", () => {
   const articleStart = indexOfOrFail(detail, "<article className=\"article-prose\">", "article prose is missing");
-  const intro = indexOfOrFail(detail, "<ArticleRichText className=\"article-intro\"", "article intro is missing");
-  const takeaway = indexOfOrFail(detail, "<aside className=\"takeaway-box\"", "takeaway is missing");
+  const intro = indexOfOrFail(detail, "<EditorialRichText className=\"article-intro\"", "article intro is missing");
+  const takeaway = indexOfOrFail(detail, "{showTakeaway && <aside className=\"takeaway-box\"", "optional takeaway is missing");
   const toc = indexOfOrFail(detail, "{showTableOfContents &&", "conditional TOC is missing");
   const body = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBlocks} />", "article body blocks are missing");
 
   assert.ok(articleStart < intro && intro < takeaway && takeaway < toc && toc < body, "reading DOM order regressed");
+  assert.match(detail, /const showTakeaway = editorialRichTextPlainText\(takeawayDocument\)\.length > 0/);
   assert.doesNotMatch(detail, /article-aside/);
   assert.doesNotMatch(detail, /cardShellClassName/);
   assert.doesNotMatch(styles, /position:\s*(?:sticky|fixed)/);
