@@ -82,12 +82,12 @@ export function AdminDirectoryDashboard({ data, filters }: {
             <input name="q" defaultValue={filters.q} maxLength={100} placeholder="Názov, mesto, okres alebo služba" />
           </label>
           <label className="admin-select-filter"><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="">Všetky kategórie</option>{allDirectoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}</select></label>
-          <label className="admin-select-filter"><span>Stav publikácie</span><select name="status" defaultValue={filters.status}><option value="">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
+          <label className="admin-select-filter"><span>Stav publikácie</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
           <label className="admin-select-filter"><span>Kraj</span><select name="region" defaultValue={filters.region}><option value="">Všetky kraje</option>{options.regions.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
           <label className="admin-select-filter"><span>Okres</span><select name="district" defaultValue={filters.district}><option value="">Všetky okresy</option>{options.districts.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
           <label className="admin-select-filter"><span>Mesto</span><select name="city" defaultValue={filters.city}><option value="">Všetky mestá</option>{options.cities.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
-          <label className="admin-select-filter"><span>Overenie</span><select name="verification" defaultValue={filters.verification}><option value="">Všetky</option><option value="verified">Overené</option><option value="unverified">Neoverené</option></select></label>
-          <label className="admin-select-filter"><span>Obrázok</span><select name="media" defaultValue={filters.media}><option value="">Všetky</option><option value="with-image">S obrázkom</option><option value="without-image">Bez obrázka</option></select></label>
+          <label className="admin-select-filter"><span>Overenie</span><select name="verification" defaultValue={filters.verification}><option value="all">Všetky</option><option value="verified">Overené</option><option value="unverified">Neoverené</option></select></label>
+          <label className="admin-select-filter"><span>Obrázok</span><select name="media" defaultValue={filters.media}><option value="all">Všetky</option><option value="with-image">S obrázkom</option><option value="without-image">Bez obrázka</option></select></label>
           <div className={styles.filterActions}>
             <AdminActionButton variant="primary" type="submit">Použiť filtre</AdminActionButton>
             <Link className={styles.clearFilters} href="/admin/adresar">Vyčistiť</Link>
