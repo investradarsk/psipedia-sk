@@ -53,15 +53,22 @@ function normalizedText(value: string | null) {
 
 function toPublicMethod(row: PublicOrganizationFundraisingCandidateRow): PublicOrganizationFundraisingMethod {
   const urlResult = row.url ? validateFundraisingUrl(row.url) : null;
+  const safeUrl = urlResult?.valid ? urlResult.normalizedUrl : null;
+  const structuredValue = normalizedText(row.value);
+  const ibanValue = formatIbanForPublicDisplay(row.value);
+
+  const url = row.type === "BANK_TRANSFER" ? null : safeUrl;
   const value = row.type === "BANK_TRANSFER" || row.type === "TRANSPARENT_ACCOUNT"
-    ? formatIbanForPublicDisplay(row.value)
-    : normalizedText(row.value);
+    ? ibanValue
+    : row.type === "MATERIAL_DONATION"
+      ? structuredValue
+      : null;
 
   return {
     id: Number(row.id),
     type: row.type,
     label: row.label.trim(),
-    url: urlResult?.valid ? urlResult.normalizedUrl : null,
+    url,
     value,
     instructions: normalizedText(row.instructions),
     sortOrder: Number(row.sort_order),
