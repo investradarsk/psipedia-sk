@@ -15,13 +15,13 @@ import {
   type ArticleBlock,
 } from "@/lib/article-blocks";
 import { getEditorialAuthorProfile, resolveArticleAuthorSelection } from "@/lib/editorial-authors";
-import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 import {
   editorialRichTextPlainText,
   legacyRichTextToDocument,
   normalizeEditorialRichText,
   type EditorialRichTextDocument,
 } from "@/lib/editorial-content";
+import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 
 export type ArticleStatus = "draft" | "scheduled" | "published";
 
@@ -627,6 +627,35 @@ export async function getPublishedArticleSummaries(options: {
   return result.results.map(rowToPublishedArticleSummary);
 }
 
+export async function getAllPublishedArticleSummaries(options: {
+  portalSection?: ArticlePortalSection;
+  category?: Article["category"];
+} = {}): Promise<Article[]> {
+  const database = getD1Binding();
+  if (!database) return seedArticles
+    .filter((article) => !options.portalSection || article.portalSection === options.portalSection)
+    .filter((article) => !options.category || article.category === options.category);
+  await ensureArticleStore(database);
+  const conditions = ["(status = 'published' OR (status = 'scheduled' AND published_at <= ?))"];
+  const bindings: unknown[] = [new Date().toISOString()];
+  if (options.portalSection) {
+    conditions.push("portal_section = ?");
+    bindings.push(options.portalSection);
+  }
+  if (options.category) {
+    conditions.push("category = ?");
+    bindings.push(options.category);
+  }
+  const result = await database
+    .prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}
+      FROM managed_articles
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY published_at DESC, updated_at DESC, id DESC`)
+    .bind(...bindings)
+    .all<ArticleSummaryRow>();
+  return result.results.map(rowToPublishedArticleSummary);
+}
+
 /** Backwards-compatible public listing. It intentionally returns summaries, never article bodies. */
 export async function getPublishedArticles(): Promise<Article[]> {
   return getPublishedArticleSummaries();
@@ -694,6 +723,14 @@ const getPublishedArticleUncached = async (slug: string): Promise<Article | null
 
 /** React request memoization shares the detail query between metadata and page render. */
 export const getPublishedArticle = cache(getPublishedArticleUncached);
+
+export async function getPublishedArticleAuthorProfile(article: Pick<Article, "authorProfileId">) {
+  const authorProfileId = article.authorProfileId ?? null;
+  if (!authorProfileId) return null;
+  const database = getD1Binding();
+  if (!database) return null;
+  return getEditorialAuthorProfile(database, authorProfileId, true);
+}
 
 export async function getRelatedPublishedArticles(article: Article, limit = 3): Promise<Article[]> {
   const safeLimit = Math.max(1, Math.min(6, Math.trunc(limit)));

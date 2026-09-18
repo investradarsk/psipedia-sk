@@ -1,123 +1,152 @@
 import Link from "next/link";
-import { ArticleCard } from "@/components/article-card";
-import { ArrowIcon, CheckIcon } from "@/components/icons";
+import { Breadcrumbs } from "@/components/page-system";
+import {
+  PublicActionLink,
+  PublicContentList,
+  PublicContentListItem,
+  PublicFoundation,
+  PublicSectionHeader,
+} from "@/components/public-visual-system";
 import type { Article } from "@/lib/content";
-import { getNewsCategory, newsCategories } from "@/lib/news";
+import { getNewsCategory, getNewsCategoryGuidance, newsCategories, type NewsCategorySlug } from "@/lib/news";
 import { articleHref, articlePortalSection, type PortalSection } from "@/lib/portal";
+import { serializeJsonLd, SITE_URL } from "@/lib/seo";
+import styles from "./news-hub.module.css";
 
-const NEWS_INTRO = "Vyberáme príbehy, zaujímavosti, nové poznatky a užitočné témy zo sveta psov. Nejde o nepretržité spravodajstvo — zverejňujeme to, čo má hodnotu, dá sa overiť a stojí za pozornosť.";
-const NEWS_DESCRIPTION = "Výber príbehov, zaujímavostí, výskumu a užitočných tém zo sveta psov.";
+const NEWS_DESCRIPTION = "Kompletný archív publikovaných správ, príbehov, výskumu a užitočných tém zo sveta psov.";
 
-export function NewsHub({ articles, section }: { articles: Article[]; section: PortalSection }) {
-  const newsArticles = articles.filter((article) => articlePortalSection(article) === "novinky");
-  const lead = newsArticles[0];
-  const more = newsArticles.slice(1, 4);
+export function NewsHub({
+  articles,
+  section,
+  activeCategory,
+}: {
+  articles: Article[];
+  section: PortalSection;
+  activeCategory?: NewsCategorySlug;
+}) {
+  const category = activeCategory ? getNewsCategory(activeCategory) : null;
+  const guidance = category ? getNewsCategoryGuidance(category.slug) : null;
+  const allNews = articles.filter((article) => articlePortalSection(article) === "novinky");
+  const newsArticles = category
+    ? allNews.filter((article) => article.newsCategory === category.slug)
+    : allNews;
+  const archivePath = category ? `/novinky/${category.slug}` : "/novinky";
+  const title = category ? category.label : `${section.label} zo sveta psov`;
+  const intro = category
+    ? category.description
+    : "Všetky publikované novinky na jednom mieste. Vyber si kategóriu alebo prejdi celý archív od najnovších článkov.";
   const schema = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: section.label,
-    url: "https://psipedia.sk/novinky",
-    description: NEWS_DESCRIPTION,
+    name: title,
+    url: `${SITE_URL}${archivePath}`,
+    description: category?.description ?? NEWS_DESCRIPTION,
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: newsArticles.length,
+      itemListElement: newsArticles.map((article, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: `${SITE_URL}${articleHref(article)}`,
+        name: article.title,
+      })),
+    },
   };
 
   return (
-    <main id="obsah">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
-      <header className={`news-hero${lead?.image ? " news-hero--photo" : ""}`}>
-        {lead?.image && <img className="news-hero-photo" src={lead.image} alt="" aria-hidden="true" decoding="async" />}
-        <div className="shell news-hero-inner">
-          <nav className="article-breadcrumbs" aria-label="Navigácia">
-            <Link href="/">Domov</Link><span>/</span><span>{section.label}</span>
-          </nav>
-          <div className="news-hero-grid">
-            <div className="news-hero-copy">
-              <span className="eyebrow"><i aria-hidden="true" /> Zo sveta psov</span>
-              <h1>{section.label}</h1>
-              <p>{NEWS_INTRO}</p>
-              <div className="news-hero-actions">
-                <Link className="button button--coral" href="#najnovsie">Najnovšie príspevky <ArrowIcon /></Link>
-                <Link className="button button--glass" href="#temy">Vybrať tému</Link>
-                <Link className="button button--glass" href="/novinky/poslat-tip">Pošli tip</Link>
-              </div>
+    <PublicFoundation className={styles.foundation}>
+      <main id="obsah">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
+        <div className={`${styles.headerShell} shell`}>
+          <Breadcrumbs label="Navigácia v novinkách">
+            <Link href="/">Domov</Link><span>/</span>
+            {category ? <><Link href="/novinky">Novinky</Link><span>/</span><span>{category.label}</span></> : <span>Novinky</span>}
+          </Breadcrumbs>
+          <PublicSectionHeader
+            variant="compact"
+            eyebrow="Redakčný archív"
+            title={title}
+            intro={intro}
+            meta={`${newsArticles.length} ${newsArticles.length === 1 ? "publikovaný článok" : "publikovaných článkov"}`}
+          />
+        </div>
+
+        <section className={`${styles.archive} shell`} aria-labelledby="news-archive-title">
+          <div className={styles.archiveHeader}>
+            <div>
+              <span className="eyebrow">Kategórie</span>
+              <h2 id="news-archive-title">{category ? `Archív: ${category.label}` : "Všetky publikované novinky"}</h2>
             </div>
-            <aside className="news-watch-card" aria-label="Témy, ktoré vyberáme">
-              <span>Vyberáme pre teba</span>
-              <ul>
-                <li><b>01</b><strong>Záchranu a adopcie</strong><small>príbehy s reálnym výsledkom</small></li>
-                <li><b>02</b><strong>Vedu a nové poznatky</strong><small>čo znamenajú pre život so psom</small></li>
-                <li><b>03</b><strong>Psov v akcii</strong><small>záchranári, asistenti a hrdinovia</small></li>
-              </ul>
-            </aside>
-          </div>
-        </div>
-      </header>
-
-      <section className="section shell news-category-section" id="temy">
-        <div className="section-heading split-heading">
-          <div><span className="eyebrow">Prehľad tém</span><h2>Čo sa oplatí vedieť aj zdieľať</h2></div>
-          <p>Každá téma má vlastnú stálu adresu. Otvor si iba to, čo ťa zaujíma.</p>
-        </div>
-        <div className="news-category-grid">
-          {newsCategories.map((category) => (
-            <Link href={`/novinky/${category.slug}`} className="news-category-card" key={category.slug}>
-              <span className="news-category-icon" aria-hidden="true">{category.icon}</span>
-              <div><small>{category.shortLabel}</small><h3>{category.label}</h3><p>{category.description}</p></div>
-              <ArrowIcon size={19} />
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="section section--tint news-latest-section" id="najnovsie">
-        <div className="shell">
-          <div className="section-heading split-heading">
-            <div><span className="eyebrow">Nové príspevky</span><h2>Najnovšie zo sveta psov</h2></div>
-            <p>Príbehy, zaujímavosti a užitočné témy dopĺňame výberovo podľa toho, čo stojí za pozornosť.</p>
-          </div>
-          {lead ? (
-            <div className="news-lead-grid">
-              <article className={`news-lead-card news-lead-card--${lead.accent}`}>
-                <Link href={articleHref(lead)} className="news-lead-media" aria-label={lead.title}>
-                  {lead.image ? <img src={lead.image} alt={`Ilustračná fotografia k príspevku: ${lead.title}`} decoding="async" /> : <span aria-hidden="true">{getNewsCategory(lead.newsCategory)?.icon ?? "🐾"}</span>}
+            <nav className={styles.filters} aria-label="Filtrovať novinky podľa kategórie">
+              <Link href="/novinky" aria-current={!category ? "page" : undefined}>Všetky</Link>
+              {newsCategories.map((item) => (
+                <Link
+                  href={`/novinky/${item.slug}`}
+                  aria-current={category?.slug === item.slug ? "page" : undefined}
+                  key={item.slug}
+                >
+                  {item.label}
                 </Link>
-                <div className="news-lead-copy">
-                  <span>{getNewsCategory(lead.newsCategory)?.label ?? "Zo sveta psov"} · {lead.date}</span>
-                  <h3><Link href={articleHref(lead)}>{lead.title}</Link></h3>
-                  <p>{lead.excerpt}</p>
-                  <Link className="text-link text-link--large" href={articleHref(lead)}>Prečítať príspevok <ArrowIcon /></Link>
-                </div>
-              </article>
-              {more.length > 0 && <div className="news-more-grid">{more.map((article) => <ArticleCard article={article} key={article.slug} />)}</div>}
-            </div>
+              ))}
+            </nav>
+          </div>
+
+          {guidance ? (
+            <section className={styles.guidance} aria-labelledby="news-guidance-title">
+              <span className="eyebrow">Čo tu nájdeš</span>
+              <h3 id="news-guidance-title">{guidance.title}</h3>
+              <p>{guidance.text}</p>
+              <ul>{guidance.items.map((item) => <li key={item}>{item}</li>)}</ul>
+            </section>
+          ) : null}
+
+          {newsArticles.length ? (
+            <PublicContentList label={category ? `Novinky: ${category.label}` : "Všetky novinky"}>
+              {newsArticles.map((article) => {
+                const articleCategory = getNewsCategory(article.newsCategory);
+                return (
+                  <PublicContentListItem
+                    key={article.slug}
+                    href={articleHref(article)}
+                    title={article.title}
+                    eyebrow={articleCategory?.label ?? "Zo sveta psov"}
+                    excerpt={article.excerpt}
+                    meta={`${article.date} · ${article.readTime} čítania`}
+                    image={article.image ? { src: article.image, alt: article.title } : undefined}
+                    actionLabel="Čítať novinku"
+                  />
+                );
+              })}
+            </PublicContentList>
           ) : (
-            <div className="news-empty-stage">
-              <span aria-hidden="true">🐾</span>
-              <div>
-                <small>Priestor pre zaujímavé témy je pripravený</small>
-                <h3>Prvé príbehy a zaujímavosti práve pripravujeme</h3>
-                <p>Keď pribudne nový príspevok, nájdeš tu zdroj, dátum a stručné vysvetlenie súvislostí.</p>
-              </div>
-              <Link href="/zasady-obsahu" className="text-link">Ako overujeme obsah <ArrowIcon size={18} /></Link>
+            <div className={styles.empty}>
+              <strong>{category ? "Prvú overenú správu pripravujeme" : "Prvé overené správy pripravujeme"}</strong>
+              <p>{category ? "Táto téma má vlastnú stálu adresu. Keď pribudne novinka, zobrazí sa tu spolu so zdrojom a dátumom aktualizácie." : "Archív dopĺňame iba o publikované a overené novinky."}</p>
+              <PublicActionLink href="/novinky" variant="secondary">Zobraziť všetky</PublicActionLink>
             </div>
           )}
-        </div>
-      </section>
+        </section>
 
-      <section className="section shell news-tip-callout">
-        <div><span aria-hidden="true">💡</span><div><small>Komunita vidí viac</small><h2>Vieš o príbehu, ktorý by nemal zapadnúť?</h2><p>Pošli nám námet, odkaz alebo vlastnú skúsenosť. Pred prípadným zverejnením informácie preveríme a doplníme do súvislostí.</p></div></div>
-        <Link className="button button--coral" href="/novinky/poslat-tip">Poslať tip Psipedii <ArrowIcon /></Link>
-      </section>
+        {!category ? (
+          <section className={`${styles.trust} shell`} aria-label="Ako overujeme novinky">
+            <span className="eyebrow">Najprv overiť, potom zdieľať</span>
+            <h2>Silný príbeh potrebuje pevné fakty</h2>
+            <p>Pri každej správe oddeľujeme potvrdené informácie od nepotvrdených tvrdení, uvádzame pôvodný zdroj a podľa potreby text aktualizujeme.</p>
+          </section>
+        ) : null}
 
-      <section className="section shell">
-        <div className="news-trust-card">
-          <div><span className="eyebrow">Najprv overiť, potom zdieľať</span><h2>Silný príbeh potrebuje pevné fakty</h2><p>Nezverejníme iba virálny titulok. Pri každom príspevku oddeľujeme potvrdené informácie od nepotvrdených tvrdení, uvádzame pôvodný zdroj a podľa potreby text aktualizujeme.</p></div>
-          <ul>
-            <li><CheckIcon size={19} /><span><strong>Pôvodný zdroj</strong><small>organizácia, výskum alebo dôveryhodný zdroj</small></span></li>
-            <li><CheckIcon size={19} /><span><strong>Jasný dátum</strong><small>kedy sa udalosť stala alebo kedy bol text doplnený</small></span></li>
-            <li><CheckIcon size={19} /><span><strong>Súvislosti</strong><small>čo príbeh alebo informácia znamená pre psy a ich ľudí</small></span></li>
-          </ul>
-        </div>
-      </section>
-    </main>
+        <section className={`${styles.footerTools} shell`} aria-label="Redakčné informácie">
+          <div>
+            <span className="eyebrow">Komunita vidí viac</span>
+            <h2>Vieš o príbehu alebo téme, ktorú by sme mali preveriť?</h2>
+            <p>Pošli nám námet alebo odkaz. Tip pred publikovaním preveríme a pri správe uvádzame zdroje aj dátum aktualizácie.</p>
+          </div>
+          <div className={styles.footerActions}>
+            <PublicActionLink href="/novinky/poslat-tip" variant="primary">Pošli tip</PublicActionLink>
+            <PublicActionLink href="/zasady-obsahu" variant="secondary">Ako overujeme obsah</PublicActionLink>
+          </div>
+        </section>
+      </main>
+    </PublicFoundation>
   );
 }

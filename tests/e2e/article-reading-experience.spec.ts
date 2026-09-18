@@ -28,6 +28,9 @@ const cases = [
 async function expectNoSeriousAccessibilityViolations(page: Page) {
   const result = await new AxeBuilder({ page })
     .include("main#obsah")
+    // Third-party YouTube/Vimeo player DOM is outside Psipedia's control.
+    // The host iframe contract is covered separately below.
+    .exclude(".article-block-embed iframe")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   const violations = result.violations.filter(({ impact }) => impact === "serious" || impact === "critical");
@@ -101,16 +104,16 @@ for (const articleCase of cases) {
     await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-mobile-390x844.png` });
 
     expect(metrics.overflow).toBeLessThanOrEqual(1);
-    expect(metrics.h1Size).toBeGreaterThanOrEqual(34);
-    expect(metrics.h1Size).toBeLessThanOrEqual(39);
+    expect(metrics.h1Size).toBeGreaterThanOrEqual(30);
+    expect(metrics.h1Size).toBeLessThanOrEqual(35);
     expect(metrics.excerptClipping, "The mobile perex must be fully visible").toBeLessThanOrEqual(1);
-    expect(metrics.imageRatio).toBeGreaterThan(1.56);
-    expect(metrics.imageRatio).toBeLessThan(1.64);
+    expect(metrics.imageRatio).toBeGreaterThan(1.74);
+    expect(metrics.imageRatio).toBeLessThan(1.81);
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(17.1);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.69);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.75);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.62);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.69);
     expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
 
     if (articleCase.id === "bikejoring") {
@@ -174,16 +177,16 @@ for (const articleCase of cases) {
     });
 
     expect(metrics.overflow).toBeLessThanOrEqual(1);
-    expect(metrics.h1Size).toBeLessThanOrEqual(58);
-    expect(metrics.imageHeight).toBeLessThanOrEqual(420.5);
+    expect(metrics.h1Size).toBeLessThanOrEqual(49);
+    expect(metrics.imageHeight).toBeLessThanOrEqual(301);
     expect(metrics.imageRatio).toBeGreaterThan(1.56);
     expect(metrics.imageRatio).toBeLessThan(1.64);
-    expect(metrics.proseWidth).toBeGreaterThanOrEqual(680);
-    expect(metrics.proseWidth).toBeLessThanOrEqual(701);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(17.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.7);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.75);
+    expect(metrics.proseWidth).toBeGreaterThanOrEqual(660);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(681);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.65);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.71);
 
     const toc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
     await expect(toc).toHaveCount(articleCase.toc ? 1 : 0);
@@ -200,3 +203,54 @@ for (const articleCase of cases) {
     await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-desktop-1440x900.png` });
   });
 }
+
+
+test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku");
+
+  await expect(page.getByText("Redakcia Psipedia", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".article-prose strong").filter({ hasText: "Bikejoring je tímový šport" })).toBeVisible();
+  await expect(page.locator(".article-prose em").filter({ hasText: "Bezpečný začiatok je dôležitejší než rýchlosť." })).toBeVisible();
+
+  const safeVideo = page.locator('iframe[src^="https://www.youtube-nocookie.com/embed/"]');
+  await expect(safeVideo).toHaveCount(1);
+  await expect(safeVideo).toHaveAttribute("allowfullscreen", "");
+
+  const sharing = page.getByRole("group", { name: "Zdieľať článok" });
+  await expect(sharing.getByRole("link", { name: "Facebook" })).toHaveAttribute("href", /facebook\.com\/sharer\/sharer\.php/);
+  await expect(sharing.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", /wa\.me/);
+  await sharing.getByRole("button", { name: "Kopírovať odkaz" }).click();
+  await expect(sharing.getByRole("button", { name: "Odkaz skopírovaný" })).toBeVisible();
+
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
+test("ARTICLE-PUBLIC legacy author fallback and malicious embed fail closed", async ({ page }) => {
+  await page.goto("/aktivity/stimulus-control-u-psa");
+  await expect(page.getByText("Martin", { exact: true }).first()).toBeVisible();
+  await expect(page.locator('iframe[src^="javascript:"]')).toHaveCount(0);
+  await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+});
+
+test("ARTICLE-PUBLIC Novinky exposes complete archive and category filters", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/novinky");
+
+  const archive = page.getByRole("list", { name: "Všetky novinky" });
+  await expect(archive.getByText("E2E výskum psov 2026")).toBeVisible();
+  await expect(archive.getByText("E2E zaujímavosť zo sveta psov")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("aria-current", "page");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+
+  await page.getByRole("link", { name: "Veda a zdravie", exact: true }).click();
+  await expect(page).toHaveURL(/\/novinky\/veda-a-zdravie$/);
+  await expect(page.getByRole("list", { name: "Novinky: Veda a zdravie" }).getByText("E2E výskum psov 2026")).toBeVisible();
+  await expect(page.getByText("E2E zaujímavosť zo sveta psov")).toHaveCount(0);
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
+test("ARTICLE-PUBLIC unknown article remains a real 404", async ({ page }) => {
+  const response = await page.goto("/clanky/article-public-neexistuje");
+  expect(response?.status()).toBe(404);
+});
