@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { formatHelpDate, type HelpCase, type HelpCategorySlug } from "@/lib/help";
-import { getHelpPresentation, sameLooseText, usefulHelpValue } from "@/lib/help-detail-presentation";
+import { getHelpPresentation, usefulHelpValue } from "@/lib/help-detail-presentation";
 import {
   HelpContactsCard,
   HelpDetailShell,
@@ -30,23 +30,6 @@ function rawFact(label: string, value: string | null | undefined): HelpFact | nu
 function GenericContacts({ item }: Props) {
   const presentation = getHelpPresentation(item);
   return <HelpContactsCard contacts={presentation.contacts} note={presentation.contactNote} />;
-}
-
-export function OrganizationHelpDetail({ item }: Props) {
-  const presentation = getHelpPresentation(item);
-  const operator = !sameLooseText(item.organization, item.title) ? usefulHelpValue(item.organization) : null;
-  return <HelpDetailShell item={item} sidebar={<>
-    <HelpFactsCard facts={[
-      textFact("Typ organizácie", presentation.organizationType),
-      textFact("Prevádzkovateľ", operator),
-      textFact("Lokalita", location(item)),
-      textFact("Oblasť pôsobenia", presentation.coverage),
-    ]} />
-    <HelpContactsCard contacts={presentation.contacts} note={presentation.contactNote} />
-  </>}>
-    {presentation.description && <HelpSection eyebrow="Profil organizácie" title="O organizácii"><HelpParagraphs value={presentation.description} /></HelpSection>}
-    {presentation.helpOptions.length > 0 && <HelpSection title="Ako môžete pomôcť"><p>Zobrazujeme iba možnosti, ktoré sú v profile výslovne uvedené. Neoverené alebo nezistené položky sa nepovažujú za negatívnu vlastnosť organizácie.</p><HelpOptions options={presentation.helpOptions} /></HelpSection>}
-  </HelpDetailShell>;
 }
 
 export function AdoptionHelpDetail({ item }: Props) {
@@ -134,8 +117,9 @@ export function GenericCaseHelpDetail({ item }: Props) {
   </HelpDetailShell>;
 }
 
-export const helpDetailViews: Record<HelpCategorySlug, ComponentType<Props>> = {
-  utulky: OrganizationHelpDetail,
+type RenderedHelpCategory = Exclude<HelpCategorySlug, "utulky">;
+
+export const helpDetailViews: Record<RenderedHelpCategory, ComponentType<Props>> = {
   adopcia: AdoptionHelpDetail,
   "docasna-opatera": FosterHelpDetail,
   zbierky: FundraiserHelpDetail,
