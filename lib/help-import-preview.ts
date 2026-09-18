@@ -52,10 +52,7 @@ type Identity = {
   city: string;
   region: string;
   actionUrl: string;
-  domains: Set<string>;
   urls: Set<string>;
-  emails: Set<string>;
-  phones: Set<string>;
 };
 
 type MatchResult = { strong: boolean; potential: boolean; signals: string };
@@ -74,20 +71,11 @@ function url(value: string) {
 function identity(row: { title: string; organization: string; dogName: string; city: string; region: string; actionUrl: string; contactNote: string; description: string; locationNote: string }): Identity {
   const haystack = [row.actionUrl, row.contactNote, row.description, row.locationNote].join(" ");
   const urls = new Set<string>();
-  const domains = new Set<string>();
   for (const match of haystack.matchAll(/https?:\/\/[^\s<>"']+/gi)) {
     const parsed = url(match[0].replace(/[.,;)]+$/, ""));
     if (!parsed) continue;
     const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
     urls.add(`${host}${parsed.pathname.replace(/\/$/, "")}`.toLowerCase());
-    if (!["facebook.com", "m.facebook.com", "instagram.com", "linktr.ee"].includes(host)) domains.add(host);
-  }
-  const emails = new Set([...haystack.matchAll(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi)].map(([value]) => value.toLowerCase()));
-  const phones = new Set<string>();
-  // Contact notes hold labelled values. Do not mistake dates or arbitrary numbers in descriptions for a phone.
-  for (const match of row.contactNote.matchAll(/(?:telef[oó]n|mobil|tel\.?)[\s:]+(\+?[\d\s()/.-]{9,22})/gi)) {
-    const number = match[1].replace(/\D/g, "");
-    if (number.length >= 9) phones.add(number);
   }
   return {
     title: normalized(row.title),
@@ -96,27 +84,11 @@ function identity(row: { title: string; organization: string; dogName: string; c
     city: normalized(row.city),
     region: row.region,
     actionUrl: row.actionUrl.trim(),
-    domains,
     urls,
-    emails,
-    phones,
   };
 }
 function intersects<T>(first: Set<T>, second: Set<T>) { return [...first].some((value) => second.has(value)); }
 function signalList(values: Array<string | false>) { return values.filter(Boolean).join(", "); }
-
-function organizationMatch(input: Identity, existing: Identity): MatchResult {
-  const title = Boolean(input.title && input.title === existing.title);
-  const operator = Boolean(input.organization && input.organization === existing.organization);
-  const city = Boolean(input.city && input.city === existing.city);
-  const urlMatch = intersects(input.urls, existing.urls);
-  const domain = intersects(input.domains, existing.domains);
-  const email = intersects(input.emails, existing.emails);
-  const phone = intersects(input.phones, existing.phones);
-  const strong = (title && (city || operator)) || (operator && city) || (operator && (domain || urlMatch || email || phone)) || (title && (domain || email || phone)) || (city && (urlMatch || email || phone));
-  const potential = strong || operator || (title && input.region === existing.region) || domain || urlMatch || email || phone;
-  return { strong, potential, signals: signalList([title && "názov", operator && "prevádzkovateľ", city && "mesto", domain && "doména", urlMatch && "URL/sociálna sieť", email && "e-mail", phone && "telefón"]) };
-}
 
 function caseMatch(input: Identity, existing: Identity, category: string): MatchResult {
   const title = Boolean(input.title && input.title === existing.title);
@@ -126,9 +98,9 @@ function caseMatch(input: Identity, existing: Identity, category: string): Match
   const sameRegion = Boolean(input.region && input.region === existing.region);
   const urlMatch = intersects(input.urls, existing.urls);
 
-  // Case-like categories intentionally ignore shared organization contact data by itself.
-  // One shelter can legitimately publish many dogs, temporary-care appeals, fundraisers
-  // and volunteering opportunities that all share the same domain, e-mail and phone.
+  // Case-like categories intentionally ignore shared organization identity by itself.
+  // One organization can legitimately publish many dogs, temporary-care appeals,
+  // fundraisers and volunteering opportunities.
   const strong =
     (dogName && operator) ||
     (title && operator) ||
@@ -145,7 +117,7 @@ function caseMatch(input: Identity, existing: Identity, category: string): Match
 }
 
 function matches(input: Identity, existing: Identity, category: string) {
-  return category === "utulky" ? organizationMatch(input, existing) : caseMatch(input, existing, category);
+  return caseMatch(input, existing, category);
 }
 
 function validate(row: Input, categories: readonly string[], regions: readonly string[]) {
