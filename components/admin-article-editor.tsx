@@ -58,10 +58,13 @@ export function AdminArticleEditor({
   managedSections?: Array<PortalSection & { visible?: boolean }>;
 }) {
   const initialPortalSection = article?.portalSection ?? defaultPortalSection;
+  const builtInSectionOptions = articlePortalSectionOptions.filter(
+    (option) => option.slug === "clanky" || option.slug === "novinky",
+  );
   const sectionOptions = [
-    articlePortalSectionOptions[0],
+    ...builtInSectionOptions,
     ...managedSections
-      .filter((section) => section.articleEnabled && section.visible !== false)
+      .filter((section) => section.slug !== "novinky" && section.articleEnabled && section.visible !== false)
       .map((section) => ({ slug: section.slug as ArticlePortalSection, label: section.label })),
   ];
   const areasFor = (sectionSlug: ArticlePortalSection) =>
