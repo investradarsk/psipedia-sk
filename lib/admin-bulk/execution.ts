@@ -52,14 +52,26 @@ function mutationStatement(
   editorEmail: string,
   now: string,
 ): BulkStatement {
-  const table = module === "articles" ? "managed_articles" : "directory_profiles";
+  if (module === "articles") {
+    if (action === "publish") {
+      return database.prepare(`UPDATE managed_articles
+        SET status = 'published', published_at = COALESCE(published_at, ?), updated_at = ?, updated_by = ?
+        WHERE id = ? AND status = ? AND updated_at = ?`)
+        .bind(now, now, editorEmail, Number(item.recordId), item.capturedStatus, item.capturedUpdatedAt);
+    }
+    return database.prepare(`UPDATE managed_articles
+      SET status = 'draft', updated_at = ?, updated_by = ?
+      WHERE id = ? AND status = ? AND updated_at = ?`)
+      .bind(now, editorEmail, Number(item.recordId), item.capturedStatus, item.capturedUpdatedAt);
+  }
+
   if (action === "publish") {
-    return database.prepare(`UPDATE ${table}
+    return database.prepare(`UPDATE directory_profiles
       SET status = 'published', published_at = COALESCE(published_at, ?), updated_at = ?, updated_by = ?
       WHERE id = ? AND status = ? AND updated_at = ?`)
       .bind(now, now, editorEmail, Number(item.recordId), item.capturedStatus, item.capturedUpdatedAt);
   }
-  return database.prepare(`UPDATE ${table}
+  return database.prepare(`UPDATE directory_profiles
     SET status = 'draft', updated_at = ?, updated_by = ?
     WHERE id = ? AND status = ? AND updated_at = ?`)
     .bind(now, editorEmail, Number(item.recordId), item.capturedStatus, item.capturedUpdatedAt);
