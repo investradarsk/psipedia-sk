@@ -173,11 +173,11 @@ export function PublicArticleListItem({
   return (
     <Link className={cx(styles.articleListItem, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
       <span className={styles.articleListCopy}>
-        <strong className={styles.articleListTitle}>{title}</strong>
+        <strong className={styles.articleListTitle} data-article-title>{title}</strong>
         <span className={styles.articleListMeta}>
-          <span className={styles.articleListTopic}>{topic}</span>
+          <span className={styles.articleListTopic} data-article-topic>{topic}</span>
           <span aria-hidden="true">·</span>
-          {dateTime ? <time dateTime={dateTime}>{date}</time> : <span>{date}</span>}
+          {dateTime ? <time dateTime={dateTime} data-article-date>{date}</time> : <span data-article-date>{date}</span>}
         </span>
       </span>
     </Link>
