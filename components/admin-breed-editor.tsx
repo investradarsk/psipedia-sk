@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
@@ -32,8 +32,10 @@ const sportOptions=[
 ] as const;
 
 type SportDraft={index:number|null;key:string;label:string;rating:number;note:string};
+const subscribeToHydration=()=>()=>{};
 
 export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
+  const hydrated=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [form,setForm]=useState({
     name:breed?.name??"",slug:breed?.slug??"",status:breed?.status??"draft",image:breed?.image??"",imageKey:breed?.imageKey??"",
     gallery:breed?.gallery??[],fciNumber:breed?.fciNumber?.toString()??"",fciGroup:breed?.fciGroup??1,fciSection:breed?.fciSection??"",fciSectionNumber:breed?.fciSectionNumber??"",
@@ -132,7 +134,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const clubs=useMemo(()=>filterNamedOptions(options.directoryProfiles.filter((item)=>item.category==="chovatelske-kluby"),clubQuery),[options.directoryProfiles,clubQuery]);
   const relatedBreeds=useMemo(()=>filterNamedOptions(options.breeds.filter((item)=>item.id!==breed?.id),breedQuery),[options.breeds,breed?.id,breedQuery]);
 
-  return <form className="admin-breed-editor" onSubmit={(event)=>{event.preventDefault();void save("draft");}}>
+  return <form className="admin-breed-editor" data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save("draft");}}>
     <div className={styles.editorTopbar}>
       <p>{breed ? `ID ${breed.id} · ${breed.status==="published"?"Publikované":"Koncept"}` : "Nový koncept plemena"}</p>
       <div className={styles.editorTopbarActions}><AdminActionButton variant="neutral" onClick={()=>setSettingsOpen(true)}>Nastavenia, FCI a SEO</AdminActionButton></div>
