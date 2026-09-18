@@ -253,7 +253,7 @@ test('quick edit drawer is scoped, keyboard closable and restores trigger focus'
   const trigger=page.getByRole('button',{name:'Rýchla úprava',exact:true});
   await trigger.focus();
   await trigger.click();
-  const drawer=page.locator('[data-admin-drawer]');
+  const drawer=page.getByRole('dialog',{name:'Rýchla úprava'});
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText('Stretnutie majiteľov psov 175',{exact:true})).toBeVisible();
   await expect(drawer).toContainText('nemení názov, termín, miesto, text, obrázok, SEO ani publikačný stav');
@@ -262,8 +262,9 @@ test('quick edit drawer is scoped, keyboard closable and restores trigger focus'
   await expect(trigger).toBeFocused();
 
   await trigger.click();
-  await drawer.getByLabel('Typ podujatia',{exact:true}).selectOption('Preteky');
-  await drawer.getByLabel('Podujatie je zrušené',{exact:true}).check();
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('combobox',{name:'Typ podujatia',exact:true}).selectOption('Preteky');
+  await drawer.getByRole('checkbox',{name:'Podujatie je zrušené',exact:true}).check();
   let patch=0;
   await page.route('**/api/admin/events/175', async route => {
     if (route.request().method() !== 'PATCH') return route.continue();
