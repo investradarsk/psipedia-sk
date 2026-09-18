@@ -76,6 +76,10 @@
   margin: 0.28rem 0 0.24rem;
 }
 
+.main :global(.admin-article-tags) {
+  color: #4d6258;
+}
+
 .main h2 a {
   overflow-wrap: anywhere;
 }
@@ -85,14 +89,14 @@
   margin: 0;
 }
 
-.primaryMeta {
-  color: #29483e;
+.main > .primaryMeta {
+  color: #40574d;
   font-weight: 700;
 }
 
-.secondaryMeta {
+.main > .secondaryMeta {
   margin-top: 0.18rem;
-  color: #667970;
+  color: #52665d;
   font-size: 0.8rem;
 }
 
