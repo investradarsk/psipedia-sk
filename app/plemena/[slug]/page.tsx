@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BreedPhoto } from "@/components/breed-photo";
+import { ArticleListItem } from "@/components/article-list-item";
 import { BreedSectionNav } from "@/components/breed-section-nav";
 import { ArrowIcon, PawMark } from "@/components/icons";
-import { PublicDataCard, PublicFoundation } from "@/components/public-visual-system";
+import { PublicContentList, PublicDataCard, PublicFoundation } from "@/components/public-visual-system";
 import { breedAtlasHref } from "@/lib/breed-atlas";
+import { getPublishedArticle } from "@/lib/article-store";
 import {
   combinedFciMeasurement,
   publicBreedMeasurement,
@@ -22,7 +24,6 @@ import {
 } from "@/lib/breed-store";
 import { breeds, getFciGroup } from "@/lib/content";
 import { breedSeoFallback, buildContentMetadata, resolvedCanonical } from "@/lib/content-seo";
-import { articleHref, type ArticlePortalSection } from "@/lib/portal";
 import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 import { BreedProfileAccordion } from "./breed-profile-accordion";
 import styles from "./breed-profile.module.css";
@@ -100,6 +101,9 @@ export default async function BreedDetailPage({ params }: Props) {
   const relations = managedBreed
     ? await getBreedDetailRelations(managedBreed)
     : { articles: [], breedingStations: [], breedClubs: [], similarBreeds: [] };
+
+  const relatedArticles = (await Promise.all(relations.articles.map((article) => getPublishedArticle(article.slug))))
+    .filter((article) => article !== null);
 
   const canonical = resolvedCanonical(breed.seo, `/plemena/${breed.slug}`);
   const publishedAt = "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : "2026-08-17";
@@ -495,21 +499,12 @@ export default async function BreedDetailPage({ params }: Props) {
         </section>
       ) : null}
 
-      {relations.articles.length > 0 ? (
+      {relatedArticles.length > 0 ? (
         <section className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`} id="suvisiaci-obsah">
           <header><span className="eyebrow">Ďalšie čítanie</span><h2>Prehĺbte si vedomosti</h2></header>
-          <div className="breed-related-grid">
-            {relations.articles.map((article) => (
-              <article key={article.id}>
-                {article.image ? <img src={article.image} alt="" loading="lazy" /> : null}
-                <div>
-                  <small>Článok Psipedie</small>
-                  <h3><Link href={articleHref({ slug: article.slug, portalSection: article.portalSection as ArticlePortalSection })}>{article.title}</Link></h3>
-                  <p>{article.excerpt}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+          <PublicContentList label="Súvisiace články k plemenu">
+            {relatedArticles.map((article) => <ArticleListItem article={article} key={article.slug} />)}
+          </PublicContentList>
         </section>
       ) : null}
 
