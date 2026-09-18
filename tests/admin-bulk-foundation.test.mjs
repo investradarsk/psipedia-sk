@@ -209,3 +209,79 @@ test("article mobile row contract gives checkbox its own shared grid column with
   assert.match(sharedSource, /grid-template-columns: 24px 62px minmax\(0, 1fr\)/);
   assert.match(sharedSource, /\.actions[\s\S]*grid-column: 1 \/ -1/);
 });
+
+
+test("FOUNDATION-ADMIN exposes reusable action, toolbar, dialog, drawer, bulk-edit, editor-nav and help contracts", () => {
+  const interaction = readFileSync(new URL("../components/admin-interaction-system.tsx", import.meta.url), "utf8");
+  const interactionCss = readFileSync(new URL("../components/admin-interaction-system.module.css", import.meta.url), "utf8");
+
+  for (const primitive of [
+    "AdminActionButton",
+    "AdminActionLink",
+    "AdminBulkActionToolbar",
+    "AdminModalDialog",
+    "AdminDestructiveConfirmDialog",
+    "AdminDrawer",
+    "AdminBulkEditShell",
+    "AdminStickyEditorNavigation",
+    "AdminEditorSection",
+    "AdminHelpText",
+  ]) {
+    assert.match(interaction, new RegExp(`export function ${primitive}\\b`));
+  }
+
+  for (const variant of ["primary", "secondary", "neutral", "destructive", "link"]) {
+    assert.match(interaction, new RegExp(`"${variant}"`));
+  }
+  assert.match(interactionCss, /\.action \{[\s\S]*min-height: 44px/);
+  assert.match(interactionCss, /\.primary \{[\s\S]*background: #173f2d[\s\S]*color: #fff/);
+  assert.match(interactionCss, /\.destructive \{[\s\S]*color: #742d20/);
+});
+
+test("FOUNDATION-ADMIN destructive and modal contracts use explicit scope plus native focus-safe dialog behavior", () => {
+  const interaction = readFileSync(new URL("../components/admin-interaction-system.tsx", import.meta.url), "utf8");
+  assert.match(interaction, /dialog\.showModal\(\)/);
+  assert.match(interaction, /restoreFocusRef/);
+  assert.match(interaction, /onCancel=\{\(event\) => \{[\s\S]*event\.preventDefault\(\)[\s\S]*onClose\(\)/);
+  assert.match(interaction, /Táto akcia ovplyvní <strong>\{affectedCount\}<\/strong> \{affectedLabel\}/);
+  assert.match(interaction, /confirmLabel: string/);
+  assert.doesNotMatch(interaction, />OK<|>Ok<|>okay</i);
+});
+
+test("FOUNDATION-ADMIN bulk edit shell explains changed and unchanged scope before confirm", () => {
+  const interaction = readFileSync(new URL("../components/admin-interaction-system.tsx", import.meta.url), "utf8");
+  assert.match(interaction, /1\. Vyber pole/);
+  assert.match(interaction, /2\. Nastav novú hodnotu/);
+  assert.match(interaction, /Nezmení sa:/);
+  assert.match(interaction, /3\. Skontroluj súhrn pred potvrdením/);
+  assert.match(interaction, /affectedCount/);
+  assert.match(interaction, /validationMessage[\s\S]*role="alert"/);
+  assert.match(interaction, /Zrušiť/);
+  assert.match(interaction, /Potvrdiť hromadnú úpravu/);
+});
+
+test("FOUNDATION-ADMIN drawer and sticky editor navigation keep context and provide mobile fallback", () => {
+  const interaction = readFileSync(new URL("../components/admin-interaction-system.tsx", import.meta.url), "utf8");
+  const interactionCss = readFileSync(new URL("../components/admin-interaction-system.module.css", import.meta.url), "utf8");
+  assert.match(interaction, /data-admin-drawer/);
+  assert.match(interactionCss, /\.drawer \{[\s\S]*position: fixed[\s\S]*height: 100dvh/);
+  assert.match(interaction, /IntersectionObserver/);
+  assert.match(interaction, /aria-current=\{currentSectionId === section\.id \? "location"/);
+  assert.match(interaction, /target\.scrollIntoView/);
+  assert.match(interaction, /target\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(interactionCss, /\.editorSection \{[\s\S]*scroll-margin-top:/);
+  assert.match(interactionCss, /@media \(max-width: 720px\)[\s\S]*\.editorNavigationLinks \{[\s\S]*display: none[\s\S]*\.editorNavigationMobile \{[\s\S]*display: grid/);
+});
+
+test("FOUNDATION-ADMIN proof-of-contract reuses the shared toolbar without changing article bulk endpoints", () => {
+  const bulk = readFileSync(new URL("../components/admin-bulk-selection.tsx", import.meta.url), "utf8");
+  const bulkCss = readFileSync(new URL("../components/admin-bulk-selection.module.css", import.meta.url), "utf8");
+  assert.match(bulk, /AdminBulkActionToolbar/);
+  assert.match(bulk, /variant="primary"[\s\S]*Skontrolovať publikovanie/);
+  assert.match(bulk, /variant="secondary"[\s\S]*Skontrolovať presun do konceptov/);
+  assert.match(bulk, /clearLabel="Zrušiť výber"/);
+  assert.match(bulk, /\/api\/admin\/bulk\/preflight/);
+  assert.match(bulk, /\/api\/admin\/bulk\/execute/);
+  assert.match(bulkCss, /\.checkLabel,[\s\S]*min-height: 44px/);
+  assert.match(bulkCss, /\.rowCheck \{[\s\S]*min-width: 44px/);
+});
