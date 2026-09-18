@@ -70,6 +70,7 @@ function createDatabase(rows = []) {
           }
           if (sql.includes("FROM organization_locations l")) return { results: [] };
           if (sql.includes("FROM adoption_dogs d")) return { results: [] };
+          if (sql.includes("FROM organization_fundraising_methods f")) return { results: [] };
           throw new Error(`Unexpected all query: ${sql}`);
         },
         async run() {
