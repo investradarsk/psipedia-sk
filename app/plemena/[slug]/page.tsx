@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BreedPhoto } from "@/components/breed-photo";
-import { ArticleListItem } from "@/components/article-list-item";
 import { BreedSectionNav } from "@/components/breed-section-nav";
 import { ArrowIcon, PawMark } from "@/components/icons";
-import { PublicContentList, PublicDataCard, PublicFoundation } from "@/components/public-visual-system";
+import { PublicArticleListItem, PublicContentList, PublicDataCard, PublicFoundation } from "@/components/public-visual-system";
 import { breedAtlasHref } from "@/lib/breed-atlas";
-import { getPublishedArticle } from "@/lib/article-store";
 import {
   combinedFciMeasurement,
   publicBreedMeasurement,
@@ -25,6 +23,7 @@ import {
 import { breeds, getFciGroup } from "@/lib/content";
 import { breedSeoFallback, buildContentMetadata, resolvedCanonical } from "@/lib/content-seo";
 import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { getPublicArticleListMeta } from "@/lib/public-article-list";
 import { BreedProfileAccordion } from "./breed-profile-accordion";
 import styles from "./breed-profile.module.css";
 
@@ -102,8 +101,11 @@ export default async function BreedDetailPage({ params }: Props) {
     ? await getBreedDetailRelations(managedBreed)
     : { articles: [], breedingStations: [], breedClubs: [], similarBreeds: [] };
 
-  const relatedArticles = (await Promise.all(relations.articles.map((article) => getPublishedArticle(article.slug))))
-    .filter((article) => article !== null);
+  const relatedArticleMeta = await getPublicArticleListMeta(relations.articles.map((article) => article.slug));
+  const relatedArticles = relations.articles.flatMap((article) => {
+    const meta = relatedArticleMeta.get(article.slug);
+    return meta ? [{ ...article, ...meta }] : [];
+  });
 
   const canonical = resolvedCanonical(breed.seo, `/plemena/${breed.slug}`);
   const publishedAt = "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : "2026-08-17";
@@ -503,7 +505,16 @@ export default async function BreedDetailPage({ params }: Props) {
         <section className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`} id="suvisiaci-obsah">
           <header><span className="eyebrow">Ďalšie čítanie</span><h2>Prehĺbte si vedomosti</h2></header>
           <PublicContentList label="Súvisiace články k plemenu">
-            {relatedArticles.map((article) => <ArticleListItem article={article} key={article.slug} />)}
+            {relatedArticles.map((article) => (
+              <PublicArticleListItem
+                key={article.slug}
+                href={article.portalSection === "clanky" ? `/clanky/${article.slug}` : `/${article.portalSection}/${article.slug}`}
+                title={article.title}
+                topic={article.topic}
+                date={article.date}
+                dateTime={article.dateIso}
+              />
+            ))}
           </PublicContentList>
         </section>
       ) : null}
