@@ -145,7 +145,7 @@ const articleFixtures = [
     contentUpdatedAt: "2026-08-16T08:00:00.000Z",
     showUpdated: true,
     noindex: true,
-  },,
+  },
   {
     slug: "e2e-vyskum-psov-2026",
     title: "E2E výskum psov 2026",
