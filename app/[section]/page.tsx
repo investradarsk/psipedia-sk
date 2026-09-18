@@ -4,7 +4,7 @@ import { StructuredData } from "@/components/structured-data";
 import { EventsPage as EventsListingPage } from "@/components/events-page";
 import { PortalHub } from "@/components/portal-hub";
 import { NewsHub } from "@/components/news-hub";
-import { getPublishedArticleSummaries } from "@/lib/article-store";
+import { getAllPublishedArticleSummaries, getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { eventHref, eventTimeFilterFromParam } from "@/lib/events";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
@@ -44,7 +44,7 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   const [section, allSections, articles, events] = await Promise.all([
     getManagedPortalSection(slug),
     listManagedPortalSections(),
-    slug === "podujatia" ? Promise.resolve([]) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
+    slug === "podujatia" ? Promise.resolve([]) : slug === "novinky" ? getAllPublishedArticleSummaries({ portalSection: "novinky" }) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
     slug === "podujatia" ? getPublishedEvents() : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();

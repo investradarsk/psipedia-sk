@@ -4,7 +4,7 @@ import { ArrowIcon, CheckIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
-import { getNewsCategory } from "@/lib/news";
+import { getNewsCategory, getNewsCategoryGuidance } from "@/lib/news";
 import { articlePortalSection, portalSectionHeroImage, portalSubpageHref, type PortalSection, type PortalSubpage } from "@/lib/portal";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 
@@ -82,7 +82,7 @@ export function PortalTopic({
   const sortedArticles = [...sectionArticles].sort((a, b) => (featured.get(a.slug) ?? 999) - (featured.get(b.slug) ?? 999));
   const reviewTopicHref = portalSubpageHref(section, subpage);
   const reviewCardProps = isReviews ? { topicHref: reviewTopicHref, topicLabel: subpage.label, actionLabel: "Čítať recenziu" } : {};
-  const note = specialNotes[`${section.slug}/${subpage.slug}`] ?? {
+  const note = (newsCategory ? getNewsCategoryGuidance(newsCategory.slug) : null) ?? specialNotes[`${section.slug}/${subpage.slug}`] ?? {
     title: `Praktický prehľad: ${subpage.label}`,
     text: subpage.intro || `${subpage.description} Obsah budeme rozširovať o overené informácie, konkrétne postupy a užitočné kontakty.`,
     items: ["zrozumiteľné vysvetlenie", "praktické kroky a odporúčania", "súvisiace články na jednej adrese"],

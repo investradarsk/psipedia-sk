@@ -202,7 +202,7 @@ test("article storage keeps legacy compatibility while making takeaway and gener
   assert.match(store, /getEditorialAuthorProfile\(database, existingAuthorProfileId, false\)/);
   assert.doesNotMatch(store, /takeaway\.length\s*</);
   assert.match(store, /portalSection === "novinky" && status !== "draft" && !sources\.length/);
-  assert.match(detail, /showTakeaway && <aside className="takeaway-box"/);
+  assert.match(detail, /showTakeaway \? <aside className="takeaway-box"/);
   assert.match(editor, /To najdôležitejšie <small>nepovinné<\/small>/);
   assert.doesNotMatch(editor, /id="article-takeaway"[^\n>]*required/);
 });

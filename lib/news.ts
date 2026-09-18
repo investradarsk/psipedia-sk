@@ -45,6 +45,45 @@ export const newsCategories = [
 
 export type NewsCategorySlug = (typeof newsCategories)[number]["slug"];
 
+export type NewsCategoryGuidance = {
+  title: string;
+  text: string;
+  items: string[];
+};
+
+const newsCategoryGuidance: Partial<Record<NewsCategorySlug, NewsCategoryGuidance>> = {
+  "zachrana-a-hrdinovia": {
+    title: "Príbehy, pri ktorých rozhodujú skutky",
+    text: "Sledujeme záchranu psov zo zlých podmienok, úspešné adopcie aj prípady, keď pes pomohol zachrániť človeka. Uvádzame zdroj, miesto a aktuálny výsledok príbehu.",
+    items: ["potvrdené informácie od organizácie alebo záchranných zložiek", "jasné oddelenie faktov od nepotvrdených tvrdení", "aktualizácia, keď sa situácia zmení"],
+  },
+  "veda-a-zdravie": {
+    title: "Čo nový objav naozaj znamená",
+    text: "Výskum, nové lieky a veterinárne postupy prekladáme do zrozumiteľnej reči. Vysvetlíme, či ide o prvé výsledky, schválenú liečbu alebo iba sľubný smer ďalšieho výskumu.",
+    items: ["odkaz na pôvodný výskum alebo odbornú organizáciu", "rozlíšenie štúdie, schválenia a bežnej dostupnosti", "praktický význam bez falošných sľubov"],
+  },
+  "pracovne-psy": {
+    title: "Psy, ktoré pomáhajú tam, kde ide o veľa",
+    text: "Záchranárske, asistenčné, policajné aj detekčné psy pri katastrofách, pátraní a každodennej službe. Sledujeme ich prácu, výcvik aj konkrétny prínos.",
+    items: ["zásahy a pátracie akcie", "asistenčné a detekčné schopnosti", "ľudia a organizácie za úspechom tímu"],
+  },
+  "ochrana-a-pravo": {
+    title: "Pravidlá, ktoré menia život psov",
+    text: "Nové zákony, rozsudky, kontroly chovov a opatrenia na ochranu zvierat vysvetlíme bez právnickej hmly — vrátane toho, odkedy platia a koho sa týkajú.",
+    items: ["presný zdroj a dátum účinnosti", "dopad na majiteľov, chovateľov a organizácie", "vývoj závažných prípadov týrania"],
+  },
+};
+
+export function getNewsCategoryGuidance(slug?: string | null): NewsCategoryGuidance | null {
+  const category = getNewsCategory(slug);
+  if (!category) return null;
+  return newsCategoryGuidance[category.slug] ?? {
+    title: category.label,
+    text: category.description,
+    items: ["overiteľný pôvod informácie", "jasný dátum a kontext", "praktický význam pre ľudí a psy"],
+  };
+}
+
 export function isNewsCategory(value: string): value is NewsCategorySlug {
   return newsCategories.some((category) => category.slug === value);
 }

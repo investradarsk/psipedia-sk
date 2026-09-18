@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
+import { NewsHub } from "@/components/news-hub";
 import { EventDetail } from "@/components/event-detail";
 import { EventsPage } from "@/components/events-page";
 import { PortalTopic } from "@/components/portal-topic";
-import { getPublishedArticle, getPublishedArticleSummaries, getRelatedPublishedArticles } from "@/lib/article-store";
+import { getAllPublishedArticleSummaries, getPublishedArticle, getPublishedArticleAuthorProfile, getPublishedArticleSummaries, getRelatedPublishedArticles } from "@/lib/article-store";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { getPublishedEvent, getPublishedEvents, getUpcomingEvents } from "@/lib/event-store";
 import { eventDateTimeIso, eventHref, eventPortalCategory, eventTimeFilterFromParam, eventTypeFromPortalSlug, selectRelatedEvents } from "@/lib/events";
 import { articleHref, portalSections, type ArticlePortalSection } from "@/lib/portal";
+import { getNewsCategory } from "@/lib/news";
 import { getPublishedReviewSummaries, portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-store";
 import { buildPageMetadata } from "@/lib/seo";
@@ -82,6 +84,12 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   if (section === "podujatia" && eventTypeFromPortalSlug(slug)) {
     return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
   }
+  if (portalTopic && section === "novinky") {
+    const newsCategory = getNewsCategory(slug);
+    if (newsCategory) {
+      return <NewsHub articles={await getAllPublishedArticleSummaries({ portalSection: "novinky" })} section={portalTopic.section} activeCategory={newsCategory.slug} />;
+    }
+  }
   if (portalTopic && section === "recenzie") {
     return <PortalTopic {...portalTopic} articles={await getPublishedReviewSummaries(slug, 120)} />;
   }
@@ -105,5 +113,9 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) redirect(canonical);
 
-  return <ArticleDetail article={article} related={await getRelatedPublishedArticles(article, 3)} portalSection={section === "recenzie" ? managedSection : undefined} />;
+  const [relatedArticles, authorProfile] = await Promise.all([
+    getRelatedPublishedArticles(article, 3),
+    getPublishedArticleAuthorProfile(article),
+  ]);
+  return <ArticleDetail article={article} related={relatedArticles} authorProfile={authorProfile} portalSection={section === "recenzie" ? managedSection : undefined} />;
 }
