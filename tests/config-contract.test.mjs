@@ -85,6 +85,28 @@ test("enabled public submissions require their security secrets", () => {
   );
 });
 
+test("enabled Notion article sync requires token and exact data source", () => {
+  assert.throws(
+    () => validateRuntimeEnvironment(
+      { NOTION_ARTICLE_SYNC_ENABLED: "true" },
+      { profile: "runtime" },
+    ),
+    (error) => error instanceof ConfigurationError
+      && error.missing.includes("NOTION_API_TOKEN")
+      && error.missing.includes("NOTION_ARTICLES_DATA_SOURCE_ID"),
+  );
+
+  const result = validateRuntimeEnvironment(
+    {
+      NOTION_ARTICLE_SYNC_ENABLED: "true",
+      NOTION_API_TOKEN: "secret-test-token",
+      NOTION_ARTICLES_DATA_SOURCE_ID: "ae042534-c878-427e-bc76-ef587a8c61cf",
+    },
+    { profile: "runtime" },
+  );
+  assert.equal(result.notionArticleSyncEnabled, true);
+});
+
 test("CI-only local auth path accepts isolated test PII crypto material", () => {
   const result = validateRuntimeEnvironment(
     {
@@ -105,6 +127,7 @@ test("repository configuration contract is production-safe and secret-free", asy
   assert.equal(result.r2Binding, "BUCKET");
   assert.ok(result.secretEnvNames.includes("PII_ENCRYPTION_KEY"));
   assert.ok(result.secretEnvNames.includes("PII_HASH_KEY"));
+  assert.ok(result.secretEnvNames.includes("NOTION_API_TOKEN"));
 });
 
 test("local Cloudflare tooling target is explicit and tied to the resolved toolchain", async () => {
