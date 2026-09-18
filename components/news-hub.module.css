@@ -1,0 +1,141 @@
+.foundation {
+  min-width: 0;
+}
+
+.headerShell {
+  padding-top: 22px;
+}
+
+.headerShell :global(.article-breadcrumbs) {
+  margin-bottom: 4px;
+  font-size: .72rem;
+}
+
+.archive {
+  padding-block: 26px 54px;
+}
+
+.archiveHeader {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.archiveHeader h2 {
+  margin: 4px 0 0;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  line-height: 1.12;
+}
+
+.filters {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.filters a {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 7px 11px;
+  border: 1px solid rgba(23, 75, 56, .16);
+  border-radius: 999px;
+  color: var(--forest);
+  background: #fff;
+  font-size: .75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.filters a[aria-current="page"] {
+  border-color: var(--forest);
+  color: #fff;
+  background: var(--forest);
+}
+
+.filters a:focus-visible {
+  outline: 3px solid rgba(23, 75, 56, .25);
+  outline-offset: 3px;
+}
+
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 24px;
+  border: 1px solid rgba(23, 75, 56, .12);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.empty p {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+
+.footerTools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 62px;
+  padding-block: 24px;
+  border-top: 1px solid rgba(23, 75, 56, .12);
+  border-bottom: 1px solid rgba(23, 75, 56, .12);
+}
+
+.footerTools h2 {
+  max-width: 32ch;
+  margin: 5px 0 6px;
+  font-size: clamp(1.3rem, 2.2vw, 1.75rem);
+  line-height: 1.2;
+}
+
+.footerTools p {
+  max-width: 65ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: .86rem;
+  line-height: 1.55;
+}
+
+.footerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .headerShell {
+    padding-top: 10px;
+  }
+
+  .archive {
+    padding-block: 20px 42px;
+  }
+
+  .filters {
+    flex-wrap: nowrap;
+    margin-inline: -16px;
+    padding: 0 16px 5px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .filters a {
+    flex: 0 0 auto;
+  }
+
+  .footerTools {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 42px;
+  }
+
+  .footerActions {
+    justify-content: flex-start;
+  }
+}
