@@ -162,7 +162,7 @@ export function AdminEditorialAuthorField({
       if (!response.ok || !data.author) throw new Error(data.error || "Profil autora sa nepodarilo uložiť.");
       const saved = data.author;
       await loadAuthors(false);
-      if (saved.active && (selectedProfileId === saved.id || (!draft.id && saved.isDefault))) {
+      if (saved.active && (selectedProfileId === saved.id || !draft.id)) {
         onSelectionChange(saved.id, saved.displayName);
       }
       onMessage(draft.id ? "Profil autora je uložený." : "Nový profil autora je vytvorený.");
@@ -177,7 +177,6 @@ export function AdminEditorialAuthorField({
   async function deactivateAuthor() {
     if (!draft.id || draft.isDefault) return;
     if (!window.confirm(`Deaktivovať autora „${draft.displayName}“? Existujúce články si zachovajú zobrazené meno autora.`)) return;
-    setDraft((current) => ({ ...current, active: false }));
     setSaving(true);
     onError("");
     try {
@@ -234,7 +233,7 @@ export function AdminEditorialAuthorField({
         <AdminActionButton variant="neutral" onClick={openCreate}>+ Nový autor</AdminActionButton>
       </div>
 
-      {selectedProfileId === null && (
+      {selectedProfileId == null && (
         <div className="admin-field">
           <label htmlFor="article-author-legacy">Meno autora pre legacy článok</label>
           <input
@@ -311,8 +310,8 @@ export function AdminEditorialAuthorField({
             <span><strong>Aktívny profil</strong><small>Neaktívny profil nemožno vybrať pre nový článok.</small></span>
           </label>
           <label className="admin-check">
-            <input type="checkbox" checked={draft.isDefault} onChange={(event) => setDraft((current) => ({ ...current, isDefault: event.target.checked, active: event.target.checked ? true : current.active }))} />
-            <span><strong>Predvolený autor</strong><small>Predvolený profil musí zostať aktívny.</small></span>
+            <input type="checkbox" checked={draft.isDefault} disabled={Boolean(draft.id && draft.isDefault)} onChange={(event) => setDraft((current) => ({ ...current, isDefault: event.target.checked, active: event.target.checked ? true : current.active }))} />
+            <span><strong>Predvolený autor</strong><small>{draft.id && draft.isDefault ? "Predvoleného autora zmeníš nastavením iného profilu ako predvoleného." : "Predvolený profil musí zostať aktívny."}</small></span>
           </label>
         </div>
       </AdminDrawer>
