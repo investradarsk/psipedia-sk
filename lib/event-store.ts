@@ -1,4 +1,4 @@
-import { bulkEventStatusSql, validateBulkEvents } from "./admin-events";
+import { bulkEventUpdateSql, validateBulkEvents } from "./admin-events";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import {
@@ -76,6 +76,8 @@ type EventRow = {
 type EventSummaryRow = {
   venue: string;
   region: string;
+  image_url: string | null;
+  created_at: string;
   updated_at: string;
   id: number;
   slug: string;
@@ -148,6 +150,8 @@ function rowToEventSummary(row: EventSummaryRow): ManagedEventSummary {
   return {
     venue: row.venue,
     region: row.region,
+    imageUrl: row.image_url,
+    createdAt: row.created_at,
     updatedAt: row.updated_at,
     id: row.id,
     slug: row.slug,
@@ -265,7 +269,7 @@ export async function listManagedEventSummaries() {
   const database = requireD1Binding();
   await ensureEventStore(database);
   const result = await database.prepare(`
-    SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, venue, region, organizer, cancelled, updated_at
+    SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, venue, region, organizer, cancelled, image_url, created_at, updated_at
     FROM managed_events
     ORDER BY start_date DESC, updated_at DESC, id DESC
   `).all<EventSummaryRow>();
@@ -339,10 +343,45 @@ export function isEventSlugConflict(error: unknown) {
 }
 
 export async function bulkUpdateEventStatus(input: unknown, editorEmail: string) {
-  const { events, status } = validateBulkEvents(input);
+  const { events, field, value } = validateBulkEvents(input);
   const now = new Date().toISOString();
-  const result = await requireD1Binding().prepare(bulkEventStatusSql)
-    .bind(JSON.stringify(events), status, now, editorEmail, status, now, events.length).all<{ id: number }>();
+  const statusValue = field === "status" ? String(value) : "";
+  const eventTypeValue = field === "eventType" ? String(value) : "";
+  const cancelledValue = field === "cancelled" && value === true ? 1 : 0;
+  const result = await requireD1Binding().prepare(bulkEventUpdateSql)
+    .bind(
+      JSON.stringify(events),
+      field, statusValue,
+      field, eventTypeValue,
+      field, cancelledValue,
+      now, editorEmail,
+      field, statusValue, now,
+      events.length,
+    ).all<{ id: number }>();
   if (result.results.length !== events.length) throw new Error("Výber sa medzičasom zmenil alebo bol odstránený. Žiadne podujatie nebolo zmenené; obnov zoznam a potvrď nový výber.");
-  return { changed: result.results.length };
+  return { changed: result.results.length, field };
+}
+
+export type ManagedEventQuickEditInput = {
+  eventType?: string;
+  cancelled?: boolean;
+  updatedAt?: string;
+};
+
+export async function quickEditManagedEvent(id: number, payload: ManagedEventQuickEditInput, editorEmail: string) {
+  const eventType = (eventTypes as readonly string[]).includes(payload.eventType ?? "") ? payload.eventType as EventType : null;
+  const cancelled = payload.cancelled;
+  const updatedAt = payload.updatedAt?.trim() ?? "";
+  if (!eventType || typeof cancelled !== "boolean" || !updatedAt) throw new Error("Rýchla úprava nie je platná.");
+
+  const now = new Date().toISOString();
+  const row = await requireD1Binding().prepare(`
+    UPDATE managed_events
+    SET event_type = ?, cancelled = ?, updated_at = ?, updated_by = ?
+    WHERE id = ? AND updated_at = ?
+    RETURNING id, slug, title, event_type, status, start_date, start_time, end_date, end_time,
+      city, venue, region, organizer, cancelled, image_url, created_at, updated_at
+  `).bind(eventType, cancelled ? 1 : 0, now, editorEmail, id, updatedAt).first<EventSummaryRow>();
+  if (!row) throw new Error("Podujatie sa medzičasom zmenilo alebo bolo odstránené. Obnov zoznam a skús úpravu znova.");
+  return rowToEventSummary(row);
 }
