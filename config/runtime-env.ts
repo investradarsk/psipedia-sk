@@ -80,6 +80,12 @@ export function validateRuntimeEnvironment(
     if (env.AUTH_MODE !== "cloudflare-access") missing.push("AUTH_MODE=cloudflare-access");
     requireValue("ACCESS_TEAM_DOMAIN");
     requireValue("ACCESS_AUD");
+
+    // LOST/FOUND admin always reads/writes private contact data, regardless of
+    // whether public submission is enabled. Production therefore cannot be
+    // considered valid without the crypto material required by requirePiiKeys().
+    requireValue("PII_ENCRYPTION_KEY");
+    requireValue("PII_HASH_KEY");
   } else if (profile === "runtime-admin" && env.AUTH_MODE === "cloudflare-access") {
     requireValue("ACCESS_TEAM_DOMAIN");
     requireValue("ACCESS_AUD");
