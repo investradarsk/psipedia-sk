@@ -60,6 +60,55 @@
   outline-offset: 3px;
 }
 
+
+.guidance,
+.trust {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  border: 1px solid rgba(23, 75, 56, .12);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.guidance h3,
+.trust h2 {
+  margin: 0;
+  line-height: 1.18;
+}
+
+.guidance h3 {
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+}
+
+.trust h2 {
+  font-size: clamp(1.3rem, 2.2vw, 1.75rem);
+}
+
+.guidance p,
+.trust p {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: .86rem;
+  line-height: 1.55;
+}
+
+.guidance ul {
+  display: grid;
+  gap: 5px;
+  margin: 2px 0 0;
+  padding-left: 1.15rem;
+  color: var(--ink-2);
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+.trust {
+  margin-bottom: 24px;
+}
+
 .empty {
   display: grid;
   justify-items: start;
