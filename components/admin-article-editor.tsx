@@ -183,7 +183,7 @@ export function AdminArticleEditor({
       newsCategory: portalSection === "novinky" ? newsCategory : null,
       accent,
       author,
-      authorProfileId,
+      authorProfileId: article && authorProfileId === article.authorProfileId && author === article.author ? undefined : authorProfileId,
       readingMinutes,
       excerpt,
       intro,
@@ -305,7 +305,7 @@ export function AdminArticleEditor({
 
         <section id="article-settings" tabIndex={-1} className="admin-form-card">
           <div className="admin-card-heading">
-            <div><span>03</span><div><h2>Zaradenie a adresa</h2><p>Téma, autor a adresa článku.</p></div></div>
+            <div><span>03</span><div><h2>Zaradenie a adresa</h2><p>Téma, sekcia a adresa článku.</p></div></div>
           </div>
           <div className="admin-field-grid">
             <div className="admin-field">
@@ -368,10 +368,10 @@ export function AdminArticleEditor({
           <AdminEditorialAuthorField
             selectedProfileId={authorProfileId}
             legacyAuthor={author}
-            onSelectionChange={(id, displayName) => {
+            onSelectionChange={(id, displayName, markDirty = true) => {
               setAuthorProfileId(id);
               if (displayName) setAuthor(displayName);
-              setDirty(true);
+              if (markDirty) setDirty(true);
             }}
             onLegacyAuthorChange={(value) => { setAuthor(value); setDirty(true); }}
             onMessage={setMessage}
