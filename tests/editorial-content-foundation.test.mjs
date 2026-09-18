@@ -198,6 +198,8 @@ test("article storage keeps legacy compatibility while making takeaway and gener
   assert.match(store, /parseRichTextDocument\(row\.intro_rich_text_json, row\.intro\)/);
   assert.match(store, /parseRichTextDocument\(row\.takeaway_rich_text_json, row\.takeaway\)/);
   assert.match(store, /author_profile_id/);
+  assert.match(store, /payload\.intro\?\.trim\(\) \|\| editorialRichTextPlainText\(suppliedIntroRichText\)/);
+  assert.match(store, /getEditorialAuthorProfile\(database, existingAuthorProfileId, false\)/);
   assert.doesNotMatch(store, /takeaway\.length\s*</);
   assert.match(store, /portalSection === "novinky" && status !== "draft" && !sources\.length/);
   assert.match(detail, /showTakeaway && <aside className="takeaway-box"/);
@@ -215,6 +217,11 @@ test("migration is forward-only and preserves legacy article author/text columns
   assert.doesNotMatch(migration, /DROP\s+(?:TABLE|COLUMN)/i);
   assert.doesNotMatch(migration, /DELETE\s+FROM\s+managed_articles/i);
   assert.doesNotMatch(migration, /UPDATE\s+managed_articles/i);
+});
+
+test("canonical body blocks can be saved without legacy textarea strings", () => {
+  const blocks = readFileSync("lib/article-blocks.ts", "utf8");
+  assert.match(blocks, /legacyContent \|\| editorialRichTextPlainText\(richText\)/);
 });
 
 test("shared renderer never accepts raw HTML injection APIs", () => {
