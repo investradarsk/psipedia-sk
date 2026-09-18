@@ -14,6 +14,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("puppy coverage matrix is authenticated, readable, responsive and mutation-free", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const mutationRequests: string[] = [];
   page.on("request", (request) => {
     if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method())) {
@@ -25,14 +26,16 @@ test("puppy coverage matrix is authenticated, readable, responsive and mutation-
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
 
-  await expect(page.getByRole("heading", { name: "Pokrytie obsahu: Šteniatka", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pokrytie tém: Šteniatka", exact: true })).toBeVisible();
   await expect(page.getByTestId("admin-puppy-coverage")).toBeVisible();
 
-  const legend = page.locator('section[aria-label="Definícia stavov pokrytia"]');
-  await expect(legend).toContainText("COVERED = oblasť má aspoň jeden publikovaný článok.");
-  await expect(legend).toContainText("PARTIAL = existuje iba draft alebo naplánovaný článok.");
-  await expect(legend).toContainText("MISSING = k oblasti nie je priradený žiadny článok.");
-  await expect(page.getByRole("link", { name: "+ Pridať článok", exact: true }).first()).toBeVisible();
+  const legend = page.locator('section[aria-label="Vysvetlenie stavov pokrytia"]');
+  await expect(legend).toContainText("Obsah je pripravený = oblasť má aspoň jeden publikovaný článok.");
+  await expect(legend).toContainText("Potrebuje doplniť = existuje iba rozpracovaný alebo naplánovaný článok.");
+  await expect(legend).toContainText("Chýba obsah = k oblasti nie je priradený žiadny článok.");
+  await expect(page.getByRole("heading", { name: "Čo treba doplniť", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Vytvoriť článok|Doplniť obsah|Pridať ďalší článok/ }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Pozrieť kategóriu ↗", exact: true }).first()).toBeVisible();
 
   const statusCount = await page.locator('[data-testid^="coverage-status-"]').count();
   expect(statusCount).toBeGreaterThan(0);
