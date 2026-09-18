@@ -107,11 +107,84 @@ function notionBlockId(block: NotionBlock, index: number) {
   return `notion-${block.id || index + 1}`.slice(0, 100);
 }
 
-function mapNotionCategory(value: string): ManagedArticleInput["category"] {
-  if (value === "Zdravie a starostlivosť") return "Zdravie";
-  if (value === "Výcvik a aktivity") return "Výcvik";
-  if (value === "Výživa") return "Výživa";
-  return "Život so psom";
+type NotionArticlePlacement = {
+  category: NonNullable<ManagedArticleInput["category"]>;
+  portalSection: NonNullable<ManagedArticleInput["portalSection"]>;
+  portalSubpage?: string | null;
+  newsCategory?: string | null;
+};
+
+const NOTION_CATEGORY_PLACEMENTS: Record<string, NotionArticlePlacement> = {
+  "Zdravie a starostlivosť": {
+    category: "Zdravie",
+    portalSection: "starostlivost",
+    portalSubpage: "zdravie",
+  },
+  "Výživa": {
+    category: "Výživa",
+    portalSection: "starostlivost",
+    portalSubpage: "vyziva",
+  },
+  "Správanie": {
+    category: "Život so psom",
+    portalSection: "starostlivost",
+    portalSubpage: "spravanie",
+  },
+  "Výcvik a aktivity": {
+    category: "Výcvik",
+    portalSection: "aktivity",
+    portalSubpage: "trening",
+  },
+  "Šteniatka": {
+    category: "Život so psom",
+    portalSection: "steniatka",
+  },
+  "Plemená": {
+    category: "Život so psom",
+    portalSection: "clanky",
+  },
+  "Pomoc psom": {
+    category: "Život so psom",
+    portalSection: "clanky",
+  },
+  "Bezpečnosť": {
+    category: "Život so psom",
+    portalSection: "clanky",
+  },
+  "Zaujímavosti": {
+    category: "Život so psom",
+    portalSection: "clanky",
+  },
+};
+
+function notionNewsCategory(notionCategory: string) {
+  if (notionCategory === "Zaujímavosti") return "zaujimavosti";
+  if (notionCategory === "Zdravie a starostlivosť" || notionCategory === "Výživa") return "veda-a-zdravie";
+  if (notionCategory === "Pomoc psom") return "zachrana-a-hrdinovia";
+  if (notionCategory === "Bezpečnosť") return "ochrana-a-pravo";
+  return "zo-sveta";
+}
+
+function mapNotionPlacement(notionCategory: string, contentType: string): NotionArticlePlacement {
+  if (contentType === "Aktuálna novinka" || notionCategory === "Novinky zo sveta psov") {
+    return {
+      category: "Život so psom",
+      portalSection: "novinky",
+      newsCategory: notionNewsCategory(notionCategory),
+    };
+  }
+
+  if (contentType === "Recenzia" || notionCategory === "Recenzie a testy") {
+    return {
+      category: notionCategory === "Výživa" ? "Výživa" : "Život so psom",
+      portalSection: "recenzie",
+    };
+  }
+
+  return NOTION_CATEGORY_PLACEMENTS[notionCategory] ?? {
+    category: "Život so psom",
+    portalSection: "clanky",
+  };
 }
 
 function isStartHeading(value: string) {
@@ -226,6 +299,7 @@ export function notionPageToManagedArticleInput(page: NotionPage, blocks: Notion
   const title = titleProperty(page, "Názov");
   const slug = richTextProperty(page, "Slug");
   const notionCategory = selectProperty(page, "Kategória");
+  const contentType = selectProperty(page, "Typ obsahu");
   const metaDescription = richTextProperty(page, "Meta description");
   const seoTitle = richTextProperty(page, "SEO title");
   const focusKeyword = richTextProperty(page, "Hlavné kľúčové slovo");
@@ -236,12 +310,15 @@ export function notionPageToManagedArticleInput(page: NotionPage, blocks: Notion
   if (!notionCategory) throw new Error("Doplň v Notione kategóriu článku.");
 
   const excerpt = metaDescription.length >= 20 ? metaDescription : intro;
+  const placement = mapNotionPlacement(notionCategory, contentType);
   return {
     title,
     slug,
     excerpt,
-    category: mapNotionCategory(notionCategory),
-    portalSection: "clanky",
+    category: placement.category,
+    portalSection: placement.portalSection,
+    portalSubpage: placement.portalSubpage ?? null,
+    newsCategory: placement.newsCategory ?? null,
     status: "draft",
     accent: "forest",
     author: "Redakcia Psipedia",
