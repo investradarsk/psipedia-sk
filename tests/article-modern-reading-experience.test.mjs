@@ -34,7 +34,7 @@ test("mobile composition starts with prose and keeps takeaway inline after the i
   const articleStart = indexOfOrFail(detail, "<article className=\"article-prose\">", "article prose is missing");
   const intro = indexOfOrFail(detail, "<EditorialRichText className=\"article-intro\"", "article intro is missing");
   const takeaway = indexOfOrFail(detail, "{showTakeaway ? <aside className=\"takeaway-box\"", "optional takeaway is missing");
-  const toc = indexOfOrFail(detail, "{showTableOfContents &&", "conditional TOC is missing");
+  const toc = indexOfOrFail(detail, "{showTableOfContents ?", "conditional TOC is missing");
   const body = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBlocks} />", "article body blocks are missing");
 
   assert.ok(articleStart < intro && intro < takeaway && takeaway < toc && toc < body, "reading DOM order regressed");
@@ -58,16 +58,16 @@ test("sources are separated from content blocks and rendered at the end", () => 
   assert.match(detail, /const contentBlocks = blocks\.filter\(\(block\) => block\.type !== "source"\)/);
   assert.match(detail, /const sourceBlocks = blocks\.filter\(\(block\) => block\.type === "source"\)/);
   const content = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBlocks} />", "content blocks are missing");
-  const sources = indexOfOrFail(detail, "{sourceBlocks.length > 0 && <ArticleBlocks blocks={sourceBlocks} />}", "end sources are missing");
+  const sources = indexOfOrFail(detail, "{sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}", "end sources are missing");
   assert.ok(content < sources, "sources must follow article content");
 });
 
 test("article reading CSS preserves editorial measures and mobile overflow safety", () => {
-  assert.match(styles, /--article-reading-width:\s*700px/);
-  assert.match(styles, /font-size:\s*1\.125rem;\s*\n\s*line-height:\s*1\.73/);
+  assert.match(styles, /--article-reading-width:\s*680px/);
+  assert.match(styles, /font-size:\s*1rem;\s*\n\s*line-height:\s*1\.68/);
   assert.match(styles, /@media \(max-width: 767px\)/);
-  assert.match(styles, /font-size:\s*1\.0625rem;\s*\n\s*line-height:\s*1\.72/);
-  assert.match(styles, /aspect-ratio:\s*16 \/ 10/);
+  assert.match(styles, /font-size:\s*1rem;\s*\n\s*line-height:\s*1\.65/);
+  assert.match(styles, /aspect-ratio:\s*16 \/ 9/);
   assert.match(styles, /border-radius:\s*14px/);
   assert.match(styles, /\.article-block-table-wrap\)[^{]*\{[^}]*overflow-x:\s*auto/s);
   assert.match(styles, /\.article-block-image--wide\)[^{]*\{[^}]*max-width:\s*calc\(100vw - 16px\)/s);
