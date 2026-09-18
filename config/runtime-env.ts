@@ -3,6 +3,7 @@ export const SECRET_ENV_NAMES = [
   "TURNSTILE_SECRET_KEY",
   "PII_ENCRYPTION_KEY",
   "PII_HASH_KEY",
+  "NOTION_API_TOKEN",
 ] as const;
 
 export const OPTIONAL_ENV_NAMES = [
@@ -11,6 +12,8 @@ export const OPTIONAL_ENV_NAMES = [
   "LOST_FOUND_SUBMISSIONS_ENABLED",
   "ADOPTION_SUBMISSIONS_ENABLED",
   "ORGANIZATION_SUBMISSIONS_ENABLED",
+  "NOTION_ARTICLE_SYNC_ENABLED",
+  "NOTION_ARTICLES_DATA_SOURCE_ID",
 ] as const;
 
 export const CI_ONLY_ENV_NAMES = [
@@ -67,6 +70,7 @@ export function validateRuntimeEnvironment(
     configFlagEnabled(env.LOST_FOUND_SUBMISSIONS_ENABLED)
     || configFlagEnabled(env.ADOPTION_SUBMISSIONS_ENABLED)
     || configFlagEnabled(env.ORGANIZATION_SUBMISSIONS_ENABLED);
+  const notionArticleSyncEnabled = configFlagEnabled(env.NOTION_ARTICLE_SYNC_ENABLED);
 
   // Public submission flags are opt-in. Once enabled, their security material
   // is critical and must fail closed instead of silently running unprotected.
@@ -74,6 +78,13 @@ export function validateRuntimeEnvironment(
     requireValue("TURNSTILE_SECRET_KEY");
     requireValue("PII_ENCRYPTION_KEY");
     requireValue("PII_HASH_KEY");
+  }
+
+  // Notion sync is also opt-in. When enabled, both the secret token and the
+  // exact data-source ID are required so the sweep cannot drift to another DB.
+  if (notionArticleSyncEnabled) {
+    requireValue("NOTION_API_TOKEN");
+    requireValue("NOTION_ARTICLES_DATA_SOURCE_ID");
   }
 
   if (profile === "production") {
@@ -95,5 +106,5 @@ export function validateRuntimeEnvironment(
 
   if (missing.length) throw new ConfigurationError([...new Set(missing)]);
 
-  return Object.freeze({ profile, publicSubmissionEnabled });
+  return Object.freeze({ profile, publicSubmissionEnabled, notionArticleSyncEnabled });
 }
