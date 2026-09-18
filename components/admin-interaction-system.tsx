@@ -61,6 +61,7 @@ export function AdminBulkActionToolbar({
   destructiveAction,
   onClear,
   clearLabel = "Zrušiť výber",
+  ariaLabel = "Hromadný výber",
 }: {
   selectedCount: number;
   selectionDescription?: string;
@@ -69,9 +70,10 @@ export function AdminBulkActionToolbar({
   destructiveAction?: ReactNode;
   onClear: () => void;
   clearLabel?: string;
+  ariaLabel?: string;
 }) {
   return (
-    <aside className={styles.bulkToolbar} aria-label="Hromadné akcie" data-admin-bulk-toolbar>
+    <aside className={styles.bulkToolbar} aria-label={ariaLabel} data-admin-bulk-toolbar>
       <div className={styles.bulkSummary} aria-live="polite" aria-atomic="true">
         <strong>{formatAdminSelectionSummary(selectedCount)}</strong>
         {selectionDescription && <span>{selectionDescription}</span>}
