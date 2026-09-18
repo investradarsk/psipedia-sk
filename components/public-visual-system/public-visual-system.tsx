@@ -160,6 +160,7 @@ export function PublicArticleListItem({
   date,
   dateTime,
   className,
+  listItem = true,
 }: {
   href: string;
   title: ReactNode;
@@ -167,9 +168,10 @@ export function PublicArticleListItem({
   date: ReactNode;
   dateTime?: string;
   className?: string;
+  listItem?: boolean;
 }) {
   return (
-    <Link className={cx(styles.articleListItem, className)} href={href} role="listitem" data-article-list-item>
+    <Link className={cx(styles.articleListItem, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
       <span className={styles.articleListCopy}>
         <strong className={styles.articleListTitle}>{title}</strong>
         <span className={styles.articleListMeta}>
