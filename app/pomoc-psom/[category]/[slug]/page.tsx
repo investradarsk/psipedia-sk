@@ -12,6 +12,7 @@ type Props = { params: Promise<{ category: string; slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category, slug } = await params;
+  if (category === "utulky") return {};
   const item = await getPublishedHelpCase(category, slug);
   const fallback = item ? helpSeoFallback(item.title, getHelpCategory(item.category)?.singular ?? "Pomoc psom", item.city) : null;
   return item && fallback ? buildContentMetadata({ seo:item.seo, fallbackTitle:fallback.title,
@@ -28,9 +29,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function HelpCasePage({ params }: Props) {
   const { category, slug } = await params;
+  if (category === "utulky") permanentRedirect(`/organizacie/${slug}`);
   const item = await getPublishedHelpCase(category, slug);
   if (!item) notFound();
-  if (category === "utulky") permanentRedirect(`/organizacie/${item.slug}`);
   const canonical=resolvedCanonical(item.seo,helpCaseHref(item));
   const schema={"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":canonical,url:canonical,name:item.title,description:item.description||item.excerpt,dateModified:item.updatedAt},{"@type":"BreadcrumbList","@id":`${canonical}#breadcrumb`,itemListElement:[{"@type":"ListItem",position:1,name:"Domov",item:SITE_URL},{"@type":"ListItem",position:2,name:"Pomoc psom",item:`${SITE_URL}/pomoc-psom`},{"@type":"ListItem",position:3,name:getHelpCategory(item.category)?.label,item:`${SITE_URL}/pomoc-psom/${item.category}`},{"@type":"ListItem",position:4,name:item.title,item:canonical}]}]};
   return <><StructuredData value={schema}/><HelpDetail item={item} /></>;
