@@ -10,6 +10,10 @@ import {
   parseDirectoryAdminFilters,
   queryDirectoryAdmin,
 } from "../lib/directory-admin-query.ts";
+import {
+  mergeDirectoryPublicContactData,
+  readDirectoryPublicContacts,
+} from "../lib/directory-profile-metadata.ts";
 
 const categories = [
   { slug: "veterinari", label: "Veterinári" },
@@ -156,4 +160,38 @@ test("membership fingerprint excludes page and binds the exact combined WHERE co
     assert.match(query.where, expected);
   }
   assert.deepEqual(query.args.slice(0, 6), ["veterinari", "draft", "Nitriansky kraj", "Nitra", "Nitra", 0]);
+});
+
+
+test("public contact metadata round-trips without destroying breed, organization or specialist keys", () => {
+  const original = {
+    "Telefón": "+421 900 111 222",
+    "E-mail": "old@example.test",
+    "Webstránka": "https://old.example.test",
+    "Facebook": "https://facebook.com/old",
+    "Instagram": "https://instagram.com/old",
+    "Plemeno": "Labradorský retriever",
+    "Organizácia": "Fixture klub",
+    "Pohotovosť": "Áno",
+  };
+  const merged = mergeDirectoryPublicContactData(original, {
+    publicPhone: "+421 900 333 444",
+    publicEmail: "new@example.test",
+    websiteUrl: "https://new.example.test/",
+    facebookUrl: "",
+    instagramUrl: "https://instagram.com/new",
+  });
+  assert.equal(merged["Plemeno"], "Labradorský retriever");
+  assert.equal(merged["Organizácia"], "Fixture klub");
+  assert.equal(merged["Pohotovosť"], "Áno");
+  assert.equal(merged["Telefon"], undefined);
+  assert.equal(merged["Webstránka"], undefined);
+  assert.equal(merged["Facebook"], undefined);
+  assert.deepEqual(readDirectoryPublicContacts(merged), {
+    phone: "+421 900 333 444",
+    email: "new@example.test",
+    website: "https://new.example.test/",
+    facebook: "",
+    instagram: "https://instagram.com/new",
+  });
 });
