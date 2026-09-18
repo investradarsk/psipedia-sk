@@ -4907,7 +4907,7 @@ h3 {
 
 .admin-field small,
 .admin-upload-actions small {
-  color: #7a8982;
+  color: var(--muted);
   font-size: 0.68rem;
 }
 
