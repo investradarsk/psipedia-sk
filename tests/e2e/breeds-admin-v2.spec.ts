@@ -34,37 +34,9 @@ async function goToBreedEditorSection(page: Page, label: string, id: string) {
   } else {
     await navigation.getByRole("link", { name: label }).click();
   }
-  await expect(page).toHaveURL(new RegExp(`#${id}import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
-
-function suffix(testInfo: TestInfo) {
-  return testInfo.project.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  await expect(page).toHaveURL(new RegExp("#" + id + "$"));
+  await expect(page.locator("#" + id)).toBeFocused();
 }
-
-function draftName(testInfo: TestInfo) {
-  return `BREEDS ADMIN E2E ${suffix(testInfo)}`;
-}
-
-async function necessaryCookies(page: Page) {
-  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
-}
-
-async function waitForBreedEditor(page: Page) {
-  await expect(page.locator('.admin-breed-editor[data-admin-breed-editor-ready="true"]')).toBeVisible();
-}
-
-async function openCreatedDraft(page: Page, testInfo: TestInfo) {
-  await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill(draftName(testInfo));
-  await page.getByRole("link", { name: draftName(testInfo) }).click();
-  await waitForBreedEditor(page);
-  await expect(page.getByLabel("Názov plemena")).toHaveValue(draftName(testInfo));
-}
-
-));
-  await expect(page.locator(`#${id}`)).toBeFocused();
-}
-
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() =>
     Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
