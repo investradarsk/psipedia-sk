@@ -211,3 +211,82 @@ INSERT INTO organization_locations (
   990107, 990007, 'SITE', '', 'Neverejná 30',
   'Trnava', 'Trnava', 'Trnavský kraj', 'SK', 1, 0
 );
+
+
+-- ORG-7E synthetic fundraising fixtures. No production fundraising data is used.
+INSERT INTO organization_fundraising_methods (
+  id, organization_id, type, label, url, value, instructions, beneficiary_identity, ownership, sort_order,
+  is_active, verification_status, verified_at, verified_by, verification_source_url, verification_expires_at,
+  valid_until, version, archived_at, created_at, updated_at, created_by, updated_by
+) VALUES
+  (
+    990201, 990001, 'DONATION_PAGE', 'Podporte našu starostlivosť', 'https://example.org/support', NULL,
+    'Bezpečná syntetická CTA pre lokálny E2E test.',
+    'ORG-7E citlivý príjemca – NESMIE BYŤ V HTML', 'ORGANIZATION_OWNED', 0,
+    1, 'VERIFIED', '2026-09-18T07:00:00.000Z', 'org7e-verifier@example.invalid',
+    'https://example.org/internal-verification-source', '2030-01-01T00:00:00.000Z',
+    '2030-01-01T00:00:00.000Z', 3, NULL,
+    '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
+    'org7e-e2e-fixture', 'org7e-e2e-fixture'
+  ),
+  (
+    990202, 990001, 'BANK_TRANSFER', 'Bankový účet organizácie', NULL, 'GB82WEST12345698765432',
+    'Pri bankovom prevode môžete do poznámky uviesť DAR. Toto je dlhší syntetický text, ktorý overuje zalamovanie obsahu bez horizontálneho overflow na úzkom mobile.',
+    'ORG-7E bank beneficiary – NESMIE BYŤ V HTML', 'ORGANIZATION_OWNED', 10,
+    1, 'VERIFIED', '2026-09-18T07:00:00.000Z', 'org7e-verifier@example.invalid',
+    'https://example.org/internal-verification-source-bank', '2030-01-01T00:00:00.000Z',
+    NULL, 4, NULL,
+    '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
+    'org7e-e2e-fixture', 'org7e-e2e-fixture'
+  ),
+  (
+    990203, 990001, 'MATERIAL_DONATION',
+    'Materiálna pomoc s veľmi dlhým názvom pre bezpečný responsive test fundraising karty',
+    NULL, 'Granule, deky a hygienické potreby',
+    'Doručenie materiálnej pomoci si dohodnite vopred cez verejné kontakty organizácie.',
+    'ORG-7E material beneficiary – NESMIE BYŤ V HTML', 'ORGANIZATION_OWNED', 20,
+    1, 'VERIFIED', '2026-09-18T07:00:00.000Z', 'org7e-verifier@example.invalid',
+    NULL, NULL, '2030-01-01T00:00:00.000Z', 2, NULL,
+    '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
+    'org7e-e2e-fixture', 'org7e-e2e-fixture'
+  ),
+  (
+    990204, 990001, 'DONATION_PAGE', 'ORG-7E skrytá neaktívna metóda', 'https://example.org/inactive', NULL,
+    NULL, 'hidden inactive beneficiary', 'ORGANIZATION_OWNED', 30,
+    0, 'VERIFIED', '2026-09-18T07:00:00.000Z', 'org7e-verifier@example.invalid',
+    NULL, '2030-01-01T00:00:00.000Z', NULL, 1, NULL,
+    '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
+    'org7e-e2e-fixture', 'org7e-e2e-fixture'
+  ),
+  (
+    990205, 990001, 'DONATION_PAGE', 'ORG-7E skrytá rejected metóda', 'https://example.org/rejected', NULL,
+    NULL, 'hidden rejected beneficiary', 'ORGANIZATION_OWNED', 31,
+    1, 'REJECTED', NULL, NULL, NULL, NULL, NULL, 1, NULL,
+    '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
+    'org7e-e2e-fixture', 'org7e-e2e-fixture'
+  ),
+  (
+    990206, 990001, 'DONATION_PAGE', 'ORG-7E skrytá expired metóda', 'https://example.org/expired', NULL,
+    NULL, 'hidden expired beneficiary', 'ORGANIZATION_OWNED', 32,
+    1, 'VERIFIED', '2026-09-18T07:00:00.000Z', 'org7e-verifier@example.invalid',
+    NULL, '2026-09-18T07:59:59.000Z', NULL, 1, NULL,
+    '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
+    'org7e-e2e-fixture', 'org7e-e2e-fixture'
+  ),
+  (
+    990207, 990007, 'TRANSPARENT_ACCOUNT', 'Transparentný účet', 'https://example.org/transparent',
+    'GB82WEST12345698765432', 'Transparentný účet otvoríte cez bezpečný externý odkaz.',
+    'ORG-7E single beneficiary – NESMIE BYŤ V HTML', 'ORGANIZATION_OWNED', 0,
+    1, 'VERIFIED', '2026-09-18T07:00:00.000Z', 'org7e-verifier@example.invalid',
+    NULL, '2030-01-01T00:00:00.000Z', NULL, 1, NULL,
+    '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
+    'org7e-e2e-fixture', 'org7e-e2e-fixture'
+  ),
+  (
+    990208, 990002, 'DONATION_PAGE', 'Fundraising draft organizácie', 'https://example.org/draft-org', NULL,
+    NULL, 'draft org beneficiary', 'ORGANIZATION_OWNED', 0,
+    1, 'VERIFIED', '2026-09-18T07:00:00.000Z', 'org7e-verifier@example.invalid',
+    NULL, '2030-01-01T00:00:00.000Z', NULL, 1, NULL,
+    '2026-09-18T07:00:00.000Z', '2026-09-18T07:00:00.000Z',
+    'org7e-e2e-fixture', 'org7e-e2e-fixture'
+  );
