@@ -227,3 +227,79 @@ test.describe("organization public profile", () => {
     await expectNoHorizontalOverflow(page);
   });
 });
+
+test.describe("organization location admin CRUD", () => {
+  test("admin create/edit/primary/delete updates the canonical ORG-2B read without overflow", async ({ page }, testInfo) => {
+    const configuredBase = process.env.E2E_BASE_URL;
+    if (configuredBase) {
+      const hostname = new URL(configuredBase).hostname;
+      test.skip(!["localhost", "127.0.0.1", "::1"].includes(hostname), "Mutating ORG-2C E2E runs only against isolated local D1.");
+    }
+
+    await setOrganizationProfileViewport(page, testInfo.project.name);
+    const response = await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Lokality", exact: true })).toBeVisible();
+
+    const stalePrefix = `ORG-2C ${testInfo.project.name}`;
+    for (;;) {
+      const stale = page.locator("[data-location-id]").filter({ hasText: stalePrefix });
+      if (await stale.count() === 0) break;
+      page.once("dialog", (dialog) => dialog.accept());
+      await stale.first().getByRole("button", { name: "Odstrániť lokalitu" }).click();
+      await expect(page.getByRole("status")).toContainText("Lokalita bola odstránená");
+    }
+
+    const create = page.locator("[data-location-create]");
+    const suffix = `${stalePrefix} r${testInfo.retry}`;
+    await create.getByLabel("Typ lokality").selectOption("SERVICE_AREA");
+    await create.getByLabel("Názov / štítok").fill(suffix);
+    await create.getByLabel("Adresa").fill("Neverejná ORG-2C 1");
+    await create.getByLabel("Mesto").fill("Bratislava");
+    await create.getByLabel("Okres").fill("Bratislava");
+    await create.getByLabel("Kraj", { exact: true }).fill("Bratislavský kraj");
+    await create.getByLabel("Kód krajiny").fill("SK");
+    await create.getByLabel("Poradie").fill("-10");
+    await create.getByLabel("Hlavná lokalita").check();
+    await create.getByRole("button", { name: "Pridať lokalitu" }).click();
+    await expect(page.getByRole("status")).toContainText("Lokalita bola pridaná");
+
+    let created = page.locator("[data-location-id]").filter({ hasText: suffix });
+    await expect(created).toBeVisible();
+    await expect(created.getByLabel("Hlavná lokalita")).toBeChecked();
+    const original = page.locator('[data-location-id="990107"]');
+    await expect(original.getByLabel("Hlavná lokalita")).not.toBeChecked();
+
+    await created.getByLabel("Názov / štítok").fill(`${suffix} upravená`);
+    await created.getByLabel("Mesto").fill("Košice");
+    await created.getByLabel("Okres").fill("Košice");
+    await created.getByLabel("Kraj", { exact: true }).fill("Košický kraj");
+    await created.getByLabel("Poradie").fill("-20");
+    await created.getByRole("button", { name: "Uložiť lokalitu" }).click();
+    await expect(page.getByRole("status")).toContainText("Lokalita bola uložená");
+
+    await page.goto(`/organizacie/org-2b-e2e-jedna-lokalita?org2c=${testInfo.project.name}-${testInfo.retry}`, { waitUntil: "domcontentloaded" });
+    const publicLocations = page.locator("[data-organization-location]");
+    await expect(publicLocations).toHaveCount(2);
+    await expect(publicLocations.nth(0)).toContainText(`${suffix} upravená`);
+    await expect(publicLocations.nth(0)).toContainText("Košice");
+    await expect(publicLocations.nth(0)).toContainText("Hlavná lokalita");
+    await expect(page.getByText("Neverejná ORG-2C 1", { exact: true })).toHaveCount(0);
+
+    await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
+    created = page.locator("[data-location-id]").filter({ hasText: `${suffix} upravená` });
+    page.once("dialog", (dialog) => dialog.accept());
+    await created.getByRole("button", { name: "Odstrániť lokalitu" }).click();
+    await expect(page.getByRole("status")).toContainText("Lokalita bola odstránená");
+    await expect(page.locator('[data-location-id="990107"]').getByLabel("Hlavná lokalita")).not.toBeChecked();
+
+    const restored = page.locator('[data-location-id="990107"]');
+    await restored.getByLabel("Hlavná lokalita").check();
+    await restored.getByRole("button", { name: "Uložiť lokalitu" }).click();
+    await expect(page.getByRole("status")).toContainText("Lokalita bola uložená");
+
+    await expectNoHorizontalOverflow(page);
+    await expectNoSeriousAccessibilityViolations(page);
+  });
+});

@@ -83,7 +83,7 @@ export function AdminOrganizationPublicationDashboard({ items }: { items: Organi
             const canPublish = item.status === "DRAFT" && item.preflight.ready;
             const published = formatDate(item.publishedAt);
             return <tr key={item.id}>
-              <td><div className={styles.rowTitle}><strong>{item.name || "Bez názvu"}</strong><small>#{item.id} · /organizacie/{item.slug || "—"}</small><Link className={styles.edit} href={`/admin/organizacie/${item.id}`}>Fundraising</Link></div></td>
+              <td><div className={styles.rowTitle}><strong>{item.name || "Bez názvu"}</strong><small>#{item.id} · /organizacie/{item.slug || "—"}</small><Link className={styles.edit} href={`/admin/organizacie/${item.id}`}>Spravovať</Link></div></td>
               <td className={styles.status}>{statusLabels[item.status]}</td>
               <td><div className={styles.rowTitle}><strong>{item.preflight.ready ? "READY" : "BLOCKED"}</strong>{item.preflight.blockers.map((blocker) => <small key={blocker.code}>{blocker.message}</small>)}</div></td>
               <td><div className={styles.rowTitle}>{item.preflight.warnings.length ? item.preflight.warnings.map((warning) => <small key={warning.code}>{warning.message}</small>) : <small>Bez upozornení</small>}</div></td>
