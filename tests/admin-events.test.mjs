@@ -4,11 +4,11 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { adminEventCounts, defaultEventFilters, filterAdminEvents, validateBulkEvents, bulkEventStatusSql } from '../lib/admin-events.ts';
+import { adminEventCounts, defaultEventFilters, filterAdminEvents, validateBulkEvents, bulkEventUpdateSql } from '../lib/admin-events.ts';
 import { EventMarkdown } from '../components/event-markdown.tsx';
 import { safeEventLink } from '../lib/event-markdown.ts';
 const today = '2026-09-12';
-const event = (id, overrides = {}) => ({ id, slug: `test-${id}`, title: `Podujatie ${id}`, city: 'Nitra', venue: 'Výstavný areál', organizer: 'Športový klub', region: 'Nitriansky kraj', eventType: 'Výstava', status: id <= 4 ? 'published' : 'draft', startDate: '2026-10-01', endDate: null, startTime: '', endTime: null, cancelled: false, updatedAt: '2026-09-12T12:00:00.000Z', ...overrides });
+const event = (id, overrides = {}) => ({ id, slug: `test-${id}`, title: `Podujatie ${id}`, city: 'Nitra', venue: 'Výstavný areál', organizer: 'Športový klub', region: 'Nitriansky kraj', eventType: 'Výstava', status: id <= 4 ? 'published' : 'draft', startDate: '2026-10-01', endDate: null, startTime: '', endTime: null, cancelled: false, imageUrl: null, createdAt: '2026-09-01T12:00:00.000Z', updatedAt: '2026-09-12T12:00:00.000Z', ...overrides });
 const events = Array.from({ length: 175 }, (_, i) => event(i + 1));
 const filter = (data, overrides) => filterAdminEvents(data, { ...defaultEventFilters, ...overrides }, today);
 
@@ -17,7 +17,7 @@ test('all summaries SQL returns 650 records; global counts on 175 are independen
   const section = source.split('export async function listManagedEventSummaries()')[1].split('export async function getManagedEventById')[0];
   const sql = section.match(/prepare\(`([\s\S]*?)`\)/)[1];
   const db = new DatabaseSync(':memory:');
-  db.exec('CREATE TABLE managed_events(id INTEGER, slug TEXT, title TEXT, event_type TEXT, status TEXT, start_date TEXT, start_time TEXT, end_date TEXT, end_time TEXT, city TEXT, venue TEXT, region TEXT, organizer TEXT, cancelled INTEGER, updated_at TEXT)');
+  db.exec('CREATE TABLE managed_events(id INTEGER, slug TEXT, title TEXT, event_type TEXT, status TEXT, start_date TEXT, start_time TEXT, end_date TEXT, end_time TEXT, city TEXT, venue TEXT, region TEXT, organizer TEXT, cancelled INTEGER, image_url TEXT, created_at TEXT, updated_at TEXT)');
   const insert = db.prepare('INSERT INTO managed_events(id) VALUES (?)');
   for (let i = 1; i <= 650; i++) insert.run(i);
   assert.equal(db.prepare(sql).all().length, 650);
@@ -46,6 +46,7 @@ test('combined region/type/month/year and stable practical sorting',()=>{
   assert.deepEqual(filter(data,{}).map(e=>e.id),[3,5,4,2,1]);
   assert.deepEqual(filter([event(1,{title:'Žaba'}),event(2,{title:'Agility'})],{sort:'title'}).map(e=>e.id),[2,1]);
   assert.deepEqual(filter([event(1),event(2,{updatedAt:'2026-09-13'})],{sort:'updated'}).map(e=>e.id),[2,1]);
+  assert.deepEqual(filter([event(1),event(2,{createdAt:'2026-09-13'})],{sort:'created'}).map(e=>e.id),[2,1]);
 });
 const render = value => renderToStaticMarkup(createElement(EventMarkdown,{value}));
 test('supported rich text and old plain text retain paragraphs and line breaks',()=>{
@@ -61,28 +62,64 @@ test('raw HTML, encoded HTML and hostile URLs are inert text',()=>{
 });
 function bulkDb(){
  const db=new DatabaseSync(':memory:');
- db.exec("CREATE TABLE managed_events(id INTEGER PRIMARY KEY, status TEXT, updated_at TEXT, updated_by TEXT, published_at TEXT, title TEXT, slug TEXT, description TEXT, image_url TEXT, seo_json TEXT, created_at TEXT, created_by TEXT)");
- for(let i=1;i<=3;i++) db.prepare('INSERT INTO managed_events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(i,'draft','old','editor',null,'Title','slug-'+i,'Untouched','/media/a.webp','{}','created','creator');
+ db.exec("CREATE TABLE managed_events(id INTEGER PRIMARY KEY, status TEXT, event_type TEXT, cancelled INTEGER, updated_at TEXT, updated_by TEXT, published_at TEXT, title TEXT, slug TEXT, description TEXT, image_url TEXT, seo_json TEXT, created_at TEXT, created_by TEXT)");
+ for(let i=1;i<=3;i++) db.prepare('INSERT INTO managed_events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(i,'draft','Výstava',0,'old','editor',null,'Title','slug-'+i,'Untouched','/media/a.webp','{}','created','creator');
  return db;
 }
-test('bulk validates count, duplicate IDs, unknown status and same-target state',()=>{
- const selected={events:[{id:1,status:'draft',updatedAt:'old'}],status:'published',confirmedCount:1};
+const selectionRow=(id,overrides={})=>({id,status:'draft',eventType:'Výstava',cancelled:false,updatedAt:'old',...overrides});
+test('bulk validates count, duplicates, supported fields and same-target state',()=>{
+ const selected={events:[selectionRow(1)],field:'status',value:'published',confirmedCount:1};
  assert.equal(validateBulkEvents(selected).events.length,1);
- for(const bad of [{...selected,confirmedCount:2},{...selected,status:'draft'},{...selected,events:[...selected.events,...selected.events],confirmedCount:2},{...selected,events:[{id:-1,status:'draft',updatedAt:'old'}]},{...selected,status:'cancelled'}]) assert.throws(()=>validateBulkEvents(bad));
+ assert.equal(validateBulkEvents({...selected,field:'eventType',value:'Preteky'}).value,'Preteky');
+ assert.equal(validateBulkEvents({...selected,field:'cancelled',value:true}).value,true);
+ for(const bad of [
+   {...selected,confirmedCount:2},
+   {...selected,value:'draft'},
+   {...selected,events:[selectionRow(1),selectionRow(1)],confirmedCount:2},
+   {...selected,events:[selectionRow(-1)]},
+   {...selected,value:'cancelled'},
+   {...selected,field:'eventType',value:'Neexistuje'},
+   {...selected,field:'cancelled',value:'yes'},
+ ]) assert.throws(()=>validateBulkEvents(bad));
 });
-test('bulk SQL updates precisely selected rows and protects content; stale/missing selection changes zero',()=>{
+test('bulk SQL atomically updates only the requested shared field and protects content',()=>{
  const db=bulkDb();const before=db.prepare('select * from managed_events order by id').all();
- const selection=[{id:1,status:'draft',updatedAt:'old'},{id:2,status:'draft',updatedAt:'old'}];
- const run=(rows)=>db.prepare(bulkEventStatusSql).all(JSON.stringify(rows),'published','now','admin','published','now',rows.length);
- assert.equal(run([...selection,{id:99,status:'draft',updatedAt:'old'}]).length,0);
- assert.equal(run([{...selection[0],updatedAt:'stale'},selection[1]]).length,0);
+ const run=(rows,field,value,now='now')=>{
+   const statusValue=field==='status'?String(value):'';
+   const typeValue=field==='eventType'?String(value):'';
+   const cancelledValue=field==='cancelled'&&value===true?1:0;
+   return db.prepare(bulkEventUpdateSql).all(JSON.stringify(rows),field,statusValue,field,typeValue,field,cancelledValue,now,'admin',field,statusValue,now,rows.length);
+ };
+ const selection=[selectionRow(1),selectionRow(2)];
+ assert.equal(run([...selection,selectionRow(99)],'status','published').length,0);
+ assert.equal(run([{...selection[0],updatedAt:'stale'},selection[1]],'status','published').length,0);
  assert.deepEqual(db.prepare('select * from managed_events order by id').all(),before);
- assert.equal(run(selection).length,2);
- const after=db.prepare('select * from managed_events order by id').all();
- for(let i=0;i<2;i++) assert.deepEqual({...after[i],status:before[i].status,updated_at:before[i].updated_at,updated_by:before[i].updated_by,published_at:before[i].published_at},{...before[i]});
- assert.deepEqual(after[2],before[2]);assert.equal(after[0].published_at,'now');
- assert.equal(run(selection).length,0);
- const back=db.prepare(bulkEventStatusSql).all(JSON.stringify([{id:1,status:'published',updatedAt:'now'}]),'draft','later','admin','draft','later',1);
- assert.equal(back.length,1);assert.equal(db.prepare('select published_at from managed_events where id=1').get().published_at,'now');
+ assert.equal(run(selection,'status','published').length,2);
+ let after=db.prepare('select * from managed_events order by id').all();
+ for(let i=0;i<2;i++) {
+   assert.equal(after[i].status,'published');
+   assert.equal(after[i].event_type,before[i].event_type);
+   assert.equal(after[i].cancelled,before[i].cancelled);
+   assert.equal(after[i].description,before[i].description);
+   assert.equal(after[i].image_url,before[i].image_url);
+   assert.equal(after[i].seo_json,before[i].seo_json);
+ }
+ assert.equal(after[0].published_at,'now');
+ assert.deepEqual(after[2],before[2]);
+
+ const typeRows=[selectionRow(1,{status:'published',updatedAt:'now'}),selectionRow(2,{status:'published',updatedAt:'now'})];
+ assert.equal(run(typeRows,'eventType','Preteky','later').length,2);
+ after=db.prepare('select * from managed_events order by id').all();
+ assert.equal(after[0].event_type,'Preteky');
+ assert.equal(after[0].status,'published');
+ assert.equal(after[0].cancelled,0);
+
+ const cancelRows=[selectionRow(1,{status:'published',eventType:'Preteky',updatedAt:'later'}),selectionRow(2,{status:'published',eventType:'Preteky',updatedAt:'later'})];
+ assert.equal(run(cancelRows,'cancelled',true,'latest').length,2);
+ after=db.prepare('select * from managed_events order by id').all();
+ assert.equal(after[0].cancelled,1);
+ assert.equal(after[0].event_type,'Preteky');
+ assert.equal(after[0].status,'published');
+ assert.equal(after[0].published_at,'now');
  db.close();
 });

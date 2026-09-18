@@ -1,0 +1,16 @@
+.previewEyebrow {
+  color: #a94431;
+}
+
+.previewFacts dt {
+  color: #52665d;
+}
+
+.publishButton {
+  color: #fff;
+  background: #b34830;
+}
+
+.publishButton:hover:not(:disabled) {
+  background: #9f3a26;
+}

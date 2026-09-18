@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, updateManagedEvent, type ManagedEventInput } from "@/lib/event-store";
+import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -42,6 +42,22 @@ export async function PUT(request: Request, { params }: Props) {
     }
     return Response.json({ event });
   } catch (error) { return errorResponse(error); }
+}
+
+export async function PATCH(request: Request, { params }: Props) {
+  const user = await getAdminApiUser();
+  if (!user) return unauthorizedAdminResponse();
+  const id = await numericId(params);
+  if (!id) return Response.json({ error: "Neplatné ID podujatia." }, { status: 400 });
+  if (request.headers.get("origin") !== new URL(request.url).origin || !request.headers.get("content-type")?.startsWith("application/json")) {
+    return Response.json({ error: "Neplatný pôvod požiadavky." }, { status: 403 });
+  }
+  try {
+    const event = await quickEditManagedEvent(id, await request.json() as ManagedEventQuickEditInput, user.email);
+    return Response.json({ event });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Rýchla úprava zlyhala." }, { status: 409 });
+  }
 }
 
 export async function DELETE(_request: Request, { params }: Props) {
