@@ -12,7 +12,10 @@ import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-syste
 import { adoptionDetailPath } from "@/lib/adoption-detail";
 import type { PublicOrganizationComposition } from "@/lib/help-organization-store";
 import type { OrganizationPublicAdoption } from "@/lib/organization-adoption-store";
-import { buildOrganizationProfilePresentation } from "@/lib/organization-profile-presentation";
+import {
+  buildOrganizationFundraisingPresentation,
+  buildOrganizationProfilePresentation,
+} from "@/lib/organization-profile-presentation";
 import styles from "./organization-profile-detail.module.css";
 
 function ContactLink({
@@ -62,8 +65,9 @@ function OrganizationAdoptionCard({ adoption }: { adoption: OrganizationPublicAd
 }
 
 export function OrganizationProfileDetail({ composition }: { composition: PublicOrganizationComposition }) {
-  const { organization, adoptions } = composition;
+  const { organization, adoptions, fundraisingMethods } = composition;
   const presentation = buildOrganizationProfilePresentation(organization);
+  const fundraising = buildOrganizationFundraisingPresentation(fundraisingMethods);
 
   const aside = (
     <div className={styles.asideStack}>
@@ -144,6 +148,42 @@ export function OrganizationProfileDetail({ composition }: { composition: Public
           {presentation.description ? (
             <DetailSection eyebrow="O organizácii" title="Kto sú a čo robia">
               <DetailParagraphs value={presentation.description} />
+            </DetailSection>
+          ) : null}
+
+          {fundraising.length > 0 ? (
+            <DetailSection eyebrow="Podpora" title="Ako môžete pomôcť">
+              <div className={styles.fundraisingGrid} data-organization-fundraising>
+                {fundraising.map((method) => (
+                  <article
+                    className={styles.fundraisingCard}
+                    data-fundraising-method={method.id}
+                    key={method.id}
+                  >
+                    <p className={styles.fundraisingType}>{method.typeLabel}</p>
+                    <h3>{method.title}</h3>
+                    {method.detail ? (
+                      <dl className={styles.fundraisingDetail}>
+                        <dt>{method.detail.label}</dt>
+                        <dd>{method.detail.value}</dd>
+                      </dl>
+                    ) : null}
+                    {method.instructions ? (
+                      <p className={styles.fundraisingInstructions}>{method.instructions}</p>
+                    ) : null}
+                    {method.action ? (
+                      <a
+                        className={styles.fundraisingCta}
+                        href={method.action.href}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {method.action.label}
+                      </a>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
             </DetailSection>
           ) : null}
 
