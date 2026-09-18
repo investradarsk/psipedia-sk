@@ -92,7 +92,31 @@ function adoption(overrides = {}) {
   };
 }
 
-function createDatabase({ organizations = [], locations = [], directories = [], adoptions = [] } = {}) {
+
+function fundraising(overrides = {}) {
+  return {
+    id: 200,
+    organization_id: 1,
+    type: "DONATION_PAGE",
+    label: "Podporte nás",
+    url: "https://example.org/donate",
+    value: null,
+    instructions: "Bezpečná verejná inštrukcia.",
+    beneficiary_identity: "Citlivý príjemca",
+    ownership: "ORGANIZATION_OWNED",
+    sort_order: 0,
+    is_active: 1,
+    verification_status: "VERIFIED",
+    verification_expires_at: "2030-01-01T00:00:00.000Z",
+    valid_until: "2030-01-01T00:00:00.000Z",
+    archived_at: null,
+    verified_by: "internal@example.org",
+    version: 7,
+    ...overrides,
+  };
+}
+
+function createDatabase({ organizations = [], locations = [], directories = [], adoptions = [], fundraisings = [] } = {}) {
   const queries = [];
   const database = {
     queries,
@@ -124,6 +148,13 @@ function createDatabase({ organizations = [], locations = [], directories = [], 
           if (sql.includes("FROM organization_locations l")) {
             let rows = locations.filter((row) => row.organization_id === call.bindings[0]);
             if (sql.includes("ORDER BY l.sort_order ASC, l.id ASC")) {
+              rows = [...rows].sort((left, right) => left.sort_order - right.sort_order || left.id - right.id);
+            }
+            return { results: rows };
+          }
+          if (sql.includes("FROM organization_fundraising_methods f")) {
+            let rows = fundraisings.filter((row) => row.organization_id === call.bindings[0]);
+            if (sql.includes("ORDER BY f.sort_order ASC, f.id ASC")) {
               rows = [...rows].sort((left, right) => left.sort_order - right.sort_order || left.id - right.id);
             }
             return { results: rows };
@@ -261,6 +292,45 @@ test("ORG-1 composition uses organization.id and includes only ACTIVE/RESERVED",
   assert.doesNotMatch(adoptionQuery?.sql ?? "", /organization_name\s*=|organization_slug\s*=/);
 });
 
+test("composition adds only eligible fundraising methods through the canonical trust contract", async () => {
+  const database = createDatabase({
+    organizations: [organization({ id: 7, slug: "canonical-org" })],
+    fundraisings: [
+      fundraising({ id: 201, organization_id: 7, sort_order: 10, label: "Neskôr" }),
+      fundraising({
+        id: 202,
+        organization_id: 7,
+        type: "BANK_TRANSFER",
+        label: "Účet",
+        url: null,
+        value: "GB82WEST12345698765432",
+        sort_order: 0,
+      }),
+      fundraising({ id: 203, organization_id: 7, label: "Neaktívne", sort_order: 1, is_active: 0 }),
+      fundraising({ id: 204, organization_id: 7, label: "Rejected", sort_order: 2, verification_status: "REJECTED" }),
+      fundraising({
+        id: 205,
+        organization_id: 7,
+        label: "Expirované",
+        sort_order: 3,
+        verification_expires_at: "2020-01-01T00:00:00.000Z",
+      }),
+    ],
+  });
+
+  const result = await getPublicOrganizationCompositionBySlug("canonical-org", database);
+  assert.deepEqual(result?.fundraisingMethods.map((item) => item.id), [202, 201]);
+  assert.deepEqual(Object.keys(result?.fundraisingMethods[0] ?? {}).sort(), [
+    "id", "instructions", "label", "sortOrder", "type", "url", "value",
+  ].sort());
+  const serialized = JSON.stringify(result?.fundraisingMethods);
+  assert.doesNotMatch(serialized, /Citlivý príjemca|internal@example\.org|beneficiary|verifiedBy|version/i);
+
+  const fundraisingQuery = database.queries.find((query) => query.sql.includes("FROM organization_fundraising_methods f"));
+  assert.deepEqual(fundraisingQuery?.bindings, [7]);
+  assert.doesNotMatch(fundraisingQuery?.sql ?? "", /beneficiary_identity|verified_by|verification_source_url|version/i);
+});
+
 test("Directory relation is optional, exact by directory_profile_id, and public-safe", async () => {
   const noRelationDb = createDatabase({ organizations: [organization({ directory_profile_id: null })] });
   const noRelation = await getPublicOrganizationBySlug("psia-nadej", noRelationDb);
@@ -309,7 +379,7 @@ test("composition has fixed query count and no N+1", async () => {
   const first = await getPublicOrganizationCompositionBySlug("psia-nadej", withoutDirectory);
   assert.equal(first?.adoptions.length, 20);
   assert.equal(first?.organization.locations.length, 20);
-  assert.equal(withoutDirectory.queries.length, 3, "organization + one location list + one adoption list query");
+  assert.equal(withoutDirectory.queries.length, 4, "organization + location + adoption + fundraising queries");
 
   const withDirectory = createDatabase({
     organizations: [organization({ id: 7, directory_profile_id: 10 })],
@@ -320,7 +390,7 @@ test("composition has fixed query count and no N+1", async () => {
   const second = await getPublicOrganizationCompositionBySlug("psia-nadej", withDirectory);
   assert.equal(second?.adoptions.length, 20);
   assert.equal(second?.organization.locations.length, 20);
-  assert.equal(withDirectory.queries.length, 4, "organization + one location list + one adoption list + one Directory query");
+  assert.equal(withDirectory.queries.length, 5, "organization + location + adoption + Directory + fundraising queries");
 });
 
 test("legacy and fuzzy organization identity fallback paths remain absent", () => {
