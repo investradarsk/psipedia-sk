@@ -63,10 +63,10 @@ function orderedArticles(section: PortalSection, articles: Article[], subpage?: 
     articlePortalSection(article) === section.slug &&
     (!subpage || articleArea(article, section.slug) === subpage.slug),
   );
-  const featured = new Map((subpage
-    ? subpage.featuredArticleSlugs
-    : section.subpages.flatMap((item) => item.featuredArticleSlugs ?? [])
-  ?? []).map((slug, index) => [slug, index]));
+  const featuredSlugs = subpage
+    ? (subpage.featuredArticleSlugs ?? [])
+    : section.subpages.flatMap((item) => item.featuredArticleSlugs ?? []);
+  const featured = new Map(featuredSlugs.map((slug, index) => [slug, index]));
   return [...candidates].sort((first, second) =>
     (featured.get(first.slug) ?? 999) - (featured.get(second.slug) ?? 999),
   );
