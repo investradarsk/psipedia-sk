@@ -270,6 +270,7 @@ test("structured parent and child pages share the compact section header system"
 test("mobile hamburger and menu align to the public gutter with safe targets", async ({ page, isMobile }) => {
   test.skip(!isMobile, "Mobile-only UX-1A regression");
   await page.goto("/starostlivost");
+  await expect(page.getByText(/Psie meniny:/)).toHaveCount(0);
 
   const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible');
   await expect(menuTrigger).toHaveAttribute("aria-label", "Otvoriť menu");
