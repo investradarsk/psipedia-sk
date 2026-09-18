@@ -127,6 +127,12 @@ export async function auditConfigurationContract(root = defaultRoot) {
   assert.equal(wrangler.vars?.AUTH_MODE, "cloudflare-access", "production AUTH_MODE must fail closed to cloudflare-access");
   assert.ok(wrangler.vars?.ACCESS_TEAM_DOMAIN, "production ACCESS_TEAM_DOMAIN must be declared in wrangler.jsonc");
   assert.ok(wrangler.vars?.ACCESS_AUD, "production ACCESS_AUD must be declared in wrangler.jsonc");
+  assert.equal(wrangler.vars?.NOTION_ARTICLE_SYNC_ENABLED, "true", "production Notion article sync must stay enabled in wrangler.jsonc");
+  assert.equal(
+    wrangler.vars?.NOTION_ARTICLES_DATA_SOURCE_ID,
+    "ae042534-c878-427e-bc76-ef587a8c61cf",
+    "production Notion article sync must stay pinned to the exact Články data source",
+  );
 
   for (const secretName of SECRET_ENV_NAMES) {
     assert.equal(secretName in (wrangler.vars ?? {}), false, `${secretName} must not be committed in wrangler vars`);
