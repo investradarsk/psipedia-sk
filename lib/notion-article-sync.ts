@@ -94,10 +94,6 @@ function selectProperty(page: NotionPage, name: string) {
     : "";
 }
 
-function checkboxProperty(page: NotionPage, name: string) {
-  return propertyRecord(page, name)?.checkbox === true;
-}
-
 function blockPayload(block: NotionBlock) {
   const value = block[block.type];
   return value && typeof value === "object" ? value as Record<string, unknown> : null;
@@ -268,16 +264,9 @@ export function notionPageToManagedArticleInput(page: NotionPage, blocks: Notion
   };
 }
 
-function validateApprovalGate(page: NotionPage) {
-  if (selectProperty(page, "Stav") !== "Ready") throw new Error("Článok nie je v stave Ready.");
-  if (!checkboxProperty(page, "Odoslať na Psipedia")) throw new Error("Odoslanie na Psipedia nie je potvrdené.");
-  const missing = [
-    ["Zdroje overené", checkboxProperty(page, "Zdroje overené")],
-    ["Obsah skontrolovaný", checkboxProperty(page, "Obsah skontrolovaný")],
-    ["SEO skontrolované", checkboxProperty(page, "SEO skontrolované")],
-  ].filter(([, checked]) => !checked).map(([name]) => name);
-  if (missing.length) {
-    throw new Error(`Pred synchronizáciou potvrď: ${missing.join(", ")}.`);
+function validateSyncGate(page: NotionPage) {
+  if (selectProperty(page, "Stav") !== "Ready") {
+    throw new Error("Článok nie je v stave Ready na automatický prenos do adminu.");
   }
 }
 
@@ -320,12 +309,8 @@ async function listReadyNotionPages(bindings: NotionSyncBindings) {
       {
         method: "POST",
         body: JSON.stringify({
-          filter: {
-            and: [
-              { property: "Stav", select: { equals: "Ready" } },
-              { property: "Odoslať na Psipedia", checkbox: { equals: true } },
-            ],
-          },
+          filter: { property: "Stav", select: { equals: "Ready" } },
+          sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
           page_size: Math.min(100, MAX_SYNC_ITEMS - results.length),
           ...(cursor ? { start_cursor: cursor } : {}),
         }),
@@ -368,7 +353,6 @@ async function updateNotionSyncState(
   },
 ) {
   const properties: Record<string, unknown> = {
-    "Odoslať na Psipedia": { checkbox: false },
     "Sync stav": { select: { name: values.state } },
     "Sync chyba": notionTextValue(values.error ?? ""),
   };
@@ -426,7 +410,7 @@ async function syncOneNotionPage(
   bindings: NotionSyncBindings,
   page: NotionPage,
 ): Promise<"created" | "updated" | "unchanged"> {
-  validateApprovalGate(page);
+  validateSyncGate(page);
   const blocks = await getPageBlocks(bindings, page.id);
   const payload = notionPageToManagedArticleInput(page, blocks);
   const contentHash = await sha256(JSON.stringify(payload));
