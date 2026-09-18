@@ -206,7 +206,7 @@ export function AdminEventDashboard({ initialEvents }: { initialEvents: AdminEve
             <span className="sr-only">Hľadať podujatie</span>
             <input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, mesto, areál, organizátor, typ, kraj alebo slug" />
           </label>
-          <div className="admin-status-filter admin-event-time-filters" aria-label="Časový stav">
+          <div className={`admin-status-filter admin-event-time-filters ${styles.timeFilters}`} aria-label="Časový stav">
             {[["all", "Všetky"], ["upcoming", "Nadchádzajúce"], ["current", "Prebiehajúce"], ["past", "Minulé"], ["cancelled", `Zrušené (${counts.cancelled})`]].map(([value, label]) => (
               <button type="button" key={value} aria-pressed={filters.time === value} className={filters.time === value ? "is-active" : ""} onClick={() => changeFilter("time", value)}>{label}</button>
             ))}
