@@ -123,13 +123,15 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   });
 
   test("preserves legacy article editing and Novinky source publishing guard", async ({ page }, testInfo) => {
-    await page.goto("/admin/clanky/972001", { waitUntil: "domcontentloaded" });
+    const legacyId = testInfo.project.name.includes("mobile") ? 972002 : 972001;
+    await page.goto(`/admin/clanky/${legacyId}`, { waitUntil: "domcontentloaded" });
     await waitForEditor(page);
     await expect(page.getByLabel("Meno autora pre legacy článok")).toHaveValue("Legacy autor");
     await expect(page.locator("#article-intro")).toContainText("Legacy úvod článku");
     await page.locator("#article-intro").fill("Legacy článok je teraz upravený cez canonical WYSIWYG bez straty spätnej kompatibility.");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
+    await expect(page.getByText("Všetky zmeny uložené")).toBeVisible();
 
     const suffix = projectSuffix(testInfo.project.name);
     await page.goto("/admin/novy?sekcia=novinky", { waitUntil: "domcontentloaded" });
