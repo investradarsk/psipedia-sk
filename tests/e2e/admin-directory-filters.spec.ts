@@ -195,7 +195,7 @@ test.describe("admin directory v2", () => {
     await page.getByLabel("Podrobný popis").fill("Toto je dostatočne dlhý deterministický popis používaný iba v lokálnom E2E teste administrácie.");
     await page.getByLabel("Mesto").fill("Nitra");
     await page.getByLabel("Verejný telefón").fill("neplatny-telefon");
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.getByRole("button", { name: "Publikovať profil" }).click();
     await expect(page.getByRole("alert")).toContainText("Telefónne číslo nie je platné.");
 
     await page.getByLabel("Verejný telefón").fill("+421 900 555 666");
@@ -214,6 +214,7 @@ test.describe("admin directory v2", () => {
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
 
     const first = page.getByLabel("Vybrať profil E2E Veterina 059");
+    await expect(first).toBeEnabled();
     await first.focus();
     await page.keyboard.press("Space");
     await expect(first).toBeChecked();
