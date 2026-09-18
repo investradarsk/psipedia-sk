@@ -33,7 +33,7 @@ test("article JSON-LD distinguishes a named person from the Psipedia editorial o
   });
 
   const detail = fs.readFileSync(new URL("../components/article-detail.tsx", import.meta.url), "utf8");
-  assert.match(detail, /author:\s*articleAuthorJsonLd\(article\.author\)/);
+  assert.match(detail, /const authorName = authorProfile\?\.displayName \|\| article\.author/);\n  assert.match(detail, /author:\s*articleAuthorJsonLd\(authorName\)/);
   assert.doesNotMatch(detail, /author:\s*\{\s*"@type":\s*"Organization",\s*name:\s*article\.author/s);
   assert.equal((detail.match(/application\/ld\+json/g) ?? []).length, 1);
 });
