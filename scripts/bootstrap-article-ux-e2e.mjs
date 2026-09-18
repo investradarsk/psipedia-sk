@@ -20,11 +20,23 @@ const sectionFixtures = [
     visible: true,
     subpages: [{ slug: "vyziva", label: "Výživa", description: "Krmivá, dávky a zdravá kondícia." }],
   },
+  {
+    slug: "novinky",
+    label: "Novinky",
+    eyebrow: "Zo sveta psov",
+    description: "Overené správy a nové poznatky zo sveta psov.",
+    intro: "Kompletný archív publikovaných noviniek.",
+    visible: true,
+    subpages: [
+      { slug: "veda-a-zdravie", label: "Veda a zdravie", description: "Výskum a zdravie psov." },
+      { slug: "zaujimavosti", label: "Zaujímavosti", description: "Zaujímavé témy zo sveta psov." },
+    ],
+  },
 ];
 
 const bikeBlocks = [
   { id: "bike-h2-1", type: "h2", text: "Čo je bikejoring a ako funguje" },
-  { id: "bike-text-1", type: "text", content: "Bikejoring je tímový šport, pri ktorom pes beží pred bicyklom a s jazdcom je spojený pružnou ťažnou šnúrou. Bezpečný začiatok stojí na ovládateľnosti psa, kondícii a správnej výbave." },
+  { id: "bike-text-1", type: "text", content: "Bikejoring je tímový šport, pri ktorom pes beží pred bicyklom a s jazdcom je spojený pružnou ťažnou šnúrou. Bezpečný začiatok stojí na ovládateľnosti psa, kondícii a správnej výbave.", richText: { version: 1, type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Bikejoring je tímový šport", marks: [{ type: "bold" }] }, { type: "text", text: ", pri ktorom pes pracuje v ťahu." }, { type: "hardBreak" }, { type: "text", text: "Bezpečný začiatok je dôležitejší než rýchlosť.", marks: [{ type: "italic" }] }] }, { type: "bulletList", items: [[{ type: "text", text: "ovládateľnosť psa" }], [{ type: "text", text: "primeraná kondícia" }]] }] } },
   { id: "bike-tip-1", type: "tip", content: "Najskôr nacvičte prácu pred človekom a smerové povely bez bicykla." },
   { id: "bike-h2-2", type: "h2", text: "Aký pes je vhodný na bikejoring" },
   { id: "bike-text-2", type: "text", content: "Dôležitejšia než konkrétne plemeno je zdravá pohybová sústava, primeraná hmotnosť, kondícia a schopnosť pracovať aj pri rušení." },
@@ -38,6 +50,7 @@ const bikeBlocks = [
   { id: "bike-text-3", type: "text", content: "Povely musia byť krátke, konzistentné a naučené ešte predtým, než ich pes potrebuje použiť vo vyššej rýchlosti." },
   { id: "bike-h2-6", type: "h2", text: "Ako začať s bikejoringom krok za krokom" },
   { id: "bike-table-1", type: "table", headers: ["Fáza", "Cieľ", "Prostredie"], rows: [["1", "povely", "pokoj"], ["2", "ťah", "krátky úsek"], ["3", "bicykel", "prehľadná trasa"]] },
+  { id: "bike-video-1", type: "embed", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Bezpečné video v článku", caption: "Allowlisted YouTube embed pre public rendering test." },
   { id: "bike-source-1", type: "source", label: "International Federation of Sleddog Sports", url: "https://sleddogsport.net/", note: "Pravidlá a bezpečnostný rámec športov psích záprahov." },
 ];
 
@@ -51,6 +64,7 @@ const stimulusBlocks = [
   { id: "stim-text-2", type: "text", content: "Slovný a gestický signál testujte oddelene, aby bolo jasné, ktorý podnet správanie naozaj riadi." },
   { id: "stim-h2-4", type: "h2", text: "Anticipácia nie je vždy znakom výborného psa" },
   { id: "stim-h2-5", type: "h2", text: "Ako stimulus control testovať" },
+  { id: "stim-embed-bad", type: "embed", url: "javascript:alert(1)", title: "Malicious embed" },
   { id: "stim-source-1", type: "source", label: "Karen Pryor Clicker Training", url: "https://www.clickertraining.com/" },
 ];
 
@@ -131,7 +145,55 @@ const articleFixtures = [
     contentUpdatedAt: "2026-08-16T08:00:00.000Z",
     showUpdated: true,
     noindex: true,
+  },,
+  {
+    slug: "e2e-vyskum-psov-2026",
+    title: "E2E výskum psov 2026",
+    excerpt: "Testovacia publikovaná novinka pre overenie kompletného archívu a kategórie Veda a zdravie.",
+    category: "Zdravie",
+    portalSection: "novinky",
+    newsCategory: "veda-a-zdravie",
+    status: "published",
+    accent: "blue",
+    author: "Redakcia Psipedia",
+    intro: "Tento lokálny fixture overuje public news archive bez zásahu do produkčných dát.",
+    takeaway: "",
+    blocks: [
+      { id: "news-1-text", type: "text", content: "Obsah lokálneho E2E fixture pre kompletný archív." },
+      { id: "news-1-source", type: "source", label: "Psipedia E2E source", url: "https://psipedia.sk/" },
+    ],
+    sections: [],
+    sources: [],
+    imageUrl: "/images/zdravie-veterinar.webp",
+    readingMinutes: 3,
+    publishedAt: "2026-09-18T08:00:00.000Z",
+    showUpdated: false,
+    noindex: true,
   },
+  {
+    slug: "e2e-zaujimavost-psov-2026",
+    title: "E2E zaujímavosť zo sveta psov",
+    excerpt: "Druhá testovacia publikovaná novinka overuje kategórie aj zobrazenie všetkých publikovaných položiek.",
+    category: "Život so psom",
+    portalSection: "novinky",
+    newsCategory: "zaujimavosti",
+    status: "published",
+    accent: "coral",
+    author: "Redakcia Psipedia",
+    intro: "Tento lokálny fixture je určený výhradne pre izolované E2E testy.",
+    takeaway: "",
+    blocks: [
+      { id: "news-2-text", type: "text", content: "Druhý lokálny E2E fixture pre filtrovanie archívu." },
+      { id: "news-2-source", type: "source", label: "Psipedia E2E source", url: "https://psipedia.sk/" },
+    ],
+    sections: [],
+    sources: [],
+    imageUrl: "/images/hero-labrador.webp",
+    readingMinutes: 2,
+    publishedAt: "2026-09-17T08:00:00.000Z",
+    showUpdated: false,
+    noindex: true,
+  }
 ];
 
 function fail(message) {
