@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
+import { EditorialRichText } from "@/components/editorial-rich-text";
 import { articleBlockHeadings, type ArticleBlock } from "@/lib/article-blocks";
+import { legacyRichTextToDocument } from "@/lib/editorial-content";
+import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 
 function safeHref(value: string, allowInternal = false) {
   if (allowInternal && value.startsWith("/")) return value;
@@ -88,25 +91,7 @@ function renderRichTextBlocks(value: string, keyPrefix: string): ReactNode[] {
 }
 
 export function ArticleRichText({ value, className }: { value: string; className?: string }) {
-  return <div className={className}>{renderRichTextBlocks(value, "rich-text")}</div>;
-}
-
-function embedUrl(value: string) {
-  try {
-    const url = new URL(value);
-    if (url.hostname === "youtu.be") return `https://www.youtube-nocookie.com/embed/${url.pathname.slice(1)}`;
-    if (url.hostname.endsWith("youtube.com")) {
-      const id = url.searchParams.get("v") || url.pathname.match(/\/(?:embed|shorts)\/([^/]+)/)?.[1];
-      return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
-    }
-    if (url.hostname === "vimeo.com" || url.hostname.endsWith(".vimeo.com")) {
-      const id = url.pathname.split("/").filter(Boolean).at(-1);
-      return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
-    }
-  } catch {
-    return null;
-  }
-  return null;
+  return <EditorialRichText className={className} document={legacyRichTextToDocument(value)} />;
 }
 
 export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBlock[]; preview?: boolean }) {
@@ -116,7 +101,7 @@ export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBloc
   return (
     <div className={preview ? "article-blocks article-blocks--preview" : "article-blocks"}>
       {blocks.map((block) => {
-        if (block.type === "text") return block.content ? <div className={`article-block-text article-block-text--${block.alignment ?? "left"}`} key={block.id}>{renderRichTextBlocks(block.content, block.id)}</div> : null;
+        if (block.type === "text") return block.content ? <EditorialRichText className={`article-block-text article-block-text--${block.alignment ?? "left"}`} document={block.richText ?? legacyRichTextToDocument(block.content)} key={block.id} keyPrefix={block.id} /> : null;
         if (block.type === "h2") return block.text ? <h2 id={headingIds.get(block.id)} key={block.id}>{block.text}</h2> : null;
         if (block.type === "h3") return block.text ? <h3 id={headingIds.get(block.id)} key={block.id}>{block.text}</h3> : null;
         if (block.type === "image") return block.url ? (
@@ -137,9 +122,9 @@ export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBloc
         ) : null;
         if (block.type === "bullet-list") return block.items.length ? <ul key={block.id}>{block.items.map((item, index) => <li key={index}>{richText(item)}</li>)}</ul> : null;
         if (block.type === "numbered-list") return block.items.length ? <ol key={block.id}>{block.items.map((item, index) => <li key={index}>{richText(item)}</li>)}</ol> : null;
-        if (block.type === "tip") return block.content ? <aside className="article-block-callout article-block-callout--tip" key={block.id}><strong>Tip z praxe</strong><div className="article-block-rich-content">{renderRichTextBlocks(block.content, block.id)}</div></aside> : null;
-        if (block.type === "warning") return block.content ? <aside className="article-block-callout article-block-callout--warning" key={block.id}><strong>Dôležité upozornenie</strong><div className="article-block-rich-content">{renderRichTextBlocks(block.content, block.id)}</div></aside> : null;
-        if (block.type === "quote") return block.content ? <blockquote className="article-block-quote" key={block.id}><div className="article-block-rich-content">{renderRichTextBlocks(block.content, block.id)}</div>{block.attribution && <cite>{block.attribution}</cite>}</blockquote> : null;
+        if (block.type === "tip") return block.content ? <aside className="article-block-callout article-block-callout--tip" key={block.id}><strong>Tip z praxe</strong><EditorialRichText className="article-block-rich-content" document={block.richText ?? legacyRichTextToDocument(block.content)} keyPrefix={block.id} /></aside> : null;
+        if (block.type === "warning") return block.content ? <aside className="article-block-callout article-block-callout--warning" key={block.id}><strong>Dôležité upozornenie</strong><EditorialRichText className="article-block-rich-content" document={block.richText ?? legacyRichTextToDocument(block.content)} keyPrefix={block.id} /></aside> : null;
+        if (block.type === "quote") return block.content ? <blockquote className="article-block-quote" key={block.id}><EditorialRichText className="article-block-rich-content" document={block.richText ?? legacyRichTextToDocument(block.content)} keyPrefix={block.id} />{block.attribution && <cite>{block.attribution}</cite>}</blockquote> : null;
         if (block.type === "table") return block.headers.length ? (
           <div className="article-block-table-wrap" key={block.id} tabIndex={0}>
             <table><thead><tr>{block.headers.map((header, index) => <th key={index} scope="col">{richText(header)}</th>)}</tr></thead>
@@ -165,10 +150,10 @@ export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBloc
           </aside>;
         }
         if (block.type === "embed") {
-          const src = embedUrl(block.url);
-          if (src) return <figure className="article-block-embed" key={block.id}><iframe src={src} title={block.title || "Video v článku"} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></figure>;
+          const video = normalizeEditorialExternalVideo({ url: block.url, title: block.title, caption: block.caption });
+          if (video) return <figure className="article-block-embed" key={block.id}><iframe src={video.embedUrl} title={video.title || "Video v článku"} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />{video.caption && <figcaption>{video.caption}</figcaption>}</figure>;
           const href = safeHref(block.url);
-          return href ? <p className="article-block-embed-link" key={block.id}><a href={href} target="_blank" rel="noreferrer">{block.title || "Otvoriť vložený obsah"} ↗</a></p> : null;
+          return href ? <p className="article-block-embed-link" key={block.id}><a href={href} target="_blank" rel="noreferrer">{block.title || "Otvoriť externé video"} ↗</a></p> : null;
         }
         return null;
       })}

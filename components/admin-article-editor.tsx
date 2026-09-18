@@ -353,8 +353,8 @@ export function AdminArticleEditor({
             <RichTextInput id="article-intro" rows={5} value={intro} onChange={setIntro} placeholder="Uveď čitateľa do témy…" showLists required />
           </div>
           <div className="admin-field">
-            <label htmlFor="article-takeaway">To najdôležitejšie</label>
-            <RichTextInput id="article-takeaway" rows={3} value={takeaway} onChange={setTakeaway} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists required />
+            <label htmlFor="article-takeaway">To najdôležitejšie <small>nepovinné</small></label>
+            <RichTextInput id="article-takeaway" rows={3} value={takeaway} onChange={setTakeaway} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists />
           </div>
         </section>
 
@@ -399,7 +399,7 @@ export function AdminArticleEditor({
             <p className="admin-preview-excerpt">{excerpt || "Tu sa zobrazí krátky úvod z karty článku."}</p>
             {imageUrl && <img className="admin-preview-image" src={imageUrl} alt="" />}
             <ArticleRichText className="admin-preview-intro" value={intro || "Úvod článku sa zobrazí na tomto mieste."} />
-            <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><ArticleRichText value={takeaway || "Hlavná myšlienka článku."} /></div>
+            {takeaway.trim() && <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><ArticleRichText value={takeaway} /></div>}
             <ArticleBlocks blocks={blocks} preview />
           </article>
         </aside>

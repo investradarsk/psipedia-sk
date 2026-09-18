@@ -1,4 +1,11 @@
 import type { ArticleSection, ArticleSource } from "@/lib/content";
+import {
+  editorialRichTextPlainText,
+  legacyRichTextToDocument,
+  normalizeEditorialRichText,
+  type EditorialRichTextDocument,
+} from "@/lib/editorial-content";
+import { normalizeEditorialExternalVideo, type EditorialVideoProvider } from "@/lib/editorial-video";
 
 export type ArticleBlockImage = {
   url: string;
@@ -13,18 +20,18 @@ export type ArticleImageSize = "normal" | "wide";
 export type ArticleTextAlignment = "left" | "center" | "right";
 
 export type ArticleBlock =
-  | { id: string; type: "text"; content: string; alignment?: ArticleTextAlignment }
+  | { id: string; type: "text"; content: string; richText?: EditorialRichTextDocument; alignment?: ArticleTextAlignment }
   | { id: string; type: "h2" | "h3"; text: string }
   | ({ id: string; type: "image" } & ArticleBlockImage)
   | { id: string; type: "gallery"; images: ArticleBlockImage[] }
   | { id: string; type: "bullet-list" | "numbered-list"; items: string[] }
-  | { id: string; type: "tip" | "warning"; content: string }
-  | { id: string; type: "quote"; content: string; attribution?: string }
+  | { id: string; type: "tip" | "warning"; content: string; richText?: EditorialRichTextDocument }
+  | { id: string; type: "quote"; content: string; richText?: EditorialRichTextDocument; attribution?: string }
   | { id: string; type: "table"; headers: string[]; rows: string[][] }
   | { id: string; type: "source"; label: string; url: string; accessedAt?: string; note?: string }
   | { id: string; type: "related"; title: string; href: string; description?: string }
   | { id: string; type: "cta"; text: string; buttonText: string; url: string; newTab: boolean; sponsored: boolean }
-  | { id: string; type: "embed"; url: string; title?: string };
+  | { id: string; type: "embed"; url: string; title?: string; caption?: string; provider?: EditorialVideoProvider; videoId?: string };
 
 export const articleBlockLabels: Record<ArticleBlock["type"], string> = {
   text: "Text",
@@ -56,7 +63,7 @@ export function createArticleBlock(type: ArticleBlock["type"], id = crypto.rando
   if (type === "source") return { id, type, label: "", url: "", note: "" };
   if (type === "related") return { id, type, title: "", href: "", description: "" };
   if (type === "cta") return { id, type, text: "", buttonText: "Pozrieť produkt", url: "", newTab: true, sponsored: false };
-  return { id, type: "embed", url: "", title: "" };
+  return { id, type: "embed", url: "", title: "", caption: "" };
 }
 
 export function legacyArticleBlocks(
@@ -133,7 +140,13 @@ export function normalizeArticleBlocks(value: unknown): ArticleBlock[] {
     const block = raw as Record<string, unknown>;
     const id = safeId(block.id, index);
     const type = safeText(block.type, 30) as ArticleBlock["type"];
-    if (type === "text") return [{ id, type, content: safeText(block.content), alignment: safeAlignment(block.alignment) }];
+    if (type === "text") {
+      const suppliedRichText = normalizeEditorialRichText(block.richText);
+      const legacyContent = safeText(block.content);
+      const richText = suppliedRichText ?? legacyRichTextToDocument(legacyContent);
+      const content = legacyContent || editorialRichTextPlainText(richText);
+      return [{ id, type, content, richText, alignment: safeAlignment(block.alignment) }];
+    }
     if (type === "h2" || type === "h3") return [{ id, type, text: safeText(block.text, 300) }];
     if (type === "image") {
       const image = safeImage(block);
@@ -147,8 +160,20 @@ export function normalizeArticleBlocks(value: unknown): ArticleBlock[] {
       const items = Array.isArray(block.items) ? block.items.map((item) => safeText(item, 2_000)).filter(Boolean).slice(0, 100) : [];
       return [{ id, type, items }];
     }
-    if (type === "tip" || type === "warning") return [{ id, type, content: safeText(block.content, 5_000) }];
-    if (type === "quote") return [{ id, type, content: safeText(block.content, 5_000), attribution: safeText(block.attribution, 300) || undefined }];
+    if (type === "tip" || type === "warning") {
+      const suppliedRichText = normalizeEditorialRichText(block.richText);
+      const legacyContent = safeText(block.content, 5_000);
+      const richText = suppliedRichText ?? legacyRichTextToDocument(legacyContent);
+      const content = legacyContent || editorialRichTextPlainText(richText).slice(0, 5_000);
+      return [{ id, type, content, richText }];
+    }
+    if (type === "quote") {
+      const suppliedRichText = normalizeEditorialRichText(block.richText);
+      const legacyContent = safeText(block.content, 5_000);
+      const richText = suppliedRichText ?? legacyRichTextToDocument(legacyContent);
+      const content = legacyContent || editorialRichTextPlainText(richText).slice(0, 5_000);
+      return [{ id, type, content, richText, attribution: safeText(block.attribution, 300) || undefined }];
+    }
     if (type === "table") {
       const headers = Array.isArray(block.headers) ? block.headers.map((item) => safeText(item, 500)).slice(0, 12) : [];
       const rows = Array.isArray(block.rows) ? block.rows.slice(0, 100).map((row) => Array.isArray(row) ? row.slice(0, 12).map((item) => safeText(item, 2_000)) : []) : [];
@@ -157,7 +182,21 @@ export function normalizeArticleBlocks(value: unknown): ArticleBlock[] {
     if (type === "source") return [{ id, type, label: safeText(block.label, 500), url: safeUrl(block.url), accessedAt: /^\d{4}-\d{2}-\d{2}$/.test(safeText(block.accessedAt, 10)) ? safeText(block.accessedAt, 10) : undefined, note: safeText(block.note, 1_000) || undefined }];
     if (type === "related") return [{ id, type, title: safeText(block.title, 500), href: safeUrl(block.href, true), description: safeText(block.description, 1_000) || undefined }];
     if (type === "cta") return [{ id, type, text: safeText(block.text, 500), buttonText: safeText(block.buttonText, 120), url: safeUrl(block.url, true), newTab: block.newTab === true, sponsored: block.sponsored === true }];
-    if (type === "embed") return [{ id, type, url: safeUrl(block.url), title: safeText(block.title, 500) || undefined }];
+    if (type === "embed") {
+      const url = safeUrl(block.url);
+      const title = safeText(block.title, 500) || undefined;
+      const caption = safeText(block.caption, 1_000) || undefined;
+      const video = normalizeEditorialExternalVideo({ url, title, caption });
+      return [{
+        id,
+        type,
+        url,
+        title,
+        caption,
+        provider: video?.provider,
+        videoId: video?.videoId,
+      }];
+    }
     return [];
   });
 }

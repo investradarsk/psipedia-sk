@@ -1,5 +1,28 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+export const editorialAuthorProfiles = sqliteTable(
+  "editorial_author_profiles",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    slug: text("slug").notNull(),
+    kind: text("kind").notNull().default("team"),
+    displayName: text("display_name").notNull(),
+    avatarUrl: text("avatar_url"),
+    shortBio: text("short_bio").notNull().default(""),
+    role: text("role").notNull().default(""),
+    isActive: integer("is_active").notNull().default(1),
+    isDefault: integer("is_default").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  (table) => [
+    uniqueIndex("editorial_author_profiles_slug_unique").on(table.slug),
+    index("editorial_author_profiles_active_default_idx").on(table.isActive, table.isDefault, table.displayName),
+  ],
+);
+
 export const managedArticles = sqliteTable(
   "managed_articles",
   {
@@ -13,8 +36,11 @@ export const managedArticles = sqliteTable(
     status: text("status").notNull().default("draft"),
     accent: text("accent").notNull().default("forest"),
     author: text("author").notNull().default("Redakcia Psipedia"),
+    authorProfileId: integer("author_profile_id").references(() => editorialAuthorProfiles.id, { onDelete: "set null" }),
     intro: text("intro").notNull(),
+    introRichTextJson: text("intro_rich_text_json"),
     takeaway: text("takeaway").notNull(),
+    takeawayRichTextJson: text("takeaway_rich_text_json"),
     sectionsJson: text("sections_json").notNull().default("[]"),
     sourcesJson: text("sources_json").notNull().default("[]"),
     blocksJson: text("blocks_json").notNull().default("[]"),
@@ -44,6 +70,7 @@ export const managedArticles = sqliteTable(
     index("managed_articles_portal_status_idx").on(table.portalSection, table.status, table.publishedAt),
     index("managed_articles_portal_subpage_idx").on(table.portalSection, table.portalSubpage, table.status, table.publishedAt),
     index("managed_articles_admin_updated_idx").on(table.updatedAt, table.id),
+    index("managed_articles_author_profile_idx").on(table.authorProfileId, table.status),
   ],
 );
 
