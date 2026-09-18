@@ -82,6 +82,9 @@ function createDatabase({ organizations = [], locations = [], adoptions = [] } =
               .toSorted((left, right) => left.sort_order - right.sort_order || left.id - right.id);
             return { results };
           }
+          if (sql.includes("FROM organization_fundraising_methods f")) {
+            return { results: [] };
+          }
           if (!sql.includes("FROM adoption_dogs d")) {
             throw new Error(`Unexpected all() query: ${sql}`);
           }
@@ -131,7 +134,7 @@ test("published organization with zero public adoptions remains a valid composit
 
   assert.ok(composition);
   assert.deepEqual(composition.adoptions, []);
-  assert.equal(database.queries.length, 3, "organization read plus bounded location and adoption relation reads");
+  assert.equal(database.queries.length, 4, "organization read plus bounded location, adoption and fundraising relation reads");
 });
 
 test("draft, archived and unknown organizations fail closed before any adoption relation read", async () => {
@@ -154,6 +157,11 @@ test("draft, archived and unknown organizations fail closed before any adoption 
       database.queries.some((query) => query.sql.includes("FROM organization_locations l")),
       false,
       `${slug} must not reach location relation reads`,
+    );
+    assert.equal(
+      database.queries.some((query) => query.sql.includes("FROM organization_fundraising_methods f")),
+      false,
+      `${slug} must not reach fundraising relation reads`,
     );
   }
 });
