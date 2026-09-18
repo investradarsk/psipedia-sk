@@ -30,10 +30,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Log revision evidence
         run: |
-          echo "event_name=\${{ github.event_name }}"
-          echo "pr_head_sha=\${{ github.event.pull_request.head.sha || 'n/a' }}"
-          echo "base_sha=\${{ github.event.pull_request.base.sha || 'n/a' }}"
-          echo "github_sha=\${{ github.sha }}"
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
           echo "checked_out_sha=$(git rev-parse HEAD)"
       - uses: actions/setup-node@v4
         with:
@@ -98,7 +98,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: breeds-admin-failure-\${{ github.run_attempt }}
+          name: breeds-admin-failure-${{ github.run_attempt }}
           path: |
             .e2e-artifacts/breeds-admin/
             playwright-report/
