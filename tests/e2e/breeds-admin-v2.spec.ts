@@ -81,8 +81,8 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
     await page.getByLabel("Prehľad plemena").fill("Overený lokálny prehľad používaný iba v izolovanom CI.");
     await page.getByLabel("Každodenné potreby").fill("Lokálny test praktického obsahu.");
-    await page.getByLabel("FCI skupina").fill("8");
-    await page.getByLabel("FCI sekcia").fill("Retrievery");
+    await page.getByLabel("FCI skupina", { exact: true }).fill("8");
+    await page.getByLabel("FCI sekcia", { exact: true }).fill("Retrievery");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je uložený.")).toBeVisible();
     await page.reload();
@@ -105,7 +105,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await sportDrawer.getByLabel("Krátka poznámka").fill("Izolovaný E2E šport.");
     await sportDrawer.getByRole("button", { name: "Uložiť šport" }).click();
     await expect(sportDrawer).toBeHidden();
-    await expect(page.getByText("Nosework", { exact: true })).toBeVisible();
+    await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
 
     await navigation.getByRole("link", { name: "Prepojenia" }).click();
     const articleGroup = page.getByRole("group", { name: "Súvisiace články" });
