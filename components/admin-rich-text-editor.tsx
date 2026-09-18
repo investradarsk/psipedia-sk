@@ -147,7 +147,7 @@ function parseEditor(root: HTMLElement): EditorialRichTextDocument {
       continue;
     }
 
-    const inline = parseInline(node.childNodes);
+    const inline = parseInline([node]);
     if (!inline.length) continue;
     if (tag === "h2" || tag === "h3") {
       content.push({ type: "heading", level: tag === "h3" ? 3 : 2, content: inline });
