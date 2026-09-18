@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (!user) return unauthorizedAdminResponse();
   try {
     const payload = (await request.json()) as EditorialAuthorProfileInput;
-    const author = await createEditorialAuthorProfile(databaseBinding(), payload);
+    const author = await createEditorialAuthorProfile(databaseBinding(), payload, user.email);
     return Response.json({ author }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Profil autora sa nepodarilo vytvoriť." }, { status: 400 });
