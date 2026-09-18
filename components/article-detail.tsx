@@ -6,7 +6,8 @@ import { ArticleFeedback } from "@/components/article-feedback";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PawMark } from "@/components/icons";
 import { Breadcrumbs, MediaFrame } from "@/components/page-system";
-import { PublicContentList, PublicContentListItem } from "@/components/public-visual-system";
+import { PublicContentList } from "@/components/public-visual-system";
+import { ArticleListItem } from "@/components/article-list-item";
 import { ShareButton } from "@/components/share-button";
 import type { Article } from "@/lib/content";
 import type { EditorialAuthorProfile } from "@/lib/editorial-authors";
@@ -127,7 +128,6 @@ export function ArticleDetail({
                 <div className={styles.articleMeta}>
                   <time dateTime={article.dateIso}>{article.date}</time>
                   {showUpdated ? <span>Aktualizované <time dateTime={article.updatedDateIso}>{article.updatedDate}</time></span> : null}
-                  <span>{article.readTime} čítania</span>
                 </div>
               </div>
               <div className={styles.favoriteAction} title={favoriteHint}>
@@ -180,15 +180,10 @@ export function ArticleDetail({
             <h2>{section === "recenzie" ? "Súvisiace recenzie a články" : "Súvisiace články"}</h2>
             <PublicContentList label="Súvisiace články" className={styles.relatedList}>
               {relatedItems.map((item) => (
-                <PublicContentListItem
+                <ArticleListItem
                   key={item.slug}
-                  href={articleHref(item)}
-                  title={item.title}
-                  eyebrow={articlePortalSection(item) === "novinky" ? getNewsCategory(item.newsCategory)?.shortLabel ?? item.category : item.category}
-                  excerpt={item.excerpt}
-                  meta={`${item.date} · ${item.readTime} čítania`}
-                  image={item.image ? { src: item.image, alt: item.title } : undefined}
-                  actionLabel="Čítať"
+                  article={item}
+                  topicLabel={articlePortalSection(item) === "novinky" ? getNewsCategory(item.newsCategory)?.shortLabel ?? item.category : item.category}
                 />
               ))}
             </PublicContentList>
