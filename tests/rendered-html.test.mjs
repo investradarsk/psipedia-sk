@@ -703,7 +703,7 @@ test("renders the care hub, urgent guidance and topic-specific articles", async 
   const nutrition = await worker.fetch(new Request("http://localhost/starostlivost/vyziva", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(nutrition.status, 200);
   const nutritionHtml = await nutrition.text();
-  assert.match(nutritionHtml, /Výživa v praxi/);
+  assert.match(nutritionHtml, /Výživa(?:<!-- -->)? v praxi/);
   assert.match(nutritionHtml, /Čo sledovať doma/);
   assert.match(nutritionHtml, /Kedy nečakať/);
   assert.match(nutritionHtml, /Ako vybrať granule bez marketingových mýtov/);
@@ -738,7 +738,7 @@ test("renders the activities hub, safe-start guidance and activity admin fields"
   const sports = await worker.fetch(new Request("http://localhost/aktivity/psie-sporty", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(sports.status, 200);
   const sportsHtml = await sports.text();
-  assert.match(sportsHtml, /Psie športy v praxi/);
+  assert.match(sportsHtml, /Psie športy(?:<!-- -->)? v praxi/);
   assert.match(sportsHtml, /Ako začať/);
   assert.match(sportsHtml, /Bezpečnosť a limity/);
   assert.match(sportsHtml, /Aport: od naháňačky k spoľahlivému odovzdaniu do ruky/);
@@ -775,7 +775,7 @@ test("renders the puppy journey, practical topic guidance and puppy admin fields
   const firstDays = await worker.fetch(new Request("http://localhost/steniatka/prve-dni", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(firstDays.status, 200);
   const firstDaysHtml = await firstDays.text();
-  assert.match(firstDaysHtml, /Prvé dni doma v praxi/);
+  assert.match(firstDaysHtml, /Prvé dni doma(?:<!-- -->)? v praxi/);
   assert.match(firstDaysHtml, /Praktické kroky/);
   assert.match(firstDaysHtml, /Na čo si dať pozor/);
   assert.match(firstDaysHtml, /Dôležité pre túto fázu/);
