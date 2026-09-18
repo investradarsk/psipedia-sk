@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
+import { EditorialSectionTopic } from "@/components/editorial-section";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
@@ -66,6 +67,7 @@ export function PortalTopic({
   const isPuppies = section.slug === "steniatka";
   const isReviews = section.slug === "recenzie";
   const isStructuredTopic = isCare || isActivities || isPuppies;
+  if (isStructuredTopic) return <EditorialSectionTopic section={section} subpage={subpage} articles={articles} />;
   const heroImage = isStructuredTopic ? (subpage.imageUrl || portalSectionHeroImage(section.slug)) : null;
   const hasReviewGuide = isReviews && portalSubpageHasEditorialValue(subpage);
   const legacyCareArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];

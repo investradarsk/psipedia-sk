@@ -92,3 +92,57 @@ test("section tabs remain compact and horizontally scrollable on small screens",
   assert.match(css, /\.section-tab\[aria-current="page"\]/);
   assert.match(css, /\.section-tab\s*\{[\s\S]*?min-height:\s*44px/);
 });
+
+
+test("SECTION-PUBLIC uses the shared visual foundation without global CSS ownership", () => {
+  const section = read("components/editorial-section.tsx");
+  const css = read("components/editorial-section.module.css");
+  assert.match(section, /PublicSectionHeader/);
+  assert.match(section, /PublicContentList/);
+  assert.match(section, /PublicDataCard/);
+  assert.match(section, /StructuredData/);
+  assert.match(section, /buildCollectionPageJsonLd/);
+  assert.doesNotMatch(section, /SectionHero/);
+  assert.doesNotMatch(section, /ArticleCard/);
+  assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
+  assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(max-width: 390px\)/);
+});
+
+test("SECTION-PUBLIC preserves urgent health guidance and removes generic puppy template labels", () => {
+  const section = read("components/editorial-section.tsx");
+  assert.match(section, /Keď ide o čas/);
+  assert.match(section, /Má pes akútny problém\?/);
+  assert.match(section, /Kedy volať ihneď/);
+  assert.match(section, /Nájsť veterinára/);
+  assert.match(section, /Praktické kroky/);
+  assert.doesNotMatch(section, /Krok za krokom|Čo urobiť teraz/);
+});
+
+test("SECTION-PUBLIC navigation scopes mobile overflow to the navigation component", () => {
+  const tabs = read("components/portal-section-tabs.tsx");
+  const css = read("components/portal-section-tabs.module.css");
+  assert.match(tabs, /styles\.nav/);
+  assert.match(css, /min-height:\s*44px/);
+  assert.match(css, /flex-wrap:\s*nowrap/);
+  assert.match(css, /overflow-x:\s*auto/);
+  assert.match(css, /overscroll-behavior-x:\s*contain/);
+  assert.match(css, /\.section-tab\.is-active/);
+});
+
+test("SECTION-PUBLIC keeps canonical training taxonomy and legacy redirect compatibility", () => {
+  const portal = read("lib/portal.ts");
+  const redirect = read("app/aktivity/-vycvik-a-aktivity-trening/route.ts");
+  assert.match(portal, /slug:\s*"trening",\s*label:\s*"Tréning"/);
+  assert.doesNotMatch(portal, /slug:\s*"-vycvik-a-aktivity-trening"/);
+  assert.match(redirect, /NextResponse\.redirect\(new URL\("\/aktivity\/trening", request\.url\), 301\)/);
+});
+
+test("SECTION-PUBLIC upgrades the repository-managed first-days puppy page", () => {
+  const portal = read("lib/portal.ts");
+  assert.match(portal, /slug:\s*"prve-dni",\s*label:\s*"Prvé dni doma"/);
+  assert.match(portal, /Prvé dni doma sú najmä o bezpečí, odpočinku a predvídateľnom režime/);
+  assert.match(portal, /seoTitle:\s*"Prvé dni so šteniatkom – pokojný štart doma"/);
+  assert.match(portal, /metaDescription:\s*"Praktický prehľad prvých dní so šteniatkom/);
+  assert.match(portal, /Zdravie a starostlivosť", href:\s*"\/starostlivost"/);
+});

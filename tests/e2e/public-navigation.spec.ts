@@ -45,15 +45,15 @@ const expectedSubmenus = {
 } as const;
 
 const uxFoundationRoutes = [
-  { path: "/starostlivost", firstContent: ".care-urgent" },
-  { path: "/starostlivost/vyziva", firstContent: ".portal-topic-body" },
-  { path: "/aktivity", firstContent: ".activity-fit" },
-  { path: "/aktivity/trening", firstContent: ".portal-topic-body" },
-  { path: "/steniatka", firstContent: ".puppy-start" },
-  { path: "/steniatka/pred-kupou-psa", firstContent: ".portal-topic-body" },
+  { path: "/starostlivost", firstContent: "[data-section-public-callout]", minGap: 14, maxGap: 28 },
+  { path: "/starostlivost/vyziva", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
+  { path: "/aktivity", firstContent: "[data-section-public-callout]", minGap: 14, maxGap: 28 },
+  { path: "/aktivity/trening", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
+  { path: "/steniatka", firstContent: "[data-section-public-callout]", minGap: 14, maxGap: 28 },
+  { path: "/steniatka/pred-kupou-psa", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
 ] as const;
 
-const visualConsistencyPairs = [
+const compactHeaderPairs = [
   ["/steniatka", "/steniatka/pred-kupou-psa"],
   ["/starostlivost", "/starostlivost/vyziva"],
   ["/aktivity", "/aktivity/trening"],
@@ -196,13 +196,13 @@ test("PortalHub and PortalTopic share gutters, spacing and visible SectionTabs",
     await expect(page.locator("main#obsah")).toBeVisible();
     await expectNoHorizontalOverflow(page, route.path);
 
-    const heroContainer = page.locator(".section-hero > .page-container").first();
-    const breadcrumbs = heroContainer.locator(".page-breadcrumbs");
+    const headerContainer = page.locator("[data-section-public-header]").first();
+    const breadcrumbs = headerContainer.locator(".page-breadcrumbs");
     const tabs = page.locator(".portal-section-tabs");
     const tabsInner = tabs.locator(".section-tabs-inner");
     const firstContent = page.locator(route.firstContent).first();
 
-    await expect(heroContainer, `${route.path}: shared SectionHero/PageContainer missing`).toBeVisible();
+    await expect(headerContainer, `${route.path}: compact public header container missing`).toBeVisible();
     await expect(breadcrumbs, `${route.path}: shared Breadcrumbs missing`).toBeVisible();
     await expect(tabs, `${route.path}: SectionTabs missing`).toBeVisible();
     await expect(firstContent, `${route.path}: first content block missing`).toBeVisible();
@@ -221,24 +221,22 @@ test("PortalHub and PortalTopic share gutters, spacing and visible SectionTabs",
     expect(activeHit, `${route.path}: active tab is covered`).toBe(true);
 
     const tabsBox = await measuredBox(tabs, `${route.path}: section tabs`);
-    const contentTarget = route.firstContent === ".portal-topic-body"
-      ? firstContent.locator(":scope > *").first()
-      : firstContent;
+    const contentTarget = firstContent.locator(":scope > *").first();
     const contentBox = await measuredBox(contentTarget, `${route.path}: content after tabs`);
     const flowGap = contentBox.y - (tabsBox.y + tabsBox.height);
-    expect(flowGap, `${route.path}: tabs/content spacing`).toBeGreaterThanOrEqual(18);
-    expect(flowGap, `${route.path}: tabs/content spacing`).toBeLessThanOrEqual(24);
+    expect(flowGap, `${route.path}: tabs/content spacing`).toBeGreaterThanOrEqual(route.minGap);
+    expect(flowGap, `${route.path}: tabs/content spacing`).toBeLessThanOrEqual(route.maxGap);
 
-    const heroBox = await measuredBox(heroContainer, `${route.path}: hero container`);
+    const headerPublicBox = await measuredBox(headerContainer, `${route.path}: public header container`);
     const tabsInnerBox = await measuredBox(tabsInner, `${route.path}: tabs container`);
 
     if (isMobile) {
-      const headerBox = await measuredBox(page.locator(".header-inner"), `${route.path}: header`);
+      const siteHeaderBox = await measuredBox(page.locator(".header-inner"), `${route.path}: site header`);
       const contentShellBox = await measuredBox(firstContent, `${route.path}: content shell`);
       const viewportWidth = page.viewportSize()!.width;
       for (const [label, measured] of [
-        ["header", headerBox],
-        ["hero", heroBox],
+        ["site header", siteHeaderBox],
+        ["section header", headerPublicBox],
         ["tabs", tabsInnerBox],
         ["content", contentShellBox],
       ] as const) {
@@ -248,20 +246,22 @@ test("PortalHub and PortalTopic share gutters, spacing and visible SectionTabs",
       const breadcrumbBox = await measuredBox(breadcrumbs, `${route.path}: breadcrumbs`);
       expect(Math.abs(breadcrumbBox.x - 16), `${route.path}: breadcrumbs gutter`).toBeLessThanOrEqual(1);
     } else {
-      expect(heroBox.width, `${route.path}: desktop container exceeds 1180px`).toBeLessThanOrEqual(1180.5);
+      expect(headerPublicBox.width, `${route.path}: desktop header container exceeds 1180px`).toBeLessThanOrEqual(1180.5);
       expect(tabsInnerBox.width, `${route.path}: desktop tabs exceed 1180px`).toBeLessThanOrEqual(1180.5);
     }
   }
 });
 
-test("structured parent and child pages share the image-led hero system", async ({ page }) => {
-  for (const pair of visualConsistencyPairs) {
+test("structured parent and child pages share the compact section header system", async ({ page }) => {
+  for (const pair of compactHeaderPairs) {
     for (const path of pair) {
       await page.goto(path);
-      const hero = page.locator(".portal-section-hero");
-      await expect(hero, `${path}: shared portal hero missing`).toBeVisible();
-      await expect(hero, `${path}: image-led portal hero missing`).toHaveClass(/portal-section-hero--photo/);
-      await expect(hero.locator(":scope > .section-hero-photo"), `${path}: hero image missing`).toHaveCount(1);
+      const headerContainer = page.locator("[data-section-public-header]").first();
+      await expect(headerContainer, `${path}: compact public header missing`).toBeVisible();
+      await expect(headerContainer.locator(".page-breadcrumbs"), `${path}: breadcrumbs missing from compact header`).toBeVisible();
+      await expect(headerContainer.locator("h1"), `${path}: compact header title missing`).toBeVisible();
+      await expect(page.locator(".portal-section-hero"), `${path}: legacy portal hero must stay removed`).toHaveCount(0);
+      await expect(page.locator(".section-hero-photo"), `${path}: category/detail must not render a legacy photo hero`).toHaveCount(0);
       await expectNoHorizontalOverflow(page, path);
     }
   }

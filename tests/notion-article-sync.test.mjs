@@ -25,6 +25,32 @@ test("Notion query automatically scans Ready articles in the exact data source",
   assert.match(syncSource, /\/data_sources\/\$\{encodeURIComponent\(dataSourceId\)\}\/query/);
 });
 
+
+test("Notion editorial categories map to supported public article destinations", () => {
+  for (const category of ["Zdravie a starostlivosť", "Výživa", "Správanie", "Výcvik a aktivity", "Šteniatka"]) {
+    assert.ok(syncSource.includes(`"${category}": {`), `missing placement for ${category}`);
+  }
+  assert.match(syncSource, /portalSection: "starostlivost"/);
+  assert.match(syncSource, /portalSubpage: "zdravie"/);
+  assert.match(syncSource, /portalSubpage: "vyziva"/);
+  assert.match(syncSource, /portalSubpage: "spravanie"/);
+  assert.match(syncSource, /portalSection: "aktivity"/);
+  assert.match(syncSource, /portalSubpage: "trening"/);
+  assert.match(syncSource, /portalSection: "steniatka"/);
+  assert.match(syncSource, /contentType === "Aktuálna novinka"/);
+  assert.match(syncSource, /portalSection: "novinky"/);
+  assert.match(syncSource, /contentType === "Recenzia"/);
+  assert.match(syncSource, /portalSection: "recenzie"/);
+});
+
+test("unsupported editorial buckets do not invent non-article portal sections", () => {
+  for (const category of ["Plemená", "Pomoc psom", "Bezpečnosť", "Zaujímavosti"]) {
+    assert.ok(syncSource.includes(`"${category}": {`), `missing safe fallback for ${category}`);
+  }
+  assert.doesNotMatch(syncSource, /portalSection: "plemena"/);
+  assert.doesNotMatch(syncSource, /portalSection: "pomoc-psom"/);
+});
+
 test("sync is idempotent and writes status back to Notion", () => {
   assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
