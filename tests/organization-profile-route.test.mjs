@@ -60,3 +60,16 @@ test("profile renders canonical multi-location presentation once and exposes pri
   assert.equal((componentSource.match(/presentation\.location/g) ?? []).length >= 1, true);
   assert.doesNotMatch(componentSource, /organization\.city|organization\.district|organization\.region/);
 });
+
+test("profile renders fundraising only from the public composition contract", () => {
+  assert.match(componentSource, /fundraisingMethods/);
+  assert.match(componentSource, /buildOrganizationFundraisingPresentation\(fundraisingMethods\)/);
+  assert.match(componentSource, /data-organization-fundraising/);
+  assert.match(componentSource, /data-fundraising-method=/);
+  assert.match(componentSource, /target="_blank"/);
+  assert.match(componentSource, /rel="noreferrer"/);
+  assert.doesNotMatch(
+    componentSource,
+    /beneficiaryIdentity|beneficiary_identity|verifiedBy|verified_by|verificationSource|version|createdBy|updatedBy/i,
+  );
+});
