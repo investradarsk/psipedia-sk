@@ -3,6 +3,7 @@ name: ARTICLE-UX-1 focused validation
 on:
   pull_request:
     branches: [main]
+    # Keep shared layout/build/test inputs in scope so cross-cutting changes still exercise this suite.
     paths:
       - "app/layout.tsx"
       - "app/*.css"
