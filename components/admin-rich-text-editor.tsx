@@ -211,8 +211,9 @@ export function AdminRichTextEditor({
 
   useEffect(() => {
     const root = editorRef.current;
-    if (!root || signature === lastEmittedRef.current) return;
-    renderDocument(root, value);
+    if (!root) return;
+    if (signature !== lastEmittedRef.current) renderDocument(root, value);
+    root.dataset.editorReady = "true";
   }, [signature, value]);
 
   function emitChange() {
