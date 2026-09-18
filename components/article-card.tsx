@@ -25,7 +25,7 @@ export function ArticleCard({
   const topicHref = topicHrefOverride ?? (newsCategory ? `/novinky/${newsCategory.slug}` : `/tema/${categorySlug(article.category)}`);
   const topicLabel = topicLabelOverride ?? (newsCategory ? newsCategory.shortLabel : article.category);
 
-  if (!large) return <ArticleListItem article={article} topicLabel={topicLabel} />;
+  if (!large) return <ArticleListItem article={article} topicLabel={topicLabel} listItem={false} />;
 
   const resolvedActionLabel = actionLabel ?? (section === "novinky" ? "Čítať novinku" : "Čítať článok");
   return (
