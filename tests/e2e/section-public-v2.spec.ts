@@ -138,6 +138,10 @@ test("SECTION-PUBLIC keeps public 404 and legacy training redirect contracts", a
   expect(missing?.status()).toBe(404);
 
   const legacy = await page.goto("/aktivity/-vycvik-a-aktivity-trening", { waitUntil: "commit" });
-  expect(legacy?.status()).toBe(301);
+  expect(legacy?.status()).toBe(200);
+  const redirectRequest = legacy?.request().redirectedFrom();
+  expect(redirectRequest, "legacy training request must redirect").not.toBeNull();
+  const redirectResponse = await redirectRequest?.response();
+  expect(redirectResponse?.status()).toBe(301);
   await expect(page).toHaveURL(/\/aktivity\/trening$/);
 });
