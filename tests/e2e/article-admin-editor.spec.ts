@@ -11,7 +11,7 @@ async function waitForEditor(page: import("@playwright/test").Page, selector = "
 
 async function fillMinimumArticle(page: import("@playwright/test").Page, title: string) {
   await waitForEditor(page);
-  await page.getByLabel(/Názov článku/).fill(title);
+  await page.locator("#article-title").fill(title);
   await page.getByLabel("Krátky úvod na karte").fill("Izolovaný E2E perex s dostatočnou dĺžkou pre validačný contract.");
   const intro = page.locator("#article-intro");
   await intro.fill("Toto je bezpečný úvod článku s dostatočnou dĺžkou pre redakčný editor.");
