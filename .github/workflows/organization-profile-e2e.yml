@@ -3,6 +3,40 @@ name: Organization profile E2E
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "app/layout.tsx"
+      - "app/*.css"
+      - "app/organizacie/**"
+      - "components/organization-profile-*"
+      - "components/adoption-card-media.tsx"
+      - "components/detail-primitives/**"
+      - "components/page-system.tsx"
+      - "components/site-header*"
+      - "components/site-footer*"
+      - "components/cookie-consent*"
+      - "lib/help-organization-store.ts"
+      - "lib/organization-adoption-store.ts"
+      - "lib/organization-profile-presentation.ts"
+      - "lib/organization-seo.ts"
+      - "lib/adoption.ts"
+      - "lib/adoption-store.ts"
+      - "lib/adoption-detail.ts"
+      - "lib/seo.ts"
+      - "lib/navigation-store.ts"
+      - "db/adoption-schema.ts"
+      - "db/foundation-schema.ts"
+      - "drizzle/**"
+      - "scripts/bootstrap-adoption-staging-ci.mjs"
+      - "tests/e2e/organization-profile.spec.ts"
+      - "tests/fixtures/organization-profile-e2e.sql"
+      - "tests/organization-profile-presentation.test.mjs"
+      - "tests/organization-profile-route.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.ts"
+      - "vite.config.*"
+      - "tsconfig.json"
+      - ".github/workflows/organization-profile-e2e.yml"
 
 concurrency:
   group: organization-profile-e2e-${{ github.ref }}
