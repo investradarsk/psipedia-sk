@@ -59,6 +59,48 @@ test.describe("organization public profile", () => {
     );
     await expect(main.getByText("https://provenance.example.invalid/internal-only", { exact: true })).toHaveCount(0);
 
+    await expect(main.getByRole("heading", { name: "Ako môžete pomôcť" })).toBeVisible();
+    const fundraisingCards = main.locator("[data-fundraising-method]");
+    await expect(fundraisingCards).toHaveCount(3);
+    await expect(fundraisingCards.nth(0)).toHaveAttribute("data-fundraising-method", "990201");
+    await expect(fundraisingCards.nth(1)).toHaveAttribute("data-fundraising-method", "990202");
+    await expect(fundraisingCards.nth(2)).toHaveAttribute("data-fundraising-method", "990203");
+
+    const donation = main.locator('[data-fundraising-method="990201"]');
+    await expect(donation).toContainText("Podporte našu starostlivosť");
+    await expect(donation.getByRole("link", { name: /Otvoriť stránku podpory/ })).toHaveAttribute(
+      "href",
+      "https://example.org/support",
+    );
+
+    const bank = main.locator('[data-fundraising-method="990202"]');
+    await expect(bank).toContainText("GB82 WEST 1234 5698 7654 32");
+    await expect(bank).toContainText("dlhší syntetický text");
+
+    const material = main.locator('[data-fundraising-method="990203"]');
+    await expect(material).toContainText("Materiálna pomoc s veľmi dlhým názvom");
+    await expect(material).toContainText("Granule, deky a hygienické potreby");
+
+    for (const hidden of [
+      "ORG-7E skrytá neaktívna metóda",
+      "ORG-7E skrytá rejected metóda",
+      "ORG-7E skrytá expired metóda",
+      "ORG-7E citlivý príjemca – NESMIE BYŤ V HTML",
+      "ORG-7E bank beneficiary – NESMIE BYŤ V HTML",
+      "org7e-verifier@example.invalid",
+      "internal-verification-source",
+    ]) {
+      await expect(main.getByText(hidden, { exact: false })).toHaveCount(0);
+    }
+
+    for (const card of await fundraisingCards.all()) {
+      const overflow = await card.evaluate((element) => Math.max(0, element.scrollWidth - element.clientWidth));
+      expect(overflow).toBeLessThanOrEqual(1);
+    }
+    const fundraisingCtaBox = await donation.getByRole("link", { name: /Otvoriť stránku podpory/ }).boundingBox();
+    expect(fundraisingCtaBox).not.toBeNull();
+    expect(fundraisingCtaBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+
     await expect(main.locator("[data-organization-location-summary]")).toHaveCount(0);
     const locations = main.locator("[data-organization-location]");
     await expect(locations).toHaveCount(2);
@@ -135,6 +177,15 @@ test.describe("organization public profile", () => {
     );
     await expect(singleMain.locator("[data-organization-location]")).toHaveCount(0);
     await expect(singleMain.getByText("Legacy mesto", { exact: true })).toHaveCount(0);
+    await expect(singleMain.getByRole("heading", { name: "Ako môžete pomôcť" })).toBeVisible();
+    const singleFundraising = singleMain.locator("[data-fundraising-method]");
+    await expect(singleFundraising).toHaveCount(1);
+    await expect(singleFundraising).toHaveAttribute("data-fundraising-method", "990207");
+    await expect(singleFundraising).toContainText("Transparentný účet");
+    await expect(singleFundraising.getByRole("link", { name: /Otvoriť transparentný účet/ })).toHaveAttribute(
+      "href",
+      "https://example.org/transparent",
+    );
     await expectNoHorizontalOverflow(page);
 
     const emptyResponse = await page.goto("/organizacie/org-2b-e2e-bez-lokality", {
@@ -146,6 +197,8 @@ test.describe("organization public profile", () => {
     await expect(emptyMain.locator("[data-organization-location-summary]")).toHaveCount(0);
     await expect(emptyMain.locator("[data-organization-location]")).toHaveCount(0);
     await expect(emptyMain.getByRole("heading", { name: "Kde organizácia pôsobí" })).toHaveCount(0);
+    await expect(emptyMain.getByRole("heading", { name: "Ako môžete pomôcť" })).toHaveCount(0);
+    await expect(emptyMain.locator("[data-organization-fundraising]")).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
   });
 
