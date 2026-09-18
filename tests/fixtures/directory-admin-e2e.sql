@@ -1,6 +1,7 @@
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-directory-%';
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-services-detail-%';
 DELETE FROM directory_profiles WHERE slug LIKE 'health-fixture-%';
+DELETE FROM directory_profiles WHERE slug IN ('directory-admin-editor-fixture', 'bulk-fixture-draft', 'bulk-fixture-published');
 
 WITH RECURSIVE seq(n) AS (
   SELECT 1
@@ -8,7 +9,7 @@ WITH RECURSIVE seq(n) AS (
   SELECT n + 1 FROM seq WHERE n < 61
 )
 INSERT INTO directory_profiles (
-  slug, name, category, status, excerpt, description, services_json, city, region,
+  slug, name, category, status, excerpt, description, services_json, city, district, region,
   created_at, updated_at, created_by, updated_by
 )
 SELECT
@@ -19,6 +20,7 @@ SELECT
   'E2E veterinárny profil pre test serverových filtrov.',
   'Deterministický lokálny E2E profil používaný iba v CI.',
   CASE WHEN n = 61 THEN '["Fyzioterapia","Kúpanie"]' ELSE '["Preventívna starostlivosť"]' END,
+  CASE WHEN n = 61 THEN 'Žilina' ELSE 'Nitra' END,
   CASE WHEN n = 61 THEN 'Žilina' ELSE 'Nitra' END,
   CASE WHEN n = 61 THEN 'Žilinský kraj' ELSE 'Nitriansky kraj' END,
   '2026-09-13T12:00:00.000Z',
@@ -200,4 +202,70 @@ INSERT INTO directory_profiles (
   '2026-09-14T09:10:00.000Z',
   'health-fixture@psipedia.local',
   'health-fixture@psipedia.local'
+);
+
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  'directory-admin-editor-fixture',
+  'Directory Admin Editor Fixture',
+  'treneri',
+  'published',
+  'Bezpečný repository-managed profil pre DIRECTORY-ADMIN editor E2E.',
+  'Tento deterministický profil slúži iba na overenie editácie kontaktov, médií a publication stavu.',
+  '["Individuálny výcvik"]',
+  '["Testovacia kvalifikácia"]',
+  'Nitra',
+  'Nitra',
+  'Nitriansky kraj',
+  'Testovacia 99',
+  1,
+  'Testovacia cena',
+  'https://example.org/original',
+  'internal-fixture@example.invalid',
+  'https://example.org/directory-admin-fixture.jpg',
+  NULL,
+  '{"Telefón":"+421 900 111 222","E-mail":"public-fixture@example.invalid","Facebook":"https://facebook.com/original-fixture","Instagram":"https://instagram.com/original-fixture","Plemeno":"Labradorský retriever","Organizácia":"Fixture klub","Pokrytie":"Nitra a okolie"}',
+  1,
+  1,
+  '2026-09-18T18:00:00.000Z',
+  '2026-09-18T18:00:00.000Z',
+  '2026-09-18T18:00:00.000Z',
+  'fixture@psipedia.local',
+  'fixture@psipedia.local'
+);
+
+INSERT INTO directory_profiles (
+  slug, name, category, status, excerpt, description, services_json, qualifications_json,
+  city, district, region, address, online, price_note, website_url, image_url,
+  source_data_json, verified, featured, created_at, updated_at, published_at, created_by, updated_by
+) VALUES
+(
+  'bulk-fixture-draft',
+  'Bulk Fixture Draft',
+  'dalsie-sluzby',
+  'draft',
+  'Bezpečný koncept pre test directory bulk publikovania.',
+  'Deterministický profil určený iba na bezpečný E2E test hromadnej zmeny publication stavu.',
+  '["Testovacia služba"]',
+  '[]',
+  'Nitra', 'Nitra', 'Nitriansky kraj', '', 0, '', NULL, NULL, '{}', 0, 0,
+  '2026-09-18T18:10:00.000Z', '2026-09-18T18:10:00.000Z', NULL,
+  'fixture@psipedia.local', 'fixture@psipedia.local'
+),
+(
+  'bulk-fixture-published',
+  'Bulk Fixture Published',
+  'dalsie-sluzby',
+  'published',
+  'Bezpečný publikovaný profil pre test directory bulk presunu do konceptu.',
+  'Deterministický profil určený iba na bezpečný E2E test hromadnej zmeny publication stavu.',
+  '["Testovacia služba"]',
+  '[]',
+  'Nitra', 'Nitra', 'Nitriansky kraj', '', 0, '', NULL, NULL, '{}', 0, 0,
+  '2026-09-18T18:11:00.000Z', '2026-09-18T18:11:00.000Z', '2026-09-18T18:11:00.000Z',
+  'fixture@psipedia.local', 'fixture@psipedia.local'
 );
