@@ -83,7 +83,7 @@ test("empty thin review categories are noindex and excluded from sitemap until t
 test("review category landing content and SEO are manageable in the existing section admin", () => {
   const editor = read("components/admin-section-editor.tsx");
   assert.match(editor, /const isReviewSection = section\.slug === "recenzie"/);
-  assert.match(editor, /isStructuredSection = section\.slug === "starostlivost" \|\| section\.slug === "aktivity" \|\| section\.slug === "steniatka" \|\| isReviewSection/);
+  assert.match(editor, /isStructuredSection = \["starostlivost", "aktivity", "steniatka", "recenzie"\]\.includes\(section\.slug\)/);
   assert.match(editor, /Obsah kategórie recenzií a testov/);
   assert.match(editor, /Metodika testovania a redakčný kontext/);
   assert.match(editor, /SEO title/);

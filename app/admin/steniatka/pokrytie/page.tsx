@@ -17,8 +17,8 @@ export default async function AdminPuppyCoveragePage() {
     <AdminShell
       user={user}
       eyebrow="Redakčné plánovanie"
-      title="Pokrytie obsahu: Šteniatka"
-      description="Read-only prehľad existujúcej taxonómie a článkov. Coverage sa odvodzuje výhradne z priradenej oblasti a publikačného statusu."
+      title="Pokrytie tém: Šteniatka"
+      description="Redakčný prehľad ukazuje, ktoré oblasti už majú publikovaný obsah, ktoré sú rozpracované a kde obsah chýba. Stav sa odvodzuje iba z existujúcich článkov a nič tu nemení dáta."
       actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link>}
     >
       <AdminPuppyCoverage rows={rows} />

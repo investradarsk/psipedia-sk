@@ -1,13 +1,18 @@
-name: Admin Puppy Coverage Matrix
+name: Admin Sections and Puppy Coverage
 
 on:
   pull_request:
     branches: [main]
     paths:
+      - "app/admin/sekcie/**"
       - "app/admin/steniatka/**"
+      - "components/admin-section-editor*"
       - "components/admin-puppy-coverage*"
+      - "lib/section-store.ts"
       - "lib/puppy-coverage*"
+      - "tests/admin-sections-v2.test.mjs"
       - "tests/admin-puppy-coverage.test.mjs"
+      - "tests/e2e/admin-sections-v2.spec.ts"
       - "tests/e2e/admin-puppy-coverage.spec.ts"
       - ".github/workflows/admin-puppy-coverage-ci.yml"
   workflow_dispatch:
@@ -17,7 +22,7 @@ permissions:
 
 jobs:
   puppy-coverage:
-    name: Coverage contract, desktop and mobile
+    name: Sections + puppy editorial workflow, desktop and mobile
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -39,8 +44,8 @@ jobs:
       - run: npm ci
       - name: Migration safety
         run: npm run test:migration-safety
-      - name: Focused ADMIN-2C tests
-        run: node --experimental-strip-types --test tests/admin-puppy-coverage.test.mjs
+      - name: Focused SECTION-ADMIN tests
+        run: node --experimental-strip-types --test tests/admin-sections-v2.test.mjs tests/admin-puppy-coverage.test.mjs
       - name: Lint
         run: npm run lint
       - name: Production build
@@ -75,8 +80,13 @@ jobs:
             tail -200 .e2e-artifacts/admin-puppy-coverage/server.log
             exit 1
           fi
-      - name: Puppy Coverage Playwright — desktop and mobile
-        run: npx playwright test tests/e2e/admin-puppy-coverage.spec.ts --workers=1 --retries=0
+      - name: Materialize managed Portal sections in isolated local D1 only
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-phase5-e2e.mjs sections-only
+      - name: Sections and Puppy Coverage Playwright — desktop and mobile
+        run: npx playwright test tests/e2e/admin-sections-v2.spec.ts tests/e2e/admin-puppy-coverage.spec.ts --workers=1 --retries=0
       - name: Stop local app
         if: always()
         run: |
