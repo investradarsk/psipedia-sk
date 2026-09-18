@@ -15,6 +15,7 @@ import {
   type ArticleBlock,
 } from "@/lib/article-blocks";
 import { getEditorialAuthorProfile, resolveArticleAuthorSelection } from "@/lib/editorial-authors";
+import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 import {
   editorialRichTextPlainText,
   legacyRichTextToDocument,
@@ -525,6 +526,9 @@ async function normalizeInput(
     }
     if (block.type === "related" && (!block.title || !block.href)) {
       throw new Error("Súvisiaci článok potrebuje názov aj odkaz.");
+    }
+    if (block.type === "embed" && block.url && !normalizeEditorialExternalVideo({ url: block.url, title: block.title, caption: block.caption })) {
+      throw new Error("Video musí byť bezpečný HTTPS odkaz na YouTube alebo Vimeo.");
     }
   }
 
