@@ -17,6 +17,16 @@ function helpImportSql() {
   return source.slice(templateStart + 1, templateEnd);
 }
 
+test("legacy shelter helpItems are rejected before preview or write preparation", () => {
+  const shelterGate = source.indexOf('text(row.category).trim() === "utulky"');
+  const previewCall = source.indexOf("const helpPreview = await previewHelpItems(");
+  const statements = source.indexOf("const statements: D1PreparedStatement[] = [];");
+  assert.notEqual(shelterGate, -1);
+  assert.ok(shelterGate < previewCall);
+  assert.ok(shelterGate < statements);
+  assert.match(source, /canonical help_organizations/);
+});
+
 test("helpItems import re-runs the read-only preview gate before any write statements", () => {
   const previewCall = source.indexOf("const helpPreview = await previewHelpItems(");
   const statements = source.indexOf("const statements: D1PreparedStatement[] = [];");

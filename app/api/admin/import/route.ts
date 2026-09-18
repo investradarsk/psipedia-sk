@@ -114,6 +114,10 @@ export async function POST(request: Request) {
     const legal = payload.legal ? object(payload.legal) : null;
     const selectedProfileCategory = text(payload.profileCategory);
 
+    if (helpItems.some((row) => text(row.category).trim() === "utulky")) {
+      throw new Error("Import Pomoc psom už neprijíma kategóriu utulky; organizácie sa spravujú v canonical help_organizations.");
+    }
+
     if (helpItems.length) {
       const helpPreview = await previewHelpItems(database, helpItems, allHelpCategories.map((item) => item.slug), slovakRegions);
       const unsafeRows = helpPreview.rows.filter((row) => !row.safeForImport);

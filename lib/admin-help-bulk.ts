@@ -53,7 +53,7 @@ export async function resolveHelpBulkSelection(database: HelpBulkDatabase, value
   if (selection.mode === "ids") {
     const ids = validIds(selection.ids);
     const result = await database.prepare(`SELECT id, status, updated_at AS updatedAt, category, verified, action_url AS actionUrl, goal_amount AS goalAmount
-      FROM help_cases WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?)) ORDER BY id`).bind(JSON.stringify(ids)).all<BulkRow>();
+      FROM help_cases WHERE category <> 'utulky' AND id IN (SELECT CAST(value AS INTEGER) FROM json_each(?)) ORDER BY id`).bind(JSON.stringify(ids)).all<BulkRow>();
     rows = result.results;
     if (rows.length !== ids.length) throw new Error("Niektorý označený záznam už neexistuje. Obnov zoznam.");
   } else {
@@ -108,9 +108,11 @@ export const bulkHelpStatusSql = `
   UPDATE help_cases SET status = ?, updated_at = ?, updated_by = ?,
     published_at = CASE WHEN ? = 'published' THEN COALESCE(published_at, ?) ELSE published_at END
   WHERE id IN (SELECT id FROM requested)
+    AND category <> 'utulky'
     AND (SELECT COUNT(*) FROM help_cases h JOIN requested r ON h.id = r.id
          AND h.status = r.status AND h.updated_at = r.updated_at
-         WHERE ? <> 'published' OR h.category <> 'zbierky'
-           OR (h.verified = 1 AND h.action_url IS NOT NULL AND trim(h.action_url) <> '' AND (h.goal_amount IS NULL OR h.goal_amount > 0))) = ?
+         WHERE h.category <> 'utulky'
+           AND (? <> 'published' OR h.category <> 'zbierky'
+           OR (h.verified = 1 AND h.action_url IS NOT NULL AND trim(h.action_url) <> '' AND (h.goal_amount IS NULL OR h.goal_amount > 0)))) = ?
   RETURNING id
 `;

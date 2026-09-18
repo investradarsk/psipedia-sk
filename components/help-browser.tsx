@@ -39,7 +39,7 @@ export function HelpBrowser({ items, initialCategory = "all" }: { items: HelpCas
         <label className="help-active-filter"><input type="checkbox" checked={activeOnly} onChange={(event) => setActiveOnly(event.target.checked)} /><span>Len aktívne prípady</span></label>
       </div>
       <div className="help-result-heading"><div><span className="eyebrow">Aktuálne a overené</span><h2 id="help-results-heading">Kde je potrebná pomoc</h2></div><strong>{filtered.length} {filtered.length === 1 ? "prípad" : filtered.length > 1 && filtered.length < 5 ? "prípady" : "prípadov"}</strong></div>
-      {filtered.length ? <div className="help-grid">{filtered.map((item) => <HelpCard item={item} key={item.id} />)}</div> : <div className="help-empty"><span aria-hidden="true">❤️</span><h2>{items.length ? "Nenašli sme zhodu" : "Prvé overené prípady pripravujeme"}</h2><p>{items.length ? "Skús zmeniť kategóriu, kraj alebo zobraziť aj vybavené prípady." : "Sekcia je pripravená. Nové prípady sa zobrazia po redakčnom overení a publikovaní."}</p>{items.length > 0 && <button type="button" onClick={reset}>Zrušiť filtre</button>}</div>}
+      {filtered.length ? <div className="help-grid">{filtered.map((item) => <HelpCard item={item} key={`${item.category}:${item.id}`} />)}</div> : <div className="help-empty"><span aria-hidden="true">❤️</span><h2>{items.length ? "Nenašli sme zhodu" : "Prvé overené prípady pripravujeme"}</h2><p>{items.length ? "Skús zmeniť kategóriu, kraj alebo zobraziť aj vybavené prípady." : "Sekcia je pripravená. Nové prípady sa zobrazia po redakčnom overení a publikovaní."}</p>{items.length > 0 && <button type="button" onClick={reset}>Zrušiť filtre</button>}</div>}
     </section>
   );
 }

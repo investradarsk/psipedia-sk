@@ -93,6 +93,7 @@ test("sitemap source contains the catalog and indexable new details without dupl
   assert.match(sitemap, /getPublishedHelpCases\(\)/);
   assert.equal((sitemap.match(/getPublishedHelpCases\(\)/g) ?? []).length, 1);
   assert.match(sitemap, /item\.category !== "adopcia"/);
+  assert.match(sitemap, /item\.category !== "utulky"/);
   assert.match(sitemap, /new Map\(entries\.map\(\(entry\) => \[entry\.url, entry\]\)\)/);
 });
 
@@ -100,9 +101,9 @@ test("public help, homepage and portal search no longer source legacy adoption r
   const helpStore = read("../lib/help-store.ts");
   const helpRoot = read("../app/pomoc-psom/page.tsx");
   const portalSearch = read("../lib/portal-search.ts");
-  assert.match(helpStore, /status = 'published' AND category <> 'adopcia'/);
+  assert.match(helpStore, /status = 'published' AND category NOT IN \('adopcia', 'utulky'\)/);
   assert.match(helpStore, /category === "adopcia"\) return \[\]/);
-  assert.match(helpStore, /category <> 'adopcia' AND resolved = 0/);
+  assert.match(helpStore, /category NOT IN \('adopcia', 'utulky'\) AND resolved = 0/);
   assert.match(helpRoot, /getPublicAdoptions\(\{ page: 1 \}\)/);
   assert.match(helpRoot, /adoptionCount=\{adoptions\.pagination\.total\}/);
   assert.match(portalSearch, /listAllPublicAdoptions\(\)/);

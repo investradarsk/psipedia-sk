@@ -55,6 +55,10 @@ function database() {
   sqlite.exec("ALTER TABLE managed_breeds ADD seo_json TEXT DEFAULT '{}' NOT NULL");
   applyMigration(sqlite,"../drizzle/0022_fresh_hulk.sql");
   applyMigration(sqlite,"../drizzle/0023_big_shinko_yamashiro.sql");
+  // /sitemap.xml now reads canonical organizations, so this isolated fixture
+  // must bootstrap the same canonical organization/location schema contract.
+  applyMigration(sqlite,"../drizzle/0036_help_organizations_foundation.sql");
+  applyMigration(sqlite,"../drizzle/0040_organization_locations_foundation.sql");
   return {sqlite,d1:createD1Adapter(sqlite)};
 }
 

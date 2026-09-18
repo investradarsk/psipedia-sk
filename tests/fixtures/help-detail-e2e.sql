@@ -1,4 +1,21 @@
 -- Public presentation fixtures in local D1 only; never run against remote D1.
+-- ORG-6C canonical shelter fixture. The legacy help_cases row below deliberately remains present
+-- so the E2E route proves canonical help_organizations owns shelter identity/rendering.
+INSERT INTO help_organizations (
+  id, name, slug, legal_name, type, status, short_description, description,
+  public_email, public_phone, website_url, city, district, region, country_code,
+  source_data_json, seo_json, published_at, last_verified_at,
+  created_at, updated_at, created_by, updated_by
+) VALUES (
+  920001, 'E2E pomocná organizácia', 'e2e-organizacia', 'E2E pomocná organizácia, o.z.',
+  'CIVIC_ASSOCIATION', 'PUBLISHED', 'Canonical profil pre ORG-6C E2E.',
+  'Pomáhame psom. Dobrovoľníctvo: venčenie. Materiálna pomoc: deky.',
+  'help-e2e@example.invalid', '+421 900 123 456', 'https://example.org',
+  'Nitra', 'Nitra', 'Nitriansky kraj', 'SK', '{}', '{}',
+  '2026-09-14T10:00:00Z', '2026-09-14T10:00:00Z',
+  '2026-09-14T10:00:00Z', '2026-09-14T10:00:00Z', 'E2E_LOCAL', 'E2E_LOCAL'
+);
+
 INSERT INTO help_cases (
   id, slug, title, category, status, excerpt, description, organization, dog_name, breed, age_note,
   city, region, location_note, reported_date, deadline_date, action_label, action_url, contact_note,

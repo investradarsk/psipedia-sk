@@ -12,6 +12,13 @@ import {
   type HelpCategorySlug,
 } from "@/lib/help";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
+import type { AdoptionD1Database } from "@/lib/adoption-store";
+import {
+  getPublicOrganizationBySlug,
+  listPublishedOrganizations,
+  type PublicHelpOrganization,
+  type PublicOrganizationIndexItem,
+} from "@/lib/help-organization-store";
 
 export type ManagedHelpCaseInput = {
   slug?: string;
@@ -163,6 +170,56 @@ function rowToHelpCase(row: HelpCaseRow): HelpCase {
   };
 }
 
+function canonicalOrganizationToHelpCase(
+  organization: PublicOrganizationIndexItem | PublicHelpOrganization,
+): HelpCase {
+  const region = (slovakRegions as readonly string[]).includes(organization.region)
+    ? organization.region as SlovakRegion
+    : "Online";
+  return {
+    id: organization.id,
+    slug: organization.slug,
+    title: organization.name,
+    category: "utulky",
+    status: "published",
+    excerpt: organization.shortDescription,
+    description: organization.description,
+    organization: organization.name,
+    dogName: "",
+    breed: "",
+    ageNote: "",
+    city: organization.city || "Online",
+    region,
+    locationNote: "",
+    reportedDate: null,
+    deadlineDate: null,
+    actionLabel: defaultHelpActionLabel("utulky"),
+    actionUrl: organization.websiteUrl,
+    contactNote: [organization.publicEmail, organization.publicPhone].filter(Boolean).join(" · "),
+    goalAmount: null,
+    raisedAmount: null,
+    imageUrl: organization.imageUrl,
+    imageKey: null,
+    verified: Boolean(organization.lastVerifiedAt),
+    urgent: false,
+    resolved: false,
+    createdAt: organization.publishedAt,
+    updatedAt: organization.updatedAt,
+    publishedAt: organization.publishedAt,
+    createdBy: "",
+    updatedBy: "",
+    seo: {},
+  };
+}
+
+function comparePublicHelpCases(left: HelpCase, right: HelpCase) {
+  return Number(left.resolved) - Number(right.resolved)
+    || Number(right.urgent) - Number(left.urgent)
+    || Number(right.verified) - Number(left.verified)
+    || right.updatedAt.localeCompare(left.updatedAt)
+    || right.id - left.id;
+}
+
 function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
 
 function rowToHelpCaseSummary(row: HelpCaseSummaryRow): ManagedHelpCaseSummary {
@@ -223,6 +280,7 @@ function normalizeInput(payload: ManagedHelpCaseInput) {
   if (!title) throw new Error("Doplň názov prípadu alebo výzvy.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa prípadu nie je platná.");
   if (!category) throw new Error("Vyber kategóriu pomoci.");
+  if (category === "utulky") throw new Error("Útulky a organizácie sa spravujú v canonical sekcii Organizácie.");
   if (allHelpCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
   if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
   if (description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
@@ -272,10 +330,22 @@ export async function getPublishedHelpCases(category?: HelpCategorySlug, limit =
   if (!database) return [] as HelpCase[];
   if (category === "adopcia") return [] as HelpCase[];
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
-  const result = category
-    ? await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?").bind(category, safeLimit).all<HelpCaseRow>()
-    : await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category <> 'adopcia' ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?").bind(safeLimit).all<HelpCaseRow>();
-  return result.results.map(rowToHelpCase);
+  const organizationDatabase = database as unknown as AdoptionD1Database;
+  if (category === "utulky") {
+    return (await listPublishedOrganizations(organizationDatabase, safeLimit)).map(canonicalOrganizationToHelpCase);
+  }
+  if (category) {
+    const result = await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?").bind(category, safeLimit).all<HelpCaseRow>();
+    return result.results.map(rowToHelpCase);
+  }
+  const [legacy, organizations] = await Promise.all([
+    database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?").bind(safeLimit).all<HelpCaseRow>(),
+    listPublishedOrganizations(organizationDatabase, safeLimit),
+  ]);
+  return [
+    ...legacy.results.map(rowToHelpCase),
+    ...organizations.map(canonicalOrganizationToHelpCase),
+  ].sort(comparePublicHelpCases).slice(0, safeLimit);
 }
 
 export async function getHighlightedHelpCases(limit = 2) {
@@ -283,7 +353,7 @@ export async function getHighlightedHelpCases(limit = 2) {
   if (!database) return [] as HelpCase[];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database
-    .prepare("SELECT * FROM help_cases WHERE status = 'published' AND category <> 'adopcia' AND resolved = 0 ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?")
+    .prepare("SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND resolved = 0 ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?")
     .bind(safeLimit)
     .all<HelpCaseRow>();
   return result.results.map(rowToHelpCase);
@@ -292,6 +362,10 @@ export async function getHighlightedHelpCases(limit = 2) {
 const getPublishedHelpCaseUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
   if (!database || !isHelpCategory(category)) return null;
+  if (category === "utulky") {
+    const organization = await getPublicOrganizationBySlug(slug, database as unknown as AdoptionD1Database);
+    return organization ? canonicalOrganizationToHelpCase(organization) : null;
+  }
   const row = await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 };
@@ -304,6 +378,7 @@ export async function listManagedHelpCaseSummaries(limit = 100) {
   const result = await database.prepare(`
     SELECT id, slug, title, category, status, organization, dog_name, city, image_url, verified, urgent, resolved
     FROM help_cases
+    WHERE category <> 'utulky'
     ORDER BY updated_at DESC, id DESC
     LIMIT ?
   `).bind(safeLimit).all<HelpCaseSummaryRow>();
@@ -319,7 +394,7 @@ export async function getManagedHelpDashboard(filters: HelpAdminFilters) {
 export async function getManagedHelpCaseById(id: number) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const row = await database.prepare("SELECT * FROM help_cases WHERE id = ? LIMIT 1").bind(id).first<HelpCaseRow>();
+  const row = await database.prepare("SELECT * FROM help_cases WHERE id = ? AND category <> 'utulky' LIMIT 1").bind(id).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }
 
@@ -352,6 +427,7 @@ export async function updateManagedHelpCase(id: number, payload: ManagedHelpCase
   await ensureHelpStore(database);
   const existing = existingItem ?? await getManagedHelpCaseById(id);
   if (!existing) return null;
+  if (existing.category === "utulky") throw new Error("Legacy shelter záznam sa po canonical cutover už neupravuje.");
   const input = normalizeInput(payload);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
@@ -375,7 +451,7 @@ export async function updateManagedHelpCase(id: number, payload: ManagedHelpCase
 export async function deleteManagedHelpCase(id: number) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const row = await database.prepare("DELETE FROM help_cases WHERE id = ? RETURNING *").bind(id).first<HelpCaseRow>();
+  const row = await database.prepare("DELETE FROM help_cases WHERE id = ? AND category <> 'utulky' RETURNING *").bind(id).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }
 
