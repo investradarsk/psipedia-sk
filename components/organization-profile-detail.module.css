@@ -86,6 +86,7 @@
 .breadcrumbLink:focus-visible,
 .contactLink:focus-visible,
 .actionLink:focus-visible,
+.fundraisingCta:focus-visible,
 .adoptionCardBody a:focus-visible {
   outline: 2px solid var(--forest);
   outline-offset: 3px;
@@ -144,6 +145,90 @@
   font-size: 0.68rem;
   font-weight: 800;
   line-height: 1.2;
+}
+
+.fundraisingGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ps-space-stack);
+  min-width: 0;
+}
+
+.fundraisingCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 17px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: 18px;
+  background: var(--sage-light);
+}
+
+.fundraisingType {
+  margin: 0;
+  color: var(--forest);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.fundraisingCard h3 {
+  margin: 0;
+  color: var(--forest-dark);
+  font-size: 1.08rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.fundraisingDetail {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--cream);
+}
+
+.fundraisingDetail dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fundraisingDetail dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.fundraisingInstructions {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.fundraisingCta {
+  display: inline-flex;
+  width: fit-content;
+  min-height: var(--ps-control-min-height);
+  max-width: 100%;
+  align-items: center;
+  margin-top: auto;
+  color: var(--forest);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .adoptionGrid {
@@ -219,6 +304,7 @@
 
 @media (max-width: 760px) {
   .locationList,
+  .fundraisingGrid,
   .adoptionGrid {
     grid-template-columns: 1fr;
   }
