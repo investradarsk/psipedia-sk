@@ -3,6 +3,12 @@ import { cache } from "react";
 import { portalSections, type PortalSection, type PortalSubpage } from "@/lib/portal";
 
 export type ManagedPortalSection = PortalSection & { position: number; visible: boolean; updatedAt?: string };
+export type ManagedPortalSectionArticleCounts = { total: number; published: number; scheduled: number; draft: number };
+export type ManagedPortalSectionArticleCountResult = {
+  available: boolean;
+  counts: Record<string, ManagedPortalSectionArticleCounts>;
+};
+type ArticleCountRow = { slug: string; total: number; published: number; scheduled: number; draft: number };
 type Row = { slug: string; label: string; eyebrow: string; description: string; intro: string; subpages_json: string; position: number; visible: number; updated_at?: string };
 type ManagedSubpagesRow = { slug: string; subpages_json: string };
 type RuntimeBindings = { DB?: D1Database };
@@ -137,6 +143,37 @@ export const listManagedPortalSections = cache(async function listManagedPortalS
 export const getManagedPortalSection = cache(async function getManagedPortalSection(slug: string) {
   return (await listManagedPortalSections()).find((section) => section.slug === slug) ?? null;
 });
+
+export async function getManagedPortalSectionArticleCounts(): Promise<ManagedPortalSectionArticleCountResult> {
+  const db = database();
+  if (!db) return { available: false, counts: {} };
+
+  try {
+    const result = await db.prepare(`
+      SELECT
+        portal_section AS slug,
+        COUNT(*) AS total,
+        COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
+        COALESCE(SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END), 0) AS scheduled,
+        COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
+      FROM managed_articles
+      GROUP BY portal_section
+    `).all<ArticleCountRow>();
+
+    return {
+      available: true,
+      counts: Object.fromEntries(result.results.map((row) => [row.slug, {
+        total: Number(row.total ?? 0),
+        published: Number(row.published ?? 0),
+        scheduled: Number(row.scheduled ?? 0),
+        draft: Number(row.draft ?? 0),
+      }])),
+    };
+  } catch {
+    return { available: false, counts: {} };
+  }
+}
+
 
 export const getManagedPortalSubpage = cache(async function getManagedPortalSubpage(sectionSlug: string, subpageSlug: string) {
   const section = await getManagedPortalSection(sectionSlug);

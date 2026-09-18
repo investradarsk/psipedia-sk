@@ -26,10 +26,12 @@ test("managed subsection writes reject technical labels and malformed slugs", ()
 
 test("section editor keeps subsection name and address in separate fields", () => {
   const editor = read("components/admin-section-editor.tsx");
-  assert.match(editor, /<label>Názov<input value=\{subpage\.label\}/);
-  assert.match(editor, /updateSubpage\(section\.slug, subIndex, \{ label: event\.target\.value \}\)/);
-  assert.match(editor, /<label>Adresa<input value=\{subpage\.slug\}/);
-  assert.match(editor, /updateSubpage\(section\.slug, subIndex, \{ slug: event\.target\.value/);
+  assert.match(editor, /<span>Názov<\/span>/);
+  assert.match(editor, /value=\{subpage\.label\}/);
+  assert.match(editor, /updateSubpage\(section\.slug, subIndex, \{ label: event\.currentTarget\.value \}\)/);
+  assert.match(editor, /<span>Slug \/ adresa<\/span>/);
+  assert.match(editor, /value=\{settingsSubpage\.slug\}/);
+  assert.match(editor, /updateSubpage\(settingsSection\.slug, settingsTarget\.subIndex, \{/);
 });
 
 test("editorial hubs expose direct content before the area directory", () => {
