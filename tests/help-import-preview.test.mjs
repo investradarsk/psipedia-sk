@@ -8,13 +8,13 @@ const categories = ["utulky", "adopcia", "docasna-opatera", "zbierky", "dobrovol
 
 function input(overrides = {}) {
   return {
-    title: "Útulok Priateľ", slug: "utulok-priatel", category: "utulky", status: "draft",
-    excerpt: "Pomáhame psom v núdzi a hľadáme im domovy.",
-    description: "Pomáhame psom v núdzi a sprostredkúvame im zodpovedné adopcie na Slovensku.",
+    title: "Venčenie v OZ Priateľ", slug: "vencenie-oz-priatel", category: "dobrovolnictvo", status: "draft",
+    excerpt: "Pomôžte pravidelným venčením psov v starostlivosti združenia.",
+    description: "Hľadáme dobrovoľníkov na pravidelné prechádzky so psami v starostlivosti združenia.",
     organization: "OZ Priateľ", dogName: "", city: "Nitra", region: "Nitriansky kraj", locationNote: "Okres: Nitra",
-    actionLabel: "Pomôcť organizácii",
-    contactNote: "E-mail: ahoj@priatel.sk\nTelefón: +421 900 123 456\nFacebook: https://facebook.com/priatel",
-    actionUrl: "https://priatel.sk", ...overrides,
+    actionLabel: "Chcem pomôcť",
+    contactNote: "E-mail: ahoj@priatel.sk\nTelefón: +421 900 123 456",
+    actionUrl: "https://priatel.sk/pomoc", ...overrides,
   };
 }
 function production(overrides = {}) {
@@ -28,7 +28,7 @@ function production(overrides = {}) {
 }
 function classify(items, rows = []) { return classifyHelpItems(items, rows, categories, regions); }
 
-test("new valid organization is NEW and safe", () => {
+test("new valid help case is NEW and safe", () => {
   const preview = classify([input()]);
   assert.equal(preview.total, 1);
   assert.equal(preview.NEW, 1);
@@ -51,7 +51,7 @@ test("same (category, slug) reads a match and never writes; identical record is 
 test("different slug with strong identity is POSSIBLE_DUPLICATE", () => {
   const preview = classify([input({ slug: "oz-priatel" })], [production()]);
   assert.equal(preview.POSSIBLE_DUPLICATE, 1);
-  assert.equal(preview.rows[0].matchedProductionTitle, "Útulok Priateľ");
+  assert.equal(preview.rows[0].matchedProductionTitle, "Venčenie v OZ Priateľ");
   assert.equal(preview.SAFE_FOR_IMPORT, 0);
 });
 
@@ -98,7 +98,7 @@ test("106 inputs perform only one SELECT and no D1 write", async () => {
 test("runtime preview excludes legacy shelter rows and blocks utulky as a legacy help import category", async () => {
   let query = "";
   const db = { prepare(sql) { query = sql; return { async all() { return { success: true, results: [] }; } }; } };
-  const preview = await previewHelpItems(db, [input()], categories, regions);
+  const preview = await previewHelpItems(db, [input({ category: "utulky", slug: "legacy-utulok", title: "Legacy útulok", actionLabel: "Pomôcť organizácii" })], categories, regions);
   assert.ok(query.includes("FROM help_cases WHERE category <> 'utulky'"));
   assert.equal(preview.BLOCKED, 1);
   assert.match(preview.rows[0].reason, /neplatná category/);
@@ -109,11 +109,6 @@ test("an incomplete or failed production SELECT aborts preview instead of markin
   await assert.rejects(previewHelpItems({ prepare() { return { async all() { throw new Error("D1 unavailable"); } }; } }, [input()], categories, regions), /D1 unavailable/);
 });
 
-test("same contact identity or site domain across locations is not automatically NEW for organizations", () => {
-  const existing = production({ id: 5, slug: "povodny-utulok", title: "Starý názov", organization: "Iné združenie", city: "Trnava", region: "Trnavský kraj" });
-  assert.equal(classify([input()], [existing]).POSSIBLE_DUPLICATE, 1);
-  assert.equal(classify([input({ actionUrl: "https://ine.sk", contactNote: "E-mail: ahoj@priatel.sk" })], [existing]).POSSIBLE_DUPLICATE, 1);
-});
 
 test("duplicate input keys block both rows and invalid payload stays BLOCKED", () => {
   const preview = classify([input(), input(), { ...input(), slug: "chybny", region: "Trnavský kraj / Nitriansky kraj" }]);
@@ -121,14 +116,6 @@ test("duplicate input keys block both rows and invalid payload stays BLOCKED", (
   assert.equal(preview.SAFE_FOR_IMPORT, 0);
 });
 
-test("shared legal operator across different organization titles remains a possible duplicate in utulky", () => {
-  const caseInput = input({ title: "Združenie za práva zvierat, o.z.", slug: "zdruzenie-za-prava-zvierat", organization: "Združenie za práva zvierat, o.z.", city: "Bratislava" });
-  const caseProduction = production({ title: "Československý kastračný program", slug: "ceskoslovensky-kastracny-program", organization: "Združenie za práva zvierat, o.z.", city: "Trnava" });
-  const preview = classify([caseInput], [caseProduction]);
-  assert.equal(preview.POSSIBLE_DUPLICATE, 1);
-  assert.equal(preview.rows[0].matchedProductionTitle, "Československý kastračný program");
-  assert.equal(preview.SAFE_FOR_IMPORT, 0);
-});
 
 test("different adoption dogs from the same organization are NEW even when contacts and general URL are shared", () => {
   const first = input({
@@ -163,9 +150,9 @@ test("same adoption dog and organization with another slug is POSSIBLE_DUPLICATE
 });
 
 test("same organization in another help category does not block a case", () => {
-  const shelter = production({ category: "utulky", slug: "utulok-trnava", title: "Útulok Trnava", organization: "Útulok Trnava", city: "Trnava", region: "Trnavský kraj" });
+  const volunteer = production({ category: "dobrovolnictvo", slug: "vencenie-trnava", title: "Venčenie v Trnave", organization: "Útulok Trnava", city: "Trnava", region: "Trnavský kraj" });
   const adoption = input({ category: "adopcia", slug: "rex-hlada-domov", title: "Rex hľadá domov", dogName: "Rex", organization: "Útulok Trnava", city: "Trnava", region: "Trnavský kraj", actionLabel: "Mám záujem o adopciu" });
-  const preview = classify([adoption], [shelter]);
+  const preview = classify([adoption], [volunteer]);
   assert.equal(preview.NEW, 1);
   assert.equal(preview.SAFE_FOR_IMPORT, 1);
 });
