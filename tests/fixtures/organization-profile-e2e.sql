@@ -168,3 +168,46 @@ INSERT INTO adoption_dogs (
   '2026-09-16T10:08:00.000Z', '2026-09-16T10:08:00.000Z',
   'org3c-e2e-local-fixture', 'org3c-e2e-local-fixture'
 );
+
+
+-- ORG-2B canonical multi-location fixtures. Street addresses stay non-public; public reads expose locality/region only.
+INSERT INTO organization_locations (
+  id, organization_id, role, label, address, city, district, region, country_code, is_primary, sort_order
+) VALUES
+  (
+    990101, 990001, 'SERVICE_AREA', '', 'Neverejná 10',
+    'Šaľa', 'Šaľa', 'Nitriansky kraj', 'SK', 1, 10
+  ),
+  (
+    990102, 990001, 'SITE', 'Výdajné miesto', 'Neverejná 20',
+    'Nitra', 'Nitra', 'Nitriansky kraj', 'SK', 0, 20
+  );
+
+INSERT INTO help_organizations (
+  id, name, slug, status, short_description, description,
+  city, district, region, country_code,
+  published_at, archived_at, created_at, updated_at, created_by, updated_by
+) VALUES
+  (
+    990007, 'E2E Jedna lokalita', 'org-2b-e2e-jedna-lokalita', 'PUBLISHED',
+    'Profil s jednou canonical lokalitou.', 'Jedna lokalita má zostať kompaktná v hero.',
+    'Legacy mesto', 'Legacy okres', 'Legacy kraj', 'SK',
+    '2026-09-18T05:00:00.000Z', NULL,
+    '2026-09-18T05:00:00.000Z', '2026-09-18T05:00:00.000Z',
+    'org2b-e2e-local-fixture', 'org2b-e2e-local-fixture'
+  ),
+  (
+    990008, 'E2E Bez lokality', 'org-2b-e2e-bez-lokality', 'PUBLISHED',
+    'Profil bez zobraziteľnej lokality.', 'Prázdna lokalita nesmie vytvoriť placeholder ani prázdnu sekciu.',
+    '', '', '', 'SK',
+    '2026-09-18T05:00:00.000Z', NULL,
+    '2026-09-18T05:00:00.000Z', '2026-09-18T05:00:00.000Z',
+    'org2b-e2e-local-fixture', 'org2b-e2e-local-fixture'
+  );
+
+INSERT INTO organization_locations (
+  id, organization_id, role, label, address, city, district, region, country_code, is_primary, sort_order
+) VALUES (
+  990107, 990007, 'SITE', '', 'Neverejná 30',
+  'Trnava', 'Trnava', 'Trnavský kraj', 'SK', 1, 0
+);

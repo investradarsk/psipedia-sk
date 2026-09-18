@@ -21,6 +21,18 @@ function organization(overrides = {}) {
     district: "Nitra",
     region: "Nitriansky kraj",
     countryCode: "SK",
+    locations: [{
+      id: 50,
+      organizationId: 7,
+      role: "UNSPECIFIED",
+      label: "",
+      city: "Nitra",
+      district: "Nitra",
+      region: "Nitriansky kraj",
+      countryCode: "SK",
+      isPrimary: true,
+      sortOrder: 0,
+    }],
     imageUrl: "https://example.sk/image.jpg",
     sourceUrl: "https://private-provenance.example/source",
     publishedAt: "2026-09-01T10:00:00.000Z",
@@ -41,9 +53,13 @@ test("published public fields map into identity, contacts and one shared action"
     { label: "Typ organizácie", value: "Občianske združenie" },
     { label: "Právny názov", value: "Psia nádej, o.z." },
     { label: "Registračné číslo", value: "12345678" },
-    { label: "Mesto", value: "Nitra" },
-    { label: "Kraj", value: "Nitriansky kraj" },
   ]);
+  assert.deepEqual(presentation.locations, [{
+    id: 50,
+    label: null,
+    value: "Nitra · Nitriansky kraj",
+    isPrimary: true,
+  }]);
   assert.deepEqual(presentation.contacts.map(({ label, href }) => [label, href]), [
     ["Web", "https://example.sk/"],
     ["Facebook", "https://facebook.com/example"],
@@ -72,6 +88,7 @@ test("optional or unsafe values disappear instead of producing broken UI", () =>
     city: "",
     district: "",
     region: "",
+    locations: [],
     imageUrl: "javascript:alert(1)",
   }));
 
@@ -87,4 +104,75 @@ test("optional or unsafe values disappear instead of producing broken UI", () =>
 test("relative public media path is preserved while external links stay http(s)-only", () => {
   const presentation = buildOrganizationProfilePresentation(organization({ imageUrl: "/media/organizations/psia-nadej.webp" }));
   assert.equal(presentation.imageUrl, "/media/organizations/psia-nadej.webp");
+});
+
+
+test("multiple canonical locations keep ORG-2A order, labels and primary semantics without a duplicate hero location", () => {
+  const presentation = buildOrganizationProfilePresentation(organization({
+    city: "Legacy mesto",
+    district: "Legacy okres",
+    region: "Legacy kraj",
+    locations: [
+      {
+        id: 62,
+        organizationId: 7,
+        role: "SITE",
+        label: "Výdajné miesto",
+        city: "Nitra",
+        district: "Nitra",
+        region: "Nitriansky kraj",
+        countryCode: "SK",
+        isPrimary: false,
+        sortOrder: 20,
+      },
+      {
+        id: 61,
+        organizationId: 7,
+        role: "SERVICE_AREA",
+        label: "",
+        city: "Šaľa",
+        district: "Šaľa",
+        region: "Nitriansky kraj",
+        countryCode: "SK",
+        isPrimary: true,
+        sortOrder: 10,
+      },
+    ],
+  }));
+
+  assert.equal(presentation.location, null);
+  assert.deepEqual(presentation.locations, [
+    { id: 61, label: "Pôsobnosť", value: "Šaľa · Nitriansky kraj", isPrimary: true },
+    { id: 62, label: "Výdajné miesto", value: "Nitra · Nitriansky kraj", isPrimary: false },
+  ]);
+  assert.equal(presentation.facts.some((fact) => ["Mesto", "Okres", "Kraj"].includes(fact.label)), false);
+  assert.equal(JSON.stringify(presentation).includes("Legacy mesto"), false);
+});
+
+test("legacy compatibility is used only as a compact single-location fallback", () => {
+  const presentation = buildOrganizationProfilePresentation(organization({
+    locations: [],
+    city: "Levice",
+    district: "Levice",
+    region: "Nitriansky kraj",
+  }));
+
+  assert.equal(presentation.location, "Levice · Nitriansky kraj");
+  assert.deepEqual(presentation.locations, [
+    { id: null, label: null, value: "Levice · Nitriansky kraj", isPrimary: true },
+  ]);
+  assert.equal(presentation.facts.some((fact) => ["Mesto", "Okres", "Kraj"].includes(fact.label)), false);
+});
+
+test("profile omits the location UI contract when canonical and legacy location data are empty", () => {
+  const presentation = buildOrganizationProfilePresentation(organization({
+    locations: [],
+    city: "",
+    district: "",
+    region: "",
+    countryCode: "SK",
+  }));
+
+  assert.equal(presentation.location, null);
+  assert.deepEqual(presentation.locations, []);
 });

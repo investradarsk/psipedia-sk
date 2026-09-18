@@ -50,3 +50,13 @@ test("organization cards reuse the catalog public image, fallback and status pri
   assert.match(mediaSource, /data-adoption-media="fallback"/);
   assert.match(mediaSource, /alt=\{`\$\{name\} – pes na adopciu`\}/);
 });
+
+
+test("profile renders canonical multi-location presentation once and exposes primary semantics", () => {
+  assert.match(componentSource, /presentation\.locations\.length > 1/);
+  assert.match(componentSource, /data-organization-location=/);
+  assert.match(componentSource, /Hlavná lokalita/);
+  assert.match(componentSource, /Kde organizácia pôsobí/);
+  assert.equal((componentSource.match(/presentation\.location/g) ?? []).length >= 1, true);
+  assert.doesNotMatch(componentSource, /organization\.city|organization\.district|organization\.region/);
+});
