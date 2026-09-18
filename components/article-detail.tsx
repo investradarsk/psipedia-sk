@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { categorySlug } from "@/components/article-card";
-import { ArticleBlocks, ArticleRichText } from "@/components/article-blocks";
+import { ArticleBlocks } from "@/components/article-blocks";
+import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PawMark } from "@/components/icons";
@@ -11,6 +12,7 @@ import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel, portalSubpageHref, type PortalSection } from "@/lib/portal";
 import { absoluteUrl, articleAuthorJsonLd, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 import { articleBlockHeadings, articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
+import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/editorial-content";
 import styles from "./article-detail.module.css";
 
 export function ArticleDetail({ article, related, portalSection }: { article: Article; related: Article[]; portalSection?: PortalSection }) {
@@ -29,12 +31,15 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
     : legacyArticleBlocks(article.sections, article.sources);
   const contentBlocks = blocks.filter((block) => block.type !== "source");
   const sourceBlocks = blocks.filter((block) => block.type === "source");
+  const introDocument = article.introRichText ?? legacyRichTextToDocument(article.intro);
+  const takeawayDocument = article.takeawayRichText ?? legacyRichTextToDocument(article.takeaway);
+  const showTakeaway = editorialRichTextPlainText(takeawayDocument).length > 0;
   const headings = articleBlockHeadings(blocks);
   const h2Count = headings.filter((heading) => heading.level === 2).length;
   const readMinutes = Number.parseInt(String(article.readTime).match(/\d+/)?.[0] ?? "0", 10);
   const showTableOfContents = readMinutes >= 8 && h2Count >= 5;
   const showUpdated = article.showUpdated ?? article.updatedDateIso !== article.dateIso;
-  const wordCount = [article.intro, article.takeaway, articleBlockPlainText(blocks)]
+  const wordCount = [editorialRichTextPlainText(introDocument), editorialRichTextPlainText(takeawayDocument), articleBlockPlainText(blocks)]
     .join(" ")
     .trim()
     .split(/\s+/)
@@ -121,8 +126,8 @@ export function ArticleDetail({ article, related, portalSection }: { article: Ar
 
       <div className={`${styles.readingShell} shell`}>
         <article className="article-prose">
-          <ArticleRichText className="article-intro" value={article.intro} />
-          <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><ArticleRichText value={article.takeaway} /></aside>
+          <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
+          {showTakeaway && <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside>}
           {showTableOfContents && (
             <details className={styles.toc}>
               <summary>Obsah článku</summary>
