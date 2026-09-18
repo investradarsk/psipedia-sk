@@ -399,7 +399,7 @@ export function AdminArticleEditor({
             <p className="admin-preview-excerpt">{excerpt || "Tu sa zobrazí krátky úvod z karty článku."}</p>
             {imageUrl && <img className="admin-preview-image" src={imageUrl} alt="" />}
             <ArticleRichText className="admin-preview-intro" value={intro || "Úvod článku sa zobrazí na tomto mieste."} />
-            <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><ArticleRichText value={takeaway || "Hlavná myšlienka článku."} /></div>
+            {takeaway.trim() && <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><ArticleRichText value={takeaway} /></div>}
             <ArticleBlocks blocks={blocks} preview />
           </article>
         </aside>
