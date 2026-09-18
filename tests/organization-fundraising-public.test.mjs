@@ -178,9 +178,14 @@ test("public eligibility fails closed for inactive, archived, non-verified, expi
       url: "https://127.0.0.1/donate",
     });
     insertMethod(sqlite, {
+      label: "Data URL",
+      sortOrder: 10,
+      url: "data:text/plain,not-public",
+    });
+    insertMethod(sqlite, {
       type: "BANK_TRANSFER",
       label: "Invalid IBAN",
-      sortOrder: 10,
+      sortOrder: 11,
       url: null,
       value: "NOT-AN-IBAN",
     });
