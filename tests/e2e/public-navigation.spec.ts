@@ -271,7 +271,8 @@ test("mobile hamburger and menu align to the public gutter with safe targets", a
   test.skip(!isMobile, "Mobile-only UX-1A regression");
   await page.goto("/starostlivost");
 
-  const menuTrigger = page.getByRole("button", { name: "Otvoriť menu", exact: true });
+  const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible');
+  await expect(menuTrigger).toHaveAttribute("aria-label", "Otvoriť menu");
   const triggerBox = await measuredBox(menuTrigger, "menu trigger");
   expect(triggerBox.height).toBeGreaterThanOrEqual(44);
   expect(Math.abs(triggerBox.x - 16), "hamburger left gutter").toBeLessThanOrEqual(1);
