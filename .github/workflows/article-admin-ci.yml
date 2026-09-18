@@ -1,0 +1,108 @@
+name: ARTICLE-ADMIN editor
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/clanky/**"
+      - "app/admin/novy/**"
+      - "app/api/admin/articles/**"
+      - "app/api/admin/editorial-authors/**"
+      - "app/api/admin/uploads/**"
+      - "components/admin-article-*"
+      - "components/admin-editorial-author-*"
+      - "components/admin-rich-text-editor*"
+      - "lib/article-store.ts"
+      - "lib/editorial-authors.ts"
+      - "lib/admin-image-upload.ts"
+      - "tests/article-admin-editor.test.mjs"
+      - "tests/e2e/article-admin-editor.spec.ts"
+      - "tests/fixtures/article-admin-editor-e2e.sql"
+      - "package.json"
+      - ".github/workflows/article-admin-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  article-admin:
+    name: Word-like editor — unit, build, lint, typecheck and E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: ARTICLE-ADMIN unit contract
+        run: npm run test:article-admin-editor
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Configure CI-only local PII keys
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          EOF
+      - name: Apply schema migrations to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed repository-managed legacy proof fixture
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/article-admin-editor-e2e.sql
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/article-admin
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/article-admin/server.log 2>&1 &
+          echo $! > .e2e-artifacts/article-admin/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/article-admin/server.log
+            exit 1
+          fi
+      - name: ARTICLE-ADMIN Playwright — desktop and mobile
+        run: npx playwright test tests/e2e/article-admin-editor.spec.ts --workers=1 --retries=0
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/article-admin/server.pid ]; then
+            kill "$(cat .e2e-artifacts/article-admin/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-admin-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/article-admin/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
