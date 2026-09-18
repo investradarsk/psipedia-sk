@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import type { ArticlePortalSection } from "@/lib/portal";
+import { isArticlePortalSection, type ArticlePortalSection } from "@/lib/portal";
 
 export type PublicArticleListMeta = {
   slug: string;
@@ -28,10 +28,6 @@ function formatSlovakDate(value: string) {
   return `${date.getUTCDate()}. ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
-function isPublicArticleSection(value: string): value is ArticlePortalSection {
-  return ["clanky", "novinky", "steniatka", "starostlivost", "aktivity", "recenzie"].includes(value);
-}
-
 export async function getPublicArticleListMeta(slugs: readonly string[]): Promise<Map<string, PublicArticleListMeta>> {
   const unique = [...new Set(slugs.map((slug) => slug.trim()).filter(Boolean))];
   if (!unique.length) return new Map();
@@ -45,7 +41,7 @@ export async function getPublicArticleListMeta(slugs: readonly string[]): Promis
       `SELECT slug,category,portal_section,published_at FROM managed_articles WHERE slug IN (${placeholders}) AND (status='published' OR (status='scheduled' AND published_at<=?))`,
     ).bind(...unique, now).all<Row>();
     return new Map(result.results.flatMap((row) => {
-      if (!row.published_at || !isPublicArticleSection(row.portal_section)) return [];
+      if (!row.published_at || !isArticlePortalSection(row.portal_section)) return [];
       return [[row.slug, {
         slug: row.slug,
         topic: row.category,
