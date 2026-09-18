@@ -6,6 +6,10 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import {
+  AdminActionButton,
+  AdminBulkActionToolbar,
+} from "./admin-interaction-system";
 import styles from "./admin-bulk-selection.module.css";
 
 export type AdminBulkSelectionState =
@@ -314,17 +318,27 @@ export function AdminBulkSelectionControls({
       </div>
 
       {selectedCount > 0 && (
-        <aside className={styles.toolbar} aria-label="Hromadný výber">
-          <div className={styles.summary} aria-live="polite" aria-atomic="true">
-            <strong>Vybrané: {selectedCount}</strong>
-            <span>{selection.mode === "all-matching" ? "Všetky výsledky filtra" : "Explicitný výber"}</span>
-          </div>
-          <div className={styles.actions}>
-            <button type="button" onClick={(event) => openDialog("publish", event.currentTarget)}>Skontrolovať publikovanie</button>
-            <button type="button" onClick={(event) => openDialog("move-to-draft", event.currentTarget)}>Skontrolovať presun do konceptov</button>
-            <button className={styles.clearButton} type="button" onClick={clear}>Zrušiť výber</button>
-          </div>
-        </aside>
+        <>
+          <span className={styles.selectionAnnouncement} aria-live="polite" aria-atomic="true">
+            Vybrané: {selectedCount}
+          </span>
+          <AdminBulkActionToolbar
+            selectedCount={selectedCount}
+            selectionDescription={selection.mode === "all-matching" ? "Všetky výsledky filtra" : "Explicitný výber"}
+            onClear={clear}
+            clearLabel="Zrušiť výber"
+            primaryAction={(
+              <AdminActionButton variant="primary" onClick={(event) => openDialog("publish", event.currentTarget)}>
+                Skontrolovať publikovanie
+              </AdminActionButton>
+            )}
+            secondaryActions={(
+              <AdminActionButton variant="secondary" onClick={(event) => openDialog("move-to-draft", event.currentTarget)}>
+                Skontrolovať presun do konceptov
+              </AdminActionButton>
+            )}
+          />
+        </>
       )}
 
       <dialog className={styles.dialog} ref={dialogRef} aria-labelledby="bulk-preflight-title"
@@ -358,18 +372,18 @@ export function AdminBulkSelectionControls({
           </div>
 
           <div className={styles.dialogActions}>
-            <button type="button" onClick={closeDialog}>{execution ? "Zavrieť a obnoviť" : "Zavrieť"}</button>
+            <AdminActionButton variant="neutral" onClick={closeDialog}>{execution ? "Zavrieť a obnoviť" : "Zavrieť"}</AdminActionButton>
             {!execution && (
-              <button data-preflight-button type="button" disabled={pending} onClick={() => void runPreflight()}>
+              <AdminActionButton variant="secondary" data-preflight-button disabled={pending} onClick={() => void runPreflight()}>
                 {pending ? "Kontrolujem…" : preflight ? "Preflight zopakovať" : "Spustiť preflight"}
-              </button>
+              </AdminActionButton>
             )}
             {isArticles && preflight && !execution && (
-              <button type="button" disabled={pending || preflight.eligible === 0 || selection.mode !== "explicit"} onClick={() => void runExecution()}>
+              <AdminActionButton variant="primary" disabled={pending || preflight.eligible === 0 || selection.mode !== "explicit"} onClick={() => void runExecution()}>
                 {pending ? "Vykonávam…" : `Potvrdiť a vykonať: ${actionLabel.toLowerCase()}`}
-              </button>
+              </AdminActionButton>
             )}
-            {!isArticles && <button className={styles.futureAction} type="button" disabled>Vykonať hromadnú zmenu — ďalšia fáza</button>}
+            {!isArticles && <AdminActionButton variant="neutral" className={styles.futureAction} disabled>Vykonať hromadnú zmenu — ďalšia fáza</AdminActionButton>}
           </div>
         </div>
       </dialog>
