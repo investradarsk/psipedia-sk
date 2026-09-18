@@ -22,6 +22,7 @@ function lines(value:string){return value.split("\n").map((item)=>item.replace(/
 function measurementMessage(value:string,kind:BreedMeasurementKind){return inspectBreedMeasurement(value,kind).map((item)=>item.message).join(" ");}
 function measurementHasError(value:string,kind:BreedMeasurementKind){return inspectBreedMeasurement(value,kind).some((item)=>item.severity==="error");}
 function normalized(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("sk");}
+function filterNamedOptions<T extends {name:string}>(items:T[],query:string){const needle=normalized(query.trim());return !needle?items:items.filter((item)=>normalized(item.name).includes(needle));}
 const emptySource:BreedSource={label:"",url:""};
 const sportOptions=[
   ["obedience","Obedience"],["rally-obedience","Rally obedience"],["agility","Agility"],["canicross","Canicross"],
@@ -126,11 +127,10 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     {title:"Veľkosť a chyby",fields:[["vyska_pes_cm","Výška – pes"],["vyska_suka_cm","Výška – suka"],["hmotnost_pes_kg","Hmotnosť – pes"],["hmotnost_suka_kg","Hmotnosť – suka"],["velkost_hmotnost_poznamka","Poznámka k veľkosti"],["chyby","Chyby"],["zavazne_chyby","Závažné chyby"],["diskvalifikacne_chyby","Diskvalifikačné chyby"],["poznamka_chov","Poznámka k chovu"]]},
   ];
 
-  const filterOptions=<T extends {name:string}>(items:T[],query:string)=>{const needle=normalized(query.trim());return !needle?items:items.filter((item)=>normalized(item.name).includes(needle));};
   const articles=useMemo(()=>{const needle=normalized(articleQuery.trim());return !needle?options.articles:options.articles.filter((item)=>normalized(item.title).includes(needle));},[articleQuery,options.articles]);
-  const stations=useMemo(()=>filterOptions(options.directoryProfiles.filter((item)=>item.category==="chovatelske-stanice"),stationQuery),[options.directoryProfiles,stationQuery]);
-  const clubs=useMemo(()=>filterOptions(options.directoryProfiles.filter((item)=>item.category==="chovatelske-kluby"),clubQuery),[options.directoryProfiles,clubQuery]);
-  const relatedBreeds=useMemo(()=>filterOptions(options.breeds.filter((item)=>item.id!==breed?.id),breedQuery),[options.breeds,breed?.id,breedQuery]);
+  const stations=useMemo(()=>filterNamedOptions(options.directoryProfiles.filter((item)=>item.category==="chovatelske-stanice"),stationQuery),[options.directoryProfiles,stationQuery]);
+  const clubs=useMemo(()=>filterNamedOptions(options.directoryProfiles.filter((item)=>item.category==="chovatelske-kluby"),clubQuery),[options.directoryProfiles,clubQuery]);
+  const relatedBreeds=useMemo(()=>filterNamedOptions(options.breeds.filter((item)=>item.id!==breed?.id),breedQuery),[options.breeds,breed?.id,breedQuery]);
 
   return <form className="admin-breed-editor" onSubmit={(event)=>{event.preventDefault();void save("draft");}}>
     <div className={styles.editorTopbar}>
