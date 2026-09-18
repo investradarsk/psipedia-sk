@@ -14,6 +14,7 @@ import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, 
 import { slovakRegions } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { directorySeoFallback } from "@/lib/content-seo";
+import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import styles from "./admin-directory-editor.module.css";
 
 const editorSections = [
@@ -32,14 +33,6 @@ function listFromText(value: string) {
   return value.split(/\n+/).map((item) => item.trim()).filter(Boolean);
 }
 
-function importedText(profile: ManagedDirectoryProfile | undefined, ...keys: string[]) {
-  for (const key of keys) {
-    const value = profile?.importData?.[key];
-    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
-  }
-  return "";
-}
-
 export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryProfile }) {
   const [name, setName] = useState(profile?.name ?? "");
   const [slug, setSlug] = useState(profile?.slug ?? "");
@@ -55,11 +48,12 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [address, setAddress] = useState(profile?.address ?? "");
   const [online, setOnline] = useState(profile?.online ?? false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
-  const [websiteUrl, setWebsiteUrl] = useState(profile?.websiteUrl ?? importedText(profile, "Web", "Webstránka"));
-  const [publicPhone, setPublicPhone] = useState(importedText(profile, "Telefón", "Telefon", "phone"));
-  const [publicEmail, setPublicEmail] = useState(importedText(profile, "E-mail", "Email", "email"));
-  const [facebookUrl, setFacebookUrl] = useState(importedText(profile, "Facebook"));
-  const [instagramUrl, setInstagramUrl] = useState(importedText(profile, "Instagram"));
+  const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(contacts.website);
+  const [publicPhone, setPublicPhone] = useState(contacts.phone);
+  const [publicEmail, setPublicEmail] = useState(contacts.email);
+  const [facebookUrl, setFacebookUrl] = useState(contacts.facebook);
+  const [instagramUrl, setInstagramUrl] = useState(contacts.instagram);
   const [internalEmail, setInternalEmail] = useState(profile?.internalEmail ?? "");
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? "");
