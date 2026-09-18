@@ -66,7 +66,7 @@ export default async function BreedsPage({ searchParams }: { searchParams: Promi
             <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} />
             <div className="breed-atlas-footer">
               <nav className="breed-utility-links" aria-label="Ďalšie možnosti v sekcii Plemená">
-                {portalSection?.subpages.filter((subpage) => subpage.slug !== "atlas").map((subpage) => (
+                {portalSection?.subpages.filter((subpage) => subpage.slug !== "atlas" && subpage.slug !== "porovnanie").map((subpage) => (
                   <Link href={portalSubpageHref(portalSection, subpage)} key={subpage.slug}>{subpage.label} <ArrowIcon size={17} /></Link>
                 ))}
               </nav>
