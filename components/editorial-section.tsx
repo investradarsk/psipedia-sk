@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArticleListItem } from "@/components/article-list-item";
 import type { ReactElement } from "react";
 import { ArrowIcon, BowlIcon, CheckIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
@@ -6,7 +7,6 @@ import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import {
   PublicActionLink,
   PublicContentList,
-  PublicContentListItem,
   PublicDataCard,
   PublicFoundation,
   PublicIcon,
@@ -94,16 +94,7 @@ function SectionContentList({
   return (
     <PublicContentList label={label} className={styles.contentList}>
       {articles.slice(0, limit).map((article) => (
-        <PublicContentListItem
-          href={articleHref(article)}
-          title={article.title}
-          eyebrow={article.category}
-          excerpt={article.excerpt}
-          meta={article.readTime ? `${article.readTime} čítania` : undefined}
-          image={article.image ? { src: article.image, alt: `Ilustračná fotografia k článku: ${article.title}` } : undefined}
-          actionLabel="Čítať"
-          key={article.slug}
-        />
+        <ArticleListItem article={article} key={article.slug} />
       ))}
     </PublicContentList>
   );
