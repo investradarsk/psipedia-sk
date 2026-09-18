@@ -166,8 +166,8 @@ export function AdminSectionEditor({
           const articleCountText = !section.articleEnabled
             ? "Články sa tu nespravujú"
             : articleCounts.available
-              ? `${counts?.total ?? 0} článkov`
-              : "Počet článkov nedostupný";
+              ? `${counts?.total ?? 0} spolu · ${counts?.published ?? 0} publikovaných · ${counts?.draft ?? 0} konceptov · ${counts?.scheduled ?? 0} naplánovaných`
+              : "Počty článkov nedostupné";
           const directAdminHref = section.slug === "steniatka" ? "/admin/steniatka" : "/admin";
 
           return (
