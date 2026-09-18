@@ -5,6 +5,9 @@ import test from "node:test";
 const detail = readFileSync("components/article-detail.tsx", "utf8");
 const blocks = readFileSync("components/article-blocks.tsx", "utf8");
 const styles = readFileSync("components/article-detail.module.css", "utf8");
+const shareComponent = readFileSync("components/share-button.tsx", "utf8");
+const newsHub = readFileSync("components/news-hub.tsx", "utf8");
+const articleStore = readFileSync("lib/article-store.ts", "utf8");
 
 function indexOfOrFail(source, value, message) {
   const index = source.indexOf(value);
@@ -30,7 +33,7 @@ test("article TOC is deterministic, collapsed and built from existing heading an
 test("mobile composition starts with prose and keeps takeaway inline after the intro", () => {
   const articleStart = indexOfOrFail(detail, "<article className=\"article-prose\">", "article prose is missing");
   const intro = indexOfOrFail(detail, "<EditorialRichText className=\"article-intro\"", "article intro is missing");
-  const takeaway = indexOfOrFail(detail, "{showTakeaway && <aside className=\"takeaway-box\"", "optional takeaway is missing");
+  const takeaway = indexOfOrFail(detail, "{showTakeaway ? <aside className=\"takeaway-box\"", "optional takeaway is missing");
   const toc = indexOfOrFail(detail, "{showTableOfContents &&", "conditional TOC is missing");
   const body = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBlocks} />", "article body blocks are missing");
 
@@ -44,7 +47,7 @@ test("mobile composition starts with prose and keeps takeaway inline after the i
 test("favorite stays in the header while share moves to the article end", () => {
   const favorite = indexOfOrFail(detail, "<FavoriteButton slug={article.slug} />", "favorite action is missing");
   const readingShell = indexOfOrFail(detail, "<div className={`${styles.readingShell} shell`}>", "reading shell is missing");
-  const share = indexOfOrFail(detail, "<ShareButton title={article.title} label={shareLabel} />", "share action is missing");
+  const share = indexOfOrFail(detail, "<ShareButton title={article.title} label={shareLabel} url={canonical} />", "share action is missing");
   const disclaimer = indexOfOrFail(detail, "<p className=\"article-disclaimer\">", "article disclaimer is missing");
 
   assert.ok(favorite < readingShell, "favorite must remain in the article header");
@@ -72,10 +75,38 @@ test("article reading CSS preserves editorial measures and mobile overflow safet
   assert.doesNotMatch(styles, /\.hero\s+:global\(\.article-breadcrumbs\)[^{]*\{[^}]*display:\s*none/s);
 });
 
-test("end recommendations are text-led and mobile limits the list to two items", () => {
-  assert.match(detail, /const relatedItems = related\.slice\(0, 3\)/);
-  assert.match(detail, /className=\{styles\.relatedList\}/);
-  assert.match(detail, /className=\{styles\.relatedItem\}/);
-  assert.doesNotMatch(detail, /<ArticleCard\b/);
-  assert.match(styles, /\.relatedItem:nth-child\(n \+ 3\)\s*\{\s*display:\s*none/);
+test("end recommendations use the FOUNDATION-PUBLIC compact content list", () => {
+  assert.match(detail, /const relatedItems = related\\.slice\\(0, 3\\)/);
+  assert.match(detail, /<PublicContentList label="Súvisiace články"/);
+  assert.match(detail, /<PublicContentListItem/);
+  assert.doesNotMatch(detail, /<ArticleCard\\b/);
+});
+
+test("canonical author presentation keeps a safe legacy fallback", () => {
+  assert.match(detail, /authorProfile\\?\\.displayName \\|\\| article\\.author/);
+  assert.match(detail, /authorProfile\\?\\.avatarUrl/);
+  assert.match(detail, /authorProfile\\?\\.role/);
+  assert.match(articleStore, /export async function getPublishedArticleAuthorProfile/);
+  assert.match(articleStore, /getEditorialAuthorProfile\\(database, authorProfileId, true\\)/);
+});
+
+test("sharing exposes Facebook, WhatsApp, native share and copy without fake social endpoints", () => {
+  assert.match(shareComponent, /facebook\\.com\\/sharer\\/sharer\\.php/);
+  assert.match(shareComponent, /wa\\.me/);
+  assert.match(shareComponent, /typeof navigator\\.share === "function"/);
+  assert.match(shareComponent, /navigator\\.clipboard\\.writeText/);
+  assert.doesNotMatch(shareComponent, /instagram|tiktok|messenger/i);
+});
+
+test("Novinky uses a complete public reader and existing category taxonomy", () => {
+  assert.match(articleStore, /export async function getAllPublishedArticleSummaries/);
+  const readerStart = articleStore.indexOf("export async function getAllPublishedArticleSummaries");
+  const readerEnd = articleStore.indexOf("/** Backwards-compatible public listing", readerStart);
+  assert.ok(readerStart >= 0 && readerEnd > readerStart);
+  assert.doesNotMatch(articleStore.slice(readerStart, readerEnd), /LIMIT \\?/);
+  assert.match(newsHub, /Všetky publikované novinky/);
+  assert.match(newsHub, /newsCategories\\.map/);
+  assert.match(newsHub, /newsArticles\\.map/);
+  assert.doesNotMatch(newsHub, /slice\\(0,\\s*[345]\\)/);
+  assert.match(newsHub, /<PublicContentList/);
 });
