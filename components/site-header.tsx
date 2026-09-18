@@ -119,10 +119,9 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
     const trigger = menuReturnFocusRef.current;
     if (!menu || !trigger) return;
 
-    function focusableItems() {
-      const menuItems = Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
+    function focusableMenuItems() {
+      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
         .filter((element) => element.offsetParent !== null && !element.closest("[inert]"));
-      return trigger.offsetParent !== null ? [trigger, ...menuItems] : menuItems;
     }
 
     function onMenuKeyDown(event: KeyboardEvent) {
@@ -134,20 +133,23 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
         return;
       }
       if (event.key !== "Tab") return;
-      const items = focusableItems();
+      const items = focusableMenuItems();
       if (!items.length) return;
       const first = items[0];
       const last = items[items.length - 1];
       const active = document.activeElement;
-      if (!items.includes(active as HTMLElement)) {
+      if (active === trigger) {
         event.preventDefault();
-        first.focus();
+        (event.shiftKey ? last : first).focus();
+      } else if (!items.includes(active as HTMLElement)) {
+        event.preventDefault();
+        trigger.focus();
       } else if (event.shiftKey && active === first) {
         event.preventDefault();
-        last.focus();
+        trigger.focus();
       } else if (!event.shiftKey && active === last) {
         event.preventDefault();
-        first.focus();
+        trigger.focus();
       }
     }
 
