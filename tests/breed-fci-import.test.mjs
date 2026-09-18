@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { breedAtlasHref, listFciSectionOptions, validFciSectionForGroup } from "../lib/breed-atlas.ts";
+import { breedAtlasHref, listFciSectionOptions, parseBreedAtlasFilters, validFciSectionForGroup } from "../lib/breed-atlas.ts";
 import { combinedFciMeasurement, fciMeasurement, inspectBreedMeasurement, publicBreedMeasurement, publicFciDate, publicFciSectionName } from "../lib/breed-fci.ts";
 
 const LONG_FCI_TEXT=Array.from({length:45},(_,index)=>`Odborná veta ${index+1} opisuje stavbu tela plemena bez skrátenia.`).join(" ")+" Úplný koniec odborného textu.";
@@ -148,7 +148,9 @@ test("FCI section helpers preserve exact subsection values and dependent state",
   assert.deepEqual(listFciSectionOptions(breeds,"8").map((section)=>section.number),["1","2","3"]);
   assert.deepEqual(listFciSectionOptions(breeds,"2"),[{number:"2.1",name:"Molosoidné plemená – mastifový typ",count:2}]);
   assert.equal(validFciSectionForGroup(breeds,"2","2.1"),"2.1");assert.equal(validFciSectionForGroup(breeds,"2","3"),"");assert.equal(validFciSectionForGroup(breeds,"8","2.1"),"");
-  assert.equal(breedAtlasHref({query:"labrador",fciGroup:"8",fciSection:"1",origin:"Veľká Británia",energy:"active"}),"/plemena?q=labrador&fciGroup=8&fciSection=1&origin=Ve%C4%BEk%C3%A1+Brit%C3%A1nia&energy=active");
+  assert.equal(breedAtlasHref({query:"labrador",fciGroup:"8",fciSection:"1",origin:"Veľká Británia"}),"/plemena?q=labrador&fciGroup=8&fciSection=1&origin=Ve%C4%BEk%C3%A1+Brit%C3%A1nia");
+  assert.deepEqual(parseBreedAtlasFilters({energy:"active",q:"labrador"}),{query:"labrador",fciGroup:"",fciSection:"",origin:""});
+  assert.deepEqual(parseBreedAtlasFilters({energy:"calm"}),{query:"",fciGroup:"",fciSection:"",origin:""});
   assert.equal(publicFciSectionName(8,"1","Retrievers"),"Retrievery");assert.equal(publicFciSectionName(2,"9.9","Bezpečný pôvodný názov"),"Sekcia sa overuje");
   assert.equal(fciMeasurement("48–51","cm"),"48–51 cm");assert.equal(fciMeasurement("20–23 kg","kg"),"20–23 kg");assert.equal(combinedFciMeasurement(["48–51","45–48"],"cm"),"45–51 cm");assert.equal(combinedFciMeasurement(["20–23","17–20"],"kg"),"17–23 kg");assert.equal(publicFciDate("1987-06-24"),"24. 6. 1987");
   assert.deepEqual(inspectBreedMeasurement("52–62 cm","height"),[]);assert.ok(inspectBreedMeasurement("454","height").some((issue)=>issue.severity==="error"));assert.ok(inspectBreedMeasurement("4544545","weight").some((issue)=>issue.code==="glued-number"));assert.equal(publicBreedMeasurement("454","height","52–62 cm"),"52–62 cm");assert.equal(publicBreedMeasurement("22–35","weight"),"22–35 kg");
@@ -197,11 +199,11 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   for(const slug of ["nemecky-ovciak","border-kolia","rotvajler","testovacie-plemeno-11"]){const response=await get(worker,d1,`/plemena/${slug}`);assert.equal(response.status,200,slug);assert.match(await response.text(),/fci-standard/,slug);const fciResponse=await get(worker,d1,`/plemena/${slug}/fci-standard`);assert.equal(fciResponse.status,200,`${slug} FCI`);}
 
   duplicateBreedAsLegacy(sqlite,5,"anglicky-koker-spaniel");duplicateBreedAsLegacy(sqlite,161,"beagle");duplicateBreedAsLegacy(sqlite,57,"madarska-vyzla");
-  const canonicalAtlas=await get(worker,d1,"/plemena");const canonicalAtlasHtml=await canonicalAtlas.text();assert.doesNotMatch(canonicalAtlasHtml,/href="\/plemena\/beagle"/);assert.doesNotMatch(canonicalAtlasHtml,/href="\/plemena\/madarska-vyzla"/);assert.doesNotMatch(canonicalAtlasHtml,/href="\/plemena\/anglicky-koker-spaniel"/);
+  const canonicalAtlas=await get(worker,d1,"/plemena");const canonicalAtlasHtml=await canonicalAtlas.text();assert.doesNotMatch(canonicalAtlasHtml,/href="\/plemena\/beagle"/);assert.doesNotMatch(canonicalAtlasHtml,/href="\/plemena\/madarska-vyzla"/);assert.doesNotMatch(canonicalAtlasHtml,/href="\/plemena\/anglicky-koker-spaniel"/);assert.match(canonicalAtlasHtml,/"@type":"CollectionPage"/);assert.match(canonicalAtlasHtml,/Porovnať plemená/);assert.doesNotMatch(canonicalAtlasHtml,/Pokojnejšie|Aktívne/);
   const sitemap=await get(worker,d1,"/sitemap.xml");assert.equal(sitemap.status,200);const sitemapText=await sitemap.text();const sitemapUrls=[...sitemapText.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match)=>match[1]);const breedUrls=sitemapUrls.filter((url)=>/^https:\/\/psipedia\.sk\/plemena\/[^/]+$/.test(url)&&url!=="https://psipedia.sk/plemena/vyber-plemena");assert.equal(breedUrls.length,344);assert.ok(!sitemapUrls.some((url)=>url.includes("/fci-standard")));assert.equal(new Set(sitemapUrls).size,sitemapUrls.length);
   for(const [legacySlug,canonicalSlug] of [["anglicky-koker-spaniel","anglicky-kokerspaniel"],["beagle","bigl"],["madarska-vyzla","madarsky-kratkosrsty-stavac-vyzla"]]){const legacy=await get(worker,d1,`/plemena/${legacySlug}`);assert.equal(legacy.status,301);assert.equal(legacy.headers.get("location"),`http://localhost/plemena/${canonicalSlug}`);const canonical=await get(worker,d1,`/plemena/${canonicalSlug}`);assert.equal(canonical.status,200);}
 
-  const detailSource=readFileSync(new URL("../app/plemena/[slug]/page.tsx",import.meta.url),"utf8");const fciSource=readFileSync(new URL("../app/plemena/[slug]/fci-standard/page.tsx",import.meta.url),"utf8");assert.doesNotMatch(detailSource,/preview|breed-profile-next/i);assert.doesNotMatch(fciSource,/preview|breed-profile-next/i);assert.match(fciSource,/index:\s*false/);
+  const detailSource=readFileSync(new URL("../app/plemena/[slug]/page.tsx",import.meta.url),"utf8");const fciSource=readFileSync(new URL("../app/plemena/[slug]/fci-standard/page.tsx",import.meta.url),"utf8");const listingSource=readFileSync(new URL("../components/breed-browser.tsx",import.meta.url),"utf8");const navSource=readFileSync(new URL("../components/breed-section-nav.tsx",import.meta.url),"utf8");assert.doesNotMatch(detailSource,/preview|breed-profile-next/i);assert.doesNotMatch(fciSource,/preview|breed-profile-next/i);assert.match(fciSource,/index:\s*false/);assert.doesNotMatch(listingSource,/Pokojnejšie|Aktívne|setEnergy|energyMatch/);assert.match(detailSource,/PublicDataCard/);assert.match(detailSource,/id="sporty"/);assert.match(navSource,/IntersectionObserver/);assert.match(navSource,/aria-current=\{active \? "location"/);
 });
 
 test("FCI preview rejects missing numbers, invalid groups and duplicate identities without writing",async()=>{
