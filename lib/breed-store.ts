@@ -127,7 +127,9 @@ function fromSummaryRow(row:SummaryRow):ManagedBreedSummary {
 }
 
 function fromIndexRow(row:IndexRow):ManagedBreedIndexItem { const standard=parseObject<FciStandard>(row.fci_standard_json);return {
-  ...fromSummaryRow(row),fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),fciSectionNumber:row.fci_section_number,
+  id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
+  fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),fciSectionNumber:row.fci_section_number,
+  origin:row.origin,group:row.group_name,officialFciName:row.official_fci_name,accent:row.accent as Breed["accent"],
   height:publicBreedMeasurement(row.height,"height",combinedFciMeasurement([standard.vyska_pes_cm,standard.vyska_suka_cm],"cm")),
   weight:publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([standard.hmotnost_pes_kg,standard.hmotnost_suka_kg],"kg")),intro:row.intro,energy:row.energy,trainability:row.trainability,family:row.family,
   searchText:row.search_text,editorialComplete:row.editorial_complete===1,seo:parseSeo(row.seo_json),updatedAt:row.updated_at,
