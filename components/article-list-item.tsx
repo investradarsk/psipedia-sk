@@ -14,10 +14,12 @@ export function ArticleListItem({
   article,
   topicLabel,
   className,
+  listItem = true,
 }: {
   article: Article;
   topicLabel?: string;
   className?: string;
+  listItem?: boolean;
 }) {
   return (
     <PublicArticleListItem
@@ -27,6 +29,7 @@ export function ArticleListItem({
       date={article.date}
       dateTime={article.dateIso}
       className={className}
+      listItem={listItem}
     />
   );
 }
