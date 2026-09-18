@@ -102,8 +102,8 @@ test("ARTICLE-ADMIN self-hosted media remains image-only until MEDIA-VIDEO-UPLOA
 
 
 test("ARTICLE-ADMIN keeps built-in Novinky available for create flow", () => {
-  const newPage = read("app/admin/novy/page.tsx");
-  const editor = read("components/admin-article-editor.tsx");
+  const newPage = readFileSync("app/admin/novy/page.tsx", "utf8");
+  const editor = readFileSync("components/admin-article-editor.tsx", "utf8");
   assert.match(newPage, /sekcia === "novinky"/);
   assert.match(editor, /option\.slug === "clanky" \|\| option\.slug === "novinky"/);
   assert.match(editor, /section\.slug !== "novinky"/);
