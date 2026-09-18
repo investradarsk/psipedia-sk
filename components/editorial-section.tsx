@@ -249,7 +249,7 @@ export function EditorialSectionHub({
     <PublicFoundation className={styles.foundation}>
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
-        <PageContainer className={styles.headerShell}>
+        <PageContainer className={styles.headerShell} data-section-public-header>
           <Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>{section.label}</span></Breadcrumbs>
           <PublicSectionHeader
             variant="data"
@@ -264,7 +264,7 @@ export function EditorialSectionHub({
 
         <PortalSectionTabs section={section} />
 
-        <PageContainer className={styles.calloutShell}>
+        <PageContainer className={styles.calloutShell} data-section-public-callout>
           <HubCallout sectionSlug={sectionSlug} />
         </PageContainer>
 
@@ -369,7 +369,7 @@ export function EditorialSectionTopic({
     <PublicFoundation className={styles.foundation}>
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
-        <PageContainer className={styles.headerShell}>
+        <PageContainer className={styles.headerShell} data-section-public-header>
           <Breadcrumbs>
             <Link href="/">Domov</Link><span>/</span><Link href={`/${sectionSlug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
           </Breadcrumbs>
@@ -388,7 +388,7 @@ export function EditorialSectionTopic({
           <PageContainer className={styles.calloutShell}><HealthUrgent /></PageContainer>
         ) : null}
 
-        <PageContainer className={styles.topicBody}>
+        <PageContainer className={styles.topicBody} data-section-public-topic-body>
           <section className={styles.introSection} aria-labelledby="topic-intro-heading">
             <span className={styles.eyebrow}>O tejto téme</span>
             <h2 id="topic-intro-heading">{subpage.label} v praxi</h2>
