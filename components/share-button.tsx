@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { PublicActionButton, PublicActionLink } from "@/components/public-visual-system";
 import styles from "./share-button.module.css";
 
@@ -13,14 +13,13 @@ export function ShareButton({
   label?: string;
   url?: string;
 }) {
-  const [resolvedUrl, setResolvedUrl] = useState(url ?? "");
+  const resolvedUrl = url?.trim() ?? "";
   const [copied, setCopied] = useState(false);
-  const [supportsNativeShare, setSupportsNativeShare] = useState(false);
-
-  useEffect(() => {
-    if (!resolvedUrl) setResolvedUrl(window.location.href);
-    setSupportsNativeShare(typeof navigator.share === "function");
-  }, [resolvedUrl]);
+  const supportsNativeShare = useSyncExternalStore(
+    () => () => {},
+    () => typeof navigator.share === "function",
+    () => false,
+  );
 
   const shareTargets = useMemo(() => {
     const encodedUrl = encodeURIComponent(resolvedUrl);
@@ -31,13 +30,17 @@ export function ShareButton({
     };
   }, [resolvedUrl, title]);
 
+  function currentShareUrl() {
+    return resolvedUrl || window.location.href;
+  }
+
   async function copyLink() {
-    if (!resolvedUrl) return;
+    const shareUrl = currentShareUrl();
     try {
-      await navigator.clipboard.writeText(resolvedUrl);
+      await navigator.clipboard.writeText(shareUrl);
     } catch {
       const textarea = document.createElement("textarea");
-      textarea.value = resolvedUrl;
+      textarea.value = shareUrl;
       textarea.setAttribute("readonly", "");
       textarea.style.position = "fixed";
       textarea.style.opacity = "0";
@@ -51,9 +54,9 @@ export function ShareButton({
   }
 
   async function nativeShare() {
-    if (!supportsNativeShare || !resolvedUrl) return;
+    if (!supportsNativeShare) return;
     try {
-      await navigator.share({ title, url: resolvedUrl });
+      await navigator.share({ title, url: currentShareUrl() });
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) throw error;
     }
