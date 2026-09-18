@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 test.describe("admin directory v2", () => {
   test("dense list uses the full dataset, accent-insensitive search and combined filters", async ({ page }) => {
-    let response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
+    const response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 61");
