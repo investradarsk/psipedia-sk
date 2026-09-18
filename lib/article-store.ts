@@ -14,6 +14,12 @@ import {
   normalizeArticleBlocks,
   type ArticleBlock,
 } from "@/lib/article-blocks";
+import { resolveArticleAuthorSelection } from "@/lib/editorial-authors";
+import {
+  legacyRichTextToDocument,
+  normalizeEditorialRichText,
+  type EditorialRichTextDocument,
+} from "@/lib/editorial-content";
 
 export type ArticleStatus = "draft" | "scheduled" | "published";
 
@@ -32,6 +38,9 @@ export type ManagedArticle = Article & {
   createdBy: string;
   updatedBy: string;
   relatedBreedIds: number[];
+  authorProfileId: number | null;
+  introRichText: EditorialRichTextDocument;
+  takeawayRichText: EditorialRichTextDocument;
 };
 
 export type ManagedArticleSummary = Pick<
@@ -76,8 +85,11 @@ export type ManagedArticleInput = {
   status?: string;
   accent?: string;
   author?: string;
+  authorProfileId?: number | null;
   intro?: string;
+  introRichText?: EditorialRichTextDocument | null;
   takeaway?: string;
+  takeawayRichText?: EditorialRichTextDocument | null;
   sections?: ArticleSection[];
   blocks?: ArticleBlock[];
   sources?: ArticleSource[];
@@ -111,8 +123,11 @@ type ArticleRow = {
   status: string;
   accent: string;
   author: string;
+  author_profile_id: number | null;
   intro: string;
+  intro_rich_text_json: string | null;
   takeaway: string;
+  takeaway_rich_text_json: string | null;
   sections_json: string;
   sources_json: string;
   blocks_json: string;
@@ -215,6 +230,18 @@ function parseJsonArray<T>(value: string, fallback: T[]) {
   }
 }
 
+function parseRichTextDocument(value: string | null | undefined, legacyValue: string) {
+  if (value) {
+    try {
+      const normalized = normalizeEditorialRichText(JSON.parse(value));
+      if (normalized) return normalized;
+    } catch {
+      // Fail closed to the escaped legacy text representation.
+    }
+  }
+  return legacyRichTextToDocument(legacyValue);
+}
+
 function parseReadingMinutes(value: string) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : 5;
@@ -254,6 +281,8 @@ function rowToManagedArticle(row: ArticleRow,relatedBreedIds:number[]=[]): Manag
   const sources = parseJsonArray<ArticleSource>(row.sources_json, []);
   const storedBlocks = parseJsonArray<ArticleBlock>(row.blocks_json ?? "[]", []);
   const blocks = storedBlocks.length ? normalizeArticleBlocks(storedBlocks) : legacyArticleBlocks(sections, sources);
+  const introRichText = parseRichTextDocument(row.intro_rich_text_json, row.intro);
+  const takeawayRichText = parseRichTextDocument(row.takeaway_rich_text_json, row.takeaway);
   return {
     id: row.id,
     slug: row.slug,
@@ -271,8 +300,11 @@ function rowToManagedArticle(row: ArticleRow,relatedBreedIds:number[]=[]): Manag
     image: row.image_url ?? undefined,
     accent: row.accent as Article["accent"],
     author: row.author,
+    authorProfileId: row.author_profile_id ?? null,
     intro: row.intro,
+    introRichText,
     takeaway: row.takeaway,
+    takeawayRichText,
     sections,
     sources,
     blocks,
@@ -382,13 +414,24 @@ export function slugifyArticleTitle(value: string) {
     .slice(0, 90);
 }
 
-async function normalizeInput(payload: ManagedArticleInput) {
+async function normalizeInput(
+  payload: ManagedArticleInput,
+  database: D1Database,
+  existingAuthorProfileId: number | null = null,
+) {
   const title = payload.title?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || title);
   const excerpt = payload.excerpt?.trim() ?? "";
   const intro = payload.intro?.trim() ?? "";
   const takeaway = payload.takeaway?.trim() ?? "";
-  const author = payload.author?.trim() || "Redakcia Psipedia";
+  const requestedAuthorProfileId = payload.authorProfileId === undefined ? existingAuthorProfileId : payload.authorProfileId;
+  const authorSelection = await resolveArticleAuthorSelection(database, {
+    authorProfileId: requestedAuthorProfileId,
+    legacyAuthor: payload.author,
+  });
+  const author = authorSelection.author;
+  const introRichText = normalizeEditorialRichText(payload.introRichText) ?? legacyRichTextToDocument(intro);
+  const takeawayRichText = normalizeEditorialRichText(payload.takeawayRichText) ?? legacyRichTextToDocument(takeaway);
   const status: ArticleStatus = payload.status === "published" ? "published" : payload.status === "scheduled" ? "scheduled" : "draft";
   const category = ARTICLE_CATEGORIES.includes(payload.category as (typeof ARTICLE_CATEGORIES)[number])
     ? (payload.category as Article["category"])
@@ -436,7 +479,6 @@ async function normalizeInput(payload: ManagedArticleInput) {
   if (portalSection === "recenzie" && !portalSubpage) throw new Error("Vyber oblasť v sekcii Recenzie a testy.");
   if (excerpt.length < 20) throw new Error("Perex by mal mať aspoň 20 znakov.");
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
-  if (takeaway.length < 10) throw new Error("Doplň hlavné posolstvo článku.");
   if (!blocks.length && !sections.length) throw new Error("Pridaj aspoň jeden obsahový blok.");
   if (portalSection === "novinky" && status !== "draft" && !sources.length) {
     throw new Error("Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj.");
@@ -501,8 +543,11 @@ async function normalizeInput(payload: ManagedArticleInput) {
     status,
     accent,
     author,
+    authorProfileId: authorSelection.authorProfileId,
     intro,
+    introRichText,
     takeaway,
+    takeawayRichText,
     sections,
     sources,
     blocks,
@@ -614,7 +659,7 @@ const getPublishedArticleUncached = async (slug: string): Promise<Article | null
   await ensureArticleStore(database);
   const row = await database
     .prepare(`SELECT id, slug, title, excerpt, category, portal_section, portal_subpage, news_category,
-      status, accent, author, intro, takeaway, sections_json, sources_json, blocks_json,
+      status, accent, author, author_profile_id, intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json,
       image_url, image_key, reading_minutes, created_at, updated_at, published_at, created_by,
       updated_by, content_updated_at, show_updated_label, seo_title, meta_description,
       canonical_url, noindex, focus_keyword, og_title, og_description, og_image_url, og_image_key
@@ -720,19 +765,19 @@ async function syncArticleBreeds(database:D1Database,articleId:number,breedIds:n
 export async function createManagedArticle(payload: ManagedArticleInput, editorEmail: string) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
-  const input = await normalizeInput(payload);
+  const input = await normalizeInput(payload, database);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? input.publishedAt ?? now : input.status === "scheduled" ? input.publishedAt : null;
 
   const result = await database
     .prepare(`
       INSERT INTO managed_articles (
-        slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, intro,
-        takeaway, sections_json, sources_json, blocks_json, image_url, image_key,
+        slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, author_profile_id,
+        intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json, image_url, image_key,
         reading_minutes, created_at, updated_at, published_at, created_by, updated_by,
         content_updated_at, show_updated_label, seo_title, meta_description, canonical_url, noindex,
         focus_keyword, og_title, og_description, og_image_url, og_image_key
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `)
     .bind(
@@ -746,8 +791,11 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
       input.status,
       input.accent,
       input.author,
+      input.authorProfileId,
       input.intro,
+      JSON.stringify(input.introRichText),
       input.takeaway,
+      JSON.stringify(input.takeawayRichText),
       JSON.stringify(input.sections),
       JSON.stringify(input.sources),
       JSON.stringify(input.blocks),
@@ -789,7 +837,7 @@ export async function updateManagedArticle(
   const existing = existingArticle ?? await getManagedArticleById(id);
   if (!existing) return null;
 
-  const input = await normalizeInput(payload);
+  const input = await normalizeInput(payload, database, existing.authorProfileId);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published"
     ? input.publishedAt ?? existing.publishedAt ?? now
@@ -800,7 +848,7 @@ export async function updateManagedArticle(
     .prepare(`
       UPDATE managed_articles SET
         slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
-        author = ?, intro = ?, takeaway = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
+        author = ?, author_profile_id = ?, intro = ?, intro_rich_text_json = ?, takeaway = ?, takeaway_rich_text_json = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
         image_url = ?, image_key = ?, reading_minutes = ?, updated_at = ?,
         published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
         seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
@@ -819,8 +867,11 @@ export async function updateManagedArticle(
       input.status,
       input.accent,
       input.author,
+      input.authorProfileId,
       input.intro,
+      JSON.stringify(input.introRichText),
       input.takeaway,
+      JSON.stringify(input.takeawayRichText),
       JSON.stringify(input.sections),
       JSON.stringify(input.sources),
       JSON.stringify(input.blocks),
