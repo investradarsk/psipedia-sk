@@ -22,6 +22,10 @@ on:
       - ".github/workflows/submission-foundation-ci.yml"
   workflow_dispatch:
 
+concurrency:
+  group: submission-foundation-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
