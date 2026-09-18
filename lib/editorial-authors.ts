@@ -159,18 +159,17 @@ async function uniqueEditorialAuthorSlug(database: D1Database, displayName: stri
 export async function createEditorialAuthorProfile(
   database: D1Database,
   rawInput: EditorialAuthorProfileInput,
+  editorEmail: string,
 ) {
   const input = normalizeEditorialAuthorProfileInput(rawInput);
   const slug = await uniqueEditorialAuthorSlug(database, input.displayName);
-
-  if (input.isDefault) {
-    await database.prepare("UPDATE editorial_author_profiles SET is_default = 0 WHERE is_default = 1").run();
-  }
+  const now = new Date().toISOString();
 
   const row = await database.prepare(`
     INSERT INTO editorial_author_profiles (
-      slug, kind, display_name, avatar_url, short_bio, role, is_active, is_default
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      slug, kind, display_name, avatar_url, short_bio, role, is_active, is_default,
+      created_at, updated_at, created_by, updated_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
     RETURNING id, slug, kind, display_name, avatar_url, short_bio, role, is_active, is_default
   `).bind(
     slug,
@@ -180,17 +179,33 @@ export async function createEditorialAuthorProfile(
     input.shortBio,
     input.role,
     input.active ? 1 : 0,
-    input.isDefault ? 1 : 0,
+    now,
+    now,
+    editorEmail,
+    editorEmail,
   ).first<EditorialAuthorProfileRow>();
 
   if (!row) throw new Error("Profil autora sa nepodarilo vytvoriť.");
-  return rowToProfile(row);
+
+  if (input.isDefault) {
+    await database.batch([
+      database.prepare("UPDATE editorial_author_profiles SET is_default = 0, updated_at = ?, updated_by = ? WHERE is_default = 1 AND id <> ?")
+        .bind(now, editorEmail, row.id),
+      database.prepare("UPDATE editorial_author_profiles SET is_default = 1, is_active = 1, updated_at = ?, updated_by = ? WHERE id = ?")
+        .bind(now, editorEmail, row.id),
+    ]);
+  }
+
+  const saved = await getEditorialAuthorProfile(database, row.id, false);
+  if (!saved) throw new Error("Profil autora sa po uložení nepodarilo načítať.");
+  return saved;
 }
 
 export async function updateEditorialAuthorProfile(
   database: D1Database,
   id: number,
   rawInput: EditorialAuthorProfileInput,
+  editorEmail: string,
 ) {
   const current = await getEditorialAuthorProfile(database, id, false);
   if (!current) throw new Error("Profil autora sa nenašiel.");
@@ -199,29 +214,52 @@ export async function updateEditorialAuthorProfile(
     throw new Error("Predvoleného autora nemožno deaktivovať. Najprv nastav iný predvolený profil.");
   }
   const slug = await uniqueEditorialAuthorSlug(database, input.displayName, id);
+  const now = new Date().toISOString();
+  const keepDefault = current.isDefault || input.isDefault;
 
-  if (input.isDefault) {
-    await database.prepare("UPDATE editorial_author_profiles SET is_default = 0 WHERE is_default = 1 AND id <> ?").bind(id).run();
+  if (input.isDefault && !current.isDefault) {
+    await database.batch([
+      database.prepare("UPDATE editorial_author_profiles SET is_default = 0, updated_at = ?, updated_by = ? WHERE is_default = 1 AND id <> ?")
+        .bind(now, editorEmail, id),
+      database.prepare(`
+        UPDATE editorial_author_profiles SET
+          slug = ?, kind = ?, display_name = ?, avatar_url = ?, short_bio = ?, role = ?,
+          is_active = 1, is_default = 1, updated_at = ?, updated_by = ?
+        WHERE id = ?
+      `).bind(
+        slug,
+        input.kind,
+        input.displayName,
+        input.avatarUrl,
+        input.shortBio,
+        input.role,
+        now,
+        editorEmail,
+        id,
+      ),
+    ]);
+  } else {
+    await database.prepare(`
+      UPDATE editorial_author_profiles SET
+        slug = ?, kind = ?, display_name = ?, avatar_url = ?, short_bio = ?, role = ?,
+        is_active = ?, is_default = ?, updated_at = ?, updated_by = ?
+      WHERE id = ?
+    `).bind(
+      slug,
+      input.kind,
+      input.displayName,
+      input.avatarUrl,
+      input.shortBio,
+      input.role,
+      input.active ? 1 : 0,
+      keepDefault ? 1 : 0,
+      now,
+      editorEmail,
+      id,
+    ).run();
   }
 
-  const row = await database.prepare(`
-    UPDATE editorial_author_profiles SET
-      slug = ?, kind = ?, display_name = ?, avatar_url = ?, short_bio = ?, role = ?,
-      is_active = ?, is_default = ?
-    WHERE id = ?
-    RETURNING id, slug, kind, display_name, avatar_url, short_bio, role, is_active, is_default
-  `).bind(
-    slug,
-    input.kind,
-    input.displayName,
-    input.avatarUrl,
-    input.shortBio,
-    input.role,
-    input.active ? 1 : 0,
-    input.isDefault ? 1 : current.isDefault ? 1 : 0,
-    id,
-  ).first<EditorialAuthorProfileRow>();
-
-  if (!row) throw new Error("Profil autora sa nepodarilo uložiť.");
-  return rowToProfile(row);
+  const saved = await getEditorialAuthorProfile(database, id, false);
+  if (!saved) throw new Error("Profil autora sa po uložení nepodarilo načítať.");
+  return saved;
 }
