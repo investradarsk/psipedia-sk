@@ -79,7 +79,33 @@ export function AdminEditorialAuthorField({
   }
 
   useEffect(() => {
-    void loadAuthors(true);
+    let active = true;
+
+    fetch("/api/admin/editorial-authors", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json() as { authors?: EditorialAuthorProfile[]; error?: string };
+        if (!response.ok) throw new Error(data.error || "Autorov sa nepodarilo načítať.");
+        return data.authors ?? [];
+      })
+      .then((nextAuthors) => {
+        if (!active) return;
+        setAuthors(nextAuthors);
+        if (selectedProfileId === undefined) {
+          const defaultAuthor = nextAuthors.find((author) => author.active && author.isDefault)
+            ?? nextAuthors.find((author) => author.active && author.displayName === "Redakcia Psipedia");
+          if (defaultAuthor) onSelectionChange(defaultAuthor.id, defaultAuthor.displayName, false);
+        }
+      })
+      .catch((error) => {
+        if (active) onError(error instanceof Error ? error.message : "Autorov sa nepodarilo načítať.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
     // Initial default resolution intentionally runs once. Later refreshes preserve the current selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
