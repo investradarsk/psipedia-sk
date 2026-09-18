@@ -55,7 +55,7 @@ export type NotionArticleSyncSummary = {
 const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_VERSION = "2025-09-03";
 const SYNC_ACTOR = "notion-sync@psipedia.sk";
-const MAX_SYNC_ITEMS = 20;
+const MAX_SYNC_ITEMS = 100;
 
 function flagEnabled(value: unknown) {
   return typeof value === "string" && (value === "1" || value.toLowerCase() === "true");
