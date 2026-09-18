@@ -5000,7 +5000,7 @@ h3 {
 
 .admin-slug-input span {
   padding-left: 12px;
-  color: #76867e;
+  color: #586a60;
   font-size: 0.76rem;
   white-space: nowrap;
 }
@@ -10622,7 +10622,7 @@ h3 {
 .admin-block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid #e5ebe6; background: #f7faf7; }
 .admin-block-head > div { display: flex; align-items: center; gap: 8px; }
 .admin-block-head strong { color: #173d30; font-size: .85rem; }
-.admin-block-head span { color: #748078; font-size: .7rem; }
+.admin-block-head span { color: #627068; font-size: .7rem; }
 .admin-block-head button { min-width: 34px; height: 32px; border: 1px solid #cedbd1; border-radius: 8px; color: #244f3e; background: #fff; cursor: pointer; }
 .admin-block-head button:disabled { opacity: .35; cursor: default; }
 .admin-block-head button.is-danger { color: #a84738; }
@@ -10677,7 +10677,7 @@ h3 {
 .admin-block-add-button { padding: 12px 24px; border: 0; border-radius: 999px; color: #fff; font-weight: 800; background: #1f684b; box-shadow: 0 8px 22px rgba(31, 104, 75, .18); cursor: pointer; }
 .admin-block-insert { position: relative; display: grid; justify-items: center; min-height: 18px; margin: -5px 0; }
 .admin-block-insert::before { position: absolute; top: 50%; right: 0; left: 0; height: 1px; content: ""; background: #d9e3dc; }
-.admin-block-insert-button { z-index: 1; padding: 4px 12px; border: 1px solid #cbdad0; border-radius: 999px; color: #37614f; font-size: .72rem; font-weight: 800; background: #f8fbf8; cursor: pointer; opacity: .42; transition: opacity .15s ease, border-color .15s ease, background .15s ease; }
+.admin-block-insert-button { z-index: 1; padding: 4px 12px; border: 1px solid #cbdad0; border-radius: 999px; color: #37614f; font-size: .72rem; font-weight: 800; background: #f8fbf8; cursor: pointer; opacity: .85; transition: opacity .15s ease, border-color .15s ease, background .15s ease; }
 .admin-block-insert:hover .admin-block-insert-button,
 .admin-block-insert:focus-within .admin-block-insert-button,
 .admin-block-insert.is-open .admin-block-insert-button { border-color: #77a18c; background: #fff; opacity: 1; }
@@ -10877,7 +10877,7 @@ h3 {
 .admin-check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--forest); }
 .admin-check span { display: grid; gap: 3px; }
 .admin-check strong { color: #234b3a; font-size: .82rem; }
-.admin-check small { color: #6d7b74; font-size: .72rem; }
+.admin-check small { color: #5f6b64; font-size: .72rem; }
 .admin-og-upload { margin-top: 18px; padding-top: 18px; border-top: 1px solid #e2e7e2; }
 .admin-schedule { color: #6b4b13; background: #f5e6b7; }
 .article-updated { color: #8f513d; font-weight: 750; }
