@@ -5,7 +5,12 @@ function projectSuffix(name: string) {
   return name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
 }
 
+async function waitForEditor(page: import("@playwright/test").Page, selector = "#article-intro") {
+  await expect(page.locator(`${selector}[data-editor-ready="true"]`)).toBeVisible();
+}
+
 async function fillMinimumArticle(page: import("@playwright/test").Page, title: string) {
+  await waitForEditor(page);
   await page.getByLabel(/Názov článku/).fill(title);
   await page.getByLabel("Krátky úvod na karte").fill("Izolovaný E2E perex s dostatočnou dĺžkou pre validačný contract.");
   const intro = page.locator("#article-intro");
@@ -16,6 +21,10 @@ async function fillMinimumArticle(page: import("@playwright/test").Page, title: 
 
 test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+  });
 
   test("creates and edits canonical rich text, author profiles and external video inline", async ({ page }, testInfo) => {
     const suffix = projectSuffix(testInfo.project.name);
@@ -107,6 +116,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
   test("preserves legacy article editing and Novinky source publishing guard", async ({ page }, testInfo) => {
     await page.goto("/admin/clanky/972001", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
     await expect(page.getByLabel("Meno autora pre legacy článok")).toHaveValue("Legacy autor");
     await expect(page.locator("#article-intro")).toContainText("Legacy úvod článku");
     await page.locator("#article-intro").fill("Legacy článok je teraz upravený cez canonical WYSIWYG bez straty spätnej kompatibility.");
@@ -122,6 +132,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
   test("toolbar is keyboard reachable, axe-clean and does not overflow at 390px-class mobile width", async ({ page }, testInfo) => {
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
     const intro = page.locator("#article-intro");
     await intro.focus();
     await expect(intro).toBeFocused();
