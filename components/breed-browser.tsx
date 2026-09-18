@@ -21,7 +21,6 @@ const shortGroupLabels: Record<number, string> = {
 
 export function BreedBrowser({ breeds, groups, initialFilters }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[]; initialFilters: BreedAtlasFilters }) {
   const [query, setQuery] = useState(initialFilters.query);
-  const [energy, setEnergy] = useState(initialFilters.energy);
   const [selectedGroup, setSelectedGroup] = useState(initialFilters.fciGroup || "all");
   const [selectedSection, setSelectedSection] = useState(() => validFciSectionForGroup(breeds, initialFilters.fciGroup, initialFilters.fciSection));
   const [selectedOrigin, setSelectedOrigin] = useState(initialFilters.origin || "all");
@@ -35,22 +34,20 @@ export function BreedBrowser({ breeds, groups, initialFilters }: { breeds: Manag
       fciGroup: selectedGroup === "all" ? "" : selectedGroup,
       fciSection: selectedSection,
       origin: selectedOrigin === "all" ? "" : selectedOrigin,
-      energy,
     });
     window.history.replaceState(null, "", href);
-  }, [query, energy, selectedGroup, selectedSection, selectedOrigin]);
+  }, [query, selectedGroup, selectedSection, selectedOrigin]);
 
   const visible = useMemo(() => {
     const normalized = normalizeBreedSearchText(query);
     return breeds.filter((breed) => {
       const queryMatch = !normalized || normalizeBreedSearchText(`${breed.name} ${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.intro} ${breed.searchText}`).includes(normalized);
-      const energyMatch = energy === "all" || (breed.editorialComplete && (energy === "calm" ? breed.energy <= 3 : breed.energy >= 4));
       const groupMatch = selectedGroup === "all" || breed.fciGroup === Number(selectedGroup);
       const sectionMatch = !selectedSection || breed.fciSectionNumber === selectedSection;
       const originMatch = selectedOrigin === "all" || breed.origin === selectedOrigin;
-      return queryMatch && energyMatch && groupMatch && sectionMatch && originMatch;
+      return queryMatch && groupMatch && sectionMatch && originMatch;
     });
-  }, [breeds, query, energy, selectedGroup, selectedSection, selectedOrigin]);
+  }, [breeds, query, selectedGroup, selectedSection, selectedOrigin]);
 
   const displayed=useMemo(()=>visible.slice(0,shown),[visible,shown]);
   const groupedBreeds = useMemo(() => groups
@@ -71,11 +68,6 @@ export function BreedBrowser({ breeds, groups, initialFilters }: { breeds: Manag
           <input value={query} onChange={(event) => {setQuery(event.target.value);setShown(60);}} placeholder="Hľadať plemeno, krajinu alebo FCI skupinu" />
         </label>
         <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><select value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</select></label>
-        <div className="filter-row" role="group" aria-label="Filtrovať podľa redakčne potvrdenej energie">
-          <button type="button" className={energy === "all" ? "is-active" : ""} aria-pressed={energy === "all"} onClick={() => {setEnergy("all");setShown(60);}}>Všetky</button>
-          <button type="button" className={energy === "calm" ? "is-active" : ""} aria-pressed={energy === "calm"} onClick={() => {setEnergy("calm");setShown(60);}}>Pokojnejšie</button>
-          <button type="button" className={energy === "active" ? "is-active" : ""} aria-pressed={energy === "active"} onClick={() => {setEnergy("active");setShown(60);}}>Aktívne</button>
-        </div>
       </div>
       <div className="fci-filter-panel" aria-label="FCI skupiny">
         <div className="fci-filter-row" role="group" aria-label="Filtrovať podľa skupiny FCI">
