@@ -3,6 +3,40 @@ name: ARTICLE-UX-1 focused validation
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "app/layout.tsx"
+      - "app/*.css"
+      - 'app/\[section\]/\[slug\]/page.tsx'
+      - "app/clanky/**"
+      - "app/api/admin/articles/**"
+      - "app/api/admin/sections/**"
+      - "components/article-*"
+      - "components/favorite-button.tsx"
+      - "components/share-button.tsx"
+      - "components/icons.tsx"
+      - "components/page-system.tsx"
+      - "components/site-header*"
+      - "components/site-footer*"
+      - "components/cookie-consent*"
+      - "lib/article-*"
+      - "lib/content.ts"
+      - "lib/content-seo.ts"
+      - "lib/news.ts"
+      - "lib/portal.ts"
+      - "lib/section-store.ts"
+      - "lib/seo.ts"
+      - "lib/navigation-store.ts"
+      - "scripts/bootstrap-article-ux-e2e.mjs"
+      - "scripts/build-verified.sh"
+      - "scripts/check-config-contract.mjs"
+      - "tests/article-modern-reading-experience.test.mjs"
+      - "tests/e2e/article-reading-experience.spec.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.ts"
+      - "vite.config.*"
+      - "tsconfig.json"
+      - ".github/workflows/article-ux-ci.yml"
 
 permissions:
   contents: read
