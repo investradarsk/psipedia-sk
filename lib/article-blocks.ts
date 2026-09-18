@@ -1,5 +1,6 @@
 import type { ArticleSection, ArticleSource } from "@/lib/content";
 import {
+  editorialRichTextPlainText,
   legacyRichTextToDocument,
   normalizeEditorialRichText,
   type EditorialRichTextDocument,
@@ -140,8 +141,10 @@ export function normalizeArticleBlocks(value: unknown): ArticleBlock[] {
     const id = safeId(block.id, index);
     const type = safeText(block.type, 30) as ArticleBlock["type"];
     if (type === "text") {
-      const content = safeText(block.content);
-      const richText = normalizeEditorialRichText(block.richText) ?? legacyRichTextToDocument(content);
+      const suppliedRichText = normalizeEditorialRichText(block.richText);
+      const legacyContent = safeText(block.content);
+      const richText = suppliedRichText ?? legacyRichTextToDocument(legacyContent);
+      const content = legacyContent || editorialRichTextPlainText(richText);
       return [{ id, type, content, richText, alignment: safeAlignment(block.alignment) }];
     }
     if (type === "h2" || type === "h3") return [{ id, type, text: safeText(block.text, 300) }];
@@ -158,13 +161,17 @@ export function normalizeArticleBlocks(value: unknown): ArticleBlock[] {
       return [{ id, type, items }];
     }
     if (type === "tip" || type === "warning") {
-      const content = safeText(block.content, 5_000);
-      const richText = normalizeEditorialRichText(block.richText) ?? legacyRichTextToDocument(content);
+      const suppliedRichText = normalizeEditorialRichText(block.richText);
+      const legacyContent = safeText(block.content, 5_000);
+      const richText = suppliedRichText ?? legacyRichTextToDocument(legacyContent);
+      const content = legacyContent || editorialRichTextPlainText(richText).slice(0, 5_000);
       return [{ id, type, content, richText }];
     }
     if (type === "quote") {
-      const content = safeText(block.content, 5_000);
-      const richText = normalizeEditorialRichText(block.richText) ?? legacyRichTextToDocument(content);
+      const suppliedRichText = normalizeEditorialRichText(block.richText);
+      const legacyContent = safeText(block.content, 5_000);
+      const richText = suppliedRichText ?? legacyRichTextToDocument(legacyContent);
+      const content = legacyContent || editorialRichTextPlainText(richText).slice(0, 5_000);
       return [{ id, type, content, richText, attribution: safeText(block.attribution, 300) || undefined }];
     }
     if (type === "table") {
