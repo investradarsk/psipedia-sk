@@ -256,7 +256,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
               showLists
               alignment={block.alignment ?? "left"}
               onAlignmentChange={(alignment) => update(block.id, (item) => item.type === "text" ? { ...item, alignment } : item)}
-              onChange={(content) => update(block.id, (item) => item.type === "text" ? { ...item, content } : item)}
+              onChange={(content) => update(block.id, (item) => item.type === "text" ? { ...item, content, richText: undefined } : item)}
               placeholder="Napíš text článku… Prázdnym riadkom oddeľ odseky."
             />}
             {(block.type === "h2" || block.type === "h3") && <div className="admin-field"><label htmlFor={`block-${block.id}`}>{block.type === "h2" ? "Hlavný medzititulok" : "Menší podnadpis"}</label><input id={`block-${block.id}`} value={block.text} onChange={(event) => update(block.id, (item) => item.type === block.type ? { ...item, text: event.target.value } : item)} placeholder={block.type === "h2" ? "Nadpis novej časti" : "Podnadpis v rámci časti"} /></div>}
