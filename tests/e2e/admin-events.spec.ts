@@ -36,6 +36,8 @@ test('all 175 events, global counts, filters, pagination and responsive list', a
   await expect(page.locator('.admin-event-row-v2')).toHaveCount(25);
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('e2e-admin-event-175');
   await expect(page.locator('.admin-event-row-v2')).toHaveCount(1);
+  await expect(page.locator('.admin-event-row-v2')).toContainText('Bez obrázka');
+  await expect(page.locator('.admin-event-row-v2')).toContainText('čas neuvedený');
   await expect(page.locator('[data-count="all"] strong')).toHaveText('175');
   await page.getByRole('button',{name:'Zrušiť filtre',exact:true}).click();
   await page.getByRole('button',{name:'Minulé',exact:true}).click();
@@ -91,6 +93,21 @@ test('bulk publish uses Foundation confirmation and sends exact reviewed selecti
   await expect(page.getByText('Zmenených podujatí: 1.',{exact:true})).toBeVisible();
   expect(requests).toBe(1);
   await expect(page.locator('[data-count="draft"] strong')).toHaveText('171');
+});
+
+test('create and edit routes keep the existing event lifecycle contract', async ({ page }) => {
+  await page.goto('/admin/podujatia/nove');
+  await expect(page.getByLabel('Názov podujatia',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Typ podujatia',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Dátum začiatku',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Uložiť|koncept/i}).first()).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+
+  await page.goto('/admin/podujatia/175');
+  await expect(page.getByLabel('Názov podujatia',{exact:true})).toHaveValue('Stretnutie majiteľov psov 175');
+  await expect(page.getByLabel('Typ podujatia',{exact:true})).toHaveValue('Stretnutie');
+  await expect(page.getByLabel('Dátum začiatku',{exact:true})).not.toHaveValue('');
+  await expectNoAxeViolations(page);
 });
 
 test('editor toolbar and live preview, old plain text, XSS stays inert', async ({ page }, info) => {
