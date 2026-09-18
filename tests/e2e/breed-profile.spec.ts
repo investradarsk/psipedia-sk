@@ -96,7 +96,7 @@ test("breed atlas: compact header, legacy energy normalization, filters and comp
   await expect(first).toBeVisible();
   await expect(second).toBeVisible();
   const firstValue = await first.inputValue();
-  await expect(second.locator(`option[value="${firstValue}"]`)).toBeDisabled();
+  await expect(second.locator(`option[value="${firstValue}"]`)).toHaveAttribute("disabled", "");
   const beforeFirstValue = await first.inputValue();
   const beforeSecondValue = await second.inputValue();
   await page.getByRole("button", { name: "Vymeniť poradie plemien" }).click();
