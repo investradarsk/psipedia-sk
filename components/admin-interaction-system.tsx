@@ -349,7 +349,9 @@ export function AdminStickyEditorNavigation({
     if (!sections.length) return;
     const validIds = new Set(sections.map((section) => section.id));
     const hash = decodeURIComponent(window.location.hash.replace(/^#/, ""));
-    if (hash && validIds.has(hash)) setCurrentSectionId(hash);
+    const hashFrame = hash && validIds.has(hash)
+      ? window.requestAnimationFrame(() => setCurrentSectionId(hash))
+      : null;
 
     const targets = sections
       .map((section) => document.getElementById(section.id))
@@ -364,7 +366,10 @@ export function AdminStickyEditorNavigation({
     }, { rootMargin: "-18% 0px -68% 0px", threshold: [0.05, 0.25, 0.6] });
 
     targets.forEach((target) => observer.observe(target));
-    return () => observer.disconnect();
+    return () => {
+      if (hashFrame !== null) window.cancelAnimationFrame(hashFrame);
+      observer.disconnect();
+    };
   }, [sections]);
 
   function goToSection(id: string) {
