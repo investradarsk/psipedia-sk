@@ -14,8 +14,9 @@ import {
   normalizeArticleBlocks,
   type ArticleBlock,
 } from "@/lib/article-blocks";
-import { resolveArticleAuthorSelection } from "@/lib/editorial-authors";
+import { getEditorialAuthorProfile, resolveArticleAuthorSelection } from "@/lib/editorial-authors";
 import {
+  editorialRichTextPlainText,
   legacyRichTextToDocument,
   normalizeEditorialRichText,
   type EditorialRichTextDocument,
@@ -422,16 +423,32 @@ async function normalizeInput(
   const title = payload.title?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || title);
   const excerpt = payload.excerpt?.trim() ?? "";
-  const intro = payload.intro?.trim() ?? "";
-  const takeaway = payload.takeaway?.trim() ?? "";
-  const requestedAuthorProfileId = payload.authorProfileId === undefined ? existingAuthorProfileId : payload.authorProfileId;
-  const authorSelection = await resolveArticleAuthorSelection(database, {
-    authorProfileId: requestedAuthorProfileId,
-    legacyAuthor: payload.author,
-  });
+  const suppliedIntroRichText = normalizeEditorialRichText(payload.introRichText);
+  const suppliedTakeawayRichText = normalizeEditorialRichText(payload.takeawayRichText);
+  const intro = payload.intro?.trim() || editorialRichTextPlainText(suppliedIntroRichText);
+  const takeaway = payload.takeaway?.trim() || editorialRichTextPlainText(suppliedTakeawayRichText);
+  let authorSelection: { authorProfileId: number | null; author: string };
+
+  if (payload.authorProfileId !== undefined) {
+    authorSelection = await resolveArticleAuthorSelection(database, {
+      authorProfileId: payload.authorProfileId,
+      legacyAuthor: payload.author,
+    });
+  } else if (existingAuthorProfileId) {
+    const existingProfile = await getEditorialAuthorProfile(database, existingAuthorProfileId, false);
+    const legacyAuthor = payload.author?.trim() || "";
+    authorSelection = existingProfile && (!legacyAuthor || legacyAuthor === existingProfile.displayName)
+      ? { authorProfileId: existingProfile.id, author: existingProfile.displayName }
+      : { authorProfileId: null, author: legacyAuthor || existingProfile?.displayName || "Redakcia Psipedia" };
+  } else {
+    authorSelection = await resolveArticleAuthorSelection(database, {
+      legacyAuthor: payload.author,
+    });
+  }
+
   const author = authorSelection.author;
-  const introRichText = normalizeEditorialRichText(payload.introRichText) ?? legacyRichTextToDocument(intro);
-  const takeawayRichText = normalizeEditorialRichText(payload.takeawayRichText) ?? legacyRichTextToDocument(takeaway);
+  const introRichText = suppliedIntroRichText ?? legacyRichTextToDocument(intro);
+  const takeawayRichText = suppliedTakeawayRichText ?? legacyRichTextToDocument(takeaway);
   const status: ArticleStatus = payload.status === "published" ? "published" : payload.status === "scheduled" ? "scheduled" : "draft";
   const category = ARTICLE_CATEGORIES.includes(payload.category as (typeof ARTICLE_CATEGORIES)[number])
     ? (payload.category as Article["category"])
