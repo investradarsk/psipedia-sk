@@ -1,4 +1,6 @@
 import type { PublicHelpOrganization } from "./help-organization-store.ts";
+import { validateFundraisingUrl } from "./organization-fundraising-contract.ts";
+import type { PublicOrganizationFundraisingMethod } from "./organization-fundraising-public.ts";
 
 export type OrganizationProfileFact = {
   label: string;
@@ -23,6 +25,16 @@ export type OrganizationProfileLocation = {
   label: string | null;
   value: string;
   isPrimary: boolean;
+};
+
+
+export type OrganizationFundraisingPresentation = {
+  id: number;
+  typeLabel: string;
+  title: string;
+  detail: { label: string; value: string } | null;
+  instructions: string | null;
+  action: OrganizationProfileAction | null;
 };
 
 export type OrganizationProfilePresentation = {
@@ -50,6 +62,22 @@ const organizationLocationRoleLabels: Record<PublicHelpOrganization["locations"]
   SITE: "Prevádzka",
   LEGAL_SEAT: "Sídlo",
   SERVICE_AREA: "Pôsobnosť",
+};
+
+
+const fundraisingTypeLabels: Record<PublicOrganizationFundraisingMethod["type"], string> = {
+  MATERIAL_DONATION: "Materiálna pomoc",
+  DONATION_PAGE: "Online podpora",
+  BANK_TRANSFER: "Bankový prevod",
+  TRANSPARENT_ACCOUNT: "Transparentný účet",
+  EXTERNAL_FUNDRAISER: "Externá zbierka",
+};
+
+const fundraisingActionLabels: Partial<Record<PublicOrganizationFundraisingMethod["type"], string>> = {
+  MATERIAL_DONATION: "Viac o materiálnej pomoci ↗",
+  DONATION_PAGE: "Otvoriť stránku podpory ↗",
+  TRANSPARENT_ACCOUNT: "Otvoriť transparentný účet ↗",
+  EXTERNAL_FUNDRAISER: "Otvoriť zbierku ↗",
 };
 
 function text(value: string | null | undefined) {
@@ -141,6 +169,35 @@ function presentationLocations(organization: PublicHelpOrganization): Organizati
       };
     })
     .filter((location) => Boolean(location.value || location.label));
+}
+
+export function buildOrganizationFundraisingPresentation(
+  methods: readonly PublicOrganizationFundraisingMethod[],
+): OrganizationFundraisingPresentation[] {
+  return methods.map((method) => {
+    const typeLabel = fundraisingTypeLabels[method.type];
+    const title = text(method.label) ?? typeLabel;
+    const detail = method.value
+      ? {
+          label: method.type === "BANK_TRANSFER" || method.type === "TRANSPARENT_ACCOUNT" ? "IBAN" : "Možnosť pomoci",
+          value: method.value,
+        }
+      : null;
+    const urlResult = method.url ? validateFundraisingUrl(method.url) : null;
+    const actionLabel = fundraisingActionLabels[method.type];
+    const action = urlResult?.valid && actionLabel
+      ? { label: actionLabel, href: urlResult.normalizedUrl, external: true }
+      : null;
+
+    return {
+      id: method.id,
+      typeLabel,
+      title,
+      detail,
+      instructions: text(method.instructions),
+      action,
+    };
+  });
 }
 
 export function buildOrganizationProfilePresentation(

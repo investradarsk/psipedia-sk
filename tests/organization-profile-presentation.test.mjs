@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildOrganizationProfilePresentation } from "../lib/organization-profile-presentation.ts";
+import {
+  buildOrganizationFundraisingPresentation,
+  buildOrganizationProfilePresentation,
+} from "../lib/organization-profile-presentation.ts";
 
 function organization(overrides = {}) {
   return {
@@ -175,4 +178,54 @@ test("profile omits the location UI contract when canonical and legacy location 
 
   assert.equal(presentation.location, null);
   assert.deepEqual(presentation.locations, []);
+});
+
+test("fundraising presentation stays type-aware, neutral and HTTPS-only", () => {
+  const presentation = buildOrganizationFundraisingPresentation([
+    {
+      id: 11,
+      type: "BANK_TRANSFER",
+      label: "Účet organizácie",
+      url: null,
+      value: "GB82 WEST 1234 5698 7654 32",
+      instructions: "Do poznámky uveďte DAR.",
+      sortOrder: 0,
+    },
+    {
+      id: 12,
+      type: "DONATION_PAGE",
+      label: "",
+      url: "https://EXAMPLE.org/donate",
+      value: null,
+      instructions: null,
+      sortOrder: 1,
+    },
+    {
+      id: 13,
+      type: "EXTERNAL_FUNDRAISER",
+      label: "Nebezpečný test",
+      url: "javascript:alert(1)",
+      value: null,
+      instructions: null,
+      sortOrder: 2,
+    },
+  ]);
+
+  assert.deepEqual(presentation[0], {
+    id: 11,
+    typeLabel: "Bankový prevod",
+    title: "Účet organizácie",
+    detail: { label: "IBAN", value: "GB82 WEST 1234 5698 7654 32" },
+    instructions: "Do poznámky uveďte DAR.",
+    action: null,
+  });
+  assert.equal(presentation[1].title, "Online podpora");
+  assert.deepEqual(presentation[1].action, {
+    label: "Otvoriť stránku podpory ↗",
+    href: "https://example.org/donate",
+    external: true,
+  });
+  assert.equal(presentation[2].action, null);
+  assert.equal(JSON.stringify(presentation).includes("guarante"), false);
+  assert.equal(JSON.stringify(presentation).includes("garant"), false);
 });
