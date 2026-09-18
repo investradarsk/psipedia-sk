@@ -10,6 +10,7 @@
 .checkLabel,
 .rowCheck {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
@@ -17,14 +18,15 @@
 
 .checkLabel input,
 .rowCheck input {
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 20px;
+  height: 20px;
   flex: 0 0 auto;
 }
 
 .rowCheck {
+  min-width: 44px;
   align-self: flex-start;
-  padding-top: 0.25rem;
+  justify-content: center;
 }
 
 .toolbar {
@@ -159,4 +161,17 @@
   .dialogActions button {
     width: 100%;
   }
+}
+
+
+.selectionAnnouncement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
