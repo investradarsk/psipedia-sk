@@ -80,6 +80,10 @@
   color: #4d6258;
 }
 
+.main :global(.admin-status--draft) {
+  color: #7a591d;
+}
+
 .main h2 a {
   overflow-wrap: anywhere;
 }
