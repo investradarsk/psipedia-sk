@@ -695,17 +695,17 @@ test("renders the care hub, urgent guidance and topic-specific articles", async 
   assert.match(hubHtml, /Zdravie a starostlivosť/);
   assert.match(hubHtml, /Má pes akútny problém/);
   assert.match(hubHtml, /Čo riešiš/);
-  assert.match(hubHtml, /Užitočné služby a kontakty/);
+  assert.match(hubHtml, /Užitočné služby a pokračovanie/);
   assert.match(hubHtml, /Nájsť veterinára/);
-  assert.match(hubHtml, /portal-hero--photo/);
-  assert.match(hubHtml, /portal-hero-photo/);
+  assert.doesNotMatch(hubHtml, /portal-hero--photo/);
+  assert.doesNotMatch(hubHtml, /portal-hero-photo/);
 
   const nutrition = await worker.fetch(new Request("http://localhost/starostlivost/vyziva", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(nutrition.status, 200);
   const nutritionHtml = await nutrition.text();
-  assert.match(nutritionHtml, /Praktická poradňa: Výživa/);
-  assert.match(nutritionHtml, /Čo môžeš urobiť doma/);
-  assert.match(nutritionHtml, /Varovné signály/);
+  assert.match(nutritionHtml, /Výživa v praxi/);
+  assert.match(nutritionHtml, /Čo sledovať doma/);
+  assert.match(nutritionHtml, /Kedy nečakať/);
   assert.match(nutritionHtml, /Ako vybrať granule bez marketingových mýtov/);
   assert.doesNotMatch(nutritionHtml, /Chôdza pri nohe bez ťahania/);
 
@@ -731,14 +731,14 @@ test("renders the activities hub, safe-start guidance and activity admin fields"
   const hubHtml = await hub.text();
   assert.match(hubHtml, /Výcvik a aktivity/);
   assert.match(hubHtml, /Dobrá aktivita sedí konkrétnemu psovi/);
-  assert.match(hubHtml, /Hľadať v aktivitách/);
-  assert.match(hubHtml, /Tréning a zážitky nablízku/);
+  assert.match(hubHtml, /Hľadať v sekcii/);
+  assert.match(hubHtml, /Užitočné služby a pokračovanie/);
   assert.match(hubHtml, /Kynologické kluby/);
 
   const sports = await worker.fetch(new Request("http://localhost/aktivity/psie-sporty", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(sports.status, 200);
   const sportsHtml = await sports.text();
-  assert.match(sportsHtml, /Praktický sprievodca: Psie športy/);
+  assert.match(sportsHtml, /Psie športy v praxi/);
   assert.match(sportsHtml, /Ako začať/);
   assert.match(sportsHtml, /Bezpečnosť a limity/);
   assert.match(sportsHtml, /Aport: od naháňačky k spoľahlivému odovzdaniu do ruky/);
@@ -766,17 +766,17 @@ test("renders the puppy journey, practical topic guidance and puppy admin fields
   assert.equal(hub.status, 200);
   const hubHtml = await hub.text();
   assert.match(hubHtml, /Čakáš šteniatko alebo je už doma/);
-  assert.match(hubHtml, /Pred príchodom/);
-  assert.match(hubHtml, /Prvé týždne doma/);
-  assert.match(hubHtml, /Rast a dospievanie/);
+  assert.match(hubHtml, /Vyber tému/);
+  assert.match(hubHtml, /Prvé dni doma/);
+  assert.match(hubHtml, /Rast a vývoj/);
   assert.match(hubHtml, /Hľadať v sprievodcovi/);
-  assert.match(hubHtml, /Chovateľské stanice/);
+  assert.match(hubHtml, /Výber plemena/);
 
   const firstDays = await worker.fetch(new Request("http://localhost/steniatka/prve-dni", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(firstDays.status, 200);
   const firstDaysHtml = await firstDays.text();
-  assert.match(firstDaysHtml, /Sprievodca: Prvé dni doma/);
-  assert.match(firstDaysHtml, /Čo urobiť teraz/);
+  assert.match(firstDaysHtml, /Prvé dni doma v praxi/);
+  assert.match(firstDaysHtml, /Praktické kroky/);
   assert.match(firstDaysHtml, /Na čo si dať pozor/);
   assert.match(firstDaysHtml, /Dôležité pre túto fázu/);
 
