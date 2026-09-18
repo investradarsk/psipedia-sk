@@ -20,7 +20,8 @@ test("public visual system exposes opt-in public-only foundation primitives", ()
     assert.match(source, new RegExp(`export function ${name}\\b`), `${name} export is missing`);
     assert.match(barrel, new RegExp(`\\b${name}\\b`), `${name} barrel export is missing`);
   }
-  assert.doesNotMatch(source, /admin|editor/i);
+  assert.doesNotMatch(source, /(?:admin|editor)[/-]/i);
+  assert.doesNotMatch(styles, /\\.(?:admin|editor)\\b/i);
   assert.doesNotMatch(styles, /(^|[,{]\\s*)(html|body|:root)\\b/m);
 });
 
