@@ -28,6 +28,9 @@ const cases = [
 async function expectNoSeriousAccessibilityViolations(page: Page) {
   const result = await new AxeBuilder({ page })
     .include("main#obsah")
+    // Third-party YouTube/Vimeo player DOM is outside Psipedia's control.
+    // The host iframe contract is covered separately below.
+    .exclude(".article-block-embed iframe")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   const violations = result.violations.filter(({ impact }) => impact === "serious" || impact === "critical");
