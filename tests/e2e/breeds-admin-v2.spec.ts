@@ -25,6 +25,46 @@ async function openCreatedDraft(page: Page, testInfo: TestInfo) {
   await expect(page.getByLabel("Názov plemena")).toHaveValue(draftName(testInfo));
 }
 
+async function goToBreedEditorSection(page: Page, label: string, id: string) {
+  const navigation = page.getByRole("navigation", { name: "Sekcie editora plemena" });
+  await expect(navigation).toBeVisible();
+  const mobileSelect = navigation.getByRole("combobox", { name: "Sekcie editora plemena" });
+  if (await mobileSelect.isVisible()) {
+    await mobileSelect.selectOption(id);
+  } else {
+    await navigation.getByRole("link", { name: label }).click();
+  }
+  await expect(page).toHaveURL(new RegExp(`#${id}import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
+
+function suffix(testInfo: TestInfo) {
+  return testInfo.project.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+}
+
+function draftName(testInfo: TestInfo) {
+  return `BREEDS ADMIN E2E ${suffix(testInfo)}`;
+}
+
+async function necessaryCookies(page: Page) {
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+}
+
+async function waitForBreedEditor(page: Page) {
+  await expect(page.locator('.admin-breed-editor[data-admin-breed-editor-ready="true"]')).toBeVisible();
+}
+
+async function openCreatedDraft(page: Page, testInfo: TestInfo) {
+  await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+  await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill(draftName(testInfo));
+  await page.getByRole("link", { name: draftName(testInfo) }).click();
+  await waitForBreedEditor(page);
+  await expect(page.getByLabel("Názov plemena")).toHaveValue(draftName(testInfo));
+}
+
+));
+  await expect(page.locator(`#${id}`)).toBeFocused();
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() =>
     Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
@@ -94,11 +134,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
   test("sports drawer, long navigation and canonical article/station/club relations persist", async ({ page }, testInfo) => {
     await openCreatedDraft(page, testInfo);
-    const navigation = page.getByRole("navigation", { name: "Sekcie editora plemena" });
-    await expect(navigation).toBeVisible();
-    await navigation.getByRole("link", { name: "Športy" }).click();
-    await expect(page).toHaveURL(/#breed-sports$/);
-    await expect(page.locator("#breed-sports")).toBeFocused();
+    await goToBreedEditorSection(page, "Športy", "breed-sports");
 
     await page.getByRole("button", { name: "+ Pridať šport" }).click();
     const sportDrawer = page.getByRole("dialog", { name: "Pridať šport" });
@@ -109,7 +145,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(sportDrawer).toBeHidden();
     await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
 
-    await navigation.getByRole("link", { name: "Prepojenia" }).click();
+    await goToBreedEditorSection(page, "Prepojenia", "breed-relations");
     const articleGroup = page.getByRole("group", { name: "Súvisiace články" });
     await articleGroup.getByPlaceholder("Hľadať článok").fill("BREEDS-ADMIN");
     await articleGroup.getByLabel(/BREEDS-ADMIN súvisiaci článok/).check();
