@@ -29,7 +29,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
 
   try {
     const payload = (await request.json()) as EditorialAuthorProfileInput;
-    const author = await updateEditorialAuthorProfile(databaseBinding(), numericId, payload);
+    const author = await updateEditorialAuthorProfile(databaseBinding(), numericId, payload, user.email);
     return Response.json({ author });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Profil autora sa nepodarilo uložiť." }, { status: 400 });
