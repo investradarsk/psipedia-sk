@@ -82,7 +82,15 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await fillMinimumArticle(page, `ARTICLE ADMIN Security ${suffix}`);
 
     const intro = page.locator("#article-intro");
+    await intro.focus();
     await intro.evaluate((element) => {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+
       const data = new DataTransfer();
       data.setData("text/plain", " Bezpečný vložený text <script>alert(1)</script>");
       data.setData("text/html", '<iframe src="https://evil.example"></iframe><script>alert(1)</script>');
