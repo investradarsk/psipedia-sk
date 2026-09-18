@@ -35,3 +35,12 @@ SELECT
   'e2e@psipedia.local',
   'e2e@psipedia.local'
 FROM seq;
+
+
+-- ARTICLE-ADMIN proof-of-use: upgrade one pre-existing repository-managed fixture
+-- to the merged canonical rich-text contract without touching production data.
+UPDATE managed_articles
+SET
+  intro = 'Repo-managed testovací úvod pre canonical Word-like editor.',
+  intro_rich_text_json = '{"version":1,"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Repo-managed testovací úvod pre "},{"type":"text","text":"canonical Word-like editor","marks":[{"type":"bold"}]},{"type":"text","text":"."}]}]}'
+WHERE id = 970001;
