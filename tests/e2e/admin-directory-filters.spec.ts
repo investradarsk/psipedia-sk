@@ -190,6 +190,12 @@ test.describe("admin directory v2", () => {
   test("create flow validates current contract and produces a manageable draft", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar/novy");
+    const advanced = page.getByRole("button", { name: "Pokročilé a SEO" });
+    await advanced.click();
+    await expect(page.getByRole("dialog", { name: "Pokročilé nastavenia" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(advanced).toBeFocused();
+
     await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
     await page.getByLabel("Krátky popis").fill("Testovací profil vytvorený cez nový directory admin flow.");
     await page.getByLabel("Podrobný popis").fill("Toto je dostatočne dlhý deterministický popis používaný iba v lokálnom E2E teste administrácie.");
