@@ -247,12 +247,12 @@ export function AdminOrganizationFundraising({ organization, initialMethods }: {
               <small>Aktivácia sama osebe nezabezpečí verejnú oprávnenosť; bez VERIFIED zostáva public eligibility fail-closed.</small>
             </div>
             <div className="admin-field-grid">
-              <div className="admin-field"><label>Verification stav</label><input value={verificationLabels[item.verificationStatus]} readOnly aria-readonly="true"/><small>Mení sa iba samostatnou dôveryhodnostnou akciou.</small></div>
-              <div className="admin-field"><label>Verification source</label><input value={item.verificationSourceUrl ?? "—"} readOnly aria-readonly="true"/></div>
-              <div className="admin-field"><label>Overené</label><input value={item.verifiedAt ?? "—"} readOnly aria-readonly="true"/></div>
-              <div className="admin-field"><label>Overil</label><input value={item.verifiedBy ?? "—"} readOnly aria-readonly="true"/></div>
-              <div className="admin-field"><label>Overenie expiruje</label><input value={item.verificationExpiresAt ?? "—"} readOnly aria-readonly="true"/></div>
-              <div className="admin-field"><label>Platné do</label><input value={item.validUntil ?? "—"} readOnly aria-readonly="true"/></div>
+              <div className="admin-field"><label htmlFor={`fundraising-${item.id}-verification-status-current`}>Verification stav</label><input id={`fundraising-${item.id}-verification-status-current`} value={verificationLabels[item.verificationStatus]} readOnly aria-readonly="true"/><small>Mení sa iba samostatnou dôveryhodnostnou akciou.</small></div>
+              <div className="admin-field"><label htmlFor={`fundraising-${item.id}-verification-source-current`}>Verification source</label><input id={`fundraising-${item.id}-verification-source-current`} value={item.verificationSourceUrl ?? "—"} readOnly aria-readonly="true"/></div>
+              <div className="admin-field"><label htmlFor={`fundraising-${item.id}-verified-at-current`}>Overené</label><input id={`fundraising-${item.id}-verified-at-current`} value={item.verifiedAt ?? "—"} readOnly aria-readonly="true"/></div>
+              <div className="admin-field"><label htmlFor={`fundraising-${item.id}-verified-by-current`}>Overil</label><input id={`fundraising-${item.id}-verified-by-current`} value={item.verifiedBy ?? "—"} readOnly aria-readonly="true"/></div>
+              <div className="admin-field"><label htmlFor={`fundraising-${item.id}-verification-expiry-current`}>Overenie expiruje</label><input id={`fundraising-${item.id}-verification-expiry-current`} value={item.verificationExpiresAt ?? "—"} readOnly aria-readonly="true"/></div>
+              <div className="admin-field"><label htmlFor={`fundraising-${item.id}-valid-until-current`}>Platné do</label><input id={`fundraising-${item.id}-valid-until-current`} value={item.validUntil ?? "—"} readOnly aria-readonly="true"/></div>
             </div>
             {!archived && !parentArchived && <>
               <div className="admin-field-grid" data-fundraising-verification-controls>
