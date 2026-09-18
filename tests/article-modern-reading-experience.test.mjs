@@ -83,18 +83,18 @@ test("end recommendations use the FOUNDATION-PUBLIC compact content list", () =>
 });
 
 test("canonical author presentation keeps a safe legacy fallback", () => {
-  assert.match(detail, /authorProfile\\?\\.displayName \\|\\| article\\.author/);
-  assert.match(detail, /authorProfile\\?\\.avatarUrl/);
-  assert.match(detail, /authorProfile\\?\\.role/);
+  assert.match(detail, /authorProfile\?\.displayName \|\| article\.author/);
+  assert.match(detail, /authorProfile\?\.avatarUrl/);
+  assert.match(detail, /authorProfile\?\.role/);
   assert.match(articleStore, /export async function getPublishedArticleAuthorProfile/);
-  assert.match(articleStore, /getEditorialAuthorProfile\\(database, authorProfileId, true\\)/);
+  assert.match(articleStore, /getEditorialAuthorProfile\(database, authorProfileId, true\)/);
 });
 
 test("sharing exposes Facebook, WhatsApp, native share and copy without fake social endpoints", () => {
-  assert.match(shareComponent, /facebook\\.com\\/sharer\\/sharer\\.php/);
-  assert.match(shareComponent, /wa\\.me/);
-  assert.match(shareComponent, /typeof navigator\\.share === "function"/);
-  assert.match(shareComponent, /navigator\\.clipboard\\.writeText/);
+  assert.match(shareComponent, /facebook\.com\/sharer\/sharer\.php/);
+  assert.match(shareComponent, /wa\.me/);
+  assert.match(shareComponent, /typeof navigator\.share === "function"/);
+  assert.match(shareComponent, /navigator\.clipboard\.writeText/);
   assert.doesNotMatch(shareComponent, /instagram|tiktok|messenger/i);
 });
 
@@ -103,10 +103,10 @@ test("Novinky uses a complete public reader and existing category taxonomy", () 
   const readerStart = articleStore.indexOf("export async function getAllPublishedArticleSummaries");
   const readerEnd = articleStore.indexOf("/** Backwards-compatible public listing", readerStart);
   assert.ok(readerStart >= 0 && readerEnd > readerStart);
-  assert.doesNotMatch(articleStore.slice(readerStart, readerEnd), /LIMIT \\?/);
+  assert.doesNotMatch(articleStore.slice(readerStart, readerEnd), /LIMIT \?/);
   assert.match(newsHub, /Všetky publikované novinky/);
-  assert.match(newsHub, /newsCategories\\.map/);
-  assert.match(newsHub, /newsArticles\\.map/);
-  assert.doesNotMatch(newsHub, /slice\\(0,\\s*[345]\\)/);
+  assert.match(newsHub, /newsCategories\.map/);
+  assert.match(newsHub, /newsArticles\.map/);
+  assert.doesNotMatch(newsHub, /slice\(0,\s*[345]\)/);
   assert.match(newsHub, /<PublicContentList/);
 });
