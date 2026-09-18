@@ -525,7 +525,7 @@
     display: block;
     width: 100%;
     height: auto;
-    max-height: 190px;
+    max-height: none;
     aspect-ratio: 16 / 9;
     object-fit: cover;
     border-radius: 14px;
