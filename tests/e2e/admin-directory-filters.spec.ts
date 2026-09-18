@@ -63,7 +63,8 @@ test.describe("admin directory v2", () => {
     await expect(page.getByText("Vybrané: 61")).toHaveCount(0);
   });
 
-  test("directory bulk publish and move-to-draft execute only after preflight confirmation", async ({ page }) => {
+  test("directory bulk publish and move-to-draft execute only after preflight confirmation", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar?category=dalsie-sluzby&q=Bulk+Fixture");
     await page.getByLabel("Vybrať profil Bulk Fixture Draft").check();
     await page.getByLabel("Vybrať profil Bulk Fixture Published").check();
@@ -89,7 +90,8 @@ test.describe("admin directory v2", () => {
     await expect(page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture Published" })).toContainText("Koncept");
   });
 
-  test("bulk API supports all-matching execution and keeps verification outside bulk actions", async ({ page, request }) => {
+  test("bulk API supports all-matching execution and keeps verification outside bulk actions", async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     const unauthorized = await request.post("http://127.0.0.1:5173/api/admin/bulk/execute", {
       data: {
         module: "directory", action: "publish", snapshotId: "missing",
@@ -138,7 +140,8 @@ test.describe("admin directory v2", () => {
     expect(invalidTrust.status()).toBe(400);
   });
 
-  test("editor safely edits contacts/media, preserves relation metadata and keeps trust separate from publication", async ({ page }) => {
+  test("editor safely edits contacts/media, preserves relation metadata and keeps trust separate from publication", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
     await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Upraviť profil" })).toBeVisible();
@@ -184,7 +187,8 @@ test.describe("admin directory v2", () => {
     await expect(page.getByText("+421 900 333 444")).toBeVisible();
   });
 
-  test("create flow validates current contract and produces a manageable draft", async ({ page }) => {
+  test("create flow validates current contract and produces a manageable draft", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar/novy");
     await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
     await page.getByLabel("Krátky popis").fill("Testovací profil vytvorený cez nový directory admin flow.");
