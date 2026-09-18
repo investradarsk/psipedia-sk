@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import {
   AdminActionButton,
   AdminDrawer,
@@ -62,10 +62,15 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
   const [seo, setSeo] = useState(profile?.seo ?? {});
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   function changeName(value: string) {
     setName(value);
@@ -120,7 +125,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
 
   const categoryInfo = getDirectoryCategory(category);
   return (
-    <form className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
+    <form data-hydrated={hydrated ? "true" : "false"} className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
       <div className={styles.editorTopline}>
         <AdminStickyEditorNavigation sections={editorSections} ariaLabel="Sekcie profilu adresára" />
         <AdminActionButton variant="secondary" onClick={() => setAdvancedOpen(true)}>Pokročilé a SEO</AdminActionButton>
