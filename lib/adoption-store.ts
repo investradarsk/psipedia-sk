@@ -51,6 +51,7 @@ type ManagedOrganizationRow = { id: number; name: string; slug: string };
 
 export type AdoptionBreedOption = ManagedBreedRow;
 export type AdoptionOrganizationReference = { organizationId: number | null; organizationName: string; organizationSlug: string | null };
+export type AdoptionPublicOrganizationLink = { id: number; name: string; slug: string };
 export type AdoptionPublicQueryFilters = AdoptionPublicFilters & {
   breedId?: number | null;
   status?: AdoptionPublicStatus | "";
@@ -185,6 +186,26 @@ export async function resolveOrganization(database: AdoptionD1Database, organiza
     organizationId: Number(row.id),
     organizationName: normalizeAdoptionText(row.name),
     organizationSlug: normalizeAdoptionText(row.slug) || null,
+  };
+}
+
+export async function getPublicAdoptionOrganizationById(
+  organizationId: number | null,
+  database?: AdoptionD1Database,
+): Promise<AdoptionPublicOrganizationLink | null> {
+  if (!Number.isSafeInteger(organizationId) || Number(organizationId) <= 0) return null;
+  const db = requireD1Binding(database);
+  const row = await db.prepare(`SELECT id, name, slug
+    FROM help_organizations
+    WHERE id = ? AND status = 'PUBLISHED' AND published_at IS NOT NULL AND archived_at IS NULL
+    LIMIT 1`)
+    .bind(Number(organizationId))
+    .first<ManagedOrganizationRow>();
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    name: normalizeAdoptionText(row.name),
+    slug: normalizeAdoptionText(row.slug),
   };
 }
 
