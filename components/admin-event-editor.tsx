@@ -7,6 +7,7 @@ import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventT
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { eventSeoFallback } from "@/lib/content-seo";
+import styles from "./admin-event-editor.module.css";
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
@@ -130,19 +131,19 @@ export function AdminEventEditor({ event }: { event?: DogEvent }) {
         </div>
 
         <aside className="admin-event-preview">
-          <span className="admin-eyebrow">Živý súhrn</span>
+          <span className={`admin-eyebrow ${styles.previewEyebrow}`}>Živý súhrn</span>
           <div className="admin-event-preview-visual">{imageUrl ? <img src={imageUrl} alt="" /> : <span>📅</span>}</div>
           <span className="eyebrow">{eventType}{cancelled ? " · Zrušené" : ""}</span>
           <h2>{title || "Názov podujatia"}</h2>
           <p>{excerpt || "Krátky popis podujatia sa zobrazí tu."}</p>
-          <dl><div><dt>Termín</dt><dd>{startDate || "Dátum"}{startTime ? ` · ${startTime}` : ""}</dd></div><div><dt>Miesto</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Organizátor</dt><dd>{organizer || "Organizátor"}</dd></div></dl>
+          <dl className={styles.previewFacts}><div><dt>Termín</dt><dd>{startDate || "Dátum"}{startTime ? ` · ${startTime}` : ""}</dd></div><div><dt>Miesto</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Organizátor</dt><dd>{organizer || "Organizátor"}</dd></div></dl>
         </aside>
       </div>
 
       {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}
       <div className="admin-editor-actions">
         <div><Link href="/admin/podujatia">← Späť na podujatia</Link></div>
-        <div>{status === "published" && <button className="admin-unpublish" type="button" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z kalendára</button>}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</button><button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať podujatie"}</button></div>
+        <div>{status === "published" && <button className="admin-unpublish" type="button" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z kalendára</button>}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</button><button className={`admin-publish ${styles.publishButton}`} type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať podujatie"}</button></div>
       </div>
     </form>
   );
