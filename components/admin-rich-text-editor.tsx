@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   EDITORIAL_RICH_TEXT_VERSION,
   normalizeEditorialRichText,
@@ -179,6 +179,40 @@ function nearestBlock(root: HTMLElement, node: Node | null) {
     current = current.parentElement;
   }
   return null;
+}
+
+type ActiveToolbarState = {
+  bold: boolean;
+  italic: boolean;
+  link: boolean;
+  paragraph: boolean;
+  h2: boolean;
+  h3: boolean;
+  bulletList: boolean;
+  orderedList: boolean;
+  blockquote: boolean;
+  callout: boolean;
+};
+
+const EMPTY_TOOLBAR_STATE: ActiveToolbarState = {
+  bold: false,
+  italic: false,
+  link: false,
+  paragraph: false,
+  h2: false,
+  h3: false,
+  bulletList: false,
+  orderedList: false,
+  blockquote: false,
+  callout: false,
+};
+
+function queryCommandStateSafe(command: string) {
+  try {
+    return document.queryCommandState(command);
+  } catch {
+    return false;
+  }
 }
 
 export function AdminRichTextEditor({
