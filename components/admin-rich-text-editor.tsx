@@ -442,17 +442,17 @@ export function AdminRichTextEditor({
   return (
     <div className={styles.wrapper} data-admin-rich-text-editor>
       <div className={styles.toolbar} role="toolbar" aria-label="Formátovanie textu">
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")} aria-label="Tučné (Ctrl alebo Cmd + B)"><strong>B</strong></button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("italic")} aria-label="Kurzíva (Ctrl alebo Cmd + I)"><em>I</em></button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={openLinkEditor} aria-label="Vložiť odkaz">Odkaz</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")} aria-label="Tučné (Ctrl alebo Cmd + B)" aria-pressed={activeState.bold}><strong>B</strong></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("italic")} aria-label="Kurzíva (Ctrl alebo Cmd + I)" aria-pressed={activeState.italic}><em>I</em></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={openLinkEditor} aria-label="Vložiť odkaz" aria-pressed={activeState.link}>Odkaz</button>
         <span className={styles.separator} aria-hidden="true" />
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("p")} aria-label="Odsek">P</button>
-        {allowHeadings && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("h2")} aria-label="Nadpis úrovne 2">H2</button>}
-        {allowHeadings && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("h3")} aria-label="Nadpis úrovne 3">H3</button>}
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertUnorderedList")} aria-label="Odrážkový zoznam">• Zoznam</button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertOrderedList")} aria-label="Číslovaný zoznam">1. Zoznam</button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("blockquote")} aria-label="Citácia">Citácia</button>
-        {allowCallouts && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCallout("tip")} aria-label="Tip alebo zvýraznenie">Tip</button>}
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("p")} aria-label="Odsek" aria-pressed={activeState.paragraph}>P</button>
+        {allowHeadings && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("h2")} aria-label="Nadpis úrovne 2" aria-pressed={activeState.h2}>H2</button>}
+        {allowHeadings && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("h3")} aria-label="Nadpis úrovne 3" aria-pressed={activeState.h3}>H3</button>}
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertUnorderedList")} aria-label="Odrážkový zoznam" aria-pressed={activeState.bulletList}>• Zoznam</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertOrderedList")} aria-label="Číslovaný zoznam" aria-pressed={activeState.orderedList}>1. Zoznam</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("blockquote")} aria-label="Citácia" aria-pressed={activeState.blockquote}>Citácia</button>
+        {allowCallouts && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCallout("tip")} aria-label="Tip alebo zvýraznenie" aria-pressed={activeState.callout}>Tip</button>}
         <span className={styles.separator} aria-hidden="true" />
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("undo")} aria-label="Späť">↶</button>
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("redo")} aria-label="Znova">↷</button>
@@ -496,10 +496,13 @@ export function AdminRichTextEditor({
         aria-label={ariaLabel}
         data-placeholder={placeholder}
         style={{ minHeight }}
-        onInput={emitChange}
+        onInput={() => { emitChange(); captureSelectionAndToolbarState(); }}
         onBlur={emitChange}
         onPaste={pastePlainText}
         onKeyDown={onKeyDown}
+        onKeyUp={captureSelectionAndToolbarState}
+        onMouseUp={captureSelectionAndToolbarState}
+        onFocus={captureSelectionAndToolbarState}
       />
       <p className={styles.help}>Píš priamo ako v textovom editore. Vložený formátovaný obsah sa pri paste preberie ako čistý text; bezpečné formátovanie pridaj toolbarom.</p>
     </div>
