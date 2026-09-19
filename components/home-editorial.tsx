@@ -37,11 +37,10 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
         <div>
           <span className="eyebrow">Redakcia Psipedia</span>
           <h2 id="home-latest-title">Najnovšie články</h2>
-          <p>Najnovšie publikovaný obsah naprieč Psipediou, zoradený podľa dátumu publikovania.</p>
+          <p>Nové články o zdraví, výcviku, šteniatkach a každodennom živote so psom.</p>
         </div>
         <div className="home-heading-actions">
           <Link href="/clanky" className="text-link">Všetky články <ArrowIcon size={17} /></Link>
-          <Link href="/novinky" className="text-link">Všetky novinky <ArrowIcon size={17} /></Link>
         </div>
       </div>
 
@@ -85,7 +84,7 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
       ) : (
         <div className="home-editorial-empty" data-home-latest-empty>
           <strong>Nové články pripravujeme</strong>
-          <p>Keď bude publikovaný nový obsah, zobrazí sa tu automaticky.</p>
+          <p>Medzitým si môžeš pozrieť ďalšie témy a praktické rady na Psipedii.</p>
         </div>
       )}
     </section>
@@ -143,7 +142,7 @@ export function HomeEditorialSection({
       ) : (
         <div className="home-editorial-empty" data-home-editorial-empty={testId}>
           <strong>Ďalší obsah pripravujeme</strong>
-          <p>V tejto téme zatiaľ nie je ďalší publikovaný článok mimo výberu vyššie.</p>
+          <p>Ďalšie praktické články k tejto téme postupne pribúdajú.</p>
         </div>
       )}
     </section>

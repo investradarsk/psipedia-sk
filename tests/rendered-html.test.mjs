@@ -227,6 +227,11 @@ test("renders the portal homepage", async () => {
     /^text\/html\b/i,
   );
   const html = await response.text();
+  const visibleText = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  assert.doesNotMatch(visibleText, /\b(?:canonical|lifecycle)\b|publikované položky|zoradené podľa dátumu|bez opakovania položiek|bez predstieranej polohy/i);
   // The externally hosted Cloudflare build intentionally has no Sites-only
   // development preview marker.
   assert.doesNotMatch(html, developmentPreviewMeta);
@@ -241,8 +246,8 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Pomoc psom/);
   assert.match(html, /Plemeno dňa/);
   assert.match(html, /Koľko „ľudských rokov“ má tvoj pes/);
-  assert.match(html, /Kalendár práve dopĺňame/);
-  assert.match(html, /Žiadna otvorená výzva/);
+  assert.match(html, /Nové podujatia práve dopĺňame/);
+  assert.match(html, /Momentálne tu nie je otvorená výzva/);
   assert.match(html, /href="\/o-nas#kontakt"/);
   assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert=""/);
   assert.ok(html.indexOf("<h2 id=\"home-latest-title\">Najnovšie články</h2>") < html.indexOf("<h2 id=\"home-events-title\">Najbližšie podujatia</h2>"));
@@ -250,6 +255,10 @@ test("renders the portal homepage", async () => {
   assert.ok(html.indexOf("<h2 id=\"home-aktivity-title\">Najnovšie pre tréning, pohyb a spoločné aktivity</h2>") < html.indexOf("<h2 id=\"home-help-title\">Pomoc psom</h2>"));
   assert.doesNotMatch(html, /Vybrané redakciou/);
   assert.doesNotMatch(html, /Novinky zo sveta psov/);
+  assert.doesNotMatch(html, /Najnovšie publikovaný obsah naprieč Psipediou/);
+  assert.doesNotMatch(html, /Najbližšie publikované podujatia zoradené podľa dátumu/);
+  assert.doesNotMatch(html, /Priamy vstup do canonical adresára/);
+  assert.doesNotMatch(html, /Všetky novinky/);
   assert.doesNotMatch(html, /Psipedia je viac než magazín/);
   assert.doesNotMatch(html, /Portál, ktorý sa hýbe s komunitou/);
   assert.doesNotMatch(html, /Vyber si, koho hľadáš/);
@@ -270,6 +279,115 @@ test("renders the portal homepage", async () => {
   assert.doesNotMatch(publishedSummariesQuery, /SELECT \*/);
   assert.match(breedOfTheDayQuery, /canonicalBreedIdsSql/);
   assert.doesNotMatch(breedOfTheDayQuery, /fci_standard_json|SELECT \*/);
+});
+
+test("homepage event cards render admin images and a clean fallback", async () => {
+  const now = "2026-09-19T20:00:00.000Z";
+  const eventRows = [
+    {
+      id: 301,
+      slug: "home-event-s-obrazkom",
+      title: "Podujatie s obrázkom",
+      excerpt: "Testovacie podujatie s obrázkom pre homepage.",
+      event_type: "Výstava",
+      status: "published",
+      start_date: "2026-10-10",
+      start_time: "10:00",
+      end_date: null,
+      end_time: null,
+      venue: "Výstavisko Agrokomplex",
+      city: "Nitra",
+      region: "Nitriansky kraj",
+      address: "Výstavná 4",
+      organizer: "Psipedia test",
+      description: "Dostatočne dlhý testovací popis podujatia pre homepage kartu.",
+      practical_info: "",
+      website_url: null,
+      registration_url: null,
+      image_url: "/images/events/home-event.webp",
+      image_key: "events/home-event.webp",
+      cancelled: 0,
+      created_at: now,
+      updated_at: now,
+      published_at: now,
+      created_by: "test@example.com",
+      updated_by: "test@example.com",
+      seo_json: "{}",
+    },
+    {
+      id: 302,
+      slug: "home-event-bez-obrazka",
+      title: "Podujatie bez obrázka",
+      excerpt: "Testovacie podujatie bez obrázka pre homepage.",
+      event_type: "Tréning",
+      status: "published",
+      start_date: "2026-10-11",
+      start_time: "09:00",
+      end_date: null,
+      end_time: null,
+      venue: "Cvičisko",
+      city: "Bratislava",
+      region: "Bratislavský kraj",
+      address: "Testovacia 1",
+      organizer: "Psipedia test",
+      description: "Dostatočne dlhý testovací popis podujatia bez obrázka.",
+      practical_info: "",
+      website_url: null,
+      registration_url: null,
+      image_url: null,
+      image_key: null,
+      cancelled: 0,
+      created_at: now,
+      updated_at: now,
+      published_at: now,
+      created_by: "test@example.com",
+      updated_by: "test@example.com",
+      seo_json: "{}",
+    },
+  ];
+  const database = {
+    prepare(sql) {
+      const statement = {
+        bind() { return statement; },
+        async all() {
+          return {
+            success: true,
+            results: /FROM managed_events WHERE status = 'published' AND cancelled = 0/i.test(sql) ? eventRows : [],
+            meta: {},
+          };
+        },
+        async first() { return null; },
+        async run() { return { success: true, results: [], meta: {} }; },
+      };
+      return statement;
+    },
+    async batch(statements) { return Promise.all(statements.map((item) => item.all())); },
+  };
+
+  const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
+  const previousRuntimeEnv = { ...runtimeEnv };
+  Object.assign(runtimeEnv, { DB: database });
+  try {
+    const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+    workerUrl.searchParams.set("home-event-visual-test", `${process.pid}-${Date.now()}`);
+    const { default: worker } = await import(workerUrl.href);
+    const response = await worker.fetch(
+      new Request("http://localhost/", { headers: { accept: "text/html" } }),
+      { DB: database, ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+      { waitUntil() {}, passThroughOnException() {} },
+    );
+
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /Podujatie s obrázkom/);
+    assert.match(html, /Podujatie bez obrázka/);
+    assert.match(html, /src="\/images\/events\/home-event\.webp"/);
+    assert.match(html, /home-event-placeholder/);
+    assert.ok(html.indexOf("home-event-list") < html.indexOf("Celý kalendár"));
+  } finally {
+    for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
+    Object.assign(runtimeEnv, previousRuntimeEnv);
+  }
 });
 
 test("passes a verified Cloudflare Access identity to the admin application", async () => {

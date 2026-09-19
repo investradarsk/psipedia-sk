@@ -69,6 +69,9 @@ test("desktop homepage uses the HOME-3 hierarchy without editorial filler", asyn
   await expect(page.locator("h1")).toHaveCount(1);
   await expect(page.getByRole("heading", { level: 2, name: "Najnovšie články" })).toBeVisible();
   await expect(page.getByText("Vybrané redakciou", { exact: true })).toHaveCount(0);
+  await expect(page.locator("[data-home-latest] .home-heading-actions").getByRole("link")).toHaveCount(1);
+  await expect(page.locator("[data-home-latest]").getByRole("link", { name: /Všetky články/ })).toHaveAttribute("href", "/clanky");
+  await expect(page.locator("[data-home-latest]").getByRole("link", { name: /Všetky novinky/ })).toHaveCount(0);
 
   const hero = await page.locator("[data-home-hero] .hero-card").boundingBox();
   expect(hero).not.toBeNull();
@@ -94,6 +97,8 @@ test("desktop homepage uses the HOME-3 hierarchy without editorial filler", asyn
   const events = page.locator("[data-home-event]");
   const eventsEmpty = page.locator("[data-home-events-empty]");
   expect((await events.count()) + (await eventsEmpty.count())).toBeGreaterThan(0);
+  if (await events.count()) await expect(events.first().locator(".home-event-media")).toBeVisible();
+  await expect(page.locator("[data-home-events]").getByRole("link", { name: /Celý kalendár/ })).toHaveAttribute("href", "/podujatia");
 
   const helpItems = page.locator("[data-home-help-item]");
   if (await helpItems.count()) {
