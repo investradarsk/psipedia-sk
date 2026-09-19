@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
+import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { formatHelpAmount, formatHelpDate, getHelpCategory, helpProgress, type HelpCase } from "@/lib/help";
 import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-presentation";
 import {
@@ -100,7 +101,7 @@ export function HelpDetailShell({
       </div>
       {showTrust && <div className={styles.shell}>
         <section className={styles.trust} aria-labelledby={`help-trust-${item.id}`}>
-          <span className={styles.trustIcon} aria-hidden="true">✓</span>
+          <span className={styles.trustIcon} aria-hidden="true"><ShieldCheckIcon size={18} /></span>
           <div>
             <h2 id={`help-trust-${item.id}`}>Overenie a zdroje</h2>
             <p>{item.verified ? "Psipedia označila tento záznam ako overený na základe dostupných zdrojov. Údaje sa môžu časom meniť." : "Pri tomto zázname uvádzame len zdrojové údaje, ktoré sú uložené v databáze."}</p>
