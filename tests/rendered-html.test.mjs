@@ -640,11 +640,13 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.equal(events.status, 200);
   const eventsHtml = await events.text();
   assert.match(eventsHtml, /Kalendár podujatí/);
-  assert.match(eventsHtml, /Výstavy/);
+  assert.match(eventsHtml, /Výstava/);
 
   const calendar = await worker.fetch(new Request("http://localhost/podujatia/kalendar", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(calendar.status, 200);
-  assert.match(await calendar.text(), /event-calendar-hero--photo/);
+  const calendarAliasHtml = await calendar.text();
+  assert.match(calendarAliasHtml, /Kalendár a databáza/);
+  assert.doesNotMatch(calendarAliasHtml, /event-calendar-hero--photo|section-hero-photo/);
 
   const trainers = await worker.fetch(new Request("http://localhost/adresar/treneri", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(trainers.status, 200);
@@ -842,7 +844,7 @@ test("renders the functional event calendar and type view", async () => {
   assert.equal(calendar.status, 200);
   const calendarHtml = await calendar.text();
   assert.match(calendarHtml, /Kalendár podujatí/);
-  assert.match(calendarHtml, /Názov, mesto alebo organizátor/);
+  assert.match(calendarHtml, /Názov, mesto, miesto alebo organizátor/);
   assert.match(calendarHtml, /href="\/podujatia\?termin=ukoncene"/);
   assert.match(calendarHtml, /Prvé podujatia pripravujeme/);
 
@@ -853,8 +855,8 @@ test("renders the functional event calendar and type view", async () => {
   const pastShows = await worker.fetch(new Request("http://localhost/podujatia/vystavy?termin=ukoncene", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(pastShows.status, 200);
   const pastShowsHtml = await pastShows.text();
-  assert.match(pastShowsHtml, /href="\/podujatia\/vystavy\?termin=ukoncene" class="is-active" aria-current="page">Výstava/);
-  assert.match(pastShowsHtml, /<option value="past" selected="">Ukončené<\/option>/);
+  assert.match(pastShowsHtml, /href="\/podujatia\/vystavy\?termin=ukoncene"/);
+  assert.match(pastShowsHtml, /aria-current="page"[^>]*>Ukončené<\/a>/);
 });
 
 test("renders the help portal, stable category URL and emergency guide", async () => {

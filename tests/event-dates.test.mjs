@@ -65,7 +65,7 @@ test("event time filters have crawlable, shareable URLs", () => {
 test("event type filters expose crawlable links for real category landings", () => {
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   assert.match(calendar, /eventTypePortalHref\(option\.value\)/);
-  assert.match(calendar, /<a href=\{href\}/);
+  assert.match(calendar, /<a\s+href=\{href\}/);
   assert.match(calendar, /history\.pushState\(null, "", eventTimeFilterHref\(time, pathname\)\)/);
   assert.match(calendar, /history\.replaceState\(null, "", eventTimeFilterHref\(value, window\.location\.pathname\)\)/);
 });
