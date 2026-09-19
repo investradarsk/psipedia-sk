@@ -113,7 +113,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters }: {
                 <span>{isPublic ? "Verejný profil" : "Neverejný profil"}</span>
                 <span>{item.preflight.ready ? "Publication READY" : "Publication BLOCKED"}</span>
               </div>
-              <h2><Link href={"/admin/organizacie/" + item.id}>{item.name || "Bez názvu"}</Link></h2>
+              <h2><Link href={`/admin/organizacie/${item.id}`}>{item.name || "Bez názvu"}</Link></h2>
               <p>{item.shortDescription || item.description || "Bez verejného popisu"}</p>
               <p className={styles.meta}>#{item.id} · /organizacie/{item.slug || "—"} · lokality {item.locationCount} · fundraising {item.fundraisingCount} · adresár {item.directoryProfileId ? "#" + item.directoryProfileId : "—"} · aktualizované {formatDate(item.updatedAt)}</p>
               {item.completenessHints.length ? <div className={styles.hints} aria-label="Chýbajúce údaje">{item.completenessHints.map((hint) => <span key={hint}>{hint}</span>)}</div> : <div className={styles.hints}><span>Profil bez deterministických medzier</span></div>}
@@ -122,7 +122,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters }: {
             <div className={styles.actions}>
               {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank">Pozrieť ↗</Link>}
               <Link className="admin-row-edit" href={"/admin/organizacie/" + item.id}>Spravovať</Link>
-              <Link href={"/admin/organizacie/" + item.id + "#fundraising"}>Fundraising</Link>
+              <Link href={`/admin/organizacie/${item.id}#fundraising`}>Fundraising</Link>
               {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!item.preflight.ready || busyId !== null} onClick={() => void changePublication(item, "publish")}>Publikovať</AdminActionButton>}
               {item.status === "PUBLISHED" && <AdminActionButton variant="secondary" disabled={busyId !== null} onClick={() => void changePublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
               {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive" disabled={busyId !== null} onClick={() => void changePublication(item, "archive")}>Archivovať</AdminActionButton>}
