@@ -114,6 +114,10 @@ test("ARTICLE-EDITOR-UX-FIX keeps hero ALT, caption and credit separate and null
   assert.match(articleEditor, /URL zdroja fotografie/);
   assert.match(articleStore, /imageCreditUrl/);
   assert.match(articleStore, /URL zdroja fotografie musí byť platná webová adresa/);
+  assert.match(articleStore, /payload\.imageAlt === undefined \? existing\.imageAlt/);
+  assert.match(articleStore, /payload\.imageCaption === undefined \? existing\.imageCaption/);
+  assert.match(articleStore, /payload\.imageCredit === undefined \? existing\.imageCredit/);
+  assert.match(articleStore, /payload\.imageCreditUrl === undefined \? existing\.imageCreditUrl/);
   assert.match(schema, /imageAlt: text\("image_alt"\)/);
   assert.match(schema, /imageCaption: text\("image_caption"\)/);
   assert.match(schema, /imageCredit: text\("image_credit"\)/);
