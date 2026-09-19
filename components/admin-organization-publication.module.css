@@ -216,6 +216,13 @@
     min-height: 44px;
   }
 
+  .check input {
+    width: 18px;
+    min-width: 18px;
+    height: 18px;
+    min-height: 18px;
+  }
+
   .search,
   .filterActions {
     grid-column: auto;
