@@ -32,6 +32,18 @@ function requireD1Binding(database?: AdminAttentionD1Database) {
   return resolved;
 }
 
+async function safeSourceResults<T>(source: string, query: Promise<D1Result<T>>) {
+  try {
+    return (await query).results;
+  } catch (error) {
+    console.warn("Admin attention source query failed.", {
+      source,
+      error: error instanceof Error ? error.message : "unknown_error",
+    });
+    return [] as T[];
+  }
+}
+
 export async function loadAdminAttentionQueue(database?: AdminAttentionD1Database, now = new Date()) {
   const db = requireD1Binding(database);
   const staleThreshold = new Date(now.getTime() - ADOPTION_STALE_DAYS * 86_400_000).toISOString();
@@ -107,20 +119,20 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
   `).bind(staleThreshold, ADMIN_ATTENTION_SOURCE_LIMIT).all<AdoptionStaleAttentionRow>();
 
   const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions] = await Promise.all([
-    moderationPromise,
-    newsTipsPromise,
-    changeRequestsPromise,
-    inquiriesPromise,
-    feedbackPromise,
-    adoptionsPromise,
+    safeSourceResults("moderation", moderationPromise),
+    safeSourceResults("news_tips", newsTipsPromise),
+    safeSourceResults("directory_change_requests", changeRequestsPromise),
+    safeSourceResults("directory_inquiries", inquiriesPromise),
+    safeSourceResults("article_feedback", feedbackPromise),
+    safeSourceResults("adoption_stale", adoptionsPromise),
   ]);
 
   return sortAdminAttentionItems([
-    ...moderation.results.map((row) => mapModerationAttention(row, now)).filter((item) => item !== null),
-    ...newsTips.results.map((row) => mapNewsTipAttention(row, now)),
-    ...changeRequests.results.map((row) => mapDirectoryChangeRequestAttention(row, now)),
-    ...inquiries.results.map((row) => mapDirectoryInquiryAttention(row, now)),
-    ...feedback.results.map((row) => mapArticleFeedbackAttention(row, now)),
-    ...adoptions.results.map((row) => mapAdoptionStaleAttention(row, now)),
+    ...moderation.map((row) => mapModerationAttention(row, now)).filter((item) => item !== null),
+    ...newsTips.map((row) => mapNewsTipAttention(row, now)),
+    ...changeRequests.map((row) => mapDirectoryChangeRequestAttention(row, now)),
+    ...inquiries.map((row) => mapDirectoryInquiryAttention(row, now)),
+    ...feedback.map((row) => mapArticleFeedbackAttention(row, now)),
+    ...adoptions.map((row) => mapAdoptionStaleAttention(row, now)),
   ]);
 }
