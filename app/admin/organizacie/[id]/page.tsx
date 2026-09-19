@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AdminOrganizationEditor } from "@/components/admin-organization-editor";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
 import { AdminOrganizationLocations } from "@/components/admin-organization-locations";
 import { AdminShell } from "@/components/admin-shell";
@@ -14,7 +15,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
   const { id } = await params;
   const organizationId = Number(id);
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) notFound();
-  const user = await requireAdminPageUser(`/admin/organizacie/${id}`);
+  const user = await requireAdminPageUser("/admin/organizacie/" + id);
   const [organization, locations, methods] = await Promise.all([
     getOrganizationPublicationAdminById(organizationId),
     listOrganizationLocationsAdmin(organizationId),
@@ -26,9 +27,10 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     user={user}
     eyebrow="Organizácie · Detail"
     title={organization.name}
-    description="Správa canonical lokalít organizácie a fundraising metód bez paralelných sources of truth."
+    description="Canonical údaje, lokality a fundraising na jednom admin detaile. Publication lifecycle zostáva explicitná samostatná akcia."
   >
-    <AdminOrganizationLocations organization={organization} initialLocations={locations} />
-    <AdminOrganizationFundraising organization={organization} initialMethods={methods} />
+    <AdminOrganizationEditor organization={organization} />
+    <div id="locations"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
+    <div id="fundraising"><AdminOrganizationFundraising organization={organization} initialMethods={methods} /></div>
   </AdminShell>;
 }
