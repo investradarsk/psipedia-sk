@@ -8,6 +8,7 @@ const cases = [
     title: "Bikejoring so psom: kompletný sprievodca od prvého tréningu až po preteky na Slovensku",
     toc: true,
     updated: false,
+    hasImage: true,
   },
   {
     id: "stimulus-control",
@@ -15,6 +16,7 @@ const cases = [
     title: "Stimulus control: kedy pes povel naozaj ovláda",
     toc: false,
     updated: false,
+    hasImage: true,
   },
   {
     id: "granule",
@@ -22,6 +24,15 @@ const cases = [
     title: "Ako vybrať granule bez marketingových mýtov",
     toc: false,
     updated: true,
+    hasImage: true,
+  },
+  {
+    id: "no-image",
+    path: "/starostlivost/e2e-clanok-bez-obrazka",
+    title: "E2E článok bez hero obrázka",
+    toc: false,
+    updated: false,
+    hasImage: false,
   },
 ] as const;
 
@@ -73,15 +84,29 @@ for (const articleCase of cases) {
     await page.goto(articleCase.path);
     await expect(page.getByRole("heading", { level: 1, name: articleCase.title })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Navigácia v článku" })).toBeVisible();
-    await expect(page.locator(".article-hero-image")).toBeVisible();
+    await expect(page.locator(articleCase.hasImage ? ".article-hero-image" : ".article-hero-placeholder")).toBeVisible();
     await expect(page.locator(".article-intro")).toBeVisible();
     await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
     await expect(page.locator(".article-aside")).toHaveCount(0);
+    await expect(page.getByText("Najčítanejšie", { exact: true })).toHaveCount(0);
+    const mobileSidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+    await expect(mobileSidebar).toBeVisible();
+    await expect(mobileSidebar.locator("li")).toHaveCount(5);
+
+    const saveButton = page.getByRole("button", { name: /Uložiť medzi obľúbené|Odstrániť z obľúbených/ });
+    const compactShare = page.getByRole("group", { name: /Zdieľať/ }).first().getByRole("button").first();
+    for (const control of [saveButton, compactShare]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    await saveButton.focus();
+    await expect(saveButton).toBeFocused();
 
     const metrics = await page.evaluate(() => {
       const h1 = document.querySelector<HTMLElement>("h1")!;
       const excerpt = document.querySelector<HTMLElement>("main#obsah header h1 + p")!;
-      const image = document.querySelector<HTMLElement>(".article-hero-image")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image, .article-hero-placeholder")!;
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const intro = document.querySelector<HTMLElement>(".article-intro")!;
       const takeaway = document.querySelector<HTMLElement>(".takeaway-box")!;
@@ -103,9 +128,17 @@ for (const articleCase of cases) {
     console.log(`[article-ux] ${articleCase.id} mobile metrics ${JSON.stringify(metrics)}`);
     await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-mobile-390x844.png` });
 
+    const [mobileProseBox, mobileSidebarBox] = await Promise.all([
+      page.locator(".article-prose").boundingBox(),
+      mobileSidebar.boundingBox(),
+    ]);
+    expect(mobileProseBox).not.toBeNull();
+    expect(mobileSidebarBox).not.toBeNull();
+    expect(mobileSidebarBox!.y).toBeGreaterThanOrEqual(mobileProseBox!.y + mobileProseBox!.height - 1);
+
     expect(metrics.overflow).toBeLessThanOrEqual(1);
-    expect(metrics.h1Size).toBeGreaterThanOrEqual(30);
-    expect(metrics.h1Size).toBeLessThanOrEqual(35);
+    expect(metrics.h1Size).toBeGreaterThanOrEqual(28.5);
+    expect(metrics.h1Size).toBeLessThanOrEqual(33);
     expect(metrics.excerptClipping, "The mobile perex must be fully visible").toBeLessThanOrEqual(1);
     expect(metrics.imageRatio).toBeGreaterThan(1.74);
     expect(metrics.imageRatio).toBeLessThan(1.81);
@@ -156,13 +189,17 @@ for (const articleCase of cases) {
     await page.goto(articleCase.path);
     const h1 = page.getByRole("heading", { level: 1, name: articleCase.title });
     await expect(h1).toBeVisible();
-    await expect(page.locator(".article-hero-image")).toBeVisible();
+    await expect(page.locator(articleCase.hasImage ? ".article-hero-image" : ".article-hero-placeholder")).toBeVisible();
     await expect(page.locator(".article-prose")).toBeVisible();
     await expect(page.locator(".article-aside")).toHaveCount(0);
+    await expect(page.getByText("Najčítanejšie", { exact: true })).toHaveCount(0);
+    const desktopSidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+    await expect(desktopSidebar).toBeVisible();
+    await expect(desktopSidebar.locator("li")).toHaveCount(5);
 
     const metrics = await page.evaluate(() => {
       const heading = document.querySelector<HTMLElement>("h1")!;
-      const image = document.querySelector<HTMLElement>(".article-hero-image")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image, .article-hero-placeholder")!;
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const imageRect = image.getBoundingClientRect();
       return {
@@ -177,16 +214,25 @@ for (const articleCase of cases) {
     });
 
     expect(metrics.overflow).toBeLessThanOrEqual(1);
-    expect(metrics.h1Size).toBeLessThanOrEqual(49);
-    expect(metrics.imageHeight).toBeLessThanOrEqual(301);
-    expect(metrics.imageRatio).toBeGreaterThan(1.56);
-    expect(metrics.imageRatio).toBeLessThan(1.64);
-    expect(metrics.proseWidth).toBeGreaterThanOrEqual(660);
-    expect(metrics.proseWidth).toBeLessThanOrEqual(681);
+    expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
+    expect(metrics.imageHeight).toBeGreaterThanOrEqual(440);
+    expect(metrics.imageHeight).toBeLessThanOrEqual(521);
+    expect(metrics.imageRatio).toBeGreaterThan(1.78);
+    expect(metrics.imageRatio).toBeLessThan(1.85);
+    expect(metrics.proseWidth).toBeGreaterThanOrEqual(700);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(721);
     expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
     expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.65);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.71);
+
+    const [desktopProseBox, desktopSidebarBox] = await Promise.all([
+      page.locator(".article-prose").boundingBox(),
+      desktopSidebar.boundingBox(),
+    ]);
+    expect(desktopProseBox).not.toBeNull();
+    expect(desktopSidebarBox).not.toBeNull();
+    expect(desktopSidebarBox!.x).toBeGreaterThan(desktopProseBox!.x + desktopProseBox!.width);
 
     const toc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
     await expect(toc).toHaveCount(articleCase.toc ? 1 : 0);
@@ -217,7 +263,7 @@ test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions",
   await expect(safeVideo).toHaveCount(1);
   await expect(safeVideo).toHaveAttribute("allowfullscreen", "");
 
-  const sharing = page.getByRole("group", { name: "Zdieľať článok" });
+  const sharing = page.getByRole("group", { name: "Zdieľať článok" }).last();
   await expect(sharing.getByRole("link", { name: "Facebook" })).toHaveAttribute("href", /facebook\.com\/sharer\/sharer\.php/);
   await expect(sharing.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", /wa\.me/);
   await sharing.getByRole("button", { name: "Kopírovať odkaz" }).click();
