@@ -662,12 +662,13 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const directory = await worker.fetch(new Request("http://localhost/adresar", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(directory.status, 200);
   const directoryHtml = await directory.text();
-  assert.match(directoryHtml, /Nájdi službu pre svojho psa/);
+  assert.match(directoryHtml, /Služby pre psov/);
   assert.match(directoryHtml, /Veterinári/);
   assert.match(directoryHtml, /Hotely a opatrovanie/);
+  assert.match(directoryHtml, /Služby podľa kategórie/);
   assert.match(directoryHtml, /Fyzioterapia/);
-  assert.match(directoryHtml, /Čo hľadáš/);
-  assert.match(directoryHtml, /directory-hero--photo/);
+  assert.match(directoryHtml, /Názov, služba alebo lokalita/);
+  assert.doesNotMatch(directoryHtml, /directory-hero--photo/);
   assert.doesNotMatch(directoryHtml, /Profily v adresári/);
 
   const legacySchools = await worker.fetch(new Request("http://localhost/adresar/psie-skoly", { headers: { accept: "text/html" }, redirect: "manual" }), bindings, context);

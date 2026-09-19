@@ -228,7 +228,7 @@ test("migrates club locations idempotently and serves server-filtered, paginated
     const defaultHtml = await fetchHtml(worker, d1, "/adresar/kynologicke-kluby");
     assert.match(defaultHtml, /248 profilov/);
     assert.match(defaultHtml, /Strana 1 z 11/);
-    assert.equal((defaultHtml.match(/class="directory-card"/g) ?? []).length, 24);
+    assert.equal((defaultHtml.match(/<a\b[^>]*\bdata-directory-card\b[^>]*>/g) ?? []).length, 24);
     const listQueries = d1.queries.filter(({ sql }) => /FROM directory_profiles/i.test(sql) && /LIMIT \?/i.test(sql));
     assert.ok(listQueries.length >= 1);
     for (const query of listQueries) {

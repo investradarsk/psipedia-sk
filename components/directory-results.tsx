@@ -3,6 +3,7 @@ import { DirectoryCard } from "@/components/directory-card";
 import { DirectoryFilterForm } from "@/components/directory-filter-form";
 import type { DirectoryCategorySlug } from "@/lib/directory";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
+import styles from "./directory-public.module.css";
 
 function profileCountLabel(count: number) {
   return count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov";
@@ -44,7 +45,7 @@ export function DirectoryResults({ result, filters, basePath, title, category, s
       </div>
 
       {result.profiles.length ? (
-        <div className="directory-grid">{result.profiles.map((profile) => <DirectoryCard profile={profile} key={profile.id} />)}</div>
+        <div className={`directory-grid ${styles.listGrid}`} data-directory-list>{result.profiles.map((profile) => <DirectoryCard profile={profile} key={profile.id} />)}</div>
       ) : (
         <div className="directory-empty"><span aria-hidden="true">📍</span><h2>{result.total ? "Táto strana je prázdna" : "Nenašli sme zhodu"}</h2><p>Skús zmeniť lokalitu alebo hľadaný výraz.</p><Link href={basePath}>Zrušiť filtre</Link></div>
       )}

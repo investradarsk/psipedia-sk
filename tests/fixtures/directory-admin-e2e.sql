@@ -70,7 +70,7 @@ INSERT INTO directory_profiles (
   'Cena podľa typu konzultácie',
   'https://example.org',
   NULL,
-  '{"Telefón":"+421 900 123 456","E-mail":"detail-e2e@example.invalid","Facebook":"https://facebook.com/example","Instagram":"https://instagram.com/example","Pokrytie":"Nitra a okolie","Individuálny výcvik":"Áno","Behaviorálne poradenstvo":"Na objednávku","Online konzultácie":"Áno"}',
+  '{"Telefón":"+421 900 123 456","E-mail":"detail-e2e@example.invalid","Facebook":"https://facebook.com/example","Instagram":"https://instagram.com/example","Plemeno":"Labradorský retriever","Organizácia":"Fixture klub","Pokrytie":"Nitra a okolie","Individuálny výcvik":"Áno","Behaviorálne poradenstvo":"Na objednávku","Online konzultácie":"Áno"}',
   1,
   1,
   '2026-09-14T08:00:00.000Z',

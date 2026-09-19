@@ -3,6 +3,7 @@ import { cache } from "react";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
   allDirectoryCategories,
+  directoryCategories,
   isDirectoryCategory,
   type DirectoryCategorySlug,
   type DirectoryInquiry,
@@ -773,7 +774,29 @@ export async function getDirectoryCategoryCounts() {
   const database = getD1Binding();
   if (!database) return {} as Partial<Record<DirectoryCategorySlug, number>>;
   const result = await database.prepare("SELECT category, COUNT(*) AS total FROM directory_profiles WHERE status = 'published' GROUP BY category").all<{ category: string; total: number }>();
-  return Object.fromEntries(result.results.filter((row) => isDirectoryCategory(row.category)).map((row) => [row.category, Number(row.total)])) as Partial<Record<DirectoryCategorySlug, number>>;
+  const counts = Object.fromEntries(directoryCategories.map((category) => [category.slug, 0])) as Partial<Record<DirectoryCategorySlug, number>>;
+  for (const row of result.results) {
+    if (isDirectoryCategory(row.category)) counts[row.category] = Number(row.total);
+  }
+  return counts;
+}
+
+export async function getDirectoryCategoryPreviews(limit = 3) {
+  const database = getD1Binding();
+  if (!database) return {} as Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
+  const safeLimit = Math.max(1, Math.min(6, Math.trunc(limit)));
+  const statements = directoryCategories.map((category) => database.prepare(`
+    SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
+    FROM directory_profiles
+    WHERE status = 'published' AND category = ?
+    ORDER BY featured DESC, name ASC, id ASC
+    LIMIT ?
+  `).bind(category.slug, safeLimit));
+  const results = await database.batch(statements);
+  return Object.fromEntries(directoryCategories.map((category, index) => [
+    category.slug,
+    ((results[index]?.results ?? []) as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
+  ])) as Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
 }
 
 export async function getFeaturedDirectoryProfiles(limit = 2) {

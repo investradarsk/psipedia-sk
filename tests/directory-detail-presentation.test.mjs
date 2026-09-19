@@ -145,3 +145,19 @@ test("description, URL fallback and navigation preserve the current detail behav
   assert.equal(usefulDirectoryDetailValue("Nie je uvedené"), null);
   assert.equal(publicDirectoryDetailUrl("example.sk/kontakt"), "https://example.sk/kontakt");
 });
+
+
+test("existing breed and organization relations are exposed without synthetic values", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    category: "treneri",
+    importData: {
+      Plemeno: "Labradorský retriever",
+      Organizácia: "Fixture klub",
+      "Zastrešujúca organizácia": "Neoverené",
+    },
+  }));
+
+  assert.ok(presentation.facts.some((fact) => fact.label === "Plemeno" && fact.value === "Labradorský retriever"));
+  assert.ok(presentation.facts.some((fact) => fact.label === "Organizácia" && fact.value === "Fixture klub"));
+  assert.equal(presentation.facts.some((fact) => fact.label === "Zastrešujúca organizácia"), false);
+});
