@@ -4,10 +4,14 @@ import {
   adminAttentionPriorityLabels,
   adminAttentionSourceLabels,
   adminAttentionSourceTypes,
+  adminAttentionStateLabels,
+  isAdminAttentionActive,
+  summarizeAdminAttention,
   type AdminAttentionFilters,
   type AdminAttentionItem,
   type AdminAttentionPriority,
   type AdminAttentionSourceType,
+  type AdminAttentionState,
 } from "@/lib/admin-attention-queue";
 import styles from "./admin-attention-queue.module.css";
 
@@ -34,6 +38,13 @@ function priorityClass(priority: AdminAttentionPriority) {
   return styles.medium;
 }
 
+function stateClass(state: AdminAttentionState) {
+  if (state === "NEW") return styles.stateNew;
+  if (state === "IN_PROGRESS") return styles.stateProgress;
+  if (state === "RESOLVED") return styles.stateResolved;
+  return styles.stateDismissed;
+}
+
 export function AdminAttentionQueue({
   items,
   allItems,
@@ -43,31 +54,37 @@ export function AdminAttentionQueue({
   allItems: AdminAttentionItem[];
   filters: AdminAttentionFilters;
 }) {
-  const priorityCounts = Object.fromEntries(adminAttentionPriorities.map((priority) => [
-    priority,
-    allItems.filter((item) => item.priority === priority).length,
-  ])) as Record<AdminAttentionPriority, number>;
+  const summary = summarizeAdminAttention(allItems);
+  const activeItems = allItems.filter(isAdminAttentionActive);
   const sourceCounts = Object.fromEntries(adminAttentionSourceTypes.map((sourceType) => [
     sourceType,
-    allItems.filter((item) => item.sourceType === sourceType).length,
+    activeItems.filter((item) => item.sourceType === sourceType).length,
   ])) as Record<AdminAttentionSourceType, number>;
 
   return (
     <div className={styles.workspace} data-testid="admin-attention-queue">
-      <section className="admin-stats" aria-label="Súhrn položiek vyžadujúcich pozornosť">
-        <div><span>Spolu</span><strong>{allItems.length}</strong></div>
-        <div><span>Vysoká priorita</span><strong>{priorityCounts.HIGH}</strong></div>
-        <div><span>Stredná priorita</span><strong>{priorityCounts.MEDIUM}</strong></div>
-        <div><span>Nízka priorita</span><strong>{priorityCounts.LOW}</strong></div>
+      <section className="admin-stats" aria-label="Súhrn centra pozornosti">
+        <div><span>Aktívne</span><strong>{summary.active}</strong></div>
+        <div><span>Nové</span><strong>{summary.byState.NEW}</strong></div>
+        <div><span>Rieši sa</span><strong>{summary.byState.IN_PROGRESS}</strong></div>
+        <div><span>História</span><strong>{summary.history}</strong></div>
       </section>
 
-      <ul className={styles.sourceCounts} aria-label="Počty podľa zdroja">
+      <ul className={styles.sourceCounts} aria-label="Aktívne počty podľa zdroja">
         {adminAttentionSourceTypes.map((sourceType) => (
           <li key={sourceType}><span>{adminAttentionSourceLabels[sourceType]}</span><strong>{sourceCounts[sourceType]}</strong></li>
         ))}
       </ul>
 
       <form className={styles.filters} method="get" aria-label="Filtrovať attention queue">
+        <label>
+          <span>Zobrazenie</span>
+          <select name="view" defaultValue={filters.view ?? "active"}>
+            <option value="active">Aktívne</option>
+            <option value="history">História</option>
+            <option value="all">Všetko</option>
+          </select>
+        </label>
         <label>
           <span>Zdroj</span>
           <select name="source" defaultValue={filters.sourceType ?? "all"}>
@@ -86,19 +103,26 @@ export function AdminAttentionQueue({
       </form>
 
       {items.length ? (
-        <section className={styles.list} aria-label="Položky vyžadujúce pozornosť">
+        <section className={styles.list} aria-label="Položky centra pozornosti">
           {items.map((item) => (
-            <article className={styles.card} key={item.key} data-source={item.sourceType} data-priority={item.priority}>
+            <article
+              className={`${styles.card} ${isAdminAttentionActive(item) ? "" : styles.historyCard}`}
+              key={item.key}
+              data-source={item.sourceType}
+              data-priority={item.priority}
+              data-attention-state={item.attentionState}
+            >
               <header>
                 <div className={styles.kicker}>
+                  <span className={`${styles.state} ${stateClass(item.attentionState)}`}>{adminAttentionStateLabels[item.attentionState]}</span>
                   <span className={`${styles.priority} ${priorityClass(item.priority)}`}>{adminAttentionPriorityLabels[item.priority]}</span>
                   <span>{adminAttentionSourceLabels[item.sourceType]}</span>
                 </div>
                 <h2>{item.title}</h2>
-                <div className={styles.meta}><span>Stav: {item.status}</span><span>ID: {item.sourceId}</span></div>
+                <div className={styles.meta}><span>Zdrojový stav: {item.status}</span><span>ID: {item.sourceId}</span></div>
               </header>
               <div className={styles.reason}>
-                <strong>Dôvod</strong>
+                <strong>Kontext</strong>
                 <p>{item.reason}</p>
               </div>
               <div className={styles.details}>
@@ -112,8 +136,8 @@ export function AdminAttentionQueue({
         </section>
       ) : (
         <div className={styles.empty}>
-          <h2>Žiadne položky pre zvolený filter</h2>
-          <p>Attention Queue je odvodený read-only pohľad; nič sa tu automaticky nemení ani neoznačuje ako vybavené.</p>
+          <h2>{filters.view === "history" ? "História je pre zvolený filter prázdna" : "Žiadne aktívne položky pre zvolený filter"}</h2>
+          <p>Centrum pozornosti používa lifecycle pôvodných workflowov; vyriešené a ignorované položky sa do aktívneho badge nepočítajú.</p>
         </div>
       )}
     </div>

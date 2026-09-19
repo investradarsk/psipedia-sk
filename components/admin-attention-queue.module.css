@@ -1,6 +1,7 @@
 .workspace {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .filters {
@@ -17,15 +18,15 @@
 .filters label {
   display: grid;
   gap: .35rem;
-  min-width: min(100%, 210px);
-  flex: 1 1 210px;
+  min-width: min(100%, 190px);
+  flex: 1 1 190px;
   font-size: .82rem;
   font-weight: 700;
 }
 
 .filters select,
 .filters button {
-  min-height: 42px;
+  min-height: 44px;
   border: 1px solid var(--line, #d9ded8);
   border-radius: 12px;
   background: #fff;
@@ -38,6 +39,13 @@
   flex: 0 0 auto;
   cursor: pointer;
   font-weight: 800;
+}
+
+.filters button:focus-visible,
+.filters select:focus-visible,
+.open:focus-visible {
+  outline: 3px solid #f5c865;
+  outline-offset: 2px;
 }
 
 .sourceCounts {
@@ -62,6 +70,7 @@
 .list {
   display: grid;
   gap: .8rem;
+  min-width: 0;
 }
 
 .card {
@@ -74,6 +83,10 @@
   border-radius: 18px;
   background: #fff;
   min-width: 0;
+}
+
+.historyCard {
+  background: #f8faf8;
 }
 
 .card > div,
@@ -91,6 +104,7 @@
 .card p {
   margin: 0;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .kicker,
@@ -103,6 +117,7 @@
   color: #59635c;
 }
 
+.state,
 .priority {
   display: inline-flex;
   width: fit-content;
@@ -112,6 +127,26 @@
   letter-spacing: .02em;
   text-transform: uppercase;
   font-size: .7rem;
+}
+
+.stateNew {
+  background: #e7f0ff;
+  color: #244f86;
+}
+
+.stateProgress {
+  background: #fff3d8;
+  color: #6d4b00;
+}
+
+.stateResolved {
+  background: #e7f3e9;
+  color: #2c6540;
+}
+
+.stateDismissed {
+  background: #eef0ef;
+  color: #56605a;
 }
 
 .high {
@@ -133,7 +168,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
+  min-height: 44px;
   padding: .55rem .75rem;
   border-radius: 12px;
   border: 1px solid var(--line, #d9ded8);

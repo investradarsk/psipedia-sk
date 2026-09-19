@@ -5,7 +5,9 @@ import {
   ADMIN_ATTENTION_QUERY_COUNT,
   ADMIN_ATTENTION_SOURCE_LIMIT,
   filterAdminAttentionItems,
+  isAdminAttentionActive,
   mapAdoptionStaleAttention,
+  mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
   mapModerationAttention,
@@ -25,6 +27,7 @@ function manualItem(overrides = {}) {
     reason: "Test",
     priority: "MEDIUM",
     status: "new",
+    attentionState: "NEW",
     createdAt: "2026-09-10T12:00:00.000Z",
     relevantAt: "2026-09-10T12:00:00.000Z",
     ageDays: 5,
@@ -33,8 +36,8 @@ function manualItem(overrides = {}) {
   };
 }
 
-test("moderation adapter maps only submissions with an existing admin workflow and raises quarantined/risky items", () => {
-  const item = mapModerationAttention({
+test("moderation presentation maps the existing lifecycle and ignores unsupported organization-change UI", () => {
+  const quarantined = mapModerationAttention({
     id: "submission-1",
     resourceType: "LOST_FOUND_CASE",
     operation: "CREATE",
@@ -43,12 +46,22 @@ test("moderation adapter maps only submissions with an existing admin workflow a
     createdAt: "2026-09-12T12:00:00.000Z",
     updatedAt: "2026-09-13T12:00:00.000Z",
   }, NOW);
-  assert.equal(item?.sourceType, "MODERATION_SUBMISSION");
-  assert.equal(item?.priority, "HIGH");
-  assert.equal(item?.targetHref, "/admin/stratene-najdene");
-  assert.equal(item?.ageDays, 3);
-  assert.equal(mapModerationAttention({
+  const approved = mapModerationAttention({
     id: "submission-2",
+    resourceType: "ADOPTION_DOG",
+    operation: "UPDATE",
+    status: "APPROVED",
+    riskFlagsJson: "[]",
+    createdAt: "2026-09-11T12:00:00.000Z",
+    updatedAt: "2026-09-14T12:00:00.000Z",
+  }, NOW);
+  assert.equal(quarantined?.attentionState, "IN_PROGRESS");
+  assert.equal(quarantined?.priority, "HIGH");
+  assert.equal(quarantined?.targetHref, "/admin/stratene-najdene");
+  assert.equal(approved?.attentionState, "RESOLVED");
+  assert.equal(isAdminAttentionActive(approved), false);
+  assert.equal(mapModerationAttention({
+    id: "submission-3",
     resourceType: "ORGANIZATION_CHANGE",
     operation: "UPDATE",
     status: "PENDING_REVIEW",
@@ -58,49 +71,87 @@ test("moderation adapter maps only submissions with an existing admin workflow a
   }, NOW), null);
 });
 
-test("news tip adapter maps a new tip without contact PII", () => {
-  const item = mapNewsTipAttention({ id: 7, title: "Nový tip", topic: "veda", status: "new", createdAt: "2026-09-14T12:00:00.000Z" }, NOW);
-  assert.equal(item.key, "news-tip:7");
-  assert.equal(item.priority, "MEDIUM");
-  assert.equal(item.targetHref, "/admin/tipy#tip-7");
-  assert.deepEqual(item.metadata, [{ label: "Téma", value: "veda" }]);
+test("news tip lifecycle keeps reviewing active and terminal states in history", () => {
+  const fresh = mapNewsTipAttention({ id: 7, title: "Nový tip", topic: "veda", status: "new", createdAt: "2026-09-14T12:00:00.000Z", updatedAt: "2026-09-14T12:00:00.000Z" }, NOW);
+  const reviewing = mapNewsTipAttention({ id: 8, title: "Overujem", topic: "veda", status: "reviewing", createdAt: "2026-09-13T12:00:00.000Z", updatedAt: "2026-09-14T12:00:00.000Z" }, NOW);
+  const used = mapNewsTipAttention({ id: 9, title: "Hotovo", topic: "veda", status: "used", createdAt: "2026-09-10T12:00:00.000Z", updatedAt: "2026-09-15T08:00:00.000Z" }, NOW);
+  assert.equal(fresh.attentionState, "NEW");
+  assert.equal(reviewing.attentionState, "IN_PROGRESS");
+  assert.equal(isAdminAttentionActive(reviewing), true);
+  assert.equal(used.attentionState, "RESOLVED");
+  assert.equal(isAdminAttentionActive(used), false);
+  assert.equal(fresh.targetHref, "/admin/tipy#tip-7");
 });
 
-test("directory change adapter maps a pending profile request", () => {
-  const item = mapDirectoryChangeRequestAttention({ id: 8, profileName: "Psí salón", profileCategory: "salony-a-sluzby", status: "new", createdAt: "2026-09-13T12:00:00.000Z" }, NOW);
-  assert.equal(item.key, "directory-change:8");
-  assert.equal(item.priority, "MEDIUM");
-  assert.equal(item.targetHref, "/admin/adresar/navrhy#navrh-8");
+test("directory change request maps approved/rejected to history", () => {
+  const pending = mapDirectoryChangeRequestAttention({ id: 8, profileName: "Psí salón", profileCategory: "salony-a-sluzby", status: "new", createdAt: "2026-09-13T12:00:00.000Z" }, NOW);
+  const approved = mapDirectoryChangeRequestAttention({ id: 9, profileName: "Veterina", profileCategory: "veterinari", status: "approved", createdAt: "2026-09-12T12:00:00.000Z", updatedAt: "2026-09-15T10:00:00.000Z" }, NOW);
+  const rejected = mapDirectoryChangeRequestAttention({ id: 10, profileName: "Tréner", profileCategory: "treneri", status: "rejected", createdAt: "2026-09-12T12:00:00.000Z", updatedAt: "2026-09-15T09:00:00.000Z" }, NOW);
+  assert.equal(pending.attentionState, "NEW");
+  assert.equal(approved.attentionState, "RESOLVED");
+  assert.equal(rejected.attentionState, "DISMISSED");
+  assert.equal(pending.targetHref, "/admin/adresar/navrhy#navrh-8");
 });
 
-test("directory inquiry adapter reuses the existing 24h stale attention contract", () => {
+test("directory inquiry keeps read items active and resolved items only in history", () => {
   const fresh = mapDirectoryInquiryAttention({ id: 9, profileName: "Veterina", profileCategory: "veterinari", status: "new", createdAt: "2026-09-15T06:00:00.000Z" }, NOW);
   const stale = mapDirectoryInquiryAttention({ id: 10, profileName: "Veterina", profileCategory: "veterinari", status: "new", createdAt: "2026-09-13T12:00:00.000Z" }, NOW);
+  const read = mapDirectoryInquiryAttention({ id: 11, profileName: "Veterina", profileCategory: "veterinari", status: "read", createdAt: "2026-09-13T12:00:00.000Z", updatedAt: "2026-09-14T12:00:00.000Z" }, NOW);
+  const resolved = mapDirectoryInquiryAttention({ id: 12, profileName: "Veterina", profileCategory: "veterinari", status: "resolved", createdAt: "2026-09-13T12:00:00.000Z", updatedAt: "2026-09-15T11:00:00.000Z" }, NOW);
   assert.equal(fresh.priority, "MEDIUM");
   assert.equal(stale.priority, "HIGH");
+  assert.equal(read.attentionState, "IN_PROGRESS");
+  assert.equal(isAdminAttentionActive(read), true);
+  assert.equal(resolved.attentionState, "RESOLVED");
+  assert.equal(isAdminAttentionActive(resolved), false);
   assert.equal(stale.targetHref, "/admin/dopyty#dopyt-10");
 });
 
-test("adoption adapter reuses 30d stale and 45d markedly-stale contracts", () => {
+test("negative article feedback has an admin-safe deep link even when the public target is missing", () => {
+  const active = mapArticleFeedbackAttention({
+    id: 14,
+    articleTitle: "Odstránený článok",
+    articlePath: "/novinky/uz-neexistuje",
+    status: "new",
+    createdAt: "2026-09-15T10:00:00.000Z",
+    updatedAt: null,
+  }, NOW);
+  const resolved = mapArticleFeedbackAttention({
+    id: 15,
+    articleTitle: "Starší podnet",
+    articlePath: "/zdravie/starsi-clanok",
+    status: "resolved",
+    createdAt: "2026-09-10T10:00:00.000Z",
+    updatedAt: "2026-09-15T11:00:00.000Z",
+  }, NOW);
+  assert.equal(active.sourceType, "ARTICLE_FEEDBACK");
+  assert.equal(active.targetHref, "/admin/hodnotenia#hodnotenie-14");
+  assert.equal(isAdminAttentionActive(active), true);
+  assert.equal(isAdminAttentionActive(resolved), false);
+});
+
+test("adoption adapter reuses existing stale contracts without inventing urgency", () => {
   const stale = mapAdoptionStaleAttention({ id: 11, name: "Neo", status: "ACTIVE", lastVerifiedAt: "2026-08-11T12:00:00.000Z", createdAt: "2026-05-01T12:00:00.000Z" }, NOW);
   const veryStale = mapAdoptionStaleAttention({ id: 12, name: "Rex", status: "RESERVED", lastVerifiedAt: "2026-07-20T12:00:00.000Z", createdAt: "2026-05-01T12:00:00.000Z" }, NOW);
   const neverVerified = mapAdoptionStaleAttention({ id: 13, name: "Luna", status: "ACTIVE", lastVerifiedAt: null, createdAt: "2026-06-01T12:00:00.000Z" }, NOW);
   assert.equal(stale.priority, "MEDIUM");
   assert.equal(veryStale.priority, "HIGH");
   assert.equal(neverVerified.priority, "HIGH");
+  assert.equal(stale.attentionState, "IN_PROGRESS");
   assert.equal(stale.targetHref, "/admin/adopcie/11");
 });
 
-test("priority ordering is deterministic and higher priority wins", () => {
+test("active items sort before history and active priority ordering remains deterministic", () => {
   const sorted = sortAdminAttentionItems([
+    manualItem({ key: "resolved", attentionState: "RESOLVED", relevantAt: "2026-09-15T11:00:00.000Z" }),
     manualItem({ key: "low", priority: "LOW" }),
     manualItem({ key: "medium", priority: "MEDIUM" }),
     manualItem({ key: "high", priority: "HIGH" }),
   ]);
-  assert.deepEqual(sorted.map((item) => item.key), ["high", "medium", "low"]);
+  assert.deepEqual(sorted.map((item) => item.key), ["high", "medium", "low", "resolved"]);
 });
 
-test("same priority orders older relevant timestamps first", () => {
+test("same active priority orders older relevant timestamps first", () => {
   const sorted = sortAdminAttentionItems([
     manualItem({ key: "newer", relevantAt: "2026-09-10T12:00:00.000Z" }),
     manualItem({ key: "older", relevantAt: "2026-09-01T12:00:00.000Z" }),
@@ -108,34 +159,52 @@ test("same priority orders older relevant timestamps first", () => {
   assert.deepEqual(sorted.map((item) => item.key), ["older", "newer"]);
 });
 
-test("stable key breaks exact priority/timestamp ties", () => {
+test("history orders newest terminal update first", () => {
   const sorted = sortAdminAttentionItems([
-    manualItem({ key: "news-tip:b" }),
-    manualItem({ key: "news-tip:a" }),
+    manualItem({ key: "older", attentionState: "RESOLVED", relevantAt: "2026-09-12T12:00:00.000Z" }),
+    manualItem({ key: "newer", attentionState: "DISMISSED", relevantAt: "2026-09-15T10:00:00.000Z" }),
   ]);
-  assert.deepEqual(sorted.map((item) => item.key), ["news-tip:a", "news-tip:b"]);
+  assert.deepEqual(sorted.map((item) => item.key), ["newer", "older"]);
 });
 
-test("source and priority filters compose", () => {
+test("source, priority and active/history filters compose", () => {
   const items = [
     manualItem({ key: "n1", sourceType: "NEWS_TIP", priority: "MEDIUM" }),
-    manualItem({ key: "i1", sourceType: "DIRECTORY_INQUIRY", priority: "HIGH" }),
-    manualItem({ key: "i2", sourceType: "DIRECTORY_INQUIRY", priority: "MEDIUM" }),
+    manualItem({ key: "i1", sourceType: "DIRECTORY_INQUIRY", priority: "HIGH", attentionState: "IN_PROGRESS" }),
+    manualItem({ key: "i2", sourceType: "DIRECTORY_INQUIRY", priority: "MEDIUM", attentionState: "RESOLVED" }),
   ];
-  assert.deepEqual(filterAdminAttentionItems(items, { sourceType: "DIRECTORY_INQUIRY", priority: "all" }).map((item) => item.key), ["i1", "i2"]);
-  assert.deepEqual(filterAdminAttentionItems(items, { sourceType: "all", priority: "HIGH" }).map((item) => item.key), ["i1"]);
-  assert.deepEqual(filterAdminAttentionItems(items, { sourceType: "DIRECTORY_INQUIRY", priority: "MEDIUM" }).map((item) => item.key), ["i2"]);
+  assert.deepEqual(filterAdminAttentionItems(items, { sourceType: "DIRECTORY_INQUIRY", priority: "all", view: "active" }).map((item) => item.key), ["i1"]);
+  assert.deepEqual(filterAdminAttentionItems(items, { sourceType: "all", priority: "all", view: "history" }).map((item) => item.key), ["i2"]);
+  assert.deepEqual(filterAdminAttentionItems(items, { sourceType: "DIRECTORY_INQUIRY", priority: "MEDIUM", view: "all" }).map((item) => item.key), ["i2"]);
 });
 
-test("empty queue summary has deterministic zero counts", () => {
-  const summary = summarizeAdminAttention([]);
-  assert.equal(summary.total, 0);
-  assert.deepEqual(summary.byPriority, { HIGH: 0, MEDIUM: 0, LOW: 0 });
-  assert.ok(Object.values(summary.bySource).every((count) => count === 0));
+test("zero, one and multiple-source summaries use the same deterministic active count as the active queue", () => {
+  const empty = summarizeAdminAttention([]);
+  assert.equal(empty.active, 0);
+  assert.equal(empty.history, 0);
+
+  const one = [manualItem()];
+  assert.equal(summarizeAdminAttention(one).active, 1);
+  assert.equal(filterAdminAttentionItems(one, { view: "active" }).length, 1);
+
+  const mixed = [
+    manualItem({ key: "tip", sourceType: "NEWS_TIP", attentionState: "NEW" }),
+    manualItem({ key: "inquiry", sourceType: "DIRECTORY_INQUIRY", attentionState: "IN_PROGRESS" }),
+    manualItem({ key: "feedback", sourceType: "ARTICLE_FEEDBACK", attentionState: "RESOLVED" }),
+  ];
+  const summary = summarizeAdminAttention(mixed);
+  const active = filterAdminAttentionItems(mixed, { view: "active" });
+  assert.equal(summary.active, 2);
+  assert.equal(summary.active, active.length);
+  assert.equal(summary.history, 1);
+  assert.equal(summary.byState.NEW, 1);
+  assert.equal(summary.byState.IN_PROGRESS, 1);
+  assert.equal(summary.byState.RESOLVED, 1);
 });
 
-test("all source queries are bounded and the store is read-only", () => {
+test("all source queries stay bounded and the attention store remains read-only", () => {
   assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 6);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
@@ -147,17 +216,36 @@ test("target hrefs point to existing admin route patterns", () => {
     "../app/admin/tipy/page.tsx",
     "../app/admin/adresar/navrhy/page.tsx",
     "../app/admin/dopyty/page.tsx",
+    "../app/admin/hodnotenia/page.tsx",
     "../app/admin/adopcie/[id]/page.tsx",
     "../app/admin/stratene-najdene/page.tsx",
   ];
   for (const route of routes) assert.equal(existsSync(new URL(route, import.meta.url)), true, route);
 });
 
-test("operations page stays behind admin auth and exposes no mutation endpoint", () => {
+test("operations page and shared bell use the same queue source of truth", () => {
   const page = readFileSync(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
+  const shell = readFileSync(new URL("../components/admin-shell.tsx", import.meta.url), "utf8");
   assert.match(page, /requireAdminPageUser\("\/admin\/operations"\)/);
+  assert.match(page, /summarizeAdminAttention\(allItems\)/);
+  assert.match(page, /attentionCount=\{summary\.active\}/);
+  assert.match(shell, /summarizeAdminAttention\(await loadAdminAttentionQueue\(\)\)\.active/);
+  assert.match(shell, /href="\/admin\/operations"/);
+  assert.doesNotMatch(shell, /getNewDirectoryInquiryCount/);
   assert.match(component, /<form[^>]+method="get"/);
+});
+
+test("article feedback lifecycle extends the existing table instead of creating a second inbox", () => {
+  const migration = readFileSync(new URL("../drizzle/0048_article_feedback_attention_status.sql", import.meta.url), "utf8");
+  assert.match(migration, /ALTER TABLE `article_feedback` ADD COLUMN `status`/);
+  assert.match(migration, /ALTER TABLE `article_feedback` ADD COLUMN `attention_updated_at`/);
+  assert.doesNotMatch(migration, /CREATE TABLE/i);
+});
+
+test("operations presentation does not add a competing mutation endpoint", () => {
+  const page = readFileSync(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
+  const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(page + component, /fetch\(|method=["'](?:post|put|patch|delete)["']/i);
   assert.equal(existsSync(new URL("../app/api/admin/operations", import.meta.url)), false);
 });

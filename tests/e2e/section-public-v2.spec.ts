@@ -86,8 +86,13 @@ test("SECTION-PUBLIC article lists use title, topic and date only", async ({ pag
     await expect(first.locator("[data-article-title]")).toBeVisible();
     await expect(first.locator("[data-article-topic]")).toBeVisible();
     await expect(first.locator("[data-article-date]")).toBeVisible();
-    await expect(first.locator("p, img")).toHaveCount(0);
+    await expect(first.locator("p")).toHaveCount(0);
     await expect(first).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať článok|Čítať novinku|Prečítať|Zistiť viac/i);
+    const image = first.locator("[data-article-image] img");
+    if (await image.count()) {
+      await expect(image).toBeVisible();
+      await expect(image).toHaveAttribute("alt", /Ilustračná fotografia k článku:/);
+    }
   }
 });
 

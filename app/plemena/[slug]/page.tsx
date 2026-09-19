@@ -513,6 +513,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 topic={article.topic}
                 date={article.date}
                 dateTime={article.dateIso}
+                image={article.image ? { src: article.image, alt: `Ilustračná fotografia k článku: ${article.title}` } : undefined}
               />
             ))}
           </PublicContentList>

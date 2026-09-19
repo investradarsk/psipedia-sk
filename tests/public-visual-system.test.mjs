@@ -85,7 +85,7 @@ test("mobile contract protects 390px layouts from horizontal overflow", () => {
 });
 
 
-test("article list contract exposes only title, topic and publication date", () => {
+test("article list contract keeps text minimal while allowing an optional thumbnail", () => {
   const start = source.indexOf("export function PublicArticleListItem");
   const end = source.indexOf("export function PublicContentListItem", start);
   assert.ok(start >= 0 && end > start, "PublicArticleListItem contract is missing");
@@ -93,8 +93,13 @@ test("article list contract exposes only title, topic and publication date", () 
   assert.match(contract, /title: ReactNode/);
   assert.match(contract, /topic: ReactNode/);
   assert.match(contract, /date: ReactNode/);
+  assert.match(contract, /image\?: \{ src: string; alt: string \}/);
+  assert.match(contract, /image \? \(/);
+  assert.match(contract, /<img src=\{image\.src\} alt=\{image\.alt\}/);
   assert.match(contract, /<time dateTime=\{dateTime\} data-article-date>\{date\}<\/time>/);
-  assert.doesNotMatch(contract, /excerpt|readTime|actionLabel|image/);
+  assert.doesNotMatch(contract, /excerpt|readTime|actionLabel/);
+  assert.match(styles, /\.articleListItemWithImage\s*\{[^}]*grid-template-columns:\s*132px minmax\(0, 1fr\)/s);
+  assert.match(styles, /\.articleListMedia img\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
 });
 
 test("dog name day resolver uses Europe\/Bratislava boundaries and fails closed", () => {
@@ -110,6 +115,7 @@ test("dog name day resolver uses Europe\/Bratislava boundaries and fails closed"
 
 test("global public article surfaces use the shared minimal presentation", () => {
   assert.match(articleCard, /if \(!large\) return <ArticleListItem/);
+  assert.match(articleCard, /ArticleListItem article=\{article\}/);
   assert.match(newsHub, /<ArticleListItem/);
   assert.match(editorialSection, /<ArticleListItem/);
   assert.match(breedDetail, /<PublicContentList label="Súvisiace články k plemenu">/);

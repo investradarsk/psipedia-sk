@@ -245,7 +245,12 @@ test("ARTICLE-PUBLIC Novinky exposes complete archive and category filters", asy
   await expect(firstArticleRow.locator("[data-article-title]")).toBeVisible();
   await expect(firstArticleRow.locator("[data-article-topic]")).toBeVisible();
   await expect(firstArticleRow.locator("[data-article-date]")).toBeVisible();
-  await expect(firstArticleRow.locator("p, img")).toHaveCount(0);
+  await expect(firstArticleRow.locator("p")).toHaveCount(0);
+  const thumbnailRows = archive.locator("[data-article-list-item]:has([data-article-image])");
+  expect(await thumbnailRows.count(), "Novinky with canonical images should render compact thumbnails").toBeGreaterThan(0);
+  const firstThumbnail = thumbnailRows.first().locator("[data-article-image] img");
+  await expect(firstThumbnail).toBeVisible();
+  await expect(firstThumbnail).toHaveAttribute("alt", /Ilustračná fotografia k článku:/);
   await expect(firstArticleRow).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať novinku|Čítať článok|Prečítať|Zistiť viac/i);
   await expect(archive.getByText("E2E zaujímavosť zo sveta psov")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("aria-current", "page");
@@ -265,7 +270,8 @@ test("PUBLIC-GLOBAL search keeps article results compact while retaining full-te
   await expect(row.locator("[data-article-title]")).toBeVisible();
   await expect(row.locator("[data-article-topic]")).toBeVisible();
   await expect(row.locator("[data-article-date]")).toBeVisible();
-  await expect(row.locator("p, img, small")).toHaveCount(0);
+  await expect(row.locator("p, small")).toHaveCount(0);
+  await expect(row.locator("[data-article-image] img")).toBeVisible();
   await expect(row).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať novinku|Čítať článok|Prečítať|Zistiť viac/i);
 });
 

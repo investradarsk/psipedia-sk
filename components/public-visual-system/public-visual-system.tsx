@@ -159,6 +159,7 @@ export function PublicArticleListItem({
   topic,
   date,
   dateTime,
+  image,
   className,
   listItem = true,
 }: {
@@ -167,11 +168,17 @@ export function PublicArticleListItem({
   topic: ReactNode;
   date: ReactNode;
   dateTime?: string;
+  image?: { src: string; alt: string };
   className?: string;
   listItem?: boolean;
 }) {
   return (
-    <Link className={cx(styles.articleListItem, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
+    <Link className={cx(styles.articleListItem, image && styles.articleListItemWithImage, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
+      {image ? (
+        <span className={styles.articleListMedia} data-article-image>
+          <img src={image.src} alt={image.alt} loading="lazy" decoding="async" />
+        </span>
+      ) : null}
       <span className={styles.articleListCopy}>
         <strong className={styles.articleListTitle} data-article-title>{title}</strong>
         <span className={styles.articleListMeta}>
