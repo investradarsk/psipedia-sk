@@ -1,11 +1,9 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { isDirectoryCategory } from "@/lib/directory";
+import { buildGeneralImportPlan } from "@/lib/admin-import-plan";
 import { normalizeDirectoryRegion, normalizeDirectorySearchText } from "@/lib/directory-store";
 import { importFciBreeds, previewFciBreedImport } from "@/lib/breed-import";
-import { allHelpCategories } from "@/lib/help";
-import { slovakRegions } from "@/lib/events";
-import { previewHelpItems } from "@/lib/help-import-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -13,17 +11,10 @@ type JsonRecord = Record<string, unknown>;
 type RuntimeBindings = { DB?: D1Database };
 
 const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
-const MAX_RECORDS_PER_SECTION = 5_000;
 
 function object(value: unknown): JsonRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Import obsahuje neplatný záznam.");
   return value as JsonRecord;
-}
-
-function list(value: unknown): JsonRecord[] {
-  if (value === undefined || value === null) return [];
-  if (!Array.isArray(value) || value.length > MAX_RECORDS_PER_SECTION) throw new Error("Import obsahuje neplatný počet záznamov.");
-  return value.map(object);
 }
 
 function text(value: unknown, fallback = "") {
@@ -106,30 +97,19 @@ export async function POST(request: Request) {
       const result = await importFciBreeds(database, breedPayload, user.email);
       return Response.json({ success: result.success, imported: { breeds: result }, preview: result }, { status: result.success ? 200 : 400 });
     }
-    const articles = list(payload.articles);
-    const profiles = list(payload.profiles);
-    const events = list(payload.events);
-    const helpItems = list(payload.helpItems);
-    const inquiries = list(payload.inquiries);
-    const legal = payload.legal ? object(payload.legal) : null;
-    const selectedProfileCategory = text(payload.profileCategory);
-
-    if (helpItems.some((row) => text(row.category).trim() === "utulky")) {
-      throw new Error("Import Pomoc psom už neprijíma kategóriu utulky; organizácie sa spravujú v canonical help_organizations.");
+    const plan = await buildGeneralImportPlan(database, payload);
+    const { articles, profiles, events, helpItems, inquiries, legal, profileCategory: selectedProfileCategory } = plan.payload;
+    if (plan.preview.totals.rejected > 0) {
+      throw new Error(`Import obsahuje ${plan.preview.totals.rejected} odmietnutých záznamov. Oprav ich a spusti Preview znova.`);
     }
-
-    if (helpItems.length) {
-      const helpPreview = await previewHelpItems(database, helpItems, allHelpCategories.map((item) => item.slug), slovakRegions);
-      const unsafeRows = helpPreview.rows.filter((row) => !row.safeForImport);
-      if (unsafeRows.length) {
-        const sample = unsafeRows.slice(0, 3).map((row) => `${row.index}: ${row.title || row.slug || "bez názvu"} [${row.status}]`).join(", ");
-        throw new Error(`Import Pomoc psom zastavený: ${unsafeRows.length} položiek už nie je SAFE FOR IMPORT${sample ? ` (${sample})` : ""}. Spustite Preview znova.`);
-      }
+    if (payload.confirmed !== true) {
+      throw new Error("Pred importom je povinný Preview a explicitné potvrdenie.");
     }
 
     const statements: D1PreparedStatement[] = [];
 
-    for (const row of articles) {
+    for (const [index, row] of articles.entries()) {
+      if (plan.actions.articles[index] === "skipped") continue;
       statements.push(database.prepare(`
         INSERT INTO managed_articles (
           slug, title, excerpt, category, portal_section, news_category, status, accent, author, intro,
@@ -147,15 +127,16 @@ export async function POST(request: Request) {
       `).bind(
         required(row.slug, "adresa článku"), required(row.title, "názov článku"), text(row.excerpt),
         text(row.category, "Život so psom"), text(row.portalSection, "clanky"), nullableText(row.newsCategory),
-        text(row.status, "draft"), text(row.accent, "forest"), text(row.author, "Redakcia Psipedia"),
+        "draft", text(row.accent, "forest"), text(row.author, "Redakcia Psipedia"),
         text(row.intro), text(row.takeaway), jsonArray(row.sections), jsonArray(row.sources), migratedImage(row),
         integer(row.readingMinutes, 5), required(row.createdAt, "dátum vytvorenia"),
-        required(row.updatedAt, "dátum úpravy"), nullableText(row.publishedAt),
+        required(row.updatedAt, "dátum úpravy"), null,
         text(row.createdBy, user.email), text(row.updatedBy, user.email),
       ));
     }
 
-    for (const row of profiles) {
+    for (const [index, row] of profiles.entries()) {
+      if (plan.actions.profiles[index] === "skipped") continue;
       const category = importedText(row, ["category", "Kategória"], selectedProfileCategory);
       if (!isDirectoryCategory(category)) throw new Error("Import profilov nemá platnú kategóriu.");
       const name = required(valueFrom(row, "name", "Názov", "Názov klubu"), "názov profilu");
@@ -173,12 +154,11 @@ export async function POST(request: Request) {
       const websiteUrl = nullableText(valueFrom(row, "websiteUrl", "Web"));
       const internalEmail = nullableText(valueFrom(row, "internalEmail", "E-mail"));
       const importKey = importedText(row, ["importKey", "Import key"]) || null;
-      const rawStatus = importedText(row, ["status"]);
-      const status = rawStatus === "published" ? "published" : "draft";
-      const updateStatus = rawStatus === "published" || rawStatus === "draft";
+      const status = "draft";
+      const updateStatus = true;
       const createdAt = importedText(row, ["createdAt"], new Date().toISOString());
       const updatedAt = importedText(row, ["updatedAt", "Dátum overenia"], new Date().toISOString()).replace(/^(\d{4}-\d{2}-\d{2})$/, "$1T00:00:00.000Z");
-      const publishedAt = nullableText(row.publishedAt);
+      const publishedAt = null;
       const rawSourceData = sourceData(row);
       const searchText = normalizeDirectorySearchText([name, excerpt, description, services.join(" "), qualifications.join(" "), city, district, region, address].join(" "));
       const conflictTarget = importKey ? "import_key" : "category, slug";
@@ -209,7 +189,8 @@ export async function POST(request: Request) {
       ));
     }
 
-    for (const row of events) {
+    for (const [index, row] of events.entries()) {
+      if (plan.actions.events[index] === "skipped") continue;
       statements.push(database.prepare(`
         INSERT INTO managed_events (
           slug, title, excerpt, event_type, status, start_date, start_time, end_date, end_time,
@@ -228,17 +209,18 @@ export async function POST(request: Request) {
           created_by=excluded.created_by, updated_by=excluded.updated_by
       `).bind(
         required(row.slug, "adresa podujatia"), required(row.title, "názov podujatia"), text(row.excerpt),
-        text(row.eventType), text(row.status, "draft"), required(row.startDate, "dátum podujatia"),
+        text(row.eventType), "draft", required(row.startDate, "dátum podujatia"),
         text(row.startTime), nullableText(row.endDate), nullableText(row.endTime), text(row.venue),
         text(row.city), text(row.region), text(row.address), text(row.organizer), text(row.description),
         text(row.practicalInfo), nullableText(row.websiteUrl), nullableText(row.registrationUrl), migratedImage(row),
         bool(row.cancelled), required(row.createdAt, "dátum vytvorenia podujatia"),
-        required(row.updatedAt, "dátum úpravy podujatia"), nullableText(row.publishedAt),
+        required(row.updatedAt, "dátum úpravy podujatia"), null,
         text(row.createdBy, user.email), text(row.updatedBy, user.email),
       ));
     }
 
-    for (const row of helpItems) {
+    for (const [index, row] of helpItems.entries()) {
+      if (plan.actions.helpItems[index] !== "inserted") continue;
       statements.push(database.prepare(`
         INSERT INTO help_cases (
           slug, title, category, status, excerpt, description, organization, dog_name, breed, age_note,
@@ -246,15 +228,16 @@ export async function POST(request: Request) {
           goal_amount, raised_amount, image_url, image_key, verified, urgent, resolved,
           created_at, updated_at, published_at, created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(slug) DO NOTHING
       `).bind(
         required(row.slug, "adresa pomoci"), required(row.title, "názov pomoci"), required(row.category, "kategória pomoci"),
-        text(row.status, "draft"), text(row.excerpt), text(row.description), text(row.organization),
+        "draft", text(row.excerpt), text(row.description), text(row.organization),
         text(row.dogName), text(row.breed), text(row.ageNote), text(row.city), text(row.region),
         text(row.locationNote), nullableText(row.reportedDate), nullableText(row.deadlineDate),
         text(row.actionLabel), nullableText(row.actionUrl), text(row.contactNote), integer(row.goalAmount),
         integer(row.raisedAmount), migratedImage(row), bool(row.verified), bool(row.urgent), bool(row.resolved),
         required(row.createdAt, "dátum vytvorenia pomoci"), required(row.updatedAt, "dátum úpravy pomoci"),
-        nullableText(row.publishedAt), text(row.createdBy, user.email), text(row.updatedBy, user.email),
+        null, text(row.createdBy, user.email), text(row.updatedBy, user.email),
       ));
     }
 
@@ -301,6 +284,7 @@ export async function POST(request: Request) {
     return Response.json({
       success: true,
       imported: { articles: articles.length, profiles: profiles.length, events: events.length, help: helpItems.length, inquiries: inquiries.length, legal: legal ? 1 : 0 },
+      summary: plan.preview,
     });
   } catch (error) {
     console.error(JSON.stringify({ event: "admin_import_failed", message: error instanceof Error ? error.message : "unknown" }));

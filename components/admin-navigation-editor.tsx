@@ -31,17 +31,25 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
   const [items, setItems] = useState(() => normalizePositions(initialItems));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const roots = useMemo(() => items.filter((item) => !item.parentId), [items]);
+  const previewFamilies = useMemo(() => roots.map((root) => {
+    const managedChildren = items.filter((item) => item.parentId === root.id);
+    const automatic = managedChildren.length === 0 ? (automaticChildren[getRootSlug(root.href)] ?? []) : [];
+    return { root, children: managedChildren.length ? managedChildren : automatic.map((item, position) => ({ ...item, parentId: root.id, position, visible: true })) };
+  }), [automaticChildren, items, roots]);
 
   function updateItem(id: string, patch: Partial<NavigationItem>) {
     setItems((current) => normalizePositions(current.map((item) => item.id === id ? { ...item, ...patch } : item)));
     setMessage("");
+    setError("");
   }
 
   function addItem(parentId: string | null = null) {
     setItems((current) => normalizePositions([...current, { id: makeId(), label: parentId ? "Nová položka podmenu" : "Nová položka", href: "/", parentId, position: current.length, visible: true }]));
     setMessage("");
+    setError("");
   }
 
   function removeItem(id: string) {
@@ -49,6 +57,7 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
     if (!item || !window.confirm(`Odstrániť položku „${item.label}“${item.parentId ? "" : " aj s jej podmenu"}?`)) return;
     setItems((current) => normalizePositions(current.filter((candidate) => candidate.id !== id && candidate.parentId !== id)));
     setMessage("");
+    setError("");
   }
 
   function moveItem(id: string, direction: -1 | 1) {
@@ -65,6 +74,7 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
       return normalizePositions(next);
     });
     setMessage("");
+    setError("");
   }
 
   function dropOn(targetId: string) {
@@ -79,6 +89,7 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
     });
     setDraggedId(null);
     setMessage("");
+    setError("");
   }
 
   function changeParent(id: string, parentId: string | null) {
@@ -87,19 +98,21 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
       return normalizePositions(current.map((item) => item.id === id ? { ...item, parentId } : item));
     });
     setMessage("");
+    setError("");
   }
 
   async function save() {
     setSaving(true);
     setMessage("");
+    setError("");
     try {
       const response = await fetch("/api/admin/navigation", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ items }) });
       const result = await response.json() as { items?: NavigationItem[]; error?: string };
       if (!response.ok || !result.items) throw new Error(result.error || "Navigáciu sa nepodarilo uložiť.");
       setItems(normalizePositions(result.items));
       setMessage("Navigácia je uložená a zobrazuje sa na celom webe.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Navigáciu sa nepodarilo uložiť.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Navigáciu sa nepodarilo uložiť.");
     } finally {
       setSaving(false);
     }
@@ -161,9 +174,34 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
         return <div className="admin-navigation-family" key={root.id}>{renderRow(root)}{managedChildren.map(renderRow)}{effectiveAutomaticChildren.map(renderAutomaticRow)}</div>;
       })}
     </div>
+
+    <section className="admin-navigation-preview" aria-labelledby="admin-navigation-preview-title">
+      <div>
+        <strong id="admin-navigation-preview-title">Preview výslednej štruktúry</strong>
+        <span>Kontrolný náhľad poradia, parent/child väzieb a viditeľnosti. Nie je to druhý renderer verejného headeru.</span>
+      </div>
+      <ol>
+        {previewFamilies.map(({ root, children }) => (
+          <li key={`preview-${root.id}`} className={root.visible ? "" : "is-hidden"}>
+            <div><strong>{root.label}</strong><code>{root.href}</code><span>{root.visible ? "Zobrazené" : "Skryté"}</span></div>
+            {children.length > 0 && (
+              <ol>
+                {children.map((child) => (
+                  <li key={`preview-child-${child.id}`} className={child.visible ? "" : "is-hidden"}>
+                    <span>{child.label}</span><code>{child.href}</code><small>{child.visible ? "Zobrazené" : "Skryté"}</small>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+
     <div className="admin-navigation-savebar">
-      <button type="button" className="admin-navigation-reset" onClick={() => { setItems(normalizePositions(defaultNavigationItems)); setMessage(""); }}>Obnoviť predvolené menu</button>
+      <button type="button" className="admin-navigation-reset" onClick={() => { setItems(normalizePositions(defaultNavigationItems)); setMessage(""); setError(""); }}>Obnoviť predvolené menu</button>
       {message && <p role="status">{message}</p>}
+      {error && <p className="is-error" role="alert">{error}</p>}
       <button type="button" className="admin-primary-action" onClick={save} disabled={saving}>{saving ? "Ukladám…" : "Uložiť navigáciu"}</button>
     </div>
   </section>;

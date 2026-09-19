@@ -155,3 +155,12 @@ test("admin routes enforce auth-before-body, JSON content type and organization-
   assert.doesNotMatch(write, /UPDATE help_organizations[\s\S]*(address|city|district|region|country_code)/i);
   assert.match(page, /listOrganizationLocationsAdmin/);
 });
+
+
+test("organization location admin gates editable controls until hydration", () => {
+  const editor = read("../components/admin-organization-locations.tsx");
+  assert.match(editor, /useSyncExternalStore/);
+  assert.match(editor, /const editingDisabled = !hydrated \|\| parentArchived/);
+  assert.match(editor, /LocationFields draft=\{createDraft\} disabled=\{editingDisabled \|\| busyId !== null\}/);
+  assert.match(editor, /disabled=\{!hydrated \|\| busyId !== null\}/);
+});

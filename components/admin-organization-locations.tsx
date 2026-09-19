@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ORGANIZATION_LOCATION_ROLES,
   type OrganizationLocationAdminInput,
@@ -78,6 +78,11 @@ export function AdminOrganizationLocations({ organization, initialLocations }: {
   organization: OrganizationPublicationAdminItem;
   initialLocations: OrganizationLocationAdminRecord[];
 }) {
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
   const [locations, setLocations] = useState(() => sortLocations(initialLocations));
   const [drafts, setDrafts] = useState<Record<number, EditableDraft>>(() => Object.fromEntries(initialLocations.map((item) => [item.id, toDraft(item)])));
   const [createDraft, setCreateDraft] = useState<EditableDraft>(() => emptyDraft());
@@ -85,6 +90,7 @@ export function AdminOrganizationLocations({ organization, initialLocations }: {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const parentArchived = organization.status === "ARCHIVED" || Boolean(organization.archivedAt);
+  const editingDisabled = !hydrated || parentArchived;
   const primaryId = useMemo(() => locations.find((item) => item.isPrimary)?.id ?? null, [locations]);
 
   async function responseItem(response: Response) {
@@ -110,7 +116,7 @@ export function AdminOrganizationLocations({ organization, initialLocations }: {
 
   async function createLocation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (parentArchived) { setError("Archivovanej organizácii nemožno meniť lokality."); return; }
+    if (editingDisabled) { if (parentArchived) setError("Archivovanej organizácii nemožno meniť lokality."); return; }
     setBusyId("create"); setMessage(""); setError("");
     try {
       const response = await fetch(`/api/admin/organizations/${organization.id}/locations`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ payload: createDraft }) });
@@ -154,18 +160,18 @@ export function AdminOrganizationLocations({ organization, initialLocations }: {
       </section>
       <form className="admin-form-card" data-location-create onSubmit={createLocation}>
         <div className="admin-card-heading"><div><span>02</span><div><h2>Pridať lokalitu</h2><p>Nový riadok vznikne priamo v canonical location modeli.</p></div></div></div>
-        <LocationFields draft={createDraft} disabled={parentArchived || busyId !== null} onChange={setCreateDraft} prefix="location-new" />
-        <div className="admin-editor-actions"><button type="submit" disabled={parentArchived || busyId !== null}>{busyId === "create" ? "Pridávam…" : "Pridať lokalitu"}</button></div>
+        <LocationFields draft={createDraft} disabled={editingDisabled || busyId !== null} onChange={setCreateDraft} prefix="location-new" />
+        <div className="admin-editor-actions"><button type="submit" disabled={editingDisabled || busyId !== null}>{busyId === "create" ? "Pridávam…" : "Pridať lokalitu"}</button></div>
       </form>
       <section className="admin-form-card">
         <div className="admin-card-heading"><div><span>03</span><div><h2>Existujúce lokality</h2><p>Poradie je deterministické podľa sort_order a ID. Model nemá version ani archived_at, preto edit nie je OCC-versioned a odstránenie je hard delete.</p></div></div></div>
         {!locations.length && <p className="admin-help">Táto organizácia nemá canonical location rows.</p>}
         {locations.map((item) => {
-          const draft = drafts[item.id] ?? toDraft(item); const disabled = parentArchived || busyId === item.id;
+          const draft = drafts[item.id] ?? toDraft(item); const disabled = editingDisabled || busyId === item.id;
           return <article className="admin-form-card" key={item.id} data-location-id={item.id}>
             <div className="admin-card-heading"><div><span>#{item.id}</span><div><h3>{item.label || roleLabels[item.role]}</h3><p>{item.city || "Bez mesta"} · poradie {item.sortOrder}{item.isPrimary ? " · Hlavná lokalita" : ""}</p></div></div></div>
             <LocationFields draft={draft} disabled={disabled} onChange={(next) => setDrafts((current) => ({ ...current, [item.id]: next }))} prefix={`location-${item.id}`} />
-            {!parentArchived && <div className="admin-editor-actions"><button type="button" disabled={busyId !== null} onClick={() => saveLocation(item)}>{busyId === item.id ? "Pracujem…" : "Uložiť lokalitu"}</button><button type="button" disabled={busyId !== null} onClick={() => deleteLocation(item)}>Odstrániť lokalitu</button></div>}
+            {!parentArchived && <div className="admin-editor-actions"><button type="button" disabled={!hydrated || busyId !== null} onClick={() => saveLocation(item)}>{busyId === item.id ? "Pracujem…" : "Uložiť lokalitu"}</button><button type="button" disabled={!hydrated || busyId !== null} onClick={() => deleteLocation(item)}>Odstrániť lokalitu</button></div>}
           </article>;
         })}
       </section>
