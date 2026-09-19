@@ -84,7 +84,7 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
       ) : (
         <div className="home-editorial-empty" data-home-latest-empty>
           <strong>Nové články pripravujeme</strong>
-          <p>Keď bude publikovaný nový obsah, zobrazí sa tu automaticky.</p>
+          <p>Medzitým si môžeš pozrieť ďalšie témy a praktické rady na Psipedii.</p>
         </div>
       )}
     </section>
@@ -142,7 +142,7 @@ export function HomeEditorialSection({
       ) : (
         <div className="home-editorial-empty" data-home-editorial-empty={testId}>
           <strong>Ďalší obsah pripravujeme</strong>
-          <p>V tejto téme zatiaľ nie je ďalší publikovaný článok mimo výberu vyššie.</p>
+          <p>Ďalšie praktické články k tejto téme postupne pribúdajú.</p>
         </div>
       )}
     </section>
