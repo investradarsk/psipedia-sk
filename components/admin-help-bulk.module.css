@@ -24,3 +24,11 @@
 .importPreview :global(.admin-editor-actions) button,.importPreview input[type="file"]{min-height:44px}.importTableWrap{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
 @media(max-width:980px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.searchField{grid-column:1/-1}}
 @media(max-width:760px){.boundary{grid-template-columns:1fr;padding:15px}.moduleLinks{grid-template-columns:1fr}.editorBoundary .moduleLinks{width:100%;margin-left:0}.editorBoundary .moduleLinks a{flex:1 1 100%}.filters{grid-template-columns:1fr;padding:12px}.searchField{grid-column:auto}.filterActions{align-items:stretch;flex-direction:column}.bulk{align-items:stretch;margin-inline:12px}.bulk label,.bulk span{width:100%}.bulk button{flex:1 1 150px}.bulk .clear{margin-left:0}.allResults,.warning{margin-inline:12px}.row{grid-template-columns:44px 62px minmax(0,1fr)!important}.row :global(.admin-row-actions){grid-column:2/-1;min-width:0;flex-wrap:wrap;padding-left:0}.row :global(.admin-row-actions) a,.row :global(.admin-row-actions) button{flex:1 1 120px}.pagination{align-items:stretch}.pagination a{flex:1 1 130px;min-width:0}}
+
+/* Help-scoped WCAG AA contrast overrides; keep shared AdminShell styling untouched. */
+.primaryAction{color:#fff!important;background:#943823!important;border-color:#943823!important}
+.boundary :global(.admin-eyebrow){color:#963b28}
+.dashboard :global(.admin-status--draft){color:#684707}
+.dashboard :global(.admin-article-tags > span:not(.admin-status)){color:#40584d}
+.dashboard :global(.admin-article-main > p){color:#4b6056}
+.dashboard :global(.admin-help-pagination > span){color:#4b6056}
