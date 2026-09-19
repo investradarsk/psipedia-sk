@@ -91,3 +91,27 @@ test("Notion publication writeback is best-effort and does not block the admin p
   assert.ok(writebackCall >= 0 && responseCall > writebackCall);
   assert.match(articleRouteSource, /try \{[\s\S]*await writeBackPublishedArticleToNotion[\s\S]*\} catch \(error\) \{/);
 });
+
+
+test("Notion main image URL is downloaded safely and persisted to R2", () => {
+  assert.match(syncSource, /Hlavný obrázok URL/);
+  assert.match(syncSource, /Zdroj obrázka/);
+  assert.match(syncSource, /Alt text obrázka/);
+  assert.match(syncSource, /MAX_REMOTE_IMAGE_BYTES = 8 \* 1024 \* 1024/);
+  assert.match(syncSource, /url\.protocol !== "https:"/);
+  assert.match(syncSource, /redirect: "manual"/);
+  assert.match(syncSource, /detectedRemoteImageType/);
+  assert.match(syncSource, /bucket\.put\(key, remote\.bytes/);
+  assert.match(syncSource, /notionSourceHash/);
+  assert.match(syncSource, /notionSourceUrl/);
+  assert.match(syncSource, /imageUrl,\s*imageKey: key/);
+  assert.match(syncSource, /ogImageUrl: imageUrl,\s*ogImageKey: key/);
+  assert.match(routeSource, /BUCKET\?: R2Bucket/);
+});
+
+test("Notion image sync is idempotent and cleans up failed or replaced R2 objects", () => {
+  assert.match(syncSource, /currentObject\?\.customMetadata\?\.notionSourceHash === sourceFingerprint/);
+  assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
+  assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, prepared\.replacedKeys\)/);
+  assert.match(syncSource, /JSON\.stringify\(\{ payload: basePayload, notionImageSourceUrl \}\)/);
+});
