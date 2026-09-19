@@ -2,6 +2,7 @@ import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
+import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -18,8 +19,10 @@ interface Env {
   RESEND_API_KEY?: string;
   EDITORIAL_FROM_EMAIL?: string;
   NOTION_ARTICLE_SYNC_ENABLED?: string;
+  NOTION_BREED_SYNC_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
+  NOTION_BREEDS_DATA_SOURCE_ID?: string;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   IMAGES: {
     input(stream: ReadableStream): {
@@ -148,10 +151,11 @@ const worker = {
   },
 
   async scheduled(_controller: unknown, env: Env, _ctx: ExecutionContext): Promise<void> {
-    const [summary, editorial, notionArticles] = await Promise.all([
+    const [summary, editorial, notionArticles, notionBreeds] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
+      runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
     ]);
     console.info(JSON.stringify({
       event: "directory_inquiry_reminder_sweep",
@@ -159,6 +163,7 @@ const worker = {
     }));
     console.info(JSON.stringify({ event: "editorial_notification_sweep", ...editorial }));
     console.info(JSON.stringify({ event: "notion_article_sync_sweep", ...notionArticles }));
+    console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
   },
 };
 
