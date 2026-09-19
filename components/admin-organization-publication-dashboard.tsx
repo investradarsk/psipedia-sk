@@ -110,6 +110,8 @@ export function AdminOrganizationPublicationDashboard({ data, filters }: {
                 <span className={"admin-status admin-status--" + (item.status === "PUBLISHED" ? "published" : "draft")}>{statusLabels[item.status]}</span>
                 <span>{typeLabels[item.type] ?? item.type}</span>
                 <span>{location}</span>
+                <span>{isPublic ? "Verejný profil" : "Neverejný profil"}</span>
+                <span>{item.preflight.ready ? "Publication READY" : "Publication BLOCKED"}</span>
               </div>
               <h2><Link href={"/admin/organizacie/" + item.id}>{item.name || "Bez názvu"}</Link></h2>
               <p>{item.shortDescription || item.description || "Bez verejného popisu"}</p>
@@ -122,7 +124,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters }: {
               <Link className="admin-row-edit" href={"/admin/organizacie/" + item.id}>Spravovať</Link>
               <Link href={"/admin/organizacie/" + item.id + "#fundraising"}>Fundraising</Link>
               {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!item.preflight.ready || busyId !== null} onClick={() => void changePublication(item, "publish")}>Publikovať</AdminActionButton>}
-              {item.status === "PUBLISHED" && <AdminActionButton variant="secondary" disabled={busyId !== null} onClick={() => void changePublication(item, "unpublish")}>Do konceptu</AdminActionButton>}
+              {item.status === "PUBLISHED" && <AdminActionButton variant="secondary" disabled={busyId !== null} onClick={() => void changePublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
               {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive" disabled={busyId !== null} onClick={() => void changePublication(item, "archive")}>Archivovať</AdminActionButton>}
               {item.status === "ARCHIVED" && <AdminActionButton variant="secondary" disabled={busyId !== null} onClick={() => void changePublication(item, "restore")}>Obnoviť do konceptu</AdminActionButton>}
             </div>
