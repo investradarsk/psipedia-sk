@@ -1,19 +1,26 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 5;
+export const ADMIN_ATTENTION_QUERY_COUNT = 6;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
   "NEWS_TIP",
   "DIRECTORY_CHANGE_REQUEST",
   "DIRECTORY_INQUIRY",
+  "ARTICLE_FEEDBACK",
   "ADOPTION_STALE",
 ] as const;
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
 
 export const adminAttentionPriorities = ["HIGH", "MEDIUM", "LOW"] as const;
 export type AdminAttentionPriority = (typeof adminAttentionPriorities)[number];
+
+export const adminAttentionStates = ["NEW", "IN_PROGRESS", "RESOLVED", "DISMISSED"] as const;
+export type AdminAttentionState = (typeof adminAttentionStates)[number];
+
+export const adminAttentionViews = ["active", "history", "all"] as const;
+export type AdminAttentionView = (typeof adminAttentionViews)[number];
 
 export type AdminAttentionMetadata = { label: string; value: string };
 
@@ -25,6 +32,7 @@ export type AdminAttentionItem = {
   reason: string;
   priority: AdminAttentionPriority;
   status: string;
+  attentionState: AdminAttentionState;
   createdAt: string;
   relevantAt: string;
   ageDays: number;
@@ -35,6 +43,7 @@ export type AdminAttentionItem = {
 export type AdminAttentionFilters = {
   sourceType?: AdminAttentionSourceType | "all";
   priority?: AdminAttentionPriority | "all";
+  view?: AdminAttentionView;
 };
 
 export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string> = {
@@ -42,6 +51,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   NEWS_TIP: "Tipy pre redakciu",
   DIRECTORY_CHANGE_REQUEST: "Návrhy úprav",
   DIRECTORY_INQUIRY: "Dopyty",
+  ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
 };
 
@@ -49,6 +59,13 @@ export const adminAttentionPriorityLabels: Record<AdminAttentionPriority, string
   HIGH: "Vysoká",
   MEDIUM: "Stredná",
   LOW: "Nízka",
+};
+
+export const adminAttentionStateLabels: Record<AdminAttentionState, string> = {
+  NEW: "Nové",
+  IN_PROGRESS: "Rieši sa",
+  RESOLVED: "Vyriešené",
+  DISMISSED: "Ignorované / zamietnuté",
 };
 
 const priorityRank: Record<AdminAttentionPriority, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
@@ -72,10 +89,22 @@ function parseRiskFlagCount(value: string) {
   }
 }
 
+export function isAdminAttentionActive(value: AdminAttentionItem | AdminAttentionState) {
+  const state = typeof value === "string" ? value : value.attentionState;
+  return state === "NEW" || state === "IN_PROGRESS";
+}
+
 const moderationTargets = {
   LOST_FOUND_CASE: { label: "Stratený / nájdený pes", href: "/admin/stratene-najdene" },
   ADOPTION_DOG: { label: "Pes na adopciu", href: "/admin/adopcie" },
 } as const;
+
+function moderationAttentionState(status: string): AdminAttentionState {
+  if (status === "SUBMITTED") return "NEW";
+  if (status === "PENDING_REVIEW" || status === "QUARANTINED") return "IN_PROGRESS";
+  if (status === "APPROVED") return "RESOLVED";
+  return "DISMISSED";
+}
 
 export type ModerationAttentionRow = {
   id: string;
@@ -91,14 +120,22 @@ export function mapModerationAttention(row: ModerationAttentionRow, now = new Da
   const target = moderationTargets[row.resourceType as keyof typeof moderationTargets];
   if (!target) return null;
   const riskFlagCount = parseRiskFlagCount(row.riskFlagsJson);
+  const attentionState = moderationAttentionState(row.status);
   const priority: AdminAttentionPriority = row.status === "QUARANTINED" || riskFlagCount > 0 ? "HIGH" : "MEDIUM";
   const reason = row.status === "QUARANTINED"
     ? "Podanie je v karanténe a vyžaduje kontrolu moderátora."
-    : riskFlagCount > 0
+    : riskFlagCount > 0 && isAdminAttentionActive(attentionState)
       ? `Podanie čaká na moderáciu a má ${riskFlagCount} rizikový${riskFlagCount === 1 ? "" : "ch"} flag${riskFlagCount === 1 ? "" : "ov"}.`
       : row.status === "SUBMITTED"
         ? "Nové podanie čaká na zaradenie do moderácie."
-        : "Podanie čaká na rozhodnutie moderátora.";
+        : row.status === "PENDING_REVIEW"
+          ? "Podanie je v moderácii a čaká na rozhodnutie."
+          : row.status === "APPROVED"
+            ? "Podanie bolo schválené."
+            : row.status === "REJECTED"
+              ? "Podanie bolo zamietnuté."
+              : "Podanie bolo stiahnuté.";
+  const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt;
   return {
     key: `moderation:${row.id}`,
     sourceType: "MODERATION_SUBMISSION",
@@ -107,12 +144,20 @@ export function mapModerationAttention(row: ModerationAttentionRow, now = new Da
     reason,
     priority,
     status: row.status,
+    attentionState,
     createdAt: row.createdAt,
-    relevantAt: row.createdAt,
-    ageDays: ageDays(row.createdAt, now),
+    relevantAt,
+    ageDays: ageDays(relevantAt, now),
     targetHref: target.href,
     metadata: [{ label: "Operácia", value: row.operation }],
   };
+}
+
+function newsTipAttentionState(status: string): AdminAttentionState {
+  if (status === "new") return "NEW";
+  if (status === "reviewing") return "IN_PROGRESS";
+  if (status === "used") return "RESOLVED";
+  return "DISMISSED";
 }
 
 export type NewsTipAttentionRow = {
@@ -121,23 +166,39 @@ export type NewsTipAttentionRow = {
   topic: string;
   status: string;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export function mapNewsTipAttention(row: NewsTipAttentionRow, now = new Date()): AdminAttentionItem {
+  const attentionState = newsTipAttentionState(row.status);
+  const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt ?? row.createdAt;
   return {
     key: `news-tip:${row.id}`,
     sourceType: "NEWS_TIP",
     sourceId: String(row.id),
     title: row.title,
-    reason: "Nový redakčný tip čaká na prvé spracovanie.",
+    reason: attentionState === "NEW"
+      ? "Nový redakčný tip čaká na prvé spracovanie."
+      : attentionState === "IN_PROGRESS"
+        ? "Redakčný tip je v overovaní."
+        : attentionState === "RESOLVED"
+          ? "Redakčný tip bol spracovaný."
+          : "Redakčný tip bol odložený.",
     priority: "MEDIUM",
     status: row.status,
+    attentionState,
     createdAt: row.createdAt,
-    relevantAt: row.createdAt,
-    ageDays: ageDays(row.createdAt, now),
+    relevantAt,
+    ageDays: ageDays(relevantAt, now),
     targetHref: `/admin/tipy#tip-${row.id}`,
     metadata: [{ label: "Téma", value: row.topic }],
   };
+}
+
+function directoryChangeAttentionState(status: string): AdminAttentionState {
+  if (status === "new") return "NEW";
+  if (status === "approved") return "RESOLVED";
+  return "DISMISSED";
 }
 
 export type DirectoryChangeRequestAttentionRow = {
@@ -146,23 +207,37 @@ export type DirectoryChangeRequestAttentionRow = {
   profileCategory: string;
   status: string;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export function mapDirectoryChangeRequestAttention(row: DirectoryChangeRequestAttentionRow, now = new Date()): AdminAttentionItem {
+  const attentionState = directoryChangeAttentionState(row.status);
+  const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt ?? row.createdAt;
   return {
     key: `directory-change:${row.id}`,
     sourceType: "DIRECTORY_CHANGE_REQUEST",
     sourceId: String(row.id),
     title: `Úprava profilu: ${row.profileName}`,
-    reason: "Nový návrh zmeny profilu čaká na redakčnú kontrolu.",
+    reason: attentionState === "NEW"
+      ? "Nový návrh zmeny profilu čaká na redakčnú kontrolu."
+      : attentionState === "RESOLVED"
+        ? "Návrh zmeny profilu bol schválený."
+        : "Návrh zmeny profilu bol zamietnutý.",
     priority: "MEDIUM",
     status: row.status,
+    attentionState,
     createdAt: row.createdAt,
-    relevantAt: row.createdAt,
-    ageDays: ageDays(row.createdAt, now),
+    relevantAt,
+    ageDays: ageDays(relevantAt, now),
     targetHref: `/admin/adresar/navrhy#navrh-${row.id}`,
     metadata: [{ label: "Kategória", value: row.profileCategory }],
   };
+}
+
+function directoryInquiryAttentionState(status: string): AdminAttentionState {
+  if (status === "new") return "NEW";
+  if (status === "read") return "IN_PROGRESS";
+  return "RESOLVED";
 }
 
 export type DirectoryInquiryAttentionRow = {
@@ -171,24 +246,76 @@ export type DirectoryInquiryAttentionRow = {
   profileCategory: string;
   status: string;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export function mapDirectoryInquiryAttention(row: DirectoryInquiryAttentionRow, now = new Date()): AdminAttentionItem {
+  const attentionState = directoryInquiryAttentionState(row.status);
   const elapsed = now.getTime() - timestamp(row.createdAt);
-  const stale = elapsed >= DAY_MS;
+  const stale = attentionState === "NEW" && elapsed >= DAY_MS;
+  const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt ?? row.createdAt;
   return {
     key: `directory-inquiry:${row.id}`,
     sourceType: "DIRECTORY_INQUIRY",
     sourceId: String(row.id),
     title: `Dopyt pre ${row.profileName}`,
-    reason: stale ? "Nový dopyt je nevybavený viac ako 24 hodín." : "Nový dopyt čaká na prvé spracovanie.",
+    reason: attentionState === "NEW"
+      ? stale
+        ? "Nový dopyt je nevybavený viac ako 24 hodín."
+        : "Nový dopyt čaká na prvé spracovanie."
+      : attentionState === "IN_PROGRESS"
+        ? "Dopyt bol prečítaný a ešte nie je vybavený."
+        : "Dopyt bol vybavený.",
     priority: stale ? "HIGH" : "MEDIUM",
     status: row.status,
+    attentionState,
     createdAt: row.createdAt,
-    relevantAt: row.createdAt,
-    ageDays: ageDays(row.createdAt, now),
+    relevantAt,
+    ageDays: ageDays(relevantAt, now),
     targetHref: `/admin/dopyty#dopyt-${row.id}`,
     metadata: [{ label: "Kategória", value: row.profileCategory }],
+  };
+}
+
+function articleFeedbackAttentionState(status: string): AdminAttentionState {
+  if (status === "new") return "NEW";
+  if (status === "reviewing") return "IN_PROGRESS";
+  if (status === "resolved") return "RESOLVED";
+  return "DISMISSED";
+}
+
+export type ArticleFeedbackAttentionRow = {
+  id: number;
+  articleTitle: string;
+  articlePath: string;
+  status: string;
+  createdAt: string;
+  updatedAt?: string | null;
+};
+
+export function mapArticleFeedbackAttention(row: ArticleFeedbackAttentionRow, now = new Date()): AdminAttentionItem {
+  const attentionState = articleFeedbackAttentionState(row.status);
+  const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt ?? row.createdAt;
+  return {
+    key: `article-feedback:${row.id}`,
+    sourceType: "ARTICLE_FEEDBACK",
+    sourceId: String(row.id),
+    title: `Spätná väzba: ${row.articleTitle}`,
+    reason: attentionState === "NEW"
+      ? "Negatívne hodnotenie článku čaká na spracovanie."
+      : attentionState === "IN_PROGRESS"
+        ? "Spätná väzba je označená ako rozpracovaná."
+        : attentionState === "RESOLVED"
+          ? "Spätná väzba bola vyriešená."
+          : "Spätná väzba bola ignorovaná.",
+    priority: "MEDIUM",
+    status: row.status,
+    attentionState,
+    createdAt: row.createdAt,
+    relevantAt,
+    ageDays: ageDays(relevantAt, now),
+    targetHref: `/admin/hodnotenia#hodnotenie-${row.id}`,
+    metadata: [{ label: "Článok", value: row.articlePath }],
   };
 }
 
@@ -217,6 +344,7 @@ export function mapAdoptionStaleAttention(row: AdoptionStaleAttentionRow, now = 
     reason,
     priority: markedlyStale ? "HIGH" : "MEDIUM",
     status: row.status,
+    attentionState: "IN_PROGRESS",
     createdAt: row.createdAt,
     relevantAt,
     ageDays: ageDays(relevantAt, now),
@@ -226,28 +354,45 @@ export function mapAdoptionStaleAttention(row: AdoptionStaleAttentionRow, now = 
 
 export function sortAdminAttentionItems(items: AdminAttentionItem[]) {
   return [...items].sort((a, b) => {
-    const priority = priorityRank[a.priority] - priorityRank[b.priority];
-    if (priority !== 0) return priority;
-    const relevant = timestamp(a.relevantAt) - timestamp(b.relevantAt);
-    if (relevant !== 0) return relevant;
+    const aActive = isAdminAttentionActive(a);
+    const bActive = isAdminAttentionActive(b);
+    if (aActive !== bActive) return aActive ? -1 : 1;
+    if (aActive) {
+      const priority = priorityRank[a.priority] - priorityRank[b.priority];
+      if (priority !== 0) return priority;
+      const relevant = timestamp(a.relevantAt) - timestamp(b.relevantAt);
+      if (relevant !== 0) return relevant;
+    } else {
+      const relevant = timestamp(b.relevantAt) - timestamp(a.relevantAt);
+      if (relevant !== 0) return relevant;
+    }
     return a.key.localeCompare(b.key, "sk");
   });
 }
 
 export function filterAdminAttentionItems(items: AdminAttentionItem[], filters: AdminAttentionFilters) {
-  return items.filter((item) =>
-    (!filters.sourceType || filters.sourceType === "all" || item.sourceType === filters.sourceType)
-    && (!filters.priority || filters.priority === "all" || item.priority === filters.priority));
+  const view = filters.view ?? "active";
+  return items.filter((item) => {
+    const active = isAdminAttentionActive(item);
+    const matchesView = view === "all" || (view === "active" ? active : !active);
+    return matchesView
+      && (!filters.sourceType || filters.sourceType === "all" || item.sourceType === filters.sourceType)
+      && (!filters.priority || filters.priority === "all" || item.priority === filters.priority);
+  });
 }
 
 export function summarizeAdminAttention(items: AdminAttentionItem[]) {
   const byPriority: Record<AdminAttentionPriority, number> = { HIGH: 0, MEDIUM: 0, LOW: 0 };
   const bySource = Object.fromEntries(adminAttentionSourceTypes.map((source) => [source, 0])) as Record<AdminAttentionSourceType, number>;
+  const byState: Record<AdminAttentionState, number> = { NEW: 0, IN_PROGRESS: 0, RESOLVED: 0, DISMISSED: 0 };
+  let active = 0;
   for (const item of items) {
     byPriority[item.priority] += 1;
     bySource[item.sourceType] += 1;
+    byState[item.attentionState] += 1;
+    if (isAdminAttentionActive(item)) active += 1;
   }
-  return { total: items.length, byPriority, bySource };
+  return { total: items.length, active, history: items.length - active, byPriority, bySource, byState };
 }
 
 export function isAdminAttentionSourceType(value: string): value is AdminAttentionSourceType {
@@ -256,4 +401,8 @@ export function isAdminAttentionSourceType(value: string): value is AdminAttenti
 
 export function isAdminAttentionPriority(value: string): value is AdminAttentionPriority {
   return (adminAttentionPriorities as readonly string[]).includes(value);
+}
+
+export function isAdminAttentionView(value: string): value is AdminAttentionView {
+  return (adminAttentionViews as readonly string[]).includes(value);
 }
