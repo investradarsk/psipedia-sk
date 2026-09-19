@@ -263,7 +263,7 @@ test("failed Resend preserves inquiry and failed outbox, then retry succeeds wit
   assert.equal(resendRequests[1].init.headers["Idempotency-Key"], "directory-inquiry/new/1");
 });
 
-test("admin badge reflects new inquiry count and decreases after new to read", async () => {
+test("central attention badge counts unresolved inquiries and read remains in progress", async () => {
   const { sqlite, d1 } = createDatabase();
   const firstId = seedInquiry(sqlite, { status: "new" });
   seedInquiry(sqlite, { status: "new" });
@@ -275,7 +275,7 @@ test("admin badge reflects new inquiry count and decreases after new to read", a
   const before = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);
   assert.equal(before.status, 200);
   const beforeHtml = await before.text();
-  assert.match(beforeHtml, /aria-label="2 nových dopytov"/);
+  assert.match(beforeHtml, /aria-label="Upozornenia: 3 aktívnych položiek"/);
 
   const update = await request(worker, d1, `/api/admin/inquiries/${firstId}`, {
     method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "read" }),
@@ -284,8 +284,8 @@ test("admin badge reflects new inquiry count and decreases after new to read", a
   const after = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);
   assert.equal(after.status, 200);
   const afterHtml = await after.text();
-  assert.match(afterHtml, /aria-label="1 nových dopytov"/);
-  assert.doesNotMatch(afterHtml, /aria-label="2 nových dopytov"/);
+  assert.match(afterHtml, /aria-label="Upozornenia: 3 aktívnych položiek"/);
+  assert.doesNotMatch(afterHtml, /aria-label="Upozornenia: 2 aktívnych položiek"/);
 });
 
 test("hourly reminder sends only for new inquiries older than 24h and only once", async () => {
