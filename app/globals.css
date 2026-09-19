@@ -4491,12 +4491,12 @@ h3 {
   color: white;
   font-size: 0.88rem;
   font-weight: 800;
-  background: var(--coral);
+  background: #943823;
   box-shadow: 0 10px 25px rgba(217, 88, 62, 0.2);
 }
 
 .admin-primary-action:hover {
-  background: var(--coral-dark);
+  background: #7f2f1e;
 }
 
 .admin-stats {
@@ -5207,7 +5207,7 @@ h3 {
 
 .admin-publish {
   color: #fff;
-  background: var(--coral);
+  background: #943823;
 }
 
 .admin-unpublish {

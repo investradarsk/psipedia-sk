@@ -66,9 +66,9 @@ test("contact actions and help options remain operable; absent data creates no e
 });
 
 test("Admin Help selects one, many, a page and all filtered drafts without writing local D1", async ({ page }) => {
-  await page.goto("/admin/pomoc?status=draft");
+  await page.goto("/admin/pomoc?q=E2E+bulk&status=draft");
   await expect(page.locator(".admin-help-row")).toHaveCount(50);
-  await expect(page.getByText("Nájdené:").locator(".." )).toContainText("65");
+  await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 65");
 
   const rowChecks = page.locator('.admin-help-row input[type="checkbox"]');
   await rowChecks.nth(0).check();
@@ -91,7 +91,7 @@ test("Admin Help selects one, many, a page and all filtered drafts without writi
     if (body.action === "preflight") {
       preflights++;
       expect(body.targetStatus).toBe("published");
-      expect(body.selection).toEqual({ mode: "filter", filters: { category: "all", status: "draft", q: "" }, expectedCount: 65 });
+      expect(body.selection).toEqual({ mode: "filter", filters: { category: "all", status: "draft", urgent: "all", state: "all", organization: "", location: "", q: "E2E bulk" }, expectedCount: 65 });
       const items = Array.from({ length: 65 }, (_, index) => ({ id: 930001 + index, status: "draft", updatedAt: `snapshot-${index + 1}` }));
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ selectedCount: 65, changeCount: 65, items, targetStatus: "published" }) });
       return;
@@ -100,14 +100,14 @@ test("Admin Help selects one, many, a page and all filtered drafts without writi
     expect(body.action).toBe("apply");
     expect(body.confirmedCount).toBe(65);
     expect(body.items).toHaveLength(65);
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ changed: 65 }) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ requested: 65, changed: 65 }) });
   });
   page.once("dialog", async (dialog) => {
     expect(dialog.message()).toContain("Publikovať 65 záznamov?");
     await dialog.accept();
   });
   await page.getByRole("button", { name: "Publikovať", exact: true }).click();
-  await expect(page.getByText("Zmenených záznamov: 65.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Zmenených záznamov: 65 z 65 potvrdených.", { exact: true })).toBeVisible();
   expect(preflights).toBe(1);
   expect(applies).toBe(1);
   await expect(page.getByText("Označené: 0", { exact: true })).toBeVisible();

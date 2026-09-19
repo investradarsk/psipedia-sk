@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { SearchIcon } from "@/components/icons";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { HELP_ADMIN_CATEGORIES, type HelpAdminFilters } from "@/lib/help-admin-query";
 import type { ManagedHelpCaseSummary } from "@/lib/help-store";
@@ -11,7 +10,7 @@ import styles from "./admin-help-bulk.module.css";
 
 type DashboardData = {
   items: ManagedHelpCaseSummary[];
-  totals: { total: number; published: number; draft: number; urgent: number };
+  totals: { total: number; published: number; draft: number; urgent: number; current: number; resolved: number };
   categoryCounts: Record<string, number>;
   resultCount: number;
   page: number;
@@ -25,6 +24,10 @@ function url(filters: HelpAdminFilters) {
   const params = new URLSearchParams();
   if (filters.category !== "all") params.set("category", filters.category);
   if (filters.status !== "all") params.set("status", filters.status);
+  if (filters.urgent !== "all") params.set("urgent", filters.urgent);
+  if (filters.state !== "all") params.set("state", filters.state);
+  if (filters.organization) params.set("organization", filters.organization);
+  if (filters.location) params.set("location", filters.location);
   if (filters.q) params.set("q", filters.q);
   if (filters.page > 1) params.set("page", String(filters.page));
   const query = params.toString();
@@ -35,7 +38,6 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
-  const [search, setSearch] = useState(filters.q);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [selectionMode, setSelectionMode] = useState<"ids" | "filter">("ids");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -72,31 +74,36 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
     setMessage("");
     try {
       const selection = selectionMode === "filter"
-        ? { mode: "filter", filters: { category: filters.category, status: filters.status, q: filters.q }, expectedCount: resultCount }
+        ? {
+            mode: "filter",
+            filters: {
+              category: filters.category, status: filters.status, urgent: filters.urgent, state: filters.state,
+              organization: filters.organization, location: filters.location, q: filters.q,
+            },
+            expectedCount: resultCount,
+          }
         : { mode: "ids", ids: [...selected] };
       const previewResponse = await fetch("/api/admin/help/bulk", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "preflight", targetStatus, selection }),
       });
       const preview = await previewResponse.json() as BulkPreflight;
       if (!previewResponse.ok) throw new Error(preview.error || "Hromadnú zmenu sa nepodarilo pripraviť.");
       if (!preview.changeCount) {
-        setMessage("Označené záznamy už majú požadovaný stav.");
+        setMessage("Označené záznamy už majú požadovaný publikačný stav.");
         return;
       }
       const verb = targetStatus === "published" ? "Publikovať" : "Prepnúť na koncept";
       const scope = preview.selectedCount === preview.changeCount ? "" : ` Z ${preview.selectedCount} označených sa zmení ${preview.changeCount}.`;
       if (!window.confirm(`${verb} ${preview.changeCount} záznamov?${scope} Zmena sa týka iba publikačného stavu.`)) return;
       const applyResponse = await fetch("/api/admin/help/bulk", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "apply", targetStatus, confirmedCount: preview.items.length, items: preview.items }),
       });
-      const applied = await applyResponse.json() as { changed?: number; error?: string };
+      const applied = await applyResponse.json() as { requested?: number; changed?: number; error?: string };
       if (!applyResponse.ok) throw new Error(applied.error || "Hromadná zmena zlyhala.");
       clearSelection();
-      setMessage(`Zmenených záznamov: ${applied.changed ?? 0}.`);
+      setMessage(`Zmenených záznamov: ${applied.changed ?? 0} z ${applied.requested ?? preview.items.length} potvrdených.`);
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Hromadná zmena zlyhala.");
@@ -113,36 +120,48 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error || "Prípad sa nepodarilo odstrániť.");
       setSelected((current) => { const next = new Set(current); next.delete(item.id); return next; });
-      setMessage("Prípad bol odstránený.");
+      setMessage("Help záznam bol odstránený.");
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Prípad sa nepodarilo odstrániť."); }
     finally { setDeletingId(null); }
   }
 
-  return <>
-    <section className="admin-stats" aria-label="Stav pomoci">
-      <div><span>Všetky prípady</span><strong>{totals.total}</strong></div>
+  return <div className={styles.dashboard}>
+    <section className={styles.boundary} aria-label="Canonical hranice Pomoc psom">
+      <div>
+        <span className="admin-eyebrow">Help domain boundary</span>
+        <h2>Samostatné canonical moduly zostávajú oddelené</h2>
+        <p>Tento zoznam vlastní iba generic Help výzvy. Adopcie, stratené a nájdené psy a organizácie sa neupravujú cez Help CRUD.</p>
+      </div>
+      <nav className={styles.moduleLinks} aria-label="Samostatné admin moduly">
+        <Link href="/admin/adopcie">Adopcie</Link>
+        <Link href="/admin/stratene-najdene">Stratené / nájdené</Link>
+        <Link href="/admin/organizacie">Organizácie</Link>
+        <Link href="/admin/import">Import dát</Link>
+      </nav>
+    </section>
+
+    <section className={`admin-stats ${styles.stats}`} aria-label="Stav generic Help záznamov">
+      <div><span>Všetky Help záznamy</span><strong>{totals.total}</strong></div>
       <div><span>Publikované</span><strong>{totals.published}</strong></div>
       <div><span>Koncepty</span><strong>{totals.draft}</strong></div>
+      <div><span>Aktívne</span><strong>{totals.current}</strong></div>
       <div><span>Urgentné aktívne</span><strong>{totals.urgent}</strong></div>
+      <div><span>Vybavené</span><strong>{totals.resolved}</strong></div>
     </section>
+
     <section className="admin-panel">
-      <nav className="admin-help-categories" aria-label="Kategórie pomoci">
-        <Link aria-current={filters.category === "all" ? "page" : undefined} href={url({ ...filters, category: "all", page: 1 })}>Všetko <strong>{totals.total}</strong></Link>
-        {HELP_ADMIN_CATEGORIES.map((slug) => <Link key={slug} aria-current={filters.category === slug ? "page" : undefined} href={url({ ...filters, category: slug, page: 1 })}>{getHelpCategory(slug)?.label} <strong>{categoryCounts[slug] ?? 0}</strong></Link>)}
-      </nav>
-      <div className="admin-toolbar admin-help-toolbar">
-        <form className="admin-search" action="/admin/pomoc" role="search">
-          <SearchIcon size={19} /><label className="sr-only" htmlFor="help-admin-search">Hľadať prípad</label>
-          <input id="help-admin-search" name="q" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Názov, pes, mesto alebo organizácia" maxLength={120} />
-          {filters.category !== "all" && <input type="hidden" name="category" value={filters.category} />}
-          {filters.status !== "all" && <input type="hidden" name="status" value={filters.status} />}
-          <button type="submit">Hľadať</button>
-        </form>
-        <div className="admin-status-filter" aria-label="Filtrovať podľa stavu">
-          {([["all", "Všetky"], ["published", "Publikované"], ["draft", "Koncepty"]] as const).map(([value, label]) => <Link key={value} className={filters.status === value ? "is-active" : ""} aria-current={filters.status === value ? "page" : undefined} href={url({ ...filters, status: value, page: 1 })}>{label}</Link>)}
-        </div>
-      </div>
+      <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať Help záznamy">
+        <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, pes, mesto alebo organizácia" maxLength={120} /></label>
+        <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
+        <label><span>Publikácia</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
+        <label><span>Urgentnosť</span><select name="urgent" defaultValue={filters.urgent}><option value="all">Všetky</option><option value="urgent">Iba urgentné aktívne</option></select></label>
+        <label><span>Stav prípadu</span><select name="state" defaultValue={filters.state}><option value="all">Všetky</option><option value="current">Aktívne</option><option value="resolved">Vybavené</option></select></label>
+        <label><span>Organizácia / osoba</span><input name="organization" defaultValue={filters.organization} placeholder="Napr. OZ Žltý pes" maxLength={120} /></label>
+        <label><span>Lokalita</span><input name="location" defaultValue={filters.location} placeholder="Mesto, kraj alebo poznámka" maxLength={120} /></label>
+        <div className={styles.filterActions}><button type="submit">Použiť filtre</button><Link href="/admin/pomoc">Vymazať filtre</Link></div>
+      </form>
+
       <div className={styles.bulk} aria-busy={bulkBusy}>
         <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={selectionMode === "filter" || pageSelected} disabled={bulkBusy || selectionMode === "filter" || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
         <span role="status">Označené: {selectedCount}</span>
@@ -150,10 +169,7 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
         <button type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("draft")}>Prepnúť na koncept</button>
         {!!selectedCount && <button className={styles.clear} type="button" disabled={bulkBusy} onClick={clearSelection}>Zrušiť výber</button>}
       </div>
-      {selectionMode !== "filter" && resultCount > items.length && resultCount <= 500 && <div className={styles.allResults}>
-        <span>Aktuálny filter má {resultCount} výsledkov na {pages} stranách.</span>
-        <button type="button" disabled={bulkBusy} onClick={() => { setSelected(new Set()); setSelectionMode("filter"); }}>Označiť všetkých {resultCount} výsledkov filtra</button>
-      </div>}
+      {selectionMode !== "filter" && resultCount > items.length && resultCount <= 500 && <div className={styles.allResults}><span>Aktuálny filter má {resultCount} výsledkov na {pages} stranách.</span><button type="button" disabled={bulkBusy} onClick={() => { setSelected(new Set()); setSelectionMode("filter"); }}>Označiť všetkých {resultCount} výsledkov filtra</button></div>}
       {selectionMode === "filter" && <div className={styles.allResults}><strong>Označených je všetkých {resultCount} výsledkov aktuálneho filtra naprieč {pages} stranami.</strong></div>}
       {resultCount > 500 && <p className={styles.warning}>Všetky výsledky filtra možno naraz označiť pri najviac 500 záznamoch. Spresni filter; výber jednotlivých strán zostáva dostupný.</p>}
       {message && <p className="admin-flash" role="status">{message}</p>}
@@ -161,21 +177,13 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       {items.length ? <div className="admin-article-list">{items.map((item) => {
         const category = getHelpCategory(item.category);
         return <article className={`admin-article-row admin-help-row ${styles.row}`} key={item.id}>
-          <input className={styles.rowCheck} aria-label={`Označiť ${item.title}`} type="checkbox" checked={selectionMode === "filter" || selected.has(item.id)} disabled={bulkBusy || selectionMode === "filter"} onChange={() => toggle(item.id)} />
+          <label className={styles.rowCheckTarget}><span className="sr-only">Označiť {item.title}</span><input className={styles.rowCheck} aria-label={`Označiť ${item.title}`} type="checkbox" checked={selectionMode === "filter" || selected.has(item.id)} disabled={bulkBusy || selectionMode === "filter"} onChange={() => toggle(item.id)} /></label>
           <div className="admin-help-thumb">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
-          <div className="admin-article-main"><div className="admin-article-tags">
-            <span className={`admin-status admin-status--${item.status}`}>{item.status === "published" ? "Publikované" : "Koncept"}</span>
-            <span>{category?.label ?? item.category}</span>{item.verified && <span>Overené</span>}{item.urgent && !item.resolved && <span>Urgentné</span>}{item.resolved && <span>Vybavené</span>}
-          </div><h2><Link href={`/admin/pomoc/${item.id}`}>{item.title}</Link></h2>
-          <p>{[item.organization, item.city, item.dogName ? `Pes: ${item.dogName}` : ""].filter(Boolean).join(" · ")}</p></div>
+          <div className="admin-article-main"><div className="admin-article-tags"><span className={`admin-status admin-status--${item.status}`}>{item.status === "published" ? "Publikované" : "Koncept"}</span><span>{category?.label ?? item.category}</span>{item.verified && <span>Overené</span>}{item.urgent && !item.resolved && <span>Urgentné</span>}{item.resolved && <span>Vybavené</span>}</div><h2><Link href={`/admin/pomoc/${item.id}`}>{item.title}</Link></h2><p>{[item.organization, item.city, item.dogName ? `Pes: ${item.dogName}` : ""].filter(Boolean).join(" · ")}</p></div>
           <div className="admin-row-actions">{item.status === "published" && <Link href={helpCaseHref(item)} target="_blank">Pozrieť na webe ↗</Link>}<Link className="admin-row-edit" href={`/admin/pomoc/${item.id}`}>Upraviť</Link><button type="button" disabled={deletingId === item.id || bulkBusy} onClick={() => void removeItem(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</button></div>
         </article>;
-      })}</div> : <div className="admin-empty"><span>🔎</span><h2>Žiadne prípady pre tento výber</h2><p>Skús upraviť kategóriu, stav alebo hľadaný výraz.</p></div>}
-      <nav className="admin-help-pagination" aria-label="Stránkovanie prípadov">
-        {page > 1 ? <Link href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}
-        <strong>Strana {page} / {pages}</strong>
-        {page < pages ? <Link href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}
-      </nav>
+      })}</div> : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
+      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov">{page > 1 ? <Link href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}</nav>
     </section>
-  </>;
+  </div>;
 }
