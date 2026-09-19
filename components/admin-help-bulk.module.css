@@ -32,3 +32,8 @@
 .dashboard :global(.admin-article-tags > span:not(.admin-status)){color:#40584d}
 .dashboard :global(.admin-article-main > p){color:#4b6056}
 .dashboard :global(.admin-help-pagination > span){color:#4b6056}
+
+/* Help editor preview/action contrast from combined ROUND-08 Axe gate. */
+.editor :global(.admin-help-preview .admin-eyebrow){color:#963b28}
+.editor :global(.admin-help-preview dt){color:#4b6056}
+.editor :global(.admin-publish){color:#fff!important;background:#943823!important;border-color:#943823!important}
