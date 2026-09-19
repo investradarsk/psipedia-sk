@@ -59,10 +59,10 @@ function nullableString(object: Record<string, unknown>, key: string, label: str
   return normalized;
 }
 
-function nullableUrl(object: Record<string, unknown>, key: string, label: string) {
+function nullableUrl(object: Record<string, unknown>, key: string, label: string, allowMedia = false) {
   const value = nullableString(object, key, label, 1200);
   if (!value) return null;
-  if (value.startsWith("/media/")) return value;
+  if (allowMedia && value.startsWith("/media/")) return value;
   let parsed: URL;
   try { parsed = new URL(value); } catch { throw new OrganizationAdminValidationError(`${label} musí byť platná URL adresa.`); }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -105,7 +105,7 @@ export function parseOrganizationAdminInput(value: unknown): OrganizationAdminIn
     throw new OrganizationAdminValidationError("Vyber platný canonical typ organizácie.");
   }
 
-  const imageUrl = nullableUrl(object, "imageUrl", "Obrázok");
+  const imageUrl = nullableUrl(object, "imageUrl", "Obrázok", true);
   const imageKey = nullableImageKey(object);
   if (imageKey && (!imageUrl || !imageUrl.startsWith("/media/"))) {
     throw new OrganizationAdminValidationError("Spravovaný obrázok musí používať canonical /media/ URL.");
