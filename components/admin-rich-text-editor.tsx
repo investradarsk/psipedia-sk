@@ -337,7 +337,17 @@ export function AdminRichTextEditor({
   }
 
   function applyBlock(tag: "p" | "h2" | "h3" | "blockquote") {
-    runCommand("formatBlock", tag);
+    const root = editorRef.current;
+    if (!root || !restoreEditorSelection()) return;
+    document.execCommand("formatBlock", false, tag);
+    const selection = window.getSelection();
+    const block = nearestBlock(root, selection?.anchorNode ?? null);
+    if (block?.dataset.editorialCallout) {
+      delete block.dataset.editorialCallout;
+      block.classList.remove(styles.callout);
+    }
+    emitChange();
+    captureSelectionAndToolbarState();
   }
 
   function applyCallout(tone: "info" | "tip" | "warning") {
