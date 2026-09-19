@@ -11,6 +11,21 @@
   min-width: 0;
 }
 
+.filters > label,
+.filters input,
+.filters select,
+.filterActions {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.filters input,
+.filters select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
 .search > span:not(.sr-only) {
   position: absolute;
   width: 1px;
