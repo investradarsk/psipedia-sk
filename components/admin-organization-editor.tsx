@@ -89,8 +89,7 @@ export function AdminOrganizationEditor({ organization }: { organization?: Organ
       const body = await response.json() as { item?: OrganizationPublicationAdminItem; error?: string };
       if (!response.ok || !body.item) throw new Error(body.error || "Organizáciu sa nepodarilo uložiť.");
       if (!organization) {
-        router.push("/admin/organizacie/" + body.item.id);
-        router.refresh();
+        router.replace(`/admin/organizacie/${body.item.id}`);
         return;
       }
       setExpectedUpdatedAt(body.item.updatedAt);
