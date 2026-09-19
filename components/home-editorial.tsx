@@ -37,11 +37,10 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
         <div>
           <span className="eyebrow">Redakcia Psipedia</span>
           <h2 id="home-latest-title">Najnovšie články</h2>
-          <p>Najnovšie publikovaný obsah naprieč Psipediou, zoradený podľa dátumu publikovania.</p>
+          <p>Nové články o zdraví, výcviku, šteniatkach a každodennom živote so psom.</p>
         </div>
         <div className="home-heading-actions">
           <Link href="/clanky" className="text-link">Všetky články <ArrowIcon size={17} /></Link>
-          <Link href="/novinky" className="text-link">Všetky novinky <ArrowIcon size={17} /></Link>
         </div>
       </div>
 
