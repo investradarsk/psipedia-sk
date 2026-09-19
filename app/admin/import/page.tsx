@@ -11,7 +11,7 @@ export default async function AdminImportPage() {
       user={user}
       eyebrow="Bezpečný presun"
       title="Import pôvodných dát"
-      description="Bezpečne importuj FCI plemená alebo prenes články, adresár, podujatia, pomoc psom a právne nastavenia do Cloudflare D1."
+      description="Bezpečne importuj podporované JSON dáta cez validáciu, Preview a explicitné potvrdenie. Všeobecný import spracúva články, adresár, podujatia, pomoc psom a právne nastavenia; FCI plemená majú vlastný preview tok."
     >
       <AdminDataImport />
     </AdminShell>
