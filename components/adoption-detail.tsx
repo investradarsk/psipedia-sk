@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LocationIcon } from "@/components/help-public-icons";
 import {
   adoptionDetailActivityLabels,
   adoptionDetailBooleanLabel,
@@ -73,7 +74,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
       <div className={styles.detailIntro}>
         <span className={styles.eyebrow}>Pomoc psom · adopcia</span>
         <h1>{dog.name}</h1>
-        {location && <p className={styles.detailLocation}>📍 {location}</p>}
+        {location && <p className={styles.detailLocation}><LocationIcon size={16} /> {location}</p>}
         {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix ? "Kríženec · " : ""}{dog.breedName}</p>}
         {dog.shortDescription && <p className={styles.detailLead}>{dog.shortDescription}</p>}
         <Facts items={basicFacts} />
