@@ -1,16 +1,22 @@
-name: NOTION-ARTICLE-SYNC focused validation
+name: NOTION-SYNC focused validation
 
 on:
   pull_request:
     branches: [main]
     paths:
       - "lib/notion-article-sync.ts"
+      - "lib/notion-breed-sync.ts"
+      - "lib/notion-sync-shared.ts"
       - "app/api/admin/notion-sync/**"
+      - "app/api/admin/notion-breeds-sync/**"
+      - "app/api/admin/breeds/[id]/route.ts"
       - "worker/index.ts"
       - "config/runtime-env.ts"
       - ".env.example"
       - "drizzle/0044_notion_article_sync.sql"
+      - "drizzle/0045_notion_breed_sync.sql"
       - "tests/notion-article-sync.test.mjs"
+      - "tests/notion-breed-sync.test.mjs"
       - "tests/config-contract.test.mjs"
       - "scripts/check-config-contract.mjs"
       - "scripts/check-migration-safety.mjs"
@@ -28,7 +34,7 @@ concurrency:
 
 jobs:
   notion-article-sync:
-    name: Notion article sync contract and build
+    name: Notion sync contract and build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -57,7 +63,7 @@ jobs:
         run: npm run test:migration-safety
 
       - name: Notion sync safety contract
-        run: node --test tests/notion-article-sync.test.mjs
+        run: node --test tests/notion-article-sync.test.mjs tests/notion-breed-sync.test.mjs
 
       - name: Production build
         run: npm run build
