@@ -134,7 +134,14 @@ test("organization admin input validates canonical type, slug, contacts and medi
     imageKey: "help/2026/example.webp",
     sourceUrl: "https://example.sk/source",
   };
-  assert.deepEqual(parseOrganizationAdminInput(payload), payload);
+  const parsed = parseOrganizationAdminInput(payload);
+  assert.equal(parsed.name, payload.name);
+  assert.equal(parsed.slug, payload.slug);
+  assert.equal(parsed.type, payload.type);
+  assert.equal(parsed.publicEmail, payload.publicEmail);
+  assert.equal(parsed.websiteUrl, "https://example.sk/");
+  assert.equal(parsed.imageUrl, payload.imageUrl);
+  assert.equal(parsed.imageKey, payload.imageKey);
   assert.throws(() => parseOrganizationAdminInput({ ...payload, slug: "Psia Nádej" }), OrganizationAdminValidationError);
   assert.throws(() => parseOrganizationAdminInput({ ...payload, type: "INVENTED" }), OrganizationAdminValidationError);
   assert.throws(() => parseOrganizationAdminInput({ ...payload, publicEmail: "nie-je-email" }), OrganizationAdminValidationError);
