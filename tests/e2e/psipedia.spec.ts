@@ -184,7 +184,11 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     await expect(first.locator("[data-article-title]")).toBeVisible();
     await expect(first.locator("[data-article-topic]")).toBeVisible();
     await expect(first.locator("[data-article-date]")).toBeVisible();
-    await expect(first.locator("p, img")).toHaveCount(0);
+    await expect(first.locator("p")).toHaveCount(0);
+    const imagedSecondary = page.locator(".featured-stack [data-article-list-item]:has([data-article-image])");
+    expect(await imagedSecondary.count(), "Homepage secondary articles with images should keep thumbnails").toBeGreaterThan(0);
+    const heights = await ordinaryArticles.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
+    expect(heights.every((height) => height < 220), `Homepage secondary article rows are oversized: ${JSON.stringify(heights)}`).toBe(true);
   }
   await expect(page.locator(".article-card--large .article-card-meta")).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
   const breedSection = page.locator(".home-breed-day-section");
