@@ -359,7 +359,12 @@ export async function bulkUpdateEventStatus(input: unknown, editorEmail: string)
       events.length,
     ).all<{ id: number }>();
   if (result.results.length !== events.length) throw new Error("Výber sa medzičasom zmenil alebo bol odstránený. Žiadne podujatie nebolo zmenené; obnov zoznam a potvrď nový výber.");
-  return { changed: result.results.length, field };
+  return {
+    changed: result.results.length,
+    field,
+    value,
+    ids: events.map((event) => event.id),
+  };
 }
 
 export type ManagedEventQuickEditInput = {

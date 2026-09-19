@@ -16,6 +16,8 @@ export const OPTIONAL_ENV_NAMES = [
   "NOTION_ARTICLES_DATA_SOURCE_ID",
   "NOTION_BREED_SYNC_ENABLED",
   "NOTION_BREEDS_DATA_SOURCE_ID",
+  "NOTION_EVENT_SYNC_ENABLED",
+  "NOTION_EVENTS_DATA_SOURCE_ID",
 ] as const;
 
 export const CI_ONLY_ENV_NAMES = [
@@ -74,6 +76,7 @@ export function validateRuntimeEnvironment(
     || configFlagEnabled(env.ORGANIZATION_SUBMISSIONS_ENABLED);
   const notionArticleSyncEnabled = configFlagEnabled(env.NOTION_ARTICLE_SYNC_ENABLED);
   const notionBreedSyncEnabled = configFlagEnabled(env.NOTION_BREED_SYNC_ENABLED);
+  const notionEventSyncEnabled = configFlagEnabled(env.NOTION_EVENT_SYNC_ENABLED);
 
   // Public submission flags are opt-in. Once enabled, their security material
   // is critical and must fail closed instead of silently running unprotected.
@@ -85,7 +88,7 @@ export function validateRuntimeEnvironment(
 
   // Notion sync is also opt-in. When enabled, both the secret token and the
   // exact data-source ID are required so the sweep cannot drift to another DB.
-  if (notionArticleSyncEnabled || notionBreedSyncEnabled) {
+  if (notionArticleSyncEnabled || notionBreedSyncEnabled || notionEventSyncEnabled) {
     requireValue("NOTION_API_TOKEN");
   }
   if (notionArticleSyncEnabled) {
@@ -93,6 +96,9 @@ export function validateRuntimeEnvironment(
   }
   if (notionBreedSyncEnabled) {
     requireValue("NOTION_BREEDS_DATA_SOURCE_ID");
+  }
+  if (notionEventSyncEnabled) {
+    requireValue("NOTION_EVENTS_DATA_SOURCE_ID");
   }
 
   if (profile === "production") {
@@ -114,5 +120,11 @@ export function validateRuntimeEnvironment(
 
   if (missing.length) throw new ConfigurationError([...new Set(missing)]);
 
-  return Object.freeze({ profile, publicSubmissionEnabled, notionArticleSyncEnabled, notionBreedSyncEnabled });
+  return Object.freeze({
+    profile,
+    publicSubmissionEnabled,
+    notionArticleSyncEnabled,
+    notionBreedSyncEnabled,
+    notionEventSyncEnabled,
+  });
 }

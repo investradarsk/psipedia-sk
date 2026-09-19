@@ -6,17 +6,23 @@ on:
     paths:
       - "lib/notion-article-sync.ts"
       - "lib/notion-breed-sync.ts"
+      - "lib/notion-event-sync.ts"
       - "lib/notion-sync-shared.ts"
       - "app/api/admin/notion-sync/**"
       - "app/api/admin/notion-breeds-sync/**"
+      - "app/api/admin/notion-events-sync/**"
       - "app/api/admin/breeds/[id]/route.ts"
+      - "app/api/admin/events/[id]/route.ts"
+      - "app/api/admin/events/bulk/route.ts"
       - "worker/index.ts"
       - "config/runtime-env.ts"
       - ".env.example"
       - "drizzle/0044_notion_article_sync.sql"
       - "drizzle/0045_notion_breed_sync.sql"
+      - "drizzle/0047_notion_event_sync.sql"
       - "tests/notion-article-sync.test.mjs"
       - "tests/notion-breed-sync.test.mjs"
+      - "tests/notion-event-sync.test.mjs"
       - "tests/config-contract.test.mjs"
       - "scripts/check-config-contract.mjs"
       - "scripts/check-migration-safety.mjs"
@@ -63,7 +69,7 @@ jobs:
         run: npm run test:migration-safety
 
       - name: Notion sync safety contract
-        run: node --test tests/notion-article-sync.test.mjs tests/notion-breed-sync.test.mjs
+        run: node --test tests/notion-article-sync.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs
 
       - name: Production build
         run: npm run build

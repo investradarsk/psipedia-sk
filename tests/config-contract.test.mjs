@@ -129,6 +129,28 @@ test("enabled Notion breed sync requires token and exact breed data source", () 
   assert.equal(result.notionBreedSyncEnabled, true);
 });
 
+test("enabled Notion event sync requires token and exact event data source", () => {
+  assert.throws(
+    () => validateRuntimeEnvironment(
+      { NOTION_EVENT_SYNC_ENABLED: "true" },
+      { profile: "runtime" },
+    ),
+    (error) => error instanceof ConfigurationError
+      && error.missing.includes("NOTION_API_TOKEN")
+      && error.missing.includes("NOTION_EVENTS_DATA_SOURCE_ID"),
+  );
+
+  const result = validateRuntimeEnvironment(
+    {
+      NOTION_EVENT_SYNC_ENABLED: "true",
+      NOTION_API_TOKEN: "secret-test-token",
+      NOTION_EVENTS_DATA_SOURCE_ID: "76d9ccde-5816-422c-bcfe-863ab69db080",
+    },
+    { profile: "runtime" },
+  );
+  assert.equal(result.notionEventSyncEnabled, true);
+});
+
 test("CI-only local auth path accepts isolated test PII crypto material", () => {
   const result = validateRuntimeEnvironment(
     {
