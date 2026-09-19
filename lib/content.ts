@@ -33,6 +33,10 @@ export type Article = {
   updatedDateIso: string;
   readTime: string;
   image?: string;
+  imageAlt?: string;
+  imageCaption?: string;
+  imageCredit?: string;
+  imageCreditUrl?: string;
   accent: "forest" | "coral" | "gold" | "blue";
   author: string;
   authorProfileId?: number | null;
