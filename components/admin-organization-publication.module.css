@@ -63,7 +63,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) minmax(150px, auto);
+  grid-template-columns: 76px minmax(0, 1fr) minmax(0, 320px);
   gap: 1rem;
   align-items: start;
   padding: 1rem;
@@ -257,4 +257,23 @@
     flex: 1 1 140px;
     justify-content: center;
   }
+}
+
+
+.primaryAction {
+  background: #9a3d29;
+  color: #ffffff;
+}
+
+.primaryAction:hover {
+  background: #7f301f;
+}
+
+.row :global(.admin-article-tags) {
+  color: #52665d;
+}
+
+.row :global(.admin-status--draft) {
+  color: #6a4d0d;
+  background: #f7ecd0;
 }
