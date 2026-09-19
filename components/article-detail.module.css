@@ -39,7 +39,7 @@
 .title h1 {
   max-width: 24ch;
   margin: 0 0 14px;
-  font-size: clamp(2.05rem, 3.7vw, 2.9rem);
+  font-size: clamp(2rem, 3.2vw, 2.7rem);
   font-weight: 500;
   line-height: 1.06;
   text-wrap: balance;
@@ -633,7 +633,7 @@
   .title h1 {
     max-width: none;
     margin-bottom: 7px;
-    font-size: clamp(1.85rem, 7.6vw, 2.15rem);
+    font-size: clamp(1.8rem, 7.3vw, 2.05rem);
     line-height: 1.04;
     text-wrap: pretty;
   }
