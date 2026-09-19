@@ -14439,3 +14439,154 @@ a.breed-fci-path-node:focus-visible {
     max-width: 100%;
   }
 }
+
+
+/* ADMIN-CORE v2: navigation/import management refinements */
+.admin-navigation-fields input,
+.admin-navigation-fields select,
+.admin-navigation-actions button,
+.admin-navigation-actions a,
+.admin-navigation-reset,
+.admin-navigation-toolbar .admin-primary-action,
+.admin-navigation-savebar .admin-primary-action {
+  min-height: 44px;
+}
+
+.admin-navigation-savebar p.is-error {
+  color: #963d32;
+}
+
+.admin-navigation-preview {
+  display: grid;
+  gap: 14px;
+  padding: 1rem 1.3rem 1.2rem;
+  border-top: 1px solid #e5ebe7;
+  background: #fbfcfb;
+}
+
+.admin-navigation-preview > div {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-navigation-preview > div > span {
+  color: #64746c;
+  font-size: .84rem;
+}
+
+.admin-navigation-preview ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-navigation-preview > ol > li {
+  padding: 10px 12px;
+  border: 1px solid #e1e8e4;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-navigation-preview > ol > li > div,
+.admin-navigation-preview li ol > li {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(120px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-navigation-preview code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #53655c;
+  font-size: .78rem;
+}
+
+.admin-navigation-preview li ol {
+  margin-top: 8px;
+  padding-left: 18px;
+  border-left: 2px solid #dfe9e3;
+}
+
+.admin-navigation-preview li ol > li {
+  padding: 7px 0;
+}
+
+.admin-navigation-preview .is-hidden {
+  opacity: .58;
+}
+
+.admin-navigation-preview .is-hidden > div > span,
+.admin-navigation-preview .is-hidden > small {
+  color: #8a5149;
+}
+
+.admin-import-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.admin-import-confirm-actions > button,
+.admin-import-panel input[type="file"],
+.admin-import-panel select {
+  min-height: 44px;
+}
+
+.admin-general-import-preview {
+  margin-top: 20px;
+}
+
+.admin-import-summary-table-wrap {
+  max-width: 100%;
+  margin-top: 14px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.admin-import-summary-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: .86rem;
+}
+
+.admin-import-summary-table th,
+.admin-import-summary-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.admin-import-summary-table th:first-child {
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  .admin-navigation-preview {
+    padding-inline: .85rem;
+  }
+
+  .admin-navigation-preview > ol > li > div,
+  .admin-navigation-preview li ol > li {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .admin-navigation-preview li ol {
+    padding-left: 12px;
+  }
+
+  .admin-import-confirm-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-import-confirm-actions > button {
+    width: 100%;
+  }
+}

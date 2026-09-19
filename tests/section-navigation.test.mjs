@@ -146,3 +146,32 @@ test("SECTION-PUBLIC upgrades the repository-managed first-days puppy page", () 
   assert.match(portal, /metaDescription:\s*"Praktický prehľad prvých dní so šteniatkom/);
   assert.match(portal, /Zdravie a starostlivosť", href:\s*"\/starostlivost"/);
 });
+
+
+test("ADMIN-CORE navigation validates hierarchy, internal paths and active duplicates", () => {
+  const store = read("lib/navigation-store.ts");
+  assert.match(store, /normalizeInternalHref/);
+  assert.match(store, /Navigácia obsahuje cyklus v parent\/child väzbách/);
+  assert.match(store, /Navigácia podporuje iba jednu úroveň podmenu/);
+  assert.match(store, /Aktívne položky/);
+  assert.match(store, /smerujú na rovnakú adresu/);
+  assert.match(store, /parsed\.origin !== "https:\/\/psipedia\.sk"/);
+});
+
+test("ADMIN-CORE navigation editor exposes a lightweight structural preview", () => {
+  const editor = read("components/admin-navigation-editor.tsx");
+  const css = read("app/globals.css");
+  assert.match(editor, /Preview výslednej štruktúry/);
+  assert.match(editor, /Nie je to druhý renderer verejného headeru/);
+  assert.match(editor, /previewFamilies/);
+  assert.match(editor, /role="alert"/);
+  assert.match(css, /\.admin-navigation-preview/);
+  assert.match(css, /\.admin-navigation-fields input,[\s\S]*?min-height:\s*44px/);
+});
+
+test("ADMIN-CORE keeps public navigation on the existing SiteHeader contract", () => {
+  const header = read("components/site-header.tsx");
+  assert.match(header, /navigationItems\.filter\(\(item\) => item\.visible\)/);
+  assert.match(header, /storedChildren\.length \? storedChildren : fallbackChildren/);
+  assert.match(header, /setMenuOpen\(false\)/);
+});
