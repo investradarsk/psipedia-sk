@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
+import { PawMark } from "@/components/icons";
+import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
 import {
   adoptionCatalogAgeLabels,
   adoptionCatalogHref,
@@ -26,6 +28,16 @@ type Props = {
   breeds: AdoptionBreedOption[];
 };
 
+function formatCatalogDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("sk-SK", {
+    timeZone: "Europe/Bratislava",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
   return <article className={styles.card}>
@@ -38,6 +50,7 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
     <div className={styles.cardBody}>
       {(dog.city || dog.region) && <p className={styles.location}>{[dog.city, dog.region].filter(Boolean).join(" · ")}</p>}
       <h2><Link href={href}>{dog.name}</Link></h2>
+      {dog.organizationName ? <p className={styles.organization}>Organizácia: {dog.organizationSlug ? <Link href={"/organizacie/" + dog.organizationSlug}>{dog.organizationName}</Link> : dog.organizationName}</p> : null}
       {dog.breedName && <p className={styles.breed}>{dog.breedMix ? "Kríženec · " : ""}{dog.breedName}</p>}
       {dog.shortDescription && <p className={styles.description}>{dog.shortDescription}</p>}
       <dl className={styles.quickFacts}>
@@ -46,6 +59,7 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
         <div><dt>Veľkosť</dt><dd>{adoptionCatalogSizeLabels[dog.size]}</dd></div>
       </dl>
       {dog.status === "RESERVED" && <p className={styles.reservedNote}>Tento pes je momentálne rezervovaný.</p>}
+      {dog.lastVerifiedAt ? <p className={styles.freshness}>Posledná kontrola: {formatCatalogDate(dog.lastVerifiedAt)}</p> : dog.publishedAt ? <p className={styles.freshness}>Publikované: {formatCatalogDate(dog.publishedAt)}</p> : null}
       <Link href={href}>Zobraziť profil →</Link>
     </div>
   </article>;
@@ -72,15 +86,19 @@ function hiddenFilterInputs(filters: AdoptionCatalogFilters, omit: string) {
 export function AdoptionCatalog({ result, filters, breeds }: Props) {
   const view = buildAdoptionCatalogView(result.items);
   const pagination = result.pagination;
-  return <>
-    <section className={styles.hero}>
+  return <PublicFoundation className={styles.foundation}>
+    <div className={styles.headerWrap}>
       <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
-        <Link href="/">Domov</Link><span>/</span><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><span>Psy na adopciu</span>
+        <Link href="/">Domov</Link><span aria-hidden="true">/</span><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">Psy na adopciu</span>
       </nav>
-      <span className={styles.eyebrow}>Pomoc psom · nový domov</span>
-      <h1>Psy na adopciu</h1>
-      <p>Vyhľadajte psa podľa plemena, veku, pohlavia, veľkosti alebo lokality. Zobrazené sú iba aktuálne adopčné a rezervované profily.</p>
-    </section>
+      <PublicSectionHeader
+        variant="compact"
+        eyebrow="Pomoc psom · adopcie"
+        title="Psy na adopciu"
+        intro="Vyhľadajte psa podľa plemena, veku, pohlavia, veľkosti alebo lokality. Zobrazené sú iba aktuálne adopčné a rezervované profily."
+        meta={<span><strong>{pagination.total}</strong> {pagination.total === 1 ? "publikovaný profil" : "publikovaných profilov"}</span>}
+      />
+    </div>
 
     <form className={styles.filters} method="get" aria-label="Filtrovať psy na adopciu">
       <div className={`${styles.field} ${styles.searchField}`}><label htmlFor="adoption-q">Hľadať</label><input id="adoption-q" name="q" defaultValue={filters.q} placeholder="meno, mesto, plemeno…" /></div>
@@ -100,7 +118,7 @@ export function AdoptionCatalog({ result, filters, breeds }: Props) {
     </div>
 
     {!view.isEmpty ? <div className={styles.grid}>{view.items.map((dog) => <DogCard dog={dog} key={dog.id} />)}</div> : <div className={styles.empty}>
-      <div className={styles.emptyIcon} aria-hidden="true">🐾</div><h2>Žiadne psy nezodpovedajú filtrom</h2><p>Skúste zmeniť vyhľadávanie alebo odstrániť niektorý filter.</p><Link href="/pomoc-psom/adopcia">Zobraziť všetky aktuálne adopcie</Link>
+      <div className={styles.emptyIcon} aria-hidden="true"><PawMark size={34} /></div><h2>Momentálne nemáme publikovaný profil pre tieto filtre.</h2><p>Skúste zmeniť vyhľadávanie alebo odstrániť niektorý filter.</p><Link href="/pomoc-psom/adopcia">Zobraziť všetky aktuálne adopcie</Link>
     </div>}
 
     {pagination.totalPages > 1 && <nav className={styles.pagination} aria-label="Stránkovanie adopcií">
@@ -108,5 +126,5 @@ export function AdoptionCatalog({ result, filters, breeds }: Props) {
       <span aria-current="page">Strana {pagination.page} z {pagination.totalPages}</span>
       {pagination.page < pagination.totalPages && <Link href={adoptionCatalogHref(filters, { page: pagination.page + 1 })}>Ďalšia →</Link>}
     </nav>}
-  </>;
+  </PublicFoundation>;
 }
