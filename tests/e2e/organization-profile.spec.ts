@@ -196,9 +196,9 @@ test.describe("organization public profile", () => {
     expect(singleResponse?.status()).toBe(200);
     const singleMain = page.locator("main#obsah");
     await expect(singleMain.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
-    await expect(singleMain.locator("[data-organization-location-summary]")).toHaveText(
-      "📍 Prevádzka · Trnava · Trnavský kraj",
-    );
+    const locationSummary = singleMain.locator("[data-organization-location-summary]");
+    await expect(locationSummary).toContainText("Prevádzka · Trnava · Trnavský kraj");
+    await expect(locationSummary.locator("svg")).toHaveCount(1);
     await expect(singleMain.locator("[data-organization-location]")).toHaveCount(0);
     await expect(singleMain.getByText("Legacy mesto", { exact: true })).toHaveCount(0);
     await expect(singleMain.getByRole("heading", { name: "Ako môžete pomôcť" })).toBeVisible();
