@@ -36,7 +36,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Neplatné JSON dáta." }, { status: 400 });
   }
 
-  const action = body.action === "publish" || body.action === "unpublish"
+  const action = body.action === "publish" || body.action === "unpublish" || body.action === "archive" || body.action === "restore"
     ? body.action as OrganizationPublicationAction
     : null;
   const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : "";
