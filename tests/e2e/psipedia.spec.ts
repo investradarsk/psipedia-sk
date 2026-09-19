@@ -254,13 +254,14 @@ test("@production events listing, detail and past/upcoming separation work", asy
   await expect(page.locator("h1")).toBeVisible();
 });
 
-test("@production help listing and an existing case detail work", async ({ page }) => {
+test("@production help landing and canonical adoption detail work", async ({ page }) => {
   await gotoProductionPage(page, "/pomoc-psom");
-  await expect(page.locator("h1")).toBeVisible();
-  if (await page.locator(".help-card").count() === 0) {
-    await page.getByRole("checkbox", { name: "Len aktívne prípady" }).uncheck();
-  }
-  const detailHref = await firstPublicLink(page, ".help-card", /^\/pomoc-psom\/[^/?#]+\/[^/?#]+$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Pomoc psom" })).toBeVisible();
+  await expect(page.locator("[data-help-category-nav]")).toBeVisible();
+
+  await gotoProductionPage(page, "/pomoc-psom/adopcia");
+  await expect(page.getByRole("heading", { level: 1, name: "Psy na adopciu" })).toBeVisible();
+  const detailHref = await firstPublicLink(page, "main", /^\/pomoc-psom\/adopcia\/[^/?#]+$/);
   await gotoProductionPage(page, detailHref);
   await expect(page.locator("h1")).toBeVisible();
 });
