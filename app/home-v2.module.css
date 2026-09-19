@@ -191,7 +191,7 @@
   padding: 18px 20px 20px;
 }
 
-.homeV2 :global(.home-latest-lead-copy > strong) {
+.homeV2 :global(.home-latest-lead-copy > h3) {
   color: var(--forest);
   font-family: Georgia, serif;
   font-size: clamp(1.45rem, 2.25vw, 2rem);
@@ -236,7 +236,7 @@
   gap: 7px;
 }
 
-.homeV2 :global(.home-latest-copy > strong) {
+.homeV2 :global(.home-latest-copy > h3) {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -346,7 +346,7 @@
   gap: 7px;
 }
 
-.homeV2 :global(.home-editorial-copy > strong) {
+.homeV2 :global(.home-editorial-copy > h3) {
   color: var(--forest);
   font-family: Georgia, serif;
   font-size: 1.08rem;
@@ -826,7 +826,7 @@
     padding: 15px 16px 17px;
   }
 
-  .homeV2 :global(.home-latest-lead-copy > strong) {
+  .homeV2 :global(.home-latest-lead-copy > h3) {
     font-size: 1.48rem;
   }
 
