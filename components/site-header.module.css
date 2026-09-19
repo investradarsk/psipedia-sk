@@ -168,6 +168,8 @@
   }
 
   .brandCluster {
+    min-width: max-content;
+    flex: 0 0 auto;
     grid-template-columns: max-content;
     gap: 0;
   }
