@@ -147,6 +147,6 @@ export function HelpOptions({ options }: { options: Array<{ label: string; value
 
 export function HelpProgressCard({ item }: { item: HelpCase }) {
   const progress = helpProgress(item);
-  if (progress === null) return null;
-  return <section className={`${detailStyles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}><span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount ?? 0)}</strong></span><span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span></div><div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></section>;
+  if (item.raisedAmount === null && item.goalAmount === null) return null;
+  return <section className={`${detailStyles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}>{item.raisedAmount !== null ? <span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount)}</strong></span> : null}{item.goalAmount !== null ? <span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span> : null}</div>{progress !== null ? <><div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></> : null}</section>;
 }
