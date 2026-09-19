@@ -57,7 +57,7 @@ export function normalizeOrganizationAdminSearch(value: string) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("sk")
-    .replace(/[^a-z0-9@.+-]+/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
 }
@@ -71,5 +71,10 @@ export function sqlOrganizationAdminNormalizedExpression(expression: string) {
     ["Ĺ", "l"], ["Ľ", "l"], ["Ň", "n"], ["Ó", "o"], ["Ô", "o"], ["Ŕ", "r"],
     ["Š", "s"], ["Ť", "t"], ["Ú", "u"], ["Ý", "y"], ["Ž", "z"],
   ];
-  return replacements.reduce((current, [from, to]) => `replace(${current}, '${from}', '${to}')`, `lower(${expression})`);
+  let normalized = replacements.reduce((current, [from, to]) => `replace(${current}, '${from}', '${to}')`, `lower(${expression})`);
+  for (const punctuation of ["-", "/", "&", ".", ",", "(", ")", "[", "]", "'", "@", "+"]) {
+    const escaped = punctuation.replaceAll("'", "''");
+    normalized = `replace(${normalized}, '${escaped}', ' ')`;
+  }
+  return normalized;
 }
