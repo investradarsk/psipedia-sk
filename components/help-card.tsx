@@ -19,7 +19,7 @@ export function HelpCard({ item }: { item: HelpCase }) {
   const location = [item.city, item.region].filter(Boolean).join(" · ");
 
   return (
-    <article className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
+    <article data-help-card className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
       <Link className={styles.media} href={detailHref} aria-label={"Otvoriť " + item.title}>
         {item.imageUrl ? <img src={item.imageUrl} alt={item.dogName ? item.dogName + " – " + item.title : item.title} loading="lazy" decoding="async" /> : <span className={styles.mediaFallback} aria-hidden="true"><PawMark size={38} /></span>}
         <span className={styles.badges}>
