@@ -11,6 +11,13 @@
   --paper: #fffdf8;
   --coral: #f47757;
   --coral-dark: #b94732;
+  /* BRAND-1: semantic public brand aliases; keep module-specific styling opt-in. */
+  --brand-forest: var(--forest);
+  --brand-canvas: var(--cream);
+  --brand-surface: var(--paper);
+  --brand-accent: var(--coral);
+  --brand-accent-strong: var(--coral-dark);
+  --brand-focus: var(--coral-dark);
   --gold: #e8b64c;
   --sky: #badde0;
   --muted: #52665d;
