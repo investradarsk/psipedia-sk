@@ -232,3 +232,61 @@
     transition: none;
   }
 }
+
+
+/* Header hotfix: keep the full desktop navigation collision-free on real 1440–1700px viewports. */
+@media (min-width: 1200px) {
+  :global(.site-header) :global(.header-inner) {
+    display: grid;
+    width: min(calc(100% - 24px), 1760px);
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    gap: clamp(8px, .7vw, 12px);
+  }
+
+  .brandCluster {
+    min-width: max-content;
+    flex: none;
+    grid-template-columns: max-content;
+    gap: 0;
+  }
+
+  .nameDay,
+  :global(.site-header) :global(.header-contact-link),
+  :global(.site-header) :global(.search-trigger) span {
+    display: none;
+  }
+
+  :global(.site-header) :global(.desktop-nav) {
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    gap: clamp(0px, .14vw, 3px);
+    font-size: clamp(.6rem, .62vw, .68rem);
+  }
+
+  :global(.site-header) :global(.desktop-nav) > a,
+  :global(.site-header) :global(.desktop-nav) > :global(.nav-group) > a {
+    padding-inline: clamp(1px, .16vw, 3px);
+  }
+
+  :global(.site-header) :global(.header-actions) {
+    gap: 1px;
+  }
+}
+
+@media (min-width: 1800px) {
+  .brandCluster {
+    grid-template-columns: max-content minmax(0, 190px);
+    gap: 12px;
+  }
+
+  .nameDay {
+    display: block;
+    max-width: 190px;
+  }
+
+  :global(.site-header) :global(.header-contact-link),
+  :global(.site-header) :global(.search-trigger) span {
+    display: inline-flex;
+  }
+}
