@@ -261,7 +261,7 @@
     min-width: 0;
     justify-content: space-between;
     gap: clamp(0px, .14vw, 3px);
-    font-size: clamp(.6rem, .62vw, .68rem);
+    font-size: clamp(.66rem, .62vw, .72rem);
   }
 
   :global(.site-header) :global(.desktop-nav) > a,
