@@ -251,6 +251,62 @@ for (const articleCase of cases) {
 }
 
 
+
+test("ARTICLE-2 manual, automatic and fallback recommendations are published-only and duplicate-free", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const bikePath = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
+  const stimulusPath = "/aktivity/stimulus-control-u-psa";
+
+  await page.goto(bikePath);
+  const manualRelated = page.locator('aside[aria-label="Súvisiaci článok"]');
+  await expect(manualRelated).toHaveCount(1);
+  await expect(manualRelated.getByText("SÚVISIACI ČLÁNOK", { exact: true })).toBeVisible();
+  await expect(manualRelated.getByRole("link")).toHaveAttribute("href", stimulusPath);
+  await expect(page.getByText("E2E nepublikovaný related kandidát", { exact: true })).toHaveCount(0);
+
+  const endLinks = page.locator(".related-section [data-article-list-item]");
+  expect(await endLinks.count()).toBeGreaterThan(0);
+  expect(await endLinks.count()).toBeLessThanOrEqual(3);
+  const sidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+  await expect(sidebar.locator("li")).toHaveCount(5);
+
+  const recommendationHrefs = await page
+    .locator('aside[aria-label="Súvisiaci článok"] a, .related-section [data-article-list-item], aside[aria-label="Najnovšie články"] a')
+    .evaluateAll((links) => links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)));
+  expect(recommendationHrefs).not.toContain(bikePath);
+  expect(new Set(recommendationHrefs).size, "Duplicate recommendation hrefs: " + JSON.stringify(recommendationHrefs)).toBe(recommendationHrefs.length);
+
+  await page.goto(stimulusPath);
+  const automaticRelated = page.locator('aside[aria-label="Súvisiaci článok"]');
+  await expect(automaticRelated).toHaveCount(1);
+  await expect(automaticRelated.getByRole("link")).toHaveAttribute("href", bikePath);
+  await expect(page.getByText("E2E nepublikovaný related kandidát", { exact: true })).toHaveCount(0);
+
+  await page.goto("/starostlivost/e2e-clanok-bez-obrazka");
+  await expect(page.locator(".article-hero-image")).toHaveCount(0);
+  await expect(page.locator(".article-hero-placeholder")).toBeVisible();
+  await expect(page.locator('aside[aria-label="Súvisiaci článok"]')).toHaveCount(0);
+  await expect(page.getByRole("complementary", { name: "Najnovšie články" }).locator("li")).toHaveCount(5);
+});
+
+test("ARTICLE-2 preserves canonical Article schema, dates, author and image metadata", async ({ page }) => {
+  const path = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
+  await page.goto(path);
+
+  const canonical = page.locator('link[rel="canonical"]');
+  await expect(canonical).toHaveAttribute("href", "https://psipedia.sk" + path);
+
+  const graph = await page.locator('script[type="application/ld+json"]').first().evaluate((node) => JSON.parse(node.textContent || "{}")["@graph"] ?? []);
+  const articleSchema = graph.find((item: { "@type"?: string }) => item["@type"] === "Article");
+  expect(articleSchema).toBeTruthy();
+  expect(articleSchema.datePublished).toBe("2026-08-17T08:00:00.000Z");
+  expect(articleSchema.dateModified).toBeTruthy();
+  expect(articleSchema.author?.name).toBe("Redakcia Psipedia");
+  expect(Array.isArray(articleSchema.image)).toBe(true);
+  expect(articleSchema.image.length).toBeGreaterThan(0);
+});
+
+
 test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku");
