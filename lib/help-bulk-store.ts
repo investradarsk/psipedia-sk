@@ -20,5 +20,5 @@ export async function applyManagedHelpBulk(input: unknown, editorEmail: string) 
   if (result.results.length !== items.length) {
     throw new Error("Výber sa medzičasom zmenil alebo niektorý záznam už nespĺňa podmienky publikovania. Žiadny záznam nebol zmenený; obnov zoznam a potvrď nový výber.");
   }
-  return { changed: result.results.length };
+  return { requested: items.length, changed: result.results.length };
 }

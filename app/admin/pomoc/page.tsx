@@ -12,6 +12,14 @@ export default async function AdminHelpPage({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const filters = parseHelpAdminFilters({ get: (key) => typeof params[key] === "string" ? params[key] : null });
   const data = await getManagedHelpDashboard(filters);
-  const selectionKey = `${filters.category}|${filters.status}|${filters.q}`;
-  return <AdminShell user={user} eyebrow="Pomoc psom" title="Prípady a výzvy pod kontrolou" description="Spravuj adopcie, organizácie, dočasnú opateru, zbierky a možnosti pomoci." actions={<Link className="admin-primary-action" href="/admin/pomoc/novy">+ Nový prípad</Link>}><AdminHelpDashboard key={selectionKey} data={data} filters={filters} /></AdminShell>;
+  const selectionKey = [filters.category, filters.status, filters.urgent, filters.state, filters.organization, filters.location, filters.q].join("|");
+  return <AdminShell
+    user={user}
+    eyebrow="Pomoc psom"
+    title="Help prípady a výzvy"
+    description="Spravuj dočasnú opateru, zbierky, dobrovoľnícke výzvy a existujúce urgentné Help záznamy. Adopcie, stratené a nájdené psy aj organizácie majú vlastné canonical moduly."
+    actions={<Link className="admin-primary-action" href="/admin/pomoc/novy">+ Nový Help záznam</Link>}
+  >
+    <AdminHelpDashboard key={selectionKey} data={data} filters={filters} />
+  </AdminShell>;
 }

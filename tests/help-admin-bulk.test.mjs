@@ -10,14 +10,17 @@ function fixture() {
     verified INTEGER DEFAULT 0, action_url TEXT, goal_amount INTEGER, updated_at TEXT, updated_by TEXT, published_at TEXT
   )`);
   const insert = sqlite.prepare("INSERT INTO help_cases (id,title,dog_name,organization,city,category,status,verified,action_url,goal_amount,updated_at,updated_by,published_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
-  for (let i = 1; i <= 75; i++) insert.run(i, `Koncept ${i}`, "", "OZ Test", i % 2 ? "Nitra" : "Trnava", "adopcia", "draft", 0, null, null, `2026-09-14T10:${String(i).padStart(2, "0")}:00Z`, "seed", null);
-  insert.run(101, "Publikovaný", "", "OZ Test", "Nitra", "adopcia", "published", 0, null, null, "2026-09-14T12:00:00Z", "seed", "2026-09-14T12:00:00Z");
+  for (let i = 1; i <= 75; i++) insert.run(i, `Koncept ${i}`, "", "OZ Test", i % 2 ? "Nitra" : "Trnava", "dobrovolnictvo", "draft", 0, null, null, `2026-09-14T10:${String(i).padStart(2, "0")}:00Z`, "seed", null);
+  insert.run(101, "Publikovaný", "", "OZ Test", "Nitra", "dobrovolnictvo", "published", 0, null, null, "2026-09-14T12:00:00Z", "seed", "2026-09-14T12:00:00Z");
   insert.run(102, "Neplatná zbierka", "", "OZ Test", "Nitra", "zbierky", "draft", 0, null, null, "2026-09-14T12:01:00Z", "seed", null);
   insert.run(103, "Zbierka s cieľom", "", "OZ Test", "Nitra", "zbierky", "draft", 1, "https://example.test/zbierka-s-cielom", 2500, "2026-09-14T12:02:00Z", "seed", null);
   insert.run(104, "Zbierka bez cieľa", "", "OZ Test", "Nitra", "zbierky", "draft", 1, "https://example.test/zbierka-bez-ciela", null, "2026-09-14T12:03:00Z", "seed", null);
   insert.run(105, "Neoverená zbierka", "", "OZ Test", "Nitra", "zbierky", "draft", 0, "https://example.test/neoverena", 1000, "2026-09-14T12:04:00Z", "seed", null);
   insert.run(106, "Zbierka bez odkazu", "", "OZ Test", "Nitra", "zbierky", "draft", 1, null, 1000, "2026-09-14T12:05:00Z", "seed", null);
   insert.run(107, "Zbierka s nulovým cieľom", "", "OZ Test", "Nitra", "zbierky", "draft", 1, "https://example.test/nulovy-ciel", 0, "2026-09-14T12:06:00Z", "seed", null);
+  insert.run(201, "Legacy adopcia", "", "OZ Dedicated", "Nitra", "adopcia", "draft", 0, null, null, "2026-09-14T13:00:00Z", "seed", null);
+  insert.run(202, "Legacy lost-found", "", "OZ Dedicated", "Nitra", "stratene-a-najdene", "draft", 0, null, null, "2026-09-14T13:01:00Z", "seed", null);
+  insert.run(203, "Legacy organizácia", "", "OZ Dedicated", "Nitra", "utulky", "draft", 0, null, null, "2026-09-14T13:02:00Z", "seed", null);
   const db = { prepare(query) { return { bind(...args) { this.args = args; return this; }, async all() { return { results: sqlite.prepare(query).all(...(this.args ?? [])) }; } }; } };
   return { sqlite, db };
 }
@@ -39,7 +42,7 @@ test("filter-wide selection ignores display pagination and resolves all 75 draft
   const { db } = fixture();
   const preview = await resolveHelpBulkSelection(db, {
     targetStatus: "published",
-    selection: { mode: "filter", filters: { category: "all", status: "draft", q: "Koncept" }, expectedCount: 75 },
+    selection: { mode: "filter", filters: { category: "all", status: "draft", urgent: "all", state: "all", organization: "", location: "", q: "Koncept" }, expectedCount: 75 },
   });
   assert.equal(preview.selectedCount, 75);
   assert.equal(preview.changeCount, 75);
@@ -50,7 +53,7 @@ test("filter preflight fails if the reviewed result count changed", async () => 
   const { db } = fixture();
   await assert.rejects(() => resolveHelpBulkSelection(db, {
     targetStatus: "published",
-    selection: { mode: "filter", filters: { category: "all", status: "draft", q: "Koncept" }, expectedCount: 74 },
+    selection: { mode: "filter", filters: { category: "all", status: "draft", urgent: "all", state: "all", organization: "", location: "", q: "Koncept" }, expectedCount: 74 },
   }), /medzičasom zmenili/);
 });
 
@@ -112,4 +115,15 @@ test("apply payload requires exact confirmation, unique IDs and a real state cha
   assert.throws(() => validateHelpBulkApply({ targetStatus: "published", confirmedCount: 2, items: [item] }), /Potvrď platný výber/);
   assert.throws(() => validateHelpBulkApply({ targetStatus: "draft", confirmedCount: 1, items: [item] }), /neplatný/);
   assert.throws(() => validateHelpBulkApply({ targetStatus: "published", confirmedCount: 2, items: [item, item] }), /neplatný/);
+});
+
+
+test("dedicated canonical rows cannot enter explicit or atomic Help bulk mutations", async () => {
+  const { db, sqlite } = fixture();
+  for (const id of [201, 202, 203]) {
+    await assert.rejects(() => resolveHelpBulkSelection(db, { targetStatus: "published", selection: { mode: "ids", ids: [id] } }), /už neexistuje/);
+    const stale = [{ id, status: "draft", updatedAt: sqlite.prepare("SELECT updated_at FROM help_cases WHERE id=?").get(id).updated_at }];
+    assert.equal(apply(sqlite, stale, "published").length, 0);
+    assert.equal(sqlite.prepare("SELECT status FROM help_cases WHERE id=?").get(id).status, "draft");
+  }
 });

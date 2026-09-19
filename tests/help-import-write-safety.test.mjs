@@ -2,49 +2,45 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const source = readFileSync(new URL("../app/api/admin/import/route.ts", import.meta.url), "utf8");
+const route=readFileSync(new URL("../app/api/admin/import/route.ts",import.meta.url),"utf8");
+const plan=readFileSync(new URL("../lib/admin-import-plan.ts",import.meta.url),"utf8");
+const preview=readFileSync(new URL("../lib/help-import-preview.ts",import.meta.url),"utf8");
 
-function helpImportSql() {
-  const marker = "INSERT INTO help_cases (";
-  const insertStart = source.indexOf(marker);
-  assert.notEqual(insertStart, -1, "help_cases INSERT must exist");
-
-  const templateStart = source.lastIndexOf("`", insertStart);
-  const templateEnd = source.indexOf("`).bind(", insertStart);
-  assert.notEqual(templateStart, -1, "help_cases INSERT must be inside a SQL template");
-  assert.notEqual(templateEnd, -1, "help_cases INSERT template must be bound");
-
-  return source.slice(templateStart + 1, templateEnd);
+function helpImportSql(){
+  const marker="INSERT INTO help_cases (";const start=route.indexOf(marker);assert.notEqual(start,-1);
+  const templateStart=route.lastIndexOf("`",start);const templateEnd=route.indexOf("`).bind(",start);
+  assert.notEqual(templateStart,-1);assert.notEqual(templateEnd,-1);return route.slice(templateStart+1,templateEnd);
 }
 
-test("legacy shelter helpItems are rejected before preview or write preparation", () => {
-  const shelterGate = source.indexOf('text(row.category).trim() === "utulky"');
-  const previewCall = source.indexOf("const helpPreview = await previewHelpItems(");
-  const statements = source.indexOf("const statements: D1PreparedStatement[] = [];");
-  assert.notEqual(shelterGate, -1);
-  assert.ok(shelterGate < previewCall);
-  assert.ok(shelterGate < statements);
-  assert.match(source, /canonical help_organizations/);
+test("generic import builds a validated Help plan before preparing any write and requires explicit confirmation",()=>{
+  const build=route.indexOf("const plan = await buildGeneralImportPlan(database, payload);");
+  const rejected=route.indexOf("plan.preview.totals.rejected > 0");
+  const confirmed=route.indexOf("payload.confirmed !== true");
+  const statements=route.indexOf("const statements: D1PreparedStatement[] = [];");
+  assert.ok(build>=0&&build<rejected&&rejected<confirmed&&confirmed<statements);
+  assert.match(route,/Pred importom je povinný Preview a explicitné potvrdenie/);
 });
 
-test("helpItems import re-runs the read-only preview gate before any write statements", () => {
-  const previewCall = source.indexOf("const helpPreview = await previewHelpItems(");
-  const statements = source.indexOf("const statements: D1PreparedStatement[] = [];");
-  const unsafeGate = source.indexOf("helpPreview.rows.filter((row) => !row.safeForImport)");
-
-  assert.notEqual(previewCall, -1, "helpItems import must call previewHelpItems");
-  assert.notEqual(unsafeGate, -1, "helpItems import must reject rows that are not SAFE FOR IMPORT");
-  assert.ok(previewCall < statements, "preview gate must run before write statements are prepared");
+test("Help plan delegates dedupe and domain validation to read-only preview",()=>{
+  assert.match(plan,/previewHelpItems/);
+  assert.match(plan,/row\.status === "NEW" && row\.safeForImport/);
+  assert.match(plan,/actions\.helpItems\.push\("rejected"\)/);
+  assert.match(preview,/isHelpAdminDedicatedCategory/);
+  assert.match(preview,/HELP_ADMIN_DOMAIN_SQL/);
 });
 
-test("help_cases import is create-only and cannot update an existing (category, slug)", () => {
-  const sql = helpImportSql();
-  assert.match(sql, /INSERT INTO help_cases/i);
-  assert.doesNotMatch(sql, /ON\s+CONFLICT/i);
-  assert.doesNotMatch(sql, /DO\s+UPDATE/i);
+test("help_cases generic import is create-only, always DRAFT and never auto-publishes",()=>{
+  const sql=helpImportSql();
+  assert.match(sql,/INSERT INTO help_cases/i);
+  assert.match(sql,/ON CONFLICT\(slug\) DO NOTHING/i);
+  assert.doesNotMatch(sql,/DO\s+UPDATE/i);
+  const helpLoop=route.slice(route.indexOf("for (const [index, row] of helpItems.entries())"),route.indexOf("for (const row of inquiries)"));
+  assert.match(helpLoop,/"draft"/);
+  assert.match(helpLoop,/null, text\(row\.createdBy/);
+  assert.doesNotMatch(helpLoop,/"published"/);
 });
 
-test("helpItems unsafe preview abort message tells admin to preview again", () => {
-  assert.match(source, /Import Pomoc psom zastavený/);
-  assert.match(source, /Spustite Preview znova/);
+test("unsafe Help rows are rejected by the plan before route write preparation",()=>{
+  assert.match(plan,/Pomoc riadok \$\{row\.index\}/);
+  assert.match(plan,/applyAction\(domains\.help, "rejected"/);
 });

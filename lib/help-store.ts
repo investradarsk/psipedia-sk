@@ -1,4 +1,4 @@
-import { queryHelpAdmin, type HelpAdminFilters } from "@/lib/help-admin-query";
+import { HELP_ADMIN_DOMAIN_SQL, isHelpAdminCreateCategory, type HelpAdminFilters, queryHelpAdmin } from "@/lib/help-admin-query";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { slugifyArticleTitle } from "@/lib/article-store";
@@ -260,7 +260,7 @@ function normalizeAmount(value: number | string | null | undefined, label: strin
   return numeric;
 }
 
-function normalizeInput(payload: ManagedHelpCaseInput) {
+function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrgent?: boolean } = {}) {
   const title = payload.title?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || title);
   const category = payload.category && isHelpCategory(payload.category) ? payload.category : null;
@@ -278,7 +278,10 @@ function normalizeInput(payload: ManagedHelpCaseInput) {
   if (!title) throw new Error("Doplň názov prípadu alebo výzvy.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa prípadu nie je platná.");
   if (!category) throw new Error("Vyber kategóriu pomoci.");
+  if (category === "adopcia") throw new Error("Adopcie sa spravujú v canonical sekcii Adopcie.");
+  if (category === "stratene-a-najdene") throw new Error("Stratené a nájdené psy sa spravujú v canonical Lost/Found sekcii.");
   if (category === "utulky") throw new Error("Útulky a organizácie sa spravujú v canonical sekcii Organizácie.");
+  if (!isHelpAdminCreateCategory(category) && !(options.allowLegacyUrgent && category === "urgentne-pripady")) throw new Error("Táto kategória nepatrí do generic Help CRUD.");
   if (allHelpCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
   if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
   if (description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
@@ -372,7 +375,7 @@ export async function listManagedHelpCaseSummaries(limit = 100) {
   const result = await database.prepare(`
     SELECT id, slug, title, category, status, organization, dog_name, city, image_url, verified, urgent, resolved
     FROM help_cases
-    WHERE category <> 'utulky'
+    WHERE ${HELP_ADMIN_DOMAIN_SQL}
     ORDER BY updated_at DESC, id DESC
     LIMIT ?
   `).bind(safeLimit).all<HelpCaseSummaryRow>();
@@ -388,7 +391,7 @@ export async function getManagedHelpDashboard(filters: HelpAdminFilters) {
 export async function getManagedHelpCaseById(id: number) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const row = await database.prepare("SELECT * FROM help_cases WHERE id = ? AND category <> 'utulky' LIMIT 1").bind(id).first<HelpCaseRow>();
+  const row = await database.prepare(`SELECT * FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} LIMIT 1`).bind(id).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }
 
@@ -422,7 +425,7 @@ export async function updateManagedHelpCase(id: number, payload: ManagedHelpCase
   const existing = existingItem ?? await getManagedHelpCaseById(id);
   if (!existing) return null;
   if (existing.category === "utulky") throw new Error("Legacy shelter záznam sa po canonical cutover už neupravuje.");
-  const input = normalizeInput(payload);
+  const input = normalizeInput(payload, { allowLegacyUrgent: existing.category === "urgentne-pripady" });
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
@@ -431,7 +434,7 @@ export async function updateManagedHelpCase(id: number, payload: ManagedHelpCase
       dog_name = ?, breed = ?, age_note = ?, city = ?, region = ?, location_note = ?, reported_date = ?,
       deadline_date = ?, action_label = ?, action_url = ?, contact_note = ?, goal_amount = ?, raised_amount = ?,
       image_url = ?, image_key = ?, verified = ?, urgent = ?, resolved = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
-    WHERE id = ? RETURNING *
+    WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *
   `).bind(
     input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
     input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
@@ -445,7 +448,7 @@ export async function updateManagedHelpCase(id: number, payload: ManagedHelpCase
 export async function deleteManagedHelpCase(id: number) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const row = await database.prepare("DELETE FROM help_cases WHERE id = ? AND category <> 'utulky' RETURNING *").bind(id).first<HelpCaseRow>();
+  const row = await database.prepare(`DELETE FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *`).bind(id).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }
 

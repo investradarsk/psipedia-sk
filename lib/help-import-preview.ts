@@ -1,3 +1,4 @@
+import { HELP_ADMIN_DOMAIN_SQL, isHelpAdminCreateCategory, isHelpAdminDedicatedCategory } from "@/lib/help-admin-query";
 // Pure comparison logic. The only database access in this preview is the SELECT below.
 export type HelpPreviewStatus = "NEW" | "EXISTING_SAME" | "POSSIBLE_DUPLICATE" | "CONFLICT" | "BLOCKED";
 
@@ -134,7 +135,9 @@ function validate(row: Input, categories: readonly string[], regions: readonly s
   const actionUrl = field(row, "actionUrl");
   if (!title) errors.push("chýba title");
   if (!slug || slug !== slugify(slug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) errors.push("slug nie je kanonický alebo platný; preview ho neupravuje");
-  if (!categories.includes(category)) errors.push("neplatná category");
+  if (isHelpAdminDedicatedCategory(category)) errors.push("category patrí do samostatného canonical admin modulu");
+  else if (category === "urgentne-pripady") errors.push("legacy urgentná category sa už nevytvára importom");
+  else if (!isHelpAdminCreateCategory(category) || !categories.includes(category)) errors.push("neplatná category");
   if (categories.includes(slug)) errors.push("slug je vyhradený pre kategóriu");
   if (excerpt.length < 20) errors.push("excerpt má menej ako 20 znakov");
   if (description.length < 40) errors.push("description má menej ako 40 znakov");
@@ -146,7 +149,7 @@ function validate(row: Input, categories: readonly string[], regions: readonly s
   if (row.actionUrl != null && typeof row.actionUrl !== "string") errors.push("actionUrl musí byť textová URL");
   if (actionUrl && !url(actionUrl)) errors.push("actionUrl musí byť HTTP(S) URL");
   if (!field(row, "actionLabel")) errors.push("chýba actionLabel (povinný text tlačidla)");
-  for (const key of ["locationNote", "contactNote"]) if (row[key] != null && typeof row[key] !== "string") errors.push(`${key} musí byť text`);
+  for (const key of ["locationNote", "contactNote", "imageKey"]) if (row[key] != null && typeof row[key] !== "string") errors.push(`${key} musí byť text`);
   const imageUrl = field(row, "imageUrl");
   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) errors.push("imageUrl nie je platná adresa obrázka");
   for (const key of ["goalAmount", "raisedAmount"]) {
@@ -240,7 +243,7 @@ export async function previewHelpItems(database: HelpSelectDatabase, items: unkn
   // Legacy shelter rows are no longer an import source after the canonical organization cutover.
   // Other help categories still need the complete draft/published table and no LIMIT.
   const result = await database.prepare(`SELECT id, slug, title, category, status, excerpt, description, organization, dog_name, city, region,
-    location_note, contact_note, action_url FROM help_cases WHERE category <> 'utulky' ORDER BY id`).all<ExistingHelpRow>();
-  if (!result.success || !Array.isArray(result.results)) throw new Error("Nepodarilo sa načítať úplný zoznam help_cases.");
-  return classifyHelpItems(items, result.results, categories.filter((category) => category !== "utulky"), regions);
+    location_note, contact_note, action_url FROM help_cases WHERE ${HELP_ADMIN_DOMAIN_SQL} ORDER BY id`).all<ExistingHelpRow>();
+  if (!result.success || !Array.isArray(result.results)) throw new Error("Nepodarilo sa načítať úplný zoznam generic help_cases.");
+  return classifyHelpItems(items, result.results, categories, regions);
 }
