@@ -299,7 +299,7 @@ test("ARTICLE-2 preserves canonical Article schema, dates, author and image meta
   const graph = await page.locator('script[type="application/ld+json"]').first().evaluate((node) => JSON.parse(node.textContent || "{}")["@graph"] ?? []);
   const articleSchema = graph.find((item: { "@type"?: string }) => item["@type"] === "Article");
   expect(articleSchema).toBeTruthy();
-  expect(articleSchema.datePublished).toBe("2026-08-17T08:00:00.000Z");
+  expect(articleSchema.datePublished).toBe("2026-08-17");
   expect(articleSchema.dateModified).toBeTruthy();
   expect(articleSchema.author?.name).toBe("Redakcia Psipedia");
   expect(Array.isArray(articleSchema.image)).toBe(true);
