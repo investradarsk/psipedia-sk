@@ -7,6 +7,7 @@ import {
   type ArticleFeedback,
   type ArticleFeedbackStatus,
 } from "@/lib/article-feedback-store";
+import styles from "./admin-article-feedback-dashboard.module.css";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("sk-SK", {
@@ -22,6 +23,13 @@ const statusLabels: Record<ArticleFeedbackStatus, string> = {
   resolved: "Vyriešené",
   dismissed: "Ignorované",
 };
+
+function statusClass(status: ArticleFeedbackStatus) {
+  if (status === "new") return styles.statusNew;
+  if (status === "reviewing") return styles.statusReviewing;
+  if (status === "resolved") return styles.statusResolved;
+  return styles.statusDismissed;
+}
 
 export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { feedback: ArticleFeedback[] }) {
   const router = useRouter();
@@ -73,19 +81,19 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
           <div className="admin-feedback-list">
             {feedback.map((item) => (
               <article id={`hodnotenie-${item.id}`} className={item.helpful ? "is-helpful" : "is-not-helpful"} key={item.id}>
-                <header>
+                <header className={styles.header}>
                   <span>{item.helpful ? "👍 Áno" : "👎 Nie"}</span>
-                  {!item.helpful && <span className={`admin-inquiry-status is-${item.status}`}>{statusLabels[item.status]}</span>}
+                  {!item.helpful && <span className={`${styles.status} ${statusClass(item.status)}`}>{statusLabels[item.status]}</span>}
                   <time dateTime={item.createdAt}>{formatDate(item.createdAt)}</time>
                 </header>
                 <h2>{item.articleTitle}</h2>
                 {item.missingText ? <blockquote>{item.missingText}</blockquote> : !item.helpful ? <p className="admin-feedback-empty-note">Bez doplňujúcej odpovede.</p> : null}
                 <Link href={item.articlePath} target="_blank" rel="noreferrer">Otvoriť článok ↗</Link>
                 {!item.helpful && (
-                  <footer>
+                  <footer className={styles.actions}>
                     {item.status !== "new" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "new")}>Nové</button>}
                     {item.status !== "reviewing" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "reviewing")}>Rieši sa</button>}
-                    {item.status !== "resolved" && <button className="is-primary" type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "resolved")}>Vyriešené</button>}
+                    {item.status !== "resolved" && <button className={styles.primary} type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "resolved")}>Vyriešené</button>}
                     {item.status !== "dismissed" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "dismissed")}>Ignorovať</button>}
                   </footer>
                 )}
