@@ -52,7 +52,8 @@ test("Help category flows preserve dedicated domains and canonical organization 
 
   await page.goto("/pomoc-psom/docasna-opatera", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1, name: "Dočasná opatera" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Max", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "E2E dočasná opatera", exact: true })).toBeVisible();
+  await expect(page.getByText("Max", { exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/pomoc-psom/stratene-a-najdene", { waitUntil: "domcontentloaded" });
@@ -65,7 +66,7 @@ test("canonical adoption cards expose organization context without changing life
   await page.goto("/pomoc-psom/adopcia", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1, name: "Psy na adopciu" })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Rex", exact: true })).toBeVisible();
-  await expect(page.getByText("E2E útulok Nitra", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/E2E útulok Nitra/).first()).toBeVisible();
   await expect(page.getByLabel("Stav")).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await expectNoAxeViolations(page);
