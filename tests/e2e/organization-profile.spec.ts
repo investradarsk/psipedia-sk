@@ -265,6 +265,7 @@ test.describe("organization location admin CRUD", () => {
     expect(response?.status()).toBeLessThan(400);
     await expect(page.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Lokality", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Uložiť organizáciu" })).toBeEnabled();
 
     const stalePrefix = `ORG-2C ${testInfo.project.name}`;
     for (;;) {
