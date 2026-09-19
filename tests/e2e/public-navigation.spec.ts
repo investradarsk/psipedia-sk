@@ -126,6 +126,7 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
     { width: 1024, height: 900 },
     { width: 1180, height: 900 },
     { width: 1440, height: 900 },
+    { width: 1648, height: 900 },
   ]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
@@ -155,6 +156,7 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
         brandSecondaryOverlap: intersects(brand, secondary),
         brandNavOverlap: intersects(brand, nav),
         brandActionsOverlap: intersects(brand, actions),
+        navActionsOverlap: intersects(nav, actions),
         brandHamburgerOverlap: intersects(brand, hamburger),
         overflow: header.scrollWidth - header.clientWidth,
       };
@@ -164,6 +166,7 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
     expect(geometry.brandSecondaryOverlap, `${viewport.width}px: secondary text overlaps brand`).toBe(false);
     expect(geometry.brandNavOverlap, `${viewport.width}px: desktop nav overlaps brand`).toBe(false);
     expect(geometry.brandActionsOverlap, `${viewport.width}px: utility actions overlap brand`).toBe(false);
+    expect(geometry.navActionsOverlap, `${viewport.width}px: utility actions overlap desktop navigation`).toBe(false);
     expect(geometry.brandHamburgerOverlap, `${viewport.width}px: hamburger overlaps brand`).toBe(false);
     expect(geometry.overflow, `${viewport.width}px: header horizontal overflow`).toBeLessThanOrEqual(1);
   }
@@ -172,7 +175,7 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
 test("desktop brand header stays uppercase and overflow-free at target widths", async ({ page, isMobile }) => {
   test.skip(isMobile, "Desktop-only BRAND-1 regression");
 
-  for (const width of [1280, 1366, 1440]) {
+  for (const width of [1280, 1366, 1440, 1648, 1700]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
 
