@@ -169,6 +169,40 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
   }
 });
 
+test("desktop brand header stays uppercase and overflow-free at target widths", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Desktop-only BRAND-1 regression");
+
+  for (const width of [1280, 1366, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+
+    const nav = page.locator(".desktop-nav");
+    await expect(nav, `${width}px: desktop navigation must stay visible`).toBeVisible();
+    await expect(page.locator("#mobile-menu"), `${width}px: mobile menu must stay out of desktop layout`).toBeHidden();
+
+    const metrics = await page.evaluate(() => {
+      const header = document.querySelector<HTMLElement>(".site-header")!;
+      const nav = document.querySelector<HTMLElement>(".desktop-nav")!;
+      const first = nav.querySelector<HTMLElement>("a")!;
+      const navBox = nav.getBoundingClientRect();
+      const headerBox = header.getBoundingClientRect();
+      return {
+        overflow: header.scrollWidth - header.clientWidth,
+        documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        textTransform: getComputedStyle(first).textTransform,
+        letterSpacing: Number.parseFloat(getComputedStyle(first).letterSpacing),
+        navInsideHeader: navBox.left >= headerBox.left - 1 && navBox.right <= headerBox.right + 1,
+      };
+    });
+
+    expect(metrics.overflow, `${width}px: header overflow`).toBeLessThanOrEqual(1);
+    expect(metrics.documentOverflow, `${width}px: document overflow`).toBeLessThanOrEqual(1);
+    expect(metrics.textTransform, `${width}px: main navigation is not uppercase`).toBe("uppercase");
+    expect(metrics.letterSpacing, `${width}px: navigation tracking is excessive`).toBeLessThanOrEqual(1.2);
+    expect(metrics.navInsideHeader, `${width}px: navigation escapes the header`).toBe(true);
+  }
+});
+
 test("desktop dropdown supports hover and keyboard focus without submenu accent line", async ({ page, isMobile }) => {
   test.skip(isMobile, "Desktop-only interaction");
   const group = page.locator('.nav-group:has(> a[href="/steniatka"])');
@@ -204,8 +238,11 @@ test("mobile menu scrolls to the final items with Šteniatka expanded", async ({
   const puppyToggle = nav.locator('[aria-controls="mobile-submenu-steniatka"]');
   const puppySubmenu = nav.locator("#mobile-submenu-steniatka");
 
+  const chevron = puppyToggle.locator("svg");
+  const closedTransform = await chevron.evaluate((element) => getComputedStyle(element).transform);
   await puppyToggle.click();
   await expect(puppyToggle).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(async () => chevron.evaluate((element) => getComputedStyle(element).transform)).not.toBe(closedTransform);
 
   const transitionMs = await puppySubmenu.evaluate((element) => {
     const style = getComputedStyle(element);
