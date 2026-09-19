@@ -19,13 +19,15 @@ import styles from "./help-public.module.css";
 
 export type HelpCategoryCounts = Partial<Record<HelpCategorySlug, number>>;
 
-function categoryDestination(category: HelpCategorySlug) {
+type PublicHelpCategorySlug = (typeof helpCategories)[number]["slug"];
+
+function categoryDestination(category: PublicHelpCategorySlug) {
   if (category === "adopcia") return "/pomoc-psom/adopcia";
   if (category === "stratene-a-najdene") return "/pomoc-psom/stratene-psy";
   return helpCategoryHref({ slug: category });
 }
 
-function categoryActionLabel(category: HelpCategorySlug) {
+function categoryActionLabel(category: PublicHelpCategorySlug) {
   if (category === "adopcia") return "Zobraziť adopcie";
   if (category === "stratene-a-najdene") return "Zobraziť hlásenia";
   if (category === "utulky") return "Zobraziť organizácie";
