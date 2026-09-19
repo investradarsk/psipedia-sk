@@ -22,7 +22,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: "Organizácie", exact: true })).toBeVisible();
 
-  let row = page.getByRole("row").filter({ hasText: fixtureName });
+  let row = page.locator("article").filter({ hasText: fixtureName });
   await expect(row).toBeVisible();
   await expect(row).toContainText("Koncept");
   await expect(row).toContainText("READY");
@@ -32,7 +32,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   await row.getByRole("button", { name: "Publikovať", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Organizácia bola publikovaná");
 
-  row = page.getByRole("row").filter({ hasText: fixtureName });
+  row = page.locator("article").filter({ hasText: fixtureName });
   await expect(row).toContainText("Publikované");
   await expect(row).toContainText("Verejný profil");
   await expect(row.getByRole("button", { name: "Presunúť do konceptu", exact: true })).toBeEnabled();
@@ -44,7 +44,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   await row.getByRole("button", { name: "Presunúť do konceptu", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Organizácia bola presunutá do konceptu");
 
-  row = page.getByRole("row").filter({ hasText: fixtureName });
+  row = page.locator("article").filter({ hasText: fixtureName });
   await expect(row).toContainText("Koncept");
   await expect(row).toContainText("Neverejný profil");
   await expect(row.getByRole("button", { name: "Publikovať", exact: true })).toBeEnabled();
