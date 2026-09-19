@@ -6,6 +6,7 @@ const articleStore = readFileSync(new URL("../lib/article-store.ts", import.meta
 const sectionListing = readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
 const sectionDetail = readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
 const legacyDetail = readFileSync(new URL("../app/clanky/[slug]/page.tsx", import.meta.url), "utf8");
+const articleMagazine = readFileSync(new URL("../lib/article-magazine.ts", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const rootLayout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const breedStore = readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
@@ -37,10 +38,14 @@ test("article detail loads one body and related summaries with a database limit"
   assert.match(related, /LIMIT \?/);
   assert.match(related, /Math\.min\(6/);
   assert.doesNotMatch(related, /getPublishedArticles/);
-  assert.match(sectionDetail, /getRelatedPublishedArticles\(article, 3\)/);
-  assert.match(legacyDetail, /getRelatedPublishedArticles\(article, 3\)/);
+  assert.match(sectionDetail, /getArticleMagazineData\(article\)/);
+  assert.match(legacyDetail, /getArticleMagazineData\(article\)/);
+  assert.match(articleMagazine, /getRelatedPublishedArticles\(article, 6\)/);
+  assert.match(articleMagazine, /getPublishedArticleSummaries\(\{ portalSection: section, limit: 120 \}\)/);
+  assert.match(articleMagazine, /getPublishedArticleSummaries\(\{ limit: 40 \}\)/);
   assert.doesNotMatch(sectionDetail, /getPublishedArticles/);
   assert.doesNotMatch(legacyDetail, /getPublishedArticles/);
+  assert.doesNotMatch(articleMagazine, /getPublishedArticles/);
 });
 
 test("public HTML has a short edge cache while admin remains no-store", () => {
