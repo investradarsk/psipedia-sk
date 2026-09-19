@@ -67,7 +67,8 @@ test("Pomoc psom keeps the existing adoption category entry pointed at the new c
   assert.match(help, /label: "Psy na adopciu"/);
   assert.match(help, /return `\/pomoc-psom\/\$\{category\.slug\}`/);
   assert.match(page, /helpCategories\.map/);
-  assert.match(page, /href=\{helpCategoryHref\(category\)\}/);
+  assert.match(page, /category === "adopcia"\) return "\/pomoc-psom\/adopcia"/);
+  assert.match(page, /href=\{categoryDestination\(category\.slug\)\}/);
 });
 
 test("sitemap adoption filter includes fresh described ACTIVE profiles even without an optional image", () => {
@@ -105,7 +106,8 @@ test("public help, homepage and portal search no longer source legacy adoption r
   assert.match(helpStore, /category === "adopcia"\) return \[\]/);
   assert.match(helpStore, /category NOT IN \('adopcia', 'utulky'\) AND resolved = 0/);
   assert.match(helpRoot, /getPublicAdoptions\(\{ page: 1 \}\)/);
-  assert.match(helpRoot, /adoptionCount=\{adoptions\.pagination\.total\}/);
+  assert.match(helpRoot, /adopcia: adoptions\.pagination\.total/);
+  assert.match(helpRoot, /categoryCounts=\{categoryCounts\}/);
   assert.match(portalSearch, /listAllPublicAdoptions\(\)/);
   assert.match(portalSearch, /adoptionDetailPath\(dog\.slug\)/);
 });
