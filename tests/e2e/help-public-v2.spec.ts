@@ -77,18 +77,18 @@ test("Help Admin list is paged, accent-insensitive and keeps dedicated modules o
   const response=await page.goto("/admin/pomoc?q=E2E+bulk&status=draft",{waitUntil:"domcontentloaded"});
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading",{level:1,name:"Help prípady a výzvy"})).toBeVisible();
-  await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 64");
+  await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 65");
   await expect(page.locator(".admin-help-row")).toHaveCount(50);
   const moduleLinks=page.getByRole("navigation",{name:"Samostatné admin moduly"}).first();
   await expect(moduleLinks.getByRole("link",{name:"Adopcie",exact:true})).toHaveAttribute("href","/admin/adopcie");
   await expect(moduleLinks.getByRole("link",{name:"Stratené / nájdené",exact:true})).toHaveAttribute("href","/admin/stratene-najdene");
   await expect(moduleLinks.getByRole("link",{name:"Organizácie",exact:true})).toHaveAttribute("href","/admin/organizacie");
   await page.getByRole("link",{name:"Ďalšia →"}).click();
-  await expect(page.locator(".admin-help-row")).toHaveCount(14);
+  await expect(page.locator(".admin-help-row")).toHaveCount(15);
 
   await page.goto("/admin/pomoc?q=zlty");
   await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 1");
-  await expect(page.getByRole("heading",{name:"E2E Žltý bulk koncept"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"E2E bulk Žltý koncept"})).toBeVisible();
   await page.goto("/admin/pomoc?organization=zlta");
   await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 1");
   await page.goto("/admin/pomoc?location=zilina");
