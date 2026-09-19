@@ -300,7 +300,9 @@
   :global(.site-header) :global(.desktop-nav) {
     gap: 0;
     font-size: .66rem;
-    letter-spacing: .035em;
+    /* Production navigation labels are longer than local fixtures. Keep the
+       full desktop set inside 1280px without shrinking the readable type. */
+    letter-spacing: .015em;
   }
 
   :global(.site-header) :global(.desktop-nav) > a,
