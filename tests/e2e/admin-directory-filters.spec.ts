@@ -238,7 +238,7 @@ test.describe("admin directory v2", () => {
       page.getByLabel("Stav publikácie"),
       page.getByLabel("Kraj"),
       page.getByLabel("Okres"),
-      page.getByLabel("Mesto", { exact: true }),
+      page.locator('select[name="city"]'),
       page.getByLabel("Overenie"),
       page.getByLabel("Obrázok"),
       page.getByRole("button", { name: "Použiť filtre" }),
