@@ -1,11 +1,15 @@
 import { env } from "cloudflare:workers";
 
+export type ArticleFeedbackStatus = "new" | "reviewing" | "resolved" | "dismissed";
+
 export type ArticleFeedback = {
   id: number;
   articlePath: string;
   articleTitle: string;
   helpful: boolean;
   missingText: string;
+  status: ArticleFeedbackStatus;
+  attentionUpdatedAt: string | null;
   createdAt: string;
 };
 
@@ -22,10 +26,16 @@ type ArticleFeedbackRow = {
   article_title: string;
   helpful: number;
   missing_text: string;
+  status: string;
+  attention_updated_at: string | null;
   created_at: string;
 };
 
 type RuntimeBindings = { DB?: D1Database };
+
+const ARTICLE_FEEDBACK_COLUMNS = `
+  id, article_path, article_title, helpful, missing_text, status, attention_updated_at, created_at
+`;
 
 function requireDatabase() {
   const database = (env as unknown as RuntimeBindings).DB;
@@ -40,6 +50,14 @@ async function ensureArticleFeedbackStore(database: D1Database) {
   // Schema creation and indexes are handled by deployment migrations.
 }
 
+export function isArticleFeedbackStatus(value: unknown): value is ArticleFeedbackStatus {
+  return value === "new" || value === "reviewing" || value === "resolved" || value === "dismissed";
+}
+
+function normalizeStatus(value: string): ArticleFeedbackStatus {
+  return isArticleFeedbackStatus(value) ? value : "resolved";
+}
+
 function toFeedback(row: ArticleFeedbackRow): ArticleFeedback {
   return {
     id: row.id,
@@ -47,6 +65,8 @@ function toFeedback(row: ArticleFeedbackRow): ArticleFeedback {
     articleTitle: row.article_title,
     helpful: Boolean(row.helpful),
     missingText: row.missing_text,
+    status: normalizeStatus(row.status),
+    attentionUpdatedAt: row.attention_updated_at,
     createdAt: row.created_at,
   };
 }
@@ -74,15 +94,21 @@ export async function createArticleFeedback(payload: ArticleFeedbackInput) {
   const database = requireDatabase();
   await ensureArticleFeedbackStore(database);
   const input = normalizeInput(payload);
+  const now = new Date().toISOString();
+  const status: ArticleFeedbackStatus = input.helpful ? "resolved" : "new";
   const row = await database.prepare(`
-    INSERT INTO article_feedback (article_path, article_title, helpful, missing_text, created_at)
-    VALUES (?, ?, ?, ?, ?) RETURNING *
+    INSERT INTO article_feedback (
+      article_path, article_title, helpful, missing_text, status, attention_updated_at, created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING ${ARTICLE_FEEDBACK_COLUMNS}
   `).bind(
     input.articlePath,
     input.articleTitle,
     input.helpful ? 1 : 0,
     input.helpful ? "" : input.missingText,
-    new Date().toISOString(),
+    status,
+    input.helpful ? now : null,
+    now,
   ).first<ArticleFeedbackRow>();
   if (!row) throw new Error("Hodnotenie sa nepodarilo uložiť.");
   return toFeedback(row);
@@ -91,6 +117,26 @@ export async function createArticleFeedback(payload: ArticleFeedbackInput) {
 export async function listArticleFeedback() {
   const database = requireDatabase();
   await ensureArticleFeedbackStore(database);
-  const result = await database.prepare("SELECT id, article_path, article_title, helpful, missing_text, created_at FROM article_feedback ORDER BY created_at DESC LIMIT 250").all<ArticleFeedbackRow>();
+  const result = await database.prepare(`
+    SELECT ${ARTICLE_FEEDBACK_COLUMNS}
+    FROM article_feedback
+    ORDER BY
+      CASE WHEN helpful = 0 AND status IN ('new','reviewing') THEN 0 ELSE 1 END,
+      created_at DESC
+    LIMIT 250
+  `).all<ArticleFeedbackRow>();
   return result.results.map(toFeedback);
+}
+
+export async function updateArticleFeedbackStatus(id: number, status: ArticleFeedbackStatus) {
+  const database = requireDatabase();
+  await ensureArticleFeedbackStore(database);
+  const now = new Date().toISOString();
+  const row = await database.prepare(`
+    UPDATE article_feedback
+    SET status = ?, attention_updated_at = ?
+    WHERE id = ? AND helpful = 0
+    RETURNING ${ARTICLE_FEEDBACK_COLUMNS}
+  `).bind(status, now, id).first<ArticleFeedbackRow>();
+  return row ? toFeedback(row) : null;
 }
