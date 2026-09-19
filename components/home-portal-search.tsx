@@ -23,12 +23,12 @@ export function HomePortalSearch() {
           />
           <button type="submit">Nájsť všetko</button>
         </form>
-        <div className="home-search-shortcuts" aria-label="Obľúbené vyhľadávania">
+        <div className="home-search-shortcuts" aria-label="Rýchle vstupy">
           <span>Rýchlo:</span>
-          <Link href="/steniatka/prve-dni">Prvé dni doma</Link>
+          <Link href="/adresar">Služby</Link>
           <Link href="/plemena">Plemená</Link>
-          <Link href="/adresar/treneri">Tréneri</Link>
           <Link href="/podujatia">Podujatia</Link>
+          <Link href="/pomoc-psom">Pomoc psom</Link>
         </div>
       </div>
     </section>
