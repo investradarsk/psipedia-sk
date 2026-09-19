@@ -138,8 +138,8 @@ export default async function Home() {
           </div>
         ) : (
           <div className="home-editorial-empty" data-home-events-empty>
-            <strong>Kalendár práve dopĺňame</strong>
-            <p>Keď bude publikované najbližšie podujatie, zobrazí sa tu automaticky.</p>
+            <strong>Nové podujatia práve dopĺňame</strong>
+            <p>Pozri si celý kalendár a nájdi výstavy, tréningy či ďalšie akcie so psami.</p>
           </div>
         )}
         <div className="home-section-cta home-section-cta--quiet home-events-cta"><Link href="/podujatia" className="text-link">Celý kalendár <ArrowIcon size={17} /></Link></div>
@@ -181,8 +181,8 @@ export default async function Home() {
           </div>
         ) : (
           <div className="home-editorial-empty" data-home-veterinarians-empty>
-            <strong>Profily veterinárov sa dopĺňajú</strong>
-            <p>Adresár je dostupný aj vtedy, keď na homepage nemáme profil na zvýraznenie.</p>
+            <strong>Veterinárov nájdeš v adresári</strong>
+            <p>Prehľadaj ambulancie a kliniky podľa mesta alebo kraja.</p>
           </div>
         )}
       </section>
@@ -256,8 +256,8 @@ export default async function Home() {
           </div>
         ) : (
           <div className="home-editorial-empty" data-home-help-empty>
-            <strong>Žiadna otvorená výzva</strong>
-            <p>Aktuálne nemáme publikovaný nevyriešený prípad na zvýraznenie.</p>
+            <strong>Momentálne tu nie je otvorená výzva</strong>
+            <p>Pozri si všetky možnosti pomoci psom a organizáciám.</p>
           </div>
         )}
       </section>
