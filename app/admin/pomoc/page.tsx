@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { parseHelpAdminFilters } from "@/lib/help-admin-query";
 import { getManagedHelpDashboard } from "@/lib/help-store";
+import styles from "@/components/admin-help-bulk.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function AdminHelpPage({ searchParams }: { searchParams: Pr
     eyebrow="Pomoc psom"
     title="Help prípady a výzvy"
     description="Spravuj dočasnú opateru, zbierky, dobrovoľnícke výzvy a existujúce urgentné Help záznamy. Adopcie, stratené a nájdené psy aj organizácie majú vlastné canonical moduly."
-    actions={<Link className="admin-primary-action" href="/admin/pomoc/novy">+ Nový Help záznam</Link>}
+    actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/pomoc/novy">+ Nový Help záznam</Link>}
   >
     <AdminHelpDashboard key={selectionKey} data={data} filters={filters} />
   </AdminShell>;
