@@ -58,6 +58,23 @@ export async function getNavigationItems() {
   return result.results.length ? result.results.map(rowToItem) : defaultNavigationItems;
 }
 
+function normalizeInternalHref(value: string, label: string) {
+  const href = value.trim().slice(0, 240);
+  if (!href.startsWith("/") || href.startsWith("//")) {
+    throw new Error(`Adresa položky „${label}“ musí byť interná cesta začínajúca znakom /.`);
+  }
+  if (/[\\\u0000-\u001f\u007f\s]/.test(href) || /(^|\/)\.\.?($|\/)/.test(href)) {
+    throw new Error(`Adresa položky „${label}“ nie je platná interná cesta.`);
+  }
+  try {
+    const parsed = new URL(href, "https://psipedia.sk");
+    if (parsed.origin !== "https://psipedia.sk") throw new Error("external");
+  } catch {
+    throw new Error(`Adresa položky „${label}“ nie je platná interná cesta.`);
+  }
+  return href;
+}
+
 function normalizeItems(payload: unknown): NavigationItem[] {
   if (!Array.isArray(payload)) throw new Error("Zoznam navigácie nie je platný.");
   if (payload.length > 40) throw new Error("Navigácia môže mať najviac 40 položiek.");
@@ -66,20 +83,46 @@ function normalizeItems(payload: unknown): NavigationItem[] {
     const value = raw as Partial<NavigationItem>;
     const id = typeof value.id === "string" ? value.id.trim().slice(0, 80) : "";
     const label = typeof value.label === "string" ? value.label.trim().slice(0, 80) : "";
-    const href = typeof value.href === "string" ? value.href.trim().slice(0, 240) : "";
+    const rawHref = typeof value.href === "string" ? value.href : "";
     const parentId = typeof value.parentId === "string" && value.parentId.trim() ? value.parentId.trim().slice(0, 80) : null;
     if (!id || seen.has(id)) throw new Error("Každá položka musí mať jedinečný identifikátor.");
     if (!label) throw new Error(`Položka č. ${index + 1} nemá názov.`);
-    if (!href.startsWith("/") || href.startsWith("//")) throw new Error(`Adresa položky „${label}“ musí začínať znakom /.`);
+    const href = normalizeInternalHref(rawHref, label);
     seen.add(id);
     return { id, label, href, parentId, position: index, visible: value.visible !== false };
   });
   const ids = new Set(items.map((item) => item.id));
+  const byId = new Map(items.map((item) => [item.id, item]));
+
   for (const item of items) {
-    if (item.parentId && (!ids.has(item.parentId) || item.parentId === item.id)) throw new Error(`Podmenu položky „${item.label}“ nie je platné.`);
-    const parent = item.parentId ? items.find((candidate) => candidate.id === item.parentId) : null;
-    if (parent?.parentId) throw new Error("Navigácia podporuje jednu úroveň podmenu.");
+    if (item.parentId && (!ids.has(item.parentId) || item.parentId === item.id)) {
+      throw new Error(`Podmenu položky „${item.label}“ nemá platného rodiča.`);
+    }
+
+    const chain = new Set<string>([item.id]);
+    let current = item;
+    while (current.parentId) {
+      if (chain.has(current.parentId)) throw new Error("Navigácia obsahuje cyklus v parent/child väzbách.");
+      chain.add(current.parentId);
+      const parent = byId.get(current.parentId);
+      if (!parent) break;
+      current = parent;
+    }
+
+    const parent = item.parentId ? byId.get(item.parentId) : null;
+    if (parent?.parentId) throw new Error("Navigácia podporuje iba jednu úroveň podmenu.");
   }
+
+  const visibleTargets = new Map<string, string>();
+  for (const item of items.filter((candidate) => candidate.visible)) {
+    const key = item.href.toLocaleLowerCase("sk-SK");
+    const previous = visibleTargets.get(key);
+    if (previous) {
+      throw new Error(`Aktívne položky „${previous}“ a „${item.label}“ smerujú na rovnakú adresu ${item.href}.`);
+    }
+    visibleTargets.set(key, item.label);
+  }
+
   return items;
 }
 
