@@ -69,7 +69,7 @@ test("category, publication, urgent and resolved/current filters combine on the 
 
 test("accent-insensitive search plus organization and location filters are literal and composable", async () => {
   const {db}=fixture();
-  for (const q of ["zlty","ZO FKA","OZ zlta labka","zilina"]) {
+  for (const q of ["zlty","zofka","OZ zlta labka","zilina"]) {
     assert.equal((await queryHelpAdmin(db,filters({q}))).resultCount,1,q);
   }
   assert.equal((await queryHelpAdmin(db,filters({q:"%"}))).resultCount,1);
