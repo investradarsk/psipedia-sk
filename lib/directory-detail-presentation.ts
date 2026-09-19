@@ -41,13 +41,14 @@ export type DirectoryDetailPresentation = {
 };
 
 const unavailableValue = /^(?:neoveren[eé]|nezisten[eé]|neuveden[eé]|n\/a|nie je uveden[eé])$/i;
+const relationFields = ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Zastrešujúca organizácia"] as const;
 
 const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
   veterinari: ["Špecializácie", "Pohotovosť", "Hospitalizácia", "RTG", "USG", "Laboratórium"],
   treneri: ["Individuálny výcvik", "Skupinový výcvik", "Výcvik šteniat", "Behaviorálne poradenstvo", "Online konzultácie"],
   "kynologicke-kluby": ["Typ klubu", "Zameranie", "Organizácia", "Výcvik šteniat", "Individuálny výcvik", "Skupinový výcvik", "Športová kynológia", "Obrany", "Stopy", "Agility", "Rally obedience", "Retriever / poľovnícka kynológia"],
   "chovatelske-kluby": ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Zastrešujúca organizácia"],
-  "chovatelske-stanice": ["Plemeno", "Plemená", "FCI skupina", "Aktívny chov", "Aktuálne vrhy", "Plánované vrhy"],
+  "chovatelske-stanice": ["Plemeno", "Plemená", "FCI skupina", "Chovateľ", "Klub", "Aktívny chov", "Aktuálne vrhy", "Plánované vrhy"],
   "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa", "Online objednanie"],
   vencenie: ["Individuálne venčenie", "Skupinové venčenie", "Venčenie s tréningom", "Šteňatá", "Veľké psy", "Seniori / špeciálne potreby", "Vyzdvihnutie psa", "GPS / foto report", "Typ poskytovateľa"],
   fyzioterapia: ["Hydroterapia", "Laserterapia", "Magnetoterapia", "Elektroterapia", "Manuálne techniky", "Dogfitness / prevencia", "Pooperačná rehabilitácia", "Ortopedickí pacienti", "Neurologickí pacienti", "Športové / pracovné psy", "Mobilná služba", "Odborník / certifikácia"],
@@ -93,7 +94,8 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
   const instagramUrl = publicDirectoryDetailUrl(importedValue(profile, "Instagram"));
   const navigationQuery = [profile.address, profile.city, profile.district, profile.region, "Slovensko"].filter(Boolean).join(", ");
   const navigationUrl = profile.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(navigationQuery)}` : null;
-  const facts = (detailFields[profile.category] ?? []).flatMap((label) => {
+  const factLabels = [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
+  const facts = factLabels.flatMap((label) => {
     const value = usefulDirectoryDetailValue(importedValue(profile, label));
     return value ? [{ label, value }] : [];
   });

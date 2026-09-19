@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
 import { DirectoryPage } from "@/components/directory-page";
-import { getDirectoryCategoryCounts, listPublishedDirectoryProfiles, parseDirectoryFilters } from "@/lib/directory-store";
+import { StructuredData } from "@/components/structured-data";
+import { directoryCategories, directoryCategoryHref } from "@/lib/directory";
+import {
+  getDirectoryCategoryCounts,
+  getDirectoryCategoryPreviews,
+  listPublishedDirectoryProfiles,
+  parseDirectoryFilters,
+} from "@/lib/directory-store";
+import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
+const directoryDescription = "Veterinári, tréneri, psie školy, kluby a ďalšie služby pre psov na Slovensku.";
+
 export const metadata: Metadata = buildPageMetadata({
   title: "Služby pre psov",
-  description: "Veterinári, tréneri, psie školy, kluby a ďalšie služby pre psov na Slovensku.",
+  description: directoryDescription,
   path: "/adresar",
 });
 
@@ -15,13 +25,42 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 
 export default async function DirectoryHomePage({ searchParams }: Props) {
   const filters = parseDirectoryFilters(await searchParams);
-  const hasSearch = Boolean(filters.query || filters.category || filters.region || filters.district || filters.city || filters.service || filters.breed || filters.fciGroup || filters.organization || filters.profileType);
-  const [result, categoryCounts] = await Promise.all([
+  const hasSearch = Boolean(
+    filters.query || filters.category || filters.region || filters.district || filters.city ||
+    filters.service || filters.breed || filters.fciGroup || filters.organization || filters.profileType,
+  );
+  const [result, categoryCounts, categoryPreviews] = await Promise.all([
     hasSearch ? listPublishedDirectoryProfiles({ filters }) : Promise.resolve({
       profiles: [], total: 0, page: 1, pageSize: 24, totalPages: 1,
       options: { regions: [], districts: [], cities: [], services: [], breeds: [], fciGroups: [], organizations: [], profileTypes: [] },
     }),
     getDirectoryCategoryCounts(),
+    hasSearch ? Promise.resolve({}) : getDirectoryCategoryPreviews(3),
   ]);
-  return <DirectoryPage result={result} filters={filters} categoryCounts={categoryCounts} showResults={hasSearch} />;
+  const schema = hasSearch ? null : buildCollectionPageJsonLd({
+    name: "Služby pre psov",
+    description: directoryDescription,
+    path: "/adresar",
+    breadcrumbs: [
+      { name: "Domov", path: "/" },
+      { name: "Služby pre psov", path: "/adresar" },
+    ],
+    items: directoryCategories.map((category) => ({
+      name: category.label,
+      path: directoryCategoryHref(category),
+    })),
+  });
+
+  return (
+    <>
+      {schema && <StructuredData value={schema} />}
+      <DirectoryPage
+        result={result}
+        filters={filters}
+        categoryCounts={categoryCounts}
+        categoryPreviews={categoryPreviews}
+        showResults={hasSearch}
+      />
+    </>
+  );
 }

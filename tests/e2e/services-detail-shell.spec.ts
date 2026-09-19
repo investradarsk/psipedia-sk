@@ -21,6 +21,16 @@ test.describe("public services detail shell", () => {
     await expect(main.getByRole("heading", { name: "Praktické informácie", exact: true })).toBeVisible();
     await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toBeVisible();
     await expect(main.getByText("Nitra a okolie", { exact: true })).toBeVisible();
+    await expect(main.getByRole("link", { name: "Facebook ↗", exact: true })).toHaveAttribute("href", "https://facebook.com/example");
+    await expect(main.getByRole("link", { name: "Instagram ↗", exact: true })).toHaveAttribute("href", "https://instagram.com/example");
+
+    const schemaText = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("\n");
+    expect(schemaText, "SERVICES-PUBLIC structured data").toContain('"@type":"LocalBusiness"');
+    expect(schemaText).toContain('"telephone":"+421 900 123 456"');
+    expect(schemaText).toContain('"email":"detail-e2e@example.invalid"');
+    expect(schemaText).toContain("https://facebook.com/example");
+    expect(schemaText).toContain("https://instagram.com/example");
+    expect(schemaText).not.toContain("AggregateRating");
 
     expect(await heading.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -137,4 +147,18 @@ test.describe("public services detail shell", () => {
       .analyze();
     expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
   });
+
+  test("existing breed and organization relations on a public profile are visible", async ({ page }) => {
+    const response = await page.goto("/adresar/treneri/e2e-services-detail-long", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+
+    const main = page.locator("main#obsah");
+    await expect(main.getByRole("heading", { level: 1, name: "E2E Centrum komplexného výcviku, socializácie a behaviorálneho poradenstva pre psy" })).toBeVisible();
+    const facts = main.getByRole("heading", { name: "Odborné údaje", exact: true }).locator("xpath=ancestor::section[1]");
+    await expect(facts.getByText("Plemeno", { exact: true })).toBeVisible();
+    await expect(facts.getByText("Labradorský retriever", { exact: true })).toBeVisible();
+    await expect(facts.getByText("Organizácia", { exact: true })).toBeVisible();
+    await expect(facts.getByText("Fixture klub", { exact: true })).toBeVisible();
+  });
+
 });

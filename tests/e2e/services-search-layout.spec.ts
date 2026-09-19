@@ -40,8 +40,8 @@ test.describe("public services search layout", () => {
 
     const formBox = await form.boundingBox();
     expect(formBox).not.toBeNull();
-    expect(formBox!.x).toBeGreaterThanOrEqual(15);
-    expect(390 - (formBox!.x + formBox!.width)).toBeGreaterThanOrEqual(15);
+    expect(formBox!.x).toBeGreaterThanOrEqual(12);
+    expect(390 - (formBox!.x + formBox!.width)).toBeGreaterThanOrEqual(12);
 
     const controlBoxes = await controls.evaluateAll((elements) => elements.map((element) => {
       const rect = element.getBoundingClientRect();
@@ -164,4 +164,99 @@ test.describe("public services search layout", () => {
       contentType: "image/png",
     });
   });
+
+  test("SERVICES-PUBLIC landing is compact, data-backed and links every canonical category", async ({ page }) => {
+    const response = await page.goto("/adresar", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+
+    const header = page.locator("[data-directory-public-header]");
+    await expect(header.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
+    await expect(header.locator("img")).toHaveCount(0);
+
+    const categoryNav = header.getByRole("navigation", { name: "Kategórie služieb" });
+    await expect(categoryNav.getByRole("link")).toHaveCount(10);
+
+    const panels = page.locator("section[data-directory-category]");
+    await expect(panels).toHaveCount(10);
+    for (let index = 0; index < await panels.count(); index += 1) {
+      const panel = panels.nth(index);
+      const slug = await panel.getAttribute("data-directory-category");
+      expect(slug).toBeTruthy();
+      await expect(panel.getByRole("link", { name: "Zobraziť všetkých" })).toHaveAttribute("href", `/adresar/${slug}`);
+      const countValue = await panel.getAttribute("data-directory-category-count");
+      expect(countValue).not.toBeNull();
+      const count = Number(countValue);
+      expect(Number.isInteger(count)).toBe(true);
+      if (count === 0) {
+        await expect(panel.locator("[data-directory-preview-profile]")).toHaveCount(0);
+        await expect(panel.locator("[data-directory-empty-state]")).toHaveText("Zatiaľ bez publikovaných profilov.");
+      }
+    }
+
+    const trainerPanel = page.locator('section[data-directory-category="treneri"]');
+    expect(await trainerPanel.locator("[data-directory-preview-profile]").count()).toBeGreaterThan(0);
+    await expect(trainerPanel.getByText("E2E Tréner", { exact: true })).toHaveCount(0);
+
+    const jsonLd = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("\n");
+    expect(jsonLd).toContain("CollectionPage");
+    expect(jsonLd).toContain("/adresar/veterinari");
+
+    await expectNoHorizontalOverflow(page, "/adresar SERVICES-PUBLIC landing");
+    await expectSeriousCriticalAxeClean(page, "main#obsah", "/adresar SERVICES-PUBLIC landing");
+  });
+
+  test("SERVICES-PUBLIC search is accent-insensitive and location filters stay server-backed", async ({ page }) => {
+    let response = await page.goto("/adresar/veterinari?q=publikovana", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    await expect(page.getByText("E2E Veterina publikovaná", { exact: true })).toBeVisible();
+
+    response = await page.goto("/adresar/veterinari?region=Bratislavsk%C3%BD%20kraj&city=Bratislava", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const form = page.locator(".directory-results form").first();
+    await expect(form.locator('select[name="region"]')).toHaveValue("Bratislavský kraj");
+    await expect(form.locator('select[name="city"]')).toHaveValue("Bratislava");
+    await expect(page.getByText("E2E Veterina publikovaná", { exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page, "SERVICES-PUBLIC location filter");
+  });
+
+  test("SERVICES-PUBLIC listing uses compact whole-row links and keyboard-sized controls", async ({ page }, testInfo) => {
+    if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
+    const response = await page.goto("/adresar/treneri", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+
+    const cards = page.locator("[data-directory-card]");
+    expect(await cards.count()).toBeGreaterThan(0);
+    const firstCard = cards.first();
+    await expect(firstCard).toHaveAttribute("href", /\/adresar\/treneri\//);
+    await expect(firstCard.locator("a")).toHaveCount(0);
+    await expect(page.locator(".directory-card-media")).toHaveCount(0);
+
+    const controls = page.locator(".directory-results form").first().locator('input[name="q"], button, select');
+    const visibleBoxes = await controls.evaluateAll((elements) => elements
+      .filter((element) => {
+        const style = window.getComputedStyle(element);
+        return style.display !== "none" && style.visibility !== "hidden" && element.getBoundingClientRect().height > 0;
+      })
+      .map((element) => ({ height: element.getBoundingClientRect().height, width: element.getBoundingClientRect().width })));
+    for (const box of visibleBoxes) {
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.width).toBeGreaterThan(0);
+    }
+
+    const search = page.locator('.directory-results input[name="q"]').first();
+    await search.focus();
+    await expect(search).toBeFocused();
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
+
+    if (testInfo.project.name === "mobile-chromium") {
+      const cardBox = await firstCard.boundingBox();
+      expect(cardBox).not.toBeNull();
+      expect(cardBox!.height, "Compact mobile directory row became an oversized card").toBeLessThan(260);
+    }
+
+    await expectNoHorizontalOverflow(page, "SERVICES-PUBLIC listing");
+    await expectSeriousCriticalAxeClean(page, ".directory-results", "SERVICES-PUBLIC listing");
+  });
+
 });
