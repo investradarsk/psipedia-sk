@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  firstManualRelatedPath,
+  selectAutomaticMidRelated,
+  selectEndRelated,
+  selectLatestSidebar,
+} from "../lib/article-magazine-selection.ts";
 
 const detail = readFileSync("components/article-detail.tsx", "utf8");
 const blocks = readFileSync("components/article-blocks.tsx", "utf8");
@@ -21,6 +27,52 @@ function indexOfOrFail(source, value, message) {
   assert.notEqual(index, -1, message);
   return index;
 }
+
+function articleFixture(slug, overrides = {}) {
+  return {
+    slug,
+    title: slug,
+    category: "Zdravie",
+    portalSection: "starostlivost",
+    portalSubpage: "zdravie",
+    blocks: [],
+    ...overrides,
+  };
+}
+
+test("ARTICLE-2 recommendation selectors reject self-links and keep recommendation surfaces unique", () => {
+  const current = articleFixture("current");
+  const sameTopic = articleFixture("same-topic");
+  const wrongTopic = articleFixture("wrong-topic", { portalSubpage: "vyziva" });
+  const newest = [
+    articleFixture("current"),
+    sameTopic,
+    articleFixture("end-a"),
+    articleFixture("end-b"),
+    articleFixture("end-c"),
+    articleFixture("latest-a"),
+    articleFixture("latest-b"),
+  ];
+
+  assert.equal(selectAutomaticMidRelated(current, [current, wrongTopic, sameTopic])?.slug, "same-topic");
+  assert.equal(selectAutomaticMidRelated(current, [current, wrongTopic]), null);
+
+  const end = selectEndRelated(current, [current, sameTopic, newest[2], newest[2], newest[3], newest[4]], sameTopic, 3);
+  assert.deepEqual(end.map((item) => item.slug), ["end-a", "end-b", "end-c"]);
+
+  const sidebar = selectLatestSidebar(current, newest, sameTopic, end, 5);
+  assert.deepEqual(sidebar.map((item) => item.slug), ["latest-a", "latest-b"]);
+});
+
+test("ARTICLE-2 manual related selector accepts one clean internal article path only", () => {
+  const valid = articleFixture("current", { blocks: [{ id: "r1", type: "related", title: "Related", href: "/starostlivost/related" }] });
+  const external = articleFixture("current", { blocks: [{ id: "r1", type: "related", title: "Related", href: "https://example.com/related" }] });
+  const query = articleFixture("current", { blocks: [{ id: "r1", type: "related", title: "Related", href: "/starostlivost/related?preview=1" }] });
+
+  assert.equal(firstManualRelatedPath(valid), "/starostlivost/related");
+  assert.equal(firstManualRelatedPath(external), null);
+  assert.equal(firstManualRelatedPath(query), null);
+});
 
 test("ARTICLE-2 canonical article routes share one magazine data contract", () => {
   for (const route of [legacyRoute, canonicalRoute]) {
