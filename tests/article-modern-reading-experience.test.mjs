@@ -125,7 +125,7 @@ test("mid-article related card uses a structurally safe 30-50 percent block boun
   assert.match(detail, /contentAfterRelated/);
   assert.match(detail, /SÚVISIACI ČLÁNOK/);
   assert.match(detail, /className=\{styles\.midRelatedImage\}/);
-  assert.match(styles, /\.midRelatedLabel[\s\S]*color:\s*var\(--coral/);
+  assert.match(styles, /\.midRelatedLabel[\s\S]*color:\s*var\(--brand-accent-strong/);
 });
 
 test("editor-authored related blocks are removed from arbitrary body flow and sources stay at the article end", () => {
@@ -149,7 +149,7 @@ test("article header follows compact editorial hierarchy and keeps save/share wi
   assert.ok(kicker < title && title < excerpt && excerpt < meta && meta < favorite && favorite < compactShare && compactShare < figure);
   assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
   assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 8\.8/);
-  assert.match(styles, /max-height:\s*520px/);
+  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*max-height:\s*500px/);
 });
 
 test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {
@@ -157,7 +157,7 @@ test("desktop magazine layout keeps a readable 70/30 composition and truthful st
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*300px\)/);
   assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*96px/);
   assert.match(detail, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
-  assert.match(styles, /\.sidebarRank[\s\S]*color:\s*var\(--coral/);
+  assert.match(styles, /\.sidebarRank[\s\S]*color:\s*var\(--brand-accent-strong/);
   assert.match(detail, /<time dateTime=\{item\.dateIso\}>\{item\.date\}<\/time>/);
 });
 
