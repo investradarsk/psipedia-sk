@@ -313,6 +313,7 @@ test.describe("organization location admin CRUD", () => {
     await expect(page.getByText("Neverejná ORG-2C 1", { exact: true })).toHaveCount(0);
 
     await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("button", { name: "Uložiť organizáciu" })).toBeEnabled();
     created = page.locator("[data-location-id]").filter({ hasText: `${suffix} upravená` });
     page.once("dialog", (dialog) => dialog.accept());
     await created.getByRole("button", { name: "Odstrániť lokalitu" }).click();
