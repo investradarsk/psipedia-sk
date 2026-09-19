@@ -12,5 +12,12 @@ export default async function EditHelpCasePage({ params }: Props) {
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
   const user = await requireAdminPageUser(`/admin/pomoc/${id}`);
   const item = await getManagedHelpCaseById(numericId); if (!item) notFound();
-  return <AdminShell user={user} eyebrow={item.status === "published" ? "Publikovaný prípad" : "Rozpracovaný koncept"} title="Upraviť prípad pomoci" description="Zmeny ulož ako koncept alebo ich rovno publikuj."><AdminHelpEditor item={item} /></AdminShell>;
+  return <AdminShell
+    user={user}
+    eyebrow={item.status === "published" ? "Publikovaný Help záznam" : "Rozpracovaný Help koncept"}
+    title="Upraviť Help prípad"
+    description="Uprav iba canonical generic Help záznam. Publikačný stav, urgentnosť a vyriešenie zostávajú vedomé redakčné rozhodnutia."
+  >
+    <AdminHelpEditor item={item} />
+  </AdminShell>;
 }
