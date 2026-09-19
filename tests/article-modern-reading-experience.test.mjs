@@ -183,3 +183,20 @@ test("hero image accessibility metadata remains separate from visible caption an
   assert.match(detail, /safeExternalImageCreditUrl\(article\.imageCreditUrl\)/);
   assert.match(detail, /target="_blank" rel="noopener noreferrer"/);
 });
+
+
+test("canonical author presentation keeps a safe legacy fallback", () => {
+  assert.match(detail, /authorProfile\?\.displayName \|\| article\.author/);
+  assert.match(detail, /authorProfile\?\.avatarUrl/);
+  assert.match(detail, /authorProfile\?\.role/);
+  assert.match(articleStore, /export async function getPublishedArticleAuthorProfile/);
+  assert.match(articleStore, /getEditorialAuthorProfile\(database, authorProfileId, true\)/);
+});
+
+test("Novinky still uses the complete published reader and existing taxonomy", () => {
+  const newsHub = readFileSync("components/news-hub.tsx", "utf8");
+  assert.match(articleStore, /export async function getAllPublishedArticleSummaries/);
+  assert.match(newsHub, /newsCategories\.map/);
+  assert.match(newsHub, /newsArticles\.map/);
+  assert.match(newsHub, /<PublicContentList/);
+});
