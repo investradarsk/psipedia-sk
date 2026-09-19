@@ -75,6 +75,22 @@ test("SECTION-PUBLIC details use compact headers, preserve useful content and av
   await expect(urgent.getByRole("link", { name: "Nájsť veterinára" })).toBeVisible();
 });
 
+test("SECTION-PUBLIC article lists use title, topic and date only", async ({ page }) => {
+  for (const path of ALL_SECTION_PAGES) {
+    await page.goto(path);
+    const list = page.locator("[data-section-content-list]").first();
+    const items = list.locator("[data-article-list-item]");
+    const count = await items.count();
+    if (!count) continue;
+    const first = items.first();
+    await expect(first.locator("[data-article-title]")).toBeVisible();
+    await expect(first.locator("[data-article-topic]")).toBeVisible();
+    await expect(first.locator("[data-article-date]")).toBeVisible();
+    await expect(first.locator("p, img")).toHaveCount(0);
+    await expect(first).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať článok|Čítať novinku|Prečítať|Zistiť viac/i);
+  }
+});
+
 test("SECTION-PUBLIC navigation is keyboard-operable, touch-sized and locally scrollable at 390px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/aktivity");

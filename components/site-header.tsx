@@ -4,10 +4,12 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { NavigationItem } from "@/lib/navigation";
+import { resolveDogNameDay } from "@/lib/dog-name-days";
 import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
 import { NavigationProgress } from "./navigation-progress";
+import styles from "./site-header.module.css";
 
 export function SiteHeader({ navigationItems }: { navigationItems: NavigationItem[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -16,7 +18,10 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [openDesktopMenu, setOpenDesktopMenu] = useState<string | null>(null);
   const [openMobileMenu, setOpenMobileMenu] = useState<string | null>(null);
+  const [dogNameDays, setDogNameDays] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const menuReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   const suppressMenuFocus = useRef(false);
   const pathname = usePathname();
@@ -99,6 +104,65 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
   }, []);
 
   useEffect(() => {
+    function updateDogNameDay() {
+      const next = resolveDogNameDay(new Date());
+      setDogNameDays((current) => current.join("\u0000") === next.join("\u0000") ? current : next);
+    }
+    updateDogNameDay();
+    const timer = window.setInterval(updateDogNameDay, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const menu = mobileMenuRef.current;
+    const trigger = menuReturnFocusRef.current;
+    if (!menu || !trigger) return;
+
+    function focusableMenuItems() {
+      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
+        .filter((element) => element.offsetParent !== null && !element.closest("[inert]"));
+    }
+
+    function onMenuKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (openMobileMenu) {
+          const submenuToggle = menu.querySelector<HTMLButtonElement>(`[aria-controls="mobile-submenu-${openMobileMenu}"]`);
+          setOpenMobileMenu(null);
+          submenuToggle?.focus();
+          return;
+        }
+        setMenuOpen(false);
+        trigger.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusableMenuItems();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (active === trigger) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (!items.includes(active as HTMLElement)) {
+        event.preventDefault();
+        trigger.focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        trigger.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        trigger.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onMenuKeyDown);
+    return () => document.removeEventListener("keydown", onMenuKeyDown);
+  }, [menuOpen, openMobileMenu]);
+
+  useEffect(() => {
     if (!searchOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -125,6 +189,27 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
     setSearchOpen(true);
   }
 
+  function menuButton(className: string) {
+    return (
+      <button
+        className={`icon-button menu-trigger ${className}`}
+        type="button"
+        onClick={(event) => {
+          menuReturnFocusRef.current = event.currentTarget;
+          setMenuOpen((value) => {
+            if (value) setOpenMobileMenu(null);
+            return !value;
+          });
+        }}
+        aria-expanded={menuOpen}
+        aria-controls="mobile-menu"
+        aria-label={menuOpen ? "Zavrieť menu" : "Otvoriť menu"}
+      >
+        {menuOpen ? <CloseIcon /> : <MenuIcon />}
+      </button>
+    );
+  }
+
   return (
     <>
       <nav aria-label="Rýchla navigácia">
@@ -132,10 +217,16 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
       </nav>
       <header className="site-header" ref={headerRef}>
         <div className="header-inner shell public-shell">
-          <Link href="/" className="brand" aria-label="Psipedia.sk – domov">
-            <span className="brand-mark"><PawMark size={29} /></span>
-            <span>psi<span>pedia</span><small>.sk</small></span>
-          </Link>
+          {menuButton(styles.mobileLeftTrigger)}
+          <div className={styles.brandCluster}>
+            <Link href="/" className="brand" aria-label="Psipedia.sk – domov">
+              <span className="brand-mark"><PawMark size={29} /></span>
+              <span>psi<span>pedia</span><small>.sk</small></span>
+            </Link>
+            {dogNameDays.length > 0 ? (
+              <span className={styles.nameDay}>Psie meniny: <strong>{dogNameDays.join(", ")}</strong></span>
+            ) : null}
+          </div>
 
           <nav className="desktop-nav" aria-label="Hlavná navigácia">
             {nav.map((item) => item.children.length ? (
@@ -181,23 +272,11 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
               <BookmarkIcon />
               {favoriteCount > 0 && <b>{favoriteCount}</b>}
             </Link>
-            <button
-              className="icon-button menu-trigger"
-              type="button"
-              onClick={() => setMenuOpen((value) => {
-                if (value) setOpenMobileMenu(null);
-                return !value;
-              })}
-              aria-expanded={menuOpen}
-              aria-controls="mobile-menu"
-              aria-label={menuOpen ? "Zavrieť menu" : "Otvoriť menu"}
-            >
-              {menuOpen ? <CloseIcon /> : <MenuIcon />}
-            </button>
+            {menuButton(styles.menuRightTrigger)}
           </div>
         </div>
 
-        <div id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
+        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell public-shell" aria-label="Mobilná navigácia">
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>

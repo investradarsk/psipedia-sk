@@ -239,6 +239,14 @@ test("ARTICLE-PUBLIC Novinky exposes complete archive and category filters", asy
 
   const archive = page.getByRole("list", { name: "Všetky novinky" });
   await expect(archive.getByText("E2E výskum psov 2026")).toBeVisible();
+  const articleRows = archive.locator("[data-article-list-item]");
+  expect(await articleRows.count()).toBeGreaterThan(0);
+  const firstArticleRow = articleRows.first();
+  await expect(firstArticleRow.locator("[data-article-title]")).toBeVisible();
+  await expect(firstArticleRow.locator("[data-article-topic]")).toBeVisible();
+  await expect(firstArticleRow.locator("[data-article-date]")).toBeVisible();
+  await expect(firstArticleRow.locator("p, img")).toHaveCount(0);
+  await expect(firstArticleRow).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať novinku|Čítať článok|Prečítať|Zistiť viac/i);
   await expect(archive.getByText("E2E zaujímavosť zo sveta psov")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("aria-current", "page");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
@@ -248,6 +256,17 @@ test("ARTICLE-PUBLIC Novinky exposes complete archive and category filters", asy
   await expect(page.getByRole("list", { name: "Novinky: Veda a zdravie" }).getByText("E2E výskum psov 2026")).toBeVisible();
   await expect(page.getByText("E2E zaujímavosť zo sveta psov")).toHaveCount(0);
   await expectNoSeriousAccessibilityViolations(page);
+});
+
+test("PUBLIC-GLOBAL search keeps article results compact while retaining full-text matching", async ({ page }) => {
+  await page.goto("/hladat?q=E2E%20výskum");
+  const row = page.locator('[data-article-list-item][href*="/novinky/"]').first();
+  await expect(row).toBeVisible();
+  await expect(row.locator("[data-article-title]")).toBeVisible();
+  await expect(row.locator("[data-article-topic]")).toBeVisible();
+  await expect(row.locator("[data-article-date]")).toBeVisible();
+  await expect(row.locator("p, img, small")).toHaveCount(0);
+  await expect(row).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať novinku|Čítať článok|Prečítať|Zistiť viac/i);
 });
 
 test("ARTICLE-PUBLIC unknown article remains a real 404", async ({ page }) => {

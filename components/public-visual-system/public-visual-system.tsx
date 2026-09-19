@@ -153,6 +153,37 @@ export function PublicContentList({
   return <div className={cx(styles.contentList, className)} role="list" aria-label={label}>{children}</div>;
 }
 
+export function PublicArticleListItem({
+  href,
+  title,
+  topic,
+  date,
+  dateTime,
+  className,
+  listItem = true,
+}: {
+  href: string;
+  title: ReactNode;
+  topic: ReactNode;
+  date: ReactNode;
+  dateTime?: string;
+  className?: string;
+  listItem?: boolean;
+}) {
+  return (
+    <Link className={cx(styles.articleListItem, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
+      <span className={styles.articleListCopy}>
+        <strong className={styles.articleListTitle} data-article-title>{title}</strong>
+        <span className={styles.articleListMeta}>
+          <span className={styles.articleListTopic} data-article-topic>{topic}</span>
+          <span aria-hidden="true">·</span>
+          {dateTime ? <time dateTime={dateTime} data-article-date>{date}</time> : <span data-article-date>{date}</span>}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export function PublicContentListItem({
   href,
   title,

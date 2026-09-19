@@ -179,6 +179,15 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   ]);
   await expect(page.locator("h1")).toContainText(/Čo hľadáš\?|Hľadať|Výsledky/i);
   await gotoProductionPage(page, "/");
+  const ordinaryArticles = page.locator("[data-article-list-item]");
+  if (await ordinaryArticles.count()) {
+    const first = ordinaryArticles.first();
+    await expect(first.locator("[data-article-title]")).toBeVisible();
+    await expect(first.locator("[data-article-topic]")).toBeVisible();
+    await expect(first.locator("[data-article-date]")).toBeVisible();
+    await expect(first.locator("p, img")).toHaveCount(0);
+  }
+  await expect(page.locator(".article-card--large .article-card-meta")).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
   const breedSection = page.locator(".home-breed-day-section");
   await expect(breedSection).toBeVisible();
   await expect(breedSection.locator("h3")).not.toHaveText("");

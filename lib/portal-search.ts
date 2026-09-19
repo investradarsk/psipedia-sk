@@ -20,6 +20,7 @@ export type PortalSearchItem = {
   type: string;
   description: string;
   keywords: string;
+  articleMeta?: { topic: string; date: string; dateIso: string };
 };
 
 export function normalizePortalSearch(value: string) {
@@ -49,13 +50,18 @@ function baseSearchItems(articles: Article[], sections: PortalSection[], breeds:
       ...section.subpages.filter((subpage) => subpage.visible !== false).map((subpage) => ({ href: portalSubpageHref(section, subpage), title: subpage.label, type: section.label, description: subpage.description, keywords: `${section.label} ${section.description} ${(subpage.popularTopics ?? []).join(" ")} ${(subpage.commonQuestions ?? []).join(" ")}` })),
     ]),
     ...breeds.map((breed) => ({ href: `/plemena/${breed.slug}`, title: breed.name, type: "Plemeno", description: breed.intro || `${breed.officialFciName} · FCI skupina ${breed.fciGroup}`, keywords: `${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.origin} ${breed.searchText}` })),
-    ...articles.map((article) => ({
-      href: articleHref(article),
-      title: article.title,
-      type: articlePortalSection(article) === "novinky" ? "Novinka" : "Článok",
-      description: article.excerpt,
-      keywords: `${article.category} ${getNewsCategory(article.newsCategory)?.label ?? ""} ${article.intro} ${article.takeaway} ${article.seo?.focusKeyword ?? ""} ${articleBlockPlainText(article.blocks?.length ? article.blocks : legacyArticleBlocks(article.sections, article.sources))}`,
-    })),
+    ...articles.map((article) => {
+      const isNews = articlePortalSection(article) === "novinky";
+      const newsCategory = isNews ? getNewsCategory(article.newsCategory) : null;
+      return {
+        href: articleHref(article),
+        title: article.title,
+        type: isNews ? "Novinka" : "Článok",
+        description: article.excerpt,
+        keywords: `${article.category} ${newsCategory?.label ?? ""} ${article.intro} ${article.takeaway} ${article.seo?.focusKeyword ?? ""} ${articleBlockPlainText(article.blocks?.length ? article.blocks : legacyArticleBlocks(article.sections, article.sources))}`,
+        articleMeta: { topic: newsCategory?.shortLabel ?? article.category, date: article.date, dateIso: article.dateIso },
+      };
+    }),
   ];
 }
 

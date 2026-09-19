@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
+import { PublicArticleListItem } from "@/components/public-visual-system";
 import { filterPortalSearch, getPortalSearchIndex } from "@/lib/portal-search";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,17 @@ export default async function SearchPage({ searchParams }: Props) {
               {orderedGroups.map(([type, items]) => (
                 <section className="portal-search-group" key={type}>
                   <header><span>{type}</span><b>{items.length}</b></header>
-                  <div>{items.map((item) => <Link href={item.href} key={item.href}><span><strong>{item.title}</strong><small>{item.description}</small></span><ArrowIcon size={20} /></Link>)}</div>
+                  <div>{items.map((item) => item.articleMeta ? (
+                    <PublicArticleListItem
+                      key={item.href}
+                      href={item.href}
+                      title={item.title}
+                      topic={item.articleMeta.topic}
+                      date={item.articleMeta.date}
+                      dateTime={item.articleMeta.dateIso}
+                      listItem={false}
+                    />
+                  ) : <Link href={item.href} key={item.href}><span><strong>{item.title}</strong><small>{item.description}</small></span><ArrowIcon size={20} /></Link>)}</div>
                 </section>
               ))}
             </div>

@@ -1,16 +1,23 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { DOG_NAME_DAY_TIME_ZONE, dogNameDayDateKey, resolveDogNameDay } from "../lib/dog-name-days.ts";
 
 const source = readFileSync("components/public-visual-system/public-visual-system.tsx", "utf8");
 const styles = readFileSync("components/public-visual-system/public-visual-system.module.css", "utf8");
 const barrel = readFileSync("components/public-visual-system/index.ts", "utf8");
+const breedDetail = readFileSync("app/plemena/[slug]/page.tsx", "utf8");
+const searchPage = readFileSync("app/hladat/page.tsx", "utf8");
+const articleCard = readFileSync("components/article-card.tsx", "utf8");
+const editorialSection = readFileSync("components/editorial-section.tsx", "utf8");
+const newsHub = readFileSync("components/news-hub.tsx", "utf8");
 
 test("public visual system exposes opt-in public-only foundation primitives", () => {
   for (const name of [
     "PublicFoundation",
     "PublicSectionHeader",
     "PublicContentList",
+    "PublicArticleListItem",
     "PublicContentListItem",
     "PublicDataCard",
     "PublicActionLink",
@@ -75,4 +82,40 @@ test("mobile contract protects 390px layouts from horizontal overflow", () => {
   assert.match(styles, /max-width:\s*100%/);
   assert.match(styles, /overflow-wrap:\s*anywhere/);
   assert.doesNotMatch(styles, /position:\s*(?:fixed|sticky)/);
+});
+
+
+test("article list contract exposes only title, topic and publication date", () => {
+  const start = source.indexOf("export function PublicArticleListItem");
+  const end = source.indexOf("export function PublicContentListItem", start);
+  assert.ok(start >= 0 && end > start, "PublicArticleListItem contract is missing");
+  const contract = source.slice(start, end);
+  assert.match(contract, /title: ReactNode/);
+  assert.match(contract, /topic: ReactNode/);
+  assert.match(contract, /date: ReactNode/);
+  assert.match(contract, /<time dateTime=\{dateTime\} data-article-date>\{date\}<\/time>/);
+  assert.doesNotMatch(contract, /excerpt|readTime|actionLabel|image/);
+});
+
+test("dog name day resolver uses Europe\/Bratislava boundaries and fails closed", () => {
+  assert.equal(DOG_NAME_DAY_TIME_ZONE, "Europe/Bratislava");
+  assert.equal(dogNameDayDateKey(new Date("2026-09-18T21:59:00Z")), "09-18");
+  assert.equal(dogNameDayDateKey(new Date("2026-09-18T22:01:00Z")), "09-19");
+  assert.deepEqual(resolveDogNameDay(new Date("2026-09-19T10:00:00Z"), {}), []);
+  assert.deepEqual(resolveDogNameDay(new Date("2026-09-19T10:00:00Z"), {
+    "09-19": ["Bruno", " Bety ", "bruno", ""],
+  }), ["Bruno", "Bety"]);
+});
+
+
+test("global public article surfaces use the shared minimal presentation", () => {
+  assert.match(articleCard, /if \(!large\) return <ArticleListItem/);
+  assert.match(newsHub, /<ArticleListItem/);
+  assert.match(editorialSection, /<ArticleListItem/);
+  assert.match(breedDetail, /<PublicContentList label="Súvisiace články k plemenu">/);
+  assert.match(breedDetail, /<PublicArticleListItem/);
+  assert.match(searchPage, /<PublicArticleListItem/);
+  for (const [label, value] of [["article card", articleCard], ["news hub", newsHub], ["section lists", editorialSection]]) {
+    assert.doesNotMatch(value, /readTime[^\n]*čítania/, `${label} renders reading time`);
+  }
 });
