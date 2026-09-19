@@ -115,21 +115,23 @@ export default async function Home() {
           <div>
             <span className="eyebrow">Kalendár</span>
             <h2 id="home-events-title">Najbližšie podujatia</h2>
-            <p>Najbližšie publikované podujatia zoradené podľa dátumu.</p>
+            <p>Výstavy, tréningy, preteky a ďalšie podujatia zo sveta psov.</p>
           </div>
-          <Link href="/podujatia" className="text-link">Celý kalendár <ArrowIcon size={17} /></Link>
         </div>
         {nextEvents.length ? (
           <div className="home-event-list">
             {nextEvents.map((event) => (
               <article className="home-event-item" key={event.id} data-home-event>
                 <Link href={eventHref(event)}>
-                  <time dateTime={event.startDate}>{formatEventDate(event)}</time>
+                  <span className="home-event-media">
+                    {event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" /> : <span className="home-event-placeholder" aria-hidden="true"><PawMark size={30} /></span>}
+                  </span>
                   <span className="home-event-copy">
+                    <time dateTime={event.startDate}>{formatEventDate(event)}</time>
                     <strong>{event.title}</strong>
                     <span>{event.eventType} · {event.city}</span>
                   </span>
-                  <ArrowIcon size={18} />
+                  <span className="home-event-arrow" aria-hidden="true"><ArrowIcon size={18} /></span>
                 </Link>
               </article>
             ))}
@@ -140,12 +142,13 @@ export default async function Home() {
             <p>Keď bude publikované najbližšie podujatie, zobrazí sa tu automaticky.</p>
           </div>
         )}
+        <div className="home-section-cta home-section-cta--quiet home-events-cta"><Link href="/podujatia" className="text-link">Celý kalendár <ArrowIcon size={17} /></Link></div>
       </section>
 
       <HomeEditorialSection
         eyebrow="Šteniatka"
         title="Najnovšie pre dobrý štart"
-        description="Praktické články pre prvé mesiace so psom bez opakovania položiek z hlavného výberu."
+        description="Praktické rady pre prvé dni, výchovu, zdravie a spoločný život so šteniatkom."
         articles={articleSelection.bySection.steniatka}
         href="/steniatka"
         actionLabel="Všetko o šteniatkach"
@@ -157,7 +160,7 @@ export default async function Home() {
           <div>
             <span className="eyebrow">Veterinári</span>
             <h2 id="home-vets-title">Veterinárna starostlivosť na jednom mieste</h2>
-            <p>Priamy vstup do canonical adresára veterinárnych pracovísk. Bez predstieranej polohy a „najbližších“ výsledkov.</p>
+            <p>Veterinárne ambulancie a kliniky na jednom mieste. Vyber si podľa mesta alebo kraja.</p>
           </div>
           <Link href="/adresar/veterinari" className="text-link">Všetci veterinári <ArrowIcon size={17} /></Link>
         </div>
@@ -187,7 +190,7 @@ export default async function Home() {
       <HomeEditorialSection
         eyebrow="Zdravie a starostlivosť"
         title="Najnovšie o zdraví a každodennej starostlivosti"
-        description="Publikované články z canonical sekcie Zdravie a starostlivosť."
+        description="Praktické rady o zdraví, výžive, prevencii a každodennej starostlivosti."
         articles={articleSelection.bySection.starostlivost}
         href="/starostlivost"
         actionLabel="Zdravie a starostlivosť"
@@ -198,7 +201,7 @@ export default async function Home() {
         <div className="home-services-wide-copy">
           <span className="eyebrow">Služby pre psov</span>
           <h2 id="home-services-secondary-title">Aj ostatné služby pre každodenný život so psom</h2>
-          <p>Adresár nie je iba o veterinároch. Obsahuje aj ďalšie canonical kategórie služieb a profilov.</p>
+          <p>Nájdi trénerov, psie školy, salóny, opatrovanie, fyzioterapiu a ďalšie služby.</p>
           <div className="home-service-taxonomy" aria-label="Kategórie služieb">
             {otherServiceCategories.map((category) => <span key={category.slug}>{category.label}</span>)}
           </div>
@@ -209,7 +212,7 @@ export default async function Home() {
       <HomeEditorialSection
         eyebrow="Výcvik a aktivity"
         title="Najnovšie pre tréning, pohyb a spoločné aktivity"
-        description="Aktuálne publikované články z canonical sekcie Výcvik a aktivity."
+        description="Výcvik, pohyb, šport a aktivity pre lepší spoločný život so psom."
         articles={articleSelection.bySection.aktivity}
         href="/aktivity"
         actionLabel="Výcvik a aktivity"
@@ -221,7 +224,7 @@ export default async function Home() {
           <div>
             <span className="eyebrow">Aktuálne možnosti</span>
             <h2 id="home-help-title">Pomoc psom</h2>
-            <p>Publikované a stále aktívne prípady z canonical Help lifecycle.</p>
+            <p>Psy, organizácie a výzvy, ktoré práve potrebujú pomoc.</p>
           </div>
           <Link href="/pomoc-psom" className="text-link">Všetky možnosti pomoci <ArrowIcon size={17} /></Link>
         </div>
