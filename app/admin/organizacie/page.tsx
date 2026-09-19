@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { parseOrganizationAdminFilters } from "@/lib/help-organization-admin-query";
 import { getOrganizationAdminPage } from "@/lib/help-organization-admin-store";
+import styles from "@/components/admin-organization-publication.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function OrganizationPublicationAdminPage({ searchParams }:
     eyebrow="Pomoc psom"
     title="Organizácie"
     description="Canonical organization management: vyhľadávanie, filtre, editácia, lokality, fundraising a jasný publication lifecycle."
-    actions={<Link className="admin-primary-action" href="/admin/organizacie/novy">+ Nová organizácia</Link>}
+    actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/organizacie/novy">+ Nová organizácia</Link>}
   >
     <AdminOrganizationPublicationDashboard data={data} filters={filters} />
   </AdminShell>;
