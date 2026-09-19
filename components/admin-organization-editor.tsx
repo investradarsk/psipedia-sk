@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { AdminActionButton, AdminEditorSection, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { organizationAdminInputFromCandidate, type OrganizationAdminInput } from "@/lib/help-organization-admin-input";
@@ -45,12 +45,15 @@ function text(value: string | null) {
 export function AdminOrganizationEditor({ organization }: { organization?: OrganizationPublicationAdminItem | null }) {
   const router = useRouter();
   const [draft, setDraft] = useState<OrganizationAdminInput>(() => organization ? organizationAdminInputFromCandidate(organization) : blankInput());
+  const [hydrated, setHydrated] = useState(false);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(organization?.updatedAt ?? "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const archived = organization?.status === "ARCHIVED" || Boolean(organization?.archivedAt);
+  useEffect(() => setHydrated(true), []);
+
   const sections = useMemo(() => [
     { id: "organization-general", label: "Základné" },
     { id: "organization-content", label: "Verejný obsah" },
@@ -154,7 +157,7 @@ export function AdminOrganizationEditor({ organization }: { organization?: Organ
     {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
     <div className="admin-editor-actions">
       <div><Link href="/admin/organizacie">← Späť na organizácie</Link></div>
-      <div><AdminActionButton variant="primary" type="submit" disabled={archived || saving || uploading}>{saving ? "Ukladám…" : organization ? "Uložiť organizáciu" : "Vytvoriť koncept"}</AdminActionButton></div>
+      <div><AdminActionButton variant="primary" type="submit" disabled={!hydrated || archived || saving || uploading}>{saving ? "Ukladám…" : organization ? "Uložiť organizáciu" : "Vytvoriť koncept"}</AdminActionButton></div>
     </div>
   </form>;
 }
