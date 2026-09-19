@@ -240,15 +240,81 @@ export function AdminRichTextEditor({
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("https://");
   const [linkError, setLinkError] = useState("");
+  const [activeState, setActiveState] = useState<ActiveToolbarState>(EMPTY_TOOLBAR_STATE);
 
   const signature = JSON.stringify(normalizedDocument(value));
+
+  const captureSelectionAndToolbarState = useCallback(() => {
+    const root = editorRef.current;
+    if (!root) return;
+    const range = selectionInside(root);
+    if (!range) return;
+
+    savedRangeRef.current = range.cloneRange();
+    const block = nearestBlock(root, range.startContainer);
+    const blockTag = block?.tagName.toLowerCase() ?? "";
+    const callout = Boolean(block?.dataset.editorialCallout);
+    let link = false;
+    let current = range.startContainer instanceof HTMLElement
+      ? range.startContainer
+      : range.startContainer.parentElement;
+    while (current && current !== root) {
+      if (current.tagName.toLowerCase() === "a") {
+        link = true;
+        break;
+      }
+      current = current.parentElement;
+    }
+
+    setActiveState({
+      bold: queryCommandStateSafe("bold"),
+      italic: queryCommandStateSafe("italic"),
+      link,
+      paragraph: blockTag === "p" || (blockTag === "div" && !callout),
+      h2: blockTag === "h2",
+      h3: blockTag === "h3",
+      bulletList: blockTag === "ul" || queryCommandStateSafe("insertUnorderedList"),
+      orderedList: blockTag === "ol" || queryCommandStateSafe("insertOrderedList"),
+      blockquote: blockTag === "blockquote",
+      callout,
+    });
+  }, []);
+
+  const restoreEditorSelection = useCallback(() => {
+    const root = editorRef.current;
+    if (!root) return false;
+    root.focus({ preventScroll: true });
+    const selection = window.getSelection();
+    if (!selection) return false;
+
+    const saved = savedRangeRef.current;
+    if (saved && root.contains(saved.commonAncestorContainer)) {
+      selection.removeAllRanges();
+      selection.addRange(saved);
+      return true;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    savedRangeRef.current = range.cloneRange();
+    return true;
+  }, []);
 
   useEffect(() => {
     const root = editorRef.current;
     if (!root) return;
     if (signature !== lastEmittedRef.current) renderDocument(root, value);
     root.dataset.editorReady = "true";
-  }, [signature, value]);
+    captureSelectionAndToolbarState();
+  }, [captureSelectionAndToolbarState, signature, value]);
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", captureSelectionAndToolbarState);
+    return () => document.removeEventListener("selectionchange", captureSelectionAndToolbarState);
+  }, [captureSelectionAndToolbarState]);
 
   function emitChange() {
     const root = editorRef.current;
