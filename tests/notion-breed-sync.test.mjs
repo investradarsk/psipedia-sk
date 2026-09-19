@@ -65,6 +65,8 @@ test("breed images use reusable safe R2 ingestion", () => {
   assert.match(syncSource, /Alt text obrázka/);
   assert.match(sharedSource, /MAX_REMOTE_IMAGE_BYTES = 8 \* 1024 \* 1024/);
   assert.match(sharedSource, /redirect: "manual"/);
+  assert.match(sharedSource, /"User-Agent": "PsipediaNotionSync\/1\.0 \(\+https:\/\/psipedia\.sk\/kontakt\)"/);
+  assert.match(sharedSource, /"Api-User-Agent": "PsipediaNotionSync\/1\.0 \(\+https:\/\/psipedia\.sk\/kontakt\)"/);
   assert.match(sharedSource, /notionSourceHash/);
   assert.match(sharedSource, /bucket\.put\(key, remote\.bytes/);
   assert.match(syncSource, /cleanupNotionImageKeys\(bindings\.BUCKET, prepared\.replacedKeys\)/);

@@ -260,7 +260,11 @@ async function downloadRemoteImage(sourceUrl: string) {
   for (let redirectCount = 0; redirectCount <= MAX_REMOTE_IMAGE_REDIRECTS; redirectCount += 1) {
     const response = await fetch(url.toString(), {
       redirect: "manual",
-      headers: { Accept: "image/avif,image/webp,image/png,image/jpeg" },
+      headers: {
+        Accept: "image/avif,image/webp,image/png,image/jpeg",
+        "User-Agent": "PsipediaNotionSync/1.0 (+https://psipedia.sk/kontakt)",
+        "Api-User-Agent": "PsipediaNotionSync/1.0 (+https://psipedia.sk/kontakt)",
+      },
     });
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
