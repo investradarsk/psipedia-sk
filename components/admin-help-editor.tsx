@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import {
   defaultHelpActionLabel,
@@ -22,6 +22,7 @@ function slugify(value: string) {
 
 export function AdminHelpEditor({ item }: { item?: HelpCase }) {
   const [title, setTitle] = useState(item?.title ?? "");
+  const titleRef = useRef(item?.title ?? "");
   const [slug, setSlug] = useState(item?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(item));
   const [category, setCategory] = useState<HelpCategorySlug>(item?.category ?? "docasna-opatera");
@@ -54,6 +55,7 @@ export function AdminHelpEditor({ item }: { item?: HelpCase }) {
   const [error, setError] = useState("");
 
   function changeTitle(value: string) {
+    titleRef.current = value;
     setTitle(value); if (!slugEdited) setSlug(slugify(value));
   }
 
@@ -79,7 +81,7 @@ export function AdminHelpEditor({ item }: { item?: HelpCase }) {
       const response = await fetch(item ? `/api/admin/help/${item.id}` : "/api/admin/help", {
         method: item ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, slug, category, status: nextStatus, excerpt, description, organization, dogName, breed, ageNote, city, region, locationNote, reportedDate: reportedDate || null, deadlineDate: deadlineDate || null, actionLabel, actionUrl: actionUrl || null, contactNote, goalAmount: goalAmount || null, raisedAmount: raisedAmount || null, imageUrl: imageUrl || null, imageKey: imageKey || null, verified, urgent, resolved, seo }),
+        body: JSON.stringify({ title: titleRef.current, slug, category, status: nextStatus, excerpt, description, organization, dogName, breed, ageNote, city, region, locationNote, reportedDate: reportedDate || null, deadlineDate: deadlineDate || null, actionLabel, actionUrl: actionUrl || null, contactNote, goalAmount: goalAmount || null, raisedAmount: raisedAmount || null, imageUrl: imageUrl || null, imageKey: imageKey || null, verified, urgent, resolved, seo }),
       });
       const data = await response.json() as { item?: HelpCase; error?: string };
       if (!response.ok || !data.item) throw new Error(data.error || "Prípad sa nepodarilo uložiť.");
