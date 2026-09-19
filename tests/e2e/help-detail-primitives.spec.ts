@@ -91,7 +91,7 @@ test("Admin Help selects one, many, a page and all filtered drafts without writi
     if (body.action === "preflight") {
       preflights++;
       expect(body.targetStatus).toBe("published");
-      expect(body.selection).toEqual({ mode: "filter", filters: { category: "all", status: "draft", q: "" }, expectedCount: 65 });
+      expect(body.selection).toEqual({ mode: "filter", filters: { category: "all", status: "draft", urgent: "all", state: "all", organization: "", location: "", q: "" }, expectedCount: 65 });
       const items = Array.from({ length: 65 }, (_, index) => ({ id: 930001 + index, status: "draft", updatedAt: `snapshot-${index + 1}` }));
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ selectedCount: 65, changeCount: 65, items, targetStatus: "published" }) });
       return;
@@ -100,14 +100,14 @@ test("Admin Help selects one, many, a page and all filtered drafts without writi
     expect(body.action).toBe("apply");
     expect(body.confirmedCount).toBe(65);
     expect(body.items).toHaveLength(65);
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ changed: 65 }) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ requested: 65, changed: 65 }) });
   });
   page.once("dialog", async (dialog) => {
     expect(dialog.message()).toContain("Publikovať 65 záznamov?");
     await dialog.accept();
   });
   await page.getByRole("button", { name: "Publikovať", exact: true }).click();
-  await expect(page.getByText("Zmenených záznamov: 65.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Zmenených záznamov: 65 z 65 potvrdených.", { exact: true })).toBeVisible();
   expect(preflights).toBe(1);
   expect(applies).toBe(1);
   await expect(page.getByText("Označené: 0", { exact: true })).toBeVisible();
