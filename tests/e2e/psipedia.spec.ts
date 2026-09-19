@@ -166,6 +166,74 @@ test("portal SectionTabs never overlap the following content", async ({ page }) 
   }
 });
 
+test("article magazine detail is accessible and overflow-safe on desktop and 390px mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await gotoProductionPage(page, "/clanky");
+  const articleHref = await firstPublicLink(
+    page,
+    "main",
+    /^\/(?:clanky|steniatka|starostlivost|aktivity|novinky|recenzie)\/[^/?#]+$/,
+  );
+
+  await gotoProductionPage(page, articleHref);
+  const main = page.locator("main");
+  const headline = main.locator("h1");
+  await expect(headline).toBeVisible();
+  await expect(main).not.toContainText("Najčítanejšie");
+  await expect(main.locator(".article-hero-image, .article-hero-placeholder")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Uložiť medzi obľúbené|Odstrániť z obľúbených/ })).toBeVisible();
+  await expect(page.getByRole("group", { name: /Zdieľať/ }).first()).toBeVisible();
+
+  const desktopSidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+  if (await desktopSidebar.count()) {
+    await expect(desktopSidebar).toBeVisible();
+    await expect(desktopSidebar.locator("li")).toHaveCount(5);
+  }
+
+  const desktopOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(desktopOverflow, "Article detail overflows horizontally on desktop").toBeLessThanOrEqual(1);
+  await expectAxeClean(page, "Article magazine detail");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload({ waitUntil: "commit" });
+  await expect(headline).toBeVisible();
+
+  const headlineSize = await headline.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+  expect(headlineSize, "Mobile headline is too large").toBeLessThanOrEqual(35);
+
+  const heroBox = await main.locator(".article-hero-image, .article-hero-placeholder").boundingBox();
+  expect(heroBox, "Mobile article hero is missing").not.toBeNull();
+  expect(heroBox!.width, "Mobile article hero exceeds viewport").toBeLessThanOrEqual(390);
+
+  const saveButton = page.getByRole("button", { name: /Uložiť medzi obľúbené|Odstrániť z obľúbených/ });
+  const compactShareButton = page.getByRole("group", { name: /Zdieľať/ }).first().getByRole("button").first();
+  for (const control of [saveButton, compactShareButton]) {
+    const box = await control.boundingBox();
+    expect(box, "Article utility control is missing").not.toBeNull();
+    expect(box!.height, "Article utility touch target is under 44px").toBeGreaterThanOrEqual(44);
+  }
+
+  await saveButton.focus();
+  await expect(saveButton).toBeFocused();
+
+  const mobileSidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+  if (await mobileSidebar.count()) {
+    const [articleBox, sidebarBox] = await Promise.all([
+      main.locator(".article-prose").boundingBox(),
+      mobileSidebar.boundingBox(),
+    ]);
+    expect(articleBox).not.toBeNull();
+    expect(sidebarBox).not.toBeNull();
+    expect(sidebarBox!.y, "Mobile sidebar must stack below article content").toBeGreaterThanOrEqual(articleBox!.y + articleBox!.height - 1);
+  }
+
+  const midRelated = main.locator('aside[aria-label="Súvisiaci článok"]');
+  if (await midRelated.count()) await expect(midRelated.getByRole("link")).toBeVisible();
+
+  const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(mobileOverflow, "Article detail overflows horizontally at 390px").toBeLessThanOrEqual(1);
+});
+
 test("@production homepage search, CTA and Plemeno dňa work without JS errors", async ({ page }) => {
   await expectHealthyPage(page, "/");
   await expect(page.locator("h1")).toBeVisible();
