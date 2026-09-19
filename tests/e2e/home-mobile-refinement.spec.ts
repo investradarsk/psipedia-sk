@@ -14,7 +14,7 @@ test.beforeEach(async ({ page, baseURL }) => {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
-test("mobile homepage keeps the HOME-2 compact hero and exposes discovery above the fold", async ({ page }) => {
+test("mobile homepage keeps the compact hero and exposes discovery above the fold", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   if (process.env.HOME1_CAPTURE_PRODUCTION === "1") {
     await page.goto("https://psipedia.sk", { waitUntil: "domcontentloaded" });
@@ -57,7 +57,7 @@ test("mobile homepage keeps the HOME-2 compact hero and exposes discovery above 
   await page.screenshot({ path: ".e2e-artifacts/home-1/after-local-mobile-390x844.png" });
 });
 
-test("desktop homepage keeps the HOME-2 compact hero composition", async ({ page }) => {
+test("desktop homepage uses the HOME-3 compact hero composition", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
