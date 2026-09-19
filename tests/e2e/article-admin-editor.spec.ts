@@ -116,8 +116,25 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await h2.click();
     await expect(intro.locator("h2")).toHaveCount(1);
     await expect(h2).toHaveAttribute("aria-pressed", "true");
+
+    const h3 = introEditor.getByRole("button", { name: "Nadpis úrovne 3" });
+    await h3.click();
+    await expect(intro.locator("h3")).toHaveCount(1);
+    await expect(h3).toHaveAttribute("aria-pressed", "true");
+
+    const quote = introEditor.getByRole("button", { name: "Citácia" });
+    await quote.click();
+    await expect(intro.locator("blockquote")).toHaveCount(1);
+    await expect(quote).toHaveAttribute("aria-pressed", "true");
+
+    const callout = introEditor.getByRole("button", { name: "Tip alebo zvýraznenie" });
+    await callout.click();
+    await expect(intro.locator('[data-editorial-callout="tip"]')).toHaveCount(1);
+    await expect(callout).toHaveAttribute("aria-pressed", "true");
+
     await introEditor.getByRole("button", { name: "Odsek" }).click();
     await expect(intro.locator("p")).toHaveCount(1);
+    await expect(intro.locator("[data-editorial-callout]")).toHaveCount(0);
 
     await intro.selectText();
     await introEditor.getByRole("button", { name: "Vložiť odkaz" }).click();
@@ -146,6 +163,16 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.keyboard.press("Enter");
     await page.keyboard.type("Druhý krok");
     await expect(takeaway.locator("ol > li")).toHaveCount(2);
+
+    const bodyEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
+    const bodyWrapper = bodyEditor.locator("..");
+    await bodyEditor.focus();
+    await page.keyboard.type("Prvý odsek");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Druhý odsek");
+    await page.keyboard.press("Control+a");
+    await bodyWrapper.getByRole("button", { name: "Odrážkový zoznam" }).click();
+    await expect(bodyEditor.locator("ul > li")).toHaveCount(2);
   });
 
   test("rejects malicious paste/link and unsupported video while keeping optional fields optional", async ({ page }, testInfo) => {
