@@ -115,7 +115,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters }: {
               </div>
               <h2><Link href={"/admin/organizacie/" + item.id}>{item.name || "Bez názvu"}</Link></h2>
               <p>{item.shortDescription || item.description || "Bez verejného popisu"}</p>
-              <p className={styles.meta}>#{item.id} · /organizacie/{item.slug || "—"} · lokality {item.locationCount} · fundraising {item.fundraisingCount} · aktualizované {formatDate(item.updatedAt)}</p>
+              <p className={styles.meta}>#{item.id} · /organizacie/{item.slug || "—"} · lokality {item.locationCount} · fundraising {item.fundraisingCount} · adresár {item.directoryProfileId ? "#" + item.directoryProfileId : "—"} · aktualizované {formatDate(item.updatedAt)}</p>
               {item.completenessHints.length ? <div className={styles.hints} aria-label="Chýbajúce údaje">{item.completenessHints.map((hint) => <span key={hint}>{hint}</span>)}</div> : <div className={styles.hints}><span>Profil bez deterministických medzier</span></div>}
               {!item.preflight.ready && <p className={styles.preflight}><strong>Publication BLOCKED:</strong> {item.preflight.blockers.map((blocker) => blocker.message).join(" ")}</p>}
             </div>
