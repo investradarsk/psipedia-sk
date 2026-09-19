@@ -5,9 +5,12 @@ import { HelpCard } from "@/components/help-card";
 import { SearchIcon } from "@/components/icons";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { helpCategories, type HelpCase, type HelpCategorySlug } from "@/lib/help";
+import styles from "./help-public.module.css";
 
 type CategoryFilter = "all" | HelpCategorySlug;
 type RegionFilter = "all" | SlovakRegion;
+
+const dedicatedCategories = new Set<HelpCategorySlug>(["adopcia", "stratene-a-najdene"]);
 
 export function HelpBrowser({ items, initialCategory = "all" }: { items: HelpCase[]; initialCategory?: CategoryFilter }) {
   const [query, setQuery] = useState("");
@@ -15,10 +18,15 @@ export function HelpBrowser({ items, initialCategory = "all" }: { items: HelpCas
   const [region, setRegion] = useState<RegionFilter>("all");
   const [activeOnly, setActiveOnly] = useState(true);
 
+  const categoryOptions = useMemo(
+    () => helpCategories.filter((item) => !dedicatedCategories.has(item.slug) && (initialCategory === item.slug || items.some((entry) => entry.category === item.slug))),
+    [initialCategory, items],
+  );
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
     return items.filter((item) => {
-      const searchable = `${item.title} ${item.excerpt} ${item.organization} ${item.dogName} ${item.breed} ${item.city} ${item.region}`.toLocaleLowerCase("sk");
+      const searchable = [item.title, item.excerpt, item.organization, item.dogName, item.breed, item.city, item.region].join(" ").toLocaleLowerCase("sk");
       return (category === "all" || item.category === category)
         && (region === "all" || item.region === region)
         && (!activeOnly || !item.resolved)
@@ -27,19 +35,50 @@ export function HelpBrowser({ items, initialCategory = "all" }: { items: HelpCas
   }, [items, query, category, region, activeOnly]);
 
   function reset() {
-    setQuery(""); setCategory(initialCategory); setRegion("all"); setActiveOnly(true);
+    setQuery("");
+    setCategory(initialCategory);
+    setRegion("all");
+    setActiveOnly(true);
   }
 
   return (
-    <section className="help-results" aria-labelledby="help-results-heading">
-      <div className="help-toolbar">
-        <label className="help-search"><span>Hľadať pomoc</span><div><SearchIcon size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Meno psa, mesto alebo organizácia" /></div></label>
-        <label><span>Kategória</span><select value={category} onChange={(event) => setCategory(event.target.value as CategoryFilter)}><option value="all">Všetky kategórie</option>{helpCategories.filter((item) => item.slug !== "adopcia").map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></label>
-        <label><span>Kraj</span><select value={region} onChange={(event) => setRegion(event.target.value as RegionFilter)}><option value="all">Všetky kraje</option>{slovakRegions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
-        <label className="help-active-filter"><input type="checkbox" checked={activeOnly} onChange={(event) => setActiveOnly(event.target.checked)} /><span>Len aktívne prípady</span></label>
+    <section className={styles.results} aria-labelledby="help-results-heading">
+      <form className={styles.toolbar} onSubmit={(event) => event.preventDefault()} aria-label="Filtrovať pomoc">
+        <label>
+          <span className={styles.label}>Hľadať</span>
+          <div className={styles.searchBox}><SearchIcon size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Meno, mesto alebo organizácia" /></div>
+        </label>
+        {initialCategory === "all" ? <label>
+          <span className={styles.label}>Typ pomoci</span>
+          <select value={category} onChange={(event) => setCategory(event.target.value as CategoryFilter)}>
+            <option value="all">Všetky dostupné typy</option>
+            {categoryOptions.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}
+          </select>
+        </label> : null}
+        <label>
+          <span className={styles.label}>Kraj</span>
+          <select value={region} onChange={(event) => setRegion(event.target.value as RegionFilter)}>
+            <option value="all">Všetky kraje</option>
+            {slovakRegions.map((item) => <option value={item} key={item}>{item}</option>)}
+          </select>
+        </label>
+        <label className={styles.checkbox}><input type="checkbox" checked={activeOnly} onChange={(event) => setActiveOnly(event.target.checked)} /><span>Len aktívne</span></label>
+      </form>
+
+      <div className={styles.resultHeading}>
+        <div><h2 id="help-results-heading">{initialCategory === "all" ? "Aktuálne prípady a organizácie" : "Výsledky"}</h2><p>Výsledky zodpovedajú aktuálne zvoleným filtrom.</p></div>
+        <strong className={styles.resultCount}>{filtered.length} {filtered.length === 1 ? "záznam" : filtered.length > 1 && filtered.length < 5 ? "záznamy" : "záznamov"}</strong>
       </div>
-      <div className="help-result-heading"><div><span className="eyebrow">Aktuálne a overené</span><h2 id="help-results-heading">Kde je potrebná pomoc</h2></div><strong>{filtered.length} {filtered.length === 1 ? "prípad" : filtered.length > 1 && filtered.length < 5 ? "prípady" : "prípadov"}</strong></div>
-      {filtered.length ? <div className="help-grid">{filtered.map((item) => <HelpCard item={item} key={`${item.category}:${item.id}`} />)}</div> : <div className="help-empty"><span aria-hidden="true">❤️</span><h2>{items.length ? "Nenašli sme zhodu" : "Prvé overené prípady pripravujeme"}</h2><p>{items.length ? "Skús zmeniť kategóriu, kraj alebo zobraziť aj vybavené prípady." : "Sekcia je pripravená. Nové prípady sa zobrazia po redakčnom overení a publikovaní."}</p>{items.length > 0 && <button type="button" onClick={reset}>Zrušiť filtre</button>}</div>}
+
+      {filtered.length ? (
+        <div className={styles.grid}>{filtered.map((item) => <HelpCard item={item} key={item.category + ":" + item.id} />)}</div>
+      ) : (
+        <div className={styles.empty}>
+          <h2>Momentálne nemáme publikovaný prípad pre tieto filtre.</h2>
+          <p>Skúste zmeniť vyhľadávanie, kraj alebo zobraziť aj ukončené záznamy.</p>
+          {items.length > 0 ? <button type="button" onClick={reset}>Vyčistiť filtre</button> : null}
+        </div>
+      )}
     </section>
   );
 }
