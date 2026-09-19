@@ -239,6 +239,7 @@
   :global(.site-header) :global(.header-inner) {
     display: grid;
     width: min(calc(100% - 24px), 1760px);
+    max-width: 1760px;
     grid-template-columns: max-content minmax(0, 1fr) max-content;
     gap: clamp(8px, .7vw, 12px);
   }
@@ -271,21 +272,6 @@
 
   :global(.site-header) :global(.header-actions) {
     gap: 1px;
-  }
-}
-
-@media (min-width: 1200px) and (max-width: 1399px) {
-  .brandCluster :global(.brand-mark) {
-    display: none;
-  }
-
-  .brandCluster :global(.brand) {
-    font-size: 1.38rem;
-  }
-
-  :global(.site-header) :global(.nav-submenu-toggle) {
-    width: 21px;
-    margin-left: -5px;
   }
 }
 
