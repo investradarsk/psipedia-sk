@@ -75,10 +75,10 @@ test("desktop homepage uses the HOME-3 compact hero composition", async ({ page 
     imageFit: getComputedStyle(document.querySelector<HTMLElement>(".hero-image")!).objectFit,
   }));
 
-  // HOME-2 intentionally reduces the old 500px+ desktop hero while retaining
+  // HOME-3 makes the desktop hero materially shorter than HOME-2 while retaining
   // the same image-cover composition and keeping the portal search close by.
-  expect(metrics.heroHeight).toBeGreaterThanOrEqual(430);
-  expect(metrics.heroHeight).toBeLessThanOrEqual(500);
+  expect(metrics.heroHeight).toBeGreaterThanOrEqual(315);
+  expect(metrics.heroHeight).toBeLessThanOrEqual(370);
   expect(metrics.imageFit).toBe("cover");
   expect(metrics.overflow).toBeLessThanOrEqual(1);
   await expectNoSeriousAccessibilityViolations(page);
