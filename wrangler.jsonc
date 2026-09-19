@@ -26,7 +26,9 @@
     "NOTION_ARTICLE_SYNC_ENABLED": "true",
     "NOTION_ARTICLES_DATA_SOURCE_ID": "ae042534-c878-427e-bc76-ef587a8c61cf",
     "NOTION_BREED_SYNC_ENABLED": "true",
-    "NOTION_BREEDS_DATA_SOURCE_ID": "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2"
+    "NOTION_BREEDS_DATA_SOURCE_ID": "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2",
+    "NOTION_EVENT_SYNC_ENABLED": "true",
+    "NOTION_EVENTS_DATA_SOURCE_ID": "76d9ccde-5816-422c-bcfe-863ab69db080"
   },
   "observability": {
     "enabled": true,

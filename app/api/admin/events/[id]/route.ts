@@ -1,10 +1,11 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
+import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
-type UploadBindings = { BUCKET?: R2Bucket };
+type UploadBindings = NotionEventSyncBindings & { BUCKET?: R2Bucket; DB?: D1Database };
 
 async function numericId(params: Props["params"]) {
   const value = Number.parseInt((await params).id, 10);
@@ -39,6 +40,22 @@ export async function PUT(request: Request, { params }: Props) {
     if (before.imageKey && before.imageKey !== event.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
+    }
+    if (before.status !== "published" && event.status === "published") {
+      const bindings = env as unknown as UploadBindings;
+      if (bindings.DB) {
+        await writeBackPublishedEventToNotion({
+          database: bindings.DB,
+          bindings,
+          event,
+        }).catch((error) => {
+          console.error(JSON.stringify({
+            event: "notion_event_publish_writeback_failed",
+            eventId: event.id,
+            error: error instanceof Error ? error.message : String(error),
+          }));
+        });
+      }
     }
     return Response.json({ event });
   } catch (error) { return errorResponse(error); }
