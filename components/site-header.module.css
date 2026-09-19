@@ -275,6 +275,12 @@
   }
 }
 
+@media (min-width: 1200px) and (max-width: 1399px) {
+  :global(.site-header) :global(.header-inner) {
+    gap: 4px;
+  }
+}
+
 @media (min-width: 1800px) {
   .brandCluster {
     grid-template-columns: max-content minmax(0, 190px);
