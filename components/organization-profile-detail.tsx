@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
+import { LocationIcon } from "@/components/help-public-icons";
 import {
   DetailActions,
   DetailContactsCard,
@@ -120,7 +121,7 @@ export function OrganizationProfileDetail({ composition }: { composition: Public
         <p className={styles.eyebrow}>Pomoc psom · organizácia</p>
         <h1>{organization.name}</h1>
         {presentation.shortDescription ? <p className={styles.lead}>{presentation.shortDescription}</p> : null}
-        {presentation.location ? <p className={styles.location} data-organization-location-summary>📍 {presentation.location}</p> : null}
+        {presentation.location ? <p className={styles.location} data-organization-location-summary><LocationIcon size={16} /> {presentation.location}</p> : null}
       </SectionHero>
 
       <PageContainer className={styles.content}>
