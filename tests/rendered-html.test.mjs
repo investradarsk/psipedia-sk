@@ -250,6 +250,10 @@ test("renders the portal homepage", async () => {
   assert.ok(html.indexOf("<h2 id=\"home-aktivity-title\">Najnovšie pre tréning, pohyb a spoločné aktivity</h2>") < html.indexOf("<h2 id=\"home-help-title\">Pomoc psom</h2>"));
   assert.doesNotMatch(html, /Vybrané redakciou/);
   assert.doesNotMatch(html, /Novinky zo sveta psov/);
+  assert.doesNotMatch(html, /Najnovšie publikovaný obsah naprieč Psipediou/);
+  assert.doesNotMatch(html, /Najbližšie publikované podujatia zoradené podľa dátumu/);
+  assert.doesNotMatch(html, /Priamy vstup do canonical adresára/);
+  assert.doesNotMatch(html, /Všetky novinky/);
   assert.doesNotMatch(html, /Psipedia je viac než magazín/);
   assert.doesNotMatch(html, /Portál, ktorý sa hýbe s komunitou/);
   assert.doesNotMatch(html, /Vyber si, koho hľadáš/);
