@@ -125,8 +125,14 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
     { width: 768, height: 900 },
     { width: 1024, height: 900 },
     { width: 1180, height: 900 },
+    { width: 1280, height: 900 },
+    { width: 1366, height: 900 },
     { width: 1440, height: 900 },
+    { width: 1536, height: 900 },
+    { width: 1600, height: 900 },
     { width: 1648, height: 900 },
+    { width: 1700, height: 900 },
+    { width: 1920, height: 900 },
   ]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
@@ -147,6 +153,10 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
       const actions = rect(document.querySelector(".header-actions"));
       const hamburger = rect(document.querySelector('button[aria-controls="mobile-menu"]'));
       const header = document.querySelector<HTMLElement>(".site-header")!;
+      const navItems = Array.from(document.querySelectorAll(".desktop-nav > a, .desktop-nav > .nav-group")).map(rect).filter(Boolean) as Array<{ left: number; right: number; top: number; bottom: number }>;
+      const actionItems = Array.from(document.querySelectorAll(".header-actions > a, .header-actions > button")).map(rect).filter(Boolean) as Array<{ left: number; right: number; top: number; bottom: number }>;
+      const overlapsWithin = (items: Array<{ left: number; right: number; top: number; bottom: number }>) =>
+        items.some((item, index) => index > 0 && item.left < items[index - 1].right - 0.5 && item.top < items[index - 1].bottom && item.bottom > items[index - 1].top);
       return {
         brand,
         secondary,
@@ -158,6 +168,10 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
         brandActionsOverlap: intersects(brand, actions),
         navActionsOverlap: intersects(nav, actions),
         brandHamburgerOverlap: intersects(brand, hamburger),
+        navItemsOverlap: overlapsWithin(navItems),
+        actionItemsOverlap: overlapsWithin(actionItems),
+        navChildrenEscape: Boolean(nav && navItems.some((item) => item.left < nav.left - 1 || item.right > nav.right + 1)),
+        actionsChildrenEscape: Boolean(actions && actionItems.some((item) => item.left < actions.left - 1 || item.right > actions.right + 1)),
         overflow: header.scrollWidth - header.clientWidth,
       };
     });
@@ -168,6 +182,10 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
     expect(geometry.brandActionsOverlap, `${viewport.width}px: utility actions overlap brand`).toBe(false);
     expect(geometry.navActionsOverlap, `${viewport.width}px: utility actions overlap desktop navigation`).toBe(false);
     expect(geometry.brandHamburgerOverlap, `${viewport.width}px: hamburger overlaps brand`).toBe(false);
+    expect(geometry.navItemsOverlap, `${viewport.width}px: top-level navigation items overlap`).toBe(false);
+    expect(geometry.actionItemsOverlap, `${viewport.width}px: utility actions overlap each other`).toBe(false);
+    expect(geometry.navChildrenEscape, `${viewport.width}px: navigation children escape their grid track`).toBe(false);
+    expect(geometry.actionsChildrenEscape, `${viewport.width}px: utility children escape their grid track`).toBe(false);
     expect(geometry.overflow, `${viewport.width}px: header horizontal overflow`).toBeLessThanOrEqual(1);
   }
 });
@@ -175,7 +193,7 @@ test("header brand stays collision-free from 390px through narrow desktop", asyn
 test("desktop brand header stays uppercase and overflow-free at target widths", async ({ page, isMobile }) => {
   test.skip(isMobile, "Desktop-only BRAND-1 regression");
 
-  for (const width of [1280, 1366, 1440, 1648, 1700]) {
+  for (const width of [1280, 1366, 1440, 1536, 1600, 1648, 1700, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
 
@@ -194,6 +212,7 @@ test("desktop brand header stays uppercase and overflow-free at target widths", 
         documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         textTransform: getComputedStyle(first).textTransform,
         letterSpacing: Number.parseFloat(getComputedStyle(first).letterSpacing),
+        fontSize: Number.parseFloat(getComputedStyle(first).fontSize),
         navInsideHeader: navBox.left >= headerBox.left - 1 && navBox.right <= headerBox.right + 1,
       };
     });
@@ -202,6 +221,7 @@ test("desktop brand header stays uppercase and overflow-free at target widths", 
     expect(metrics.documentOverflow, `${width}px: document overflow`).toBeLessThanOrEqual(1);
     expect(metrics.textTransform, `${width}px: main navigation is not uppercase`).toBe("uppercase");
     expect(metrics.letterSpacing, `${width}px: navigation tracking is excessive`).toBeLessThanOrEqual(1.2);
+    expect(metrics.fontSize, `${width}px: navigation text became unreadably small`).toBeGreaterThanOrEqual(10.5);
     expect(metrics.navInsideHeader, `${width}px: navigation escapes the header`).toBe(true);
   }
 });
