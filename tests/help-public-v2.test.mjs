@@ -15,6 +15,12 @@ const adoption = read("components/adoption-catalog.tsx");
 const lostFound = read("components/lost-found-dogs-page.tsx");
 const detail = read("components/help-details/help-detail-shell.tsx");
 const organization = read("components/organization-profile-detail.tsx");
+const adminDashboard = read("components/admin-help-dashboard.tsx");
+const adminEditor = read("components/admin-help-editor.tsx");
+const adminQuery = read("lib/help-admin-query.ts");
+const adminStore = read("lib/help-store.ts");
+const adminImport = read("lib/help-import-preview.ts");
+const adminStyles = read("components/admin-help-bulk.module.css");
 
 const emojiUi = /[🐾🔎📍📅🚨❤️🛡️🐕🤝🏠🛟💛]/u;
 
@@ -83,4 +89,24 @@ test("empty states and 390px mobile contract are explicit", () => {
   assert.match(styles, /grid-template-columns:1fr/);
   assert.match(styles, /min-height:44px/);
   assert.doesNotMatch(styles, /overflow-x:\s*(?:scroll|auto)/);
+});
+
+
+test("Help Admin owns only generic Help and routes dedicated domains to their canonical admins", () => {
+  assert.match(adminQuery, /HELP_ADMIN_DEDICATED_CATEGORIES = \["adopcia", "utulky", "stratene-a-najdene"\]/);
+  assert.match(adminQuery, /HELP_ADMIN_CREATE_CATEGORIES = \["docasna-opatera", "zbierky", "dobrovolnictvo"\]/);
+  assert.match(adminDashboard, /href="\/admin\/adopcie"/);
+  assert.match(adminDashboard, /href="\/admin\/stratene-najdene"/);
+  assert.match(adminDashboard, /href="\/admin\/organizacie"/);
+  assert.match(adminEditor, /HELP_ADMIN_CREATE_CATEGORIES/);
+  assert.doesNotMatch(adminEditor, /helpCategories\.filter/);
+  assert.match(adminStore, /Adopcie sa spravujú v canonical sekcii Adopcie/);
+  assert.match(adminStore, /Lost\/Found sekcii/);
+  assert.match(adminImport, /isHelpAdminDedicatedCategory/);
+});
+
+test("Help Admin mobile controls declare touch-safe targets without changing shared AdminShell", () => {
+  assert.match(adminStyles, /min-height:44px/);
+  assert.match(adminStyles, /@media\(max-width:760px\)/);
+  assert.match(adminStyles, /grid-template-columns:1fr/);
 });

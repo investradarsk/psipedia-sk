@@ -71,9 +71,16 @@ INSERT INTO help_cases (
   goal_amount, raised_amount, verified, urgent, resolved, created_at, updated_at, published_at, created_by, updated_by
 )
 SELECT
-  930000 + n, 'e2e-bulk-draft-' || n, 'E2E bulk koncept ' || n, 'adopcia', 'draft',
+  930000 + n, 'e2e-bulk-draft-' || n,
+  CASE WHEN n = 65 THEN 'E2E Žltý bulk koncept' ELSE 'E2E bulk koncept ' || n END,
+  'dobrovolnictvo', 'draft',
   'Lokálny koncept pre bezpečný E2E test.', 'Tento záznam existuje iba v lokálnej testovacej D1 a nesmie sa publikovať.',
-  'E2E bulk organizácia', '', '', '', CASE WHEN n % 2 = 0 THEN 'Trnava' ELSE 'Nitra' END, 'Nitriansky kraj', '',
-  NULL, NULL, 'Zistiť viac', NULL, '', NULL, NULL, 0, 0, 0,
+  CASE WHEN n = 65 THEN 'E2E Žltá organizácia' ELSE 'E2E bulk organizácia' END, '', '', '',
+  CASE WHEN n = 65 THEN 'Žilina' WHEN n % 2 = 0 THEN 'Trnava' ELSE 'Nitra' END,
+  CASE WHEN n = 65 THEN 'Žilinský kraj' ELSE 'Nitriansky kraj' END,
+  CASE WHEN n = 65 THEN 'Čadca a okolie' ELSE '' END,
+  NULL, NULL, 'Zistiť viac', NULL, '', NULL, NULL, 0,
+  CASE WHEN n = 64 THEN 1 ELSE 0 END,
+  CASE WHEN n = 63 THEN 1 ELSE 0 END,
   '2026-09-14T11:00:00Z', printf('2026-09-14T11:%02d:00Z', n % 60), NULL, 'E2E_LOCAL', 'E2E_LOCAL'
 FROM seq;
