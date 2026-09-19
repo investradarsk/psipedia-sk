@@ -24,13 +24,15 @@ test.describe("CONTACT 2.0", () => {
     expect(response?.status()).toBe(200);
 
     await expect(page.getByRole("heading", { level: 1, name: "Ako ti môžeme pomôcť?" })).toBeVisible();
-    await expect(page.locator("[data-contact-routes] [data-contact-route]")).toHaveCount(8);
+    await expect(page.locator("[data-contact-routes] [data-contact-route]")).toHaveCount(10);
 
     await expect(page.locator('[data-contact-route="content-error"]')).toHaveAttribute("href", "/opravy-a-podnety");
     await expect(page.locator('[data-contact-route="news-tip"]')).toHaveAttribute("href", "/novinky/poslat-tip");
     await expect(page.locator('[data-contact-route="directory-inquiry"]')).toHaveAttribute("href", "/adresar");
     await expect(page.locator('[data-contact-route="directory-change"]')).toHaveAttribute("href", "/adresar");
-    await expect(page.locator('[data-contact-route="help"]')).toHaveAttribute("href", "/pomoc-psom/nahlasit-psa-v-nudzi");
+    await expect(page.locator('[data-contact-route="lost-dog"]')).toHaveAttribute("href", "/pomoc-psom/stratene-psy");
+    await expect(page.locator('[data-contact-route="found-dog"]')).toHaveAttribute("href", "/pomoc-psom/najdene-psy");
+    await expect(page.locator('[data-contact-route="dog-in-need"]')).toHaveAttribute("href", "/pomoc-psom/nahlasit-psa-v-nudzi");
 
     await expect(page.locator('[data-contact-route="general"]')).toHaveAttribute("href", /^mailto:psipedia\.sk@gmail\.com\?subject=/);
     await expect(page.locator('[data-contact-route="missing-service"]')).toHaveAttribute("href", /^mailto:psipedia\.sk@gmail\.com\?subject=/);
