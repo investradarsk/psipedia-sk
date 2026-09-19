@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
-import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
-import { bratislavaDateKey, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
+import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { bratislavaDateKey, eventDateStatus, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
+import styles from "./events-public.module.css";
 
 const pageCopy: Record<string, { title: string; description: string }> = {
   Všetky: { title: "Podujatia", description: "Výstavy, preteky, semináre, tréningy a stretnutia pre psí svet na jednom mieste." },
@@ -23,43 +24,48 @@ export function EventsPage({
   section?: PortalSection;
 }) {
   const copy = pageCopy[initialType] ?? pageCopy.Všetky;
-  const heroImage = events.find((event) => event.imageUrl)?.imageUrl || "/images/trening-pri-nohe.webp";
   const isMainListing = initialType === "Všetky";
   const title = isMainListing ? section?.label ?? copy.title : copy.title;
   const description = isMainListing ? section?.description ?? copy.description : copy.description;
   const intro = isMainListing ? section?.intro : undefined;
+  const today = bratislavaDateKey();
+  const activeCount = events.filter((event) => !event.cancelled && eventDateStatus(event, today) !== "past").length;
 
   return (
     <main id="obsah">
-      <SectionHero className="event-calendar-hero event-calendar-hero--photo" image={heroImage}>
-        <Breadcrumbs>
-          <Link href="/">Domov</Link><span>/</span>{isMainListing ? <span>Podujatia</span> : <><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span></>}
-        </Breadcrumbs>
-        <span className="eyebrow">Čo sa deje</span>
-        <h1>{title}</h1>
-        <p>{description}</p>
-        {intro && <p className="portal-hero-intro">{intro}</p>}
-      </SectionHero>
-
-      <section className="event-calendar-section" aria-labelledby="event-listing-heading">
+      <header className={styles.pageHeader}>
         <PageContainer>
-          <div className="section-heading split-heading">
+          <Breadcrumbs className={styles.breadcrumbs}>
+            <Link href="/">Domov</Link><span>/</span>{isMainListing ? <span>Podujatia</span> : <><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span></>}
+          </Breadcrumbs>
+          <div className={styles.headerContent}>
             <div>
-              <span className="eyebrow">Kalendár</span>
-              <h2 id="event-listing-heading">Kalendár podujatí</h2>
+              <span className="eyebrow">Kalendár a databáza</span>
+              <h1>{title}</h1>
+              <p className={styles.headerDescription}>{description}</p>
+              {intro && <p className={styles.headerIntro}>{intro}</p>}
             </div>
-            <p>Výstavy, preteky, semináre a ďalšie typy môžeš filtrovať podľa kraja, termínu alebo hľadať podľa názvu, mesta či organizátora.</p>
+            {activeCount > 0 && (
+              <div className={styles.activeCount} aria-label={activeCount + " aktívnych podujatí"}>
+                <strong>{activeCount}</strong>
+                <span>aktívnych termínov</span>
+              </div>
+            )}
           </div>
-          <EventCalendar events={events} today={bratislavaDateKey()} initialType={initialType} initialTime={initialTime} />
+        </PageContainer>
+      </header>
+
+      <section className={styles.calendarSection} aria-label="Kalendár podujatí">
+        <PageContainer>
+          <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} />
         </PageContainer>
       </section>
 
-      <section className="section section--tint">
-        <PageContainer className="portal-more">
+      <section className={styles.organizerSection} aria-labelledby="event-organizer-heading">
+        <PageContainer className={styles.organizerRow}>
           <div>
-            <span className="eyebrow">Pre organizátorov</span>
-            <h2>Chýba tu vaše podujatie?</h2>
-            <p>Pošlite nám údaje na redakčné overenie. Pridanie podujatia zostáva samostatnou cestou, ale neodvádza pozornosť od vyhľadávania v kalendári.</p>
+            <h2 id="event-organizer-heading">Chýba tu vaše podujatie?</h2>
+            <p>Pošlite nám údaje na redakčné overenie. Zverejnenie zostáva pod kontrolou redakcie.</p>
           </div>
           <Link href="/podujatia/pridat-podujatie" className="button button--dark">Pridať podujatie</Link>
         </PageContainer>

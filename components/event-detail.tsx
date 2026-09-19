@@ -1,14 +1,15 @@
 import { EventMarkdown } from "@/components/event-markdown";
 import Link from "next/link";
-import { ArrowIcon, PawMark } from "@/components/icons";
+import { ArrowIcon } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
-import { Breadcrumbs, MediaFrame, PageContainer, cardShellClassName } from "@/components/page-system";
+import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, type DogEvent } from "@/lib/events";
+import styles from "./events-public.module.css";
 
 function eventTimeLabel(event: DogEvent) {
-  if (event.startTime && event.endTime) return `${event.startTime} – ${event.endTime}`;
+  if (event.startTime && event.endTime) return event.startTime + " – " + event.endTime;
   if (event.startTime) return event.startTime;
-  if (event.endTime) return `do ${event.endTime}`;
+  if (event.endTime) return "do " + event.endTime;
   return null;
 }
 
@@ -36,45 +37,63 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
 
   return (
     <main id="obsah">
-      <header className="event-detail-hero">
+      <header className={styles.detailHeader} data-event-detail-header>
         <PageContainer>
-          <Breadcrumbs>
+          <Breadcrumbs className={styles.breadcrumbs}>
             <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span>{category && <><Link href={category.href}>{category.label}</Link><span>/</span></>}<span>{event.title}</span>
           </Breadcrumbs>
 
-          <div className="event-detail-hero-grid">
-            <div className="event-detail-heading">
-              <div className="event-detail-tags">
-                {typeHref ? <Link className="event-detail-type-link" href={typeHref}>{event.eventType}</Link> : <span>{event.eventType}</span>}
+          <div className={event.imageUrl ? styles.detailGrid : styles.detailGridNoImage}>
+            <div className={styles.detailHeading}>
+              <div className={styles.detailTags}>
+                {typeHref ? <Link href={typeHref}>{event.eventType}</Link> : <span>{event.eventType}</span>}
                 {statusLabel && <b>{statusLabel}</b>}
               </div>
               <h1>{event.title}</h1>
-              {event.excerpt && <p>{event.excerpt}</p>}
+              {event.excerpt && <p className={styles.detailExcerpt}>{event.excerpt}</p>}
+
+              <dl className={styles.detailFacts} data-event-facts aria-label="Základné informácie o podujatí">
+                <div>
+                  <dt>Termín</dt>
+                  <dd>
+                    {formatEventDate(event)}
+                    {timeLabel && <span>{timeLabel}</span>}
+                  </dd>
+                </div>
+                {locationLines.length > 0 && (
+                  <div>
+                    <dt>Miesto</dt>
+                    <dd>{locationLines.map((line) => <span key={line}>{line}</span>)}</dd>
+                  </div>
+                )}
+                {event.organizer && (
+                  <div>
+                    <dt>Organizátor</dt>
+                    <dd>{event.organizer}</dd>
+                  </div>
+                )}
+              </dl>
+
               {hasActions && (
-                <div className="event-detail-actions" aria-label="Odkazy podujatia">
+                <div className={styles.detailActions} aria-label="Odkazy podujatia">
                   {event.registrationUrl && <a className="button button--coral" href={event.registrationUrl} target="_blank" rel="noreferrer">Registrácia <ArrowIcon size={18} /></a>}
-                  {event.websiteUrl && <a className="text-link event-detail-official-link" href={event.websiteUrl} target="_blank" rel="noreferrer">Oficiálna stránka <ArrowIcon size={17} /></a>}
+                  {event.websiteUrl && <a className={styles.officialLink} href={event.websiteUrl} target="_blank" rel="noreferrer">Oficiálna stránka <ArrowIcon size={17} /></a>}
                 </div>
               )}
             </div>
 
-            <MediaFrame className="event-detail-visual" variant="landscape">
-              {event.imageUrl ? <img src={event.imageUrl} alt={event.title} loading="eager" fetchPriority="high" decoding="async" /> : <PawMark size={92} />}
-            </MediaFrame>
+            {event.imageUrl && (
+              <figure className={styles.detailVisual} data-event-image>
+                <img src={event.imageUrl} alt={event.title} loading="eager" fetchPriority="high" decoding="async" />
+              </figure>
+            )}
           </div>
-
-          <dl className="event-detail-summary" aria-label="Základné informácie o podujatí">
-            <div className={cardShellClassName}><dt>Termín</dt><dd>{formatEventDate(event)}</dd></div>
-            {timeLabel && <div className={cardShellClassName}><dt>Čas</dt><dd>{timeLabel}</dd></div>}
-            {locationLines.length > 0 && <div className={cardShellClassName}><dt>Miesto</dt><dd>{locationLines.map((line) => <span key={line}>{line}</span>)}</dd></div>}
-            {event.organizer && <div className={cardShellClassName}><dt>Organizátor</dt><dd>{event.organizer}</dd></div>}
-          </dl>
         </PageContainer>
       </header>
 
       {(event.description || event.practicalInfo) && (
-        <PageContainer className="event-detail-body">
-          <article className="event-detail-copy">
+        <PageContainer className={styles.detailBody}>
+          <article className={styles.detailCopy}>
             {event.description && (
               <section aria-labelledby="event-about-title">
                 <span className="eyebrow">O podujatí</span>
@@ -83,7 +102,7 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
               </section>
             )}
             {event.practicalInfo && (
-              <section className={`event-practical-info ${cardShellClassName}`} aria-labelledby="event-practical-title">
+              <section className={styles.practicalInfo} aria-labelledby="event-practical-title">
                 <span className="eyebrow">Pred návštevou</span>
                 <h2 id="event-practical-title">Praktické informácie</h2>
                 <EventMarkdown value={event.practicalInfo} />
@@ -94,16 +113,16 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
       )}
 
       {related.length > 0 && (
-        <section className="event-detail-related" aria-labelledby="event-related-title">
+        <section className={styles.relatedSection} aria-labelledby="event-related-title">
           <PageContainer>
-            <div className="event-detail-related-heading">
+            <div className={styles.relatedHeading}>
               <div>
-                <span className="eyebrow">Pokračuj ďalej</span>
+                <span className="eyebrow">Ďalšie termíny</span>
                 <h2 id="event-related-title">{dateStatus === "past" ? "Najbližšie podujatia" : "Ďalšie podujatia"}</h2>
               </div>
-              <Link href="/podujatia" className="text-link">Všetky podujatia <ArrowIcon size={18} /></Link>
+              <Link href="/podujatia" className={styles.officialLink}>Všetky podujatia <ArrowIcon size={18} /></Link>
             </div>
-            <div className="event-grid event-detail-related-grid">
+            <div className={styles.relatedList}>
               {related.map((item) => <EventCard key={item.id} event={item} />)}
             </div>
           </PageContainer>
