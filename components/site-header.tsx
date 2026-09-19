@@ -6,10 +6,14 @@ import { usePathname } from "next/navigation";
 import type { NavigationItem } from "@/lib/navigation";
 import { resolveDogNameDay } from "@/lib/dog-name-days";
 import { portalSections } from "@/lib/portal";
-import { BookmarkIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
+import { BookmarkIcon, ChevronDownIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
 import { NavigationProgress } from "./navigation-progress";
 import styles from "./site-header.module.css";
+
+function isPathActive(pathname: string, href: string) {
+  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+}
 
 export function SiteHeader({ navigationItems }: { navigationItems: NavigationItem[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -244,7 +248,14 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                   if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenDesktopMenu(null);
                 }}
               >
-                <Link href={item.href} className={item.className} title={item.title} onClick={() => setOpenDesktopMenu(null)}>{item.label}</Link>
+                <Link
+                  href={item.href}
+                  className={item.className}
+                  title={item.title}
+                  data-active={isPathActive(pathname, item.href) ? "true" : undefined}
+                  aria-current={pathname === item.href ? "page" : undefined}
+                  onClick={() => setOpenDesktopMenu(null)}
+                >{item.label}</Link>
                 <button
                   type="button"
                   className="nav-submenu-toggle"
@@ -254,12 +265,12 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                   aria-controls={`desktop-submenu-${item.id}`}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => setOpenDesktopMenu((current) => current === item.id ? null : item.id)}
-                ><span aria-hidden="true">⌄</span></button>
+                ><ChevronDownIcon className={styles.navChevron} /></button>
                 <div id={`desktop-submenu-${item.id}`} className="nav-submenu">
-                  {item.children.map((child) => <Link href={child.href} key={child.id} onClick={() => setOpenDesktopMenu(null)}>{child.label}</Link>)}
+                  {item.children.map((child) => <Link href={child.href} key={child.id} data-active={isPathActive(pathname, child.href) ? "true" : undefined} aria-current={pathname === child.href ? "page" : undefined} onClick={() => setOpenDesktopMenu(null)}>{child.label}</Link>)}
                 </div>
               </div>
-            ) : <Link href={item.href} className={item.className} title={item.title} key={item.id}>{item.label}</Link>)}
+            ) : <Link href={item.href} className={item.className} title={item.title} key={item.id} data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</Link>)}
           </nav>
 
           <div className="header-actions">
@@ -281,7 +292,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>
                 <div className="mobile-nav-parent">
-                  <Link href={item.href} className={item.className} title={item.title} onClick={() => setMenuOpen(false)}>{item.label}</Link>
+                  <Link href={item.href} className={item.className} title={item.title} data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined} onClick={() => setMenuOpen(false)}>{item.label}</Link>
                   {item.children.length > 0 && (
                     <button
                       type="button"
@@ -290,7 +301,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                       aria-expanded={openMobileMenu === item.id}
                       aria-controls={`mobile-submenu-${item.id}`}
                       onClick={() => setOpenMobileMenu((current) => current === item.id ? null : item.id)}
-                    ><span aria-hidden="true">⌄</span></button>
+                    ><ChevronDownIcon className={styles.navChevron} /></button>
                   )}
                 </div>
                 {item.children.length > 0 && (
@@ -300,7 +311,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                     aria-hidden={openMobileMenu !== item.id}
                     inert={openMobileMenu !== item.id}
                   >
-                    <div>{item.children.map((child) => <Link href={child.href} key={child.id} onClick={() => setMenuOpen(false)}>{child.label}</Link>)}</div>
+                    <div>{item.children.map((child) => <Link href={child.href} key={child.id} data-active={isPathActive(pathname, child.href) ? "true" : undefined} aria-current={pathname === child.href ? "page" : undefined} onClick={() => setMenuOpen(false)}>{child.label}</Link>)}</div>
                   </div>
                 )}
               </div>
