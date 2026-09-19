@@ -196,9 +196,9 @@ test.describe("organization public profile", () => {
     expect(singleResponse?.status()).toBe(200);
     const singleMain = page.locator("main#obsah");
     await expect(singleMain.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
-    await expect(singleMain.locator("[data-organization-location-summary]")).toHaveText(
-      "📍 Prevádzka · Trnava · Trnavský kraj",
-    );
+    const locationSummary = singleMain.locator("[data-organization-location-summary]");
+    await expect(locationSummary).toContainText("Prevádzka · Trnava · Trnavský kraj");
+    await expect(locationSummary.locator("svg")).toHaveCount(1);
     await expect(singleMain.locator("[data-organization-location]")).toHaveCount(0);
     await expect(singleMain.getByText("Legacy mesto", { exact: true })).toHaveCount(0);
     await expect(singleMain.getByRole("heading", { name: "Ako môžete pomôcť" })).toBeVisible();
@@ -265,6 +265,7 @@ test.describe("organization location admin CRUD", () => {
     expect(response?.status()).toBeLessThan(400);
     await expect(page.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Lokality", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Uložiť organizáciu" })).toBeEnabled();
 
     const stalePrefix = `ORG-2C ${testInfo.project.name}`;
     for (;;) {
@@ -312,6 +313,7 @@ test.describe("organization location admin CRUD", () => {
     await expect(page.getByText("Neverejná ORG-2C 1", { exact: true })).toHaveCount(0);
 
     await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("button", { name: "Uložiť organizáciu" })).toBeEnabled();
     created = page.locator("[data-location-id]").filter({ hasText: `${suffix} upravená` });
     page.once("dialog", (dialog) => dialog.accept());
     await created.getByRole("button", { name: "Odstrániť lokalitu" }).click();

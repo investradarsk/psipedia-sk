@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowIcon } from "@/components/icons";
+import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
+import { ArrowIcon, CheckIcon, PawMark } from "@/components/icons";
 import {
   formatHelpAmount,
   formatHelpDate,
@@ -8,25 +9,51 @@ import {
   helpProgress,
   type HelpCase,
 } from "@/lib/help";
+import styles from "./help-public.module.css";
 
 export function HelpCard({ item }: { item: HelpCase }) {
   const category = getHelpCategory(item.category);
   const progress = helpProgress(item);
+  const detailHref = helpCaseHref(item);
+  const displayDate = item.reportedDate ?? item.updatedAt.slice(0, 10);
+  const location = [item.city, item.region].filter(Boolean).join(" · ");
+
   return (
-    <article className={`help-card${item.urgent && !item.resolved ? " is-urgent" : ""}${item.resolved ? " is-resolved" : ""}`}>
-      <Link className="help-card-media" href={helpCaseHref(item)} aria-label={`Otvoriť ${item.title}`}>
-        {item.imageUrl ? <img src={item.imageUrl} alt={item.dogName ? `${item.dogName} – ${item.title}` : item.title} /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}
-        <div>{item.resolved ? <b className="is-resolved">Vybavené</b> : item.urgent ? <b className="is-urgent">Urgentné</b> : null}</div>
+    <article className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
+      <Link className={styles.media} href={detailHref} aria-label={"Otvoriť " + item.title}>
+        {item.imageUrl ? <img src={item.imageUrl} alt={item.dogName ? item.dogName + " – " + item.title : item.title} loading="lazy" decoding="async" /> : <span className={styles.mediaFallback} aria-hidden="true"><PawMark size={38} /></span>}
+        <span className={styles.badges}>
+          {item.resolved ? <b className={[styles.badge, styles.badgeResolved].join(" ")}>Vyriešené</b> : item.urgent ? <b className={[styles.badge, styles.badgeUrgent].join(" ")}>Urgentné</b> : null}
+        </span>
       </Link>
-      <div className="help-card-body">
-        <div className="help-card-tags"><span>{category?.singular}</span>{item.verified && <b>✓ Overené</b>}</div>
-        <h3><Link href={helpCaseHref(item)}>{item.title}</Link></h3>
-        <p>{item.excerpt}</p>
-        <div className="help-card-location"><span aria-hidden="true">📍</span><span>{item.city} · {item.region}</span></div>
-        {(item.dogName || item.breed || item.ageNote) && <p className="help-card-dog">{[item.dogName, item.breed, item.ageNote].filter(Boolean).join(" · ")}</p>}
-        {progress !== null && <div className="help-card-progress"><div><span style={{ width: `${progress}%` }} /></div><p><strong>{formatHelpAmount(item.raisedAmount ?? 0)}</strong> z {formatHelpAmount(item.goalAmount)} · {progress} %</p></div>}
-        {item.deadlineDate && !item.resolved && <small className="help-card-deadline">Termín: {formatHelpDate(item.deadlineDate)}</small>}
-        <Link className="text-link" href={helpCaseHref(item)}>{item.resolved ? "Pozrieť výsledok" : "Detail a možnosti pomoci"} <ArrowIcon size={18} /></Link>
+
+      <div className={styles.cardBody}>
+        <div className={styles.tags}>
+          <span>{category?.singular ?? "Pomoc psom"}</span>
+          {item.verified ? <span className={styles.verified}><CheckIcon size={14} /> Overené</span> : null}
+        </div>
+        <h3><Link href={detailHref}>{item.title}</Link></h3>
+        {item.excerpt ? <p className={styles.excerpt}>{item.excerpt}</p> : null}
+
+        <div className={styles.metaList}>
+          {item.organization ? <span className={[styles.metaItem, styles.organization].join(" ")}>{item.organization}</span> : null}
+          {location ? <span className={styles.metaItem}><LocationIcon size={16} /><span>{location}</span></span> : null}
+          {displayDate ? <span className={styles.metaItem}><CalendarIcon size={16} /><span>Aktualizované {formatHelpDate(displayDate)}</span></span> : null}
+        </div>
+
+        {(item.dogName || item.breed || item.ageNote) ? <p className={styles.dogFacts}>{[item.dogName, item.breed, item.ageNote].filter(Boolean).join(" · ")}</p> : null}
+
+        {(item.raisedAmount !== null || item.goalAmount !== null) ? <div className={styles.amounts}>
+          {item.raisedAmount !== null ? <span>Vyzbierané <strong>{formatHelpAmount(item.raisedAmount)}</strong></span> : null}
+          {item.goalAmount !== null ? <span>Cieľ <strong>{formatHelpAmount(item.goalAmount)}</strong></span> : null}
+        </div> : null}
+
+        {progress !== null ? <div className={styles.progress}>
+          <div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: String(progress) + "%" }} /></div>
+          <p>{progress} % cieľa</p>
+        </div> : null}
+
+        <Link className={styles.cardAction} href={detailHref}>{item.resolved ? "Pozrieť výsledok" : "Otvoriť detail"} <ArrowIcon size={17} /></Link>
       </div>
     </article>
   );

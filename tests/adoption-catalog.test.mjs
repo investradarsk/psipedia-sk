@@ -82,7 +82,7 @@ test("catalog view exposes ACTIVE and RESERVED only, with a reserved label", () 
 test("catalog has a normal empty state", () => {
   assert.deepEqual(buildAdoptionCatalogView([]), { items: [], isEmpty: true });
   const component = read("../components/adoption-catalog.tsx");
-  assert.match(component, /Žiadne psy nezodpovedajú filtrom/);
+  assert.match(component, /Momentálne nemáme publikovaný profil pre tieto filtre\./);
   assert.match(component, /Zobraziť všetky aktuálne adopcie/);
 });
 
