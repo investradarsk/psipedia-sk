@@ -215,8 +215,8 @@ for (const articleCase of cases) {
 
     expect(metrics.overflow).toBeLessThanOrEqual(1);
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
-    expect(metrics.imageHeight).toBeGreaterThanOrEqual(440);
-    expect(metrics.imageHeight).toBeLessThanOrEqual(521);
+    expect(metrics.imageHeight).toBeGreaterThanOrEqual(450);
+    expect(metrics.imageHeight).toBeLessThanOrEqual(500);
     expect(metrics.imageRatio).toBeGreaterThan(1.78);
     expect(metrics.imageRatio).toBeLessThan(1.85);
     expect(metrics.proseWidth).toBeGreaterThanOrEqual(700);
