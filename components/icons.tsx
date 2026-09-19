@@ -42,6 +42,14 @@ export function CloseIcon({ size = 24, ...props }: IconProps) {
   );
 }
 
+export function ChevronDownIcon({ size = 14, ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 export function BookmarkIcon({ size = 21, filled = false, ...props }: IconProps & { filled?: boolean }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden="true" {...props}>
