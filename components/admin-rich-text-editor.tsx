@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   EDITORIAL_RICH_TEXT_VERSION,
   normalizeEditorialRichText,
@@ -181,6 +181,40 @@ function nearestBlock(root: HTMLElement, node: Node | null) {
   return null;
 }
 
+type ActiveToolbarState = {
+  bold: boolean;
+  italic: boolean;
+  link: boolean;
+  paragraph: boolean;
+  h2: boolean;
+  h3: boolean;
+  bulletList: boolean;
+  orderedList: boolean;
+  blockquote: boolean;
+  callout: boolean;
+};
+
+const EMPTY_TOOLBAR_STATE: ActiveToolbarState = {
+  bold: false,
+  italic: false,
+  link: false,
+  paragraph: false,
+  h2: false,
+  h3: false,
+  bulletList: false,
+  orderedList: false,
+  blockquote: false,
+  callout: false,
+};
+
+function queryCommandStateSafe(command: string) {
+  try {
+    return document.queryCommandState(command);
+  } catch {
+    return false;
+  }
+}
+
 export function AdminRichTextEditor({
   id,
   value,
@@ -206,15 +240,81 @@ export function AdminRichTextEditor({
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("https://");
   const [linkError, setLinkError] = useState("");
+  const [activeState, setActiveState] = useState<ActiveToolbarState>(EMPTY_TOOLBAR_STATE);
 
   const signature = JSON.stringify(normalizedDocument(value));
+
+  const captureSelectionAndToolbarState = useCallback(() => {
+    const root = editorRef.current;
+    if (!root) return;
+    const range = selectionInside(root);
+    if (!range) return;
+
+    savedRangeRef.current = range.cloneRange();
+    const block = nearestBlock(root, range.startContainer);
+    const blockTag = block?.tagName.toLowerCase() ?? "";
+    const callout = Boolean(block?.dataset.editorialCallout);
+    let link = false;
+    let current = range.startContainer instanceof HTMLElement
+      ? range.startContainer
+      : range.startContainer.parentElement;
+    while (current && current !== root) {
+      if (current.tagName.toLowerCase() === "a") {
+        link = true;
+        break;
+      }
+      current = current.parentElement;
+    }
+
+    setActiveState({
+      bold: queryCommandStateSafe("bold"),
+      italic: queryCommandStateSafe("italic"),
+      link,
+      paragraph: blockTag === "p" || (blockTag === "div" && !callout),
+      h2: blockTag === "h2",
+      h3: blockTag === "h3",
+      bulletList: blockTag === "ul" || queryCommandStateSafe("insertUnorderedList"),
+      orderedList: blockTag === "ol" || queryCommandStateSafe("insertOrderedList"),
+      blockquote: blockTag === "blockquote",
+      callout,
+    });
+  }, []);
+
+  const restoreEditorSelection = useCallback(() => {
+    const root = editorRef.current;
+    if (!root) return false;
+    root.focus({ preventScroll: true });
+    const selection = window.getSelection();
+    if (!selection) return false;
+
+    const saved = savedRangeRef.current;
+    if (saved && root.contains(saved.commonAncestorContainer)) {
+      selection.removeAllRanges();
+      selection.addRange(saved);
+      return true;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    savedRangeRef.current = range.cloneRange();
+    return true;
+  }, []);
 
   useEffect(() => {
     const root = editorRef.current;
     if (!root) return;
     if (signature !== lastEmittedRef.current) renderDocument(root, value);
     root.dataset.editorReady = "true";
-  }, [signature, value]);
+    captureSelectionAndToolbarState();
+  }, [captureSelectionAndToolbarState, signature, value]);
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", captureSelectionAndToolbarState);
+    return () => document.removeEventListener("selectionchange", captureSelectionAndToolbarState);
+  }, [captureSelectionAndToolbarState]);
 
   function emitChange() {
     const root = editorRef.current;
@@ -225,23 +325,34 @@ export function AdminRichTextEditor({
   }
 
   function focusEditor() {
-    editorRef.current?.focus();
+    restoreEditorSelection();
+    captureSelectionAndToolbarState();
   }
 
   function runCommand(command: string, commandValue?: string) {
-    focusEditor();
+    if (!restoreEditorSelection()) return;
     document.execCommand(command, false, commandValue);
     emitChange();
+    captureSelectionAndToolbarState();
   }
 
   function applyBlock(tag: "p" | "h2" | "h3" | "blockquote") {
-    runCommand("formatBlock", tag);
+    const root = editorRef.current;
+    if (!root || !restoreEditorSelection()) return;
+    document.execCommand("formatBlock", false, tag);
+    const selection = window.getSelection();
+    const block = nearestBlock(root, selection?.anchorNode ?? null);
+    if (block?.dataset.editorialCallout) {
+      delete block.dataset.editorialCallout;
+      block.classList.remove(styles.callout);
+    }
+    emitChange();
+    captureSelectionAndToolbarState();
   }
 
   function applyCallout(tone: "info" | "tip" | "warning") {
     const root = editorRef.current;
-    if (!root) return;
-    focusEditor();
+    if (!root || !restoreEditorSelection()) return;
     document.execCommand("formatBlock", false, "div");
     const selection = window.getSelection();
     const block = nearestBlock(root, selection?.anchorNode ?? null);
@@ -250,11 +361,12 @@ export function AdminRichTextEditor({
       block.className = styles.callout;
     }
     emitChange();
+    captureSelectionAndToolbarState();
   }
 
   function openLinkEditor() {
     const root = editorRef.current;
-    if (!root) return;
+    if (!root || !restoreEditorSelection()) return;
     const range = selectionInside(root);
     if (!range || range.collapsed) {
       setLinkError("Najprv označ text, ktorý chceš premeniť na odkaz.");
@@ -307,7 +419,9 @@ export function AdminRichTextEditor({
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
+    savedRangeRef.current = range.cloneRange();
     emitChange();
+    captureSelectionAndToolbarState();
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -338,17 +452,17 @@ export function AdminRichTextEditor({
   return (
     <div className={styles.wrapper} data-admin-rich-text-editor>
       <div className={styles.toolbar} role="toolbar" aria-label="Formátovanie textu">
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")} aria-label="Tučné (Ctrl alebo Cmd + B)"><strong>B</strong></button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("italic")} aria-label="Kurzíva (Ctrl alebo Cmd + I)"><em>I</em></button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={openLinkEditor} aria-label="Vložiť odkaz">Odkaz</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")} aria-label="Tučné (Ctrl alebo Cmd + B)" aria-pressed={activeState.bold}><strong>B</strong></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("italic")} aria-label="Kurzíva (Ctrl alebo Cmd + I)" aria-pressed={activeState.italic}><em>I</em></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={openLinkEditor} aria-label="Vložiť odkaz" aria-pressed={activeState.link}>Odkaz</button>
         <span className={styles.separator} aria-hidden="true" />
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("p")} aria-label="Odsek">P</button>
-        {allowHeadings && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("h2")} aria-label="Nadpis úrovne 2">H2</button>}
-        {allowHeadings && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("h3")} aria-label="Nadpis úrovne 3">H3</button>}
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertUnorderedList")} aria-label="Odrážkový zoznam">• Zoznam</button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertOrderedList")} aria-label="Číslovaný zoznam">1. Zoznam</button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("blockquote")} aria-label="Citácia">Citácia</button>
-        {allowCallouts && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCallout("tip")} aria-label="Tip alebo zvýraznenie">Tip</button>}
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("p")} aria-label="Odsek" aria-pressed={activeState.paragraph}>P</button>
+        {allowHeadings && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("h2")} aria-label="Nadpis úrovne 2" aria-pressed={activeState.h2}>H2</button>}
+        {allowHeadings && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("h3")} aria-label="Nadpis úrovne 3" aria-pressed={activeState.h3}>H3</button>}
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertUnorderedList")} aria-label="Odrážkový zoznam" aria-pressed={activeState.bulletList}>• Zoznam</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertOrderedList")} aria-label="Číslovaný zoznam" aria-pressed={activeState.orderedList}>1. Zoznam</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("blockquote")} aria-label="Citácia" aria-pressed={activeState.blockquote}>Citácia</button>
+        {allowCallouts && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCallout("tip")} aria-label="Tip alebo zvýraznenie" aria-pressed={activeState.callout}>Tip</button>}
         <span className={styles.separator} aria-hidden="true" />
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("undo")} aria-label="Späť">↶</button>
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("redo")} aria-label="Znova">↷</button>
@@ -392,10 +506,13 @@ export function AdminRichTextEditor({
         aria-label={ariaLabel}
         data-placeholder={placeholder}
         style={{ minHeight }}
-        onInput={emitChange}
+        onInput={() => { emitChange(); captureSelectionAndToolbarState(); }}
         onBlur={emitChange}
         onPaste={pastePlainText}
         onKeyDown={onKeyDown}
+        onKeyUp={captureSelectionAndToolbarState}
+        onMouseUp={captureSelectionAndToolbarState}
+        onFocus={captureSelectionAndToolbarState}
       />
       <p className={styles.help}>Píš priamo ako v textovom editore. Vložený formátovaný obsah sa pri paste preberie ako čistý text; bezpečné formátovanie pridaj toolbarom.</p>
     </div>

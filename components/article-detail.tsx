@@ -18,6 +18,16 @@ import { articleBlockHeadings, articleBlockPlainText, legacyArticleBlocks } from
 import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/editorial-content";
 import styles from "./article-detail.module.css";
 
+function safeExternalImageCreditUrl(value?: string) {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function ArticleDetail({
   article,
   related,
@@ -39,6 +49,8 @@ export function ArticleDetail({
   const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
   const canonical = article.seo?.canonicalUrl || `${SITE_URL}${articleHref(article)}`;
   const image = article.image ? absoluteUrl(article.image) : undefined;
+  const imageCreditHref = safeExternalImageCreditUrl(article.imageCreditUrl);
+  const showImageMeta = Boolean(article.image && (article.imageCaption || article.imageCredit || imageCreditHref));
   const authorName = authorProfile?.displayName || article.author;
   const blocks = article.blocks?.length
     ? article.blocks
@@ -135,13 +147,28 @@ export function ArticleDetail({
               </div>
             </div>
           </div>
-          <MediaFrame className={styles.heroMedia} variant="article">
-            {article.image ? (
-              <img className="article-hero-image" src={article.image} alt={article.title} loading="eager" fetchPriority="high" decoding="async" />
-            ) : (
-              <div className={`article-hero-placeholder article-hero-placeholder--${article.accent}`}><PawMark size={72} /></div>
-            )}
-          </MediaFrame>
+          <figure className={styles.heroFigure}>
+            <MediaFrame className={styles.heroMedia} variant="article">
+              {article.image ? (
+                <img className="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
+              ) : (
+                <div className={`article-hero-placeholder article-hero-placeholder--${article.accent}`}><PawMark size={72} /></div>
+              )}
+            </MediaFrame>
+            {showImageMeta ? (
+              <figcaption className={styles.heroImageMeta}>
+                {article.imageCaption ? <span>{article.imageCaption}</span> : null}
+                {article.imageCaption && (article.imageCredit || imageCreditHref) ? <span aria-hidden="true"> · </span> : null}
+                {article.imageCredit || imageCreditHref ? (
+                  <span>
+                    Foto: {imageCreditHref ? (
+                      <a href={imageCreditHref} target="_blank" rel="noopener noreferrer">{article.imageCredit || "Zdroj fotografie"}</a>
+                    ) : article.imageCredit}
+                  </span>
+                ) : null}
+              </figcaption>
+            ) : null}
+          </figure>
         </div>
       </header>
 
@@ -165,7 +192,7 @@ export function ArticleDetail({
           ) : null}
           <ArticleBlocks blocks={contentBlocks} />
           {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}
-          <p className="article-disclaimer">{section === "novinky" ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : section === "recenzie" ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
+          <p className="article-disclaimer">{section === "novinky" ? (sourceBlocks.length > 0 ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Správu pri ďalšom vývoji udalosti priebežne aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku.") : section === "recenzie" ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
           <div className={styles.endActions}>
             <ShareButton title={article.title} label={shareLabel} url={canonical} />
           </div>

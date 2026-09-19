@@ -62,6 +62,18 @@ test("sources are separated from content blocks and rendered at the end", () => 
   assert.ok(content < sources, "sources must follow article content");
 });
 
+
+test("hero image keeps accessibility text separate from visible caption and photo credit", () => {
+  assert.match(detail, /article\.imageAlt \|\| article\.title/);
+  assert.match(detail, /const showImageMeta = Boolean\(article\.image/);
+  assert.match(detail, /<figcaption className=\{styles\.heroImageMeta\}>/);
+  assert.match(detail, /article\.imageCaption/);
+  assert.match(detail, /article\.imageCredit/);
+  assert.match(detail, /safeExternalImageCreditUrl\(article\.imageCreditUrl\)/);
+  assert.match(detail, /target="_blank" rel="noopener noreferrer"/);
+  assert.match(styles, /\.heroImageMeta\s*\{/);
+});
+
 test("article reading CSS preserves editorial measures and mobile overflow safety", () => {
   assert.match(styles, /--article-reading-width:\s*680px/);
   assert.match(styles, /font-size:\s*1rem;\s*\n\s*line-height:\s*1\.68/);

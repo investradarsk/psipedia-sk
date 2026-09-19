@@ -190,7 +190,7 @@ test("author selection supports canonical default, explicit active profile and l
   );
 });
 
-test("article storage keeps legacy compatibility while making takeaway and generic sources optional", () => {
+test("article storage keeps legacy compatibility while takeaway and article sources stay optional", () => {
   const store = readFileSync("lib/article-store.ts", "utf8");
   const detail = readFileSync("components/article-detail.tsx", "utf8");
   const editor = readFileSync("components/admin-article-editor.tsx", "utf8");
@@ -201,7 +201,8 @@ test("article storage keeps legacy compatibility while making takeaway and gener
   assert.match(store, /payload\.intro\?\.trim\(\) \|\| editorialRichTextPlainText\(suppliedIntroRichText\)/);
   assert.match(store, /getEditorialAuthorProfile\(database, existingAuthorProfileId, false\)/);
   assert.doesNotMatch(store, /takeaway\.length\s*</);
-  assert.match(store, /portalSection === "novinky" && status !== "draft" && !sources\.length/);
+  assert.doesNotMatch(store, /Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj/);
+  assert.match(editor, /Zdroj je voliteľný/);
   assert.match(detail, /showTakeaway \? <aside className="takeaway-box"/);
   assert.match(editor, /To najdôležitejšie <small>nepovinné<\/small>/);
   assert.doesNotMatch(editor, /id="article-takeaway"[^\n>]*required/);

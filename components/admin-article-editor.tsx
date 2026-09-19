@@ -93,6 +93,10 @@ export function AdminArticleEditor({
   const [takeawayRichText, setTakeawayRichText] = useState(article?.takeawayRichText ?? legacyRichTextToDocument(article?.takeaway ?? ""));
   const [imageUrl, setImageUrl] = useState(article?.image ?? "");
   const [imageKey, setImageKey] = useState(article?.imageKey ?? "");
+  const [imageAlt, setImageAlt] = useState(article?.imageAlt ?? "");
+  const [imageCaption, setImageCaption] = useState(article?.imageCaption ?? "");
+  const [imageCredit, setImageCredit] = useState(article?.imageCredit ?? "");
+  const [imageCreditUrl, setImageCreditUrl] = useState(article?.imageCreditUrl ?? "");
   const [publishedAt, setPublishedAt] = useState(dateTimeValue(article?.publishedAt));
   const [contentUpdatedAt, setContentUpdatedAt] = useState(article?.contentUpdatedAt?.slice(0, 10) ?? "");
   const [showUpdated, setShowUpdated] = useState(article?.showUpdated ?? false);
@@ -202,6 +206,10 @@ export function AdminArticleEditor({
       takeawayRichText,
       imageUrl: imageUrl || null,
       imageKey: imageKey || null,
+      imageAlt: imageAlt || null,
+      imageCaption: imageCaption || null,
+      imageCredit: imageCredit || null,
+      imageCreditUrl: imageCreditUrl || null,
       status: nextStatus,
       blocks,
       sections: [],
@@ -404,8 +412,36 @@ export function AdminArticleEditor({
                 <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />
                 {uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}
               </label>
-              {imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setEditorDirty(true); }}>Odstrániť fotku</button>}
+              {imageUrl && <button type="button" onClick={() => {
+                setImageUrl("");
+                setImageKey("");
+                setImageAlt("");
+                setImageCaption("");
+                setImageCredit("");
+                setImageCreditUrl("");
+                setEditorDirty(true);
+              }}>Odstrániť fotku</button>}
               <small>Odporúčaný pomer 16 : 9 a šírka aspoň 1200 px.</small>
+            </div>
+          </div>
+          <div className="admin-field-grid">
+            <div className="admin-field admin-field--full">
+              <label htmlFor="article-image-alt">ALT text</label>
+              <input id="article-image-alt" value={imageAlt} onChange={(event) => setImageAlt(event.target.value)} placeholder="Stručne opíš, čo je na fotografii." />
+              <small>ALT slúži čítačkám obrazovky a SEO. Nie je to popis ani kredit fotografie.</small>
+            </div>
+            <div className="admin-field admin-field--full">
+              <label htmlFor="article-image-caption">Popis fotografie / Caption</label>
+              <textarea id="article-image-caption" rows={2} value={imageCaption} onChange={(event) => setImageCaption(event.target.value)} placeholder="Voliteľný viditeľný popis pod fotografiou." />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="article-image-credit">Zdroj / autor fotografie</label>
+              <input id="article-image-credit" value={imageCredit} onChange={(event) => setImageCredit(event.target.value)} placeholder="Napríklad Jane Smith / Unsplash" />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="article-image-credit-url">URL zdroja fotografie</label>
+              <input id="article-image-credit-url" type="url" value={imageCreditUrl} onChange={(event) => setImageCreditUrl(event.target.value)} placeholder="https://…" />
+              <small>Voliteľný odkaz na autora alebo zdroj fotografie.</small>
             </div>
           </div>
         </section>
@@ -428,7 +464,7 @@ export function AdminArticleEditor({
           <div className="admin-card-heading">
             <div><span>06</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
           </div>
-          {portalSection === "novinky" && <p className="admin-block-news-note">Pri publikovaní novinky pridaj aspoň jeden blok <strong>Zdroj</strong>.</p>}
+          {portalSection === "novinky" && <p className="admin-block-news-note"><strong>Zdroj je voliteľný.</strong> Ak ho máš, pridaj blok Zdroj.</p>}
           <p className="admin-block-news-note">Pre viac zdrojov pridaj viac blokov <strong>Zdroj</strong>. Na verejnom článku sa spoja do jedného prehľadného zoznamu.</p>
           <AdminArticleBlockEditor
             blocks={blocks}
@@ -464,7 +500,14 @@ export function AdminArticleEditor({
             <span className="eyebrow">{portalSectionLabel(portalSection)} · {portalSection === "novinky" ? getNewsCategory(newsCategory)?.shortLabel : category}</span>
             <h1>{title || "Názov tvojho článku"}</h1>
             <p className="admin-preview-excerpt">{excerpt || "Tu sa zobrazí krátky úvod z karty článku."}</p>
-            {imageUrl && <img className="admin-preview-image" src={imageUrl} alt="" />}
+            {imageUrl && <img className="admin-preview-image" src={imageUrl} alt={imageAlt || title} />}
+            {imageUrl && (imageCaption || imageCredit) ? (
+              <p className="admin-preview-image-meta">
+                {imageCaption}
+                {imageCaption && imageCredit ? " · " : ""}
+                {imageCredit ? `Foto: ${imageCredit}` : ""}
+              </p>
+            ) : null}
             <EditorialRichText className="admin-preview-intro" document={intro.trim() ? introRichText : legacyRichTextToDocument("Úvod článku sa zobrazí na tomto mieste.")} />
             {takeaway.trim() && <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayRichText} /></div>}
             <ArticleBlocks blocks={blocks} preview />
