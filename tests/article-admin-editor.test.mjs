@@ -64,6 +64,14 @@ test("ARTICLE-ADMIN WYSIWYG writes canonical AST and strips rich HTML paste at t
   assert.match(editor, /applyBlock\("blockquote"\)/);
   assert.match(editor, /runCommand\("undo"\)/);
   assert.match(editor, /runCommand\("redo"\)/);
+  assert.match(editor, /restoreEditorSelection/);
+  assert.match(editor, /selectionchange/);
+  assert.match(editor, /aria-pressed=\{activeState\.bold\}/);
+  assert.match(editor, /aria-pressed=\{activeState\.italic\}/);
+  assert.match(editor, /aria-pressed=\{activeState\.bulletList\}/);
+  assert.match(editor, /aria-pressed=\{activeState\.orderedList\}/);
+  assert.match(editor, /aria-pressed=\{activeState\.h2\}/);
+  assert.match(editor, /aria-pressed=\{activeState\.blockquote\}/);
   assert.doesNotMatch(editor, /window\.prompt/);
   assert.doesNotMatch(editor, /dangerouslySetInnerHTML/);
 });
@@ -87,8 +95,37 @@ test("ARTICLE-ADMIN save path carries canonical rich text, author profile select
   assert.match(blockEditor, /normalizeEditorialExternalVideo/);
   assert.match(blockEditor, /Podporované sú iba bezpečné HTTPS odkazy na YouTube alebo Vimeo/);
 
-  assert.match(store, /portalSection === "novinky" && status !== "draft" && !sources\.length/);
+  assert.doesNotMatch(store, /Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj/);
+  assert.match(articleEditor, /Zdroj je voliteľný/);
   assert.match(store, /Video musí byť bezpečný HTTPS odkaz na YouTube alebo Vimeo/);
+});
+
+
+test("ARTICLE-EDITOR-UX-FIX keeps hero ALT, caption and credit separate and nullable", () => {
+  const articleEditor = readFileSync("components/admin-article-editor.tsx", "utf8");
+  const articleStore = readFileSync("lib/article-store.ts", "utf8");
+  const schema = readFileSync("db/schema.ts", "utf8");
+  const migration = readFileSync("drizzle/0046_article_hero_image_metadata.sql", "utf8");
+  const detail = readFileSync("components/article-detail.tsx", "utf8");
+
+  assert.match(articleEditor, /article-image-alt/);
+  assert.match(articleEditor, /Popis fotografie \/ Caption/);
+  assert.match(articleEditor, /Zdroj \/ autor fotografie/);
+  assert.match(articleEditor, /URL zdroja fotografie/);
+  assert.match(articleStore, /imageCreditUrl/);
+  assert.match(articleStore, /URL zdroja fotografie musí byť platná webová adresa/);
+  assert.match(schema, /imageAlt: text\("image_alt"\)/);
+  assert.match(schema, /imageCaption: text\("image_caption"\)/);
+  assert.match(schema, /imageCredit: text\("image_credit"\)/);
+  assert.match(schema, /imageCreditUrl: text\("image_credit_url"\)/);
+  assert.match(migration, /ADD COLUMN image_alt TEXT/);
+  assert.match(migration, /ADD COLUMN image_caption TEXT/);
+  assert.match(migration, /ADD COLUMN image_credit TEXT/);
+  assert.match(migration, /ADD COLUMN image_credit_url TEXT/);
+  assert.doesNotMatch(migration, /UPDATE managed_articles/i);
+  assert.match(detail, /article\.imageAlt \|\| article\.title/);
+  assert.match(detail, /Foto:/);
+  assert.match(detail, /rel="noopener noreferrer"/);
 });
 
 test("ARTICLE-ADMIN self-hosted media remains image-only until MEDIA-VIDEO-UPLOAD defines a safe contract", () => {
