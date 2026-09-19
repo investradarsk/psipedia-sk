@@ -72,7 +72,7 @@ INSERT INTO help_cases (
 )
 SELECT
   930000 + n, 'e2e-bulk-draft-' || n,
-  CASE WHEN n = 65 THEN 'E2E Žltý bulk koncept' ELSE 'E2E bulk koncept ' || n END,
+  CASE WHEN n = 65 THEN 'E2E bulk Žltý koncept' ELSE 'E2E bulk koncept ' || n END,
   'dobrovolnictvo', 'draft',
   'Lokálny koncept pre bezpečný E2E test.', 'Tento záznam existuje iba v lokálnej testovacej D1 a nesmie sa publikovať.',
   CASE WHEN n = 65 THEN 'E2E Žltá organizácia' ELSE 'E2E bulk organizácia' END, '', '', '',
