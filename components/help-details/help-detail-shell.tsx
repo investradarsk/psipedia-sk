@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
+import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { formatHelpAmount, formatHelpDate, getHelpCategory, helpProgress, type HelpCase } from "@/lib/help";
 import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-presentation";
 import {
@@ -100,7 +101,7 @@ export function HelpDetailShell({
       </div>
       {showTrust && <div className={styles.shell}>
         <section className={styles.trust} aria-labelledby={`help-trust-${item.id}`}>
-          <span className={styles.trustIcon} aria-hidden="true">✓</span>
+          <span className={styles.trustIcon} aria-hidden="true"><ShieldCheckIcon size={18} /></span>
           <div>
             <h2 id={`help-trust-${item.id}`}>Overenie a zdroje</h2>
             <p>{item.verified ? "Psipedia označila tento záznam ako overený na základe dostupných zdrojov. Údaje sa môžu časom meniť." : "Pri tomto zázname uvádzame len zdrojové údaje, ktoré sú uložené v databáze."}</p>
@@ -147,6 +148,6 @@ export function HelpOptions({ options }: { options: Array<{ label: string; value
 
 export function HelpProgressCard({ item }: { item: HelpCase }) {
   const progress = helpProgress(item);
-  if (progress === null) return null;
-  return <section className={`${detailStyles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}><span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount ?? 0)}</strong></span><span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span></div><div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></section>;
+  if (item.raisedAmount === null && item.goalAmount === null) return null;
+  return <section className={`${detailStyles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}>{item.raisedAmount !== null ? <span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount)}</strong></span> : null}{item.goalAmount !== null ? <span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span> : null}</div>{progress !== null ? <><div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></> : null}</section>;
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { HelpPage } from "@/components/help-page";
 import { getPublishedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, isHelpCategory } from "@/lib/help";
@@ -21,5 +21,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function HelpCategoryPage({ params }: Props) {
   const { category } = await params;
   if (!isHelpCategory(category)) notFound();
+  if (category === "stratene-a-najdene") redirect("/pomoc-psom/stratene-psy");
   return <HelpPage items={await getPublishedHelpCases(category)} initialCategory={category} />;
 }
