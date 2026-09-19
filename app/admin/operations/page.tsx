@@ -4,6 +4,8 @@ import {
   filterAdminAttentionItems,
   isAdminAttentionPriority,
   isAdminAttentionSourceType,
+  isAdminAttentionView,
+  summarizeAdminAttention,
   type AdminAttentionFilters,
 } from "@/lib/admin-attention-queue";
 import { loadAdminAttentionQueue } from "@/lib/admin-attention-queue-store";
@@ -19,11 +21,14 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
   const raw = await searchParams;
   const source = first(raw.source);
   const priority = first(raw.priority);
+  const view = first(raw.view);
   const filters: AdminAttentionFilters = {
     sourceType: isAdminAttentionSourceType(source) ? source : "all",
     priority: isAdminAttentionPriority(priority) ? priority : "all",
+    view: isAdminAttentionView(view) ? view : "active",
   };
   const allItems = await loadAdminAttentionQueue();
+  const summary = summarizeAdminAttention(allItems);
   const items = filterAdminAttentionItems(allItems, filters);
 
   return (
@@ -31,7 +36,8 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
       user={user}
       eyebrow="Admin Operations"
       title="Operácie"
-      description="Read-only prehľad toho, čo dnes potrebuje pozornosť administrátora. Položky sa načítavajú priamo z existujúcich workflowov; spracovanie vždy pokračuje v ich pôvodnej administrácii."
+      description="Centrálne miesto pre nové a nevyriešené podnety z existujúcich workflowov. Stav sa riadi pôvodným lifecycle každého zdroja; vyriešené položky zostávajú dostupné v histórii."
+      attentionCount={summary.active}
     >
       <AdminAttentionQueue items={items} allItems={allItems} filters={filters} />
     </AdminShell>
