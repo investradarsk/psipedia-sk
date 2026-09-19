@@ -325,13 +325,15 @@ export function AdminRichTextEditor({
   }
 
   function focusEditor() {
-    editorRef.current?.focus();
+    restoreEditorSelection();
+    captureSelectionAndToolbarState();
   }
 
   function runCommand(command: string, commandValue?: string) {
-    focusEditor();
+    if (!restoreEditorSelection()) return;
     document.execCommand(command, false, commandValue);
     emitChange();
+    captureSelectionAndToolbarState();
   }
 
   function applyBlock(tag: "p" | "h2" | "h3" | "blockquote") {
@@ -340,8 +342,7 @@ export function AdminRichTextEditor({
 
   function applyCallout(tone: "info" | "tip" | "warning") {
     const root = editorRef.current;
-    if (!root) return;
-    focusEditor();
+    if (!root || !restoreEditorSelection()) return;
     document.execCommand("formatBlock", false, "div");
     const selection = window.getSelection();
     const block = nearestBlock(root, selection?.anchorNode ?? null);
@@ -350,11 +351,12 @@ export function AdminRichTextEditor({
       block.className = styles.callout;
     }
     emitChange();
+    captureSelectionAndToolbarState();
   }
 
   function openLinkEditor() {
     const root = editorRef.current;
-    if (!root) return;
+    if (!root || !restoreEditorSelection()) return;
     const range = selectionInside(root);
     if (!range || range.collapsed) {
       setLinkError("Najprv označ text, ktorý chceš premeniť na odkaz.");
@@ -407,7 +409,9 @@ export function AdminRichTextEditor({
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
+    savedRangeRef.current = range.cloneRange();
     emitChange();
+    captureSelectionAndToolbarState();
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
