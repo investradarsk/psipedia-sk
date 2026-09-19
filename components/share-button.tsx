@@ -8,10 +8,12 @@ export function ShareButton({
   title,
   label = "Zdieľať článok",
   url,
+  compact = false,
 }: {
   title: string;
   label?: string;
   url?: string;
+  compact?: boolean;
 }) {
   const resolvedUrl = url?.trim() ?? "";
   const [copied, setCopied] = useState(false);
@@ -60,6 +62,16 @@ export function ShareButton({
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) throw error;
     }
+  }
+
+  if (compact) {
+    return (
+      <div className={`${styles.sharePanel} ${styles.compact}`} role="group" aria-label={label}>
+        <PublicActionButton variant="secondary" onClick={supportsNativeShare ? nativeShare : copyLink}>
+          {copied ? "Odkaz skopírovaný" : supportsNativeShare ? "Zdieľať" : "Kopírovať odkaz"}
+        </PublicActionButton>
+      </div>
+    );
   }
 
   return (
