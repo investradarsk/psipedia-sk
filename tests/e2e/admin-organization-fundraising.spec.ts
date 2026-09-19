@@ -25,7 +25,7 @@ test.beforeEach(async ({ page }) => {
 test("organization fundraising CRUD and explicit verification stay fail-closed, OCC-safe and responsive", async ({ page }) => {
   const response = await page.goto("/admin/organizacie", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
-  const row = page.getByRole("row").filter({ hasText: fixtureName });
+  const row = page.locator("article").filter({ hasText: fixtureName });
   await expect(row).toBeVisible();
   await row.getByRole("link", { name: "Fundraising" }).click();
 
