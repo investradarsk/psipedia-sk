@@ -162,7 +162,7 @@ test("desktop magazine layout keeps a readable 70/30 composition and truthful st
 });
 
 test("mobile article composition stacks the sidebar, preserves 44px controls and prevents deliberate horizontal expansion", () => {
-  assert.match(styles, /@media \(max-width: 960px\)[\s\S]*\.magazineLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
+  assert.match(styles, /@media \(max-width: 1120px\)[\s\S]*\.magazineLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
   assert.match(styles, /@media \(max-width: 767px\)/);
   assert.match(styles, /\.favoriteAction :global\(\.favorite-button\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/);
   assert.match(shareStyles, /min-height:\s*var\(--ps-control-min-height,\s*44px\)/);
