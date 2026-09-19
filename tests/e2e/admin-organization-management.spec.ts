@@ -49,5 +49,7 @@ test("organization admin supports mobile filters, draft create and canonical edi
   await expect(result).toContainText("Koncept");
   await expect(result).toContainText("Publication READY");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
   await expectAxeClean(page);
 });
