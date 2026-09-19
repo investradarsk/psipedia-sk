@@ -5,6 +5,7 @@ import { cache } from "react";
 import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } from "@/lib/content";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { cleanFciStandard, combinedFciMeasurement, inspectBreedMeasurement, normalizeBreedSearchText, publicBreedMeasurement, publicBreedSize, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
+import { breedCompletenessIssues, validateBulkBreedStatus, type BreedCompletenessIssue } from "./admin-breeds";
 
 export type BreedStatus = "draft" | "published";
 export type BreedEditorial = {
@@ -28,7 +29,11 @@ export type ManagedBreed = Breed & {
   workingTrial: string; importKey: string | null; fciStandard: FciStandard; searchText: string; editorialComplete: boolean;
   editorial: BreedEditorial; sports: BreedSport[]; relatedBreedIds: number[]; relatedArticleIds: number[]; directoryProfileIds: number[];
 };
-export type ManagedBreedSummary = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "origin" | "group" | "accent" | "fciNumber" | "officialFciName">;
+export type ManagedBreedSummary = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" | "origin" | "group" | "accent" | "fciNumber" | "officialFciName" | "updatedAt"> & {
+  articleRelationCount: number;
+  directoryRelationCount: number;
+  completenessIssues: BreedCompletenessIssue[];
+};
 export type ManagedBreedIndexItem = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" | "origin" | "group" | "accent" | "height" | "weight" | "intro" | "energy" | "trainability" | "family" | "officialFciName" | "searchText" | "editorialComplete" | "seo" | "updatedAt">;
 export type BreedComparisonItem = Pick<ManagedBreed,"slug"|"name"|"image"|"fciGroup"|"fciSection"|"origin"|"accent"|"size"|"weight"|"lifespan"|"coat"|"energy"|"trainability"|"family"|"intro"|"goodFor"|"consider">;
 export type BreedOfTheDayItem = Pick<ManagedBreed,"slug"|"name"|"image"|"fciGroup"|"fciSection"|"size"|"energy"|"trainability"|"intro">;
@@ -43,8 +48,16 @@ type Row = {
   good_for_json:string;consider_json:string;sources_json:string;accent:string;created_at:string;updated_at:string;published_at:string|null;
   seo_json:string;
 };
-type SummaryRow = { id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;origin:string;group_name:string;official_fci_name:string;accent:string };
-type IndexRow = SummaryRow & { fci_section:string;fci_section_number:string;fci_standard_json:string;height:string;weight:string;intro:string;energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;seo_json:string;updated_at:string };
+type SummaryRow = {
+  id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;fci_section:string;fci_section_number:string;
+  origin:string;group_name:string;official_fci_name:string;accent:string;updated_at:string;editorial_json:string;sports_json:string;fci_standard_json:string;
+  needs:string;exercise:string;training:string;health:string;article_relation_count:number;directory_relation_count:number;
+};
+type IndexRow = {
+  id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;fci_section:string;fci_section_number:string;
+  origin:string;group_name:string;official_fci_name:string;accent:string;fci_standard_json:string;height:string;weight:string;intro:string;
+  energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;seo_json:string;updated_at:string;
+};
 type ComparisonRow = {slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string;fci_standard_json:string;origin:string;accent:string;size:string;weight:string;lifespan:string;coat:string;energy:number;trainability:number;family:number;intro:string;good_for_json:string;consider_json:string};
 type BreedOfTheDayRow = {slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string;size:string;energy:number;trainability:number;intro:string};
 type RelationIdRow = { id:number };
@@ -94,13 +107,29 @@ function fromRow(row:Row,relations:{articles?:number[];directory?:number[];publi
 
 function parseSeo(value:string):EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
 
-function fromSummaryRow(row:SummaryRow):ManagedBreedSummary { return {
-  id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
-  fciNumber:row.fci_number,fciGroup:row.fci_group,origin:row.origin,group:row.group_name,officialFciName:row.official_fci_name,accent:row.accent as Breed["accent"],
-}; }
+function fromSummaryRow(row:SummaryRow):ManagedBreedSummary {
+  const editorial=parseObject<BreedEditorial>(row.editorial_json);
+  const standard=parseObject<FciStandard>(row.fci_standard_json);
+  const sports=parseArray(row.sports_json,isBreedSport);
+  const articleRelationCount=Number(row.article_relation_count)||0;
+  const directoryRelationCount=Number(row.directory_relation_count)||0;
+  return {
+    id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
+    fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),
+    fciSectionNumber:row.fci_section_number,origin:row.origin,group:row.group_name,officialFciName:row.official_fci_name,
+    accent:row.accent as Breed["accent"],updatedAt:row.updated_at,articleRelationCount,directoryRelationCount,
+    completenessIssues:breedCompletenessIssues({
+      image:row.image_url,overview:editorial.overview??"",needs:row.needs,exercise:row.exercise,training:row.training,health:row.health,
+      fciNumber:row.fci_number,hasFciReference:Boolean(standard.fci_standard_pdf?.trim()||standard.fci_nomenklatura_url?.trim()),
+      sportsCount:sports.length,articleRelationCount,directoryRelationCount,
+    }),
+  };
+}
 
 function fromIndexRow(row:IndexRow):ManagedBreedIndexItem { const standard=parseObject<FciStandard>(row.fci_standard_json);return {
-  ...fromSummaryRow(row),fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),fciSectionNumber:row.fci_section_number,
+  id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
+  fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),fciSectionNumber:row.fci_section_number,
+  origin:row.origin,group:row.group_name,officialFciName:row.official_fci_name,accent:row.accent as Breed["accent"],
   height:publicBreedMeasurement(row.height,"height",combinedFciMeasurement([standard.vyska_pes_cm,standard.vyska_suka_cm],"cm")),
   weight:publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([standard.hmotnost_pes_kg,standard.hmotnost_suka_kg],"kg")),intro:row.intro,energy:row.energy,trainability:row.trainability,family:row.family,
   searchText:row.search_text,editorialComplete:row.editorial_complete===1,seo:parseSeo(row.seo_json),updatedAt:row.updated_at,
@@ -110,7 +139,10 @@ const select=`SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_nu
 valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
-export async function listManagedBreedSummaries(limit=500){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(500,Math.trunc(limit)));const result=await database.prepare("SELECT id,slug,name,status,image_url,fci_number,fci_group,origin,group_name,official_fci_name,accent FROM managed_breeds ORDER BY fci_group,name LIMIT ?").bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
+export async function listManagedBreedSummaries(limit=500){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(500,Math.trunc(limit)));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,updated_at,editorial_json,sports_json,fci_standard_json,needs,exercise,training,health,
+(SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
+(SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
+FROM managed_breeds ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
 export async function listPublishedBreedIndex(){const database=db();if(!database)return seedBreeds.map((breed,index)=>({id:-(index+1),status:"published" as const,officialFciName:"",fciSectionNumber:"",searchText:normalizeBreedSearchText(`${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`),editorialComplete:true,seo:breed.seo??{},updatedAt:"2026-08-17",...breed}));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();return withAvailableBreedImages(result.results.map(fromIndexRow),env);}
 export async function listPublishedCanonicalBreedIndex(){const database=db();if(!database)return listPublishedBreedIndex();const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();return withAvailableBreedImages(result.results.map(fromIndexRow),env);}
 export async function listPublishedBreedsForComparison():Promise<BreedComparisonItem[]>{const database=db();if(!database)return seedBreeds;const result=await database.prepare(`SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,fci_standard_json,origin,accent,size,weight,lifespan,coat,energy,trainability,family,intro,good_for_json,consider_json FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<ComparisonRow>();return withAvailableBreedImages(result.results.map((row:ComparisonRow)=>{const standard=parseObject<FciStandard>(row.fci_standard_json);return {slug:row.slug,name:row.name,image:row.image_url,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),origin:row.origin,accent:row.accent as Breed['accent'],size:publicBreedSize(row.size),weight:publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([standard.hmotnost_pes_kg,standard.hmotnost_suka_kg],"kg")),lifespan:publicBreedMeasurement(row.lifespan,"lifespan"),coat:row.coat,energy:row.energy,trainability:row.trainability,family:row.family,intro:row.intro,goodFor:stringArray(row.good_for_json),consider:stringArray(row.consider_json)};} ),env);}
@@ -168,7 +200,16 @@ function clean(input:ManagedBreedInput){
     ["FCI hmotnosť – pes",fciStandard.hmotnost_pes_kg,"weight",false],["FCI hmotnosť – suka",fciStandard.hmotnost_suka_kg,"weight",false],
   ] as const){const issue=inspectBreedMeasurement(value,kind,{requireUnit}).find((item)=>item.severity==="error");if(issue)throw new Error(`${label}: ${issue.message}`);}
   const rawEditorial=input.editorial??{};const editorial:BreedEditorial={overview:text(rawEditorial.overview,8000),coatCare:text(rawEditorial.coatCare,8000),familyLife:text(rawEditorial.familyLife,8000),otherDogsLife:text(rawEditorial.otherDogsLife,8000),curiosities:text(rawEditorial.curiosities,8000),commonOwnerMistakes:text(rawEditorial.commonOwnerMistakes,8000),exerciseTip:text(rawEditorial.exerciseTip,500),trainingTip:text(rawEditorial.trainingTip,500),healthTip:text(rawEditorial.healthTip,500),coatTip:text(rawEditorial.coatTip,500),heroTraits:Array.isArray(rawEditorial.heroTraits)?rawEditorial.heroTraits.slice(0,3).map((item)=>({label:text(item.label,80),rating:Math.min(5,Math.max(1,Number(item.rating)||1))})).filter((item)=>item.label):[]};
-  const sports=Array.isArray(input.sports)?input.sports.slice(0,30).map((item)=>({key:text(item.key,80),label:text(item.label,120),rating:Math.min(5,Math.max(1,Number(item.rating)||1)),note:text(item.note,500)})).filter((item)=>item.key&&item.label):[];
+  const rawSports=Array.isArray(input.sports)?input.sports.slice(0,30):[];
+  const sportKeys=new Set<string>();
+  const sports=rawSports.map((item)=>{
+    const key=text(item.key,80);const label=text(item.label,120);const rating=Number(item.rating);
+    if(!key||!label)throw new Error("Každý šport musí mať interný kľúč a názov.");
+    if(!Number.isFinite(rating)||rating<1||rating>5)throw new Error(`Šport „${label}“ musí mať vhodnosť od 1 do 5.`);
+    if(sportKeys.has(key))throw new Error(`Šport „${label}“ je v profile uvedený viackrát.`);
+    sportKeys.add(key);
+    return {key,label,rating,note:text(item.note,500)};
+  });
   const fciNumber=Number.isSafeInteger(input.fciNumber)&&Number(input.fciNumber)>0?Number(input.fciNumber):null;
   if(input.status==="published"){
     if(!fciNumber||!input.importKey?.trim())throw new Error("Publikované plemeno musí mať FCI číslo a importný kľúč.");
@@ -194,3 +235,46 @@ async function syncRelations(database:D1Database,breedId:number,value:ReturnType
 export async function createManagedBreed(input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();const placeholders=Array.from({length:54},()=>"?").join(",");const result=await database.prepare(`INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`).bind(...values(value),now,now,value.status==="published"?now:null,user,user).run();const id=Number(result.meta.last_row_id);await syncRelations(database,id,value,user);return getManagedBreed(id);}
 export async function updateManagedBreed(id:number,input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();await database.prepare(`UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=?`).bind(...values(value),now,value.status,now,user,id).run();await syncRelations(database,id,value,user);return getManagedBreed(id);}
 export async function deleteManagedBreed(id:number){const database=requireDb();await ensure(database);await database.batch([database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id),database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id),database.prepare("DELETE FROM managed_breeds WHERE id=?").bind(id)]);}
+
+
+export async function bulkUpdateManagedBreedStatus(input: unknown, user: string) {
+  const { breeds, status } = validateBulkBreedStatus(input);
+  const database = requireDb();
+  await ensure(database);
+  const now = new Date().toISOString();
+  const result = await database.prepare(`
+    WITH requested AS (
+      SELECT
+        CAST(json_extract(value, '$.id') AS INTEGER) AS id,
+        json_extract(value, '$.status') AS status,
+        json_extract(value, '$.updatedAt') AS updated_at
+      FROM json_each(?)
+    )
+    UPDATE managed_breeds
+    SET status = ?,
+        updated_at = ?,
+        updated_by = ?,
+        published_at = CASE WHEN ? = 'published' THEN COALESCE(published_at, ?) ELSE published_at END
+    WHERE id IN (SELECT id FROM requested)
+      AND (SELECT COUNT(*)
+        FROM managed_breeds b
+        JOIN requested r ON b.id = r.id
+          AND b.status = r.status
+          AND b.updated_at = r.updated_at) = ?
+      AND (? <> 'published' OR NOT EXISTS (
+        SELECT 1
+        FROM managed_breeds b
+        JOIN requested r ON b.id = r.id
+        WHERE b.fci_number IS NULL
+          OR b.fci_number <= 0
+          OR COALESCE(TRIM(b.import_key), '') = ''
+      ))
+    RETURNING id
+  `).bind(JSON.stringify(breeds),status,now,user,status,now,breeds.length,status).all<{id:number}>();
+  if (result.results.length !== breeds.length) {
+    throw new Error(status === "published"
+      ? "Niektoré plemeno sa medzičasom zmenilo alebo nemá FCI číslo/importný kľúč. Žiadny publikačný stav nebol zmenený."
+      : "Niektoré plemeno sa medzičasom zmenilo alebo bolo odstránené. Žiadny publikačný stav nebol zmenený.");
+  }
+  return { changed: result.results.length, status, updatedAt: now };
+}
