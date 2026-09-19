@@ -119,8 +119,8 @@ export function defaultHelpActionLabel(category: HelpCategorySlug) {
 }
 
 export function helpProgress(item: Pick<HelpCase, "goalAmount" | "raisedAmount">) {
-  if (!item.goalAmount || item.goalAmount <= 0) return null;
-  return Math.min(100, Math.max(0, Math.round(((item.raisedAmount ?? 0) / item.goalAmount) * 100)));
+  if (item.goalAmount === null || item.goalAmount <= 0 || item.raisedAmount === null || item.raisedAmount < 0) return null;
+  return Math.min(100, Math.max(0, Math.round((item.raisedAmount / item.goalAmount) * 100)));
 }
 
 export function formatHelpAmount(value: number | null) {
