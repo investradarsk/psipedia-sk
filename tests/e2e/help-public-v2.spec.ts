@@ -79,9 +79,10 @@ test("Help Admin list is paged, accent-insensitive and keeps dedicated modules o
   await expect(page.getByRole("heading",{level:1,name:"Help prípady a výzvy"})).toBeVisible();
   await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 64");
   await expect(page.locator(".admin-help-row")).toHaveCount(50);
-  await expect(page.getByRole("link",{name:"Adopcie",exact:true})).toHaveAttribute("href","/admin/adopcie");
-  await expect(page.getByRole("link",{name:"Stratené / nájdené",exact:true})).toHaveAttribute("href","/admin/stratene-najdene");
-  await expect(page.getByRole("link",{name:"Organizácie",exact:true})).toHaveAttribute("href","/admin/organizacie");
+  const moduleLinks=page.getByRole("navigation",{name:"Samostatné admin moduly"}).first();
+  await expect(moduleLinks.getByRole("link",{name:"Adopcie",exact:true})).toHaveAttribute("href","/admin/adopcie");
+  await expect(moduleLinks.getByRole("link",{name:"Stratené / nájdené",exact:true})).toHaveAttribute("href","/admin/stratene-najdene");
+  await expect(moduleLinks.getByRole("link",{name:"Organizácie",exact:true})).toHaveAttribute("href","/admin/organizacie");
   await page.getByRole("link",{name:"Ďalšia →"}).click();
   await expect(page.locator(".admin-help-row")).toHaveCount(14);
 
@@ -128,9 +129,19 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   expect(item.status).toBe("draft");
   expect(item.category).toBe("docasna-opatera");
 
-  await page.getByLabel("Názov prípadu alebo výzvy").fill("E2E Help Admin Created – upravený");
-  await expect(page.getByLabel("Názov prípadu alebo výzvy")).toHaveValue("E2E Help Admin Created – upravený");
+  const titleInput=page.getByLabel("Názov prípadu alebo výzvy");
+  await titleInput.fill("E2E Help Admin Created – upravený");
+  await titleInput.press("Tab");
+  await expect(titleInput).toHaveValue("E2E Help Admin Created – upravený");
   await page.getByRole("checkbox",{name:/Urgentné/}).check();
+
+  // Persist the content edit first, then exercise publication separately. This
+  // verifies both edit persistence and the DRAFT -> published lifecycle.
+  await page.getByRole("button",{name:"Uložiť koncept"}).click();
+  await expect(page.getByRole("status")).toContainText("Koncept");
+  api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
+  expect(item.status).toBe("draft");expect(item.urgent).toBe(true);expect(item.title).toContain("upravený");
+
   await page.getByRole("button",{name:"Publikovať prípad"}).click();
   await expect(page.getByRole("status")).toContainText("publikovaný");
   api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
@@ -155,7 +166,7 @@ test("Help Admin 390x844 list, editor and import preview have no page overflow, 
   for(const control of [
     search,page.getByLabel("Kategória"),page.getByLabel("Publikácia"),page.getByLabel("Urgentnosť"),
     page.getByLabel("Stav prípadu"),page.getByLabel("Organizácia / osoba"),page.getByLabel("Lokalita"),
-    page.getByRole("button",{name:"Použiť filtre"}),page.getByRole("link",{name:"Adopcie",exact:true}),
+    page.getByRole("button",{name:"Použiť filtre"}),page.getByRole("navigation",{name:"Samostatné admin moduly"}).first().getByRole("link",{name:"Adopcie",exact:true}),
   ]){
     const box=await control.boundingBox();expect(box?.height??0).toBeGreaterThanOrEqual(44);
   }
