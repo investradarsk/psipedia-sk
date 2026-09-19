@@ -134,8 +134,7 @@ test("event category and time filters keep a shareable URL across reload", async
     await page.reload();
     await expect(page).toHaveURL(new RegExp(`${path.replace(/[?]/g, "\\?")}$`));
     await expect(page.getByRole("group", { name: "Typ podujatia" }).getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(page.locator(".event-calendar-toolbar select").last()).toHaveValue("past");
-    await expect(page.getByRole("group", { name: "Rýchly filter termínu" }).getByRole("button", { name: "Ukončené", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("group", { name: "Obdobie podujatia" }).getByRole("link", { name: "Ukončené", exact: true })).toHaveAttribute("aria-current", "page");
   }
 });
 
@@ -227,13 +226,26 @@ test("@production directory listing, veterinarians, profile and filters work", a
 });
 
 test("@production events listing, detail and past/upcoming separation work", async ({ page }) => {
-  await gotoProductionPage(page, "/podujatia/kalendar");
+  await gotoProductionPage(page, "/podujatia");
   await expect(page.locator("h1")).toBeVisible();
-  const upcomingLinks = await page.locator('.event-grid a[href^="/podujatia/"]').evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)))]);
+  await expect(page.locator("[data-event-list]")).toBeVisible();
+
+  const eventLinks = async () => page.locator('[data-event-card] h3 a[href^="/podujatia/"]').evaluateAll((links) => [
+    ...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href))),
+  ]);
+
+  const upcomingLinks = await eventLinks();
   expect(upcomingLinks.length, "Upcoming event listing is empty").toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Ukončené" }).click();
-  const pastLinks = await page.locator('.event-grid a[href^="/podujatia/"]').evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)))]);
+
+  const pastFilter = page.getByRole("group", { name: "Obdobie podujatia" }).getByRole("link", { name: "Ukončené", exact: true });
+  await pastFilter.click();
+  await expect(pastFilter).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(/termin=ukoncene/);
+
+  const pastLinks = await eventLinks();
+  expect(pastLinks.length, "Past event listing is empty").toBeGreaterThan(0);
   expect(upcomingLinks.filter((href) => pastLinks.includes(href)).length, "A past event also appears among upcoming events").toBe(0);
+
   await gotoProductionPage(page, upcomingLinks[0]!);
   await expect(page.locator("h1")).toBeVisible();
 });
