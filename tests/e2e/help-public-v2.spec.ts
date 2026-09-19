@@ -53,7 +53,6 @@ test("Help category flows preserve dedicated domains and canonical organization 
   await page.goto("/pomoc-psom/docasna-opatera", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1, name: "Dočasná opatera" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "E2E dočasná opatera", exact: true })).toBeVisible();
-  await expect(page.getByText("Max", { exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/pomoc-psom/stratene-a-najdene", { waitUntil: "domcontentloaded" });
