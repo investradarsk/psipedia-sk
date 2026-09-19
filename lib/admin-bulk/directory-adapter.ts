@@ -4,10 +4,10 @@ import {
   directoryAdminMembershipFilters,
   parseDirectoryAdminFilters,
   type DirectoryAdminMembershipFilters,
-} from "../directory-admin-query";
-import { allDirectoryCategories, isDirectoryCategory } from "../directory";
-import type { BulkAction, BulkEligibility, BulkResolvedRecord } from "./core";
-import type { BulkDatabase } from "./snapshot-store";
+} from "../directory-admin-query.ts";
+import { allDirectoryCategories, isDirectoryCategory } from "../directory.ts";
+import type { BulkAction, BulkEligibility, BulkResolvedRecord } from "./core.ts";
+import type { BulkDatabase } from "./snapshot-store.ts";
 
 function rawFilterValue(filter: Record<string, unknown>, key: string) {
   const value = filter[key];

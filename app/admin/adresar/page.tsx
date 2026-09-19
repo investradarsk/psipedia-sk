@@ -5,6 +5,7 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { parseDirectoryAdminFilters } from "@/lib/directory-admin-query";
 import { getManagedDirectoryAdminPage } from "@/lib/directory-admin-store";
 import { isDirectoryCategory } from "@/lib/directory";
+import styles from "@/components/admin-directory-dashboard.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -19,5 +20,5 @@ export default async function AdminDirectoryPage({ searchParams }: { searchParam
   );
   const data = await getManagedDirectoryAdminPage(filters);
 
-  return <AdminShell user={user} eyebrow="Služby pre psov" title="Profily a služby" description="Pridávaj veterinárov, trénerov, školy, kluby a ďalšie služby. Verejné sú iba publikované profily." actions={<><Link className="admin-secondary-action" href="/admin/adresar/navrhy">Návrhy úprav</Link><Link className="admin-primary-action" href="/admin/adresar/novy">+ Nový profil</Link></>}><AdminDirectoryDashboard data={data} filters={filters} /></AdminShell>;
+  return <AdminShell user={user} eyebrow="Služby pre psov" title="Profily a služby" description="Pridávaj veterinárov, trénerov, školy, kluby a ďalšie služby. Verejné sú iba publikované profily." actions={<><Link className="admin-secondary-action" href="/admin/adresar/navrhy">Návrhy úprav</Link><Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/adresar/novy">+ Nový profil</Link></>}><AdminDirectoryDashboard data={data} filters={filters} /></AdminShell>;
 }

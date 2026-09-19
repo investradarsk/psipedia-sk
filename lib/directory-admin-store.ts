@@ -20,6 +20,7 @@ type DirectoryAdminRow = {
   image_url: string | null;
   verified: number;
   featured: number;
+  updated_at: string;
 };
 
 export type ManagedDirectoryAdminPage = {
@@ -27,6 +28,7 @@ export type ManagedDirectoryAdminPage = {
   counts: { total: number; published: number; draft: number };
   resultCount: number;
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  options: { regions: string[]; districts: string[]; cities: string[] };
 };
 
 function requireD1Binding() {
@@ -60,6 +62,7 @@ function rowToSummary(row: DirectoryAdminRow): ManagedDirectoryProfileSummary {
     imageUrl: row.image_url,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
+    updatedAt: row.updated_at,
   };
 }
 
@@ -75,5 +78,6 @@ export async function getManagedDirectoryAdminPage(filters: DirectoryAdminFilter
       total: result.resultCount,
       totalPages: result.pages,
     },
+    options: result.options,
   };
 }

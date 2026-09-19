@@ -272,7 +272,7 @@ export function AdminBulkSelectionControls({
   }
 
   async function runExecution() {
-    if (!isArticles || pending || !preflight || preflight.eligible === 0 || selection.mode !== "explicit") return;
+    if (pending || !preflight || preflight.eligible === 0 || (isArticles && selection.mode !== "explicit")) return;
     setPending(true);
     setExecution(null);
     setError("");
@@ -281,11 +281,13 @@ export function AdminBulkSelectionControls({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          module: "articles",
+          module,
           action,
           snapshotId: preflight.snapshot.id,
           membershipFingerprint,
-          selection: { mode: "explicit", ids: selection.ids },
+          selection: selection.mode === "all-matching"
+            ? { mode: "all-matching" }
+            : { mode: "explicit", ids: selection.ids },
         }),
       });
       const payload = await response.json() as ExecutionResult & { error?: string };
@@ -378,12 +380,15 @@ export function AdminBulkSelectionControls({
                 {pending ? "Kontrolujem…" : preflight ? "Preflight zopakovať" : "Spustiť preflight"}
               </AdminActionButton>
             )}
-            {isArticles && preflight && !execution && (
-              <AdminActionButton variant="primary" disabled={pending || preflight.eligible === 0 || selection.mode !== "explicit"} onClick={() => void runExecution()}>
+            {preflight && !execution && (
+              <AdminActionButton
+                variant="primary"
+                disabled={pending || preflight.eligible === 0 || (isArticles && selection.mode !== "explicit")}
+                onClick={() => void runExecution()}
+              >
                 {pending ? "Vykonávam…" : `Potvrdiť a vykonať: ${actionLabel.toLowerCase()}`}
               </AdminActionButton>
             )}
-            {!isArticles && <AdminActionButton variant="neutral" className={styles.futureAction} disabled>Vykonať hromadnú zmenu — ďalšia fáza</AdminActionButton>}
           </div>
         </div>
       </dialog>
