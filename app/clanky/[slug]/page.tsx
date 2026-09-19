@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
-import { getPublishedArticle, getPublishedArticleAuthorProfile, getRelatedPublishedArticles } from "@/lib/article-store";
+import { getPublishedArticle, getPublishedArticleAuthorProfile } from "@/lib/article-store";
+import { getArticleMagazineData } from "@/lib/article-magazine";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { articles as seedArticles } from "@/lib/content";
 import { articleHref } from "@/lib/portal";
@@ -29,9 +30,9 @@ export default async function LegacyArticlePage({ params }: Props) {
   const canonical = articleHref(article);
   if (canonical !== `/clanky/${slug}`) redirect(canonical);
 
-  const [relatedArticles, authorProfile] = await Promise.all([
-    getRelatedPublishedArticles(article, 3),
+  const [magazine, authorProfile] = await Promise.all([
+    getArticleMagazineData(article),
     getPublishedArticleAuthorProfile(article),
   ]);
-  return <ArticleDetail article={article} related={relatedArticles} authorProfile={authorProfile} />;
+  return <ArticleDetail article={article} magazine={magazine} authorProfile={authorProfile} />;
 }
