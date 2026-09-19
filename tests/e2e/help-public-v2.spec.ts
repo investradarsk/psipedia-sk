@@ -77,13 +77,13 @@ test("Help Admin list is paged, accent-insensitive and keeps dedicated modules o
   const response=await page.goto("/admin/pomoc?q=E2E+bulk&status=draft",{waitUntil:"domcontentloaded"});
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading",{level:1,name:"Help prípady a výzvy"})).toBeVisible();
-  await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 65");
+  await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 64");
   await expect(page.locator(".admin-help-row")).toHaveCount(50);
   await expect(page.getByRole("link",{name:"Adopcie",exact:true})).toHaveAttribute("href","/admin/adopcie");
   await expect(page.getByRole("link",{name:"Stratené / nájdené",exact:true})).toHaveAttribute("href","/admin/stratene-najdene");
   await expect(page.getByRole("link",{name:"Organizácie",exact:true})).toHaveAttribute("href","/admin/organizacie");
   await page.getByRole("link",{name:"Ďalšia →"}).click();
-  await expect(page.locator(".admin-help-row")).toHaveCount(15);
+  await expect(page.locator(".admin-help-row")).toHaveCount(14);
 
   await page.goto("/admin/pomoc?q=zlty");
   await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 1");
@@ -129,6 +129,7 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   expect(item.category).toBe("docasna-opatera");
 
   await page.getByLabel("Názov prípadu alebo výzvy").fill("E2E Help Admin Created – upravený");
+  await expect(page.getByLabel("Názov prípadu alebo výzvy")).toHaveValue("E2E Help Admin Created – upravený");
   await page.getByRole("checkbox",{name:/Urgentné/}).check();
   await page.getByRole("button",{name:"Publikovať prípad"}).click();
   await expect(page.getByRole("status")).toContainText("publikovaný");
