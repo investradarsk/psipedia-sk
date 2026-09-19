@@ -53,7 +53,7 @@ export default function ContactPage() {
         <div className={styles.sectionHeading}>
           <span className="eyebrow">Správna cesta</span>
           <h2 id="contact-routes-title">Vyber, s čím sa ozývaš</h2>
-          <p>Kontakt neslúži ako druhý inbox pre podnety, ktoré už majú vlastný bezpečný workflow.</p>
+          <p>Pre niektoré typy správ máme samostatný postup, aby sa dostali priamo na správne miesto.</p>
         </div>
 
         <div className={styles.routeGrid} data-contact-routes>
@@ -74,7 +74,7 @@ export default function ContactPage() {
           <Link className={styles.routeCard} data-contact-route="news-tip" data-contact-action href="/novinky/poslat-tip">
             <span className={styles.routeKicker}>Redakcia</span>
             <h3>Tip na novinku</h3>
-            <p>Príbeh, výskum, záchrana, projekt alebo udalosť zo sveta psov patrí do redakčného News Tip flow.</p>
+            <p>Príbeh, výskum, záchrana, projekt alebo udalosť zo sveta psov patrí do samostatného formulára pre redakčné tipy.</p>
             <strong className={styles.routeAction}>Poslať tip →</strong>
           </Link>
 
@@ -99,11 +99,25 @@ export default function ContactPage() {
             <strong className={styles.routeAction}>Navrhnúť doplnenie →</strong>
           </a>
 
-          <Link className={styles.routeCard} data-contact-route="help" data-contact-action href="/pomoc-psom/nahlasit-psa-v-nudzi">
+          <Link className={styles.routeCard} data-contact-route="lost-dog" data-contact-action href="/pomoc-psom/stratene-psy">
             <span className={styles.routeKicker}>Pomoc psom</span>
-            <h3>Stratený, nájdený alebo ohrozený pes</h3>
-            <p>Použi príslušný Help postup. Pri bezprostrednom ohrození nečakaj na odpoveď redakcie.</p>
-            <strong className={styles.routeAction}>Otvoriť postup pomoci →</strong>
+            <h3>Stratil sa pes</h3>
+            <p>Prejdi na samostatnú sekciu stratených psov a použi príslušný postup pre tento typ prípadu.</p>
+            <strong className={styles.routeAction}>Stratené psy →</strong>
+          </Link>
+
+          <Link className={styles.routeCard} data-contact-route="found-dog" data-contact-action href="/pomoc-psom/najdene-psy">
+            <span className={styles.routeKicker}>Pomoc psom</span>
+            <h3>Našiel sa pes</h3>
+            <p>Prejdi na samostatnú sekciu nájdených psov a použi príslušný postup pre tento typ prípadu.</p>
+            <strong className={styles.routeAction}>Nájdené psy →</strong>
+          </Link>
+
+          <Link className={styles.routeCard} data-contact-route="dog-in-need" data-contact-action href="/pomoc-psom/nahlasit-psa-v-nudzi">
+            <span className={styles.routeKicker}>Urgentná pomoc</span>
+            <h3>Pes je v núdzi</h3>
+            <p>Ak je pes zranený alebo bezprostredne ohrozený, riaď sa postupom pri psovi v núdzi a nečakaj na odpoveď redakcie.</p>
+            <strong className={styles.routeAction}>Postup pri psovi v núdzi →</strong>
           </Link>
 
           <a className={styles.routeCard} data-contact-route="collaboration" data-contact-action href={collaborationHref}>
