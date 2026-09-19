@@ -18,7 +18,7 @@ const sectionFixtures = [
     description: "Zdravie, výživa a praktická starostlivosť o psa.",
     intro: "Rozhodovanie podľa potrieb konkrétneho psa a overiteľných zdrojov.",
     visible: true,
-    subpages: [{ slug: "vyziva", label: "Výživa", description: "Krmivá, dávky a zdravá kondícia." }],
+    subpages: [{ slug: "vyziva", label: "Výživa", description: "Krmivá, dávky a zdravá kondícia." }, { slug: "zdravie", label: "Zdravie", description: "Prevencia a zdravie psa." }],
   },
   {
     slug: "novinky",
@@ -42,6 +42,7 @@ const bikeBlocks = [
   { id: "bike-text-2", type: "text", content: "Dôležitejšia než konkrétne plemeno je zdravá pohybová sústava, primeraná hmotnosť, kondícia a schopnosť pracovať aj pri rušení." },
   { id: "bike-h2-3", type: "h2", text: "Kedy môže pes s bikejoringom začať" },
   { id: "bike-warning-1", type: "warning", content: "Intenzívny ťah patrí až k fyzicky pripravenému psovi. Pri mladom psovi rešpektujte vývoj kostí, kĺbov, svalov a šliach." },
+  { id: "bike-related-1", type: "related", title: "Stimulus control: kedy pes povel naozaj ovláda", href: "/aktivity/stimulus-control-u-psa", description: "Ako overiť, či správanie naozaj riadi konkrétny signál." },
   { id: "bike-h2-4", type: "h2", text: "Výbava na bikejoring: čo skutočne potrebujete" },
   { id: "bike-list-1", type: "bullet-list", items: ["dobre sediaci ťažný postroj", "pružná ťažná šnúra", "bikejoringová anténa", "spoľahlivý bicykel a prilba"] },
   { id: "bike-image-1", type: "image", url: "/images/trening-pri-nohe.webp", alt: "Pes pri tréningu s človekom", caption: "Testovací lokálny vizuál používa existujúcu fotografiu Psipedie.", credit: "Psipedia", size: "wide" },
@@ -80,6 +81,27 @@ const granuleBlocks = [
   { id: "food-source-1", type: "source", label: "WSAVA Global Nutrition Guidelines", url: "https://wsava.org/global-guidelines/global-nutrition-guidelines/" },
   { id: "food-source-2", type: "source", label: "WSAVA Global Nutrition Toolkit", url: "https://wsava.org/global-guidelines/global-nutrition-guidelines/" },
 ];
+
+const sidebarFixtures = Array.from({ length: 6 }, (_, index) => ({
+  slug: `e2e-sidebar-article-${index + 1}`,
+  title: `E2E magazínový článok ${index + 1}`,
+  excerpt: "Publikovaný lokálny fixture pre päťpoložkový magazínový sidebar.",
+  category: "Život so psom",
+  portalSection: "novinky",
+  newsCategory: "zaujimavosti",
+  status: "published",
+  accent: "coral",
+  author: "Redakcia Psipedia",
+  intro: "Pomocný publikovaný fixture pre deterministické odporúčania.",
+  takeaway: "",
+  blocks: [{ id: `sidebar-${index + 1}-text`, type: "text", content: "Krátky testovací obsah." }],
+  sections: [],
+  sources: [],
+  readingMinutes: 2,
+  publishedAt: `2026-08-${String(8 - index).padStart(2, "0")}T08:00:00.000Z`,
+  showUpdated: false,
+  noindex: true,
+}));
 
 const articleFixtures = [
   {
@@ -147,6 +169,51 @@ const articleFixtures = [
     noindex: true,
   },
   {
+    slug: "e2e-clanok-bez-obrazka",
+    title: "E2E článok bez hero obrázka",
+    excerpt: "Testovací článok overuje stabilnú magazínovú kompozíciu bez hlavného obrázka.",
+    category: "Zdravie",
+    portalSection: "starostlivost",
+    portalSubpage: "zdravie",
+    status: "published",
+    accent: "forest",
+    author: "Redakcia Psipedia",
+    intro: "Článok zámerne nemá hero obrázok ani vhodný related článok v rovnakej téme.",
+    takeaway: "Placeholder nesmie rozbiť titulok, utility ani začiatok čítania.",
+    blocks: [
+      { id: "no-image-h2-1", type: "h2", text: "Prvá časť článku" },
+      { id: "no-image-text-1", type: "text", content: "Prvý blok testovacieho obsahu." },
+      { id: "no-image-h2-2", type: "h2", text: "Druhá časť článku" },
+      { id: "no-image-text-2", type: "text", content: "Druhý blok testovacieho obsahu." },
+    ],
+    sections: [],
+    sources: [],
+    readingMinutes: 4,
+    publishedAt: "2026-09-01T08:00:00.000Z",
+    showUpdated: false,
+    noindex: true,
+  },
+  {
+    slug: "e2e-nepublikovany-related",
+    title: "E2E nepublikovaný related kandidát",
+    excerpt: "Draft fixture sa nesmie objaviť v žiadnom verejnom odporúčaní.",
+    category: "Výcvik",
+    portalSection: "aktivity",
+    portalSubpage: "trening",
+    status: "draft",
+    accent: "coral",
+    author: "Redakcia Psipedia",
+    intro: "Tento draft existuje iba na overenie unpublished exclusion.",
+    takeaway: "",
+    blocks: [{ id: "draft-text", type: "text", content: "Draft obsah." }],
+    sections: [],
+    sources: [],
+    readingMinutes: 2,
+    publishedAt: "2026-09-19T08:00:00.000Z",
+    showUpdated: false,
+    noindex: true,
+  },
+  {
     slug: "e2e-vyskum-psov-2026",
     title: "E2E výskum psov 2026",
     excerpt: "Testovacia publikovaná novinka pre overenie kompletného archívu a kategórie Veda a zdravie.",
@@ -193,7 +260,8 @@ const articleFixtures = [
     publishedAt: "2026-09-17T08:00:00.000Z",
     showUpdated: false,
     noindex: true,
-  }
+  },
+  ...sidebarFixtures,
 ];
 
 function fail(message) {
@@ -263,13 +331,13 @@ async function upsertArticle(baseUrl, fixture) {
   const result = existing
     ? await requestJson(baseUrl, `/api/admin/articles/${existing.id}`, { method: "PUT", body: JSON.stringify(fixture) })
     : await requestJson(baseUrl, "/api/admin/articles", { method: "POST", body: JSON.stringify(fixture) });
-  if (result.article?.slug !== fixture.slug || result.article?.status !== "published") {
-    fail(`Article ${fixture.slug} was not persisted as published.`);
+  if (result.article?.slug !== fixture.slug || result.article?.status !== fixture.status) {
+    fail(`Article ${fixture.slug} was not persisted with status ${fixture.status}.`);
   }
 }
 
 async function verifyPublicRoutes(baseUrl) {
-  for (const fixture of articleFixtures) {
+  for (const fixture of articleFixtures.filter((item) => item.status === "published")) {
     const route = `/${fixture.portalSection}/${fixture.slug}`;
     const result = await request(baseUrl, route);
     if (result.response.status !== 200) fail(`${route} returned ${result.response.status}.`);
