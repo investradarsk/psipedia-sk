@@ -952,3 +952,192 @@
     margin-top: 24px;
   }
 }
+
+
+/* HOME-4: clearer visual hierarchy for service/data blocks. */
+.homeV2 :global(.home-event-list) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  border-top: 0;
+}
+
+.homeV2 :global(.home-event-item) {
+  min-width: 0;
+  border-bottom: 0;
+}
+
+.homeV2 :global(.home-event-item > a) {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  height: 100%;
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-items: stretch;
+  padding: 0;
+  border: 1px solid rgba(23, 53, 43, 0.12);
+  border-radius: 17px;
+  background: var(--paper);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.homeV2 :global(.home-event-item > a:hover) {
+  border-color: rgba(23, 75, 56, 0.26);
+  box-shadow: 0 12px 30px rgba(23, 53, 43, 0.08);
+  transform: translateY(-2px);
+}
+
+.homeV2 :global(.home-event-media) {
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 16 / 8.8;
+  background: var(--sage-light);
+}
+
+.homeV2 :global(.home-event-media img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.homeV2 :global(.home-event-placeholder) {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: var(--brand-accent-strong, var(--coral-dark));
+  background:
+    linear-gradient(135deg, rgba(23, 75, 56, 0.08), transparent 58%),
+    var(--sage-light);
+}
+
+.homeV2 :global(.home-event-copy) {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 14px 42px 16px 15px;
+}
+
+.homeV2 :global(.home-event-copy time) {
+  color: var(--coral-dark);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.homeV2 :global(.home-event-copy strong) {
+  color: var(--forest);
+  font-family: Georgia, serif;
+  font-size: 1.08rem;
+  font-weight: 500;
+  line-height: 1.28;
+}
+
+.homeV2 :global(.home-event-copy span) {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.homeV2 :global(.home-event-arrow) {
+  position: absolute;
+  right: 14px;
+  bottom: 15px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--forest);
+  background: rgba(23, 75, 56, 0.07);
+}
+
+.homeV2 :global(.home-events-cta) {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.homeV2 :global(.home-vet-item > a) {
+  border: 1px solid rgba(23, 53, 43, 0.11);
+  border-radius: 14px;
+  background: var(--paper);
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.homeV2 :global(.home-vet-item > a:hover) {
+  border-color: rgba(23, 75, 56, 0.25);
+  transform: translateY(-1px);
+}
+
+.homeV2 :global(.home-services-wide) {
+  padding: 28px 30px;
+  border: 1px solid rgba(23, 53, 43, 0.1);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--sage-light) 58%, var(--cream));
+}
+
+.homeV2 :global(.home-help-item > a) {
+  border: 1px solid rgba(23, 53, 43, 0.11);
+  border-radius: 16px;
+  background: var(--paper);
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.homeV2 :global(.home-help-item > a:hover) {
+  border-color: rgba(23, 75, 56, 0.25);
+  box-shadow: 0 10px 26px rgba(23, 53, 43, 0.06);
+  transform: translateY(-1px);
+}
+
+.homeV2 :global(.home-help-copy) {
+  padding-inline: 14px;
+}
+
+@media (max-width: 980px) {
+  .homeV2 :global(.home-event-list) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .homeV2 :global(.home-event-list) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .homeV2 :global(.home-event-item > a) {
+    grid-template-columns: 108px minmax(0, 1fr);
+    min-height: 108px;
+  }
+
+  .homeV2 :global(.home-event-media) {
+    width: 108px;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .homeV2 :global(.home-event-copy) {
+    padding: 12px 38px 12px 13px;
+  }
+
+  .homeV2 :global(.home-event-copy time) {
+    grid-column: auto;
+  }
+
+  .homeV2 :global(.home-event-arrow) {
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .homeV2 :global(.home-services-wide) {
+    padding: 22px 18px;
+    border-radius: 16px;
+  }
+
+  .homeV2 :global(.home-help-copy) {
+    padding: 10px 12px;
+  }
+}
