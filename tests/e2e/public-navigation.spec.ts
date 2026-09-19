@@ -118,6 +118,57 @@ test("public navigation keeps order and exposes only requested submenus", async 
   })).toBe(true);
 });
 
+test("header brand stays collision-free from 390px through narrow desktop", async ({ page }) => {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 430, height: 844 },
+    { width: 768, height: 900 },
+    { width: 1024, height: 900 },
+    { width: 1180, height: 900 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    const geometry = await page.evaluate(() => {
+      const rect = (element: Element | null) => {
+        if (!element) return null;
+        const box = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden" || box.width === 0 || box.height === 0) return null;
+        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+      };
+      const intersects = (a: ReturnType<typeof rect>, b: ReturnType<typeof rect>) =>
+        Boolean(a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top);
+      const brand = rect(document.querySelector("[data-header-brand]"));
+      const secondary = rect(document.querySelector("[data-header-secondary]"));
+      const nav = rect(document.querySelector(".desktop-nav"));
+      const actions = rect(document.querySelector(".header-actions"));
+      const hamburger = rect(document.querySelector('button[aria-controls="mobile-menu"]'));
+      const header = document.querySelector<HTMLElement>(".site-header")!;
+      return {
+        brand,
+        secondary,
+        nav,
+        actions,
+        hamburger,
+        brandSecondaryOverlap: intersects(brand, secondary),
+        brandNavOverlap: intersects(brand, nav),
+        brandActionsOverlap: intersects(brand, actions),
+        brandHamburgerOverlap: intersects(brand, hamburger),
+        overflow: header.scrollWidth - header.clientWidth,
+      };
+    });
+
+    expect(geometry.brand, `${viewport.width}px: brand missing`).not.toBeNull();
+    expect(geometry.brandSecondaryOverlap, `${viewport.width}px: secondary text overlaps brand`).toBe(false);
+    expect(geometry.brandNavOverlap, `${viewport.width}px: desktop nav overlaps brand`).toBe(false);
+    expect(geometry.brandActionsOverlap, `${viewport.width}px: utility actions overlap brand`).toBe(false);
+    expect(geometry.brandHamburgerOverlap, `${viewport.width}px: hamburger overlaps brand`).toBe(false);
+    expect(geometry.overflow, `${viewport.width}px: header horizontal overflow`).toBeLessThanOrEqual(1);
+  }
+});
+
 test("desktop dropdown supports hover and keyboard focus without submenu accent line", async ({ page, isMobile }) => {
   test.skip(isMobile, "Desktop-only interaction");
   const group = page.locator('.nav-group:has(> a[href="/steniatka"])');

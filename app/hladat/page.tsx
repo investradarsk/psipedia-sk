@@ -68,6 +68,7 @@ export default async function SearchPage({ searchParams }: Props) {
                       topic={item.articleMeta.topic}
                       date={item.articleMeta.date}
                       dateTime={item.articleMeta.dateIso}
+                      image={item.articleMeta.image ? { src: item.articleMeta.image, alt: `Ilustračná fotografia k článku: ${item.title}` } : undefined}
                       listItem={false}
                     />
                   ) : <Link href={item.href} key={item.href}><span><strong>{item.title}</strong><small>{item.description}</small></span><ArrowIcon size={20} /></Link>)}</div>

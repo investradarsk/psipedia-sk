@@ -219,12 +219,12 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
         <div className="header-inner shell public-shell">
           {menuButton(styles.mobileLeftTrigger)}
           <div className={styles.brandCluster}>
-            <Link href="/" className="brand" aria-label="Psipedia.sk – domov">
+            <Link href="/" className="brand" aria-label="Psipedia.sk – domov" data-header-brand>
               <span className="brand-mark"><PawMark size={29} /></span>
               <span>psi<span>pedia</span><small>.sk</small></span>
             </Link>
             {dogNameDays.length > 0 ? (
-              <span className={styles.nameDay}>Psie meniny: <strong>{dogNameDays.join(", ")}</strong></span>
+              <span className={styles.nameDay} data-header-secondary>Psie meniny: <strong>{dogNameDays.join(", ")}</strong></span>
             ) : null}
           </div>
 

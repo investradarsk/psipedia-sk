@@ -2094,11 +2094,13 @@ h3 {
   display: grid;
   grid-template-columns: 1.08fr 0.92fr;
   gap: 18px;
+  align-items: start;
 }
 
 .featured-stack {
   display: grid;
   gap: 18px;
+  align-content: start;
 }
 
 .article-grid {
