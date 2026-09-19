@@ -20,7 +20,7 @@ export type PortalSearchItem = {
   type: string;
   description: string;
   keywords: string;
-  articleMeta?: { topic: string; date: string; dateIso: string };
+  articleMeta?: { topic: string; date: string; dateIso: string; image?: string };
 };
 
 export function normalizePortalSearch(value: string) {
@@ -59,7 +59,7 @@ function baseSearchItems(articles: Article[], sections: PortalSection[], breeds:
         type: isNews ? "Novinka" : "Článok",
         description: article.excerpt,
         keywords: `${article.category} ${newsCategory?.label ?? ""} ${article.intro} ${article.takeaway} ${article.seo?.focusKeyword ?? ""} ${articleBlockPlainText(article.blocks?.length ? article.blocks : legacyArticleBlocks(article.sections, article.sources))}`,
-        articleMeta: { topic: newsCategory?.shortLabel ?? article.category, date: article.date, dateIso: article.dateIso },
+        articleMeta: { topic: newsCategory?.shortLabel ?? article.category, date: article.date, dateIso: article.dateIso, image: article.image || undefined },
       };
     }),
   ];
