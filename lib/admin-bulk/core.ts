@@ -58,14 +58,13 @@ export type BulkPreflightRequest =
     };
 
 export type BulkExecutionRequest = {
-  module: "articles";
+  module: BulkModule;
   action: BulkAction;
   snapshotId: string;
   membershipFingerprint: string;
-  selection: {
-    mode: "explicit";
-    ids: number[];
-  };
+  selection:
+    | { mode: "explicit"; ids: number[] }
+    | { mode: "all-matching" };
 };
 
 export class BulkPreflightError extends Error {
@@ -157,9 +156,10 @@ export function parseBulkExecutionRequest(payload: unknown): BulkExecutionReques
   if (!isRecord(payload) || !hasOnlyKeys(payload, ["module", "action", "snapshotId", "membershipFingerprint", "selection"])) {
     throw new BulkPreflightError("Neplatná execution požiadavka.", 400, "invalid-request");
   }
-  if (payload.module !== "articles") {
+  if (payload.module !== "articles" && payload.module !== "directory") {
     throw new BulkPreflightError("Neplatný bulk modul pre execution.", 400, "invalid-module");
   }
+  const bulkModule: BulkModule = payload.module;
   if (payload.action !== "publish" && payload.action !== "move-to-draft") {
     throw new BulkPreflightError("Neplatná bulk akcia.", 400, "invalid-action");
   }
@@ -175,30 +175,39 @@ export function parseBulkExecutionRequest(payload: unknown): BulkExecutionReques
   }
 
   const selection = payload.selection;
-  if (!isRecord(selection) || !hasOnlyKeys(selection, ["mode", "ids"])) {
-    throw new BulkPreflightError("Chýba platný výber.", 400, "invalid-selection");
+  if (!isRecord(selection)) throw new BulkPreflightError("Chýba platný výber.", 400, "invalid-selection");
+  if (selection.mode === "explicit") {
+    if (!hasOnlyKeys(selection, ["mode", "ids"])) {
+      throw new BulkPreflightError("Neplatný explicitný výber.", 400, "invalid-selection");
+    }
+    return {
+      module: bulkModule,
+      action: payload.action,
+      snapshotId: payload.snapshotId,
+      membershipFingerprint: payload.membershipFingerprint,
+      selection: { mode: "explicit", ids: parseExplicitIds(selection.ids) },
+    };
   }
   if (selection.mode === "all-matching") {
-    throw new BulkPreflightError(
-      "All-matching execution článkov nie je podporovaný.",
-      400,
-      "unsupported-selection-mode",
-    );
+    if (bulkModule !== "directory") {
+      throw new BulkPreflightError(
+        "All-matching execution nie je pre tento modul podporovaný.",
+        400,
+        "unsupported-selection-mode",
+      );
+    }
+    if (!hasOnlyKeys(selection, ["mode"])) {
+      throw new BulkPreflightError("Neplatný all-matching výber.", 400, "invalid-selection");
+    }
+    return {
+      module: bulkModule,
+      action: payload.action,
+      snapshotId: payload.snapshotId,
+      membershipFingerprint: payload.membershipFingerprint,
+      selection: { mode: "all-matching" },
+    };
   }
-  if (selection.mode !== "explicit") {
-    throw new BulkPreflightError("Neplatný režim výberu.", 400, "invalid-selection-mode");
-  }
-
-  return {
-    module: "articles",
-    action: payload.action,
-    snapshotId: payload.snapshotId,
-    membershipFingerprint: payload.membershipFingerprint,
-    selection: {
-      mode: "explicit",
-      ids: parseExplicitIds(selection.ids),
-    },
-  };
+  throw new BulkPreflightError("Neplatný režim výberu.", 400, "invalid-selection-mode");
 }
 
 export function materializeBulkSelection(

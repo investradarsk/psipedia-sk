@@ -95,14 +95,32 @@ function executionPayload(action, ids) {
   };
 }
 
-test("execution parser accepts explicit article IDs and rejects invalid module/action/all-matching/malformed keys", () => {
+test("execution parser accepts article explicit and directory explicit/all-matching contracts", () => {
   assert.deepEqual(parseBulkExecutionRequest(executionPayload("publish", [2, 1, 2])).selection.ids, [2, 1]);
+  assert.deepEqual(
+    parseBulkExecutionRequest({ ...executionPayload("publish", [4, 3, 4]), module: "directory" }).selection,
+    { mode: "explicit", ids: [4, 3] },
+  );
+  assert.deepEqual(
+    parseBulkExecutionRequest({
+      module: "directory",
+      action: "move-to-draft",
+      snapshotId: "snapshot-1",
+      membershipFingerprint: "directory:fingerprint",
+      selection: { mode: "all-matching" },
+    }).selection,
+    { mode: "all-matching" },
+  );
   for (const payload of [
-    { ...executionPayload("publish", [1]), module: "directory" },
+    { ...executionPayload("publish", [1]), module: "events" },
     { ...executionPayload("publish", [1]), action: "delete" },
     { ...executionPayload("publish", [1]), selection: { mode: "all-matching" } },
     { ...executionPayload("publish", [1]), table: "managed_articles" },
     { ...executionPayload("publish", [1]), selection: { mode: "explicit", ids: [1], column: "status" } },
+    {
+      module: "directory", action: "publish", snapshotId: "snapshot-1",
+      membershipFingerprint: "directory:fingerprint", selection: { mode: "all-matching", ids: [1] },
+    },
   ]) {
     assert.throws(() => parseBulkExecutionRequest(payload), BulkPreflightError);
   }

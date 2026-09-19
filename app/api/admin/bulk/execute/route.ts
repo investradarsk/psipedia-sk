@@ -1,7 +1,7 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { BulkPreflightError } from "@/lib/admin-bulk/core";
-import { runArticleBulkExecution } from "@/lib/admin-bulk/execution";
+import { runBulkExecution } from "@/lib/admin-bulk/execution";
 import { getBulkSelectionDatabase } from "@/lib/admin-bulk/snapshot-store";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   try {
     const payload = await request.json();
-    const result = await runArticleBulkExecution(
+    const result = await runBulkExecution(
       getBulkSelectionDatabase(),
       await adminAuditActorRef(user.email),
       user.email,
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     if (error instanceof BulkPreflightError) {
       return noStoreJson({ error: error.message, code: error.code }, { status: error.status });
     }
-    console.error("Article bulk execution failed", error);
+    console.error("Admin bulk execution failed", error);
     return noStoreJson({ error: "Hromadnú zmenu sa nepodarilo vykonať." }, { status: 503 });
   }
 }

@@ -17,6 +17,7 @@ import {
 import { editableDirectoryProfileData, specializedChangeRequestFields } from "@/lib/directory-change-request";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
+import { mergeDirectoryPublicContactData } from "@/lib/directory-profile-metadata";
 
 export type ManagedDirectoryProfileInput = {
   slug?: string;
@@ -34,6 +35,10 @@ export type ManagedDirectoryProfileInput = {
   online?: boolean;
   priceNote?: string;
   websiteUrl?: string | null;
+  publicPhone?: string;
+  publicEmail?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
   internalEmail?: string | null;
   imageUrl?: string | null;
   imageKey?: string | null;
@@ -56,6 +61,7 @@ export type ManagedDirectoryProfileSummary = Pick<
   | "imageUrl"
   | "verified"
   | "featured"
+  | "updatedAt"
 >;
 
 export type ManagedDirectoryProfileSummaryPage = {
@@ -180,6 +186,7 @@ type DirectoryProfileSummaryRow = {
   image_url: string | null;
   verified: number;
   featured: number;
+  updated_at: string;
 };
 
 type DirectoryProfileCountRow = {
@@ -429,6 +436,7 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDir
     imageUrl: row.image_url,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
+    updatedAt: row.updated_at,
   };
 }
 
@@ -520,6 +528,13 @@ function normalizeOptionalUrl(value: unknown, label: string) {
   }
 }
 
+function normalizePublicPhone(value: string | null | undefined) {
+  const clean = value?.trim() ?? "";
+  if (!clean) return "";
+  if (clean.length > 50 || !/^[+0-9() .\/-]+$/.test(clean)) throw new Error("Telefónne číslo nie je platné.");
+  return clean;
+}
+
 function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData> | undefined, category: DirectoryCategorySlug) {
   const name = cleanText(value?.name, 180);
   const region = normalizeDirectoryRegion(cleanText(value?.region, 80));
@@ -558,7 +573,10 @@ function normalizeStringList(value: unknown) {
   return [...new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))].slice(0, 20);
 }
 
-function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
+function normalizeProfileInput(
+  payload: ManagedDirectoryProfileInput,
+  currentImportData: Record<string, string | number | null> | null = null,
+) {
   const name = payload.name?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || name);
   const category = payload.category && isDirectoryCategory(payload.category) ? payload.category : null;
@@ -583,6 +601,18 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
   const services = normalizeStringList(payload.services);
   const qualifications = normalizeStringList(payload.qualifications);
   const address = payload.address?.trim() ?? "";
+  const websiteUrl = normalizeUrl(payload.websiteUrl);
+  const publicPhone = payload.publicPhone === undefined ? undefined : normalizePublicPhone(payload.publicPhone);
+  const publicEmail = payload.publicEmail === undefined ? undefined : normalizeEmail(payload.publicEmail) ?? "";
+  const facebookUrl = payload.facebookUrl === undefined ? undefined : normalizeUrl(payload.facebookUrl) ?? "";
+  const instagramUrl = payload.instagramUrl === undefined ? undefined : normalizeUrl(payload.instagramUrl) ?? "";
+  const sourceData = mergeDirectoryPublicContactData(currentImportData, {
+    publicPhone,
+    publicEmail,
+    websiteUrl: payload.websiteUrl === undefined ? undefined : websiteUrl,
+    facebookUrl,
+    instagramUrl,
+  });
   return {
     slug,
     name,
@@ -598,7 +628,12 @@ function normalizeProfileInput(payload: ManagedDirectoryProfileInput) {
     address,
     online: Boolean(payload.online),
     priceNote: payload.priceNote?.trim() ?? "",
-    websiteUrl: normalizeUrl(payload.websiteUrl),
+    websiteUrl,
+    publicPhone,
+    publicEmail,
+    facebookUrl,
+    instagramUrl,
+    sourceData,
     internalEmail: normalizeEmail(payload.internalEmail),
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
@@ -772,7 +807,7 @@ export async function listManagedDirectoryProfileSummaries(options: {
   const category = options.category && isDirectoryCategory(options.category) ? options.category : null;
   const where = category ? "WHERE category = ?" : "";
   const listStatement = database.prepare(`
-    SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured
+    SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at
     FROM directory_profiles
     ${where}
     ORDER BY updated_at DESC, id DESC
@@ -822,13 +857,13 @@ export async function createManagedDirectoryProfile(payload: ManagedDirectoryPro
     INSERT INTO directory_profiles (
       slug, name, category, status, excerpt, description, services_json, qualifications_json,
       city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
-      verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${DIRECTORY_PROFILE_COLUMNS}
+      source_data_json, verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${DIRECTORY_PROFILE_COLUMNS}
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
+    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
@@ -840,20 +875,20 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
   await ensureDirectoryStore(database);
   const existing = existingProfile ?? await getManagedDirectoryProfileById(id);
   if (!existing) return null;
-  const input = normalizeProfileInput(payload);
+  const input = normalizeProfileInput(payload, existing.importData);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
     UPDATE directory_profiles SET
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
       qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, online = ?, price_note = ?, website_url = ?,
-      internal_email = ?, image_url = ?, image_key = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
+      internal_email = ?, image_url = ?, image_key = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING ${DIRECTORY_PROFILE_COLUMNS}
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
+    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
   ).first<DirectoryProfileRow>();
   return row ? rowToManagedProfile(row) : null;
