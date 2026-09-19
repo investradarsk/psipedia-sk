@@ -1,20 +1,21 @@
 import { BreedPhoto } from "@/components/breed-photo";
-import { dayOfYearInBratislava } from "@/lib/breed-canonical";
-import type { Metadata } from "next";
-import Link from "next/link";
-import { ArticleCard } from "@/components/article-card";
-import { DogAgeCalculator } from "@/components/dog-age-calculator";
+import { HomeEditorialSection, HomeLatestArticles } from "@/components/home-editorial";
 import { HomePortalSearch } from "@/components/home-portal-search";
-import { ArrowIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
-import { getHomepageArticles } from "@/lib/article-store";
+import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
+import { DogAgeCalculator } from "@/components/dog-age-calculator";
+import { dayOfYearInBratislava } from "@/lib/breed-canonical";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getBreedOfTheDay } from "@/lib/breed-store";
+import { directoryCategories, directoryProfileHref } from "@/lib/directory";
+import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
 import { getUpcomingEvents } from "@/lib/event-store";
 import { eventHref, formatEventDate } from "@/lib/events";
 import { getHighlightedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
-import { getNewsCategory, newsCategories } from "@/lib/news";
-import { articleHref, articlePortalSection } from "@/lib/portal";
+import { selectHomepageArticles } from "@/lib/homepage-content";
 import { buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_NAME, SITE_URL, WEBSITE_ID } from "@/lib/seo";
+import type { Metadata } from "next";
+import Link from "next/link";
 import styles from "./home-v2.module.css";
 
 export const metadata: Metadata = {
@@ -28,32 +29,18 @@ export const metadata: Metadata = {
   title: { absolute: "Psipedia.sk – rozumej svojmu psovi" },
 };
 
-const starterGuides = [
-  { icon: PawMark, eyebrow: "Šteniatko", title: "Prvé dni doma bez chaosu", description: "Režim, spánok, čistotnosť a pokojný začiatok spoločného života.", href: "/steniatka/prve-dni" },
-  { icon: HeartIcon, eyebrow: "Starostlivosť", title: "Zdravie a varovné signály", description: "Čo môžeš sledovať doma a kedy už patrí problém veterinárovi.", href: "/starostlivost/zdravie" },
-  { icon: WhistleIcon, eyebrow: "Spoločné zážitky", title: "Aktivity podľa vášho tempa", description: "Psie športy, výlety a nápady pre hlavu aj telo psa.", href: "/aktivity/psie-sporty" },
-] as const;
-
-const serviceLinks = [
-  { icon: HeartIcon, label: "Veterinári", href: "/adresar/veterinari" },
-  { icon: WhistleIcon, label: "Tréneri a psie školy", href: "/adresar/treneri" },
-  { icon: PawMark, label: "Hotely a opatrovanie", href: "/adresar/hotely-a-opatrovanie" },
-] as const;
-
 export default async function Home() {
   const dayOfYear = dayOfYearInBratislava();
-  const [publishedArticles, publishedEvents, publishedHelpCases, breedOfTheDay] = await Promise.all([
-    getHomepageArticles(),
+  const [publishedArticles, nextEvents, activeHelpCases, breedOfTheDay, veterinarians] = await Promise.all([
+    getPublishedArticleSummaries({ limit: 48 }),
     getUpcomingEvents(3),
-    getHighlightedHelpCases(2),
+    getHighlightedHelpCases(3),
     getBreedOfTheDay(dayOfYear),
+    getPublishedDirectoryProfiles("veterinari", 3),
   ]);
-  const newsArticles = publishedArticles.filter((article) => articlePortalSection(article) === "novinky");
-  const guideArticles = publishedArticles.filter((article) => articlePortalSection(article) !== "novinky");
-  const featuredArticles = guideArticles.slice(0, 3);
-  const newsLead = newsArticles[0];
-  const nextEvents = publishedEvents;
-  const activeHelpCases = publishedHelpCases;
+  const articleSelection = selectHomepageArticles(publishedArticles, { latestLimit: 5, sectionLimit: 3 });
+  const otherServiceCategories = directoryCategories.filter((category) => category.slug !== "veterinari").slice(0, 6);
+
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -110,150 +97,196 @@ export default async function Home() {
         <HomePortalSearch />
       </div>
 
-      <section className="shell home-services-entry" data-home-services aria-labelledby="home-services-title">
+      <section className="shell home-services-entry" data-home-services-gateway aria-labelledby="home-services-title">
         <div className="home-services-copy">
           <span className="eyebrow">Služby pre psov</span>
-          <h2 id="home-services-title">Nájdi pomoc vo svojom okolí</h2>
-          <p>Veterinári, tréneri, psie školy, opatrovanie a ďalšie služby v novom adresári Psipedie.</p>
+          <h2 id="home-services-title">Nájdi správnu službu bez obchádzania desiatok stránok</h2>
+          <p>Veterinári, tréneri, psie školy, opatrovanie, fyzioterapia a ďalšie profily v jednom adresári.</p>
         </div>
-        <div className="home-services-links">
-          {serviceLinks.map((service) => {
-            const Icon = service.icon;
-            return (
-              <Link href={service.href} key={service.href}>
-                <Icon size={20} />
-                <span>{service.label}</span>
-                <ArrowIcon size={17} />
-              </Link>
-            );
-          })}
-          <Link href="/adresar" className="home-services-all">Všetky služby <ArrowIcon size={18} /></Link>
-        </div>
+        <Link href="/adresar" className="button button--dark home-services-primary">
+          Všetky služby <ArrowIcon size={18} />
+        </Link>
       </section>
 
-      <section className="section shell home-news-section" data-home-news>
-        <div className="home-news-panel">
-          <div className="home-news-heading">
-            <div><span className="home-news-live"><i aria-hidden="true" /> Aktuálne</span><h2>Novinky zo sveta psov</h2><p>Dôležité správy a príbehy overené a vysvetlené v súvislostiach.</p></div>
+      <HomeLatestArticles articles={articleSelection.latest} />
+
+      <section className="section shell home-events-section" data-home-events aria-labelledby="home-events-title">
+        <div className="home-section-heading home-section-heading--compact">
+          <div>
+            <span className="eyebrow">Kalendár</span>
+            <h2 id="home-events-title">Najbližšie podujatia</h2>
+            <p>Najbližšie publikované podujatia zoradené podľa dátumu.</p>
           </div>
-          {newsLead ? (
-            <div className="home-news-content">
-              <Link href={articleHref(newsLead)} className={`home-news-lead home-news-lead--${newsLead.accent}`} data-home-news-lead>
-                {newsLead.image && <img className="home-news-lead-image" src={newsLead.image} alt="" aria-hidden="true" decoding="async" />}
-                <span className="home-news-lead-shade" aria-hidden="true" />
-                <span>{getNewsCategory(newsLead.newsCategory)?.label ?? "Zo sveta psov"} · {newsLead.date}</span>
-                <h3>{newsLead.title}</h3>
-                <p>{newsLead.excerpt}</p>
-                <strong>Čítať novinku <ArrowIcon size={18} /></strong>
-              </Link>
-              <div className="home-news-side" data-home-secondary-news>
-                {newsArticles.slice(1, 3).map((article) => (
-                  <Link href={articleHref(article)} key={article.slug}>
-                    {article.image && <img src={article.image} alt="" aria-hidden="true" loading="lazy" decoding="async" />}
-                    <span className="home-news-side-copy">
-                      <span>{getNewsCategory(article.newsCategory)?.shortLabel ?? "Novinky"} · {article.date}</span>
-                      <strong>{article.title}</strong>
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="home-news-empty" data-home-news-empty>
-              <div><span className="home-news-empty-icon" aria-hidden="true"><SparkIcon size={24} /></span><div><strong>Prvé overené správy pripravujeme</strong><p>Zatiaľ si môžeš vybrať okruh, ktorý ťa zaujíma. Každý má vlastnú stálu adresu.</p></div></div>
-              <nav aria-label="Témy noviniek">
-                {newsCategories.slice(0, 4).map((category) => <Link href={`/novinky/${category.slug}`} key={category.slug}>{category.shortLabel}<ArrowIcon size={14} /></Link>)}
-              </nav>
-            </div>
-          )}
-          <div className="home-section-cta"><Link href="/novinky" className="button button--dark">Všetky novinky <ArrowIcon /></Link></div>
+          <Link href="/podujatia" className="text-link">Celý kalendár <ArrowIcon size={17} /></Link>
         </div>
-      </section>
-
-      <section className="section shell home-compact-section" data-home-events>
-        <div className="section-heading"><span className="eyebrow">Kalendár</span><h2>Najbližšie podujatia</h2></div>
-        <div className="home-compact-grid">
-          <article className="home-live-card home-live-card--events">
-            <div className="home-live-list">
-              {nextEvents.length ? nextEvents.map((event) => (
-                <Link href={eventHref(event)} key={event.id} data-home-event>
+        {nextEvents.length ? (
+          <div className="home-event-list">
+            {nextEvents.map((event) => (
+              <article className="home-event-item" key={event.id} data-home-event>
+                <Link href={eventHref(event)}>
                   <time dateTime={event.startDate}>{formatEventDate(event)}</time>
-                  <strong>{event.title}</strong>
-                  <small>{event.eventType} · {event.city}</small>
+                  <span className="home-event-copy">
+                    <strong>{event.title}</strong>
+                    <span>{event.eventType} · {event.city}</span>
+                  </span>
+                  <ArrowIcon size={18} />
                 </Link>
-              )) : <div className="home-live-empty" data-home-events-empty><strong>Kalendár práve dopĺňame</strong><p>Výstavy, preteky, semináre a spoločné tréningy budú na jednom mieste.</p><div><Link href="/podujatia/vystavy">Výstavy</Link><Link href="/podujatia/preteky">Preteky</Link></div></div>}
-            </div>
-            <Link className="home-live-footer" href="/podujatia">Zobraziť celý kalendár <ArrowIcon size={18} /></Link>
-          </article>
-        </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="home-editorial-empty" data-home-events-empty>
+            <strong>Kalendár práve dopĺňame</strong>
+            <p>Keď bude publikované najbližšie podujatie, zobrazí sa tu automaticky.</p>
+          </div>
+        )}
       </section>
 
-      <section className="section section--tint" data-home-reading>
-        <div className="shell">
-          <div className="section-heading split-heading">
-            <div>
-              <span className="eyebrow">Vybrané redakciou</span>
-              <h2>Dobré čítanie pre dobrý psí život</h2>
-            </div>
+      <HomeEditorialSection
+        eyebrow="Šteniatka"
+        title="Najnovšie pre dobrý štart"
+        description="Praktické články pre prvé mesiace so psom bez opakovania položiek z hlavného výberu."
+        articles={articleSelection.bySection.steniatka}
+        href="/steniatka"
+        actionLabel="Všetko o šteniatkach"
+        testId="steniatka"
+      />
+
+      <section className="section shell home-vet-section" data-home-veterinarians aria-labelledby="home-vets-title">
+        <div className="home-section-heading home-section-heading--compact">
+          <div>
+            <span className="eyebrow">Veterinári</span>
+            <h2 id="home-vets-title">Veterinárna starostlivosť na jednom mieste</h2>
+            <p>Priamy vstup do canonical adresára veterinárnych pracovísk. Bez predstieranej polohy a „najbližších“ výsledkov.</p>
           </div>
-          {featuredArticles.length > 0 ? (
-            <div className="featured-grid">
-              <ArticleCard article={featuredArticles[0]} large />
-              <div className="featured-stack">
-                {featuredArticles.slice(1).map((article) => <ArticleCard article={article} key={article.slug} />)}
+          <Link href="/adresar/veterinari" className="text-link">Všetci veterinári <ArrowIcon size={17} /></Link>
+        </div>
+        {veterinarians.length ? (
+          <div className="home-vet-list">
+            {veterinarians.map((profile) => (
+              <article className="home-vet-item" key={profile.id}>
+                <Link href={directoryProfileHref(profile)}>
+                  {profile.imageUrl ? <img src={profile.imageUrl} alt="" loading="lazy" decoding="async" /> : <span className="home-vet-mark" aria-hidden="true">+</span>}
+                  <span>
+                    <strong>{profile.name}</strong>
+                    <small>{profile.city}{profile.district ? ` · ${profile.district}` : ""}</small>
+                  </span>
+                  <ArrowIcon size={18} />
+                </Link>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="home-editorial-empty" data-home-veterinarians-empty>
+            <strong>Profily veterinárov sa dopĺňajú</strong>
+            <p>Adresár je dostupný aj vtedy, keď na homepage nemáme profil na zvýraznenie.</p>
+          </div>
+        )}
+      </section>
+
+      <HomeEditorialSection
+        eyebrow="Zdravie a starostlivosť"
+        title="Najnovšie o zdraví a každodennej starostlivosti"
+        description="Publikované články z canonical sekcie Zdravie a starostlivosť."
+        articles={articleSelection.bySection.starostlivost}
+        href="/starostlivost"
+        actionLabel="Zdravie a starostlivosť"
+        testId="starostlivost"
+      />
+
+      <section className="section shell home-services-wide" data-home-services-secondary aria-labelledby="home-services-secondary-title">
+        <div className="home-services-wide-copy">
+          <span className="eyebrow">Služby pre psov</span>
+          <h2 id="home-services-secondary-title">Aj ostatné služby pre každodenný život so psom</h2>
+          <p>Adresár nie je iba o veterinároch. Obsahuje aj ďalšie canonical kategórie služieb a profilov.</p>
+          <div className="home-service-taxonomy" aria-label="Kategórie služieb">
+            {otherServiceCategories.map((category) => <span key={category.slug}>{category.label}</span>)}
+          </div>
+        </div>
+        <Link href="/adresar" className="text-link home-services-wide-link">Preskúmať adresár <ArrowIcon size={18} /></Link>
+      </section>
+
+      <HomeEditorialSection
+        eyebrow="Výcvik a aktivity"
+        title="Najnovšie pre tréning, pohyb a spoločné aktivity"
+        description="Aktuálne publikované články z canonical sekcie Výcvik a aktivity."
+        articles={articleSelection.bySection.aktivity}
+        href="/aktivity"
+        actionLabel="Výcvik a aktivity"
+        testId="aktivity"
+      />
+
+      <section className="section shell home-help-section" data-home-help aria-labelledby="home-help-title">
+        <div className="home-section-heading home-section-heading--compact">
+          <div>
+            <span className="eyebrow">Aktuálne možnosti</span>
+            <h2 id="home-help-title">Pomoc psom</h2>
+            <p>Publikované a stále aktívne prípady z canonical Help lifecycle.</p>
+          </div>
+          <Link href="/pomoc-psom" className="text-link">Všetky možnosti pomoci <ArrowIcon size={17} /></Link>
+        </div>
+        {activeHelpCases.length ? (
+          <div className="home-help-grid">
+            {activeHelpCases.map((item) => (
+              <article
+                className="home-help-item"
+                key={item.id}
+                data-home-help-item
+                data-home-help-status={item.status}
+                data-home-help-resolved={String(item.resolved)}
+              >
+                <Link href={helpCaseHref(item)}>
+                  <span className="home-help-media">
+                    {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" decoding="async" /> : <span className="home-help-placeholder" aria-hidden="true"><PawMark size={34} /></span>}
+                  </span>
+                  <span className="home-help-copy">
+                    <span className="home-help-meta">
+                      <span>{getHelpCategory(item.category)?.singular ?? "Pomoc psom"}</span>
+                      {item.urgent ? <b>Urgentné</b> : null}
+                    </span>
+                    <strong>{item.title}</strong>
+                    <small>{item.city}{item.verified ? " · Overené" : ""}</small>
+                  </span>
+                </Link>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="home-editorial-empty" data-home-help-empty>
+            <strong>Žiadna otvorená výzva</strong>
+            <p>Aktuálne nemáme publikovaný nevyriešený prípad na zvýraznenie.</p>
+          </div>
+        )}
+      </section>
+
+      {breedOfTheDay && (
+        <section className="section shell home-breed-day-section" data-home-breed>
+          <div className="home-section-heading home-section-heading--compact">
+            <div><span className="eyebrow">Atlas plemien</span><h2>Plemeno dňa</h2></div>
+          </div>
+          <article className="home-breed-day">
+            <BreedPhoto src={breedOfTheDay.image} alt={`${breedOfTheDay.name} – plemeno dňa`} />
+            <div>
+              <span className="eyebrow">Dnešný profil</span>
+              <h3>{breedOfTheDay.name}</h3>
+              <p>{breedOfTheDay.intro}</p>
+              <dl>
+                <div><dt>FCI skupina</dt><dd>{breedOfTheDay.fciGroup}. {breedOfTheDay.fciSection}</dd></div>
+                {breedOfTheDay.size?.trim() && <div><dt>Veľkosť</dt><dd>{breedOfTheDay.size}</dd></div>}
+                <div><dt>Energia</dt><dd>{breedOfTheDay.energy}/5</dd></div>
+                <div><dt>Cvičiteľnosť</dt><dd>{breedOfTheDay.trainability}/5</dd></div>
+              </dl>
+              <div className="home-breed-actions">
+                <Link className="button button--coral" href={`/plemena/${breedOfTheDay.slug}`}>Pozrieť profil <ArrowIcon /></Link>
+                <Link className="home-breed-compare" href="/porovnat-plemena">Porovnať plemená <ArrowIcon size={18} /></Link>
               </div>
             </div>
-          ) : (
-            <div className="home-starter-grid" data-home-starter>
-              {starterGuides.map((guide) => {
-                const Icon = guide.icon;
-                return (
-                  <Link href={guide.href} className="home-starter-card" key={guide.href}>
-                    <span className="home-starter-icon" aria-hidden="true"><Icon size={25} /></span>
-                    <small>{guide.eyebrow}</small>
-                    <h3>{guide.title}</h3>
-                    <p>{guide.description}</p>
-                    <strong>Začať tu <ArrowIcon size={18} /></strong>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-          <div className="home-section-cta"><Link href="/clanky" className="button button--dark">Všetky články <ArrowIcon /></Link></div>
-        </div>
-      </section>
-
-      <section className="section shell home-compact-section home-help-section" data-home-help>
-        <div className="section-heading"><span className="eyebrow">Aktuálne možnosti</span><h2>Pomoc psom</h2></div>
-        <div className="home-compact-grid">
-          <article className="home-live-card home-live-card--help">
-            <div className="home-live-list">
-              {activeHelpCases.length ? activeHelpCases.map((item) => (
-                <Link href={helpCaseHref(item)} key={item.id} data-home-help-item>
-                  <span>{getHelpCategory(item.category)?.singular} · {item.city}</span>
-                  <strong>{item.title}</strong>
-                  <small>{item.urgent ? "Urgentné" : item.verified ? "✓ Overené" : item.organization}</small>
-                </Link>
-              )) : <div className="home-live-empty" data-home-help-empty><strong>Žiadna otvorená výzva</strong><p>To je dobrá správa. Ak nájdeš psa v núdzi, pripravili sme jasný postup.</p><div><Link href="/pomoc-psom/nahlasit-psa-v-nudzi">Čo urobiť teraz</Link></div></div>}
-            </div>
-            <Link className="home-live-footer" href="/pomoc-psom">Pozrieť možnosti pomoci <ArrowIcon size={18} /></Link>
           </article>
-        </div>
-      </section>
+          <div className="home-section-cta home-section-cta--quiet"><Link href="/plemena" className="text-link">Všetky plemená <ArrowIcon size={18} /></Link></div>
+        </section>
+      )}
 
-      {breedOfTheDay && <section className="section shell home-breed-day-section" data-home-breed>
-        <div className="section-heading"><span className="eyebrow">Atlas plemien</span><h2>Plemeno dňa</h2></div>
-        <article className="home-breed-day">
-          <BreedPhoto src={breedOfTheDay.image} alt={`${breedOfTheDay.name} – plemeno dňa`} />
-          <div><span className="eyebrow">Dnešný profil</span><h3>{breedOfTheDay.name}</h3><p>{breedOfTheDay.intro}</p>
-            <dl><div><dt>FCI skupina</dt><dd>{breedOfTheDay.fciGroup}. {breedOfTheDay.fciSection}</dd></div>{breedOfTheDay.size?.trim() && <div><dt>Veľkosť</dt><dd>{breedOfTheDay.size}</dd></div>}<div><dt>Energia</dt><dd>{breedOfTheDay.energy}/5</dd></div><div><dt>Cvičiteľnosť</dt><dd>{breedOfTheDay.trainability}/5</dd></div></dl>
-            <Link className="button button--coral" href={`/plemena/${breedOfTheDay.slug}`}>Pozrieť profil <ArrowIcon /></Link>
-          </div>
-        </article>
-        <div className="home-section-cta home-section-cta--quiet"><Link href="/plemena" className="text-link">Všetky plemená <ArrowIcon size={18} /></Link></div>
-      </section>}
-
-      <section className="section shell" data-home-calculator>
+      <section className="section shell home-utility-section" data-home-calculator>
         <div className="calculator-section">
           <div className="calculator-intro">
             <span className="eyebrow eyebrow--light">Psí vek bez násobilky</span>
