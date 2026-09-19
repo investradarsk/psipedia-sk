@@ -97,6 +97,10 @@ export type ManagedArticleInput = {
   sources?: ArticleSource[];
   imageUrl?: string | null;
   imageKey?: string | null;
+  imageAlt?: string | null;
+  imageCaption?: string | null;
+  imageCredit?: string | null;
+  imageCreditUrl?: string | null;
   readingMinutes?: number;
   publishedAt?: string | null;
   contentUpdatedAt?: string | null;
@@ -135,6 +139,10 @@ type ArticleRow = {
   blocks_json: string;
   image_url: string | null;
   image_key: string | null;
+  image_alt: string | null;
+  image_caption: string | null;
+  image_credit: string | null;
+  image_credit_url: string | null;
   reading_minutes: number;
   created_at: string;
   updated_at: string;
@@ -300,6 +308,10 @@ function rowToManagedArticle(row: ArticleRow,relatedBreedIds:number[]=[]): Manag
     updatedDateIso: (row.content_updated_at || updatedAt).slice(0, 10),
     readTime: `${row.reading_minutes} min`,
     image: row.image_url ?? undefined,
+    imageAlt: row.image_alt || undefined,
+    imageCaption: row.image_caption || undefined,
+    imageCredit: row.image_credit || undefined,
+    imageCreditUrl: row.image_credit_url || undefined,
     accent: row.accent as Article["accent"],
     author: row.author,
     authorProfileId: row.author_profile_id ?? null,
@@ -498,9 +510,6 @@ async function normalizeInput(
   if (excerpt.length < 20) throw new Error("Perex by mal mať aspoň 20 znakov.");
   if (intro.length < 20) throw new Error("Úvod by mal mať aspoň 20 znakov.");
   if (!blocks.length && !sections.length) throw new Error("Pridaj aspoň jeden obsahový blok.");
-  if (portalSection === "novinky" && status !== "draft" && !sources.length) {
-    throw new Error("Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj.");
-  }
   if (status === "scheduled" && (!publishedAt || new Date(publishedAt).getTime() <= Date.now())) throw new Error("Pre plánované publikovanie vyber budúci dátum a čas.");
   if (status === "published" && publishedAt && new Date(publishedAt).getTime() > Date.now()) throw new Error("Budúci dátum použi cez tlačidlo Naplánovať publikovanie.");
 
@@ -533,6 +542,10 @@ async function normalizeInput(
   }
 
   const imageUrl = payload.imageUrl?.trim() || null;
+  const imageAlt = payload.imageAlt?.trim().slice(0, 400) || null;
+  const imageCaption = payload.imageCaption?.trim().slice(0, 600) || null;
+  const imageCredit = payload.imageCredit?.trim().slice(0, 240) || null;
+  const imageCreditUrl = payload.imageCreditUrl?.trim() || null;
   const ogImageUrl = payload.ogImageUrl?.trim() || null;
   if (
     imageUrl &&
@@ -543,6 +556,14 @@ async function normalizeInput(
     throw new Error("Adresa titulného obrázka nie je platná.");
   }
   if (ogImageUrl && !ogImageUrl.startsWith("/media/") && !ogImageUrl.startsWith("/images/") && !/^https:\/\//i.test(ogImageUrl)) throw new Error("Adresa Open Graph obrázka nie je platná.");
+  if (imageCreditUrl) {
+    try {
+      const parsed = new URL(imageCreditUrl);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error();
+    } catch {
+      throw new Error("URL zdroja fotografie musí byť platná webová adresa.");
+    }
+  }
   const canonicalUrl = payload.canonicalUrl?.trim() ?? "";
   if (canonicalUrl) {
     try {
@@ -574,6 +595,10 @@ async function normalizeInput(
     blocks,
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
+    imageAlt,
+    imageCaption,
+    imageCredit,
+    imageCreditUrl,
     readingMinutes,
     publishedAt,
     contentUpdatedAt,
@@ -710,7 +735,7 @@ const getPublishedArticleUncached = async (slug: string): Promise<Article | null
   const row = await database
     .prepare(`SELECT id, slug, title, excerpt, category, portal_section, portal_subpage, news_category,
       status, accent, author, author_profile_id, intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json,
-      image_url, image_key, reading_minutes, created_at, updated_at, published_at, created_by,
+      image_url, image_key, image_alt, image_caption, image_credit, image_credit_url, reading_minutes, created_at, updated_at, published_at, created_by,
       updated_by, content_updated_at, show_updated_label, seo_title, meta_description,
       canonical_url, noindex, focus_keyword, og_title, og_description, og_image_url, og_image_key
       FROM managed_articles
@@ -832,10 +857,11 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
       INSERT INTO managed_articles (
         slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, author_profile_id,
         intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json, image_url, image_key,
+        image_alt, image_caption, image_credit, image_credit_url,
         reading_minutes, created_at, updated_at, published_at, created_by, updated_by,
         content_updated_at, show_updated_label, seo_title, meta_description, canonical_url, noindex,
         focus_keyword, og_title, og_description, og_image_url, og_image_key
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `)
     .bind(
@@ -859,6 +885,10 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
       JSON.stringify(input.blocks),
       input.imageUrl,
       input.imageKey,
+      input.imageAlt,
+      input.imageCaption,
+      input.imageCredit,
+      input.imageCreditUrl,
       input.readingMinutes,
       now,
       now,
@@ -902,12 +932,16 @@ export async function updateManagedArticle(
     : input.status === "scheduled"
       ? input.publishedAt
       : input.publishedAt ?? existing.publishedAt;
+  const imageAlt = payload.imageAlt === undefined ? existing.imageAlt ?? null : input.imageAlt;
+  const imageCaption = payload.imageCaption === undefined ? existing.imageCaption ?? null : input.imageCaption;
+  const imageCredit = payload.imageCredit === undefined ? existing.imageCredit ?? null : input.imageCredit;
+  const imageCreditUrl = payload.imageCreditUrl === undefined ? existing.imageCreditUrl ?? null : input.imageCreditUrl;
   const result = await database
     .prepare(`
       UPDATE managed_articles SET
         slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
         author = ?, author_profile_id = ?, intro = ?, intro_rich_text_json = ?, takeaway = ?, takeaway_rich_text_json = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
-        image_url = ?, image_key = ?, reading_minutes = ?, updated_at = ?,
+        image_url = ?, image_key = ?, image_alt = ?, image_caption = ?, image_credit = ?, image_credit_url = ?, reading_minutes = ?, updated_at = ?,
         published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
         seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
         og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
@@ -935,6 +969,10 @@ export async function updateManagedArticle(
       JSON.stringify(input.blocks),
       input.imageUrl,
       input.imageKey,
+      imageAlt,
+      imageCaption,
+      imageCredit,
+      imageCreditUrl,
       input.readingMinutes,
       now,
       publishedAt,
