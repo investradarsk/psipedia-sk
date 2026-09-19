@@ -274,6 +274,21 @@
   }
 }
 
+@media (min-width: 1200px) and (max-width: 1399px) {
+  .brandCluster :global(.brand-mark) {
+    display: none;
+  }
+
+  .brandCluster :global(.brand) {
+    font-size: 1.38rem;
+  }
+
+  :global(.site-header) :global(.nav-submenu-toggle) {
+    width: 21px;
+    margin-left: -5px;
+  }
+}
+
 @media (min-width: 1800px) {
   .brandCluster {
     grid-template-columns: max-content minmax(0, 190px);
