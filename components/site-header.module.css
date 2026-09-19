@@ -2,7 +2,7 @@
   display: grid;
   min-width: 0;
   flex: 0 1 auto;
-  grid-template-columns: max-content minmax(0, 230px);
+  grid-template-columns: max-content minmax(0, 210px);
   align-items: center;
   gap: 12px;
 }
@@ -15,31 +15,181 @@
 
 .nameDay {
   min-width: 0;
-  max-width: 230px;
-  overflow-wrap: anywhere;
+  max-width: 210px;
+  overflow: hidden;
   color: var(--muted);
   font-size: .68rem;
   font-weight: 650;
   line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nameDay strong {
-  color: var(--forest-dark);
+  color: var(--brand-accent-strong);
   font-weight: 800;
+}
+
+.navChevron {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--brand-accent-strong);
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+:global(.nav-group.is-open) .navChevron,
+:global(.mobile-nav-group.is-open) .navChevron {
+  transform: rotate(180deg);
 }
 
 .mobileLeftTrigger {
   display: none !important;
 }
 
-@media (max-width: 1180px) and (min-width: 821px) {
+/* Header-only desktop canvas: wider than content shells so the brand can sit
+   closer to the viewport edge without changing HOME-3 or article layouts. */
+@media (min-width: 1200px) {
+  :global(.site-header) :global(.header-inner) {
+    width: min(calc(100% - 32px), 1500px);
+    gap: clamp(8px, 1vw, 16px);
+  }
+
+  :global(.site-header) :global(.desktop-nav) {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    gap: clamp(1px, .28vw, 5px);
+    font-size: clamp(.62rem, .72vw, .69rem);
+    font-weight: 760;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+  }
+
+  :global(.site-header) :global(.desktop-nav) > a,
+  :global(.site-header) :global(.desktop-nav) > :global(.nav-group) > a {
+    padding: 27px clamp(2px, .22vw, 4px);
+    color: var(--brand-forest);
+  }
+
+  :global(.site-header) :global(.desktop-nav) > a::after,
+  :global(.site-header) :global(.desktop-nav) > :global(.nav-group) > a::after {
+    right: 50%;
+    left: 50%;
+    background: var(--brand-accent);
+  }
+
+  :global(.site-header) :global(.desktop-nav) > a:hover::after,
+  :global(.site-header) :global(.desktop-nav) > a[data-active="true"]::after,
+  :global(.site-header) :global(.desktop-nav) > :global(.nav-group) > a:hover::after,
+  :global(.site-header) :global(.desktop-nav) > :global(.nav-group) > a[data-active="true"]::after {
+    right: 0;
+    left: 0;
+  }
+
+  :global(.site-header) :global(.desktop-nav) a:focus-visible,
+  :global(.site-header) :global(.nav-submenu-toggle):focus-visible,
+  :global(.site-header) :global(.header-actions) a:focus-visible,
+  :global(.site-header) :global(.header-actions) button:focus-visible {
+    outline: 2px solid var(--brand-focus);
+    outline-offset: 3px;
+  }
+
+  :global(.site-header) :global(.desktop-nav) :global(.nav-submenu) {
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  :global(.site-header) :global(.desktop-nav) :global(.nav-submenu) a {
+    font-size: .82rem;
+    font-weight: 680;
+  }
+
+  :global(.site-header) :global(.desktop-nav) :global(.nav-submenu) a::after {
+    content: none;
+  }
+
+  :global(.site-header) :global(.desktop-nav) :global(.nav-submenu) a[data-active="true"] {
+    color: var(--brand-accent-strong);
+    background: color-mix(in srgb, var(--brand-accent) 9%, white);
+  }
+
+  :global(.site-header) :global(.nav-submenu-toggle) {
+    width: 25px;
+    height: 38px;
+    margin-left: -4px;
+    color: var(--brand-accent-strong);
+  }
+
+  :global(.site-header) :global(.nav-submenu-toggle):hover,
+  :global(.site-header) :global(.nav-submenu-toggle):focus-visible {
+    background: color-mix(in srgb, var(--brand-accent) 9%, transparent);
+  }
+
+  :global(.site-header) :global(.desktop-nav) :global(.nav-news),
+  :global(.site-header) :global(.desktop-nav) :global(.nav-help) {
+    padding-inline: clamp(2px, .22vw, 4px);
+    border-radius: 0;
+    color: var(--brand-forest);
+    background: transparent;
+    font-weight: inherit;
+  }
+
+  :global(.site-header) :global(.desktop-nav) :global(.nav-news)::before {
+    display: none;
+  }
+
+  :global(.site-header) :global(.desktop-nav) :global(.nav-help)::after {
+    display: block;
+  }
+
+  :global(.site-header) :global(.desktop-nav) :global(.nav-help):hover {
+    color: var(--brand-forest);
+    background: transparent;
+  }
+
+  :global(.site-header) :global(.header-actions) {
+    flex: 0 0 auto;
+  }
+
+  :global(.site-header) :global(.menu-trigger),
+  :global(.site-header) :global(.mobile-menu) {
+    display: none !important;
+  }
+}
+
+/* Protect the intermediate widths explicitly requested in BRAND-1. */
+@media (min-width: 1200px) and (max-width: 1499px) {
+  .nameDay,
+  :global(.site-header) :global(.header-contact-link),
+  :global(.site-header) :global(.search-trigger) span {
+    display: none;
+  }
+
+  .brandCluster {
+    min-width: max-content;
+    flex: 0 0 auto;
+    grid-template-columns: max-content;
+    gap: 0;
+  }
+}
+
+@media (min-width: 1500px) {
+  :global(.site-header) :global(.desktop-nav) {
+    font-size: .7rem;
+    gap: clamp(3px, .35vw, 7px);
+  }
+}
+
+@media (max-width: 1199px) and (min-width: 821px) {
   .brandCluster {
     grid-template-columns: max-content;
-    gap: 2px;
+    gap: 0;
   }
 
   .nameDay {
-    max-width: 180px;
+    display: none;
   }
 }
 
@@ -51,9 +201,7 @@
   }
 
   .nameDay {
-    max-width: 160px;
-    font-size: .6rem;
-    line-height: 1.15;
+    display: none;
   }
 
   .mobileLeftTrigger {
@@ -65,5 +213,22 @@
 
   .menuRightTrigger {
     display: none !important;
+  }
+
+  :global(.site-header) :global(.mobile-submenu-toggle) {
+    min-width: 49px;
+    min-height: 49px;
+    color: var(--brand-accent-strong);
+  }
+
+  :global(.site-header) :global(.mobile-submenu-toggle):focus-visible {
+    outline: 2px solid var(--brand-focus);
+    outline-offset: -3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navChevron {
+    transition: none;
   }
 }

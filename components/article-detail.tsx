@@ -10,6 +10,7 @@ import { PublicContentList } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
 import { ShareButton } from "@/components/share-button";
 import type { Article } from "@/lib/content";
+import type { ArticleMagazineData } from "@/lib/article-magazine";
 import type { EditorialAuthorProfile } from "@/lib/editorial-authors";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel, portalSubpageHref, type PortalSection } from "@/lib/portal";
@@ -28,14 +29,20 @@ function safeExternalImageCreditUrl(value?: string) {
   }
 }
 
+function recommendationTopicLabel(article: Article) {
+  return articlePortalSection(article) === "novinky"
+    ? getNewsCategory(article.newsCategory)?.shortLabel ?? article.category
+    : article.category;
+}
+
 export function ArticleDetail({
   article,
-  related,
+  magazine,
   portalSection,
   authorProfile,
 }: {
   article: Article;
-  related: Article[];
+  magazine: ArticleMagazineData;
   portalSection?: PortalSection;
   authorProfile?: EditorialAuthorProfile | null;
 }) {
@@ -55,7 +62,7 @@ export function ArticleDetail({
   const blocks = article.blocks?.length
     ? article.blocks
     : legacyArticleBlocks(article.sections, article.sources);
-  const contentBlocks = blocks.filter((block) => block.type !== "source");
+  const contentBlocks = blocks.filter((block) => block.type !== "source" && block.type !== "related");
   const sourceBlocks = blocks.filter((block) => block.type === "source");
   const introDocument = article.introRichText ?? legacyRichTextToDocument(article.intro);
   const takeawayDocument = article.takeawayRichText ?? legacyRichTextToDocument(article.takeaway);
@@ -70,6 +77,21 @@ export function ArticleDetail({
     .trim()
     .split(/\s+/)
     .filter(Boolean).length;
+
+  const structurallySafeMidRelated = contentBlocks.length >= 2 ? magazine.midRelated : null;
+  const relatedSplitIndex = structurallySafeMidRelated
+    ? Math.max(1, Math.min(contentBlocks.length - 1, Math.round(contentBlocks.length * 0.4)))
+    : -1;
+  const contentBeforeRelated = relatedSplitIndex > 0 ? contentBlocks.slice(0, relatedSplitIndex) : contentBlocks;
+  const contentAfterRelated = relatedSplitIndex > 0 ? contentBlocks.slice(relatedSplitIndex) : [];
+  const endRecommendationPool = [
+    ...(structurallySafeMidRelated || !magazine.midRelated ? [] : [magazine.midRelated]),
+    ...magazine.endRelated,
+  ];
+  const relatedItems = endRecommendationPool.filter((item, index, items) =>
+    item.slug !== article.slug && items.findIndex((candidate) => candidate.slug === item.slug) === index
+  ).slice(0, 3);
+
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -112,7 +134,7 @@ export function ArticleDetail({
   };
   const shareLabel = section === "novinky" ? "Zdieľať novinku" : section === "recenzie" ? "Zdieľať recenziu" : "Zdieľať článok";
   const favoriteHint = "Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr.";
-  const relatedItems = related.slice(0, 3);
+  const sidebarLabel = magazine.sidebarMode === "latest" ? "Najnovšie články" : "Články";
 
   return (
     <main id="obsah" className={styles.modernArticle}>
@@ -138,12 +160,15 @@ export function ArticleDetail({
                   </span>
                 </div>
                 <div className={styles.articleMeta}>
-                  <time dateTime={article.dateIso}>{article.date}</time>
+                  <span>Publikované <time dateTime={article.dateIso}>{article.date}</time></span>
                   {showUpdated ? <span>Aktualizované <time dateTime={article.updatedDateIso}>{article.updatedDate}</time></span> : null}
                 </div>
               </div>
-              <div className={styles.favoriteAction} title={favoriteHint}>
-                <FavoriteButton slug={article.slug} />
+              <div className={styles.utilityActions}>
+                <div className={styles.favoriteAction} title={favoriteHint}>
+                  <FavoriteButton slug={article.slug} />
+                </div>
+                <ShareButton title={article.title} label={shareLabel} url={canonical} compact />
               </div>
             </div>
           </div>
@@ -173,44 +198,83 @@ export function ArticleDetail({
       </header>
 
       <div className={`${styles.readingShell} shell`}>
-        <article className="article-prose">
-          <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
-          {showTakeaway ? <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside> : null}
-          {showTableOfContents ? (
-            <details className={styles.toc}>
-              <summary>Obsah článku</summary>
-              <nav aria-label="Obsah článku">
+        <div className={styles.magazineLayout}>
+          <article className="article-prose">
+            <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
+            {showTakeaway ? <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside> : null}
+            {showTableOfContents ? (
+              <details className={styles.toc}>
+                <summary>Obsah článku</summary>
+                <nav aria-label="Obsah článku">
+                  <ol>
+                    {headings.map((heading) => (
+                      <li className={heading.level === 3 ? styles.tocSubitem : undefined} key={heading.blockId}>
+                        <a href={`#${heading.id}`}>{heading.text}</a>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              </details>
+            ) : null}
+            <ArticleBlocks blocks={contentBeforeRelated} />
+            {structurallySafeMidRelated ? (
+              <aside className={styles.midRelated} aria-label="Súvisiaci článok">
+                <Link href={articleHref(structurallySafeMidRelated)}>
+                  {structurallySafeMidRelated.image ? (
+                    <span className={styles.midRelatedImage}>
+                      <img src={structurallySafeMidRelated.image} alt="" loading="lazy" decoding="async" />
+                    </span>
+                  ) : null}
+                  <span className={styles.midRelatedCopy}>
+                    <span className={styles.midRelatedLabel}>SÚVISIACI ČLÁNOK</span>
+                    <small>{recommendationTopicLabel(structurallySafeMidRelated)}</small>
+                    <strong>{structurallySafeMidRelated.title}</strong>
+                    <span className={styles.midRelatedArrow} aria-hidden="true">→</span>
+                  </span>
+                </Link>
+              </aside>
+            ) : null}
+            {contentAfterRelated.length > 0 ? <ArticleBlocks blocks={contentAfterRelated} /> : null}
+            {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}
+            <p className="article-disclaimer">{section === "novinky" ? (sourceBlocks.length > 0 ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Správu pri ďalšom vývoji udalosti priebežne aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku.") : section === "recenzie" ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
+            <div className={styles.endActions} id="zdielat-clanok">
+              <ShareButton title={article.title} label={shareLabel} url={canonical} />
+            </div>
+            <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
+          </article>
+
+          {magazine.sidebarItems.length > 0 ? (
+            <aside className={styles.sidebar} aria-label={sidebarLabel}>
+              <div className={styles.sidebarSticky}>
+                <span className={styles.sidebarHeading}>{sidebarLabel}</span>
                 <ol>
-                  {headings.map((heading) => (
-                    <li className={heading.level === 3 ? styles.tocSubitem : undefined} key={heading.blockId}>
-                      <a href={`#${heading.id}`}>{heading.text}</a>
+                  {magazine.sidebarItems.map((item, index) => (
+                    <li key={item.slug}>
+                      <span className={styles.sidebarRank} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                      <Link href={articleHref(item)}>
+                        <strong>{item.title}</strong>
+                        <small>{recommendationTopicLabel(item)} · <time dateTime={item.dateIso}>{item.date}</time></small>
+                      </Link>
                     </li>
                   ))}
                 </ol>
-              </nav>
-            </details>
+              </div>
+            </aside>
           ) : null}
-          <ArticleBlocks blocks={contentBlocks} />
-          {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}
-          <p className="article-disclaimer">{section === "novinky" ? (sourceBlocks.length > 0 ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Správu pri ďalšom vývoji udalosti priebežne aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku.") : section === "recenzie" ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
-          <div className={styles.endActions}>
-            <ShareButton title={article.title} label={shareLabel} url={canonical} />
-          </div>
-          <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
-        </article>
+        </div>
       </div>
 
       {relatedItems.length > 0 ? (
         <section className={`${styles.relatedSection} related-section`}>
           <div className="shell">
-            <span className="eyebrow">Pokračovať v téme</span>
-            <h2>{section === "recenzie" ? "Súvisiace recenzie a články" : "Súvisiace články"}</h2>
-            <PublicContentList label="Súvisiace články" className={styles.relatedList}>
+            <span className="eyebrow">Pokračovať v čítaní</span>
+            <h2>Ďalšie články k téme</h2>
+            <PublicContentList label="Ďalšie články k téme" className={styles.relatedList}>
               {relatedItems.map((item) => (
                 <ArticleListItem
                   key={item.slug}
                   article={item}
-                  topicLabel={articlePortalSection(item) === "novinky" ? getNewsCategory(item.newsCategory)?.shortLabel ?? item.category : item.category}
+                  topicLabel={recommendationTopicLabel(item)}
                 />
               ))}
             </PublicContentList>

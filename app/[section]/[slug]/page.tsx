@@ -5,7 +5,8 @@ import { NewsHub } from "@/components/news-hub";
 import { EventDetail } from "@/components/event-detail";
 import { EventsPage } from "@/components/events-page";
 import { PortalTopic } from "@/components/portal-topic";
-import { getAllPublishedArticleSummaries, getPublishedArticle, getPublishedArticleAuthorProfile, getPublishedArticleSummaries, getRelatedPublishedArticles } from "@/lib/article-store";
+import { getAllPublishedArticleSummaries, getPublishedArticle, getPublishedArticleAuthorProfile, getPublishedArticleSummaries } from "@/lib/article-store";
+import { getArticleMagazineData } from "@/lib/article-magazine";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { getPublishedEvent, getPublishedEvents, getUpcomingEvents } from "@/lib/event-store";
 import { eventDateTimeIso, eventHref, eventPortalCategory, eventTimeFilterFromParam, eventTypeFromPortalSlug, selectRelatedEvents } from "@/lib/events";
@@ -113,9 +114,9 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) redirect(canonical);
 
-  const [relatedArticles, authorProfile] = await Promise.all([
-    getRelatedPublishedArticles(article, 3),
+  const [magazine, authorProfile] = await Promise.all([
+    getArticleMagazineData(article),
     getPublishedArticleAuthorProfile(article),
   ]);
-  return <ArticleDetail article={article} related={relatedArticles} authorProfile={authorProfile} portalSection={section === "recenzie" ? managedSection : undefined} />;
+  return <ArticleDetail article={article} magazine={magazine} authorProfile={authorProfile} portalSection={section === "recenzie" ? managedSection : undefined} />;
 }

@@ -14,7 +14,7 @@ test.beforeEach(async ({ page, baseURL }) => {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
-test("mobile homepage keeps the HOME-2 compact hero and exposes discovery above the fold", async ({ page }) => {
+test("mobile homepage keeps the compact hero and exposes discovery above the fold", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   if (process.env.HOME1_CAPTURE_PRODUCTION === "1") {
     await page.goto("https://psipedia.sk", { waitUntil: "domcontentloaded" });
@@ -57,7 +57,7 @@ test("mobile homepage keeps the HOME-2 compact hero and exposes discovery above 
   await page.screenshot({ path: ".e2e-artifacts/home-1/after-local-mobile-390x844.png" });
 });
 
-test("desktop homepage keeps the HOME-2 compact hero composition", async ({ page }) => {
+test("desktop homepage uses the HOME-3 compact hero composition", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
@@ -75,10 +75,10 @@ test("desktop homepage keeps the HOME-2 compact hero composition", async ({ page
     imageFit: getComputedStyle(document.querySelector<HTMLElement>(".hero-image")!).objectFit,
   }));
 
-  // HOME-2 intentionally reduces the old 500px+ desktop hero while retaining
+  // HOME-3 makes the desktop hero materially shorter than HOME-2 while retaining
   // the same image-cover composition and keeping the portal search close by.
-  expect(metrics.heroHeight).toBeGreaterThanOrEqual(430);
-  expect(metrics.heroHeight).toBeLessThanOrEqual(500);
+  expect(metrics.heroHeight).toBeGreaterThanOrEqual(315);
+  expect(metrics.heroHeight).toBeLessThanOrEqual(370);
   expect(metrics.imageFit).toBe("cover");
   expect(metrics.overflow).toBeLessThanOrEqual(1);
   await expectNoSeriousAccessibilityViolations(page);

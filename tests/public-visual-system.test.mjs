@@ -11,6 +11,10 @@ const searchPage = readFileSync("app/hladat/page.tsx", "utf8");
 const articleCard = readFileSync("components/article-card.tsx", "utf8");
 const editorialSection = readFileSync("components/editorial-section.tsx", "utf8");
 const newsHub = readFileSync("components/news-hub.tsx", "utf8");
+const siteHeader = readFileSync("components/site-header.tsx", "utf8");
+const siteHeaderStyles = readFileSync("components/site-header.module.css", "utf8");
+const globalStyles = readFileSync("app/globals.css", "utf8");
+const icons = readFileSync("components/icons.tsx", "utf8");
 
 test("public visual system exposes opt-in public-only foundation primitives", () => {
   for (const name of [
@@ -100,6 +104,22 @@ test("article list contract keeps text minimal while allowing an optional thumbn
   assert.doesNotMatch(contract, /excerpt|readTime|actionLabel/);
   assert.match(styles, /\.articleListItemWithImage\s*\{[^}]*grid-template-columns:\s*132px minmax\(0, 1fr\)/s);
   assert.match(styles, /\.articleListMedia img\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
+});
+
+test("BRAND-1 keeps semantic palette aliases and a desktop-first header contract", () => {
+  assert.match(globalStyles, /--brand-forest:\s*var\(--forest\)/);
+  assert.match(globalStyles, /--brand-canvas:\s*var\(--cream\)/);
+  assert.match(globalStyles, /--brand-accent:\s*var\(--coral\)/);
+  assert.match(globalStyles, /--brand-focus:\s*var\(--coral-dark\)/);
+  assert.match(siteHeader, /ChevronDownIcon/);
+  assert.match(siteHeader, /data-active=\{isPathActive/);
+  assert.doesNotMatch(siteHeader, /⌄/u);
+  assert.match(icons, /export function ChevronDownIcon/);
+  assert.match(siteHeaderStyles, /@media \(min-width: 1200px\)/);
+  assert.match(siteHeaderStyles, /text-transform:\s*uppercase/);
+  assert.match(siteHeaderStyles, /width:\s*min\(calc\(100% - 32px\), 1500px\)/);
+  assert.match(siteHeaderStyles, /--brand-accent-strong/);
+  assert.match(siteHeaderStyles, /min-height:\s*49px/);
 });
 
 test("dog name day resolver uses Europe\/Bratislava boundaries and fails closed", () => {

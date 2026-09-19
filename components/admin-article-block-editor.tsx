@@ -117,7 +117,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
   useEffect(() => {
     fetch("/api/admin/articles?limit=100")
       .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data: { articles?: ManagedArticleSummary[] }) => setArticles((data.articles ?? []).filter((item) => item.id !== currentArticleId)))
+      .then((data: { articles?: ManagedArticleSummary[] }) => setArticles((data.articles ?? []).filter((item) => item.id !== currentArticleId && item.status === "published")))
       .catch(() => undefined);
   }, [currentArticleId]);
 

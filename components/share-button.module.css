@@ -12,6 +12,14 @@
   text-transform: uppercase;
 }
 
+.compact {
+  display: inline-flex;
+}
+
+.compact > * {
+  min-height: var(--ps-control-min-height, 44px);
+}
+
 .actions {
   display: flex;
   min-width: 0;
