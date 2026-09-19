@@ -57,7 +57,7 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
               <span className="home-latest-lead-media"><ArticleVisual article={lead} /></span>
               <span className="home-latest-lead-copy">
                 <ArticleMeta article={lead} />
-                <strong>{lead.title}</strong>
+                <h3>{lead.title}</h3>
               </span>
             </Link>
           </article>
@@ -75,7 +75,7 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
                   <span className="home-latest-thumb"><ArticleVisual article={article} /></span>
                   <span className="home-latest-copy">
                     <ArticleMeta article={article} />
-                    <strong>{article.title}</strong>
+                    <h3>{article.title}</h3>
                   </span>
                 </Link>
               </article>
