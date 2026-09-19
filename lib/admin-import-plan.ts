@@ -118,6 +118,12 @@ function unsafeValue(value: unknown, path = "payload"): string | null {
 
 export function normalizeGeneralImportPayload(value: unknown): GeneralImportPayload {
   const payload = object(value);
+  const allowedTopLevel = new Set(["articles", "profiles", "events", "helpItems", "legal", "inquiries", "profileCategory", "confirmed"]);
+  const unknownKeys = Object.keys(payload).filter((key) => !allowedTopLevel.has(key));
+  if (unknownKeys.length) {
+    throw new Error(`Import obsahuje nepodporované top-level polia: ${unknownKeys.join(", ")}.`);
+  }
+
   const unsafePath = unsafeValue(payload);
   if (unsafePath) throw new Error(`Import obsahuje nepovolený spustiteľný alebo HTML obsah v poli ${unsafePath}.`);
 
@@ -150,15 +156,21 @@ function applyAction(domain: ImportDomainPreview, action: ImportAction, error?: 
   if (error) domain.errors.push(error);
 }
 
+function validateCanonicalSlug(value: unknown, label: string) {
+  const slug = required(value, label);
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error(`${label} nie je platný canonical slug`);
+  return slug;
+}
+
 function validateArticle(row: ImportJsonRecord) {
-  required(row.slug, "adresa článku");
+  validateCanonicalSlug(row.slug, "adresa článku");
   required(row.title, "názov článku");
   required(row.createdAt, "dátum vytvorenia");
   required(row.updatedAt, "dátum úpravy");
 }
 
 function validateEvent(row: ImportJsonRecord) {
-  required(row.slug, "adresa podujatia");
+  validateCanonicalSlug(row.slug, "adresa podujatia");
   required(row.title, "názov podujatia");
   required(row.startDate, "dátum podujatia");
   required(row.createdAt, "dátum vytvorenia podujatia");
@@ -169,12 +181,12 @@ function validateProfile(row: ImportJsonRecord, selectedProfileCategory: string)
   const category = importedText(row, ["category", "Kategória"], selectedProfileCategory);
   if (!isDirectoryCategory(category)) throw new Error("profil nemá platnú kategóriu");
   required(row.name ?? row["Názov"] ?? row["Názov klubu"], "názov profilu");
-  required(row.slug ?? row["Slug"], "adresa profilu");
+  validateCanonicalSlug(row.slug ?? row["Slug"], "adresa profilu");
   const region = normalizeDirectoryRegion(importedText(row, ["region", "Kraj"]));
   if (!region) throw new Error("profil nemá platný kraj");
   return {
     category,
-    slug: required(row.slug ?? row["Slug"], "adresa profilu"),
+    slug: validateCanonicalSlug(row.slug ?? row["Slug"], "adresa profilu"),
     importKey: importedText(row, ["importKey", "Import key"]) || null,
   };
 }
@@ -196,19 +208,27 @@ export async function buildGeneralImportPlan(database: D1Database, rawPayload: u
   const payload = normalizeGeneralImportPayload(rawPayload);
 
   const [articlesResult, eventsResult, profilesResult, legalResult] = await Promise.all([
-    database.prepare("SELECT slug,status FROM managed_articles").all<StatusRow>(),
-    database.prepare("SELECT slug,status FROM managed_events").all<StatusRow>(),
-    database.prepare("SELECT import_key,category,slug,status FROM directory_profiles").all<ProfileRow>(),
-    database.prepare("SELECT id FROM legal_settings WHERE id=1").all<LegalRow>(),
+    payload.articles.length
+      ? database.prepare("SELECT slug,status FROM managed_articles").all<StatusRow>()
+      : Promise.resolve({ results: [] as StatusRow[] }),
+    payload.events.length
+      ? database.prepare("SELECT slug,status FROM managed_events").all<StatusRow>()
+      : Promise.resolve({ results: [] as StatusRow[] }),
+    payload.profiles.length
+      ? database.prepare("SELECT import_key,category,slug,status FROM directory_profiles").all<ProfileRow>()
+      : Promise.resolve({ results: [] as ProfileRow[] }),
+    payload.legal
+      ? database.prepare("SELECT id FROM legal_settings WHERE id=1").all<LegalRow>()
+      : Promise.resolve({ results: [] as LegalRow[] }),
   ]);
 
   const articleStatus = new Map(articlesResult.results.map((row) => [row.slug, row.status]));
   const eventStatus = new Map(eventsResult.results.map((row) => [row.slug, row.status]));
-  const profileStatusByImportKey = new Map(
-    profilesResult.results.filter((row) => row.import_key).map((row) => [row.import_key as string, row.status]),
+  const profileByImportKey = new Map(
+    profilesResult.results.filter((row) => row.import_key).map((row) => [row.import_key as string, row]),
   );
-  const profileStatusByCategorySlug = new Map(
-    profilesResult.results.map((row) => [`${row.category}\u0000${row.slug}`, row.status]),
+  const profileByCategorySlug = new Map(
+    profilesResult.results.map((row) => [`${row.category}\u0000${row.slug}`, row]),
   );
 
   const domains = {
@@ -259,10 +279,14 @@ export async function buildGeneralImportPlan(database: D1Database, rawPayload: u
   payload.profiles.forEach((row, index) => {
     try {
       const identity = validateProfile(row, payload.profileCategory);
-      const key = identity.importKey ? `import:${identity.importKey}` : `slug:${identity.category}\u0000${identity.slug}`;
-      const existingStatus = identity.importKey
-        ? profileStatusByImportKey.get(identity.importKey) ?? profileStatusByCategorySlug.get(`${identity.category}\u0000${identity.slug}`)
-        : profileStatusByCategorySlug.get(`${identity.category}\u0000${identity.slug}`);
+      const slugKey = `${identity.category}\u0000${identity.slug}`;
+      const key = identity.importKey ? `import:${identity.importKey}` : `slug:${slugKey}`;
+      const existingBySlug = profileByCategorySlug.get(slugKey);
+      const existingByImportKey = identity.importKey ? profileByImportKey.get(identity.importKey) : undefined;
+      if (identity.importKey && existingBySlug && existingByImportKey !== existingBySlug) {
+        throw new Error("importKey nesedí s existujúcim category+slug; záznam sa nesmie prepísať nejednoznačne");
+      }
+      const existingStatus = identity.importKey ? existingByImportKey?.status : existingBySlug?.status;
       const result = duplicateAwareAction(key, profileKeys, existingStatus, `Profil riadok ${index + 1}`);
       actions.profiles.push(result.action);
       applyAction(domains.profiles, result.action, result.error);
