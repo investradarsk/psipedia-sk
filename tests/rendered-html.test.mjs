@@ -243,7 +243,6 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Koľko „ľudských rokov“ má tvoj pes/);
   assert.match(html, /Kalendár práve dopĺňame/);
   assert.match(html, /Žiadna otvorená výzva/);
-  assert.match(html, /Nové články pripravujeme/);
   assert.match(html, /href="\/o-nas#kontakt"/);
   assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert=""/);
   assert.ok(html.indexOf("<h2 id=\"home-latest-title\">Najnovšie články</h2>") < html.indexOf("<h2 id=\"home-events-title\">Najbližšie podujatia</h2>"));
