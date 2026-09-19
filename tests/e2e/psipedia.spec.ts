@@ -257,10 +257,14 @@ test("@production events listing, detail and past/upcoming separation work", asy
 test("@production help listing and an existing case detail work", async ({ page }) => {
   await gotoProductionPage(page, "/pomoc-psom");
   await expect(page.locator("h1")).toBeVisible();
-  if (await page.locator(".help-card").count() === 0) {
-    await page.getByRole("checkbox", { name: "Len aktívne prípady" }).uncheck();
+  const cards = page.locator("[data-help-card]");
+  if (await cards.count() === 0) {
+    const activeOnly = page.getByRole("checkbox", { name: "Len aktívne", exact: true });
+    await expect(activeOnly).toBeVisible();
+    await activeOnly.uncheck();
+    await expect(cards.first()).toBeVisible();
   }
-  const detailHref = await firstPublicLink(page, ".help-card", /^\/pomoc-psom\/[^/?#]+\/[^/?#]+$/);
+  const detailHref = await firstPublicLink(page, "[data-help-card]", /^\/pomoc-psom\/[^/?#]+\/[^/?#]+$/);
   await gotoProductionPage(page, detailHref);
   await expect(page.locator("h1")).toBeVisible();
 });
