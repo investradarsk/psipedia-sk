@@ -107,6 +107,28 @@ test("enabled Notion article sync requires token and exact data source", () => {
   assert.equal(result.notionArticleSyncEnabled, true);
 });
 
+test("enabled Notion breed sync requires token and exact breed data source", () => {
+  assert.throws(
+    () => validateRuntimeEnvironment(
+      { NOTION_BREED_SYNC_ENABLED: "true" },
+      { profile: "runtime" },
+    ),
+    (error) => error instanceof ConfigurationError
+      && error.missing.includes("NOTION_API_TOKEN")
+      && error.missing.includes("NOTION_BREEDS_DATA_SOURCE_ID"),
+  );
+
+  const result = validateRuntimeEnvironment(
+    {
+      NOTION_BREED_SYNC_ENABLED: "true",
+      NOTION_API_TOKEN: "secret-test-token",
+      NOTION_BREEDS_DATA_SOURCE_ID: "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2",
+    },
+    { profile: "runtime" },
+  );
+  assert.equal(result.notionBreedSyncEnabled, true);
+});
+
 test("CI-only local auth path accepts isolated test PII crypto material", () => {
   const result = validateRuntimeEnvironment(
     {
