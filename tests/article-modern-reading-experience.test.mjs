@@ -147,7 +147,7 @@ test("article header follows compact editorial hierarchy and keeps save/share wi
   const compactShare = indexOfOrFail(detail, "url={canonical} compact", "compact header share is missing");
   const figure = indexOfOrFail(detail, "className={styles.heroFigure}", "hero figure is missing");
   assert.ok(kicker < title && title < excerpt && excerpt < meta && meta < favorite && favorite < compactShare && compactShare < figure);
-  assert.match(styles, /font-size:\s*clamp\(2\.05rem,\s*3\.7vw,\s*2\.9rem\)/);
+  assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
   assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 8\.8/);
   assert.match(styles, /max-height:\s*520px/);
 });
