@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "lib/notion-article-sync.ts"
+      - "lib/article-subsection-taxonomy.ts"
       - "lib/notion-breed-sync.ts"
       - "lib/notion-event-sync.ts"
       - "lib/notion-sync-shared.ts"
