@@ -5,7 +5,7 @@ CREATE TABLE monetization_campaigns (
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'paused', 'archived')),
   start_at TEXT,
   end_at TEXT,
-  creative_image_url TEXT,
+  creative_image_url TEXT NOT NULL,
   creative_alt TEXT NOT NULL DEFAULT '',
   headline TEXT NOT NULL,
   body_copy TEXT NOT NULL DEFAULT '',
