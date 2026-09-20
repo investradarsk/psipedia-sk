@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  AdminActionButton,
+  AdminBulkActionToolbar,
+  AdminModalDialog,
+} from "@/components/admin-interaction-system";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { HELP_ADMIN_CATEGORIES, type HelpAdminFilters } from "@/lib/help-admin-query";
 import type { ManagedHelpCaseSummary } from "@/lib/help-store";
@@ -40,6 +45,7 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkReview, setBulkReview] = useState<{ targetStatus: BulkStatus; preview: BulkPreflight } | null>(null);
   const { items, totals, categoryCounts, resultCount, page, pages } = data;
   const viewFingerprint = [
     filters.category, filters.status, filters.urgent, filters.state,
@@ -77,8 +83,8 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
     setSelected(new Set());
   }
 
-  async function bulk(targetStatus: BulkStatus) {
-    if (!selectedCount) return;
+  async function prepareBulk(targetStatus: BulkStatus) {
+    if (!selectedCount || bulkBusy) return;
     setBulkBusy(true);
     setMessage("");
     try {
@@ -93,9 +99,20 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
         setMessage("Označené záznamy už majú požadovaný publikačný stav.");
         return;
       }
-      const verb = targetStatus === "published" ? "Publikovať" : "Prepnúť na koncept";
-      const scope = preview.selectedCount === preview.changeCount ? "" : ` Z ${preview.selectedCount} označených sa zmení ${preview.changeCount}.`;
-      if (!window.confirm(`${verb} ${preview.changeCount} záznamov?${scope} Zmena sa týka iba publikačného stavu.`)) return;
+      setBulkReview({ targetStatus, preview });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Hromadnú zmenu sa nepodarilo pripraviť.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function applyBulk() {
+    if (!bulkReview || bulkBusy) return;
+    setBulkBusy(true);
+    setMessage("");
+    try {
+      const { targetStatus, preview } = bulkReview;
       const applyResponse = await fetch("/api/admin/help/bulk", {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "apply", targetStatus, confirmedCount: preview.items.length, items: preview.items }),
@@ -103,6 +120,7 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       const applied = await applyResponse.json() as { requested?: number; changed?: number; error?: string };
       if (!applyResponse.ok) throw new Error(applied.error || "Hromadná zmena zlyhala.");
       clearSelection();
+      setBulkReview(null);
       setMessage(`Zmenených záznamov: ${applied.changed ?? 0} z ${applied.requested ?? preview.items.length} potvrdených.`);
       router.refresh();
     } catch (error) {
@@ -165,10 +183,14 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       <div className={styles.bulk} aria-busy={bulkBusy}>
         <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={pageSelected} ref={(node) => { if (node) node.indeterminate = pageSomeSelected; }} disabled={bulkBusy || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
         <span role="status">Označené: {selectedCount}</span>
-        <button className={styles.primary} type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("published")}>Publikovať</button>
-        <button type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("draft")}>Prepnúť na koncept</button>
-        {!!selectedCount && <button className={styles.clear} type="button" disabled={bulkBusy} onClick={clearSelection}>Zrušiť výber</button>}
       </div>
+      {selectedCount > 0 && <AdminBulkActionToolbar
+        selectedCount={selectedCount}
+        selectionDescription="Výber patrí iba aktuálnej filtrovanej strane."
+        primaryAction={<AdminActionButton variant="primary" disabled={bulkBusy} onClick={() => void prepareBulk("published")}>Publikovať</AdminActionButton>}
+        destructiveAction={<AdminActionButton variant="destructive" disabled={bulkBusy} onClick={() => void prepareBulk("draft")}>Prepnúť na koncept</AdminActionButton>}
+        onClear={clearSelection}
+      />}
       {message && <p className="admin-flash" role="status">{message}</p>}
       <p className="admin-help-results">Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
       {items.length ? <div className="admin-article-list">{items.map((item) => {
@@ -182,5 +204,27 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       })}</div> : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
       <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov">{page > 1 ? <Link href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}</nav>
     </section>
+
+    <AdminModalDialog
+      open={bulkReview !== null}
+      title={bulkReview?.targetStatus === "published" ? "Publikovať vybrané Help záznamy" : "Presunúť vybrané Help záznamy do konceptu"}
+      description="Zmena sa týka iba publikačného stavu. Server pri potvrdení znovu overí verziu a publikačné pravidlá."
+      onClose={() => { if (!bulkBusy) setBulkReview(null); }}
+      footer={<>
+        <AdminActionButton variant="neutral" disabled={bulkBusy} onClick={() => setBulkReview(null)}>Zrušiť</AdminActionButton>
+        <AdminActionButton
+          variant={bulkReview?.targetStatus === "draft" ? "destructive" : "primary"}
+          disabled={bulkBusy || !bulkReview}
+          onClick={() => void applyBulk()}
+        >
+          {bulkBusy ? "Spracúvam…" : bulkReview?.targetStatus === "published" ? "Publikovať" : "Presunúť do konceptu"}
+        </AdminActionButton>
+      </>}
+    >
+      {bulkReview && <p>
+        Zmení sa <strong>{bulkReview.preview.changeCount}</strong> z {bulkReview.preview.selectedCount} označených záznamov.
+        {bulkReview.preview.selectedCount - bulkReview.preview.changeCount > 0 && <> {bulkReview.preview.selectedCount - bulkReview.preview.changeCount} už má cieľový stav.</>}
+      </p>}
+    </AdminModalDialog>
   </div>;
 }
