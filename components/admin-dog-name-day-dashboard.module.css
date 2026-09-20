@@ -15,7 +15,7 @@
 .table th, .table td { padding: .75rem .85rem; border-bottom: 1px solid #edf1ee; text-align: left; vertical-align: top; }
 .table th { background: #f8faf8; color: #627269; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; }
 .table td { color: #294238; }
-.table td > small, .source small { display: block; margin-top: .25rem; color: #708078; font-size: .72rem; }
+.table td > small, .source small { display: block; margin-top: .25rem; color: #5f7067; font-size: .72rem; }
 .status { display: inline-flex; padding: .3rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 850; }
 .draft { background: #f2f0e8; color: #675b34; }
 .published { background: #e7f3ea; color: #175334; }
