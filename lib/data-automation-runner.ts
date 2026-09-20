@@ -13,6 +13,7 @@ import {
 import {
   beginAutomationRun,
   finishAutomationRun,
+  getAutomationSource,
   listDueAutomationSources,
   matchAutomationCanonical,
   recordAutomationObservation,
