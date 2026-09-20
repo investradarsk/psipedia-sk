@@ -45,7 +45,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
   const [preview, setPreview] = useState<Preview | null>(null);
   const [run, setRun] = useState<RunSummary | null>(null);
   const [notes, setNotes] = useState(source.reviewNotes ?? "");
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{\n    sourceKey: string; label: string; entityType: string; connectorType: string; sourceUrl: string;\n    cadenceMinutes: string; throttleMs: string; timeoutMs: string; retryMaxAttempts: string; retryBackoffMs: string;\n    maxRecordsPerRun: string; config: string;\n  }>({
     sourceKey: source.sourceKey,
     label: source.label,
     entityType: source.entityType,
@@ -132,8 +132,8 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
           <div className="admin-form-grid">
             <label className="admin-field"><span>Source key</span><input required value={form.sourceKey} onChange={(e) => field("sourceKey", e.target.value)} /></label>
             <label className="admin-field"><span>Názov</span><input required value={form.label} onChange={(e) => field("label", e.target.value)} /></label>
-            <label className="admin-field"><span>Entity type</span><select value={form.entityType} onChange={(e) => field("entityType", e.target.value as typeof form.entityType)}>{automationEntityTypes.map((value) => <option key={value}>{value}</option>)}</select></label>
-            <label className="admin-field"><span>Connector</span><select value={form.connectorType} onChange={(e) => field("connectorType", e.target.value as typeof form.connectorType)}>{automationConnectorTypes.map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label className="admin-field"><span>Entity type</span><select value={form.entityType} onChange={(e) => field("entityType", e.target.value)}>{automationEntityTypes.map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label className="admin-field"><span>Connector</span><select value={form.connectorType} onChange={(e) => field("connectorType", e.target.value)}>{automationConnectorTypes.map((value) => <option key={value}>{value}</option>)}</select></label>
             <label className="admin-field admin-field-wide"><span>Source URL</span><input type="url" value={form.sourceUrl} onChange={(e) => field("sourceUrl", e.target.value)} /></label>
             <label className="admin-field"><span>Cadence (min)</span><input type="number" min={60} max={43200} value={form.cadenceMinutes} onChange={(e) => field("cadenceMinutes", e.target.value)} /></label>
             <label className="admin-field"><span>Timeout (ms)</span><input type="number" min={1000} max={30000} value={form.timeoutMs} onChange={(e) => field("timeoutMs", e.target.value)} /></label>
