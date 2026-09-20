@@ -24,4 +24,4 @@ INSERT INTO monetization_campaigns (
 );
 
 INSERT INTO monetization_campaign_placements (campaign_id, placement_id, created_at)
-VALUES ('e2e-monetization-global-bottom', 'global_bottom', '2026-09-20T16:00:00.000Z');
+VALUES ('e2e-monetization-global-bottom', 'home_bottom', '2026-09-20T16:00:00.000Z');
