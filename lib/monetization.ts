@@ -55,8 +55,9 @@ export function assertSafeDestinationUrl(value: string) {
 }
 
 export function isSafeCreativeAsset(value?: string | null) {
-  if (!value) return true;
-  return value.startsWith("/media/") || value.startsWith("/images/");
+  if (!value || value.includes("\\") || value.includes("?") || value.includes("#")) return false;
+  if (!(value.startsWith("/media/") || value.startsWith("/images/"))) return false;
+  return !value.split("/").some((segment) => segment === ".." || segment === ".");
 }
 
 export function isCampaignActive(campaign: CampaignWindow, now = new Date()) {
