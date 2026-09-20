@@ -107,7 +107,9 @@ export async function getActiveCampaignForPlacement(placementId: AdPlacementId, 
   `).bind(placementId, iso, iso).first<CampaignRow>();
   if (!row) return null;
   const campaign = rowToCampaign(row, [placementId]);
-  return isCampaignActive(campaign, now) ? campaign : null;
+  if (!isCampaignActive(campaign, now)) return null;
+  if (!isSafeDestinationUrl(campaign.destinationUrl) || !isSafeCreativeAsset(campaign.imageUrl)) return null;
+  return campaign;
 }
 
 export async function listMonetizationAdminData() {
@@ -132,11 +134,13 @@ export async function listMonetizationAdminData() {
   return {
     placements: Object.values(AD_PLACEMENTS),
     campaigns: (campaignRows.results ?? []).map((row) => rowToCampaign(row, placementsByCampaign.get(row.id) ?? [])),
-    promotions: (promotionRows.results ?? []).map((row) => ({
-      id: row.id, entityType: row.entity_type, entityId: row.entity_id, status: row.status,
-      startAt: row.start_at, endAt: row.end_at, label: SPONSORED_LABEL, priority: row.priority,
-      provenance: row.provenance, adminNote: row.admin_note,
-    } satisfies PromotionRecord)),
+    promotions: (promotionRows.results ?? [])
+      .filter((row) => isPromotableEntityType(row.entity_type))
+      .map((row) => ({
+        id: row.id, entityType: row.entity_type as PromotableEntityType, entityId: row.entity_id, status: row.status,
+        startAt: row.start_at, endAt: row.end_at, label: SPONSORED_LABEL, priority: row.priority,
+        provenance: row.provenance, adminNote: row.admin_note,
+      } satisfies PromotionRecord)),
   };
 }
 
