@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { CookieConsent } from "@/components/cookie-consent";
+import { ProgrammaticAdLoader } from "@/components/programmatic-ad-loader";
+import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
@@ -65,6 +67,9 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const navigationItems = await getNavigationItems();
+  const programmaticClientId = process.env.GOOGLE_ADSENSE_CLIENT_ID ?? "";
+  const programmaticEnabled = process.env.PROGRAMMATIC_ADS_ENABLED === "true";
+  const advertisingConsentEnabled = programmaticEnabled && isValidGooglePublisherClientId(programmaticClientId);
 
   return (
     <html lang="sk">
@@ -72,7 +77,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SiteHeader navigationItems={navigationItems} />
         {children}
         <SiteFooter />
-        <CookieConsent />
+        <CookieConsent advertisingEnabled={advertisingConsentEnabled} />
+        <ProgrammaticAdLoader enabled={advertisingConsentEnabled} clientId={programmaticClientId} />
       </body>
     </html>
   );
