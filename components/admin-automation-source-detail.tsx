@@ -9,12 +9,19 @@ type Preview = {
   ok: boolean;
   sourceStatus: string;
   httpStatus: number | null;
+  contentType: string | null;
+  contentLength: number | null;
+  finalUrl: string | null;
+  redirectCount: number;
+  timingMs: number;
   recordsFound: number;
   recordsNormalized: number;
   possibleMatches: number;
   newCandidates: number;
   possibleUpdates: number;
   errors: string[];
+  parserErrors: string[];
+  errorDetails: Array<{ code: string; detail: string }>;
   writes: { observations: number; findings: number; canonical: number; publications: number };
 };
 
@@ -23,6 +30,8 @@ type RunSummary = {
   checked: number;
   newFindings: number;
   updatedFindings: number;
+  newDataFindings: number;
+  sourceErrors: number;
   errors: number;
   nextCheckAt: string | null;
 };
@@ -120,9 +129,11 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
         <div><span>Review</span><strong>{source.reviewStatus}</strong></div>
         <div><span>Stav</span><strong>{source.enabled ? "ENABLED" : "DISABLED"}</strong></div>
         <div><span>Last run</span><strong>{source.lastRunStatus ?? "—"}</strong></div>
+        <div><span>Last checked</span><strong>{source.lastCheckedAt ?? "—"}</strong></div>
+        <div><span>Last success</span><strong>{source.lastSuccessAt ?? "—"}</strong></div>
         <div><span>Next run</span><strong>{source.nextCheckAt ?? "—"}</strong></div>
         <div><span>Checked</span><strong>{source.checkedCount}</strong></div>
-        <div><span>New findings</span><strong>{source.newFindingCount}</strong></div>
+        <div><span>New review items</span><strong>{source.newFindingCount}</strong></div>
         <div><span>Updated findings</span><strong>{source.updatedFindingCount}</strong></div>
         <div><span>Errors</span><strong>{source.errorCount}</strong></div>
         <div><span>Duration</span><strong>{source.durationMs === null ? "—" : `${source.durationMs} ms`}</strong></div>
@@ -171,13 +182,25 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
           <h2>Výsledok testu zdroja</h2>
           <div className="admin-stats">
             <div><span>Source / HTTP</span><strong>{preview.sourceStatus} / {preview.httpStatus ?? "—"}</strong></div>
+            <div><span>Final URL</span><strong>{preview.finalUrl ?? "—"}</strong></div>
+            <div><span>Redirects</span><strong>{preview.redirectCount}</strong></div>
+            <div><span>Content type</span><strong>{preview.contentType ?? "—"}</strong></div>
+            <div><span>Content length</span><strong>{preview.contentLength === null ? "—" : preview.contentLength}</strong></div>
+            <div><span>Timing</span><strong>{preview.timingMs} ms</strong></div>
             <div><span>Records found</span><strong>{preview.recordsFound}</strong></div>
             <div><span>Normalized</span><strong>{preview.recordsNormalized}</strong></div>
             <div><span>Possible matches</span><strong>{preview.possibleMatches}</strong></div>
             <div><span>New candidates</span><strong>{preview.newCandidates}</strong></div>
             <div><span>Possible updates</span><strong>{preview.possibleUpdates}</strong></div>
           </div>
-          {preview.errors.length > 0 && <pre>{preview.errors.join("\n")}</pre>}
+          {preview.errorDetails.length > 0 && (
+            <div className="admin-stack">
+              {preview.errorDetails.map((error) => (
+                <p key={error.code}><strong>{error.code}</strong>: {error.detail}</p>
+              ))}
+            </div>
+          )}
+          {preview.parserErrors.length > 0 && <p>Parser errors: {preview.parserErrors.join(", ")}</p>}
           <p>Writes: observations {preview.writes.observations}, findings {preview.writes.findings}, canonical {preview.writes.canonical}, publications {preview.writes.publications}.</p>
         </section>
       )}
@@ -185,7 +208,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
       {run && (
         <section className="admin-panel" aria-live="polite">
           <h2>Run now summary</h2>
-          <p><strong>{run.status}</strong> · checked {run.checked} · new findings {run.newFindings} · updated findings {run.updatedFindings} · errors {run.errors} · next {run.nextCheckAt ?? "—"}</p>
+          <p><strong>{run.status}</strong> · checked {run.checked} · new data findings {run.newDataFindings} · source errors {run.sourceErrors} · review items {run.newFindings} · updated findings {run.updatedFindings} · errors {run.errors} · next {run.nextCheckAt ?? "—"}</p>
         </section>
       )}
     </>

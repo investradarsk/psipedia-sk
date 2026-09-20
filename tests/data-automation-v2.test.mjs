@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { fetchAutomationSourceRecords } from "../lib/data-automation-connectors.ts";
+import { AutomationConnectorError, fetchAutomationSourceRecords } from "../lib/data-automation-connectors.ts";
 import {
   rssDiscoveryAdapter,
   sitemapDiscoveryAdapter,
@@ -106,7 +106,7 @@ test("SVPS controlled HTML fixture normalizes shelters and quarantine stations",
   assert.equal(rows[0].proposed.importKey, "svps:sk-u-001");
 });
 
-test("real controlled connector fixture respects max records and blocks redirects", async () => {
+test("real controlled connector fixture respects max records and uses inspected manual redirects", async () => {
   let requestInit;
   const rows = await fetchAutomationSourceRecords(source({ maxRecordsPerRun: 1 }), {
     fetchImpl: async (_url, init) => {
@@ -119,8 +119,152 @@ test("real controlled connector fixture respects max records and blocks redirect
     htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
   });
   assert.equal(rows.length, 1);
-  assert.equal(requestInit.redirect, "error");
+  assert.equal(requestInit.redirect, "manual");
   assert.ok(requestInit.signal);
+});
+
+test("controlled connector safely follows public HTTPS redirects and reports the final URL", async () => {
+  const requests = [];
+  const responses = [];
+  const rows = await fetchAutomationSourceRecords(source({ maxRecordsPerRun: 1 }), {
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      if (requests.length === 1) {
+        return new Response("", {
+          status: 302,
+          headers: { location: "https://example.com/final" },
+        });
+      }
+      return new Response(fixture("skj-calendar.html"), {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      });
+    },
+    htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+    onResponse: (meta) => responses.push(meta),
+  });
+  assert.equal(rows.length, 1);
+  assert.deepEqual(requests, ["https://example.com/feed", "https://example.com/final"]);
+  assert.equal(responses.at(-1).finalUrl, "https://example.com/final");
+  assert.equal(responses.at(-1).redirectCount, 1);
+});
+
+test("redirect targets are revalidated against SSRF policy", async () => {
+  await assert.rejects(
+    fetchAutomationSourceRecords(source(), {
+      fetchImpl: async () => new Response("", {
+        status: 302,
+        headers: { location: "https://127.0.0.1/private" },
+      }),
+      htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "source_redirect_blocked",
+  );
+});
+
+test("fetch failures expose safe timeout/network taxonomy without raw stack details", async () => {
+  await assert.rejects(
+    fetchAutomationSourceRecords(source({ retryMaxAttempts: 0 }), {
+      fetchImpl: async () => {
+        const error = new Error("The operation timed out");
+        error.name = "TimeoutError";
+        throw error;
+      },
+      htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "source_timeout",
+  );
+  await assert.rejects(
+    fetchAutomationSourceRecords(source({ retryMaxAttempts: 0 }), {
+      fetchImpl: async () => { throw new Error("getaddrinfo ENOTFOUND example.com"); },
+      htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "source_dns_failed",
+  );
+});
+
+test("HTTP errors preserve status taxonomy and retry only retry-safe statuses", async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchAutomationSourceRecords(source({ retryMaxAttempts: 2 }), {
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response("forbidden", { status: 403 });
+      },
+      sleep: async () => {},
+      htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "source_http_403",
+  );
+  assert.equal(calls, 1);
+
+  calls = 0;
+  const rows = await fetchAutomationSourceRecords(source({ retryMaxAttempts: 1, maxRecordsPerRun: 1 }), {
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) return new Response("slow down", { status: 429 });
+      return new Response(fixture("skj-calendar.html"), {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      });
+    },
+    sleep: async () => {},
+    htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+  });
+  assert.equal(calls, 2);
+  assert.equal(rows.length, 1);
+});
+
+test("source body size and content type are bounded before parsing", async () => {
+  await assert.rejects(
+    fetchAutomationSourceRecords(source(), {
+      fetchImpl: async () => new Response("<html></html>", {
+        status: 200,
+        headers: { "content-type": "text/html", "content-length": "1000001" },
+      }),
+      htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "source_response_too_large",
+  );
+
+  await assert.rejects(
+    fetchAutomationSourceRecords(source(), {
+      fetchImpl: async () => new Response("not html", {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+      }),
+      htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "source_invalid_content_type",
+  );
+});
+
+test("production adapters fail closed on parser exceptions and suspicious zero records", async () => {
+  await assert.rejects(
+    fetchAutomationSourceRecords(source(), {
+      fetchImpl: async () => new Response("<html></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+      htmlAdapters: { fixture: () => { throw new Error("parser exploded"); } },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "adapter_parse_failed",
+  );
+
+  await assert.rejects(
+    fetchAutomationSourceRecords(source({
+      entityType: "ORGANIZATION",
+      sourceKey: "svps-shelters-register",
+      config: { htmlAdapterKey: "svps-shelters-register" },
+    }), {
+      fetchImpl: async () => new Response("<html><table></table></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+      htmlAdapters: { "svps-shelters-register": () => [] },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "adapter_no_records",
+  );
 });
 
 test("discovery emits deduplicated SOURCE_CANDIDATE records only", () => {
@@ -162,6 +306,9 @@ test("test-source preview is structurally read-only and reports zero writes", ()
   assert.match(preview, /possibleMatches/);
   assert.match(preview, /newCandidates/);
   assert.match(preview, /possibleUpdates/);
+  assert.match(preview, /finalUrl/);
+  assert.match(preview, /redirectCount/);
+  assert.match(preview, /timingMs/);
 });
 
 test("source persistence enforces review gate and invalidates approval after safety-critical edits", () => {
@@ -173,11 +320,13 @@ test("source persistence enforces review gate and invalidates approval after saf
   assert.match(store, /automation_source_review_required/);
 });
 
-test("run now reuses production runner and blocks disabled sources", () => {
+test("run now reuses production runner and blocks disabled or unapproved sources", () => {
   const runner = read("lib/data-automation-runner.ts");
   const route = read("app/api/admin/automation-sources/[id]/run/route.ts");
   assert.match(runner, /runAutomationSourceNow/);
   assert.match(runner, /automation_source_disabled/);
+  assert.match(runner, /automation_source_review_required/);
+  assert.match(runner, /source\.reviewStatus !== "APPROVED"/);
   assert.match(runner, /return runSource\(source, options\)/);
   assert.match(route, /productionAutomationHtmlAdapters/);
   assert.match(route, /canonicalWrite:\s*false,\s*publication:\s*false/);
@@ -185,8 +334,19 @@ test("run now reuses production runner and blocks disabled sources", () => {
 
 test("scheduler still respects enabled state and next-check cadence", () => {
   const store = read("lib/data-automation-store.ts");
-  assert.match(store, /WHERE enabled = 1 AND \(next_check_at IS NULL OR next_check_at <= \?\)/);
+  assert.match(store, /WHERE enabled = 1 AND review_status = 'APPROVED' AND \(next_check_at IS NULL OR next_check_at <= \?\)/);
   assert.match(store, /nextAutomationCheckAt/);
+});
+
+test("source error lifecycle resolves recovery and superseded error signatures without deleting history", () => {
+  const store = read("lib/data-automation-store.ts");
+  const runner = read("lib/data-automation-runner.ts");
+  assert.match(store, /SOURCE_ERROR_REPLACED/);
+  assert.match(store, /SOURCE_RECOVERED/);
+  assert.match(store, /review_status IN \('NEW','IN_REVIEW','SUPPRESSED'\)/);
+  assert.match(runner, /resolveOtherAutomationSourceErrors/);
+  assert.match(runner, /newDataFindings/);
+  assert.match(runner, /sourceErrors/);
 });
 
 test("source failures remain visible in source observability", () => {

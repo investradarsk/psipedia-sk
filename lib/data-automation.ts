@@ -53,6 +53,7 @@ export type AutomationSourceConfig = {
   fields?: Record<string, string>;
   staticFields?: Record<string, unknown>;
   htmlAdapterKey?: string;
+  expectedMinRecords?: number;
 };
 
 export type AutomationSource = {
@@ -71,6 +72,7 @@ export type AutomationSource = {
   retryBackoffMs: number;
   maxRecordsPerRun: number;
   nextCheckAt: string | null;
+  reviewStatus?: "PENDING" | "APPROVED" | "REJECTED";
 };
 
 export type AutomationSourceRecord = {

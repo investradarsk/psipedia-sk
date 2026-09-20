@@ -434,5 +434,6 @@ export function sourceAdminRowToRuntimeSource(row: AutomationSourceAdminRow): Au
     retryBackoffMs: row.retryBackoffMs,
     maxRecordsPerRun: row.maxRecordsPerRun,
     nextCheckAt: row.nextCheckAt,
+    reviewStatus: row.reviewStatus,
   };
 }
