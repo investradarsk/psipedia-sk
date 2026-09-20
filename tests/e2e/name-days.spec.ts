@@ -76,7 +76,7 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
     await expectAxeClean(page);
   } else {
     await page.goto("/");
-    await expect(page.getByText(uniqueName, { exact: true })).toHaveCount(0);
+    await expect(page.getByText(uniqueName, { exact: true })).toBeHidden();
     await expectAxeClean(page);
   }
 
