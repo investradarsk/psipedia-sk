@@ -153,6 +153,7 @@ export function isSafeAutomationSourceUrl(value: unknown) {
   const url = new URL(normalized);
   if (url.protocol !== "https:" || url.username || url.password || url.port) return false;
   if (PRIVATE_HOST_PATTERNS.some((pattern) => pattern.test(url.hostname))) return false;
+  if (url.hostname.includes(":")) return false;
   if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(url.hostname)) return false;
   return true;
 }
