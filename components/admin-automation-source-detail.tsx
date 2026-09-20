@@ -157,7 +157,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
             <label className="admin-field"><span>Retry backoff (ms)</span><input type="number" min={100} max={30000} value={form.retryBackoffMs} onChange={(e) => field("retryBackoffMs", e.target.value)} /></label>
           </div>
           <label className="admin-field"><span>Mapping / config JSON</span><textarea rows={10} value={form.config} onChange={(e) => field("config", e.target.value)} spellCheck={false} /></label>
-          <div className="admin-form-actions"><button type="submit" disabled={busy}>Uložiť konfiguráciu</button></div>
+          <div className="admin-form-actions"><button className="is-primary" type="submit" disabled={busy}>Uložiť konfiguráciu</button></div>
         </form>
       </section>
 
@@ -166,12 +166,12 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
         <label className="admin-field"><span>Poznámka reviewera</span><textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
         <div className="admin-form-actions">
           <button type="button" disabled={busy} onClick={() => void testSource()}>Otestovať zdroj</button>
-          {source.reviewStatus !== "APPROVED" && <button type="button" disabled={busy} onClick={() => void action({ action: "approve", notes })}>Schváliť zdroj</button>}
-          {source.reviewStatus !== "REJECTED" && <button type="button" disabled={busy} onClick={() => void action({ action: "reject", notes })}>Zamietnuť zdroj</button>}
+          {source.reviewStatus !== "APPROVED" && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "approve", notes })}>Schváliť zdroj</button>}
+          {source.reviewStatus !== "REJECTED" && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "reject", notes })}>Zamietnuť zdroj</button>}
           {source.enabled
-            ? <button type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Vypnúť</button>
-            : <button type="button" disabled={busy || source.reviewStatus !== "APPROVED"} onClick={() => void action({ action: "enable" })}>Zapnúť</button>}
-          <button type="button" disabled={busy || !source.enabled} onClick={() => void runNow()}>Spustiť kontrolu teraz</button>
+            ? <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Vypnúť</button>
+            : <button className="is-primary" type="button" disabled={busy || source.reviewStatus !== "APPROVED"} onClick={() => void action({ action: "enable" })}>Zapnúť</button>}
+          <button className="is-primary" type="button" disabled={busy || !source.enabled} onClick={() => void runNow()}>Spustiť kontrolu teraz</button>
         </div>
         <p><strong>NO AUTO-PUBLISH:</strong> Test je read-only. Run now môže vytvoriť iba observations/findings pre human review.</p>
       </section>

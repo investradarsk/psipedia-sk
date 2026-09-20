@@ -157,12 +157,12 @@ export function AdminOutreachCampaign({
         <p>Reálny send vyžaduje DRAFT → Dry run → READY a explicitné kliknutie admina. Jeden request spracuje najviac 25 recipientov.</p>
         <div className="admin-heading-actions">
           {campaign.status === "DRAFT" && <button type="button" disabled={Boolean(busy)} onClick={() => void post("/api/admin/outreach/campaigns/" + campaign.id + "/preview")}>Dry run / Preview</button>}
-          {campaign.status === "DRAFT" && campaign.previewedAt && <button type="button" disabled={Boolean(busy)} onClick={() => void post("/api/admin/outreach/campaigns/" + campaign.id + "/prepare")}>Pripraviť READY</button>}
-          {["READY", "SENDING"].includes(campaign.status) && <button className="button button--primary" type="button" disabled={Boolean(busy) || !provider.configured} onClick={() => window.confirm("Odoslať ďalší bounded batch?") && void post("/api/admin/outreach/campaigns/" + campaign.id + "/send", { limit: 25 })}>Odoslať max. 25</button>}
+          {campaign.status === "DRAFT" && campaign.previewedAt && <button className="is-primary" type="button" disabled={Boolean(busy)} onClick={() => void post("/api/admin/outreach/campaigns/" + campaign.id + "/prepare")}>Pripraviť READY</button>}
+          {["READY", "SENDING"].includes(campaign.status) && <button className="is-primary" type="button" disabled={Boolean(busy) || !provider.configured} onClick={() => window.confirm("Odoslať ďalší bounded batch?") && void post("/api/admin/outreach/campaigns/" + campaign.id + "/send", { limit: 25 })}>Odoslať max. 25</button>}
           {["READY", "SENDING"].includes(campaign.status) && <button type="button" disabled={Boolean(busy)} onClick={() => void patchCampaign("pause")}>Pause</button>}
-          {campaign.status === "PAUSED" && <button type="button" disabled={Boolean(busy)} onClick={() => void patchCampaign("resume")}>Resume</button>}
-          {["DRAFT", "READY", "SENDING", "PAUSED"].includes(campaign.status) && <button type="button" disabled={Boolean(busy)} onClick={() => window.confirm("Zrušiť kampaň?") && void patchCampaign("cancel")}>Cancel</button>}
-          {campaign.status === "SENT" && <button type="button" disabled={Boolean(busy)} onClick={() => void patchCampaign("complete")}>Označiť completed</button>}
+          {campaign.status === "PAUSED" && <button className="is-primary" type="button" disabled={Boolean(busy)} onClick={() => void patchCampaign("resume")}>Resume</button>}
+          {["DRAFT", "READY", "SENDING", "PAUSED"].includes(campaign.status) && <button className="is-danger" type="button" disabled={Boolean(busy)} onClick={() => window.confirm("Zrušiť kampaň?") && void patchCampaign("cancel")}>Cancel</button>}
+          {campaign.status === "SENT" && <button className="is-primary" type="button" disabled={Boolean(busy)} onClick={() => void patchCampaign("complete")}>Označiť completed</button>}
         </div>
         {message && <p className="admin-flash" role="status">{message}</p>}
       </section>
@@ -205,8 +205,8 @@ export function AdminOutreachCampaign({
             <p>{requestedChanges(item)}</p>
             {item.status === "SUBMITTED" && (
               <footer>
-                <button type="button" disabled={busy === item.id} onClick={() => void review(item.id, "REJECTED")}>Zamietnuť</button>
-                <button type="button" disabled={busy === item.id} onClick={() => void review(item.id, "APPROVED")}>Schváliť na manuálne spracovanie</button>
+                <button className="is-danger" type="button" disabled={busy === item.id} onClick={() => void review(item.id, "REJECTED")}>Zamietnuť</button>
+                <button className="is-primary" type="button" disabled={busy === item.id} onClick={() => void review(item.id, "APPROVED")}>Schváliť na manuálne spracovanie</button>
               </footer>
             )}
           </article>

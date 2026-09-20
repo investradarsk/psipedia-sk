@@ -248,12 +248,12 @@ export function AdminPwaSettings() {
 
         <div className="admin-form-actions">
           {pushState !== "enabled" && pushState !== "unsupported" && pushState !== "not-configured" && (
-            <button type="button" onClick={enableNotifications} disabled={busy || !config?.publicKey}>
+            <button className="is-primary" type="button" onClick={enableNotifications} disabled={busy || !config?.publicKey}>
               {busy ? "Zapínam…" : "Zapnúť upozornenia na tomto zariadení"}
             </button>
           )}
           {pushState === "enabled" && (
-            <button type="button" onClick={disableNotifications} disabled={busy}>
+            <button className="is-danger" type="button" onClick={disableNotifications} disabled={busy}>
               {busy ? "Vypínam…" : "Vypnúť upozornenia"}
             </button>
           )}
