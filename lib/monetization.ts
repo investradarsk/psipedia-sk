@@ -3,12 +3,13 @@ export const SPONSORED_LABEL = "Sponzorované" as const;
 
 export const AD_PLACEMENTS = {
   HOME_AFTER_HERO: { id: "home_after_hero", label: "Domov – po hero", public: false },
+  HOME_BOTTOM: { id: "home_bottom", label: "Domov – spodný slot", public: true },
   ARTICLE_INLINE_1: { id: "article_inline_1", label: "Článok – inline 1", public: false },
   ARTICLE_END: { id: "article_end", label: "Článok – koniec", public: true },
   DIRECTORY_LIST: { id: "directory_list", label: "Adresár – zoznam", public: false },
   EVENTS_LIST: { id: "events_list", label: "Podujatia – zoznam", public: false },
   HELP_LIST: { id: "help_list", label: "Pomoc psom – zoznam", public: false },
-  GLOBAL_BOTTOM: { id: "global_bottom", label: "Globálny spodný slot", public: true },
+  GLOBAL_BOTTOM: { id: "global_bottom", label: "Globálny spodný slot", public: false },
 } as const;
 
 export type AdPlacementId = (typeof AD_PLACEMENTS)[keyof typeof AD_PLACEMENTS]["id"];
