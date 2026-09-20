@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { directoryCategoryLabel, type DirectoryInquiry, type DirectoryProfileChangeRequest } from "@/lib/directory";
 import { newsTipTopicLabel, type NewsTip } from "@/lib/news-tip";
 import type { ArticleFeedback } from "@/lib/article-feedback-store";
+import type { AutomationFindingNotification } from "@/lib/data-automation";
 import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 
 const ADMIN_ORIGIN = "https://psipedia.sk";
@@ -215,6 +216,25 @@ export function notifyNegativeArticleFeedback(feedback: ArticleFeedback, options
       line("Podnet", feedback.missingText || "Bez doplňujúcej poznámky."),
       line("Dátum", formatDate(feedback.createdAt)),
       line("Admin", `${ADMIN_ORIGIN}/admin/hodnotenia#hodnotenie-${feedback.id}`),
+    ],
+  }, options);
+}
+
+
+export function notifyAutomationFinding(
+  finding: AutomationFindingNotification,
+  options: EditorialEmailOptions = {},
+) {
+  return sendEditorialEmailDetailed({
+    subject: `[Automatický research] ${finding.entityType}: ${finding.findingType}`,
+    lines: [
+      line("Zdroj", finding.sourceLabel),
+      line("Modul", finding.entityType),
+      line("Finding", finding.findingType),
+      line("Priorita", finding.priority),
+      line("URL zdroja", finding.sourceUrl),
+      line("Zistené", formatDate(finding.detectedAt)),
+      line("Admin", `${ADMIN_ORIGIN}/admin/operations/automation/${finding.id}`),
     ],
   }, options);
 }
