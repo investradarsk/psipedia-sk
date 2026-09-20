@@ -39,14 +39,12 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [selectionMode, setSelectionMode] = useState<"ids" | "filter">("ids");
   const [bulkBusy, setBulkBusy] = useState(false);
   const { items, totals, categoryCounts, resultCount, page, pages } = data;
-  const selectedCount = selectionMode === "filter" ? resultCount : selected.size;
+  const selectedCount = selected.size;
   const pageSelected = !!items.length && items.every((item) => selected.has(item.id));
 
   function toggle(id: number) {
-    if (selectionMode === "filter") return;
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -55,7 +53,6 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   }
 
   function togglePage(checked: boolean) {
-    if (selectionMode === "filter") return;
     setSelected((current) => {
       const next = new Set(current);
       for (const item of items) { if (checked) next.add(item.id); else next.delete(item.id); }
@@ -65,7 +62,6 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
 
   function clearSelection() {
     setSelected(new Set());
-    setSelectionMode("ids");
   }
 
   async function bulk(targetStatus: BulkStatus) {
@@ -73,16 +69,7 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
     setBulkBusy(true);
     setMessage("");
     try {
-      const selection = selectionMode === "filter"
-        ? {
-            mode: "filter",
-            filters: {
-              category: filters.category, status: filters.status, urgent: filters.urgent, state: filters.state,
-              organization: filters.organization, location: filters.location, q: filters.q,
-            },
-            expectedCount: resultCount,
-          }
-        : { mode: "ids", ids: [...selected] };
+      const selection = { mode: "ids" as const, ids: [...selected] };
       const previewResponse = await fetch("/api/admin/help/bulk", {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "preflight", targetStatus, selection }),
@@ -163,21 +150,19 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       </form>
 
       <div className={styles.bulk} aria-busy={bulkBusy}>
-        <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={selectionMode === "filter" || pageSelected} disabled={bulkBusy || selectionMode === "filter" || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
+        <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={pageSelected} disabled={bulkBusy || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
         <span role="status">Označené: {selectedCount}</span>
         <button className={styles.primary} type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("published")}>Publikovať</button>
         <button type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("draft")}>Prepnúť na koncept</button>
         {!!selectedCount && <button className={styles.clear} type="button" disabled={bulkBusy} onClick={clearSelection}>Zrušiť výber</button>}
       </div>
-      {selectionMode !== "filter" && resultCount > items.length && resultCount <= 500 && <div className={styles.allResults}><span>Aktuálny filter má {resultCount} výsledkov na {pages} stranách.</span><button type="button" disabled={bulkBusy} onClick={() => { setSelected(new Set()); setSelectionMode("filter"); }}>Označiť všetkých {resultCount} výsledkov filtra</button></div>}
-      {selectionMode === "filter" && <div className={styles.allResults}><strong>Označených je všetkých {resultCount} výsledkov aktuálneho filtra naprieč {pages} stranami.</strong></div>}
       {resultCount > 500 && <p className={styles.warning}>Všetky výsledky filtra možno naraz označiť pri najviac 500 záznamoch. Spresni filter; výber jednotlivých strán zostáva dostupný.</p>}
       {message && <p className="admin-flash" role="status">{message}</p>}
       <p className="admin-help-results">Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
       {items.length ? <div className="admin-article-list">{items.map((item) => {
         const category = getHelpCategory(item.category);
         return <article className={`admin-article-row admin-help-row ${styles.row}`} key={item.id}>
-          <label className={styles.rowCheckTarget}><span className="sr-only">Označiť {item.title}</span><input className={styles.rowCheck} aria-label={`Označiť ${item.title}`} type="checkbox" checked={selectionMode === "filter" || selected.has(item.id)} disabled={bulkBusy || selectionMode === "filter"} onChange={() => toggle(item.id)} /></label>
+          <label className={styles.rowCheckTarget}><span className="sr-only">Označiť {item.title}</span><input className={styles.rowCheck} aria-label={`Označiť ${item.title}`} type="checkbox" checked={selected.has(item.id)} disabled={bulkBusy} onChange={() => toggle(item.id)} /></label>
           <div className="admin-help-thumb">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
           <div className="admin-article-main"><div className="admin-article-tags"><span className={`admin-status admin-status--${item.status}`}>{item.status === "published" ? "Publikované" : "Koncept"}</span><span>{category?.label ?? item.category}</span>{item.verified && <span>Overené</span>}{item.urgent && !item.resolved && <span>Urgentné</span>}{item.resolved && <span>Vybavené</span>}</div><h2><Link href={`/admin/pomoc/${item.id}`}>{item.title}</Link></h2><p>{[item.organization, item.city, item.dogName ? `Pes: ${item.dogName}` : ""].filter(Boolean).join(" · ")}</p></div>
           <div className="admin-row-actions">{item.status === "published" && <Link href={helpCaseHref(item)} target="_blank">Pozrieť na webe ↗</Link>}<Link className="admin-row-edit" href={`/admin/pomoc/${item.id}`}>Upraviť</Link><button type="button" disabled={deletingId === item.id || bulkBusy} onClick={() => void removeItem(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</button></div>
