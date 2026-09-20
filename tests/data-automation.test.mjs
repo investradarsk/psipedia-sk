@@ -6,6 +6,7 @@ import {
   automationReviewEffect,
   canonicalizeSourceUrl,
   classifyAutomationFinding,
+  isSafeAutomationSourceUrl,
   sha256Hex,
   shouldReopenSuppressedFinding,
 } from "../lib/data-automation.ts";
@@ -185,6 +186,10 @@ test("9. safe canonical matching prefers exact deterministic identity", () => {
   assert.equal(match.entityId, 8);
   assert.equal(match.quality, "EXACT_CANONICAL_KEY");
   assert.equal(canonicalizeSourceUrl("https://www.example.com/event/1?utm_source=fb&gclid=x#top"), "https://example.com/event/1");
+  assert.equal(isSafeAutomationSourceUrl("https://127.0.0.1/feed"), false);
+  assert.equal(isSafeAutomationSourceUrl("https://[fc00::1]/feed"), false);
+  assert.equal(isSafeAutomationSourceUrl("http://example.com/feed"), false);
+  assert.equal(isSafeAutomationSourceUrl("https://example.com/feed"), true);
 });
 
 test("10. equally strong candidates remain human review", () => {
