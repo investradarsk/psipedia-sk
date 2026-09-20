@@ -54,7 +54,7 @@ export function dogNameDayDateKey(date: Date) {
   return parts ? `${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}` : null;
 }
 
-export function resolveDogNameDay(date: Date, records: readonly DogNameDayResolverRecord[]) {
+export function resolveDogNameDay(date: Date = new Date(), records: readonly DogNameDayResolverRecord[] = []) {
   const parts = dogNameDayDateParts(date);
   if (!parts) return [] as string[];
   const seen = new Set<string>();
