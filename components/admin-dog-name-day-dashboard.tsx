@@ -183,7 +183,7 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
       </section>
 
       {message && <p className={styles.message} role="status">{message}</p>}
-      {error && <p className={styles.error} role="alert">{error}</p>}
+      {error && !editorOpen && <p className={styles.error} role="alert">{error}</p>}
 
       <section className={styles.tableWrap} aria-label="Záznamy psích menín">
         <table className={styles.table}>
