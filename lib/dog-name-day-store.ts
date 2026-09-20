@@ -76,6 +76,9 @@ function normalizeInput(payload: DogNameDayInput) {
   const day = Number(payload.day);
   const name = payload.name?.trim().replace(/\s+/g, " ") ?? "";
   const normalizedName = normalizeDogNameDayName(name);
+  if (payload.status !== undefined && !["draft", "published", "archived"].includes(payload.status)) {
+    throw new Error("Publikačný stav nie je platný.");
+  }
   const status: DogNameDayStatus = payload.status === "published" ? "published" : payload.status === "archived" ? "archived" : "draft";
   const source = payload.source?.trim() ?? "";
   const note = payload.note?.trim() || null;
