@@ -227,6 +227,27 @@
   border-style: dashed;
 }
 
+.eventCardWithImage,
+.cancelledCard.eventCardWithImage {
+  grid-template-columns: 78px 128px minmax(0, 1fr) auto;
+}
+
+.cardMedia {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border-radius: 0;
+  background: var(--sage-light);
+}
+
+.cardMedia img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .dateBlock {
   display: grid;
   align-content: center;
@@ -649,6 +670,37 @@
     grid-column: 2;
     justify-self: start;
     padding-left: 0;
+  }
+
+  .eventCardWithImage,
+  .cancelledCard.eventCardWithImage {
+    grid-template-columns: 70px minmax(0, 1fr);
+  }
+
+  .eventCardWithImage .cardMedia,
+  .cancelledCard.eventCardWithImage .cardMedia {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: 100%;
+    aspect-ratio: 16 / 6;
+  }
+
+  .eventCardWithImage .dateBlock,
+  .cancelledCard.eventCardWithImage .dateBlock {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .eventCardWithImage .cardBody,
+  .cancelledCard.eventCardWithImage .cardBody {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .eventCardWithImage .detailLink,
+  .cancelledCard.eventCardWithImage .detailLink {
+    grid-column: 2;
+    grid-row: 3;
   }
 
   .detailGrid {
