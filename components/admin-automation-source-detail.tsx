@@ -129,8 +129,6 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
         <div><span>Review</span><strong>{source.reviewStatus}</strong></div>
         <div><span>Stav</span><strong>{source.enabled ? "ENABLED" : "DISABLED"}</strong></div>
         <div><span>Last run</span><strong>{source.lastRunStatus ?? "—"}</strong></div>
-        <div><span>Last checked</span><strong>{source.lastCheckedAt ?? "—"}</strong></div>
-        <div><span>Last success</span><strong>{source.lastSuccessAt ?? "—"}</strong></div>
         <div><span>Next run</span><strong>{source.nextCheckAt ?? "—"}</strong></div>
         <div><span>Checked</span><strong>{source.checkedCount}</strong></div>
         <div><span>New review items</span><strong>{source.newFindingCount}</strong></div>
@@ -139,6 +137,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
         <div><span>Duration</span><strong>{source.durationMs === null ? "—" : `${source.durationMs} ms`}</strong></div>
         <div><span>Health error</span><strong>{source.lastErrorCode ?? "—"}</strong></div>
       </section>
+      <p style={{ overflowWrap: "anywhere" }}><strong>Last checked:</strong> {source.lastCheckedAt ?? "—"} · <strong>Last success:</strong> {source.lastSuccessAt ?? "—"}</p>
 
       <section className="admin-panel">
         <h2>Konfigurácia zdroja</h2>
@@ -182,7 +181,6 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
           <h2>Výsledok testu zdroja</h2>
           <div className="admin-stats">
             <div><span>Source / HTTP</span><strong>{preview.sourceStatus} / {preview.httpStatus ?? "—"}</strong></div>
-            <div><span>Final URL</span><strong>{preview.finalUrl ?? "—"}</strong></div>
             <div><span>Redirects</span><strong>{preview.redirectCount}</strong></div>
             <div><span>Content type</span><strong>{preview.contentType ?? "—"}</strong></div>
             <div><span>Content length</span><strong>{preview.contentLength === null ? "—" : preview.contentLength}</strong></div>
@@ -193,6 +191,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
             <div><span>New candidates</span><strong>{preview.newCandidates}</strong></div>
             <div><span>Possible updates</span><strong>{preview.possibleUpdates}</strong></div>
           </div>
+          <p style={{ overflowWrap: "anywhere" }}><strong>Final URL:</strong> {preview.finalUrl ?? "—"}</p>
           {preview.errorDetails.length > 0 && (
             <div className="admin-stack">
               {preview.errorDetails.map((error) => (
