@@ -291,3 +291,13 @@ export function automationCanonicalAdminHref(entityType: AutomationEntityType, i
   if (entityType === "LOST_FOUND") return `/admin/stratene-najdene/${id}`;
   return `/admin/pomoc/${id}`;
 }
+
+
+export function automationCanonicalNewHref(entityType: AutomationEntityType) {
+  if (entityType === "EVENT") return "/admin/podujatia/nove";
+  if (entityType === "ORGANIZATION") return "/admin/organizacie/novy";
+  if (entityType === "DIRECTORY") return "/admin/adresar/novy";
+  if (entityType === "ADOPTION") return "/admin/adopcie/novy";
+  if (entityType === "LOST_FOUND") return "/admin/stratene-najdene/novy";
+  return "/admin/pomoc/novy";
+}
