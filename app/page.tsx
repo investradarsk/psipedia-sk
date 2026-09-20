@@ -3,6 +3,7 @@ import { HomeEditorialSection, HomeLatestArticles } from "@/components/home-edit
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
+import { AdSlot } from "@/components/ad-slot";
 import { dayOfYearInBratislava } from "@/lib/breed-canonical";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getBreedOfTheDay } from "@/lib/breed-store";
@@ -13,6 +14,7 @@ import { eventHref, formatEventDate } from "@/lib/events";
 import { getHighlightedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
+import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_NAME, SITE_URL, WEBSITE_ID } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -300,6 +302,8 @@ export default async function Home() {
           <DogAgeCalculator />
         </div>
       </section>
+
+      <AdSlot placementId={AD_PLACEMENTS.HOME_BOTTOM.id} />
     </main>
   );
 }
