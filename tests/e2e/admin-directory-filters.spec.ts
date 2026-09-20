@@ -46,21 +46,28 @@ test.describe("admin directory v2", () => {
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 1");
   });
 
-  test("selection promotes to all matching, survives pagination and clears when membership changes", async ({ page }) => {
+  test("selection stays page-scoped and clears when pagination or membership changes", async ({ page }) => {
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E");
     const pageCheckbox = page.getByLabel("Vybrať všetky profily na tejto strane");
     await pageCheckbox.check();
     await expect(page.getByText("50 položiek vybraných na tejto strane")).toBeVisible();
-    await page.getByRole("button", { name: "Vybrať všetkých 61 výsledkov zodpovedajúcich filtrom" }).click();
-    await expect(page.getByText("Vybraných všetkých 61 výsledkov")).toBeVisible();
+    await expect(page.getByText("Vybrané: 50", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Vybrať všetkých .* výsledkov zodpovedajúcich filtrom/ })).toHaveCount(0);
 
     await page.getByRole("link", { name: "Ďalšia →" }).click();
-    await expect(page.getByText("Vybraných všetkých 61 výsledkov")).toBeVisible();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(page.locator(".admin-directory-row")).toHaveCount(11);
+    await expect(page.getByText("Vybrané: 50", { exact: true })).toHaveCount(0);
+
+    const secondPageCheckbox = page.getByLabel("Vybrať všetky profily na tejto strane");
+    await secondPageCheckbox.check();
+    await expect(page.getByText("11 položiek vybraných na tejto strane")).toBeVisible();
+    await expect(page.getByText("Vybrané: 11", { exact: true })).toBeVisible();
 
     await page.getByLabel("Stav publikácie").selectOption("published");
     await page.getByRole("button", { name: "Použiť filtre" }).click();
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 1");
-    await expect(page.getByText("Vybrané: 61")).toHaveCount(0);
+    await expect(page.getByText("Vybrané: 11", { exact: true })).toHaveCount(0);
   });
 
   test("directory bulk publish and move-to-draft execute only after preflight confirmation", async ({ page }, testInfo) => {
@@ -90,7 +97,7 @@ test.describe("admin directory v2", () => {
     await expect(page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture Published" })).toContainText("Koncept");
   });
 
-  test("bulk API supports all-matching execution and keeps verification outside bulk actions", async ({ page, request }, testInfo) => {
+  test("bulk API enforces same-origin requests and keeps verification outside bulk actions", async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     const unauthorized = await request.post("http://127.0.0.1:5173/api/admin/bulk/execute", {
       data: {
@@ -101,41 +108,63 @@ test.describe("admin directory v2", () => {
     expect(unauthorized.status()).toBe(401);
 
     await page.goto("/admin/adresar?category=dalsie-sluzby&status=draft&q=Bulk+Fixture");
+    const origin = new URL(page.url()).origin;
+
+    const rejectedCrossOrigin = await page.request.post("/api/admin/bulk/preflight", {
+      headers: { origin: "https://example.invalid" },
+      data: {
+        module: "directory",
+        action: "publish",
+        selection: { mode: "explicit", ids: [1] },
+      },
+    });
+    expect(rejectedCrossOrigin.status()).toBe(403);
+
+    const firstRow = page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture" }).first();
+    const firstCheckbox = firstRow.locator('input[type="checkbox"]');
+    await firstCheckbox.check();
+    const selectedId = Number(await firstCheckbox.getAttribute("value"));
+    expect(Number.isSafeInteger(selectedId)).toBeTruthy();
+
     const preflight = await page.request.post("/api/admin/bulk/preflight", {
+      headers: { origin },
       data: {
         module: "directory",
         action: "publish",
         selection: {
-          mode: "all-matching",
+          mode: "explicit",
+          ids: [selectedId],
           filter: {
             category: "dalsie-sluzby", status: "draft", q: " Bulk Fixture ",
-            region: "", district: "", city: "", verification: "all", media: "all", page: 999,
+            region: "", district: "", city: "", verification: "all", media: "all",
           },
         },
       },
     });
     expect(preflight.ok()).toBeTruthy();
     const body = await preflight.json();
-    expect(body.matched).toBe(2);
-    expect(body.eligible).toBe(2);
+    expect(body.matched).toBe(1);
+    expect(body.eligible).toBe(1);
     expect(body.snapshot.filterFingerprint).toBe(
       "directory:v2:category=dalsie-sluzby&status=draft&q=Bulk+Fixture&region=&district=&city=&verification=all&media=all",
     );
 
     const execution = await page.request.post("/api/admin/bulk/execute", {
+      headers: { origin },
       data: {
         module: "directory",
         action: "publish",
         snapshotId: body.snapshot.id,
         membershipFingerprint: body.snapshot.filterFingerprint,
-        selection: { mode: "all-matching" },
+        selection: { mode: "explicit", ids: [selectedId] },
       },
     });
     expect(execution.ok()).toBeTruthy();
-    expect((await execution.json()).counts).toEqual({ requested: 2, updated: 2, skipped: 0, failed: 0 });
+    expect((await execution.json()).counts).toEqual({ requested: 1, updated: 1, skipped: 0, failed: 0 });
 
     const invalidTrust = await page.request.post("/api/admin/bulk/preflight", {
-      data: { module: "directory", action: "verify", selection: { mode: "explicit", ids: [1] } },
+      headers: { origin },
+      data: { module: "directory", action: "verify", selection: { mode: "explicit", ids: [selectedId] } },
     });
     expect(invalidTrust.status()).toBe(400);
   });
