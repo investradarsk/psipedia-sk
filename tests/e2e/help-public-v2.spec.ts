@@ -139,8 +139,14 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   // verifies both edit persistence and the DRAFT -> published lifecycle.
   await page.getByRole("button",{name:"Uložiť koncept"}).click();
   await expect(page.getByRole("status")).toContainText("Koncept");
-  api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
-  expect(item.status).toBe("draft");expect(item.urgent).toBe(true);expect(item.title).toContain("upravený");
+  await expect.poll(async () => {
+    api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
+    return {status:item.status,urgent:item.urgent,title:item.title};
+  }, {message:"Help draft edit did not persist"}).toEqual({
+    status:"draft",
+    urgent:true,
+    title:"E2E Help Admin Created – upravený",
+  });
 
   await page.getByRole("button",{name:"Publikovať prípad"}).click();
   await expect(page.getByRole("status")).toContainText("publikovaný");
