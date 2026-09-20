@@ -18,9 +18,7 @@ export async function AdSlot({ placementId }: { placementId: AdPlacementId }) {
         placementId={placementId}
         ariaLabel={`${AD_LABEL}: ${campaign.headline}`}
       >
-        {campaign.imageUrl ? (
-          <img className={styles.media} src={campaign.imageUrl} alt={campaign.imageAlt || ""} loading="lazy" decoding="async" />
-        ) : null}
+        <img className={styles.media} src={campaign.imageUrl} alt={campaign.imageAlt} loading="lazy" decoding="async" />
         <span className={styles.copy}>
           <span className={styles.label}>{AD_LABEL}</span>
           <strong className={styles.headline}>{campaign.headline}</strong>
