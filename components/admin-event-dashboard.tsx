@@ -346,9 +346,9 @@ export function AdminEventDashboard({ initialEvents }: { initialEvents: AdminEve
 
         {!rows.length && <div className="admin-empty"><h2>Žiadne podujatia</h2><p>Skús zmeniť vyhľadávanie alebo filtre.</p></div>}
         <nav className="admin-event-pagination" aria-label="Stránky podujatí">
-          <button type="button" disabled={!hydrated || busy || currentPage === 1} onClick={() => setPage(currentPage - 1)}>Predchádzajúca</button>
+          <button type="button" disabled={!hydrated || busy || currentPage === 1} onClick={() => { clearSelection(); setPage(currentPage - 1); }}>Predchádzajúca</button>
           <span>Strana {currentPage} z {pages}</span>
-          <button type="button" disabled={!hydrated || busy || currentPage === pages} onClick={() => setPage(currentPage + 1)}>Nasledujúca</button>
+          <button type="button" disabled={!hydrated || busy || currentPage === pages} onClick={() => { clearSelection(); setPage(currentPage + 1); }}>Nasledujúca</button>
         </nav>
       </section>
 
