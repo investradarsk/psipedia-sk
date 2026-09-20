@@ -9,6 +9,10 @@ import {
 } from "@/lib/article-store";
 import type { ArticleBlock } from "@/lib/article-blocks";
 import { articleHref } from "@/lib/portal";
+import {
+  isCompatibleLegacyArticleSubsection,
+  resolveCanonicalArticleSubsection,
+} from "@/lib/article-subsection-taxonomy";
 import { SITE_URL } from "@/config/public-site";
 
 export type NotionSyncBindings = {
@@ -379,12 +383,12 @@ type NotionArticlePlacement = {
   newsCategory?: string | null;
 };
 
-const NOTION_CATEGORY_PLACEMENTS: Record<string, NotionArticlePlacement> = {
-  "Zdravie a starostlivosť": {
-    category: "Zdravie",
-    portalSection: "starostlivost",
-    portalSubpage: "zdravie",
-  },
+type ExistingNotionArticlePlacement = Pick<
+  ManagedArticle,
+  "category" | "portalSection" | "portalSubpage" | "newsCategory"
+>;
+
+const LEGACY_UNAMBIGUOUS_CATEGORY_PLACEMENTS: Record<string, NotionArticlePlacement> = {
   "Výživa": {
     category: "Výživa",
     portalSection: "starostlivost",
@@ -394,15 +398,6 @@ const NOTION_CATEGORY_PLACEMENTS: Record<string, NotionArticlePlacement> = {
     category: "Život so psom",
     portalSection: "starostlivost",
     portalSubpage: "spravanie",
-  },
-  "Výcvik a aktivity": {
-    category: "Výcvik",
-    portalSection: "aktivity",
-    portalSubpage: "trening",
-  },
-  "Šteniatka": {
-    category: "Život so psom",
-    portalSection: "steniatka",
   },
   "Plemená": {
     category: "Život so psom",
@@ -430,7 +425,47 @@ function notionNewsCategory(notionCategory: string) {
   return "zo-sveta";
 }
 
-function mapNotionPlacement(notionCategory: string, contentType: string): NotionArticlePlacement {
+function preservedLegacyPlacement(
+  notionCategory: string,
+  existing?: ExistingNotionArticlePlacement,
+): NotionArticlePlacement | null {
+  if (!existing || !isCompatibleLegacyArticleSubsection(
+    notionCategory,
+    existing.portalSection,
+    existing.portalSubpage,
+  )) {
+    return null;
+  }
+  return {
+    category: existing.category,
+    portalSection: existing.portalSection,
+    portalSubpage: existing.portalSubpage ?? null,
+    newsCategory: existing.newsCategory ?? null,
+  };
+}
+
+function mapNotionPlacement(
+  notionCategory: string,
+  notionSubsection: string,
+  contentType: string,
+  existing?: ExistingNotionArticlePlacement,
+): NotionArticlePlacement {
+  if (notionSubsection) {
+    const canonical = resolveCanonicalArticleSubsection(notionCategory, notionSubsection);
+    if (contentType === "Aktuálna novinka" && canonical.portalSection !== "novinky") {
+      throw new Error("Aktuálna novinka musí používať sekciu „Novinky zo sveta psov“ a platnú Podsekciu.");
+    }
+    if (contentType === "Recenzia" && canonical.portalSection !== "recenzie") {
+      throw new Error("Recenzia musí používať sekciu „Recenzie a testy“ a platnú Podsekciu.");
+    }
+    return {
+      category: canonical.category,
+      portalSection: canonical.portalSection,
+      portalSubpage: canonical.portalSection === "novinky" ? null : canonical.portalSubpage,
+      newsCategory: canonical.newsCategory,
+    };
+  }
+
   if (contentType === "Aktuálna novinka" || notionCategory === "Novinky zo sveta psov") {
     return {
       category: "Život so psom",
@@ -440,16 +475,26 @@ function mapNotionPlacement(notionCategory: string, contentType: string): Notion
   }
 
   if (contentType === "Recenzia" || notionCategory === "Recenzie a testy") {
-    return {
-      category: notionCategory === "Výživa" ? "Výživa" : "Život so psom",
-      portalSection: "recenzie",
-    };
+    const preserved = preservedLegacyPlacement("Recenzie a testy", existing);
+    if (preserved) return preserved;
+    throw new Error("Doplň v Notione Podsekciu pre sekciu „Recenzie a testy“. Sync nevymyslí náhradnú route.");
   }
 
-  return NOTION_CATEGORY_PLACEMENTS[notionCategory] ?? {
-    category: "Život so psom",
-    portalSection: "clanky",
-  };
+  const legacy = LEGACY_UNAMBIGUOUS_CATEGORY_PLACEMENTS[notionCategory];
+  if (legacy) return legacy;
+
+  const preserved = preservedLegacyPlacement(notionCategory, existing);
+  if (preserved) return preserved;
+
+  if (
+    notionCategory === "Zdravie a starostlivosť"
+    || notionCategory === "Výcvik a aktivity"
+    || notionCategory === "Šteniatka"
+  ) {
+    throw new Error(`Doplň v Notione Podsekciu pre sekciu „${notionCategory}“. Sync je pri nejednoznačnom umiestnení fail-closed.`);
+  }
+
+  throw new Error(`Kategória „${notionCategory}“ nemá bezpečné canonical article mapping.`);
 }
 
 function isStartHeading(value: string) {
@@ -560,10 +605,15 @@ function estimateReadingMinutes(intro: string, blocks: ArticleBlock[]) {
   return Math.max(1, Math.min(60, Math.round(words / 220) || 1));
 }
 
-export function notionPageToManagedArticleInput(page: NotionPage, blocks: NotionBlock[]): ManagedArticleInput {
+export function notionPageToManagedArticleInput(
+  page: NotionPage,
+  blocks: NotionBlock[],
+  existing?: ExistingNotionArticlePlacement,
+): ManagedArticleInput {
   const title = titleProperty(page, "Názov");
   const slug = richTextProperty(page, "Slug");
   const notionCategory = selectProperty(page, "Kategória");
+  const notionSubsection = selectProperty(page, "Podsekcia");
   const contentType = selectProperty(page, "Typ obsahu");
   const metaDescription = richTextProperty(page, "Meta description");
   const seoTitle = richTextProperty(page, "SEO title");
@@ -575,7 +625,7 @@ export function notionPageToManagedArticleInput(page: NotionPage, blocks: Notion
   if (!notionCategory) throw new Error("Doplň v Notione kategóriu článku.");
 
   const excerpt = metaDescription.length >= 20 ? metaDescription : intro;
-  const placement = mapNotionPlacement(notionCategory, contentType);
+  const placement = mapNotionPlacement(notionCategory, notionSubsection, contentType, existing);
   return {
     title,
     slug,
@@ -818,20 +868,25 @@ async function syncOneNotionPage(
 ): Promise<"created" | "updated" | "unchanged"> {
   validateSyncGate(page);
   const blocks = await getPageBlocks(bindings, page.id);
-  const basePayload = notionPageToManagedArticleInput(page, blocks);
-  const notionImageSourceUrl = urlProperty(page, "Hlavný obrázok URL");
-  const contentHash = await sha256(JSON.stringify({ payload: basePayload, notionImageSourceUrl }));
   const mapping = await loadMapping(database, page.id);
-  const now = new Date().toISOString();
+  let existing: ManagedArticle | null = null;
 
   if (mapping) {
-    const existing = await getManagedArticleById(Number(mapping.article_id));
+    existing = await getManagedArticleById(Number(mapping.article_id));
     if (!existing) {
       throw new Error("Notion záznam je prepojený na chýbajúci článok v Psipedii. Synchronizácia bola zastavená.");
     }
     if (existing.status !== "draft") {
       throw new Error("Prepojený článok už nie je Draft. Automatická synchronizácia ho nebude prepisovať ani odpublikovávať.");
     }
+  }
+
+  const basePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
+  const notionImageSourceUrl = urlProperty(page, "Hlavný obrázok URL");
+  const contentHash = await sha256(JSON.stringify({ payload: basePayload, notionImageSourceUrl }));
+  const now = new Date().toISOString();
+
+  if (mapping && existing) {
     if (mapping.content_hash === contentHash) {
       await upsertMapping(database, page, existing.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
