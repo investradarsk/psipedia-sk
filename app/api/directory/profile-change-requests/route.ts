@@ -2,13 +2,10 @@ import { createDirectoryProfileChangeRequest, DirectoryRateLimitError, type Dire
 import { processEditorialNotification } from "@/lib/editorial-notifications";
 
 export const dynamic = "force-dynamic";
-type PublicPayload = DirectoryProfileChangeRequestInput & { company?: string };
-
 export async function POST(request: Request) {
   if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) return Response.json({ error: "Neplatný formát návrhu." }, { status: 415 });
   try {
-    const payload = await request.json() as PublicPayload;
-    if (payload.company?.trim()) return Response.json({ success: true }, { status: 201 });
+    const payload = await request.json() as DirectoryProfileChangeRequestInput;
     const saved = await createDirectoryProfileChangeRequest(payload);
     await processEditorialNotification("directory_profile_change_request", saved).catch(() => {
       console.error(JSON.stringify({ event: "editorial_notification", resourceType: "directory_profile_change_request", resourceId: saved.id, result: "failed", error: "outbox_processing_failed" }));
