@@ -72,7 +72,8 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   if (testInfo.project.name === "desktop-chromium") {
     await page.setViewportSize({ width: 1800, height: 1000 });
     await page.goto("/");
-    await expect(page.getByText(uniqueName, { exact: true })).toBeVisible();
+    await expect(page.locator("[data-header-secondary]")).toBeVisible();
+    await expect(page.locator("[data-header-secondary]")).toContainText(uniqueName);
     await expectAxeClean(page);
   } else {
     await page.goto("/");
