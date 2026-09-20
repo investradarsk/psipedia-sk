@@ -185,7 +185,7 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
       {message && <p className={styles.message} role="status">{message}</p>}
       {error && !editorOpen && <p className={styles.error} role="alert">{error}</p>}
 
-      <section className={styles.tableWrap} aria-label="Záznamy psích menín">
+      <section className={styles.tableWrap} aria-label="Záznamy psích menín" tabIndex={0}>
         <table className={styles.table}>
           <thead><tr><th>Dátum</th><th>Meno</th><th>Stav</th><th>Zdroj / proveniencia</th><th>Upravené</th><th>Akcie</th></tr></thead>
           <tbody>
