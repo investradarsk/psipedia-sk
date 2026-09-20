@@ -145,6 +145,25 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   await expect(page.getByText("APPROVED", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("DISABLED", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("SUCCESS", { exact: true }).first()).toBeVisible();
+
+  const testSourceButton = page.getByRole("button", { name: "Otestovať zdroj", exact: true });
+  await expect(testSourceButton).toBeVisible();
+  const buttonStyle = await testSourceButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      display: style.display,
+      minHeight: Number.parseFloat(style.minHeight),
+      borderWidth: Number.parseFloat(style.borderTopWidth),
+      borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+      cursor: style.cursor,
+    };
+  });
+  expect(["inline-flex", "flex"]).toContain(buttonStyle.display);
+  expect(buttonStyle.minHeight).toBeGreaterThanOrEqual(44);
+  expect(buttonStyle.borderWidth).toBeGreaterThan(0);
+  expect(buttonStyle.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(buttonStyle.cursor).toBe("pointer");
+
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });

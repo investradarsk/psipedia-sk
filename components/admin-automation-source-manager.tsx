@@ -102,7 +102,7 @@ export function AdminAutomationSourceManager({
             <label className="admin-field"><span>Retry backoff (ms)</span><input type="number" min={100} max={30000} value={form.retryBackoffMs} onChange={(e) => field("retryBackoffMs", e.target.value)} /></label>
           </div>
           <label className="admin-field"><span>Mapping / config JSON</span><textarea rows={8} value={form.config} onChange={(e) => field("config", e.target.value)} spellCheck={false} /></label>
-          <div className="admin-form-actions"><button type="submit" disabled={busy}>Vytvoriť vypnutý zdroj</button></div>
+          <div className="admin-form-actions"><button className="is-primary" type="submit" disabled={busy}>Vytvoriť vypnutý zdroj</button></div>
         </form>
       </section>
 
@@ -136,8 +136,8 @@ export function AdminAutomationSourceManager({
                   <strong>{candidate.reviewStatus}</strong>
                   {candidate.reviewStatus === "NEW" && (
                     <span className="admin-form-actions">
-                      <button type="button" disabled={busy} onClick={() => void candidateAction(candidate.id, "approve")}>Schváliť ako zdroj</button>
-                      <button type="button" disabled={busy} onClick={() => void candidateAction(candidate.id, "reject")}>Zamietnuť</button>
+                      <button className="is-primary" type="button" disabled={busy} onClick={() => void candidateAction(candidate.id, "approve")}>Schváliť ako zdroj</button>
+                      <button className="is-danger" type="button" disabled={busy} onClick={() => void candidateAction(candidate.id, "reject")}>Zamietnuť</button>
                       <button type="button" disabled={busy} onClick={() => void candidateAction(candidate.id, "suppress")}>Potlačiť 30 dní</button>
                     </span>
                   )}

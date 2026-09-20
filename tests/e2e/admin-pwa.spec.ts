@@ -22,6 +22,19 @@ test("admin PWA settings are responsive, accessible and do not prompt on load", 
   await expect(page.getByTestId("admin-pwa-settings")).toBeVisible();
   await expect(page.getByText("Offline úpravy").locator("..")).toContainText("Vypnuté");
   await expect(page.getByTestId("push-state")).toBeVisible();
+  const refreshButton = page.getByRole("button", { name: "Obnoviť stav", exact: true });
+  await expect(refreshButton).toBeVisible();
+  const adminActionStyle = await refreshButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      minHeight: Number.parseFloat(style.minHeight),
+      borderWidth: Number.parseFloat(style.borderTopWidth),
+      borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+    };
+  });
+  expect(adminActionStyle.minHeight).toBeGreaterThanOrEqual(44);
+  expect(adminActionStyle.borderWidth).toBeGreaterThan(0);
+  expect(adminActionStyle.borderRadius).toBeGreaterThanOrEqual(8);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });

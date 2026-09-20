@@ -14612,3 +14612,160 @@ a.breed-fci-path-node:focus-visible {
 .breed-gallery figure {
   border-radius: 0;
 }
+
+
+/* ADMIN-BUTTONS-1: unified admin action controls */
+:where(.admin-root) :where(button) {
+  font-family: inherit;
+}
+
+.admin-form-actions,
+.admin-actions,
+.admin-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-form-actions {
+  margin-top: 16px;
+}
+
+.admin-form-actions > button,
+.admin-form-actions > a,
+.admin-actions > button,
+.admin-actions > a,
+.admin-heading-actions > button,
+.admin-form-grid > button[type="submit"] {
+  appearance: none;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 1px solid #c7d4cc;
+  border-radius: 10px;
+  color: #174b38;
+  background: #fff;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(23, 53, 43, .04);
+  transition: border-color .14s ease, background .14s ease, color .14s ease, box-shadow .14s ease, transform .14s ease;
+}
+
+.admin-form-actions > button:hover:not(:disabled),
+.admin-form-actions > a:hover,
+.admin-actions > button:hover:not(:disabled),
+.admin-actions > a:hover,
+.admin-heading-actions > button:hover:not(:disabled),
+.admin-form-grid > button[type="submit"]:hover:not(:disabled) {
+  border-color: #90aa9c;
+  background: #f1f6f2;
+  box-shadow: 0 4px 12px rgba(23, 53, 43, .08);
+  transform: translateY(-1px);
+}
+
+.admin-form-actions > button.is-primary,
+.admin-form-actions > a.is-primary,
+.admin-actions > button.is-primary,
+.admin-actions > a.is-primary,
+.admin-heading-actions > button.is-primary,
+.admin-form-grid > button[type="submit"].is-primary,
+.admin-change-card footer button.is-primary {
+  border-color: #1f684b;
+  color: #fff;
+  background: #1f684b;
+  box-shadow: 0 7px 18px rgba(31, 104, 75, .18);
+}
+
+.admin-form-actions > button.is-primary:hover:not(:disabled),
+.admin-form-actions > a.is-primary:hover,
+.admin-actions > button.is-primary:hover:not(:disabled),
+.admin-actions > a.is-primary:hover,
+.admin-heading-actions > button.is-primary:hover:not(:disabled),
+.admin-form-grid > button[type="submit"].is-primary:hover:not(:disabled),
+.admin-change-card footer button.is-primary:hover:not(:disabled) {
+  border-color: #174f39;
+  color: #fff;
+  background: #174f39;
+}
+
+.admin-form-actions > button.is-danger,
+.admin-form-actions > a.is-danger,
+.admin-actions > button.is-danger,
+.admin-actions > a.is-danger,
+.admin-heading-actions > button.is-danger,
+.admin-change-card footer button.is-danger {
+  border-color: #d9b3aa;
+  color: #993e31;
+  background: #fff7f4;
+}
+
+.admin-form-actions > button.is-danger:hover:not(:disabled),
+.admin-form-actions > a.is-danger:hover,
+.admin-actions > button.is-danger:hover:not(:disabled),
+.admin-actions > a.is-danger:hover,
+.admin-heading-actions > button.is-danger:hover:not(:disabled),
+.admin-change-card footer button.is-danger:hover:not(:disabled) {
+  border-color: #b95a48;
+  color: #842f24;
+  background: #fbe8e3;
+}
+
+.admin-form-actions > button:focus-visible,
+.admin-form-actions > a:focus-visible,
+.admin-actions > button:focus-visible,
+.admin-actions > a:focus-visible,
+.admin-heading-actions > button:focus-visible,
+.admin-form-grid > button[type="submit"]:focus-visible,
+.admin-change-card footer button:focus-visible,
+.admin-row-actions > button:focus-visible,
+.admin-row-actions > a:focus-visible {
+  outline: 3px solid rgba(31, 104, 75, .24);
+  outline-offset: 2px;
+}
+
+.admin-form-actions > button:disabled,
+.admin-actions > button:disabled,
+.admin-heading-actions > button:disabled,
+.admin-form-grid > button[type="submit"]:disabled,
+.admin-change-card footer button:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+@media (max-width: 640px) {
+  .admin-form-actions,
+  .admin-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-form-actions > button,
+  .admin-form-actions > a,
+  .admin-actions > button,
+  .admin-actions > a,
+  .admin-form-grid > button[type="submit"] {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .admin-heading-actions > button {
+    flex: 1 1 180px;
+    min-height: 46px;
+  }
+
+  .admin-row-actions > button,
+  .admin-row-actions > a {
+    min-height: 44px;
+  }
+}

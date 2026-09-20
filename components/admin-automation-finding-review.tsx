@@ -66,7 +66,7 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
         {finding.reviewStatus !== "IN_REVIEW" && <button type="button" disabled={busy} onClick={() => void review("start-review")}>Začať review</button>}
         <button type="button" disabled={busy} onClick={() => void review("ignore")}>Ignorovať</button>
         <button type="button" disabled={busy} onClick={() => void review("suppress", 30)}>Potlačiť na 30 dní</button>
-        <button type="button" disabled={busy} onClick={() => void review("reject")}>Zamietnuť</button>
+        <button className="is-danger" type="button" disabled={busy} onClick={() => void review("reject")}>Zamietnuť</button>
         <button className="is-primary" type="button" disabled={busy} onClick={() => void review("approve")}>Schváliť finding</button>
       </div>
     </section>

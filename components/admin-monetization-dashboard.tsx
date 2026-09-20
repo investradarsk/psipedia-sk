@@ -108,9 +108,9 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
             <small>{campaign.startAt || "bez začiatku"} → {campaign.endAt || "bez konca"} · {campaign.impressions} zobrazení · {campaign.clicks} kliknutí</small>
             <div><img src={campaign.imageUrl} alt={campaign.imageAlt} loading="lazy" width="180" /></div>
             <div className="admin-actions">
-              <button type="button" onClick={() => setStatus("campaign", campaign.id, "active")}>Aktivovať</button>
+              <button className="is-primary" type="button" onClick={() => setStatus("campaign", campaign.id, "active")}>Aktivovať</button>
               <button type="button" onClick={() => setStatus("campaign", campaign.id, "paused")}>Pozastaviť</button>
-              <button type="button" onClick={() => setStatus("campaign", campaign.id, "archived")}>Archivovať</button>
+              <button className="is-danger" type="button" onClick={() => setStatus("campaign", campaign.id, "archived")}>Archivovať</button>
             </div>
           </article>
         )) : <p>Žiadne kampane.</p>}
@@ -128,7 +128,7 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
           <fieldset><legend>Placementy</legend>{data.placements.map((item) => <label key={item.id}><input type="checkbox" name="placements" value={item.id} /> {item.label}</label>)}</fieldset>
           <label><input name="isAffiliate" type="checkbox" /> Affiliate kampaň</label>
           <label>Admin poznámka<textarea name="adminNote" /></label>
-          <button type="submit">Vytvoriť draft kampane</button>
+          <button className="is-primary" type="submit">Vytvoriť draft kampane</button>
         </form>
       </section>
 
@@ -140,9 +140,9 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
             <strong>{promotion.entityType}:{promotion.entityId}</strong> · <code>{promotion.status}</code>
             <p>{promotion.startAt || "bez začiatku"} → {promotion.endAt || "bez konca"} · {SPONSORED_LABEL}</p>
             <div className="admin-actions">
-              <button type="button" onClick={() => setStatus("promotion", promotion.id, "active")}>Aktivovať</button>
+              <button className="is-primary" type="button" onClick={() => setStatus("promotion", promotion.id, "active")}>Aktivovať</button>
               <button type="button" onClick={() => setStatus("promotion", promotion.id, "paused")}>Pozastaviť</button>
-              <button type="button" onClick={() => setStatus("promotion", promotion.id, "archived")}>Archivovať</button>
+              <button className="is-danger" type="button" onClick={() => setStatus("promotion", promotion.id, "archived")}>Archivovať</button>
             </div>
           </article>
         )) : <p>Žiadne promotion záznamy.</p>}
@@ -154,7 +154,7 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
           <label>Priorita<input name="priority" type="number" min="-100" max="100" defaultValue="0" /></label>
           <label>Provenance<input name="provenance" /></label>
           <label>Admin poznámka<textarea name="adminNote" /></label>
-          <button type="submit">Vytvoriť draft promotion</button>
+          <button className="is-primary" type="submit">Vytvoriť draft promotion</button>
         </form>
       </section>
     </div>
