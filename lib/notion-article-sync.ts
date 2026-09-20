@@ -62,6 +62,8 @@ const SYNC_ACTOR = "notion-sync@psipedia.sk";
 const MAX_SYNC_ITEMS = 100;
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_REMOTE_IMAGE_REDIRECTS = 3;
+const REMOTE_IMAGE_ACCEPT = "image/avif,image/webp,image/png,image/jpeg";
+const WIKIMEDIA_USER_AGENT = "PsipediaBot/1.0 (https://psipedia.sk/kontakt)";
 const REMOTE_IMAGE_EXTENSIONS = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
@@ -195,13 +197,29 @@ async function readRemoteImageBody(response: Response) {
   return bytes;
 }
 
+function remoteImageHeaders(url: URL) {
+  const headers = new Headers({ Accept: REMOTE_IMAGE_ACCEPT });
+  const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+  const isWikimedia = hostname === "wikimedia.org"
+    || hostname.endsWith(".wikimedia.org")
+    || hostname === "wikipedia.org"
+    || hostname.endsWith(".wikipedia.org");
+
+  if (isWikimedia) {
+    headers.set("User-Agent", WIKIMEDIA_USER_AGENT);
+    headers.set("Api-User-Agent", WIKIMEDIA_USER_AGENT);
+  }
+
+  return headers;
+}
+
 async function downloadRemoteImage(sourceUrl: string) {
   let url = safeRemoteImageUrl(sourceUrl);
 
   for (let redirectCount = 0; redirectCount <= MAX_REMOTE_IMAGE_REDIRECTS; redirectCount += 1) {
     const response = await fetch(url.toString(), {
       redirect: "manual",
-      headers: { Accept: "image/avif,image/webp,image/png,image/jpeg" },
+      headers: remoteImageHeaders(url),
     });
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
