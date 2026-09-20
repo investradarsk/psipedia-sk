@@ -114,3 +114,8 @@
     padding-right: 16px;
   }
 }
+
+/* PUBLIC-POLISH-2 photo contract */
+.card {
+  border-radius: 0;
+}
