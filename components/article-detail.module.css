@@ -817,3 +817,11 @@
     font-size: 0.66rem;
   }
 }
+
+/* PUBLIC-POLISH-2 photo contract */
+.modernArticle .heroMedia,
+.heroMedia :global(.article-hero-image),
+.heroMedia :global(.article-hero-placeholder),
+.midRelatedImage {
+  border-radius: 0;
+}
