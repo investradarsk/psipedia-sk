@@ -6,7 +6,7 @@ import {
   shouldRetryAutomationStatus,
   type AutomationSource,
   type AutomationSourceRecord,
-} from "./data-automation";
+} from "./data-automation.ts";
 
 export class AutomationConnectorError extends Error {
   readonly code: string;
