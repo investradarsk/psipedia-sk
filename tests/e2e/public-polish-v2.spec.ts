@@ -63,7 +63,7 @@ test("homepage section CTAs follow their content and photo surfaces stay square"
   await page.screenshot({ path: ".e2e-artifacts/public-polish-v2/home-1440.png", fullPage: true });
 });
 
-test("desktop header is balanced and overflow-free at required widths", async ({ page }, testInfo) => {
+test("desktop header uses a balanced masthead plus dedicated navigation band", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "Explicit desktop viewport matrix runs once.");
 
   for (const width of [1280, 1366, 1440, 1920]) {
@@ -71,23 +71,37 @@ test("desktop header is balanced and overflow-free at required widths", async ({
     await gotoPublic(page, "/");
     await expectNoHorizontalOverflow(page, `header ${width}`);
 
-    const geometry = await page.locator(".header-inner").evaluate((header) => {
+    const masthead = page.locator("[data-header-masthead]");
+    const navBand = page.locator("[data-header-nav-band]");
+    await expect(masthead).toBeVisible();
+    await expect(navBand).toBeVisible();
+
+    const geometry = await page.locator(".site-header").evaluate((header) => {
+      const mastheadNode = header.querySelector("[data-header-masthead]")?.getBoundingClientRect();
+      const navBandNode = header.querySelector("[data-header-nav-band]")?.getBoundingClientRect();
       const brand = header.querySelector("[data-header-brand]")?.getBoundingClientRect();
       const nav = header.querySelector(".desktop-nav")?.getBoundingClientRect();
       const actions = header.querySelector(".header-actions")?.getBoundingClientRect();
-      return brand && nav && actions ? {
-        brandRight: brand.right,
+      return mastheadNode && navBandNode && brand && nav && actions ? {
+        mastheadLeft: mastheadNode.left,
+        mastheadRight: mastheadNode.right,
+        mastheadBottom: mastheadNode.bottom,
+        navBandTop: navBandNode.top,
+        navBandBottom: navBandNode.bottom,
+        brandLeft: brand.left,
+        actionsRight: actions.right,
         navLeft: nav.left,
         navRight: nav.right,
-        actionsLeft: actions.left,
-        headerRight: header.getBoundingClientRect().right,
       } : null;
     });
+
     expect(geometry, `header geometry missing at ${width}`).not.toBeNull();
-    expect(geometry!.navLeft).toBeGreaterThanOrEqual(geometry!.brandRight - 1);
-    expect(geometry!.navLeft - geometry!.brandRight, `navigation detached from brand at ${width}`).toBeLessThanOrEqual(24);
-    expect(geometry!.navRight).toBeLessThanOrEqual(geometry!.actionsLeft + 1);
-    expect(geometry!.actionsLeft).toBeLessThanOrEqual(geometry!.headerRight);
+    expect(geometry!.brandLeft).toBeGreaterThanOrEqual(geometry!.mastheadLeft - 1);
+    expect(geometry!.actionsRight).toBeLessThanOrEqual(geometry!.mastheadRight + 1);
+    expect(geometry!.navBandTop).toBeGreaterThanOrEqual(geometry!.mastheadBottom - 1);
+    expect(geometry!.navBandBottom - geometry!.navBandTop).toBeGreaterThanOrEqual(42);
+    expect(geometry!.navLeft).toBeGreaterThanOrEqual(0);
+    expect(geometry!.navRight).toBeLessThanOrEqual(width + 1);
     await page.locator(".site-header").screenshot({ path: `.e2e-artifacts/public-polish-v2/header-${width}.png` });
   }
 });
