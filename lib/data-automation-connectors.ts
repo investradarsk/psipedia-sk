@@ -30,6 +30,7 @@ export type AutomationConnectorContext = {
   fetchImpl?: AutomationFetch;
   htmlAdapters?: Record<string, ControlledHtmlAdapter>;
   sleep?: (ms: number) => Promise<void>;
+  onResponse?: (meta: { status: number; contentType: string | null; contentLength: number | null }) => void;
 };
 
 const MAX_SOURCE_BYTES = 1_000_000;
@@ -88,7 +89,11 @@ async function responseText(response: Response) {
   return text;
 }
 
-async function fetchOnce(\n  source: AutomationSource,\n  fetchImpl: AutomationFetch,\n  onResponse?: AutomationConnectorContext["onResponse"],\n) {
+async function fetchOnce(
+  source: AutomationSource,
+  fetchImpl: AutomationFetch,
+  onResponse?: AutomationConnectorContext["onResponse"],
+) {
   if (!source.sourceUrl || !isSafeAutomationSourceUrl(source.sourceUrl)) {
     throw new AutomationConnectorError("unsafe_or_missing_source_url");
   }
@@ -111,6 +116,11 @@ async function fetchOnce(\n  source: AutomationSource,\n  fetchImpl: AutomationF
       shouldRetryAutomationStatus(response.status),
     );
   }
+  onResponse?.({
+    status: response.status,
+    contentType: response.headers.get("content-type"),
+    contentLength: Number(response.headers.get("content-length")) || null,
+  });
   return response;
 }
 
