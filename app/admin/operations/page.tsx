@@ -39,7 +39,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
       title="Operácie"
       description="Centrálne miesto pre nové a nevyriešené podnety z existujúcich workflowov. Stav sa riadi pôvodným lifecycle každého zdroja; vyriešené položky zostávajú dostupné v histórii."
       attentionCount={summary.active}
-      actions={<Link href="/admin/operations/automation">Stav automatizácie</Link>}
+      actions={<><Link href="/admin/operations/automation">Stav automatizácie</Link><Link href="/admin/operations/outreach">Profilový outreach</Link></>}
     >
       <AdminAttentionQueue items={items} allItems={allItems} filters={filters} />
     </AdminShell>
