@@ -74,10 +74,13 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
     await page.goto("/");
     await expect(page.locator("[data-header-secondary]")).toBeVisible();
     await expect(page.locator("[data-header-secondary]")).toContainText(uniqueName);
+    await expect(page.locator("[data-mobile-name-day]")).toBeHidden();
     await expectAxeClean(page);
   } else {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    await expect(page.getByText(uniqueName, { exact: true })).toBeHidden();
+    await expect(page.locator("[data-mobile-name-day]")).toBeVisible();
+    await expect(page.locator("[data-mobile-name-day]")).toContainText(uniqueName);
     await expectAxeClean(page);
   }
 
