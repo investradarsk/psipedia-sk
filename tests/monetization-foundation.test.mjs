@@ -60,13 +60,14 @@ test("third-party programmatic loading requires explicit advertising consent and
 });
 
 test("public ad slot is labeled, responsive and does not reserve an empty placeholder", async () => {
-  const [slot, css] = await Promise.all([
+  const [slot, link, css] = await Promise.all([
     readFile(new URL("../components/ad-slot.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/tracked-ad-link.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/ad-slot.module.css", import.meta.url), "utf8"),
   ]);
   assert.match(slot, /if \(!campaign\) return null/);
   assert.match(slot, /aria-label=\{AD_LABEL\}/);
-  assert.match(slot, /noopener noreferrer sponsored/);
+  assert.match(link, /noopener noreferrer sponsored/);
   assert.match(css, /max-width: 560px/);
   assert.match(css, /minmax\(0, 1fr\)/);
   assert.match(css, /overflow: clip/);
@@ -77,6 +78,7 @@ test("migration separates campaigns, placements, promotions and privacy-consciou
   assert.match(sql, /CREATE TABLE monetization_campaigns/);
   assert.match(sql, /CREATE TABLE monetization_campaign_placements/);
   assert.match(sql, /CREATE TABLE monetization_promotions/);
+  assert.match(sql, /CHECK \(label = 'Sponzorované'\)/);
   assert.match(sql, /CREATE TABLE monetization_events/);
   assert.doesNotMatch(sql, /ip_address|user_agent|email/i);
 });
