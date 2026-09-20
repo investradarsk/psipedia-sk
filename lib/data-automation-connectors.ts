@@ -246,7 +246,7 @@ async function fetchOnce(
     if (declaredLength !== null && Number.isFinite(declaredLength) && declaredLength > MAX_SOURCE_BYTES) {
       throw new AutomationConnectorError("source_response_too_large");
     }
-    return response;
+    return { response, finalUrl: currentUrl };
   }
 }
 
@@ -278,7 +278,9 @@ export async function fetchAutomationSourceRecords(
   const sleep = context.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 
   return withRetry(source, async () => {
-    const response = await fetchOnce(source, fetchImpl, context.onResponse);
+    const fetched = await fetchOnce(source, fetchImpl, context.onResponse);
+    const response = fetched.response;
+    const effectiveSource = fetched.finalUrl === source.sourceUrl ? source : { ...source, sourceUrl: fetched.finalUrl };
     if (source.connectorType === "STRUCTURED_JSON") {
       const text = await responseText(response);
       let payload: unknown;
@@ -287,7 +289,7 @@ export async function fetchAutomationSourceRecords(
       } catch {
         throw new AutomationConnectorError("structured_json_invalid_json");
       }
-      return sourceRecordsFromPayload(payload, source);
+      return sourceRecordsFromPayload(payload, effectiveSource);
     }
 
     const adapterKey = source.config.htmlAdapterKey?.trim();
@@ -296,7 +298,7 @@ export async function fetchAutomationSourceRecords(
     const html = await responseText(response);
     let parsed: AutomationSourceRecord[];
     try {
-      const result = await adapter({ html, source });
+      const result = await adapter({ html, source: effectiveSource });
       if (!Array.isArray(result)) throw new Error("adapter_result_not_array");
       parsed = result;
     } catch (error) {
