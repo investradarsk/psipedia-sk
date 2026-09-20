@@ -252,6 +252,7 @@ function commonCandidate(row: Record<string, unknown>, key: string): AutomationM
     importKey: String(row.import_key ?? "") || null,
     slug: String(row.slug ?? "") || null,
     name: String(row.name ?? row.title ?? row.dog_name ?? "") || null,
+    dogName: String(row.dog_name ?? "") || null,
     category: String(row.category ?? "") || null,
     date: String(row.start_date ?? row.event_date ?? row.reported_date ?? "") || null,
     organizer: String(row.organizer ?? row.organization_name ?? row.organization ?? "") || null,
@@ -379,9 +380,11 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
     return result.results.map((row) => ({ ...commonCandidate(row, `lost-found:${row.id}`), before: lostFoundBefore(row) }));
   }
 
+  const dogName = String(proposed.dogName ?? proposed.name ?? "");
   result = await db.prepare(`SELECT * FROM help_cases
-    WHERE (category=? AND slug=?) OR action_url=? OR (category=? AND title=? COLLATE NOCASE AND city=? COLLATE NOCASE)
-    ORDER BY id ASC LIMIT 50`).bind(category, slug, sourceUrl, category, name, city).all<Record<string, unknown>>();
+    WHERE (category=? AND slug=?) OR action_url=?
+      OR (category=? AND (title=? COLLATE NOCASE OR dog_name=? COLLATE NOCASE) AND city=? COLLATE NOCASE)
+    ORDER BY id ASC LIMIT 50`).bind(category, slug, sourceUrl, category, name, dogName, city).all<Record<string, unknown>>();
   return result.results.map((row) => ({ ...commonCandidate(row, `help:${row.id}`), before: helpBefore(row) }));
 }
 
