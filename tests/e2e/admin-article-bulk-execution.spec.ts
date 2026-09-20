@@ -114,18 +114,18 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Publikovaný");
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Publikovaný");
 
-    await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B");
-    await page.getByLabel("Vybrať článok ADMIN-2E Scheduled B").check();
-    await findArticleRowAcrossPages(page, "ADMIN-2E Published C");
-    await page.getByLabel("Vybrať článok ADMIN-2E Published C").check();
-    await expect(page.getByText("Vybrané: 2")).toBeVisible();
-    await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
-    dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 2 článkov?" });
-    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
-    await expect(dialog).toContainText("2 výsledkov / 2 eligible / 0 by boli preskočené");
-    await dialog.getByRole("button", { name: "Potvrdiť a vykonať: presunúť do konceptov" }).click();
-    await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
-    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+    for (const title of ["ADMIN-2E Scheduled B", "ADMIN-2E Published C"]) {
+      await findArticleRowAcrossPages(page, title);
+      await page.getByLabel(`Vybrať článok ${title}`).check();
+      await expect(page.getByText("Vybrané: 1")).toBeVisible();
+      await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
+      dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 1 článkov?" });
+      await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
+      await expect(dialog).toContainText("1 výsledkov / 1 eligible / 0 by boli preskočené");
+      await dialog.getByRole("button", { name: "Potvrdiť a vykonať: presunúť do konceptov" }).click();
+      await expect(dialog).toContainText("Hotovo: 1 zmenených / 0 preskočených / 0 zlyhaní");
+      await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+    }
 
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Koncept");
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Koncept");
