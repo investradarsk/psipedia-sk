@@ -366,3 +366,14 @@ export async function runDataAutomationSweep(options: DataAutomationSweepOptions
     runs,
   };
 }
+
+
+export async function runAutomationSourceNow(
+  sourceId: number,
+  options: DataAutomationSweepOptions,
+) {
+  const source = await getAutomationSource(sourceId, options.database as AutomationD1Database);
+  if (!source) throw new Error("automation_source_not_found");
+  if (!source.enabled) throw new Error("automation_source_disabled");
+  return runSource(source, options);
+}
