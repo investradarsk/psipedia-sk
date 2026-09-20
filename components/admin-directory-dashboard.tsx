@@ -47,6 +47,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
     membershipFingerprint,
     pageIds,
     resultCount,
+    supportsAllMatching: false,
   });
 
   async function removeProfile(profile: ManagedDirectoryProfileSummary) {
