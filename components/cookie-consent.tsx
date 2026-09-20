@@ -134,11 +134,13 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   }, [pathname, savedChoice]);
 
   function saveChoice(choice: ConsentChoice) {
+    const revokingAdvertising = savedChoice === "advertising" && choice !== "advertising";
     window.localStorage.setItem(CONSENT_KEY, choice);
     window.dispatchEvent(new Event(CONSENT_EVENT));
     setSavedChoice(choice);
     setIsOpen(false);
     if (choice === "necessary") disableAnalytics();
+    if (revokingAdvertising) window.location.reload();
   }
 
   if (!ready || !isOpen) return null;
