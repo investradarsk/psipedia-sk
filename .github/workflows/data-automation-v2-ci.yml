@@ -1,0 +1,47 @@
+name: Data automation source management
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/operations/automation/**"
+      - "app/api/admin/automation-sources/**"
+      - "app/api/admin/automation-source-candidates/**"
+      - "components/admin-automation-source-*.tsx"
+      - "lib/admin-automation-api.ts"
+      - "lib/data-automation*.ts"
+      - "worker/index.ts"
+      - "drizzle/0052_data_automation_sources_discovery.sql"
+      - "tests/data-automation*.test.mjs"
+      - "tests/fixtures/data-automation/**"
+      - "tests/e2e/data-automation-v2.spec.ts"
+      - ".github/workflows/data-automation-v2-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: data-automation-v2-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run db:check-migrations
+      - name: Focused AUTOMATION-1 + AUTOMATION-2 tests
+        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-v2.test.mjs tests/admin-attention-queue.test.mjs
+      - run: npm run build
