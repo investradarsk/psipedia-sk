@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { CookieConsent } from "@/components/cookie-consent";
-import { AdSlot } from "@/components/ad-slot";
 import { ProgrammaticAdLoader } from "@/components/programmatic-ad-loader";
-import { AD_PLACEMENTS, isValidGooglePublisherClientId } from "@/lib/monetization";
+import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
@@ -77,7 +76,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body>
         <SiteHeader navigationItems={navigationItems} />
         {children}
-        <AdSlot placementId={AD_PLACEMENTS.GLOBAL_BOTTOM.id} />
         <SiteFooter />
         <CookieConsent advertisingEnabled={advertisingConsentEnabled} />
         <ProgrammaticAdLoader enabled={advertisingConsentEnabled} clientId={programmaticClientId} />
