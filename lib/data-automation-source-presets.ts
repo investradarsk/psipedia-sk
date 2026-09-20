@@ -1,4 +1,4 @@
-import type { AutomationEntityType, AutomationSourceConfig } from "./data-automation";
+import type { AutomationEntityType, AutomationSourceConfig } from "./data-automation.ts";
 
 export const defaultAutomationCadenceMinutes: Record<AutomationEntityType, number> = {
   EVENT: 360,
