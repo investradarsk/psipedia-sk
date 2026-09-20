@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { HELP_ADMIN_CATEGORIES, type HelpAdminFilters } from "@/lib/help-admin-query";
 import type { ManagedHelpCaseSummary } from "@/lib/help-store";
@@ -41,9 +41,17 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const { items, totals, categoryCounts, resultCount, page, pages } = data;
+  const viewFingerprint = [
+    filters.category, filters.status, filters.urgent, filters.state,
+    filters.organization, filters.location, filters.q, String(page),
+  ].join("|");
   const selectedCount = selected.size;
   const pageSelected = !!items.length && items.every((item) => selected.has(item.id));
   const pageSomeSelected = items.some((item) => selected.has(item.id)) && !pageSelected;
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [viewFingerprint]);
 
   function toggle(id: number) {
     setSelected((current) => {
