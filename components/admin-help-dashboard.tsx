@@ -50,7 +50,11 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   const pageSomeSelected = items.some((item) => selected.has(item.id)) && !pageSelected;
 
   useEffect(() => {
-    setSelected(new Set());
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setSelected(new Set());
+    });
+    return () => { active = false; };
   }, [viewFingerprint]);
 
   function toggle(id: number) {
