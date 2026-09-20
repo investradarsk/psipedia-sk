@@ -112,6 +112,12 @@ jobs:
             tail -200 .e2e-artifacts/local-server.log
             exit 1
           fi
+      - name: Seed MONETIZATION-1 fixture into isolated local CI only
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/monetization-e2e.sql
+      - name: MONETIZATION-1 mobile layout, tracking and accessibility
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/monetization.spec.ts --project=desktop-chromium
       - name: Materialize canonical managed Portal sections in isolated local CI only
         env:
           E2E_BASE_URL: http://localhost:5173
