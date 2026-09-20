@@ -50,8 +50,21 @@ async function expectNoSeriousAccessibilityViolations(page: Page) {
 
 async function captureProductionBaseline(page: Page, path: string, output: string) {
   if (process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1") return;
-  await page.goto(`https://psipedia.sk${path}`, { waitUntil: "domcontentloaded" });
-  await page.screenshot({ path: output });
+  try {
+    const response = await page.goto(`https://psipedia.sk${path}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 15_000,
+    });
+    if (!response?.ok()) {
+      console.warn(`[article-ux] production baseline unavailable for ${path}: HTTP ${response?.status() ?? "unknown"}`);
+      return;
+    }
+    await page.screenshot({ path: output });
+  } catch (error) {
+    console.warn(
+      `[article-ux] production baseline unavailable for ${path}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 async function expectSemanticArticleHeadings(page: Page) {
