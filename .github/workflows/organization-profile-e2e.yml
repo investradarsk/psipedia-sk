@@ -123,6 +123,10 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/organization-profile.spec.ts --grep-invert @production --project=mobile-chromium
+      - name: UX-2A organization viewport matrix
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/public-ux2a.spec.ts --grep "Organizácia wraps" --project=desktop-chromium
       - name: Stop isolated local app
         if: always()
         run: |

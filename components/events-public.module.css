@@ -721,3 +721,84 @@
     justify-content: center;
   }
 }
+
+
+/* UX-2A: keep events distinct as a calendar while sharing the public brand rhythm. */
+.foundation {
+  min-width: 0;
+}
+
+.pageHeader {
+  padding: 20px 0 0;
+  border-bottom: 0;
+  background: var(--paper);
+}
+
+.breadcrumbs {
+  margin-bottom: 10px;
+}
+
+.headerDescription,
+.headerIntro {
+  display: block;
+  max-width: 760px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+
+.headerIntro {
+  margin-top: 8px;
+  font-size: .95rem;
+}
+
+.headerMeta {
+  display: inline-flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.headerMeta strong {
+  color: var(--forest-dark);
+  font-size: 1rem;
+}
+
+.organizerSection {
+  background: var(--cream);
+}
+
+.detailHeader {
+  background: var(--paper);
+}
+
+.detailHeading h1 {
+  max-width: 900px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.35rem, 5vw, 4.4rem);
+  font-weight: 500;
+  letter-spacing: -.035em;
+  line-height: 1.03;
+  overflow-wrap: anywhere;
+}
+
+.dateBlock,
+.searchInput,
+.filterControl select {
+  border-radius: var(--ps-radius-control);
+}
+
+.eventCard,
+.cancelledCard,
+.emptyState,
+.practicalInfo {
+  border-radius: var(--ps-radius-card);
+}
+
+@media (max-width: 760px) {
+  .pageHeader {
+    padding-top: 16px;
+  }
+
+  .detailHeading h1 {
+    font-size: clamp(2.1rem, 10vw, 3.15rem);
+  }
+}

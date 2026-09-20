@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { PublicActionLink, PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
 import { bratislavaDateKey, eventDateStatus, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 import styles from "./events-public.module.css";
@@ -33,25 +34,28 @@ export function EventsPage({
 
   return (
     <main id="obsah">
+      <PublicFoundation className={styles.foundation}>
       <header className={styles.pageHeader}>
         <PageContainer>
           <Breadcrumbs className={styles.breadcrumbs}>
             <Link href="/">Domov</Link><span>/</span>{isMainListing ? <span>Podujatia</span> : <><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span></>}
           </Breadcrumbs>
-          <div className={styles.headerContent}>
-            <div>
-              <span className="eyebrow">Kalendár a databáza</span>
-              <h1>{title}</h1>
-              <p className={styles.headerDescription}>{description}</p>
-              {intro && <p className={styles.headerIntro}>{intro}</p>}
-            </div>
-            {activeCount > 0 && (
-              <div className={styles.activeCount} aria-label={activeCount + " aktívnych podujatí"}>
-                <strong>{activeCount}</strong>
-                <span>aktívnych termínov</span>
-              </div>
-            )}
-          </div>
+          <PublicSectionHeader
+            variant="data"
+            eyebrow="Kalendár a databáza"
+            title={title}
+            intro={
+              <>
+                <span className={styles.headerDescription}>{description}</span>
+                {intro ? <span className={styles.headerIntro}>{intro}</span> : null}
+              </>
+            }
+            meta={activeCount > 0 ? (
+              <span className={styles.headerMeta} aria-label={activeCount + " aktívnych podujatí"}>
+                <strong>{activeCount}</strong> aktívnych termínov
+              </span>
+            ) : undefined}
+          />
         </PageContainer>
       </header>
 
@@ -67,9 +71,10 @@ export function EventsPage({
             <h2 id="event-organizer-heading">Chýba tu vaše podujatie?</h2>
             <p>Pošlite nám údaje na redakčné overenie. Zverejnenie zostáva pod kontrolou redakcie.</p>
           </div>
-          <Link href="/podujatia/pridat-podujatie" className="button button--dark">Pridať podujatie</Link>
+          <PublicActionLink href="/podujatia/pridat-podujatie">Pridať podujatie</PublicActionLink>
         </PageContainer>
       </section>
+      </PublicFoundation>
     </main>
   );
 }

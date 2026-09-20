@@ -15,6 +15,7 @@ import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
+import styles from "./breed-atlas.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const section = await getManagedPortalSection("plemena");
@@ -48,7 +49,7 @@ export default async function BreedsPage({ searchParams }: { searchParams: Promi
     <>
       {schema && <StructuredData value={schema} />}
       <main id="obsah">
-        <PublicFoundation>
+        <PublicFoundation className={styles.foundation}>
           <div className="shell">
             <PublicSectionHeader
               variant="data"

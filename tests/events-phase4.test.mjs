@@ -32,8 +32,8 @@ test("detail exposes real event fields before optional media and never renders e
     assert.match(detail, new RegExp(label));
   }
   assert.match(detail, /timeLabel && <span>/);
-  assert.match(detail, /event\.registrationUrl && <a/);
-  assert.match(detail, /event\.websiteUrl && <a/);
+  assert.match(detail, /event\.registrationUrl && <PublicActionLink/);
+  assert.match(detail, /event\.websiteUrl && <PublicActionLink/);
   assert.match(detail, /locationLines\.length > 0/);
   assert.match(detail, /event\.organizer &&/);
   assert.match(detail, /event\.description &&/);
