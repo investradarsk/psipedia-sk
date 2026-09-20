@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { AdPlacementId, ConsentChoice } from "@/lib/monetization";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
+const CONSENT_EVENT = "psipedia:consent-changed";
 const eventKeys = new Map<string, { key: string; expiresAt: number }>();
 
 function eventKey(scope: string, ttlMs = 30 * 60 * 1000) {
@@ -35,7 +36,10 @@ async function send(eventType: "impression" | "click", campaignId: string, place
 export function AdExposureTracker({ campaignId, placementId }: { campaignId: string; placementId: AdPlacementId }) {
   useEffect(() => {
     const key = eventKey(`impression:${campaignId}:${placementId}`);
-    void send("impression", campaignId, placementId, key);
+    const record = () => void send("impression", campaignId, placementId, key);
+    record();
+    window.addEventListener(CONSENT_EVENT, record);
+    return () => window.removeEventListener(CONSENT_EVENT, record);
   }, [campaignId, placementId]);
   return null;
 }
