@@ -84,7 +84,7 @@ test("public ad slot is labeled, responsive and does not reserve an empty placeh
 });
 
 test("migration separates campaigns, placements, promotions and privacy-conscious events", async () => {
-  const sql = await readFile(new URL("../drizzle/0050_monetization_foundation.sql", import.meta.url), "utf8");
+  const sql = await readFile(new URL("../drizzle/0051_monetization_foundation.sql", import.meta.url), "utf8");
   assert.match(sql, /CREATE TABLE monetization_campaigns/);
   assert.match(sql, /CREATE TABLE monetization_campaign_placements/);
   assert.match(sql, /CREATE TABLE monetization_promotions/);
