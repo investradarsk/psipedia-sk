@@ -145,6 +145,25 @@ async function createSourceErrorFinding(
   return result;
 }
 
+async function safelyCreateSourceErrorFinding(
+  source: AutomationSource,
+  errorCode: string,
+  detectedAt: string,
+  database: D1Database,
+) {
+  try {
+    return await createSourceErrorFinding(source, errorCode, detectedAt, database);
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "data_automation_source_error_finding",
+      sourceKey: source.sourceKey,
+      result: "failed",
+      error: safeErrorCode(error),
+    }));
+    return null;
+  }
+}
+
 async function processRecord(
   source: AutomationSource,
   runId: number,
@@ -249,17 +268,17 @@ async function runSource(
     if (errors === 0) {
       await resolveAutomationSourceErrors(source.id, detectedAt, options.database);
     } else {
-      const sourceError = await createSourceErrorFinding(source, errorSummary ?? "record_processing_failed", detectedAt, options.database);
-      if (sourceError.created || sourceError.reopened) newFindings += 1;
-      else updatedFindings += 1;
+      const sourceError = await safelyCreateSourceErrorFinding(source, errorSummary ?? "record_processing_failed", detectedAt, options.database);
+      if (sourceError?.created || sourceError?.reopened) newFindings += 1;
+      else if (sourceError) updatedFindings += 1;
     }
   } catch (error) {
     errors += 1;
     status = "FAILED";
     errorSummary = safeErrorCode(error);
-    const sourceError = await createSourceErrorFinding(source, errorSummary, detectedAt, options.database);
-    if (sourceError.created || sourceError.reopened) newFindings += 1;
-    else updatedFindings += 1;
+    const sourceError = await safelyCreateSourceErrorFinding(source, errorSummary, detectedAt, options.database);
+    if (sourceError?.created || sourceError?.reopened) newFindings += 1;
+    else if (sourceError) updatedFindings += 1;
   }
 
   const completedAt = options.now ? new Date(options.now) : new Date();
