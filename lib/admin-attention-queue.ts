@@ -1,7 +1,7 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 6;
+export const ADMIN_ATTENTION_QUERY_COUNT = 7;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -10,6 +10,7 @@ export const adminAttentionSourceTypes = [
   "DIRECTORY_INQUIRY",
   "ARTICLE_FEEDBACK",
   "ADOPTION_STALE",
+  "AUTOMATION_FINDING",
 ] as const;
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
 
@@ -53,6 +54,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   DIRECTORY_INQUIRY: "Dopyty",
   ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
+  AUTOMATION_FINDING: "Automatický research",
 };
 
 export const adminAttentionPriorityLabels: Record<AdminAttentionPriority, string> = {
@@ -316,6 +318,55 @@ export function mapArticleFeedbackAttention(row: ArticleFeedbackAttentionRow, no
     ageDays: ageDays(relevantAt, now),
     targetHref: `/admin/hodnotenia#hodnotenie-${row.id}`,
     metadata: [{ label: "Článok", value: row.articlePath }],
+  };
+}
+
+
+export type AutomationFindingAttentionRow = {
+  id: number;
+  entityType: string;
+  findingType: string;
+  priority: string;
+  reviewStatus: string;
+  sourceLabel: string;
+  sourceUrl: string | null;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+};
+
+function automationFindingAttentionState(status: string): AdminAttentionState {
+  if (status === "NEW") return "NEW";
+  if (status === "IN_REVIEW") return "IN_PROGRESS";
+  if (status === "APPROVED" || status === "RESOLVED") return "RESOLVED";
+  return "DISMISSED";
+}
+
+export function mapAutomationFindingAttention(
+  row: AutomationFindingAttentionRow,
+  now = new Date(),
+): AdminAttentionItem {
+  const attentionState = automationFindingAttentionState(row.reviewStatus);
+  const relevantAt = isAdminAttentionActive(attentionState) ? row.firstDetectedAt : row.lastDetectedAt;
+  const priority = isAdminAttentionPriority(row.priority) ? row.priority : "MEDIUM";
+  return {
+    key: `automation-finding:${row.id}`,
+    sourceType: "AUTOMATION_FINDING",
+    sourceId: String(row.id),
+    title: `${row.entityType}: ${row.findingType}`,
+    reason: row.findingType === "SOURCE_ERROR"
+      ? "Automatická kontrola zdroja zlyhala a vyžaduje pozornosť."
+      : "Automatický research našiel návrh alebo zmenu. Canonical záznam nebol automaticky prepísaný ani publikovaný.",
+    priority,
+    status: row.reviewStatus,
+    attentionState,
+    createdAt: row.firstDetectedAt,
+    relevantAt,
+    ageDays: ageDays(relevantAt, now),
+    targetHref: `/admin/operations/automation/${row.id}`,
+    metadata: [
+      { label: "Zdroj", value: row.sourceLabel },
+      ...(row.sourceUrl ? [{ label: "URL", value: row.sourceUrl }] : []),
+    ],
   };
 }
 
