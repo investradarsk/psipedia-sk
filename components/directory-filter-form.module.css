@@ -1,3 +1,49 @@
+
+/* SERVICES-MOBILE-2: keep native controls from expanding grid tracks past the public shell. */
+.toolbar {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.toolbar > label,
+.secondaryFilters,
+.secondaryFilters > label,
+.toolbar :global(.directory-search),
+.toolbar :global(.directory-search) > div,
+.toolbar :global(.directory-filter-actions) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.toolbar select,
+.toolbar input,
+.toolbar button,
+.toolbar :global(.directory-filter-actions) > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.toolbar select,
+.toolbar input {
+  width: 100%;
+}
+
+.toolbar :global(.directory-filter-actions) a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar select:focus-visible,
+.toolbar input:focus-visible,
+.toolbar button:focus-visible,
+.toolbar :global(.directory-filter-actions) a:focus-visible {
+  outline: 3px solid rgba(23, 75, 56, 0.24);
+  outline-offset: 2px;
+}
+
 .toggle {
   display: none;
 }
@@ -34,6 +80,8 @@
 
 @media (max-width: 620px) {
   .toolbar {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
     padding: 14px;
     border-radius: 18px;
   }
@@ -68,8 +116,26 @@
 
   .secondaryFiltersOpen {
     display: grid;
+    width: 100%;
+    min-width: 0;
     grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
     padding-top: 2px;
+  }
+
+  .secondaryFiltersOpen > label {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toolbar :global(.directory-filter-actions) {
+    width: 100%;
+  }
+
+  .toolbar :global(.directory-filter-actions) button,
+  .toolbar :global(.directory-filter-actions) a {
+    width: 100%;
+    min-height: 44px;
   }
 }
