@@ -354,7 +354,25 @@ jobs:
       - name: Run read-only production browser tests — ${{ matrix.label }}
         env:
           E2E_BASE_URL: https://psipedia.sk
-        run: npx playwright test --grep @production --project="${{ matrix.project }}" --workers=1
+        shell: bash
+        run: |
+          set +e
+          npx playwright test --grep @production --project="${{ matrix.project }}" --workers=1
+          first_status=$?
+
+          if [ "$first_status" -eq 0 ]; then
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "::warning::Initial production smoke failed immediately after a main push. Waiting 120 seconds for production deployment to settle, then retrying once."
+            sleep 120
+            rm -rf playwright-report test-results/playwright
+            npx playwright test --grep @production --project="${{ matrix.project }}" --workers=1
+            exit $?
+          fi
+
+          exit "$first_status"
       - name: Upload Playwright HTML report on failure
         if: failure()
         uses: actions/upload-artifact@v4
