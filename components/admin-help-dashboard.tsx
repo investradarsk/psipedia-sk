@@ -43,6 +43,7 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   const { items, totals, categoryCounts, resultCount, page, pages } = data;
   const selectedCount = selected.size;
   const pageSelected = !!items.length && items.every((item) => selected.has(item.id));
+  const pageSomeSelected = items.some((item) => selected.has(item.id)) && !pageSelected;
 
   function toggle(id: number) {
     setSelected((current) => {
@@ -150,13 +151,12 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       </form>
 
       <div className={styles.bulk} aria-busy={bulkBusy}>
-        <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={pageSelected} disabled={bulkBusy || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
+        <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={pageSelected} ref={(node) => { if (node) node.indeterminate = pageSomeSelected; }} disabled={bulkBusy || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
         <span role="status">Označené: {selectedCount}</span>
         <button className={styles.primary} type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("published")}>Publikovať</button>
         <button type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("draft")}>Prepnúť na koncept</button>
         {!!selectedCount && <button className={styles.clear} type="button" disabled={bulkBusy} onClick={clearSelection}>Zrušiť výber</button>}
       </div>
-      {resultCount > 500 && <p className={styles.warning}>Všetky výsledky filtra možno naraz označiť pri najviac 500 záznamoch. Spresni filter; výber jednotlivých strán zostáva dostupný.</p>}
       {message && <p className="admin-flash" role="status">{message}</p>}
       <p className="admin-help-results">Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
       {items.length ? <div className="admin-article-list">{items.map((item) => {
