@@ -114,6 +114,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
               toggleCurrentPage={bulkSelection.toggleCurrentPage}
               selectAllMatching={bulkSelection.selectAllMatching}
               clear={bulkSelection.clear}
+              supportsAllMatching={false}
             />
             <div className="admin-article-list">
               {profiles.map((profile) => {
