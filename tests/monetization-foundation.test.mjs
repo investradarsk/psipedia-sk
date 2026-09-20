@@ -8,6 +8,7 @@ import {
   canLoadProgrammaticAds,
   isCampaignActive,
   isPromotionVisible,
+  isSafeCreativeAsset,
   isSafeDestinationUrl,
   validateMonetizationEventInput,
 } from "../lib/monetization.ts";
@@ -37,6 +38,10 @@ test("unsafe destination URLs are rejected", () => {
   assert.equal(isSafeDestinationUrl("javascript:alert(1)"), false);
   assert.equal(isSafeDestinationUrl("data:text/html,hello"), false);
   assert.equal(isSafeDestinationUrl("https://example.com/path"), true);
+  assert.equal(isSafeCreativeAsset("/images/ad.webp"), true);
+  assert.equal(isSafeCreativeAsset("/media/campaign/ad.webp"), true);
+  assert.equal(isSafeCreativeAsset("/images/../secret.webp"), false);
+  assert.equal(isSafeCreativeAsset("https://example.com/ad.webp"), false);
 });
 
 test("impression and click event payloads are strictly validated", () => {
