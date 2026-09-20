@@ -172,7 +172,17 @@ jobs:
         if: ${{ always() && steps.seed.outcome == 'success' && steps.help_detail_seed.outcome == 'success' && steps.directory_seed.outcome == 'success' }}
         env:
           E2E_BASE_URL: http://localhost:5173
-        run: npm run e2e -- tests/e2e/public-polish-v2.spec.ts --project=desktop-chromium --workers=1 --retries=0
+        run: |
+          mkdir -p .e2e-artifacts/public-polish-v2
+          npm run e2e -- tests/e2e/public-polish-v2.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: Upload PUBLIC-POLISH-2 visual audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-polish-v2-visual-evidence-${{ github.run_attempt }}
+          path: .e2e-artifacts/public-polish-v2/
+          if-no-files-found: warn
+          retention-days: 14
       - name: HELP-PUBLIC Playwright + accessibility — desktop and mobile
         id: help_public
         if: ${{ always() && steps.lost_found_seed.outcome == 'success' && steps.help_detail_seed.outcome == 'success' && steps.adoption_seed.outcome == 'success' }}
