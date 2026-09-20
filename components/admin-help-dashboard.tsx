@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  AdminActionButton,
+  AdminBulkActionToolbar,
+  AdminModalDialog,
+} from "@/components/admin-interaction-system";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { HELP_ADMIN_CATEGORIES, type HelpAdminFilters } from "@/lib/help-admin-query";
 import type { ManagedHelpCaseSummary } from "@/lib/help-store";
@@ -39,14 +44,26 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [selectionMode, setSelectionMode] = useState<"ids" | "filter">("ids");
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkReview, setBulkReview] = useState<{ targetStatus: BulkStatus; preview: BulkPreflight } | null>(null);
   const { items, totals, categoryCounts, resultCount, page, pages } = data;
-  const selectedCount = selectionMode === "filter" ? resultCount : selected.size;
+  const viewFingerprint = [
+    filters.category, filters.status, filters.urgent, filters.state,
+    filters.organization, filters.location, filters.q, String(page),
+  ].join("|");
+  const selectedCount = selected.size;
   const pageSelected = !!items.length && items.every((item) => selected.has(item.id));
+  const pageSomeSelected = items.some((item) => selected.has(item.id)) && !pageSelected;
+
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setSelected(new Set());
+    });
+    return () => { active = false; };
+  }, [viewFingerprint]);
 
   function toggle(id: number) {
-    if (selectionMode === "filter") return;
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -55,7 +72,6 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   }
 
   function togglePage(checked: boolean) {
-    if (selectionMode === "filter") return;
     setSelected((current) => {
       const next = new Set(current);
       for (const item of items) { if (checked) next.add(item.id); else next.delete(item.id); }
@@ -65,24 +81,14 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
 
   function clearSelection() {
     setSelected(new Set());
-    setSelectionMode("ids");
   }
 
-  async function bulk(targetStatus: BulkStatus) {
-    if (!selectedCount) return;
+  async function prepareBulk(targetStatus: BulkStatus) {
+    if (!selectedCount || bulkBusy) return;
     setBulkBusy(true);
     setMessage("");
     try {
-      const selection = selectionMode === "filter"
-        ? {
-            mode: "filter",
-            filters: {
-              category: filters.category, status: filters.status, urgent: filters.urgent, state: filters.state,
-              organization: filters.organization, location: filters.location, q: filters.q,
-            },
-            expectedCount: resultCount,
-          }
-        : { mode: "ids", ids: [...selected] };
+      const selection = { mode: "ids" as const, ids: [...selected] };
       const previewResponse = await fetch("/api/admin/help/bulk", {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "preflight", targetStatus, selection }),
@@ -93,9 +99,20 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
         setMessage("Označené záznamy už majú požadovaný publikačný stav.");
         return;
       }
-      const verb = targetStatus === "published" ? "Publikovať" : "Prepnúť na koncept";
-      const scope = preview.selectedCount === preview.changeCount ? "" : ` Z ${preview.selectedCount} označených sa zmení ${preview.changeCount}.`;
-      if (!window.confirm(`${verb} ${preview.changeCount} záznamov?${scope} Zmena sa týka iba publikačného stavu.`)) return;
+      setBulkReview({ targetStatus, preview });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Hromadnú zmenu sa nepodarilo pripraviť.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function applyBulk() {
+    if (!bulkReview || bulkBusy) return;
+    setBulkBusy(true);
+    setMessage("");
+    try {
+      const { targetStatus, preview } = bulkReview;
       const applyResponse = await fetch("/api/admin/help/bulk", {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "apply", targetStatus, confirmedCount: preview.items.length, items: preview.items }),
@@ -103,6 +120,7 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       const applied = await applyResponse.json() as { requested?: number; changed?: number; error?: string };
       if (!applyResponse.ok) throw new Error(applied.error || "Hromadná zmena zlyhala.");
       clearSelection();
+      setBulkReview(null);
       setMessage(`Zmenených záznamov: ${applied.changed ?? 0} z ${applied.requested ?? preview.items.length} potvrdených.`);
       router.refresh();
     } catch (error) {
@@ -163,21 +181,22 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       </form>
 
       <div className={styles.bulk} aria-busy={bulkBusy}>
-        <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={selectionMode === "filter" || pageSelected} disabled={bulkBusy || selectionMode === "filter" || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
+        <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={pageSelected} ref={(node) => { if (node) node.indeterminate = pageSomeSelected; }} disabled={bulkBusy || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
         <span role="status">Označené: {selectedCount}</span>
-        <button className={styles.primary} type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("published")}>Publikovať</button>
-        <button type="button" disabled={bulkBusy || !selectedCount} onClick={() => void bulk("draft")}>Prepnúť na koncept</button>
-        {!!selectedCount && <button className={styles.clear} type="button" disabled={bulkBusy} onClick={clearSelection}>Zrušiť výber</button>}
       </div>
-      {selectionMode !== "filter" && resultCount > items.length && resultCount <= 500 && <div className={styles.allResults}><span>Aktuálny filter má {resultCount} výsledkov na {pages} stranách.</span><button type="button" disabled={bulkBusy} onClick={() => { setSelected(new Set()); setSelectionMode("filter"); }}>Označiť všetkých {resultCount} výsledkov filtra</button></div>}
-      {selectionMode === "filter" && <div className={styles.allResults}><strong>Označených je všetkých {resultCount} výsledkov aktuálneho filtra naprieč {pages} stranami.</strong></div>}
-      {resultCount > 500 && <p className={styles.warning}>Všetky výsledky filtra možno naraz označiť pri najviac 500 záznamoch. Spresni filter; výber jednotlivých strán zostáva dostupný.</p>}
+      {selectedCount > 0 && <AdminBulkActionToolbar
+        selectedCount={selectedCount}
+        selectionDescription="Výber patrí iba aktuálnej filtrovanej strane."
+        primaryAction={<AdminActionButton variant="primary" disabled={bulkBusy} onClick={() => void prepareBulk("published")}>Publikovať</AdminActionButton>}
+        destructiveAction={<AdminActionButton variant="destructive" disabled={bulkBusy} onClick={() => void prepareBulk("draft")}>Prepnúť na koncept</AdminActionButton>}
+        onClear={clearSelection}
+      />}
       {message && <p className="admin-flash" role="status">{message}</p>}
       <p className="admin-help-results">Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
       {items.length ? <div className="admin-article-list">{items.map((item) => {
         const category = getHelpCategory(item.category);
         return <article className={`admin-article-row admin-help-row ${styles.row}`} key={item.id}>
-          <label className={styles.rowCheckTarget}><span className="sr-only">Označiť {item.title}</span><input className={styles.rowCheck} aria-label={`Označiť ${item.title}`} type="checkbox" checked={selectionMode === "filter" || selected.has(item.id)} disabled={bulkBusy || selectionMode === "filter"} onChange={() => toggle(item.id)} /></label>
+          <label className={styles.rowCheckTarget}><span className="sr-only">Označiť {item.title}</span><input className={styles.rowCheck} aria-label={`Označiť ${item.title}`} type="checkbox" checked={selected.has(item.id)} disabled={bulkBusy} onChange={() => toggle(item.id)} /></label>
           <div className="admin-help-thumb">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
           <div className="admin-article-main"><div className="admin-article-tags"><span className={`admin-status admin-status--${item.status}`}>{item.status === "published" ? "Publikované" : "Koncept"}</span><span>{category?.label ?? item.category}</span>{item.verified && <span>Overené</span>}{item.urgent && !item.resolved && <span>Urgentné</span>}{item.resolved && <span>Vybavené</span>}</div><h2><Link href={`/admin/pomoc/${item.id}`}>{item.title}</Link></h2><p>{[item.organization, item.city, item.dogName ? `Pes: ${item.dogName}` : ""].filter(Boolean).join(" · ")}</p></div>
           <div className="admin-row-actions">{item.status === "published" && <Link href={helpCaseHref(item)} target="_blank">Pozrieť na webe ↗</Link>}<Link className="admin-row-edit" href={`/admin/pomoc/${item.id}`}>Upraviť</Link><button type="button" disabled={deletingId === item.id || bulkBusy} onClick={() => void removeItem(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</button></div>
@@ -185,5 +204,27 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
       })}</div> : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
       <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov">{page > 1 ? <Link href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}</nav>
     </section>
+
+    <AdminModalDialog
+      open={bulkReview !== null}
+      title={bulkReview?.targetStatus === "published" ? "Publikovať vybrané Help záznamy" : "Presunúť vybrané Help záznamy do konceptu"}
+      description="Zmena sa týka iba publikačného stavu. Server pri potvrdení znovu overí verziu a publikačné pravidlá."
+      onClose={() => { if (!bulkBusy) setBulkReview(null); }}
+      footer={<>
+        <AdminActionButton variant="neutral" disabled={bulkBusy} onClick={() => setBulkReview(null)}>Zrušiť</AdminActionButton>
+        <AdminActionButton
+          variant={bulkReview?.targetStatus === "draft" ? "destructive" : "primary"}
+          disabled={bulkBusy || !bulkReview}
+          onClick={() => void applyBulk()}
+        >
+          {bulkBusy ? "Spracúvam…" : bulkReview?.targetStatus === "published" ? "Publikovať" : "Presunúť do konceptu"}
+        </AdminActionButton>
+      </>}
+    >
+      {bulkReview && <p>
+        Zmení sa <strong>{bulkReview.preview.changeCount}</strong> z {bulkReview.preview.selectedCount} označených záznamov.
+        {bulkReview.preview.selectedCount - bulkReview.preview.changeCount > 0 && <> {bulkReview.preview.selectedCount - bulkReview.preview.changeCount} už má cieľový stav.</>}
+      </p>}
+    </AdminModalDialog>
   </div>;
 }

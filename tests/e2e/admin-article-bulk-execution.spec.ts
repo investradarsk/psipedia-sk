@@ -50,30 +50,51 @@ test.describe("ADMIN-2E article bulk execution", () => {
     throw new Error(`Article row "${title}" was not found in admin pagination.`);
   }
 
-  test("keeps explicit selection across pagination and publishes only selected eligible articles", async ({ page }) => {
+  test("scopes explicit selection to the current page and publishes only the current-view selection", async ({ page }) => {
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await page.getByLabel("Vybrať článok ADMIN-2E Draft A").check();
     await expect(page.getByText("Vybrané: 1")).toBeVisible();
 
     await page.getByRole("link", { name: "Ďalšia →" }).click();
     await expect(page).toHaveURL(/\/admin\?page=2$/);
-    await expect(page.getByText("Vybrané: 1")).toBeVisible();
+    await expect(page.getByText("Vybrané: 1")).toHaveCount(0);
+
     await page.getByLabel("Vybrať článok ADMIN-2E Page 001").check();
-    await expect(page.getByText("Vybrané: 2")).toBeVisible();
+    await expect(page.getByText("Vybrané: 1")).toBeVisible();
 
     await page.getByRole("button", { name: "Skontrolovať publikovanie" }).click();
-    const dialog = page.getByRole("dialog", { name: "Publikovať 2 článkov?" });
+    const dialog = page.getByRole("dialog", { name: "Publikovať 1 článkov?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
-    await expect(dialog).toContainText("2 výsledkov / 2 eligible / 0 by boli preskočené");
+    await expect(dialog).toContainText("1 výsledkov / 1 eligible / 0 by boli preskočené");
     await dialog.getByRole("button", { name: "Potvrdiť a vykonať: publikovať" }).click();
-    await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
+    await expect(dialog).toContainText("Hotovo: 1 zmenených / 0 preskočených / 0 zlyhaní");
     await expect(dialog).toContainText("Výber bol vyčistený");
     await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
 
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Page 001")).toContainText("Publikovaný");
-    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Draft A")).toContainText("Publikovaný");
-    await expect(page.getByText("Vybrané: 2")).toHaveCount(0);
+    await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Draft A")).toContainText("Koncept");
+  });
+
+  test("select-all visible exposes indeterminate state and clear resets the current view", async ({ page }) => {
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    const selectAll = page.getByLabel("Vybrať všetky články na tejto strane");
+    await selectAll.check();
+    await expect(selectAll).toBeChecked();
+
+    const firstSelected = page.getByRole("checkbox", { name: /^Vybrať článok / }).first();
+    await expect(firstSelected).toBeChecked();
+    await firstSelected.uncheck();
+    expect(await selectAll.evaluate((element) => (element as HTMLInputElement).indeterminate)).toBe(true);
+
+    await page.getByRole("button", { name: "Zrušiť výber" }).click();
+    await expect(selectAll).not.toBeChecked();
+    expect(await selectAll.evaluate((element) => (element as HTMLInputElement).indeterminate)).toBe(false);
+    await expect(page.locator("[data-admin-bulk-toolbar]")).toHaveCount(0);
+
+    await page.getByLabel("Vybrať článok ADMIN-2E Draft A").check();
+    await page.getByRole("button", { name: "Koncepty", exact: true }).click();
+    await expect(page.locator("[data-admin-bulk-toolbar]")).toHaveCount(0);
   });
 
   test("reports mixed publish result and then moves published and scheduled lifecycle records to draft", async ({ page }) => {
@@ -93,21 +114,36 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Publikovaný");
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Publikovaný");
 
-    await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B");
-    await page.getByLabel("Vybrať článok ADMIN-2E Scheduled B").check();
-    await findArticleRowAcrossPages(page, "ADMIN-2E Published C");
-    await page.getByLabel("Vybrať článok ADMIN-2E Published C").check();
-    await expect(page.getByText("Vybrané: 2")).toBeVisible();
-    await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
-    dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 2 článkov?" });
-    await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
-    await expect(dialog).toContainText("2 výsledkov / 2 eligible / 0 by boli preskočené");
-    await dialog.getByRole("button", { name: "Potvrdiť a vykonať: presunúť do konceptov" }).click();
-    await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
-    await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+    for (const title of ["ADMIN-2E Scheduled B", "ADMIN-2E Published C"]) {
+      await findArticleRowAcrossPages(page, title);
+      await page.getByLabel(`Vybrať článok ${title}`).check();
+      await expect(page.getByText("Vybrané: 1")).toBeVisible();
+      await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
+      dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 1 článkov?" });
+      await dialog.getByRole("button", { name: "Spustiť preflight" }).click();
+      await expect(dialog).toContainText("1 výsledkov / 1 eligible / 0 by boli preskočené");
+      await dialog.getByRole("button", { name: "Potvrdiť a vykonať: presunúť do konceptov" }).click();
+      await expect(dialog).toContainText("Hotovo: 1 zmenených / 0 preskočených / 0 zlyhaní");
+      await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
+    }
 
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Scheduled B")).toContainText("Koncept");
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Koncept");
+  });
+
+  test("bulk endpoint rejects a request without admin authentication", async ({ request }) => {
+    const response = await request.post("http://127.0.0.1:5173/api/admin/bulk/preflight", {
+      headers: {
+        origin: "http://127.0.0.1:5173",
+        "content-type": "application/json",
+      },
+      data: {
+        module: "articles",
+        action: "publish",
+        selection: { mode: "explicit", ids: [1], filter: {} },
+      },
+    });
+    expect(response.status()).toBe(401);
   });
 
   test("selection, confirmation dialog and result controls stay keyboard-operable, axe-clean and overflow-free", async ({ page }) => {

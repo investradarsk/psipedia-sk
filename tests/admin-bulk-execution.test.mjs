@@ -185,6 +185,18 @@ test("ID outside snapshot is rejected and mixed eligible/skipped/failed counts a
   assert.deepEqual(result.counts, { requested: 3, updated: 1, skipped: 1, failed: 1 });
 });
 
+test("repeating the same confirmed snapshot cannot double-submit the mutation", async () => {
+  const articles = [{ id: 10, status: "draft", updated_at: "v10", published_at: null }];
+  const { database, articleMap } = makeDatabase({ articles, action: "publish" });
+  const payload = executionPayload("publish", [10]);
+  const first = await runArticleBulkExecution(database, "actor-1", "admin@example.test", payload, new Date("2026-09-17T07:30:00.000Z"));
+  const second = await runArticleBulkExecution(database, "actor-1", "admin@example.test", payload, new Date("2026-09-17T07:31:00.000Z"));
+  assert.deepEqual(first.counts, { requested: 1, updated: 1, skipped: 0, failed: 0 });
+  assert.deepEqual(second.counts, { requested: 1, updated: 0, skipped: 1, failed: 0 });
+  assert.equal(second.skipped[0].reason, "record-changed-since-snapshot");
+  assert.equal(articleMap.get(10).status, "published");
+});
+
 test("conditional mutation catches a race after server revalidation", async () => {
   const articles = [{ id: 9, status: "draft", updated_at: "v9", published_at: null }];
   const { database } = makeDatabase({ articles, action: "publish", raceIds: [9] });
@@ -200,9 +212,10 @@ test("execution route authenticates before database access and exposes no generi
   assert.doesNotMatch(execution, /payload\.(table|column|sql)/);
   assert.match(execution, /UPDATE managed_articles/);
   assert.match(execution, /WHERE id = \? AND status = \? AND updated_at = \?/);
+  assert.match(route, /request\.headers\.get\("origin"\) !== new URL\(request\.url\)\.origin/);
 });
 
-test("article execution UI requires preflight confirmation, reports partial result, clears selection and refreshes", () => {
+test("article execution UI requires preflight confirmation, reports partial result and preserves failed selection", () => {
   const source = readFileSync(new URL("../components/admin-bulk-selection.tsx", import.meta.url), "utf8");
   assert.match(source, /\/api\/admin\/bulk\/preflight/);
   assert.match(source, /\/api\/admin\/bulk\/execute/);
@@ -210,6 +223,7 @@ test("article execution UI requires preflight confirmation, reports partial resu
   assert.match(source, /execution\.counts\.updated/);
   assert.match(source, /execution\.counts\.skipped/);
   assert.match(source, /execution\.counts\.failed/);
-  assert.match(source, /clear\(\)/);
+  assert.match(source, /payload\.counts\.failed === 0\) clear\(\)/);
+  assert.match(source, /Časť zmien zlyhala\. Výber zostáva zachovaný/);
   assert.match(source, /window\.location\.reload\(\)/);
 });
