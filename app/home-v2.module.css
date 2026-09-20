@@ -148,6 +148,19 @@
   justify-content: flex-end;
 }
 
+.homeV2 :global(.home-section-cta) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 20px;
+  padding-top: 2px;
+}
+
+.homeV2 :global(.home-section-cta .text-link) {
+  min-height: 44px;
+  align-items: center;
+}
+
 .homeV2 :global(.home-latest-section) {
   padding-top: 48px;
 }
