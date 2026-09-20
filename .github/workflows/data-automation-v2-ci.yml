@@ -1,0 +1,109 @@
+name: Data automation source management
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/operations/automation/**"
+      - "app/api/admin/automation-sources/**"
+      - "app/api/admin/automation-source-candidates/**"
+      - "components/admin-automation-source-*.tsx"
+      - "lib/admin-automation-api.ts"
+      - "lib/data-automation*.ts"
+      - "worker/index.ts"
+      - "drizzle/0052_data_automation_sources_discovery.sql"
+      - "tests/data-automation*.test.mjs"
+      - "tests/fixtures/data-automation/**"
+      - "tests/e2e/data-automation-v2.spec.ts"
+      - ".github/workflows/data-automation-v2-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: data-automation-v2-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run db:check-migrations
+      - name: Focused AUTOMATION-1 + AUTOMATION-2 tests
+        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-v2.test.mjs tests/admin-attention-queue.test.mjs
+      - run: npm run build
+
+  admin-e2e:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Configure CI-only local PII keys
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          EOF
+      - name: Apply foundation migrations to isolated local D1
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/data-automation-v2
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/data-automation-v2/server.log 2>&1 &
+          echo $! > .e2e-artifacts/data-automation-v2/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/admin/operations/automation/sources >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+      - name: Source admin desktop/mobile + Axe
+        run: npx playwright test tests/e2e/data-automation-v2.spec.ts --workers=1 --retries=0
+      - name: Stop local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/data-automation-v2/server.pid ]; then
+            kill "$(cat .e2e-artifacts/data-automation-v2/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-automation-v2-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/data-automation-v2/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14

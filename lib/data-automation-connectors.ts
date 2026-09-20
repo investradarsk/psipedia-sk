@@ -30,6 +30,7 @@ export type AutomationConnectorContext = {
   fetchImpl?: AutomationFetch;
   htmlAdapters?: Record<string, ControlledHtmlAdapter>;
   sleep?: (ms: number) => Promise<void>;
+  onResponse?: (meta: { status: number; contentType: string | null; contentLength: number | null }) => void;
 };
 
 const MAX_SOURCE_BYTES = 1_000_000;
@@ -88,7 +89,11 @@ async function responseText(response: Response) {
   return text;
 }
 
-async function fetchOnce(source: AutomationSource, fetchImpl: AutomationFetch) {
+async function fetchOnce(
+  source: AutomationSource,
+  fetchImpl: AutomationFetch,
+  onResponse?: AutomationConnectorContext["onResponse"],
+) {
   if (!source.sourceUrl || !isSafeAutomationSourceUrl(source.sourceUrl)) {
     throw new AutomationConnectorError("unsafe_or_missing_source_url");
   }
@@ -111,6 +116,11 @@ async function fetchOnce(source: AutomationSource, fetchImpl: AutomationFetch) {
       shouldRetryAutomationStatus(response.status),
     );
   }
+  onResponse?.({
+    status: response.status,
+    contentType: response.headers.get("content-type"),
+    contentLength: Number(response.headers.get("content-length")) || null,
+  });
   return response;
 }
 
@@ -142,7 +152,7 @@ export async function fetchAutomationSourceRecords(
   const sleep = context.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 
   return withRetry(source, async () => {
-    const response = await fetchOnce(source, fetchImpl);
+    const response = await fetchOnce(source, fetchImpl, context.onResponse);
     if (source.connectorType === "STRUCTURED_JSON") {
       const text = await responseText(response);
       let payload: unknown;
