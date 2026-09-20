@@ -101,19 +101,25 @@ export async function getActiveCampaignForPlacement(placementId: AdPlacementId, 
   const db = database();
   if (!db) return null;
   const iso = now.toISOString();
-  const row = await db.prepare(`
-    SELECT c.id, c.name, c.advertiser_name, c.status, c.start_at, c.end_at,
-      c.creative_image_url, c.creative_alt, c.headline, c.body_copy,
-      c.destination_url, c.priority, c.is_affiliate, c.admin_note
-    FROM monetization_campaigns c
-    INNER JOIN monetization_campaign_placements p ON p.campaign_id = c.id
-    WHERE p.placement_id = ?
-      AND c.status = 'active'
-      AND (c.start_at IS NULL OR c.start_at <= ?)
-      AND (c.end_at IS NULL OR c.end_at > ?)
-    ORDER BY c.priority DESC, c.updated_at DESC
-    LIMIT 1
-  `).bind(placementId, iso, iso).first<CampaignRow>();
+  let row: CampaignRow | null;
+  try {
+    row = await db.prepare(`
+      SELECT c.id, c.name, c.advertiser_name, c.status, c.start_at, c.end_at,
+        c.creative_image_url, c.creative_alt, c.headline, c.body_copy,
+        c.destination_url, c.priority, c.is_affiliate, c.admin_note
+      FROM monetization_campaigns c
+      INNER JOIN monetization_campaign_placements p ON p.campaign_id = c.id
+      WHERE p.placement_id = ?
+        AND c.status = 'active'
+        AND (c.start_at IS NULL OR c.start_at <= ?)
+        AND (c.end_at IS NULL OR c.end_at > ?)
+      ORDER BY c.priority DESC, c.updated_at DESC
+      LIMIT 1
+    `).bind(placementId, iso, iso).first<CampaignRow>();
+  } catch (error) {
+    if (String(error).includes("no such table") && String(error).includes("monetization_")) return null;
+    throw error;
+  }
   if (!row) return null;
   const campaign = rowToCampaign(row, [placementId]);
   if (!isCampaignActive(campaign, now)) return null;
