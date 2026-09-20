@@ -7,6 +7,12 @@ import type { DirectCampaign, PromotionRecord } from "@/lib/monetization-store";
 type Placement = { id: string; label: string; public: boolean };
 type InitialData = { placements: Placement[]; campaigns: DirectCampaign[]; promotions: PromotionRecord[] };
 
+function localDateTimeIso(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : value;
+}
+
 export function AdminMonetizationDashboard({ initialData }: { initialData: InitialData }) {
   const [data, setData] = useState(initialData);
   const [message, setMessage] = useState("");
@@ -46,8 +52,8 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
         destinationUrl: form.get("destinationUrl"),
         imageUrl: form.get("imageUrl"),
         imageAlt: form.get("imageAlt"),
-        startAt: form.get("startAt"),
-        endAt: form.get("endAt"),
+        startAt: localDateTimeIso(form.get("startAt")),
+        endAt: localDateTimeIso(form.get("endAt")),
         priority: form.get("priority"),
         isAffiliate: form.get("isAffiliate") === "on",
         placements,
@@ -69,8 +75,8 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
         kind: "promotion",
         entityType: form.get("entityType"),
         entityId: form.get("entityId"),
-        startAt: form.get("startAt"),
-        endAt: form.get("endAt"),
+        startAt: localDateTimeIso(form.get("startAt")),
+        endAt: localDateTimeIso(form.get("endAt")),
         priority: form.get("priority"),
         provenance: form.get("provenance"),
         adminNote: form.get("adminNote"),
@@ -99,7 +105,8 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
           <article key={campaign.id} className="admin-list-card">
             <strong>{campaign.name}</strong> · {campaign.advertiserName} · <code>{campaign.status}</code>
             <p>{campaign.headline} · {campaign.placements.join(", ")}</p>
-            <small>{campaign.startAt || "bez začiatku"} → {campaign.endAt || "bez konca"}</small>
+            <small>{campaign.startAt || "bez začiatku"} → {campaign.endAt || "bez konca"} · {campaign.impressions} zobrazení · {campaign.clicks} kliknutí</small>
+            <div><img src={campaign.imageUrl} alt={campaign.imageAlt} loading="lazy" width="180" /></div>
             <div className="admin-actions">
               <button type="button" onClick={() => setStatus("campaign", campaign.id, "active")}>Aktivovať</button>
               <button type="button" onClick={() => setStatus("campaign", campaign.id, "paused")}>Pozastaviť</button>
