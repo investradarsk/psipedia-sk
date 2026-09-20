@@ -18,6 +18,7 @@ import {
   matchAutomationCanonical,
   recordAutomationObservation,
   resolveAutomationSourceErrors,
+  resolveOtherAutomationSourceErrors,
   upsertAutomationFinding,
   type AutomationD1Database,
 } from "./data-automation-store.ts";
@@ -40,6 +41,8 @@ type SourceRunSummary = {
   checked: number;
   newFindings: number;
   updatedFindings: number;
+  newDataFindings: number;
+  sourceErrors: number;
   errors: number;
   nextCheckAt: string | null;
 };
@@ -118,6 +121,7 @@ async function createSourceErrorFinding(
     canonicalEntityId: null,
     payloadHash,
   });
+  await resolveOtherAutomationSourceErrors(source.id, fingerprint, detectedAt, database);
   const result = await upsertAutomationFinding({
     source,
     observationId: null,
@@ -233,6 +237,8 @@ async function runSource(
   let checked = 0;
   let newFindings = 0;
   let updatedFindings = 0;
+  let newDataFindings = 0;
+  let sourceErrors = 0;
   let errors = 0;
   let status: SourceRunSummary["status"] = "SUCCESS";
   let errorSummary: string | null = null;
@@ -249,8 +255,12 @@ async function runSource(
       try {
         const result = await processRecord(source, runId, record, detectedAt, options.database);
         if (result.finding) {
-          if (result.created || result.reopened) newFindings += 1;
-          else updatedFindings += 1;
+          if (result.created || result.reopened) {
+            newFindings += 1;
+            newDataFindings += 1;
+          } else {
+            updatedFindings += 1;
+          }
         }
       } catch (error) {
         errors += 1;
@@ -270,16 +280,22 @@ async function runSource(
       await resolveAutomationSourceErrors(source.id, detectedAt, options.database);
     } else {
       const sourceError = await safelyCreateSourceErrorFinding(source, errorSummary ?? "record_processing_failed", detectedAt, options.database);
-      if (sourceError?.created || sourceError?.reopened) newFindings += 1;
-      else if (sourceError) updatedFindings += 1;
+      if (sourceError) {
+        sourceErrors += 1;
+        if (sourceError.created || sourceError.reopened) newFindings += 1;
+        else updatedFindings += 1;
+      }
     }
   } catch (error) {
     errors += 1;
     status = "FAILED";
     errorSummary = safeErrorCode(error);
     const sourceError = await safelyCreateSourceErrorFinding(source, errorSummary, detectedAt, options.database);
-    if (sourceError?.created || sourceError?.reopened) newFindings += 1;
-    else if (sourceError) updatedFindings += 1;
+    if (sourceError) {
+      sourceErrors += 1;
+      if (sourceError.created || sourceError.reopened) newFindings += 1;
+      else updatedFindings += 1;
+    }
   }
 
   const completedAt = options.now ? new Date(options.now) : new Date();
@@ -303,6 +319,8 @@ async function runSource(
     checked,
     newFindings,
     updatedFindings,
+    newDataFindings,
+    sourceErrors,
     errors,
     nextCheckAt: health.nextCheckAt,
   };
@@ -325,7 +343,7 @@ export async function runDataAutomationSweep(options: DataAutomationSweepOptions
     );
   } catch (error) {
     if (missingAutomationSchema(error)) {
-      return { sources: 0, success: 0, partial: 0, failed: 0, checked: 0, newFindings: 0, updatedFindings: 0, errors: 0, schemaReady: false, runs: [] as SourceRunSummary[] };
+      return { sources: 0, success: 0, partial: 0, failed: 0, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 0, errors: 0, schemaReady: false, runs: [] as SourceRunSummary[] };
     }
     throw error;
   }
@@ -348,6 +366,8 @@ export async function runDataAutomationSweep(options: DataAutomationSweepOptions
         checked: 0,
         newFindings: 0,
         updatedFindings: 0,
+        newDataFindings: 0,
+        sourceErrors: 1,
         errors: 1,
         nextCheckAt: source.nextCheckAt,
       });
@@ -362,6 +382,8 @@ export async function runDataAutomationSweep(options: DataAutomationSweepOptions
     checked: runs.reduce((sum, run) => sum + run.checked, 0),
     newFindings: runs.reduce((sum, run) => sum + run.newFindings, 0),
     updatedFindings: runs.reduce((sum, run) => sum + run.updatedFindings, 0),
+    newDataFindings: runs.reduce((sum, run) => sum + run.newDataFindings, 0),
+    sourceErrors: runs.reduce((sum, run) => sum + run.sourceErrors, 0),
     errors: runs.reduce((sum, run) => sum + run.errors, 0),
     schemaReady: true,
     runs,
@@ -376,5 +398,6 @@ export async function runAutomationSourceNow(
   const source = await getAutomationSource(sourceId, options.database as AutomationD1Database);
   if (!source) throw new Error("automation_source_not_found");
   if (!source.enabled) throw new Error("automation_source_disabled");
+  if (source.reviewStatus !== "APPROVED") throw new Error("automation_source_review_required");
   return runSource(source, options);
 }

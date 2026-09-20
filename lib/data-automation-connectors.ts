@@ -30,10 +30,18 @@ export type AutomationConnectorContext = {
   fetchImpl?: AutomationFetch;
   htmlAdapters?: Record<string, ControlledHtmlAdapter>;
   sleep?: (ms: number) => Promise<void>;
-  onResponse?: (meta: { status: number; contentType: string | null; contentLength: number | null }) => void;
+  onResponse?: (meta: {
+    status: number;
+    contentType: string | null;
+    contentLength: number | null;
+    finalUrl: string;
+    redirectCount: number;
+  }) => void;
 };
 
 const MAX_SOURCE_BYTES = 1_000_000;
+const MAX_REDIRECT_HOPS = 3;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 function pathValue(value: unknown, path: string | undefined) {
   if (!path) return value;
@@ -83,10 +91,86 @@ function sourceRecordsFromPayload(payload: unknown, source: AutomationSource) {
   });
 }
 
+function classifyFetchFailure(error: unknown) {
+  const name = error instanceof Error ? error.name.toLowerCase() : "";
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  if (name.includes("timeout") || name === "aborterror" || /timed?\s*out|timeout/.test(message)) {
+    return new AutomationConnectorError("source_timeout", true);
+  }
+  if (/dns|name resolution|getaddrinfo|host not found|resolve host/.test(message)) {
+    return new AutomationConnectorError("source_dns_failed", true);
+  }
+  if (/tls|ssl|certificate|cert(?:ificate)? verify/.test(message)) {
+    return new AutomationConnectorError("source_tls_failed");
+  }
+  if (/connection|connect|socket|network|reset|econn/.test(message)) {
+    return new AutomationConnectorError("source_connection_failed", true);
+  }
+  return new AutomationConnectorError("source_request_failed", true);
+}
+
+function validateContentType(source: AutomationSource, contentType: string | null) {
+  if (!contentType) return;
+  const normalized = contentType.toLowerCase();
+  if (source.connectorType === "STRUCTURED_JSON") {
+    if (!normalized.includes("application/json") && !normalized.includes("+json")) {
+      throw new AutomationConnectorError("source_invalid_content_type");
+    }
+    return;
+  }
+  if (source.connectorType === "CONTROLLED_HTML"
+    && !normalized.includes("text/html")
+    && !normalized.includes("application/xhtml+xml")) {
+    throw new AutomationConnectorError("source_invalid_content_type");
+  }
+}
+
+function expectedMinimumRecords(source: AutomationSource) {
+  const configured = Number(source.config.expectedMinRecords ?? 0);
+  if (Number.isFinite(configured) && configured > 0) {
+    return Math.min(source.maxRecordsPerRun, Math.max(1, Math.floor(configured)));
+  }
+  if (source.config.htmlAdapterKey === "svps-shelters-register") return 10;
+  if (source.config.htmlAdapterKey === "skj-exhibition-calendar") return 1;
+  return 0;
+}
+
+function validateRecordCount(source: AutomationSource, records: AutomationSourceRecord[]) {
+  const expectedMinimum = expectedMinimumRecords(source);
+  if (expectedMinimum > 0 && records.length === 0) {
+    throw new AutomationConnectorError("adapter_no_records");
+  }
+  if (expectedMinimum > 0 && records.length < expectedMinimum) {
+    throw new AutomationConnectorError("adapter_record_count_below_minimum");
+  }
+}
+
 async function responseText(response: Response) {
-  const text = await response.text();
-  if (text.length > MAX_SOURCE_BYTES) throw new AutomationConnectorError("source_response_too_large");
-  return text;
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_SOURCE_BYTES) {
+    throw new AutomationConnectorError("source_response_too_large");
+  }
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_SOURCE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new AutomationConnectorError("source_response_too_large");
+      }
+      parts.push(decoder.decode(value, { stream: true }));
+    }
+    parts.push(decoder.decode());
+    return parts.join("");
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 async function fetchOnce(
@@ -97,31 +181,73 @@ async function fetchOnce(
   if (!source.sourceUrl || !isSafeAutomationSourceUrl(source.sourceUrl)) {
     throw new AutomationConnectorError("unsafe_or_missing_source_url");
   }
-  let response: Response;
-  try {
-    response = await fetchImpl(source.sourceUrl, {
-      headers: {
-        accept: source.connectorType === "STRUCTURED_JSON" ? "application/json" : "text/html,application/xhtml+xml",
-        "user-agent": "PsipediaDataResearch/1.0 (+https://psipedia.sk)",
-      },
-      signal: AbortSignal.timeout(source.timeoutMs),
-      redirect: "error",
+
+  const originalUrl = source.sourceUrl;
+  let currentUrl = originalUrl;
+  const seen = new Set<string>();
+  let redirectCount = 0;
+
+  while (true) {
+    const loopKey = canonicalizeSourceUrl(currentUrl) ?? currentUrl;
+    if (seen.has(loopKey)) throw new AutomationConnectorError("source_redirect_loop");
+    seen.add(loopKey);
+
+    let response: Response;
+    try {
+      response = await fetchImpl(currentUrl, {
+        headers: {
+          accept: source.connectorType === "STRUCTURED_JSON" ? "application/json" : "text/html,application/xhtml+xml",
+          "user-agent": "PsipediaDataResearch/1.0 (+https://psipedia.sk)",
+        },
+        signal: AbortSignal.timeout(source.timeoutMs),
+        redirect: "manual",
+      });
+    } catch (error) {
+      throw classifyFetchFailure(error);
+    }
+
+    const contentType = response.headers.get("content-type");
+    const declaredLengthHeader = response.headers.get("content-length");
+    const declaredLength = declaredLengthHeader === null ? null : Number(declaredLengthHeader);
+    onResponse?.({
+      status: response.status,
+      contentType,
+      contentLength: declaredLength !== null && Number.isFinite(declaredLength) && declaredLength >= 0 ? declaredLength : null,
+      finalUrl: currentUrl,
+      redirectCount,
     });
-  } catch {
-    throw new AutomationConnectorError("source_request_failed", true);
+
+    if (REDIRECT_STATUSES.has(response.status)) {
+      const location = response.headers.get("location");
+      if (!location) throw new AutomationConnectorError("source_redirect_invalid");
+      if (redirectCount >= MAX_REDIRECT_HOPS) throw new AutomationConnectorError("source_redirect_too_many");
+      let target: URL;
+      try {
+        target = new URL(location, currentUrl);
+      } catch {
+        throw new AutomationConnectorError("source_redirect_invalid");
+      }
+      if (!isSafeAutomationSourceUrl(target.toString())) {
+        throw new AutomationConnectorError("source_redirect_blocked");
+      }
+      await response.body?.cancel().catch(() => undefined);
+      currentUrl = target.toString();
+      redirectCount += 1;
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new AutomationConnectorError(
+        `source_http_${response.status}`,
+        shouldRetryAutomationStatus(response.status),
+      );
+    }
+    validateContentType(source, contentType);
+    if (declaredLength !== null && Number.isFinite(declaredLength) && declaredLength > MAX_SOURCE_BYTES) {
+      throw new AutomationConnectorError("source_response_too_large");
+    }
+    return { response, finalUrl: currentUrl };
   }
-  if (!response.ok) {
-    throw new AutomationConnectorError(
-      `source_http_${response.status}`,
-      shouldRetryAutomationStatus(response.status),
-    );
-  }
-  onResponse?.({
-    status: response.status,
-    contentType: response.headers.get("content-type"),
-    contentLength: Number(response.headers.get("content-length")) || null,
-  });
-  return response;
 }
 
 async function withRetry<T>(
@@ -152,7 +278,9 @@ export async function fetchAutomationSourceRecords(
   const sleep = context.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 
   return withRetry(source, async () => {
-    const response = await fetchOnce(source, fetchImpl, context.onResponse);
+    const fetched = await fetchOnce(source, fetchImpl, context.onResponse);
+    const response = fetched.response;
+    const effectiveSource = fetched.finalUrl === source.sourceUrl ? source : { ...source, sourceUrl: fetched.finalUrl };
     if (source.connectorType === "STRUCTURED_JSON") {
       const text = await responseText(response);
       let payload: unknown;
@@ -161,14 +289,25 @@ export async function fetchAutomationSourceRecords(
       } catch {
         throw new AutomationConnectorError("structured_json_invalid_json");
       }
-      return sourceRecordsFromPayload(payload, source);
+      return sourceRecordsFromPayload(payload, effectiveSource);
     }
 
     const adapterKey = source.config.htmlAdapterKey?.trim();
     const adapter = adapterKey ? context.htmlAdapters?.[adapterKey] : undefined;
     if (!adapter) throw new AutomationConnectorError("controlled_html_adapter_not_configured");
     const html = await responseText(response);
-    return boundedAutomationRecords(await adapter({ html, source }), source.maxRecordsPerRun);
+    let parsed: AutomationSourceRecord[];
+    try {
+      const result = await adapter({ html, source: effectiveSource });
+      if (!Array.isArray(result)) throw new Error("adapter_result_not_array");
+      parsed = result;
+    } catch (error) {
+      if (error instanceof AutomationConnectorError) throw error;
+      throw new AutomationConnectorError("adapter_parse_failed");
+    }
+    const records = boundedAutomationRecords(parsed, source.maxRecordsPerRun);
+    validateRecordCount(source, records);
+    return records;
   }, sleep);
 }
 

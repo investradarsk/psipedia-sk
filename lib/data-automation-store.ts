@@ -35,6 +35,7 @@ type SourceRow = {
   retry_backoff_ms: number;
   max_records_per_run: number;
   next_check_at: string | null;
+  review_status: "PENDING" | "APPROVED" | "REJECTED";
 };
 
 type FindingRow = {
@@ -127,6 +128,7 @@ function mapSource(row: SourceRow): AutomationSource {
     retryBackoffMs: Number(row.retry_backoff_ms),
     maxRecordsPerRun: Number(row.max_records_per_run),
     nextCheckAt: row.next_check_at,
+    reviewStatus: row.review_status,
   };
 }
 
@@ -137,9 +139,9 @@ export async function listDueAutomationSources(
 ) {
   const db = getDatabase(database);
   const result = await db.prepare(`SELECT id,source_key,label,entity_type,connector_type,source_url,config_json,enabled,
-    cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,next_check_at
+    cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,next_check_at,review_status
     FROM automation_sources
-    WHERE enabled = 1 AND (next_check_at IS NULL OR next_check_at <= ?)
+    WHERE enabled = 1 AND review_status = 'APPROVED' AND (next_check_at IS NULL OR next_check_at <= ?)
     ORDER BY COALESCE(next_check_at, created_at) ASC, id ASC
     LIMIT ?`).bind(now.toISOString(), Math.max(1, Math.min(20, limit))).all<SourceRow>();
   return result.results.map(mapSource);
@@ -148,7 +150,7 @@ export async function listDueAutomationSources(
 export async function getAutomationSource(id: number, database?: AutomationD1Database) {
   const db = getDatabase(database);
   const row = await db.prepare(`SELECT id,source_key,label,entity_type,connector_type,source_url,config_json,enabled,
-    cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,next_check_at
+    cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,next_check_at,review_status
     FROM automation_sources WHERE id = ? LIMIT 1`).bind(id).first<SourceRow>();
   return row ? mapSource(row) : null;
 }
@@ -454,11 +456,24 @@ export async function upsertAutomationFinding(input: {
   return { id: Number(row.id), created: true, reopened: false, reviewStatus: "NEW" as const };
 }
 
+export async function resolveOtherAutomationSourceErrors(
+  sourceId: number,
+  activeFingerprint: string,
+  at: string,
+  database?: AutomationD1Database,
+) {
+  const db = getDatabase(database);
+  await db.prepare(`UPDATE automation_findings SET review_status='RESOLVED',reviewer_decision='SOURCE_ERROR_REPLACED',
+    reviewed_at=?
+    WHERE source_id=? AND finding_type='SOURCE_ERROR' AND fingerprint<>?
+      AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED')`).bind(at, sourceId, activeFingerprint).run();
+}
+
 export async function resolveAutomationSourceErrors(sourceId: number, at: string, database?: AutomationD1Database) {
   const db = getDatabase(database);
   await db.prepare(`UPDATE automation_findings SET review_status='RESOLVED',reviewer_decision='SOURCE_RECOVERED',
     reviewed_at=?,last_detected_at=last_detected_at
-    WHERE source_id=? AND finding_type='SOURCE_ERROR' AND review_status IN ('NEW','IN_REVIEW')`).bind(at, sourceId).run();
+    WHERE source_id=? AND finding_type='SOURCE_ERROR' AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED')`).bind(at, sourceId).run();
 }
 
 export async function getAutomationFindingDetail(id: number, database?: AutomationD1Database): Promise<AutomationFindingDetail | null> {

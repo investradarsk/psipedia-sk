@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: Props) {
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Kontrolu sa nepodarilo spustiť.";
-    const status = /not_found/.test(message) ? 404 : /disabled/.test(message) ? 409 : 500;
+    const status = /not_found/.test(message) ? 404 : /(disabled|review_required)/.test(message) ? 409 : 500;
     return Response.json({ error: message }, { status });
   }
 }

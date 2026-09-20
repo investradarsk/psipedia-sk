@@ -164,7 +164,7 @@ test("8. source processing is bounded by maxRecordsPerRun", async () => {
         organizer: "Klub",
         city: "Nitra",
       })),
-    }), { status: 200 }),
+    }), { status: 200, headers: { "content-type": "application/json" } }),
   });
   assert.equal(rows.length, 2);
 });
