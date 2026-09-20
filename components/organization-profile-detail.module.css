@@ -324,3 +324,42 @@
     padding-block: var(--ps-space-section);
   }
 }
+
+
+/* UX-2A: reduce decorative variance while preserving the organization profile structure. */
+.hero {
+  padding-block: clamp(30px, 5vw, 48px);
+  border-block: 1px solid var(--ps-border-soft);
+  background: var(--cream);
+}
+
+.hero h1 {
+  font-size: clamp(2.3rem, 5vw, 4.25rem);
+  letter-spacing: -.035em;
+}
+
+.locationItem,
+.fundraisingCard,
+.adoptionCard {
+  border-radius: var(--ps-radius-card);
+}
+
+.locationItem,
+.fundraisingCard {
+  background: var(--white);
+}
+
+.adoptionCard {
+  box-shadow: var(--shadow-sm);
+}
+
+.fundraisingDetail,
+.adoptionReserved {
+  border-radius: var(--ps-radius-control);
+}
+
+@media (max-width: 620px) {
+  .hero {
+    padding-block: 28px;
+  }
+}
