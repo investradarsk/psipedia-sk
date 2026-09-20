@@ -53,10 +53,16 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   await expect(duplicateDialog.getByRole("alert")).toContainText("už pre rovnaký deň existuje");
   await duplicateDialog.getByRole("button", { name: "Zrušiť" }).click();
 
-  await page.goto("/");
-  await expect(page.getByText(/Psie meniny:/)).toHaveCount(0);
+  const publicPage = await page.context().newPage();
+  publicPage.on("pageerror", (error) => pageErrors.push(error.message));
+  if (testInfo.project.name === "desktop-chromium") {
+    await publicPage.setViewportSize({ width: 1800, height: 1000 });
+  } else {
+    await publicPage.setViewportSize({ width: 390, height: 844 });
+  }
+  await publicPage.goto("/");
+  await expect(publicPage.locator("body")).not.toContainText(uniqueName);
 
-  await page.goto("/admin/meniny");
   const row = page.getByRole("row").filter({ hasText: uniqueName });
   await row.getByRole("button", { name: "Upraviť" }).click();
   const editDialog = page.locator("dialog[open]");
@@ -69,26 +75,25 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   const publicPayload = await publicLookup.json() as { names?: string[] };
   expect(publicPayload.names).toContain(uniqueName);
 
+  await publicPage.reload();
   if (testInfo.project.name === "desktop-chromium") {
-    await page.setViewportSize({ width: 1800, height: 1000 });
-    await page.goto("/");
-    await expect(page.locator("[data-header-secondary]")).toBeVisible();
-    await expect(page.locator("[data-header-secondary]")).toContainText(uniqueName);
-    await expectAxeClean(page);
+    await expect(publicPage.locator("[data-header-secondary]")).toBeVisible();
+    await expect(publicPage.locator("[data-header-secondary]")).toContainText(uniqueName);
+    await expect(publicPage.locator("[data-mobile-name-day]")).toBeHidden();
   } else {
-    await page.goto("/");
-    await expect(page.getByText(uniqueName, { exact: true })).toBeHidden();
-    await expectAxeClean(page);
+    await expect(publicPage.locator("[data-mobile-name-day]")).toBeVisible();
+    await expect(publicPage.locator("[data-mobile-name-day]")).toContainText(uniqueName);
   }
+  await expectAxeClean(publicPage);
 
-  await page.goto("/admin/meniny");
   const publishedRow = page.getByRole("row").filter({ hasText: uniqueName });
   await publishedRow.getByRole("button", { name: "Archivovať" }).click();
   const confirm = page.locator("dialog[open]");
   await confirm.getByRole("button", { name: "Archivovať", exact: true }).click();
   await expect(page.getByText("Záznam bol archivovaný a nie je verejne eligible.")).toBeVisible();
 
-  await page.goto("/");
-  await expect(page.getByText(uniqueName, { exact: true })).toHaveCount(0);
+  await publicPage.reload();
+  await expect(publicPage.locator("body")).not.toContainText(uniqueName);
+  await publicPage.close();
   expect(pageErrors).toEqual([]);
 });

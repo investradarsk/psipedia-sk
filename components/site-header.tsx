@@ -235,7 +235,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
         <a className="skip-link" href="#obsah">Preskočiť na obsah</a>
       </nav>
       <header className="site-header" ref={headerRef}>
-        <div className="header-inner shell public-shell">
+        <div className={`header-inner shell public-shell ${styles.masthead}`} data-header-masthead>
           {menuButton(styles.mobileLeftTrigger)}
           <div className={styles.brandCluster}>
             <Link href="/" className="brand" aria-label="Psipedia.sk – domov" data-header-brand>
@@ -244,7 +244,29 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
             </Link>
           </div>
 
-          <nav className="desktop-nav" aria-label="Hlavná navigácia">
+          {dogNameDays.length > 0 ? (
+            <div className={styles.desktopNameDay} data-header-secondary>
+              <span>Psie meniny</span>
+              <strong>{dogNameDays.join(", ")}</strong>
+            </div>
+          ) : null}
+
+          <div className="header-actions">
+            <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
+            <button className="icon-button search-trigger" type="button" onClick={openSearch} aria-label="Otvoriť vyhľadávanie">
+              <SearchIcon />
+              <span>Hľadať</span>
+            </button>
+            <Link href="/oblubene" className="icon-button favorites-link" aria-label={`Obľúbené články${favoriteCount ? `: ${favoriteCount}` : ""}`}>
+              <BookmarkIcon />
+              {favoriteCount > 0 && <b>{favoriteCount}</b>}
+            </Link>
+            {menuButton(styles.menuRightTrigger)}
+          </div>
+        </div>
+
+        <div className={styles.desktopNavBand} data-header-nav-band>
+          <nav className={`desktop-nav ${styles.desktopNav}`} aria-label="Hlavná navigácia">
             {nav.map((item) => item.children.length ? (
               <div
                 className={`nav-group ${openDesktopMenu === item.id ? "is-open" : ""}`}
@@ -284,23 +306,14 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
               </div>
             ) : <Link href={item.href} className={item.className} title={item.title} key={item.id} data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</Link>)}
           </nav>
-
-          <div className="header-actions">
-            {dogNameDays.length > 0 ? (
-              <span className={styles.nameDay} data-header-secondary>Psie meniny: <strong>{dogNameDays.join(", ")}</strong></span>
-            ) : null}
-            <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
-            <button className="icon-button search-trigger" type="button" onClick={openSearch} aria-label="Otvoriť vyhľadávanie">
-              <SearchIcon />
-              <span>Hľadať</span>
-            </button>
-            <Link href="/oblubene" className="icon-button favorites-link" aria-label={`Obľúbené články${favoriteCount ? `: ${favoriteCount}` : ""}`}>
-              <BookmarkIcon />
-              {favoriteCount > 0 && <b>{favoriteCount}</b>}
-            </Link>
-            {menuButton(styles.menuRightTrigger)}
-          </div>
         </div>
+
+        {dogNameDays.length > 0 ? (
+          <div className={styles.mobileNameDay} data-mobile-name-day>
+            <span>Psie meniny</span>
+            <strong>{dogNameDays.join(", ")}</strong>
+          </div>
+        ) : null}
 
         <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell public-shell" aria-label="Mobilná navigácia">
