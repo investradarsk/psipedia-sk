@@ -85,6 +85,10 @@
   background: var(--sage-light);
 }
 
+.photoVisual {
+  border-radius: 0;
+}
+
 .headerVisual img {
   display: block;
   width: 100%;
@@ -282,7 +286,7 @@
   display: block;
   min-width: 0;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--sage-light);
 }
 
@@ -350,7 +354,7 @@
   display: block;
   min-width: 0;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--sage-light);
 }
 
