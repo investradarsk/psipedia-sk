@@ -118,7 +118,7 @@ test("article list contract keeps text minimal while allowing an optional thumbn
   assert.match(styles, /\.articleListMedia img\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
 });
 
-test("BRAND-1 keeps semantic palette aliases and a desktop-first header contract", () => {
+test("BRAND-1 keeps semantic palette aliases and HEADER-NAV-2 preserves the public navigation contract", () => {
   assert.match(globalStyles, /--brand-forest:\s*var\(--forest\)/);
   assert.match(globalStyles, /--brand-canvas:\s*var\(--cream\)/);
   assert.match(globalStyles, /--brand-accent:\s*var\(--coral\)/);
@@ -127,9 +127,12 @@ test("BRAND-1 keeps semantic palette aliases and a desktop-first header contract
   assert.match(siteHeader, /data-active=\{isPathActive/);
   assert.doesNotMatch(siteHeader, /⌄/u);
   assert.match(icons, /export function ChevronDownIcon/);
+  assert.match(siteHeader, /data-header-masthead/);
+  assert.match(siteHeader, /data-header-nav-band/);
+  assert.match(siteHeader, /data-mobile-name-day/);
   assert.match(siteHeaderStyles, /@media \(min-width: 1200px\)/);
+  assert.match(siteHeaderStyles, /\.desktopNavBand/);
   assert.match(siteHeaderStyles, /text-transform:\s*uppercase/);
-  assert.match(siteHeaderStyles, /width:\s*min\(calc\(100% - 32px\), 1500px\)/);
   assert.match(siteHeaderStyles, /--brand-accent-strong/);
   assert.match(siteHeaderStyles, /min-height:\s*49px/);
 });
@@ -188,10 +191,14 @@ test("PUBLIC-POLISH-2 event cards consume canonical preview images and keep an i
   assert.match(eventStyles, /\.eventCardWithImage[\s\S]*grid-template-columns:\s*78px 128px minmax\(0, 1fr\) auto/s);
 });
 
-test("PUBLIC-POLISH-2 desktop header begins navigation at the brand side while preserving the 1280 compression guard", () => {
-  assert.match(siteHeaderStyles, /justify-content:\s*flex-start;/);
-  assert.match(siteHeaderStyles, /@media \(min-width: 1200px\) and \(max-width: 1350px\)[\s\S]*?font-size:\s*\.66rem[\s\S]*?letter-spacing:\s*\.015em/s);
-  assert.match(siteHeaderStyles, /@media \(min-width: 1200px\) and \(max-width: 1350px\)[\s\S]*?padding-inline:\s*0/s);
+test("HEADER-NAV-2 separates the editorial masthead, forest navigation band and mobile name-day row", () => {
+  assert.match(siteHeaderStyles, /grid-template-columns:\s*max-content minmax\(220px, 1fr\) max-content/);
+  assert.match(siteHeaderStyles, /\.desktopNavBand\s*\{[\s\S]*?background:[\s\S]*?var\(--brand-forest\)/);
+  assert.match(siteHeaderStyles, /\.desktopNav[\s\S]*?min-height:\s*46px/);
+  assert.match(siteHeaderStyles, /\.desktopNameDay[\s\S]*?border-inline:/);
+  assert.match(siteHeaderStyles, /\.mobileNameDay\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);
+  assert.match(siteHeaderStyles, /@media \(min-width: 1200px\) and \(max-width: 1350px\)[\s\S]*?font-size:\s*\.68rem/);
+  assert.match(siteHeaderStyles, /@media \(max-width: 1199px\)[\s\S]*?\.mobileNameDay\s*\{\s*display:\s*flex;/);
 });
 
 
