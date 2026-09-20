@@ -76,6 +76,7 @@ test("public ad slot is labeled, responsive and does not reserve an empty placeh
   assert.match(slot, /aria-label=\{AD_LABEL\}/);
   assert.match(link, /noopener noreferrer sponsored/);
   assert.match(tracker, /analyticsConsentGranted/);
+  assert.match(tracker, /psipedia:consent-changed/);
   assert.doesNotMatch(tracker, /sessionStorage/);
   assert.match(css, /max-width: 560px/);
   assert.match(css, /minmax\(0, 1fr\)/);
@@ -89,5 +90,6 @@ test("migration separates campaigns, placements, promotions and privacy-consciou
   assert.match(sql, /CREATE TABLE monetization_promotions/);
   assert.match(sql, /CHECK \(label = 'Sponzorované'\)/);
   assert.match(sql, /CREATE TABLE monetization_events/);
+  assert.match(sql, /CREATE UNIQUE INDEX monetization_event_dedupe_idx/);
   assert.doesNotMatch(sql, /ip_address|user_agent|email/i);
 });
