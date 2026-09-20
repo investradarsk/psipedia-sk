@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AD_LABEL, SPONSORED_LABEL, type MonetizationStatus } from "@/lib/monetization";
+import { AD_LABEL, PROMOTABLE_ENTITY_TYPES, SPONSORED_LABEL, type MonetizationStatus } from "@/lib/monetization";
 import type { DirectCampaign, PromotionRecord } from "@/lib/monetization-store";
 
 type Placement = { id: string; label: string; public: boolean };
@@ -99,6 +99,7 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
           <article key={campaign.id} className="admin-list-card">
             <strong>{campaign.name}</strong> · {campaign.advertiserName} · <code>{campaign.status}</code>
             <p>{campaign.headline} · {campaign.placements.join(", ")}</p>
+            <small>{campaign.startAt || "bez začiatku"} → {campaign.endAt || "bez konca"}</small>
             <div className="admin-actions">
               <button type="button" onClick={() => setStatus("campaign", campaign.id, "active")}>Aktivovať</button>
               <button type="button" onClick={() => setStatus("campaign", campaign.id, "paused")}>Pozastaviť</button>
@@ -112,8 +113,8 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
           <label>Nadpis<input name="headline" required /></label>
           <label>Krátky text<input name="copy" /></label>
           <label>Cieľová URL<input name="destinationUrl" type="url" required /></label>
-          <label>Creative asset (/media/ alebo /images/)<input name="imageUrl" /></label>
-          <label>Alt text<input name="imageAlt" /></label>
+          <label>Creative asset (/media/ alebo /images/)<input name="imageUrl" required /></label>
+          <label>Alt text<input name="imageAlt" required /></label>
           <label>Začiatok<input name="startAt" type="datetime-local" /></label>
           <label>Koniec<input name="endAt" type="datetime-local" /></label>
           <label>Priorita<input name="priority" type="number" min="-100" max="100" defaultValue="0" /></label>
@@ -130,6 +131,7 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
         {data.promotions.length ? data.promotions.map((promotion) => (
           <article key={promotion.id} className="admin-list-card">
             <strong>{promotion.entityType}:{promotion.entityId}</strong> · <code>{promotion.status}</code>
+            <p>{promotion.startAt || "bez začiatku"} → {promotion.endAt || "bez konca"} · {SPONSORED_LABEL}</p>
             <div className="admin-actions">
               <button type="button" onClick={() => setStatus("promotion", promotion.id, "active")}>Aktivovať</button>
               <button type="button" onClick={() => setStatus("promotion", promotion.id, "paused")}>Pozastaviť</button>
@@ -138,7 +140,7 @@ export function AdminMonetizationDashboard({ initialData }: { initialData: Initi
           </article>
         )) : <p>Žiadne promotion záznamy.</p>}
         <form action={createPromotion} className="admin-form-grid">
-          <label>Canonical entity type<input name="entityType" placeholder="organization" required /></label>
+          <label>Canonical entity type<select name="entityType" required>{PROMOTABLE_ENTITY_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
           <label>Canonical entity ID<input name="entityId" required /></label>
           <label>Začiatok<input name="startAt" type="datetime-local" /></label>
           <label>Koniec<input name="endAt" type="datetime-local" /></label>
