@@ -188,8 +188,8 @@ export async function finishAutomationRun(input: {
     ),
     db.prepare(`UPDATE automation_sources SET last_checked_at=?,
       last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,
-      last_error_at=CASE WHEN ?='FAILED' THEN ? ELSE last_error_at END,
-      last_error_code=CASE WHEN ?='FAILED' THEN ? ELSE NULL END,
+      last_error_at=CASE WHEN ?='SUCCESS' THEN last_error_at ELSE ? END,
+      last_error_code=CASE WHEN ?='SUCCESS' THEN NULL ELSE ? END,
       next_check_at=?,updated_at=? WHERE id=?`).bind(
       completedIso,
       input.status, completedIso,
