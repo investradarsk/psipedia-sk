@@ -33,7 +33,7 @@ export default function CookiesPage() {
 
       <h2>Reklamné technológie tretích strán</h2>
       <p>Technická architektúra Psipedie umožňuje v budúcnosti zapnúť programmatic reklamu samostatnou konfiguráciou. Kým nie je táto integrácia nakonfigurovaná platným publisher identifikátorom, reklamný skript sa nenačíta. Ak bude integrácia zapnutá, načítanie third-party reklamného skriptu bude vyžadovať samostatnú voľbu reklamných cookies; samotný súhlas s analytikou na to nestačí.</p>
-      <p>Priame first-party kampane môžu byť vykreslené bez third-party reklamného skriptu. Taký obsah je na stránke jasne označený ako <strong>Reklama</strong>; zvýraznený canonical profil alebo listing ako <strong>Sponzorované</strong>.</p>
+      <p>Priame first-party kampane môžu byť vykreslené bez third-party reklamného skriptu. Taký obsah je na stránke jasne označený ako <strong>Reklama</strong>; zvýraznený canonical profil alebo listing ako <strong>Sponzorované</strong>. First-party meranie zobrazení a kliknutí sa odosiela iba pri povolenej analytike alebo reklamných cookies.</p>
 
       <h2>Prihlásenie a budúce používateľské účty</h2>
       <p>Redakčná administrácia môže používať nevyhnutné autentifikačné alebo bezpečnostné údaje. Ak Psipedia neskôr spustí účty pre veterinárov, salóny, trénerov alebo iných poskytovateľov, nevyhnutné údaje potrebné na prihlásenie, bezpečnosť a udržanie relácie budú patriť medzi technológie potrebné na používateľom vyžiadanú funkciu. Pred verejným spustením účtov tento dokument doplníme o konkrétne používané technológie.</p>
