@@ -36,6 +36,8 @@ export type DirectCampaign = {
   isAffiliate: boolean;
   adminNote: string;
   placements: AdPlacementId[];
+  impressions: number;
+  clicks: number;
 };
 
 export type PromotionRecord = {
@@ -69,7 +71,11 @@ function requiredDatabase() {
   return db;
 }
 
-function rowToCampaign(row: CampaignRow, placements: string[] = []): DirectCampaign {
+function rowToCampaign(
+  row: CampaignRow,
+  placements: string[] = [],
+  metrics: { impressions?: number; clicks?: number } = {},
+): DirectCampaign {
   return {
     id: row.id,
     name: row.name,
@@ -86,6 +92,8 @@ function rowToCampaign(row: CampaignRow, placements: string[] = []): DirectCampa
     isAffiliate: row.is_affiliate === 1,
     adminNote: row.admin_note,
     placements: placements.filter(isKnownPlacement),
+    impressions: metrics.impressions ?? 0,
+    clicks: metrics.clicks ?? 0,
   };
 }
 
@@ -115,7 +123,7 @@ export async function getActiveCampaignForPlacement(placementId: AdPlacementId, 
 
 export async function listMonetizationAdminData() {
   const db = requiredDatabase();
-  const [campaignRows, placementRows, promotionRows] = await Promise.all([
+  const [campaignRows, placementRows, promotionRows, metricRows] = await Promise.all([
     db.prepare(`SELECT id, name, advertiser_name, status, start_at, end_at, creative_image_url, creative_alt,
       headline, body_copy, destination_url, priority, is_affiliate, admin_note
       FROM monetization_campaigns ORDER BY updated_at DESC`).all<CampaignRow>(),
@@ -125,6 +133,10 @@ export async function listMonetizationAdminData() {
         id:string;entity_type:string;entity_id:string;status:MonetizationStatus;start_at:string|null;end_at:string|null;
         label:string;priority:number;provenance:string;admin_note:string;
       }>(),
+    db.prepare(`SELECT campaign_id,
+        SUM(CASE WHEN event_type = 'impression' THEN 1 ELSE 0 END) AS impressions,
+        SUM(CASE WHEN event_type = 'click' THEN 1 ELSE 0 END) AS clicks
+      FROM monetization_events GROUP BY campaign_id`).all<{campaign_id:string;impressions:number;clicks:number}>(),
   ]);
   const placementsByCampaign = new Map<string,string[]>();
   for (const row of placementRows.results ?? []) {
@@ -132,9 +144,15 @@ export async function listMonetizationAdminData() {
     items.push(row.placement_id);
     placementsByCampaign.set(row.campaign_id, items);
   }
+  const metricsByCampaign = new Map((metricRows.results ?? []).map((row) => [
+    row.campaign_id,
+    { impressions: Number(row.impressions) || 0, clicks: Number(row.clicks) || 0 },
+  ]));
   return {
     placements: Object.values(AD_PLACEMENTS),
-    campaigns: (campaignRows.results ?? []).map((row) => rowToCampaign(row, placementsByCampaign.get(row.id) ?? [])),
+    campaigns: (campaignRows.results ?? []).map((row) =>
+      rowToCampaign(row, placementsByCampaign.get(row.id) ?? [], metricsByCampaign.get(row.id)),
+    ),
     promotions: (promotionRows.results ?? [])
       .filter((row) => isPromotableEntityType(row.entity_type))
       .map((row) => ({
