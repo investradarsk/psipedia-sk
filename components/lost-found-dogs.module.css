@@ -7,3 +7,10 @@
 
 /* HELP-PUBLIC 2.0: canonical listing refinements */
 .foundation{min-width:0}.headerWrap{display:grid;gap:12px;margin-bottom:20px}.breadcrumbs{display:flex;flex-wrap:wrap;gap:7px;align-items:center;color:#637268;font-size:.78rem}.breadcrumbs a{color:#315b46;text-decoration:underline;text-underline-offset:.16em}.visualFallback{display:grid;width:64px;height:64px;place-items:center;border:1px solid #d3dfd7;border-radius:18px;background:rgba(255,255,255,.78);color:#315b46}.metaItem{display:inline-flex;align-items:center;gap:5px}.metaItem svg{flex:0 0 auto}.pagination a,.pagination span{min-width:44px;min-height:44px}.switcher a{min-height:44px}
+
+/* PUBLIC-POLISH-2 photo contract */
+.card,
+.detailImage,
+.gallery img {
+  border-radius: 0;
+}

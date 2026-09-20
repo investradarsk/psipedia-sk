@@ -251,6 +251,10 @@
     gap: 0;
   }
 
+  .brandCluster :global(.brand) {
+    margin-right: 0;
+  }
+
   .nameDay,
   :global(.site-header) :global(.header-contact-link),
   :global(.site-header) :global(.search-trigger) span {
@@ -260,8 +264,8 @@
   :global(.site-header) :global(.desktop-nav) {
     width: 100%;
     min-width: 0;
-    justify-content: space-between;
-    gap: clamp(0px, .14vw, 3px);
+    justify-content: flex-start;
+    gap: clamp(1px, .2vw, 4px);
     font-size: clamp(.66rem, .62vw, .72rem);
   }
 
@@ -325,8 +329,8 @@
 
 @media (min-width: 1800px) {
   .brandCluster {
-    grid-template-columns: max-content minmax(0, 190px);
-    gap: 12px;
+    grid-template-columns: max-content;
+    gap: 0;
   }
 
   .nameDay {

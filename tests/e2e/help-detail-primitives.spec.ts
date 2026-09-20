@@ -123,13 +123,11 @@ test("Admin Help keeps bulk selection page-scoped and publishes only the current
     });
   });
 
-  // Cookie consent is unrelated to this admin bulk-action contract and can mount
-  // late on mobile, covering the sticky action bar. Remove only the overlay in
-  // this isolated E2E before exercising the bulk publish interaction.
-  await page.locator(".cookie-consent").evaluate((element) => element.remove()).catch(() => {});
+  // Admin routes do not render the public cookie-consent overlay.
+  await expect(page.locator(".cookie-consent")).toHaveCount(0);
 
   const publishButton = page.getByRole("button", { name: "Publikovať", exact: true });
-  await publishButton.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await expect(publishButton).toBeVisible();
   await publishButton.click();
 
   const dialog = page.getByRole("dialog", { name: "Publikovať vybrané Help záznamy" });

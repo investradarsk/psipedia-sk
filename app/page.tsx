@@ -164,7 +164,6 @@ export default async function Home() {
             <h2 id="home-vets-title">Veterinárna starostlivosť na jednom mieste</h2>
             <p>Veterinárne ambulancie a kliniky na jednom mieste. Vyber si podľa mesta alebo kraja.</p>
           </div>
-          <Link href="/adresar/veterinari" className="text-link">Všetci veterinári <ArrowIcon size={17} /></Link>
         </div>
         {veterinarians.length ? (
           <div className="home-vet-list">
@@ -187,6 +186,9 @@ export default async function Home() {
             <p>Prehľadaj ambulancie a kliniky podľa mesta alebo kraja.</p>
           </div>
         )}
+        <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="veterinari">
+          <Link href="/adresar/veterinari" className="text-link">Všetci veterinári <ArrowIcon size={17} /></Link>
+        </div>
       </section>
 
       <HomeEditorialSection
@@ -228,7 +230,6 @@ export default async function Home() {
             <h2 id="home-help-title">Pomoc psom</h2>
             <p>Psy, organizácie a výzvy, ktoré práve potrebujú pomoc.</p>
           </div>
-          <Link href="/pomoc-psom" className="text-link">Všetky možnosti pomoci <ArrowIcon size={17} /></Link>
         </div>
         {activeHelpCases.length ? (
           <div className="home-help-grid">
@@ -262,6 +263,9 @@ export default async function Home() {
             <p>Pozri si všetky možnosti pomoci psom a organizáciám.</p>
           </div>
         )}
+        <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="pomoc">
+          <Link href="/pomoc-psom" className="text-link">Všetky možnosti pomoci <ArrowIcon size={17} /></Link>
+        </div>
       </section>
 
       {breedOfTheDay && (

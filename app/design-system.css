@@ -3,7 +3,7 @@
   --ps-radius-control: 12px;
   --ps-radius-filter: 18px;
   --ps-radius-card: 22px;
-  --ps-radius-media: 22px;
+  --ps-radius-media: 0;
   --ps-control-min-height: 44px;
   --ps-card-padding: 26px;
   --ps-heading-section: clamp(2.2rem, 4vw, 3.75rem);

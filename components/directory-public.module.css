@@ -512,3 +512,9 @@
     min-height: 44px;
   }
 }
+
+/* PUBLIC-POLISH-2 photo contract */
+.previewImage,
+.cardImage {
+  border-radius: 0;
+}

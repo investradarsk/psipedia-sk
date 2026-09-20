@@ -15,6 +15,18 @@ const siteHeader = readFileSync("components/site-header.tsx", "utf8");
 const siteHeaderStyles = readFileSync("components/site-header.module.css", "utf8");
 const globalStyles = readFileSync("app/globals.css", "utf8");
 const icons = readFileSync("components/icons.tsx", "utf8");
+const designSystem = readFileSync("app/design-system.css", "utf8");
+const homePage = readFileSync("app/page.tsx", "utf8");
+const homeEditorial = readFileSync("components/home-editorial.tsx", "utf8");
+const homeStyles = readFileSync("app/home-v2.module.css", "utf8");
+const eventCard = readFileSync("components/event-card.tsx", "utf8");
+const eventStyles = readFileSync("components/events-public.module.css", "utf8");
+const articleDetailStyles = readFileSync("components/article-detail.module.css", "utf8");
+const adoptionStyles = readFileSync("components/adoption.module.css", "utf8");
+const helpStyles = readFileSync("components/help-public.module.css", "utf8");
+const lostFoundStyles = readFileSync("components/lost-found-dogs.module.css", "utf8");
+const directoryStyles = readFileSync("components/directory-public.module.css", "utf8");
+
 
 test("public visual system exposes opt-in public-only foundation primitives", () => {
   for (const name of [
@@ -134,6 +146,52 @@ test("dog name day resolver uses Europe\/Bratislava boundaries and fails closed"
     { month: 9, day: 19, name: "", status: "published" },
     { month: 9, day: 19, name: "Draft", status: "draft" },
   ]), ["Bruno", "Bety"]);
+});
+
+
+test("PUBLIC-POLISH-2 keeps public photography square without flattening UI controls", () => {
+  assert.match(designSystem, /--ps-radius-media:\s*0;/);
+  assert.match(styles, /\.photoVisual\s*\{[^}]*border-radius:\s*0/s);
+  assert.match(styles, /\.articleListMedia\s*\{[^}]*border-radius:\s*0/s);
+  assert.match(styles, /\.contentMedia\s*\{[^}]*border-radius:\s*0/s);
+  assert.match(homeStyles, /\.homeV2 :global\(\.hero-card\)[\s\S]*?border-radius:\s*0/);
+  assert.match(articleDetailStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.midRelatedImage[\s\S]*?border-radius:\s*0/);
+  assert.match(adoptionStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.card\s*\{\s*border-radius:\s*0/);
+  assert.match(helpStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.card\s*\{\s*border-radius:\s*0/);
+  assert.match(lostFoundStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.detailImage[\s\S]*?border-radius:\s*0/);
+  assert.match(directoryStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.cardImage[\s\S]*?border-radius:\s*0/);
+  assert.match(styles, /\.action\s*\{[^}]*border-radius:\s*var\(--pv-radius-control/s);
+});
+
+test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
+  const editorialGrid = homeEditorial.indexOf('className="home-editorial-grid"');
+  const editorialCta = homeEditorial.indexOf('data-home-section-cta={testId}');
+  assert.ok(editorialGrid >= 0 && editorialCta > editorialGrid);
+
+  const latestLayout = homeEditorial.indexOf('className="home-latest-layout"');
+  const latestCta = homeEditorial.indexOf('data-home-section-cta="latest"');
+  assert.ok(latestLayout >= 0 && latestCta > latestLayout);
+
+  const vetList = homePage.indexOf('className="home-vet-list"');
+  const vetCta = homePage.indexOf('data-home-section-cta="veterinari"');
+  const helpGrid = homePage.indexOf('className="home-help-grid"');
+  const helpCta = homePage.indexOf('data-home-section-cta="pomoc"');
+  assert.ok(vetList >= 0 && vetCta > vetList);
+  assert.ok(helpGrid >= 0 && helpCta > helpGrid);
+});
+
+test("PUBLIC-POLISH-2 event cards consume canonical preview images and keep an image-free fallback layout", () => {
+  assert.match(eventCard, /event\.imageUrl \? styles\.eventCardWithImage/);
+  assert.match(eventCard, /data-event-has-image=\{event\.imageUrl \? "true" : "false"\}/);
+  assert.match(eventCard, /<img src=\{event\.imageUrl\} alt="" loading="lazy" decoding="async"/);
+  assert.match(eventStyles, /\.cardMedia\s*\{[^}]*border-radius:\s*0/s);
+  assert.match(eventStyles, /\.eventCardWithImage[\s\S]*grid-template-columns:\s*78px 128px minmax\(0, 1fr\) auto/s);
+});
+
+test("PUBLIC-POLISH-2 desktop header begins navigation at the brand side while preserving the 1280 compression guard", () => {
+  assert.match(siteHeaderStyles, /justify-content:\s*flex-start;/);
+  assert.match(siteHeaderStyles, /@media \(min-width: 1200px\) and \(max-width: 1350px\)[\s\S]*?font-size:\s*\.66rem[\s\S]*?letter-spacing:\s*\.015em/s);
+  assert.match(siteHeaderStyles, /@media \(min-width: 1200px\) and \(max-width: 1350px\)[\s\S]*?padding-inline:\s*0/s);
 });
 
 

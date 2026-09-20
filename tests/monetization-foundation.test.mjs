@@ -83,6 +83,13 @@ test("public ad slot is labeled, responsive and does not reserve an empty placeh
   assert.match(css, /overflow: clip/);
 });
 
+test("cookie consent stays off admin routes while remaining available publicly", async () => {
+  const consent = await readFile(new URL("../components/cookie-consent.tsx", import.meta.url), "utf8");
+  assert.match(consent, /const isAdminRoute = pathname\.startsWith\("\/admin"\)/);
+  assert.match(consent, /&& !isAdminRoute/);
+  assert.match(consent, /if \(isAdminRoute \|\| !ready \|\| !isOpen\) return null/);
+});
+
 test("migration separates campaigns, placements, promotions and privacy-conscious events", async () => {
   const sql = await readFile(new URL("../drizzle/0051_monetization_foundation.sql", import.meta.url), "utf8");
   assert.match(sql, /CREATE TABLE monetization_campaigns/);

@@ -14597,3 +14597,18 @@ a.breed-fci-path-node:focus-visible {
     width: 100%;
   }
 }
+
+/* PUBLIC-POLISH-2 photo contract: photography is square; controls and non-photo UI keep their radii. */
+.article-card,
+.breed-card {
+  border-radius: 0;
+}
+
+.article-hero-image,
+.article-block-image img,
+.article-block-gallery img,
+.breed-detail-image,
+.compare-breed-image,
+.breed-gallery figure {
+  border-radius: 0;
+}

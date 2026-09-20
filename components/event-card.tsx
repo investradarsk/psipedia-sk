@@ -36,12 +36,26 @@ export function EventCard({ event, today }: { event: DogEvent; today?: string })
   const statusLabel = event.cancelled ? "Zrušené" : dateStatus === "current" ? "Prebieha" : dateStatus === "past" ? "Ukončené" : null;
 
   return (
-    <article className={event.cancelled ? styles.cancelledCard : styles.eventCard} data-event-card data-event-status={event.cancelled ? "cancelled" : dateStatus}>
+    <article
+      className={[
+        event.cancelled ? styles.cancelledCard : styles.eventCard,
+        event.imageUrl ? styles.eventCardWithImage : "",
+      ].filter(Boolean).join(" ")}
+      data-event-card
+      data-event-has-image={event.imageUrl ? "true" : "false"}
+      data-event-status={event.cancelled ? "cancelled" : dateStatus}
+    >
       <time className={styles.dateBlock} dateTime={event.startDate} aria-label={formatEventDate(event)}>
         <strong>{day}</strong>
         <span>{month}</span>
         {endLabel && <small>{endLabel}</small>}
       </time>
+
+      {event.imageUrl ? (
+        <span className={styles.cardMedia} aria-hidden="true">
+          <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
+        </span>
+      ) : null}
 
       <div className={styles.cardBody}>
         <div className={styles.cardMeta}>

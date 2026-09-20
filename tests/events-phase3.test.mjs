@@ -49,15 +49,18 @@ test("default listing order keeps current and upcoming events ahead of past even
   assert.match(calendar, /result\.sort\(\(left, right\) => compareEvents\(left, right, today\)\)/);
 });
 
-test("event rows are compact, date-first and image-free on the listing", () => {
+test("event rows stay compact and date-first while using canonical preview images when available", () => {
   assert.match(eventCard, /<time className=\{styles\.dateBlock\}/);
   assert.match(eventCard, /endDateLabel\(event\)/);
   assert.match(eventCard, /Čas/);
   assert.match(eventCard, /Miesto/);
   assert.match(eventCard, /Organizátor/);
   assert.match(eventCard, /data-event-status/);
-  assert.doesNotMatch(eventCard, /event\.imageUrl|<img|PawMark/);
+  assert.match(eventCard, /event\.imageUrl \? styles\.eventCardWithImage/);
+  assert.match(eventCard, /<img src=\{event\.imageUrl\} alt="" loading="lazy" decoding="async"/);
+  assert.doesNotMatch(eventCard, /PawMark/);
   assert.match(eventsCss, /grid-template-columns:\s*78px minmax\(0, 1fr\) auto/);
+  assert.match(eventsCss, /\.eventCardWithImage[\s\S]*grid-template-columns:\s*78px 128px minmax\(0, 1fr\) auto/);
 });
 
 test("events keep shared public primitives while event-specific styles stay scoped", () => {

@@ -242,9 +242,6 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
               <span className="brand-mark"><PawMark size={29} /></span>
               <span>psi<span>pedia</span><small>.sk</small></span>
             </Link>
-            {dogNameDays.length > 0 ? (
-              <span className={styles.nameDay} data-header-secondary>Psie meniny: <strong>{dogNameDays.join(", ")}</strong></span>
-            ) : null}
           </div>
 
           <nav className="desktop-nav" aria-label="Hlavná navigácia">
@@ -289,6 +286,9 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
           </nav>
 
           <div className="header-actions">
+            {dogNameDays.length > 0 ? (
+              <span className={styles.nameDay} data-header-secondary>Psie meniny: <strong>{dogNameDays.join(", ")}</strong></span>
+            ) : null}
             <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
             <button className="icon-button search-trigger" type="button" onClick={openSearch} aria-label="Otvoriť vyhľadávanie">
               <SearchIcon />
