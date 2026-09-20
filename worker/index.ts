@@ -1,6 +1,7 @@
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
-import { runDataAutomationSweep } from "../lib/data-automation-runner";\nimport { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
+import { runDataAutomationSweep } from "../lib/data-automation-runner";
+import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
