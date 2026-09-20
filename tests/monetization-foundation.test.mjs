@@ -22,7 +22,8 @@ test("inactive, future and expired campaigns are not active", () => {
 
 test("active eligible campaign window is active and empty placement can remain empty", () => {
   assert.equal(isCampaignActive({ status: "active", startAt: "2026-09-20T10:00:00.000Z", endAt: "2026-09-21T10:00:00.000Z" }, now), true);
-  assert.equal(AD_PLACEMENTS.GLOBAL_BOTTOM.public, true);
+  assert.equal(AD_PLACEMENTS.HOME_BOTTOM.public, true);
+  assert.equal(AD_PLACEMENTS.GLOBAL_BOTTOM.public, false);
 });
 
 test("promoted unpublished entity does not render and sponsor label is fixed", () => {
