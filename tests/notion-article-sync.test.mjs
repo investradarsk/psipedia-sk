@@ -115,3 +115,12 @@ test("Notion image sync is idempotent and cleans up failed or replaced R2 object
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, prepared\.replacedKeys\)/);
   assert.match(syncSource, /JSON\.stringify\(\{ payload: basePayload, notionImageSourceUrl \}\)/);
 });
+
+
+test("Wikimedia image fetches use an identifiable user agent", () => {
+  assert.match(syncSource, /WIKIMEDIA_USER_AGENT = "PsipediaBot\/1\.0 \(https:\/\/psipedia\.sk\/kontakt\)"/);
+  assert.match(syncSource, /hostname\.endsWith\("\.wikimedia\.org"\)/);
+  assert.match(syncSource, /headers\.set\("User-Agent", WIKIMEDIA_USER_AGENT\)/);
+  assert.match(syncSource, /headers\.set\("Api-User-Agent", WIKIMEDIA_USER_AGENT\)/);
+  assert.match(syncSource, /headers: remoteImageHeaders\(url\)/);
+});
