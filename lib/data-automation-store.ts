@@ -13,8 +13,8 @@ import {
   type AutomationSource,
   type AutomationSourceConfig,
   type AutomationSourceRecord,
-} from "./data-automation";
-import { selectSafeAutomationMatch, type AutomationMatchCandidate } from "./data-automation-matching";
+} from "./data-automation.ts";
+import { selectSafeAutomationMatch, type AutomationMatchCandidate } from "./data-automation-matching.ts";
 
 export type AutomationD1Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
