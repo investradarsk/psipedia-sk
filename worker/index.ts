@@ -161,7 +161,14 @@ const worker = {
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
       runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
       runNotionEventSyncSweep({ database: env.DB, bindings: env }),
-      runDataAutomationSweep({ database: env.DB }),
+      runDataAutomationSweep({ database: env.DB }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "data_automation_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, errors: 1, schemaReady: true, runs: [] };
+      }),
     ]);
     console.info(JSON.stringify({
       event: "directory_inquiry_reminder_sweep",
