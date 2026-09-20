@@ -9,7 +9,7 @@
 .secondaryFilters,
 .secondaryFilters > label,
 .toolbar :global(.directory-search),
-.toolbar :global(.directory-search > div),
+.toolbar :global(.directory-search) > div,
 .toolbar :global(.directory-filter-actions) {
   min-width: 0;
   max-width: 100%;
