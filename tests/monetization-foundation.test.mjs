@@ -60,14 +60,17 @@ test("third-party programmatic loading requires explicit advertising consent and
 });
 
 test("public ad slot is labeled, responsive and does not reserve an empty placeholder", async () => {
-  const [slot, link, css] = await Promise.all([
+  const [slot, link, tracker, css] = await Promise.all([
     readFile(new URL("../components/ad-slot.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/tracked-ad-link.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/ad-exposure-tracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/ad-slot.module.css", import.meta.url), "utf8"),
   ]);
   assert.match(slot, /if \(!campaign\) return null/);
   assert.match(slot, /aria-label=\{AD_LABEL\}/);
   assert.match(link, /noopener noreferrer sponsored/);
+  assert.match(tracker, /analyticsConsentGranted/);
+  assert.doesNotMatch(tracker, /sessionStorage/);
   assert.match(css, /max-width: 560px/);
   assert.match(css, /minmax\(0, 1fr\)/);
   assert.match(css, /overflow: clip/);
