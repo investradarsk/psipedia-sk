@@ -231,7 +231,6 @@ export function AdminEventDashboard({ initialEvents }: { initialEvents: AdminEve
               disabled={!hydrated || busy || !rows.length}
               checked={pageAllSelected}
               ref={(node) => { if (node) node.indeterminate = pageSomeSelected; }}
-              aria-label="Vybrať všetky podujatia na tejto strane"
               onChange={(event) => {
                 const checked = event.target.checked;
                 setSelected((current) => {
