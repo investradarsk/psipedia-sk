@@ -200,9 +200,10 @@ test("execution route authenticates before database access and exposes no generi
   assert.doesNotMatch(execution, /payload\.(table|column|sql)/);
   assert.match(execution, /UPDATE managed_articles/);
   assert.match(execution, /WHERE id = \? AND status = \? AND updated_at = \?/);
+  assert.match(route, /request\.headers\.get\("origin"\) !== new URL\(request\.url\)\.origin/);
 });
 
-test("article execution UI requires preflight confirmation, reports partial result, clears selection and refreshes", () => {
+test("article execution UI requires preflight confirmation, reports partial result and preserves failed selection", () => {
   const source = readFileSync(new URL("../components/admin-bulk-selection.tsx", import.meta.url), "utf8");
   assert.match(source, /\/api\/admin\/bulk\/preflight/);
   assert.match(source, /\/api\/admin\/bulk\/execute/);
@@ -210,6 +211,7 @@ test("article execution UI requires preflight confirmation, reports partial resu
   assert.match(source, /execution\.counts\.updated/);
   assert.match(source, /execution\.counts\.skipped/);
   assert.match(source, /execution\.counts\.failed/);
-  assert.match(source, /clear\(\)/);
+  assert.match(source, /payload\.counts\.failed === 0\) clear\(\)/);
+  assert.match(source, /Časť zmien zlyhala\. Výber zostáva zachovaný/);
   assert.match(source, /window\.location\.reload\(\)/);
 });
