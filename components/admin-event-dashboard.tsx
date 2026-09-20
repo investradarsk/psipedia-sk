@@ -77,6 +77,8 @@ export function AdminEventDashboard({ initialEvents }: { initialEvents: AdminEve
   const rows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const years = [...new Set(events.map((event) => event.startDate.slice(0, 4)))].sort();
   const selectedEvents = events.filter((event) => selected.has(event.id));
+  const pageAllSelected = rows.length > 0 && rows.every((event) => selected.has(event.id));
+  const pageSomeSelected = rows.some((event) => selected.has(event.id)) && !pageAllSelected;
   const bulkValue: BulkValue = bulkField === "eventType" ? bulkType : bulkCancelled;
   const bulkTargets = selectedEvents.filter((event) => !matchesBulkValue(event, bulkField, bulkValue));
 
@@ -227,7 +229,9 @@ export function AdminEventDashboard({ initialEvents }: { initialEvents: AdminEve
             <input
               type="checkbox"
               disabled={!hydrated || busy || !rows.length}
-              checked={!!rows.length && rows.every((event) => selected.has(event.id))}
+              checked={pageAllSelected}
+              ref={(node) => { if (node) node.indeterminate = pageSomeSelected; }}
+              aria-label="Vybrať všetky podujatia na tejto strane"
               onChange={(event) => {
                 const checked = event.target.checked;
                 setSelected((current) => {
