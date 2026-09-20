@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { PublicActionLink, PublicFoundation } from "@/components/public-visual-system";
 import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, type DogEvent } from "@/lib/events";
 import styles from "./events-public.module.css";
 
@@ -37,6 +38,7 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
 
   return (
     <main id="obsah">
+      <PublicFoundation className={styles.foundation}>
       <header className={styles.detailHeader} data-event-detail-header>
         <PageContainer>
           <Breadcrumbs className={styles.breadcrumbs}>
@@ -76,8 +78,8 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
 
               {hasActions && (
                 <div className={styles.detailActions} aria-label="Odkazy podujatia">
-                  {event.registrationUrl && <a className="button button--coral" href={event.registrationUrl} target="_blank" rel="noreferrer">Registrácia <ArrowIcon size={18} /></a>}
-                  {event.websiteUrl && <a className={styles.officialLink} href={event.websiteUrl} target="_blank" rel="noreferrer">Oficiálna stránka <ArrowIcon size={17} /></a>}
+                  {event.registrationUrl && <PublicActionLink href={event.registrationUrl} target="_blank" rel="noreferrer" icon={<ArrowIcon size={18} />}>Registrácia</PublicActionLink>}
+                  {event.websiteUrl && <PublicActionLink href={event.websiteUrl} variant="secondary" target="_blank" rel="noreferrer" icon={<ArrowIcon size={17} />}>Oficiálna stránka</PublicActionLink>}
                 </div>
               )}
             </div>
@@ -128,6 +130,7 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
           </PageContainer>
         </section>
       )}
+      </PublicFoundation>
     </main>
   );
 }
