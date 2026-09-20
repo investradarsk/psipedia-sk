@@ -251,6 +251,10 @@
     gap: 0;
   }
 
+  .brandCluster :global(.brand) {
+    margin-right: 0;
+  }
+
   .nameDay,
   :global(.site-header) :global(.header-contact-link),
   :global(.site-header) :global(.search-trigger) span {
