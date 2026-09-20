@@ -88,7 +88,7 @@ async function responseText(response: Response) {
   return text;
 }
 
-async function fetchOnce(source: AutomationSource, fetchImpl: AutomationFetch) {
+async function fetchOnce(\n  source: AutomationSource,\n  fetchImpl: AutomationFetch,\n  onResponse?: AutomationConnectorContext["onResponse"],\n) {
   if (!source.sourceUrl || !isSafeAutomationSourceUrl(source.sourceUrl)) {
     throw new AutomationConnectorError("unsafe_or_missing_source_url");
   }
@@ -142,7 +142,7 @@ export async function fetchAutomationSourceRecords(
   const sleep = context.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 
   return withRetry(source, async () => {
-    const response = await fetchOnce(source, fetchImpl);
+    const response = await fetchOnce(source, fetchImpl, context.onResponse);
     if (source.connectorType === "STRUCTURED_JSON") {
       const text = await responseText(response);
       let payload: unknown;
