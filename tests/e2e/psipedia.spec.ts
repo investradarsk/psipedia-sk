@@ -239,7 +239,7 @@ test("article magazine detail is accessible and overflow-safe on desktop and 390
 test("@production homepage search, CTA and Plemeno dňa work without JS errors", async ({ page }) => {
   await expectHealthyPage(page, "/");
   await expect(page.locator("h1")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Všetky články/ })).toHaveAttribute("href", "/clanky");
+  await expect(page.locator("main#obsah").getByRole("link", { name: /Všetky články/ })).toHaveAttribute("href", "/clanky");
   const search = page.getByRole("search").filter({ has: page.locator("#home-search") });
   await search.locator("input[name=q]").fill("labrador");
   await Promise.all([
