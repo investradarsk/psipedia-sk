@@ -131,6 +131,21 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(await findArticleRowAcrossPages(page, "ADMIN-2E Published C")).toContainText("Koncept");
   });
 
+  test("bulk endpoint rejects a request without admin authentication", async ({ request }) => {
+    const response = await request.post("http://127.0.0.1:5173/api/admin/bulk/preflight", {
+      headers: {
+        origin: "http://127.0.0.1:5173",
+        "content-type": "application/json",
+      },
+      data: {
+        module: "articles",
+        action: "publish",
+        selection: { mode: "explicit", ids: [1], filter: {} },
+      },
+    });
+    expect(response.status()).toBe(401);
+  });
+
   test("selection, confirmation dialog and result controls stay keyboard-operable, axe-clean and overflow-free", async ({ page }) => {
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     const checkbox = page.getByLabel("Vybrať článok ADMIN-2E Draft A");
