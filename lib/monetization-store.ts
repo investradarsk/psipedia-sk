@@ -6,12 +6,15 @@ import {
   assertValidWindow,
   isCampaignActive,
   isKnownPlacement,
+  isPromotableEntityType,
+  isPromotionVisible,
   isSafeCreativeAsset,
   normalizeDateTime,
   normalizePriority,
   validateMonetizationEventInput,
   type AdPlacementId,
   type MonetizationStatus,
+  type PromotableEntityType,
 } from "./monetization";
 
 type RuntimeBindings = { DB?: D1Database };
@@ -36,7 +39,7 @@ export type DirectCampaign = {
 
 export type PromotionRecord = {
   id: string;
-  entityType: string;
+  entityType: PromotableEntityType;
   entityId: string;
   status: MonetizationStatus;
   startAt: string | null;
@@ -186,7 +189,7 @@ export async function createPromotion(payload: Record<string, unknown>, actor: s
   const db = requiredDatabase();
   const entityType = text(payload.entityType, 60);
   const entityId = text(payload.entityId, 120);
-  if (!entityType || !entityId) throw new Error("Doplň canonical typ a ID entity.");
+  if (!isPromotableEntityType(entityType) || !entityId) throw new Error("Doplň podporovaný canonical typ a ID entity.");
   const startAt = normalizeDateTime(payload.startAt);
   const endAt = normalizeDateTime(payload.endAt);
   assertValidWindow(startAt, endAt);
@@ -200,6 +203,41 @@ export async function createPromotion(payload: Record<string, unknown>, actor: s
     text(payload.provenance, 500), text(payload.adminNote, 1000), now, now, actor, actor,
   ).run();
   return id;
+}
+
+export async function getVisiblePromotionForEntity(
+  entityType: PromotableEntityType,
+  entityId: string,
+  entityPublic: boolean,
+  now = new Date(),
+) {
+  if (!entityPublic) return null;
+  const db = database();
+  if (!db) return null;
+  const iso = now.toISOString();
+  const row = await db.prepare(`SELECT id, entity_type, entity_id, status, start_at, end_at, label, priority, provenance, admin_note
+    FROM monetization_promotions
+    WHERE entity_type = ? AND entity_id = ? AND status = 'active'
+      AND (start_at IS NULL OR start_at <= ?)
+      AND (end_at IS NULL OR end_at > ?)
+    ORDER BY priority DESC, updated_at DESC LIMIT 1`)
+    .bind(entityType, entityId, iso, iso)
+    .first<{id:string;entity_type:string;entity_id:string;status:MonetizationStatus;start_at:string|null;end_at:string|null;label:string;priority:number;provenance:string;admin_note:string}>();
+  if (!row) return null;
+  const candidate = {
+    id: row.id,
+    entityType,
+    entityId: row.entity_id,
+    status: row.status,
+    startAt: row.start_at,
+    endAt: row.end_at,
+    label: row.label,
+    priority: row.priority,
+    provenance: row.provenance,
+    adminNote: row.admin_note,
+    entityPublic,
+  };
+  return isPromotionVisible(candidate, now) ? candidate : null;
 }
 
 export async function updatePromotionStatus(id: string, status: MonetizationStatus, actor: string) {
