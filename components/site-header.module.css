@@ -325,8 +325,8 @@
 
 @media (min-width: 1800px) {
   .brandCluster {
-    grid-template-columns: max-content minmax(0, 190px);
-    gap: 12px;
+    grid-template-columns: max-content;
+    gap: 0;
   }
 
   .nameDay {
