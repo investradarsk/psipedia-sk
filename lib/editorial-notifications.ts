@@ -2,18 +2,21 @@ import { env } from "cloudflare:workers";
 import type { ArticleFeedback } from "@/lib/article-feedback-store";
 import type { DirectoryProfileChangeRequest } from "@/lib/directory";
 import type { NewsTip } from "@/lib/news-tip";
+import type { AutomationFindingNotification } from "@/lib/data-automation";
 import {
   notifyDirectoryProfileChangeRequest,
   notifyNegativeArticleFeedback,
   notifyNewsTip,
+  notifyAutomationFinding,
   type EditorialEmailBindings,
 } from "@/lib/editorial-email";
 
 export type EditorialNotificationResourceType =
   | "directory_profile_change_request"
   | "news_tip"
-  | "article_feedback";
-type EditorialNotificationResource = DirectoryProfileChangeRequest | NewsTip | ArticleFeedback;
+  | "article_feedback"
+  | "automation_finding";
+type EditorialNotificationResource = DirectoryProfileChangeRequest | NewsTip | ArticleFeedback | AutomationFindingNotification;
 type RuntimeBindings = EditorialEmailBindings & { DB?: D1Database };
 type Options = { database?: D1Database; bindings?: EditorialEmailBindings; now?: Date };
 type OutboxRow = {
@@ -46,6 +49,7 @@ async function deliver(resourceType: EditorialNotificationResourceType, resource
   const options = { bindings, idempotencyKey: `editorial/${resourceType}/new/${resource.id}` };
   if (resourceType === "directory_profile_change_request") return notifyDirectoryProfileChangeRequest(resource as DirectoryProfileChangeRequest, options);
   if (resourceType === "news_tip") return notifyNewsTip(resource as NewsTip, options);
+  if (resourceType === "automation_finding") return notifyAutomationFinding(resource as AutomationFindingNotification, options);
   return notifyNegativeArticleFeedback(resource as ArticleFeedback, options);
 }
 
@@ -59,6 +63,16 @@ async function getOrCreate(database: D1Database, resourceType: EditorialNotifica
     .bind(resourceType, resourceId).first<OutboxRow>();
   if (!row) throw new Error("Editorial notification outbox záznam sa nepodarilo vytvoriť.");
   return row;
+}
+
+export async function enqueueEditorialNotification(
+  resourceType: EditorialNotificationResourceType,
+  resourceId: number,
+  options: Options = {},
+) {
+  const { database, now } = runtime(options);
+  const outbox = await getOrCreate(database, resourceType, resourceId, now.toISOString());
+  return { id: outbox.id, status: outbox.status };
 }
 
 export async function processEditorialNotification(
@@ -105,6 +119,23 @@ async function loadResource(database: D1Database, row: OutboxRow): Promise<Edito
     const value = await database.prepare("SELECT * FROM news_tips WHERE id = ? LIMIT 1").bind(row.resource_id).first<Record<string, unknown>>();
     if (!value) return null;
     return { id: Number(value.id), topic: String(value.topic), title: String(value.title), summary: String(value.summary), sourceUrl: value.source_url ? String(value.source_url) : null, location: String(value.location), eventDate: value.event_date ? String(value.event_date) : null, contactName: String(value.contact_name), contactEmail: value.contact_email ? String(value.contact_email) : null, status: String(value.status), internalNote: String(value.internal_note), consent: Boolean(value.consent), createdAt: String(value.created_at), updatedAt: String(value.updated_at) } as NewsTip;
+  }
+  if (row.resource_type === "automation_finding") {
+    const value = await database.prepare(`SELECT f.id,f.entity_type,f.finding_type,f.priority,f.source_url,
+      f.first_detected_at,f.review_status,s.label AS source_label
+      FROM automation_findings f JOIN automation_sources s ON s.id=f.source_id
+      WHERE f.id=? LIMIT 1`).bind(row.resource_id).first<Record<string, unknown>>();
+    if (!value || !["NEW", "IN_REVIEW"].includes(String(value.review_status))) return null;
+    return {
+      id: Number(value.id),
+      sourceLabel: String(value.source_label),
+      entityType: String(value.entity_type),
+      findingType: String(value.finding_type),
+      priority: String(value.priority),
+      sourceUrl: value.source_url ? String(value.source_url) : null,
+      detectedAt: String(value.first_detected_at),
+      reviewStatus: String(value.review_status),
+    } as AutomationFindingNotification;
   }
   const value = await database.prepare("SELECT id, article_path, article_title, helpful, missing_text, created_at FROM article_feedback WHERE id = ? LIMIT 1").bind(row.resource_id).first<Record<string, unknown>>();
   if (!value || Boolean(value.helpful)) return null;

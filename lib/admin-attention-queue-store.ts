@@ -3,6 +3,7 @@ import { ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {
   ADMIN_ATTENTION_SOURCE_LIMIT,
   mapAdoptionStaleAttention,
+  mapAutomationFindingAttention,
   mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
@@ -10,6 +11,7 @@ import {
   mapNewsTipAttention,
   sortAdminAttentionItems,
   type AdoptionStaleAttentionRow,
+  type AutomationFindingAttentionRow,
   type ArticleFeedbackAttentionRow,
   type DirectoryChangeRequestAttentionRow,
   type DirectoryInquiryAttentionRow,
@@ -118,13 +120,29 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(staleThreshold, ADMIN_ATTENTION_SOURCE_LIMIT).all<AdoptionStaleAttentionRow>();
 
-  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions] = await Promise.all([
+  const automationPromise = db.prepare(`
+    SELECT f.id, f.entity_type AS entityType, f.finding_type AS findingType, f.priority,
+      f.review_status AS reviewStatus, s.label AS sourceLabel, f.source_url AS sourceUrl,
+      f.first_detected_at AS firstDetectedAt, f.last_detected_at AS lastDetectedAt
+    FROM automation_findings f
+    JOIN automation_sources s ON s.id = f.source_id
+    ORDER BY
+      CASE WHEN f.review_status IN ('NEW','IN_REVIEW') THEN 0 ELSE 1 END,
+      CASE f.priority WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
+      CASE WHEN f.review_status IN ('NEW','IN_REVIEW') THEN f.first_detected_at END ASC,
+      CASE WHEN f.review_status NOT IN ('NEW','IN_REVIEW') THEN f.last_detected_at END DESC,
+      f.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
+
+  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, automation] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
     safeSourceResults("news_tips", newsTipsPromise),
     safeSourceResults("directory_change_requests", changeRequestsPromise),
     safeSourceResults("directory_inquiries", inquiriesPromise),
     safeSourceResults("article_feedback", feedbackPromise),
     safeSourceResults("adoption_stale", adoptionsPromise),
+    safeSourceResults("automation_findings", automationPromise),
   ]);
 
   return sortAdminAttentionItems([
@@ -134,5 +152,6 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...inquiries.map((row) => mapDirectoryInquiryAttention(row, now)),
     ...feedback.map((row) => mapArticleFeedbackAttention(row, now)),
     ...adoptions.map((row) => mapAdoptionStaleAttention(row, now)),
+    ...automation.map((row) => mapAutomationFindingAttention(row, now)),
   ]);
 }
