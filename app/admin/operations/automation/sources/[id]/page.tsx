@@ -30,10 +30,10 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
       <section className="admin-panel">
         <h2>Posledné runy</h2>
         {runs.length ? (
-          <div className="admin-change-table" role="table" aria-label="Source run history">
-            <div className="is-heading" role="row"><strong>Run</strong><strong>Výsledok</strong><strong>Observability</strong></div>
+          <div className="admin-change-table">
+            <div className="is-heading"><strong>Run</strong><strong>Výsledok</strong><strong>Observability</strong></div>
             {runs.map((run) => (
-              <div role="row" key={String(run.id)}>
+              <div key={String(run.id)}>
                 <strong>#{String(run.id)} · {String(run.status)}</strong>
                 <span>{String(run.started_at)} → {String(run.completed_at ?? "—")}</span>
                 <span>checked {String(run.checked_count)} · new {String(run.new_finding_count)} · updated {String(run.updated_finding_count)} · errors {String(run.error_count)} · {String(run.duration_ms ?? "—")} ms</span>
