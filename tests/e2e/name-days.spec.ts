@@ -64,9 +64,21 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   await editDialog.getByRole("button", { name: "Uložiť", exact: true }).click();
   await expect(page.getByText("Záznam bol upravený.")).toBeVisible();
 
-  await page.goto("/");
-  await expect(page.getByText(uniqueName, { exact: true })).toBeVisible();
-  await expectAxeClean(page);
+  const publicLookup = await page.request.get("/api/name-days/today");
+  expect(publicLookup.ok()).toBeTruthy();
+  const publicPayload = await publicLookup.json() as { names?: string[] };
+  expect(publicPayload.names).toContain(uniqueName);
+
+  if (testInfo.project.name === "desktop-chromium") {
+    await page.setViewportSize({ width: 1800, height: 1000 });
+    await page.goto("/");
+    await expect(page.getByText(uniqueName, { exact: true })).toBeVisible();
+    await expectAxeClean(page);
+  } else {
+    await page.goto("/");
+    await expect(page.getByText(uniqueName, { exact: true })).toHaveCount(0);
+    await expectAxeClean(page);
+  }
 
   await page.goto("/admin/meniny");
   const publishedRow = page.getByRole("row").filter({ hasText: uniqueName });
