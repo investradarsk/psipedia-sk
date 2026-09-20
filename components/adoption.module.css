@@ -2,3 +2,8 @@
 
 /* HELP-PUBLIC 2.0: opt-in refinements */
 .foundation{min-width:0}.headerWrap{display:grid;gap:12px;margin-bottom:20px}.organization{margin:0;color:#526158;font-size:.82rem}.organization a{color:#0f5a3a;font-weight:800;text-decoration:underline;text-underline-offset:.14em}.freshness{margin:0;color:#69766f;font-size:.75rem}.emptyIcon{display:grid;place-items:center;color:#315b46}.pagination a,.pagination span{min-height:44px}
+
+/* PUBLIC-POLISH-2 photo contract */
+.card {
+  border-radius: 0;
+}
