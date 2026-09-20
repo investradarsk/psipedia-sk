@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminAutomationFindingReview } from "@/components/admin-automation-finding-review";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { automationCanonicalAdminHref, automationCanonicalNewHref } from "@/lib/data-automation";
+import { automationCanonicalAdminHref, automationCanonicalNewHref, isSafeAutomationSourceUrl } from "@/lib/data-automation";
 import { getAutomationFindingDetail } from "@/lib/data-automation-store";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,7 @@ export default async function AutomationFindingPage({ params }: Props) {
 
   const canonicalHref = automationCanonicalAdminHref(finding.entityType, finding.canonicalEntityId);
   const newCanonicalHref = !canonicalHref && finding.reviewStatus === "APPROVED" ? automationCanonicalNewHref(finding.entityType) : null;
+  const safeSourceHref = finding.sourceUrl && isSafeAutomationSourceUrl(finding.sourceUrl) ? finding.sourceUrl : null;
   const differences = Object.entries(finding.diff);
 
   return (
@@ -66,7 +67,7 @@ export default async function AutomationFindingPage({ params }: Props) {
         </dl>
         <p>{finding.reason}</p>
         <div className="admin-form-actions">
-          {finding.sourceUrl && <a href={finding.sourceUrl} target="_blank" rel="noreferrer">Otvoriť verejný zdroj ↗</a>}
+          {safeSourceHref && <a href={safeSourceHref} target="_blank" rel="noreferrer">Otvoriť verejný zdroj ↗</a>}
           {canonicalHref && <Link href={canonicalHref}>Otvoriť canonical záznam</Link>}
           {newCanonicalHref && <Link href={newCanonicalHref}>Vytvoriť canonical koncept</Link>}
         </div>
