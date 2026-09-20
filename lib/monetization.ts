@@ -14,6 +14,8 @@ export const AD_PLACEMENTS = {
 export type AdPlacementId = (typeof AD_PLACEMENTS)[keyof typeof AD_PLACEMENTS]["id"];
 export type MonetizationStatus = "draft" | "active" | "paused" | "archived";
 export type MonetizationEventType = "impression" | "click";
+export const PROMOTABLE_ENTITY_TYPES = ["directory", "event", "help", "organization", "breed", "adoption"] as const;
+export type PromotableEntityType = (typeof PROMOTABLE_ENTITY_TYPES)[number];
 export type ConsentChoice = "necessary" | "analytics" | "advertising";
 
 export type CampaignWindow = {
@@ -26,6 +28,10 @@ export type PromotionWindow = CampaignWindow & {
   entityPublic: boolean;
   label?: string | null;
 };
+
+export function isPromotableEntityType(value: string): value is PromotableEntityType {
+  return (PROMOTABLE_ENTITY_TYPES as readonly string[]).includes(value);
+}
 
 export function isKnownPlacement(value: string): value is AdPlacementId {
   return Object.values(AD_PLACEMENTS).some((placement) => placement.id === value);
