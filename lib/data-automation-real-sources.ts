@@ -1,5 +1,5 @@
 import type { ControlledHtmlAdapter } from "./data-automation-connectors.ts";
-import { canonicalizeSourceUrl, normalizeAutomationIdentity } from "./data-automation.ts";
+import { canonicalizeSourceUrl, normalizeAutomationIdentity, type AutomationSourceRecord } from "./data-automation.ts";
 
 function decodeHtml(value: string) {
   return value
@@ -87,7 +87,7 @@ export function parseSlovakDateRange(value: string) {
 }
 
 export const skjExhibitionCalendarAdapter: ControlledHtmlAdapter = ({ html, source }) => {
-  const records = [];
+  const records: AutomationSourceRecord[] = [];
   for (const cells of htmlRows(html)) {
     if (cells.length < 3) continue;
     const city = cells[0]?.text.trim();
@@ -116,7 +116,7 @@ export const skjExhibitionCalendarAdapter: ControlledHtmlAdapter = ({ html, sour
 };
 
 export const svpsSheltersRegisterAdapter: ControlledHtmlAdapter = ({ html }) => {
-  const records = [];
+  const records: AutomationSourceRecord[] = [];
   for (const cells of htmlRows(html)) {
     if (cells.length < 8) continue;
     const approvalNumber = cells[0]?.text.trim();
