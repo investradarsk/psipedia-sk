@@ -100,6 +100,7 @@ async function fetchOnce(source: AutomationSource, fetchImpl: AutomationFetch) {
         "user-agent": "PsipediaDataResearch/1.0 (+https://psipedia.sk)",
       },
       signal: AbortSignal.timeout(source.timeoutMs),
+      redirect: "error",
     });
   } catch {
     throw new AutomationConnectorError("source_request_failed", true);
