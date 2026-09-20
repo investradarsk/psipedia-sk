@@ -148,7 +148,7 @@ test("server validation stores a separate request and never changes the profile"
   });
   delete runtimeEnv.EDITORIAL_EMAIL;
   globalThis.fetch = async (url, init) => {
-    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 1, "Resend is called only after INSERT");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, resendRequests.length + 1, "Resend is called only after INSERT");
     resendRequests.push({ url: String(url), init, body: JSON.parse(String(init.body)) });
     return Response.json({ id: "email-test-1" }, { status: 200 });
   };
@@ -190,9 +190,15 @@ test("server validation stores a separate request and never changes the profile"
   assert.match(resendRequests[0].body.text, /https:\/\/psipedia\.sk\/admin\/adresar\/navrhy#navrh-1/);
   assert.doesNotMatch(resendRequests[0].body.text, /proposed_data_json|Navrhované údaje/i);
 
-  const bot = await request(worker, d1, "/api/directory/profile-change-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...proposal(), company: "spam" }) });
-  assert.equal(bot.status, 201);
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 1);
+  const unexpectedField = await request(worker, d1, "/api/directory/profile-change-requests", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...proposal({ requesterEmail: "autofill@example.sk" }), company: "Autofill Company" }),
+  });
+  assert.equal(unexpectedField.status, 201);
+  assert.deepEqual(await unexpectedField.json(), { success: true });
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 2, "unexpected client fields must never produce a false-success without storing the request");
+  assert.equal(resendRequests.length, 2);
 });
 
 test("editorial notifications follow successful inserts and email failures never undo stored data", async () => {

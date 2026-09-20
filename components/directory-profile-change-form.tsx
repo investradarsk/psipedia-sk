@@ -20,7 +20,6 @@ export function DirectoryProfileChangeForm({ profile, initialData, specializedFi
   const [note, setNote] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [consent, setConsent] = useState(false);
-  const [company, setCompany] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -37,7 +36,7 @@ export function DirectoryProfileChangeForm({ profile, initialData, specializedFi
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           profileId: profile.id,
-          requesterName, requesterEmail, requesterPhone, requesterRole, note, authorized, consent, company,
+          requesterName, requesterEmail, requesterPhone, requesterRole, note, authorized, consent,
           proposedData: { ...data, services: servicesText.split("\n").map((item) => item.trim()).filter(Boolean) },
         }),
       });
@@ -100,7 +99,6 @@ export function DirectoryProfileChangeForm({ profile, initialData, specializedFi
           <label><span>Funkcia / vzťah k službe <small>nepovinné</small></span><select value={requesterRole} onChange={(event) => setRequesterRole(event.target.value)}><option value="">Vyberte možnosť</option><option value="majiteľ">Majiteľ</option><option value="zamestnanec">Zamestnanec</option><option value="správca webu">Správca webu</option><option value="iné">Iné</option></select></label>
         </div>
         <label className="directory-change-wide"><span>Poznámka k úprave</span><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={5} maxLength={3000} placeholder="Čo sa zmenilo, čo treba odstrániť alebo doplniť?" /></label>
-        <label className="directory-honeypot" aria-hidden="true"><span>Firma</span><input value={company} onChange={(event) => setCompany(event.target.value)} tabIndex={-1} autoComplete="off" /></label>
         <div className="directory-change-consents">
           <label><input type="checkbox" checked={authorized} onChange={(event) => setAuthorized(event.target.checked)} required /><span>Potvrdzujem, že som oprávnený/á navrhnúť úpravu údajov tohto profilu.</span></label>
           <label><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required /><span>Súhlasím so spracovaním uvedených osobných údajov na účely vybavenia návrhu. Viac v <Link href="/sukromie" target="_blank">zásadách ochrany osobných údajov</Link>.</span></label>
