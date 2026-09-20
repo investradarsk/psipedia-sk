@@ -363,3 +363,8 @@
     padding-block: 28px;
   }
 }
+
+/* PUBLIC-POLISH-2 photo contract */
+.adoptionCard {
+  border-radius: 0;
+}
