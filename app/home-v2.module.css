@@ -12,7 +12,7 @@
 }
 
 .homeV2 :global(.hero-card) {
-  border-radius: 24px;
+  border-radius: 0;
 }
 
 .homeV2 :global(.hero-copy) {
@@ -165,7 +165,7 @@
 .homeV2 :global(.home-latest-lead-link) {
   display: grid;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 0;
   background: var(--paper);
 }
 
@@ -226,7 +226,7 @@
   width: 112px;
   height: 78px;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: 0;
   background: var(--sage-light);
 }
 
@@ -337,7 +337,7 @@
   display: block;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  border-radius: 15px;
+  border-radius: 0;
   background: var(--sage-light);
 }
 
@@ -399,11 +399,15 @@
 .homeV2 :global(.home-vet-mark) {
   width: 50px;
   height: 50px;
-  border-radius: 50%;
 }
 
 .homeV2 :global(.home-vet-item img) {
+  border-radius: 0;
   object-fit: cover;
+}
+
+.homeV2 :global(.home-vet-mark) {
+  border-radius: 50%;
 }
 
 .homeV2 :global(.home-vet-mark) {
@@ -554,7 +558,7 @@
 .homeV2 :global(.home-breed-day) {
   min-height: 350px;
   grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr);
-  border-radius: 24px;
+  border-radius: 0;
 }
 
 .homeV2 :global(.home-breed-day > img),
