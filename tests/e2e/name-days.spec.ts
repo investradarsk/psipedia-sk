@@ -54,7 +54,8 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   await duplicateDialog.getByRole("button", { name: "Zrušiť" }).click();
 
   await page.goto("/");
-  await expect(page.getByText(/Psie meniny:/)).toHaveCount(0);
+  await expect(page.locator("[data-header-secondary]")).toHaveCount(0);
+  await expect(page.locator("[data-mobile-name-day]")).toHaveCount(0);
 
   await page.goto("/admin/meniny");
   const row = page.getByRole("row").filter({ hasText: uniqueName });
@@ -93,5 +94,7 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
 
   await page.goto("/");
   await expect(page.getByText(uniqueName, { exact: true })).toHaveCount(0);
+  await expect(page.locator("[data-header-secondary]")).toHaveCount(0);
+  await expect(page.locator("[data-mobile-name-day]")).toHaveCount(0);
   expect(pageErrors).toEqual([]);
 });
