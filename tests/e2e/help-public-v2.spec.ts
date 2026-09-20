@@ -130,10 +130,15 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   expect(item.category).toBe("docasna-opatera");
 
   const titleInput=page.getByLabel("Názov prípadu alebo výzvy");
+  await page.waitForFunction(() => {
+    const input = document.querySelector("#help-title");
+    return Boolean(input && Object.keys(input).some((key) => key.startsWith("__reactProps$")));
+  });
   await titleInput.fill("E2E Help Admin Created – upravený");
   await titleInput.press("Tab");
   await expect(titleInput).toHaveValue("E2E Help Admin Created – upravený");
   await page.getByRole("checkbox",{name:/Urgentné/}).check();
+  await expect(titleInput).toHaveValue("E2E Help Admin Created – upravený");
 
   // Persist the content edit first, then exercise publication separately. This
   // verifies both edit persistence and the DRAFT -> published lifecycle.
