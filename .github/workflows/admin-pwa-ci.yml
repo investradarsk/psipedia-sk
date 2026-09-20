@@ -1,0 +1,113 @@
+name: ADMIN-PWA-1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/layout.tsx"
+      - "app/admin/nastavenia/**"
+      - "app/api/admin/push/**"
+      - "app/layout.tsx"
+      - "app/manifest.ts"
+      - "components/admin-pwa*"
+      - "components/admin-shell.tsx"
+      - "lib/admin-push.ts"
+      - "lib/admin-web-push.ts"
+      - "public/pwa/**"
+      - "public/sw.js"
+      - "worker/index.ts"
+      - "drizzle/*admin_pwa*"
+      - "tests/admin-pwa.test.mjs"
+      - "tests/e2e/admin-pwa.spec.ts"
+      - ".env.example"
+      - "package.json"
+      - ".github/workflows/admin-pwa-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-pwa:
+    name: PWA contract, build, mobile Axe and offline safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+      - run: npm run test:admin-pwa
+      - run: npm run db:check-migrations
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+
+      - name: Configure CI-only local security keys
+        run: |
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'PII_HASH_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'WEB_PUSH_ENABLED=false\n'
+          } > .dev.vars
+
+      - name: Apply schema migrations to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/admin-pwa
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-pwa/server.log 2>&1 &
+          echo $! > .e2e-artifacts/admin-pwa/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/admin-pwa/server.log
+            exit 1
+          fi
+
+      - name: Run PWA mobile, Axe and offline E2E
+        run: npx playwright test tests/e2e/admin-pwa.spec.ts --workers=1 --retries=0
+
+      - name: Stop local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/admin-pwa/server.pid ]; then
+            kill "$(cat .e2e-artifacts/admin-pwa/server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-pwa-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/admin-pwa/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
