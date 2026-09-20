@@ -14,7 +14,7 @@ export default function CookiesPage() {
     <main id="obsah" className="prose-page legal-page">
       <span className="eyebrow">Tvoje zariadenie</span>
       <h1>Cookies a lokálne úložisko</h1>
-      <p className="lead">Psipedia.sk používa nevyhnutné technické údaje a lokálne úložisko. Google Analytics 4 sa spustí iba vtedy, keď návštevník analytiku výslovne povolí.</p>
+      <p className="lead">Psipedia.sk používa nevyhnutné technické údaje a lokálne úložisko. Google Analytics 4 sa spustí iba vtedy, keď návštevník analytiku výslovne povolí. Prípadné reklamné technológie tretích strán majú samostatný technický consent gate.</p>
 
       <h2>Nevyhnutné technológie</h2>
       <p>Hosting a bezpečnostná vrstva môžu používať krátkodobé technické cookies alebo obdobné údaje potrebné na doručenie stránky, ochranu pred zneužitím a bezpečnú prevádzku. Tieto technológie sa nepoužívajú na reklamné profilovanie.</p>
@@ -31,6 +31,10 @@ export default function CookiesPage() {
       <p>Pri povolenej analytike môžu byť spracúvané údaje o navštívenej stránke, čase návštevy, zariadení, prehliadači, približnej geografickej oblasti a interakciách. Nepoužívame Google Signals ani reklamné personalizačné signály.</p>
       <p>Po povolení môže Google Analytics používať analytické cookies, napríklad <code>_ga</code> a <code>_ga_*</code>.</p>
 
+      <h2>Reklamné technológie tretích strán</h2>
+      <p>Technická architektúra Psipedie umožňuje v budúcnosti zapnúť programmatic reklamu samostatnou konfiguráciou. Kým nie je táto integrácia nakonfigurovaná platným publisher identifikátorom, reklamný skript sa nenačíta. Ak bude integrácia zapnutá, načítanie third-party reklamného skriptu bude vyžadovať samostatnú voľbu reklamných cookies; samotný súhlas s analytikou na to nestačí.</p>
+      <p>Priame first-party kampane môžu byť vykreslené bez third-party reklamného skriptu. Taký obsah je na stránke jasne označený ako <strong>Reklama</strong>; zvýraznený canonical profil alebo listing ako <strong>Sponzorované</strong>.</p>
+
       <h2>Prihlásenie a budúce používateľské účty</h2>
       <p>Redakčná administrácia môže používať nevyhnutné autentifikačné alebo bezpečnostné údaje. Ak Psipedia neskôr spustí účty pre veterinárov, salóny, trénerov alebo iných poskytovateľov, nevyhnutné údaje potrebné na prihlásenie, bezpečnosť a udržanie relácie budú patriť medzi technológie potrebné na používateľom vyžiadanú funkciu. Pred verejným spustením účtov tento dokument doplníme o konkrétne používané technológie.</p>
 
@@ -39,7 +43,7 @@ export default function CookiesPage() {
       <p>Pri odvolaní súhlasu Psipedia zakáže ďalšie analytické meranie a pokúsi sa odstrániť analytické cookies vytvorené pre doménu Psipedia.sk.</p>
 
       <p>Ďalšie informácie o spracúvaní údajov sú v <Link href="/sukromie">zásadách ochrany osobných údajov</Link>.</p>
-      <p className="legal-updated">Aktualizované 12. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 20. septembra 2026.</p>
     </main>
   );
 }
