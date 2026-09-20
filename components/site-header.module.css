@@ -260,8 +260,8 @@
   :global(.site-header) :global(.desktop-nav) {
     width: 100%;
     min-width: 0;
-    justify-content: space-between;
-    gap: clamp(0px, .14vw, 3px);
+    justify-content: flex-start;
+    gap: clamp(1px, .2vw, 4px);
     font-size: clamp(.66rem, .62vw, .72rem);
   }
 
