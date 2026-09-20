@@ -166,17 +166,18 @@ test("shared selection UI covers current-page selection, indeterminate, count, c
   assert.match(source, /indeterminate=\{currentPageSomeSelected\}/);
   assert.match(source, /selectedCount/);
   assert.match(source, /Zrušiť výber/);
-  assert.match(source, /selectionState\.membershipFingerprint === membershipFingerprint/);
+  assert.match(source, /selectionState\.membershipFingerprint === viewFingerprint/);
+  assert.match(source, /page:\$\{pageIds\.join\(","\)\}/);
   assert.match(source, /sessionStorage\.setItem/);
 });
 
-test("article dashboard preserves explicit IDs across pagination but disables all-matching", () => {
+test("article dashboard scopes explicit IDs to the current view and disables all-matching", () => {
   const source = readFileSync(new URL("../components/admin-dashboard.tsx", import.meta.url), "utf8");
   assert.match(source, /module: "articles"/);
   assert.match(source, /membershipFingerprint/);
   assert.match(source, /supportsAllMatching: false/);
   assert.match(source, /supportsAllMatching=\{false\}/);
-  assert.doesNotMatch(source, /membershipFilter[\s\S]{0,160}\bpage\b/);
+  assert.doesNotMatch(source, /supportsAllMatching: true/);
 });
 
 test("article row selection uses native checkbox semantics and existing single-record actions remain", () => {
@@ -197,6 +198,7 @@ test("bulk preflight route denies unauthorized callers before database access", 
   assert.ok(authIndex >= 0);
   assert.ok(denyIndex > authIndex);
   assert.ok(databaseIndex > denyIndex);
+  assert.match(source, /request\.headers\.get\("origin"\) !== new URL\(request\.url\)\.origin/);
 });
 
 test("article mobile row contract gives checkbox its own shared grid column without changing business UI", () => {
