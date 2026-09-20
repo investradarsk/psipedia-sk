@@ -72,8 +72,11 @@ test("desktop homepage uses the HOME-3 hierarchy without editorial filler", asyn
   await expect(page.locator("[data-home-latest] .home-heading-actions")).toHaveCount(0);
   const latestCta = page.locator('[data-home-section-cta="latest"]');
   await expect(latestCta.getByRole("link", { name: /Všetky články/ })).toHaveAttribute("href", "/clanky");
-  const latestContent = page.locator("[data-home-latest] .home-latest-layout, [data-home-latest-empty]").first();
-  expect(await latestContent.evaluate((node, cta) => Boolean(node.compareDocumentPosition(cta as Node) & Node.DOCUMENT_POSITION_FOLLOWING), await latestCta.elementHandle())).toBe(true);
+  expect(await page.locator("[data-home-latest]").evaluate((section) => {
+    const content = section.querySelector(".home-latest-layout, [data-home-latest-empty]");
+    const cta = section.querySelector('[data-home-section-cta="latest"]');
+    return Boolean(content && cta && (content.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING));
+  })).toBe(true);
   await expect(page.locator("[data-home-latest]").getByRole("link", { name: /Všetky novinky/ })).toHaveCount(0);
 
   const hero = await page.locator("[data-home-hero] .hero-card").boundingBox();
