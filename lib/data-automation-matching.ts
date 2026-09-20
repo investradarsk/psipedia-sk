@@ -15,6 +15,7 @@ export type AutomationMatchCandidate = {
   importKey?: string | null;
   slug?: string | null;
   name?: string | null;
+  dogName?: string | null;
   category?: string | null;
   date?: string | null;
   organizer?: string | null;
@@ -93,10 +94,26 @@ function candidateMatch(
     ) return "STRONG_IDENTITY" as const;
   }
 
-  if (entityType === "ADOPTION" || entityType === "FOSTER") {
+  if (entityType === "ADOPTION") {
     if (
       sameIdentity(proposed.name, candidate.name)
       && sameIdentity(proposed.organizationName ?? proposed.organization, candidate.organizer)
+      && sameIdentity(proposed.city, candidate.city)
+    ) return "STRONG_IDENTITY" as const;
+  }
+
+  if (entityType === "FOSTER") {
+    if (
+      sameIdentity(proposed.dogName ?? proposed.name, candidate.dogName)
+      && sameIdentity(proposed.organizationName ?? proposed.organization, candidate.organizer)
+      && sameIdentity(proposed.city, candidate.city)
+    ) return "STRONG_IDENTITY" as const;
+  }
+
+  if (entityType === "HELP_ITEM") {
+    if (
+      sameIdentity(proposed.title, candidate.name)
+      && sameIdentity(proposed.organization, candidate.organizer)
       && sameIdentity(proposed.city, candidate.city)
     ) return "STRONG_IDENTITY" as const;
   }
