@@ -1,5 +1,5 @@
-import type { ControlledHtmlAdapter, AutomationFetch } from "./data-automation-connectors";
-import { AutomationConnectorError, fetchAutomationSourceRecords } from "./data-automation-connectors";
+import type { ControlledHtmlAdapter, AutomationFetch } from "./data-automation-connectors.ts";
+import { AutomationConnectorError, fetchAutomationSourceRecords } from "./data-automation-connectors.ts";
 import {
   automationFindingFingerprint,
   automationFindingPriority,
@@ -9,7 +9,7 @@ import {
   type AutomationFindingType,
   type AutomationSource,
   type AutomationSourceRecord,
-} from "./data-automation";
+} from "./data-automation.ts";
 import {
   beginAutomationRun,
   finishAutomationRun,
@@ -19,7 +19,7 @@ import {
   resolveAutomationSourceErrors,
   upsertAutomationFinding,
   type AutomationD1Database,
-} from "./data-automation-store";
+} from "./data-automation-store.ts";
 import { enqueueEditorialNotification } from "./editorial-notifications";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
