@@ -1,5 +1,6 @@
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
+import { runAdminPushSweep } from "../lib/admin-push";
 import { runDataAutomationSweep } from "../lib/data-automation-runner";
 import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
@@ -21,6 +22,10 @@ interface Env {
   ACCESS_AUD?: string;
   RESEND_API_KEY?: string;
   EDITORIAL_FROM_EMAIL?: string;
+  WEB_PUSH_ENABLED?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_BREED_SYNC_ENABLED?: string;
   NOTION_EVENT_SYNC_ENABLED?: string;
@@ -171,6 +176,17 @@ const worker = {
         return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 1, errors: 1, schemaReady: true, runs: [] };
       }),
     ]);
+    // Run push after the editorial sweep so notifications created during
+    // this cron can be delivered in the same scheduled execution.
+    const adminPush = await runAdminPushSweep({ database: env.DB, bindings: env }).catch((error) => {
+      console.error(JSON.stringify({
+        event: "admin_push_sweep",
+        result: "failed",
+        error: error instanceof Error ? error.message : String(error),
+      }));
+      return { configured: false, candidates: 0, sent: 0, failed: 1, dead: 0 };
+    });
+
     console.info(JSON.stringify({
       event: "directory_inquiry_reminder_sweep",
       ...summary,
@@ -180,6 +196,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
     console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
+    console.info(JSON.stringify({ event: "admin_push_sweep", ...adminPush }));
   },
 };
 
