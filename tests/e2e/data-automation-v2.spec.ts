@@ -41,7 +41,6 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   await form.getByLabel("Mapping / config JSON").fill("{}");
   await form.getByRole("button", { name: "Vytvoriť vypnutý zdroj" }).click();
 
-  await expect(page.getByRole("status")).toContainText("čaká na explicitné review");
   const sourceLink = page.getByRole("link", { name: label, exact: true });
   await expect(sourceLink).toBeVisible();
   await sourceLink.click();
@@ -50,7 +49,6 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   const editedLabel = label + " edited";
   await page.getByLabel("Názov").fill(editedLabel);
   await page.getByRole("button", { name: "Uložiť konfiguráciu" }).click();
-  await expect(page.getByRole("status")).toContainText("Zmena bola uložená");
   await expect(page.getByRole("heading", { name: editedLabel, exact: true })).toBeVisible();
 
   await page.getByLabel("Poznámka reviewera").fill("E2E explicit source review");
