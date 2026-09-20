@@ -60,6 +60,7 @@ test("homepage section CTAs follow their content and photo surfaces stay square"
   await expect(hero.locator("img.hero-image")).toBeVisible();
   expect(await hero.evaluate((node) => getComputedStyle(node).borderRadius)).toBe("0px");
   expect(await hero.locator("img.hero-image").evaluate((node) => getComputedStyle(node).borderRadius)).toBe("0px");
+  await page.screenshot({ path: ".e2e-artifacts/public-polish-v2/home-1440.png", fullPage: true });
 });
 
 test("desktop header is balanced and overflow-free at required widths", async ({ page }, testInfo) => {
@@ -87,6 +88,7 @@ test("desktop header is balanced and overflow-free at required widths", async ({
     expect(geometry!.navLeft - geometry!.brandRight, `navigation detached from brand at ${width}`).toBeLessThanOrEqual(24);
     expect(geometry!.navRight).toBeLessThanOrEqual(geometry!.actionsLeft + 1);
     expect(geometry!.actionsLeft).toBeLessThanOrEqual(geometry!.headerRight);
+    await page.locator(".site-header").screenshot({ path: `.e2e-artifacts/public-polish-v2/header-${width}.png` });
   }
 });
 
@@ -94,10 +96,18 @@ test("representative public routes fit 390px, preserve images, and are Axe-clean
   test.skip(testInfo.project.name !== "desktop-chromium", "Exact 390px matrix runs once.");
   await page.setViewportSize({ width: 390, height: 844 });
 
-  for (const path of ["/", "/clanky", "/podujatia", "/pomoc-psom", "/adresar"]) {
-    await gotoPublic(page, path);
-    await expectNoHorizontalOverflow(page, `${path} at 390px`);
-    await expectAxeSeriousCriticalClean(page, `${path} at 390px`);
+  const routes = [
+    { path: "/", label: "home" },
+    { path: "/clanky", label: "articles" },
+    { path: "/podujatia", label: "events" },
+    { path: "/pomoc-psom", label: "help" },
+    { path: "/adresar", label: "directory" },
+  ];
+  for (const route of routes) {
+    await gotoPublic(page, route.path);
+    await expectNoHorizontalOverflow(page, `${route.path} at 390px`);
+    await expectAxeSeriousCriticalClean(page, `${route.path} at 390px`);
+    await page.screenshot({ path: `.e2e-artifacts/public-polish-v2/${route.label}-390.png`, fullPage: true });
   }
 
   await gotoPublic(page, "/clanky");
