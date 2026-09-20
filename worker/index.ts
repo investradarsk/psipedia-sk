@@ -1,5 +1,6 @@
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
+import { runDataAutomationSweep } from "../lib/data-automation-runner";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
@@ -154,12 +155,20 @@ const worker = {
   },
 
   async scheduled(_controller: unknown, env: Env, _ctx: ExecutionContext): Promise<void> {
-    const [summary, editorial, notionArticles, notionBreeds, notionEvents] = await Promise.all([
+    const [summary, editorial, notionArticles, notionBreeds, notionEvents, dataAutomation] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
       runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
       runNotionEventSyncSweep({ database: env.DB, bindings: env }),
+      runDataAutomationSweep({ database: env.DB }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "data_automation_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, errors: 1, schemaReady: true, runs: [] };
+      }),
     ]);
     console.info(JSON.stringify({
       event: "directory_inquiry_reminder_sweep",
@@ -169,6 +178,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_article_sync_sweep", ...notionArticles }));
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
+    console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
   },
 };
 

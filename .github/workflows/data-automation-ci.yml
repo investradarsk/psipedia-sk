@@ -1,0 +1,47 @@
+name: Data automation foundation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/operations/**"
+      - "app/api/admin/automation-findings/**"
+      - "components/admin-automation-finding-review.tsx"
+      - "lib/data-automation*.ts"
+      - "lib/admin-attention-queue*.ts"
+      - "lib/editorial-email.ts"
+      - "lib/editorial-notifications.ts"
+      - "worker/index.ts"
+      - "drizzle/0050_data_automation_foundation.sql"
+      - "tests/data-automation.test.mjs"
+      - "tests/admin-attention-queue.test.mjs"
+      - ".github/workflows/data-automation-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: data-automation-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run db:check-migrations
+      - name: Focused automation and Attention Center tests
+        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/admin-attention-queue.test.mjs
+      - run: npm run build
