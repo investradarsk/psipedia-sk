@@ -109,10 +109,10 @@ export function AdminAutomationSourceManager({
       <section className="admin-panel">
         <h2>Zdroje</h2>
         {sources.length ? (
-          <div className="admin-change-table" role="table" aria-label="Automation sources">
-            <div className="is-heading" role="row"><strong>Zdroj</strong><strong>Stav</strong><strong>Health / next run</strong></div>
+          <div className="admin-change-table">
+            <div className="is-heading"><strong>Zdroj</strong><strong>Stav</strong><strong>Health / next run</strong></div>
             {sources.map((source) => (
-              <div role="row" key={source.id}>
+              <div key={source.id}>
                 <strong><Link href={`/admin/operations/automation/sources/${source.id}`}>{source.label}</Link><small> · {source.entityType} / {source.connectorType}</small></strong>
                 <span>{source.enabled ? "ENABLED" : "DISABLED"} · review {source.reviewStatus}</span>
                 <span>{source.lastRunStatus ?? "bez runu"} · errors {source.errorCount} · next {source.nextCheckAt ?? "—"}</span>
@@ -126,10 +126,10 @@ export function AdminAutomationSourceManager({
         <h2>Source candidates</h2>
         <p>Discovery vytvára iba <code>SOURCE_CANDIDATE</code>. Kandidát sa nestáva aktívnym zdrojom bez review.</p>
         {candidates.length ? (
-          <div className="admin-change-table" role="table" aria-label="Source candidates">
-            <div className="is-heading" role="row"><strong>Kandidát</strong><strong>Dôvod / match</strong><strong>Review</strong></div>
+          <div className="admin-change-table">
+            <div className="is-heading"><strong>Kandidát</strong><strong>Dôvod / match</strong><strong>Review</strong></div>
             {candidates.map((candidate) => (
-              <div role="row" key={candidate.id}>
+              <div key={candidate.id}>
                 <strong>{candidate.label}<small> · {candidate.discoveryType} · {candidate.entityType}</small><br /><a href={candidate.sourceUrl} target="_blank" rel="noreferrer">Otvoriť URL ↗</a></strong>
                 <span>{candidate.reason}<br /><small>{candidate.duplicateSourceId ? `Duplicitný source #${candidate.duplicateSourceId}` : "Bez priameho source matchu"}</small></span>
                 <span>
