@@ -76,7 +76,7 @@ export function PublicSectionHeader({
   className?: string;
 }) {
   const sideVisual = image ? (
-    <div className={styles.headerVisual}>
+    <div className={cx(styles.headerVisual, styles.photoVisual)}>
       <img src={image.src} alt={image.alt} decoding="async" />
     </div>
   ) : visual ? (
