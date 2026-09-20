@@ -33,7 +33,7 @@ test.describe("MONETIZATION-1 public foundation", () => {
     const response = await page.goto("/", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBeLessThan(400);
 
-    const slot = page.locator('[data-ad-placement="global_bottom"]');
+    const slot = page.locator('[data-ad-placement="home_bottom"]');
     await expect(slot).toBeVisible();
     await expect(slot.getByText("Reklama", { exact: true })).toBeVisible();
     const link = slot.getByRole("link", { name: /Reklama: Test reklamného placementu/ });
