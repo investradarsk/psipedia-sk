@@ -449,3 +449,8 @@
     font-size: 0.68rem;
   }
 }
+
+/* PUBLIC-POLISH-2 photo contract */
+.heroMedia {
+  border-radius: 0;
+}
