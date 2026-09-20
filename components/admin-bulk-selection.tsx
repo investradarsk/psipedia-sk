@@ -294,7 +294,7 @@ export function AdminBulkSelectionControls({
       const payload = await response.json() as ExecutionResult & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Hromadná zmena zlyhala.");
       setExecution(payload);
-      clear();
+      if (payload.counts.failed === 0) clear();
     } catch (executionError) {
       setError(executionError instanceof Error ? executionError.message : "Hromadná zmena zlyhala.");
     } finally {
@@ -369,7 +369,9 @@ export function AdminBulkSelectionControls({
                 {execution.failed.length > 0 && (
                   <ul>{execution.failed.map((item) => <li key={item.id}>ID {item.id}: zmena zlyhala</li>)}</ul>
                 )}
-                <span>Výber bol vyčistený. Po zatvorení sa zoznam obnoví.</span>
+                <span>{execution.counts.failed === 0
+                  ? "Výber bol vyčistený. Po zatvorení sa zoznam obnoví."
+                  : "Časť zmien zlyhala. Výber zostáva zachovaný na kontrolu; po zatvorení sa zoznam obnoví."}</span>
               </div>
             )}
           </div>
