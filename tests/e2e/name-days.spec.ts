@@ -50,7 +50,7 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   await duplicateDialog.getByLabel("Meno").fill(uniqueName);
   await duplicateDialog.getByLabel("Zdroj / proveniencia").fill("E2E duplicate check");
   await duplicateDialog.getByRole("button", { name: "Uložiť", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("už pre rovnaký deň existuje");
+  await expect(duplicateDialog.getByRole("alert")).toContainText("už pre rovnaký deň existuje");
   await duplicateDialog.getByRole("button", { name: "Zrušiť" }).click();
 
   await page.goto("/");
