@@ -4,7 +4,7 @@ import {
   type AutomationCanonicalMatch,
   type AutomationEntityType,
   type AutomationSourceRecord,
-} from "./data-automation";
+} from "./data-automation.ts";
 
 export type AutomationMatchCandidate = {
   id: number;
