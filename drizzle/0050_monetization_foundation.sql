@@ -34,7 +34,7 @@ CREATE TABLE monetization_promotions (
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'paused', 'archived')),
   start_at TEXT,
   end_at TEXT,
-  label TEXT NOT NULL DEFAULT 'Sponzorované',
+  label TEXT NOT NULL DEFAULT 'Sponzorované' CHECK (label = 'Sponzorované'),
   priority INTEGER NOT NULL DEFAULT 0,
   provenance TEXT NOT NULL DEFAULT '',
   admin_note TEXT NOT NULL DEFAULT '',
