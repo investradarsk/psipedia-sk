@@ -218,6 +218,7 @@ export function AdminDogNameDayDashboard({ initialRecords }: { initialRecords: D
         onClose={() => !saving && setEditorOpen(false)}
         footer={<><AdminActionButton variant="neutral" disabled={saving} onClick={() => setEditorOpen(false)}>Zrušiť</AdminActionButton><AdminActionButton variant="primary" disabled={saving} onClick={saveRecord}>{saving ? "Ukladám…" : "Uložiť"}</AdminActionButton></>}
       >
+        {error && <p className={styles.error} role="alert">{error}</p>}
         <div className={styles.formGrid}>
           <label>Mesiac<select value={form.month} onChange={(event) => setForm((current) => ({ ...current, month: Number(event.target.value) }))}>{MONTHS.map((label, index) => <option value={index + 1} key={label}>{label}</option>)}</select></label>
           <label>Deň<input type="number" min={1} max={31} value={form.day} onChange={(event) => setForm((current) => ({ ...current, day: Number(event.target.value) }))} /></label>
