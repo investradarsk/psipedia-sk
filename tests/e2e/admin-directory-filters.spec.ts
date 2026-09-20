@@ -121,9 +121,9 @@ test.describe("admin directory v2", () => {
     expect(rejectedCrossOrigin.status()).toBe(403);
 
     const firstRow = page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture" }).first();
-    const firstCheckbox = firstRow.locator('input[type="checkbox"]');
-    await firstCheckbox.check();
-    const selectedId = Number(await firstCheckbox.getAttribute("value"));
+    await firstRow.locator('input[type="checkbox"]').check();
+    const editHref = await firstRow.locator("a.admin-row-edit").getAttribute("href");
+    const selectedId = Number(editHref?.match(/\/admin\/adresar\/(\d+)/)?.[1]);
     expect(Number.isSafeInteger(selectedId)).toBeTruthy();
 
     const preflight = await page.request.post("/api/admin/bulk/preflight", {
