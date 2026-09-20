@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ConsentChoice } from "@/lib/monetization";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
 const SETTINGS_EVENT = "psipedia:open-cookie-settings";
+const CONSENT_EVENT = "psipedia:consent-changed";
 const MEASUREMENT_ID = "G-Z6KV64S2CK";
-
-type ConsentChoice = "necessary" | "analytics";
 
 type AnalyticsWindow = typeof window & {
   dataLayer?: unknown[];
@@ -102,7 +102,7 @@ function disableAnalytics() {
   }
 }
 
-export function CookieConsent() {
+export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabled?: boolean }) {
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -112,7 +112,7 @@ export function CookieConsent() {
 
   useEffect(() => {
     const stored = window.localStorage.getItem(CONSENT_KEY);
-    const choice: ConsentChoice | null = stored === "analytics" || stored === "necessary" ? stored : null;
+    const choice: ConsentChoice | null = stored === "analytics" || stored === "necessary" || stored === "advertising" ? stored : null;
     let mounted = true;
     queueMicrotask(() => {
       if (!mounted) return;
@@ -128,13 +128,14 @@ export function CookieConsent() {
   }, [openSettings]);
 
   useEffect(() => {
-    if (savedChoice === "analytics" && !pathname.startsWith("/admin")) {
+    if ((savedChoice === "analytics" || savedChoice === "advertising") && !pathname.startsWith("/admin")) {
       void sendPageView(pathname);
     }
   }, [pathname, savedChoice]);
 
   function saveChoice(choice: ConsentChoice) {
     window.localStorage.setItem(CONSENT_KEY, choice);
+    window.dispatchEvent(new Event(CONSENT_EVENT));
     setSavedChoice(choice);
     setIsOpen(false);
     if (choice === "necessary") disableAnalytics();
@@ -147,13 +148,14 @@ export function CookieConsent() {
       <div>
         <strong id="cookie-consent-title">Tvoje súkromie na Psipedii</strong>
         <p>
-          Nevyhnutné údaje používame na fungovanie a bezpečnosť webu. Google Analytics zapneme iba s tvojím súhlasom, aby sme vedeli, ktoré témy sú pre návštevníkov užitočné. <Link href="/cookies">Viac informácií</Link>
+          Nevyhnutné údaje používame na fungovanie a bezpečnosť webu. Google Analytics zapneme iba s tvojím súhlasom, aby sme vedeli, ktoré témy sú pre návštevníkov užitočné.{advertisingEnabled ? " Reklamné technológie tretích strán zapneme iba po samostatnej voľbe nižšie." : ""} <Link href="/cookies">Viac informácií</Link>
         </p>
-        {savedChoice && <small>Aktuálna voľba: {savedChoice === "analytics" ? "povolená analytika" : "iba nevyhnutné údaje"}.</small>}
+        {savedChoice && <small>Aktuálna voľba: {savedChoice === "advertising" ? "analytika a reklamné cookies" : savedChoice === "analytics" ? "povolená analytika" : "iba nevyhnutné údaje"}.</small>}
       </div>
       <div className="cookie-consent__actions">
         <button type="button" className="button button--light" onClick={() => saveChoice("necessary")}>Odmietnuť analytiku</button>
         <button type="button" className="button button--dark" onClick={() => saveChoice("analytics")}>Prijať analytiku</button>
+        {advertisingEnabled ? <button type="button" className="button button--dark" onClick={() => saveChoice("advertising")}>Prijať analytiku a reklamné cookies</button> : null}
       </div>
     </section>
   );
