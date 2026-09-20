@@ -37,10 +37,10 @@ INSERT OR IGNORE INTO `automation_sources` (
   'CONTROLLED_HTML',
   'https://skj.sk/sk/vystavy/kalendar/',
   '{"htmlAdapterKey":"skj-exhibition-calendar"}',
-  1,360,1500,8000,2,1000,100,NULL,
+  0,360,1500,8000,2,1000,100,NULL,
   '2026-09-20T18:15:00.000Z','2026-09-20T18:15:00.000Z',
-  'APPROVED','2026-09-20T18:15:00.000Z','AUTOMATION-2 source audit',
-  'Verejný oficiálny kalendár SKJ; nízkofrekvenčný read-only monitoring.'
+  'PENDING',NULL,NULL,
+  'Technicky overený verejný kalendár; ponechaný disabled, kým nie sú explicitne potvrdené podmienky opakovaného automatizovaného spracovania.'
 );
 
 INSERT OR IGNORE INTO `automation_sources` (
