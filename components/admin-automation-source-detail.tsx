@@ -45,7 +45,11 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
   const [preview, setPreview] = useState<Preview | null>(null);
   const [run, setRun] = useState<RunSummary | null>(null);
   const [notes, setNotes] = useState(source.reviewNotes ?? "");
-  const [form, setForm] = useState<{\n    sourceKey: string; label: string; entityType: string; connectorType: string; sourceUrl: string;\n    cadenceMinutes: string; throttleMs: string; timeoutMs: string; retryMaxAttempts: string; retryBackoffMs: string;\n    maxRecordsPerRun: string; config: string;\n  }>({
+  const [form, setForm] = useState<{
+    sourceKey: string; label: string; entityType: string; connectorType: string; sourceUrl: string;
+    cadenceMinutes: string; throttleMs: string; timeoutMs: string; retryMaxAttempts: string; retryBackoffMs: string;
+    maxRecordsPerRun: string; config: string;
+  }>({
     sourceKey: source.sourceKey,
     label: source.label,
     entityType: source.entityType,
