@@ -65,7 +65,7 @@ test.describe("public services search layout", () => {
 
   test("retains the desktop three-column search layout without overflow", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop layout contract");
-    await page.setViewportSize({ width: 1366, height: 900 });
+    await page.setViewportSize({ width: 1440, height: 900 });
 
     const response = await page.goto("/adresar", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
@@ -257,6 +257,143 @@ test.describe("public services search layout", () => {
 
     await expectNoHorizontalOverflow(page, "SERVICES-PUBLIC listing");
     await expectSeriousCriticalAxeClean(page, ".directory-results", "SERVICES-PUBLIC listing");
+  });
+
+
+  test("SERVICES-MOBILE-2 keeps search usable at 375, 390, 430 and tablet widths", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile-chromium", "Mobile and tablet responsive contract");
+
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 390, height: 844 },
+      { width: 430, height: 932 },
+      { width: 768, height: 1024 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const response = await page.goto("/adresar?category=veterinari&q=publikovana", { waitUntil: "domcontentloaded" });
+      expect(response?.status()).toBe(200);
+
+      const form = page.locator(".directory-main-search");
+      await expect(form).toBeVisible();
+      const formBox = await form.boundingBox();
+      expect(formBox).not.toBeNull();
+
+      const controlBoxes = await form.locator("select, input, button").evaluateAll((elements) => elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+      }));
+      for (const box of controlBoxes) {
+        expect(box.left).toBeGreaterThanOrEqual(formBox!.x - 1);
+        expect(box.right).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
+        expect(box.width).toBeGreaterThan(0);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+
+      await expectNoHorizontalOverflow(page, `/adresar ${viewport.width}px`);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/adresar", { waitUntil: "domcontentloaded" });
+    const form = page.locator(".directory-main-search");
+    await form.locator('select[name="category"]').selectOption("veterinari");
+    await form.locator('input[name="q"]').fill("publikovana");
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === "/adresar" && url.searchParams.get("category") === "veterinari" && url.searchParams.get("q") === "publikovana"),
+      form.getByRole("button", { name: "Hľadať" }).click(),
+    ]);
+    await expect(form.locator('select[name="category"]')).toHaveValue("veterinari");
+    await expect(form.locator('input[name="q"]')).toHaveValue("publikovana");
+    await expectNoHorizontalOverflow(page, "/adresar submitted mobile search");
+    await expectSeriousCriticalAxeClean(page, "main#obsah", "/adresar SERVICES-MOBILE-2");
+  });
+
+  test("SERVICES-MOBILE-2 contains long native control values and long result copy", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile-chromium", "Mobile overflow regression contract");
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const response = await page.goto("/adresar/veterinari", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+
+    const form = page.locator(".directory-results form").first();
+    await form.getByRole("button", { name: /^Filtre/ }).click();
+
+    const longValue = "VelmiDlhaLokalitaBezMedzierKtoraNesmieRozsiritSelectAniFormularMimoMobilnehoViewportu";
+    const city = form.locator('select[name="city"]');
+    await city.evaluate((element, value) => {
+      const select = element as HTMLSelectElement;
+      const option = document.createElement("option");
+      option.value = String(value);
+      option.textContent = String(value);
+      option.selected = true;
+      select.append(option);
+    }, longValue);
+    await form.locator('input[name="q"]').fill(longValue);
+
+    const firstCard = page.locator("[data-directory-card]").first();
+    if (await firstCard.count()) {
+      await firstCard.evaluate((card, value) => {
+        const title = card.querySelector("strong");
+        if (title) title.textContent = String(value);
+        const location = Array.from(card.querySelectorAll("span")).find((node) => node.textContent?.includes("·"));
+        if (location) location.textContent = String(value);
+      }, longValue);
+    }
+
+    const formBox = await form.boundingBox();
+    expect(formBox).not.toBeNull();
+    const visibleBoxes = await form.locator('input, select, button, a').evaluateAll((elements) => elements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+      })
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+      }));
+    for (const box of visibleBoxes) {
+      expect(box.left).toBeGreaterThanOrEqual(formBox!.x - 1);
+      expect(box.right).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
+      expect(box.width).toBeGreaterThan(0);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+
+    await expectNoHorizontalOverflow(page, "long mobile directory values");
+  });
+
+  test("SERVICES-MOBILE-2 preserves combined server-backed filters and reset", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile-chromium", "Mobile filter contract");
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const response = await page.goto("/adresar/veterinari?q=publikovana&region=Bratislavsk%C3%BD%20kraj&city=Bratislava&sort=name-asc", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+
+    const form = page.locator(".directory-results form").first();
+    await expect(form.locator('input[name="q"]')).toHaveValue("publikovana");
+    await form.getByRole("button", { name: /^Filtre/ }).click();
+    await expect(form.locator('select[name="region"]')).toHaveValue("Bratislavský kraj");
+    await expect(form.locator('select[name="city"]')).toHaveValue("Bratislava");
+    await expect(form.locator('select[name="sort"]')).toHaveValue("name-asc");
+
+    await Promise.all([
+      page.waitForURL((url) =>
+        url.pathname === "/adresar/veterinari" &&
+        url.searchParams.get("q") === "publikovana" &&
+        url.searchParams.get("region") === "Bratislavský kraj" &&
+        url.searchParams.get("city") === "Bratislava" &&
+        url.searchParams.get("sort") === "name-asc"
+      ),
+      form.getByRole("button", { name: "Zobraziť výsledky" }).click(),
+    ]);
+
+    await expectNoHorizontalOverflow(page, "combined services filters");
+    await expectSeriousCriticalAxeClean(page, ".directory-results", "combined services filters");
+
+    const reset = page.locator(".directory-results form").first().getByRole("link", { name: "Zrušiť filtre" });
+    await reset.click();
+    await expectDirectoryLocation(page, "/adresar/veterinari");
+    await expect(page.locator('.directory-results input[name="q"]').first()).toHaveValue("");
+    await expectNoHorizontalOverflow(page, "services filters reset");
   });
 
 });
