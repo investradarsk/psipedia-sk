@@ -68,6 +68,7 @@ type FindingRow = {
 export type AutomationFindingDetail = {
   id: number;
   sourceId: number;
+  observationId: number | null;
   sourceKey: string;
   sourceLabel: string;
   entityType: AutomationSource["entityType"];
@@ -464,7 +465,7 @@ export async function getAutomationFindingDetail(id: number, database?: Automati
     WHERE f.id=? LIMIT 1`).bind(id).first<FindingRow & { source_key: string; source_label: string }>();
   if (!row) return null;
   return {
-    id: Number(row.id), sourceId: Number(row.source_id), sourceKey: row.source_key, sourceLabel: row.source_label,
+    id: Number(row.id), sourceId: Number(row.source_id), observationId: row.observation_id, sourceKey: row.source_key, sourceLabel: row.source_label,
     entityType: row.entity_type, findingType: row.finding_type, canonicalEntityId: row.canonical_entity_id,
     canonicalEntityKey: row.canonical_entity_key, matchQuality: row.match_quality, sourceUrl: row.source_url,
     sourceTimestamp: row.source_timestamp, reason: row.reason, before: parseJson(row.before_json, {}),
