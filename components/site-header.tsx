@@ -4,7 +4,6 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { NavigationItem } from "@/lib/navigation";
-import { resolveDogNameDay } from "@/lib/dog-name-days";
 import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, ChevronDownIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
@@ -108,13 +107,29 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
   }, []);
 
   useEffect(() => {
-    function updateDogNameDay() {
-      const next = resolveDogNameDay(new Date());
-      setDogNameDays((current) => current.join("\u0000") === next.join("\u0000") ? current : next);
+    let active = true;
+    async function updateDogNameDay() {
+      try {
+        const response = await fetch("/api/name-days/today", { cache: "no-store" });
+        if (!response.ok) throw new Error("name-day lookup failed");
+        const payload = await response.json() as { names?: unknown };
+        const next = Array.isArray(payload.names)
+          ? payload.names.flatMap((value) => {
+              const name = typeof value === "string" ? value.trim() : "";
+              return name ? [name] : [];
+            })
+          : [];
+        if (active) setDogNameDays((current) => current.join("\u0000") === next.join("\u0000") ? current : next);
+      } catch {
+        if (active) setDogNameDays([]);
+      }
     }
-    updateDogNameDay();
-    const timer = window.setInterval(updateDogNameDay, 60_000);
-    return () => window.clearInterval(timer);
+    void updateDogNameDay();
+    const timer = window.setInterval(() => { void updateDogNameDay(); }, 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
