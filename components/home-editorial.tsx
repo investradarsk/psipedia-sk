@@ -39,9 +39,6 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
           <h2 id="home-latest-title">Najnovšie články</h2>
           <p>Nové články o zdraví, výcviku, šteniatkach a každodennom živote so psom.</p>
         </div>
-        <div className="home-heading-actions">
-          <Link href="/clanky" className="text-link">Všetky články <ArrowIcon size={17} /></Link>
-        </div>
       </div>
 
       {lead ? (
@@ -87,6 +84,9 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
           <p>Medzitým si môžeš pozrieť ďalšie témy a praktické rady na Psipedii.</p>
         </div>
       )}
+      <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="latest">
+        <Link href="/clanky" className="text-link">Všetky články <ArrowIcon size={17} /></Link>
+      </div>
     </section>
   );
 }
@@ -116,7 +116,6 @@ export function HomeEditorialSection({
           <h2 id={`home-${testId}-title`}>{title}</h2>
           <p>{description}</p>
         </div>
-        <Link href={href} className="text-link">{actionLabel} <ArrowIcon size={17} /></Link>
       </div>
 
       {articles.length ? (
@@ -145,6 +144,9 @@ export function HomeEditorialSection({
           <p>Ďalšie praktické články k tejto téme postupne pribúdajú.</p>
         </div>
       )}
+      <div className="home-section-cta home-section-cta--quiet" data-home-section-cta={testId}>
+        <Link href={href} className="text-link">{actionLabel} <ArrowIcon size={17} /></Link>
+      </div>
     </section>
   );
 }
