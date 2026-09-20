@@ -29,7 +29,7 @@ export type CanonicalArticleSubsection = {
 
 function articleCategoryForSubsection(portalSection: ArticlePortalSection, portalSubpage: string): CanonicalArticleCategory {
   if (portalSection === "starostlivost") {
-    if (portalSubpage === "zdravie") return "Zdravie";
+    if (portalSubpage === "zdravie" || portalSubpage === "srst-a-hygiena" || portalSubpage === "senior") return "Zdravie";
     if (portalSubpage === "vyziva") return "Výživa";
     if (portalSubpage === "vycvik") return "Výcvik";
     return "Život so psom";
