@@ -151,6 +151,12 @@ jobs:
           E2E_BASE_URL: http://localhost:5173
           PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
         run: node scripts/bootstrap-adoption-e2e.mjs
+      - name: UX-2A core public viewport matrix
+        id: public_ux2a
+        if: ${{ always() && steps.seed.outcome == 'success' && steps.help_detail_seed.outcome == 'success' }}
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/public-ux2a.spec.ts --grep-invert "Organizácia wraps" --project=desktop-chromium
       - name: HELP-PUBLIC Playwright + accessibility — desktop and mobile
         id: help_public
         if: ${{ always() && steps.lost_found_seed.outcome == 'success' && steps.help_detail_seed.outcome == 'success' && steps.adoption_seed.outcome == 'success' }}
