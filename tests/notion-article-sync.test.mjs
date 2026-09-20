@@ -7,6 +7,9 @@ const routeSource = await readFile(new URL("../app/api/admin/notion-sync/route.t
 const articleRouteSource = await readFile(new URL("../app/api/admin/articles/[id]/route.ts", import.meta.url), "utf8");
 const workerSource = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
 const migrationSource = await readFile(new URL("../drizzle/0044_notion_article_sync.sql", import.meta.url), "utf8");
+const taxonomySource = await readFile(new URL("../lib/article-subsection-taxonomy.ts", import.meta.url), "utf8");
+const portalSource = await readFile(new URL("../lib/portal.ts", import.meta.url), "utf8");
+const articleStoreSource = await readFile(new URL("../lib/article-store.ts", import.meta.url), "utf8");
 
 test("Ready Notion articles auto-flow into Psipedia as draft only", () => {
   assert.match(syncSource, /selectProperty\(page, "Stav"\) !== "Ready"/);
@@ -27,29 +30,67 @@ test("Notion query automatically scans Ready articles in the exact data source",
 });
 
 
-test("Notion editorial categories map to supported public article destinations", () => {
-  for (const category of ["Zdravie a starostlivosť", "Výživa", "Správanie", "Výcvik a aktivity", "Šteniatka"]) {
-    assert.ok(syncSource.includes(`"${category}": {`), `missing placement for ${category}`);
-  }
-  assert.match(syncSource, /portalSection: "starostlivost"/);
-  assert.match(syncSource, /portalSubpage: "zdravie"/);
-  assert.match(syncSource, /portalSubpage: "vyziva"/);
-  assert.match(syncSource, /portalSubpage: "spravanie"/);
-  assert.match(syncSource, /portalSection: "aktivity"/);
-  assert.match(syncSource, /portalSubpage: "trening"/);
-  assert.match(syncSource, /portalSection: "steniatka"/);
-  assert.match(syncSource, /contentType === "Aktuálna novinka"/);
-  assert.match(syncSource, /portalSection: "novinky"/);
-  assert.match(syncSource, /contentType === "Recenzia"/);
-  assert.match(syncSource, /portalSection: "recenzie"/);
+test("canonical Notion subsection mapping is explicit and sourced from public portal taxonomy", () => {
+  assert.match(syncSource, /selectProperty\(page, "Podsekcia"\)/);
+  assert.match(syncSource, /resolveCanonicalArticleSubsection\(notionCategory, notionSubsection\)/);
+  assert.match(taxonomySource, /getPortalSection/);
+  assert.match(taxonomySource, /getPortalSubpage/);
+  assert.match(taxonomySource, /NOTION_CANONICAL_SECTION_PORTALS/);
+  assert.match(taxonomySource, /"Zdravie a starostlivosť": "starostlivost"/);
+  assert.match(taxonomySource, /"Výcvik a aktivity": "aktivity"/);
+  assert.match(taxonomySource, /"Šteniatka": "steniatka"/);
 });
 
-test("unsupported editorial buckets do not invent non-article portal sections", () => {
-  for (const category of ["Plemená", "Pomoc psom", "Bezpečnosť", "Zaujímavosti"]) {
-    assert.ok(syncSource.includes(`"${category}": {`), `missing safe fallback for ${category}`);
+test("invalid Section and Subsection combinations fail closed without a generic fallback route", () => {
+  assert.match(taxonomySource, /Podsekcia „\$\{subsectionLabel\}“ nepatrí do sekcie „\$\{sectionLabel\}“/);
+  assert.match(syncSource, /Sync nevymyslí náhradnú route/);
+  assert.match(syncSource, /fail-closed/);
+  assert.match(syncSource, /nemá bezpečné canonical article mapping/);
+  assert.doesNotMatch(syncSource, /NOTION_CATEGORY_PLACEMENTS/);
+  assert.doesNotMatch(syncSource, /NOTION_CATEGORY_PLACEMENTS\[notionCategory\] \?\?/);
+});
+
+test("care subsection taxonomy covers hygiene, senior, nutrition and behaviour", () => {
+  for (const pair of [
+    ['slug: "vyziva"', 'label: "Výživa"'],
+    ['slug: "spravanie"', 'label: "Správanie"'],
+    ['slug: "srst-a-hygiena"', 'label: "Srsť a hygiena"'],
+    ['slug: "senior"', 'label: "Psí senior"'],
+  ]) {
+    assert.ok(portalSource.includes(pair[0]), `missing ${pair[0]}`);
+    assert.ok(portalSource.includes(pair[1]), `missing ${pair[1]}`);
   }
-  assert.doesNotMatch(syncSource, /portalSection: "plemena"/);
-  assert.doesNotMatch(syncSource, /portalSection: "pomoc-psom"/);
+  assert.match(taxonomySource, /portalSubpage === "vyziva"\) return "Výživa"/);
+  assert.match(taxonomySource, /portalSubpage === "vycvik"\) return "Výcvik"/);
+});
+
+test("legacy articles without Podsekcia keep only safe compatibility behaviour", () => {
+  assert.match(syncSource, /LEGACY_UNAMBIGUOUS_CATEGORY_PLACEMENTS/);
+  assert.match(syncSource, /"Výživa": \{[\s\S]*portalSubpage: "vyziva"/);
+  assert.match(syncSource, /"Správanie": \{[\s\S]*portalSubpage: "spravanie"/);
+  assert.match(syncSource, /preservedLegacyPlacement/);
+  assert.match(syncSource, /isCompatibleLegacyArticleSubsection/);
+  assert.match(syncSource, /Doplň v Notione Podsekciu pre sekciu/);
+});
+
+test("existing article URL is stable when only its subsection placement changes", () => {
+  assert.match(portalSource, /export function articleHref\(article: Pick<Article, "slug" \| "portalSection">\)/);
+  assert.match(portalSource, /return section === "clanky" \? `\/clanky\/\$\{article\.slug\}` : `\/\$\{section\}\/\$\{article\.slug\}`/);
+  const articleHrefBody = portalSource.slice(portalSource.indexOf("export function articleHref"), portalSource.indexOf("export function portalSectionLabel"));
+  assert.doesNotMatch(articleHrefBody, /portalSubpage/);
+});
+
+test("article routes reject collisions with subsection landing slugs", () => {
+  assert.match(articleStoreSource, /getPortalSubpage\(portalSection, slug\)/);
+  assert.match(articleStoreSource, /Túto adresu už používa podsekcia portálu/);
+});
+
+test("mapped Draft is loaded before placement resolution so a legacy missing subsection can preserve a valid route", () => {
+  const mappingLoad = syncSource.indexOf("const mapping = await loadMapping");
+  const existingLoad = syncSource.indexOf("existing = await getManagedArticleById", mappingLoad);
+  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, existing ?? undefined)", existingLoad);
+  assert.ok(mappingLoad >= 0 && existingLoad > mappingLoad && payloadBuild > existingLoad);
+  assert.match(syncSource, /existing\.status !== "draft"/);
 });
 
 test("sync is idempotent and writes status back to Notion", () => {
