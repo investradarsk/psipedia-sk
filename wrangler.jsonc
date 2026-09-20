@@ -28,7 +28,10 @@
     "NOTION_BREED_SYNC_ENABLED": "true",
     "NOTION_BREEDS_DATA_SOURCE_ID": "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2",
     "NOTION_EVENT_SYNC_ENABLED": "true",
-    "NOTION_EVENTS_DATA_SOURCE_ID": "76d9ccde-5816-422c-bcfe-863ab69db080"
+    "NOTION_EVENTS_DATA_SOURCE_ID": "76d9ccde-5816-422c-bcfe-863ab69db080",
+    "WEB_PUSH_ENABLED": "true",
+    "VAPID_PUBLIC_KEY": "BKBxq4nj9PdMNp5M9cABY6gjwsZRsuElHR_bECavAJjiuWN7cpPa3zvRqOqYmvFOLUqlWxCWM63MdEmqcfNZFQ8",
+    "VAPID_SUBJECT": "https://psipedia.sk"
   },
   "observability": {
     "enabled": true,
