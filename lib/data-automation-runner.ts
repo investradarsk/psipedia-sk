@@ -189,7 +189,7 @@ async function processRecord(
     diff: classified.diff,
     payloadHash: proposalHash,
     fingerprint,
-    reason: findingReason(classified.findingType, record, match.candidates),
+    reason: findingReason(classified.findingType, record, match.candidates ?? []),
     detectedAt,
   }, database);
 
@@ -246,13 +246,20 @@ async function runSource(
       }
     }
 
-    if (errors === 0) await resolveAutomationSourceErrors(source.id, detectedAt, options.database);
-    else await createSourceErrorFinding(source, errorSummary ?? "record_processing_failed", detectedAt, options.database);
+    if (errors === 0) {
+      await resolveAutomationSourceErrors(source.id, detectedAt, options.database);
+    } else {
+      const sourceError = await createSourceErrorFinding(source, errorSummary ?? "record_processing_failed", detectedAt, options.database);
+      if (sourceError.created || sourceError.reopened) newFindings += 1;
+      else updatedFindings += 1;
+    }
   } catch (error) {
     errors += 1;
     status = "FAILED";
     errorSummary = safeErrorCode(error);
-    await createSourceErrorFinding(source, errorSummary, detectedAt, options.database);
+    const sourceError = await createSourceErrorFinding(source, errorSummary, detectedAt, options.database);
+    if (sourceError.created || sourceError.reopened) newFindings += 1;
+    else updatedFindings += 1;
   }
 
   const completedAt = options.now ? new Date(options.now) : new Date();
