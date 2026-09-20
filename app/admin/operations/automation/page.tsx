@@ -37,7 +37,7 @@ export default async function AutomationOperationsPage() {
       eyebrow="Admin Operations"
       title="Automatický research"
       description="Zdrojové kontroly vytvárajú findings na review. Žiadny source connector nemá oprávnenie publikovať canonical obsah."
-      actions={<Link href="/admin/operations">Centrum pozornosti</Link>}
+      actions={<><Link href="/admin/operations/automation/sources">Správa zdrojov</Link><Link href="/admin/operations">Centrum pozornosti</Link></>}
     >
       {unavailable ? (
         <section className="admin-panel">
