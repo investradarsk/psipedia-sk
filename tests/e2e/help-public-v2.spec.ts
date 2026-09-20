@@ -130,17 +130,28 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   expect(item.category).toBe("docasna-opatera");
 
   const titleInput=page.getByLabel("Názov prípadu alebo výzvy");
+  await page.waitForFunction(() => {
+    const input = document.querySelector("#help-title");
+    return Boolean(input && Object.keys(input).some((key) => key.startsWith("__reactProps$")));
+  });
   await titleInput.fill("E2E Help Admin Created – upravený");
   await titleInput.press("Tab");
   await expect(titleInput).toHaveValue("E2E Help Admin Created – upravený");
   await page.getByRole("checkbox",{name:/Urgentné/}).check();
+  await expect(titleInput).toHaveValue("E2E Help Admin Created – upravený");
 
   // Persist the content edit first, then exercise publication separately. This
   // verifies both edit persistence and the DRAFT -> published lifecycle.
   await page.getByRole("button",{name:"Uložiť koncept"}).click();
   await expect(page.getByRole("status")).toContainText("Koncept");
-  api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
-  expect(item.status).toBe("draft");expect(item.urgent).toBe(true);expect(item.title).toContain("upravený");
+  await expect.poll(async () => {
+    api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
+    return {status:item.status,urgent:item.urgent,title:item.title};
+  }, {message:"Help draft edit did not persist"}).toEqual({
+    status:"draft",
+    urgent:true,
+    title:"E2E Help Admin Created – upravený",
+  });
 
   await page.getByRole("button",{name:"Publikovať prípad"}).click();
   await expect(page.getByRole("status")).toContainText("publikovaný");

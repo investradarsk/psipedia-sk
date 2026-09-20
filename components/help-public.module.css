@@ -68,3 +68,49 @@
 .empty button{min-height:44px;margin-top:5px;padding:0 14px;border:1px solid #bdcbc2;border-radius:10px;background:#fff;color:#174b38;font-weight:800}
 @media(max-width:960px){.categoryGrid,.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.checkbox{padding-left:0}}
 @media(max-width:650px){.shell{padding-left:14px;padding-right:14px}.headerWrap{padding-top:20px}.categorySection{padding-top:10px}.sectionHeading,.resultHeading{align-items:flex-start;flex-direction:column}.categoryGrid,.grid,.toolbar{grid-template-columns:1fr}.categoryCard{min-height:0}.reportBanner{align-items:flex-start;flex-direction:column}.resultsBand{padding-top:22px}.toolbar{padding:14px}.toolbar select,.searchBox{height:48px}.checkbox{min-height:44px}.cardAction{width:100%}}
+
+
+/* UX-2A: align local surfaces with the shared public visual contract. */
+.shell {
+  max-width: var(--ps-content-max);
+}
+
+.sectionHeading h2,
+.resultHeading h2,
+.empty h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  letter-spacing: -.02em;
+}
+
+.reportBanner,
+.toolbar,
+.card,
+.empty {
+  border-radius: var(--ps-radius-card);
+}
+
+.card {
+  border-color: var(--ps-border-soft);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.toolbar,
+.empty {
+  border-color: var(--ps-border-soft);
+  background: var(--white);
+}
+
+.searchBox,
+.toolbar select,
+.empty button {
+  border-radius: var(--ps-radius-control);
+}
+
+@media (max-width: 650px) {
+  .shell {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
