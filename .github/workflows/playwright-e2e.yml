@@ -121,6 +121,10 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: npm run e2e -- tests/e2e/public-navigation.spec.ts
+      - name: NAME-DAY-1 canonical calendar Playwright + accessibility
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/name-days.spec.ts
       - name: HOME-1 focused Playwright, accessibility and screenshots
         env:
           E2E_BASE_URL: http://localhost:5173

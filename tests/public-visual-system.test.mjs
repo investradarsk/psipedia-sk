@@ -126,10 +126,14 @@ test("dog name day resolver uses Europe\/Bratislava boundaries and fails closed"
   assert.equal(DOG_NAME_DAY_TIME_ZONE, "Europe/Bratislava");
   assert.equal(dogNameDayDateKey(new Date("2026-09-18T21:59:00Z")), "09-18");
   assert.equal(dogNameDayDateKey(new Date("2026-09-18T22:01:00Z")), "09-19");
-  assert.deepEqual(resolveDogNameDay(new Date("2026-09-19T10:00:00Z"), {}), []);
-  assert.deepEqual(resolveDogNameDay(new Date("2026-09-19T10:00:00Z"), {
-    "09-19": ["Bruno", " Bety ", "bruno", ""],
-  }), ["Bruno", "Bety"]);
+  assert.deepEqual(resolveDogNameDay(new Date("2026-09-19T10:00:00Z"), []), []);
+  assert.deepEqual(resolveDogNameDay(new Date("2026-09-19T10:00:00Z"), [
+    { month: 9, day: 19, name: "Bruno", status: "published" },
+    { month: 9, day: 19, name: " Bety ", status: "published" },
+    { month: 9, day: 19, name: "bruno", status: "published" },
+    { month: 9, day: 19, name: "", status: "published" },
+    { month: 9, day: 19, name: "Draft", status: "draft" },
+  ]), ["Bruno", "Bety"]);
 });
 
 
