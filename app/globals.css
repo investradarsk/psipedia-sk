@@ -14605,6 +14605,8 @@ a.breed-fci-path-node:focus-visible {
 }
 
 .article-hero-image,
+.article-block-image img,
+.article-block-gallery img,
 .breed-detail-image,
 .compare-breed-image,
 .breed-gallery figure {
