@@ -405,7 +405,11 @@
 
 @media (max-width: 620px) {
   .masthead {
-    width: min(100% - 24px, 520px);
+    width: min(100% - 32px, 520px);
+  }
+
+  :global(.site-header) :global(.mobile-menu) > :global(nav) {
+    width: min(100% - 32px, 520px);
   }
 
   .mobileNameDay {
