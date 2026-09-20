@@ -415,12 +415,13 @@ export async function upsertAutomationFinding(input: {
   const existing = await db.prepare(`SELECT * FROM automation_findings WHERE fingerprint=? LIMIT 1`)
     .bind(input.fingerprint).first<FindingRow>();
   if (existing) {
-    const reopen = shouldReopenSuppressedFinding({
-      reviewStatus: existing.review_status,
-      suppressedUntil: existing.suppressed_until,
-      now: new Date(input.detectedAt),
-      payloadChanged: false,
-    });
+    const reopen = (input.findingType === "SOURCE_ERROR" && existing.review_status === "RESOLVED")
+      || shouldReopenSuppressedFinding({
+        reviewStatus: existing.review_status,
+        suppressedUntil: existing.suppressed_until,
+        now: new Date(input.detectedAt),
+        payloadChanged: false,
+      });
     const reviewStatus = reopen ? "NEW" : existing.review_status;
     await db.prepare(`UPDATE automation_findings SET observation_id=?,source_url=?,source_timestamp=?,
       last_detected_at=?,review_status=?,reviewer_decision=CASE WHEN ? THEN NULL ELSE reviewer_decision END,
