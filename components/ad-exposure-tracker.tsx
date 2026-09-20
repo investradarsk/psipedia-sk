@@ -29,6 +29,7 @@ export function AdExposureTracker({ campaignId, placementId }: { campaignId: str
 }
 
 export function trackedAdClick(campaignId: string, placementId: AdPlacementId) {
-  const key = eventKey(`psipedia:ad:click:${campaignId}:${placementId}:${Date.now()}`);
+  const bucket = Math.floor(Date.now() / 30_000);
+  const key = eventKey(`psipedia:ad:click:${campaignId}:${placementId}:${bucket}`);
   void send("click", campaignId, placementId, key);
 }
