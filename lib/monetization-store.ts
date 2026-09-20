@@ -9,6 +9,7 @@ import {
   isPromotableEntityType,
   isPromotionVisible,
   isSafeCreativeAsset,
+  isSafeDestinationUrl,
   normalizeDateTime,
   normalizePriority,
   validateMonetizationEventInput,
@@ -26,7 +27,7 @@ export type DirectCampaign = {
   status: MonetizationStatus;
   startAt: string | null;
   endAt: string | null;
-  imageUrl: string | null;
+  imageUrl: string;
   imageAlt: string;
   headline: string;
   copy: string;
@@ -52,7 +53,7 @@ export type PromotionRecord = {
 
 type CampaignRow = {
   id: string; name: string; advertiser_name: string; status: MonetizationStatus;
-  start_at: string | null; end_at: string | null; creative_image_url: string | null;
+  start_at: string | null; end_at: string | null; creative_image_url: string;
   creative_alt: string; headline: string; body_copy: string; destination_url: string;
   priority: number; is_affiliate: number; admin_note: string;
 };
@@ -155,8 +156,10 @@ export async function createDirectCampaign(payload: Record<string, unknown>, act
   const headline = text(payload.headline, 180);
   if (!name || !advertiserName || !headline) throw new Error("Doplň názov kampane, zadávateľa a nadpis.");
   const destinationUrl = assertSafeDestinationUrl(text(payload.destinationUrl, 1000));
-  const imageUrl = text(payload.imageUrl, 500) || null;
-  if (!isSafeCreativeAsset(imageUrl)) throw new Error("Creative obrázok musí používať interný media/images asset.");
+  const imageUrl = text(payload.imageUrl, 500);
+  const imageAlt = text(payload.imageAlt, 220);
+  if (!imageUrl || !isSafeCreativeAsset(imageUrl)) throw new Error("Creative obrázok musí používať interný media/images asset.");
+  if (!imageAlt) throw new Error("Doplň alt text creative obrázka.");
   const rawPlacements = Array.isArray(payload.placements) ? payload.placements.map(String) : [];
   const placements = [...new Set(rawPlacements.filter(isKnownPlacement))];
   if (!placements.length) throw new Error("Vyber aspoň jeden platný placement.");
@@ -170,7 +173,7 @@ export async function createDirectCampaign(payload: Record<string, unknown>, act
     headline, body_copy, destination_url, priority, is_affiliate, admin_note,
     created_at, updated_at, created_by, updated_by
   ) VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
-    id, name, advertiserName, startAt, endAt, imageUrl, text(payload.imageAlt, 220),
+    id, name, advertiserName, startAt, endAt, imageUrl, imageAlt,
     headline, text(payload.copy, 500), destinationUrl, normalizePriority(payload.priority),
     payload.isAffiliate === true ? 1 : 0, text(payload.adminNote, 1000), now, now, actor, actor,
   ).run();
