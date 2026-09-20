@@ -1,6 +1,6 @@
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
-import { runDataAutomationSweep } from "../lib/data-automation-runner";
+import { runDataAutomationSweep } from "../lib/data-automation-runner";\nimport { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
@@ -161,7 +161,7 @@ const worker = {
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
       runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
       runNotionEventSyncSweep({ database: env.DB, bindings: env }),
-      runDataAutomationSweep({ database: env.DB }).catch((error) => {
+      runDataAutomationSweep({ database: env.DB, htmlAdapters: productionAutomationHtmlAdapters }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_sweep",
           result: "failed",
