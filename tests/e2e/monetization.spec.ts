@@ -15,11 +15,13 @@ async function expectAxeClean(page: Page) {
 }
 
 test.describe("MONETIZATION-1 public foundation", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(([key]) => localStorage.setItem(key, "necessary"), [CONSENT_KEY]);
-  });
-
   test("active direct campaign is labeled, tracked and mobile-safe", async ({ page }) => {
+    await page.addInitScript(([key]) => localStorage.setItem(key, "analytics"), [CONSENT_KEY]);
+    await page.route("https://www.googletagmanager.com/**", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: "",
+    }));
     await page.setViewportSize({ width: 390, height: 844 });
     const events: string[] = [];
     page.on("request", (request) => {
@@ -60,10 +62,22 @@ test.describe("MONETIZATION-1 public foundation", () => {
     await expectAxeClean(page);
   });
 
-  test("analytics-only or necessary consent never injects the programmatic ad script", async ({ page }) => {
+  test("necessary consent suppresses measurement and programmatic script; analytics still suppresses programmatic", async ({ page }) => {
+    const measurementRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/monetization/event")) measurementRequests.push(request.postData() ?? "");
+    });
+    await page.addInitScript(([key]) => localStorage.setItem(key, "necessary"), [CONSENT_KEY]);
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(250);
+    expect(measurementRequests).toEqual([]);
     await expect(page.locator("script[data-psipedia-programmatic-ads]")).toHaveCount(0);
 
+    await page.route("https://www.googletagmanager.com/**", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: "",
+    }));
     await page.evaluate(([key]) => localStorage.setItem(key, "analytics"), [CONSENT_KEY]);
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator("script[data-psipedia-programmatic-ads]")).toHaveCount(0);
