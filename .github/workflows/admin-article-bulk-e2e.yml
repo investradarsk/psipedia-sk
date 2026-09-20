@@ -7,6 +7,12 @@ on:
     paths:
       - "app/api/admin/bulk/**"
       - "components/admin-bulk-selection.tsx"
+      - "components/admin-help-dashboard.tsx"
+      - "components/admin-event-dashboard.tsx"
+      - "components/admin-directory-dashboard.tsx"
+      - "components/admin-organization-publication-dashboard.tsx"
+      - "components/admin-organization-publication.module.css"
+      - "app/api/admin/organizations/bulk/**"
       - "lib/admin-bulk/**"
       - "tests/admin-bulk-*.test.mjs"
       - "tests/e2e/admin-article-bulk-execution.spec.ts"
@@ -45,7 +51,7 @@ jobs:
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium
       - name: Focused ADMIN bulk unit tests
-        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/admin-bulk-foundation.test.mjs tests/admin-bulk-execution.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/admin-bulk-foundation.test.mjs tests/admin-bulk-execution.test.mjs tests/admin-bulk-v2.test.mjs
       - name: Production build
         run: npm run build
       - name: Configure CI-only local PII keys

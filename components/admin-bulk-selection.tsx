@@ -75,6 +75,7 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   resultCount: number;
   supportsAllMatching?: boolean;
 }) {
+  const viewFingerprint = `${membershipFingerprint}|page:${pageIds.join(",")}`;
   const [selectionState, setSelectionState] = useState<{ membershipFingerprint: string | null; selection: AdminBulkSelectionState }>({
     membershipFingerprint: null,
     selection: emptySelection,
@@ -87,7 +88,7 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
       const raw = sessionStorage.getItem(key);
       if (raw) {
         const stored = JSON.parse(raw) as { membershipFingerprint?: unknown; selection?: unknown };
-        const normalized = stored.membershipFingerprint === membershipFingerprint ? normalizeStoredState(stored.selection) : null;
+        const normalized = stored.membershipFingerprint === viewFingerprint ? normalizeStoredState(stored.selection) : null;
         if (normalized && (supportsAllMatching || normalized.mode !== "all-matching")) nextSelection = normalized;
         else sessionStorage.removeItem(key);
       }
@@ -96,12 +97,12 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     }
     let active = true;
     queueMicrotask(() => {
-      if (active) setSelectionState({ membershipFingerprint, selection: nextSelection });
+      if (active) setSelectionState({ membershipFingerprint: viewFingerprint, selection: nextSelection });
     });
     return () => { active = false; };
-  }, [membershipFingerprint, module, supportsAllMatching]);
+  }, [module, supportsAllMatching, viewFingerprint]);
 
-  const ready = selectionState.membershipFingerprint === membershipFingerprint;
+  const ready = selectionState.membershipFingerprint === viewFingerprint;
   const selection = ready ? selectionState.selection : emptySelection;
 
   useEffect(() => {
@@ -109,8 +110,8 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
     const key = storageKey(module);
     const selectedCount = selection.mode === "all-matching" ? resultCount : selection.ids.length;
     if (selectedCount === 0) sessionStorage.removeItem(key);
-    else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint, selection }));
-  }, [membershipFingerprint, module, ready, resultCount, selection]);
+    else sessionStorage.setItem(key, JSON.stringify({ membershipFingerprint: viewFingerprint, selection }));
+  }, [module, ready, resultCount, selection, viewFingerprint]);
 
   const explicitIds = selection.mode === "explicit" ? selection.ids : [];
   const explicitSet = new Set(explicitIds);
@@ -121,7 +122,7 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
 
   function updateSelection(updater: (current: AdminBulkSelectionState) => AdminBulkSelectionState) {
     if (!ready) return;
-    setSelectionState((current) => current.membershipFingerprint !== membershipFingerprint
+    setSelectionState((current) => current.membershipFingerprint !== viewFingerprint
       ? current
       : { ...current, selection: updater(current.selection) });
   }
@@ -293,7 +294,7 @@ export function AdminBulkSelectionControls({
       const payload = await response.json() as ExecutionResult & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Hromadná zmena zlyhala.");
       setExecution(payload);
-      clear();
+      if (payload.counts.failed === 0) clear();
     } catch (executionError) {
       setError(executionError instanceof Error ? executionError.message : "Hromadná zmena zlyhala.");
     } finally {
@@ -368,7 +369,9 @@ export function AdminBulkSelectionControls({
                 {execution.failed.length > 0 && (
                   <ul>{execution.failed.map((item) => <li key={item.id}>ID {item.id}: zmena zlyhala</li>)}</ul>
                 )}
-                <span>Výber bol vyčistený. Po zatvorení sa zoznam obnoví.</span>
+                <span>{execution.counts.failed === 0
+                  ? "Výber bol vyčistený. Po zatvorení sa zoznam obnoví."
+                  : "Časť zmien zlyhala. Výber zostáva zachovaný na kontrolu; po zatvorení sa zoznam obnoví."}</span>
               </div>
             )}
           </div>

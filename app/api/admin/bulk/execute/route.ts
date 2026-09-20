@@ -16,6 +16,9 @@ export async function POST(request: Request) {
   const user = await getAdminApiUser();
   if (!user) return unauthorizedAdminResponse();
 
+  if (request.headers.get("origin") !== new URL(request.url).origin) {
+    return noStoreJson({ error: "Neplatný pôvod požiadavky." }, { status: 403 });
+  }
   if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) {
     return noStoreJson({ error: "Očakáva sa JSON požiadavka." }, { status: 415 });
   }

@@ -47,6 +47,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
     membershipFingerprint,
     pageIds,
     resultCount,
+    supportsAllMatching: false,
   });
 
   async function removeProfile(profile: ManagedDirectoryProfileSummary) {
@@ -114,6 +115,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
               toggleCurrentPage={bulkSelection.toggleCurrentPage}
               selectAllMatching={bulkSelection.selectAllMatching}
               clear={bulkSelection.clear}
+              supportsAllMatching={false}
             />
             <div className="admin-article-list">
               {profiles.map((profile) => {
