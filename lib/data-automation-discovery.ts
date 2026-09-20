@@ -43,7 +43,9 @@ export const sitemapDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, b
   for (const match of payload.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/gi)) {
     const sourceUrl = safeCandidate(match[1].replace(/<[^>]+>/g, "").trim(), baseUrl);
     if (!sourceUrl) continue;
-    items.push({\n      candidateType: "SOURCE_CANDIDATE",\n      discoveryType: "SITEMAP",
+    items.push({
+      candidateType: "SOURCE_CANDIDATE",
+      discoveryType: "SITEMAP",
       sourceUrl,
       label: new URL(sourceUrl).hostname,
       entityType,
@@ -63,7 +65,9 @@ export const rssDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseU
   for (const href of hrefs) {
     const sourceUrl = safeCandidate(href.trim(), baseUrl);
     if (!sourceUrl) continue;
-    items.push({\n      candidateType: "SOURCE_CANDIDATE",\n      discoveryType: "RSS",
+    items.push({
+      candidateType: "SOURCE_CANDIDATE",
+      discoveryType: "RSS",
       sourceUrl,
       label: new URL(sourceUrl).hostname,
       entityType,
@@ -97,7 +101,9 @@ export function structuredDirectoryDiscovery(input: {
     const sourceUrl = safeCandidate(rawUrl, input.baseUrl);
     if (!sourceUrl) continue;
     const rawLabel = pathValue(row, input.labelField ?? "name");
-    items.push({\n      candidateType: "SOURCE_CANDIDATE",\n      discoveryType: "STRUCTURED_DIRECTORY",
+    items.push({
+      candidateType: "SOURCE_CANDIDATE",
+      discoveryType: "STRUCTURED_DIRECTORY",
       sourceUrl,
       label: String(rawLabel ?? new URL(sourceUrl).hostname).trim().slice(0, 160),
       entityType: input.entityType,
