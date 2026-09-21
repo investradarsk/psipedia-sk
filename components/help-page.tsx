@@ -76,7 +76,7 @@ export function HelpPage({
                   <span className={styles.sectionEyebrow}>Kategórie pomoci</span>
                   <h2 id="help-categories-heading">Vyberte, čo chcete riešiť</h2>
                 </div>
-                <p>Rovnako ako v Službách pre psov: rýchly výber kategórie bez zbytočného opakovania obsahu.</p>
+                <p>Vyberte oblasť a prejdite priamo na adopcie, organizácie, dočasnú opateru, zbierky alebo hlásenia.</p>
               </div>
 
               <nav className={styles.categoryNav} data-help-category-nav aria-label="Kategórie pomoci">
