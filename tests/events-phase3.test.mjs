@@ -40,6 +40,16 @@ test("event filters use canonical types, regions, date status, search and reliab
   assert.doesNotMatch(calendar, /const eventTypes\s*=/);
 });
 
+test("default /podujatia overview groups the five nearest events by canonical type", () => {
+  assert.match(calendar, /eventTypes[\s\S]*items\.slice\(0, 5\)/);
+  assert.match(calendar, /data-event-category-overview/);
+  assert.match(calendar, /data-event-category=\{group\.eventType\}/);
+  assert.match(calendar, /Všetky výstavy/);
+  assert.match(calendar, /Všetky tréningy/);
+  assert.match(eventsCss, /\.categoryKicker[\s\S]*var\(--coral/);
+  assert.match(eventsCss, /\.categoryAll[\s\S]*var\(--coral/);
+});
+
 test("default listing order keeps current and upcoming events ahead of past events", () => {
   assert.match(calendar, /function compareEvents/);
   assert.match(calendar, /status === "current"[\s\S]*return event\.cancelled \? 2 : 0/);
