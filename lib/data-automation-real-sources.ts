@@ -115,7 +115,7 @@ export const skjExhibitionCalendarAdapter: ControlledHtmlAdapter = ({ html, sour
   return records;
 };
 
-export const svpsSheltersRegisterAdapter: ControlledHtmlAdapter = ({ html }) => {
+export const svpsSheltersRegisterAdapter: ControlledHtmlAdapter = ({ html, source }) => {
   const records: AutomationSourceRecord[] = [];
   for (const cells of htmlRows(html)) {
     if (cells.length < 8) continue;
@@ -135,7 +135,7 @@ export const svpsSheltersRegisterAdapter: ControlledHtmlAdapter = ({ html }) => 
     const importKey = `svps:${normalizeAutomationIdentity(approvalNumber).replace(/\s+/g, "-")}`;
     records.push({
       sourceRecordId: approvalNumber.slice(0, 240),
-      sourceUrl: null,
+      sourceUrl: source.sourceUrl,
       sourceTimestamp: null,
       rawRecord: { approvalNumber, owner, facility, address, city, district, region, activity },
       proposed: {
@@ -148,6 +148,7 @@ export const svpsSheltersRegisterAdapter: ControlledHtmlAdapter = ({ html }) => 
         operatorName: owner || null,
         sourceApprovalNumber: approvalNumber,
         sourceActivity: activity || null,
+        sourceUrl: source.sourceUrl,
       },
     });
   }

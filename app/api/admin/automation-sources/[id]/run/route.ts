@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { runAutomationSourceNow } from "@/lib/data-automation-runner";
 import { productionAutomationHtmlAdapters } from "@/lib/data-automation-real-sources";
+import { createProductionOrganizationEnricher } from "@/lib/data-automation-organization-enrichment";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -20,6 +21,7 @@ export async function POST(request: Request, { params }: Props) {
     const run = await runAutomationSourceNow(id, {
       database: db,
       htmlAdapters: productionAutomationHtmlAdapters,
+      organizationEnricher: createProductionOrganizationEnricher(),
     });
     return Response.json({
       run,
