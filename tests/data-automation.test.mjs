@@ -212,6 +212,8 @@ test("9b. organization matching infers the same slug used by draft creation", ()
   });
   assert.equal(match.entityId, 41);
   assert.equal(match.quality, "EXACT_CANONICAL_KEY");
+  const store = readFileSync(new URL("../lib/data-automation-store.ts", import.meta.url), "utf8");
+  assert.match(store, /const organizationSlug = slug \|\| automationDraftSlug\(null, name\)/);
 });
 
 test("10. equally strong candidates remain human review", () => {
