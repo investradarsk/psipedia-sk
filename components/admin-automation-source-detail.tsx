@@ -77,7 +77,8 @@ function statusCopy(source: AutomationSourceAdminRow) {
 
 export function AdminAutomationSourceDetail({ source }: { source: AutomationSourceAdminRow }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<"action" | "test" | "run" | null>(null);
+  const busy = busyAction !== null;
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [run, setRun] = useState<RunSummary | null>(null);
@@ -108,7 +109,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
   }
 
   async function action(body: Record<string, unknown>) {
-    setBusy(true);
+    setBusyAction("action");
     setMessage("");
     try {
       await mutate("/api/admin/automation-sources/" + source.id, "PUT", body);
@@ -117,12 +118,12 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Operácia zlyhala.");
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
   async function testSource() {
-    setBusy(true);
+    setBusyAction("test");
     setMessage("");
     setPreview(null);
     try {
@@ -132,12 +133,12 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Test zdroja zlyhal.");
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
   async function runNow() {
-    setBusy(true);
+    setBusyAction("run");
     setMessage("");
     setRun(null);
     try {
@@ -148,13 +149,25 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Kontrolu sa nepodarilo spustiť.");
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
   return (
     <>
       {message && <p className="admin-flash" role="status">{message}</p>}
+
+      {(busyAction === "test" || busyAction === "run") && (
+        <div className={styles.progressPanel} role="status" aria-live="polite">
+          <span className={styles.spinner} aria-hidden="true" />
+          <div>
+            <strong>{busyAction === "test" ? "Testujem zdroj…" : "Kontrolujem zdroj…"}</strong>
+            <p>{busyAction === "test"
+              ? "Overujem dostupnosť a spracovanie dát. Tento test nič nezapisuje."
+              : "Načítavam zdroj, porovnávam záznamy a pripravujem nové zistenia na review. Môže to chvíľu trvať."}</p>
+          </div>
+        </div>
+      )}
 
       <section className={[styles.statusHero, status.warning ? styles.statusHeroWarning : styles.statusHeroGood].join(" ")}>
         <div>
@@ -184,10 +197,10 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
         )}
 
         <div className="admin-form-actions">
-          <button type="button" disabled={busy} onClick={() => void testSource()}>Otestovať zdroj</button>
+          <button type="button" disabled={busy} onClick={() => void testSource()}>{busyAction === "test" ? "Testujem zdroj…" : "Otestovať zdroj"}</button>
           {source.reviewStatus !== "APPROVED" && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "approve", notes })}>Schváliť zdroj</button>}
           {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "enable" })}>Zapnúť monitoring</button>}
-          {source.enabled && <button className="is-primary" type="button" disabled={busy} onClick={() => void runNow()}>Spustiť kontrolu teraz</button>}
+          {source.enabled && <button className="is-primary" type="button" disabled={busy} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Spustiť kontrolu teraz"}</button>}
           {source.enabled && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Vypnúť monitoring</button>}
           {source.reviewStatus !== "REJECTED" && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "reject", notes })}>Zamietnuť zdroj</button>}
         </div>

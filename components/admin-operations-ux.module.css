@@ -332,6 +332,52 @@
   color: #29483e;
 }
 
+
+.progressPanel {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(31, 104, 75, .18);
+  border-radius: 14px;
+  background: #f1f7f2;
+  color: #17352b;
+}
+
+.progressPanel strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: .9rem;
+}
+
+.progressPanel p {
+  margin: 0;
+  color: #60756c;
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 3px solid rgba(31, 104, 75, .18);
+  border-top-color: #1f684b;
+  border-radius: 50%;
+  animation: adminAutomationSpin .8s linear infinite;
+}
+
+@keyframes adminAutomationSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.8s;
+  }
+}
+
 .quickActions {
   display: flex;
   flex-wrap: wrap;
