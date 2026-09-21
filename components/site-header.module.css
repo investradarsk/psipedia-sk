@@ -54,6 +54,22 @@
   overflow-wrap: anywhere;
 }
 
+.currentDate {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: .7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nameDayDivider {
+  width: 4px;
+  height: 4px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(23, 53, 43, .28);
+}
+
 .navChevron {
   width: 14px;
   height: 14px;
@@ -420,6 +436,10 @@
 
   .mobileNameDay span {
     font-size: .59rem;
+  }
+
+  .currentDate {
+    font-size: .66rem;
   }
 }
 
