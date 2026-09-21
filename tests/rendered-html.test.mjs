@@ -996,7 +996,8 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.equal(help.status, 200);
   const helpHtml = await help.text();
   assert.match(helpHtml, /Pomoc psom · tam, kde ju treba/);
-  assert.match(helpHtml, /Pomôžte tam, kde je to práve potrebné/);
+  assert.match(helpHtml, /Kategórie pomoci/);
+  assert.match(helpHtml, /Pomáhajme spolu/);
   assert.match(helpHtml, /Postup krok za krokom/);
   assert.match(helpHtml, /<h1>Pomoc psom<\/h1>/);
   assert.match(helpHtml, /Zbierky a výzvy/);
