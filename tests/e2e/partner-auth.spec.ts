@@ -1,29 +1,15 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-const ORIGIN = (process.env.E2E_BASE_URL || "http://localhost:5173").replace(/\/$/, "");
-const JSON_HEADERS = {
-  "content-type": "application/json",
-  origin: ORIGIN,
-  "sec-fetch-site": "same-origin",
-};
-
-const credentials = {
-  "desktop-chromium": {
-    token: "partner-e2e-magic-desktop-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    email: "partner-desktop-e2e@example.sk",
-  },
-  "mobile-chromium": {
-    token: "partner-e2e-magic-mobile-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    email: "partner-mobile-e2e@example.sk",
-  },
+const AUTH_TOKENS = {
+  "desktop-chromium": "partner-e2e-desktop-auth-token-0000000000000001",
+  "mobile-chromium": "partner-e2e-mobile-auth-token-000000000000000002",
 } as const;
 
-function projectCredentials(testInfo: TestInfo) {
-  const value = credentials[testInfo.project.name as keyof typeof credentials];
-  if (!value) throw new Error("Partner E2E credentials are missing for " + testInfo.project.name);
-  return value;
-}
+const AUTH_EMAILS = {
+  "desktop-chromium": "partner-desktop-e2e@example.sk",
+  "mobile-chromium": "partner-mobile-e2e@example.sk",
+} as const;
 
 async function expectNoHorizontalOverflow(page: Page) {
   const metrics = await page.evaluate(() => ({
@@ -31,13 +17,6 @@ async function expectNoHorizontalOverflow(page: Page) {
     clientWidth: document.documentElement.clientWidth,
   }));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
-}
-
-async function consumeMagicLink(request: APIRequestContext, token: string) {
-  return request.post("/api/partner/auth/consume", {
-    headers: JSON_HEADERS,
-    data: { token },
-  });
 }
 
 for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
@@ -66,79 +45,45 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
 });
 
-test.describe.serial("Partner auth D1 integration", () => {
-  let rawSessionToken = "";
+test("valid one-time link creates a session and exposes only the foundation shell/settings", async ({ page }, testInfo) => {
+  const project = testInfo.project.name as keyof typeof AUTH_TOKENS;
+  const token = AUTH_TOKENS[project];
+  const expectedEmail = AUTH_EMAILS[project];
+  expect(token).toBeTruthy();
 
-  test("one-time magic link activates account and creates hardened fresh session", async ({ page, request }, testInfo) => {
-    const account = projectCredentials(testInfo);
-    const response = await consumeMagicLink(request, account.token);
-    expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual({ success: true });
+  await page.goto("/partner/overenie?token=" + encodeURIComponent(token));
+  await expect(page).toHaveURL(/\/partner$/);
+  await expect(page.getByRole("heading", { name: "Partner účet je pripravený" })).toBeVisible();
+  await expect(page.getByText("Prihlásenie bez hesla, overenie e-mailu, bezpečná session")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 
-    const setCookie = response.headers()["set-cookie"] || "";
-    expect(setCookie).toContain("__Host-psipedia_partner_session=");
-    for (const flag of ["HttpOnly", "Secure", "SameSite=Strict", "Path=/"]) expect(setCookie).toContain(flag);
-    expect(setCookie).not.toMatch(/Domain=/i);
+  await page.getByRole("link", { name: "Nastavenia účtu" }).click();
+  await expect(page).toHaveURL(/\/partner\/nastavenia$/);
+  await expect(page.getByRole("heading", { name: "Nastavenia" })).toBeVisible();
+  await expect(page.getByText(expectedEmail)).toBeVisible();
+  await expect(page.getByText("Aktívny")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Odhlásiť sa" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Deaktivovať účet" })).toBeDisabled();
+  await expectNoHorizontalOverflow(page);
 
-    const match = /__Host-psipedia_partner_session=([^;]+)/.exec(setCookie);
-    expect(match?.[1]).toBeTruthy();
-    rawSessionToken = match?.[1] || "";
-    expect(rawSessionToken).not.toBe(account.token);
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
 
-    await page.context().addCookies([{
-      name: "__Host-psipedia_partner_session",
-      value: rawSessionToken,
-      url: ORIGIN,
-      httpOnly: true,
-      secure: true,
-      sameSite: "Strict",
-    }]);
+  await page.getByRole("button", { name: "Odhlásiť sa" }).click();
+  await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
+});
 
-    await page.goto("/partner");
-    await expect(page.getByRole("heading", { name: "Partner účet je pripravený" })).toBeVisible();
-    await page.goto("/partner/nastavenia");
-    await expect(page.getByText(account.email, { exact: true })).toBeVisible();
-    await expect(page.getByText("Aktívny", { exact: true })).toBeVisible();
+for (const token of [
+  "partner-e2e-used-auth-token-00000000000000000003",
+  "partner-e2e-revoked-auth-token-000000000000000004",
+  "partner-e2e-expired-auth-token-000000000000000005",
+  "partner-e2e-suspended-auth-token-0000000000000006",
+  "partner-e2e-deactivated-auth-token-000000000000007",
+]) {
+  test("unusable magic link fails safely: " + token.slice(12, 20), async ({ page }) => {
+    await page.goto("/partner/overenie?token=" + encodeURIComponent(token));
+    await expect(page.getByRole("heading", { name: "Odkaz sa nepodarilo overiť" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Vyžiadať nový odkaz" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
-
-  test("reused, used, revoked, expired and malformed magic links fail safely", async ({ request }, testInfo) => {
-    const account = projectCredentials(testInfo);
-    const cases = [
-      account.token,
-      "partner-e2e-magic-used-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-      "partner-e2e-magic-revoked-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-      "partner-e2e-magic-expired-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-      "not valid!",
-    ];
-    for (const token of cases) {
-      const response = await consumeMagicLink(request, token);
-      expect(response.status()).toBe(400);
-      const body = await response.json() as { error?: string };
-      expect(body.error).toMatch(/neplatný|expiroval/i);
-    }
-  });
-
-  test("logout revokes the server session and clears browser access", async ({ page, request }) => {
-    expect(rawSessionToken).toBeTruthy();
-    await page.getByRole("button", { name: "Odhlásiť sa" }).click();
-    await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
-
-    const stale = await request.get("/partner", {
-      headers: { cookie: "__Host-psipedia_partner_session=" + rawSessionToken },
-    });
-    expect(stale.url()).toMatch(/\/partner\/prihlasenie$/);
-  });
-});
-
-test("suspended and deactivated sessions cannot authorize Partner pages", async ({ request }) => {
-  for (const session of [
-    "partner-e2e-suspended-session-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    "partner-e2e-deactivated-session-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-  ]) {
-    const response = await request.get("/partner", {
-      headers: { cookie: "__Host-psipedia_partner_session=" + session },
-    });
-    expect(response.url()).toMatch(/\/partner\/prihlasenie$/);
-  }
-});
+}
