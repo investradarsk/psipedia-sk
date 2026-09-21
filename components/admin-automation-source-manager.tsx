@@ -267,7 +267,7 @@ export function AdminAutomationSourceManager({
                 <div className={styles.techRow} key={"root-" + root.id}>
                   <strong>{root.rootKey}</strong>
                   <span>{root.discoveryType} · {root.entityType} · {root.reviewStatus}</span>
-                  <span>cadence {root.cadenceMinutes} min · error {root.lastErrorCode ?? "—"}</span>
+                  <span>last success {formatDate(root.lastSuccessAt)} · cadence {root.cadenceMinutes} min · error {root.lastErrorCode ?? "—"}</span>
                 </div>
               ))}
             </div>
