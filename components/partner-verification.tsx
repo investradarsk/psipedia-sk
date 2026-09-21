@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-type Props = {
-  token: string;
-};
-
-export function PartnerVerification({ token }: Props) {
+export function PartnerVerification() {
   const started = useRef(false);
   const [state, setState] = useState<"loading" | "error">("loading");
   const [message, setMessage] = useState("Overujeme prihlasovací odkaz…");
@@ -17,15 +13,20 @@ export function PartnerVerification({ token }: Props) {
     started.current = true;
 
     async function consume() {
+      const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const token = fragment.get("token")?.trim() ?? "";
+
+      // The fragment is never sent to the server. Remove it from browser
+      // history immediately after capturing it for this one consume request.
+      window.history.replaceState(null, "", "/partner/overenie");
+
       if (!token) {
         setState("error");
         setMessage("Prihlasovací odkaz nie je platný.");
         return;
       }
+
       try {
-        // Keep the one-time secret out of browser history as soon as the
-        // client has captured it for this single consume request.
-        window.history.replaceState(null, "", "/partner/overenie");
         const response = await fetch("/api/partner/auth/consume", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -43,7 +44,7 @@ export function PartnerVerification({ token }: Props) {
     }
 
     void consume();
-  }, [token]);
+  }, []);
 
   return (
     <div className="partner-verification-card" aria-live="polite">
