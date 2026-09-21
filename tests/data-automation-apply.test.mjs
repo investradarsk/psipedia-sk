@@ -50,6 +50,15 @@ test("current SVPS source metadata survives apply and future diff comparison", (
   assert.match(applySource, /source_data_json=\?/);
 });
 
+test("stale NEW organization findings reconcile exact slug collisions as updates", () => {
+  assert.match(applySource, /findNewOrganizationCollision/);
+  assert.match(applySource, /WHERE slug=\? LIMIT 1/);
+  assert.match(applySource, /findingType: "POSSIBLE_UPDATE"/);
+  assert.match(applySource, /matchQuality: "EXACT_CANONICAL_KEY"/);
+  assert.match(applySource, /'UPDATE_EXISTING'/);
+  assert.match(applySource, /finding_type='POSSIBLE_UPDATE'/);
+});
+
 test("apply is idempotent per finding and keeps an application audit record", () => {
   assert.match(applySource, /existingApplication\(finding\.id/);
   assert.match(migration, /finding_id.*NOT NULL REFERENCES `automation_findings`/);
