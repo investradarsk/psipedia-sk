@@ -17,7 +17,7 @@ export function HorizontalCarouselControls({
   }
 
   return (
-    <div className={className} aria-label="Ovládanie carouselu">
+    <div className={className} role="group" aria-label="Ovládanie carouselu">
       <button
         className={buttonClassName}
         type="button"
