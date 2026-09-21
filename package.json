@@ -50,7 +50,8 @@
     "test:name-days": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/dog-name-days.test.mjs tests/dog-name-day-import.test.mjs tests/name-day-admin-contract.test.mjs",
     "test:monetization": "node --experimental-strip-types --test tests/monetization-foundation.test.mjs",
     "test:admin-pwa": "node --experimental-strip-types --test tests/admin-pwa.test.mjs",
-    "test:admin-buttons": "node --experimental-strip-types --test tests/admin-button-system.test.mjs"
+    "test:admin-buttons": "node --experimental-strip-types --test tests/admin-button-system.test.mjs",
+    "test:partner-auth": "node --experimental-strip-types --test tests/partner-auth-foundation.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
