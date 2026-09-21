@@ -204,9 +204,102 @@
 }
 
 .eventList,
-.relatedList {
+.relatedList,
+.categoryList {
   display: grid;
   gap: 10px;
+}
+
+.categoryOverview {
+  display: grid;
+  gap: 36px;
+  margin-top: 4px;
+}
+
+.categorySection {
+  min-width: 0;
+}
+
+.categoryHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 2px 12px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--ps-border-soft);
+}
+
+.categoryHeadingCopy {
+  min-width: 0;
+}
+
+.categoryKicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--coral, #b34830);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.categoryTitle {
+  margin: 0;
+  color: var(--forest-dark);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.4rem, 2vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.categoryTitle::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 0.9em;
+  margin-right: 10px;
+  border-radius: 999px;
+  background: var(--coral, #b34830);
+  vertical-align: -0.02em;
+}
+
+.categorySummary {
+  margin: 5px 0 0 15px;
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.categoryAll {
+  display: inline-flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--coral, #b34830);
+  border-radius: 999px;
+  background: var(--cream, #faf6eb);
+  color: var(--coral-dark, #8f3826);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 850;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.categoryAll:hover,
+.categoryAll:focus-visible {
+  background: var(--coral, #b34830);
+  color: #fff;
+}
+
+.categorySection .cardBody h3 a:hover,
+.categorySection .detailLink:hover {
+  color: var(--coral-dark, #8f3826);
 }
 
 .eventCard,
@@ -715,6 +808,21 @@
   .relatedHeading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .categoryOverview {
+    gap: 30px;
+  }
+
+  .categoryHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .categoryAll {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 
