@@ -22,6 +22,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
   const [openDesktopMenu, setOpenDesktopMenu] = useState<string | null>(null);
   const [openMobileMenu, setOpenMobileMenu] = useState<string | null>(null);
   const [dogNameDays, setDogNameDays] = useState<string[]>([]);
+  const [currentDateLabel, setCurrentDateLabel] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const menuReturnFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -104,6 +105,23 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
       window.removeEventListener("psipedia-favorites-changed", updateCount);
       window.removeEventListener("storage", updateCount);
     };
+  }, []);
+
+  useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("sk-SK", {
+      timeZone: "Europe/Bratislava",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
+    function updateCurrentDate() {
+      setCurrentDateLabel(formatter.format(new Date()));
+    }
+
+    updateCurrentDate();
+    const timer = window.setInterval(updateCurrentDate, 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -248,6 +266,8 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
             <div className={styles.desktopNameDay} data-header-secondary>
               <span>Psie meniny</span>
               <strong>{dogNameDays.join(", ")}</strong>
+              {currentDateLabel ? <i className={styles.nameDayDivider} aria-hidden="true" /> : null}
+              {currentDateLabel ? <time className={styles.currentDate}>{currentDateLabel}</time> : null}
             </div>
           ) : null}
 
@@ -312,6 +332,8 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
           <div className={styles.mobileNameDay} data-mobile-name-day>
             <span>Psie meniny</span>
             <strong>{dogNameDays.join(", ")}</strong>
+            {currentDateLabel ? <i className={styles.nameDayDivider} aria-hidden="true" /> : null}
+            {currentDateLabel ? <time className={styles.currentDate}>{currentDateLabel}</time> : null}
           </div>
         ) : null}
 
