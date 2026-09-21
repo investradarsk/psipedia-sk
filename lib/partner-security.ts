@@ -2,8 +2,11 @@ import { createD1RateLimitStore, deriveRateLimitKey, enforceRateLimit } from "@/
 import { createD1TurnstileReplayStore, verifyTurnstile } from "@/lib/turnstile";
 
 export class PartnerSecurityError extends Error {
-  constructor(message: string, public readonly status = 400) {
+  readonly status: number;
+
+  constructor(message: string, status = 400) {
     super(message);
+    this.status = status;
   }
 }
 
