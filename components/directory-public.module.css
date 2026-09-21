@@ -845,3 +845,43 @@
   letter-spacing: normal;
   text-transform: none;
 }
+
+
+/* DIRECTORY-VISUAL-1 CI alignment: the actual interactive controls stay on one desktop baseline. */
+.searchField {
+  position: relative;
+  display: block;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.searchField > svg {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.searchField input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px 0 40px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--white);
+  box-sizing: border-box;
+}
+
+.searchField:focus-within {
+  border: 0;
+  box-shadow: none;
+}
+
+.searchField:focus-within input {
+  border-color: rgba(23, 75, 56, .4);
+  box-shadow: 0 0 0 3px rgba(23, 75, 56, .08);
+}
