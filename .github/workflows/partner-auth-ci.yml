@@ -92,10 +92,9 @@ jobs:
         run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/partner-auth-e2e.sql
       - name: Configure disposable Partner E2E secrets
         run: |
-          cat > .dev.vars <<'EOF'
-          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
-          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
-          EOF
+          PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
+          PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
+          printf 'PII_ENCRYPTION_KEY=%s\nPII_HASH_KEY=%s\n' "$PII_ENCRYPTION_KEY" "$PII_HASH_KEY" > .dev.vars
       - name: Seed disposable Partner auth fixtures
         run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/partner-auth-e2e.sql
       - name: Start isolated local app
