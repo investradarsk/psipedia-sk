@@ -580,7 +580,7 @@
   display: grid;
   min-width: 0;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(250px, calc((100% - 32px) / 3));
+  grid-auto-columns: minmax(260px, 31.5%);
   gap: 16px;
   overflow-x: auto;
   padding: 2px 2px 14px;
