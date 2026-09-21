@@ -119,19 +119,37 @@ test("manual source lifecycle covers create edit review enable test run-now and 
     data: {},
     headers: mutationHeaders,
   });
-  expect(runResponse.ok()).toBe(true);
+  expect(runResponse.status()).toBe(202);
   const run = await runResponse.json() as {
-    run: { status: string; checked: number; newFindings: number; updatedFindings: number; errors: number };
+    accepted: boolean;
+    run: { status: string };
     safety: { canonicalWrite: boolean; publication: boolean };
   };
-  expect(run.run).toMatchObject({
+  expect(run.accepted).toBe(true);
+  expect(run.run.status).toBe("RUNNING");
+  expect(run.safety).toEqual({ canonicalWrite: false, publication: false });
+
+  let completedRun: { status: string | null; checked: number; newFindings: number; updatedFindings: number; errors: number } | null = null;
+  await expect.poll(async () => {
+    const statusResponse = await request.get(`/api/admin/automation-sources/${id}/run`);
+    expect(statusResponse.ok()).toBe(true);
+    const payload = await statusResponse.json() as {
+      run: { status: string | null; checked: number; newFindings: number; updatedFindings: number; errors: number };
+    };
+    completedRun = payload.run;
+    return payload.run.status;
+  }, {
+    message: "background source run should complete",
+    timeout: 10_000,
+    intervals: [50, 100, 200, 500],
+  }).toBe("SUCCESS");
+  expect(completedRun).toMatchObject({
     status: "SUCCESS",
     checked: 0,
     newFindings: 0,
     updatedFindings: 0,
     errors: 0,
   });
-  expect(run.safety).toEqual({ canonicalWrite: false, publication: false });
 
   const disableResponse = await request.put(`/api/admin/automation-sources/${id}`, {
     data: { action: "disable" },
