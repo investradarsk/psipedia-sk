@@ -1,5 +1,5 @@
 import type { AdoptionD1Database } from "./adoption-store.ts";
-import { cleanPublicOrganizationCopy } from "./public-integrity";
+import { cleanPublicOrganizationCopy } from "./public-integrity.ts";
 import {
   listPublicAdoptionsByOrganizationId,
   type OrganizationPublicAdoption,
