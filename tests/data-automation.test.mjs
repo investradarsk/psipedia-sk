@@ -235,7 +235,7 @@ test("13. scheduled job reuses the existing hourly Worker contract and stays bou
   const wrangler = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
   const runner = readFileSync(new URL("../lib/data-automation-runner.ts", import.meta.url), "utf8");
   assert.match(worker, /productionAutomationHtmlAdapters/);
-  assert.match(worker, /runDataAutomationSweep\(\{ database: env\.DB, htmlAdapters: productionAutomationHtmlAdapters \}\)/);
+  assert.match(worker, /runDataAutomationSweep\(\{ database: env\.DB, htmlAdapters: productionAutomationHtmlAdapters, organizationEnricher: createProductionOrganizationEnricher\(\) \}\)/);
   assert.match(wrangler, /"crons": \["0 \* \* \* \*"\]/);
   assert.match(runner, /DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8/);
   assert.match(runner, /for \(const source of sources\)/);
