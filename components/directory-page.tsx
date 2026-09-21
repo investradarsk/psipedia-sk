@@ -121,7 +121,7 @@ export function DirectoryPage({
                 <span className="eyebrow">Prehľad adresára</span>
                 <h2 id="directory-overview-heading">Služby podľa kategórie</h2>
               </div>
-              <p>Ukážky sú priamo z publikovaných profilov. Kategória bez verejných záznamov zostáva prázdna — bez náhradných alebo vymyslených služieb.</p>
+              <p>Prezrite si služby podľa kategórie a otvorte profil s detailmi, kontaktom a lokalitou.</p>
             </header>
 
             <div className={styles.categoryGrid}>
