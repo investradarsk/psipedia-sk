@@ -3,6 +3,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { AdminAutomationSourceManager } from "@/components/admin-automation-source-manager";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
+import { listAutomationDiscoveryRoots } from "@/lib/data-automation-discovery-store";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +11,13 @@ export default async function AutomationSourcesPage() {
   const user = await requireAdminPageUser("/admin/operations/automation/sources");
   let sources = [];
   let candidates = [];
+  let discoveryRoots = [];
   let unavailable = false;
   try {
-    [sources, candidates] = await Promise.all([
+    [sources, candidates, discoveryRoots] = await Promise.all([
       listAutomationSourcesAdmin(),
       listAutomationSourceCandidates(),
+      listAutomationDiscoveryRoots(),
     ]);
   } catch {
     unavailable = true;
@@ -33,7 +36,7 @@ export default async function AutomationSourcesPage() {
           <h2>Source-management schema ešte nie je dostupná</h2>
           <p>Po aplikovaní migrácie 0052 sa zobrazí source CRUD, review a discovery candidates.</p>
         </section>
-      ) : <AdminAutomationSourceManager sources={sources} candidates={candidates} />}
+      ) : <AdminAutomationSourceManager sources={sources} candidates={candidates} discoveryRoots={discoveryRoots} />}
     </AdminShell>
   );
 }
