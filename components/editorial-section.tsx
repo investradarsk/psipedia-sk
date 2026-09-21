@@ -199,7 +199,7 @@ function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
       </div>
       <div className={styles.calloutActions}>
         {config.actions.map((action) => (
-          <PublicActionLink href={action.href} variant={action.variant} icon={action.icon} key={action.href}>
+          <PublicActionLink href={action.href} variant={action.variant} icon={"icon" in action ? action.icon : undefined} key={action.href}>
             {action.label}
           </PublicActionLink>
         ))}
