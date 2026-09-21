@@ -56,7 +56,11 @@ function HomeArticleFeatureLayout({
         </Link>
       </article>
 
-      <div className="home-latest-list featured-stack" data-home-article-secondary={testId}>
+      <div
+        className="home-latest-list featured-stack"
+        data-home-article-secondary={testId}
+        data-home-latest-secondary={testId === "latest" ? "true" : undefined}
+      >
         {secondary.map((article) => (
           <article
             className="home-latest-item"
