@@ -145,7 +145,11 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
   }
 
   useEffect(() => {
-    if (source.lastRunStatus === "RUNNING") void pollRunStatus();
+    if (source.lastRunStatus !== "RUNNING") return;
+    const timer = window.setTimeout(() => {
+      void pollRunStatus();
+    }, 0);
+    return () => window.clearTimeout(timer);
     // Polling is intentionally tied to the source/run state received from the server.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source.id, source.lastRunStatus]);
@@ -236,7 +240,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
         <div className={styles.sectionHeader}>
           <div>
             <h2>Čo chceš spraviť?</h2>
-            <p>Bezpečný postup je otestovať zdroj, schváliť ho a až potom ho zapnúť. Manuálny run môže vytvoriť iba položky na review.</p>
+            <p>Bezpečný postup je otestovať zdroj, schváliť ho a až potom ho zapnúť. Manuálny run môže vytvoriť iba položky na review; nič sa automaticky nezverejní.</p>
           </div>
         </div>
 
