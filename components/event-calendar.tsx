@@ -9,6 +9,7 @@ import {
   eventTimeFilterHref,
   eventTypeFilters,
   eventTypePortalHref,
+  eventTypes,
   slovakRegions,
   type DogEvent,
   type EventTimeFilter,
@@ -19,6 +20,14 @@ import styles from "./events-public.module.css";
 const ALL_REGIONS = "Všetky kraje";
 const ALL_MONTHS = "Všetky mesiace";
 const MONTH_NAMES = ["január", "február", "marec", "apríl", "máj", "jún", "júl", "august", "september", "október", "november", "december"];
+const EVENT_SECTION_COPY: Record<EventType, { title: string; allLabel: string }> = {
+  Výstava: { title: "Výstavy", allLabel: "Všetky výstavy" },
+  Preteky: { title: "Preteky", allLabel: "Všetky preteky" },
+  Seminár: { title: "Semináre", allLabel: "Všetky semináre" },
+  Tréning: { title: "Tréningy", allLabel: "Všetky tréningy" },
+  Stretnutie: { title: "Stretnutia", allLabel: "Všetky stretnutia" },
+  Iné: { title: "Ďalšie podujatia", allLabel: "Všetky ostatné" },
+};
 
 function normalizeSearch(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("sk");
@@ -138,6 +147,22 @@ export function EventCalendar({
     return result.sort((left, right) => compareEvents(left, right, today));
   }, [events, month, query, region, time, today, type]);
 
+  const isOverviewMode = type === "Všetky"
+    && time === "upcoming"
+    && !query.trim()
+    && region === ALL_REGIONS
+    && month === ALL_MONTHS;
+
+  const overviewGroups = useMemo(() => {
+    if (!isOverviewMode) return [];
+    return eventTypes
+      .map((eventType) => {
+        const items = filtered.filter((event) => event.eventType === eventType);
+        return { eventType, items: items.slice(0, 5), total: items.length };
+      })
+      .filter((group) => group.total > 0);
+  }, [filtered, isOverviewMode]);
+
   function resetFilters() {
     setQuery("");
     setType(initialType);
@@ -238,9 +263,54 @@ export function EventCalendar({
       </div>
 
       {filtered.length ? (
-        <div className={styles.eventList} data-event-list>
-          {filtered.map((event) => <EventCard event={event} today={today} key={event.id} />)}
-        </div>
+        isOverviewMode ? (
+          <div className={styles.categoryOverview} data-event-category-overview>
+            {overviewGroups.map((group) => {
+              const copy = EVENT_SECTION_COPY[group.eventType];
+              const pathname = eventTypePortalHref(group.eventType);
+              return (
+                <section className={styles.categorySection} data-event-category={group.eventType} key={group.eventType}>
+                  <div className={styles.categoryHeading}>
+                    <div className={styles.categoryHeadingCopy}>
+                      <span className={styles.categoryKicker}>Najbližšie podľa typu</span>
+                      <h2 className={styles.categoryTitle}>{copy.title}</h2>
+                      <p className={styles.categorySummary}>
+                        {group.items.length} najbližších z {group.total}
+                      </p>
+                    </div>
+                    {pathname ? (
+                      <a
+                        href={eventTimeFilterHref("upcoming", pathname)}
+                        className={styles.categoryAll}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          selectType(group.eventType, pathname);
+                        }}
+                      >
+                        {copy.allLabel} <span aria-hidden="true">→</span>
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.categoryAll}
+                        onClick={() => selectType(group.eventType, "/podujatia")}
+                      >
+                        {copy.allLabel} <span aria-hidden="true">→</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className={styles.categoryList} data-event-category-list>
+                    {group.items.map((event) => <EventCard event={event} today={today} key={event.id} />)}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <div className={styles.eventList} data-event-list>
+            {filtered.map((event) => <EventCard event={event} today={today} key={event.id} />)}
+          </div>
+        )
       ) : (
         <div className={styles.emptyState}>
           <span aria-hidden="true">📅</span>
