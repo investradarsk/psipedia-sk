@@ -104,7 +104,8 @@ function disableAnalytics() {
 
 export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabled?: boolean }) {
   const pathname = usePathname();
-  const isSensitiveRoute = pathname.startsWith("/admin") || pathname.startsWith("/partner");
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isPartnerRoute = pathname.startsWith("/partner");
   const [ready, setReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [savedChoice, setSavedChoice] = useState<ConsentChoice | null>(null);
@@ -129,10 +130,10 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   }, [openSettings]);
 
   useEffect(() => {
-    if ((savedChoice === "analytics" || savedChoice === "advertising") && !isSensitiveRoute) {
+    if ((savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute && !isPartnerRoute) {
       void sendPageView(pathname);
     }
-  }, [isSensitiveRoute, pathname, savedChoice]);
+  }, [isAdminRoute, isPartnerRoute, pathname, savedChoice]);
 
   function saveChoice(choice: ConsentChoice) {
     const revokingAdvertising = savedChoice === "advertising" && choice !== "advertising";
@@ -144,7 +145,8 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     if (revokingAdvertising) window.location.reload();
   }
 
-  if (isSensitiveRoute || !ready || !isOpen) return null;
+  if (isPartnerRoute) return null;
+  if (isAdminRoute || !ready || !isOpen) return null;
 
   return (
     <section className="cookie-consent" role="dialog" aria-modal="true" aria-labelledby="cookie-consent-title">
