@@ -37,3 +37,22 @@ export function publicRecordIntegrityIssues(input: {
 
   return issues;
 }
+
+
+export function cleanPublicOrganizationCopy(value: string) {
+  return value
+    .split(/\n\s*\n/u)
+    .map((paragraph) => paragraph
+      .split(/(?<=[.!?])\s+/u)
+      .filter((sentence) => {
+        const publicCopyLower = sentence.toLocaleLowerCase("sk");
+        const mentionsLegacyRecord = /(starší|pôvodný)/u.test(publicCopyLower)
+          && /(profil|riadok|záznam)/u.test(publicCopyLower);
+        const mentionsMergeHistory = /(zlúčen|spojen|nepublikoval dvakrát|publikoval dvakrát|duplicit)/u.test(publicCopyLower);
+        return !(mentionsLegacyRecord && mentionsMergeHistory);
+      })
+      .join(" ")
+      .trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
