@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import {
+  automationDraftSlug,
   normalizeAutomationIdentity,
   stableJson,
   type AutomationEntityType,
@@ -346,11 +347,7 @@ function nullableText(value: unknown) {
 }
 
 function slugifyDraft(value: unknown, fallback: string) {
-  const normalized = normalizeAutomationIdentity(value || fallback)
-    .replace(/\s+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 90);
-  return normalized || fallback;
+  return automationDraftSlug(value, fallback);
 }
 
 function validOrganizationType(value: unknown) {
@@ -781,6 +778,38 @@ async function loadCurrentRow(finding: AutomationFindingDetail, db: AutomationD1
   return db.prepare(`SELECT * FROM ${config.table} WHERE id=? LIMIT 1`).bind(finding.canonicalEntityId).first<Record<string, unknown>>();
 }
 
+function canonicalBeforeFromCurrent(entityType: AutomationEntityType, current: Record<string, unknown>) {
+  const config = entityConfigs[entityType];
+  const before: Record<string, unknown> = {};
+  for (const [key, spec] of Object.entries(config.fields)) {
+    const value = decodeValue(spec, current[spec.column]);
+    before[key] = value;
+    before[spec.canonicalKey ?? key] = value;
+  }
+  const sourceData = parseObject(current.source_data_json);
+  for (const key of config.metadataFields ?? []) {
+    before[key] = sourceData[key] ?? null;
+  }
+  return before;
+}
+
+async function findNewOrganizationCollision(
+  finding: AutomationFindingDetail,
+  db: AutomationD1Database,
+) {
+  if (finding.entityType !== "ORGANIZATION" || finding.findingType !== "NEW_ENTITY") return null;
+  const name = textValue(finding.proposed.name);
+  if (!name) return null;
+  const slug = slugifyDraft(finding.proposed.slug, name);
+  const row = await db.prepare(`SELECT * FROM help_organizations WHERE slug=? LIMIT 1`)
+    .bind(slug)
+    .first<Record<string, unknown>>();
+  if (!row) return null;
+  const id = Number(row.id);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return { id, row, slug };
+}
+
 function assertNoConcurrentChanges(
   finding: AutomationFindingDetail,
   current: Record<string, unknown>,
@@ -910,22 +939,49 @@ export async function applyAutomationFinding(input: {
     if (unsupported.length) {
       throw new AutomationApplyUnsupportedError(`Nový koncept obsahuje nepodporované polia: ${unsupported.join(", ")}.`);
     }
-    const draft = createDraftStatement(finding, actor, at, db);
-    const appliedFields = Object.keys(finding.diff);
-    const application = db.prepare(`INSERT INTO automation_applications (
-        finding_id,entity_type,canonical_entity_id,application_type,applied_fields_json,before_json,after_json,applied_by,applied_at
-      ) VALUES (?,?,last_insert_rowid(),'CREATE_DRAFT',?,?,?,?,?)`).bind(
-        finding.id, finding.entityType, JSON.stringify(appliedFields), JSON.stringify(finding.before),
-        JSON.stringify(draft.after), actor, at,
-      );
-    const closeFinding = db.prepare(`UPDATE automation_findings SET
-        canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
-        canonical_entity_key=? || ':' || (SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
-        review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
-      WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
-        finding.id, config.keyPrefix, finding.id, notes, actor, at, finding.id,
-      );
-    await db.batch([draft.statement, application, closeFinding]);
+
+    const organizationCollision = await findNewOrganizationCollision(finding, db);
+    if (organizationCollision) {
+      const reboundFinding: AutomationFindingDetail = {
+        ...finding,
+        findingType: "POSSIBLE_UPDATE",
+        canonicalEntityId: organizationCollision.id,
+        canonicalEntityKey: `organization:${organizationCollision.id}`,
+        matchQuality: "EXACT_CANONICAL_KEY",
+        before: canonicalBeforeFromCurrent("ORGANIZATION", organizationCollision.row),
+      };
+      const update = updateExistingStatement(reboundFinding, organizationCollision.row, actor, at, db);
+      const application = db.prepare(`INSERT INTO automation_applications (
+          finding_id,entity_type,canonical_entity_id,application_type,applied_fields_json,before_json,after_json,applied_by,applied_at
+        ) VALUES (?,?,?,'UPDATE_EXISTING',?,?,?,?,?)`).bind(
+          finding.id, finding.entityType, organizationCollision.id, JSON.stringify(update.appliedFields),
+          JSON.stringify(reboundFinding.before), JSON.stringify(update.after), actor, at,
+        );
+      const closeFinding = db.prepare(`UPDATE automation_findings SET
+          finding_type='POSSIBLE_UPDATE',canonical_entity_id=?,canonical_entity_key=?,match_quality='EXACT_CANONICAL_KEY',
+          review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
+        WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
+          organizationCollision.id, `organization:${organizationCollision.id}`, notes, actor, at, finding.id,
+        );
+      await db.batch([update.statement, application, closeFinding]);
+    } else {
+      const draft = createDraftStatement(finding, actor, at, db);
+      const appliedFields = Object.keys(finding.diff);
+      const application = db.prepare(`INSERT INTO automation_applications (
+          finding_id,entity_type,canonical_entity_id,application_type,applied_fields_json,before_json,after_json,applied_by,applied_at
+        ) VALUES (?,?,last_insert_rowid(),'CREATE_DRAFT',?,?,?,?,?)`).bind(
+          finding.id, finding.entityType, JSON.stringify(appliedFields), JSON.stringify(finding.before),
+          JSON.stringify(draft.after), actor, at,
+        );
+      const closeFinding = db.prepare(`UPDATE automation_findings SET
+          canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
+          canonical_entity_key=? || ':' || (SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
+          review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
+        WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
+          finding.id, config.keyPrefix, finding.id, notes, actor, at, finding.id,
+        );
+      await db.batch([draft.statement, application, closeFinding]);
+    }
   } else {
     if (!finding.canonicalEntityId) throw new AutomationApplyConflictError("Finding nemá jednoznačný canonical záznam.");
     const current = await loadCurrentRow(finding, db);
