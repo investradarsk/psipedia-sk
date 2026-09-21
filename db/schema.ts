@@ -473,3 +473,5 @@ export const helpCases = sqliteTable(
     index("help_cases_region_idx").on(table.region, table.category, table.status),
   ],
 );
+
+export * from "./partner-schema";
