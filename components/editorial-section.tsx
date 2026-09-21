@@ -294,9 +294,10 @@ export function EditorialSectionHub({
                   <Link
                     href={portalSubpageHref(section, subpage)}
                     className={styles.topicCard}
+                    data-section-topic-card
                     key={subpage.slug}
                   >
-                    <span className={styles.topicCardMedia}>
+                    <span className={styles.topicCardMedia} data-section-topic-image>
                       <img src={image} alt="" loading="lazy" decoding="async" />
                     </span>
                     <span className={styles.topicCardBody}>
@@ -328,10 +329,11 @@ export function EditorialSectionHub({
             <div
               id={`${sectionSlug}-next-carousel`}
               className={styles.nextCarousel}
+              data-section-next-carousel
               aria-label="Užitočné služby a pokračovanie"
             >
               {nextSteps(sectionSlug).map((item) => (
-                <Link href={item.href} className={styles.nextCard} key={item.href}>
+                <Link href={item.href} className={styles.nextCard} data-section-next-card key={item.href}>
                   <span className={styles.nextCardMedia}>
                     <img src={nextStepImage(item.href)} alt="" loading="lazy" decoding="async" />
                     <span className={styles.nextCardIcon} aria-hidden="true">{item.icon}</span>
