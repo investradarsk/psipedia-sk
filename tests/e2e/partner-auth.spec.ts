@@ -51,7 +51,7 @@ test("valid one-time link creates a session and exposes only the foundation shel
   const expectedEmail = AUTH_EMAILS[project];
   expect(token).toBeTruthy();
 
-  await page.goto("/partner/overenie?token=" + encodeURIComponent(token));
+  await page.goto("/partner/overenie#token=" + encodeURIComponent(token));
   await expect(page).toHaveURL(/\/partner$/);
   await expect(page.getByRole("heading", { name: "Partner účet je pripravený" })).toBeVisible();
   await expect(page.getByText("Prihlásenie bez hesla, overenie e-mailu, bezpečná session")).toBeVisible();
@@ -81,7 +81,7 @@ for (const token of [
   "partner-e2e-deactivated-auth-token-000000000000007",
 ]) {
   test("unusable magic link fails safely: " + token.slice(12, 20), async ({ page }) => {
-    await page.goto("/partner/overenie?token=" + encodeURIComponent(token));
+    await page.goto("/partner/overenie#token=" + encodeURIComponent(token));
     await expect(page.getByRole("heading", { name: "Odkaz sa nepodarilo overiť" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Vyžiadať nový odkaz" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
