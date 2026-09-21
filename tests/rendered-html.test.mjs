@@ -241,7 +241,7 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Najnovšie pre dobrý štart/);
   assert.match(html, /Veterinárna starostlivosť na jednom mieste/);
   assert.match(html, /Najnovšie o zdraví a každodennej starostlivosti/);
-  assert.match(html, /Aj ostatné služby pre každodenný život so psom/);
+  assert.match(html, /Praktické služby pre každý deň so psom/);
   assert.match(html, /Najnovšie pre tréning, pohyb a spoločné aktivity/);
   assert.match(html, /Pomoc psom/);
   assert.match(html, /Plemeno dňa/);
