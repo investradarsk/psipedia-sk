@@ -14,11 +14,15 @@ export function PartnerSettingsActions({ siteKey }: { siteKey: string }) {
     setBusy("logout");
     setError("");
     try {
-      await fetch("/api/partner/auth/logout", {
+      const response = await fetch("/api/partner/auth/logout", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: "{}",
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(data?.error || "Odhlásenie sa nepodarilo.");
+      }
       window.location.replace("/partner/prihlasenie");
     } catch {
       setError("Odhlásenie sa nepodarilo. Skúste to znova.");
