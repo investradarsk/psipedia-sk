@@ -105,10 +105,10 @@ test("admin source screen exposes discovery health and candidate review", () => 
   const page = read("app/admin/operations/automation/sources/page.tsx");
   const manager = read("components/admin-automation-source-manager.tsx");
   assert.match(page, /listAutomationDiscoveryRoots/);
-  assert.match(manager, /Scheduled discovery/);
+  assert.match(manager, /Automatické hľadanie nových zdrojov/);
   assert.match(manager, /lastCheckedAt/);
   assert.match(manager, /lastSuccessAt/);
   assert.match(manager, /nextCheckAt/);
-  assert.match(manager, /Source candidates/);
-  assert.match(manager, /Schváliť ako zdroj/);
+  assert.match(manager, /Čaká na tvoje rozhodnutie/);
+  assert.match(manager, /Pridať medzi zdroje/);
 });

@@ -24,7 +24,7 @@ test("automation source actions expose clear primary and destructive hierarchy",
   const manager = read("components/admin-automation-source-manager.tsx");
   const finding = read("components/admin-automation-finding-review.tsx");
 
-  assert.match(detail, /className="is-primary" type="submit"[^>]*>Uložiť konfiguráciu/);
+  assert.match(detail, /className="is-primary" type="submit"[^>]*>Uložiť pokročilé nastavenia/);
   assert.match(detail, /className="is-primary" type="button"[\s\S]{0,500}?runNow/);
   assert.match(detail, /className="is-danger" type="button"[\s\S]{0,500}?action: "reject"/);
   assert.match(detail, /className="is-danger" type="button"[\s\S]{0,500}?action: "disable"/);

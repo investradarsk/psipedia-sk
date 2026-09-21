@@ -28,7 +28,7 @@ export default async function AutomationSourcesPage() {
       user={user}
       eyebrow="Automatický research"
       title="Zdroje a discovery"
-      description="Správa kontrolovaných verejných zdrojov. Aktivácia vyžaduje explicitné review a žiadna akcia v tomto module nepublikuje canonical obsah."
+      description="Tu riešiš nové návrhy zdrojov a stav existujúcich. Najprv vybav položky, ktoré čakajú na teba; technické nastavenia sú schované nižšie."
       actions={<><Link href="/admin/operations/automation">Stav automatizácie</Link><Link href="/admin/operations">Centrum pozornosti</Link></>}
     >
       {unavailable ? (

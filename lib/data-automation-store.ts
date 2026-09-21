@@ -526,7 +526,7 @@ export async function reviewAutomationFinding(input: {
 
 export async function listAutomationSourceHealth(database?: AutomationD1Database, limit = 50) {
   const db = getDatabase(database);
-  const result = await db.prepare(`SELECT s.id,s.source_key,s.label,s.entity_type,s.connector_type,s.enabled,s.next_check_at,
+  const result = await db.prepare(`SELECT s.id,s.source_key,s.label,s.entity_type,s.connector_type,s.enabled,s.review_status,s.next_check_at,
       s.last_checked_at,s.last_success_at,s.last_error_at,s.last_error_code,
       r.status AS last_run_status,r.checked_count,r.new_finding_count,r.updated_finding_count,r.error_count,r.duration_ms
     FROM automation_sources s
