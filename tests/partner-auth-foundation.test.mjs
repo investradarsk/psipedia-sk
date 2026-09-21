@@ -253,10 +253,13 @@ test("public Partner foundation exposes only auth/settings functionality", async
 test("Partner UX contract includes accessible labels, disabled states, focus and mobile overflow protection", async () => {
   const form = await fs.readFile(new URL("../components/partner-auth-form.tsx", import.meta.url), "utf8");
   const verification = await fs.readFile(new URL("../components/partner-verification.tsx", import.meta.url), "utf8");
+  const settingsActions = await fs.readFile(new URL("../components/partner-settings-actions.tsx", import.meta.url), "utf8");
   const css = await fs.readFile(new URL("../app/partner/partner.css", import.meta.url), "utf8");
   assert.match(form, /<label/);
   assert.match(form, /disabled=\{sending \|\| !turnstileToken \|\| !siteKey\}/);
   assert.match(verification, /aria-live="polite"/);
+  assert.match(verification, /history\.replaceState\(null, "", "\/partner\/overenie"\)/);
+  assert.match(settingsActions, /if \(!response\.ok\)/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /max-width: 100%/);
   assert.match(css, /@media \(max-width: 760px\)/);
