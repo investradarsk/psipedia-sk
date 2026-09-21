@@ -114,12 +114,10 @@ export function DirectoryPage({
                   {directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}
                 </select>
               </label>
-              <label>
+              <label className={styles.searchLabel}>
                 <span>Názov, služba alebo lokalita</span>
-                <span className={styles.searchField}>
-                  <SearchIcon size={19} />
-                  <input name="q" defaultValue={filters.query} placeholder="Nitra, fyzioterapia, labrador…" />
-                </span>
+                <SearchIcon size={19} />
+                <input name="q" defaultValue={filters.query} placeholder="Nitra, fyzioterapia, labrador…" />
               </label>
               <button type="submit"><span>Hľadať</span><ArrowIcon size={17} /></button>
             </form>
