@@ -261,3 +261,14 @@ test("Partner UX contract includes accessible labels, disabled states, focus and
   assert.match(css, /max-width: 100%/);
   assert.match(css, /@media \(max-width: 760px\)/);
 });
+
+test("magic-link URLs are excluded from analytics, ads and referrer propagation", async () => {
+  const consent = await fs.readFile(new URL("../components/cookie-consent.tsx", import.meta.url), "utf8");
+  const ads = await fs.readFile(new URL("../components/programmatic-ad-loader.tsx", import.meta.url), "utf8");
+  const layout = await fs.readFile(new URL("../app/partner/layout.tsx", import.meta.url), "utf8");
+  assert.match(consent, /pathname\.startsWith\("\/partner"\)/);
+  assert.match(consent, /!isSensitiveRoute/);
+  assert.match(ads, /pathname\.startsWith\("\/partner"\)/);
+  assert.match(ads, /if \(isPartnerRoute\) return/);
+  assert.match(layout, /referrer: "no-referrer"/);
+});
