@@ -43,6 +43,20 @@ const MAX_SOURCE_BYTES = 1_000_000;
 const MAX_REDIRECT_HOPS = 3;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
+function redirectVisitKey(value: string) {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.hostname = url.hostname.toLowerCase();
+    if ((url.protocol === "https:" && url.port === "443") || (url.protocol === "http:" && url.port === "80")) {
+      url.port = "";
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 function pathValue(value: unknown, path: string | undefined) {
   if (!path) return value;
   return path.split(".").filter(Boolean).reduce<unknown>((current, key) => {
@@ -132,6 +146,7 @@ function expectedMinimumRecords(source: AutomationSource) {
   }
   if (source.config.htmlAdapterKey === "svps-shelters-register") return 10;
   if (source.config.htmlAdapterKey === "skj-exhibition-calendar") return 1;
+  if (source.config.htmlAdapterKey === "agility-sk-events") return 1;
   return 0;
 }
 
@@ -188,7 +203,7 @@ async function fetchOnce(
   let redirectCount = 0;
 
   while (true) {
-    const loopKey = canonicalizeSourceUrl(currentUrl) ?? currentUrl;
+    const loopKey = redirectVisitKey(currentUrl);
     if (seen.has(loopKey)) throw new AutomationConnectorError("source_redirect_loop");
     seen.add(loopKey);
 
