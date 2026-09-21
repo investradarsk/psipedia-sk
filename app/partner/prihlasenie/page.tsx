@@ -2,6 +2,8 @@ import Link from "next/link";
 import { PartnerAuthForm } from "@/components/partner-auth-form";
 import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
 
+export const dynamic = "force-dynamic";
+
 export default function PartnerLoginPage() {
   const siteKey = getPartnerTurnstileSiteKey();
 
