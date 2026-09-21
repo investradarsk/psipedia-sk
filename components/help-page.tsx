@@ -69,8 +69,8 @@ export function HelpPage({
             intro={active?.description ?? "Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Vyberte, kde chcete pomôcť alebo čo práve potrebujete vyriešiť."}
             meta={
               <div className={styles.headerMeta}>
-                {activeCount !== null ? <span><strong>{activeCount}</strong> aktívnych záznamov</span> : null}
-                {!active && totalActive !== null ? <span><strong>{totalActive}</strong> aktívnych záznamov</span> : null}
+                {activeCount !== null ? <span><strong>{activeCount}</strong> aktívnych možností pomoci</span> : null}
+                {!active && totalActive !== null ? <span><strong>{totalActive}</strong> aktívnych možností pomoci</span> : null}
                 <span><ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje</span>
               </div>
             }
@@ -79,7 +79,7 @@ export function HelpPage({
                 <span className={styles.heroPanelEyebrow}>{active ? "Aktuálny stav" : "Pomoc, ktorá vedie k akcii"}</span>
                 <div className={styles.heroMetric}>
                   <strong>{summaryCount ?? helpCategories.length}</strong>
-                  <span>{summaryCount !== null ? "aktívnych záznamov" : "spôsobov pomoci"}</span>
+                  <span>{summaryCount !== null ? "aktívnych možností pomoci" : "spôsobov pomoci"}</span>
                 </div>
                 <p>
                   {active
@@ -97,7 +97,7 @@ export function HelpPage({
               <span className={styles.sectionEyebrow}>Vyberte, čo chcete riešiť</span>
               <h2 id="help-categories-heading">Pomôžte tam, kde je to práve potrebné</h2>
             </div>
-            <p>Každá karta vás zoberie priamo na príslušný prehľad. Bez miešania adopcií, hlásení a organizácií do jedného zoznamu.</p>
+            <p>Každá karta vás zoberie priamo na príslušný prehľad, aby ste rýchlo našli presne ten typ pomoci, ktorý potrebujete.</p>
           </div>
           <div className={styles.categoryGrid} data-help-category-nav>
             {helpCategories.map((category) => {
