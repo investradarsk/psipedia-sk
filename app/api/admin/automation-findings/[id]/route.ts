@@ -1,11 +1,16 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import {
+  applyAutomationFinding,
+  AutomationApplyConflictError,
+  AutomationApplyUnsupportedError,
+} from "@/lib/data-automation-apply";
 import { reviewAutomationFinding } from "@/lib/data-automation-store";
 import type { AutomationReviewAction } from "@/lib/data-automation";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
-const actions = new Set<AutomationReviewAction>(["start-review", "approve", "reject", "ignore", "suppress"]);
+const reviewActions = new Set<AutomationReviewAction>(["start-review", "approve", "reject", "ignore", "suppress"]);
 
 export async function PUT(request: Request, { params }: Props) {
   const user = await getAdminApiUser();
@@ -21,11 +26,40 @@ export async function PUT(request: Request, { params }: Props) {
     notes?: unknown;
     suppressedDays?: unknown;
   } | null;
-  if (!body || typeof body.action !== "string" || !actions.has(body.action as AutomationReviewAction)) {
+  if (!body || typeof body.action !== "string") {
     return Response.json({ error: "Neplatná review akcia." }, { status: 400 });
   }
 
   const notes = typeof body.notes === "string" ? body.notes : null;
+
+  if (body.action === "approve-apply") {
+    try {
+      const result = await applyAutomationFinding({
+        id,
+        reviewerEmail: user.email,
+        notes,
+      });
+      return result
+        ? Response.json(result, { headers: { "cache-control": "no-store" } })
+        : Response.json({ error: "Finding sa nenašiel." }, { status: 404 });
+    } catch (error) {
+      if (error instanceof AutomationApplyConflictError) {
+        return Response.json({ error: error.message }, { status: 409 });
+      }
+      if (error instanceof AutomationApplyUnsupportedError) {
+        return Response.json({ error: error.message }, { status: 422 });
+      }
+      return Response.json(
+        { error: error instanceof Error ? error.message : "Finding sa nepodarilo aplikovať." },
+        { status: 409 },
+      );
+    }
+  }
+
+  if (!reviewActions.has(body.action as AutomationReviewAction)) {
+    return Response.json({ error: "Neplatná review akcia." }, { status: 400 });
+  }
+
   let suppressedUntil: string | null = null;
   if (body.action === "suppress") {
     const days = Number(body.suppressedDays ?? 30);
