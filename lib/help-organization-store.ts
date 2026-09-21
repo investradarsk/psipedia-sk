@@ -1,4 +1,5 @@
 import type { AdoptionD1Database } from "./adoption-store.ts";
+import { cleanPublicOrganizationCopy } from "./public-integrity";
 import {
   listPublicAdoptionsByOrganizationId,
   type OrganizationPublicAdoption,
@@ -163,24 +164,6 @@ type PublicDirectoryRow = {
   slug: string;
   category: string;
 };
-
-export function cleanPublicOrganizationCopy(value: string) {
-  return value
-    .split(/\n\s*\n/u)
-    .map((paragraph) => paragraph
-      .split(/(?<=[.!?])\s+/u)
-      .filter((sentence) => {
-        const publicCopyLower = sentence.toLocaleLowerCase("sk");
-        const mentionsLegacyRecord = /(starší|pôvodný)/u.test(publicCopyLower)
-          && /(profil|riadok|záznam)/u.test(publicCopyLower);
-        const mentionsMergeHistory = /(zlúčen|spojen|nepublikoval dvakrát|publikoval dvakrát|duplicit)/u.test(publicCopyLower);
-        return !(mentionsLegacyRecord && mentionsMergeHistory);
-      })
-      .join(" ")
-      .trim())
-    .filter(Boolean)
-    .join("\n\n");
-}
 
 export const PUBLIC_ORGANIZATION_PREDICATE =
   "o.status = 'PUBLISHED' AND o.published_at IS NOT NULL AND o.archived_at IS NULL";
