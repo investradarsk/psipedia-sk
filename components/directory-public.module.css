@@ -830,3 +830,18 @@
     height: 44px;
   }
 }
+
+
+.searchField {
+  font-size: inherit;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.searchField input {
+  font-size: .88rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
