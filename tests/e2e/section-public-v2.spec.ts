@@ -50,6 +50,40 @@ test("SECTION-PUBLIC landings use compact content lists and keep the health urge
   await expect(urgent.getByRole("link", { name: "Nájsť veterinára" })).toHaveAttribute("href", "/adresar/veterinari");
 });
 
+test("SECTION-PUBLIC topic cards use photos and the next-step services reuse a horizontal carousel", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/steniatka");
+
+  const topicCards = page.locator("[data-section-topic-card]");
+  expect(await topicCards.count()).toBeGreaterThan(2);
+  await expect(topicCards.first().locator("[data-section-topic-image] img")).toBeVisible();
+
+  const carousel = page.locator("[data-section-next-carousel]");
+  await expect(carousel).toBeVisible();
+  expect(await carousel.locator("[data-section-next-card]").count()).toBe(4);
+  expect(await carousel.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+
+  const before = await carousel.evaluate((element) => element.scrollLeft);
+  await page.getByRole("button", { name: "Posunúť carousel doprava" }).click();
+  await expect.poll(() => carousel.evaluate((element) => element.scrollLeft)).toBeGreaterThan(before);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/aktivity");
+  await expectNoHorizontalOverflow(page, "Výcvik carousel at 390px");
+  const mobileCarousel = page.locator("[data-section-next-carousel]");
+  const metrics = await mobileCarousel.evaluate((element) => {
+    const card = element.querySelector<HTMLElement>("[data-section-next-card]");
+    return {
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      cardWidth: card?.getBoundingClientRect().width ?? 0,
+    };
+  });
+  expect(metrics.scrollWidth).toBeGreaterThan(metrics.clientWidth);
+  expect(metrics.cardWidth).toBeGreaterThan(metrics.clientWidth * 0.75);
+  expect(metrics.cardWidth).toBeLessThan(metrics.clientWidth);
+});
+
 test("SECTION-PUBLIC details use compact headers, preserve useful content and avoid duplicate category blocks", async ({ page }) => {
   for (const path of DETAILS) {
     const response = await page.goto(path, { waitUntil: "commit" });
