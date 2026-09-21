@@ -17,7 +17,7 @@ test("Slovak count formatter handles article forms", async () => {
 });
 
 test("organization copy cleaner removes only merge-history sentences and preserves paragraphs", async () => {
-  const { cleanPublicOrganizationCopy } = await importTs("lib/help-organization-store.ts");
+  const { cleanPublicOrganizationCopy } = await importTs("lib/public-integrity.ts");
   const input = "Pomáhame psom v núdzi a hľadáme im bezpečné domovy.\n\nStarší samostatný profil bol zlúčený, aby sa nepublikoval dvakrát.\n\nVenujeme sa adopciám.";
   assert.equal(
     cleanPublicOrganizationCopy(input),
