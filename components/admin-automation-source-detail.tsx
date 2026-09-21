@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
 import { automationConnectorTypes, automationEntityTypes } from "@/lib/data-automation";
 import styles from "./admin-operations-ux.module.css";
@@ -27,14 +27,18 @@ type Preview = {
 };
 
 type RunSummary = {
-  status: string;
+  sourceId?: number;
+  status: string | null;
   checked: number;
   newFindings: number;
   updatedFindings: number;
-  newDataFindings: number;
-  sourceErrors: number;
+  newDataFindings?: number;
+  sourceErrors?: number;
   errors: number;
+  durationMs?: number | null;
   nextCheckAt: string | null;
+  lastCheckedAt?: string | null;
+  lastErrorCode?: string | null;
 };
 
 async function mutate(url: string, method: "POST" | "PUT", body: unknown) {
@@ -77,7 +81,7 @@ function statusCopy(source: AutomationSourceAdminRow) {
 
 export function AdminAutomationSourceDetail({ source }: { source: AutomationSourceAdminRow }) {
   const router = useRouter();
-  const [busyAction, setBusyAction] = useState<"action" | "test" | "run" | null>(null);
+  const [busyAction, setBusyAction] = useState<"action" | "test" | "run" | null>(source.lastRunStatus === "RUNNING" ? "run" : null);
   const busy = busyAction !== null;
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -103,6 +107,48 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
   });
 
   const status = statusCopy(source);
+
+  async function pollRunStatus() {
+    let networkFailures = 0;
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        const response = await fetch("/api/admin/automation-sources/" + source.id + "/run", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({})) as { run?: RunSummary; error?: string };
+        if (!response.ok || !payload.run) throw new Error(payload.error || "Stav kontroly sa nepodarilo načítať.");
+        networkFailures = 0;
+        setRun(payload.run);
+        if (payload.run.status && payload.run.status !== "RUNNING") {
+          setMessage(
+            payload.run.status === "SUCCESS"
+              ? "Kontrola skončila úspešne. Nové zistenia čakajú na manuálne posúdenie."
+              : "Kontrola skončila so stavom " + payload.run.status + ". Pozri výsledok nižšie.",
+          );
+          setBusyAction(null);
+          router.refresh();
+          return;
+        }
+      } catch {
+        networkFailures += 1;
+        if (networkFailures >= 5) {
+          setMessage("Kontrola beží na pozadí. Spojenie na chvíľu vypadlo, stav môžeš overiť obnovením stránky.");
+          setBusyAction(null);
+          return;
+        }
+      }
+    }
+    setMessage("Kontrola stále beží na pozadí. Môžeš túto stránku opustiť a vrátiť sa neskôr.");
+    setBusyAction(null);
+  }
+
+  useEffect(() => {
+    if (source.lastRunStatus === "RUNNING") void pollRunStatus();
+    // Polling is intentionally tied to the source/run state received from the server.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source.id, source.lastRunStatus]);
 
   function field(name: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -140,15 +186,20 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
   async function runNow() {
     setBusyAction("run");
     setMessage("");
-    setRun(null);
+    setRun({ status: "RUNNING", checked: 0, newFindings: 0, updatedFindings: 0, errors: 0, nextCheckAt: source.nextCheckAt });
     try {
-      const payload = await mutate("/api/admin/automation-sources/" + source.id + "/run", "POST", {});
-      setRun(payload.run as RunSummary);
-      setMessage("Kontrola skončila. Nové zistenia čakajú na manuálne posúdenie; nič sa automaticky nezverejnilo.");
-      router.refresh();
+      const response = await fetch("/api/admin/automation-sources/" + source.id + "/run", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      const payload = await response.json().catch(() => ({})) as { accepted?: boolean; run?: RunSummary; error?: string };
+      if (!response.ok || !payload.accepted) throw new Error(payload.error || "Kontrolu sa nepodarilo spustiť.");
+      if (payload.run) setRun(payload.run);
+      setMessage("Kontrola beží na pozadí. Túto stránku môžeš pokojne opustiť.");
+      void pollRunStatus();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Kontrolu sa nepodarilo spustiť.");
-    } finally {
       setBusyAction(null);
     }
   }
@@ -164,7 +215,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
             <strong>{busyAction === "test" ? "Testujem zdroj…" : "Kontrolujem zdroj…"}</strong>
             <p>{busyAction === "test"
               ? "Overujem dostupnosť a spracovanie dát. Tento test nič nezapisuje."
-              : "Načítavam zdroj, porovnávam záznamy a pripravujem nové zistenia na review. Môže to chvíľu trvať."}</p>
+              : "Kontrola beží na pozadí. Načítavam zdroj, porovnávam záznamy a pripravujem nové zistenia na review. Túto stránku môžeš pokojne opustiť."}</p>
           </div>
         </div>
       )}
@@ -254,7 +305,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
       {run && (
         <section className={styles.section} aria-live="polite">
           <div className={styles.sectionHeader}><div><h2>Výsledok manuálnej kontroly</h2></div></div>
-          <p><strong>{run.status}</strong> · skontrolované {run.checked} · nové zistenia {run.newDataFindings} · chyby zdroja {run.sourceErrors} · ďalšia kontrola {formatDate(run.nextCheckAt)}</p>
+          <p><strong>{run.status ?? "RUNNING"}</strong> · skontrolované {run.checked} · nové zistenia {run.newDataFindings ?? run.newFindings} · chyby {run.sourceErrors ?? run.errors} · ďalšia kontrola {formatDate(run.nextCheckAt)}</p>
         </section>
       )}
 
