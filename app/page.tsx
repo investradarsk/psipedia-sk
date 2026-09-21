@@ -7,7 +7,7 @@ import { AdSlot } from "@/components/ad-slot";
 import { dayOfYearInBratislava } from "@/lib/breed-canonical";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getBreedOfTheDay } from "@/lib/breed-store";
-import { directoryCategories, directoryProfileHref } from "@/lib/directory";
+import { directoryCategories, directoryCategoryHref, directoryProfileHref } from "@/lib/directory";
 import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
 import { getUpcomingEvents } from "@/lib/event-store";
 import { eventHref, formatEventDate } from "@/lib/events";
@@ -41,7 +41,15 @@ export default async function Home() {
     getPublishedDirectoryProfiles("veterinari", 3),
   ]);
   const articleSelection = selectHomepageArticles(publishedArticles, { latestLimit: 5, sectionLimit: 3 });
-  const otherServiceCategories = directoryCategories.filter((category) => category.slug !== "veterinari").slice(0, 6);
+  const homepageServiceSlugs: string[] = [
+    "treneri",
+    "salony-a-sluzby",
+    "hotely-a-opatrovanie",
+    "vencenie",
+    "fyzioterapia",
+    "dalsie-sluzby",
+  ];
+  const otherServiceCategories = directoryCategories.filter((category) => homepageServiceSlugs.includes(category.slug));
 
   const schema = {
     "@context": "https://schema.org",
@@ -204,13 +212,20 @@ export default async function Home() {
       <section className="section shell home-services-wide" data-home-services-secondary aria-labelledby="home-services-secondary-title">
         <div className="home-services-wide-copy">
           <span className="eyebrow">Služby pre psov</span>
-          <h2 id="home-services-secondary-title">Aj ostatné služby pre každodenný život so psom</h2>
-          <p>Nájdi trénerov, psie školy, salóny, opatrovanie, fyzioterapiu a ďalšie služby.</p>
-          <div className="home-service-taxonomy" aria-label="Kategórie služieb">
-            {otherServiceCategories.map((category) => <span key={category.slug}>{category.label}</span>)}
-          </div>
+          <h2 id="home-services-secondary-title">Praktické služby pre každý deň so psom</h2>
+          <p>Tréneri, salóny, opatrovanie, venčenie, fyzioterapia a ďalšie služby na jednom mieste.</p>
+          <nav className="home-service-taxonomy" aria-label="Kategórie služieb">
+            {otherServiceCategories.map((category) => (
+              <Link key={category.slug} href={directoryCategoryHref(category)}>
+                <span>{category.label}</span>
+                <ArrowIcon size={14} />
+              </Link>
+            ))}
+          </nav>
         </div>
-        <Link href="/adresar" className="text-link home-services-wide-link">Preskúmať adresár <ArrowIcon size={18} /></Link>
+        <Link href="/adresar" className="button button--dark home-services-wide-link">
+          Všetky služby <ArrowIcon size={18} />
+        </Link>
       </section>
 
       <HomeEditorialSection
