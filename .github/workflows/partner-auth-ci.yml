@@ -90,7 +90,7 @@ jobs:
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Seed disposable Partner auth fixture
         run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/partner-auth-e2e.sql
-      - name: Configure disposable Partner E2E secrets
+      - name: Configure CI-only local PII keys for Partner E2E
         run: |
           PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
           PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
