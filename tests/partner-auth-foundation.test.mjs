@@ -183,6 +183,8 @@ test("auth email outbox encrypts retry secret, is idempotent and clears secret o
   assert.match(migration, /CREATE TABLE `partner_notification_outbox`/);
   assert.match(migration, /`encrypted_secret` text/);
   assert.match(emailSource, /encryptPii\(input\.rawToken/);
+  assert.match(emailSource, /\/partner\/overenie#token=/);
+  assert.doesNotMatch(emailSource, /\/partner\/overenie\?token=/);
   assert.match(emailSource, /decryptPii\(input\.row\.encrypted_secret/);
   assert.match(emailSource, /"Idempotency-Key": input\.row\.dedupe_key/);
   assert.match(emailSource, /status='SENT'.*encrypted_secret=NULL/s);
@@ -260,6 +262,7 @@ test("Partner UX contract includes accessible labels, disabled states, focus and
   assert.match(form, /<label/);
   assert.match(form, /disabled=\{sending \|\| !turnstileToken \|\| !siteKey\}/);
   assert.match(verification, /aria-live="polite"/);
+  assert.match(verification, /URLSearchParams\(window\.location\.hash/);
   assert.match(verification, /history\.replaceState\(null, "", "\/partner\/overenie"\)/);
   assert.match(settingsActions, /if \(!response\.ok\)/);
   assert.match(css, /:focus-visible/);
@@ -271,8 +274,8 @@ test("magic-link URLs are excluded from analytics, ads and referrer propagation"
   const consent = await fs.readFile(new URL("../components/cookie-consent.tsx", import.meta.url), "utf8");
   const ads = await fs.readFile(new URL("../components/programmatic-ad-loader.tsx", import.meta.url), "utf8");
   const layout = await fs.readFile(new URL("../app/partner/layout.tsx", import.meta.url), "utf8");
-  assert.match(consent, /const isPartnerRoute = pathname\.startsWith\("\/partner"\)/);
-  assert.match(consent, /!isAdminRoute && !isPartnerRoute/);
+  assert.match(consent, /const isSensitiveRoute = pathname\.startsWith\("\/admin"\) \|\| pathname\.startsWith\("\/partner"\)/);
+  assert.match(consent, /!isSensitiveRoute/);
   assert.match(ads, /pathname\.startsWith\("\/partner"\)/);
   assert.match(ads, /if \(isPartnerRoute\) return/);
   assert.match(layout, /referrer: "no-referrer"/);
