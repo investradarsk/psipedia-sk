@@ -18,10 +18,11 @@ function comparePublishedArticles(left: Article, right: Article) {
 
 export function selectHomepageArticles(
   articles: Article[],
-  options: { latestLimit?: number; sectionLimit?: number } = {},
+  options: { latestLimit?: number; sectionLimit?: number; backfillSectionsFromLatest?: boolean } = {},
 ): HomepageArticleSelection {
   const latestLimit = Math.max(1, Math.trunc(options.latestLimit ?? 5));
   const sectionLimit = Math.max(1, Math.trunc(options.sectionLimit ?? 3));
+  const backfillSectionsFromLatest = options.backfillSectionsFromLatest ?? false;
   const ordered = [...articles].sort(comparePublishedArticles);
   const latest = ordered.slice(0, latestLimit);
   const usedSlugs = new Set(latest.map((article) => article.slug));
@@ -31,6 +32,18 @@ export function selectHomepageArticles(
       const selected = ordered
         .filter((article) => articlePortalSection(article) === section && !usedSlugs.has(article.slug))
         .slice(0, sectionLimit);
+
+      if (backfillSectionsFromLatest && selected.length < sectionLimit) {
+        const selectedSlugs = new Set(selected.map((article) => article.slug));
+        const fallback = ordered
+          .filter((article) =>
+            articlePortalSection(article) === section &&
+            !selectedSlugs.has(article.slug),
+          )
+          .slice(0, sectionLimit - selected.length);
+        selected.push(...fallback);
+      }
+
       selected.forEach((article) => usedSlugs.add(article.slug));
       return [section, selected];
     }),
