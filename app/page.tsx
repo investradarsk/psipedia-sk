@@ -50,6 +50,14 @@ export default async function Home() {
     "dalsie-sluzby",
   ];
   const otherServiceCategories = directoryCategories.filter((category) => homepageServiceSlugs.includes(category.slug));
+  const serviceCardImages: Record<string, string> = {
+    treneri: "/images/trening-pri-nohe.webp",
+    "salony-a-sluzby": "/images/breeds/anglicky-koker-spaniel.webp",
+    "hotely-a-opatrovanie": "/images/breeds/beagle.webp",
+    vencenie: "/images/breeds/jack-russell-terier.webp",
+    fyzioterapia: "/images/zdravie-veterinar.webp",
+    "dalsie-sluzby": "/images/hero-labrador.webp",
+  };
 
   const schema = {
     "@context": "https://schema.org",
@@ -106,17 +114,6 @@ export default async function Home() {
       <div className="shell home-search-shell" data-home-search>
         <HomePortalSearch />
       </div>
-
-      <section className="shell home-services-entry" data-home-services-gateway aria-labelledby="home-services-title">
-        <div className="home-services-copy">
-          <span className="eyebrow">Služby pre psov</span>
-          <h2 id="home-services-title">Nájdi správnu službu bez obchádzania desiatok stránok</h2>
-          <p>Veterinári, tréneri, psie školy, opatrovanie, fyzioterapia a ďalšie profily v jednom adresári.</p>
-        </div>
-        <Link href="/adresar" className="button button--dark home-services-primary">
-          Všetky služby <ArrowIcon size={18} />
-        </Link>
-      </section>
 
       <HomeLatestArticles articles={articleSelection.latest} />
 
@@ -214,14 +211,24 @@ export default async function Home() {
           <span className="eyebrow">Služby pre psov</span>
           <h2 id="home-services-secondary-title">Praktické služby pre každý deň so psom</h2>
           <p>Tréneri, salóny, opatrovanie, venčenie, fyzioterapia a ďalšie služby na jednom mieste.</p>
-          <nav className="home-service-taxonomy" aria-label="Kategórie služieb">
-            {otherServiceCategories.map((category) => (
-              <Link key={category.slug} href={directoryCategoryHref(category)}>
-                <span>{category.label}</span>
-                <ArrowIcon size={14} />
-              </Link>
-            ))}
-          </nav>
+        </div>
+        <nav className="home-service-carousel" aria-label="Kategórie služieb">
+          {otherServiceCategories.map((category) => (
+            <Link key={category.slug} href={directoryCategoryHref(category)} className="home-service-card">
+              <span className="home-service-card-media">
+                <img src={serviceCardImages[category.slug]} alt="" loading="lazy" decoding="async" />
+                <span className="home-service-card-icon" aria-hidden="true">{category.icon}</span>
+              </span>
+              <span className="home-service-card-copy">
+                <strong>{category.label}</strong>
+                <span>{category.description}</span>
+                <span className="home-service-card-arrow" aria-hidden="true"><ArrowIcon size={20} /></span>
+              </span>
+            </Link>
+          ))}
+        </nav>
+        <div className="home-service-carousel-cue" aria-hidden="true">
+          <span>←</span><i /><i /><i /><span>→</span>
         </div>
         <Link href="/adresar" className="button button--dark home-services-wide-link">
           Všetky služby <ArrowIcon size={18} />

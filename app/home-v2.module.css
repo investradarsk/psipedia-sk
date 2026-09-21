@@ -1219,3 +1219,258 @@
     padding: 10px 12px;
   }
 }
+
+
+/* HOME-SERVICES-CAROUSEL: single visual services gateway with horizontal discovery. */
+.homeV2 :global(.home-services-wide) {
+  display: block;
+  padding: 42px 0 44px;
+  border: 0;
+  border-top: 1px solid rgba(23, 53, 43, 0.12);
+  border-bottom: 1px solid rgba(23, 53, 43, 0.12);
+  border-radius: 0;
+  background: transparent;
+}
+
+.homeV2 :global(.home-services-wide-copy) {
+  max-width: 780px;
+}
+
+.homeV2 :global(.home-services-wide-copy h2) {
+  max-width: 760px;
+  margin: 6px 0 10px;
+  font-size: clamp(2.05rem, 4vw, 3.25rem);
+  line-height: 1.02;
+}
+
+.homeV2 :global(.home-services-wide-copy > p) {
+  max-width: 720px;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.homeV2 :global(.home-service-carousel) {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(250px, calc((100% - 32px) / 3));
+  gap: 16px;
+  overflow-x: auto;
+  margin-top: 24px;
+  padding: 2px 1px 14px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.homeV2 :global(.home-service-carousel::-webkit-scrollbar) {
+  display: none;
+}
+
+.homeV2 :global(.home-service-card) {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  grid-template-rows: auto 1fr;
+  scroll-snap-align: start;
+  border: 1px solid rgba(23, 53, 43, 0.13);
+  border-radius: 18px;
+  color: var(--forest);
+  background: var(--paper);
+  box-shadow: 0 8px 24px rgba(23, 53, 43, 0.045);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.homeV2 :global(.home-service-card:hover) {
+  border-color: rgba(23, 75, 56, 0.26);
+  box-shadow: 0 12px 30px rgba(23, 53, 43, 0.08);
+  transform: translateY(-2px);
+}
+
+.homeV2 :global(.home-service-card-media) {
+  position: relative;
+  display: block;
+  overflow: visible;
+  aspect-ratio: 16 / 10;
+  background: var(--sage-light);
+}
+
+.homeV2 :global(.home-service-card-media img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 17px 17px 0 0;
+  object-fit: cover;
+}
+
+.homeV2 :global(.home-service-card-icon) {
+  position: absolute;
+  left: 18px;
+  bottom: -24px;
+  display: grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 5px solid var(--paper);
+  border-radius: 999px;
+  background: var(--sage-light);
+  font-size: 1.25rem;
+  line-height: 1;
+  box-shadow: 0 5px 14px rgba(23, 53, 43, 0.06);
+}
+
+.homeV2 :global(.home-service-card-copy) {
+  position: relative;
+  display: grid;
+  min-height: 164px;
+  align-content: start;
+  gap: 9px;
+  padding: 34px 54px 24px 20px;
+}
+
+.homeV2 :global(.home-service-card-copy > strong) {
+  color: var(--forest);
+  font-family: Georgia, serif;
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1.08;
+}
+
+.homeV2 :global(.home-service-card-copy > span:not(.home-service-card-arrow)) {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.homeV2 :global(.home-service-card-arrow) {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--sage-light);
+}
+
+.homeV2 :global(.home-service-carousel-cue) {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: rgba(23, 75, 56, 0.68);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.homeV2 :global(.home-service-carousel-cue i) {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(23, 75, 56, 0.28);
+}
+
+.homeV2 :global(.home-services-wide-link) {
+  width: 100%;
+  min-height: 54px;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+@media (max-width: 820px) {
+  .homeV2 :global(.home-service-carousel) {
+    grid-auto-columns: minmax(250px, 68%);
+  }
+}
+
+@media (max-width: 620px) {
+  .homeV2 :global(.home-services-wide) {
+    gap: 0;
+    padding: 38px 0 40px;
+    border: 0;
+    border-top: 1px solid rgba(23, 53, 43, 0.14);
+    border-bottom: 1px solid rgba(23, 53, 43, 0.14);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .homeV2 :global(.home-services-wide-copy h2) {
+    max-width: 340px;
+    margin-top: 7px;
+    font-size: 2.16rem;
+    line-height: 1.02;
+  }
+
+  .homeV2 :global(.home-services-wide-copy > p) {
+    max-width: 350px;
+    margin-top: 10px;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+
+  .homeV2 :global(.home-service-carousel) {
+    grid-auto-columns: minmax(248px, 79%);
+    gap: 12px;
+    margin-top: 23px;
+    padding: 2px 1px 13px;
+    scroll-padding-inline: 1px;
+  }
+
+  .homeV2 :global(.home-service-card) {
+    border-radius: 17px;
+  }
+
+  .homeV2 :global(.home-service-card-media) {
+    aspect-ratio: 4 / 3;
+  }
+
+  .homeV2 :global(.home-service-card-media img) {
+    border-radius: 16px 16px 0 0;
+  }
+
+  .homeV2 :global(.home-service-card-icon) {
+    left: 17px;
+    bottom: -23px;
+    width: 48px;
+    height: 48px;
+    font-size: 1.18rem;
+  }
+
+  .homeV2 :global(.home-service-card-copy) {
+    min-height: 174px;
+    gap: 8px;
+    padding: 34px 50px 22px 18px;
+  }
+
+  .homeV2 :global(.home-service-card-copy > strong) {
+    font-size: 1.38rem;
+  }
+
+  .homeV2 :global(.home-service-card-copy > span:not(.home-service-card-arrow)) {
+    font-size: 0.76rem;
+  }
+
+  .homeV2 :global(.home-service-card-arrow) {
+    right: 13px;
+    bottom: 15px;
+    width: 38px;
+    height: 38px;
+  }
+
+  .homeV2 :global(.home-service-carousel-cue) {
+    gap: 7px;
+    margin-bottom: 13px;
+  }
+
+  .homeV2 :global(.home-services-wide-link) {
+    width: 100%;
+    min-height: 50px;
+    margin-top: 0;
+  }
+}
