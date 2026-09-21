@@ -12,6 +12,7 @@ on:
       - "lib/data-automation*.ts"
       - "worker/index.ts"
       - "drizzle/0052_data_automation_sources_discovery.sql"
+      - "drizzle/0056_scheduled_source_discovery.sql"
       - "tests/data-automation*.test.mjs"
       - "tests/fixtures/data-automation/**"
       - "tests/e2e/data-automation-v2.spec.ts"
@@ -43,7 +44,7 @@ jobs:
       - run: npm ci
       - run: npm run db:check-migrations
       - name: Focused AUTOMATION-1 + AUTOMATION-2 tests
-        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v2.test.mjs tests/admin-attention-queue.test.mjs
+        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v2.test.mjs tests/data-automation-v4.test.mjs tests/admin-attention-queue.test.mjs
       - run: npm run build
 
   admin-e2e:
