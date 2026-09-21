@@ -53,8 +53,7 @@
 .resultCount{padding:6px 9px;border-radius:999px;color:var(--help-ink);background:#eee9de;font-size:.8rem;font-weight:800}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 
-/* PUBLIC-POLISH-2 photo contract */
-.card{display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid var(--help-border);border-radius:0;background:#fff;box-shadow:0 8px 24px rgba(23,63,45,.05)}
+.card{display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid var(--help-border);border-radius:var(--ps-radius-card,16px);background:#fff;box-shadow:0 8px 24px rgba(23,63,45,.05)}
 .cardUrgent{border-color:#e7b9ad}
 .cardResolved{opacity:.78}
 .media{position:relative;display:grid;aspect-ratio:4/3;place-items:center;overflow:hidden;background:#edf2ee;color:#315b46}
@@ -95,6 +94,11 @@
 .closingCta p{max-width:580px;margin:0 0 18px;color:rgba(255,255,255,.88);font-size:.96rem;line-height:1.6}
 .closingCta a{border-color:var(--help-accent);color:#fff;background:var(--help-accent)}
 .closingCta a:hover{background:var(--help-accent-strong)}
+
+/* PUBLIC-POLISH-2 photo contract */
+.card {
+  border-radius: 0;
+}
 
 @media(max-width:960px){
   .toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}
