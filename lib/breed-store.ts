@@ -6,7 +6,7 @@ import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } f
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { cleanFciStandard, combinedFciMeasurement, inspectBreedMeasurement, normalizeBreedSearchText, publicBreedMeasurement, publicBreedSize, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
 import { breedCompletenessIssues, validateBulkBreedStatus, type BreedCompletenessIssue } from "./admin-breeds";
-import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity";
+import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 
 export type BreedStatus = "draft" | "published";
 export type BreedEditorial = {
