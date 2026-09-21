@@ -194,7 +194,10 @@ async function transitionPartnerAccount(
   await db.prepare(
     "UPDATE partner_accounts SET status=?2," + timestampColumn + "=?3,updated_at=?3 WHERE id=?1",
   ).bind(accountId, status, nowIso).run();
-  await revokeAllPartnerSessions(accountId, now, db);
+  await Promise.all([
+    revokeAllPartnerSessions(accountId, now, db),
+    revokeOutstandingPartnerAuthTokens(accountId, now, db),
+  ]);
   return getPartnerAccountById(accountId, db);
 }
 
