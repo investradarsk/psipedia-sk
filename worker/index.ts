@@ -2,6 +2,7 @@ import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runAdminPushSweep } from "../lib/admin-push";
 import { runDataAutomationSweep } from "../lib/data-automation-runner";
+import { runDataAutomationDiscoverySweep } from "../lib/data-automation-discovery-runner";
 import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
@@ -161,7 +162,7 @@ const worker = {
   },
 
   async scheduled(_controller: unknown, env: Env, _ctx: ExecutionContext): Promise<void> {
-    const [summary, editorial, notionArticles, notionBreeds, notionEvents, dataAutomation] = await Promise.all([
+    const [summary, editorial, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
@@ -174,6 +175,14 @@ const worker = {
           error: error instanceof Error ? error.message : String(error),
         }));
         return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 1, errors: 1, schemaReady: true, runs: [] };
+      }),
+      runDataAutomationDiscoverySweep({ database: env.DB }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "data_automation_discovery_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return { roots: 0, success: 0, partial: 0, failed: 1, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 1, schemaReady: true, runs: [] };
       }),
     ]);
     // Run push after the editorial sweep so notifications created during
@@ -196,6 +205,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
     console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
+    console.info(JSON.stringify({ event: "data_automation_discovery_sweep", ...sourceDiscovery }));
     console.info(JSON.stringify({ event: "admin_push_sweep", ...adminPush }));
   },
 };
