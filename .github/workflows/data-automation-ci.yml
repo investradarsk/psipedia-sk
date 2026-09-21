@@ -18,6 +18,8 @@ on:
       - "tests/data-automation.test.mjs"
       - "tests/data-automation-apply.test.mjs"
       - "tests/data-automation-v4.test.mjs"
+      - "tests/data-automation-v5.test.mjs"
+      - "tests/fixtures/data-automation/**"
       - "tests/admin-attention-queue.test.mjs"
       - ".github/workflows/data-automation-ci.yml"
   workflow_dispatch:
@@ -47,5 +49,5 @@ jobs:
       - run: npm ci
       - run: npm run db:check-migrations
       - name: Focused automation and Attention Center tests
-        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v4.test.mjs tests/admin-attention-queue.test.mjs
+        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/admin-attention-queue.test.mjs
       - run: npm run build
