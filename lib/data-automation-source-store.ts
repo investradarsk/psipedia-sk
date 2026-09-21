@@ -335,23 +335,52 @@ export async function upsertAutomationSourceCandidate(input: {
   }
   const at = (input.detectedAt ?? new Date()).toISOString();
   const duplicate = await db.prepare(`SELECT id FROM automation_sources
-    WHERE source_url=? LIMIT 1`).bind(canonicalUrl).first<{ id: number }>();
+    WHERE source_url=? AND entity_type=? LIMIT 1`)
+    .bind(canonicalUrl, input.candidate.entityType).first<{ id: number }>();
 
   await db.prepare(`INSERT INTO automation_source_candidates (
       discovery_type,source_url,canonical_url,label,entity_type,suggested_connector_type,
       discovered_from_source_id,reason,metadata_json,duplicate_source_id,review_status,first_detected_at,last_detected_at
     ) VALUES (?,?,?,?,?,?,?,?,?,?, 'NEW',?,?)
-    ON CONFLICT(canonical_url) DO UPDATE SET
-      label=excluded.label,entity_type=excluded.entity_type,suggested_connector_type=excluded.suggested_connector_type,
+    ON CONFLICT(canonical_url,entity_type) DO UPDATE SET
+      label=excluded.label,suggested_connector_type=excluded.suggested_connector_type,
       discovered_from_source_id=excluded.discovered_from_source_id,reason=excluded.reason,metadata_json=excluded.metadata_json,
-      duplicate_source_id=excluded.duplicate_source_id,last_detected_at=excluded.last_detected_at`).bind(
+      duplicate_source_id=excluded.duplicate_source_id,last_detected_at=excluded.last_detected_at,
+      review_status=CASE
+        WHEN automation_source_candidates.review_status='SUPPRESSED'
+          AND automation_source_candidates.suppressed_until IS NOT NULL
+          AND automation_source_candidates.suppressed_until<=excluded.last_detected_at
+        THEN 'NEW'
+        ELSE automation_source_candidates.review_status
+      END,
+      reviewer_notes=CASE
+        WHEN automation_source_candidates.review_status='SUPPRESSED'
+          AND automation_source_candidates.suppressed_until IS NOT NULL
+          AND automation_source_candidates.suppressed_until<=excluded.last_detected_at
+        THEN NULL ELSE automation_source_candidates.reviewer_notes END,
+      reviewed_by=CASE
+        WHEN automation_source_candidates.review_status='SUPPRESSED'
+          AND automation_source_candidates.suppressed_until IS NOT NULL
+          AND automation_source_candidates.suppressed_until<=excluded.last_detected_at
+        THEN NULL ELSE automation_source_candidates.reviewed_by END,
+      reviewed_at=CASE
+        WHEN automation_source_candidates.review_status='SUPPRESSED'
+          AND automation_source_candidates.suppressed_until IS NOT NULL
+          AND automation_source_candidates.suppressed_until<=excluded.last_detected_at
+        THEN NULL ELSE automation_source_candidates.reviewed_at END,
+      suppressed_until=CASE
+        WHEN automation_source_candidates.review_status='SUPPRESSED'
+          AND automation_source_candidates.suppressed_until IS NOT NULL
+          AND automation_source_candidates.suppressed_until<=excluded.last_detected_at
+        THEN NULL ELSE automation_source_candidates.suppressed_until END`).bind(
       input.candidate.discoveryType, canonicalUrl, canonicalUrl, input.candidate.label.slice(0, 160),
       input.candidate.entityType, input.candidate.suggestedConnectorType,
       input.discoveredFromSourceId ?? null, input.candidate.reason.slice(0, 1000),
       JSON.stringify(input.candidate.metadata ?? {}), duplicate?.id ?? null, at, at,
     ).run();
-  const row = await db.prepare(`SELECT * FROM automation_source_candidates WHERE canonical_url=? LIMIT 1`)
-    .bind(canonicalUrl).first<Record<string, unknown>>();
+  const row = await db.prepare(`SELECT * FROM automation_source_candidates
+    WHERE canonical_url=? AND entity_type=? LIMIT 1`)
+    .bind(canonicalUrl, input.candidate.entityType).first<Record<string, unknown>>();
   if (!row) throw new Error("automation_candidate_upsert_failed");
   return mapCandidate(row);
 }

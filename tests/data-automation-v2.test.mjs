@@ -360,7 +360,7 @@ test("source failures remain visible in source observability", () => {
 
 test("candidate persistence dedupes canonical URL and approval creates only disabled pending source", () => {
   const store = read("lib/data-automation-source-store.ts");
-  assert.match(store, /ON CONFLICT\(canonical_url\) DO UPDATE/);
+  assert.match(store, /ON CONFLICT\(canonical_url,entity_type\) DO UPDATE/);
   assert.match(store, /candidateType:\s*"SOURCE_CANDIDATE"/);
   assert.match(store, /review_status/);
   assert.match(store, /'PENDING'/);

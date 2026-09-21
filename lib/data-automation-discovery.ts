@@ -1,9 +1,15 @@
-import { canonicalizeSourceUrl, isSafeAutomationSourceUrl, type AutomationConnectorType, type AutomationEntityType } from "./data-automation.ts";
+import {
+  canonicalizeSourceUrl,
+  isSafeAutomationSourceUrl,
+  type AutomationConnectorType,
+  type AutomationEntityType,
+} from "./data-automation.ts";
 
 export const automationDiscoveryTypes = ["SITEMAP", "RSS", "STRUCTURED_DIRECTORY", "SEARCH_PROVIDER"] as const;
 export type AutomationDiscoveryType = (typeof automationDiscoveryTypes)[number];
 
 export type AutomationSourceCandidateInput = {
+  candidateType: "SOURCE_CANDIDATE";
   discoveryType: AutomationDiscoveryType;
   sourceUrl: string;
   label: string;
@@ -28,6 +34,27 @@ function safeCandidate(url: string, baseUrl: string) {
   }
 }
 
+function hostname(value: string) {
+  try {
+    return new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function decodeText(value: string) {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function uniqueCandidates(items: AutomationSourceCandidateInput[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -41,7 +68,7 @@ function uniqueCandidates(items: AutomationSourceCandidateInput[]) {
 export const sitemapDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseUrl, entityType }) => {
   const items: AutomationSourceCandidateInput[] = [];
   for (const match of payload.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/gi)) {
-    const sourceUrl = safeCandidate(match[1].replace(/<[^>]+>/g, "").trim(), baseUrl);
+    const sourceUrl = safeCandidate(decodeText(match[1]), baseUrl);
     if (!sourceUrl) continue;
     items.push({
       candidateType: "SOURCE_CANDIDATE",
@@ -51,6 +78,7 @@ export const sitemapDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, b
       entityType,
       suggestedConnectorType: "CONTROLLED_HTML",
       reason: "URL bol explicitne uvedený v sitemape kontrolovaného verejného zdroja.",
+      metadata: { discoveredFrom: baseUrl },
     });
   }
   return uniqueCandidates(items);
@@ -73,10 +101,52 @@ export const rssDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseU
       entityType,
       suggestedConnectorType: "CONTROLLED_HTML",
       reason: "URL bol uvedený v RSS/Atom feede kontrolovaného verejného zdroja.",
+      metadata: { discoveredFrom: baseUrl },
     });
   }
   return uniqueCandidates(items);
 };
+
+export function htmlLinkDirectoryDiscovery(input: {
+  payload: string;
+  baseUrl: string;
+  entityType: AutomationEntityType;
+  suggestedConnectorType?: AutomationConnectorType;
+  externalOnly?: boolean;
+  excludeHosts?: string[];
+  maxCandidates?: number;
+}) {
+  const baseHost = hostname(input.baseUrl);
+  const excluded = new Set((input.excludeHosts ?? []).map((value) => value.toLowerCase().replace(/^www\./, "")));
+  const limit = Math.max(1, Math.min(500, Math.floor(input.maxCandidates ?? 150)));
+  const items: AutomationSourceCandidateInput[] = [];
+
+  for (const match of input.payload.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const sourceUrl = safeCandidate(match[1].trim(), input.baseUrl);
+    if (!sourceUrl) continue;
+    const candidateHost = hostname(sourceUrl);
+    if (!candidateHost || excluded.has(candidateHost)) continue;
+    if (input.externalOnly && candidateHost === baseHost) continue;
+
+    const label = decodeText(match[2]) || candidateHost;
+    if (!label || label.length < 2) continue;
+    items.push({
+      candidateType: "SOURCE_CANDIDATE",
+      discoveryType: "STRUCTURED_DIRECTORY",
+      sourceUrl,
+      label: label.slice(0, 160),
+      entityType: input.entityType,
+      suggestedConnectorType: input.suggestedConnectorType ?? "CONTROLLED_HTML",
+      reason: "URL bol uvedený v explicitnom verejnom adresári kontrolovaného dôveryhodného zdroja.",
+      metadata: {
+        discoveredFrom: input.baseUrl,
+        directoryHost: baseHost,
+      },
+    });
+    if (items.length >= limit) break;
+  }
+  return uniqueCandidates(items);
+}
 
 export function structuredDirectoryDiscovery(input: {
   payload: unknown;
@@ -85,6 +155,7 @@ export function structuredDirectoryDiscovery(input: {
   recordsPath?: string;
   urlField?: string;
   labelField?: string;
+  suggestedConnectorType?: AutomationConnectorType;
 }) {
   const pathValue = (value: unknown, path: string | undefined) =>
     (path ?? "").split(".").filter(Boolean).reduce<unknown>((current, key) => {
@@ -107,8 +178,9 @@ export function structuredDirectoryDiscovery(input: {
       sourceUrl,
       label: String(rawLabel ?? new URL(sourceUrl).hostname).trim().slice(0, 160),
       entityType: input.entityType,
-      suggestedConnectorType: "CONTROLLED_HTML",
+      suggestedConnectorType: input.suggestedConnectorType ?? "CONTROLLED_HTML",
       reason: "URL bol uvedený v explicitnom structured directory/API zdroji.",
+      metadata: { discoveredFrom: input.baseUrl },
     });
   }
   return uniqueCandidates(items);
