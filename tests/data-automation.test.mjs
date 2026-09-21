@@ -192,6 +192,28 @@ test("9. safe canonical matching prefers exact deterministic identity", () => {
   assert.equal(isSafeAutomationSourceUrl("https://example.com/feed"), true);
 });
 
+test("9b. organization matching infers the same slug used by draft creation", () => {
+  const match = selectSafeAutomationMatch({
+    entityType: "ORGANIZATION",
+    record: record({
+      sourceRecordId: "org-1",
+      sourceUrl: null,
+      proposed: { name: "QFAP" },
+    }),
+    candidates: [{
+      id: 41,
+      key: "organization:41",
+      before: { name: "QFAP", slug: "qfap" },
+      slug: "qfap",
+      name: "QFAP",
+      city: "Bratislava",
+      region: "Bratislavský kraj",
+    }],
+  });
+  assert.equal(match.entityId, 41);
+  assert.equal(match.quality, "EXACT_CANONICAL_KEY");
+});
+
 test("10. equally strong candidates remain human review", () => {
   const inputRecord = record();
   const match = selectSafeAutomationMatch({
