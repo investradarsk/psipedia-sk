@@ -6,6 +6,7 @@ import { runDataAutomationDiscoverySweep } from "../lib/data-automation-discover
 import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
 import { createProductionOrganizationEnricher } from "../lib/data-automation-organization-enrichment";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
+import { runPartnerNotificationSweep } from "../lib/partner-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
@@ -24,6 +25,11 @@ interface Env {
   ACCESS_AUD?: string;
   RESEND_API_KEY?: string;
   EDITORIAL_FROM_EMAIL?: string;
+  PARTNER_FROM_EMAIL?: string;
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
+  PII_ENCRYPTION_KEY?: string;
+  PII_HASH_KEY?: string;
   WEB_PUSH_ENABLED?: string;
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
@@ -163,9 +169,17 @@ const worker = {
   },
 
   async scheduled(_controller: unknown, env: Env, _ctx: ExecutionContext): Promise<void> {
-    const [summary, editorial, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery] = await Promise.all([
+    const [summary, editorial, partnerNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
+      runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "partner_notification_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.name : "unknown_error",
+        }));
+        return { candidates: 0, sent: 0, failed: 1, expired: 0, skipped: 0 };
+      }),
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
       runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
       runNotionEventSyncSweep({ database: env.DB, bindings: env }),
@@ -202,6 +216,7 @@ const worker = {
       ...summary,
     }));
     console.info(JSON.stringify({ event: "editorial_notification_sweep", ...editorial }));
+    console.info(JSON.stringify({ event: "partner_notification_sweep", ...partnerNotifications }));
     console.info(JSON.stringify({ event: "notion_article_sync_sweep", ...notionArticles }));
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
