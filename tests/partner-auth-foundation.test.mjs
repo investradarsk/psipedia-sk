@@ -269,8 +269,8 @@ test("magic-link URLs are excluded from analytics, ads and referrer propagation"
   const consent = await fs.readFile(new URL("../components/cookie-consent.tsx", import.meta.url), "utf8");
   const ads = await fs.readFile(new URL("../components/programmatic-ad-loader.tsx", import.meta.url), "utf8");
   const layout = await fs.readFile(new URL("../app/partner/layout.tsx", import.meta.url), "utf8");
-  assert.match(consent, /pathname\.startsWith\("\/partner"\)/);
-  assert.match(consent, /!isSensitiveRoute/);
+  assert.match(consent, /const isPartnerRoute = pathname\.startsWith\("\/partner"\)/);
+  assert.match(consent, /!isAdminRoute && !isPartnerRoute/);
   assert.match(ads, /pathname\.startsWith\("\/partner"\)/);
   assert.match(ads, /if \(isPartnerRoute\) return/);
   assert.match(layout, /referrer: "no-referrer"/);
