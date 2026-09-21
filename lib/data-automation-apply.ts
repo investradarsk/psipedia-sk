@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import {
   automationDraftSlug,
+  buildAutomationDiff,
   normalizeAutomationIdentity,
   stableJson,
   type AutomationEntityType,
@@ -35,7 +36,8 @@ export type AutomationApplicationResult = {
     canonicalEntityId: number;
     applicationType: "CREATE_DRAFT" | "UPDATE_EXISTING";
     appliedFields: string[];
-  };
+  } | null;
+  reclassified?: "EXISTING_ORGANIZATION";
 };
 
 export class AutomationApplyConflictError extends Error {
@@ -942,28 +944,27 @@ export async function applyAutomationFinding(input: {
 
     const organizationCollision = await findNewOrganizationCollision(finding, db);
     if (organizationCollision) {
-      const reboundFinding: AutomationFindingDetail = {
-        ...finding,
-        findingType: "POSSIBLE_UPDATE",
-        canonicalEntityId: organizationCollision.id,
-        canonicalEntityKey: `organization:${organizationCollision.id}`,
-        matchQuality: "EXACT_CANONICAL_KEY",
-        before: canonicalBeforeFromCurrent("ORGANIZATION", organizationCollision.row),
-      };
-      const update = updateExistingStatement(reboundFinding, organizationCollision.row, actor, at, db);
-      const application = db.prepare(`INSERT INTO automation_applications (
-          finding_id,entity_type,canonical_entity_id,application_type,applied_fields_json,before_json,after_json,applied_by,applied_at
-        ) VALUES (?,?,?,'UPDATE_EXISTING',?,?,?,?,?)`).bind(
-          finding.id, finding.entityType, organizationCollision.id, JSON.stringify(update.appliedFields),
-          JSON.stringify(reboundFinding.before), JSON.stringify(update.after), actor, at,
-        );
-      const closeFinding = db.prepare(`UPDATE automation_findings SET
+      const before = canonicalBeforeFromCurrent("ORGANIZATION", organizationCollision.row);
+      const diff = buildAutomationDiff(before, finding.proposed);
+      await db.prepare(`UPDATE automation_findings SET
           finding_type='POSSIBLE_UPDATE',canonical_entity_id=?,canonical_entity_key=?,match_quality='EXACT_CANONICAL_KEY',
-          review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
+          before_json=?,diff_json=?,reason=?,review_status='IN_REVIEW',reviewer_decision=NULL,reviewed_by=NULL,reviewed_at=NULL,
+          suppressed_until=NULL
         WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
-          organizationCollision.id, `organization:${organizationCollision.id}`, notes, actor, at, finding.id,
-        );
-      await db.batch([update.statement, application, closeFinding]);
+          organizationCollision.id,
+          `organization:${organizationCollision.id}`,
+          JSON.stringify(before),
+          JSON.stringify(diff),
+          `Existujúca organizácia bola rozpoznaná podľa canonical slugu ${organizationCollision.slug}.`,
+          finding.id,
+        ).run();
+      const refreshed = await getAutomationFindingDetail(finding.id, db);
+      if (!refreshed) throw new Error("automation_reclassified_finding_missing");
+      return {
+        finding: refreshed,
+        application: null,
+        reclassified: "EXISTING_ORGANIZATION",
+      };
     } else {
       const draft = createDraftStatement(finding, actor, at, db);
       const appliedFields = Object.keys(finding.diff);
