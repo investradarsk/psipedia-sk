@@ -58,6 +58,8 @@ test("stale NEW organization findings are safely reclassified before any canonic
   assert.match(applySource, /review_status='IN_REVIEW'/);
   assert.match(applySource, /reclassified: "EXISTING_ORGANIZATION"/);
   assert.match(reviewUi, /Nález som prepojil s existujúcim profilom/);
+  assert.match(reviewApi, /help_organizations\\.slug/);
+  assert.match(reviewApi, /namiesto vytvorenia duplicity/);
 });
 
 test("apply is idempotent per finding and keeps an application audit record", () => {
