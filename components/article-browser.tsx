@@ -31,7 +31,7 @@ export function ArticleBrowser({
   return (
     <div className="article-browser">
       <div className="browser-toolbar">
-        <div className="filter-row" role="group" aria-label="Filtrovať články podľa témy">
+        <div className="filter-row" role="group" aria-label="Filtrovať magazín podľa témy">
           {filters.map((filter) => (
             <button
               type="button"
@@ -45,13 +45,13 @@ export function ArticleBrowser({
         </div>
         <label className="inline-search">
           <SearchIcon size={19} />
-          <span className="sr-only">Hľadať v článkoch</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať v článkoch" />
+          <span className="sr-only">Hľadať v magazíne</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať v magazíne" />
         </label>
       </div>
 
       <p className="result-count" aria-live="polite">
-        {visible.length === 1 ? "1 článok" : `${visible.length} článkov`}
+        {visible.length === 1 ? "1 výsledok" : `${visible.length} výsledkov`}
         {query && <> pre „{query}“</>}
       </p>
 
@@ -65,7 +65,7 @@ export function ArticleBrowser({
           <h2>Na túto stopu sme ešte nenarazili</h2>
           <p>Skús kratší výraz alebo inú tému.</p>
           <button type="button" className="button button--dark" onClick={() => { setQuery(""); setCategory("Všetky"); }}>
-            Zobraziť všetky články
+            Zobraziť celý magazín
           </button>
         </div>
       )}
