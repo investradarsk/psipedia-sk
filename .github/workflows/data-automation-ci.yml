@@ -12,8 +12,10 @@ on:
       - "lib/editorial-email.ts"
       - "lib/editorial-notifications.ts"
       - "worker/index.ts"
-      - "drizzle/0050_data_automation_foundation.sql"\n      - "drizzle/0055_data_automation_apply.sql"
-      - "tests/data-automation.test.mjs"\n      - "tests/data-automation-apply.test.mjs"
+      - "drizzle/0050_data_automation_foundation.sql"
+      - "drizzle/0055_data_automation_apply.sql"
+      - "tests/data-automation.test.mjs"
+      - "tests/data-automation-apply.test.mjs"
       - "tests/admin-attention-queue.test.mjs"
       - ".github/workflows/data-automation-ci.yml"
   workflow_dispatch:
