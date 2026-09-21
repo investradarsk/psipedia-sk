@@ -49,10 +49,14 @@ export async function PUT(request: Request, { params }: Props) {
       if (error instanceof AutomationApplyUnsupportedError) {
         return Response.json({ error: error.message }, { status: 422 });
       }
-      return Response.json(
-        { error: error instanceof Error ? error.message : "Finding sa nepodarilo aplikovať." },
-        { status: 409 },
-      );
+      const message = error instanceof Error ? error.message : "Finding sa nepodarilo aplikovať.";
+      if (/UNIQUE constraint failed:\s*help_organizations\.slug/i.test(message)) {
+        return Response.json(
+          { error: "Organizácia s rovnakým profilom už existuje. Obnov stránku; systém ju prepojí s existujúcim záznamom namiesto vytvorenia duplicity." },
+          { status: 409 },
+        );
+      }
+      return Response.json({ error: message }, { status: 409 });
     }
   }
 
