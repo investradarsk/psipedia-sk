@@ -36,6 +36,12 @@ function sectionIcon(slug: EditorialSectionSlug): ReactElement {
   return <PawMark size={30} />;
 }
 
+function sectionToneClass(slug: EditorialSectionSlug) {
+  if (slug === "starostlivost") return styles.careTone;
+  if (slug === "aktivity") return styles.activityTone;
+  return styles.puppyTone;
+}
+
 function topicIcon(sectionSlug: EditorialSectionSlug, topicSlug: string): ReactElement {
   if (topicSlug.includes("krmen") || topicSlug === "vyziva") return <BowlIcon size={22} />;
   if (topicSlug.includes("vycvik") || topicSlug === "trening") return <WhistleIcon size={22} />;
@@ -148,38 +154,58 @@ function SearchBox({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
 }
 
 function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
-  if (sectionSlug === "aktivity") {
-    return (
-      <section className={styles.callout} aria-labelledby="activity-fit-heading">
-        <PublicIcon icon={<WhistleIcon />} size="lg" />
-        <div>
-          <span className={styles.eyebrow}>Vyber rozumne</span>
-          <h2 id="activity-fit-heading">Dobrá aktivita sedí konkrétnemu psovi</h2>
-          <p>Zohľadni vek a zdravie, motiváciu psa, čas aj prostredie. Náročnosť pridávaj postupne.</p>
-        </div>
-        <PublicActionLink href="/aktivity/psie-sporty" variant="secondary" icon={<ArrowIcon />}>Porovnať možnosti</PublicActionLink>
-      </section>
-    );
-  }
+  const config = {
+    steniatka: {
+      icon: <PawMark />,
+      eyebrow: "Začni podľa situácie",
+      title: "Čakáš šteniatko alebo je už doma?",
+      description: "Vyber si správny začiatok a pokračuj podľa fázy, v ktorej sa práve nachádzaš.",
+      urgent: false,
+      actions: [
+        { href: "/steniatka/pred-kupou-psa", label: "Ešte sa rozhodujem", variant: "secondary" as const },
+        { href: "/steniatka/prve-dni", label: "Šteniatko je doma", variant: "primary" as const },
+      ],
+    },
+    starostlivost: {
+      icon: <HeartIcon />,
+      eyebrow: "Keď ide o čas",
+      title: "Má pes akútny problém?",
+      description: "Pri sťaženom dýchaní, kolapse, silnom krvácaní, nafúknutom tvrdom bruchu alebo podozrení na otravu nečakaj na odpoveď z internetu.",
+      urgent: true,
+      actions: [
+        { href: "/starostlivost/kedy-ist-so-psom-k-veterinarovi", label: "Kedy volať ihneď", variant: "secondary" as const },
+        { href: "/adresar/veterinari", label: "Nájsť veterinára", variant: "primary" as const },
+      ],
+    },
+    aktivity: {
+      icon: <WhistleIcon />,
+      eyebrow: "Vyber rozumne",
+      title: "Dobrá aktivita sedí konkrétnemu psovi",
+      description: "Zohľadni vek a zdravie, motiváciu psa, čas aj prostredie. Náročnosť pridávaj postupne.",
+      urgent: false,
+      actions: [
+        { href: "/aktivity/psie-sporty", label: "Porovnať možnosti", variant: "secondary" as const, icon: <ArrowIcon /> },
+      ],
+    },
+  }[sectionSlug];
 
-  if (sectionSlug === "steniatka") {
-    return (
-      <section className={styles.callout} aria-labelledby="puppy-start-heading">
-        <PublicIcon icon={<PawMark />} size="lg" />
-        <div>
-          <span className={styles.eyebrow}>Začni podľa situácie</span>
-          <h2 id="puppy-start-heading">Čakáš šteniatko alebo je už doma?</h2>
-          <p>Vyber si správny začiatok a pokračuj podľa fázy, v ktorej sa práve nachádzaš.</p>
-        </div>
-        <div className={styles.calloutActions}>
-          <PublicActionLink href="/steniatka/pred-kupou-psa" variant="secondary">Ešte sa rozhodujem</PublicActionLink>
-          <PublicActionLink href="/steniatka/prve-dni" variant="primary">Šteniatko je doma</PublicActionLink>
-        </div>
-      </section>
-    );
-  }
-
-  return <HealthUrgent />;
+  return (
+    <section className={`${styles.callout} ${config.urgent ? styles.calloutUrgent : ""}`} aria-labelledby={`${sectionSlug}-hub-callout`}>
+      <PublicIcon icon={config.icon} size="lg" className={styles.calloutIcon} />
+      <div className={styles.calloutCopy}>
+        <span className={styles.eyebrow}>{config.eyebrow}</span>
+        <h2 id={`${sectionSlug}-hub-callout`}>{config.title}</h2>
+        <p>{config.description}</p>
+      </div>
+      <div className={styles.calloutActions}>
+        {config.actions.map((action) => (
+          <PublicActionLink href={action.href} variant={action.variant} icon={action.icon} key={action.href}>
+            {action.label}
+          </PublicActionLink>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function nextSteps(sectionSlug: EditorialSectionSlug) {
@@ -237,7 +263,7 @@ export function EditorialSectionHub({
   });
 
   return (
-    <PublicFoundation className={styles.foundation}>
+    <PublicFoundation className={`${styles.foundation} ${sectionToneClass(sectionSlug)}`}>
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
         <PageContainer className={styles.headerShell} data-section-public-header>
@@ -357,7 +383,7 @@ export function EditorialSectionTopic({
   });
 
   return (
-    <PublicFoundation className={styles.foundation}>
+    <PublicFoundation className={`${styles.foundation} ${sectionToneClass(sectionSlug)}`}>
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
         <PageContainer className={styles.headerShell} data-section-public-header>
