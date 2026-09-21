@@ -157,12 +157,31 @@ export async function getAutomationSource(id: number, database?: AutomationD1Dat
 
 export async function beginAutomationRun(sourceId: number, startedAt: string, database?: AutomationD1Database) {
   const db = getDatabase(database);
-  const row = await db.prepare(`INSERT INTO automation_runs (
-      source_id,status,started_at,checked_count,new_finding_count,updated_finding_count,error_count,created_at
-    ) VALUES (?, 'RUNNING', ?, 0, 0, 0, 0, ?)
-    RETURNING id`).bind(sourceId, startedAt, startedAt).first<{ id: number }>();
-  if (!row) throw new Error("automation_run_create_failed");
-  return Number(row.id);
+  const started = new Date(startedAt);
+  const staleBefore = new Date(started.getTime() - 20 * 60_000).toISOString();
+
+  await db.prepare(`UPDATE automation_runs SET
+      status='FAILED',
+      completed_at=?,
+      error_count=CASE WHEN error_count < 1 THEN 1 ELSE error_count END,
+      error_summary=COALESCE(error_summary,'stale_run_recovered')
+    WHERE source_id=? AND status='RUNNING' AND started_at<?`)
+    .bind(startedAt, sourceId, staleBefore).run();
+
+  try {
+    const row = await db.prepare(`INSERT INTO automation_runs (
+        source_id,status,started_at,checked_count,new_finding_count,updated_finding_count,error_count,created_at
+      ) VALUES (?, 'RUNNING', ?, 0, 0, 0, 0, ?)
+      RETURNING id`).bind(sourceId, startedAt, startedAt).first<{ id: number }>();
+    if (!row) throw new Error("automation_run_create_failed");
+    return Number(row.id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/UNIQUE constraint failed: automation_runs\.source_id/i.test(message)) {
+      throw new Error("automation_source_already_running");
+    }
+    throw error;
+  }
 }
 
 export async function finishAutomationRun(input: {
