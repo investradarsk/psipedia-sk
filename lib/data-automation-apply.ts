@@ -377,6 +377,17 @@ function sourceMetadata(entityType: AutomationEntityType, proposed: Record<strin
   return metadata;
 }
 
+function insertStatement(
+  db: AutomationD1Database,
+  table: string,
+  values: Record<string, unknown>,
+) {
+  const entries = Object.entries(values);
+  const columns = entries.map(([column]) => column);
+  const sql = "INSERT INTO " + table + " (" + columns.join(",") + ") VALUES (" + columns.map(() => "?").join(",") + ")";
+  return db.prepare(sql).bind(...entries.map(([, value]) => value));
+}
+
 function createDraftStatement(
   finding: AutomationFindingDetail,
   actor: string,
@@ -384,34 +395,63 @@ function createDraftStatement(
   db: AutomationD1Database,
 ) {
   const p = finding.proposed;
+
   if (finding.entityType === "EVENT") {
     const title = textValue(p.title);
     const startDate = textValue(p.startDate ?? p.start_date);
     if (!title || !startDate) throw new AutomationApplyUnsupportedError("Nový koncept podujatia potrebuje názov a dátum začiatku.");
-    const slug = slugifyDraft(p.slug, `${title}-${startDate}`);
     const city = textValue(p.city);
     const organizer = textValue(p.organizer);
-    const websiteUrl = nullableText(p.websiteUrl ?? p.website_url ?? finding.sourceUrl);
     const after = {
-      slug, title, excerpt: textValue(p.excerpt), eventType: textValue(p.eventType ?? p.event_type) || "Iné",
-      status: "draft", startDate, startTime: textValue(p.startTime ?? p.start_time),
-      endDate: nullableText(p.endDate ?? p.end_date), endTime: nullableText(p.endTime ?? p.end_time),
-      venue: textValue(p.venue), city, region: textValue(p.region),
-      address: textValue(p.address), organizer: organizer || finding.sourceLabel,
-      description: textValue(p.description), practicalInfo: textValue(p.practicalInfo),
-      websiteUrl, registrationUrl: nullableText(p.registrationUrl ?? p.registration_url),
-      imageUrl: nullableText(p.imageUrl ?? p.image_url), cancelled: Boolean(p.cancelled),
+      slug: slugifyDraft(p.slug, title + "-" + startDate),
+      title,
+      excerpt: textValue(p.excerpt),
+      eventType: textValue(p.eventType ?? p.event_type) || "Iné",
+      status: "draft",
+      startDate,
+      startTime: textValue(p.startTime ?? p.start_time),
+      endDate: nullableText(p.endDate ?? p.end_date),
+      endTime: nullableText(p.endTime ?? p.end_time),
+      venue: textValue(p.venue),
+      city,
+      region: textValue(p.region),
+      address: textValue(p.address),
+      organizer: organizer || finding.sourceLabel,
+      description: textValue(p.description),
+      practicalInfo: textValue(p.practicalInfo),
+      websiteUrl: nullableText(p.websiteUrl ?? p.website_url ?? finding.sourceUrl),
+      registrationUrl: nullableText(p.registrationUrl ?? p.registration_url),
+      imageUrl: nullableText(p.imageUrl ?? p.image_url),
+      cancelled: Boolean(p.cancelled),
     };
     return {
-      statement: db.prepare(`INSERT INTO managed_events (
-        slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,organizer,
-        description,practical_info,website_url,registration_url,image_url,image_key,cancelled,seo_json,
-        created_at,updated_at,published_at,created_by,updated_by
-      ) VALUES (?,?,?,?,'draft',?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,?,'{}',?,?,NULL,?,?)`).bind(
-        after.slug, after.title, after.excerpt, after.eventType, after.startDate, after.startTime, after.endDate, after.endTime,
-        after.venue, after.city, after.region, after.address, after.organizer, after.description, after.practicalInfo,
-        after.websiteUrl, after.registrationUrl, after.imageUrl, after.cancelled ? 1 : 0, at, at, actor, actor,
-      ),
+      statement: insertStatement(db, "managed_events", {
+        slug: after.slug,
+        title: after.title,
+        excerpt: after.excerpt,
+        event_type: after.eventType,
+        status: "draft",
+        start_date: after.startDate,
+        start_time: after.startTime,
+        end_date: after.endDate,
+        end_time: after.endTime,
+        venue: after.venue,
+        city: after.city,
+        region: after.region,
+        address: after.address,
+        organizer: after.organizer,
+        description: after.description,
+        practical_info: after.practicalInfo,
+        website_url: after.websiteUrl,
+        registration_url: after.registrationUrl,
+        image_url: after.imageUrl,
+        cancelled: after.cancelled ? 1 : 0,
+        created_at: at,
+        updated_at: at,
+        published_at: null,
+        created_by: actor,
+        updated_by: actor,
+      }),
       after,
     };
   }
@@ -419,31 +459,62 @@ function createDraftStatement(
   if (finding.entityType === "ORGANIZATION") {
     const name = textValue(p.name);
     if (!name) throw new AutomationApplyUnsupportedError("Nový koncept organizácie potrebuje názov.");
-    const slug = slugifyDraft(p.slug, name);
     const metadata = sourceMetadata("ORGANIZATION", p);
     const after = {
-      name, slug, legalName: textValue(p.legalName ?? p.legal_name), registrationNumber: nullableText(p.registrationNumber ?? p.registration_number),
-      type: validOrganizationType(p.type), status: "DRAFT", shortDescription: textValue(p.shortDescription ?? p.short_description),
-      description: textValue(p.description), publicEmail: nullableText(p.publicEmail ?? p.public_email),
-      publicPhone: nullableText(p.publicPhone ?? p.public_phone), websiteUrl: nullableText(p.websiteUrl ?? p.website_url),
-      facebookUrl: nullableText(p.facebookUrl ?? p.facebook_url), instagramUrl: nullableText(p.instagramUrl ?? p.instagram_url),
-      address: textValue(p.address), city: textValue(p.city), district: textValue(p.district), region: textValue(p.region),
-      countryCode: textValue(p.countryCode ?? p.country_code) || "SK", importKey: nullableText(p.importKey ?? p.import_key),
-      sourceUrl: nullableText(p.sourceUrl ?? p.source_url ?? finding.sourceUrl), sourceData: metadata,
+      name,
+      slug: slugifyDraft(p.slug, name),
+      legalName: textValue(p.legalName ?? p.legal_name),
+      registrationNumber: nullableText(p.registrationNumber ?? p.registration_number),
+      type: validOrganizationType(p.type),
+      status: "DRAFT",
+      shortDescription: textValue(p.shortDescription ?? p.short_description),
+      description: textValue(p.description),
+      publicEmail: nullableText(p.publicEmail ?? p.public_email),
+      publicPhone: nullableText(p.publicPhone ?? p.public_phone),
+      websiteUrl: nullableText(p.websiteUrl ?? p.website_url),
+      facebookUrl: nullableText(p.facebookUrl ?? p.facebook_url),
+      instagramUrl: nullableText(p.instagramUrl ?? p.instagram_url),
+      address: textValue(p.address),
+      city: textValue(p.city),
+      district: textValue(p.district),
+      region: textValue(p.region),
+      countryCode: textValue(p.countryCode ?? p.country_code) || "SK",
+      importKey: nullableText(p.importKey ?? p.import_key),
+      sourceUrl: nullableText(p.sourceUrl ?? p.source_url ?? finding.sourceUrl),
+      sourceData: metadata,
       lastVerifiedAt: nullableText(p.lastVerifiedAt ?? p.last_verified_at),
     };
     return {
-      statement: db.prepare(`INSERT INTO help_organizations (
-        name,slug,legal_name,registration_number,type,status,short_description,description,public_email,public_phone,
-        website_url,facebook_url,instagram_url,address,city,district,region,country_code,image_url,image_key,
-        directory_profile_id,import_key,source_url,source_data_json,seo_json,published_at,last_verified_at,archived_at,
-        created_at,updated_at,created_by,updated_by
-      ) VALUES (?,?,?,?,?,'DRAFT',?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,NULL,?,?,?,'{}',NULL,?,NULL,?,?,?,?)`).bind(
-        after.name, after.slug, after.legalName, after.registrationNumber, after.type, after.shortDescription, after.description,
-        after.publicEmail, after.publicPhone, after.websiteUrl, after.facebookUrl, after.instagramUrl, after.address, after.city,
-        after.district, after.region, after.countryCode, after.importKey, after.sourceUrl, JSON.stringify(after.sourceData),
-        after.lastVerifiedAt, at, at, actor, actor,
-      ),
+      statement: insertStatement(db, "help_organizations", {
+        name: after.name,
+        slug: after.slug,
+        legal_name: after.legalName,
+        registration_number: after.registrationNumber,
+        type: after.type,
+        status: "DRAFT",
+        short_description: after.shortDescription,
+        description: after.description,
+        public_email: after.publicEmail,
+        public_phone: after.publicPhone,
+        website_url: after.websiteUrl,
+        facebook_url: after.facebookUrl,
+        instagram_url: after.instagramUrl,
+        address: after.address,
+        city: after.city,
+        district: after.district,
+        region: after.region,
+        country_code: after.countryCode,
+        import_key: after.importKey,
+        source_url: after.sourceUrl,
+        source_data_json: JSON.stringify(after.sourceData),
+        published_at: null,
+        last_verified_at: after.lastVerifiedAt,
+        archived_at: null,
+        created_at: at,
+        updated_at: at,
+        created_by: actor,
+        updated_by: actor,
+      }),
       after,
     };
   }
@@ -452,24 +523,53 @@ function createDraftStatement(
     const name = textValue(p.name);
     const category = textValue(p.category);
     if (!name || !category) throw new AutomationApplyUnsupportedError("Nový koncept adresára potrebuje názov a kategóriu.");
-    const slug = slugifyDraft(p.slug, name);
     const after = {
-      slug, name, category, status: "draft", excerpt: textValue(p.excerpt), description: textValue(p.description),
-      services: Array.isArray(p.services) ? p.services : [], qualifications: Array.isArray(p.qualifications) ? p.qualifications : [],
-      city: textValue(p.city), district: textValue(p.district), region: textValue(p.region),
-      address: textValue(p.address), online: Boolean(p.online), priceNote: textValue(p.priceNote ?? p.price_note),
-      websiteUrl: nullableText(p.websiteUrl ?? p.website_url), importKey: nullableText(p.importKey ?? p.import_key), verified: Boolean(p.verified),
+      slug: slugifyDraft(p.slug, name),
+      name,
+      category,
+      status: "draft",
+      excerpt: textValue(p.excerpt),
+      description: textValue(p.description),
+      services: Array.isArray(p.services) ? p.services : [],
+      qualifications: Array.isArray(p.qualifications) ? p.qualifications : [],
+      city: textValue(p.city),
+      district: textValue(p.district),
+      region: textValue(p.region),
+      address: textValue(p.address),
+      online: Boolean(p.online),
+      priceNote: textValue(p.priceNote ?? p.price_note),
+      websiteUrl: nullableText(p.websiteUrl ?? p.website_url),
+      importKey: nullableText(p.importKey ?? p.import_key),
+      verified: Boolean(p.verified),
     };
     return {
-      statement: db.prepare(`INSERT INTO directory_profiles (
-        slug,name,category,status,excerpt,description,services_json,qualifications_json,city,region,address,online,price_note,
-        website_url,internal_email,image_url,image_key,verified,featured,created_at,updated_at,published_at,created_by,updated_by,
-        seo_json,district,search_text,import_key,source_data_json
-      ) VALUES (?,?,?,'draft',?,?,?,?,?,?,?,?,?, ?,NULL,NULL,NULL,?,0,?,?,NULL,?,?,'{}',?,?,?,'{}')`).bind(
-        after.slug, after.name, after.category, after.excerpt, after.description, JSON.stringify(after.services), JSON.stringify(after.qualifications),
-        after.city, after.region, after.address, after.online ? 1 : 0, after.priceNote, after.websiteUrl, after.verified ? 1 : 0,
-        at, at, actor, actor, after.district, searchText([after.name, after.category, after.city, after.district, after.region]), after.importKey,
-      ),
+      statement: insertStatement(db, "directory_profiles", {
+        slug: after.slug,
+        name: after.name,
+        category: after.category,
+        status: "draft",
+        excerpt: after.excerpt,
+        description: after.description,
+        services_json: JSON.stringify(after.services),
+        qualifications_json: JSON.stringify(after.qualifications),
+        city: after.city,
+        region: after.region,
+        address: after.address,
+        online: after.online ? 1 : 0,
+        price_note: after.priceNote,
+        website_url: after.websiteUrl,
+        import_key: after.importKey,
+        source_data_json: "{}",
+        verified: after.verified ? 1 : 0,
+        featured: 0,
+        district: after.district,
+        search_text: searchText([after.name, after.category, after.city, after.district, after.region]),
+        created_at: at,
+        updated_at: at,
+        published_at: null,
+        created_by: actor,
+        updated_by: actor,
+      }),
       after,
     };
   }
@@ -477,35 +577,55 @@ function createDraftStatement(
   if (finding.entityType === "ADOPTION") {
     const name = textValue(p.name);
     if (!name) throw new AutomationApplyUnsupportedError("Nový koncept adopcie potrebuje meno psa.");
-    const slug = slugifyDraft(p.slug, name);
-    const organizationName = textValue(p.organizationName ?? p.organization);
     const after = {
-      name, slug, status: "DRAFT", sex: textValue(p.sex) || "UNKNOWN", birthDate: nullableText(p.birthDate ?? p.birth_date),
+      name,
+      slug: slugifyDraft(p.slug, name),
+      status: "DRAFT",
+      sex: textValue(p.sex) || "UNKNOWN",
+      birthDate: nullableText(p.birthDate ?? p.birth_date),
       approximateAgeMonths: p.approximateAgeMonths ?? p.approximate_age_months ?? null,
-      size: textValue(p.size) || "UNKNOWN", weight: p.weight ?? null, breedName: textValue(p.breedName ?? p.breed_name),
-      breedMix: Boolean(p.breedMix ?? p.breed_mix), color: textValue(p.color), region: textValue(p.region),
-      district: textValue(p.district), city: textValue(p.city), organizationName,
-      shortDescription: textValue(p.shortDescription ?? p.short_description), description: textValue(p.description),
+      size: textValue(p.size) || "UNKNOWN",
+      weight: p.weight ?? null,
+      breedName: textValue(p.breedName ?? p.breed_name),
+      breedMix: Boolean(p.breedMix ?? p.breed_mix),
+      color: textValue(p.color),
+      region: textValue(p.region),
+      district: textValue(p.district),
+      city: textValue(p.city),
+      organizationName: textValue(p.organizationName ?? p.organization),
+      shortDescription: textValue(p.shortDescription ?? p.short_description),
+      description: textValue(p.description),
       externalSourceUrl: nullableText(p.externalSourceUrl ?? p.external_source_url ?? finding.sourceUrl),
       lastVerifiedAt: nullableText(p.lastVerifiedAt ?? p.last_verified_at),
     };
     return {
-      statement: db.prepare(`INSERT INTO adoption_dogs (
-        name,slug,status,sex,birth_date,approximate_age_months,size,weight,breed_id,breed_name,breed_mix,color,region,district,city,
-        organization_id,organization_name,organization_slug,main_image,gallery_json,short_description,description,temperament,
-        activity_level,suitable_for_children,suitable_for_dogs,suitable_for_cats,suitable_for_other_animals,apartment_suitable,
-        beginner_suitable,needs_experienced_owner,vaccination_status,chipped,neutered,health_notes,special_needs,
-        adoption_requirements,external_source_url,contact_email,contact_phone,contact_url,search_text,published_at,last_verified_at,
-        created_at,updated_at,created_by,updated_by
-      ) VALUES (?,?,'DRAFT',?,?,?,?,?,NULL,?,?,?, ?,?,?,NULL,?,NULL,NULL,'[]',?,?,'','UNKNOWN','UNKNOWN','UNKNOWN','UNKNOWN','UNKNOWN',
-        NULL,NULL,0,'UNKNOWN',NULL,NULL,'','','',?,NULL,NULL,NULL,?,NULL,?, ?,?,?,?)`).bind(
-        after.name, after.slug, after.sex, after.birthDate,
-        after.approximateAgeMonths === null || after.approximateAgeMonths === "" ? null : Number(after.approximateAgeMonths),
-        after.size, after.weight === null || after.weight === "" ? null : Number(after.weight),
-        after.breedName, after.breedMix ? 1 : 0, after.color, after.region, after.district, after.city,
-        after.organizationName, after.shortDescription, after.description, after.externalSourceUrl,
-        searchText([after.name, after.breedName, after.organizationName, after.city, after.region]), after.lastVerifiedAt, at, at, actor, actor,
-      ),
+      statement: insertStatement(db, "adoption_dogs", {
+        name: after.name,
+        slug: after.slug,
+        status: "DRAFT",
+        sex: after.sex,
+        birth_date: after.birthDate,
+        approximate_age_months: after.approximateAgeMonths === null || after.approximateAgeMonths === "" ? null : Number(after.approximateAgeMonths),
+        size: after.size,
+        weight: after.weight === null || after.weight === "" ? null : Number(after.weight),
+        breed_name: after.breedName,
+        breed_mix: after.breedMix ? 1 : 0,
+        color: after.color,
+        region: after.region,
+        district: after.district,
+        city: after.city,
+        organization_name: after.organizationName,
+        short_description: after.shortDescription,
+        description: after.description,
+        external_source_url: after.externalSourceUrl,
+        search_text: searchText([after.name, after.breedName, after.organizationName, after.city, after.region]),
+        published_at: null,
+        last_verified_at: after.lastVerifiedAt,
+        created_at: at,
+        updated_at: at,
+        created_by: actor,
+        updated_by: actor,
+      }),
       after,
     };
   }
@@ -515,29 +635,50 @@ function createDraftStatement(
     const dogName = nullableText(p.dogName ?? p.name);
     const city = textValue(p.city);
     const eventDate = textValue(p.eventDate ?? p.event_date);
-    const slug = slugifyDraft(p.slug, `${type === "LOST" ? "strateny" : "najdeny"}-${dogName || city || "pes"}-${eventDate || finding.id}`);
-    const sourceUrl = nullableText(p.sourceUrl ?? p.source_url ?? finding.sourceUrl);
+    const fallbackSlug = (type === "LOST" ? "strateny" : "najdeny") + "-" + (dogName || city || "pes") + "-" + (eventDate || finding.id);
     const after = {
-      type, status: "DRAFT", slug, dogName, sex: textValue(p.sex) || "UNKNOWN", breed: textValue(p.breed),
-      color: textValue(p.color), approximateAge: textValue(p.approximateAge ?? p.approximate_age),
-      size: textValue(p.size) || "UNKNOWN", description: textValue(p.description), eventDate,
-      region: textValue(p.region), district: textValue(p.district), city,
+      type,
+      status: "DRAFT",
+      slug: slugifyDraft(p.slug, fallbackSlug),
+      dogName,
+      sex: textValue(p.sex) || "UNKNOWN",
+      breed: textValue(p.breed),
+      color: textValue(p.color),
+      approximateAge: textValue(p.approximateAge ?? p.approximate_age),
+      size: textValue(p.size) || "UNKNOWN",
+      description: textValue(p.description),
+      eventDate,
+      region: textValue(p.region),
+      district: textValue(p.district),
+      city,
       locationDescription: textValue(p.locationDescription ?? p.location_description),
-      source: textValue(p.source) || finding.sourceLabel, sourceUrl,
+      source: textValue(p.source) || finding.sourceLabel,
+      sourceUrl: nullableText(p.sourceUrl ?? p.source_url ?? finding.sourceUrl),
     };
     return {
-      statement: db.prepare(`INSERT INTO lost_found_dog_reports (
-        type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,description,distinguishing_marks,
-        collar_description,chipped,main_image,main_image_key,gallery_json,event_date,last_seen_date_time,region,district,city,
-        location_description,public_latitude,public_longitude,public_location_precision,public_contact_note,source,source_url,
-        search_text,duplicate_of_id,duplicate_reason,created_at,updated_at,published_at,expires_at,resolved_at,archived_at
-      ) VALUES (?,'DRAFT',?,?,?,NULL,?,0,?,?,?,?,'','','UNKNOWN',NULL,NULL,'[]',?,NULL,?,?,?,?,NULL,NULL,'MUNICIPALITY','',?,?,?,
-        NULL,'',?,?,NULL,NULL,NULL,NULL)`).bind(
-        after.type, after.slug, after.dogName, after.sex, after.breed, after.color, after.approximateAge, after.size,
-        after.description, after.eventDate, after.region, after.district, after.city, after.locationDescription,
-        after.source, after.sourceUrl, searchText([after.type, after.dogName, after.breed, after.color, after.description, after.region, after.district, after.city]),
-        at, at,
-      ),
+      statement: insertStatement(db, "lost_found_dog_reports", {
+        type: after.type,
+        status: "DRAFT",
+        slug: after.slug,
+        dog_name: after.dogName,
+        sex: after.sex,
+        breed: after.breed,
+        color: after.color,
+        approximate_age: after.approximateAge,
+        size: after.size,
+        description: after.description,
+        event_date: after.eventDate,
+        region: after.region,
+        district: after.district,
+        city: after.city,
+        location_description: after.locationDescription,
+        source: after.source,
+        source_url: after.sourceUrl,
+        search_text: searchText([after.type, after.dogName, after.breed, after.color, after.description, after.region, after.district, after.city]),
+        created_at: at,
+        updated_at: at,
+        published_at: null,
+      }),
       after,
     };
   }
@@ -546,32 +687,62 @@ function createDraftStatement(
   const title = textValue(p.title ?? p.name ?? p.dogName);
   const category = isFoster ? "docasna-opatera" : textValue(p.category);
   if (!title || !category) throw new AutomationApplyUnsupportedError("Nový koncept Pomoc psom potrebuje názov a kategóriu.");
-  const slug = slugifyDraft(p.slug, title);
-  const actionLabel = textValue(p.actionLabel) || (isFoster ? "Ponúknuť dočasnú opateru" : "Otvoriť zdroj");
   const after = {
-    slug, title, category, status: "draft", excerpt: textValue(p.excerpt), description: textValue(p.description),
-    organization: textValue(p.organization ?? p.organizationName), dogName: textValue(p.dogName ?? p.name),
-    breed: textValue(p.breed), ageNote: textValue(p.ageNote ?? p.age_note), city: textValue(p.city),
-    region: textValue(p.region), locationNote: textValue(p.locationNote ?? p.location_note),
-    reportedDate: nullableText(p.reportedDate ?? p.reported_date), deadlineDate: nullableText(p.deadlineDate ?? p.deadline_date),
-    actionLabel, actionUrl: nullableText(p.actionUrl ?? p.action_url ?? finding.sourceUrl),
-    contactNote: textValue(p.contactNote ?? p.contact_note), goalAmount: p.goalAmount ?? p.goal_amount ?? null,
-    raisedAmount: p.raisedAmount ?? p.raised_amount ?? null, verified: Boolean(p.verified), urgent: Boolean(p.urgent),
+    slug: slugifyDraft(p.slug, title),
+    title,
+    category,
+    status: "draft",
+    excerpt: textValue(p.excerpt),
+    description: textValue(p.description),
+    organization: textValue(p.organization ?? p.organizationName),
+    dogName: textValue(p.dogName ?? p.name),
+    breed: textValue(p.breed),
+    ageNote: textValue(p.ageNote ?? p.age_note),
+    city: textValue(p.city),
+    region: textValue(p.region),
+    locationNote: textValue(p.locationNote ?? p.location_note),
+    reportedDate: nullableText(p.reportedDate ?? p.reported_date),
+    deadlineDate: nullableText(p.deadlineDate ?? p.deadline_date),
+    actionLabel: textValue(p.actionLabel) || (isFoster ? "Ponúknuť dočasnú opateru" : "Otvoriť zdroj"),
+    actionUrl: nullableText(p.actionUrl ?? p.action_url ?? finding.sourceUrl),
+    contactNote: textValue(p.contactNote ?? p.contact_note),
+    goalAmount: p.goalAmount ?? p.goal_amount ?? null,
+    raisedAmount: p.raisedAmount ?? p.raised_amount ?? null,
+    verified: Boolean(p.verified),
+    urgent: Boolean(p.urgent),
     resolved: Boolean(p.resolved),
   };
   return {
-    statement: db.prepare(`INSERT INTO help_cases (
-      slug,title,category,status,excerpt,description,organization,dog_name,breed,age_note,city,region,location_note,reported_date,
-      deadline_date,action_label,action_url,contact_note,goal_amount,raised_amount,image_url,image_key,verified,urgent,resolved,
-      created_at,updated_at,published_at,created_by,updated_by,seo_json
-    ) VALUES (?,?,?,'draft',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,NULL,NULL,?,?,?, ?,?,NULL,?,?,'{}')`).bind(
-      after.slug, after.title, after.category, after.excerpt, after.description, after.organization, after.dogName, after.breed,
-      after.ageNote, after.city, after.region, after.locationNote, after.reportedDate, after.deadlineDate, after.actionLabel,
-      after.actionUrl, after.contactNote,
-      after.goalAmount === null || after.goalAmount === "" ? null : Number(after.goalAmount),
-      after.raisedAmount === null || after.raisedAmount === "" ? null : Number(after.raisedAmount),
-      after.verified ? 1 : 0, after.urgent ? 1 : 0, after.resolved ? 1 : 0, at, at, actor, actor,
-    ),
+    statement: insertStatement(db, "help_cases", {
+      slug: after.slug,
+      title: after.title,
+      category: after.category,
+      status: "draft",
+      excerpt: after.excerpt,
+      description: after.description,
+      organization: after.organization,
+      dog_name: after.dogName,
+      breed: after.breed,
+      age_note: after.ageNote,
+      city: after.city,
+      region: after.region,
+      location_note: after.locationNote,
+      reported_date: after.reportedDate,
+      deadline_date: after.deadlineDate,
+      action_label: after.actionLabel,
+      action_url: after.actionUrl,
+      contact_note: after.contactNote,
+      goal_amount: after.goalAmount === null || after.goalAmount === "" ? null : Number(after.goalAmount),
+      raised_amount: after.raisedAmount === null || after.raisedAmount === "" ? null : Number(after.raisedAmount),
+      verified: after.verified ? 1 : 0,
+      urgent: after.urgent ? 1 : 0,
+      resolved: after.resolved ? 1 : 0,
+      created_at: at,
+      updated_at: at,
+      published_at: null,
+      created_by: actor,
+      updated_by: actor,
+    }),
     after,
   };
 }
