@@ -26,7 +26,7 @@ test("organization enrichment fills public contact, social, identity, content an
   const fetchImpl = async (input) => {
     const url = String(input);
     calls.push(url);
-    if (url === "https://psiadusa.sk/zoznam-utulkov/") {
+    if (url === "https://psiadusa.sk/zoznam-utulkov") {
       return new Response(fixture("organization-enrichment-directory.html"), {
         status: 200,
         headers: { "content-type": "text/html" },
@@ -82,7 +82,7 @@ test("organization enrichment fills public contact, social, identity, content an
   assert.match(String(result.proposed.description), /SK U 00017\/2013/);
   assert.equal(result.proposed.sourceUrl, "https://zoznamy.svps.sk/?Sekcia=46");
   assert.deepEqual(calls, [
-    "https://psiadusa.sk/zoznam-utulkov/",
+    "https://psiadusa.sk/zoznam-utulkov",
     "https://stastnypsik.example/",
     "https://stastnypsik.example/kontakt",
   ]);
@@ -91,7 +91,7 @@ test("organization enrichment fills public contact, social, identity, content an
 test("enrichment never overwrites a field already supplied by the primary source", async () => {
   const fetchImpl = async (input) => {
     const url = String(input);
-    if (url === "https://psiadusa.sk/zoznam-utulkov/") {
+    if (url === "https://psiadusa.sk/zoznam-utulkov") {
       return new Response(fixture("organization-enrichment-directory.html"), {
         status: 200,
         headers: { "content-type": "text/html" },
