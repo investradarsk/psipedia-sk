@@ -60,6 +60,22 @@ test("homepage article selection is publication-ordered, multi-section and dedup
   expect(selected.bySection.starostlivost.map((item) => item.slug)).toEqual(["second-health"]);
   expect(selected.bySection.steniatka.map((item) => item.slug)).toEqual(["second-puppy"]);
   expect(selected.bySection.aktivity.map((item) => item.slug)).toEqual(["second-training"]);
+
+  const backfilled = selectHomepageArticles([
+    article("health-3", "2026-09-20", "starostlivost"),
+    article("puppy-3", "2026-09-19", "steniatka"),
+    article("training-3", "2026-09-18", "aktivity"),
+    article("health-2", "2026-09-17", "starostlivost"),
+    article("puppy-2", "2026-09-16", "steniatka"),
+    article("training-2", "2026-09-15", "aktivity"),
+    article("health-1", "2026-09-14", "starostlivost"),
+    article("puppy-1", "2026-09-13", "steniatka"),
+    article("training-1", "2026-09-12", "aktivity"),
+  ], { latestLimit: 3, sectionLimit: 3, backfillSectionsFromLatest: true });
+
+  expect(backfilled.bySection.starostlivost).toHaveLength(3);
+  expect(backfilled.bySection.steniatka).toHaveLength(3);
+  expect(backfilled.bySection.aktivity).toHaveLength(3);
 });
 
 test("desktop homepage uses the HOME-3 hierarchy without editorial filler", async ({ page }) => {
@@ -93,13 +109,13 @@ test("desktop homepage uses the HOME-3 hierarchy without editorial filler", asyn
   );
   expect(dates).toEqual([...dates].sort((left, right) => right.localeCompare(left)));
 
-  const latestSlugs = await page.locator("[data-home-latest] [data-home-article-slug]").evaluateAll((items) =>
-    items.map((item) => item.getAttribute("data-home-article-slug") ?? ""),
-  );
-  const thematicSlugs = await page.locator("[data-home-editorial] [data-home-article-slug]").evaluateAll((items) =>
-    items.map((item) => item.getAttribute("data-home-article-slug") ?? ""),
-  );
-  expect(thematicSlugs.filter((slug) => latestSlugs.includes(slug))).toEqual([]);
+  for (const section of ["steniatka", "starostlivost", "aktivity"]) {
+    const slugs = await page.locator(`[data-home-editorial="${section}"] [data-home-article-slug]`).evaluateAll((items) =>
+      items.map((item) => item.getAttribute("data-home-article-slug") ?? ""),
+    );
+    expect(slugs.length).toBeLessThanOrEqual(5);
+    expect(new Set(slugs).size).toBe(slugs.length);
+  }
 
   const events = page.locator("[data-home-event]");
   const eventsEmpty = page.locator("[data-home-events-empty]");
