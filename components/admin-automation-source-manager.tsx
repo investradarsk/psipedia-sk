@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { AutomationSourceAdminRow, AutomationSourceCandidateRow } from "@/lib/data-automation-source-store";
+import type { AutomationDiscoveryRoot } from "@/lib/data-automation-discovery-store";
 import { automationConnectorTypes, automationEntityTypes } from "@/lib/data-automation";
 
 const defaultConfig = "{}";
@@ -22,9 +23,11 @@ async function jsonMutation(url: string, method: "POST" | "PUT", body: unknown) 
 export function AdminAutomationSourceManager({
   sources,
   candidates,
+  discoveryRoots,
 }: {
   sources: AutomationSourceAdminRow[];
   candidates: AutomationSourceCandidateRow[];
+  discoveryRoots: AutomationDiscoveryRoot[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -120,6 +123,23 @@ export function AdminAutomationSourceManager({
             ))}
           </div>
         ) : <div className="admin-empty"><h3>Žiadne sources</h3><p>Po migrácii sa tu zobrazia nakonfigurované produkčné zdroje.</p></div>}
+      </section>
+
+      <section className="admin-panel">
+        <h2>Scheduled discovery</h2>
+        <p>Discovery roots sú dôveryhodné verejné vstupné body. Cron ich kontroluje iba podľa ich cadence a výsledkom sú výhradne <code>SOURCE_CANDIDATE</code> záznamy na review.</p>
+        {discoveryRoots.length ? (
+          <div className="admin-change-table">
+            <div className="is-heading"><strong>Discovery root</strong><strong>Stav</strong><strong>Health / next run</strong></div>
+            {discoveryRoots.map((root) => (
+              <div key={root.id}>
+                <strong>{root.label}<small> · {root.discoveryType} · {root.entityType}</small><br />{root.sourceUrl ? <a href={root.sourceUrl} target="_blank" rel="noreferrer">Otvoriť root ↗</a> : null}</strong>
+                <span>{root.enabled ? "ENABLED" : "DISABLED"} · review {root.reviewStatus} · cadence {root.cadenceMinutes} min</span>
+                <span>last {root.lastCheckedAt ?? "—"} · success {root.lastSuccessAt ?? "—"} · next {root.nextCheckAt ?? "—"}{root.lastErrorCode ? <><br /><small>error: {root.lastErrorCode}</small></> : null}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p>Nie je nakonfigurovaný žiadny discovery root.</p>}
       </section>
 
       <section className="admin-panel">
