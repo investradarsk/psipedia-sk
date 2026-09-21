@@ -402,7 +402,7 @@ test("source management UI exposes required controls and NO AUTO-PUBLISH contrac
   ]) assert.ok((manager + detail).includes(phrase), phrase);
   assert.match(detail, /Otestovať zdroj/);
   assert.match(detail, /Spustiť kontrolu teraz/);
-  assert.match(detail, /nič sa automaticky nezverejnilo/);
+  assert.match(detail, /nič sa automaticky nezverejní/);
   assert.match(manager, /Čaká na tvoje rozhodnutie/);
   assert.match(manager, /Pridať medzi zdroje/);
 });
