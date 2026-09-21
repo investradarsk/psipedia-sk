@@ -15,6 +15,7 @@ import {
 import { StructuredData } from "@/components/structured-data";
 import type { Article } from "@/lib/content";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
+import { formatSlovakCount } from "@/lib/slovak-count";
 import {
   articleHref,
   articlePortalSection,
@@ -95,8 +96,8 @@ function SectionContentList({
   if (!articles.length) {
     return (
       <div className={styles.emptyState}>
-        <strong>Obsah dopĺňame</strong>
-        <p>Publikované články sa na tejto adrese zobrazia automaticky po redakčnom schválení.</p>
+        <strong>Ďalšie články pripravujeme</strong>
+        <p>Medzitým si môžete prezrieť ďalšie témy a praktické návody v tejto sekcii.</p>
       </div>
     );
   }
@@ -309,7 +310,7 @@ export function EditorialSectionHub({
                       ) : null}
                       <strong className={styles.topicCardTitle}>{subpage.label}</strong>
                       <span className={styles.topicCardDescription}>{subpage.description}</span>
-                      <span className={styles.topicCardMeta}>{count} {count === 1 ? "článok" : "článkov"}</span>
+                      <span className={styles.topicCardMeta}>{formatSlovakCount(count, { one: "článok", few: "články", many: "článkov" })}</span>
                       <span className={styles.topicCardAction}>Otvoriť tému <ArrowIcon size={17} /></span>
                     </span>
                   </Link>
