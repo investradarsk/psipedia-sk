@@ -116,6 +116,12 @@ export function clearPartnerSessionCookie() {
   return clearManagementSessionCookie(PARTNER_SESSION_COOKIE);
 }
 
+function isRetryablePartnerEmailError(error: string) {
+  return error === "resend_request_failed"
+    || error === "resend_http_429"
+    || /^resend_http_5\d\d$/.test(error);
+}
+
 export async function requestPartnerMagicLink(input: {
   request: Request;
   email: unknown;
@@ -177,11 +183,23 @@ export async function requestPartnerMagicLink(input: {
   // Magic links are time-sensitive. Attempt delivery immediately; the durable
   // outbox remains retryable if the provider is temporarily unavailable.
   try {
-    const delivery = await processPartnerNotificationOutboxItem(outboxId, {
+    let delivery = await processPartnerNotificationOutboxItem(outboxId, {
       database,
       bindings,
       now,
     });
+
+    // The scheduled sweep runs hourly, while a magic link lives only 15
+    // minutes. Retry one transient provider/network failure immediately with
+    // the same idempotency key before leaving the durable outbox as fallback.
+    if (delivery.status === "failed" && isRetryablePartnerEmailError(delivery.error)) {
+      delivery = await processPartnerNotificationOutboxItem(outboxId, {
+        database,
+        bindings,
+        now: new Date(now.getTime() + 250),
+      });
+    }
+
     if (delivery.status === "failed") {
       console.error(JSON.stringify({
         event: "partner_auth_email",
