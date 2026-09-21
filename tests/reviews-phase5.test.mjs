@@ -18,6 +18,20 @@ test("Phase 5 review hub uses managed canonical category navigation and surfaces
   assert.doesNotMatch(hub, /Krmivá|Maškrty|GPS lokátory|Pelechy/);
 });
 
+test("review hub follows the polished portal visual hierarchy while keeping managed taxonomy dynamic", () => {
+  const hub = read("components/portal-hub.tsx");
+  const css = read("app/globals.css");
+  assert.match(hub, /review-search/);
+  assert.match(hub, /review-trust/);
+  assert.match(hub, /review-articles-layout/);
+  assert.match(hub, /review-category-grid/);
+  assert.match(hub, /subpages\.map\(\(subpage, index\) =>/);
+  assert.match(hub, /sectionArticles\.filter\(\(article\) => article\.portalSubpage === subpage\.slug\)/);
+  assert.match(css, /\.review-trust/);
+  assert.match(css, /\.review-category-card/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.review-category-card/);
+});
+
 test("Phase 5 review category pages are direct filtered listings, not generic intermediary pages", () => {
   const topic = read("components/portal-topic.tsx");
   assert.match(topic, /const isReviews = section\.slug === "recenzie"/);
