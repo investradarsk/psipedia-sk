@@ -1,3 +1,7 @@
+DROP INDEX IF EXISTS `automation_source_candidates_canonical_url_unique`;
+CREATE UNIQUE INDEX `automation_source_candidates_url_entity_unique`
+  ON `automation_source_candidates` (`canonical_url`,`entity_type`);
+
 CREATE TABLE `automation_discovery_roots` (
   `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
   `root_key` text NOT NULL,
