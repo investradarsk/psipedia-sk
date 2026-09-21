@@ -14775,3 +14775,271 @@ a.breed-fci-path-node:focus-visible {
     min-height: 44px;
   }
 }
+
+/* REVIEWS-VISUAL-1: Recenzie a testy — editorial review hub aligned with the polished portal sections. */
+.review-search button {
+  color: var(--ink);
+  background: var(--gold);
+}
+
+.review-trust {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(250px, .78fr) minmax(0, 1.55fr);
+  gap: 28px;
+  align-items: center;
+  padding: 26px 30px;
+  border: 1px solid rgba(177, 128, 25, .2);
+  border-radius: 22px;
+  background: linear-gradient(135deg, #fffaf0, #fffdf8);
+  box-shadow: 0 14px 38px rgba(91, 67, 19, .09);
+}
+
+.review-trust-heading {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.review-trust-heading .eyebrow {
+  margin-bottom: 3px;
+  color: #846319;
+}
+
+.review-trust-heading h2 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.2vw, 1.95rem);
+}
+
+.review-trust-icon {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  flex: none;
+  place-items: center;
+  border-radius: 15px;
+  color: var(--ink);
+  background: var(--gold);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.review-trust-factors {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.review-trust-factors div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding-left: 15px;
+  border-left: 1px solid rgba(23, 75, 56, .14);
+}
+
+.review-trust-factors strong {
+  color: var(--ink);
+  font-size: .8rem;
+}
+
+.review-trust-factors span {
+  color: var(--muted);
+  font-size: .7rem;
+  line-height: 1.5;
+}
+
+.review-articles-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.review-article-featured .article-card {
+  height: 100%;
+}
+
+.review-article-featured .article-card-media {
+  min-height: 320px;
+}
+
+.review-article-featured .article-card h3 {
+  font-size: clamp(1.7rem, 2.55vw, 2.35rem);
+}
+
+.review-article-stack {
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 12px;
+}
+
+.review-article-stack .article-card {
+  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-rows: 1fr;
+}
+
+.review-article-stack .article-card-media {
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.review-article-stack .article-card-body {
+  padding: 15px;
+}
+
+.review-article-stack .article-card h3 {
+  margin: 8px 0;
+  font-size: 1.08rem;
+}
+
+.review-article-stack .article-card-body > p {
+  display: none;
+}
+
+.review-article-stack .article-card-meta > span,
+.review-article-stack .favorite-button {
+  display: none;
+}
+
+.review-more-articles {
+  margin-top: 20px;
+}
+
+.review-directory .split-heading > p {
+  max-width: 610px;
+  color: var(--muted);
+}
+
+.review-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.review-category-card {
+  display: grid;
+  min-height: 154px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  padding: 23px 24px;
+  border: 1px solid rgba(177, 128, 25, .18);
+  border-radius: 19px;
+  background: linear-gradient(145deg, #fffdf8, #fff9e9);
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.review-category-card:hover {
+  border-color: rgba(177, 128, 25, .42);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-sm);
+}
+
+.review-category-index {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid rgba(177, 128, 25, .18);
+  border-radius: 14px;
+  color: #7b5a12;
+  background: #fff1bf;
+  font-family: Georgia, serif;
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.review-category-card h3 {
+  margin: 0 0 6px;
+  font-family: Georgia, serif;
+  font-size: 1.42rem;
+  font-weight: 500;
+}
+
+.review-category-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.55;
+}
+
+.review-category-card b {
+  display: block;
+  margin-top: 14px;
+  color: #806015;
+  font-size: .72rem;
+}
+
+.review-category-card > svg {
+  margin-top: 5px;
+  color: #806015;
+}
+
+@media (max-width: 860px) {
+  .review-trust {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 22px;
+  }
+
+  .review-trust-factors {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 11px;
+  }
+
+  .review-trust-factors div {
+    padding: 10px 0 0;
+    border-top: 1px solid rgba(23, 75, 56, .12);
+    border-left: 0;
+  }
+
+  .review-articles-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-article-featured .article-card-media {
+    min-height: 0;
+  }
+
+  .review-category-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .review-trust-heading {
+    align-items: flex-start;
+  }
+
+  .review-trust-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .review-article-stack .article-card {
+    grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-rows: 1fr;
+  }
+
+  .review-article-stack .article-card-footer {
+    display: none;
+  }
+
+  .review-category-card {
+    min-height: 0;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 19px;
+  }
+
+  .review-category-index {
+    width: 42px;
+    height: 42px;
+  }
+
+  .review-category-card h3 {
+    font-size: 1.25rem;
+  }
+}
+
