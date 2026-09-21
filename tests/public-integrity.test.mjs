@@ -16,6 +16,15 @@ test("Slovak count formatter handles article forms", async () => {
   assert.equal(formatSlovakCount(13, forms), "13 článkov");
 });
 
+test("organization copy cleaner removes only merge-history sentences and preserves paragraphs", async () => {
+  const { cleanPublicOrganizationCopy } = await importTs("lib/help-organization-store.ts");
+  const input = "Pomáhame psom v núdzi a hľadáme im bezpečné domovy.\n\nStarší samostatný profil bol zlúčený, aby sa nepublikoval dvakrát.\n\nVenujeme sa adopciám.";
+  assert.equal(
+    cleanPublicOrganizationCopy(input),
+    "Pomáhame psom v núdzi a hľadáme im bezpečné domovy.\n\nVenujeme sa adopciám.",
+  );
+});
+
 test("placeholder detector catches obvious production garbage without rejecting normal copy", async () => {
   const { isSuspiciousPlaceholderText, isSuspiciousNumericText } = await importTs("lib/public-integrity.ts");
   assert.equal(isSuspiciousPlaceholderText("gfhfghfghfgh"), true);
