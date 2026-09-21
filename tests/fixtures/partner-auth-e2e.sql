@@ -10,14 +10,10 @@ INSERT INTO partner_accounts (
 INSERT INTO resource_access_tokens (
   id,resource_type,subject_id,purpose,token_hash,expires_at,used_at,revoked_at,created_at
 ) VALUES
-  ('partner-e2e-token-desktop','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','PO_TqBmRyzO6HYzsigG-fUVahsjFyEHrj1duQglOVR4','2099-01-01T00:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z'),
-  ('partner-e2e-token-mobile','PARTNER_ACCOUNT','partner-e2e-mobile','PARTNER_AUTH','TikQlSdjb4HFmzIXhI9scXWRRtVrr2Jz0cmpQm_OP4A','2099-01-01T00:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z'),
-  ('partner-e2e-token-used','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','YSiA2RJTvaU23xIzDDkTlI3A73ZJt2CGHBhgRLdD4q8','2099-01-01T00:00:00.000Z','2026-09-21T20:10:00.000Z',NULL,'2026-09-21T20:00:00.000Z'),
-  ('partner-e2e-token-revoked','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','udQ3riTdtQ7DDA9M-cunnEueLKP9_QUXUrvARD7EDbg','2099-01-01T00:00:00.000Z',NULL,'2026-09-21T20:10:00.000Z','2026-09-21T20:00:00.000Z'),
-  ('partner-e2e-token-expired','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','Qt3KKtDYeCtTBCIyd-Ranyq3dM0WhlTJoo1MbYEng-c','2020-01-01T00:00:00.000Z',NULL,NULL,'2019-12-31T20:00:00.000Z');
-
-INSERT INTO resource_management_sessions (
-  id,resource_type,subject_id,session_hash,permissions_json,expires_at,revoked_at,created_at,last_used_at
-) VALUES
-  ('partner-e2e-session-suspended','PARTNER_ACCOUNT','partner-e2e-suspended','qTrnGnzBcp8jveMU192OB0xbE1jjAu_9dxRMFv0OPxo','[]','2099-01-01T00:00:00.000Z',NULL,'2026-09-21T20:00:00.000Z',NULL),
-  ('partner-e2e-session-deactivated','PARTNER_ACCOUNT','partner-e2e-deactivated','fzA7Y4LA98VfIw5dfKZchcQKrarwwHmkMZ65-MBSvoU','[]','2099-01-01T00:00:00.000Z',NULL,'2026-09-21T20:00:00.000Z',NULL);
+  ('partner-e2e-token-desktop','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','EHY3YmUiE3TnWzvZ2sUSTVVudNgn37mSPa-nALXYbX8','2099-01-01T00:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z'),
+  ('partner-e2e-token-mobile','PARTNER_ACCOUNT','partner-e2e-mobile','PARTNER_AUTH','5NKdSYAZiQii_H-CIbOzFB8HaU198ItIvsbVyEKePAI','2099-01-01T00:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z'),
+  ('partner-e2e-token-used','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','AuogV_WPn7EJbE8N1eLnOD8i9h1hBExdTYce4scsg5M','2099-01-01T00:00:00.000Z','2026-09-21T20:10:00.000Z',NULL,'2026-09-21T20:00:00.000Z'),
+  ('partner-e2e-token-revoked','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','IzTFUhO-VNa9iYCLZ2ht6W4ewuYHXk2lCRqWLHllH2k','2099-01-01T00:00:00.000Z',NULL,'2026-09-21T20:10:00.000Z','2026-09-21T20:00:00.000Z'),
+  ('partner-e2e-token-expired','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','TH6HfZSR2JtOfduwgUHd9RiIjJy5G7q5YARm84XUGWc','2020-01-01T00:00:00.000Z',NULL,NULL,'2019-12-31T20:00:00.000Z'),
+  ('partner-e2e-token-suspended','PARTNER_ACCOUNT','partner-e2e-suspended','PARTNER_AUTH','hhZJPUR7cAZnsF5MY-p0PFMlmOmfLmVcPvTQqODVOTo','2099-01-01T00:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z'),
+  ('partner-e2e-token-deactivated','PARTNER_ACCOUNT','partner-e2e-deactivated','PARTNER_AUTH','jQcYRAsddkIFmto5q0oL9Pg_lwEQplImwRcE1grckuQ','2099-01-01T00:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z');
