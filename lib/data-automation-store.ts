@@ -280,13 +280,17 @@ function eventBefore(row: Record<string, unknown>) {
 }
 
 function organizationBefore(row: Record<string, unknown>) {
+  const sourceData = parseJson<Record<string, unknown>>(String(row.source_data_json ?? "{}"), {});
   return {
     name: row.name, slug: row.slug, legalName: row.legal_name, registrationNumber: row.registration_number,
     type: row.type, status: row.status, shortDescription: row.short_description, description: row.description,
     publicEmail: row.public_email, publicPhone: row.public_phone, websiteUrl: row.website_url,
     facebookUrl: row.facebook_url, instagramUrl: row.instagram_url, address: row.address, city: row.city,
-    district: row.district, region: row.region, countryCode: row.country_code, sourceUrl: row.source_url,
-    lastVerifiedAt: row.last_verified_at,
+    district: row.district, region: row.region, countryCode: row.country_code, importKey: row.import_key,
+    sourceUrl: row.source_url, lastVerifiedAt: row.last_verified_at,
+    operatorName: sourceData.operatorName ?? null,
+    sourceApprovalNumber: sourceData.sourceApprovalNumber ?? null,
+    sourceActivity: sourceData.sourceActivity ?? null,
   };
 }
 
