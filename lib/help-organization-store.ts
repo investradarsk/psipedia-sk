@@ -164,6 +164,21 @@ type PublicDirectoryRow = {
   category: string;
 };
 
+export function cleanPublicOrganizationCopy(value: string) {
+  return value
+    .split(/(?<=[.!?])\s+/u)
+    .filter((sentence) => {
+      const normalized = sentence.toLocaleLowerCase("sk");
+      const mentionsLegacyRecord = /(starší|pôvodný)/u.test(normalized)
+        && /(profil|riadok|záznam)/u.test(normalized);
+      const mentionsMergeHistory = /(zlúčen|spojen|nepublikoval dvakrát|publikoval dvakrát|duplicit)/u.test(normalized);
+      return !(mentionsLegacyRecord && mentionsMergeHistory);
+    })
+    .join(" ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export const PUBLIC_ORGANIZATION_PREDICATE =
   "o.status = 'PUBLISHED' AND o.published_at IS NOT NULL AND o.archived_at IS NULL";
 
@@ -315,8 +330,8 @@ function toPublicOrganization(
     legalName: row.legal_name,
     registrationNumber: row.registration_number,
     type: row.type as PublicOrganizationType,
-    shortDescription: row.short_description,
-    description: row.description,
+    shortDescription: cleanPublicOrganizationCopy(row.short_description),
+    description: cleanPublicOrganizationCopy(row.description),
     publicEmail: row.public_email,
     publicPhone: row.public_phone,
     websiteUrl: row.website_url,
@@ -375,8 +390,8 @@ export async function listPublishedOrganizations(
     id: Number(row.id),
     name: row.name,
     slug: row.slug,
-    shortDescription: row.short_description,
-    description: row.description,
+    shortDescription: cleanPublicOrganizationCopy(row.short_description),
+    description: cleanPublicOrganizationCopy(row.description),
     city: row.city,
     region: row.region,
     imageUrl: row.image_url,
