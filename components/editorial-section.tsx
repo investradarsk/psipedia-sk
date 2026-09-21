@@ -2,13 +2,12 @@ import Link from "next/link";
 import { ArticleListItem } from "@/components/article-list-item";
 import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
 import type { ReactElement } from "react";
-import { ArrowIcon, BowlIcon, CheckIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
+import { ArrowIcon, CheckIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import {
   PublicActionLink,
   PublicContentList,
-  PublicDataCard,
   PublicFoundation,
   PublicIcon,
   PublicSectionHeader,
@@ -36,14 +35,6 @@ function sectionIcon(slug: EditorialSectionSlug): ReactElement {
   if (slug === "starostlivost") return <HeartIcon size={30} />;
   if (slug === "aktivity") return <WhistleIcon size={30} />;
   return <PawMark size={30} />;
-}
-
-function topicIcon(sectionSlug: EditorialSectionSlug, topicSlug: string): ReactElement {
-  if (topicSlug.includes("krmen") || topicSlug === "vyziva") return <BowlIcon size={22} />;
-  if (topicSlug.includes("vycvik") || topicSlug === "trening") return <WhistleIcon size={22} />;
-  if (topicSlug.includes("zdrav") || topicSlug === "senior") return <HeartIcon size={22} />;
-  if (topicSlug === "socializacia" || topicSlug === "spravanie" || topicSlug === "psie-sporty") return <SparkIcon size={22} />;
-  return sectionIcon(sectionSlug);
 }
 
 function topicImage(sectionSlug: EditorialSectionSlug, topicSlug: string, articles: Article[]) {
