@@ -1,4 +1,5 @@
 import type { ControlledHtmlAdapter, AutomationFetch } from "./data-automation-connectors.ts";
+import type { OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
 import { AutomationConnectorError, fetchAutomationSourceRecords } from "./data-automation-connectors.ts";
 import {
   automationFindingFingerprint,
@@ -32,6 +33,7 @@ export type DataAutomationSweepOptions = {
   fetchImpl?: AutomationFetch;
   htmlAdapters?: Record<string, ControlledHtmlAdapter>;
   sleep?: (ms: number) => Promise<void>;
+  organizationEnricher?: OrganizationRecordEnricher;
 };
 
 type SourceRunSummary = {
@@ -253,7 +255,21 @@ async function runSource(
     for (const record of records) {
       checked += 1;
       try {
-        const result = await processRecord(source, runId, record, detectedAt, options.database);
+        let candidateRecord = record;
+        if (source.entityType === "ORGANIZATION" && options.organizationEnricher) {
+          try {
+            candidateRecord = await options.organizationEnricher(record, { detectedAt });
+          } catch (error) {
+            console.error(JSON.stringify({
+              event: "data_automation_organization_enrichment",
+              sourceKey: source.sourceKey,
+              sourceRecordId: record.sourceRecordId,
+              result: "failed_open",
+              error: safeErrorCode(error),
+            }));
+          }
+        }
+        const result = await processRecord(source, runId, candidateRecord, detectedAt, options.database);
         if (result.finding) {
           if (result.created || result.reopened) {
             newFindings += 1;
