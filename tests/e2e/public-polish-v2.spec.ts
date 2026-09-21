@@ -63,6 +63,44 @@ test("homepage section CTAs follow their content and photo surfaces stay square"
   await page.screenshot({ path: ".e2e-artifacts/public-polish-v2/home-1440.png", fullPage: true });
 });
 
+test("editorial landing polish is responsive at 1440, 1920 and 390", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Viewport matrix runs once.");
+
+  for (const viewport of [
+    { width: 1440, height: 900, label: "1440" },
+    { width: 1920, height: 1080, label: "1920" },
+  ]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await gotoPublic(page, "/steniatka");
+    await expectNoHorizontalOverflow(page, `/steniatka at ${viewport.width}px`);
+    await expect(page.locator("[data-section-topic-card]").first().locator("[data-section-topic-image] img")).toBeVisible();
+    const carousel = page.locator("[data-section-next-carousel]");
+    await expect(carousel).toBeVisible();
+    expect(await carousel.locator("[data-section-next-card]").count()).toBe(4);
+    expect(await carousel.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+    await expectAxeSeriousCriticalClean(page, `/steniatka at ${viewport.width}px`);
+    await page.screenshot({ path: `.e2e-artifacts/public-polish-v2/steniatka-${viewport.label}.png`, fullPage: true });
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await gotoPublic(page, "/starostlivost");
+  await expectNoHorizontalOverflow(page, "/starostlivost at 390px");
+  const mobileCarousel = page.locator("[data-section-next-carousel]");
+  const dimensions = await mobileCarousel.evaluate((element) => {
+    const first = element.querySelector<HTMLElement>("[data-section-next-card]");
+    return {
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      cardWidth: first?.getBoundingClientRect().width ?? 0,
+    };
+  });
+  expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
+  expect(dimensions.cardWidth).toBeGreaterThan(dimensions.clientWidth * 0.75);
+  expect(dimensions.cardWidth).toBeLessThan(dimensions.clientWidth);
+  await expectAxeSeriousCriticalClean(page, "/starostlivost at 390px");
+  await page.screenshot({ path: ".e2e-artifacts/public-polish-v2/starostlivost-390.png", fullPage: true });
+});
+
 test("desktop header uses a balanced masthead plus dedicated navigation band", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "Explicit desktop viewport matrix runs once.");
 

@@ -448,3 +448,46 @@
     transition: none;
   }
 }
+
+
+/* HOMEPAGE + SECTION POLISH: keep the mobile name-day strip intact, refine desktop only. */
+@media (min-width: 1200px) {
+  .desktopNameDay {
+    gap: 9px;
+    padding: 9px 16px 10px;
+    border: 1px solid rgba(23, 53, 43, .12);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(255, 250, 242, .96), rgba(237, 243, 233, .72));
+    box-shadow: 0 4px 14px rgba(23, 53, 43, .045);
+    font-size: .88rem;
+    line-height: 1.25;
+  }
+
+  .desktopNameDay::before {
+    width: 5px;
+    height: 5px;
+    background: var(--brand-accent-strong);
+  }
+
+  .desktopNameDay span {
+    font-size: .7rem;
+    letter-spacing: .085em;
+  }
+
+  .desktopNameDay strong {
+    max-width: min(34vw, 430px);
+    font-size: .9rem;
+    font-weight: 820;
+    letter-spacing: .005em;
+  }
+
+  .desktopNameDay .currentDate {
+    font-size: .78rem;
+    font-weight: 720;
+  }
+
+  .desktopNameDay .nameDayDivider {
+    width: 5px;
+    height: 5px;
+  }
+}

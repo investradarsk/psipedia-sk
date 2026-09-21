@@ -474,3 +474,379 @@
     padding: 15px;
   }
 }
+
+
+/* HOMEPAGE + SECTION POLISH: image-led topic cards and homepage-style service carousel. */
+.dataGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.topicCard {
+  display: grid;
+  min-width: 0;
+  min-height: 206px;
+  overflow: hidden;
+  grid-template-columns: minmax(138px, 34%) minmax(0, 1fr);
+  border: 1px solid rgba(23, 53, 43, .13);
+  border-radius: 18px;
+  color: inherit;
+  background: var(--section-card);
+  box-shadow: 0 7px 22px rgba(23, 53, 43, .05);
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.topicCard:hover {
+  border-color: color-mix(in srgb, var(--coral-dark) 42%, rgba(23, 53, 43, .13));
+  box-shadow: 0 12px 30px rgba(23, 53, 43, .09);
+  transform: translateY(-2px);
+}
+
+.topicCard:focus-visible,
+.nextCard:focus-visible,
+.carouselControl:focus-visible {
+  outline: 3px solid rgba(23, 75, 56, .24);
+  outline-offset: 3px;
+}
+
+.topicCardMedia {
+  display: block;
+  min-width: 0;
+  min-height: 100%;
+  overflow: hidden;
+  background: var(--sage-light);
+}
+
+.topicCardMedia img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 206px;
+  object-fit: cover;
+}
+
+.topicCardBody {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 7px;
+  padding: 20px 21px;
+}
+
+.topicCardEyebrow {
+  color: var(--coral-dark);
+  font-size: .69rem;
+  font-weight: 850;
+  letter-spacing: .085em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.topicCardTitle {
+  color: var(--forest);
+  font-size: 1.2rem;
+  font-weight: 840;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.topicCardDescription {
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.topicCardMeta {
+  color: var(--muted);
+  font-size: .73rem;
+  line-height: 1.4;
+}
+
+.topicCardAction {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+  color: var(--coral-dark);
+  font-size: .78rem;
+  font-weight: 850;
+}
+
+.nextCarousel {
+  display: flex;
+  min-width: 0;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 2px 2px 14px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nextCarousel::-webkit-scrollbar {
+  display: none;
+}
+
+.nextCard {
+  display: grid;
+  flex: 0 0 31.5%;
+  min-width: 0;
+  overflow: hidden;
+  grid-template-rows: auto 1fr;
+  scroll-snap-align: start;
+  border: 1px solid rgba(23, 53, 43, .13);
+  border-radius: 18px;
+  color: var(--forest);
+  background: var(--section-card);
+  box-shadow: 0 8px 24px rgba(23, 53, 43, .045);
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.nextCard:hover {
+  border-color: rgba(23, 75, 56, .26);
+  box-shadow: 0 12px 30px rgba(23, 53, 43, .08);
+  transform: translateY(-2px);
+}
+
+.nextCardMedia {
+  position: relative;
+  display: block;
+  overflow: visible;
+  aspect-ratio: 16 / 10;
+  background: var(--sage-light);
+}
+
+.nextCardMedia img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 17px 17px 0 0;
+  object-fit: cover;
+}
+
+.nextCardIcon {
+  position: absolute;
+  left: 18px;
+  bottom: -24px;
+  display: grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 5px solid var(--section-card);
+  border-radius: 999px;
+  color: var(--forest);
+  background: var(--sage-light);
+  box-shadow: 0 5px 14px rgba(23, 53, 43, .06);
+}
+
+.nextCardIcon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.nextCardCopy {
+  position: relative;
+  display: grid;
+  min-height: 164px;
+  align-content: start;
+  gap: 9px;
+  padding: 34px 52px 24px 20px;
+}
+
+.nextCardCopy > strong {
+  color: var(--forest);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.42rem;
+  font-weight: 500;
+  line-height: 1.08;
+}
+
+.nextCardCopy > span:not(.nextCardAction) {
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.nextCardAction {
+  position: absolute;
+  right: 15px;
+  bottom: 16px;
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 5px;
+  color: var(--coral-dark);
+  font-size: .75rem;
+  font-weight: 850;
+}
+
+.carouselControls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.carouselControl {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(23, 53, 43, .15);
+  border-radius: 999px;
+  color: var(--forest);
+  background: var(--section-card);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.carouselControl:hover {
+  border-color: var(--coral-dark);
+  color: white;
+  background: var(--coral-dark);
+  transform: translateY(-1px);
+}
+
+.carouselControl:last-child {
+  border-color: var(--coral-dark);
+  color: white;
+  background: var(--coral-dark);
+}
+
+.carouselCue {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  color: rgba(23, 75, 56, .65);
+  font-size: .82rem;
+  font-weight: 800;
+}
+
+.carouselCue i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(23, 75, 56, .25);
+}
+
+.carouselCue i:first-of-type {
+  background: var(--coral-dark);
+}
+
+@media (max-width: 1100px) {
+  .dataGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .nextCard {
+    flex-basis: 48%;
+  }
+}
+
+@media (max-width: 760px) {
+  .topicCard {
+    min-height: 176px;
+    grid-template-columns: 118px minmax(0, 1fr);
+  }
+
+  .topicCardMedia img {
+    min-height: 176px;
+  }
+
+  .topicCardBody {
+    gap: 5px;
+    padding: 15px 16px;
+  }
+
+  .topicCardTitle {
+    font-size: 1.08rem;
+  }
+
+  .topicCardDescription {
+    font-size: .79rem;
+  }
+
+  .nextCarousel {
+    gap: 12px;
+  }
+
+  .nextCard {
+    flex-basis: 84%;
+  }
+
+  .nextCardCopy {
+    min-height: 168px;
+  }
+}
+
+@media (max-width: 640px) {
+  .carouselControls {
+    display: none;
+  }
+
+  .topicCard {
+    min-height: 164px;
+    grid-template-columns: 106px minmax(0, 1fr);
+    border-radius: 16px;
+  }
+
+  .topicCardMedia img {
+    min-height: 164px;
+  }
+
+  .topicCardBody {
+    padding: 14px 14px 14px 15px;
+  }
+
+  .topicCardEyebrow {
+    font-size: .63rem;
+  }
+
+  .topicCardDescription {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .topicCardAction {
+    min-height: 30px;
+    font-size: .75rem;
+  }
+
+  .nextCardMedia {
+    aspect-ratio: 4 / 3;
+  }
+
+  .nextCardCopy > strong {
+    font-size: 1.35rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .topicCard {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .topicCardBody {
+    padding-inline: 12px;
+  }
+
+  .topicCardDescription {
+    -webkit-line-clamp: 2;
+  }
+}

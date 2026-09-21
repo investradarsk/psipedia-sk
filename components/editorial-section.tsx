@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { ArticleListItem } from "@/components/article-list-item";
+import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
 import type { ReactElement } from "react";
-import { ArrowIcon, BowlIcon, CheckIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
+import { ArrowIcon, CheckIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import {
   PublicActionLink,
   PublicContentList,
-  PublicDataCard,
   PublicFoundation,
   PublicIcon,
   PublicSectionHeader,
@@ -36,12 +36,22 @@ function sectionIcon(slug: EditorialSectionSlug): ReactElement {
   return <PawMark size={30} />;
 }
 
-function topicIcon(sectionSlug: EditorialSectionSlug, topicSlug: string): ReactElement {
-  if (topicSlug.includes("krmen") || topicSlug === "vyziva") return <BowlIcon size={22} />;
-  if (topicSlug.includes("vycvik") || topicSlug === "trening") return <WhistleIcon size={22} />;
-  if (topicSlug.includes("zdrav") || topicSlug === "senior") return <HeartIcon size={22} />;
-  if (topicSlug === "socializacia" || topicSlug === "spravanie" || topicSlug === "psie-sporty") return <SparkIcon size={22} />;
-  return sectionIcon(sectionSlug);
+function topicImage(sectionSlug: EditorialSectionSlug, topicSlug: string, articles: Article[]) {
+  const fallback = {
+    steniatka: "/images/hero-labrador.webp",
+    starostlivost: "/images/zdravie-veterinar.webp",
+    aktivity: "/images/trening-pri-nohe.webp",
+  } satisfies Record<EditorialSectionSlug, string>;
+  return articles.find((article) => articleArea(article, sectionSlug) === topicSlug && article.image)?.image
+    ?? fallback[sectionSlug];
+}
+
+function nextStepImage(href: string) {
+  if (href.includes("trener") || href.includes("kynologicke-kluby")) return "/images/trening-pri-nohe.webp";
+  if (href.includes("veterinari") || href.includes("fyzioterapia")) return "/images/zdravie-veterinar.webp";
+  if (href.includes("salony")) return "/images/breeds/anglicky-koker-spaniel.webp";
+  if (href.includes("hotely")) return "/images/breeds/beagle.webp";
+  return "/images/hero-labrador.webp";
 }
 
 function articleArea(article: Article, sectionSlug: EditorialSectionSlug) {
@@ -188,6 +198,7 @@ function nextSteps(sectionSlug: EditorialSectionSlug) {
       { title: "Veterinári", description: "Ambulancie, kliniky a pohotovosti podľa lokality.", href: "/adresar/veterinari", icon: <HeartIcon size={22} /> },
       { title: "Fyzioterapia", description: "Rehabilitácia, regenerácia a podpora pohybu.", href: "/adresar/fyzioterapia", icon: <SparkIcon size={22} /> },
       { title: "Tréneri a školy", description: "Pomoc s výcvikom a problémovým správaním.", href: "/adresar/treneri", icon: <WhistleIcon size={22} /> },
+      { title: "Psie salóny", description: "Úprava srsti a pravidelná hygienická starostlivosť.", href: "/adresar/salony-a-sluzby", icon: <SparkIcon size={22} /> },
     ];
   }
   if (sectionSlug === "aktivity") {
@@ -195,12 +206,14 @@ function nextSteps(sectionSlug: EditorialSectionSlug) {
       { title: "Tréneri a psie školy", description: "Základy, športová príprava aj individuálne vedenie.", href: "/adresar/treneri", icon: <WhistleIcon size={22} /> },
       { title: "Kynologické kluby", description: "Cvičiská, športové kluby a miestne organizácie.", href: "/adresar/kynologicke-kluby", icon: <SparkIcon size={22} /> },
       { title: "Podujatia", description: "Preteky, tréningy, semináre a spoločné stretnutia.", href: "/podujatia", icon: <PawMark size={22} /> },
+      { title: "Hotely a opatrovanie", description: "Starostlivosť o psa, keď nemôže cestovať s tebou.", href: "/adresar/hotely-a-opatrovanie", icon: <SparkIcon size={22} /> },
     ];
   }
   return [
     { title: "Výber plemena", description: "Porovnaj povahu, energiu a nároky plemien podľa svojho života.", href: "/plemena/vyber-plemena", icon: <PawMark size={22} /> },
     { title: "Veterinári", description: "Ambulancie, kliniky a pohotovosti podľa lokality.", href: "/adresar/veterinari", icon: <HeartIcon size={22} /> },
     { title: "Tréneri a školy", description: "Vedenie socializácie a prvých tréningových krokov.", href: "/adresar/treneri", icon: <WhistleIcon size={22} /> },
+    { title: "Chovateľské stanice", description: "Nájdi chovateľov a over si pôvod aj zdravotné vyšetrenia.", href: "/adresar/chovatelske-stanice", icon: <SparkIcon size={22} /> },
   ];
 }
 
@@ -277,18 +290,29 @@ export function EditorialSectionHub({
             </div>
             <div className={styles.dataGrid}>
               {subpages.map((subpage) => {
-                const count = visibleArticles.filter((article) => articleArea(article, sectionSlug) === subpage.slug).length;
+                const topicArticles = visibleArticles.filter((article) => articleArea(article, sectionSlug) === subpage.slug);
+                const count = topicArticles.length;
+                const image = topicImage(sectionSlug, subpage.slug, topicArticles);
                 return (
-                  <PublicDataCard
+                  <Link
                     href={portalSubpageHref(section, subpage)}
-                    title={subpage.label}
-                    description={subpage.description}
-                    eyebrow={subpage.popularTopics?.slice(0, 2).join(" · ")}
-                    meta={`${count} ${count === 1 ? "článok" : "článkov"}`}
-                    icon={topicIcon(sectionSlug, subpage.slug)}
-                    actionLabel="Otvoriť tému"
+                    className={styles.topicCard}
+                    data-section-topic-card
                     key={subpage.slug}
-                  />
+                  >
+                    <span className={styles.topicCardMedia} data-section-topic-image>
+                      <img src={image} alt="" loading="lazy" decoding="async" />
+                    </span>
+                    <span className={styles.topicCardBody}>
+                      {subpage.popularTopics?.length ? (
+                        <span className={styles.topicCardEyebrow}>{subpage.popularTopics.slice(0, 2).join(" · ")}</span>
+                      ) : null}
+                      <strong className={styles.topicCardTitle}>{subpage.label}</strong>
+                      <span className={styles.topicCardDescription}>{subpage.description}</span>
+                      <span className={styles.topicCardMeta}>{count} {count === 1 ? "článok" : "článkov"}</span>
+                      <span className={styles.topicCardAction}>Otvoriť tému <ArrowIcon size={17} /></span>
+                    </span>
+                  </Link>
                 );
               })}
             </div>
@@ -299,19 +323,34 @@ export function EditorialSectionHub({
           <PageContainer>
             <div className={styles.sectionHeading}>
               <div><span className={styles.eyebrow}>Ďalší krok</span><h2 id={`${sectionSlug}-next`}>Užitočné služby a pokračovanie</h2></div>
+              <HorizontalCarouselControls
+                targetId={`${sectionSlug}-next-carousel`}
+                className={styles.carouselControls}
+                buttonClassName={styles.carouselControl}
+              />
             </div>
-            <div className={styles.nextGrid}>
+            <div
+              id={`${sectionSlug}-next-carousel`}
+              className={styles.nextCarousel}
+              data-section-next-carousel
+              role="region"
+              aria-label="Užitočné služby a pokračovanie"
+            >
               {nextSteps(sectionSlug).map((item) => (
-                <PublicDataCard
-                  href={item.href}
-                  title={item.title}
-                  description={item.description}
-                  icon={item.icon}
-                  actionLabel="Otvoriť"
-                  key={item.href}
-                />
+                <Link href={item.href} className={styles.nextCard} data-section-next-card key={item.href}>
+                  <span className={styles.nextCardMedia}>
+                    <img src={nextStepImage(item.href)} alt="" loading="lazy" decoding="async" />
+                    <span className={styles.nextCardIcon} aria-hidden="true">{item.icon}</span>
+                  </span>
+                  <span className={styles.nextCardCopy}>
+                    <strong>{item.title}</strong>
+                    <span>{item.description}</span>
+                    <span className={styles.nextCardAction}>Otvoriť <ArrowIcon size={18} /></span>
+                  </span>
+                </Link>
               ))}
             </div>
+            <div className={styles.carouselCue} aria-hidden="true"><span>←</span><i /><i /><i /><span>→</span></div>
             <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
           </PageContainer>
         </section>
