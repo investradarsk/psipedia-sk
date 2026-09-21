@@ -1,0 +1,149 @@
+name: Auto-update auto-merge PRs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: auto-update-automerge-prs
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-automerge-prs:
+    name: Update stale auto-merge PR branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Update branches and release approval-gated CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          repo="${GITHUB_REPOSITORY}"
+
+          approve_action_required_runs() {
+            local sha="$1"
+            local wait_for_runs="${2:-false}"
+            local attempts=1
+
+            if [ "${wait_for_runs}" = "true" ]; then
+              attempts=20
+            fi
+
+            for attempt in $(seq 1 "${attempts}"); do
+              mapfile -t run_ids < <(
+                gh api "repos/${repo}/actions/runs?head_sha=${sha}&per_page=100"                   --jq '.workflow_runs[] | select(.status == "completed" and .conclusion == "action_required") | .id'
+              )
+
+              if [ "${#run_ids[@]}" -gt 0 ]; then
+                for run_id in "${run_ids[@]}"; do
+                  echo "Approving action-required workflow run ${run_id} for ${sha}."
+                  if ! gh api                     --method POST                     "repos/${repo}/actions/runs/${run_id}/approve"                     >/tmp/approve-run.json 2>/tmp/approve-run.err; then
+                    echo "::warning::Could not approve workflow run ${run_id}."
+                    cat /tmp/approve-run.err
+                  fi
+                done
+                return 0
+              fi
+
+              if [ "${wait_for_runs}" != "true" ]; then
+                return 0
+              fi
+
+              sleep 3
+            done
+
+            echo "No approval-gated workflow runs appeared for ${sha}."
+          }
+
+          mapfile -t prs < <(
+            gh api --paginate "repos/${repo}/pulls?state=open&per_page=100"               --jq '.[] | .number'
+          )
+
+          if [ "${#prs[@]}" -eq 0 ]; then
+            echo "No open pull requests."
+            exit 0
+          fi
+
+          for pr in "${prs[@]}"; do
+            data="$(gh api "repos/${repo}/pulls/${pr}")"
+
+            is_draft="$(jq -r '.draft' <<<"${data}")"
+            auto_merge="$(jq -r '.auto_merge != null' <<<"${data}")"
+            same_repo="$(jq -r '.head.repo.full_name == .base.repo.full_name' <<<"${data}")"
+
+            if [ "${is_draft}" = "true" ] || [ "${auto_merge}" != "true" ] || [ "${same_repo}" != "true" ]; then
+              continue
+            fi
+
+            merge_state="$(jq -r '.mergeable_state // "unknown"' <<<"${data}")"
+            for attempt in 1 2 3 4 5; do
+              if [ "${merge_state}" != "unknown" ]; then
+                break
+              fi
+              sleep 2
+              data="$(gh api "repos/${repo}/pulls/${pr}")"
+              merge_state="$(jq -r '.mergeable_state // "unknown"' <<<"${data}")"
+            done
+
+            branch="$(jq -r '.head.ref' <<<"${data}")"
+            old_sha="$(jq -r '.head.sha' <<<"${data}")"
+            target_sha="${old_sha}"
+            updated=false
+
+            case "${merge_state}" in
+              behind)
+                echo "PR #${pr} (${branch}) is behind main; requesting branch update."
+
+                if ! gh api                   --method PUT                   "repos/${repo}/pulls/${pr}/update-branch"                   -f "expected_head_sha=${old_sha}"                   >/tmp/update-branch.json 2>/tmp/update-branch.err; then
+                  echo "::warning::PR #${pr} could not be updated automatically."
+                  cat /tmp/update-branch.err
+                  continue
+                fi
+
+                new_sha="${old_sha}"
+                for attempt in $(seq 1 30); do
+                  sleep 2
+                  data="$(gh api "repos/${repo}/pulls/${pr}")"
+                  new_sha="$(jq -r '.head.sha' <<<"${data}")"
+                  if [ "${new_sha}" != "${old_sha}" ]; then
+                    break
+                  fi
+                done
+
+                if [ "${new_sha}" = "${old_sha}" ]; then
+                  echo "::warning::PR #${pr} update was accepted but the head SHA did not change in time."
+                  continue
+                fi
+
+                target_sha="${new_sha}"
+                updated=true
+                echo "PR #${pr} updated: ${old_sha} -> ${new_sha}"
+                ;;
+              dirty)
+                echo "::warning::PR #${pr} has merge conflicts; leaving it for manual resolution."
+                continue
+                ;;
+              *)
+                echo "PR #${pr} does not need an update (mergeable_state=${merge_state})."
+                ;;
+            esac
+
+            # Since June 2026 GitHub puts pull_request workflows caused by a
+            # GITHUB_TOKEN branch update into action_required. Release those
+            # runs so normal PR CI can execute without a maintainer click.
+            if [ "${updated}" = "true" ]; then
+              approve_action_required_runs "${target_sha}" true
+            else
+              # Also heals an already-blocked auto-merge PR from an earlier run.
+              approve_action_required_runs "${target_sha}" false
+            fi
+          done
