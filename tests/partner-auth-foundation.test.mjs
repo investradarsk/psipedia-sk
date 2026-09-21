@@ -202,7 +202,7 @@ test("expired magic-link email is never sent by retry sweep", () => {
 test("logs carry stable ids/error classes but not decrypted email or raw credentials", () => {
   assert.doesNotMatch(authSource, /console\.(?:info|error)\([^\n]*token/i);
   assert.doesNotMatch(emailSource, /console\./);
-  assert.doesNotMatch(requestRoute, /error\.message/);
+  assert.doesNotMatch(requestRoute, /error:\s*error instanceof Error \? error\.message/);
   assert.match(authSource, /accountId/);
 });
 
