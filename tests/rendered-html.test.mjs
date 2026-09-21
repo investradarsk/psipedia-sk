@@ -270,7 +270,7 @@ test("renders the portal homepage", async () => {
   const breedOfTheDayStart = breedStoreSource.indexOf("export async function getBreedOfTheDay");
   const publishedSummariesQuery = articleStoreSource.slice(publishedSummariesStart, articleStoreSource.indexOf("/** Backwards-compatible", publishedSummariesStart));
   const breedOfTheDayQuery = breedStoreSource.slice(breedOfTheDayStart, breedStoreSource.indexOf("export async function listPublishedBreeds", breedOfTheDayStart));
-  assert.match(homeSource, /getPublishedArticleSummaries\(\{ limit: 48 \}\)/);
+  assert.match(homeSource, /getPublishedArticleSummaries\(\{ limit: 120 \}\)/);
   assert.match(homeSource, /selectHomepageArticles\(publishedArticles/);
   assert.match(homeSource, /getBreedOfTheDay\(dayOfYear\)/);
   assert.doesNotMatch(homeSource, /getHomepageArticles|getPublishedArticles|listPublishedBreedsForComparison/);
