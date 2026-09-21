@@ -83,13 +83,19 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
       {hasEventCalendar && events.length ? (
         <div className="event-grid">{events.slice(0, 3).map((event) => <EventCard event={event} key={event.id} />)}</div>
       ) : !hasEventCalendar && hubArticles.length ? (
-        isEditorialHub ? <>
+        isReviews ? <>
+          <div className="review-articles-layout">
+            <div className="review-article-featured"><ArticleCard article={hubArticles[0]} {...reviewCardProps(hubArticles[0])} /></div>
+            <div className="review-article-stack">{hubArticles.slice(1, 4).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
+          </div>
+          {hubArticles.length > 4 && <div className="article-grid review-more-articles">{hubArticles.slice(4, 7).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>}
+        </> : isEditorialHub ? <>
           <div className="care-articles-layout">
             <div className="care-article-featured"><ArticleCard article={hubArticles[0]} {...reviewCardProps(hubArticles[0])} /></div>
             <div className="care-article-stack">{hubArticles.slice(1, 5).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
           </div>
           {hubArticles.length > 5 && <div className="article-grid portal-hub-more-articles">{hubArticles.slice(5, 8).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>}
-        </> : <div className="article-grid">{hubArticles.slice(0, isReviews ? 6 : 3).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
+        </> : <div className="article-grid">{hubArticles.slice(0, 3).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
       ) : (
         <div className="portal-empty">
           <span aria-hidden="true">🐾</span>
@@ -140,9 +146,28 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
           <input id="puppy-search-query" name="q" maxLength={120} placeholder="Hľadaj prvú noc, socializáciu, kŕmenie alebo očkovanie…" />
           <button type="submit">Hľadať v sprievodcovi</button>
         </form>}
+        {isReviews && <form className="care-search review-search" action="/hladat" method="get">
+          <SearchIcon size={22} />
+          <input type="hidden" name="sekcia" value="recenzie" />
+          <label className="sr-only" htmlFor="review-search-query">Čo chceš porovnať alebo overiť?</label>
+          <input id="review-search-query" name="q" maxLength={120} placeholder="Hľadaj produkt, výbavu alebo typ testu…" />
+          <button type="submit">Hľadať v recenziách</button>
+        </form>}
       </SectionHero>
 
       {showSectionTabs && <PortalSectionTabs section={section} />}
+
+      {isReviews && <section className="shell public-shell review-trust" aria-labelledby="review-trust-heading">
+        <div className="review-trust-heading">
+          <span className="review-trust-icon" aria-hidden="true">✓</span>
+          <div><span className="eyebrow">Ako hodnotíme</span><h2 id="review-trust-heading">Najprv skúsenosť, potom záver</h2></div>
+        </div>
+        <div className="review-trust-factors">
+          <div><strong>Reálne používanie</strong><span>Sledujeme praktickosť, odolnosť a to, čo sa ukáže až pri bežnom používaní.</span></div>
+          <div><strong>Kontext psa</strong><span>Výsledok vždy vysvetľujeme podľa veľkosti, veku, aktivity a konkrétneho použitia.</span></div>
+          <div><strong>Transparentnosť</strong><span>Partnerský obsah a affiliate odkazy označujeme tak, aby bolo jasné, čo je redakčný test.</span></div>
+        </div>
+      </section>}
 
       {isCare && <section className="shell public-shell care-urgent" aria-labelledby="care-urgent-heading">
         <span className="care-urgent-icon" aria-hidden="true">!</span>
@@ -169,6 +194,32 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
 
       {isReviews && latestContent}
 
+      {isReviews && <section className="section shell public-shell review-directory" aria-labelledby="review-directory-heading">
+        <div className="section-heading split-heading">
+          <div>
+            <span className="eyebrow">Vyber si kategóriu</span>
+            <h2 id="review-directory-heading">Nájdi test podľa toho, čo práve riešiš</h2>
+          </div>
+          <p>Každá kategória má vlastný prehľad. Uvidíš iba recenzie, testy a porovnania, ktoré do nej patria.</p>
+        </div>
+        <div className="review-category-grid">
+          {subpages.map((subpage, index) => {
+            const reviewCount = sectionArticles.filter((article) => article.portalSubpage === subpage.slug).length;
+            return (
+              <Link href={portalSubpageHref(section, subpage)} className="review-category-card" key={subpage.slug}>
+                <span className="review-category-index">{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <h3>{subpage.label}</h3>
+                  <p>{subpage.description}</p>
+                  <b>{reviewCount} {reviewCount === 1 ? "recenzia" : reviewCount > 1 && reviewCount < 5 ? "recenzie" : "recenzií"}</b>
+                </div>
+                <ArrowIcon size={20} />
+              </Link>
+            );
+          })}
+        </div>
+      </section>}
+
       {!isReviews && <section className="section shell public-shell portal-directory" aria-labelledby="portal-directory-heading">
         <div className="section-heading split-heading">
           <div>
@@ -194,7 +245,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
       {!isEditorialHub && !isReviews && latestContent}
 
       <section className="section shell public-shell">
-        <div className="portal-more-heading"><span className="eyebrow">{isCare ? "Pomoc nablízku" : isActivities ? "Tréning a zážitky nablízku" : isPuppies ? "Ďalší bezpečný krok" : "Celá Psipedia"}</span><h2>{isCare ? "Užitočné služby a kontakty" : isActivities ? "Kam pokračovať" : isPuppies ? "Výber, zdravie a vedenie na jednom mieste" : "Pokračuj ďalšou sekciou"}</h2>{isCare && <p>Keď článok nestačí, pokračuj priamo k vhodnému odborníkovi alebo službe.</p>}{isActivities && <p>Nájdi vedenie, klub, podujatie alebo bezpečné riešenie na čas, keď pes nemôže cestovať s tebou.</p>}{isPuppies && <p>Over si rozhodnutie, pôvod šteniatka aj odbornú pomoc skôr, než ju budeš súrne potrebovať.</p>}</div>
+        <div className="portal-more-heading"><span className="eyebrow">{isCare ? "Pomoc nablízku" : isActivities ? "Tréning a zážitky nablízku" : isPuppies ? "Ďalší bezpečný krok" : isReviews ? "Súvisiace témy" : "Celá Psipedia"}</span><h2>{isCare ? "Užitočné služby a kontakty" : isActivities ? "Kam pokračovať" : isPuppies ? "Výber, zdravie a vedenie na jednom mieste" : isReviews ? "Pokračuj podľa toho, čo práve riešiš" : "Pokračuj ďalšou sekciou"}</h2>{isCare && <p>Keď článok nestačí, pokračuj priamo k vhodnému odborníkovi alebo službe.</p>}{isActivities && <p>Nájdi vedenie, klub, podujatie alebo bezpečné riešenie na čas, keď pes nemôže cestovať s tebou.</p>}{isPuppies && <p>Over si rozhodnutie, pôvod šteniatka aj odbornú pomoc skôr, než ju budeš súrne potrebovať.</p>}{isReviews && <p>Recenziu ber ako praktický vstup do rozhodovania. Pri zdraví, výžive alebo tréningu pokračuj aj do príslušnej poradenskej sekcie.</p>}</div>
         <div className={`portal-more-grid ${isEditorialHub ? "care-service-grid" : ""}`}>
           {(isCare ? careServices : isActivities ? activityServices : isPuppies ? puppyServices : allSections.filter((item) => item.slug !== section.slug).map((item) => ({ icon: item.icon, title: item.label, text: "", href: `/${item.slug}` }))).map((item) => (
             <Link href={item.href} key={item.href}><span aria-hidden="true">{item.icon}</span><span><strong>{item.title}</strong>{item.text && <small>{item.text}</small>}</span><ArrowIcon size={18} /></Link>
