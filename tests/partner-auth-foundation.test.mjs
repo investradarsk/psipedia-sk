@@ -193,6 +193,9 @@ test("auth email outbox encrypts retry secret, is idempotent and clears secret o
   assert.match(emailSource, /status NOT IN \('SENT','EXPIRED'\)/);
   assert.match(emailSource, /attempts<" \+ MAX_ATTEMPTS/);
   assert.match(authSource, /processPartnerNotificationOutboxItem/);
+  assert.match(authSource, /isRetryablePartnerEmailError/);
+  assert.match(authSource, /resend_http_429/);
+  assert.match(authSource, /resend_http_5\\d\\d/);
   assert.doesNotMatch(migration, /raw_secret|raw_token|plaintext_secret/i);
 });
 
