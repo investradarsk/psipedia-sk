@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
+import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
 import {
   directoryCategories,
   directoryCategoryHref,
@@ -23,6 +24,24 @@ function previewMeta(profile: PublicDirectoryProfile) {
     .join(" · ");
   const availability = profile.online ? (location ? "aj online" : "online") : "";
   return [location, availability, profile.services[0] ?? ""].filter(Boolean).join(" · ");
+}
+
+function categoryIcon(slug: DirectoryCategorySlug) {
+  switch (slug) {
+    case "veterinari":
+      return <HeartIcon size={20} />;
+    case "treneri":
+      return <WhistleIcon size={20} />;
+    case "salony-a-sluzby":
+    case "dalsie-sluzby":
+      return <SparkIcon size={20} />;
+    case "hotely-a-opatrovanie":
+      return <BowlIcon size={20} />;
+    case "fyzioterapia":
+      return <HeartIcon size={20} />;
+    default:
+      return <PawMark size={20} />;
+  }
 }
 
 export function DirectoryPage({
@@ -65,20 +84,26 @@ export function DirectoryPage({
             )}
           </Breadcrumbs>
 
-          <PublicSectionHeader
-            className={styles.header}
-            variant="compact"
-            eyebrow={active ? active.singular : "Adresár služieb"}
-            title={active ? active.label : "Služby pre psov"}
-            intro={active?.description ?? "Nájdi veterinára, trénera, klub, salón alebo inú službu podľa kategórie a lokality. Vyhľadávanie funguje aj bez diakritiky."}
-            meta={
-              active && typeof activeCount === "number"
-                ? `${activeCount} ${profileCountLabel(activeCount)}`
-                : !active && totalPublished !== null
-                  ? `${totalPublished} publikovaných profilov v adresári`
-                  : undefined
-            }
-          />
+          {active ? (
+            <PublicSectionHeader
+              className={styles.header}
+              variant="compact"
+              eyebrow={active.singular}
+              title={active.label}
+              intro={active.description}
+              meta={typeof activeCount === "number" ? `${activeCount} ${profileCountLabel(activeCount)}` : undefined}
+            />
+          ) : (
+            <PublicSectionHeader
+              className={styles.header}
+              variant="image"
+              eyebrow="Prehľad adresára"
+              title="Služby podľa kategórie"
+              intro="Nájdi veterinára, trénera, klub, salón alebo inú službu podľa kategórie a lokality. Vyhľadávanie funguje aj bez diakritiky."
+              meta={totalPublished !== null ? `${totalPublished} publikovaných profilov v adresári` : undefined}
+              image={{ src: "/images/hero-labrador.webp", alt: "Labrador ako sprievodný vizuál adresára služieb pre psov" }}
+            />
+          )}
 
           {!active && (
             <form className={`directory-main-search ${styles.mainSearch}`} action="/adresar" method="get" role="search" aria-label="Vyhľadať službu pre psa">
@@ -89,11 +114,12 @@ export function DirectoryPage({
                   {directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}
                 </select>
               </label>
-              <label>
+              <label className={styles.searchLabel}>
                 <span>Názov, služba alebo lokalita</span>
+                <SearchIcon size={19} />
                 <input name="q" defaultValue={filters.query} placeholder="Nitra, fyzioterapia, labrador…" />
               </label>
-              <button type="submit">Hľadať</button>
+              <button type="submit"><span>Hľadať</span><ArrowIcon size={17} /></button>
             </form>
           )}
 
@@ -106,6 +132,7 @@ export function DirectoryPage({
                   key={category.slug}
                   aria-current={active?.slug === category.slug ? "page" : undefined}
                 >
+                  <span className={styles.categoryNavIcon}>{categoryIcon(category.slug)}</span>
                   <span>{category.label}</span>
                   {typeof count === "number" && <small aria-label={`${count} ${profileCountLabel(count)}`}>{count}</small>}
                 </Link>
@@ -115,15 +142,7 @@ export function DirectoryPage({
         </section>
 
         {!active && !showResults && (
-          <section className={`shell ${styles.overview}`} aria-labelledby="directory-overview-heading">
-            <header className={styles.overviewHeading}>
-              <div>
-                <span className="eyebrow">Prehľad adresára</span>
-                <h2 id="directory-overview-heading">Služby podľa kategórie</h2>
-              </div>
-              <p>Ukážky sú priamo z publikovaných profilov. Kategória bez verejných záznamov zostáva prázdna — bez náhradných alebo vymyslených služieb.</p>
-            </header>
-
+          <section className={`shell ${styles.overview}`} aria-label="Prehľad služieb podľa kategórie">
             <div className={styles.categoryGrid}>
               {directoryCategories.map((category) => {
                 const count = categoryCounts[category.slug];
@@ -138,9 +157,12 @@ export function DirectoryPage({
                     aria-labelledby={`directory-category-${category.slug}`}
                   >
                     <header className={styles.categoryHeader}>
-                      <div>
-                        <h3 id={`directory-category-${category.slug}`}>{category.label}</h3>
-                        <p>{category.description}</p>
+                      <div className={styles.categoryHeading}>
+                        <span className={styles.categoryIcon}>{categoryIcon(category.slug)}</span>
+                        <div>
+                          <h3 id={`directory-category-${category.slug}`}>{category.label}</h3>
+                          <p>{category.description}</p>
+                        </div>
                       </div>
                       {typeof count === "number" && (
                         <span className={styles.categoryCount}>{count} {profileCountLabel(count)}</span>
@@ -166,6 +188,7 @@ export function DirectoryPage({
                                 <strong>{profile.name}</strong>
                                 {meta && <small>{meta}</small>}
                               </span>
+                              <span className={styles.previewArrow} aria-hidden="true"><ArrowIcon size={16} /></span>
                             </Link>
                           );
                         })}
@@ -176,7 +199,7 @@ export function DirectoryPage({
                       </p>
                     )}
 
-                    <Link className={styles.categoryAction} href={directoryCategoryHref(category)}>Zobraziť všetkých</Link>
+                    <Link className={styles.categoryAction} href={directoryCategoryHref(category)}><span>Zobraziť všetkých</span><ArrowIcon size={16} /></Link>
                   </section>
                 );
               })}
