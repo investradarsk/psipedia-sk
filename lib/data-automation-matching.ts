@@ -1,4 +1,5 @@
 import {
+  automationDraftSlug,
   canonicalizeSourceUrl,
   normalizeAutomationIdentity,
   type AutomationCanonicalMatch,
@@ -58,7 +59,8 @@ function candidateMatch(
   const importKey = clean(proposed.importKey ?? proposed.import_key);
   if (importKey && clean(candidate.importKey) === importKey) return "EXACT_CANONICAL_KEY" as const;
 
-  const slug = clean(proposed.slug);
+  const slug = clean(proposed.slug)
+    ?? (entityType === "ORGANIZATION" ? clean(automationDraftSlug(null, clean(proposed.name) ?? "")) : null);
   const category = clean(proposed.category);
   const type = clean(proposed.type);
   if (slug && clean(candidate.slug) === slug) {

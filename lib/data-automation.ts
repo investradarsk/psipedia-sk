@@ -174,6 +174,14 @@ export function normalizeAutomationIdentity(value: unknown) {
     .replace(/\s+/g, " ");
 }
 
+export function automationDraftSlug(value: unknown, fallback: string) {
+  const normalized = normalizeAutomationIdentity(value || fallback)
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90);
+  return normalized || fallback;
+}
+
 export function stableJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;

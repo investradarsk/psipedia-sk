@@ -42,10 +42,19 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
       });
       const payload = await response.json() as {
         finding?: AutomationFindingDetail;
-        application?: { canonicalEntityId: number; applicationType: string; appliedFields: string[] };
+        application?: { canonicalEntityId: number; applicationType: string; appliedFields: string[] } | null;
+        reclassified?: "EXISTING_ORGANIZATION";
         error?: string;
       };
       if (!response.ok || !payload.finding) throw new Error(payload.error || "Finding sa nepodarilo spracovať.");
+      if (payload.reclassified === "EXISTING_ORGANIZATION") {
+        setMessage("Organizácia už existuje. Nález som prepojil s existujúcim profilom. Skontroluj zmeny a potom použi „Schváliť a aplikovať“.");
+        router.refresh();
+        return;
+      }
+      if (action === "approve-apply" && !payload.application) {
+        throw new Error("Aplikovanie sa nepotvrdilo. Obnov stránku a skús to znova.");
+      }
       setMessage(
         action === "approve-apply"
           ? payload.application?.applicationType === "CREATE_DRAFT"

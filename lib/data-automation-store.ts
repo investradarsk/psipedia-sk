@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import {
+  automationDraftSlug,
   automationFindingPriority,
   automationReviewEffect,
   canonicalizeSourceUrl,
@@ -355,11 +356,12 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
   }
 
   if (source.entityType === "ORGANIZATION") {
+    const organizationSlug = slug || automationDraftSlug(null, name);
     const importKey = String(proposed.importKey ?? proposed.import_key ?? "");
     const registration = String(proposed.registrationNumber ?? proposed.registration_number ?? "");
     result = await db.prepare(`SELECT * FROM help_organizations
       WHERE slug=? OR import_key=? OR registration_number=? OR source_url=? OR name=? COLLATE NOCASE
-      ORDER BY id ASC LIMIT 50`).bind(slug, importKey, registration, sourceUrl, name).all<Record<string, unknown>>();
+      ORDER BY id ASC LIMIT 50`).bind(organizationSlug, importKey, registration, sourceUrl, name).all<Record<string, unknown>>();
     return result.results.map((row) => ({ ...commonCandidate(row, `organization:${row.id}`), before: organizationBefore(row) }));
   }
 
