@@ -369,24 +369,6 @@ function generatedDescription(proposed: Record<string, unknown>) {
   return parts.length ? parts.join(" ") : null;
 }
 
-function filledFields(proposed: Record<string, unknown>) {
-  const keys = [
-    "name","legalName","registrationNumber","type","shortDescription","description",
-    "publicEmail","publicPhone","websiteUrl","facebookUrl","instagramUrl","imageUrl",
-    "address","city","district","region","countryCode","sourceUrl",
-  ];
-  return {
-    filled: keys.filter((key) => {
-      const value = proposed[key];
-      return value !== null && value !== undefined && String(value).trim() !== "";
-    }),
-    missing: keys.filter((key) => {
-      const value = proposed[key];
-      return value === null || value === undefined || String(value).trim() === "";
-    }),
-  };
-}
-
 export function createProductionOrganizationEnricher(
   options: CreateOrganizationEnricherOptions = {},
 ): OrganizationRecordEnricher {
@@ -440,10 +422,6 @@ export function createProductionOrganizationEnricher(
     const entries = await directoryEntries();
     const entry = chooseDirectoryEntry(proposed, entries);
 
-    const enrichmentSources = new Set<string>();
-    if (record.sourceUrl) enrichmentSources.add(record.sourceUrl);
-    if (entry) enrichmentSources.add(entry.sourceUrl);
-
     if (!proposed.websiteUrl && entry?.websiteUrl) proposed.websiteUrl = entry.websiteUrl;
     if (!proposed.facebookUrl && entry?.facebookUrl) proposed.facebookUrl = entry.facebookUrl;
     if (!proposed.type) proposed.type = inferredType(proposed, entry) ?? undefined;
@@ -461,22 +439,14 @@ export function createProductionOrganizationEnricher(
       const finalWebsite = String(official.websiteUrl ?? website).trim();
       if (finalWebsite) {
         proposed.websiteUrl = finalWebsite;
-        enrichmentSources.add(finalWebsite);
       }
       for (const key of ["publicEmail","publicPhone","facebookUrl","instagramUrl","registrationNumber","shortDescription","imageUrl"] as const) {
         if (!proposed[key] && official[key]) proposed[key] = official[key];
       }
-      if (official.imageUrl) proposed.imageSourceUrl = finalWebsite || website;
     }
 
     if (!proposed.sourceUrl && record.sourceUrl) proposed.sourceUrl = record.sourceUrl;
     proposed.lastVerifiedAt = context.detectedAt;
-    const coverage = filledFields(proposed);
-    proposed.enrichmentSources = [...enrichmentSources];
-    proposed.enrichmentFilledFields = coverage.filled;
-    proposed.enrichmentMissingFields = coverage.missing;
-    proposed.enrichmentAt = context.detectedAt;
-
     return { ...record, proposed };
   };
 }
