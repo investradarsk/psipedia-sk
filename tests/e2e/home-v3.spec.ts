@@ -83,9 +83,10 @@ test("desktop homepage uses the HOME-3 hierarchy without editorial filler", asyn
   expect(hero).not.toBeNull();
   expect(hero!.height).toBeLessThanOrEqual(370);
 
-  const servicesGateway = page.locator("[data-home-services-gateway]");
-  await expect(servicesGateway.getByRole("link")).toHaveCount(1);
-  await expect(servicesGateway.getByRole("link", { name: /Všetky služby/ })).toHaveAttribute("href", "/adresar");
+  await expect(page.locator("[data-home-services-gateway]")).toHaveCount(0);
+  const services = page.locator("[data-home-services-secondary]");
+  await expect(services.locator(".home-service-card")).toHaveCount(6);
+  await expect(services.getByRole("link", { name: /Všetky služby/ })).toHaveAttribute("href", "/adresar");
 
   const dates = await page.locator("[data-home-latest] [data-home-article-date]").evaluateAll((items) =>
     items.map((item) => item.getAttribute("data-home-article-date") ?? ""),
@@ -133,7 +134,6 @@ test("390x844 homepage preserves order, has no horizontal overflow and passes ax
   const orderedSelectors = [
     "[data-home-hero]",
     "[data-home-search]",
-    "[data-home-services-gateway]",
     "[data-home-latest]",
     "[data-home-events]",
     '[data-home-editorial="steniatka"]',
@@ -161,6 +161,11 @@ test("390x844 homepage preserves order, has no horizontal overflow and passes ax
   }));
   expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.viewport);
   expect(overflow.bodyWidth).toBeLessThanOrEqual(overflow.viewport);
+
+  const servicesCarousel = page.locator("[data-home-services-secondary] .home-service-carousel");
+  await expect(servicesCarousel).toBeVisible();
+  expect(await servicesCarousel.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  await expect(page.locator("[data-home-services-secondary] .home-service-carousel-cue")).toBeVisible();
 
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
