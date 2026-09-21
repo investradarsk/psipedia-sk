@@ -393,7 +393,7 @@ export function createProductionOrganizationEnricher(
     return directoryPromise;
   }
 
-  async function enrichFromOfficialSite(websiteUrl: string) {
+  async function enrichFromOfficialSite(websiteUrl: string): Promise<Record<string, string | null>> {
     const safe = websiteFetchUrl(websiteUrl);
     if (!safe) return {};
     if (!siteCache.has(safe)) {
@@ -422,15 +422,22 @@ export function createProductionOrganizationEnricher(
     const entries = await directoryEntries();
     const entry = chooseDirectoryEntry(proposed, entries);
 
+    const secondarySources: string[] = [];
+    if (entry) secondarySources.push(entry.sourceUrl);
     if (!proposed.websiteUrl && entry?.websiteUrl) proposed.websiteUrl = entry.websiteUrl;
     if (!proposed.facebookUrl && entry?.facebookUrl) proposed.facebookUrl = entry.facebookUrl;
-    if (!proposed.type) proposed.type = inferredType(proposed, entry) ?? undefined;
-    if (!proposed.legalName) proposed.legalName = inferredLegalName(proposed) ?? undefined;
+    if (!proposed.type) {
+      const type = inferredType(proposed, entry);
+      if (type) proposed.type = type;
+    }
+    if (!proposed.legalName) {
+      const legalName = inferredLegalName(proposed);
+      if (legalName) proposed.legalName = legalName;
+    }
     if (!proposed.countryCode) proposed.countryCode = "SK";
-    if (!proposed.description) proposed.description = generatedDescription(proposed) ?? undefined;
-    if (!proposed.shortDescription) {
-      const fallback = generatedDescription(proposed);
-      if (fallback) proposed.shortDescription = fallback.slice(0, 700);
+    if (!proposed.description) {
+      const description = generatedDescription(proposed);
+      if (description) proposed.description = description;
     }
 
     const website = String(proposed.websiteUrl ?? "").trim();
@@ -443,10 +450,25 @@ export function createProductionOrganizationEnricher(
       for (const key of ["publicEmail","publicPhone","facebookUrl","instagramUrl","registrationNumber","shortDescription","imageUrl"] as const) {
         if (!proposed[key] && official[key]) proposed[key] = official[key];
       }
+      if (finalWebsite) secondarySources.push(finalWebsite);
     }
 
+    if (!proposed.shortDescription) {
+      const fallback = generatedDescription(proposed);
+      if (fallback) proposed.shortDescription = fallback.slice(0, 700);
+    }
     if (!proposed.sourceUrl && record.sourceUrl) proposed.sourceUrl = record.sourceUrl;
     proposed.lastVerifiedAt = context.detectedAt;
-    return { ...record, proposed };
+
+    const rawRecord = {
+      primary: record.rawRecord,
+      enrichment: {
+        directoryUrl: entry?.sourceUrl ?? null,
+        officialWebsiteUrl: String(proposed.websiteUrl ?? "").trim() || null,
+        sources: [...new Set(secondarySources)],
+        enrichedAt: context.detectedAt,
+      },
+    };
+    return { ...record, rawRecord, proposed };
   };
 }
