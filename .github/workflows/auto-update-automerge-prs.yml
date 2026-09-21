@@ -1,0 +1,108 @@
+name: Auto-update auto-merge PRs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: auto-update-automerge-prs
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-automerge-prs:
+    name: Update stale auto-merge PR branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Update branches and re-run required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          repo="${GITHUB_REPOSITORY}"
+          mapfile -t prs < <(
+            gh api --paginate "repos/${repo}/pulls?state=open&per_page=100"               --jq '.[] | .number'
+          )
+
+          if [ "${#prs[@]}" -eq 0 ]; then
+            echo "No open pull requests."
+            exit 0
+          fi
+
+          for pr in "${prs[@]}"; do
+            data="$(gh api "repos/${repo}/pulls/${pr}")"
+
+            is_draft="$(jq -r '.draft' <<<"${data}")"
+            auto_merge="$(jq -r '.auto_merge != null' <<<"${data}")"
+            same_repo="$(jq -r '.head.repo.full_name == .base.repo.full_name' <<<"${data}")"
+
+            if [ "${is_draft}" = "true" ] || [ "${auto_merge}" != "true" ] || [ "${same_repo}" != "true" ]; then
+              continue
+            fi
+
+            # GitHub may briefly report mergeability as unknown after base updates.
+            merge_state="$(jq -r '.mergeable_state // "unknown"' <<<"${data}")"
+            for attempt in 1 2 3 4 5; do
+              if [ "${merge_state}" != "unknown" ]; then
+                break
+              fi
+              sleep 2
+              data="$(gh api "repos/${repo}/pulls/${pr}")"
+              merge_state="$(jq -r '.mergeable_state // "unknown"' <<<"${data}")"
+            done
+
+            branch="$(jq -r '.head.ref' <<<"${data}")"
+            old_sha="$(jq -r '.head.sha' <<<"${data}")"
+
+            case "${merge_state}" in
+              behind)
+                echo "PR #${pr} (${branch}) is behind main; requesting branch update."
+
+                if ! gh api                   --method PUT                   "repos/${repo}/pulls/${pr}/update-branch"                   -f "expected_head_sha=${old_sha}" >/tmp/update-branch.json 2>/tmp/update-branch.err; then
+                  echo "::warning::PR #${pr} could not be updated automatically."
+                  cat /tmp/update-branch.err
+                  continue
+                fi
+
+                new_sha="${old_sha}"
+                for attempt in $(seq 1 30); do
+                  sleep 2
+                  data="$(gh api "repos/${repo}/pulls/${pr}")"
+                  new_sha="$(jq -r '.head.sha' <<<"${data}")"
+                  if [ "${new_sha}" != "${old_sha}" ]; then
+                    break
+                  fi
+                done
+
+                if [ "${new_sha}" = "${old_sha}" ]; then
+                  echo "::warning::PR #${pr} update was accepted but the head SHA did not change in time."
+                  continue
+                fi
+
+                echo "PR #${pr} updated: ${old_sha} -> ${new_sha}"
+
+                # Branch updates made with GITHUB_TOKEN do not reliably emit a new
+                # pull_request workflow run. Explicitly dispatch the workflow that
+                # owns both required status checks from the main ruleset.
+                if ! gh workflow run playwright-e2e.yml --repo "${repo}" --ref "${branch}"; then
+                  echo "::warning::PR #${pr} was updated, but required CI dispatch failed."
+                else
+                  echo "Required CI dispatched for PR #${pr} on ${branch}."
+                fi
+                ;;
+              dirty)
+                echo "::warning::PR #${pr} has merge conflicts; leaving it for manual resolution."
+                ;;
+              *)
+                echo "PR #${pr} does not need an update (mergeable_state=${merge_state})."
+                ;;
+            esac
+          done
