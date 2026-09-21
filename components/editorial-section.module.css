@@ -577,10 +577,8 @@
 }
 
 .nextCarousel {
-  display: grid;
+  display: flex;
   min-width: 0;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(260px, 31.5%);
   gap: 16px;
   overflow-x: auto;
   padding: 2px 2px 14px;
@@ -597,6 +595,7 @@
 
 .nextCard {
   display: grid;
+  flex: 0 0 31.5%;
   min-width: 0;
   overflow: hidden;
   grid-template-rows: auto 1fr;
@@ -753,8 +752,8 @@
     grid-template-columns: 1fr;
   }
 
-  .nextCarousel {
-    grid-auto-columns: minmax(250px, 48%);
+  .nextCard {
+    flex-basis: 48%;
   }
 }
 
@@ -782,8 +781,11 @@
   }
 
   .nextCarousel {
-    grid-auto-columns: minmax(248px, 84%);
     gap: 12px;
+  }
+
+  .nextCard {
+    flex-basis: 84%;
   }
 
   .nextCardCopy {
