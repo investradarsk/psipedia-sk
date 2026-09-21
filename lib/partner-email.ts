@@ -63,6 +63,14 @@ export async function queuePartnerMagicLinkEmail(input: {
   const encryptedSecret = await encryptPii(input.rawToken, encryptionKey);
   const dedupeKey = "partner-auth/" + id;
 
+  // A newer login request revokes the previous access token. Make the matching
+  // unsent retry payload terminal too so a revoked link is never sent later.
+  await database.prepare(
+    "UPDATE partner_notification_outbox SET status='EXPIRED',encrypted_secret=NULL,last_error=NULL,updated_at=?2 " +
+    "WHERE partner_account_id=?1 AND notification_type='AUTH_MAGIC_LINK' " +
+    "AND status NOT IN ('SENT','EXPIRED')",
+  ).bind(input.accountId, nowIso).run();
+
   await database.prepare(
     "INSERT INTO partner_notification_outbox " +
     "(id,partner_account_id,notification_type,dedupe_key,status,encrypted_secret,expires_at,attempts,created_at,updated_at) " +
