@@ -23,6 +23,9 @@ export function PartnerVerification({ token }: Props) {
         return;
       }
       try {
+        // Keep the one-time secret out of browser history as soon as the
+        // client has captured it for this single consume request.
+        window.history.replaceState(null, "", "/partner/overenie");
         const response = await fetch("/api/partner/auth/consume", {
           method: "POST",
           headers: { "content-type": "application/json" },
