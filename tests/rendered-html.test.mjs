@@ -995,7 +995,9 @@ test("renders the help portal, stable category URL and emergency guide", async (
   const help = await worker.fetch(new Request("http://localhost/pomoc-psom", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(help.status, 200);
   const helpHtml = await help.text();
-  assert.match(helpHtml, /Praktická pomoc · aktuálne dáta/);
+  assert.match(helpHtml, /Pomoc psom · tam, kde ju treba/);
+  assert.match(helpHtml, /Pomôžte tam, kde je to práve potrebné/);
+  assert.match(helpHtml, /Postup krok za krokom/);
   assert.match(helpHtml, /<h1>Pomoc psom<\/h1>/);
   assert.match(helpHtml, /Zbierky a výzvy/);
   assert.match(helpHtml, /Meno, mesto alebo organizácia/);
