@@ -602,12 +602,18 @@
 }
 
 html {
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
   scroll-behavior: smooth;
   background: var(--cream);
 }
 
 body {
+  width: 100%;
+  max-width: 100%;
   margin: 0;
+  overflow-x: clip;
   background: var(--cream);
   color: var(--ink);
   font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
