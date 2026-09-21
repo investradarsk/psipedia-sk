@@ -2,6 +2,7 @@ import { AutomationConnectorError, fetchAutomationSourceRecords, type Automation
 import { classifyAutomationFinding, type AutomationSource } from "./data-automation.ts";
 import { matchAutomationCanonical, type AutomationD1Database } from "./data-automation-store.ts";
 import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
+import { createProductionOrganizationEnricher } from "./data-automation-organization-enrichment.ts";
 
 function safePreviewErrorDetail(code: string) {
   const details: Record<string, string> = {
@@ -51,6 +52,9 @@ export async function previewAutomationSource(input: {
       },
     });
 
+    const organizationEnricher = input.source.entityType === "ORGANIZATION"
+      ? createProductionOrganizationEnricher({ fetchImpl: input.fetchImpl })
+      : null;
     let normalized = 0;
     let possibleMatches = 0;
     let newCandidates = 0;
@@ -59,13 +63,16 @@ export async function previewAutomationSource(input: {
 
     for (const record of records) {
       try {
-        if (!record.proposed || typeof record.proposed !== "object" || Array.isArray(record.proposed)) {
+        const candidateRecord = organizationEnricher
+          ? await organizationEnricher(record, { detectedAt: new Date().toISOString() })
+          : record;
+        if (!candidateRecord.proposed || typeof candidateRecord.proposed !== "object" || Array.isArray(candidateRecord.proposed)) {
           throw new Error("normalized_payload_invalid");
         }
         normalized += 1;
-        const match = await matchAutomationCanonical(input.source, record, input.database);
+        const match = await matchAutomationCanonical(input.source, candidateRecord, input.database);
         if (match.entityId || match.quality === "UNCERTAIN") possibleMatches += 1;
-        const finding = classifyAutomationFinding({ match, proposed: record.proposed });
+        const finding = classifyAutomationFinding({ match, proposed: candidateRecord.proposed });
         if (finding?.findingType === "NEW_ENTITY") newCandidates += 1;
         if (finding && finding.findingType !== "NEW_ENTITY" && finding.findingType !== "DUPLICATE_CANDIDATE") possibleUpdates += 1;
       } catch (error) {
