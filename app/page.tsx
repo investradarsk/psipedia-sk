@@ -34,13 +34,13 @@ export const metadata: Metadata = {
 export default async function Home() {
   const dayOfYear = dayOfYearInBratislava();
   const [publishedArticles, nextEvents, activeHelpCases, breedOfTheDay, veterinarians] = await Promise.all([
-    getPublishedArticleSummaries({ limit: 48 }),
+    getPublishedArticleSummaries({ limit: 120 }),
     getUpcomingEvents(3),
     getHighlightedHelpCases(3),
     getBreedOfTheDay(dayOfYear),
     getPublishedDirectoryProfiles("veterinari", 3),
   ]);
-  const articleSelection = selectHomepageArticles(publishedArticles, { latestLimit: 5, sectionLimit: 3 });
+  const articleSelection = selectHomepageArticles(publishedArticles, { latestLimit: 5, sectionLimit: 5, backfillSectionsFromLatest: true });
   const homepageServiceSlugs: string[] = [
     "treneri",
     "salony-a-sluzby",
