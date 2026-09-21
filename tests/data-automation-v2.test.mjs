@@ -352,7 +352,7 @@ test("source error lifecycle resolves recovery and superseded error signatures w
 test("source failures remain visible in source observability", () => {
   const detail = read("components/admin-automation-source-detail.tsx");
   const store = read("lib/data-automation-source-store.ts");
-  assert.match(detail, /Health error/);
+  assert.match(detail, /Posledná chyba/);
   assert.match(detail, /lastErrorCode/);
   assert.match(store, /last_error_code/);
   assert.match(store, /error_count/);
