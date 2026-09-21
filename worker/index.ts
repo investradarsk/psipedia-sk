@@ -4,6 +4,7 @@ import { runAdminPushSweep } from "../lib/admin-push";
 import { runDataAutomationSweep } from "../lib/data-automation-runner";
 import { runDataAutomationDiscoverySweep } from "../lib/data-automation-discovery-runner";
 import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
+import { createProductionOrganizationEnricher } from "../lib/data-automation-organization-enrichment";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
@@ -168,7 +169,7 @@ const worker = {
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
       runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
       runNotionEventSyncSweep({ database: env.DB, bindings: env }),
-      runDataAutomationSweep({ database: env.DB, htmlAdapters: productionAutomationHtmlAdapters }).catch((error) => {
+      runDataAutomationSweep({ database: env.DB, htmlAdapters: productionAutomationHtmlAdapters, organizationEnricher: createProductionOrganizationEnricher() }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_sweep",
           result: "failed",
