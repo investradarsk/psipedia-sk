@@ -302,7 +302,7 @@ test("@production directory listing, veterinarians, profile and filters work", a
 test("@production events listing, detail and past/upcoming separation work", async ({ page }) => {
   await gotoProductionPage(page, "/podujatia");
   await expect(page.locator("h1")).toBeVisible();
-  await expect(page.locator("[data-event-list]")).toBeVisible();
+  await expect(page.locator("[data-event-list], [data-event-category-overview]")).toBeVisible();
 
   const eventLinks = async () => page.locator('[data-event-card] h3 a[href^="/podujatia/"]').evaluateAll((links) => [
     ...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href))),

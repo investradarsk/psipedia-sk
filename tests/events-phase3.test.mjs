@@ -46,7 +46,7 @@ test("default /podujatia overview groups the five nearest events by canonical ty
   assert.match(calendar, /data-event-category=\{group\.eventType\}/);
   assert.match(calendar, /Všetky výstavy/);
   assert.match(calendar, /Všetky tréningy/);
-  assert.match(eventsCss, /\.categoryKicker[\s\S]*var\(--coral/);
+  assert.match(eventsCss, /\.categoryKicker\s*\{[^}]*color:\s*var\(--coral-dark/);
   assert.match(eventsCss, /\.categoryAll[\s\S]*var\(--coral/);
 });
 
