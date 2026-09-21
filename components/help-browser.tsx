@@ -52,7 +52,7 @@ export function HelpBrowser({
   return (
     <section className={styles.browserShell} aria-labelledby="help-results-heading">
       <div className={[styles.shell, styles.browserTop].join(" ")}>
-        <form className={styles.toolbar} onSubmit={(event) => event.preventDefault()} aria-label="Filtrovať pomoc" role="search">
+        <form className={styles.toolbar} onSubmit={(event) => event.preventDefault()} aria-label="Filtrovať pomoc">
           <label>
             <span className={styles.label}>Hľadať</span>
             <div className={styles.searchBox}><SearchIcon size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Meno, mesto alebo organizácia" /></div>
