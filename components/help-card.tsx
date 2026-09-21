@@ -30,7 +30,7 @@ export function HelpCard({ item }: { item: HelpCase }) {
       <div className={styles.cardBody}>
         <div className={styles.tags}>
           <span>{category?.singular ?? "Pomoc psom"}</span>
-          {item.verified ? <span className={styles.verified}><CheckIcon size={14} /> Overené</span> : null}
+          {item.verified && item.category !== "zbierky" ? <span className={styles.verified}><CheckIcon size={14} /> Overené</span> : null}
         </div>
         <h3><Link href={detailHref}>{item.title}</Link></h3>
         {item.excerpt ? <p className={styles.excerpt}>{item.excerpt}</p> : null}
