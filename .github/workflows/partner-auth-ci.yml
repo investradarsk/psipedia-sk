@@ -15,6 +15,7 @@ on:
       - "tests/partner-auth-foundation.test.mjs"
       - "tests/e2e/partner-auth.spec.ts"
       - "tests/fixtures/partner-auth-e2e.sql"
+      - "tests/fixtures/partner-auth-e2e.sql"
       - "package.json"
       - ".github/workflows/partner-auth-ci.yml"
   workflow_dispatch:
@@ -81,6 +82,14 @@ jobs:
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Seed disposable Partner auth fixture
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/partner-auth-e2e.sql
+      - name: Configure disposable Partner E2E secrets
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          EOF
+      - name: Seed disposable Partner auth fixtures
         run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/partner-auth-e2e.sql
       - name: Start isolated local app
         run: |
