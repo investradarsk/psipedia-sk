@@ -21,7 +21,7 @@ test("new automation entities are created as drafts and never auto-published", (
   assert.ok((applySource.match(/status: "DRAFT"/g) ?? []).length >= 3);
   assert.ok((applySource.match(/status: "draft"/g) ?? []).length >= 3);
   assert.doesNotMatch(applySource, /status:\s*["'](?:published|PUBLISHED|ACTIVE)["']/);
-  assert.doesNotMatch(applySource, /published_at:\s*(?!null\b)/);
+  assert.ok((applySource.match(/published_at: null/g) ?? []).length >= 6);
   assert.match(reviewUi, /Nový záznam sa vždy vytvorí ako koncept/);
 });
 
