@@ -66,8 +66,8 @@ export function HelpBrowser({ items, initialCategory = "all" }: { items: HelpCas
       </form>
 
       <div className={styles.resultHeading}>
-        <div><h2 id="help-results-heading">{initialCategory === "all" ? "Aktuálne prípady a organizácie" : "Výsledky"}</h2><p>Výsledky zodpovedajú aktuálne zvoleným filtrom.</p></div>
-        <strong className={styles.resultCount}>{filtered.length} {filtered.length === 1 ? "záznam" : filtered.length > 1 && filtered.length < 5 ? "záznamy" : "záznamov"}</strong>
+        <div><h2 id="help-results-heading">{initialCategory === "all" ? "Aktuálne prípady a organizácie" : "Výsledky"}</h2><p>{initialCategory === "all" ? "Tento prehľad zahŕňa prípady a organizácie. Psy na adopciu nájdete v samostatnom prehľade adopcií." : "Výsledky zodpovedajú aktuálne zvoleným filtrom."}</p></div>
+        <strong className={styles.resultCount}>{filtered.length} {filtered.length === 1 ? "položka" : filtered.length > 1 && filtered.length < 5 ? "položky" : "položiek"}</strong>
       </div>
 
       {filtered.length ? (
@@ -75,7 +75,7 @@ export function HelpBrowser({ items, initialCategory = "all" }: { items: HelpCas
       ) : (
         <div className={styles.empty}>
           <h2>Momentálne nemáme publikovaný prípad pre tieto filtre.</h2>
-          <p>Skúste zmeniť vyhľadávanie, kraj alebo zobraziť aj ukončené záznamy.</p>
+          <p>Skúste zmeniť vyhľadávanie, kraj alebo zobraziť aj ukončené položky.</p>
           {items.length > 0 ? <button type="button" onClick={reset}>Vyčistiť filtre</button> : null}
         </div>
       )}
