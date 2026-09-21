@@ -396,7 +396,7 @@ function createDraftStatement(
       slug, title, excerpt: textValue(p.excerpt), eventType: textValue(p.eventType ?? p.event_type) || "Iné",
       status: "draft", startDate, startTime: textValue(p.startTime ?? p.start_time),
       endDate: nullableText(p.endDate ?? p.end_date), endTime: nullableText(p.endTime ?? p.end_time),
-      venue: textValue(p.venue), city: city || "Online", region: textValue(p.region) || "Online",
+      venue: textValue(p.venue), city, region: textValue(p.region),
       address: textValue(p.address), organizer: organizer || finding.sourceLabel,
       description: textValue(p.description), practicalInfo: textValue(p.practicalInfo),
       websiteUrl, registrationUrl: nullableText(p.registrationUrl ?? p.registration_url),
@@ -430,6 +430,7 @@ function createDraftStatement(
       address: textValue(p.address), city: textValue(p.city), district: textValue(p.district), region: textValue(p.region),
       countryCode: textValue(p.countryCode ?? p.country_code) || "SK", importKey: nullableText(p.importKey ?? p.import_key),
       sourceUrl: nullableText(p.sourceUrl ?? p.source_url ?? finding.sourceUrl), sourceData: metadata,
+      lastVerifiedAt: nullableText(p.lastVerifiedAt ?? p.last_verified_at),
     };
     return {
       statement: db.prepare(`INSERT INTO help_organizations (
@@ -437,11 +438,11 @@ function createDraftStatement(
         website_url,facebook_url,instagram_url,address,city,district,region,country_code,image_url,image_key,
         directory_profile_id,import_key,source_url,source_data_json,seo_json,published_at,last_verified_at,archived_at,
         created_at,updated_at,created_by,updated_by
-      ) VALUES (?,?,?,?,?,'DRAFT',?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,NULL,?,?,?,'{}',NULL,NULL,NULL,?,?,?,?)`).bind(
+      ) VALUES (?,?,?,?,?,'DRAFT',?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,NULL,?,?,?,'{}',NULL,?,NULL,?,?,?,?)`).bind(
         after.name, after.slug, after.legalName, after.registrationNumber, after.type, after.shortDescription, after.description,
         after.publicEmail, after.publicPhone, after.websiteUrl, after.facebookUrl, after.instagramUrl, after.address, after.city,
         after.district, after.region, after.countryCode, after.importKey, after.sourceUrl, JSON.stringify(after.sourceData),
-        at, at, actor, actor,
+        after.lastVerifiedAt, at, at, actor, actor,
       ),
       after,
     };
@@ -455,19 +456,19 @@ function createDraftStatement(
     const after = {
       slug, name, category, status: "draft", excerpt: textValue(p.excerpt), description: textValue(p.description),
       services: Array.isArray(p.services) ? p.services : [], qualifications: Array.isArray(p.qualifications) ? p.qualifications : [],
-      city: textValue(p.city), district: textValue(p.district), region: textValue(p.region) || "Online",
+      city: textValue(p.city), district: textValue(p.district), region: textValue(p.region),
       address: textValue(p.address), online: Boolean(p.online), priceNote: textValue(p.priceNote ?? p.price_note),
-      websiteUrl: nullableText(p.websiteUrl ?? p.website_url), verified: Boolean(p.verified),
+      websiteUrl: nullableText(p.websiteUrl ?? p.website_url), importKey: nullableText(p.importKey ?? p.import_key), verified: Boolean(p.verified),
     };
     return {
       statement: db.prepare(`INSERT INTO directory_profiles (
         slug,name,category,status,excerpt,description,services_json,qualifications_json,city,region,address,online,price_note,
         website_url,internal_email,image_url,image_key,verified,featured,created_at,updated_at,published_at,created_by,updated_by,
-        seo_json,district,search_text
-      ) VALUES (?,?,?,'draft',?,?,?,?,?,?,?,?,?, ?,NULL,NULL,NULL,?,0,?,?,NULL,?,?,'{}',?,?)`).bind(
+        seo_json,district,search_text,import_key,source_data_json
+      ) VALUES (?,?,?,'draft',?,?,?,?,?,?,?,?,?, ?,NULL,NULL,NULL,?,0,?,?,NULL,?,?,'{}',?,?,?,'{}')`).bind(
         after.slug, after.name, after.category, after.excerpt, after.description, JSON.stringify(after.services), JSON.stringify(after.qualifications),
         after.city, after.region, after.address, after.online ? 1 : 0, after.priceNote, after.websiteUrl, after.verified ? 1 : 0,
-        at, at, actor, actor, after.district, searchText([after.name, after.category, after.city, after.district, after.region]),
+        at, at, actor, actor, after.district, searchText([after.name, after.category, after.city, after.district, after.region]), after.importKey,
       ),
       after,
     };
@@ -486,6 +487,7 @@ function createDraftStatement(
       district: textValue(p.district), city: textValue(p.city), organizationName,
       shortDescription: textValue(p.shortDescription ?? p.short_description), description: textValue(p.description),
       externalSourceUrl: nullableText(p.externalSourceUrl ?? p.external_source_url ?? finding.sourceUrl),
+      lastVerifiedAt: nullableText(p.lastVerifiedAt ?? p.last_verified_at),
     };
     return {
       statement: db.prepare(`INSERT INTO adoption_dogs (
@@ -496,13 +498,13 @@ function createDraftStatement(
         adoption_requirements,external_source_url,contact_email,contact_phone,contact_url,search_text,published_at,last_verified_at,
         created_at,updated_at,created_by,updated_by
       ) VALUES (?,?,'DRAFT',?,?,?,?,?,NULL,?,?,?, ?,?,?,NULL,?,NULL,NULL,'[]',?,?,'','UNKNOWN','UNKNOWN','UNKNOWN','UNKNOWN','UNKNOWN',
-        NULL,NULL,0,'UNKNOWN',NULL,NULL,'','','',?,NULL,NULL,NULL,?,NULL,NULL,?,?,?,?)`).bind(
+        NULL,NULL,0,'UNKNOWN',NULL,NULL,'','','',?,NULL,NULL,NULL,?,NULL,?, ?,?,?,?)`).bind(
         after.name, after.slug, after.sex, after.birthDate,
         after.approximateAgeMonths === null || after.approximateAgeMonths === "" ? null : Number(after.approximateAgeMonths),
         after.size, after.weight === null || after.weight === "" ? null : Number(after.weight),
         after.breedName, after.breedMix ? 1 : 0, after.color, after.region, after.district, after.city,
         after.organizationName, after.shortDescription, after.description, after.externalSourceUrl,
-        searchText([after.name, after.breedName, after.organizationName, after.city, after.region]), at, at, actor, actor,
+        searchText([after.name, after.breedName, after.organizationName, after.city, after.region]), after.lastVerifiedAt, at, at, actor, actor,
       ),
       after,
     };
@@ -549,8 +551,8 @@ function createDraftStatement(
   const after = {
     slug, title, category, status: "draft", excerpt: textValue(p.excerpt), description: textValue(p.description),
     organization: textValue(p.organization ?? p.organizationName), dogName: textValue(p.dogName ?? p.name),
-    breed: textValue(p.breed), ageNote: textValue(p.ageNote ?? p.age_note), city: textValue(p.city) || "Online",
-    region: textValue(p.region) || "Online", locationNote: textValue(p.locationNote ?? p.location_note),
+    breed: textValue(p.breed), ageNote: textValue(p.ageNote ?? p.age_note), city: textValue(p.city),
+    region: textValue(p.region), locationNote: textValue(p.locationNote ?? p.location_note),
     reportedDate: nullableText(p.reportedDate ?? p.reported_date), deadlineDate: nullableText(p.deadlineDate ?? p.deadline_date),
     actionLabel, actionUrl: nullableText(p.actionUrl ?? p.action_url ?? finding.sourceUrl),
     contactNote: textValue(p.contactNote ?? p.contact_note), goalAmount: p.goalAmount ?? p.goal_amount ?? null,
