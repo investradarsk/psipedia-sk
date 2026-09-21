@@ -124,7 +124,7 @@ async function sendPartnerAuthEmail(input: {
     return { ok: false as const, error: "partner_auth_secret_decrypt_failed" };
   }
 
-  const verifyUrl = SITE_URL + "/partner/overenie?token=" + encodeURIComponent(rawToken);
+  const verifyUrl = SITE_URL + "/partner/overenie#token=" + encodeURIComponent(rawToken);
   const subject = "Prihlásenie do Partner účtu Psipedia";
   const text = [
     "Dobrý deň,",
