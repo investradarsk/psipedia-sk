@@ -109,6 +109,6 @@ test("admin source screen exposes discovery health and candidate review", () => 
   assert.match(manager, /lastCheckedAt/);
   assert.match(manager, /lastSuccessAt/);
   assert.match(manager, /nextCheckAt/);
-  assert.match(manager, /Source candidates/);
-  assert.match(manager, /Schváliť ako zdroj/);
+  assert.match(manager, /Čaká na tvoje rozhodnutie/);
+  assert.match(manager, /Pridať medzi zdroje/);
 });
