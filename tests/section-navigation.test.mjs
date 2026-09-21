@@ -99,7 +99,8 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   const css = read("components/editorial-section.module.css");
   assert.match(section, /PublicSectionHeader/);
   assert.match(section, /PublicContentList/);
-  assert.match(section, /PublicDataCard/);
+  assert.match(section, /data-section-topic-card/);
+  assert.match(section, /HorizontalCarouselControls/);
   assert.match(section, /StructuredData/);
   assert.match(section, /buildCollectionPageJsonLd/);
   assert.doesNotMatch(section, /SectionHero/);
