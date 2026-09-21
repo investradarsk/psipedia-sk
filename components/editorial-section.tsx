@@ -18,7 +18,6 @@ import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import {
   articleHref,
   articlePortalSection,
-  portalSectionHeroImage,
   portalSubpageHref,
   type PortalSection,
   type PortalSubpage,
@@ -38,9 +37,13 @@ function sectionIcon(slug: EditorialSectionSlug): ReactElement {
 }
 
 function topicImage(sectionSlug: EditorialSectionSlug, topicSlug: string, articles: Article[]) {
+  const fallback = {
+    steniatka: "/images/hero-labrador.webp",
+    starostlivost: "/images/zdravie-veterinar.webp",
+    aktivity: "/images/trening-pri-nohe.webp",
+  } satisfies Record<EditorialSectionSlug, string>;
   return articles.find((article) => articleArea(article, sectionSlug) === topicSlug && article.image)?.image
-    ?? portalSectionHeroImage(sectionSlug)
-    ?? "/images/hero-labrador.webp";
+    ?? fallback[sectionSlug];
 }
 
 function nextStepImage(href: string) {
