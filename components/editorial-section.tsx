@@ -330,6 +330,7 @@ export function EditorialSectionHub({
               id={`${sectionSlug}-next-carousel`}
               className={styles.nextCarousel}
               data-section-next-carousel
+              role="region"
               aria-label="Užitočné služby a pokračovanie"
             >
               {nextSteps(sectionSlug).map((item) => (
