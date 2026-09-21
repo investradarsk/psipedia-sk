@@ -144,7 +144,7 @@ export function DirectoryPage({
         </section>
 
         {!active && !showResults && (
-          <section className={`shell ${styles.overview}`} aria-labelledby="directory-overview-heading">
+          <section className={`shell ${styles.overview}`} aria-label="Prehľad služieb podľa kategórie">
             <div className={styles.categoryGrid}>
               {directoryCategories.map((category) => {
                 const count = categoryCounts[category.slug];
