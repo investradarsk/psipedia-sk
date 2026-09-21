@@ -8,6 +8,7 @@ import {
   structuredDirectoryDiscovery,
 } from "../lib/data-automation-discovery.ts";
 import {
+  agilitySkEventsAdapter,
   skjExhibitionCalendarAdapter,
   svpsSheltersRegisterAdapter,
 } from "../lib/data-automation-real-sources.ts";
@@ -90,6 +91,28 @@ test("SKJ controlled HTML fixture normalizes event records without browser autom
   assert.match(String(rows[0].sourceUrl), /^https:\/\/skj\.sk\//);
 });
 
+test("agility.sk controlled HTML fixture normalizes upcoming agility events", async () => {
+  const rows = await agilitySkEventsAdapter({
+    html: fixture("agility-sk-events.html"),
+    source: source({
+      sourceKey: "agility-sk-preteky",
+      sourceUrl: "https://agility.sk/preteky",
+      config: { htmlAdapterKey: "agility-sk-events", expectedMinRecords: 1 },
+    }),
+  });
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].proposed.title, "AWC Fan 2026");
+  assert.equal(rows[0].proposed.startDate, "2026-09-26");
+  assert.equal(rows[0].proposed.endDate, "2026-09-27");
+  assert.equal(rows[0].proposed.venue, "Kynologická hala RSDC");
+  assert.equal(rows[0].proposed.city, "Pezinok");
+  assert.equal(rows[0].proposed.organizer, "KYNOLOGICKÁ HALA RSDC, O.Z.");
+  assert.match(String(rows[0].proposed.practicalInfo), /Povrch: umelá tráva/);
+  assert.equal(rows[1].proposed.venue, "Cvičisko AK Kamzík");
+  assert.equal(rows[1].proposed.city, undefined);
+  assert.equal(rows[1].proposed.websiteUrl, "https://agilityportal.sk/sk/preteky/popradske-skusky-102026");
+});
+
 test("SVPS controlled HTML fixture normalizes shelters and quarantine stations", async () => {
   const rows = await svpsSheltersRegisterAdapter({
     html: fixture("svps-shelters.html"),
@@ -147,6 +170,56 @@ test("controlled connector safely follows public HTTPS redirects and reports the
   assert.deepEqual(requests, ["https://example.com/feed", "https://example.com/final"]);
   assert.equal(responses.at(-1).finalUrl, "https://example.com/final");
   assert.equal(responses.at(-1).redirectCount, 1);
+});
+
+test("redirect loop detection allows legitimate non-www to www redirects", async () => {
+  const requests = [];
+  const rows = await fetchAutomationSourceRecords(source({
+    sourceUrl: "https://example.com/feed",
+    maxRecordsPerRun: 1,
+  }), {
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      if (requests.length === 1) {
+        return new Response("", {
+          status: 301,
+          headers: { location: "https://www.example.com/feed" },
+        });
+      }
+      return new Response(fixture("skj-calendar.html"), {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      });
+    },
+    htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+  });
+  assert.equal(rows.length, 1);
+  assert.deepEqual(requests, ["https://example.com/feed", "https://www.example.com/feed"]);
+});
+
+test("redirect loop detection still blocks a real www/non-www cycle", async () => {
+  const requests = [];
+  await assert.rejects(
+    fetchAutomationSourceRecords(source({
+      sourceUrl: "https://example.com/feed",
+      retryMaxAttempts: 0,
+    }), {
+      fetchImpl: async (url) => {
+        requests.push(String(url));
+        return new Response("", {
+          status: 301,
+          headers: {
+            location: String(url).includes("www.")
+              ? "https://example.com/feed"
+              : "https://www.example.com/feed",
+          },
+        });
+      },
+      htmlAdapters: { fixture: skjExhibitionCalendarAdapter },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "source_redirect_loop",
+  );
+  assert.equal(requests.length, 2);
 });
 
 test("redirect targets are revalidated against SSRF policy", async () => {

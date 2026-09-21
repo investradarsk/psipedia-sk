@@ -155,7 +155,100 @@ export const svpsSheltersRegisterAdapter: ControlledHtmlAdapter = ({ html, sourc
   return records;
 };
 
+
+function htmlLines(value: string) {
+  return decodeHtml(
+    value
+      .replace(/<br\s*\/?\s*>/gi, "\n")
+      .replace(/<\/p\s*>/gi, "\n")
+      .replace(/<[^>]+>/g, " "),
+  )
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+function labelledLine(lines: string[], label: string) {
+  const prefix = label.toLocaleLowerCase("sk-SK") + ":";
+  const line = lines.find((item) => item.toLocaleLowerCase("sk-SK").startsWith(prefix));
+  return line ? line.slice(line.indexOf(":") + 1).trim() : "";
+}
+
+function eventPlace(value: string) {
+  const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return { venue: value.trim(), city: "" };
+  return {
+    venue: parts.slice(0, -1).join(", "),
+    city: parts[parts.length - 1] ?? "",
+  };
+}
+
+export const agilitySkEventsAdapter: ControlledHtmlAdapter = ({ html, source }) => {
+  const records: AutomationSourceRecord[] = [];
+  const rowPattern = /<div\b[^>]*class\s*=\s*["'][^"']*\brow\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi;
+
+  for (const rowMatch of html.matchAll(rowPattern)) {
+    const rowHtml = rowMatch[1];
+    const paragraphs = [...rowHtml.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+      .map((match) => htmlLines(match[1]))
+      .filter((lines) => lines.length > 0);
+    const main = paragraphs.find((lines) => lines.some((line) => /^Termín\s*:/i.test(line)));
+    const meta = paragraphs.find((lines) => lines.some((line) => /^Organizátor\s*:/i.test(line)));
+    if (!main || !meta) continue;
+
+    const title = main.find((line) => !/^(Termín|Miesto)\s*:/i.test(line))?.trim() ?? "";
+    const dateText = labelledLine(main, "Termín");
+    const placeText = labelledLine(main, "Miesto");
+    const organizer = labelledLine(meta, "Organizátor");
+    const judges = labelledLine(meta, "Rozhodcovia");
+    const surface = labelledLine(meta, "Povrch");
+    const range = parseSlovakDateRange(dateText);
+    if (!title || !range) continue;
+
+    const place = eventPlace(placeText);
+    const hrefMatch = rowHtml.match(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/i);
+    const eventUrl = absolutePublicUrl(hrefMatch ? decodeHtml(hrefMatch[1]).trim() : null, source.sourceUrl);
+    const identity = [
+      range.startDate,
+      normalizeAutomationIdentity(title),
+      normalizeAutomationIdentity(organizer),
+    ].join(":");
+    const practicalInfo = [
+      judges ? `Rozhodcovia: ${judges}` : "",
+      surface ? `Povrch: ${surface}` : "",
+    ].filter(Boolean).join("\n");
+
+    records.push({
+      sourceRecordId: identity.slice(0, 240),
+      sourceUrl: eventUrl ?? source.sourceUrl,
+      sourceTimestamp: null,
+      rawRecord: {
+        title,
+        dateText,
+        place: placeText,
+        organizer,
+        judges,
+        surface,
+        eventUrl,
+      },
+      proposed: {
+        title,
+        startDate: range.startDate,
+        endDate: range.endDate,
+        venue: place.venue,
+        ...(place.city ? { city: place.city } : {}),
+        organizer: organizer || null,
+        practicalInfo: practicalInfo || null,
+        websiteUrl: eventUrl ?? source.sourceUrl,
+      },
+    });
+  }
+
+  return records;
+};
+
 export const productionAutomationHtmlAdapters: Record<string, ControlledHtmlAdapter> = {
   "skj-exhibition-calendar": skjExhibitionCalendarAdapter,
   "svps-shelters-register": svpsSheltersRegisterAdapter,
+  "agility-sk-events": agilitySkEventsAdapter,
 };
