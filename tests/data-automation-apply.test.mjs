@@ -18,10 +18,10 @@ test("AUTOMATION-3 requires explicit authenticated approve-apply", () => {
 });
 
 test("new automation entities are created as drafts and never auto-published", () => {
-  assert.ok((applySource.match(/'DRAFT'/g) ?? []).length >= 4);
-  assert.ok((applySource.match(/'draft'/g) ?? []).length >= 2);
-  assert.doesNotMatch(applySource, /SET\s+status\s*=\s*['"]published['"]/i);
-  assert.doesNotMatch(applySource, /SET\s+status\s*=\s*['"]PUBLISHED['"]/i);
+  assert.ok((applySource.match(/status: "DRAFT"/g) ?? []).length >= 3);
+  assert.ok((applySource.match(/status: "draft"/g) ?? []).length >= 3);
+  assert.doesNotMatch(applySource, /status:\s*["'](?:published|PUBLISHED|ACTIVE)["']/);
+  assert.doesNotMatch(applySource, /published_at:\s*(?!null\b)/);
   assert.match(reviewUi, /Nový záznam sa vždy vytvorí ako koncept/);
 });
 
