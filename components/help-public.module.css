@@ -53,7 +53,8 @@
 .resultCount{padding:6px 9px;border-radius:999px;color:var(--help-ink);background:#eee9de;font-size:.8rem;font-weight:800}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 
-/* PUBLIC-POLISH-2 photo contract */\n.card{display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid var(--help-border);border-radius:0;background:#fff;box-shadow:0 8px 24px rgba(23,63,45,.05)}
+/* PUBLIC-POLISH-2 photo contract */
+.card{display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid var(--help-border);border-radius:0;background:#fff;box-shadow:0 8px 24px rgba(23,63,45,.05)}
 .cardUrgent{border-color:#e7b9ad}
 .cardResolved{opacity:.78}
 .media{position:relative;display:grid;aspect-ratio:4/3;place-items:center;overflow:hidden;background:#edf2ee;color:#315b46}
