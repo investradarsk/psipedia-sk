@@ -45,7 +45,7 @@ export default async function AutomationFindingPage({ params }: Props) {
       user={user}
       eyebrow="Automatický research"
       title={`${finding.entityType}: ${finding.findingType}`}
-      description="Finding je návrh na ručné posúdenie. Automatizácia nemení ani nepublikuje canonical obsah."
+      description="Finding je návrh na ručné posúdenie. Canonical obsah sa zmení iba po explicitnom Schváliť a aplikovať; nové záznamy vznikajú ako DRAFT."
       actions={<Link href="/admin/operations/automation">Stav automatizácie</Link>}
     >
       <section className="admin-stats" aria-label="Finding metadata">
