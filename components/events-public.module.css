@@ -237,7 +237,7 @@
 .categoryKicker {
   display: block;
   margin-bottom: 4px;
-  color: var(--coral, #b34830);
+  color: var(--coral-dark, #b94732);
   font-size: 0.7rem;
   font-weight: 900;
   letter-spacing: 0.09em;
