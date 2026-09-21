@@ -29,7 +29,8 @@ test("Help landing uses the compact public foundation instead of a photo marketi
   assert.match(landing, /<PublicSectionHeader/);
   assert.match(landing, /variant="compact"/);
   assert.doesNotMatch(landing, /SectionHero|heroImage|help-hero--photo/);
-  assert.match(landing, /data-help-category-nav/);\n  assert.match(landing, /\\{!active && \\(/);
+  assert.match(landing, /data-help-category-nav/);
+  assert.match(landing, /\{!active && \(/);
 });
 
 test("Help category navigation routes canonical modules without emoji UI", () => {
