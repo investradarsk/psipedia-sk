@@ -188,6 +188,7 @@ test("auth email outbox encrypts retry secret, is idempotent and clears secret o
   assert.match(emailSource, /status='SENT'.*encrypted_secret=NULL/s);
   assert.match(emailSource, /status='EXPIRED'.*encrypted_secret=NULL/s);
   assert.match(emailSource, /status IN \('PENDING','FAILED'\)/);
+  assert.match(emailSource, /status NOT IN \('SENT','EXPIRED'\)/);
   assert.match(emailSource, /attempts<" \+ MAX_ATTEMPTS/);
   assert.match(authSource, /processPartnerNotificationOutboxItem/);
   assert.doesNotMatch(migration, /raw_secret|raw_token|plaintext_secret/i);
@@ -211,6 +212,7 @@ test("logout, revoke-all, suspension and deactivation lifecycle are server-side"
   assert.match(storeSource, /UPDATE resource_management_sessions SET revoked_at/);
   assert.match(storeSource, /suspendPartnerAccount/);
   assert.match(storeSource, /deactivatePartnerAccount/);
+  assert.match(storeSource, /revokeOutstandingPartnerAuthTokens\(accountId, now, db\)/);
   assert.match(deactivateRoute, /deactivateCurrentPartnerAccount/);
   assert.match(deactivateRoute, /clearPartnerSessionCookie/);
 });
