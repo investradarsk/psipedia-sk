@@ -155,7 +155,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
   const profileChangesPromise = db.prepare(`
     SELECT s.id,s.status,s.resource_type resourceType,s.risk_flags_json riskFlagsJson,
       s.created_at createdAt,s.updated_at updatedAt,COALESCE(d.name,o.name) resourceName,
-      (SELECT COUNT(*) FROM json_each(s.proposed_patch_json)) changedFieldCount,
+      m.changed_field_count changedFieldCount,
       CASE WHEN COALESCE(d.updated_at,o.updated_at)<>m.base_updated_at THEN 1 ELSE 0 END stale
     FROM moderation_submissions s
     JOIN partner_profile_change_metadata m ON m.submission_id=s.id
