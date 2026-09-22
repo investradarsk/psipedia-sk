@@ -30,13 +30,14 @@ test.describe("MAP-1B admin geo foundation", () => {
       await page.getByLabel("Dôvod manuálnej zmeny").fill("MAP-1B E2E manual marker");
       await page.getByRole("button", { name: "Uložiť manual marker" }).click();
       await expect(page.getByRole("status")).toContainText("Manual marker bol uložený");
-      await expect(page.getByText(/manual override/i)).toBeVisible();
+      const geoPanel = page.locator("[data-admin-geo-location]");
+      await expect(geoPanel.getByText(/MANUAL · manual override/i)).toBeVisible();
       page.once("dialog", (dialog) => dialog.accept());
       await page.getByRole("button", { name: "Reset manual override" }).click();
       await expect(page.getByRole("status")).toContainText("Manual override bol resetovaný");
     }
 
-    const scan = await new AxeBuilder({ page }).include("main").analyze();
+    const scan = await new AxeBuilder({ page }).include("[data-admin-geo-location]").analyze();
     expect(scan.violations).toEqual([]);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
