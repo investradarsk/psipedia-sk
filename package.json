@@ -16,7 +16,7 @@
     "config:check": "node --experimental-strip-types scripts/check-config-contract.mjs",
     "test:config": "node --experimental-strip-types --test tests/config-contract.test.mjs",
     "test:deploy-safety": "node --test tests/deploy-safety.test.mjs",
-    "test:migration-safety": "node --test tests/migration-safety.test.mjs tests/production-d1-migration.test.mjs",
+    "test:migration-safety": "node --test tests/migration-safety.test.mjs tests/production-d1-migration.test.mjs tests/production-d1-history-audit.test.mjs",
     "test:lost-found": "node --test tests/lost-found-lifecycle.test.mjs tests/lost-found-admin-contract.test.mjs",
     "test:org-fundraising": "node --experimental-strip-types --test tests/organization-fundraising-contract.test.mjs",
     "test:org-fundraising-foundation": "node --experimental-strip-types --test tests/organization-fundraising-foundation.test.mjs",
