@@ -56,8 +56,10 @@ test("Help category flows preserve dedicated domains and canonical organization 
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/pomoc-psom/stratene-a-najdene", { waitUntil: "domcontentloaded" });
-  expect(new URL(page.url()).pathname).toBe("/pomoc-psom/stratene-psy");
-  await expect(page.getByRole("heading", { level: 1, name: "Stratené psy" })).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe("/pomoc-psom/stratene-a-najdene");
+  await expect(page.getByRole("heading", { level: 1, name: "Stratené a nájdené psy" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Zobraziť stratené psy" })).toHaveAttribute("href", "/pomoc-psom/stratene-psy");
+  await expect(page.getByRole("link", { name: "Zobraziť nájdené psy" })).toHaveAttribute("href", "/pomoc-psom/najdene-psy");
   await expectNoHorizontalOverflow(page);
 });
 

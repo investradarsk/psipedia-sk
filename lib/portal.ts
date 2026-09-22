@@ -107,7 +107,7 @@ export const portalSections: PortalSection[] = [
         homeSteps: ["Pomenuj tri vlastnosti, ktoré od spolužitia naozaj potrebuješ.", "Porovnaj viac plemien podľa energie a nárokov.", "Porozprávaj sa s majiteľmi aj chovateľským klubom."],
         warningSigns: ["Plemeno vyberáš iba podľa fotografie.", "Podceňuješ lovecký pud, hlasitosť alebo potrebu práce.", "Rátaš s tým, že povahu úplne zmení výcvik."],
         expertAdvice: "Aj v jednom plemene sú rozdiely medzi líniami a jednotlivými psami. Pýtaj sa na povahu rodičov a reálny život s plemenom.",
-        serviceLinks: [{ label: "Výber plemena", href: "/plemena/vyber-plemena" }, { label: "Porovnať plemená", href: "/porovnat-plemena" }],
+        serviceLinks: [{ label: "Nájsť vhodné plemeno", href: "/plemena/vyber-plemena" }, { label: "Porovnať plemená", href: "/porovnat-plemena" }],
         featuredArticleSlugs: ["ako-si-vybrat-plemeno-psa"],
       },
       {
@@ -217,7 +217,7 @@ export const portalSections: PortalSection[] = [
     subpages: [
       { slug: "atlas", label: "Atlas plemien", description: "Prehľad plemien podľa medzinárodného členenia FCI.", href: "/plemena" },
       { slug: "porovnanie", label: "Porovnať plemená", description: "Dve plemená vedľa seba podľa praktických vlastností.", href: "/porovnat-plemena" },
-      { slug: "vyber-plemena", label: "Ako vybrať plemeno", description: "Otázky, ktoré si položiť ešte pred rozhodnutím." },
+      { slug: "vyber-plemena", label: "Nájsť vhodné plemeno", description: "Praktický vstup do atlasu a porovnania plemien podľa potrieb vášho života." },
       { slug: "kluby-plemien", label: "Kluby plemien", description: "Organizácie zastrešujúce konkrétne plemená na Slovensku.", href: "/adresar/chovatelske-kluby" },
     ],
   },

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArticleCard } from "@/components/article-card";
 import { categories, categoryBySlug } from "@/lib/content";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
+import { formatSlovakCount } from "@/lib/slovak-count";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,12 @@ export default async function TopicPage({ params }: Props) {
   const { slug } = await params;
   const category = categoryBySlug[slug];
   if (!category) notFound();
-  const filtered = await getPublishedArticleSummaries({ category: category.label, limit: 120 });
+  const articles = await getPublishedArticleSummaries({ category: category.label, limit: 120 });
+  const filtered = articles.filter((article) =>
+    article.portalSection !== "novinky" &&
+    article.portalSection !== "podujatia" &&
+    article.portalSection !== "recenzie"
+  );
 
   return (
     <main id="obsah">
@@ -45,7 +51,7 @@ export default async function TopicPage({ params }: Props) {
         </div>
       </header>
       <section className="page-body shell">
-        <p className="result-count">{filtered.length} {filtered.length === 1 ? "článok" : "články"}</p>
+        <p className="result-count">{formatSlovakCount(filtered.length, { one: "článok", few: "články", many: "článkov" })}</p>
         <div className="article-grid">{filtered.map((article) => <ArticleCard article={article} key={article.slug} />)}</div>
       </section>
     </main>

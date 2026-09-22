@@ -6,6 +6,7 @@ import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } f
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { cleanFciStandard, combinedFciMeasurement, inspectBreedMeasurement, normalizeBreedSearchText, publicBreedMeasurement, publicBreedSize, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
 import { breedCompletenessIssues, validateBulkBreedStatus, type BreedCompletenessIssue } from "./admin-breeds";
+import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 
 export type BreedStatus = "draft" | "published";
 export type BreedEditorial = {
@@ -212,6 +213,10 @@ function clean(input:ManagedBreedInput){
   });
   const fciNumber=Number.isSafeInteger(input.fciNumber)&&Number(input.fciNumber)>0?Number(input.fciNumber):null;
   if(input.status==="published"){
+    const publicSize=text(input.size,160);
+    const publicCoat=text(input.coat,200);
+    if(isSuspiciousNumericText(publicSize)||isSuspiciousPlaceholderText(publicSize))throw new Error("Veľkosť plemena vyzerá ako testovacia alebo poškodená hodnota.");
+    if(isSuspiciousPlaceholderText(publicCoat))throw new Error("Srsť plemena vyzerá ako testovacia alebo poškodená hodnota.");
     if(!fciNumber||!input.importKey?.trim())throw new Error("Publikované plemeno musí mať FCI číslo a importný kľúč.");
     const canonical=cleanEditableSeo(input.seo).canonicalUrl;
     if(canonical&&canonical!==`https://psipedia.sk/plemena/${slug}`)throw new Error("Kanonický profil plemena musí odkazovať na vlastnú URL.");

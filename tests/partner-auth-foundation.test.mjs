@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 const root = new URL("../", import.meta.url);
 const importTs = async (path) => import(pathToFileURL(new URL(path, root).pathname).href);
 
-const migration = await fs.readFile(new URL("../drizzle/0058_partner_auth_foundation.sql", import.meta.url), "utf8");
+const migration = await fs.readFile(new URL("../drizzle/0059_partner_auth_foundation.sql", import.meta.url), "utf8");
 const authSource = await fs.readFile(new URL("../lib/partner-auth.ts", import.meta.url), "utf8");
 const storeSource = await fs.readFile(new URL("../lib/partner-auth-store.ts", import.meta.url), "utf8");
 const emailSource = await fs.readFile(new URL("../lib/partner-email.ts", import.meta.url), "utf8");

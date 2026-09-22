@@ -11,7 +11,7 @@ on:
       - "components/programmatic-ad-loader.tsx"
       - "db/partner-schema.ts"
       - "db/index.ts"
-      - "drizzle/0058_partner_auth_foundation.sql"
+      - "drizzle/0059_partner_auth_foundation.sql"
       - "lib/partner-*"
       - "lib/pii-crypto.ts"
       - "lib/rate-limit.ts"
