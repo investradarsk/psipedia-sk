@@ -45,7 +45,7 @@ export function PartnerVerificationRequest({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  if (state === "PENDING_VERIFICATION") return <p className="partner-verification-note">Žiadosť o overenie čaká na kontrolu.</p>;
+  if (state === "PENDING_VERIFICATION") return <p className="partner-verification-note" role="status">Žiadosť o overenie čaká na kontrolu.</p>;
   if (state === "VERIFIED") return <p className="partner-verification-note is-verified">Psipedia overila oprávnenie správcu.</p>;
 
   async function submit() {
