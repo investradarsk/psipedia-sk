@@ -167,7 +167,7 @@ test("CI-only local auth path accepts isolated test PII crypto material", () => 
 test("repository configuration contract is production-safe and secret-free", async () => {
   const result = await auditConfigurationContract();
   assert.equal(result.siteUrl, "https://psipedia.sk");
-  assert.equal(result.d1Binding, "DB");
+  assert.match(result.cloudflareAccountId, /^[a-f0-9]{32}$/);\n  assert.equal(result.d1Binding, "DB");
   assert.equal(result.r2Binding, "BUCKET");
   assert.ok(result.secretEnvNames.includes("PII_ENCRYPTION_KEY"));
   assert.ok(result.secretEnvNames.includes("PII_HASH_KEY"));
