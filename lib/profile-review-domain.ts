@@ -13,6 +13,16 @@ export const profileReviewStatuses = [
 ] as const;
 export type ProfileReviewStatus = (typeof profileReviewStatuses)[number];
 
+const PROFILE_REVIEW_TRANSITIONS: Record<ProfileReviewStatus, readonly ProfileReviewStatus[]> = {
+  PENDING_REVIEW: ["VISIBLE", "REJECTED", "AUTHOR_DELETED", "REMOVED"],
+  VISIBLE: ["HIDDEN", "AUTHOR_DELETED", "REMOVED"],
+  HIDDEN: ["VISIBLE", "REJECTED", "AUTHOR_DELETED", "REMOVED"],
+  REJECTED: ["PENDING_REVIEW", "AUTHOR_DELETED"],
+  AUTHOR_DELETED: ["PENDING_REVIEW"],
+  REMOVED: ["PENDING_REVIEW"],
+};
+
+
 export const PROFILE_REVIEW_RATING_SCHEMA_VERSION = 1;
 export const PROFILE_REVIEW_BODY_MIN = 20;
 export const PROFILE_REVIEW_BODY_MAX = 5000;
@@ -82,6 +92,16 @@ export function isProfileReviewStatus(value: unknown): value is ProfileReviewSta
 
 export function profileReviewCountsTowardAggregate(status: ProfileReviewStatus | string) {
   return status === "VISIBLE";
+}
+
+export function canTransitionProfileReview(from: ProfileReviewStatus, to: ProfileReviewStatus) {
+  return PROFILE_REVIEW_TRANSITIONS[from].includes(to);
+}
+
+export function assertProfileReviewTransition(from: ProfileReviewStatus, to: ProfileReviewStatus) {
+  if (!canTransitionProfileReview(from, to)) {
+    throw new Error(`Invalid profile review transition: ${from} -> ${to}`);
+  }
 }
 
 export function assertReviewableResourceType(value: unknown): ReviewableCanonicalResourceType {
