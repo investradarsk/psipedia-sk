@@ -70,7 +70,28 @@ export const partnerMemberships = sqliteTable("partner_memberships", {
   uniqueIndex("partner_memberships_active_unique").on(table.accountId,table.resourceId).where(sql`${table.revokedAt} IS NULL`),
 ]);
 
+export const partnerCommercialInterests = sqliteTable("partner_commercial_interests", {
+  id:text("id").primaryKey(),
+  accountId:text("account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  resourceId:text("resource_id").references(()=>partnerResources.id,{onDelete:"restrict"}),
+  interestType:text("interest_type").notNull(),status:text("status").notNull().default("NEW"),
+  message:text("message"),adminNote:text("admin_note"),createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
+  statusUpdatedAt:text("status_updated_at"),statusUpdatedBy:text("status_updated_by"),
+}, table=>[
+  check("partner_commercial_interest_type_check",sql`${table.interestType} IN ('PREMIUM_PROFILE','PROMOTED_PROFILE','AD_CAMPAIGN','OTHER')`),
+  check("partner_commercial_status_check",sql`${table.status} IN ('NEW','CONTACTED','INTERESTED','NOT_NOW','CLOSED')`),
+  uniqueIndex("partner_commercial_new_resource_unique").on(table.accountId,table.resourceId,table.interestType).where(sql`${table.status}='NEW' AND ${table.resourceId} IS NOT NULL`),
+  uniqueIndex("partner_commercial_new_account_unique").on(table.accountId,table.interestType).where(sql`${table.status}='NEW' AND ${table.resourceId} IS NULL`),
+  index("partner_commercial_status_created_idx").on(table.status,table.createdAt),
+  index("partner_commercial_account_created_idx").on(table.accountId,table.createdAt),
+  index("partner_commercial_resource_created_idx").on(table.resourceId,table.createdAt),
+]);
+
 export const partnerAuditEvents = sqliteTable("partner_audit_events", {
   id:text("id").primaryKey(),actorType:text("actor_type").notNull(),actorRef:text("actor_ref").notNull(),action:text("action").notNull(),
   targetType:text("target_type").notNull(),targetId:text("target_id").notNull(),metadataJson:text("metadata_json").notNull().default("{}"),createdAt:text("created_at").notNull(),
-}, table=>[index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt)]);
+}, table=>[
+  check("partner_audit_actor_check",sql`${table.actorType} IN ('PARTNER','ADMIN','SYSTEM')`),
+  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED')`),
+  index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt),
+]);
