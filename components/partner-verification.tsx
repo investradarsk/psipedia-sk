@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-export function PartnerVerification() {
+export function PartnerVerification({ returnTo = null }: { returnTo?: string | null }) {
   const started = useRef(false);
   const [state, setState] = useState<"loading" | "error">("loading");
   const [message, setMessage] = useState("Overujeme prihlasovací odkaz…");
@@ -18,7 +18,10 @@ export function PartnerVerification() {
 
       // The fragment is never sent to the server. Remove it from browser
       // history immediately after capturing it for this one consume request.
-      window.history.replaceState(null, "", "/partner/overenie");
+      const cleanVerificationUrl = returnTo
+        ? "/partner/overenie?returnTo=" + encodeURIComponent(returnTo)
+        : "/partner/overenie";
+      window.history.replaceState(null, "", cleanVerificationUrl);
 
       if (!token) {
         setState("error");
@@ -36,7 +39,7 @@ export function PartnerVerification() {
         if (!response.ok || !data.success) {
           throw new Error(data.error || "Prihlasovací odkaz je neplatný alebo už expiroval.");
         }
-        window.location.replace("/partner");
+        window.location.replace(returnTo || "/partner");
       } catch (error) {
         setState("error");
         setMessage(error instanceof Error ? error.message : "Prihlasovací odkaz je neplatný alebo už expiroval.");
@@ -44,7 +47,7 @@ export function PartnerVerification() {
     }
 
     void consume();
-  }, []);
+  }, [returnTo]);
 
   return (
     <div className="partner-verification-card" aria-live="polite">
@@ -54,7 +57,7 @@ export function PartnerVerification() {
       {state === "loading" ? (
         <div className="partner-progress" aria-hidden="true"><span /></div>
       ) : (
-        <Link className="button button--dark" href="/partner/prihlasenie">Vyžiadať nový odkaz</Link>
+        <Link className="button button--dark" href={returnTo ? `/partner/prihlasenie?returnTo=${encodeURIComponent(returnTo)}` : "/partner/prihlasenie"}>Vyžiadať nový odkaz</Link>
       )}
     </div>
   );
