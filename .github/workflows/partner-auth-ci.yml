@@ -1,4 +1,4 @@
-name: Partner auth security and UX
+name: Partner platform security and UX
 
 on:
   pull_request:
@@ -6,12 +6,15 @@ on:
     paths:
       - "app/partner/**"
       - "app/api/partner/**"
+      - "app/admin/partners/**"
+      - "app/api/admin/partners/**"
       - "components/partner-*"
       - "components/cookie-consent.tsx"
       - "components/programmatic-ad-loader.tsx"
       - "db/partner-schema.ts"
       - "db/index.ts"
       - "drizzle/0059_partner_auth_foundation.sql"
+      - "drizzle/0060_partner_memberships_admin.sql"
       - "lib/partner-*"
       - "lib/pii-crypto.ts"
       - "lib/rate-limit.ts"
@@ -20,6 +23,7 @@ on:
       - "lib/turnstile.ts"
       - "worker/index.ts"
       - "tests/partner-auth-foundation.test.mjs"
+      - "tests/partner-memberships-admin.test.mjs"
       - "tests/e2e/partner-auth.spec.ts"
       - "tests/fixtures/partner-auth-e2e.sql"
       - "package.json"
@@ -54,6 +58,8 @@ jobs:
       - run: npm ci
       - name: Migration safety
         run: npm run db:check-migrations
+      - name: Clean D1 migration chain
+        run: npm run db:validate-clean
       - name: Partner auth security tests
         run: npm run test:partner-auth
       - name: Lint
@@ -66,6 +72,8 @@ jobs:
     needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

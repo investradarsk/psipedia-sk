@@ -1,24 +1,18 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { getPartnerSession } from "@/lib/partner-auth";
-import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
+import {PartnerShell} from "@/components/partner-shell";
+import {requirePartnerPageIdentity} from "@/lib/partner-page-auth";
+import {listPartnerResources} from "@/lib/partner-platform";
 
 export const dynamic = "force-dynamic";
 
 export default async function PartnerHomePage() {
-  const cookieStore = await cookies();
-  const identity = await getPartnerSession({
-    token: cookieStore.get(PARTNER_SESSION_COOKIE)?.value,
-  });
-  if (!identity) redirect("/partner/prihlasenie");
+  const identity=await requirePartnerPageIdentity();const resources=await listPartnerResources(identity.accountId);
 
   return (
-    <main id="obsah" className="partner-shell">
+    <PartnerShell title="Prehľad" description="Bezpečný prehľad profilov a podujatí, ktoré vám Psipedia priradila.">
       <section className="partner-hero partner-hero--compact">
-        <span className="eyebrow">Partner Psipedia</span>
-        <h1>Partner účet je pripravený</h1>
-        <p>Ste bezpečne prihlásený. Správa organizácií, služieb a ďalšie Partner funkcie budú pridané v nasledujúcich krokoch platformy.</p>
+        <h2>{resources.length?`Spravujete ${resources.length} ${resources.length===1?"zdroj":"zdroje"}`:"Zatiaľ nemáte priradený profil"}</h2>
+        <p>{resources.length?"Všetky oprávnenia sa overujú priamo podľa aktuálneho členstva.":"Keď vám administrátor priradí profil alebo podujatie, zobrazí sa na tomto mieste."}</p>
         <div className="partner-hero-actions">
           <Link className="button button--dark" href="/partner/nastavenia">Nastavenia účtu</Link>
         </div>
@@ -27,6 +21,6 @@ export default async function PartnerHomePage() {
         <strong>Aktuálne dostupné</strong>
         <p>Prihlásenie bez hesla, overenie e-mailu, bezpečná session, odhlásenie a deaktivácia účtu.</p>
       </section>
-    </main>
+    </PartnerShell>
   );
 }

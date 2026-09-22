@@ -1,4 +1,7 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { helpOrganizations } from "./help-organization-schema";
+import { directoryProfiles, managedEvents } from "./schema";
 
 export const partnerAccounts = sqliteTable(
   "partner_accounts",
@@ -43,3 +46,31 @@ export const partnerNotificationOutbox = sqliteTable(
     index("partner_notification_outbox_account_created_idx").on(table.partnerAccountId, table.createdAt),
   ],
 );
+
+export const partnerResources = sqliteTable("partner_resources", {
+  id: text("id").primaryKey(), entityType: text("entity_type").notNull(),
+  directoryProfileId: integer("directory_profile_id").references(() => directoryProfiles.id, { onDelete: "restrict" }),
+  helpOrganizationId: integer("help_organization_id").references(() => helpOrganizations.id, { onDelete: "restrict" }),
+  managedEventId: integer("managed_event_id").references(() => managedEvents.id, { onDelete: "restrict" }),
+  createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  check("partner_resources_entity_type_check", sql`${table.entityType} IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION','MANAGED_EVENT')`),
+  check("partner_resources_target_check", sql`(${table.entityType}='DIRECTORY_PROFILE' AND ${table.directoryProfileId} IS NOT NULL AND ${table.helpOrganizationId} IS NULL AND ${table.managedEventId} IS NULL) OR (${table.entityType}='HELP_ORGANIZATION' AND ${table.directoryProfileId} IS NULL AND ${table.helpOrganizationId} IS NOT NULL AND ${table.managedEventId} IS NULL) OR (${table.entityType}='MANAGED_EVENT' AND ${table.directoryProfileId} IS NULL AND ${table.helpOrganizationId} IS NULL AND ${table.managedEventId} IS NOT NULL)`),
+  uniqueIndex("partner_resources_directory_unique").on(table.directoryProfileId).where(sql`${table.directoryProfileId} IS NOT NULL`),
+  uniqueIndex("partner_resources_organization_unique").on(table.helpOrganizationId).where(sql`${table.helpOrganizationId} IS NOT NULL`),
+  uniqueIndex("partner_resources_event_unique").on(table.managedEventId).where(sql`${table.managedEventId} IS NOT NULL`),
+]);
+
+export const partnerMemberships = sqliteTable("partner_memberships", {
+  id:text("id").primaryKey(), accountId:text("account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  resourceId:text("resource_id").notNull().references(()=>partnerResources.id,{onDelete:"restrict"}), role:text("role").notNull(),
+  createdAt:text("created_at").notNull(),createdBy:text("created_by").notNull(),updatedAt:text("updated_at").notNull(),revokedAt:text("revoked_at"),revokedBy:text("revoked_by"),
+}, table=>[
+  check("partner_memberships_role_check",sql`${table.role} IN ('OWNER','MANAGER','EDITOR')`),
+  uniqueIndex("partner_memberships_active_unique").on(table.accountId,table.resourceId).where(sql`${table.revokedAt} IS NULL`),
+]);
+
+export const partnerAuditEvents = sqliteTable("partner_audit_events", {
+  id:text("id").primaryKey(),actorType:text("actor_type").notNull(),actorRef:text("actor_ref").notNull(),action:text("action").notNull(),
+  targetType:text("target_type").notNull(),targetId:text("target_id").notNull(),metadataJson:text("metadata_json").notNull().default("{}"),createdAt:text("created_at").notNull(),
+}, table=>[index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt)]);

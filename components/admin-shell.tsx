@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
-import { loadAdminAttentionQueue } from "@/lib/admin-attention-queue-store";
-import { summarizeAdminAttention } from "@/lib/admin-attention-queue";
+import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { PawMark } from "./icons";
 import styles from "./admin-shell.module.css";
 
@@ -12,7 +11,7 @@ function AdminNavigation() {
   return (
     <nav className="admin-section-nav flex-wrap max-[760px]:flex-nowrap" aria-label="Redakčné moduly">
       <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Obsah</span><div><Link href="/admin">Články</Link><Link href="/admin/steniatka">Šteniatka</Link><Link href="/admin/plemena">Plemená</Link><Link href="/admin/sekcie">Sekcie</Link></div></div>
-      <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Komunita</span><div><Link href="/admin/operations">Operácie</Link><Link href="/admin/tipy">Tipy</Link><Link href="/admin/hodnotenia">Hodnotenia</Link><Link href="/admin/dopyty">Dopyty</Link></div></div>
+      <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Komunita</span><div><Link href="/admin/operations">Operácie</Link><Link href="/admin/partners">Partneri</Link><Link href="/admin/tipy">Tipy</Link><Link href="/admin/hodnotenia">Hodnotenia</Link><Link href="/admin/dopyty">Dopyty</Link></div></div>
       <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Portál</span><div><Link href="/admin/podujatia">Podujatia</Link><Link href="/admin/meniny">Psie meniny</Link><Link href="/admin/adresar">Adresár</Link><Link href="/admin/adresar/navrhy">Návrhy úprav</Link><Link href="/admin/pomoc">Pomoc</Link><Link href="/admin/organizacie">Organizácie</Link><Link href="/admin/adopcie">Adopcie</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link></div></div>
       <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Nastavenia</span><div><Link href="/admin/nastavenia">Aplikácia</Link><Link href="/admin/navigacia">Navigácia</Link><Link href="/admin/monetizacia">Monetizácia</Link><Link href="/admin/pravne">Právne</Link><Link href="/admin/import">Import</Link></div></div>
       <div className="admin-nav-public"><Link href="/adresar" target="_blank" rel="noreferrer">Adresár ↗</Link><Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc ↗</Link></div>
@@ -31,7 +30,7 @@ function BellIcon() {
 async function AdminNotificationBell({ count }: { count?: number }) {
   let activeCount = count;
   if (activeCount === undefined) {
-    activeCount = summarizeAdminAttention(await loadAdminAttentionQueue()).active;
+    activeCount = (await loadExactAdminAttentionSummary()).active;
   }
   const label = activeCount === 0
     ? "Upozornenia: žiadne aktívne položky"

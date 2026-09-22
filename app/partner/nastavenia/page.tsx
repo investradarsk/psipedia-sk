@@ -1,26 +1,15 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { PartnerSettingsActions } from "@/components/partner-settings-actions";
-import { getPartnerSession } from "@/lib/partner-auth";
-import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
+import { PartnerShell } from "@/components/partner-shell";
+import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
 
 export const dynamic = "force-dynamic";
 
 export default async function PartnerSettingsPage() {
-  const cookieStore = await cookies();
-  const identity = await getPartnerSession({
-    token: cookieStore.get(PARTNER_SESSION_COOKIE)?.value,
-  });
-  if (!identity) redirect("/partner/prihlasenie");
+  const identity = await requirePartnerPageIdentity();
 
   return (
-    <main id="obsah" className="partner-shell">
-      <header className="partner-settings-heading">
-        <span className="eyebrow">Partner účet</span>
-        <h1>Nastavenia</h1>
-        <p>V tejto fáze sú dostupné iba nastavenia, ktoré sú už funkčné.</p>
-      </header>
+    <PartnerShell title="Nastavenia" description="Bezpečnostné nastavenia Partner účtu.">
 
       <section className="partner-account-summary">
         <div>
@@ -34,6 +23,6 @@ export default async function PartnerSettingsPage() {
       </section>
 
       <PartnerSettingsActions siteKey={getPartnerTurnstileSiteKey()} />
-    </main>
+    </PartnerShell>
   );
 }

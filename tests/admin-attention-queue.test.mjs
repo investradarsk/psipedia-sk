@@ -223,14 +223,14 @@ test("target hrefs point to existing admin route patterns", () => {
   for (const route of routes) assert.equal(existsSync(new URL(route, import.meta.url)), true, route);
 });
 
-test("operations page and shared bell use the same queue source of truth", () => {
+test("operations page uses bounded queue while shared bell uses exact summary", () => {
   const page = readFileSync(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
   const shell = readFileSync(new URL("../components/admin-shell.tsx", import.meta.url), "utf8");
   assert.match(page, /requireAdminPageUser\("\/admin\/operations"\)/);
   assert.match(page, /summarizeAdminAttention\(allItems\)/);
   assert.match(page, /attentionCount=\{summary\.active\}/);
-  assert.match(shell, /summarizeAdminAttention\(await loadAdminAttentionQueue\(\)\)\.active/);
+  assert.match(shell, /loadExactAdminAttentionSummary/);
   assert.match(shell, /href="\/admin\/operations"/);
   assert.doesNotMatch(shell, /getNewDirectoryInquiryCount/);
   assert.match(component, /<form[^>]+method="get"/);
