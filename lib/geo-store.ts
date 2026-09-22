@@ -100,6 +100,16 @@ export function requireGeoD1(database?: GeoD1Database) {
   return resolved;
 }
 
+export async function isGeoSchemaAvailable(database?: GeoD1Database) {
+  const db = requireGeoD1(database);
+  try {
+    await db.prepare("SELECT 1 FROM geo_points LIMIT 1").first();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function targetId(row: GeoPointRow) {
   return Number(row.directory_profile_id ?? row.organization_location_id ?? row.managed_event_id);
 }
