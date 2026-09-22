@@ -52,14 +52,37 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
 });
 
+test("public Directory profile exposes free claim CTA without implying Partner verification", async ({ page }) => {
+  await page.goto("/adresar/veterinari/partner-e2e-veterina");
+  await expect(page.getByRole("heading", { name: "Spravujete tento profil?" })).toBeVisible();
+  await expect(page.getByText("Správa základných údajov profilu je bezplatná.")).toBeVisible();
+  const claimLink=page.getByRole("link",{name:"Spravovať tento profil"});
+  await expect(claimLink).toHaveAttribute("href","/partner/prevziat-profil?type=DIRECTORY_PROFILE&id=990001");
+  await expect(page.getByText("Overený správca")).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
 test("valid one-time link creates a session and exposes membership dashboard/settings", async ({ page }, testInfo) => {
   const project = testInfo.project.name as keyof typeof AUTH_TOKENS;
   const token = AUTH_TOKENS[project];
   const expectedEmail = AUTH_EMAILS[project];
   expect(token).toBeTruthy();
 
-  await page.goto("/partner/overenie#token=" + encodeURIComponent(token));
-  await expect(page).toHaveURL(/\/partner$/);
+  const mobileReturnTo="/partner/prevziat-profil?type=DIRECTORY_PROFILE&id=990001";
+  const verificationUrl=project==="mobile-chromium"
+    ? "/partner/overenie?returnTo="+encodeURIComponent(mobileReturnTo)+"#token="+encodeURIComponent(token)
+    : "/partner/overenie#token="+encodeURIComponent(token);
+  await page.goto(verificationUrl);
+  if(project==="mobile-chromium"){
+    await expect(page).toHaveURL(/\/partner\/prevziat-profil\?type=DIRECTORY_PROFILE&id=990001$/);
+    await expect(page.getByRole("heading",{name:"Prevziať existujúci profil"})).toBeVisible();
+    await page.getByLabel(/Ako ste spojení/).fill("E2E poverený správca");
+    await page.getByRole("button",{name:"Odoslať žiadosť o prevzatie"}).click();
+    await expect(page.getByRole("status")).toContainText("Žiadosť sme prijali a čaká na kontrolu.");
+    await page.goto("/partner");
+  } else {
+    await expect(page).toHaveURL(/\/partner$/);
+  }
   await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -68,8 +91,22 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   if (project === "desktop-chromium") {
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
     await expect(page.getByText("OWNER")).toBeVisible();
+    await expect(page.getByText("Neoverené")).toBeVisible();
   } else {
     await expect(page.getByRole("heading", { name: "Žiadne priradené profily" })).toBeVisible();
+  }
+  await expectNoHorizontalOverflow(page);
+
+  await page.getByRole("link", { name: "Žiadosti a zmeny" }).click();
+  await expect(page.getByRole("heading", { name: "Žiadosti a overenia" })).toBeVisible();
+  if (project === "desktop-chromium") {
+    await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
+    await page.getByRole("button", { name: "Požiadať o overenie" }).click();
+    await page.getByRole("button", { name: "Odoslať na overenie" }).click();
+    await expect(page.getByRole("status")).toContainText("Žiadosť o overenie sme prijali.");
+  } else {
+    await expect(page.getByText("Čaká na kontrolu")).toBeVisible();
+    await expect(page.getByText("E2E poverený správca")).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 
@@ -125,6 +162,23 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(page.getByRole("status")).toContainText("Zmena bola uložená.");
   await page.goto("/admin/partners");
   await expect(page.getByRole("link",{name:/Komerčné leady 0/})).toBeVisible();
+
+  if(project==="desktop-chromium"){
+    await expect(page.getByRole("link",{name:/Overenia 1/})).toBeVisible();
+    await page.goto("/admin/partners/verifications?status=PENDING_VERIFICATION");
+    const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
+    await expect(verificationRow).toContainText("PENDING_VERIFICATION");
+    await verificationRow.getByRole("link",{name:"Detail →"}).click();
+    await page.getByRole("button",{name:"Overiť"}).click();
+    page.once("dialog", dialog=>dialog.accept());
+  }else{
+    await expect(page.getByRole("link",{name:/Claims 1/})).toBeVisible();
+    await page.goto("/admin/partners/claims?status=PENDING");
+    const claimRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
+    await expect(claimRow).toContainText("Ownership konflikt");
+    await claimRow.getByRole("link",{name:"Detail →"}).click();
+    await expect(page.getByText("Ownership konflikt").first()).toBeVisible();
+  }
   await expectNoHorizontalOverflow(page);
 });
 
