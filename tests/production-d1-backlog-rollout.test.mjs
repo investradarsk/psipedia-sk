@@ -57,7 +57,23 @@ test("workflow is manual-only, production-scoped, sequential and deploy-free", a
     assert.equal(workflow.includes("apply-step " + migration), true);
     assert.equal(workflow.includes("verify-step " + migration), true);
   }
+  assert.match(workflow, /\/pomoc-psom\/utulky/);
+  assert.doesNotMatch(workflow, /\/pomoc-psom\/organizacie/);
   assert.doesNotMatch(workflow, /wrangler\s+deploy|deploy:cloudflare/);
+});
+
+test("verification-only workflow is manual, read-only for D1, and uses canonical help route", async () => {
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-backlog-verify.yml"), "utf8");
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /^\s*push:/m);
+  assert.doesNotMatch(workflow, /^\s*pull_request:/m);
+  assert.match(workflow, /environment:\s*production/);
+  assert.match(workflow, /group:\s*production-d1-migration/);
+  assert.match(workflow, /VERIFY-0061-psipedia-sk-db/);
+  assert.match(workflow, /verify-current/);
+  assert.match(workflow, /\/pomoc-psom\/utulky/);
+  assert.doesNotMatch(workflow, /\/pomoc-psom\/organizacie/);
+  assert.doesNotMatch(workflow, /apply-step|d1\s+migrations\s+apply|time-travel\s+restore|wrangler\s+deploy|deploy:cloudflare/);
 });
 
 test("runner never auto-restores production", async () => {
