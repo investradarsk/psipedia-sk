@@ -4,7 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { AdminPartnerProfileChangeActions } from "@/components/admin-partner-profile-change-actions";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { formatPartnerProfileDiffValue, getPartnerProfileChangeAdmin } from "@/lib/partner-profile-changes-admin";
-import "../../../partners.css";
+import "../../partners.css";
 
 export const dynamic = "force-dynamic";
 
