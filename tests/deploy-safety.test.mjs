@@ -30,7 +30,7 @@ function createHarness({ failCommand = null, failValidationPhase = null, fingerp
   };
 }
 
-test("happy path is build -> artifact validation -> remote migration -> remote audit -> same-artifact check -> deploy", async () => {
+test("happy path is build -> artifact validation -> read-only remote audit -> same-artifact check -> deploy", async () => {
   const harness = createHarness();
   await runSafeCloudflareDeployment(harness);
   assert.deepEqual(harness.events, [
