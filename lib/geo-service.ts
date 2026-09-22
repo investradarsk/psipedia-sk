@@ -1,0 +1,163 @@
+import { env } from "cloudflare:workers";
+import {
+  buildGeoQuery,
+  normalizeGeoText,
+  safeGeoErrorStatus,
+  type GeoErrorCode,
+  type GeoPublicPrecision,
+  type GeoTargetType,
+} from "./geo";
+import { GeoapifyGeocoder } from "./geoapify-geocoder";
+import { GeocoderProviderError, type GeocoderProvider, type NormalizedGeocoderResult } from "./geo-provider";
+import {
+  applyGeocoderResolution,
+  getGeoPointForTarget,
+  getGeoSourceLocation,
+  recordGeocoderFailure,
+  type GeoD1Database,
+} from "./geo-store";
+
+type GeoThresholdBindings = {
+  GEO_EXACT_CONFIDENCE_THRESHOLD?: string;
+  GEO_CITY_CONFIDENCE_THRESHOLD?: string;
+};
+
+export type GeoAcceptanceConfig = {
+  exactConfidence: number;
+  cityConfidence: number;
+  ambiguityDelta: number;
+};
+
+function boundedThreshold(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : fallback;
+}
+
+export function geoAcceptanceConfig(bindings?: GeoThresholdBindings): GeoAcceptanceConfig {
+  const runtime = bindings ?? (env as unknown as GeoThresholdBindings);
+  return {
+    exactConfidence: boundedThreshold(runtime.GEO_EXACT_CONFIDENCE_THRESHOLD, 0.95),
+    cityConfidence: boundedThreshold(runtime.GEO_CITY_CONFIDENCE_THRESHOLD, 0.9),
+    ambiguityDelta: 0.03,
+  };
+}
+
+function samePlace(expected: string | undefined, actual: string) {
+  const left = normalizeGeoText(expected);
+  if (!left) return true;
+  const right = normalizeGeoText(actual);
+  return right === left || right.includes(left) || left.includes(right);
+}
+
+function score(result: NormalizedGeocoderResult) {
+  return result.confidence ?? result.cityConfidence ?? 0;
+}
+
+export function chooseGeocoderResult(input: {
+  results: NormalizedGeocoderResult[];
+  sourceCity?: string;
+  precision: GeoPublicPrecision;
+  config?: GeoAcceptanceConfig;
+}): { result: NormalizedGeocoderResult | null; errorCode: GeoErrorCode | null } {
+  const config = input.config ?? geoAcceptanceConfig();
+  const candidates = input.results.filter((result) => result.countryCode === "SK");
+  if (!candidates.length) return { result: null, errorCode: "NO_MATCH" };
+
+  const ordered = [...candidates].sort((a, b) => score(b) - score(a));
+  const first = ordered[0];
+  const second = ordered[1];
+
+  if (!samePlace(input.sourceCity, first.city || first.district)) {
+    return { result: null, errorCode: "LOW_CONFIDENCE" };
+  }
+
+  if (second && Math.abs(score(first) - score(second)) <= config.ambiguityDelta) {
+    const distinct = Math.abs(first.latitude - second.latitude) > 0.002 || Math.abs(first.longitude - second.longitude) > 0.002;
+    if (distinct) return { result: null, errorCode: "AMBIGUOUS" };
+  }
+
+  if (input.precision === "EXACT") {
+    const exactTypes = new Set(["building", "amenity", "street"]);
+    if (!exactTypes.has(first.resultType)) return { result: null, errorCode: "LOW_CONFIDENCE" };
+    if ((first.confidence ?? 0) < config.exactConfidence || (first.cityConfidence ?? first.confidence ?? 0) < config.cityConfidence) {
+      return { result: null, errorCode: "LOW_CONFIDENCE" };
+    }
+  } else {
+    const approximateTypes = new Set(["city", "district", "suburb", "locality", "postcode"]);
+    if (!approximateTypes.has(first.resultType)) return { result: null, errorCode: "LOW_CONFIDENCE" };
+    if ((first.cityConfidence ?? first.confidence ?? 0) < config.cityConfidence) {
+      return { result: null, errorCode: "LOW_CONFIDENCE" };
+    }
+  }
+
+  return { result: first, errorCode: null };
+}
+
+function providerErrorCode(error: unknown): GeoErrorCode {
+  if (error instanceof GeocoderProviderError) return error.code;
+  return "PROVIDER_ERROR";
+}
+
+export async function resolveGeoTarget(input: {
+  targetType: GeoTargetType;
+  targetId: number;
+  provider?: GeocoderProvider;
+  database?: GeoD1Database;
+  config?: GeoAcceptanceConfig;
+}) {
+  const point = await getGeoPointForTarget(input.targetType, input.targetId, input.database);
+  if (!point) throw new Error("Geo point neexistuje. Najprv ho inicializuj.");
+  if (point.manualOverride) throw new Error("Manual override chráni marker pred automatickým geocoderom.");
+  if (!point.publicVisibility) throw new Error("Poloha nemá schválenú privacy klasifikáciu.");
+  if (point.publicVisibility === "HIDDEN") throw new Error("Skrytá poloha sa nesmie geokódovať.");
+  if (!point.publicPrecision) throw new Error("Poloha nemá public precision.");
+
+  const source = await getGeoSourceLocation(input.targetType, input.targetId, input.database);
+  if (!source) throw new Error("Canonical target neexistuje.");
+  const query = buildGeoQuery(source, point.publicVisibility, point.publicPrecision);
+  if (!query) {
+    return recordGeocoderFailure({
+      targetType: input.targetType, targetId: input.targetId,
+      errorCode: "SOURCE_INCOMPLETE", status: "NEEDS_REVIEW",
+    }, input.database);
+  }
+
+  const provider = input.provider ?? new GeoapifyGeocoder();
+  try {
+    const request = { query, precision: point.publicPrecision, countryCode: source.countryCode ?? "SK" };
+    const results = point.publicVisibility === "EXACT_PUBLIC"
+      ? await provider.geocodeExact(request)
+      : await provider.geocodeApproximate(request);
+    const decision = chooseGeocoderResult({
+      results, sourceCity: source.city, precision: point.publicPrecision, config: input.config,
+    });
+    if (!decision.result || decision.errorCode) {
+      const errorCode = decision.errorCode ?? "NO_MATCH";
+      return recordGeocoderFailure({
+        targetType: input.targetType, targetId: input.targetId,
+        errorCode, status: safeGeoErrorStatus(errorCode, point.attemptCount + 1),
+      }, input.database);
+    }
+    return applyGeocoderResolution({
+      targetType: input.targetType,
+      targetId: input.targetId,
+      result: decision.result,
+      method: point.publicVisibility === "APPROXIMATE_PUBLIC" ? "LOCALITY" : "GEOCODER",
+    }, input.database);
+  } catch (error) {
+    const errorCode = providerErrorCode(error);
+    const attempt = point.attemptCount + 1;
+    const retryAfterAt = errorCode === "RATE_LIMITED"
+      ? new Date(Date.now() + Math.min(60, 5 * attempt) * 60_000).toISOString()
+      : errorCode === "PROVIDER_ERROR"
+        ? new Date(Date.now() + Math.min(30, 2 ** attempt) * 60_000).toISOString()
+        : null;
+    return recordGeocoderFailure({
+      targetType: input.targetType,
+      targetId: input.targetId,
+      errorCode,
+      status: safeGeoErrorStatus(errorCode, attempt),
+      retryAfterAt,
+    }, input.database);
+  }
+}
