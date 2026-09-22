@@ -4,7 +4,7 @@ import { chromium } from "@playwright/test";
 
 const DEFAULT_BASE_URL = "http://localhost:5173";
 const DEFAULT_CANONICAL_ORIGIN = "https://psipedia.sk";
-const DEFAULT_WORKERS = 1;
+const DEFAULT_WORKERS = process.env.CI ? 6 : 1;
 const MAX_WORKERS = 16;
 const EXPECTED_BREEDS = 343;
 
