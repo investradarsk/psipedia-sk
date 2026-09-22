@@ -6,7 +6,7 @@ on:
     paths:
       - "db/geo-schema.ts"
       - "db/index.ts"
-      - "drizzle/0063_geo_foundation.sql"
+      - "drizzle/0064_geo_foundation.sql"
       - "lib/geo*.ts"
       - "app/admin/operations/geo/**"
       - "app/admin/operations/page.tsx"
