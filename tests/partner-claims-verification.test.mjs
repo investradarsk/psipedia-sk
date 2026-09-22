@@ -23,7 +23,7 @@ const [
   "app/api/partner/verifications/route.ts",
   "app/api/admin/partners/claims/[id]/route.ts",
   "app/api/admin/partners/verifications/[id]/route.ts",
-  "app/partner/prevziat-profil/page.tsx",
+  "app/partner/prevziat-profil/[type]/[id]/page.tsx",
   "app/partner/ziadosti/page.tsx",
   "app/adresar/[category]/[slug]/page.tsx",
   "app/organizacie/[slug]/page.tsx",
@@ -122,7 +122,7 @@ test("public claim CTA and Partner request history implement the PARTNER-2 UX",(
 
 test("safe auth returnTo allows internal paths, blocks external redirects and token remains fragment-only",async()=>{
   const {normalizePartnerReturnTo}=await importTs("lib/partner-return-to.ts");
-  assert.equal(normalizePartnerReturnTo("/partner/prevziat-profil?type=DIRECTORY_PROFILE&id=1"),"/partner/prevziat-profil?type=DIRECTORY_PROFILE&id=1");
+  assert.equal(normalizePartnerReturnTo("/partner/prevziat-profil/DIRECTORY_PROFILE/1"),"/partner/prevziat-profil/DIRECTORY_PROFILE/1");
   assert.equal(normalizePartnerReturnTo("https://evil.example/path"),null);
   assert.equal(normalizePartnerReturnTo("//evil.example/path"),null);
   assert.equal(normalizePartnerReturnTo("/admin/partners"),null);
