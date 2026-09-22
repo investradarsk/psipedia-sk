@@ -47,3 +47,5 @@ next-env.d.ts
 /backups/
 
 /.e2e-artifacts/
+
+/.production-d1/
