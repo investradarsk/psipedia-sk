@@ -53,9 +53,10 @@
     "test:admin-buttons": "node --experimental-strip-types --test tests/admin-button-system.test.mjs",
     "audit:public-integrity": "node scripts/check-public-integrity.mjs",
     "test:public-integrity": "node --experimental-strip-types --test tests/public-integrity.test.mjs && npm run audit:public-integrity",
-    "test:partner-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-auth-foundation.test.mjs tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs",
-    "test:partner-platform": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs",
-    "test:reviews-foundation": "node --experimental-strip-types --test tests/reviews-foundation.test.mjs tests/reviews-foundation-d1.test.mjs"
+    "test:partner-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-auth-foundation.test.mjs tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs && npm run test:partner-profile-changes",
+    "test:partner-platform": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs && npm run test:partner-profile-changes",
+    "test:reviews-foundation": "node --experimental-strip-types --test tests/reviews-foundation.test.mjs tests/reviews-foundation-d1.test.mjs",
+    "test:partner-profile-changes": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-profile-changes.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
