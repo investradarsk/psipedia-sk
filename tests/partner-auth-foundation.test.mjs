@@ -266,7 +266,7 @@ test("Partner UX contract includes accessible labels, disabled states, focus and
   assert.match(form, /disabled=\{sending \|\| !turnstileToken \|\| !siteKey\}/);
   assert.match(verification, /aria-live="polite"/);
   assert.match(verification, /URLSearchParams\(window\.location\.hash/);
-  assert.match(verification, /history\.replaceState\(null, "", "\/partner\/overenie"\)/);
+  assert.match(verification, /const cleanVerificationUrl = returnTo/);\n  assert.match(verification, /history\\.replaceState\\(null, "", cleanVerificationUrl\\)/);
   assert.match(settingsActions, /if \(!response\.ok\)/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /max-width: 100%/);
