@@ -28,7 +28,8 @@ export function ProgrammaticAdLoader({ enabled, clientId }: { enabled: boolean; 
     }
 
     function maybeLoad() {
-      if (isPartnerRoute || isInternalTraffic()) return;
+      if (isPartnerRoute) return;
+      if (isInternalTraffic()) return;
       const stored = window.localStorage.getItem(CONSENT_KEY);
       const consent: ConsentChoice | null = stored === "necessary" || stored === "analytics" || stored === "advertising" ? stored : null;
       if (!canLoadProgrammaticAds({ enabled, clientId }, consent)) return;
