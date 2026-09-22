@@ -7,7 +7,7 @@ export type PartnerRole = (typeof partnerRoles)[number];
 export const partnerPermissions = ["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE", "EVENT_SUBMIT", "COMMERCIAL_INTEREST_CREATE", "MEMBERSHIP_MANAGE"] as const;
 export type PartnerPermission = (typeof partnerPermissions)[number];
 
-const ROLE_PERMISSIONS: Record<PartnerRole, ReadonlySet<PartnerPermission>> = {
+export const ROLE_PERMISSIONS: Record<PartnerRole, ReadonlySet<PartnerPermission>> = {
   OWNER: new Set(partnerPermissions),
   MANAGER: new Set(["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE", "EVENT_SUBMIT", "COMMERCIAL_INTEREST_CREATE"]),
   EDITOR: new Set(["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE", "EVENT_SUBMIT"]),
@@ -53,7 +53,7 @@ export async function requirePartnerRole(accountId: string, resourceId: string, 
   return membership;
 }
 
-export async function requirePartnerPermission(accountId: string, resourceId: string, permission: PartnerPermission, database?: D1Database) {
+export function partnerRoleHasPermission(role: PartnerRole, permission: PartnerPermission) { return ROLE_PERMISSIONS[role].has(permission); }\n\nexport async function requirePartnerPermission(accountId: string, resourceId: string, permission: PartnerPermission, database?: D1Database) {
   const membership = await requirePartnerMembership(accountId, resourceId, database);
   if (!ROLE_PERMISSIONS[membership.role].has(permission)) throw new PartnerAuthorizationError();
   return membership;
@@ -83,7 +83,7 @@ export async function listPartnerResources(accountId: string, database?: D1Datab
   }));
 }
 
-export type PartnerAuditAction = "ACCOUNT_CREATED"|"EMAIL_VERIFIED"|"ACCOUNT_SUSPENDED"|"ACCOUNT_REACTIVATED"|"ACCOUNT_DEACTIVATED"|"SESSIONS_REVOKED"|"MEMBERSHIP_CREATED"|"MEMBERSHIP_ROLE_CHANGED"|"MEMBERSHIP_REVOKED"|"COMMERCIAL_INTEREST_CREATED"|"COMMERCIAL_INTEREST_STATUS_CHANGED"|"COMMERCIAL_INTEREST_NOTE_UPDATED"|"CLAIM_SUBMITTED"|"CLAIM_APPROVED"|"CLAIM_REJECTED"|"CLAIM_CANCELLED"|"VERIFICATION_REQUESTED"|"VERIFICATION_VERIFIED"|"VERIFICATION_REJECTED";
+export type PartnerAuditAction = "ACCOUNT_CREATED"|"EMAIL_VERIFIED"|"ACCOUNT_SUSPENDED"|"ACCOUNT_REACTIVATED"|"ACCOUNT_DEACTIVATED"|"SESSIONS_REVOKED"|"MEMBERSHIP_CREATED"|"MEMBERSHIP_ROLE_CHANGED"|"MEMBERSHIP_REVOKED"|"COMMERCIAL_INTEREST_CREATED"|"COMMERCIAL_INTEREST_STATUS_CHANGED"|"COMMERCIAL_INTEREST_NOTE_UPDATED"|"CLAIM_SUBMITTED"|"CLAIM_APPROVED"|"CLAIM_REJECTED"|"CLAIM_CANCELLED"|"VERIFICATION_REQUESTED"|"VERIFICATION_VERIFIED"|"VERIFICATION_REJECTED"|"PROFILE_CHANGE_SUBMITTED"|"PROFILE_CHANGE_WITHDRAWN"|"PROFILE_CHANGE_APPROVED"|"PROFILE_CHANGE_REJECTED";
 export type PartnerAuditActor = "PARTNER"|"ADMIN"|"SYSTEM";
 
 function safeMetadata(value: Record<string, unknown> = {}) {
