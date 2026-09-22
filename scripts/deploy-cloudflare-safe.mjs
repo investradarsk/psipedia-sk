@@ -49,7 +49,8 @@ export async function runSafeCloudflareDeployment({
   // Do not run remote D1 migrations from Workers Builds. Cloudflare's
   // auto-generated Workers Builds token does not include D1 edit permissions,
   // so schema migration attempts here fail the whole production deployment.
-  // Schema changes are handled by the separate manual production migration workflow.\n  if (workersBuildPreparedArtifact) {
+  // Schema changes are handled by the separate manual production migration workflow.
+  if (workersBuildPreparedArtifact) {
     console.log("[deploy] Workers Builds detected; deploying prepared artifact without remote D1 mutation");
     await runCommand(DEPLOYMENT_STEPS.deploy, { env });
     return Object.freeze({ fingerprint: env.WORKERS_CI_COMMIT_SHA || "workers-build-managed" });
