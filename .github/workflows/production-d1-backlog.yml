@@ -1,17 +1,10 @@
-name: Production D1 Migrate
+name: Production D1 Backlog 0058-0061
 
 on:
   workflow_dispatch:
     inputs:
-      target_migration:
-        description: Canonical migration to apply
-        required: true
-        type: choice
-        default: 0062_profile_reviews_foundation.sql
-        options:
-          - 0062_profile_reviews_foundation.sql
       confirmation:
-        description: Type APPLY-0062-psipedia-sk-db exactly
+        description: Type APPLY-0058-0061-psipedia-sk-db exactly
         required: true
         type: string
 
@@ -23,13 +16,12 @@ permissions:
   contents: read
 
 jobs:
-  migrate:
-    name: Preflight, migrate, verify and smoke
+  rollout:
+    name: Preflight, apply 0058-0061, verify and smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     environment: production
     env:
-      TARGET_MIGRATION: ${{ inputs.target_migration }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
     steps:
       - name: Require main and explicit production confirmation
@@ -38,7 +30,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
           confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
-          test "$confirmation" = "APPLY-0062-psipedia-sk-db"
+          test "$confirmation" = "APPLY-0058-0061-psipedia-sk-db"
 
       - name: Checkout exact dispatched main revision
         uses: actions/checkout@v4
@@ -50,7 +42,6 @@ jobs:
           echo "ref=$GITHUB_REF"
           echo "sha=$GITHUB_SHA"
           echo "checked_out_sha=$(git rev-parse HEAD)"
-          echo "target_migration=$TARGET_MIGRATION"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -61,11 +52,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Require protected migration credential
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$CLOUDFLARE_API_TOKEN"
+      - name: Require protected D1 credential
+        run: test -n "$CLOUDFLARE_API_TOKEN"
 
       - name: Load canonical Cloudflare account id
         shell: bash
@@ -81,19 +69,31 @@ jobs:
       - name: Build exact production artifact and generated Wrangler config
         run: npm run build
 
-      - name: Production D1 preflight and Time Travel recovery point
-        id: preflight
-        run: |
-          node scripts/production-d1-migrate.mjs preflight
-          target_applied="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(".production-d1/preflight-report.json","utf8")); process.stdout.write(String(Boolean(x.targetApplied)))')"
-          echo "target_applied=$target_applied" >> "$GITHUB_OUTPUT"
+      - name: Production backlog preflight and Time Travel recovery point
+        run: node scripts/production-d1-backlog-rollout.mjs preflight
 
-      - name: Apply canonical migration through scoped migration directory
-        if: steps.preflight.outputs.target_applied != 'true'
-        run: node scripts/production-d1-migrate.mjs apply
+      - name: Apply 0058
+        run: node scripts/production-d1-backlog-rollout.mjs apply-step 0058_public_integrity_cleanup.sql
+      - name: Verify 0058
+        run: node scripts/production-d1-backlog-rollout.mjs verify-step 0058_public_integrity_cleanup.sql
 
-      - name: Verify schema, history, resource backfill and data integrity
-        run: node scripts/production-d1-migrate.mjs verify
+      - name: Apply 0059
+        run: node scripts/production-d1-backlog-rollout.mjs apply-step 0059_partner_auth_foundation.sql
+      - name: Verify 0059
+        run: node scripts/production-d1-backlog-rollout.mjs verify-step 0059_partner_auth_foundation.sql
+
+      - name: Apply 0060
+        run: node scripts/production-d1-backlog-rollout.mjs apply-step 0060_partner_memberships_admin.sql
+      - name: Verify 0060
+        run: node scripts/production-d1-backlog-rollout.mjs verify-step 0060_partner_memberships_admin.sql
+
+      - name: Apply 0061
+        run: node scripts/production-d1-backlog-rollout.mjs apply-step 0061_partner_commercial_interests.sql
+      - name: Verify 0061
+        run: node scripts/production-d1-backlog-rollout.mjs verify-step 0061_partner_commercial_interests.sql
+
+      - name: Final production backlog postflight
+        run: node scripts/production-d1-backlog-rollout.mjs postflight
 
       - name: Install Chromium for production smoke
         run: npx playwright install --with-deps chromium
@@ -102,7 +102,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for route in             "/"             "/adresar"             "/adresar/veterinari/ab-vet-piestany"             "/pomoc-psom/utulky"             "/sitemap.xml"             "/recenzie"
+          for route in "/" "/adresar" "/pomoc-psom/utulky" "/partner/prihlasenie" "/partner/registracia" "/partner/propagacia" "/sitemap.xml"
           do
             status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "https://psipedia.sk$route")"
             echo "$route -> $status"
@@ -122,14 +122,17 @@ jobs:
           E2E_BASE_URL: https://psipedia.sk
         run: npx playwright test --grep @production --project=mobile-chromium --workers=1
 
-      - name: Upload safe migration evidence
+      - name: Upload safe rollout evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: production-d1-migration-${{ github.run_id }}
+          name: production-d1-backlog-${{ github.run_id }}
           path: |
-            .production-d1/manifest.json
-            .production-d1/preflight-report.json
-            .production-d1/postflight-report.json
+            .production-d1-backlog/preflight-report.json
+            .production-d1-backlog/step-0058-report.json
+            .production-d1-backlog/step-0059-report.json
+            .production-d1-backlog/step-0060-report.json
+            .production-d1-backlog/step-0061-report.json
+            .production-d1-backlog/postflight-report.json
           if-no-files-found: warn
           retention-days: 30
