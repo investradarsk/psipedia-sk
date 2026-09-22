@@ -49,15 +49,20 @@ export async function runSafeCloudflareDeployment({
 
   // Cloudflare Workers Builds already owns the build -> deploy lifecycle.
   // Its configured build command has produced dist/ before this deploy command
-  // starts, so the production branch must use the platform-native deploy phase
-  // directly. Extra rebuild, artifact or remote-DB gates here make the managed
-  // deploy diverge from Cloudflare's supported lifecycle and previously kept
-  // psipedia.sk pinned to an older Worker version.
+  // starts, so never rebuild the artifact here.
   //
-  // Database/schema releases remain on the explicit manual production path
-  // below, where migrations and the remote audit run before deployment.
+  // Preview builds must remain read-only against production infrastructure.
+  // Production builds, however, must apply D1 migrations before promoting code
+  // that may depend on the new schema. WORKERS_CI_BRANCH is injected by
+  // Cloudflare Workers Builds and identifies the branch from the push event.
   if (workersBuildPreparedArtifact) {
-    console.log("[deploy] Workers Builds detected; deploying prepared artifact with the native deploy phase");
+    const workersBranch = env.WORKERS_CI_BRANCH || "";
+    if (workersBranch === "main") {
+      console.log("[deploy] Workers Builds production branch detected; applying remote D1 migrations before deploy");
+      await runCommand(DEPLOYMENT_STEPS.remoteMigration, { env });
+    } else {
+      console.log(`[deploy] Workers Builds preview branch ${workersBranch || "<unknown>"}; skipping remote D1 migration`);
+    }
     await runCommand(DEPLOYMENT_STEPS.deploy, { env });
     return Object.freeze({ fingerprint: env.WORKERS_CI_COMMIT_SHA || "workers-build-managed" });
   }
