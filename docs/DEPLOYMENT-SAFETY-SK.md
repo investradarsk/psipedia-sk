@@ -35,11 +35,16 @@ Workers Builds má vlastný dvojkrokový lifecycle: najprv spustí **Build comma
 
 Keď je `deploy:cloudflare` spustený ako Deploy command vo Workers Builds, nesmie znovu
 vytvárať application build. Použije už pripravený `dist/` z predchádzajúcej build fázy,
-znovu ho validuje a fingerprintuje a až potom pokračuje remote migration gate, auditom a
-nasadením toho istého artefaktu.
+znovu ho validuje a fingerprintuje.
+
+Managed Workers Builds token nie je používaný ako autoritatívny D1 migration token. Preto
+code-only Workers Build preskočí remote D1 migration + audit gate a nasadí presne validovaný
+artefakt. Pred tým však porovná aktuálny merge proti first parent. Ak sa mení `drizzle/`,
+`config/cloudflare-resources.json` alebo remote migration runner, deploy failne closed a
+vyžaduje manuálny produkčný deploy.
 
 Pri manuálnom/lokálnom produkčnom deployi sa správanie nemení: fresh build sa stále vytvorí
-priamo v `deploy:cloudflare`.
+priamo v `deploy:cloudflare` a následne sa vykoná plný remote migration + audit gate.
 
 ### Phase A — lokálna príprava artefaktu
 
