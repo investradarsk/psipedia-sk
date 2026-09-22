@@ -53,7 +53,28 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
     }
   }
 
-  useEffect(() => { void reload(); }, [endpoint]);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadInitial() {
+      try {
+        const response = await fetch(endpoint, { cache: "no-store" });
+        const body = await response.json() as Snapshot & { error?: string };
+        if (!response.ok) throw new Error(body.error || "Geo stav sa nepodarilo načítať.");
+        if (cancelled) return;
+        setSnapshot(body);
+        setVisibility(body.point?.publicVisibility ?? "");
+        setPrecision(body.point?.publicPrecision ?? "MUNICIPALITY");
+        setLatitude(body.point?.latitude === null || body.point?.latitude === undefined ? "" : String(body.point.latitude));
+        setLongitude(body.point?.longitude === null || body.point?.longitude === undefined ? "" : String(body.point.longitude));
+      } catch (caught) {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : "Geo stav sa nepodarilo načítať.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void loadInitial();
+    return () => { cancelled = true; };
+  }, [endpoint]);
 
   async function mutate(payload: Record<string, unknown>, success: string) {
     setBusy(true); setError(""); setMessage("");
