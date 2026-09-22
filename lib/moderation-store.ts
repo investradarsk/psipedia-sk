@@ -75,7 +75,7 @@ export async function getModerationSubmission(id: string) {
   return db.select().from(moderationSubmissions).where(eq(moderationSubmissions.id, id)).limit(1).then((rows) => rows[0] ?? null);
 }
 
-export async function transitionModerationSubmission(input: { id: string; toStatus: FoundationSubmissionStatus; actorRef: string; reasonCode?: string | null; requestId?: string | null }) {
+export async function transitionModerationSubmission(input: { id: string; toStatus: FoundationSubmissionStatus; actorType?: "ADMIN" | "PARTNER" | "SYSTEM"; actorRef: string; reasonCode?: string | null; requestId?: string | null }) {
   const current = await getModerationSubmission(input.id);
   if (!current) return null;
   if (!isFoundationSubmissionStatus(current.status) || !canTransitionModerationSubmission(current.status, input.toStatus)) throw new Error("Invalid moderation state transition");
@@ -86,6 +86,7 @@ export async function transitionModerationSubmission(input: { id: string; toStat
     id: input.id,
     expectedStatus: current.status,
     toStatus: input.toStatus,
+    actorType: input.actorType,
     actorRef: input.actorRef,
     reasonCode: input.reasonCode ?? null,
     requestId: input.requestId ?? null,
