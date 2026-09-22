@@ -32,7 +32,7 @@ function params(overrides = {}) {
 }
 
 function row(overrides = {}) {
-  return {
+  const value = {
     geo_point_id: 1,
     entity_type: "service",
     entity_id: 1,
@@ -52,7 +52,7 @@ function row(overrides = {}) {
     district: "Nitra",
     region: "Nitriansky kraj",
     address: "Verejná 1",
-    search_text: "Veterina Nitra pohotovost Nitra",
+    search_text: "",
     verified: 1,
     featured: 0,
     location_role: null,
@@ -67,6 +67,10 @@ function row(overrides = {}) {
     provider: null,
     ...overrides,
   };
+  if (!Object.prototype.hasOwnProperty.call(overrides, "search_text")) {
+    value.search_text = `${value.name} ${value.subcategory} ${value.city} ${value.district} ${value.region}`;
+  }
+  return value;
 }
 
 function fakeDb(seed = {}, schemaReady = true) {
