@@ -128,7 +128,7 @@ test("safe auth returnTo allows internal paths, blocks external redirects and to
   assert.equal(normalizePartnerReturnTo("/admin/partners"),null);
   assert.equal(normalizePartnerReturnTo("/api/partner"),null);
   assert.equal(normalizePartnerReturnTo("/partner/ok\\evil"),null);
-  assert.match(email,/\/partner\/overenie" \+ returnQuery \+ "#token="/);
+  assert.match(email,/new URLSearchParams\(\{ token: rawToken \}\)/);\n  assert.match(email,/fragment\.set\("returnTo", returnTo\)/);\n  assert.match(email,/\/partner\/overenie#" \+ fragment\.toString\(\)/);
   assert.doesNotMatch(email,/\/partner\/overenie\?token=/);
 });
 
