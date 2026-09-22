@@ -2,6 +2,12 @@
 
 import { useEffect } from "react";
 import type { AdPlacementId, ConsentChoice } from "@/lib/monetization";
+import {
+  INTERNAL_TRAFFIC_QUERY_PARAM,
+  INTERNAL_TRAFFIC_STORAGE_KEY,
+  isStoredInternalTraffic,
+  parseInternalTrafficOverride,
+} from "@/lib/internal-traffic";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
 const CONSENT_EVENT = "psipedia:consent-changed";
@@ -17,6 +23,13 @@ function eventKey(scope: string, ttlMs = 30 * 60 * 1000) {
 }
 
 function analyticsConsentGranted() {
+  const override = parseInternalTrafficOverride(
+    new URLSearchParams(window.location.search).get(INTERNAL_TRAFFIC_QUERY_PARAM),
+  );
+  const internalTraffic =
+    override ?? isStoredInternalTraffic(window.localStorage.getItem(INTERNAL_TRAFFIC_STORAGE_KEY));
+  if (internalTraffic) return false;
+
   const stored = window.localStorage.getItem(CONSENT_KEY);
   const consent: ConsentChoice | null =
     stored === "necessary" || stored === "analytics" || stored === "advertising" ? stored : null;

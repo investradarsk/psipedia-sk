@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ConsentChoice } from "@/lib/monetization";
+import {
+  INTERNAL_TRAFFIC_EVENT,
+  INTERNAL_TRAFFIC_QUERY_PARAM,
+  INTERNAL_TRAFFIC_STORAGE_KEY,
+  isStoredInternalTraffic,
+  parseInternalTrafficOverride,
+} from "@/lib/internal-traffic";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
 const SETTINGS_EVENT = "psipedia:open-cookie-settings";
@@ -109,16 +116,41 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   const [ready, setReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [savedChoice, setSavedChoice] = useState<ConsentChoice | null>(null);
+  const [isInternalTraffic, setIsInternalTraffic] = useState(false);
 
   const openSettings = useCallback(() => setIsOpen(true), []);
 
   useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    const override = parseInternalTrafficOverride(currentUrl.searchParams.get(INTERNAL_TRAFFIC_QUERY_PARAM));
+    let internalTraffic = isStoredInternalTraffic(window.localStorage.getItem(INTERNAL_TRAFFIC_STORAGE_KEY));
+
+    if (override !== null) {
+      internalTraffic = override;
+      if (override) {
+        window.localStorage.setItem(INTERNAL_TRAFFIC_STORAGE_KEY, "1");
+      } else {
+        window.localStorage.removeItem(INTERNAL_TRAFFIC_STORAGE_KEY);
+      }
+
+      currentUrl.searchParams.delete(INTERNAL_TRAFFIC_QUERY_PARAM);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+      );
+      window.dispatchEvent(new Event(INTERNAL_TRAFFIC_EVENT));
+    }
+
+    if (internalTraffic) disableAnalytics();
+
     const stored = window.localStorage.getItem(CONSENT_KEY);
     const choice: ConsentChoice | null = stored === "analytics" || stored === "necessary" || stored === "advertising" ? stored : null;
     let mounted = true;
     queueMicrotask(() => {
       if (!mounted) return;
       setSavedChoice(choice);
+      setIsInternalTraffic(internalTraffic);
       setIsOpen(choice === null);
       setReady(true);
     });
@@ -130,10 +162,10 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   }, [openSettings]);
 
   useEffect(() => {
-    if ((savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute && !isPartnerRoute) {
+    if (ready && !isInternalTraffic && (savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute && !isPartnerRoute) {
       void sendPageView(pathname);
     }
-  }, [isAdminRoute, isPartnerRoute, pathname, savedChoice]);
+  }, [isAdminRoute, isInternalTraffic, isPartnerRoute, pathname, ready, savedChoice]);
 
   function saveChoice(choice: ConsentChoice) {
     const revokingAdvertising = savedChoice === "advertising" && choice !== "advertising";
