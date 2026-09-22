@@ -54,6 +54,7 @@ export async function applyAtomicModerationTransition(database: Pick<D1Database,
   eventId: string;
   changedFieldsJson: string;
   now: string;
+  extraStatements?: D1PreparedStatement[];
 }) {
   if (!canTransitionModerationSubmission(input.expectedStatus, input.toStatus)) {
     throw new Error("Invalid moderation state transition");
@@ -83,6 +84,7 @@ export async function applyAtomicModerationTransition(database: Pick<D1Database,
     input.expectedStatus,
   );
 
-  const [, stateResult] = await database.batch<{ id: string }>([eventStatement, stateStatement]);
+  const results = await database.batch([eventStatement, stateStatement, ...(input.extraStatements ?? [])]);
+  const stateResult = results[1] as D1Result<{ id: string }> | undefined;
   if (stateResult?.results.length !== 1) throw new ModerationStateConflictError();
 }
