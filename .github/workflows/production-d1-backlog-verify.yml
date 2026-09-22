@@ -1,0 +1,109 @@
+name: Production D1 Backlog Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type VERIFY-0061-psipedia-sk-db exactly
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify 0061 production state and smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main and explicit verification confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$confirmation" = "VERIFY-0061-psipedia-sk-db"
+
+      - name: Checkout exact dispatched main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Log non-secret revision evidence
+        run: |
+          echo "ref=$GITHUB_REF"
+          echo "sha=$GITHUB_SHA"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Require protected D1 credential
+        run: test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Load canonical Cloudflare account id
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(x.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+
+      - name: Repository migration safety
+        run: npm run db:check-migrations
+
+      - name: Build exact production artifact and generated Wrangler config
+        run: npm run build
+
+      - name: Read-only D1 history, schema and integrity verification
+        run: node scripts/production-d1-backlog-rollout.mjs verify-current
+
+      - name: Install Chromium for production smoke
+        run: npx playwright install --with-deps chromium
+
+      - name: Key production route smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          for route in "/" "/adresar" "/pomoc-psom/utulky" "/partner/prihlasenie" "/partner/registracia" "/partner/propagacia" "/sitemap.xml"
+          do
+            status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "https://psipedia.sk$route")"
+            echo "$route -> $status"
+            case "$status" in
+              200|301|302|307|308) ;;
+              *) exit 1 ;;
+            esac
+          done
+
+      - name: Production Playwright smoke — desktop
+        env:
+          E2E_BASE_URL: https://psipedia.sk
+        run: npx playwright test --grep @production --project=desktop-chromium --workers=1
+
+      - name: Production Playwright smoke — mobile
+        env:
+          E2E_BASE_URL: https://psipedia.sk
+        run: npx playwright test --grep @production --project=mobile-chromium --workers=1
+
+      - name: Upload safe verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-backlog-verification-${{ github.run_id }}
+          path: .production-d1-backlog-verification/verification-report.json
+          if-no-files-found: warn
+          retention-days: 30
