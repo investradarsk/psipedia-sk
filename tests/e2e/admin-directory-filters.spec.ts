@@ -24,7 +24,7 @@ test.describe("admin directory v2", () => {
   });
 
   test("form filters reset pagination and invalid params fall back safely", async ({ page }) => {
-    let response = await page.goto("/admin/adresar?category=bogus&status=archived&verification=bogus&media=bogus&page=-4", { waitUntil: "domcontentloaded" });
+    let response = await page.goto("/admin/adresar?category=bogus&status=bogus&verification=bogus&media=bogus&page=-4", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByLabel("Kategória")).toHaveValue("");
     await expect(page.getByLabel("Stav publikácie")).toHaveValue("all");

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { deleteManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
+import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -44,12 +44,19 @@ export async function DELETE(_request: Request, { params }: Props) {
   const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
   try {
-    const profile = await deleteManagedDirectoryProfile(id);
+    const profile = await archiveManagedDirectoryProfile(id, user.email);
     if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    if (profile.imageKey) {
-      const bucket = (env as unknown as UploadBindings).BUCKET;
-      if (bucket) await bucket.delete(profile.imageKey).catch(() => undefined);
-    }
-    return Response.json({ deleted: true, id });
-  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Profil sa nepodarilo odstrániť." }, { status: 500 }); }
+    return Response.json({ archived: true, profile });
+  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Profil sa nepodarilo archivovať." }, { status: 500 }); }
+}
+
+export async function PATCH(request: Request, { params }: Props) {
+  const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
+  const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
+  try {
+    const body = await request.json() as { action?: unknown };
+    if (body.action !== "restore") return Response.json({ error: "Nepodporovaná lifecycle akcia." }, { status: 400 });
+    const profile = await restoreManagedDirectoryProfile(id, user.email);
+    return profile ? Response.json({ profile }) : Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Profil sa nepodarilo obnoviť." }, { status: 400 }); }
 }

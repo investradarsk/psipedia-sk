@@ -50,7 +50,7 @@ const legacyDirectoryCategories = [
 
 export const allDirectoryCategories = [...directoryCategories, ...legacyDirectoryCategories] as const;
 export type DirectoryCategorySlug = (typeof allDirectoryCategories)[number]["slug"];
-export type DirectoryProfileStatus = "draft" | "published";
+export type DirectoryProfileStatus = "draft" | "published" | "archived";
 export type DirectoryInquiryStatus = "new" | "read" | "resolved";
 export type DirectoryProfileChangeRequestStatus = "new" | "approved" | "rejected";
 
@@ -151,6 +151,7 @@ export type ManagedDirectoryProfile = PublicDirectoryProfile & {
   imageKey: string | null;
   createdAt: string;
   publishedAt: string | null;
+  archivedAt: string | null;
   createdBy: string;
   updatedBy: string;
 };

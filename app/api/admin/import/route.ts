@@ -4,6 +4,7 @@ import { isDirectoryCategory } from "@/lib/directory";
 import { buildGeneralImportPlan } from "@/lib/admin-import-plan";
 import { normalizeDirectoryRegion, normalizeDirectorySearchText } from "@/lib/directory-store";
 import { importFciBreeds, previewFciBreedImport } from "@/lib/breed-import";
+import { ensureReviewableResourceAnchors } from "@/lib/canonical-resource";
 
 export const dynamic = "force-dynamic";
 
@@ -281,6 +282,7 @@ export async function POST(request: Request) {
     }
 
     await runBatches(database, statements);
+    if (profiles.length > 0) await ensureReviewableResourceAnchors(database);
     return Response.json({
       success: true,
       imported: { articles: articles.length, profiles: profiles.length, events: events.length, help: helpItems.length, inquiries: inquiries.length, legal: legal ? 1 : 0 },

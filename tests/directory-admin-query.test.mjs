@@ -72,7 +72,7 @@ test("all profiles are counted independently of the 50-row page", async () => {
   assert.equal(result.resultCount, 129);
   assert.equal(result.items.length, DIRECTORY_ADMIN_PAGE_SIZE);
   assert.equal(result.pages, 3);
-  assert.deepEqual({ ...result.counts }, { total: 129, published: 67, draft: 62 });
+  assert.deepEqual({ ...result.counts }, { total: 129, published: 67, draft: 62, archived: 0 });
   assert.ok(result.options.regions.includes("Nitriansky kraj"));
   assert.ok(result.options.districts.includes("Žilina"));
   assert.ok(result.options.cities.includes("Bratislava"));
@@ -120,7 +120,8 @@ test("URL parsing normalizes filters safely", () => {
     parseDirectoryAdminFilters(new URLSearchParams("category=veterinari&status=draft&q=%20klinika%20&region=Nitriansky+kraj&district=Nitra&city=Nitra&verification=verified&media=with-image&page=2"), isCategory),
     filters({ category: "veterinari", status: "draft", q: "klinika", region: "Nitriansky kraj", district: "Nitra", city: "Nitra", verification: "verified", media: "with-image", page: 2 }),
   );
-  assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("category=bogus&status=archived&verification=maybe&media=broken&page=-3"), isCategory), filters());
+  assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("category=bogus&status=bogus&verification=maybe&media=broken&page=-3"), isCategory), filters());
+  assert.equal(parseDirectoryAdminFilters(new URLSearchParams("status=archived"), isCategory).status, "archived");
   assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("page=2oops"), isCategory), filters());
 });
 

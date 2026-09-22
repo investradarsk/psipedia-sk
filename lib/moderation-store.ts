@@ -12,7 +12,7 @@ import {
 } from "@/lib/moderation-transition";
 import { safeAuditJson } from "@/lib/submission-security";
 
-export const FOUNDATION_RESOURCE_TYPES = ["LOST_FOUND_CASE", "ADOPTION_DOG", "ORGANIZATION_CHANGE"] as const;
+export const FOUNDATION_RESOURCE_TYPES = ["LOST_FOUND_CASE", "ADOPTION_DOG", "ORGANIZATION_CHANGE", "PROFILE_REVIEW"] as const;
 export type FoundationResourceType = (typeof FOUNDATION_RESOURCE_TYPES)[number];
 export {
   FOUNDATION_SUBMISSION_STATUSES,

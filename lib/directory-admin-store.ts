@@ -25,7 +25,7 @@ type DirectoryAdminRow = {
 
 export type ManagedDirectoryAdminPage = {
   profiles: ManagedDirectoryProfileSummary[];
-  counts: { total: number; published: number; draft: number };
+  counts: { total: number; published: number; draft: number; archived: number };
   resultCount: number;
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
   options: { regions: string[]; districts: string[]; cities: string[] };
@@ -54,7 +54,7 @@ function rowToSummary(row: DirectoryAdminRow): ManagedDirectoryProfileSummary {
     slug: row.slug,
     name: row.name,
     category: isDirectoryCategory(row.category) ? row.category : "dalsie-sluzby",
-    status: row.status === "published" ? "published" : "draft",
+    status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
     services: safeServices(row.services_json),
     city: row.city,
     district: row.district,
