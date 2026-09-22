@@ -55,13 +55,13 @@ export function AdminDirectoryDashboard({ data, filters }: {
     try {
       const response = await fetch(`/api/admin/directory/${profile.id}`, { method: "DELETE" });
       const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error || "Profil sa nepodarilo odstrániť.");
-      setMessage("Profil bol odstránený.");
+      if (!response.ok) throw new Error(result.error || "Profil sa nepodarilo archivovať.");
+      setMessage("Profil bol archivovaný.");
       setDeleteTarget(null);
       bulkSelection.clear();
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Profil sa nepodarilo odstrániť.");
+      setMessage(error instanceof Error ? error.message : "Profil sa nepodarilo archivovať.");
     } finally {
       setDeletingId(null);
     }
@@ -73,6 +73,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
         <div><span>Všetky profily</span><strong>{counts.total}</strong></div>
         <div><span>Publikované</span><strong>{counts.published}</strong></div>
         <div><span>Koncepty</span><strong>{counts.draft}</strong></div>
+        <div><span>Archivované</span><strong>{counts.archived}</strong></div>
       </section>
 
       <section className="admin-panel">
@@ -83,7 +84,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
             <input name="q" defaultValue={filters.q} maxLength={100} placeholder="Názov, mesto, okres alebo služba" />
           </label>
           <label className="admin-select-filter"><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="">Všetky kategórie</option>{allDirectoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}</select></label>
-          <label className="admin-select-filter"><span>Stav publikácie</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
+          <label className="admin-select-filter"><span>Stav publikácie</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option><option value="archived">Archivované</option></select></label>
           <label className="admin-select-filter"><span>Kraj</span><select name="region" defaultValue={filters.region}><option value="">Všetky kraje</option>{options.regions.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
           <label className="admin-select-filter"><span>Okres</span><select name="district" defaultValue={filters.district}><option value="">Všetky okresy</option>{options.districts.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
           <label className="admin-select-filter"><span>Mesto</span><select name="city" defaultValue={filters.city}><option value="">Všetky mestá</option>{options.cities.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
@@ -133,7 +134,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
                     <div className={`admin-directory-thumb ${styles.thumb}`}>{profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
                     <div className={`admin-article-main ${styles.main}`}>
                       <div className="admin-article-tags">
-                        <span className={`admin-status admin-status--${profile.status}`}>{profile.status === "published" ? "Publikované" : "Koncept"}</span>
+                        <span className={`admin-status admin-status--${profile.status}`}>{profile.status === "published" ? "Publikované" : profile.status === "archived" ? "Archivované" : "Koncept"}</span>
                         <span>{category?.label ?? profile.category}</span>
                         <span>{profile.verified ? "Overené" : "Neoverené"}</span>
                         <span>{profile.imageUrl ? "Obrázok ✓" : "Bez obrázka"}</span>
@@ -146,7 +147,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
                     <div className={`admin-row-actions ${styles.actions}`}>
                       {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank">Pozrieť ↗</Link>}
                       <Link className="admin-row-edit" href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
-                      <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Odstrániť</button>
+                      {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
                     </div>
                   </article>
                 );
@@ -159,11 +160,11 @@ export function AdminDirectoryDashboard({ data, filters }: {
 
       <AdminDestructiveConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Odstrániť profil?"
-        description={deleteTarget ? `Profil „${deleteTarget.name}“ sa natrvalo odstráni. Prijaté dopyty zostanú zachované.` : undefined}
+        title="Archivovať profil?"
+        description={deleteTarget ? `Profil „${deleteTarget.name}“ prestane byť verejný a nebude sa dať upravovať, kým ho znovu neobnovíš do konceptu. Historické dáta a canonical resource zostanú zachované.` : undefined}
         affectedCount={deleteTarget ? 1 : 0}
         affectedLabel="profil"
-        confirmLabel="Natrvalo odstrániť profil"
+        confirmLabel="Archivovať profil"
         pending={deletingId !== null}
         onCancel={() => { if (deletingId === null) setDeleteTarget(null); }}
         onConfirm={() => { if (deleteTarget) void removeProfile(deleteTarget); }}
