@@ -163,7 +163,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
     LEFT JOIN help_organizations o ON o.id=r.help_organization_id
     WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION')
-      AND s.operation='UPDATE' AND s.submitter_type='PARTNER_ACCOUNT'
+      AND s.submitter_type='PARTNER_ACCOUNT'
     ORDER BY
       CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 0 ELSE 1 END,
       CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN s.created_at END ASC,
@@ -268,7 +268,7 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
     ["ADOPTION_STALE",`SELECT COUNT(*) count FROM adoption_dogs WHERE status IN ('ACTIVE','RESERVED') AND (last_verified_at IS NULL OR last_verified_at<?)`,[staleThreshold]],
     ["AUTOMATION_FINDING",`SELECT COUNT(*) count FROM automation_findings WHERE review_status IN ('NEW','IN_REVIEW')`,[]],
     ["PARTNER_CLAIM_REVIEW",`SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'`,[]],
-    ["PARTNER_PROFILE_CHANGE_REVIEW",`SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION') AND s.operation='UPDATE' AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],
+    ["PARTNER_PROFILE_CHANGE_REVIEW",`SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION') AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],
     ["PARTNER_VERIFICATION_REVIEW",`SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'`,[]],
     ["PARTNER_COMMERCIAL_LEAD",`SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'`,[]],
   ] as const;
