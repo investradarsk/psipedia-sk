@@ -1,0 +1,132 @@
+name: Partner auth security and UX
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/partner/**"
+      - "app/api/partner/**"
+      - "components/partner-*"
+      - "components/cookie-consent.tsx"
+      - "components/programmatic-ad-loader.tsx"
+      - "db/partner-schema.ts"
+      - "db/index.ts"
+      - "drizzle/0059_partner_auth_foundation.sql"
+      - "lib/partner-*"
+      - "lib/pii-crypto.ts"
+      - "lib/rate-limit.ts"
+      - "lib/resource-access.ts"
+      - "lib/resource-access-store.ts"
+      - "lib/turnstile.ts"
+      - "worker/index.ts"
+      - "tests/partner-auth-foundation.test.mjs"
+      - "tests/e2e/partner-auth.spec.ts"
+      - "tests/fixtures/partner-auth-e2e.sql"
+      - "package.json"
+      - ".github/workflows/partner-auth-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: partner-auth-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Partner auth — security, types, lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Migration safety
+        run: npm run db:check-migrations
+      - name: Partner auth security tests
+        run: npm run test:partner-auth
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  partner-e2e:
+    name: Partner auth — desktop/mobile accessibility and overflow
+    needs: security
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Apply migrations to isolated local D1
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Configure CI-only local PII keys for Partner E2E
+        run: |
+          PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
+          PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
+          printf 'PII_ENCRYPTION_KEY=%s\nPII_HASH_KEY=%s\n' "$PII_ENCRYPTION_KEY" "$PII_HASH_KEY" > .dev.vars
+      - name: Seed disposable Partner auth fixtures
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/partner-auth-e2e.sql
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/partner-auth
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/partner-auth/server.log 2>&1 &
+          echo $! > .e2e-artifacts/partner-auth/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/partner/prihlasenie >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/partner-auth/server.log
+            exit 1
+          fi
+      - name: Partner Playwright — desktop
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/partner-auth.spec.ts --project=desktop-chromium
+      - name: Partner Playwright — mobile
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npm run e2e -- tests/e2e/partner-auth.spec.ts --project=mobile-chromium
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/partner-auth/server.pid ]; then
+            kill "$(cat .e2e-artifacts/partner-auth/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: partner-auth-e2e-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/partner-auth/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14

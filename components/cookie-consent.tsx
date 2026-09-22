@@ -105,6 +105,7 @@ function disableAnalytics() {
 export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabled?: boolean }) {
   const pathname = usePathname();
   const isAdminRoute = pathname.startsWith("/admin");
+  const isPartnerRoute = pathname.startsWith("/partner");
   const [ready, setReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [savedChoice, setSavedChoice] = useState<ConsentChoice | null>(null);
@@ -129,10 +130,10 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   }, [openSettings]);
 
   useEffect(() => {
-    if ((savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute) {
+    if ((savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute && !isPartnerRoute) {
       void sendPageView(pathname);
     }
-  }, [isAdminRoute, pathname, savedChoice]);
+  }, [isAdminRoute, isPartnerRoute, pathname, savedChoice]);
 
   function saveChoice(choice: ConsentChoice) {
     const revokingAdvertising = savedChoice === "advertising" && choice !== "advertising";
@@ -144,6 +145,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     if (revokingAdvertising) window.location.reload();
   }
 
+  if (isPartnerRoute) return null;
   if (isAdminRoute || !ready || !isOpen) return null;
 
   return (
