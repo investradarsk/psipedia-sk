@@ -79,3 +79,5 @@ Recommended order:
 8. only then design/approve a separately gated backfill.
 
 MAP-1B does not add `/mapa` and does not add a public map API.
+
+The runtime is also safe when application code deploys before migration `0063`: canonical directory/event/organization pages continue to work, Attention treats the missing geo source as zero, and geo admin surfaces report that the schema is not ready instead of assuming the table exists.
