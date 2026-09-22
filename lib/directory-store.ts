@@ -19,6 +19,7 @@ import { editableDirectoryProfileData, specializedChangeRequestFields } from "@/
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { mergeDirectoryPublicContactData } from "@/lib/directory-profile-metadata";
+import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 
 export type ManagedDirectoryProfileInput = {
   slug?: string;
@@ -130,6 +131,7 @@ type DirectoryProfileRow = {
   created_at: string;
   updated_at: string;
   published_at: string | null;
+  archived_at: string | null;
   created_by: string;
   updated_by: string;
   seo_json: string;
@@ -194,6 +196,7 @@ type DirectoryProfileCountRow = {
   total: number;
   published: number;
   draft: number;
+  archived: number;
 };
 
 export type DirectorySort = "recommended" | "name-asc" | "name-desc" | "newest";
@@ -338,7 +341,7 @@ const DIRECTORY_PROFILE_COLUMNS = `
   id, slug, name, category, status, excerpt, description, services_json, qualifications_json,
   city, district, region, address, online, price_note, website_url, internal_email, image_url,
   image_key, import_key, source_data_json, search_text, verified, featured, seo_json,
-  created_at, updated_at, published_at, created_by, updated_by
+  created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
 const DIRECTORY_CARD_COLUMNS = `
@@ -346,7 +349,7 @@ const DIRECTORY_CARD_COLUMNS = `
   '[]' AS qualifications_json, city, district, region, '' AS address, online,
   price_note, website_url, NULL AS internal_email, image_url, NULL AS image_key,
   import_key, '{}' AS source_data_json, search_text, verified, featured, '{}' AS seo_json,
-  created_at, updated_at, published_at, created_by, updated_by
+  created_at, updated_at, published_at, NULL AS archived_at, created_by, updated_by
 `;
 
 const DIRECTORY_SOURCE_FACETS = {
@@ -413,11 +416,12 @@ function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile 
     ...rowToPublicProfile(row),
     services: safeList(row.services_json),
     qualifications: safeList(row.qualifications_json),
-    status: row.status === "published" ? "published" : "draft",
+    status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
     internalEmail: row.internal_email,
     imageKey: row.image_key,
     createdAt: row.created_at,
     publishedAt: row.published_at,
+    archivedAt: row.archived_at,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
   };
@@ -429,7 +433,7 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDir
     slug: row.slug,
     name: row.name,
     category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
-    status: row.status === "published" ? "published" : "draft",
+    status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
     services: safeList(row.services_json),
     city: row.city,
     district: row.district,
@@ -840,7 +844,8 @@ export async function listManagedDirectoryProfileSummaries(options: {
     SELECT
       COUNT(*) AS total,
       COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
-      COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
+      COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft,
+      COALESCE(SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END), 0) AS archived
     FROM directory_profiles
     ${where}
   `).bind(...(category ? [category] : []));
@@ -890,6 +895,7 @@ export async function createManagedDirectoryProfile(payload: ManagedDirectoryPro
     now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
+  await ensureResourceForDirectoryProfile(row.id, database, new Date(now));
   return rowToManagedProfile(row);
 }
 
@@ -898,6 +904,7 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
   await ensureDirectoryStore(database);
   const existing = existingProfile ?? await getManagedDirectoryProfileById(id);
   if (!existing) return null;
+  if (existing.status === "archived") throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
   const input = normalizeProfileInput(payload, existing.importData);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
@@ -917,11 +924,40 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
   return row ? rowToManagedProfile(row) : null;
 }
 
-export async function deleteManagedDirectoryProfile(id: number) {
+export async function archiveManagedDirectoryProfile(id: number, editorEmail: string, now = new Date()) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const row = await database.prepare(`DELETE FROM directory_profiles WHERE id = ? RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(id).first<DirectoryProfileRow>();
-  return row ? rowToManagedProfile(row) : null;
+  const existing = await getManagedDirectoryProfileById(id);
+  if (!existing) return null;
+  if (existing.status === "archived") return existing;
+  await ensureResourceForDirectoryProfile(id, database, now);
+  const timestamp = now.toISOString();
+  const row = await database.prepare(`
+    UPDATE directory_profiles
+    SET status='archived', published_at=NULL, archived_at=?, updated_at=?, updated_by=?
+    WHERE id=? AND status IN ('draft','published')
+    RETURNING ${DIRECTORY_PROFILE_COLUMNS}
+  `).bind(timestamp, timestamp, editorEmail, id).first<DirectoryProfileRow>();
+  if (!row) throw new Error("Profil sa nepodarilo archivovať.");
+  return rowToManagedProfile(row);
+}
+
+export async function restoreManagedDirectoryProfile(id: number, editorEmail: string, now = new Date()) {
+  const database = requireD1Binding();
+  await ensureDirectoryStore(database);
+  const existing = await getManagedDirectoryProfileById(id);
+  if (!existing) return null;
+  if (existing.status !== "archived") throw new Error("Obnoviť možno iba archivovaný profil.");
+  await ensureResourceForDirectoryProfile(id, database, now);
+  const timestamp = now.toISOString();
+  const row = await database.prepare(`
+    UPDATE directory_profiles
+    SET status='draft', published_at=NULL, archived_at=NULL, updated_at=?, updated_by=?
+    WHERE id=? AND status='archived'
+    RETURNING ${DIRECTORY_PROFILE_COLUMNS}
+  `).bind(timestamp, editorEmail, id).first<DirectoryProfileRow>();
+  if (!row) throw new Error("Profil sa nepodarilo obnoviť.");
+  return rowToManagedProfile(row);
 }
 
 export function isDirectoryProfileConflict(error: unknown) {
