@@ -9,6 +9,7 @@ import {
   mapDirectoryInquiryAttention,
   mapModerationAttention,
   mapNewsTipAttention,
+  mapPartnerCommercialAttention,
   sortAdminAttentionItems,
   type AdoptionStaleAttentionRow,
   type AutomationFindingAttentionRow,
@@ -17,6 +18,7 @@ import {
   type DirectoryInquiryAttentionRow,
   type ModerationAttentionRow,
   type NewsTipAttentionRow,
+  type PartnerCommercialAttentionRow,
 } from "./admin-attention-queue.ts";
 
 export type AdminAttentionD1Database = Pick<D1Database, "prepare">;
@@ -120,6 +122,22 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(staleThreshold, ADMIN_ATTENTION_SOURCE_LIMIT).all<AdoptionStaleAttentionRow>();
 
+  const commercialPromise = db.prepare(`
+    SELECT c.id,c.interest_type AS interestType,c.status,c.created_at AS createdAt,c.updated_at AS updatedAt,
+      COALESCE(d.name,o.name,e.title) AS resourceName
+    FROM partner_commercial_interests c
+    LEFT JOIN partner_resources r ON r.id=c.resource_id
+    LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
+    LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+    LEFT JOIN managed_events e ON e.id=r.managed_event_id
+    ORDER BY
+      CASE WHEN c.status='NEW' THEN 0 ELSE 1 END,
+      CASE WHEN c.status='NEW' THEN c.created_at END ASC,
+      CASE WHEN c.status<>'NEW' THEN c.updated_at END DESC,
+      c.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerCommercialAttentionRow>();
+
   const automationPromise = db.prepare(`
     SELECT f.id, f.entity_type AS entityType, f.finding_type AS findingType, f.priority,
       f.review_status AS reviewStatus, s.label AS sourceLabel, f.source_url AS sourceUrl,
@@ -135,13 +153,14 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
 
-  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, automation] = await Promise.all([
+  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, commercial, automation] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
     safeSourceResults("news_tips", newsTipsPromise),
     safeSourceResults("directory_change_requests", changeRequestsPromise),
     safeSourceResults("directory_inquiries", inquiriesPromise),
     safeSourceResults("article_feedback", feedbackPromise),
     safeSourceResults("adoption_stale", adoptionsPromise),
+    safeSourceResults("partner_commercial_interests", commercialPromise),
     safeSourceResults("automation_findings", automationPromise),
   ]);
 
@@ -152,6 +171,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...inquiries.map((row) => mapDirectoryInquiryAttention(row, now)),
     ...feedback.map((row) => mapArticleFeedbackAttention(row, now)),
     ...adoptions.map((row) => mapAdoptionStaleAttention(row, now)),
+    ...commercial.map((row) => mapPartnerCommercialAttention(row, now)),
     ...automation.map((row) => mapAutomationFindingAttention(row, now)),
   ]);
 }
@@ -167,6 +187,7 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
     ["ARTICLE_FEEDBACK",`SELECT COUNT(*) count FROM article_feedback WHERE helpful=0 AND status IN ('new','reviewing')`,[]],
     ["ADOPTION_STALE",`SELECT COUNT(*) count FROM adoption_dogs WHERE status IN ('ACTIVE','RESERVED') AND (last_verified_at IS NULL OR last_verified_at<?)`,[staleThreshold]],
     ["AUTOMATION_FINDING",`SELECT COUNT(*) count FROM automation_findings WHERE review_status IN ('NEW','IN_REVIEW')`,[]],
+    ["PARTNER_COMMERCIAL_LEAD",`SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'`,[]],
   ] as const;
   const counts=await Promise.all(queries.map(async([source,sql,bindings])=>{
     try{const row=await db.prepare(sql).bind(...bindings).first<{count:number}>();return [source,Number(row?.count??0)] as const;}catch{return [source,0] as const;}
