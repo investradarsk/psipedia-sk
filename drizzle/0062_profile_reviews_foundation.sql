@@ -32,6 +32,18 @@ WHERE NOT EXISTS (
 );
 -- REVIEWABLE_RESOURCE_BACKFILL_END
 
+CREATE TABLE `_reviews_resource_backfill_guard` (
+  `missing_count` integer NOT NULL CHECK (`missing_count` = 0)
+);
+INSERT INTO `_reviews_resource_backfill_guard` (`missing_count`)
+SELECT
+  (SELECT COUNT(*) FROM `directory_profiles` d
+    WHERE NOT EXISTS (SELECT 1 FROM `partner_resources` r WHERE r.directory_profile_id=d.id))
+  +
+  (SELECT COUNT(*) FROM `help_organizations` o
+    WHERE NOT EXISTS (SELECT 1 FROM `partner_resources` r WHERE r.help_organization_id=o.id));
+DROP TABLE `_reviews_resource_backfill_guard`;
+
 CREATE TABLE `review_authors` (
   `id` text PRIMARY KEY NOT NULL,
   `email_ciphertext` text NOT NULL,
