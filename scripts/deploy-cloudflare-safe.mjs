@@ -11,11 +11,6 @@ export const DEPLOYMENT_STEPS = Object.freeze({
   configCheck: Object.freeze({ id: "config-check", command: npm, args: ["run", "config:check"] }),
   build: Object.freeze({ id: "build", command: npm, args: ["run", "build"] }),
   artifactValidation: Object.freeze({ id: "artifact-validation", command: npm, args: ["run", "validate:artifact"] }),
-  remoteMigration: Object.freeze({
-    id: "remote-migration",
-    command: process.execPath,
-    args: ["scripts/apply-remote-d1-migrations.mjs"],
-  }),
   remoteAudit: Object.freeze({
     id: "remote-audit",
     command: npm,
@@ -54,15 +49,14 @@ export async function runSafeCloudflareDeployment({
   // Do not run remote D1 migrations from Workers Builds. Cloudflare's
   // auto-generated Workers Builds token does not include D1 edit permissions,
   // so schema migration attempts here fail the whole production deployment.
-  // Database/schema releases remain on the explicit manual production path
-  // below, where a token with D1 permissions can run migrations before deploy.
+  // Schema changes are handled by the separate manual production migration workflow.
   if (workersBuildPreparedArtifact) {
     console.log("[deploy] Workers Builds detected; deploying prepared artifact without remote D1 mutation");
     await runCommand(DEPLOYMENT_STEPS.deploy, { env });
     return Object.freeze({ fingerprint: env.WORKERS_CI_COMMIT_SHA || "workers-build-managed" });
   }
 
-  // Phase A — prepare exactly one deploy artifact before any remote mutation.
+  // Phase A — prepare exactly one deploy artifact before any remote check.
   //
   // Cloudflare Workers Builds already runs the configured build command before
   // invoking the deploy command. Rebuilding here would create a second
@@ -75,11 +69,11 @@ export async function runSafeCloudflareDeployment({
   const prepared = await validateArtifact({ phase: "before-remote" });
   console.log(`[deploy] prepared artifact sha256=${prepared.fingerprint}`);
 
-  // Phase B — remote DB gate for explicit/manual production deploys.
-  await runCommand(DEPLOYMENT_STEPS.remoteMigration, { env });
+  // Phase B — read-only remote gate. Production schema mutations are intentionally
+  // handled by the separate manually-triggered Production D1 Migrate workflow.
   await runCommand(DEPLOYMENT_STEPS.remoteAudit, { env });
 
-  // Revalidate identity after remote operations. This does not rebuild anything.
+  // Revalidate identity after remote checks. This does not rebuild anything.
   const beforeDeploy = await validateArtifact({ phase: "before-deploy" });
   if (beforeDeploy.fingerprint !== prepared.fingerprint) {
     throw new Error(
@@ -90,7 +84,7 @@ export async function runSafeCloudflareDeployment({
 
   // Phase C — deploy exactly the artifact prepared above. Generated config validation
   // rejects build.command and --no-bundle prevents Wrangler from compiling a new
-  // Worker bundle after the remote DB gate.
+  // Worker bundle after the remote read-only gate.
   await runCommand(DEPLOYMENT_STEPS.deploy, { env });
 
   return Object.freeze({ fingerprint: prepared.fingerprint });
