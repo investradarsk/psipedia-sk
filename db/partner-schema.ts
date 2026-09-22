@@ -41,6 +41,8 @@ export const partnerNotificationOutbox = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
+    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED')`),
+    check("partner_notification_outbox_status_check", sql`${table.status} IN ('PENDING','SENDING','SENT','FAILED','EXPIRED')`),
     uniqueIndex("partner_notification_outbox_dedupe_unique").on(table.dedupeKey),
     index("partner_notification_outbox_status_expiry_idx").on(table.status, table.expiresAt, table.updatedAt),
     index("partner_notification_outbox_account_created_idx").on(table.partnerAccountId, table.createdAt),
