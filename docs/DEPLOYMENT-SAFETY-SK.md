@@ -28,6 +28,19 @@ npm run deploy:cloudflare
 
 Ten teraz orchestruje tri fail-closed fázy.
 
+### Cloudflare Workers Builds
+
+Workers Builds má vlastný dvojkrokový lifecycle: najprv spustí **Build command** a až potom
+**Deploy command**. Premenná `WORKERS_CI=1` je v tomto prostredí nastavená automaticky.
+
+Keď je `deploy:cloudflare` spustený ako Deploy command vo Workers Builds, nesmie znovu
+vytvárať application build. Použije už pripravený `dist/` z predchádzajúcej build fázy,
+znovu ho validuje a fingerprintuje a až potom pokračuje remote migration gate, auditom a
+nasadením toho istého artefaktu.
+
+Pri manuálnom/lokálnom produkčnom deployi sa správanie nemení: fresh build sa stále vytvorí
+priamo v `deploy:cloudflare`.
+
 ### Phase A — lokálna príprava artefaktu
 
 1. `npm run config:check`
