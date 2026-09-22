@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminEventEditor } from "@/components/admin-event-editor";
+import { AdminGeoLocation } from "@/components/admin-geo-location";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedEventById } from "@/lib/event-store";
@@ -14,5 +15,5 @@ export default async function EditEventPage({ params }: Props) {
   const user = await requireAdminPageUser(`/admin/podujatia/${id}`);
   const event = await getManagedEventById(numericId);
   if (!event) notFound();
-  return <AdminShell user={user} eyebrow={event.status === "published" ? "Publikované podujatie" : "Rozpracovaný koncept"} title="Upraviť podujatie" description="Zmeny ulož ako koncept alebo ich rovno publikuj v kalendári."><AdminEventEditor event={event} /></AdminShell>;
+  return <AdminShell user={user} eyebrow={event.status === "published" ? "Publikované podujatie" : "Rozpracovaný koncept"} title="Upraviť podujatie" description="Zmeny ulož ako koncept alebo ich rovno publikuj v kalendári."><AdminEventEditor event={event} /><AdminGeoLocation targetType="MANAGED_EVENT" targetId={event.id} /></AdminShell>;
 }

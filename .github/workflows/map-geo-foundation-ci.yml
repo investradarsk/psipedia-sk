@@ -1,0 +1,119 @@
+name: MAP-1B Geo Foundation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "db/geo-schema.ts"
+      - "db/index.ts"
+      - "drizzle/0063_geo_foundation.sql"
+      - "lib/geo*.ts"
+      - "app/admin/operations/geo/**"
+      - "app/admin/operations/page.tsx"
+      - "app/admin/adresar/[id]/page.tsx"
+      - "app/admin/podujatia/[id]/page.tsx"
+      - "app/api/admin/geo/**"
+      - "app/api/admin/directory/[id]/route.ts"
+      - "app/api/admin/events/[id]/route.ts"
+      - "app/api/admin/organizations/[id]/locations/[locationId]/route.ts"
+      - "components/admin-geo-*"
+      - "components/admin-organization-locations.tsx"
+      - "lib/admin-attention-queue*"
+      - "scripts/geo-production-inventory.sql"
+      - "scripts/validate-clean-d1.mjs"
+      - "tests/geo-foundation.test.mjs"
+      - "tests/admin-attention-queue.test.mjs"
+      - "tests/e2e/admin-geo-foundation.spec.ts"
+      - "docs/geo-foundation.md"
+      - "package.json"
+      - ".github/workflows/map-geo-foundation-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  geo-foundation:
+    name: Geo schema, privacy, build and admin E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Migration safety
+        run: npm run test:migration-safety
+      - name: MAP-1B focused unit and Attention tests
+        run: |
+          npm run test:geo-foundation
+          node --experimental-strip-types --test tests/admin-attention-queue.test.mjs
+      - name: Clean D1 migration/schema validation
+        run: npm run db:validate-clean
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Configure CI-only local security keys
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          EOF
+      - name: Apply non-adoption migrations to isolated local D1
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed directory admin fixture into isolated local D1
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/map-1b
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/map-1b/server.log 2>&1 &
+          echo $! > .e2e-artifacts/map-1b/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/admin >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/map-1b/server.log
+            exit 1
+          fi
+      - name: MAP-1B admin Playwright — desktop and mobile
+        run: npx playwright test tests/e2e/admin-geo-foundation.spec.ts --workers=1 --retries=0
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/map-1b/server.pid ]; then
+            kill "$(cat .e2e-artifacts/map-1b/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-1b-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/map-1b/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: warn
+          retention-days: 14
