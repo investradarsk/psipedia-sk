@@ -9,6 +9,8 @@ import {
 } from "@/lib/help-organization-store";
 import { buildOrganizationJsonLd, buildOrganizationMetadata } from "@/lib/organization-seo";
 import { serializeJsonLd } from "@/lib/seo";
+import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
+import { isPublicPartnerResourceVerified } from "@/lib/partner-claims";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,7 @@ export default async function OrganizationProfilePage({ params }: Props) {
   if (!composition) notFound();
 
   const jsonLd = buildOrganizationJsonLd(composition.organization);
+  const partnerVerified = await isPublicPartnerResourceVerified("HELP_ORGANIZATION", composition.organization.id, requireDatabase());
 
   return (
     <>
@@ -46,6 +49,7 @@ export default async function OrganizationProfilePage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <OrganizationProfileDetail composition={composition} />
+      <PartnerPublicOwnership verified={partnerVerified} claimHref={`/partner/prevziat-profil?type=HELP_ORGANIZATION&id=${composition.organization.id}`} />
     </>
   );
 }
