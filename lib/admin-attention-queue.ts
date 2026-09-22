@@ -1,5 +1,5 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
-import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention";
+import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
 export const ADMIN_ATTENTION_QUERY_COUNT = 8;
