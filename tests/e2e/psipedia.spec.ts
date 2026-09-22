@@ -277,7 +277,11 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     const heights = await ordinaryArticles.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
     expect(heights.every((height) => height < 220), `Homepage secondary article rows are oversized: ${JSON.stringify(heights)}`).toBe(true);
   }
-  await expect(page.locator(".article-card--large .article-card-meta")).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
+  const leadArticleMeta = page.locator(".article-card--large .article-card-meta");
+  await expect(leadArticleMeta).toHaveCount(sharedHomepageArticleLayouts.length);
+  for (let index = 0; index < sharedHomepageArticleLayouts.length; index += 1) {
+    await expect(leadArticleMeta.nth(index)).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
+  }
   const breedSection = page.locator(".home-breed-day-section");
   await expect(breedSection).toBeVisible();
   await expect(breedSection.locator("h3")).not.toHaveText("");
