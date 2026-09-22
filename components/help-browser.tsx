@@ -80,7 +80,7 @@ export function HelpBrowser({
       <div className={styles.resultsBand}>
         <div className={[styles.shell, styles.results].join(" ")}>
           <div className={styles.resultHeading}>
-            <div><h2 id="help-results-heading">{initialCategory === "all" ? "Aktuálne prípady a organizácie" : "Výsledky"}</h2><p>Výsledky zodpovedajú aktuálne zvoleným filtrom.</p></div>
+            <div><h2 id="help-results-heading">{initialCategory === "all" ? "Aktuálne prípady a organizácie" : "Výsledky"}</h2><p>{initialCategory === "all" ? "Tento prehľad zahŕňa prípady a organizácie. Psy na adopciu nájdete v samostatnom prehľade adopcií." : "Výsledky zodpovedajú aktuálne zvoleným filtrom."}</p></div>
             <strong className={styles.resultCount}>{filtered.length} {filtered.length === 1 ? "záznam" : filtered.length > 1 && filtered.length < 5 ? "záznamy" : "záznamov"}</strong>
           </div>
 

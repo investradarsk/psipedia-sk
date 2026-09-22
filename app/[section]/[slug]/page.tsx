@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
 import { NewsHub } from "@/components/news-hub";
 import { EventDetail } from "@/components/event-detail";
@@ -18,6 +18,7 @@ import { buildPageMetadata } from "@/lib/seo";
 import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, eventSeoFallback, resolvedCanonical } from "@/lib/content-seo";
 import { absoluteUrl, SITE_URL } from "@/lib/seo";
+import { legacyArticleRedirectPath } from "@/lib/legacy-public-redirects";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PortalContentPage({ params, searchParams }: Props) {
   const { section, slug } = await params;
+  const legacyRedirect = legacyArticleRedirectPath(slug);
+  if (legacyRedirect) permanentRedirect(legacyRedirect);
   if (section === "recenzie" && slug === "vybava") redirect("/recenzie/postroje-a-vodidla");
   const managedSection = await getManagedPortalSection(section);
   if (!managedSection?.visible) notFound();

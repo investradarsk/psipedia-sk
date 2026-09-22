@@ -1,4 +1,5 @@
 import type { AdoptionD1Database } from "./adoption-store.ts";
+import { cleanPublicOrganizationCopy } from "./public-integrity.ts";
 import {
   listPublicAdoptionsByOrganizationId,
   type OrganizationPublicAdoption,
@@ -315,8 +316,8 @@ function toPublicOrganization(
     legalName: row.legal_name,
     registrationNumber: row.registration_number,
     type: row.type as PublicOrganizationType,
-    shortDescription: row.short_description,
-    description: row.description,
+    shortDescription: cleanPublicOrganizationCopy(row.short_description),
+    description: cleanPublicOrganizationCopy(row.description),
     publicEmail: row.public_email,
     publicPhone: row.public_phone,
     websiteUrl: row.website_url,
@@ -375,8 +376,8 @@ export async function listPublishedOrganizations(
     id: Number(row.id),
     name: row.name,
     slug: row.slug,
-    shortDescription: row.short_description,
-    description: row.description,
+    shortDescription: cleanPublicOrganizationCopy(row.short_description),
+    description: cleanPublicOrganizationCopy(row.description),
     city: row.city,
     region: row.region,
     imageUrl: row.image_url,

@@ -47,7 +47,7 @@ export const helpCategories = [
 ] as const;
 
 const legacyHelpCategories = [
-  { slug: "urgentne-pripady", label: "Urgentné prípady", singular: "Urgentný prípad", icon: "🚨", description: "Pôvodná kategória zachovaná pre existujúce prípady." },
+  { slug: "urgentne-pripady", label: "Urgentné prípady", singular: "Urgentný prípad", icon: "🚨", description: "Prípady, pri ktorých je potrebná rýchla pomoc a pozornosť." },
 ] as const;
 
 export const allHelpCategories = [...helpCategories, ...legacyHelpCategories] as const;

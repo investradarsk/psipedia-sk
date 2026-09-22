@@ -120,6 +120,25 @@ test("SECTION-PUBLIC preserves urgent health guidance and removes generic puppy 
   assert.doesNotMatch(section, /Krok za krokom|Čo urobiť teraz/);
 });
 
+test("SECTION-PUBLIC keeps puppies, care and activities on one shared visual contract", () => {
+  const section = read("components/editorial-section.tsx");
+  const css = read("components/editorial-section.module.css");
+  assert.match(section, /function sectionToneClass/);
+  assert.match(section, /function HubCallout/);
+  assert.match(section, /steniatka:/);
+  assert.match(section, /starostlivost:/);
+  assert.match(section, /aktivity:/);
+  assert.match(section, /sectionToneClass\(sectionSlug\)/);
+  assert.match(section, /data-section-topic-card/);
+  assert.match(section, /HorizontalCarouselControls/);
+  assert.match(css, /\.puppyTone/);
+  assert.match(css, /\.careTone/);
+  assert.match(css, /\.activityTone/);
+  assert.match(css, /--section-accent/);
+  assert.match(css, /\.calloutIcon/);
+  assert.match(css, /var\(--section-accent-soft\)/);
+});
+
 test("SECTION-PUBLIC navigation scopes mobile overflow to the navigation component", () => {
   const tabs = read("components/portal-section-tabs.tsx");
   const css = read("components/portal-section-tabs.module.css");

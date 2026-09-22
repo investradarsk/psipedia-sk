@@ -15,6 +15,7 @@ import {
 import { StructuredData } from "@/components/structured-data";
 import type { Article } from "@/lib/content";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
+import { formatSlovakCount } from "@/lib/slovak-count";
 import {
   articleHref,
   articlePortalSection,
@@ -34,6 +35,12 @@ function sectionIcon(slug: EditorialSectionSlug): ReactElement {
   if (slug === "starostlivost") return <HeartIcon size={30} />;
   if (slug === "aktivity") return <WhistleIcon size={30} />;
   return <PawMark size={30} />;
+}
+
+function sectionToneClass(slug: EditorialSectionSlug) {
+  if (slug === "starostlivost") return styles.careTone;
+  if (slug === "aktivity") return styles.activityTone;
+  return styles.puppyTone;
 }
 
 function topicImage(sectionSlug: EditorialSectionSlug, topicSlug: string, articles: Article[]) {
@@ -95,8 +102,8 @@ function SectionContentList({
   if (!articles.length) {
     return (
       <div className={styles.emptyState}>
-        <strong>Obsah dopĺňame</strong>
-        <p>Publikované články sa na tejto adrese zobrazia automaticky po redakčnom schválení.</p>
+        <strong>Ďalšie články pripravujeme</strong>
+        <p>Medzitým si môžete prezrieť ďalšie témy a praktické návody v tejto sekcii.</p>
       </div>
     );
   }
@@ -158,38 +165,58 @@ function SearchBox({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
 }
 
 function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
-  if (sectionSlug === "aktivity") {
-    return (
-      <section className={styles.callout} aria-labelledby="activity-fit-heading">
-        <PublicIcon icon={<WhistleIcon />} size="lg" />
-        <div>
-          <span className={styles.eyebrow}>Vyber rozumne</span>
-          <h2 id="activity-fit-heading">Dobrá aktivita sedí konkrétnemu psovi</h2>
-          <p>Zohľadni vek a zdravie, motiváciu psa, čas aj prostredie. Náročnosť pridávaj postupne.</p>
-        </div>
-        <PublicActionLink href="/aktivity/psie-sporty" variant="secondary" icon={<ArrowIcon />}>Porovnať možnosti</PublicActionLink>
-      </section>
-    );
-  }
+  const config = {
+    steniatka: {
+      icon: <PawMark />,
+      eyebrow: "Začni podľa situácie",
+      title: "Čakáš šteniatko alebo je už doma?",
+      description: "Vyber si správny začiatok a pokračuj podľa fázy, v ktorej sa práve nachádzaš.",
+      urgent: false,
+      actions: [
+        { href: "/steniatka/pred-kupou-psa", label: "Ešte sa rozhodujem", variant: "secondary" as const },
+        { href: "/steniatka/prve-dni", label: "Šteniatko je doma", variant: "primary" as const },
+      ],
+    },
+    starostlivost: {
+      icon: <HeartIcon />,
+      eyebrow: "Keď ide o čas",
+      title: "Má pes akútny problém?",
+      description: "Pri sťaženom dýchaní, kolapse, silnom krvácaní, nafúknutom tvrdom bruchu alebo podozrení na otravu nečakaj na odpoveď z internetu.",
+      urgent: true,
+      actions: [
+        { href: "/starostlivost/kedy-ist-so-psom-k-veterinarovi", label: "Kedy volať ihneď", variant: "secondary" as const },
+        { href: "/adresar/veterinari", label: "Nájsť veterinára", variant: "primary" as const },
+      ],
+    },
+    aktivity: {
+      icon: <WhistleIcon />,
+      eyebrow: "Vyber rozumne",
+      title: "Dobrá aktivita sedí konkrétnemu psovi",
+      description: "Zohľadni vek a zdravie, motiváciu psa, čas aj prostredie. Náročnosť pridávaj postupne.",
+      urgent: false,
+      actions: [
+        { href: "/aktivity/psie-sporty", label: "Porovnať možnosti", variant: "secondary" as const, icon: <ArrowIcon /> },
+      ],
+    },
+  }[sectionSlug];
 
-  if (sectionSlug === "steniatka") {
-    return (
-      <section className={styles.callout} aria-labelledby="puppy-start-heading">
-        <PublicIcon icon={<PawMark />} size="lg" />
-        <div>
-          <span className={styles.eyebrow}>Začni podľa situácie</span>
-          <h2 id="puppy-start-heading">Čakáš šteniatko alebo je už doma?</h2>
-          <p>Vyber si správny začiatok a pokračuj podľa fázy, v ktorej sa práve nachádzaš.</p>
-        </div>
-        <div className={styles.calloutActions}>
-          <PublicActionLink href="/steniatka/pred-kupou-psa" variant="secondary">Ešte sa rozhodujem</PublicActionLink>
-          <PublicActionLink href="/steniatka/prve-dni" variant="primary">Šteniatko je doma</PublicActionLink>
-        </div>
-      </section>
-    );
-  }
-
-  return <HealthUrgent />;
+  return (
+    <section className={`${styles.callout} ${config.urgent ? styles.calloutUrgent : ""}`} aria-labelledby={`${sectionSlug}-hub-callout`}>
+      <PublicIcon icon={config.icon} size="lg" className={styles.calloutIcon} />
+      <div className={styles.calloutCopy}>
+        <span className={styles.eyebrow}>{config.eyebrow}</span>
+        <h2 id={`${sectionSlug}-hub-callout`}>{config.title}</h2>
+        <p>{config.description}</p>
+      </div>
+      <div className={styles.calloutActions}>
+        {config.actions.map((action) => (
+          <PublicActionLink href={action.href} variant={action.variant} icon={"icon" in action ? action.icon : undefined} key={action.href}>
+            {action.label}
+          </PublicActionLink>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function nextSteps(sectionSlug: EditorialSectionSlug) {
@@ -250,7 +277,7 @@ export function EditorialSectionHub({
   });
 
   return (
-    <PublicFoundation className={styles.foundation}>
+    <PublicFoundation className={`${styles.foundation} ${sectionToneClass(sectionSlug)}`}>
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
         <PageContainer className={styles.headerShell} data-section-public-header>
@@ -309,7 +336,7 @@ export function EditorialSectionHub({
                       ) : null}
                       <strong className={styles.topicCardTitle}>{subpage.label}</strong>
                       <span className={styles.topicCardDescription}>{subpage.description}</span>
-                      <span className={styles.topicCardMeta}>{count} {count === 1 ? "článok" : "článkov"}</span>
+                      <span className={styles.topicCardMeta}>{formatSlovakCount(count, { one: "článok", few: "články", many: "článkov" })}</span>
                       <span className={styles.topicCardAction}>Otvoriť tému <ArrowIcon size={17} /></span>
                     </span>
                   </Link>
@@ -396,7 +423,7 @@ export function EditorialSectionTopic({
   });
 
   return (
-    <PublicFoundation className={styles.foundation}>
+    <PublicFoundation className={`${styles.foundation} ${sectionToneClass(sectionSlug)}`}>
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
         <PageContainer className={styles.headerShell} data-section-public-header>
