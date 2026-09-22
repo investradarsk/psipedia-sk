@@ -183,7 +183,7 @@ test("auth email outbox encrypts retry secret, is idempotent and clears secret o
   assert.match(migration, /CREATE TABLE `partner_notification_outbox`/);
   assert.match(migration, /`encrypted_secret` text/);
   assert.match(emailSource, /encryptPii\(JSON\.stringify\(\{ token: input\.rawToken, returnTo \}\)/);
-  assert.match(emailSource, /\/partner\/overenie" \+ returnQuery \+ "#token="/);
+  assert.match(emailSource, /new URLSearchParams\(\{ token: rawToken \}\)/);\n  assert.match(emailSource, /fragment\.set\("returnTo", returnTo\)/);\n  assert.match(emailSource, /\/partner\/overenie#" \+ fragment\.toString\(\)/);
   assert.doesNotMatch(emailSource, /\/partner\/overenie\?token=/);
   assert.match(emailSource, /decryptPii\(input\.row\.encrypted_secret/);
   assert.match(emailSource, /"Idempotency-Key": input\.row\.dedupe_key/);
