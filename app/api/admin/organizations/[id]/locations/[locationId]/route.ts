@@ -1,5 +1,6 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { OrganizationLocationAdminValidationError } from "@/lib/organization-location-admin";
+import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 import {
   deleteOrganizationLocationFromAdmin,
   isOrganizationLocationMutationConflict,
@@ -53,9 +54,11 @@ export async function PUT(request: Request, { params }: RouteContext) {
 
   try {
     const item = await updateOrganizationLocationFromAdmin(organizationId, locationId, body.payload);
-    return item
-      ? Response.json({ item })
-      : Response.json({ error: "Lokalita sa nenašla v tejto organizácii." }, { status: 404 });
+    if (!item) return Response.json({ error: "Lokalita sa nenašla v tejto organizácii." }, { status: 404 });
+    await syncGeoPointAfterSourceChange("ORGANIZATION_LOCATION", locationId).catch((geoError) => {
+      console.warn("Organization location geo stale sync failed", { locationId, error: geoError instanceof Error ? geoError.message : String(geoError) });
+    });
+    return Response.json({ item });
   } catch (error) {
     return errorResponse(error, "Lokalitu sa nepodarilo uložiť.");
   }

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
+import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -36,6 +37,9 @@ export async function PUT(request: Request, { params }: Props) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
     }
+    await syncGeoPointAfterSourceChange("DIRECTORY_PROFILE", id).catch((error) => {
+      console.warn("Directory geo stale sync failed", { id, error: error instanceof Error ? error.message : String(error) });
+    });
     return Response.json({ profile });
   } catch (error) { return errorResponse(error); }
 }

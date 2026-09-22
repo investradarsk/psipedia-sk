@@ -60,7 +60,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
       title="Operácie"
       description="Jedno miesto pre veci, ktoré treba skontrolovať alebo rozhodnúť. Najprv rieš položky čakajúce na teba; technické nastavenia sú až v detailoch."
       attentionCount={summary.active}
-      actions={<Link href="/admin/operations/outreach">Profilový outreach</Link>}
+      actions={<><Link href="/admin/operations/geo">Geo foundation</Link><Link href="/admin/operations/outreach">Profilový outreach</Link></>}
     >
       <section className={styles.hubGrid} aria-label="Rýchly prehľad operácií">
         <a className={`${styles.hubCard} ${summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="#centrum-pozornosti">
@@ -85,6 +85,13 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
           <h2>Stav automatizácií</h2>
           <p>{sourceIssues > 0 ? "Niektorý zdroj čaká na schválenie alebo hlási problém." : "Zdroje nehlásia problém, ktorý by od teba vyžadoval zásah."}</p>
           <span className={styles.hubOpen}>Otvoriť prehľad →</span>
+        </Link>
+        <Link className={styles.hubCard} href="/admin/operations/geo">
+          <span className={styles.hubKicker}>Geo foundation</span>
+          <div className={styles.hubMetric}><strong>OFF</strong><span>full backfill</span></div>
+          <h2>Lokality pre budúcu mapu</h2>
+          <p>Dry-run klasifikácia, explicitná inicializácia a kontrolovaný Geoapify canary. Verejná mapa ešte nie je zapnutá.</p>
+          <span className={styles.hubOpen}>Otvoriť geo operations →</span>
         </Link>
       </section>
 
