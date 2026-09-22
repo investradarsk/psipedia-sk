@@ -91,6 +91,24 @@ CREATE INDEX `profile_reviews_resource_status_rating_idx` ON `profile_reviews` (
 CREATE INDEX `profile_reviews_author_created_idx` ON `profile_reviews` (`author_id`,`created_at`);
 CREATE INDEX `profile_reviews_status_created_idx` ON `profile_reviews` (`status`,`created_at`);
 
+CREATE TRIGGER `profile_reviews_reviewable_resource_insert`
+BEFORE INSERT ON `profile_reviews`
+WHEN NOT EXISTS (
+  SELECT 1 FROM `partner_resources` r
+  WHERE r.id=NEW.resource_id
+    AND r.entity_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION')
+)
+BEGIN
+  SELECT RAISE(ABORT, 'profile review resource is not reviewable');
+END;
+
+CREATE TRIGGER `profile_reviews_resource_immutable`
+BEFORE UPDATE OF `resource_id` ON `profile_reviews`
+WHEN NEW.resource_id <> OLD.resource_id
+BEGIN
+  SELECT RAISE(ABORT, 'profile review resource is immutable');
+END;
+
 CREATE TABLE `profile_review_rating_values` (
   `id` text PRIMARY KEY NOT NULL,
   `review_id` text NOT NULL REFERENCES `profile_reviews`(`id`) ON DELETE RESTRICT,
