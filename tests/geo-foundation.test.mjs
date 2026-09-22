@@ -20,6 +20,8 @@ const geoStore = readFileSync(new URL("../lib/geo-store.ts", import.meta.url), "
 const provider = readFileSync(new URL("../lib/geoapify-geocoder.ts", import.meta.url), "utf8");
 const operations = readFileSync(new URL("../lib/geo-operations.ts", import.meta.url), "utf8");
 const operationsApi = readFileSync(new URL("../app/api/admin/geo/operations/route.ts", import.meta.url), "utf8");
+const geoAdminApi = readFileSync(new URL("../app/api/admin/geo/[targetType]/[id]/route.ts", import.meta.url), "utf8");
+const geoAdminComponent = readFileSync(new URL("../components/admin-geo-location.tsx", import.meta.url), "utf8");
 const inventory = readFileSync(new URL("../scripts/geo-production-inventory.sql", import.meta.url), "utf8");
 
 test("migration is additive with physical FKs, exactly-one-target integrity and partial uniques", () => {
@@ -234,6 +236,14 @@ test("manual override is guarded against automatic overwrite and source changes 
   assert.match(geoStore, /resolution_method='MANUAL'/);
   assert.match(geoStore, /manual_override=1/);
   assert.match(geoStore, /GEO_MANUAL_RESET/);
+});
+
+test("pre-migration deployment remains fail-safe when geo_points is not yet applied", () => {
+  assert.match(geoStore, /SELECT 1 FROM geo_points LIMIT 1/);
+  assert.match(geoAdminApi, /schemaReady/);
+  assert.match(geoAdminApi, /Geo migrácia 0063 ešte nie je aplikovaná/);
+  assert.match(geoAdminComponent, /!snapshot\.schemaReady/);
+  assert.match(geoAdminComponent, /Canonical profil funguje ďalej bez geo operácií/);
 });
 
 test("operations are bounded, explicit and full production backfill remains absent", () => {
