@@ -21,6 +21,7 @@ export class PartnerAuthorizationError extends Error {
 export type PartnerManagedResource = {
   resourceId: string; entityType: PartnerResourceType; canonicalId: number; role: PartnerRole;
   name: string; status: string; slug: string; publicHref: string | null;
+  verificationStatus: "UNVERIFIED"|"PENDING_VERIFICATION"|"VERIFIED"|"REJECTED";
 };
 
 type MembershipRow = { membershipId: string; accountId: string; resourceId: string; role: string; accountStatus: string; revokedAt: string | null };
@@ -63,16 +64,17 @@ export async function listPartnerResources(accountId: string, database?: D1Datab
     SELECT r.id resourceId,r.entity_type entityType,m.role,
       COALESCE(d.id,o.id,e.id) canonicalId,COALESCE(d.name,o.name,e.title) name,
       COALESCE(d.status,o.status,e.status) status,COALESCE(d.slug,o.slug,e.slug) slug,
-      d.category directoryCategory
+      d.category directoryCategory,COALESCE(v.status,'UNVERIFIED') verificationStatus
     FROM partner_memberships m
     JOIN partner_accounts a ON a.id=m.account_id AND a.status='ACTIVE'
     JOIN partner_resources r ON r.id=m.resource_id
     LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
     LEFT JOIN help_organizations o ON o.id=r.help_organization_id
     LEFT JOIN managed_events e ON e.id=r.managed_event_id
+    LEFT JOIN partner_resource_verifications v ON v.account_id=m.account_id AND v.resource_id=m.resource_id
     WHERE m.account_id=?1 AND m.revoked_at IS NULL
     ORDER BY name COLLATE NOCASE,r.id
-  `).bind(accountId).all<{resourceId:string;entityType:PartnerResourceType;role:string;canonicalId:number;name:string;status:string;slug:string;directoryCategory:string|null}>();
+  `).bind(accountId).all<{resourceId:string;entityType:PartnerResourceType;role:string;canonicalId:number;name:string;status:string;slug:string;directoryCategory:string|null;verificationStatus:"UNVERIFIED"|"PENDING_VERIFICATION"|"VERIFIED"|"REJECTED"}>();
   return result.results.map((item) => ({
     ...item, role: role(item.role),
     publicHref: item.entityType === "DIRECTORY_PROFILE" ? `/adresar/${item.directoryCategory}/${item.slug}`
@@ -81,7 +83,7 @@ export async function listPartnerResources(accountId: string, database?: D1Datab
   }));
 }
 
-export type PartnerAuditAction = "ACCOUNT_CREATED"|"EMAIL_VERIFIED"|"ACCOUNT_SUSPENDED"|"ACCOUNT_REACTIVATED"|"ACCOUNT_DEACTIVATED"|"SESSIONS_REVOKED"|"MEMBERSHIP_CREATED"|"MEMBERSHIP_ROLE_CHANGED"|"MEMBERSHIP_REVOKED"|"COMMERCIAL_INTEREST_CREATED"|"COMMERCIAL_INTEREST_STATUS_CHANGED"|"COMMERCIAL_INTEREST_NOTE_UPDATED";
+export type PartnerAuditAction = "ACCOUNT_CREATED"|"EMAIL_VERIFIED"|"ACCOUNT_SUSPENDED"|"ACCOUNT_REACTIVATED"|"ACCOUNT_DEACTIVATED"|"SESSIONS_REVOKED"|"MEMBERSHIP_CREATED"|"MEMBERSHIP_ROLE_CHANGED"|"MEMBERSHIP_REVOKED"|"COMMERCIAL_INTEREST_CREATED"|"COMMERCIAL_INTEREST_STATUS_CHANGED"|"COMMERCIAL_INTEREST_NOTE_UPDATED"|"CLAIM_SUBMITTED"|"CLAIM_APPROVED"|"CLAIM_REJECTED"|"CLAIM_CANCELLED"|"VERIFICATION_REQUESTED"|"VERIFICATION_VERIFIED"|"VERIFICATION_REJECTED";
 export type PartnerAuditActor = "PARTNER"|"ADMIN"|"SYSTEM";
 
 function safeMetadata(value: Record<string, unknown> = {}) {
