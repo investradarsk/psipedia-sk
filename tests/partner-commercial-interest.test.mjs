@@ -4,8 +4,8 @@ const migration=await read("drizzle/0061_partner_commercial_interests.sql"),comm
 
 test("commercial migration enforces types, statuses, FKs and active NEW dedupe",()=>{
   assert.match(migration,/partner_commercial_interests/);
-  assert.match(migration,/REFERENCES `partner_accounts`(`id`) ON DELETE RESTRICT/);
-  assert.match(migration,/REFERENCES `partner_resources`(`id`) ON DELETE RESTRICT/);
+  assert.match(migration,/REFERENCES `partner_accounts`\(`id`\) ON DELETE RESTRICT/);
+  assert.match(migration,/REFERENCES `partner_resources`\(`id`\) ON DELETE RESTRICT/);
   for(const type of ["PREMIUM_PROFILE","PROMOTED_PROFILE","AD_CAMPAIGN","OTHER"])assert.match(migration,new RegExp(type));
   for(const status of ["NEW","CONTACTED","INTERESTED","NOT_NOW","CLOSED"])assert.match(migration,new RegExp(status));
   assert.match(migration,/partner_commercial_new_resource_unique/);
