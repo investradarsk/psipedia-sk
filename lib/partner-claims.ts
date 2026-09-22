@@ -371,17 +371,21 @@ export async function isPublicPartnerResourceVerified(
   canonicalIdValue: number,
   database?: D1Database,
 ) {
-  const databaseResolved = getPartnerDatabase(database);
   const id = canonicalId(canonicalIdValue);
   const column = entityType === "DIRECTORY_PROFILE" ? "directory_profile_id" : "help_organization_id";
-  const row = await databaseResolved.prepare(`
-    SELECT 1 ok
-    FROM partner_resources r
-    JOIN partner_memberships m ON m.resource_id=r.id AND m.revoked_at IS NULL
-    JOIN partner_accounts a ON a.id=m.account_id AND a.status='ACTIVE'
-    JOIN partner_resource_verifications v ON v.resource_id=r.id AND v.account_id=m.account_id AND v.status='VERIFIED'
-    WHERE r.entity_type=?1 AND r.${column}=?2
-    LIMIT 1
-  `).bind(entityType, id).first<{ ok: number }>();
-  return Boolean(row);
+  try {
+    const databaseResolved = getPartnerDatabase(database);
+    const row = await databaseResolved.prepare(`
+      SELECT 1 ok
+      FROM partner_resources r
+      JOIN partner_memberships m ON m.resource_id=r.id AND m.revoked_at IS NULL
+      JOIN partner_accounts a ON a.id=m.account_id AND a.status='ACTIVE'
+      JOIN partner_resource_verifications v ON v.resource_id=r.id AND v.account_id=m.account_id AND v.status='VERIFIED'
+      WHERE r.entity_type=?1 AND r.${column}=?2
+      LIMIT 1
+    `).bind(entityType, id).first<{ ok: number }>();
+    return Boolean(row);
+  } catch {
+    return false;
+  }
 }
