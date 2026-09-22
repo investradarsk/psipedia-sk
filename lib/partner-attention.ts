@@ -1,4 +1,3 @@
-import {getPartnerDatabase} from "./partner-auth-store";
 export const partnerAttentionTypes = ["PARTNER_CLAIM_REVIEW","PARTNER_PROFILE_CHANGE_REVIEW","PARTNER_NEW_PROFILE_REVIEW","PARTNER_EVENT_REVIEW","PARTNER_VERIFICATION_REVIEW","PARTNER_COMMERCIAL_LEAD"] as const;
 export type PartnerAttentionType=(typeof partnerAttentionTypes)[number];
 export type PartnerPendingSummary={claims:number;profileChanges:number;newProfiles:number;events:number;verifications:number;commercial:number;total:number};
@@ -17,6 +16,10 @@ export function partnerAttentionHref(type:PartnerAttentionType,id:string|number)
 export async function loadPartnerAttentionItems(){return [] as const;}
 export async function loadPartnerPendingSummary(database?:D1Database){
   let commercial=0;
-  try{const row=await getPartnerDatabase(database).prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>();commercial=Number(row?.count??0);}catch{commercial=0;}
+  try{
+    const {getPartnerDatabase}=await import("./partner-auth-store");
+    const row=await getPartnerDatabase(database).prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>();
+    commercial=Number(row?.count??0);
+  }catch{commercial=0;}
   return {...emptyPartnerPendingSummary(),commercial,total:commercial};
 }
