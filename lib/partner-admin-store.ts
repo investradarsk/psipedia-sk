@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { decryptPii } from "./pii-crypto";
 import { appendPartnerAuditEvent, partnerResourceTypes, partnerRoles, type PartnerResourceType, type PartnerRole } from "./partner-platform";
 import { getPartnerAccountById, getPartnerDatabase, type PartnerAccountStatus } from "./partner-auth-store";
+import { ensureCanonicalResource } from "./canonical-resource";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 function db(database?: D1Database) { return getPartnerDatabase(database ?? (env as unknown as Bindings).DB); }
@@ -78,11 +79,9 @@ export async function searchCanonicalPartnerResources(input:{q?:string;type?:Par
 export async function createPartnerMembershipAdmin(input:{accountId:string;entityType:PartnerResourceType;canonicalId:number;role:PartnerRole;adminEmail:string;database?:D1Database;now?:Date}){
   if(!(partnerResourceTypes as readonly string[]).includes(input.entityType)||!(partnerRoles as readonly string[]).includes(input.role)||!Number.isSafeInteger(input.canonicalId)||input.canonicalId<1)throw new Error("Neplatný Partner resource alebo rola.");
   const database=db(input.database),account=await getPartnerAccountById(input.accountId,database);if(!account)throw new Error("Partner účet neexistuje.");
-  const spec=input.entityType==="DIRECTORY_PROFILE"?{table:"directory_profiles",column:"directory_profile_id"}:input.entityType==="HELP_ORGANIZATION"?{table:"help_organizations",column:"help_organization_id"}:{table:"managed_events",column:"managed_event_id"};
-  if(!await database.prepare(`SELECT id FROM ${spec.table} WHERE id=?`).bind(input.canonicalId).first())throw new Error("Canonical resource neexistuje.");
-  let resource=await database.prepare(`SELECT id FROM partner_resources WHERE ${spec.column}=? LIMIT 1`).bind(input.canonicalId).first<{id:string}>();
-  const now=(input.now??new Date()).toISOString();
-  if(!resource){resource={id:crypto.randomUUID()};await database.prepare(`INSERT INTO partner_resources(id,entity_type,${spec.column},created_at,updated_at) VALUES(?,?,?,?,?)`).bind(resource.id,input.entityType,input.canonicalId,now,now).run();}
+  const nowDate=input.now??new Date();
+  const resource=await ensureCanonicalResource({entityType:input.entityType,canonicalId:input.canonicalId,database,now:nowDate});
+  const now=nowDate.toISOString();
   const id=crypto.randomUUID();
   await database.prepare("INSERT INTO partner_memberships(id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES(?,?,?,?,?,?,?)").bind(id,input.accountId,resource.id,input.role,now,auditActor(input.adminEmail),now).run();
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:auditActor(input.adminEmail),action:"MEMBERSHIP_CREATED",targetType:"PARTNER_MEMBERSHIP",targetId:id,metadata:{accountId:input.accountId,resourceId:resource.id,role:input.role},database,now:new Date(now)});return {id,resourceId:resource.id};
