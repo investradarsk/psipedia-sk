@@ -182,8 +182,10 @@ test("Partner PII uses shared AES-GCM encryption and deterministic HMAC lookup",
 test("auth email outbox encrypts retry secret, is idempotent and clears secret on send/expiry", () => {
   assert.match(migration, /CREATE TABLE `partner_notification_outbox`/);
   assert.match(migration, /`encrypted_secret` text/);
-  assert.match(emailSource, /encryptPii\(input\.rawToken/);
-  assert.match(emailSource, /\/partner\/overenie#token=/);
+  assert.match(emailSource, /encryptPii\(JSON\.stringify\(\{ token: input\.rawToken, returnTo \}\)/);
+  assert.match(emailSource, /new URLSearchParams\(\{ token: rawToken \}\)/);
+  assert.match(emailSource, /fragment\.set\("returnTo", returnTo\)/);
+  assert.match(emailSource, /\/partner\/overenie#" \+ fragment\.toString\(\)/);
   assert.doesNotMatch(emailSource, /\/partner\/overenie\?token=/);
   assert.match(emailSource, /decryptPii\(input\.row\.encrypted_secret/);
   assert.match(emailSource, /"Idempotency-Key": input\.row\.dedupe_key/);
@@ -266,6 +268,7 @@ test("Partner UX contract includes accessible labels, disabled states, focus and
   assert.match(form, /disabled=\{sending \|\| !turnstileToken \|\| !siteKey\}/);
   assert.match(verification, /aria-live="polite"/);
   assert.match(verification, /URLSearchParams\(window\.location\.hash/);
+  assert.match(verification, /normalizePartnerReturnTo\(fragment\.get\("returnTo"\)\)/);
   assert.match(verification, /history\.replaceState\(null, "", "\/partner\/overenie"\)/);
   assert.match(settingsActions, /if \(!response\.ok\)/);
   assert.match(css, /:focus-visible/);

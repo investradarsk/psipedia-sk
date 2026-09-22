@@ -15,11 +15,19 @@ export function partnerAttentionKey(type:PartnerAttentionType,id:string|number){
 export function partnerAttentionHref(type:PartnerAttentionType,id:string|number){return `${contracts[type].href}/${safeId(id)}`;}
 export async function loadPartnerAttentionItems(){return [] as const;}
 export async function loadPartnerPendingSummary(database?:D1Database){
-  let commercial=0;
   try{
     const {getPartnerDatabase}=await import("./partner-auth-store");
-    const row=await getPartnerDatabase(database).prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>();
-    commercial=Number(row?.count??0);
-  }catch{commercial=0;}
-  return {...emptyPartnerPendingSummary(),commercial,total:commercial};
+    const db=getPartnerDatabase(database);
+    const [claimRow,verificationRow,commercialRow]=await Promise.all([
+      db.prepare("SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'").first<{count:number}>(),
+      db.prepare("SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'").first<{count:number}>(),
+      db.prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>(),
+    ]);
+    const claims=Number(claimRow?.count??0);
+    const verifications=Number(verificationRow?.count??0);
+    const commercial=Number(commercialRow?.count??0);
+    return {...emptyPartnerPendingSummary(),claims,verifications,commercial,total:claims+verifications+commercial};
+  }catch{
+    return emptyPartnerPendingSummary();
+  }
 }

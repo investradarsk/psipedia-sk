@@ -7,9 +7,10 @@ import { PartnerTurnstile } from "@/components/partner-turnstile";
 type Props = {
   mode: "register" | "login";
   siteKey: string;
+  returnTo?: string | null;
 };
 
-export function PartnerAuthForm({ mode, siteKey }: Props) {
+export function PartnerAuthForm({ mode, siteKey, returnTo = null }: Props) {
   const [email, setEmail] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
   const [sending, setSending] = useState(false);
@@ -25,7 +26,7 @@ export function PartnerAuthForm({ mode, siteKey }: Props) {
       const response = await fetch("/api/partner/auth/request-link", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, turnstileToken }),
+        body: JSON.stringify({ email, turnstileToken, returnTo }),
       });
       const data = await response.json() as { message?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Prihlasovací odkaz sa nepodarilo vyžiadať.");
@@ -76,9 +77,9 @@ export function PartnerAuthForm({ mode, siteKey }: Props) {
 
       <p className="partner-auth-switch">
         {mode === "register" ? (
-          <>Partner účet už máte? <Link href="/partner/prihlasenie">Prihlásiť sa</Link></>
+          <>Partner účet už máte? <Link href={returnTo ? `/partner/prihlasenie?returnTo=${encodeURIComponent(returnTo)}` : "/partner/prihlasenie"}>Prihlásiť sa</Link></>
         ) : (
-          <>Ešte nemáte Partner účet? <Link href="/partner/registracia">Začať registráciu</Link></>
+          <>Ešte nemáte Partner účet? <Link href={returnTo ? `/partner/registracia?returnTo=${encodeURIComponent(returnTo)}` : "/partner/registracia"}>Začať registráciu</Link></>
         )}
       </p>
     </form>

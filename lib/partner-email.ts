@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/config/public-site";
 import { decryptPii, encryptPii } from "@/lib/pii-crypto";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
+import { normalizePartnerReturnTo } from "@/lib/partner-return-to";
 
 const RESEND_EMAIL_ENDPOINT = "https://api.resend.com/emails";
 const RESEND_TIMEOUT_MS = 8_000;
@@ -16,10 +17,20 @@ export type PartnerEmailBindings = {
   PII_ENCRYPTION_KEY?: string;
 };
 
+export const partnerNotificationTypes = [
+  "AUTH_MAGIC_LINK",
+  "CLAIM_SUBMITTED",
+  "CLAIM_APPROVED",
+  "CLAIM_REJECTED",
+  "VERIFICATION_APPROVED",
+  "VERIFICATION_REJECTED",
+] as const;
+export type PartnerNotificationType = (typeof partnerNotificationTypes)[number];
+
 type OutboxRow = {
   id: string;
   partner_account_id: string;
-  notification_type: "AUTH_MAGIC_LINK";
+  notification_type: PartnerNotificationType;
   dedupe_key: string;
   status: "PENDING" | "SENDING" | "SENT" | "FAILED" | "EXPIRED";
   encrypted_secret: string | null;
@@ -50,6 +61,7 @@ function requireEncryptionKey(bindings: PartnerEmailBindings) {
 export async function queuePartnerMagicLinkEmail(input: {
   accountId: string;
   rawToken: string;
+  returnTo?: string | null;
   expiresAt: string;
   database?: D1Database;
   bindings?: PartnerEmailBindings;
@@ -60,7 +72,8 @@ export async function queuePartnerMagicLinkEmail(input: {
   const encryptionKey = requireEncryptionKey(bindings);
   const nowIso = (input.now ?? new Date()).toISOString();
   const id = crypto.randomUUID();
-  const encryptedSecret = await encryptPii(input.rawToken, encryptionKey);
+  const returnTo = normalizePartnerReturnTo(input.returnTo);
+  const encryptedSecret = await encryptPii(JSON.stringify({ token: input.rawToken, returnTo }), encryptionKey);
   const dedupeKey = "partner-auth/" + id;
 
   // A newer login request revokes the previous access token. Make the matching
@@ -78,6 +91,31 @@ export async function queuePartnerMagicLinkEmail(input: {
   ).bind(id, input.accountId, dedupeKey, encryptedSecret, input.expiresAt, nowIso).run();
 
   return id;
+}
+
+export async function queuePartnerLifecycleNotification(input: {
+  accountId: string;
+  notificationType: Exclude<PartnerNotificationType, "AUTH_MAGIC_LINK">;
+  dedupeKey: string;
+  database?: D1Database;
+  bindings?: PartnerEmailBindings;
+  now?: Date;
+}) {
+  const database = getPartnerDatabase(input.database ?? runtimeBindings(input.bindings).DB);
+  const now = input.now ?? new Date();
+  const nowIso = now.toISOString();
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const id = crypto.randomUUID();
+  await database.prepare(
+    "INSERT OR IGNORE INTO partner_notification_outbox " +
+    "(id,partner_account_id,notification_type,dedupe_key,status,encrypted_secret,expires_at,attempts,created_at,updated_at) " +
+    "VALUES (?1,?2,?3,?4,'PENDING',NULL,?5,0,?6,?6)",
+  ).bind(id, input.accountId, input.notificationType, input.dedupeKey, expiresAt, nowIso).run();
+  const row = await database.prepare(
+    "SELECT id FROM partner_notification_outbox WHERE dedupe_key=?1 LIMIT 1",
+  ).bind(input.dedupeKey).first<{ id: string }>();
+  if (!row) throw new Error("Partner notification sa nepodarilo zaradiť do outboxu.");
+  return row.id;
 }
 
 async function expireOutboxItem(database: D1Database, id: string, nowIso: string) {
@@ -108,7 +146,6 @@ async function sendPartnerAuthEmail(input: {
   const encryptionKey = requireEncryptionKey(input.bindings);
   if (!apiKey) return { ok: false as const, error: "missing_resend_api_key" };
   if (!sender) return { ok: false as const, error: "missing_partner_from_email" };
-  if (!input.row.encrypted_secret) return { ok: false as const, error: "missing_encrypted_auth_secret" };
 
   const account = await input.database.prepare(
     "SELECT email_ciphertext FROM partner_accounts WHERE id=?1 LIMIT 1",
@@ -116,25 +153,71 @@ async function sendPartnerAuthEmail(input: {
   if (!account) return { ok: false as const, error: "partner_account_missing" };
 
   let recipient: string;
-  let rawToken: string;
   try {
     recipient = await decryptPii(account.email_ciphertext, encryptionKey);
-    rawToken = await decryptPii(input.row.encrypted_secret, encryptionKey);
   } catch {
-    return { ok: false as const, error: "partner_auth_secret_decrypt_failed" };
+    return { ok: false as const, error: "partner_email_decrypt_failed" };
   }
 
-  const verifyUrl = SITE_URL + "/partner/overenie#token=" + encodeURIComponent(rawToken);
-  const subject = "Prihlásenie do Partner účtu Psipedia";
-  const text = [
-    "Dobrý deň,",
-    "",
-    "kliknutím na odkaz sa bezpečne prihlásite do Partner účtu Psipedia:",
-    verifyUrl,
-    "",
-    "Odkaz je jednorazový a platí 15 minút.",
-    "Ak ste o prihlásenie nežiadali, tento e-mail ignorujte.",
-  ].join("\n");
+  let subject = "Aktualizácia Partner účtu Psipedia";
+  let text = "";
+  if (input.row.notification_type === "AUTH_MAGIC_LINK") {
+    if (!input.row.encrypted_secret) return { ok: false as const, error: "missing_encrypted_auth_secret" };
+    let rawToken = "";
+    let returnTo: string | null = null;
+    try {
+      const decrypted = await decryptPii(input.row.encrypted_secret, encryptionKey);
+      try {
+        const envelope = JSON.parse(decrypted) as { token?: unknown; returnTo?: unknown };
+        rawToken = typeof envelope.token === "string" ? envelope.token : "";
+        returnTo = normalizePartnerReturnTo(envelope.returnTo);
+      } catch {
+        rawToken = decrypted;
+      }
+    } catch {
+      return { ok: false as const, error: "partner_auth_secret_decrypt_failed" };
+    }
+    if (!rawToken) return { ok: false as const, error: "partner_auth_secret_invalid" };
+    const fragment = new URLSearchParams({ token: rawToken });
+    if (returnTo) fragment.set("returnTo", returnTo);
+    const verifyUrl = SITE_URL + "/partner/overenie#" + fragment.toString();
+    subject = "Prihlásenie do Partner účtu Psipedia";
+    text = [
+      "Dobrý deň,",
+      "",
+      "kliknutím na odkaz sa bezpečne prihlásite do Partner účtu Psipedia:",
+      verifyUrl,
+      "",
+      "Odkaz je jednorazový a platí 15 minút.",
+      "Ak ste o prihlásenie nežiadali, tento e-mail ignorujte.",
+    ].join("\n");
+  } else {
+    const copy: Record<Exclude<PartnerNotificationType, "AUTH_MAGIC_LINK">, { subject: string; lines: string[] }> = {
+      CLAIM_SUBMITTED: {
+        subject: "Žiadosť o prevzatie profilu sme prijali",
+        lines: ["Vašu žiadosť o prevzatie existujúceho profilu sme prijali a čaká na kontrolu."],
+      },
+      CLAIM_APPROVED: {
+        subject: "Žiadosť o prevzatie profilu bola schválená",
+        lines: ["Žiadosť bola schválená. Profil teraz môžete spravovať vo svojom Partner účte."],
+      },
+      CLAIM_REJECTED: {
+        subject: "Výsledok žiadosti o prevzatie profilu",
+        lines: ["Vaša žiadosť o prevzatie profilu nebola schválená. Ak potrebujete viac informácií, kontaktujte Psipediu."],
+      },
+      VERIFICATION_APPROVED: {
+        subject: "Správca profilu bol overený",
+        lines: ["Psipedia overila vaše oprávnenie spravovať profil. Stav overenia sa zobrazí vo vašom Partner účte."],
+      },
+      VERIFICATION_REJECTED: {
+        subject: "Výsledok overenia správcu profilu",
+        lines: ["Overenie správcu profilu nebolo schválené. Žiadosť môžete po doplnení podkladov odoslať znova."],
+      },
+    };
+    const selected = copy[input.row.notification_type];
+    subject = selected.subject;
+    text = ["Dobrý deň,", "", ...selected.lines, "", "Psipedia.sk"].join("\n");
+  }
 
   try {
     const response = await fetch(RESEND_EMAIL_ENDPOINT, {
@@ -144,22 +227,13 @@ async function sendPartnerAuthEmail(input: {
         "content-type": "application/json",
         "Idempotency-Key": input.row.dedupe_key,
       },
-      body: JSON.stringify({
-        from: sender,
-        to: recipient,
-        subject,
-        text,
-      }),
+      body: JSON.stringify({ from: sender, to: recipient, subject, text }),
       signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
     });
     if (!response.ok) return { ok: false as const, error: "resend_http_" + response.status };
-
     try {
       const data = await response.json() as { id?: unknown };
-      return {
-        ok: true as const,
-        providerMessageId: typeof data.id === "string" ? data.id : null,
-      };
+      return { ok: true as const, providerMessageId: typeof data.id === "string" ? data.id : null };
     } catch {
       return { ok: true as const, providerMessageId: null };
     }

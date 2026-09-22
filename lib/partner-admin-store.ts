@@ -96,3 +96,46 @@ export async function changePartnerMembershipAdmin(input:{membershipId:string;ro
   else {if(!input.role)throw new Error("Vyberte rolu.");await database.prepare("UPDATE partner_memberships SET role=?,updated_at=? WHERE id=? AND revoked_at IS NULL").bind(input.role,now,input.membershipId).run();}
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:actor,action,targetType:"PARTNER_MEMBERSHIP",targetId:input.membershipId,metadata:{fromRole:current.role,toRole:input.role??null},database,now:new Date(now)});
 }
+
+export async function ensurePartnerOwnerMembershipAdmin(input:{
+  accountId:string;
+  resourceId:string;
+  adminEmail:string;
+  database?:D1Database;
+  now?:Date;
+}){
+  const database=db(input.database);
+  const account=await getPartnerAccountById(input.accountId,database);
+  if(!account||account.status!=="ACTIVE")throw new Error("Partner účet musí byť aktívny.");
+  const resource=await database.prepare("SELECT id FROM partner_resources WHERE id=?1 LIMIT 1").bind(input.resourceId).first<{id:string}>();
+  if(!resource)throw new Error("Partner resource neexistuje.");
+  const current=await database.prepare(
+    "SELECT id,role FROM partner_memberships WHERE account_id=?1 AND resource_id=?2 AND revoked_at IS NULL LIMIT 1",
+  ).bind(input.accountId,input.resourceId).first<{id:string;role:PartnerRole}>();
+  if(current?.role==="OWNER")return {id:current.id,resourceId:input.resourceId,role:"OWNER" as const,reused:true};
+  if(current){
+    await changePartnerMembershipAdmin({
+      membershipId:current.id,
+      role:"OWNER",
+      adminEmail:input.adminEmail,
+      database,
+      now:input.now,
+    });
+    return {id:current.id,resourceId:input.resourceId,role:"OWNER" as const,reused:false};
+  }
+  const now=input.now??new Date(),iso=now.toISOString(),id=crypto.randomUUID(),actor=auditActor(input.adminEmail);
+  await database.prepare(
+    "INSERT INTO partner_memberships(id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES(?1,?2,?3,'OWNER',?4,?5,?4)",
+  ).bind(id,input.accountId,input.resourceId,iso,actor).run();
+  await appendPartnerAuditEvent({
+    actorType:"ADMIN",
+    actorRef:actor,
+    action:"MEMBERSHIP_CREATED",
+    targetType:"PARTNER_MEMBERSHIP",
+    targetId:id,
+    metadata:{accountId:input.accountId,resourceId:input.resourceId,role:"OWNER"},
+    database,
+    now,
+  });
+  return {id,resourceId:input.resourceId,role:"OWNER" as const,reused:false};
+}
