@@ -15,7 +15,7 @@ import { chooseGeocoderResult } from "../lib/geo-service.ts";
 import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 import { GeocoderProviderError } from "../lib/geo-provider.ts";
 
-const migration = readFileSync(new URL("../drizzle/0063_geo_foundation.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../drizzle/0064_geo_foundation.sql", import.meta.url), "utf8");
 const geoStore = readFileSync(new URL("../lib/geo-store.ts", import.meta.url), "utf8");
 const provider = readFileSync(new URL("../lib/geoapify-geocoder.ts", import.meta.url), "utf8");
 const operations = readFileSync(new URL("../lib/geo-operations.ts", import.meta.url), "utf8");
@@ -241,7 +241,7 @@ test("manual override is guarded against automatic overwrite and source changes 
 test("pre-migration deployment remains fail-safe when geo_points is not yet applied", () => {
   assert.match(geoStore, /SELECT 1 FROM geo_points LIMIT 1/);
   assert.match(geoAdminApi, /schemaReady/);
-  assert.match(geoAdminApi, /Geo migrácia 0063 ešte nie je aplikovaná/);
+  assert.match(geoAdminApi, /Geo migrácia 0064 ešte nie je aplikovaná/);
   assert.match(geoAdminComponent, /!snapshot\.schemaReady/);
   assert.match(geoAdminComponent, /Canonical profil funguje ďalej bez geo operácií/);
 });
