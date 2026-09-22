@@ -345,6 +345,11 @@ const DIRECTORY_PROFILE_COLUMNS = `
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
+const DIRECTORY_PUBLIC_PROFILE_COLUMNS = DIRECTORY_PROFILE_COLUMNS.replace(
+  "published_at, archived_at, created_by",
+  "published_at, NULL AS archived_at, created_by",
+);
+
 const DIRECTORY_CARD_COLUMNS = `
   id, slug, name, category, status, excerpt, '' AS description, services_json,
   '[]' AS qualifications_json, city, district, region, '' AS address, online,
@@ -655,8 +660,8 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
   if (!database) return [] as PublicDirectoryProfile[];
   const safeLimit = Math.max(1, Math.min(1000, Math.trunc(limit)));
   const result = category
-    ? await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC LIMIT ?`).bind(category, safeLimit).all<DirectoryProfileRow>()
-    : await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`).bind(safeLimit).all<DirectoryProfileRow>();
+    ? await database.prepare(`SELECT ${DIRECTORY_PUBLIC_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC LIMIT ?`).bind(category, safeLimit).all<DirectoryProfileRow>()
+    : await database.prepare(`SELECT ${DIRECTORY_PUBLIC_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`).bind(safeLimit).all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
 }
 
@@ -809,7 +814,7 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
   if (!database) return [] as PublicDirectoryProfile[];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database
-    .prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`)
+    .prepare(`SELECT ${DIRECTORY_PUBLIC_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`)
     .bind(safeLimit)
     .all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
@@ -818,7 +823,7 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
 const getPublishedDirectoryProfileUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
   if (!database || !isDirectoryCategory(category)) return null;
-  const row = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1`).bind(category, slug).first<DirectoryProfileRow>();
+  const row = await database.prepare(`SELECT ${DIRECTORY_PUBLIC_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1`).bind(category, slug).first<DirectoryProfileRow>();
   return row ? rowToPublicProfile(row) : null;
 };
 export const getPublishedDirectoryProfile = cache(getPublishedDirectoryProfileUncached);
@@ -981,7 +986,7 @@ export async function createDirectoryInquiry(payload: DirectoryInquiryInput) {
   await purgeExpiredDirectoryInquiries(database);
   const profileId = Number(payload.profileId);
   if (!Number.isSafeInteger(profileId) || profileId < 1) throw new Error("Profil sa nenašiel.");
-  const profile = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`).bind(profileId).first<DirectoryProfileRow>();
+  const profile = await database.prepare(`SELECT ${DIRECTORY_PUBLIC_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`).bind(profileId).first<DirectoryProfileRow>();
   if (!profile) throw new Error("Profil sa nenašiel alebo už nie je verejný.");
 
   const senderName = payload.senderName?.trim() ?? "";
@@ -1052,7 +1057,7 @@ export async function createDirectoryProfileChangeRequest(payload: DirectoryProf
   await ensureDirectoryStore(database);
   const profileId = Number(payload.profileId);
   if (!Number.isSafeInteger(profileId) || profileId < 1) throw new Error("Profil sa nenašiel.");
-  const profileRow = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`).bind(profileId).first<DirectoryProfileRow>();
+  const profileRow = await database.prepare(`SELECT ${DIRECTORY_PUBLIC_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`).bind(profileId).first<DirectoryProfileRow>();
   if (!profileRow) throw new Error("Profil sa nenašiel alebo už nie je verejný.");
   const profile = rowToPublicProfile(profileRow);
 
