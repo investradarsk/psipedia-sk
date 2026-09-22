@@ -82,6 +82,8 @@ test("0062 applies cleanly, preserves existing resource identity and backfills e
   assert.equal(db.prepare("SELECT id FROM partner_resources WHERE help_organization_id=11").get().id, "help-organization-11");
   assert.equal(db.prepare("SELECT COUNT(*) count FROM partner_resources WHERE directory_profile_id IS NOT NULL").get().count, 2);
   assert.equal(db.prepare("SELECT COUNT(*) count FROM partner_resources WHERE help_organization_id IS NOT NULL").get().count, 2);
+  assert.equal(db.prepare("SELECT COUNT(*) count FROM directory_profiles d WHERE NOT EXISTS (SELECT 1 FROM partner_resources r WHERE r.directory_profile_id=d.id)").get().count, 0);
+  assert.equal(db.prepare("SELECT COUNT(*) count FROM help_organizations o WHERE NOT EXISTS (SELECT 1 FROM partner_resources r WHERE r.help_organization_id=o.id)").get().count, 0);
   assert.equal(db.prepare("SELECT COUNT(*) count FROM pragma_table_info('directory_profiles') WHERE name='archived_at'").get().count, 1);
   db.close();
 });
