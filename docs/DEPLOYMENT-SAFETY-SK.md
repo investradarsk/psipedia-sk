@@ -33,18 +33,18 @@ Ten teraz orchestruje tri fail-closed fázy.
 Workers Builds má vlastný dvojkrokový lifecycle: najprv spustí **Build command** a až potom
 **Deploy command**. Premenná `WORKERS_CI=1` je v tomto prostredí nastavená automaticky.
 
-Keď je `deploy:cloudflare` spustený ako Deploy command vo Workers Builds, nesmie znovu
-vytvárať application build. Použije už pripravený `dist/` z predchádzajúcej build fázy,
-znovu ho validuje a fingerprintuje.
+Keď je `deploy:cloudflare` spustený ako Deploy command vo Workers Builds, Cloudflare už
+predtým vykonal nakonfigurovaný **Build command**. Deploy fáza preto iba nasadí pripravený
+`dist/` cez generated Wrangler config; nespúšťa druhý build, druhú artifact validation ani
+remote D1 príkazy. Tým sa Workers Builds drží platformového lifecycle
+`Build command → Deploy command` bez vnoreného produkčného orchestration runnera.
 
-Managed Workers Builds token nie je používaný ako autoritatívny D1 migration token. Preto
-code-only Workers Build preskočí remote D1 migration + audit gate a nasadí presne validovaný
-artefakt. Pred tým však porovná aktuálny merge proti first parent. Ak sa mení `drizzle/`,
-`config/cloudflare-resources.json` alebo remote migration runner, deploy failne closed a
-vyžaduje manuálny produkčný deploy.
+Workers Builds je preto určený na automatické nasadenie kódu a assets. Zmena databázovej
+schémy musí ísť cez explicitný manuálny produkčný deploy `npm run deploy:cloudflare`, ktorý
+stále vykoná fresh build, artifact validation, remote D1 migrations, strict remote audit,
+identity re-check a až potom Wrangler deploy.
 
-Pri manuálnom/lokálnom produkčnom deployi sa správanie nemení: fresh build sa stále vytvorí
-priamo v `deploy:cloudflare` a následne sa vykoná plný remote migration + audit gate.
+Pri manuálnom/lokálnom produkčnom deployi sa teda safety contract nemení.
 
 ### Phase A — lokálna príprava artefaktu
 
