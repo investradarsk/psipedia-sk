@@ -52,19 +52,55 @@ test("build failure performs no remote mutation and no deploy", async () => {
   assert.equal(harness.events.includes("deploy"), false);
 });
 
-test("Workers Builds uses only the platform-native deploy phase", async () => {
+test("Workers Builds production branch applies remote D1 migrations before deploy", async () => {
   const harness = createHarness({ failCommand: "build" });
   const result = await runSafeCloudflareDeployment({
     ...harness,
-    env: { WORKERS_CI: "1", WORKERS_CI_COMMIT_SHA: "commit-a" },
+    env: {
+      WORKERS_CI: "1",
+      WORKERS_CI_BRANCH: "main",
+      WORKERS_CI_COMMIT_SHA: "commit-a",
+    },
   });
-  assert.deepEqual(harness.events, ["deploy"]);
+  assert.deepEqual(harness.events, ["remote-migration", "deploy"]);
   assert.equal(result.fingerprint, "commit-a");
   assert.equal(harness.events.includes("config-check"), false);
   assert.equal(harness.events.includes("build"), false);
   assert.equal(harness.events.includes("artifact-validation"), false);
+  assert.equal(harness.events.includes("remote-audit"), false);
+});
+
+test("Workers Builds preview branches never mutate the production D1 database", async () => {
+  const harness = createHarness({ failCommand: "build" });
+  const result = await runSafeCloudflareDeployment({
+    ...harness,
+    env: {
+      WORKERS_CI: "1",
+      WORKERS_CI_BRANCH: "codex/example-preview",
+      WORKERS_CI_COMMIT_SHA: "commit-preview",
+    },
+  });
+  assert.deepEqual(harness.events, ["deploy"]);
+  assert.equal(result.fingerprint, "commit-preview");
   assert.equal(harness.events.includes("remote-migration"), false);
   assert.equal(harness.events.includes("remote-audit"), false);
+});
+
+test("Workers Builds production migration failure blocks deploy", async () => {
+  const harness = createHarness({ failCommand: "remote-migration" });
+  await assert.rejects(
+    () => runSafeCloudflareDeployment({
+      ...harness,
+      env: {
+        WORKERS_CI: "1",
+        WORKERS_CI_BRANCH: "main",
+        WORKERS_CI_COMMIT_SHA: "commit-a",
+      },
+    }),
+    /forced remote-migration failure/,
+  );
+  assert.deepEqual(harness.events, ["remote-migration"]);
+  assert.equal(harness.events.includes("deploy"), false);
 });
 
 test("artifact validation failure performs no remote mutation and no deploy", async () => {
