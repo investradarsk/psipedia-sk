@@ -28,8 +28,63 @@ function ArticleMeta({ article }: { article: Article }) {
   );
 }
 
-export function HomeLatestArticles({ articles }: { articles: Article[] }) {
+function HomeArticleFeatureLayout({
+  articles,
+  testId,
+}: {
+  articles: Article[];
+  testId: string;
+}) {
   const [lead, ...secondary] = articles;
+  if (!lead) return null;
+
+  return (
+    <div className="home-latest-layout home-article-feature-layout" data-home-article-layout={testId}>
+      <article
+        className="home-latest-lead article-card--large"
+        data-home-article-lead
+        data-home-article-slug={lead.slug}
+        data-home-article-date={lead.dateIso}
+        data-home-article-section={articlePortalSection(lead)}
+      >
+        <Link href={articleHref(lead)} className="home-latest-lead-link">
+          <span className="home-latest-lead-media"><ArticleVisual article={lead} /></span>
+          <span className="home-latest-lead-copy">
+            <ArticleMeta article={lead} />
+            <h3>{lead.title}</h3>
+          </span>
+        </Link>
+      </article>
+
+      <div
+        className="home-latest-list featured-stack"
+        data-home-article-secondary={testId}
+        data-home-latest-secondary={testId === "latest" ? "true" : undefined}
+      >
+        {secondary.map((article) => (
+          <article
+            className="home-latest-item"
+            key={article.slug}
+            data-home-article-slug={article.slug}
+            data-home-article-date={article.dateIso}
+            data-home-article-section={articlePortalSection(article)}
+          >
+            <Link href={articleHref(article)}>
+              <span className="home-latest-thumb"><ArticleVisual article={article} /></span>
+              <span className="home-latest-copy">
+                <ArticleMeta article={article} />
+                <h3>{article.title}</h3>
+              </span>
+            </Link>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function HomeLatestArticles({ articles }: { articles: Article[] }) {
+  const [lead] = articles;
 
   return (
     <section className="section shell home-latest-section home-news-section" data-home-latest aria-labelledby="home-latest-title">
@@ -42,42 +97,7 @@ export function HomeLatestArticles({ articles }: { articles: Article[] }) {
       </div>
 
       {lead ? (
-        <div className="home-latest-layout">
-          <article
-            className="home-latest-lead article-card--large"
-            data-home-article-slug={lead.slug}
-            data-home-article-date={lead.dateIso}
-            data-home-article-section={articlePortalSection(lead)}
-          >
-            <Link href={articleHref(lead)} className="home-latest-lead-link">
-              <span className="home-latest-lead-media"><ArticleVisual article={lead} /></span>
-              <span className="home-latest-lead-copy">
-                <ArticleMeta article={lead} />
-                <h3>{lead.title}</h3>
-              </span>
-            </Link>
-          </article>
-
-          <div className="home-latest-list featured-stack" data-home-latest-secondary>
-            {secondary.map((article) => (
-              <article
-                className="home-latest-item"
-                key={article.slug}
-                data-home-article-slug={article.slug}
-                data-home-article-date={article.dateIso}
-                data-home-article-section={articlePortalSection(article)}
-              >
-                <Link href={articleHref(article)}>
-                  <span className="home-latest-thumb"><ArticleVisual article={article} /></span>
-                  <span className="home-latest-copy">
-                    <ArticleMeta article={article} />
-                    <h3>{article.title}</h3>
-                  </span>
-                </Link>
-              </article>
-            ))}
-          </div>
-        </div>
+        <HomeArticleFeatureLayout articles={articles} testId="latest" />
       ) : (
         <div className="home-editorial-empty" data-home-latest-empty>
           <strong>Nové články pripravujeme</strong>
@@ -119,25 +139,7 @@ export function HomeEditorialSection({
       </div>
 
       {articles.length ? (
-        <div className="home-editorial-grid">
-          {articles.map((article) => (
-            <article
-              className="home-editorial-card"
-              key={article.slug}
-              data-home-article-slug={article.slug}
-              data-home-article-date={article.dateIso}
-              data-home-article-section={articlePortalSection(article)}
-            >
-              <Link href={articleHref(article)}>
-                <span className="home-editorial-media"><ArticleVisual article={article} /></span>
-                <span className="home-editorial-copy">
-                  <ArticleMeta article={article} />
-                  <strong>{article.title}</strong>
-                </span>
-              </Link>
-            </article>
-          ))}
-        </div>
+        <HomeArticleFeatureLayout articles={articles} testId={testId} />
       ) : (
         <div className="home-editorial-empty" data-home-editorial-empty={testId}>
           <strong>Ďalší obsah pripravujeme</strong>

@@ -117,6 +117,27 @@ test("desktop homepage uses the HOME-3 hierarchy without editorial filler", asyn
     expect(new Set(slugs).size).toBe(slugs.length);
   }
 
+  const sharedArticleLayouts = [
+    { root: "[data-home-latest]", id: "latest" },
+    { root: '[data-home-editorial="steniatka"]', id: "steniatka" },
+    { root: '[data-home-editorial="starostlivost"]', id: "starostlivost" },
+    { root: '[data-home-editorial="aktivity"]', id: "aktivity" },
+  ];
+  for (const item of sharedArticleLayouts) {
+    const root = page.locator(item.root);
+    const layout = root.locator(`[data-home-article-layout="${item.id}"]`);
+    await expect(layout).toHaveCount(1);
+    await expect(layout.locator(".home-latest-lead")).toHaveCount(1);
+    await expect(layout.locator(".home-latest-list")).toHaveCount(1);
+  }
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto("/");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  for (const item of sharedArticleLayouts) {
+    await expect(page.locator(item.root).locator(`[data-home-article-layout="${item.id}"]`)).toBeVisible();
+  }
+
   const events = page.locator("[data-home-event]");
   const eventsEmpty = page.locator("[data-home-events-empty]");
   expect((await events.count()) + (await eventsEmpty.count())).toBeGreaterThan(0);
