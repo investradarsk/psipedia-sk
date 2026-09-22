@@ -11,6 +11,7 @@ import { resolveGeoTarget } from "@/lib/geo-service";
 import {
   getGeoPointForTarget,
   getGeoSourceLocation,
+  isGeoSchemaAvailable,
   initializeGeoPointForTarget,
   resetManualGeoOverride,
   setGeoVisibility,
@@ -40,14 +41,14 @@ export async function GET(_request: Request, { params }: Props) {
   if (!user) return unauthorizedAdminResponse();
   const target = await parsedTarget(params);
   if (!target) return Response.json({ error: "Neplatný geo target." }, { status: 400 });
-  const [point, source] = await Promise.all([
-    getGeoPointForTarget(target.targetType, target.id),
-    getGeoSourceLocation(target.targetType, target.id),
-  ]);
+  const source = await getGeoSourceLocation(target.targetType, target.id);
   if (!source) return Response.json({ error: "Canonical target neexistuje." }, { status: 404 });
+  const schemaReady = await isGeoSchemaAvailable();
+  const point = schemaReady ? await getGeoPointForTarget(target.targetType, target.id) : null;
   return Response.json({
     point,
     source,
+    schemaReady,
     provider: { name: "geoapify", configured: Boolean(geoapifyApiKey()) },
     productionBackfillEnabled: false,
     publicMapEnabled: false,
@@ -66,6 +67,9 @@ export async function POST(request: Request, { params }: Props) {
   catch { return Response.json({ error: "Neplatné JSON dáta." }, { status: 400 }); }
 
   const action = typeof body.action === "string" ? body.action : "";
+  if (!(await isGeoSchemaAvailable())) {
+    return Response.json({ error: "Geo migrácia 0063 ešte nie je aplikovaná v tejto D1 databáze." }, { status: 503 });
+  }
   try {
     if (action === "initialize") {
       const result = await initializeGeoPointForTarget(target.targetType, target.id, user.email);
