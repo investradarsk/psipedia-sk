@@ -103,7 +103,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
     await page.getByRole("button", { name: "Požiadať o overenie" }).click();
     await page.getByRole("button", { name: "Odoslať na overenie" }).click();
-    await expect(page.getByRole("status")).toContainText("Žiadosť o overenie sme prijali.");
+    await expect(page.getByRole("status")).toContainText("Žiadosť o overenie čaká na kontrolu.");
   } else {
     await expect(page.getByText("Čaká na kontrolu")).toBeVisible();
     await expect(page.getByText("E2E poverený správca")).toBeVisible();
