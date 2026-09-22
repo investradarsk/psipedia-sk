@@ -9,8 +9,8 @@ import { buildPageMetadata } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Články o psoch",
-  description: "Praktické články o výcviku, zdraví, výžive a každodennom živote so psom.",
+  title: "Magazín o psoch",
+  description: "Články, novinky, praktické návody a ďalší redakčný obsah zo sveta psov na jednom mieste.",
   path: "/clanky",
 });
 
@@ -30,12 +30,12 @@ export default async function ArticlesPage({
   const heroImage = articles.find((article) => article.image)?.image;
   const hasQuery = Object.values(params).some(Boolean);
   const schema = hasQuery ? null : buildCollectionPageJsonLd({
-    name: "Články o psoch",
-    description: "Praktické články o výcviku, zdraví, výžive a každodennom živote so psom.",
+    name: "Magazín Psipedia",
+    description: "Články, novinky, praktické návody a ďalší redakčný obsah zo sveta psov na jednom mieste.",
     path: "/clanky",
     breadcrumbs: [
       { name: "Domov", path: "/" },
-      { name: "Články", path: "/clanky" },
+      { name: "Magazín", path: "/clanky" },
     ],
     items: articles.map((article) => ({ name: article.title, path: articleHref(article) })),
   });
@@ -47,9 +47,9 @@ export default async function ArticlesPage({
         <header className={`page-hero page-hero--editorial shell${heroImage ? " page-hero--photo" : ""}`}>
           {heroImage && <img className="page-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}
           <div className="page-hero-inner">
-            <span className="eyebrow">Psia knižnica</span>
-            <h1>Články, ku ktorým sa oplatí vrátiť</h1>
-            <p>Bez zbytočných skratiek. Vyberáme praktické témy a vysvetľujeme ich tak, aby dávali zmysel v skutočnom živote so psom.</p>
+            <span className="eyebrow">Magazín Psipedia</span>
+            <h1>Magazín pre život so psom</h1>
+            <p>Články, novinky, praktické návody a ďalší obsah, ktorý pomáha lepšie sa orientovať vo svete psov.</p>
           </div>
         </header>
         <section className="page-body shell">

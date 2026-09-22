@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
 import { getPublishedArticle, getPublishedArticleAuthorProfile } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { articles as seedArticles } from "@/lib/content";
 import { articleHref } from "@/lib/portal";
+import { legacyArticleRedirectPath } from "@/lib/legacy-public-redirects";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LegacyArticlePage({ params }: Props) {
   const { slug } = await params;
+  const legacyRedirect = legacyArticleRedirectPath(slug);
+  if (legacyRedirect) permanentRedirect(legacyRedirect);
   const article = await getPublishedArticle(slug);
   if (!article) notFound();
 

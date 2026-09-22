@@ -419,13 +419,19 @@ function rowToHomepageArticle(row: HomepageArticleRow): Article {
 }
 
 export function slugifyArticleTitle(value: string) {
-  return value
+  const normalized = value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 90);
+    .replace(/^-+|-+$/g, "");
+
+  if (normalized.length <= 90) return normalized;
+
+  const candidate = normalized.slice(0, 90);
+  const lastWordBoundary = candidate.lastIndexOf("-");
+  return (lastWordBoundary >= 60 ? candidate.slice(0, lastWordBoundary) : candidate)
+    .replace(/-+$/g, "");
 }
 
 async function normalizeInput(

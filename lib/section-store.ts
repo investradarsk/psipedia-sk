@@ -86,10 +86,13 @@ async function repairCorruptManagedSubpages(db: D1Database) {
       }
 
       if (row.slug === "aktivity") {
-        const hasCanonicalTraining = subpages.some((item) => item.slug === "trening" && String(item.label ?? "").trim() === "Tréning");
+        const hasCanonicalTraining = subpages.some((item) => item.slug === "trening");
         if (hasCanonicalTraining) {
           const before = subpages.length;
-          subpages = subpages.filter((item) => !(item.slug === "-vycvik-a-aktivity-trening" && String(item.label ?? "").trim() === "Tréning psa"));
+          subpages = subpages.filter((item) => {
+            const normalizedLabel = String(item.label ?? "").trim().toLocaleLowerCase("sk-SK").replace(/\s+/g, " ");
+            return !(item.slug !== "trening" && (normalizedLabel === "tréning psa" || normalizedLabel === "trening psa"));
+          });
           if (subpages.length !== before) changed = true;
         }
       }
@@ -118,8 +121,16 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
       if (stored.description === legacyActivityDescriptions[stored.slug]) merged.description = defaults.description;
       return merged;
     });
-    const storedSlugs = new Set(storedItems.map((item) => item.slug));
-    return [...storedItems, ...fallback.filter((item) => !storedSlugs.has(item.slug))];
+    const hasCanonicalTraining = fallback.some((item) => item.slug === "trening")
+      && storedItems.some((item) => item.slug === "trening");
+    const deduplicatedItems = hasCanonicalTraining
+      ? storedItems.filter((item) => {
+          const normalizedLabel = String(item.label ?? "").trim().toLocaleLowerCase("sk-SK").replace(/\s+/g, " ");
+          return !(item.slug !== "trening" && (normalizedLabel === "tréning psa" || normalizedLabel === "trening psa"));
+        })
+      : storedItems;
+    const storedSlugs = new Set(deduplicatedItems.map((item) => item.slug));
+    return [...deduplicatedItems, ...fallback.filter((item) => !storedSlugs.has(item.slug))];
   }
   catch { return fallback; }
 }
