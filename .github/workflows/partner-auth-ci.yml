@@ -18,7 +18,7 @@ on:
       - "drizzle/0059_partner_auth_foundation.sql"
       - "drizzle/0060_partner_memberships_admin.sql"
       - "drizzle/0061_partner_commercial_interests.sql"
-      - "drizzle/0062_partner_claims_verification.sql"
+      - "drizzle/0063_partner_claims_verification.sql"
       - "lib/partner-*"
       - "lib/pii-crypto.ts"
       - "lib/rate-limit.ts"
