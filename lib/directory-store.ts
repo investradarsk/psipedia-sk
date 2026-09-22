@@ -360,7 +360,7 @@ const DIRECTORY_SOURCE_FACETS = {
   profileType: `COALESCE(NULLIF(json_extract(source_data_json, '$."Typ služby"'), ''), NULLIF(json_extract(source_data_json, '$."Typ poskytovateľa"'), ''), NULLIF(json_extract(source_data_json, '$."Typ klubu"'), ''), '')`,
 } as const;
 
-function sqlNormalizedExpression(columnExpression: string) {
+export function sqlNormalizedExpression(columnExpression: string) {
   const replacements: Array<[string, string]> = [
     ["á", "a"], ["ä", "a"], ["č", "c"], ["ď", "d"], ["é", "e"], ["í", "i"],
     ["ĺ", "l"], ["ľ", "l"], ["ň", "n"], ["ó", "o"], ["ô", "o"], ["ŕ", "r"],
