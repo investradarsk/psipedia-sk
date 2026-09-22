@@ -45,7 +45,7 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
 });
 
-test("valid one-time link creates a session and exposes only the foundation shell/settings", async ({ page }, testInfo) => {
+test("valid one-time link creates a session and exposes membership dashboard/settings", async ({ page }, testInfo) => {
   const project = testInfo.project.name as keyof typeof AUTH_TOKENS;
   const token = AUTH_TOKENS[project];
   const expectedEmail = AUTH_EMAILS[project];
@@ -53,11 +53,20 @@ test("valid one-time link creates a session and exposes only the foundation shel
 
   await page.goto("/partner/overenie#token=" + encodeURIComponent(token));
   await expect(page).toHaveURL(/\/partner$/);
-  await expect(page.getByRole("heading", { name: "Partner účet je pripravený" })).toBeVisible();
-  await expect(page.getByText("Prihlásenie bez hesla, overenie e-mailu, bezpečná session")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("link", { name: "Nastavenia účtu" }).click();
+  await page.getByRole("link", { name: "Moje profily" }).click();
+  if (project === "desktop-chromium") {
+    await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
+    await expect(page.getByText("OWNER")).toBeVisible();
+  } else {
+    await expect(page.getByRole("heading", { name: "Žiadne priradené profily" })).toBeVisible();
+  }
+  await expectNoHorizontalOverflow(page);
+
+  await page.getByRole("link", { name: "Nastavenia" }).click();
   await expect(page).toHaveURL(/\/partner\/nastavenia$/);
   await expect(page.getByRole("heading", { name: "Nastavenia" })).toBeVisible();
   await expect(page.getByText(expectedEmail)).toBeVisible();
@@ -71,6 +80,18 @@ test("valid one-time link creates a session and exposes only the foundation shel
 
   await page.getByRole("button", { name: "Odhlásiť sa" }).click();
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
+});
+
+test("internal admin Partner overview and account detail are protected admin pages", async ({ page }, testInfo) => {
+  const project=testInfo.project.name as keyof typeof AUTH_EMAILS;
+  await page.goto("/admin/partners");
+  await expect(page.getByRole("heading",{name:"Partneri"})).toBeVisible();
+  await expect(page.getByText(AUTH_EMAILS[project])).toBeVisible();
+  await expect(page.getByText("Žiadne Partner workflows momentálne nečakajú")).toBeVisible();
+  await page.getByRole("row").filter({hasText:AUTH_EMAILS[project]}).getByRole("link",{name:"Detail →"}).click();
+  await expect(page.getByRole("heading",{name:AUTH_EMAILS[project]})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Bezpečnostné akcie"})).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
 
 for (const token of [

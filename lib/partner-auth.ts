@@ -29,6 +29,7 @@ import {
   enforcePartnerAuthRateLimits,
   verifyPartnerTurnstile,
 } from "@/lib/partner-security";
+import { appendPartnerAuditEvent } from "@/lib/partner-platform";
 
 export const PARTNER_AUTH_GENERIC_RESPONSE =
   "Ak je možné pokračovať, poslali sme vám prihlasovací odkaz e-mailom.";
@@ -163,6 +164,9 @@ export async function requestPartnerMagicLink(input: {
     now,
     database,
   });
+  if (!existing) {
+    await appendPartnerAuditEvent({ actorType: "SYSTEM", actorRef: "partner-auth", action: "ACCOUNT_CREATED", targetType: "PARTNER_ACCOUNT", targetId: account.id, database, now });
+  }
 
   // Public response remains identical for every lifecycle state. Suspended or
   // deactivated accounts do not receive a usable token.
@@ -249,6 +253,9 @@ export async function consumePartnerMagicLink(input: {
   const active = await activateVerifiedPartnerAccount(account.id, now, database);
   if (!active || active.status !== "ACTIVE" || !active.emailVerifiedAt) {
     throw new PartnerAuthError("Prihlasovací odkaz je neplatný alebo už expiroval.");
+  }
+  if (!account.emailVerifiedAt) {
+    await appendPartnerAuditEvent({ actorType: "PARTNER", actorRef: `partner:${account.id}`, action: "EMAIL_VERIFIED", targetType: "PARTNER_ACCOUNT", targetId: account.id, database, now });
   }
 
   const session = await createPartnerSession(active.id, database);
@@ -361,6 +368,8 @@ export async function deactivateCurrentPartnerAccount(input: {
     now: input.now,
   });
   await deactivatePartnerAccount(identity.accountId, input.now ?? new Date(), database);
+  await appendPartnerAuditEvent({ actorType: "PARTNER", actorRef: `partner:${identity.accountId}`, action: "ACCOUNT_DEACTIVATED", targetType: "PARTNER_ACCOUNT", targetId: identity.accountId, database, now: input.now });
+  await appendPartnerAuditEvent({ actorType: "PARTNER", actorRef: `partner:${identity.accountId}`, action: "SESSIONS_REVOKED", targetType: "PARTNER_ACCOUNT", targetId: identity.accountId, metadata: { reason: "deactivated" }, database, now: input.now });
   console.info(JSON.stringify({
     event: "partner_account_lifecycle",
     accountId: identity.accountId,

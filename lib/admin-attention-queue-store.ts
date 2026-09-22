@@ -155,3 +155,22 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...automation.map((row) => mapAutomationFindingAttention(row, now)),
   ]);
 }
+
+export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1Database, now = new Date()) {
+  const db=requireD1Binding(database);
+  const staleThreshold=new Date(now.getTime()-ADOPTION_STALE_DAYS*86_400_000).toISOString();
+  const queries=[
+    ["MODERATION_SUBMISSION",`SELECT COUNT(*) count FROM moderation_submissions WHERE resource_type IN ('LOST_FOUND_CASE','ADOPTION_DOG') AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],
+    ["NEWS_TIP",`SELECT COUNT(*) count FROM news_tips WHERE status IN ('new','reviewing')`,[]],
+    ["DIRECTORY_CHANGE_REQUEST",`SELECT COUNT(*) count FROM directory_profile_change_requests WHERE status='new'`,[]],
+    ["DIRECTORY_INQUIRY",`SELECT COUNT(*) count FROM directory_inquiries WHERE status IN ('new','read')`,[]],
+    ["ARTICLE_FEEDBACK",`SELECT COUNT(*) count FROM article_feedback WHERE helpful=0 AND status IN ('new','reviewing')`,[]],
+    ["ADOPTION_STALE",`SELECT COUNT(*) count FROM adoption_dogs WHERE status IN ('ACTIVE','RESERVED') AND (last_verified_at IS NULL OR last_verified_at<?)`,[staleThreshold]],
+    ["AUTOMATION_FINDING",`SELECT COUNT(*) count FROM automation_findings WHERE review_status IN ('NEW','IN_REVIEW')`,[]],
+  ] as const;
+  const counts=await Promise.all(queries.map(async([source,sql,bindings])=>{
+    try{const row=await db.prepare(sql).bind(...bindings).first<{count:number}>();return [source,Number(row?.count??0)] as const;}catch{return [source,0] as const;}
+  }));
+  const bySource=Object.fromEntries(counts) as Record<string,number>;
+  return {active:Object.values(bySource).reduce((sum,value)=>sum+value,0),bySource};
+}

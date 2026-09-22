@@ -5,6 +5,13 @@
   color: var(--ink);
 }
 
+.partner-dashboard-header{display:flex;align-items:center;justify-content:space-between;gap:22px;margin-bottom:clamp(42px,6vw,72px);padding-bottom:18px;border-bottom:1px solid rgba(23,75,56,.13)}
+.partner-brand{color:#174b38;font-family:Georgia,serif;font-size:1.35rem;font-weight:700}.partner-brand span{display:inline-block;margin-left:6px;padding:4px 8px;border-radius:999px;background:#edf5ef;font:700 .68rem system-ui}
+.partner-dashboard-header nav{display:flex;max-width:100%;gap:5px;overflow-x:auto;padding:4px}.partner-dashboard-header nav a{flex:0 0 auto;padding:9px 11px;border-radius:9px;color:var(--muted);font-size:.83rem;font-weight:750}.partner-dashboard-header nav a:hover,.partner-dashboard-header nav a:focus-visible{background:#edf5ef;color:#174b38;outline:2px solid rgba(31,104,75,.22)}
+.partner-page-heading{margin-bottom:30px}.partner-page-heading h1{margin:8px 0 12px;font:500 clamp(2.3rem,5vw,4.2rem)/1 Georgia,serif}.partner-page-heading p{max-width:680px;color:var(--muted);line-height:1.65}
+.partner-resource-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:18px}.partner-resource-card,.partner-empty{min-width:0;padding:24px;border:1px solid rgba(23,75,56,.14);border-radius:18px;background:#fff}.partner-resource-card>span{color:#b74e32;font-size:.75rem;font-weight:850;text-transform:uppercase;letter-spacing:.07em}.partner-resource-card h2,.partner-empty h2{margin:8px 0 14px;font:500 1.5rem Georgia,serif}.partner-resource-card p,.partner-empty p{color:var(--muted);line-height:1.6}.partner-resource-card dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.partner-resource-card dt{color:var(--muted);font-size:.72rem}.partner-resource-card dd{margin:4px 0;font-weight:750;overflow-wrap:anywhere}.partner-resource-card a{display:inline-block;margin-top:14px;color:#1f684b;font-weight:800}
+@media(max-width:760px){.partner-dashboard-header{align-items:flex-start;flex-direction:column}.partner-dashboard-header nav{width:100%}.partner-shell{width:min(100% - 24px,1120px);padding-top:26px}.partner-account-summary{grid-template-columns:1fr}}
+
 .partner-shell--centered {
   display: grid;
   min-height: 62vh;

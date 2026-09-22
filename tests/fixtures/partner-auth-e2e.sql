@@ -17,3 +17,10 @@ INSERT INTO resource_access_tokens (
   ('partner-e2e-token-expired','PARTNER_ACCOUNT','partner-e2e-desktop','PARTNER_AUTH','TH6HfZSR2JtOfduwgUHd9RiIjJy5G7q5YARm84XUGWc','2020-01-01T00:00:00.000Z',NULL,NULL,'2019-12-31T20:00:00.000Z'),
   ('partner-e2e-token-suspended','PARTNER_ACCOUNT','partner-e2e-suspended','PARTNER_AUTH','hhZJPUR7cAZnsF5MY-p0PFMlmOmfLmVcPvTQqODVOTo','2099-01-01T00:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z'),
   ('partner-e2e-token-deactivated','PARTNER_ACCOUNT','partner-e2e-deactivated','PARTNER_AUTH','jQcYRAsddkIFmto5q0oL9Pg_lwEQplImwRcE1grckuQ','2099-01-01T00:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z');
+
+INSERT INTO directory_profiles (id,slug,name,category,status,excerpt,description,city,region,created_at,updated_at,published_at,created_by,updated_by)
+VALUES (990001,'partner-e2e-veterina','Partner E2E Veterina','veterinari','published','Testovací Partner profil.','Izolovaný lokálny fixture.','Nitra','Nitriansky kraj','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','ci:partner','ci:partner');
+INSERT INTO partner_resources (id,entity_type,directory_profile_id,created_at,updated_at)
+VALUES ('partner-resource-e2e-directory','DIRECTORY_PROFILE',990001,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
+INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
+VALUES ('partner-membership-e2e-owner','partner-e2e-desktop','partner-resource-e2e-directory','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
