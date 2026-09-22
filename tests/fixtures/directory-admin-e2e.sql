@@ -1,3 +1,13 @@
+DELETE FROM partner_resources
+WHERE directory_profile_id IN (
+  SELECT id FROM directory_profiles
+  WHERE slug LIKE 'e2e-directory-%'
+     OR slug LIKE 'e2e-services-detail-%'
+     OR slug LIKE 'health-fixture-%'
+     OR slug IN ('directory-admin-editor-fixture', 'bulk-fixture-draft', 'bulk-fixture-published')
+)
+AND id NOT IN (SELECT resource_id FROM partner_memberships);
+
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-directory-%';
 DELETE FROM directory_profiles WHERE slug LIKE 'e2e-services-detail-%';
 DELETE FROM directory_profiles WHERE slug LIKE 'health-fixture-%';
