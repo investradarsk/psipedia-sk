@@ -198,13 +198,14 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
   const selection = selectMigrationsThrough(files, targetMigration);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
-  const migrationsDir = path.join(workDir, "migrations");
-  await fs.rm(workDir, { recursive: true, force: true });
+  await fs.mkdir(workDir, { recursive: true });
+  const scopedDir = await fs.mkdtemp(path.join(workDir, "scoped-"));
+  const migrationsDir = path.join(scopedDir, "migrations");
   await fs.mkdir(migrationsDir, { recursive: true });
   for (const fileName of selection.selected) {
     await fs.copyFile(path.join(repoRoot, "drizzle", fileName), path.join(migrationsDir, fileName));
   }
-  await fs.writeFile(path.join(workDir, "wrangler.json"), `${JSON.stringify(scopedConfig, null, 2)}\n`);
+  await fs.writeFile(path.join(scopedDir, "wrangler.json"), `${JSON.stringify(scopedConfig, null, 2)}\n`);
   await fs.writeFile(path.join(workDir, "manifest.json"), `${JSON.stringify({
     targetMigration,
     targetIndex: selection.targetIndex,
@@ -215,7 +216,7 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     accountId: resources.account_id,
     workerName: generated.name ?? null,
   }, null, 2)}\n`);
-  return { resources, generated, selection, workDir, configPath: path.join(workDir, "wrangler.json") };
+  return { resources, generated, selection, workDir, scopedDir, configPath: path.join(scopedDir, "wrangler.json") };
 }
 
 function d1Execute(databaseName, configPath, sql) {
