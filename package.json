@@ -52,7 +52,7 @@
     "test:admin-pwa": "node --experimental-strip-types --test tests/admin-pwa.test.mjs",
     "test:admin-buttons": "node --experimental-strip-types --test tests/admin-button-system.test.mjs",
     "audit:public-integrity": "node scripts/check-public-integrity.mjs",
-    "test:public-integrity": "node --experimental-strip-types --test tests/public-integrity.test.mjs && npm run audit:public-integrity",
+    "test:public-integrity": "node --experimental-strip-types --test tests/public-integrity.test.mjs tests/directory-public-migration-compat.test.mjs && npm run audit:public-integrity",
     "test:partner-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-auth-foundation.test.mjs tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs",
     "test:partner-platform": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs",
     "test:reviews-foundation": "node --experimental-strip-types --test tests/reviews-foundation.test.mjs tests/reviews-foundation-d1.test.mjs"
