@@ -48,6 +48,7 @@ function database() {
     ALTER TABLE directory_profiles ADD seo_json TEXT DEFAULT '{}' NOT NULL;
     ALTER TABLE directory_profiles ADD district TEXT DEFAULT '' NOT NULL;
     ALTER TABLE directory_profiles ADD search_text TEXT DEFAULT '' NOT NULL;
+    ALTER TABLE directory_profiles ADD archived_at TEXT;
     ALTER TABLE help_cases ADD seo_json TEXT DEFAULT '{}' NOT NULL;
     ALTER TABLE managed_events ADD seo_json TEXT DEFAULT '{}' NOT NULL;
   `);
