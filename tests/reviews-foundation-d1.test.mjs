@@ -162,20 +162,38 @@ test("provider reply and report foundations enforce constrained foreign keys and
   db.close();
 });
 
-test("persistent resource anchor blocks canonical hard delete while archive keeps the anchor intact", () => {
+test("archive and restore preserve canonical row, resource and membership identity", () => {
   const db = baseDatabase();
   seedCanonical(db);
   db.exec(migration);
+
+  const resourceId = db.prepare("SELECT id FROM partner_resources WHERE directory_profile_id=2").get().id;
+  db.prepare("INSERT INTO partner_accounts(id) VALUES ('partner-archive-test')").run();
+  db.prepare("INSERT INTO partner_memberships(id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES (?,?,?,?,?,?,?)")
+    .run("membership-archive-test","partner-archive-test",resourceId,"OWNER","2026-09-22T12:55:00.000Z","test","2026-09-22T12:55:00.000Z");
+
   assert.throws(() => db.prepare("DELETE FROM directory_profiles WHERE id=2").run(), /FOREIGN KEY/);
+
+  const archivedAt = "2026-09-22T13:00:00.000Z";
   db.prepare("UPDATE directory_profiles SET status='archived',published_at=NULL,archived_at=?,updated_at=?,updated_by=? WHERE id=2")
-    .run("2026-09-22T13:00:00.000Z","2026-09-22T13:00:00.000Z","admin:test");
-  const profile = db.prepare("SELECT status,archived_at FROM directory_profiles WHERE id=2").get();
-  assert.equal(profile.status, "archived");
-  assert.ok(profile.archived_at);
-  assert.equal(db.prepare("SELECT COUNT(*) count FROM partner_resources WHERE directory_profile_id=2").get().count, 1);
+    .run(archivedAt, archivedAt, "admin:test");
+  const archived = db.prepare("SELECT id,status,published_at,archived_at FROM directory_profiles WHERE id=2").get();
+  assert.deepEqual({ ...archived }, { id: 2, status: "archived", published_at: null, archived_at: archivedAt });
+  assert.equal(db.prepare("SELECT COUNT(*) count FROM directory_profiles WHERE id=2 AND status='published'").get().count, 0);
+  assert.equal(db.prepare("SELECT id FROM partner_resources WHERE directory_profile_id=2").get().id, resourceId);
+  assert.equal(db.prepare("SELECT COUNT(*) count FROM partner_memberships WHERE resource_id=?").get(resourceId).count, 1);
+
+  const restoredAt = "2026-09-22T13:05:00.000Z";
+  db.prepare("UPDATE directory_profiles SET status='draft',published_at=NULL,archived_at=NULL,updated_at=?,updated_by=? WHERE id=2 AND status='archived'")
+    .run(restoredAt, "admin:test");
+  const restored = db.prepare("SELECT id,status,published_at,archived_at FROM directory_profiles WHERE id=2").get();
+  assert.deepEqual({ ...restored }, { id: 2, status: "draft", published_at: null, archived_at: null });
+  assert.equal(db.prepare("SELECT COUNT(*) count FROM directory_profiles WHERE id=2 AND status='published'").get().count, 0);
+  assert.equal(db.prepare("SELECT id FROM partner_resources WHERE directory_profile_id=2").get().id, resourceId);
+  assert.equal(db.prepare("SELECT COUNT(*) count FROM partner_memberships WHERE resource_id=?").get(resourceId).count, 1);
+
   db.close();
 });
-
 test("moderation event foundation is append-only after 0062", () => {
   const db = baseDatabase();
   seedCanonical(db);
