@@ -11,6 +11,11 @@ const AUTH_EMAILS = {
   "mobile-chromium": "partner-mobile-e2e@example.sk",
 } as const;
 
+const AUTH_ACCOUNT_IDS = {
+  "desktop-chromium": "partner-e2e-desktop",
+  "mobile-chromium": "partner-e2e-mobile",
+} as const;
+
 async function expectNoHorizontalOverflow(page: Page) {
   const metrics = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -86,9 +91,10 @@ test("internal admin Partner overview and account detail are protected admin pag
   const project=testInfo.project.name as keyof typeof AUTH_EMAILS;
   await page.goto("/admin/partners");
   await expect(page.getByRole("heading",{name:"Partneri"})).toBeVisible();
-  await expect(page.getByText(AUTH_EMAILS[project])).toBeVisible();
   await expect(page.getByText("Žiadne Partner workflows momentálne nečakajú")).toBeVisible();
-  await page.getByRole("row").filter({hasText:AUTH_EMAILS[project]}).getByRole("link",{name:"Detail →"}).click();
+  const accountRow=page.getByRole("row").filter({hasText:AUTH_ACCOUNT_IDS[project]});
+  await expect(accountRow.getByText(AUTH_EMAILS[project])).toBeVisible();
+  await accountRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:AUTH_EMAILS[project]})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Bezpečnostné akcie"})).toBeVisible();
   await expectNoHorizontalOverflow(page);
