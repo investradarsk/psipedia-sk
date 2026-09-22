@@ -8,5 +8,6 @@
   "r2": {
     "binding": "BUCKET",
     "bucket_name": "psipedia-sk-bucket"
-  }
+  },
+  "account_id": "5ff902d3d80376478b9213b2b8ae8d6e"
 }
