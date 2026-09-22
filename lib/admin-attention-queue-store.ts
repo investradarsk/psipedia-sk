@@ -7,6 +7,7 @@ import {
   mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
+  mapGeoLocationAttention,
   mapModerationAttention,
   mapNewsTipAttention,
   mapPartnerClaimAttention,
@@ -18,6 +19,7 @@ import {
   type ArticleFeedbackAttentionRow,
   type DirectoryChangeRequestAttentionRow,
   type DirectoryInquiryAttentionRow,
+  type GeoLocationAttentionRow,
   type ModerationAttentionRow,
   type NewsTipAttentionRow,
   type PartnerClaimAttentionRow,
@@ -190,6 +192,36 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerCommercialAttentionRow>();
 
+  const geoPromise = db.prepare(`
+    SELECT g.id, g.target_type AS targetType,
+      COALESCE(g.directory_profile_id, g.organization_location_id, g.managed_event_id) AS targetId,
+      l.organization_id AS organizationId,
+      COALESCE(d.name, o.name, e.title, l.label, '') AS label,
+      d.category AS category,
+      l.role AS locationRole,
+      g.public_visibility AS publicVisibility,
+      g.geocode_status AS status,
+      g.last_error_code AS errorCode,
+      g.manual_override AS manualOverride,
+      g.created_at AS createdAt,
+      g.updated_at AS updatedAt
+    FROM geo_points g
+    LEFT JOIN directory_profiles d ON d.id = g.directory_profile_id
+    LEFT JOIN organization_locations l ON l.id = g.organization_location_id
+    LEFT JOIN help_organizations o ON o.id = l.organization_id
+    LEFT JOIN managed_events e ON e.id = g.managed_event_id
+    WHERE g.geocode_status IN ('NEEDS_REVIEW', 'STALE', 'FAILED')
+    ORDER BY
+      CASE
+        WHEN g.last_error_code IN ('CONFLICTING_PUBLIC_PRIVATE_LOCATION', 'PRIVACY_CLASSIFICATION_MISSING') THEN 0
+        WHEN g.geocode_status IN ('NEEDS_REVIEW', 'STALE') THEN 1
+        ELSE 2
+      END,
+      g.updated_at ASC,
+      g.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<GeoLocationAttentionRow>();
+
   const automationPromise = db.prepare(`
     SELECT f.id, f.entity_type AS entityType, f.finding_type AS findingType, f.priority,
       f.review_status AS reviewStatus, s.label AS sourceLabel, f.source_url AS sourceUrl,
@@ -205,7 +237,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
 
-  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, verifications, commercial, automation] = await Promise.all([
+  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, verifications, commercial, geo, automation] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
     safeSourceResults("news_tips", newsTipsPromise),
     safeSourceResults("directory_change_requests", changeRequestsPromise),
@@ -215,6 +247,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     safeSourceResults("partner_claims", claimsPromise),
     safeSourceResults("partner_resource_verifications", verificationsPromise),
     safeSourceResults("partner_commercial_interests", commercialPromise),
+    safeSourceResults("geo_points", geoPromise),
     safeSourceResults("automation_findings", automationPromise),
   ]);
 
@@ -228,6 +261,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...claims.map((row) => mapPartnerClaimAttention(row, now)),
     ...verifications.map((row) => mapPartnerVerificationAttention(row, now)),
     ...commercial.map((row) => mapPartnerCommercialAttention(row, now)),
+    ...geo.map((row) => mapGeoLocationAttention(row, now)),
     ...automation.map((row) => mapAutomationFindingAttention(row, now)),
   ]);
 }
@@ -246,6 +280,7 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
     ["PARTNER_CLAIM_REVIEW",`SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'`,[]],
     ["PARTNER_VERIFICATION_REVIEW",`SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'`,[]],
     ["PARTNER_COMMERCIAL_LEAD",`SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'`,[]],
+    ["GEO_LOCATION_ISSUE",`SELECT COUNT(*) count FROM geo_points WHERE geocode_status IN ('NEEDS_REVIEW','STALE','FAILED')`,[]],
   ] as const;
   const counts=await Promise.all(queries.map(async([source,sql,bindings])=>{
     try{const row=await db.prepare(sql).bind(...bindings).first<{count:number}>();return [source,Number(row?.count??0)] as const;}catch{return [source,0] as const;}

@@ -2,7 +2,7 @@ import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts"
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 10;
+export const ADMIN_ATTENTION_QUERY_COUNT = 11;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -15,6 +15,7 @@ export const adminAttentionSourceTypes = [
   "PARTNER_CLAIM_REVIEW",
   "PARTNER_VERIFICATION_REVIEW",
   "PARTNER_COMMERCIAL_LEAD",
+  "GEO_LOCATION_ISSUE",
 ] as const;
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
 
@@ -62,6 +63,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   PARTNER_CLAIM_REVIEW: "Partner claims",
   PARTNER_VERIFICATION_REVIEW: "Partner overenia",
   PARTNER_COMMERCIAL_LEAD: "Partner komerčné leady",
+  GEO_LOCATION_ISSUE: "Geo lokality",
 };
 
 export const adminAttentionPriorityLabels: Record<AdminAttentionPriority, string> = {
@@ -488,6 +490,88 @@ export function mapAutomationFindingAttention(
     metadata: [
       { label: "Zdroj", value: row.sourceLabel },
       ...(row.sourceUrl ? [{ label: "URL", value: row.sourceUrl }] : []),
+    ],
+  };
+}
+
+export type GeoLocationAttentionRow = {
+  id: number;
+  targetType: string;
+  targetId: number;
+  organizationId: number | null;
+  label: string;
+  category: string | null;
+  locationRole: string | null;
+  publicVisibility: string | null;
+  status: string;
+  errorCode: string | null;
+  manualOverride: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const GEO_SENSITIVE_DIRECTORY_CATEGORIES = new Set([
+  "chovatelske-stanice",
+  "chovatelske-kluby",
+  "treneri",
+  "vencenie",
+  "kynologicke-kluby",
+]);
+
+function geoAttentionPriority(row: GeoLocationAttentionRow): AdminAttentionPriority {
+  const sensitive = row.targetType === "DIRECTORY_PROFILE" && GEO_SENSITIVE_DIRECTORY_CATEGORIES.has(row.category ?? "");
+  const sensitiveRole = row.targetType === "ORGANIZATION_LOCATION" && (row.locationRole === "LEGAL_SEAT" || row.locationRole === "UNSPECIFIED");
+  if (row.errorCode === "CONFLICTING_PUBLIC_PRIVATE_LOCATION") return "HIGH";
+  if (row.errorCode === "PRIVACY_CLASSIFICATION_MISSING" && (sensitive || sensitiveRole)) return "HIGH";
+  if (row.publicVisibility === "EXACT_PUBLIC" && row.status === "STALE" && (sensitive || sensitiveRole)) return "HIGH";
+  if (row.errorCode === "PROVIDER_ERROR" || row.errorCode === "RATE_LIMITED") return "LOW";
+  return "MEDIUM";
+}
+
+function geoAttentionHref(row: GeoLocationAttentionRow) {
+  if (row.targetType === "DIRECTORY_PROFILE") return `/admin/adresar/${row.targetId}#geo`;
+  if (row.targetType === "MANAGED_EVENT") return `/admin/podujatia/${row.targetId}#geo`;
+  if (row.targetType === "ORGANIZATION_LOCATION" && row.organizationId) return `/admin/organizacie/${row.organizationId}#locations`;
+  return "/admin/operations/geo";
+}
+
+function geoAttentionReason(row: GeoLocationAttentionRow) {
+  const code = row.errorCode ?? row.status;
+  const reasons: Record<string, string> = {
+    PRIVACY_CLASSIFICATION_MISSING: "Lokalita nemá bezpečne potvrdenú verejnú privacy klasifikáciu.",
+    CONFLICTING_PUBLIC_PRIVATE_LOCATION: "Verejná a súkromná interpretácia lokality sú v konflikte.",
+    AMBIGUOUS: "Geocoder našiel viac než jednu bezpečne použiteľnú lokalitu.",
+    NO_MATCH: "Geocoder nenašiel zodpovedajúcu lokalitu.",
+    STALE: "Canonical location source sa zmenil a uložený geo bod treba znovu overiť.",
+    SOURCE_INCOMPLETE: "Canonical location source nemá dostatok údajov na bezpečné geokódovanie.",
+    CONFLICTING_GEO: "Geo údaje sú v konflikte a vyžadujú manuálne rozhodnutie.",
+    MANUAL_REVIEW: "Manual marker zostal zachovaný po zmene source lokality a vyžaduje potvrdenie.",
+    PROVIDER_ERROR: "Provider zlyhal aj po povolených retry pokusoch.",
+    RATE_LIMITED: "Provider zostal nedostupný po vyčerpaní retry okna.",
+    LOW_CONFIDENCE: "Výsledok geocodingu nemá dostatočnú istotu na automatické použitie.",
+  };
+  return reasons[code] ?? "Geo lokalita vyžaduje administrátorskú kontrolu.";
+}
+
+export function mapGeoLocationAttention(row: GeoLocationAttentionRow, now = new Date()): AdminAttentionItem {
+  const relevantAt = row.updatedAt || row.createdAt;
+  return {
+    key: `geo-location:${row.id}`,
+    sourceType: "GEO_LOCATION_ISSUE",
+    sourceId: String(row.id),
+    title: `Poloha: ${row.label || `#${row.targetId}`}`,
+    reason: geoAttentionReason(row),
+    priority: geoAttentionPriority(row),
+    status: row.status,
+    attentionState: row.status === "PENDING" ? "NEW" : "IN_PROGRESS",
+    createdAt: row.createdAt,
+    relevantAt,
+    ageDays: ageDays(relevantAt, now),
+    targetHref: geoAttentionHref(row),
+    metadata: [
+      { label: "Target", value: row.targetType },
+      ...(row.errorCode ? [{ label: "Dôvod", value: row.errorCode }] : []),
+      ...(row.manualOverride ? [{ label: "Marker", value: "Manual override" }] : []),
     ],
   };
 }

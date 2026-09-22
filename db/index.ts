@@ -1,10 +1,11 @@
 import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
 import * as coreSchema from "./schema";
+import * as geoSchema from "./geo-schema";
 import * as partnerSchema from "./partner-schema";
 import * as reviewSchema from "./review-schema";
 
-const schema = { ...coreSchema, ...partnerSchema, ...reviewSchema };
+const schema = { ...coreSchema, ...geoSchema, ...partnerSchema, ...reviewSchema };
 
 export function getDb() {
   if (!env.DB) {

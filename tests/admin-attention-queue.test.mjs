@@ -10,6 +10,7 @@ import {
   mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
+  mapGeoLocationAttention,
   mapModerationAttention,
   mapNewsTipAttention,
   mapPartnerClaimAttention,
@@ -157,6 +158,44 @@ test("Partner commercial Attention maps lifecycle, stable key and direct deep li
   assert.equal(notNow.attentionState,"DISMISSED");
 });
 
+test("geo Attention uses one source with privacy-aware severity and direct deep links", () => {
+  const sensitive = mapGeoLocationAttention({
+    id: 91,
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 44,
+    organizationId: null,
+    label: "Citlivá stanica",
+    category: "chovatelske-stanice",
+    locationRole: null,
+    publicVisibility: null,
+    status: "NEEDS_REVIEW",
+    errorCode: "PRIVACY_CLASSIFICATION_MISSING",
+    manualOverride: 0,
+    createdAt: "2026-09-15T09:00:00.000Z",
+    updatedAt: "2026-09-15T10:00:00.000Z",
+  }, NOW);
+  const providerFailure = mapGeoLocationAttention({
+    id: 92,
+    targetType: "MANAGED_EVENT",
+    targetId: 55,
+    organizationId: null,
+    label: "Podujatie",
+    category: null,
+    locationRole: null,
+    publicVisibility: "EXACT_PUBLIC",
+    status: "FAILED",
+    errorCode: "PROVIDER_ERROR",
+    manualOverride: 0,
+    createdAt: "2026-09-15T09:00:00.000Z",
+    updatedAt: "2026-09-15T10:00:00.000Z",
+  }, NOW);
+  assert.equal(sensitive.sourceType, "GEO_LOCATION_ISSUE");
+  assert.equal(sensitive.priority, "HIGH");
+  assert.equal(sensitive.targetHref, "/admin/adresar/44#geo");
+  assert.equal(providerFailure.priority, "LOW");
+  assert.equal(providerFailure.targetHref, "/admin/podujatia/55#geo");
+});
+
 test("active items sort before history and active priority ordering remains deterministic", () => {
   const sorted = sortAdminAttentionItems([
     manualItem({ key: "resolved", attentionState: "RESOLVED", relevantAt: "2026-09-15T11:00:00.000Z" }),
@@ -231,7 +270,7 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
 
 test("all source queries stay bounded and the attention store remains read-only", () => {
   assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 10);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 11);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
@@ -249,6 +288,7 @@ test("target hrefs point to existing admin route patterns", () => {
     "../app/admin/partners/claims/[id]/page.tsx",
     "../app/admin/partners/verifications/[id]/page.tsx",
     "../app/admin/partners/commercial/[id]/page.tsx",
+    "../app/admin/operations/geo/page.tsx",
   ];
   for (const route of routes) assert.equal(existsSync(new URL(route, import.meta.url)), true, route);
 });

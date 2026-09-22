@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
 import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
+import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -41,6 +42,9 @@ export async function PUT(request: Request, { params }: Props) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
     }
+    await syncGeoPointAfterSourceChange("MANAGED_EVENT", id).catch((error) => {
+      console.warn("Event geo stale sync failed", { id, error: error instanceof Error ? error.message : String(error) });
+    });
     if (before.status !== "published" && event.status === "published") {
       const bindings = env as unknown as UploadBindings;
       if (bindings.DB) {
