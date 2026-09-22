@@ -69,7 +69,7 @@ test("Attention canonical predicate and Partner admin pending predicate both cou
   const exact=attentionStore.slice(attentionStore.indexOf("loadExactAdminAttentionSummary"));
   assert.match(exact,/PARTNER_COMMERCIAL_LEAD/);
   assert.match(exact,/partner_commercial_interests WHERE status='NEW'/);
-  assert.equal((attentionStore.match(/LIMIT \?/g)??[]).length,8);
+  assert.equal((attentionStore.match(/LIMIT \?/g)??[]).length,9);
 });
 
 test("commercial workflow stays pre-sales and does not mutate monetization or organic state",()=>{
