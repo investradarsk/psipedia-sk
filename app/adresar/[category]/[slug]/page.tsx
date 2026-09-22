@@ -57,6 +57,6 @@ export default async function DirectoryProfilePage({ params }: Props) {
       {"@type":"ListItem",position:1,name:"Domov",item:SITE_URL}, {"@type":"ListItem",position:2,name:"Služby pre psov",item:`${SITE_URL}/adresar`},
       {"@type":"ListItem",position:3,name:getDirectoryCategory(profile.category)?.label,item:`${SITE_URL}/adresar/${profile.category}`}, {"@type":"ListItem",position:4,name:profile.name,item:canonical}]}
   ]};
-  const claimHref = `/partner/prevziat-profil?type=DIRECTORY_PROFILE&id=${profile.id}`;
+  const claimHref = `/partner/prevziat-profil/DIRECTORY_PROFILE/${profile.id}`;
   return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} /><PartnerPublicOwnership verified={partnerVerified} claimHref={claimHref} /></>;
 }
