@@ -162,10 +162,10 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   }, [openSettings]);
 
   useEffect(() => {
-    if (!isInternalTraffic && (savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute && !isPartnerRoute) {
+    if (ready && !isInternalTraffic && (savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute && !isPartnerRoute) {
       void sendPageView(pathname);
     }
-  }, [isAdminRoute, isInternalTraffic, isPartnerRoute, pathname, savedChoice]);
+  }, [isAdminRoute, isInternalTraffic, isPartnerRoute, pathname, ready, savedChoice]);
 
   function saveChoice(choice: ConsentChoice) {
     const revokingAdvertising = savedChoice === "advertising" && choice !== "advertising";
