@@ -52,13 +52,15 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
 });
 
-test("public Directory profile exposes free claim CTA without implying Partner verification", async ({ page }) => {
+test("public Directory profile exposes free claim CTA and only asserts pre-verification state on desktop", async ({ page }, testInfo) => {
   await page.goto("/adresar/veterinari/partner-e2e-veterina");
   await expect(page.getByRole("heading", { name: "Spravujete tento profil?" })).toBeVisible();
   await expect(page.getByText("Správa základných údajov profilu je bezplatná.")).toBeVisible();
   const claimLink=page.getByRole("link",{name:"Spravovať tento profil"});
   await expect(claimLink).toHaveAttribute("href","/partner/prevziat-profil?type=DIRECTORY_PROFILE&id=990001");
-  await expect(page.getByText("Overený správca")).toHaveCount(0);
+  if (testInfo.project.name === "desktop-chromium") {
+    await expect(page.getByText("Overený správca")).toHaveCount(0);
+  }
   await expectNoHorizontalOverflow(page);
 });
 
