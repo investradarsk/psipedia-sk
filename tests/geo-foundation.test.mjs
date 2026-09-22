@@ -23,6 +23,8 @@ const operationsApi = readFileSync(new URL("../app/api/admin/geo/operations/rout
 const geoAdminApi = readFileSync(new URL("../app/api/admin/geo/[targetType]/[id]/route.ts", import.meta.url), "utf8");
 const geoAdminComponent = readFileSync(new URL("../components/admin-geo-location.tsx", import.meta.url), "utf8");
 const inventory = readFileSync(new URL("../scripts/geo-production-inventory.sql", import.meta.url), "utf8");
+const publicMapRoute = readFileSync(new URL("../app/api/map/route.ts", import.meta.url), "utf8");
+const publicMapQuery = readFileSync(new URL("../lib/map-query.ts", import.meta.url), "utf8");
 
 test("migration is additive with physical FKs, exactly-one-target integrity and partial uniques", () => {
   assert.match(migration, /CREATE TABLE geo_points/);
@@ -263,9 +265,10 @@ test("Gate A inventory is SELECT-only and never reads private lost/found storage
   assert.doesNotMatch(inventory, /private_latitude|private_longitude/i);
 });
 
-test("generic geo foundation never targets lost/found and public map surfaces remain absent", () => {
+test("generic geo foundation never targets lost/found and MAP-1C keeps the UI boundary", () => {
   assert.doesNotMatch(migration, /lost_found/i);
   assert.doesNotMatch(geoStore, /lost_found_dog_private_details|private_latitude|private_longitude/i);
+  assert.doesNotMatch(publicMapRoute + publicMapQuery, /lost_found_dog_private_details|private_latitude|private_longitude/i);
   assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), false);
-  assert.equal(existsSync(new URL("../app/api/map/route.ts", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../app/api/map/route.ts", import.meta.url)), true);
 });
