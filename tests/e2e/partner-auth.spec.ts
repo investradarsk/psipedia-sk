@@ -169,8 +169,9 @@ test("internal admin Partner overview and account detail are protected admin pag
     const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
     await expect(verificationRow).toContainText("PENDING_VERIFICATION");
     await verificationRow.getByRole("link",{name:"Detail →"}).click();
+    page.once("dialog", dialog => void dialog.accept());
     await page.getByRole("button",{name:"Overiť"}).click();
-    page.once("dialog", dialog=>dialog.accept());
+    await expect(page.getByRole("status")).toContainText("Správca bol overený.");
   }else{
     await expect(page.getByRole("link",{name:/Claims 1/})).toBeVisible();
     await page.goto("/admin/partners/claims?status=PENDING");
