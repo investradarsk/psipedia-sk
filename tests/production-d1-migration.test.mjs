@@ -75,3 +75,21 @@ test("scoped Wrangler config rejects a different production database id", () => 
     /database_id does not match canonical config/,
   );
 });
+
+test("production D1 workflow is manual-only, protected and deploy-free", async () => {
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-migrate.yml"), "utf8");
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /^\s*push:/m);
+  assert.doesNotMatch(workflow, /^\s*pull_request:/m);
+  assert.match(workflow, /environment:\s*production/);
+  assert.match(workflow, /secrets\.CLOUDFLARE_D1_API_TOKEN/);
+  assert.match(workflow, /APPLY-0062-psipedia-sk-db/);
+  assert.doesNotMatch(workflow, /wrangler\s+deploy|deploy:cloudflare/);
+});
+
+test("ordinary Cloudflare deploy path never applies remote D1 migrations", async () => {
+  const deploy = await readFile(path.join(repoRoot, "scripts/deploy-cloudflare-safe.mjs"), "utf8");
+  assert.doesNotMatch(deploy, /remoteMigration/);
+  assert.doesNotMatch(deploy, /apply-remote-d1-migrations/);
+  assert.match(deploy, /separate manually-triggered Production D1 Migrate workflow/);
+});
