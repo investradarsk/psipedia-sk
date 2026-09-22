@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listPartnerProfileChangesAdmin } from "@/lib/partner-profile-changes-admin";
-import "../../partners.css";
+import "../partners.css";
 
 export const dynamic = "force-dynamic";
 
