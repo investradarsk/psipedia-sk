@@ -57,7 +57,7 @@ test("public Directory profile exposes free claim CTA and only asserts pre-verif
   await expect(page.getByRole("heading", { name: "Spravujete tento profil?" })).toBeVisible();
   await expect(page.getByText("Správa základných údajov profilu je bezplatná.")).toBeVisible();
   const claimLink=page.getByRole("link",{name:"Spravovať tento profil"});
-  await expect(claimLink).toHaveAttribute("href","/partner/prevziat-profil?type=DIRECTORY_PROFILE&id=990001");
+  await expect(claimLink).toHaveAttribute("href","/partner/prevziat-profil/DIRECTORY_PROFILE/990001");
   if (testInfo.project.name === "desktop-chromium") {
     await expect(page.getByText("Overený správca")).toHaveCount(0);
   }
@@ -76,7 +76,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     : "/partner/overenie#token="+encodeURIComponent(token);
   await page.goto(verificationUrl);
   if(project==="mobile-chromium"){
-    await expect(page).toHaveURL(/\/partner\/prevziat-profil\?type=DIRECTORY_PROFILE&id=990001$/);
+    await expect(page).toHaveURL(/\/partner\/prevziat-profil\/DIRECTORY_PROFILE\/990001$/);
     await expect(page.getByRole("heading",{name:"Prevziať existujúci profil"})).toBeVisible();
     await page.getByLabel(/Ako ste spojení/).fill("E2E poverený správca");
     await page.getByRole("button",{name:"Odoslať žiadosť o prevzatie"}).click();
