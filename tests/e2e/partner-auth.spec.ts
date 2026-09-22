@@ -70,7 +70,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   const expectedEmail = AUTH_EMAILS[project];
   expect(token).toBeTruthy();
 
-  const mobileReturnTo="/partner/prevziat-profil?type=DIRECTORY_PROFILE&id=990001";
+  const mobileReturnTo="/partner/prevziat-profil/DIRECTORY_PROFILE/990001";
   const verificationUrl=project==="mobile-chromium"
     ? "/partner/overenie?returnTo="+encodeURIComponent(mobileReturnTo)+"#token="+encodeURIComponent(token)
     : "/partner/overenie#token="+encodeURIComponent(token);
