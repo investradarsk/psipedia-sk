@@ -72,6 +72,8 @@ jobs:
     needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
