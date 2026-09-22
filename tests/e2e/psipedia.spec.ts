@@ -240,6 +240,23 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   await expectHealthyPage(page, "/");
   await expect(page.locator("h1")).toBeVisible();
   await expect(page.locator("main#obsah").getByRole("link", { name: /Všetky články/ })).toHaveAttribute("href", "/clanky");
+
+  const sharedHomepageArticleLayouts = [
+    { root: "[data-home-latest]", id: "latest" },
+    { root: '[data-home-editorial="steniatka"]', id: "steniatka" },
+    { root: '[data-home-editorial="starostlivost"]', id: "starostlivost" },
+    { root: '[data-home-editorial="aktivity"]', id: "aktivity" },
+  ];
+  for (const item of sharedHomepageArticleLayouts) {
+    const root = page.locator(item.root);
+    const layout = root.locator(`[data-home-article-layout="${item.id}"]`);
+    await expect(layout, `Homepage section ${item.id} is still serving the pre-#240 article layout`).toHaveCount(1);
+    await expect(layout.locator("[data-home-article-lead]")).toHaveCount(1);
+    expect(await layout.locator("[data-home-article-secondary] .home-latest-item").count()).toBeLessThanOrEqual(4);
+  }
+  await expect(page.locator('[data-home-editorial="steniatka"] .home-editorial-grid')).toHaveCount(0);
+  await expect(page.locator('[data-home-editorial="starostlivost"] .home-editorial-grid')).toHaveCount(0);
+  await expect(page.locator('[data-home-editorial="aktivity"] .home-editorial-grid')).toHaveCount(0);
   const search = page.getByRole("search").filter({ has: page.locator("#home-search") });
   await search.locator("input[name=q]").fill("labrador");
   await Promise.all([
