@@ -169,8 +169,14 @@ test("internal admin Partner overview and account detail are protected admin pag
     const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
     await expect(verificationRow).toContainText("PENDING_VERIFICATION");
     await verificationRow.getByRole("link",{name:"Detail →"}).click();
+    const verificationResponse = page.waitForResponse((response) =>
+      response.url().includes("/api/admin/partners/verifications/") &&
+      response.request().method() === "PATCH" &&
+      response.ok(),
+    );
     page.once("dialog", dialog => void dialog.accept());
     await page.getByRole("button",{name:"Overiť"}).click();
+    await verificationResponse;
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Overený správca")).toBeVisible();
   }else{
