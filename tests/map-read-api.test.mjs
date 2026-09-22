@@ -68,7 +68,7 @@ function row(overrides = {}) {
     ...overrides,
   };
   if (!Object.prototype.hasOwnProperty.call(overrides, "search_text")) {
-    value.search_text = `${value.name} ${value.subcategory} ${value.city} ${value.district} ${value.region}`;
+    value.search_text = `${value.name} ${value.city} ${value.district} ${value.region}`;
   }
   return value;
 }
