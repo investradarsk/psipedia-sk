@@ -31,9 +31,10 @@ test("internal traffic storage uses a single explicit marker", () => {
 });
 
 test("analytics and programmatic ads both honor the internal traffic marker", async () => {
-  const [consent, ads] = await Promise.all([
+  const [consent, ads, adExposure] = await Promise.all([
     readFile(new URL("../components/cookie-consent.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/programmatic-ad-loader.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/ad-exposure-tracker.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(consent, /INTERNAL_TRAFFIC_STORAGE_KEY/);
@@ -42,4 +43,6 @@ test("analytics and programmatic ads both honor the internal traffic marker", as
   assert.match(consent, /history\.replaceState/);
   assert.match(ads, /INTERNAL_TRAFFIC_STORAGE_KEY/);
   assert.match(ads, /INTERNAL_TRAFFIC_EVENT/);
+  assert.match(adExposure, /INTERNAL_TRAFFIC_STORAGE_KEY/);
+  assert.match(adExposure, /parseInternalTrafficOverride/);
 });
