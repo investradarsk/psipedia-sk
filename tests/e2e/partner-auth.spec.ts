@@ -171,7 +171,9 @@ test("internal admin Partner overview and account detail are protected admin pag
     await verificationRow.getByRole("link",{name:"Detail →"}).click();
     page.once("dialog", dialog => void dialog.accept());
     await page.getByRole("button",{name:"Overiť"}).click();
-    await expect(page.getByRole("status")).toContainText("Správca bol overený.");
+    await expect(page.getByText("VERIFIED", { exact: true })).toBeVisible();
+    await page.goto("/adresar/veterinari/partner-e2e-veterina");
+    await expect(page.getByText("Overený správca")).toBeVisible();
   }else{
     await expect(page.getByRole("link",{name:/Claims 1/})).toBeVisible();
     await page.goto("/admin/partners/claims?status=PENDING");
@@ -179,6 +181,12 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(claimRow).toContainText("Ownership konflikt");
     await claimRow.getByRole("link",{name:"Detail →"}).click();
     await expect(page.getByText("Ownership konflikt").first()).toBeVisible();
+    page.once("dialog", dialog => void dialog.accept());
+    await page.getByRole("button",{name:"Schváliť"}).click();
+    await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
+    await page.goto("/admin/partners");
+    await expect(page.getByRole("link",{name:/Claims 0/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 1/})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });
