@@ -94,15 +94,35 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
     await expect(page.getByText("OWNER")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
+    await page.getByRole("link", { name: "Upraviť údaje" }).click();
+    await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
+    await page.getByLabel("Mesto").fill("Trnava");
+    await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
+    await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
+    await page.goto("/adresar/veterinari/partner-e2e-veterina");
+    await expect(page.getByText("Nitra", { exact: true }).first()).toBeVisible();
   } else {
-    await expect(page.getByRole("heading", { name: "Žiadne priradené profily" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
+    await expect(page.getByText("EDITOR")).toBeVisible();
+    await expect(page.getByText("Neoverené")).toBeVisible();
+    await page.getByRole("link", { name: "Upraviť údaje" }).click();
+    await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
+    await page.getByLabel("Verejný telefón").fill("+421900333444");
+    await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
+    await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
+    await page.goto("/partner/ziadosti");
+    const organizationChange = page.locator(".partner-request-list article").filter({ hasText: "Partner E2E Organizácia" }).first();
+    await expect(organizationChange).toContainText("Čaká na kontrolu");
+    page.once("dialog", dialog => void dialog.accept());
+    await organizationChange.getByRole("button", { name: "Zrušiť návrh" }).click();
+    await expect(organizationChange).toContainText("Zrušené");
   }
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("link", { name: "Žiadosti a zmeny" }).click();
+  await page.goto("/partner/ziadosti");
   await expect(page.getByRole("heading", { name: "Žiadosti a overenia" })).toBeVisible();
   if (project === "desktop-chromium") {
-    await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Partner E2E Veterina" }).last()).toBeVisible();
     await page.getByRole("button", { name: "Požiadať o overenie" }).click();
     await page.getByRole("button", { name: "Odoslať na overenie" }).click();
     await expect(page.getByRole("status")).toContainText("Žiadosť o overenie čaká na kontrolu.");
@@ -166,6 +186,28 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(page.getByRole("link",{name:/Komerčné leady 0/})).toBeVisible();
 
   if(project==="desktop-chromium"){
+    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
+    await page.goto("/admin/partners/changes?status=active");
+    const changeRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Veterina"});
+    await expect(changeRow).toContainText("1 zmenených polí");
+    await changeRow.getByRole("link",{name:"Detail →"}).click();
+    await expect(page.getByRole("heading",{name:"OLD → NEW"})).toBeVisible();
+    await expect(page.getByText("Nitra",{exact:true}).first()).toBeVisible();
+    await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
+    const changeResponse=page.waitForResponse((response)=>
+      response.url().includes("/api/admin/partners/changes/") &&
+      response.request().method()==="PATCH" &&
+      response.ok(),
+    );
+    page.once("dialog",dialog=>void dialog.accept());
+    await page.getByRole("button",{name:"Schváliť zmeny"}).click();
+    await changeResponse;
+    await page.goto("/admin/partners");
+    await expect(page.getByRole("link",{name:/Úpravy 0/})).toBeVisible();
+    await page.goto("/adresar/veterinari/partner-e2e-veterina");
+    await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
+    await page.goto("/admin/partners");
+
     await expect(page.getByRole("link",{name:/Overenia 1/})).toBeVisible();
     await page.goto("/admin/partners/verifications?status=PENDING_VERIFICATION");
     const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
