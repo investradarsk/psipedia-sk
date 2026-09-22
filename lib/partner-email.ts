@@ -24,6 +24,9 @@ export const partnerNotificationTypes = [
   "CLAIM_REJECTED",
   "VERIFICATION_APPROVED",
   "VERIFICATION_REJECTED",
+  "PROFILE_CHANGE_SUBMITTED",
+  "PROFILE_CHANGE_APPROVED",
+  "PROFILE_CHANGE_REJECTED",
 ] as const;
 export type PartnerNotificationType = (typeof partnerNotificationTypes)[number];
 
@@ -212,6 +215,18 @@ async function sendPartnerAuthEmail(input: {
       VERIFICATION_REJECTED: {
         subject: "Výsledok overenia správcu profilu",
         lines: ["Overenie správcu profilu nebolo schválené. Žiadosť môžete po doplnení podkladov odoslať znova."],
+      },
+      PROFILE_CHANGE_SUBMITTED: {
+        subject: "Návrh úprav profilu sme prijali",
+        lines: ["Návrh úprav profilu sme prijali a čaká na kontrolu."],
+      },
+      PROFILE_CHANGE_APPROVED: {
+        subject: "Úpravy profilu boli schválené",
+        lines: ["Úpravy profilu boli schválené a zverejnené v canonical profile."],
+      },
+      PROFILE_CHANGE_REJECTED: {
+        subject: "Návrh úprav nebol schválený",
+        lines: ["Návrh úprav nebol schválený. Stav a bezpečný dôvod nájdete vo svojom Partner účte."],
       },
     };
     const selected = copy[input.row.notification_type];
