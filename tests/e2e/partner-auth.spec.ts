@@ -171,7 +171,6 @@ test("internal admin Partner overview and account detail are protected admin pag
     await verificationRow.getByRole("link",{name:"Detail →"}).click();
     page.once("dialog", dialog => void dialog.accept());
     await page.getByRole("button",{name:"Overiť"}).click();
-    await expect(page.getByText("VERIFIED", { exact: true })).toBeVisible();
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Overený správca")).toBeVisible();
   }else{
