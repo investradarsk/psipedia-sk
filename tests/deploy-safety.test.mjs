@@ -30,7 +30,7 @@ function createHarness({ failCommand = null, failValidationPhase = null, fingerp
   };
 }
 
-test("happy path is build -> artifact validation -> remote migration -> remote audit -> same-artifact check -> deploy", async () => {
+test("happy path is build -> artifact validation -> read-only remote audit -> same-artifact check -> deploy", async () => {
   const harness = createHarness();
   await runSafeCloudflareDeployment(harness);
   assert.deepEqual(harness.events, [
@@ -38,7 +38,6 @@ test("happy path is build -> artifact validation -> remote migration -> remote a
     "build",
     "artifact-validation",
     "prepared-artifact-validation",
-    "remote-migration",
     "remote-audit",
     "artifact-identity-recheck",
     "deploy",
@@ -94,20 +93,13 @@ test("artifact validation failure performs no remote mutation and no deploy", as
   assert.equal(harness.events.includes("deploy"), false);
 });
 
-test("remote migration failure blocks audit and deploy", async () => {
-  const harness = createHarness({ failCommand: "remote-migration" });
-  await assert.rejects(() => runSafeCloudflareDeployment(harness), /forced remote-migration failure/);
-  assert.equal(harness.events.includes("remote-audit"), false);
-  assert.equal(harness.events.includes("deploy"), false);
-});
-
 test("remote audit failure blocks deploy", async () => {
   const harness = createHarness({ failCommand: "remote-audit" });
   await assert.rejects(() => runSafeCloudflareDeployment(harness), /forced remote-audit failure/);
   assert.equal(harness.events.includes("deploy"), false);
 });
 
-test("same-artifact contract blocks deploy when dist changes after remote mutation", async () => {
+test("same-artifact contract blocks deploy when dist changes after remote checks", async () => {
   const harness = createHarness({ fingerprints: ["artifact-a", "artifact-b"] });
   await assert.rejects(() => runSafeCloudflareDeployment(harness), /prepared artifact changed after validation/);
   assert.equal(harness.events.includes("deploy"), false);
@@ -116,12 +108,12 @@ test("same-artifact contract blocks deploy when dist changes after remote mutati
 test("orchestration is fully injectable so tests execute no production commands", async () => {
   const harness = createHarness();
   await runSafeCloudflareDeployment(harness);
-  assert.equal(harness.events.filter((event) => event === "remote-migration").length, 1);
+  assert.equal(harness.events.filter((event) => event === "remote-migration").length, 0);
   assert.equal(harness.events.filter((event) => event === "deploy").length, 1);
   assert.ok(DEPLOYMENT_STEPS.remoteAudit.args.includes("--remote"));
   assert.ok(DEPLOYMENT_STEPS.remoteAudit.args.includes("--strict"));
   assert.deepEqual(DEPLOYMENT_STEPS.deploy.args.slice(0, 3), ["deploy", "--config", "dist/server/wrangler.json"]);
-  assert.ok(DEPLOYMENT_STEPS.deploy.args.includes("--no-bundle"), "production deploy must not create a new Wrangler bundle after DB mutation");
+  assert.ok(DEPLOYMENT_STEPS.deploy.args.includes("--no-bundle"), "production deploy must not create a new Wrangler bundle after remote checks");
 });
 
 async function createArtifactFixture({ buildCommand = null } = {}) {
