@@ -30,6 +30,7 @@ import {
   verifyPartnerTurnstile,
 } from "@/lib/partner-security";
 import { appendPartnerAuditEvent } from "@/lib/partner-platform";
+import { normalizePartnerReturnTo } from "@/lib/partner-return-to";
 
 export const PARTNER_AUTH_GENERIC_RESPONSE =
   "Ak je možné pokračovať, poslali sme vám prihlasovací odkaz e-mailom.";
@@ -127,6 +128,7 @@ export async function requestPartnerMagicLink(input: {
   request: Request;
   email: unknown;
   turnstileToken: unknown;
+  returnTo?: unknown;
   database?: D1Database;
   bindings?: PartnerAuthBindings;
   now?: Date;
@@ -138,6 +140,7 @@ export async function requestPartnerMagicLink(input: {
   const turnstileSecret = requireBinding(bindings.TURNSTILE_SECRET_KEY, "TURNSTILE_SECRET_KEY");
   const email = normalizePartnerEmail(input.email);
   const turnstileToken = normalizeTurnstileToken(input.turnstileToken);
+  const returnTo = normalizePartnerReturnTo(input.returnTo);
   const now = input.now ?? new Date();
 
   await verifyPartnerTurnstile({
@@ -178,6 +181,7 @@ export async function requestPartnerMagicLink(input: {
   const outboxId = await queuePartnerMagicLinkEmail({
     accountId: account.id,
     rawToken: authToken.token,
+    returnTo,
     expiresAt: authToken.expiresAt,
     database,
     bindings,
