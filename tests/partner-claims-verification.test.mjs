@@ -11,7 +11,7 @@ const [
   migration,claims,admin,email,platform,attention,attentionStore,claimApi,cancelApi,verificationApi,
   claimAdminApi,verificationAdminApi,claimPage,requestsPage,directoryPage,organizationPage,publicOwnership,
 ]=await Promise.all([
-  "drizzle/0062_partner_claims_verification.sql",
+  "drizzle/0063_partner_claims_verification.sql",
   "lib/partner-claims.ts",
   "lib/partner-claims-admin.ts",
   "lib/partner-email.ts",
@@ -30,7 +30,7 @@ const [
   "components/partner-public-ownership.tsx",
 ].map(read));
 
-test("0062 creates canonical claims and verification with FKs, checks, indexes and append-only audit",()=>{
+test("0063 creates canonical claims and verification with FKs, checks, indexes and append-only audit",()=>{
   assert.match(migration,/CREATE TABLE `partner_claims`/);
   assert.match(migration,/REFERENCES `partner_accounts`\(`id`\) ON DELETE RESTRICT/);
   assert.match(migration,/REFERENCES `partner_resources`\(`id`\) ON DELETE RESTRICT/);
