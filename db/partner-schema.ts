@@ -136,9 +136,11 @@ export const partnerProfileChangeMetadata = sqliteTable("partner_profile_change_
   partnerAccountId:text("partner_account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
   baseUpdatedAt:text("base_updated_at").notNull(),
   baseSnapshotJson:text("base_snapshot_json").notNull().default("{}"),
+  changedFieldCount:integer("changed_field_count").notNull().default(0),
   dedupeActive:integer("dedupe_active").notNull().default(1),
   createdAt:text("created_at").notNull(),
 }, table=>[
+  check("partner_profile_change_changed_field_count_check",sql`${table.changedFieldCount} >= 0 AND ${table.changedFieldCount} <= 64`),
   check("partner_profile_change_dedupe_active_check",sql`${table.dedupeActive} IN (0,1)`),
   uniqueIndex("partner_profile_change_active_unique").on(table.partnerAccountId,table.partnerResourceId).where(sql`${table.dedupeActive}=1`),
   index("partner_profile_change_resource_created_idx").on(table.partnerResourceId,table.createdAt),
