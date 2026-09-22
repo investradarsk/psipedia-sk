@@ -167,11 +167,11 @@ test("PUBLIC-POLISH-2 keeps public photography square without flattening UI cont
 });
 
 test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
-  const editorialGrid = homeEditorial.indexOf('className="home-editorial-grid"');
+  const editorialLayout = homeEditorial.indexOf('<HomeArticleFeatureLayout articles={articles} testId={testId} />');
   const editorialCta = homeEditorial.indexOf('data-home-section-cta={testId}');
-  assert.ok(editorialGrid >= 0 && editorialCta > editorialGrid);
+  assert.ok(editorialLayout >= 0 && editorialCta > editorialLayout);
 
-  const latestLayout = homeEditorial.indexOf('className="home-latest-layout"');
+  const latestLayout = homeEditorial.indexOf('<HomeArticleFeatureLayout articles={articles} testId="latest" />');
   const latestCta = homeEditorial.indexOf('data-home-section-cta="latest"');
   assert.ok(latestLayout >= 0 && latestCta > latestLayout);
 
