@@ -52,6 +52,21 @@ test("build failure performs no remote mutation and no deploy", async () => {
   assert.equal(harness.events.includes("deploy"), false);
 });
 
+test("Workers Builds reuses the prepared artifact instead of rebuilding during deploy", async () => {
+  const harness = createHarness({ failCommand: "build" });
+  await runSafeCloudflareDeployment({ ...harness, env: { WORKERS_CI: "1" } });
+  assert.deepEqual(harness.events, [
+    "config-check",
+    "artifact-validation",
+    "prepared-artifact-validation",
+    "remote-migration",
+    "remote-audit",
+    "artifact-identity-recheck",
+    "deploy",
+  ]);
+  assert.equal(harness.events.includes("build"), false);
+});
+
 test("artifact validation failure performs no remote mutation and no deploy", async () => {
   const harness = createHarness({ failValidationPhase: "before-remote" });
   await assert.rejects(() => runSafeCloudflareDeployment(harness), /forced before-remote validation failure/);
