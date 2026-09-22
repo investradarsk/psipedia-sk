@@ -87,11 +87,51 @@ export const partnerCommercialInterests = sqliteTable("partner_commercial_intere
   index("partner_commercial_resource_created_idx").on(table.resourceId,table.createdAt),
 ]);
 
+
+export const partnerClaims = sqliteTable("partner_claims", {
+  id:text("id").primaryKey(),
+  accountId:text("account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  resourceId:text("resource_id").notNull().references(()=>partnerResources.id,{onDelete:"restrict"}),
+  status:text("status").notNull().default("PENDING"),
+  requestMessage:text("request_message"),
+  createdAt:text("created_at").notNull(),
+  updatedAt:text("updated_at").notNull(),
+  reviewedAt:text("reviewed_at"),
+  reviewedBy:text("reviewed_by"),
+  decisionNote:text("decision_note"),
+  cancelledAt:text("cancelled_at"),
+}, table=>[
+  check("partner_claims_status_check",sql`${table.status} IN ('PENDING','APPROVED','REJECTED','CANCELLED')`),
+  uniqueIndex("partner_claims_pending_unique").on(table.accountId,table.resourceId).where(sql`${table.status}='PENDING'`),
+  index("partner_claims_status_created_idx").on(table.status,table.createdAt),
+  index("partner_claims_account_created_idx").on(table.accountId,table.createdAt),
+  index("partner_claims_resource_status_idx").on(table.resourceId,table.status,table.createdAt),
+]);
+
+export const partnerResourceVerifications = sqliteTable("partner_resource_verifications", {
+  id:text("id").primaryKey(),
+  accountId:text("account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  resourceId:text("resource_id").notNull().references(()=>partnerResources.id,{onDelete:"restrict"}),
+  status:text("status").notNull().default("PENDING_VERIFICATION"),
+  requestNote:text("request_note"),
+  createdAt:text("created_at").notNull(),
+  updatedAt:text("updated_at").notNull(),
+  submittedAt:text("submitted_at"),
+  reviewedAt:text("reviewed_at"),
+  reviewedBy:text("reviewed_by"),
+  reviewNote:text("review_note"),
+}, table=>[
+  check("partner_resource_verifications_status_check",sql`${table.status} IN ('PENDING_VERIFICATION','VERIFIED','REJECTED')`),
+  uniqueIndex("partner_resource_verifications_account_resource_unique").on(table.accountId,table.resourceId),
+  index("partner_resource_verifications_status_submitted_idx").on(table.status,table.submittedAt),
+  index("partner_resource_verifications_resource_status_idx").on(table.resourceId,table.status),
+]);
+
 export const partnerAuditEvents = sqliteTable("partner_audit_events", {
   id:text("id").primaryKey(),actorType:text("actor_type").notNull(),actorRef:text("actor_ref").notNull(),action:text("action").notNull(),
   targetType:text("target_type").notNull(),targetId:text("target_id").notNull(),metadataJson:text("metadata_json").notNull().default("{}"),createdAt:text("created_at").notNull(),
 }, table=>[
   check("partner_audit_actor_check",sql`${table.actorType} IN ('PARTNER','ADMIN','SYSTEM')`),
-  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED')`),
+  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED')`),
   index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt),
 ]);
