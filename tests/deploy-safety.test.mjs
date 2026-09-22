@@ -38,7 +38,6 @@ test("happy path is build -> artifact validation -> read-only remote audit -> sa
     "build",
     "artifact-validation",
     "prepared-artifact-validation",
-    "remote-migration",
     "remote-audit",
     "artifact-identity-recheck",
     "deploy",
