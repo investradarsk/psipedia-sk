@@ -52,17 +52,37 @@ test("build failure performs no remote mutation and no deploy", async () => {
   assert.equal(harness.events.includes("deploy"), false);
 });
 
-test("Workers Builds uses only the platform-native deploy phase", async () => {
+test("Workers Builds deploys the prepared artifact without remote D1 mutation", async () => {
   const harness = createHarness({ failCommand: "build" });
   const result = await runSafeCloudflareDeployment({
     ...harness,
-    env: { WORKERS_CI: "1", WORKERS_CI_COMMIT_SHA: "commit-a" },
+    env: {
+      WORKERS_CI: "1",
+      WORKERS_CI_BRANCH: "main",
+      WORKERS_CI_COMMIT_SHA: "commit-a",
+    },
   });
   assert.deepEqual(harness.events, ["deploy"]);
   assert.equal(result.fingerprint, "commit-a");
   assert.equal(harness.events.includes("config-check"), false);
   assert.equal(harness.events.includes("build"), false);
   assert.equal(harness.events.includes("artifact-validation"), false);
+  assert.equal(harness.events.includes("remote-migration"), false);
+  assert.equal(harness.events.includes("remote-audit"), false);
+});
+
+test("Workers Builds preview branches also remain read-only against remote D1", async () => {
+  const harness = createHarness({ failCommand: "build" });
+  const result = await runSafeCloudflareDeployment({
+    ...harness,
+    env: {
+      WORKERS_CI: "1",
+      WORKERS_CI_BRANCH: "codex/example-preview",
+      WORKERS_CI_COMMIT_SHA: "commit-preview",
+    },
+  });
+  assert.deepEqual(harness.events, ["deploy"]);
+  assert.equal(result.fingerprint, "commit-preview");
   assert.equal(harness.events.includes("remote-migration"), false);
   assert.equal(harness.events.includes("remote-audit"), false);
 });
