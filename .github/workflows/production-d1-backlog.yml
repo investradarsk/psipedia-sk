@@ -102,7 +102,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for route in "/" "/adresar" "/pomoc-psom/organizacie" "/partner/prihlasenie" "/partner/registracia" "/partner/propagacia" "/sitemap.xml"
+          for route in "/" "/adresar" "/pomoc-psom/utulky" "/partner/prihlasenie" "/partner/registracia" "/partner/propagacia" "/sitemap.xml"
           do
             status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "https://psipedia.sk$route")"
             echo "$route -> $status"
