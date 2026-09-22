@@ -213,6 +213,22 @@ PII:
 - email is encrypted for required account/recovery communication and HMAC-hashed for lookup/deduplication.
 - public UI never exposes the email.
 
+### review_auth_notification_outbox
+
+Purpose: durable delivery of time-sensitive review-author verification links without coupling consumer identity to partner_notification_outbox.
+
+Key fields:
+- id TEXT UUID PK
+- review_author_id TEXT NOT NULL FK review_authors(id) ON DELETE RESTRICT
+- notification_type CHECK AUTH_MAGIC_LINK
+- dedupe_key TEXT NOT NULL UNIQUE
+- status CHECK PENDING/SENDING/SENT/FAILED/EXPIRED
+- encrypted_secret TEXT NULL
+- expires_at, attempts, last_attempt_at, provider_message_id, last_error, sent_at
+- created_at, updated_at
+
+Reuse the Partner auth delivery pattern and generic resource access tokens, but keep the consumer foreign key/domain separate. Immediate retry plus durable sweep behavior should follow the proven Partner magic-link pattern.
+
 ### profile_reviews
 
 Purpose: canonical user review.
@@ -639,7 +655,7 @@ Does not do: submission.
 ### REVIEWS-2A — Review-author identity
 
 Scope:
-- review_authors;
+- review_authors and dedicated review-auth notification outbox;
 - dedicated magic-link/session flow reusing generic token/session primitives;
 - Turnstile/rate limits;
 - dedicated review session cookie.
