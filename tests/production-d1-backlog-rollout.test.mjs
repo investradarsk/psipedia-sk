@@ -64,3 +64,29 @@ test("runner never auto-restores production", async () => {
   const script = await readFile(path.join(repoRoot, "scripts/production-d1-backlog-rollout.mjs"), "utf8");
   assert.equal(script.includes('"time-travel", "restore"'), false);
 });
+
+
+test("0058 public integrity cleanup avoids D1 LIKE pattern limits", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0058_public_integrity_cleanup.sql"), "utf8");
+  assert.doesNotMatch(migration, /\bLIKE\b|\bGLOB\b/i);
+  assert.match(migration, /canonical_url\s*=\s*REPLACE\(/);
+});
+
+
+test("production D1 workflows smoke the current help category route", async () => {
+  for (const workflowName of ["production-d1-backlog.yml", "production-d1-migrate.yml"]) {
+    const workflow = await readFile(path.join(repoRoot, ".github/workflows", workflowName), "utf8");
+    assert.equal(workflow.includes('"/pomoc-psom/utulky"'), true);
+    assert.equal(workflow.includes('"/pomoc-psom/organizacie"'), false);
+  }
+});
+
+
+test("verification-only workflow is manual and does not apply D1 migrations", async () => {
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-backlog-verify.yml"), "utf8");
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /VERIFY-0061-psipedia-sk-db/);
+  assert.match(workflow, /verify-current/);
+  assert.match(workflow, /\/pomoc-psom\/utulky/);
+  assert.doesNotMatch(workflow, /apply-step|d1\s+migrations\s+apply|time-travel\s+restore|wrangler\s+deploy|deploy:cloudflare/);
+});
