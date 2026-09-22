@@ -178,8 +178,9 @@ async function sendPartnerAuthEmail(input: {
       return { ok: false as const, error: "partner_auth_secret_decrypt_failed" };
     }
     if (!rawToken) return { ok: false as const, error: "partner_auth_secret_invalid" };
-    const returnQuery = returnTo ? "?returnTo=" + encodeURIComponent(returnTo) : "";
-    const verifyUrl = SITE_URL + "/partner/overenie" + returnQuery + "#token=" + encodeURIComponent(rawToken);
+    const fragment = new URLSearchParams({ token: rawToken });
+    if (returnTo) fragment.set("returnTo", returnTo);
+    const verifyUrl = SITE_URL + "/partner/overenie#" + fragment.toString();
     subject = "Prihlásenie do Partner účtu Psipedia";
     text = [
       "Dobrý deň,",
