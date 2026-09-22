@@ -2,7 +2,7 @@ import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts"
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 8;
+export const ADMIN_ATTENTION_QUERY_COUNT = 10;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -12,6 +12,8 @@ export const adminAttentionSourceTypes = [
   "ARTICLE_FEEDBACK",
   "ADOPTION_STALE",
   "AUTOMATION_FINDING",
+  "PARTNER_CLAIM_REVIEW",
+  "PARTNER_VERIFICATION_REVIEW",
   "PARTNER_COMMERCIAL_LEAD",
 ] as const;
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
@@ -57,6 +59,8 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
   AUTOMATION_FINDING: "Automatický research",
+  PARTNER_CLAIM_REVIEW: "Partner claims",
+  PARTNER_VERIFICATION_REVIEW: "Partner overenia",
   PARTNER_COMMERCIAL_LEAD: "Partner komerčné leady",
 };
 
@@ -324,6 +328,78 @@ export function mapArticleFeedbackAttention(row: ArticleFeedbackAttentionRow, no
   };
 }
 
+
+
+export type PartnerClaimAttentionRow = {
+  id:string;
+  status:string;
+  resourceName:string;
+  createdAt:string;
+  updatedAt:string;
+  conflict:number;
+};
+function partnerClaimAttentionState(status:string):AdminAttentionState {
+  if(status==="PENDING")return "NEW";
+  if(status==="CANCELLED")return "DISMISSED";
+  return "RESOLVED";
+}
+export function mapPartnerClaimAttention(row:PartnerClaimAttentionRow,now=new Date()):AdminAttentionItem {
+  const attentionState=partnerClaimAttentionState(row.status);
+  const relevantAt=attentionState==="NEW"?row.createdAt:row.updatedAt;
+  return {
+    key:partnerAttentionKey("PARTNER_CLAIM_REVIEW",row.id),
+    sourceType:"PARTNER_CLAIM_REVIEW",
+    sourceId:row.id,
+    title:`${row.resourceName} žiada o prevzatie profilu`,
+    reason:attentionState==="NEW"
+      ? (Boolean(row.conflict)?"Claim má ownership konflikt a vyžaduje manuálnu kontrolu.":"Nová žiadosť o prevzatie profilu čaká na kontrolu.")
+      : attentionState==="DISMISSED"?"Partner žiadosť zrušil.":"Claim bol spracovaný.",
+    priority:Boolean(row.conflict)&&attentionState==="NEW"?"HIGH":"MEDIUM",
+    status:row.status,
+    attentionState,
+    createdAt:row.createdAt,
+    relevantAt,
+    ageDays:ageDays(relevantAt,now),
+    targetHref:partnerAttentionHref("PARTNER_CLAIM_REVIEW",row.id),
+    metadata:Boolean(row.conflict)?[{label:"Riziko",value:"Ownership konflikt"}]:undefined,
+  };
+}
+
+export type PartnerVerificationAttentionRow = {
+  id:string;
+  status:string;
+  resourceName:string;
+  createdAt:string;
+  updatedAt:string;
+  submittedAt:string|null;
+  conflict:number;
+};
+function partnerVerificationAttentionState(status:string):AdminAttentionState {
+  if(status==="PENDING_VERIFICATION")return "NEW";
+  if(status==="REJECTED")return "DISMISSED";
+  return "RESOLVED";
+}
+export function mapPartnerVerificationAttention(row:PartnerVerificationAttentionRow,now=new Date()):AdminAttentionItem {
+  const attentionState=partnerVerificationAttentionState(row.status);
+  const relevantAt=attentionState==="NEW"?(row.submittedAt??row.createdAt):row.updatedAt;
+  return {
+    key:partnerAttentionKey("PARTNER_VERIFICATION_REVIEW",row.id),
+    sourceType:"PARTNER_VERIFICATION_REVIEW",
+    sourceId:row.id,
+    title:`${row.resourceName} čaká na overenie správcu`,
+    reason:attentionState==="NEW"
+      ? (Boolean(row.conflict)?"Overenie má ownership konflikt a vyžaduje zvýšenú kontrolu.":"Žiadosť o overenie správcu čaká na kontrolu.")
+      : attentionState==="DISMISSED"?"Overenie bolo zamietnuté.":"Správca bol overený.",
+    priority:Boolean(row.conflict)&&attentionState==="NEW"?"HIGH":"MEDIUM",
+    status:row.status,
+    attentionState,
+    createdAt:row.createdAt,
+    relevantAt,
+    ageDays:ageDays(relevantAt,now),
+    targetHref:partnerAttentionHref("PARTNER_VERIFICATION_REVIEW",row.id),
+    metadata:Boolean(row.conflict)?[{label:"Riziko",value:"Ownership konflikt"}]:undefined,
+  };
+}
 
 export type PartnerCommercialAttentionRow = {
   id:string;
