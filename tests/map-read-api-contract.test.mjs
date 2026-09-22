@@ -46,7 +46,8 @@ test("approximate public serialization cannot export the source street", () => {
 });
 
 test("geo unavailable is explicit and no fake empty-map fallback exists", () => {
-  assert.match(route, /MAP_GEO_UNAVAILABLE/);
+  assert.match(query, /readonly code = "MAP_GEO_UNAVAILABLE"/);
+  assert.match(route, /MapGeoUnavailableError/);
   assert.match(route, /status: 503/);
-  assert.doesNotMatch(route, /MAP_GEO_UNAVAILABLE[\s\S]{0,400}status: 200/);
+  assert.doesNotMatch(route, /MapGeoUnavailableError[\s\S]{0,400}status: 200/);
 });
