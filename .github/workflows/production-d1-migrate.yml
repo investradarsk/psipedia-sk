@@ -37,7 +37,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
-          test "${{ inputs.confirmation }}" = "APPLY-0062-psipedia-sk-db"
+          confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$confirmation" = "APPLY-0062-psipedia-sk-db"
 
       - name: Checkout exact dispatched main revision
         uses: actions/checkout@v4
