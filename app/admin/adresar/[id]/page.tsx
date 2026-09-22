@@ -14,5 +14,5 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
   if (!Number.isSafeInteger(id) || id < 1) notFound();
   const profile = await getManagedDirectoryProfileById(id);
   if (!profile) notFound();
-  return <AdminShell user={user} eyebrow={profile.status === "published" ? "Publikovaný profil" : "Koncept profilu"} title="Upraviť profil" description="Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."><AdminDirectoryEditor profile={profile} /></AdminShell>;
+  return <AdminShell user={user} eyebrow={profile.status === "published" ? "Publikovaný profil" : profile.status === "archived" ? "Archivovaný profil" : "Koncept profilu"} title={profile.status === "archived" ? "Archivovaný profil" : "Upraviť profil"} description={profile.status === "archived" ? "Archivovaný profil je mimo verejného webu. Obnov ho do konceptu, ak ho chceš znovu upravovať." : "Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."}><AdminDirectoryEditor profile={profile} /></AdminShell>;
 }
