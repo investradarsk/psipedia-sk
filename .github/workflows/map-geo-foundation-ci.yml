@@ -69,10 +69,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Configure CI-only local security keys
         run: |
-          cat > .dev.vars <<'EOF'
-          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
-          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
-          EOF
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'PII_HASH_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+          } > .dev.vars
       - name: Apply non-adoption migrations to isolated local D1
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
