@@ -422,7 +422,9 @@ export function clusterMapItems(items: MapItem[], zoom: number, limit = MAP_MAX_
     bucket.lat += item.latitude;
     bucket.lng += item.longitude;
     bucket.count += 1;
-    bucket[item.category] += 1;
+    if (item.category === "services") bucket.services += 1;
+    else if (item.category === "organizations") bucket.organizations += 1;
+    else bucket.events += 1;
     buckets.set(key, bucket);
   }
   return [...buckets.values()]
