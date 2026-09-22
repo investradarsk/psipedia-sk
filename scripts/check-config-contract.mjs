@@ -110,6 +110,8 @@ export async function auditConfigurationContract(root = defaultRoot) {
     assert.ok(version, `package-lock.json resolved ${name} must not be empty`);
   }
 
+  assert.match(resources.account_id ?? "", /^[a-f0-9]{32}$/, "canonical Cloudflare account_id must be a 32-character hex identifier");
+
   const d1 = resources.d1;
   assert.equal(typeof d1?.binding, "string", "canonical resource config must own D1 binding");
   assert.ok(d1.database_name && d1.database_id, "canonical D1 config must include database_name and database_id");
@@ -183,6 +185,7 @@ export async function auditConfigurationContract(root = defaultRoot) {
       miniflare: resolvedMiniflare,
       workerd: resolvedWorkerd,
     }),
+    cloudflareAccountId: resources.account_id,
     d1Binding: d1.binding,
     r2Binding: r2.binding,
     secretEnvNames: [...SECRET_ENV_NAMES],
