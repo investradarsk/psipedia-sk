@@ -89,6 +89,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.match(workflow, /environment:\s*production/);
   assert.match(workflow, /secrets\.CLOUDFLARE_D1_API_TOKEN/);
   assert.match(workflow, /APPLY-0062-psipedia-sk-db/);
+  assert.match(workflow, /\/pomoc-psom\/utulky/);
+  assert.doesNotMatch(workflow, /\/pomoc-psom\/organizacie/);
   assert.doesNotMatch(workflow, /wrangler\s+deploy|deploy:cloudflare/);
 });
 
