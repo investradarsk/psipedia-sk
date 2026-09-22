@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { bratislavaDateKey, eventDateTimeIso } from "./events";
 import { isGeoSchemaAvailable } from "./geo-store";
-import { normalizeDirectorySearchText } from "./directory-store";
+import { normalizeDirectorySearchText, sqlNormalizedExpression } from "./directory-store";
 import {
   MAP_CACHE_TTL_SECONDS,
   MAP_INTERNAL_ROW_LIMIT,
@@ -159,8 +159,21 @@ const GEO_PUBLIC_WHERE = `
   AND g.source_fingerprint = g.resolved_source_fingerprint
 `;
 
+function parameterizedSearch(query: MapQueryInput, expression: string) {
+  if (!query.search) return { sql: "", bindings: [] as unknown[] };
+  return {
+    sql: ` AND ${sqlNormalizedExpression(expression)} LIKE ?`,
+    bindings: [`%${normalizeDirectorySearchText(query.search)}%`] as unknown[],
+  };
+}
+
 function serviceStatement(query: MapQueryInput, db: MapD1Database) {
   const bbox = bboxSql(query);
+  const search = parameterizedSearch(query, `
+    coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
+    coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
+    coalesce(d.region, '')
+  `);
   return db.prepare(`
     SELECT
       g.id AS geo_point_id, 'service' AS entity_type, d.id AS entity_id,
@@ -183,13 +196,18 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
       AND d.archived_at IS NULL
       AND d.online = 0
       AND ${bbox.sql}
+      ${search.sql}
     ORDER BY g.id ASC
     LIMIT ?
-  `).bind(...bbox.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `).bind(...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 function organizationStatement(query: MapQueryInput, db: MapD1Database) {
   const bbox = bboxSql(query);
+  const search = parameterizedSearch(query, `
+    coalesce(o.name, '') || ' ' || coalesce(o.short_description, '') || ' ' || coalesce(o.description, '') || ' ' ||
+    coalesce(l.label, '') || ' ' || coalesce(l.city, '') || ' ' || coalesce(l.district, '') || ' ' || coalesce(l.region, '')
+  `);
   return db.prepare(`
     SELECT
       g.id AS geo_point_id, 'organization' AS entity_type, o.id AS entity_id,
@@ -212,13 +230,18 @@ function organizationStatement(query: MapQueryInput, db: MapD1Database) {
       AND o.status = 'PUBLISHED'
       AND o.archived_at IS NULL
       AND ${bbox.sql}
+      ${search.sql}
     ORDER BY g.id ASC
     LIMIT ?
-  `).bind(...bbox.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `).bind(...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) {
   const bbox = bboxSql(query);
+  const search = parameterizedSearch(query, `
+    coalesce(e.title, '') || ' ' || coalesce(e.excerpt, '') || ' ' || coalesce(e.organizer, '') || ' ' ||
+    coalesce(e.venue, '') || ' ' || coalesce(e.event_type, '') || ' ' || coalesce(e.city, '') || ' ' || coalesce(e.region, '')
+  `);
   const timing = query.eventTiming === "current"
     ? "e.start_date <= ? AND COALESCE(e.end_date, e.start_date) >= ?"
     : query.eventTiming === "upcoming"
@@ -250,9 +273,10 @@ function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) 
       AND e.region <> 'Online'
       AND ${timing}
       AND ${bbox.sql}
+      ${search.sql}
     ORDER BY e.start_date ASC, e.start_time ASC, g.id ASC
     LIMIT ?
-  `).bind(...timingBindings, ...bbox.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `).bind(...timingBindings, ...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 export function isPublicMapCandidate(candidate: MapCandidate, today = bratislavaDateKey()) {
@@ -291,8 +315,8 @@ function candidateMatchesQuery(candidate: MapCandidate, query: MapQueryInput, to
   if (query.district && !sameText(candidate.district, query.district)) return false;
   if (query.city && !sameText(candidate.city, query.city)) return false;
 
-  if (query.eventType && candidate.entityType === "event" && candidate.subcategory !== query.eventType) return false;
-  if (query.eventType && candidate.entityType !== "event" && query.category === "events") return false;
+  if (query.eventType && candidate.entityType !== "event") return false;
+  if (query.eventType && candidate.subcategory !== query.eventType) return false;
 
   if (candidate.entityType === "event") {
     const start = candidate.eventStartDate || "";
@@ -419,9 +443,10 @@ export function clusterMapItems(items: MapItem[], zoom: number, limit = MAP_MAX_
 
 async function loadCandidates(query: MapQueryInput, db: MapD1Database, today: string) {
   const statements: Array<Promise<D1Result<CandidateRow>>> = [];
-  if (!query.category || query.category === "services") statements.push(serviceStatement(query, db).all<CandidateRow>());
-  if (!query.category || query.category === "organizations") statements.push(organizationStatement(query, db).all<CandidateRow>());
-  if (!query.category || query.category === "events") statements.push(eventStatement(query, db, today).all<CandidateRow>());
+  const eventOnly = Boolean(query.eventType);
+  if (!eventOnly && (!query.category || query.category === "services")) statements.push(serviceStatement(query, db).all<CandidateRow>());
+  if (!eventOnly && (!query.category || query.category === "organizations")) statements.push(organizationStatement(query, db).all<CandidateRow>());
+  if (eventOnly || !query.category || query.category === "events") statements.push(eventStatement(query, db, today).all<CandidateRow>());
   const results = await Promise.all(statements);
   return {
     candidates: results.flatMap((result) => result.results.map(rowToCandidate)),
