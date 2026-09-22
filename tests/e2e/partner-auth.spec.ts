@@ -72,7 +72,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
   const mobileReturnTo="/partner/prevziat-profil/DIRECTORY_PROFILE/990001";
   const verificationUrl=project==="mobile-chromium"
-    ? "/partner/overenie?returnTo="+encodeURIComponent(mobileReturnTo)+"#token="+encodeURIComponent(token)
+    ? "/partner/overenie#token="+encodeURIComponent(token)+"&returnTo="+encodeURIComponent(mobileReturnTo)
     : "/partner/overenie#token="+encodeURIComponent(token);
   await page.goto(verificationUrl);
   if(project==="mobile-chromium"){
@@ -188,9 +188,14 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(claimRow).toContainText("Ownership konflikt");
     await claimRow.getByRole("link",{name:"Detail →"}).click();
     await expect(page.getByText("Ownership konflikt").first()).toBeVisible();
+    const claimResponse = page.waitForResponse((response) =>
+      response.url().includes("/api/admin/partners/claims/") &&
+      response.request().method() === "PATCH" &&
+      response.ok(),
+    );
     page.once("dialog", dialog => void dialog.accept());
     await page.getByRole("button",{name:"Schváliť"}).click();
-    await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
+    await claimResponse;
     await page.goto("/admin/partners");
     await expect(page.getByRole("link",{name:/Claims 0/})).toBeVisible();
     await expect(page.getByRole("link",{name:/Overenia 1/})).toBeVisible();
