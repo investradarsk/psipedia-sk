@@ -11,7 +11,7 @@ const [
   migration, domain, admin, moderation, transition, platform, email, attention, attentionStore,
   partnerApi, withdrawApi, adminApi, profilesPage, requestsPage, editPage, legacyDirectory,
 ] = await Promise.all([
-  "drizzle/0064_partner_profile_changes.sql",
+  "drizzle/0065_partner_profile_changes.sql",
   "lib/partner-profile-changes.ts",
   "lib/partner-profile-changes-admin.ts",
   "lib/moderation-store.ts",
@@ -29,7 +29,7 @@ const [
   "lib/directory-store.ts",
 ].map(read));
 
-test("0064 adds only a metadata extension and expands existing Partner lifecycle enums", () => {
+test("0065 adds only a metadata extension and expands existing Partner lifecycle enums", () => {
   assert.match(migration, /CREATE TABLE `partner_profile_change_metadata`/);
   assert.match(migration, /`submission_id` text PRIMARY KEY NOT NULL REFERENCES `moderation_submissions`/);
   assert.match(migration, /partner_profile_change_active_unique/);
