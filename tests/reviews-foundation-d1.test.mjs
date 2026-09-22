@@ -102,6 +102,9 @@ test("resource backfill block is idempotent and does not replace legacy resource
 test("review constraints enforce stable author/resource identity, ratings and dimension uniqueness", () => {
   const db = baseDatabase();
   seedCanonical(db);
+  db.prepare("INSERT INTO managed_events(id) VALUES (50)").run();
+  db.prepare("INSERT INTO partner_resources(id,entity_type,managed_event_id,created_at,updated_at) VALUES ('event-resource','MANAGED_EVENT',50,?,?)")
+    .run("2026-09-22T12:25:00.000Z","2026-09-22T12:25:00.000Z");
   db.exec(migration);
   const at = "2026-09-22T12:30:00.000Z";
   db.prepare("INSERT INTO review_authors(id,email_ciphertext,email_hash,status,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?)")
@@ -115,6 +118,9 @@ test("review constraints enforce stable author/resource identity, ratings and di
     .run("review-duplicate","existing-directory-resource","author-1",4,"Druhá recenzia tej istej identity sa nesmie vytvoriť.",at,at), /UNIQUE/);
   assert.throws(() => db.prepare("INSERT INTO profile_reviews(id,resource_id,author_id,overall_rating,body,created_at,updated_at) VALUES (?,?,?,?,?,?,?)")
     .run("review-bad-rating","directory-profile-2","author-2",6,"Táto recenzia má úmyselne neplatné hodnotenie.",at,at), /CHECK/);
+  assert.throws(() => db.prepare("INSERT INTO profile_reviews(id,resource_id,author_id,overall_rating,body,created_at,updated_at) VALUES (?,?,?,?,?,?,?)")
+    .run("review-event","event-resource","author-2",5,"Podujatie zatiaľ nesmie byť reviewable resource target.",at,at), /not reviewable/);
+  assert.throws(() => db.prepare("UPDATE profile_reviews SET resource_id='directory-profile-2' WHERE id='review-1'").run(), /immutable/);
 
   db.prepare("INSERT INTO profile_review_rating_values(id,review_id,dimension_key,value,created_at,updated_at) VALUES (?,?,?,?,?,?)")
     .run("dim-1","review-1","communication",5,at,at);
