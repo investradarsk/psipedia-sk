@@ -46,7 +46,7 @@ test("0062 creates canonical claims and verification with FKs, checks, indexes a
 });
 
 test("claim scope is restricted to Directory and Help Organization and never claims managed events",()=>{
-  assert.match(claims,/partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION"]/);
+  assert.ok(claims.includes('partnerClaimableResourceTypes = ["DIRECTORY_PROFILE", "HELP_ORGANIZATION"]'));
   const submit=claims.slice(claims.indexOf("createPartnerClaim"));
   assert.doesNotMatch(submit,/MANAGED_EVENT/);
   assert.match(claims,/status='published'/);
