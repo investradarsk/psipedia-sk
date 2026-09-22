@@ -71,3 +71,12 @@ test("0058 public integrity cleanup avoids D1 LIKE pattern limits", async () => 
   assert.doesNotMatch(migration, /\bLIKE\b|\bGLOB\b/i);
   assert.match(migration, /canonical_url\s*=\s*REPLACE\(/);
 });
+
+
+test("production D1 workflows smoke the current help category route", async () => {
+  for (const workflowName of ["production-d1-backlog.yml", "production-d1-migrate.yml"]) {
+    const workflow = await readFile(path.join(repoRoot, ".github/workflows", workflowName), "utf8");
+    assert.equal(workflow.includes('"/pomoc-psom/utulky"'), true);
+    assert.equal(workflow.includes('"/pomoc-psom/organizacie"'), false);
+  }
+});
