@@ -61,6 +61,12 @@ test("review domain validates status, rating, service month and aggregate eligib
   for (const status of ["PENDING_REVIEW","HIDDEN","REJECTED","AUTHOR_DELETED","REMOVED"]) {
     assert.equal(domain.profileReviewCountsTowardAggregate(status), false, status);
   }
+  assert.equal(domain.canTransitionProfileReview("PENDING_REVIEW", "VISIBLE"), true);
+  assert.equal(domain.canTransitionProfileReview("VISIBLE", "HIDDEN"), true);
+  assert.equal(domain.canTransitionProfileReview("HIDDEN", "VISIBLE"), true);
+  assert.equal(domain.canTransitionProfileReview("REMOVED", "PENDING_REVIEW"), true);
+  assert.equal(domain.canTransitionProfileReview("VISIBLE", "REJECTED"), false);
+  assert.throws(() => domain.assertProfileReviewTransition("VISIBLE", "REJECTED"), /Invalid profile review transition/);
   assert.equal(domain.normalizeServiceMonth("2026-09"), "2026-09");
   assert.equal(domain.normalizeServiceMonth(""), null);
   assert.throws(() => domain.normalizeServiceMonth("2026-13"), /YYYY-MM/);
