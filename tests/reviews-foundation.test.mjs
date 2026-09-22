@@ -145,6 +145,13 @@ test("creation paths use the shared canonical resource helper and directory hard
   assert.match(directoryRoute, /action !== "restore"/);
 });
 
+test("directory runtime stays compatible with production before migration 0062 is applied", async () => {
+  const directoryStore = await read("lib/directory-store.ts");
+  assert.match(directoryStore, /published_at, NULL AS archived_at, created_by, updated_by/);
+  assert.doesNotMatch(directoryStore, /SET status='archived',[^\n]*archived_at=/);
+  assert.doesNotMatch(directoryStore, /SET status='draft',[^\n]*archived_at=/);
+});
+
 test("review foundation contains no public UI, aggregate cache or privacy-hostile request metadata", async () => {
   const migration = await read("drizzle/0062_profile_reviews_foundation.sql");
   const schema = await read("db/review-schema.ts");
