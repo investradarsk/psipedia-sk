@@ -49,3 +49,5 @@ next-env.d.ts
 /.e2e-artifacts/
 
 /.production-d1/
+
+/.production-d1-history-audit/

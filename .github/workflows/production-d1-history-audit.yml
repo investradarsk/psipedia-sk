@@ -1,0 +1,91 @@
+name: Production D1 History Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-0058-0061-psipedia-sk-db exactly
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-history-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Read-only migration history and schema audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main and explicit audit confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$confirmation" = "AUDIT-0058-0061-psipedia-sk-db"
+
+      - name: Checkout exact dispatched main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Log non-secret revision evidence
+        run: |
+          echo "ref=$GITHUB_REF"
+          echo "sha=$GITHUB_SHA"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Require protected D1 credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Load canonical Cloudflare account id
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(x.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+
+      - name: Repository migration safety
+        run: npm run db:check-migrations
+
+      - name: Run read-only production history audit
+        id: audit
+        continue-on-error: true
+        run: node scripts/production-d1-history-audit.mjs
+
+      - name: Upload read-only audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-history-audit-${{ github.run_id }}
+          path: .production-d1-history-audit/report.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preserve NO-GO when audit finds backlog or drift
+        if: steps.audit.outcome != 'success'
+        shell: bash
+        run: |
+          echo "Production history audit found a state that is not safe for 0062 preflight."
+          exit 1
