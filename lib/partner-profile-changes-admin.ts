@@ -92,7 +92,7 @@ const BASE_SELECT=`
 async function hydrate(row:AdminRow,key:string){
   const patch=safePatch(row.proposedPatchJson);
   const risks=safeRiskFlags(row.riskFlagsJson);
-  if(row.currentUpdatedAt!==row.baseUpdatedAt&&!risks.includes("STALE_BASE"))risks.push("STALE_BASE");
+  if(isActive(row.status)&&row.currentUpdatedAt!==row.baseUpdatedAt&&!risks.includes("STALE_BASE"))risks.push("STALE_BASE");
   return {
     ...row,
     email:await decryptPii(row.emailCiphertext,key),
@@ -150,7 +150,7 @@ export async function getPartnerProfileChangeAdmin(id:string,input:{database?:D1
   const canonical=await loadPartnerCanonicalForResource(row.resourceId,database);
   const base=safeJson<PartnerProfilePatch>(row.baseSnapshotJson,{});
   const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base);
-  const stale=partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values);
+  const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values);
   const risks=[...new Set([...partnerProfileChangeRiskFlags(proposed),...item.riskFlags,...(stale?["STALE_BASE"]:[])])];
   const labels=new Map(getPartnerEditableFields(row.resourceType).map(field=>[field.key,field.label]));
   const diff=Object.keys(proposed).map(key=>({
