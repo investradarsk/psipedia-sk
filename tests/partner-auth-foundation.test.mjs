@@ -182,8 +182,8 @@ test("Partner PII uses shared AES-GCM encryption and deterministic HMAC lookup",
 test("auth email outbox encrypts retry secret, is idempotent and clears secret on send/expiry", () => {
   assert.match(migration, /CREATE TABLE `partner_notification_outbox`/);
   assert.match(migration, /`encrypted_secret` text/);
-  assert.match(emailSource, /encryptPii\(input\.rawToken/);
-  assert.match(emailSource, /\/partner\/overenie#token=/);
+  assert.match(emailSource, /encryptPii\(JSON\.stringify\(\{ token: input\.rawToken, returnTo \}\)/);
+  assert.match(emailSource, /\/partner\/overenie" \+ returnQuery \+ "#token="/);
   assert.doesNotMatch(emailSource, /\/partner\/overenie\?token=/);
   assert.match(emailSource, /decryptPii\(input\.row\.encrypted_secret/);
   assert.match(emailSource, /"Idempotency-Key": input\.row\.dedupe_key/);
