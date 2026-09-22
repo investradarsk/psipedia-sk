@@ -24,12 +24,16 @@ test("Help landing is compact, canonical, accessible and touch-safe", async ({ p
   const categoryNav = page.locator("[data-help-category-nav]");
   await expect(categoryNav.locator("a")).toHaveCount(6);
   await expect(categoryNav.getByRole("link", { name: /Psy na adopciu/ })).toHaveAttribute("href", "/pomoc-psom/adopcia");
-  await expect(categoryNav.getByRole("link", { name: /Stratené a nájdené psy/ })).toHaveAttribute("href", "/pomoc-psom/stratene-psy");
+  await expect(categoryNav.getByRole("link", { name: /Stratené a nájdené psy/ })).toHaveAttribute("href", "/pomoc-psom/stratene-a-najdene");
   await expect(categoryNav.getByRole("link", { name: /Útulky a organizácie/ })).toHaveAttribute("href", "/pomoc-psom/utulky");
 
-  await expect(page.getByRole("form", { name: "Filtrovať pomoc" })).toBeVisible();
-  await expect(page.getByPlaceholder("Meno, mesto alebo organizácia")).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Kraj" })).toBeVisible();
+  const overviewSections = page.locator("[data-help-overview-section]");
+  await expect(overviewSections).toHaveCount(6);
+  const previewCounts = await overviewSections.evaluateAll((sections) =>
+    sections.map((section) => section.querySelectorAll("[data-help-overview-card]").length),
+  );
+  for (const count of previewCounts) expect(count).toBeLessThanOrEqual(6);
+  await expect(page.getByRole("link", { name: "Zobraziť všetky" }).first()).toBeVisible();
 
   const targets = await categoryNav.locator("a").evaluateAll((links) => links.map((link) => {
     const rect = link.getBoundingClientRect();

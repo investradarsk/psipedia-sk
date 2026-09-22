@@ -112,20 +112,21 @@ test.describe("UX-2A public visual consistency", () => {
     }
   });
 
-  test("Pomoc psom keeps truthful active filtering and responsive cards", async ({ page }, testInfo) => {
+  test("Pomoc psom keeps the curated overview responsive and touch-safe", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Explicit viewport matrix runs once.");
     for (const viewport of VIEWPORTS) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await gotoPublic(page, "/pomoc-psom");
       await expect(page.getByRole("heading", { level: 1, name: "Pomoc psom" })).toBeVisible();
-      await expect(page.getByLabel("Len aktívne")).toBeChecked();
+      await expect(page.locator("[data-help-overview-section]")).toHaveCount(6);
       await expectNoHorizontalOverflow(page, `Pomoc psom ${viewport.label}`);
       await expectBreadcrumbsFit(page, `Pomoc psom ${viewport.label}`);
       await expectNoLocatorOverflow(page.locator("[data-help-category-nav] > a"), `Pomoc category cards ${viewport.label}`);
-      await expectMinHeight(
-        page.getByPlaceholder("Meno, mesto alebo organizácia"),
-        `Pomoc search ${viewport.label}`,
+      await expectNoLocatorOverflow(page.locator("[data-help-overview-card]"), `Pomoc overview cards ${viewport.label}`);
+      const previewCounts = await page.locator("[data-help-overview-section]").evaluateAll((sections) =>
+        sections.map((section) => section.querySelectorAll("[data-help-overview-card]").length),
       );
+      for (const count of previewCounts) expect(count).toBeLessThanOrEqual(6);
       if (shouldRunAxe(viewport.width)) await expectAxeClean(page, `Pomoc psom ${viewport.label}`);
     }
   });

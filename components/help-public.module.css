@@ -128,3 +128,96 @@
   .closingCtaInner{padding-top:42px;padding-bottom:42px}
   .closingCta h2{font-size:2.35rem}
 }
+
+
+/* HELP-OVERVIEW: homepage-like discovery layout with six-card category previews. */
+.overviewCategoryBlock{display:grid;gap:18px;padding-top:4px;padding-bottom:42px}
+.overviewHeading{display:flex;align-items:end;justify-content:space-between;gap:28px}
+.overviewHeading>div{min-width:0}
+.overviewHeading h2{margin:5px 0 0;color:var(--help-ink);font-family:Georgia,"Times New Roman",serif;font-size:clamp(1.85rem,3.2vw,2.7rem);font-weight:500;letter-spacing:-.03em;line-height:1.04}
+.overviewHeading>p{max-width:500px;margin:0;color:var(--help-muted);font-size:.86rem;line-height:1.55}
+.overviewCategoryGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.overviewCategoryGrid>a{display:grid;min-width:0;min-height:116px;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:17px 16px;border:1px solid rgba(23,53,43,.12);border-radius:17px;color:var(--help-ink);background:#fff;box-shadow:0 6px 20px rgba(23,53,43,.04);text-decoration:none;transition:transform 160ms ease,border-color 160ms ease,box-shadow 160ms ease}
+.overviewCategoryGrid>a:hover,.overviewCategoryGrid>a:focus-visible{border-color:rgba(23,75,56,.28);box-shadow:0 10px 26px rgba(23,53,43,.075);transform:translateY(-2px)}
+.overviewCategoryIcon{display:grid;width:48px;height:48px;place-items:center;border-radius:999px;color:var(--forest,#174b38);background:var(--sage-light,#edf3e9)}
+.overviewCategoryCopy{display:grid;gap:5px;min-width:0}
+.overviewCategoryCopy strong{font-family:Georgia,"Times New Roman",serif;font-size:1.08rem;font-weight:600;line-height:1.15}
+.overviewCategoryCopy small{display:-webkit-box;overflow:hidden;color:var(--help-muted);font-size:.72rem;line-height:1.4;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.overviewCategoryCount{display:grid;min-width:34px;height:30px;place-items:center;padding-inline:8px;border-radius:999px;color:var(--forest,#174b38);background:#f1eee5;font-size:.75rem;font-weight:850;font-variant-numeric:tabular-nums}
+.overviewCategoryGrid>a>svg{color:var(--help-accent-strong)}
+
+.overviewFlow{border-top:1px solid var(--help-border)}
+.overviewSection{padding:48px 0 54px;background:var(--paper,#fffdf8)}
+.overviewSection:nth-of-type(even){background:linear-gradient(180deg,rgba(237,243,233,.34),rgba(255,253,248,.72))}
+.overviewSectionInner{display:grid;gap:22px}
+.overviewSectionHeading{display:flex;align-items:end;justify-content:space-between;gap:22px}
+.overviewSectionHeading>div{max-width:760px}
+.overviewSectionHeading h2{margin:5px 0 7px;color:var(--help-ink);font-family:Georgia,"Times New Roman",serif;font-size:clamp(2rem,3.7vw,3rem);font-weight:500;letter-spacing:-.035em;line-height:1.02}
+.overviewSectionHeading p{max-width:700px;margin:0;color:var(--help-muted);font-size:.86rem;line-height:1.55}
+.overviewSectionHeading>a{flex:0 0 auto}
+.overviewGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.overviewCard{display:grid;min-width:0;overflow:hidden;grid-template-rows:auto 1fr;border:1px solid rgba(23,53,43,.115);border-radius:16px;background:#fff;box-shadow:0 7px 22px rgba(23,53,43,.045);transition:transform 160ms ease,border-color 160ms ease,box-shadow 160ms ease}
+.overviewCard:hover{border-color:rgba(23,75,56,.26);box-shadow:0 12px 28px rgba(23,53,43,.075);transform:translateY(-2px)}
+.overviewMedia{position:relative;display:grid;overflow:hidden;aspect-ratio:16/10;place-items:center;color:#315b46;background:#edf2ee}
+.overviewMedia img{display:block;width:100%;height:100%;object-fit:cover;transition:transform 240ms ease}
+.overviewCard:hover .overviewMedia img{transform:scale(1.025)}
+.overviewMediaFallback{display:grid;width:58px;height:58px;place-items:center;border:1px solid #d3dfd7;border-radius:16px;background:rgba(255,255,255,.74)}
+.overviewBadge{position:absolute;left:11px;top:11px;padding:6px 9px;border-radius:999px;color:#24503b;background:rgba(244,250,245,.94);font-size:.64rem;font-weight:900;letter-spacing:.045em;text-transform:uppercase;box-shadow:0 2px 9px rgba(20,46,36,.08)}
+.overviewBadgeUrgent{color:#8b3d2b;background:rgba(255,240,236,.96)}
+.overviewCardCopy{display:grid;align-content:start;gap:8px;min-width:0;padding:15px 16px 17px}
+.overviewEyebrow{color:var(--help-accent-strong);font-size:.64rem;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+.overviewCard h3{margin:0;color:var(--help-ink);font-family:Georgia,"Times New Roman",serif;font-size:1.2rem;font-weight:600;line-height:1.18}
+.overviewCard h3 a{color:inherit;text-decoration:none}
+.overviewMeta{margin:0;color:#456050;font-size:.72rem;font-weight:750;line-height:1.4}
+.overviewExcerpt{display:-webkit-box;overflow:hidden;margin:0;color:var(--help-muted);font-size:.78rem;line-height:1.5;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.overviewCardAction{display:inline-flex;min-height:40px;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;color:var(--forest,#174b38);font-size:.78rem;font-weight:850;text-decoration:none}
+.overviewEmpty{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px;border:1px dashed #bdcbc2;border-radius:15px;background:#fff}
+.overviewEmpty p{margin:0;color:var(--help-muted)}
+.overviewEmpty a{display:inline-flex;align-items:center;gap:7px;color:var(--forest,#174b38);font-weight:850;text-decoration:none}
+
+.overviewPromo{min-height:280px;background-position:center;background-size:cover}
+.overviewPromo_care{background-image:url("/images/zdravie-veterinar.webp")}
+.overviewPromo_rescue{background-image:url("/images/hero-labrador.webp")}
+.overviewPromo_volunteer{background-image:url("/images/trening-pri-nohe.webp")}
+.overviewPromoShade{display:flex;min-height:inherit;align-items:center;background:linear-gradient(90deg,rgba(18,55,41,.92) 0%,rgba(18,55,41,.76) 46%,rgba(18,55,41,.24) 100%)}
+.overviewPromoCopy{width:min(100%,var(--ps-content-max,1180px));margin:0 auto;padding:42px 20px;color:#fff}
+.overviewPromoCopy>span{display:block;color:#ffd1c2;font-size:.68rem;font-weight:900;letter-spacing:.095em;text-transform:uppercase}
+.overviewPromoCopy h2{max-width:620px;margin:6px 0 9px;color:#fff;font-family:Georgia,"Times New Roman",serif;font-size:clamp(2rem,4vw,3.25rem);font-weight:500;letter-spacing:-.035em;line-height:1.02}
+.overviewPromoCopy p{max-width:610px;margin:0 0 18px;color:rgba(255,255,255,.88);font-size:.9rem;line-height:1.55}
+.overviewPromoCopy>a{border-color:var(--help-accent-strong);color:#fff;background:var(--help-accent-strong)}
+
+@media(max-width:960px){
+  .overviewCategoryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .overviewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+  .overviewCategoryBlock{gap:15px;padding-bottom:34px}
+  .overviewHeading,.overviewSectionHeading{align-items:flex-start;flex-direction:column;gap:12px}
+  .overviewHeading>p,.overviewSectionHeading p{font-size:.8rem}
+  .overviewCategoryGrid{grid-template-columns:1fr;gap:9px}
+  .overviewCategoryGrid>a{min-height:96px;padding:14px}
+  .overviewCategoryIcon{width:44px;height:44px}
+  .overviewCategoryCopy small{-webkit-line-clamp:1}
+  .overviewSection{padding:38px 0 42px}
+  .overviewSectionInner{gap:18px}
+  .overviewSectionHeading h2{font-size:2.15rem}
+  .overviewSectionHeading>a{width:100%;min-height:48px;justify-content:center}
+  .overviewGrid{grid-template-columns:1fr;gap:11px}
+  .overviewCard{grid-template-columns:108px minmax(0,1fr);grid-template-rows:1fr;min-height:132px}
+  .overviewMedia{width:108px;height:100%;aspect-ratio:auto}
+  .overviewMediaFallback{width:50px;height:50px}
+  .overviewBadge{left:7px;top:7px;padding:5px 7px;font-size:.57rem}
+  .overviewCardCopy{gap:6px;padding:11px 12px}
+  .overviewEyebrow{font-size:.59rem}
+  .overviewCard h3{font-size:1.03rem}
+  .overviewMeta{font-size:.67rem}
+  .overviewExcerpt{-webkit-line-clamp:1;font-size:.72rem}
+  .overviewCardAction{min-height:34px;font-size:.72rem}
+  .overviewEmpty{align-items:flex-start;flex-direction:column}
+  .overviewPromo{min-height:310px;background-position:62% center}
+  .overviewPromoShade{background:linear-gradient(0deg,rgba(18,55,41,.96) 0%,rgba(18,55,41,.8) 58%,rgba(18,55,41,.3) 100%)}
+  .overviewPromoCopy{align-self:flex-end;padding:38px 16px}
+  .overviewPromoCopy h2{font-size:2.25rem}
+  .overviewPromoCopy p{font-size:.82rem}
+  .overviewPromoCopy>a{width:100%;min-height:48px;justify-content:center}
+}
