@@ -53,7 +53,9 @@ export async function requirePartnerRole(accountId: string, resourceId: string, 
   return membership;
 }
 
-export function partnerRoleHasPermission(role: PartnerRole, permission: PartnerPermission) { return ROLE_PERMISSIONS[role].has(permission); }\n\nexport async function requirePartnerPermission(accountId: string, resourceId: string, permission: PartnerPermission, database?: D1Database) {
+export function partnerRoleHasPermission(role: PartnerRole, permission: PartnerPermission) { return ROLE_PERMISSIONS[role].has(permission); }
+
+export async function requirePartnerPermission(accountId: string, resourceId: string, permission: PartnerPermission, database?: D1Database) {
   const membership = await requirePartnerMembership(accountId, resourceId, database);
   if (!ROLE_PERMISSIONS[membership.role].has(permission)) throw new PartnerAuthorizationError();
   return membership;
