@@ -72,6 +72,7 @@ export type ManagedDirectoryProfileSummaryPage = {
     total: number;
     published: number;
     draft: number;
+    archived: number;
   };
   pagination: {
     page: number;
