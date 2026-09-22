@@ -32,8 +32,8 @@ const [
 
 test("0062 creates canonical claims and verification with FKs, checks, indexes and append-only audit",()=>{
   assert.match(migration,/CREATE TABLE `partner_claims`/);
-  assert.match(migration,/REFERENCES `partner_accounts`(`id`) ON DELETE RESTRICT/);
-  assert.match(migration,/REFERENCES `partner_resources`(`id`) ON DELETE RESTRICT/);
+  assert.match(migration,/REFERENCES `partner_accounts`\\(`id`\\) ON DELETE RESTRICT/);
+  assert.match(migration,/REFERENCES `partner_resources`\\(`id`\\) ON DELETE RESTRICT/);
   for(const status of ["PENDING","APPROVED","REJECTED","CANCELLED"])assert.match(migration,new RegExp(status));
   assert.match(migration,/partner_claims_pending_unique/);
   assert.match(migration,/WHERE `status`='PENDING'/);
