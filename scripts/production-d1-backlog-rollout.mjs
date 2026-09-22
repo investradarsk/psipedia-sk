@@ -549,13 +549,68 @@ async function postflight() {
   console.log("[backlog] postflight PASS — production history now ends exactly at 0061");
 }
 
+async function verifyCurrent() {
+  await fs.rm(path.join(repoRoot, ".production-d1-backlog-verification"), { recursive: true, force: true });
+  const prepared = await prepareScopedMigration(BACKLOG_MIGRATIONS.at(-1));
+  const databaseName = prepared.resources.d1.database_name;
+
+  const info = await remoteInfo(databaseName, prepared.configPath);
+  const serialized = JSON.stringify(info);
+  invariant(serialized.includes(prepared.resources.d1.database_id), "D1 info database ID mismatch");
+  invariant(serialized.includes(prepared.resources.d1.database_name), "D1 info database name mismatch");
+
+  const historyNames = migrationHistory(databaseName, prepared.configPath).map((row) => String(row.name));
+  const expectedBase = repoMigrationsThrough(prepared.files, BACKLOG_BASE_MIGRATION);
+  const expected = [...expectedBase, ...BACKLOG_MIGRATIONS];
+  invariant(
+    historyNames.length === expected.length && historyNames.every((name, index) => name === expected[index]),
+    "Verification history must end exactly at 0061 with no gaps or later migrations",
+  );
+
+  const objects = schemaObjects(databaseName, prepared.configPath);
+  const directoryColumns = execute(databaseName, prepared.configPath, "PRAGMA table_info('directory_profiles')");
+  assertNoLaterObjects(objects, directoryColumns);
+  for (const migration of BACKLOG_MIGRATIONS.slice(1)) assertSignatureFull(objects, migration);
+
+  const legacy = legacy0058State(databaseName, prepared.configPath);
+  invariant(legacy.total === 0, "0058 legacy cleanup predicates still match rows");
+
+  const integrity = integrityState(databaseName, prepared.configPath);
+  assertIntegrityClean(integrity);
+
+  const auditSql = String(objects.find((row) => row.name === "partner_audit_events")?.sql ?? "");
+  for (const action of ["COMMERCIAL_INTEREST_CREATED", "COMMERCIAL_INTEREST_STATUS_CHANGED", "COMMERCIAL_INTEREST_NOTE_UPDATED"]) {
+    invariant(auditSql.includes(action), `Missing 0061 audit action during verification: ${action}`);
+  }
+
+  const report = {
+    verificationMode: "read-only",
+    latestRecordedMigration: historyNames.at(-1),
+    productionTarget: {
+      accountId: prepared.resources.account_id,
+      databaseName,
+      databaseId: prepared.resources.d1.database_id,
+    },
+    legacy0058After: legacy,
+    partnerCounts: partnerSafeCounts(databaseName, prepared.configPath, objects),
+    integrity,
+    laterSchemaObjectsPresent: false,
+    migration0062OrLaterApplied: false,
+    dataIntegrity: "PASS",
+    readyFor0062Preflight: true,
+  };
+  await writeJson(".production-d1-backlog-verification/verification-report.json", report);
+  console.log("[backlog] verification-only PASS — production history ends exactly at 0061");
+}
+
 async function runCli() {
   const command = process.argv[2];
   if (command === "preflight") return preflight();
   if (command === "apply-step") return applyStep(process.argv[3]);
   if (command === "verify-step") return verifyStep(process.argv[3]);
   if (command === "postflight") return postflight();
-  throw new Error("Usage: node scripts/production-d1-backlog-rollout.mjs <preflight|apply-step|verify-step|postflight> [migration]");
+  if (command === "verify-current") return verifyCurrent();
+  throw new Error("Usage: node scripts/production-d1-backlog-rollout.mjs <preflight|apply-step|verify-step|postflight|verify-current> [migration]");
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
