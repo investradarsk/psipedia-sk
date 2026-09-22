@@ -12,6 +12,7 @@ import {
   mapDirectoryInquiryAttention,
   mapModerationAttention,
   mapNewsTipAttention,
+  mapPartnerCommercialAttention,
   sortAdminAttentionItems,
   summarizeAdminAttention,
 } from "../lib/admin-attention-queue.ts";
@@ -141,6 +142,19 @@ test("adoption adapter reuses existing stale contracts without inventing urgency
   assert.equal(stale.targetHref, "/admin/adopcie/11");
 });
 
+test("Partner commercial Attention maps lifecycle, stable key and direct deep link", () => {
+  const fresh=mapPartnerCommercialAttention({id:"lead-1",interestType:"PREMIUM_PROFILE",status:"NEW",resourceName:"Veterina",createdAt:"2026-09-15T10:00:00.000Z",updatedAt:"2026-09-15T10:00:00.000Z"},NOW);
+  const contacted=mapPartnerCommercialAttention({id:"lead-2",interestType:"AD_CAMPAIGN",status:"CONTACTED",resourceName:null,createdAt:"2026-09-14T10:00:00.000Z",updatedAt:"2026-09-15T11:00:00.000Z"},NOW);
+  const notNow=mapPartnerCommercialAttention({id:"lead-3",interestType:"OTHER",status:"NOT_NOW",resourceName:null,createdAt:"2026-09-14T10:00:00.000Z",updatedAt:"2026-09-15T11:00:00.000Z"},NOW);
+  assert.equal(fresh.key,"partner-commercial:lead-1");
+  assert.equal(fresh.priority,"LOW");
+  assert.equal(fresh.attentionState,"NEW");
+  assert.equal(fresh.targetHref,"/admin/partners/commercial/lead-1");
+  assert.match(fresh.title,/Premium profil/);
+  assert.equal(contacted.attentionState,"RESOLVED");
+  assert.equal(notNow.attentionState,"DISMISSED");
+});
+
 test("active items sort before history and active priority ordering remains deterministic", () => {
   const sorted = sortAdminAttentionItems([
     manualItem({ key: "resolved", attentionState: "RESOLVED", relevantAt: "2026-09-15T11:00:00.000Z" }),
@@ -204,7 +218,7 @@ test("zero, one and multiple-source summaries use the same deterministic active 
 
 test("all source queries stay bounded and the attention store remains read-only", () => {
   assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 7);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 8);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
@@ -219,6 +233,7 @@ test("target hrefs point to existing admin route patterns", () => {
     "../app/admin/hodnotenia/page.tsx",
     "../app/admin/adopcie/[id]/page.tsx",
     "../app/admin/stratene-najdene/page.tsx",
+    "../app/admin/partners/commercial/[id]/page.tsx",
   ];
   for (const route of routes) assert.equal(existsSync(new URL(route, import.meta.url)), true, route);
 });

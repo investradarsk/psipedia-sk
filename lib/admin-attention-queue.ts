@@ -1,7 +1,8 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
+import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 7;
+export const ADMIN_ATTENTION_QUERY_COUNT = 8;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -11,6 +12,7 @@ export const adminAttentionSourceTypes = [
   "ARTICLE_FEEDBACK",
   "ADOPTION_STALE",
   "AUTOMATION_FINDING",
+  "PARTNER_COMMERCIAL_LEAD",
 ] as const;
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
 
@@ -55,6 +57,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
   AUTOMATION_FINDING: "Automatický research",
+  PARTNER_COMMERCIAL_LEAD: "Partner komerčné leady",
 };
 
 export const adminAttentionPriorityLabels: Record<AdminAttentionPriority, string> = {
@@ -321,6 +324,49 @@ export function mapArticleFeedbackAttention(row: ArticleFeedbackAttentionRow, no
   };
 }
 
+
+export type PartnerCommercialAttentionRow = {
+  id:string;
+  interestType:string;
+  status:string;
+  resourceName:string|null;
+  createdAt:string;
+  updatedAt:string;
+};
+
+function partnerCommercialAttentionState(status:string):AdminAttentionState {
+  if(status==="NEW")return "NEW";
+  if(status==="NOT_NOW")return "DISMISSED";
+  return "RESOLVED";
+}
+
+const partnerCommercialTitles:Record<string,string>={
+  PREMIUM_PROFILE:"Premium profil",
+  PROMOTED_PROFILE:"propagovaný profil",
+  AD_CAMPAIGN:"reklamnú kampaň",
+  OTHER:"komerčnú spoluprácu",
+};
+
+export function mapPartnerCommercialAttention(row:PartnerCommercialAttentionRow,now=new Date()):AdminAttentionItem {
+  const attentionState=partnerCommercialAttentionState(row.status);
+  const relevantAt=attentionState==="NEW"?row.createdAt:row.updatedAt;
+  const subject=partnerCommercialTitles[row.interestType]??"komerčnú spoluprácu";
+  return {
+    key:partnerAttentionKey("PARTNER_COMMERCIAL_LEAD",row.id),
+    sourceType:"PARTNER_COMMERCIAL_LEAD",
+    sourceId:row.id,
+    title:`Záujem o ${subject}${row.resourceName?` — ${row.resourceName}`:""}`,
+    reason:attentionState==="NEW"?"Nový nezáväzný Partner záujem čaká na prvé spracovanie.":attentionState==="DISMISSED"?"Partner záujem bol odložený na neskôr.":"Partner záujem bol spracovaný.",
+    priority:"LOW",
+    status:row.status,
+    attentionState,
+    createdAt:row.createdAt,
+    relevantAt,
+    ageDays:ageDays(relevantAt,now),
+    targetHref:partnerAttentionHref("PARTNER_COMMERCIAL_LEAD",row.id),
+    metadata:[{label:"Typ",value:row.interestType}],
+  };
+}
 
 export type AutomationFindingAttentionRow = {
   id: number;

@@ -14,4 +14,12 @@ function safeId(id:string|number){const value=String(id);if(!/^[A-Za-z0-9_-]{1,1
 export function partnerAttentionKey(type:PartnerAttentionType,id:string|number){return `${contracts[type].key}:${safeId(id)}`;}
 export function partnerAttentionHref(type:PartnerAttentionType,id:string|number){return `${contracts[type].href}/${safeId(id)}`;}
 export async function loadPartnerAttentionItems(){return [] as const;}
-export async function loadPartnerPendingSummary(){return emptyPartnerPendingSummary();}
+export async function loadPartnerPendingSummary(database?:D1Database){
+  let commercial=0;
+  try{
+    const {getPartnerDatabase}=await import("./partner-auth-store");
+    const row=await getPartnerDatabase(database).prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>();
+    commercial=Number(row?.count??0);
+  }catch{commercial=0;}
+  return {...emptyPartnerPendingSummary(),commercial,total:commercial};
+}

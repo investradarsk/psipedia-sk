@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+test.describe.configure({ mode: "serial" });
+
 const AUTH_TOKENS = {
   "desktop-chromium": "partner-e2e-desktop-auth-token-0000000000000001",
   "mobile-chromium": "partner-e2e-mobile-auth-token-000000000000000002",
@@ -71,6 +73,21 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
   await expectNoHorizontalOverflow(page);
 
+  await page.getByRole("link", { name: "Propagácia" }).click();
+  await expect(page.getByRole("heading", { name: "Propagácia" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Premium profil" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Propagovaný profil" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Reklamná kampaň" })).toBeVisible();
+  if (project === "mobile-chromium") {
+    await page.getByLabel("Typ záujmu").selectOption("OTHER");
+  }
+  await page.getByLabel("Krátka správa").fill("E2E nezáväzný záujem");
+  await page.getByRole("button", { name: "Odoslať nezáväzný záujem" }).click();
+  await expect(page.getByRole("status")).toContainText("Ďakujeme. Váš záujem sme prijali.");
+  await expect(page.getByRole("heading", { name: "Odoslané záujmy" })).toBeVisible();
+  await expect(page.getByText("E2E nezáväzný záujem")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
   await page.getByRole("link", { name: "Nastavenia" }).click();
   await expect(page).toHaveURL(/\/partner\/nastavenia$/);
   await expect(page.getByRole("heading", { name: "Nastavenia" })).toBeVisible();
@@ -91,12 +108,23 @@ test("internal admin Partner overview and account detail are protected admin pag
   const project=testInfo.project.name as keyof typeof AUTH_EMAILS;
   await page.goto("/admin/partners");
   await expect(page.getByRole("heading",{name:"Partneri"})).toBeVisible();
-  await expect(page.getByText("Žiadne Partner workflows momentálne nečakajú")).toBeVisible();
+  await expect(page.getByRole("link",{name:/Komerčné leady 1/})).toBeVisible();
   const accountRow=page.getByRole("row").filter({hasText:AUTH_ACCOUNT_IDS[project]});
   await expect(accountRow.getByText(AUTH_EMAILS[project])).toBeVisible();
   await accountRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:AUTH_EMAILS[project]})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Bezpečnostné akcie"})).toBeVisible();
+  await page.goto("/admin/partners/commercial?status=NEW");
+  await expect(page.getByRole("heading",{name:"Komerčné leady"})).toBeVisible();
+  const leadRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
+  await expect(leadRow).toContainText("E2E nezáväzný záujem");
+  await leadRow.getByRole("link",{name:"Detail →"}).click();
+  await expect(page.getByRole("heading",{name:"Spracovanie leadu"})).toBeVisible();
+  await page.getByLabel("Stav").selectOption("CONTACTED");
+  await page.getByRole("button",{name:"Uložiť"}).click();
+  await expect(page.getByRole("status")).toContainText("Zmena bola uložená.");
+  await page.goto("/admin/partners");
+  await expect(page.getByRole("link",{name:/Komerčné leady 0/})).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
