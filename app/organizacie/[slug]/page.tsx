@@ -49,7 +49,7 @@ export default async function OrganizationProfilePage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <OrganizationProfileDetail composition={composition} />
-      <PartnerPublicOwnership verified={partnerVerified} claimHref={`/partner/prevziat-profil?type=HELP_ORGANIZATION&id=${composition.organization.id}`} />
+      <PartnerPublicOwnership verified={partnerVerified} claimHref={`/partner/prevziat-profil/HELP_ORGANIZATION/${composition.organization.id}`} />
     </>
   );
 }
