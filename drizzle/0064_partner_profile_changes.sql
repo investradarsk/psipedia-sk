@@ -4,6 +4,7 @@ CREATE TABLE `partner_profile_change_metadata` (
   `partner_account_id` text NOT NULL REFERENCES `partner_accounts`(`id`) ON DELETE RESTRICT,
   `base_updated_at` text NOT NULL,
   `base_snapshot_json` text NOT NULL DEFAULT '{}',
+  `changed_field_count` integer NOT NULL DEFAULT 0 CHECK (`changed_field_count` >= 0 AND `changed_field_count` <= 64),
   `dedupe_active` integer NOT NULL DEFAULT 1 CHECK (`dedupe_active` IN (0,1)),
   `created_at` text NOT NULL
 );
