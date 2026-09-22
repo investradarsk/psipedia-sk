@@ -4,6 +4,7 @@ import test from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
 const landing = read("components/help-page.tsx");
+const overview = read("components/help-overview.tsx");
 const browser = read("components/help-browser.tsx");
 const card = read("components/help-card.tsx");
 const icons = read("components/help-public-icons.tsx");
@@ -24,13 +25,15 @@ const adminStyles = read("components/admin-help-bulk.module.css");
 
 const emojiUi = /[🐾🔎📍📅🚨❤️🛡️🐕🤝🏠🛟💛]/u;
 
-test("Help landing uses the compact public foundation instead of a photo marketing hero", () => {
-  assert.match(landing, /<PublicFoundation/);
-  assert.match(landing, /<PublicSectionHeader/);
-  assert.match(landing, /variant="compact"/);
-  assert.doesNotMatch(landing, /SectionHero|heroImage|help-hero--photo/);
-  assert.match(landing, /data-help-category-nav/);
-  assert.match(landing, /\{!active && \(/);
+test("Help landing uses the compact public foundation and curated category previews", () => {
+  assert.match(overview, /<PublicFoundation/);
+  assert.match(overview, /<PublicSectionHeader/);
+  assert.match(overview, /variant="compact"/);
+  assert.doesNotMatch(overview, /SectionHero|heroImage|help-hero--photo/);
+  assert.match(overview, /data-help-category-nav/);
+  assert.match(overview, /data-help-overview-section/);
+  assert.match(overview, /section\.items\.slice\(0, 6\)/);
+  assert.match(rootRoute, /<HelpOverview sections=\{sections\} totalActive=\{totalActive\}/);
 });
 
 test("Help category navigation routes canonical modules without emoji UI", () => {
@@ -39,6 +42,7 @@ test("Help category navigation routes canonical modules without emoji UI", () =>
   assert.match(categoryRoute, /redirect\("\/pomoc-psom\/stratene-psy"\)/);
   assert.match(landing, /<HelpCategoryIcon/);
   assert.doesNotMatch(landing, emojiUi);
+  assert.doesNotMatch(overview, emojiUi);
   assert.doesNotMatch(browser, emojiUi);
   assert.doesNotMatch(card, emojiUi);
   assert.doesNotMatch(adoption, emojiUi);
@@ -54,6 +58,8 @@ test("Help landing counts come from canonical adoption and lost-found stores", (
   assert.match(rootRoute, /listPublicDogReports\("FOUND"/);
   assert.match(rootRoute, /"stratene-a-najdene": lost\.total \+ found\.total/);
   assert.match(rootRoute, /adopcia: adoptions\.pagination\.total/);
+  assert.match(rootRoute, /slice\(0, 6\)/);
+  assert.match(rootRoute, /return "\/pomoc-psom\/stratene-a-najdene"/);
 });
 
 test("generic Help browser does not merge dedicated adoption or lost-found domains", () => {

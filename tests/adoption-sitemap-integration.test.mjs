@@ -107,7 +107,8 @@ test("public help, homepage and portal search no longer source legacy adoption r
   assert.match(helpStore, /category NOT IN \('adopcia', 'utulky'\) AND resolved = 0/);
   assert.match(helpRoot, /getPublicAdoptions\(\{ page: 1 \}\)/);
   assert.match(helpRoot, /adopcia: adoptions\.pagination\.total/);
-  assert.match(helpRoot, /categoryCounts=\{categoryCounts\}/);
+  assert.match(helpRoot, /adoptions\.items\.slice\(0, 6\)\.map\(adoptionPreview\)/);
+  assert.match(helpRoot, /return <HelpOverview sections=\{sections\} totalActive=\{totalActive\} \/>/);
   assert.match(portalSearch, /listAllPublicAdoptions\(\)/);
   assert.match(portalSearch, /adoptionDetailPath\(dog\.slug\)/);
 });
