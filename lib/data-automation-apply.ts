@@ -12,6 +12,7 @@ import {
   type AutomationD1Database,
   type AutomationFindingDetail,
 } from "./data-automation-store.ts";
+import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 
 type RuntimeBindings = { DB?: D1Database };
 
@@ -299,6 +300,19 @@ function database(input?: AutomationD1Database) {
   const bound = (env as unknown as RuntimeBindings).DB;
   if (bound?.prepare && bound.batch) return bound;
   throw new Error("Data automation nemá pripojenú databázu.");
+}
+
+async function ensureAutomationResourceAnchor(
+  entityType: AutomationEntityType,
+  canonicalEntityId: number,
+  db: AutomationD1Database,
+  now: Date,
+) {
+  if (entityType === "DIRECTORY") {
+    await ensureResourceForDirectoryProfile(canonicalEntityId, db, now);
+  } else if (entityType === "ORGANIZATION") {
+    await ensureResourceForHelpOrganization(canonicalEntityId, db, now);
+  }
 }
 
 function own(value: Record<string, unknown>, key: string) {
@@ -905,6 +919,7 @@ export async function applyAutomationFinding(input: {
 
   const already = await existingApplication(finding.id, db);
   if (already) {
+    await ensureAutomationResourceAnchor(finding.entityType, Number(already.canonical_entity_id), db, input.now ?? new Date());
     const refreshed = await getAutomationFindingDetail(finding.id, db);
     if (!refreshed) return null;
     let appliedFields: string[] = [];
@@ -1005,6 +1020,7 @@ export async function applyAutomationFinding(input: {
   const application = await existingApplication(finding.id, db);
   const refreshed = await getAutomationFindingDetail(finding.id, db);
   if (!application || !refreshed) throw new Error("automation_apply_result_missing");
+  await ensureAutomationResourceAnchor(finding.entityType, Number(application.canonical_entity_id), db, input.now ?? new Date());
   let appliedFields: string[] = [];
   try { appliedFields = JSON.parse(application.applied_fields_json) as string[]; } catch {}
   return {

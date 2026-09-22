@@ -113,6 +113,7 @@ function createClubDatabase() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       published_at TEXT,
+      archived_at TEXT,
       created_by TEXT NOT NULL,
       updated_by TEXT NOT NULL
     );

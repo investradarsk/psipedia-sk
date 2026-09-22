@@ -123,6 +123,37 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
     }
   }
 
+  async function restoreArchivedProfile() {
+    if (!profile || profile.status !== "archived") return;
+    setSaving(true); setError(""); setMessage("");
+    try {
+      const response = await fetch(`/api/admin/directory/${profile.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "restore" }),
+      });
+      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
+      if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo obnoviť.");
+      window.location.reload();
+    } catch (restoreError) {
+      setError(restoreError instanceof Error ? restoreError.message : "Profil sa nepodarilo obnoviť.");
+      setSaving(false);
+    }
+  }
+
+  if (profile?.status === "archived") {
+    return (
+      <section className="admin-form-card">
+        <h2>Archivovaný profil</h2>
+        <p>Profil nie je verejný a jeho canonical resource zostáva zachovaný pre historické a trust dáta.</p>
+        {error && <p className="admin-flash admin-flash--error" role="alert">{error}</p>}
+        <AdminActionButton variant="primary" disabled={saving} onClick={() => void restoreArchivedProfile()}>
+          {saving ? "Obnovujem…" : "Obnoviť do konceptu"}
+        </AdminActionButton>
+      </section>
+    );
+  }
+
   const categoryInfo = getDirectoryCategory(category);
   return (
     <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>

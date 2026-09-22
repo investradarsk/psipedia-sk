@@ -1,5 +1,5 @@
 export const DIRECTORY_ADMIN_PAGE_SIZE = 50;
-export type DirectoryAdminStatus = "all" | "published" | "draft";
+export type DirectoryAdminStatus = "all" | "published" | "draft" | "archived";
 export type DirectoryAdminVerification = "all" | "verified" | "unverified";
 export type DirectoryAdminMedia = "all" | "with-image" | "without-image";
 export type DirectoryAdminMembershipFilters = {
@@ -23,7 +23,7 @@ type Statement = {
 type ReadDatabase = { prepare(sql: string): Statement };
 
 type CountRow = { count: number };
-type TotalsRow = { total: number; published: number; draft: number };
+type TotalsRow = { total: number; published: number; draft: number; archived: number };
 
 function firstParam(value: string | null | undefined) {
   return value?.trim() ?? "";
@@ -38,7 +38,7 @@ export function parseDirectoryAdminFilters(
   const rawPage = firstParam(params.get("page")) || "1";
   return {
     category: rawCategory && isCategory(rawCategory) ? rawCategory : "",
-    status: rawStatus === "published" || rawStatus === "draft" ? rawStatus : "all",
+    status: rawStatus === "published" || rawStatus === "draft" || rawStatus === "archived" ? rawStatus : "all",
     q: firstParam(params.get("q")).slice(0, 100),
     region: firstParam(params.get("region")).slice(0, 80),
     district: firstParam(params.get("district")).slice(0, 100),
@@ -71,7 +71,7 @@ export function normalizeDirectoryAdminMembershipFilters(
 ): DirectoryAdminMembershipFilters {
   return {
     category: filters.category.trim(),
-    status: filters.status === "published" || filters.status === "draft" ? filters.status : "all",
+    status: filters.status === "published" || filters.status === "draft" || filters.status === "archived" ? filters.status : "all",
     q: filters.q.trim().slice(0, 100),
     region: filters.region.trim().slice(0, 80),
     district: filters.district.trim().slice(0, 100),
@@ -194,7 +194,8 @@ export async function queryDirectoryAdmin<T>(
 
   const totals = await database.prepare(`SELECT COUNT(*) AS total,
     COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
-    COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft
+    COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
+    COUNT(CASE WHEN status = 'archived' THEN 1 END) AS archived
     FROM directory_profiles${categoryWhere}`).bind(...categoryArgs).first<TotalsRow>();
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${membershipQuery.where}`).bind(...membershipQuery.args).first<CountRow>();
   const resultCount = Number(count?.count ?? 0);
@@ -212,7 +213,7 @@ export async function queryDirectoryAdmin<T>(
     rows.results.map((row) => row.value?.trim()).filter((value): value is string => Boolean(value));
 
   return {
-    counts: totals ?? { total: 0, published: 0, draft: 0 },
+    counts: totals ?? { total: 0, published: 0, draft: 0, archived: 0 },
     resultCount,
     page,
     pageSize: safePageSize,

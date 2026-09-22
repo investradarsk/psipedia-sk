@@ -3,6 +3,7 @@ import type { AdoptionD1Database } from "./adoption-store.ts";
 import { parseOrganizationAdminInput, type OrganizationAdminInput } from "./help-organization-admin-input.ts";
 import { getOrganizationPublicationAdminById } from "./help-organization-admin-store.ts";
 import type { OrganizationPublicationPreflight } from "./help-organization-publication.ts";
+import { ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 
 type RuntimeBindings = { DB?: AdoptionD1Database };
 type RunResult = { meta?: { changes?: number; last_row_id?: number }; changes?: number };
@@ -92,6 +93,7 @@ export async function createOrganizationFromAdmin(
     ).run() as RunResult;
     const id = Number(result.meta?.last_row_id ?? 0);
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Databáza nevrátila ID novej organizácie.");
+    await ensureResourceForHelpOrganization(id, db, now);
     return getOrganizationPublicationAdminById(id, db);
   } catch (error) {
     if (isUniqueSlugError(error)) throw new OrganizationSlugConflictError();

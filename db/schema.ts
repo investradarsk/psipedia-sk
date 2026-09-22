@@ -148,6 +148,7 @@ export const directoryProfiles = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     publishedAt: text("published_at"),
+    archivedAt: text("archived_at"),
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by").notNull(),
   },
