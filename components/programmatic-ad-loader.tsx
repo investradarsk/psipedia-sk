@@ -3,6 +3,13 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { canLoadProgrammaticAds, type ConsentChoice } from "@/lib/monetization";
+import {
+  INTERNAL_TRAFFIC_EVENT,
+  INTERNAL_TRAFFIC_QUERY_PARAM,
+  INTERNAL_TRAFFIC_STORAGE_KEY,
+  isStoredInternalTraffic,
+  parseInternalTrafficOverride,
+} from "@/lib/internal-traffic";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
 const CONSENT_EVENT = "psipedia:consent-changed";
@@ -12,8 +19,16 @@ export function ProgrammaticAdLoader({ enabled, clientId }: { enabled: boolean; 
   const isPartnerRoute = pathname.startsWith("/partner");
 
   useEffect(() => {
+    function isInternalTraffic() {
+      const override = parseInternalTrafficOverride(
+        new URLSearchParams(window.location.search).get(INTERNAL_TRAFFIC_QUERY_PARAM),
+      );
+      if (override !== null) return override;
+      return isStoredInternalTraffic(window.localStorage.getItem(INTERNAL_TRAFFIC_STORAGE_KEY));
+    }
+
     function maybeLoad() {
-      if (isPartnerRoute) return;
+      if (isPartnerRoute || isInternalTraffic()) return;
       const stored = window.localStorage.getItem(CONSENT_KEY);
       const consent: ConsentChoice | null = stored === "necessary" || stored === "analytics" || stored === "advertising" ? stored : null;
       if (!canLoadProgrammaticAds({ enabled, clientId }, consent)) return;
@@ -27,7 +42,11 @@ export function ProgrammaticAdLoader({ enabled, clientId }: { enabled: boolean; 
     }
     maybeLoad();
     window.addEventListener(CONSENT_EVENT, maybeLoad);
-    return () => window.removeEventListener(CONSENT_EVENT, maybeLoad);
+    window.addEventListener(INTERNAL_TRAFFIC_EVENT, maybeLoad);
+    return () => {
+      window.removeEventListener(CONSENT_EVENT, maybeLoad);
+      window.removeEventListener(INTERNAL_TRAFFIC_EVENT, maybeLoad);
+    };
   }, [clientId, enabled, isPartnerRoute]);
   return null;
 }
