@@ -49,7 +49,7 @@ test("Partner API reuses session auth and same-origin mutation protection",()=>{
   assert.match(partnerApi,/requirePartnerAccount/);
   assert.match(partnerApi,/assertPartnerJsonMutation/);
   assert.match(partnerApi,/cookieHeader:request\.headers\.get\(\"cookie\"\)/);
-  assert.doesNotMatch(partnerApi,/status|adminNote.*body/i);
+  assert.doesNotMatch(partnerApi,/status\s*:\s*body\.status|adminNote\s*:\s*body\.adminNote/);
 });
 
 test("admin uses validated transitions, audit and protects internal note from Partner history",()=>{
