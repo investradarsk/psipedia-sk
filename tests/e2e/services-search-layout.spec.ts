@@ -170,19 +170,30 @@ test.describe("public services search layout", () => {
     expect(response?.status()).toBe(200);
 
     const header = page.locator("[data-directory-public-header]");
-    await expect(header.getByRole("heading", { level: 1, name: "Služby podľa kategórie" })).toBeVisible();
+    await expect(header.getByRole("heading", { level: 1, name: "Služby pre psov na jednom mieste" })).toBeVisible();
     await expect(header.locator('img[alt="Labrador ako sprievodný vizuál adresára služieb pre psov"]')).toHaveCount(1);
 
     const categoryNav = header.getByRole("navigation", { name: "Kategórie služieb" });
     await expect(categoryNav.getByRole("link")).toHaveCount(10);
 
     const panels = page.locator("section[data-directory-category]");
+    const primaryPanels = page.locator("section[data-directory-primary]");
+    const secondaryPanels = page.locator("section[data-directory-secondary]");
     await expect(panels).toHaveCount(10);
+    await expect(primaryPanels).toHaveCount(5);
+    await expect(secondaryPanels).toHaveCount(5);
+
+    const primaryCounts = (await primaryPanels.evaluateAll((elements) =>
+      elements.map((element) => Number(element.getAttribute("data-directory-category-count")))
+    ));
+    expect(primaryCounts.every(Number.isInteger)).toBe(true);
+    expect(primaryCounts).toEqual([...primaryCounts].sort((left, right) => right - left));
+
     for (let index = 0; index < await panels.count(); index += 1) {
       const panel = panels.nth(index);
       const slug = await panel.getAttribute("data-directory-category");
       expect(slug).toBeTruthy();
-      await expect(panel.getByRole("link", { name: "Zobraziť všetkých" })).toHaveAttribute("href", `/adresar/${slug}`);
+      await expect(panel.getByRole("link", { name: /Zobraziť všetkých/ })).toHaveAttribute("href", `/adresar/${slug}`);
       const countValue = await panel.getAttribute("data-directory-category-count");
       expect(countValue).not.toBeNull();
       const count = Number(countValue);
@@ -193,9 +204,13 @@ test.describe("public services search layout", () => {
       }
     }
 
-    const trainerPanel = page.locator('section[data-directory-category="treneri"]');
-    expect(await trainerPanel.locator("[data-directory-preview-profile]").count()).toBeGreaterThan(0);
-    await expect(trainerPanel.getByText("E2E Tréner", { exact: true })).toHaveCount(0);
+    const firstPrimary = primaryPanels.first();
+    expect(await firstPrimary.locator("[data-directory-preview-profile]").count()).toBeGreaterThan(0);
+    await expect(page.getByText("E2E Tréner", { exact: true })).toHaveCount(0);
+
+    const providerCta = page.locator("[data-directory-provider-cta]");
+    await expect(providerCta.getByRole("heading", { name: "Poskytujete služby pre psov?" })).toBeVisible();
+    await expect(providerCta.getByRole("link", { name: "Pridať alebo upraviť profil" })).toHaveAttribute("href", "/o-nas#kontakt");
 
     const jsonLd = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("\n");
     expect(jsonLd).toContain("CollectionPage");
