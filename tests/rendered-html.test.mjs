@@ -1003,8 +1003,9 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.match(helpHtml, /Postup krok za krokom/);
   assert.match(helpHtml, /<h1>Pomoc psom<\/h1>/);
   assert.match(helpHtml, /Zbierky a výzvy/);
-  assert.match(helpHtml, /Meno, mesto alebo organizácia/);
-  assert.match(helpHtml, /Momentálne nemáme publikovaný prípad pre tieto filtre\./);
+  assert.match(helpHtml, /Vyberte, čo chcete riešiť/);
+  assert.match(helpHtml, /Hlavný prehľad ukazuje len výber aktuálnych možností/);
+  assert.match(helpHtml, /V tejto kategórii momentálne nemáme nový publikovaný záznam\./);
   assert.doesNotMatch(helpHtml, /help-hero--photo/);
 
   const adoption = await worker.fetch(new Request("http://localhost/pomoc-psom/adopcia", { headers: { accept: "text/html" } }), bindings, context);
