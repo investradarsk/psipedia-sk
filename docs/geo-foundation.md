@@ -65,7 +65,7 @@ The admin Operations page allows dry-run classification, bounded explicit initia
 
 ## Safe rollout
 
-Migration `0063_geo_foundation.sql` is schema-only. It does not insert geo rows or call any provider.
+Migration `0064_geo_foundation.sql` is schema-only. It does not insert geo rows or call any provider.
 
 Recommended order:
 
@@ -80,4 +80,4 @@ Recommended order:
 
 MAP-1B does not add `/mapa` and does not add a public map API.
 
-The runtime is also safe when application code deploys before migration `0063`: canonical directory/event/organization pages continue to work, Attention treats the missing geo source as zero, and geo admin surfaces report that the schema is not ready instead of assuming the table exists.
+The runtime is also safe when application code deploys before migration `0064`: canonical directory/event/organization pages continue to work, Attention treats the missing geo source as zero, and geo admin surfaces report that the schema is not ready instead of assuming the table exists.
