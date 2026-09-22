@@ -7,6 +7,8 @@ import { getPublishedDirectoryProfile } from "@/lib/directory-store";
 import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, directorySeoFallback, resolvedCanonical } from "@/lib/content-seo";
 import { absoluteUrl, SITE_URL } from "@/lib/seo";
+import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
+import { isPublicPartnerResourceVerified } from "@/lib/partner-claims";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string; slug: string }> };
@@ -41,6 +43,7 @@ export default async function DirectoryProfilePage({ params }: Props) {
   if (!profile) notFound();
   const canonical = resolvedCanonical(profile.seo, directoryProfileHref(profile));
   const presentation = getDirectoryDetailPresentation(profile);
+  const partnerVerified = await isPublicPartnerResourceVerified("DIRECTORY_PROFILE", profile.id);
   const schemaType = profile.category === "veterinari" ? "VeterinaryCare" : ["kynologicke-kluby","chovatelske-kluby"].includes(profile.category) ? "Organization" : "LocalBusiness";
   const sameAs = [presentation.websiteUrl, presentation.facebookUrl, presentation.instagramUrl].filter((value): value is string => Boolean(value));
   const schema = { "@context":"https://schema.org", "@graph":[
@@ -54,5 +57,6 @@ export default async function DirectoryProfilePage({ params }: Props) {
       {"@type":"ListItem",position:1,name:"Domov",item:SITE_URL}, {"@type":"ListItem",position:2,name:"Služby pre psov",item:`${SITE_URL}/adresar`},
       {"@type":"ListItem",position:3,name:getDirectoryCategory(profile.category)?.label,item:`${SITE_URL}/adresar/${profile.category}`}, {"@type":"ListItem",position:4,name:profile.name,item:canonical}]}
   ]};
-  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} /></>;
+  const claimHref = `/partner/prevziat-profil/DIRECTORY_PROFILE/${profile.id}`;
+  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} /><PartnerPublicOwnership verified={partnerVerified} claimHref={claimHref} /></>;
 }

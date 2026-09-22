@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       request,
       email: body.email,
       turnstileToken: body.turnstileToken,
+      returnTo: body.returnTo,
     });
     return Response.json(result, {
       status: 202,

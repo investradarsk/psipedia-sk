@@ -9,6 +9,8 @@ import {
   mapDirectoryInquiryAttention,
   mapModerationAttention,
   mapNewsTipAttention,
+  mapPartnerClaimAttention,
+  mapPartnerVerificationAttention,
   mapPartnerCommercialAttention,
   sortAdminAttentionItems,
   type AdoptionStaleAttentionRow,
@@ -18,6 +20,8 @@ import {
   type DirectoryInquiryAttentionRow,
   type ModerationAttentionRow,
   type NewsTipAttentionRow,
+  type PartnerClaimAttentionRow,
+  type PartnerVerificationAttentionRow,
   type PartnerCommercialAttentionRow,
 } from "./admin-attention-queue.ts";
 
@@ -122,6 +126,54 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(staleThreshold, ADMIN_ATTENTION_SOURCE_LIMIT).all<AdoptionStaleAttentionRow>();
 
+  const claimsPromise = db.prepare(`
+    SELECT c.id,c.status,c.created_at AS createdAt,c.updated_at AS updatedAt,
+      COALESCE(d.name,o.name) AS resourceName,
+      CASE WHEN
+        EXISTS(
+          SELECT 1 FROM partner_memberships om
+          JOIN partner_accounts oa ON oa.id=om.account_id AND oa.status='ACTIVE'
+          WHERE om.resource_id=c.resource_id AND om.revoked_at IS NULL AND om.role='OWNER' AND om.account_id<>c.account_id
+        )
+        OR EXISTS(
+          SELECT 1 FROM partner_claims oc
+          WHERE oc.resource_id=c.resource_id AND oc.status='PENDING' AND oc.account_id<>c.account_id
+        )
+      THEN 1 ELSE 0 END AS conflict
+    FROM partner_claims c
+    JOIN partner_resources r ON r.id=c.resource_id
+    LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
+    LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+    ORDER BY CASE WHEN c.status='PENDING' THEN 0 ELSE 1 END,
+      CASE WHEN c.status='PENDING' THEN c.created_at END ASC,
+      CASE WHEN c.status<>'PENDING' THEN c.updated_at END DESC,c.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerClaimAttentionRow>();
+
+  const verificationsPromise = db.prepare(`
+    SELECT v.id,v.status,v.created_at AS createdAt,v.updated_at AS updatedAt,v.submitted_at AS submittedAt,
+      COALESCE(d.name,o.name) AS resourceName,
+      CASE WHEN
+        EXISTS(
+          SELECT 1 FROM partner_memberships om
+          JOIN partner_accounts oa ON oa.id=om.account_id AND oa.status='ACTIVE'
+          WHERE om.resource_id=v.resource_id AND om.revoked_at IS NULL AND om.role='OWNER' AND om.account_id<>v.account_id
+        )
+        OR EXISTS(
+          SELECT 1 FROM partner_claims pc
+          WHERE pc.resource_id=v.resource_id AND pc.status='PENDING' AND pc.account_id<>v.account_id
+        )
+      THEN 1 ELSE 0 END AS conflict
+    FROM partner_resource_verifications v
+    JOIN partner_resources r ON r.id=v.resource_id
+    LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
+    LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+    ORDER BY CASE WHEN v.status='PENDING_VERIFICATION' THEN 0 ELSE 1 END,
+      CASE WHEN v.status='PENDING_VERIFICATION' THEN COALESCE(v.submitted_at,v.created_at) END ASC,
+      CASE WHEN v.status<>'PENDING_VERIFICATION' THEN v.updated_at END DESC,v.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerVerificationAttentionRow>();
+
   const commercialPromise = db.prepare(`
     SELECT c.id,c.interest_type AS interestType,c.status,c.created_at AS createdAt,c.updated_at AS updatedAt,
       COALESCE(d.name,o.name,e.title) AS resourceName
@@ -153,13 +205,15 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
 
-  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, commercial, automation] = await Promise.all([
+  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, verifications, commercial, automation] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
     safeSourceResults("news_tips", newsTipsPromise),
     safeSourceResults("directory_change_requests", changeRequestsPromise),
     safeSourceResults("directory_inquiries", inquiriesPromise),
     safeSourceResults("article_feedback", feedbackPromise),
     safeSourceResults("adoption_stale", adoptionsPromise),
+    safeSourceResults("partner_claims", claimsPromise),
+    safeSourceResults("partner_resource_verifications", verificationsPromise),
     safeSourceResults("partner_commercial_interests", commercialPromise),
     safeSourceResults("automation_findings", automationPromise),
   ]);
@@ -171,6 +225,8 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...inquiries.map((row) => mapDirectoryInquiryAttention(row, now)),
     ...feedback.map((row) => mapArticleFeedbackAttention(row, now)),
     ...adoptions.map((row) => mapAdoptionStaleAttention(row, now)),
+    ...claims.map((row) => mapPartnerClaimAttention(row, now)),
+    ...verifications.map((row) => mapPartnerVerificationAttention(row, now)),
     ...commercial.map((row) => mapPartnerCommercialAttention(row, now)),
     ...automation.map((row) => mapAutomationFindingAttention(row, now)),
   ]);
@@ -187,6 +243,8 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
     ["ARTICLE_FEEDBACK",`SELECT COUNT(*) count FROM article_feedback WHERE helpful=0 AND status IN ('new','reviewing')`,[]],
     ["ADOPTION_STALE",`SELECT COUNT(*) count FROM adoption_dogs WHERE status IN ('ACTIVE','RESERVED') AND (last_verified_at IS NULL OR last_verified_at<?)`,[staleThreshold]],
     ["AUTOMATION_FINDING",`SELECT COUNT(*) count FROM automation_findings WHERE review_status IN ('NEW','IN_REVIEW')`,[]],
+    ["PARTNER_CLAIM_REVIEW",`SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'`,[]],
+    ["PARTNER_VERIFICATION_REVIEW",`SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'`,[]],
     ["PARTNER_COMMERCIAL_LEAD",`SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'`,[]],
   ] as const;
   const counts=await Promise.all(queries.map(async([source,sql,bindings])=>{
