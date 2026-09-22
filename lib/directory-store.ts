@@ -342,7 +342,7 @@ const DIRECTORY_PROFILE_COLUMNS = `
   id, slug, name, category, status, excerpt, description, services_json, qualifications_json,
   city, district, region, address, online, price_note, website_url, internal_email, image_url,
   image_key, import_key, source_data_json, search_text, verified, featured, seo_json,
-  created_at, updated_at, published_at, archived_at, created_by, updated_by
+  created_at, updated_at, published_at, NULL AS archived_at, created_by, updated_by
 `;
 
 const DIRECTORY_CARD_COLUMNS = `
@@ -935,10 +935,10 @@ export async function archiveManagedDirectoryProfile(id: number, editorEmail: st
   const timestamp = now.toISOString();
   const row = await database.prepare(`
     UPDATE directory_profiles
-    SET status='archived', published_at=NULL, archived_at=?, updated_at=?, updated_by=?
+    SET status='archived', published_at=NULL, updated_at=?, updated_by=?
     WHERE id=? AND status IN ('draft','published')
     RETURNING ${DIRECTORY_PROFILE_COLUMNS}
-  `).bind(timestamp, timestamp, editorEmail, id).first<DirectoryProfileRow>();
+  `).bind(timestamp, editorEmail, id).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo archivovať.");
   return rowToManagedProfile(row);
 }
@@ -953,7 +953,7 @@ export async function restoreManagedDirectoryProfile(id: number, editorEmail: st
   const timestamp = now.toISOString();
   const row = await database.prepare(`
     UPDATE directory_profiles
-    SET status='draft', published_at=NULL, archived_at=NULL, updated_at=?, updated_by=?
+    SET status='draft', published_at=NULL, updated_at=?, updated_by=?
     WHERE id=? AND status='archived'
     RETURNING ${DIRECTORY_PROFILE_COLUMNS}
   `).bind(timestamp, editorEmail, id).first<DirectoryProfileRow>();
