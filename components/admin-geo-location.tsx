@@ -108,7 +108,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
     <div className="admin-card-heading"><div><span>GEO</span><div><h2>Poloha na mape</h2><p>Source údaje a verejný marker sú oddelené. Verejná mapa ešte nie je zapnutá.</p></div></div></div>
 
     {sensitive && <p className="admin-message admin-message--error"><strong>Citlivý typ lokality.</strong> Presná ulica nesmie byť zverejnená iba preto, že je uložená v canonical dátach.</p>}
-    {!snapshot.schemaReady && <p className="admin-message admin-message--error"><strong>Geo schéma ešte nie je nasadená.</strong> Migrácia 0063 musí byť aplikovaná cez autorizovaný D1 migration proces. Canonical profil funguje ďalej bez geo operácií.</p>}
+    {!snapshot.schemaReady && <p className="admin-message admin-message--error"><strong>Geo schéma ešte nie je nasadená.</strong> Migrácia 0064 musí byť aplikovaná cez autorizovaný D1 migration proces. Canonical profil funguje ďalej bez geo operácií.</p>}
     {snapshot.schemaReady && !snapshot.provider.configured && <p className="admin-help"><strong>Geoapify nie je nakonfigurovaný.</strong> Manuálna klasifikácia funguje; provider retry je bezpečne disabled.</p>}
 
     <div className="admin-field-grid">
