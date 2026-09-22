@@ -28,6 +28,24 @@ npm run deploy:cloudflare
 
 Ten teraz orchestruje tri fail-closed fázy.
 
+### Cloudflare Workers Builds
+
+Workers Builds má vlastný dvojkrokový lifecycle: najprv spustí **Build command** a až potom
+**Deploy command**. Premenná `WORKERS_CI=1` je v tomto prostredí nastavená automaticky.
+
+Keď je `deploy:cloudflare` spustený ako Deploy command vo Workers Builds, Cloudflare už
+predtým vykonal nakonfigurovaný **Build command**. Deploy fáza preto iba nasadí pripravený
+`dist/` cez generated Wrangler config; nespúšťa druhý build, druhú artifact validation ani
+remote D1 príkazy. Tým sa Workers Builds drží platformového lifecycle
+`Build command → Deploy command` bez vnoreného produkčného orchestration runnera.
+
+Workers Builds je preto určený na automatické nasadenie kódu a assets. Zmena databázovej
+schémy musí ísť cez explicitný manuálny produkčný deploy `npm run deploy:cloudflare`, ktorý
+stále vykoná fresh build, artifact validation, remote D1 migrations, strict remote audit,
+identity re-check a až potom Wrangler deploy.
+
+Pri manuálnom/lokálnom produkčnom deployi sa teda safety contract nemení.
+
 ### Phase A — lokálna príprava artefaktu
 
 1. `npm run config:check`

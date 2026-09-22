@@ -52,6 +52,21 @@ test("build failure performs no remote mutation and no deploy", async () => {
   assert.equal(harness.events.includes("deploy"), false);
 });
 
+test("Workers Builds uses only the platform-native deploy phase", async () => {
+  const harness = createHarness({ failCommand: "build" });
+  const result = await runSafeCloudflareDeployment({
+    ...harness,
+    env: { WORKERS_CI: "1", WORKERS_CI_COMMIT_SHA: "commit-a" },
+  });
+  assert.deepEqual(harness.events, ["deploy"]);
+  assert.equal(result.fingerprint, "commit-a");
+  assert.equal(harness.events.includes("config-check"), false);
+  assert.equal(harness.events.includes("build"), false);
+  assert.equal(harness.events.includes("artifact-validation"), false);
+  assert.equal(harness.events.includes("remote-migration"), false);
+  assert.equal(harness.events.includes("remote-audit"), false);
+});
+
 test("artifact validation failure performs no remote mutation and no deploy", async () => {
   const harness = createHarness({ failValidationPhase: "before-remote" });
   await assert.rejects(() => runSafeCloudflareDeployment(harness), /forced before-remote validation failure/);

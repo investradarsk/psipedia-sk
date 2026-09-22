@@ -43,17 +43,41 @@ export function runDeploymentCommand(step, { env = process.env } = {}) {
 export async function runSafeCloudflareDeployment({
   runCommand = runDeploymentCommand,
   validateArtifact = validatePreparedDeployArtifact,
+  env = process.env,
 } = {}) {
-  // Phase A — local preparation. Nothing remote is allowed before all of this passes.
-  await runCommand(DEPLOYMENT_STEPS.configCheck);
-  await runCommand(DEPLOYMENT_STEPS.build);
-  await runCommand(DEPLOYMENT_STEPS.artifactValidation);
+  const workersBuildPreparedArtifact = env.WORKERS_CI === "1";
+
+  // Cloudflare Workers Builds already owns the build -> deploy lifecycle.
+  // Its configured build command has produced dist/ before this deploy command
+  // starts, so the production branch must use the platform-native deploy phase
+  // directly. Extra rebuild, artifact or remote-DB gates here make the managed
+  // deploy diverge from Cloudflare's supported lifecycle and previously kept
+  // psipedia.sk pinned to an older Worker version.
+  //
+  // Database/schema releases remain on the explicit manual production path
+  // below, where migrations and the remote audit run before deployment.
+  if (workersBuildPreparedArtifact) {
+    console.log("[deploy] Workers Builds detected; deploying prepared artifact with the native deploy phase");
+    await runCommand(DEPLOYMENT_STEPS.deploy, { env });
+    return Object.freeze({ fingerprint: env.WORKERS_CI_COMMIT_SHA || "workers-build-managed" });
+  }
+
+  // Phase A — prepare exactly one deploy artifact before any remote mutation.
+  //
+  // Cloudflare Workers Builds already runs the configured build command before
+  // invoking the deploy command. Rebuilding here would create a second
+  // application artifact inside the same Workers Build. In that environment we
+  // therefore validate the artifact produced by the build phase and deploy that
+  // exact artifact. Manual/local production deploys still build here first.
+  await runCommand(DEPLOYMENT_STEPS.configCheck, { env });
+  await runCommand(DEPLOYMENT_STEPS.build, { env });
+  await runCommand(DEPLOYMENT_STEPS.artifactValidation, { env });
   const prepared = await validateArtifact({ phase: "before-remote" });
   console.log(`[deploy] prepared artifact sha256=${prepared.fingerprint}`);
 
-  // Phase B — remote DB gate. Fail closed: any failure stops before deploy.
-  await runCommand(DEPLOYMENT_STEPS.remoteMigration);
-  await runCommand(DEPLOYMENT_STEPS.remoteAudit);
+  // Phase B — remote DB gate for explicit/manual production deploys.
+  await runCommand(DEPLOYMENT_STEPS.remoteMigration, { env });
+  await runCommand(DEPLOYMENT_STEPS.remoteAudit, { env });
 
   // Revalidate identity after remote operations. This does not rebuild anything.
   const beforeDeploy = await validateArtifact({ phase: "before-deploy" });
@@ -67,7 +91,7 @@ export async function runSafeCloudflareDeployment({
   // Phase C — deploy exactly the artifact prepared above. Generated config validation
   // rejects build.command and --no-bundle prevents Wrangler from compiling a new
   // Worker bundle after the remote DB gate.
-  await runCommand(DEPLOYMENT_STEPS.deploy);
+  await runCommand(DEPLOYMENT_STEPS.deploy, { env });
 
   return Object.freeze({ fingerprint: prepared.fingerprint });
 }
