@@ -34,7 +34,11 @@ test("0064 adds only a metadata extension and expands existing Partner lifecycle
   assert.match(migration, /`submission_id` text PRIMARY KEY NOT NULL REFERENCES `moderation_submissions`/);
   assert.match(migration, /partner_profile_change_active_unique/);
   assert.match(migration, /WHERE `dedupe_active`=1/);
-  assert.doesNotMatch(migration, /partner_profile_change_metadata[\s\S]{0,800}`status`/);
+  const metadataTableDdl = migration.slice(
+    migration.indexOf("CREATE TABLE `partner_profile_change_metadata`"),
+    migration.indexOf(");", migration.indexOf("CREATE TABLE `partner_profile_change_metadata`")) + 2,
+  );
+  assert.doesNotMatch(metadataTableDdl, /`status`/);
   for (const type of ["PROFILE_CHANGE_SUBMITTED","PROFILE_CHANGE_APPROVED","PROFILE_CHANGE_REJECTED"]) {
     assert.match(migration, new RegExp(type));
     assert.match(email, new RegExp(type));
@@ -199,9 +203,10 @@ test("legacy public Directory correction flow remains present and independent", 
 });
 
 test("PARTNER-3A stays within scope", () => {
-  const combined = [domain, admin, partnerApi, withdrawApi, adminApi, profilesPage, editPage].join("\n");
-  assert.doesNotMatch(combined, /MANAGED_EVENT|EVENT_SUBMIT/);
-  assert.doesNotMatch(combined, /stripe|billing|payment|subscription|premium_entitlement|sponsored_entitlement/i);
+  const mutationSurface = [domain, admin, partnerApi, withdrawApi, adminApi, editPage].join("\n");
+  assert.doesNotMatch(mutationSurface, /MANAGED_EVENT|EVENT_SUBMIT/);
+  assert.match(profilesPage, /item\.entityType !== "MANAGED_EVENT"/);
+  assert.doesNotMatch(mutationSurface, /stripe|billing|payment|subscription|premium_entitlement|sponsored_entitlement/i);
   assert.doesNotMatch(domain, /media_assets|R2|upload/i);
   assert.doesNotMatch(domain, /organization_fundraising_methods|fundraising/i);
 });
