@@ -13,6 +13,8 @@ import {
   mapGeoLocationAttention,
   mapModerationAttention,
   mapNewsTipAttention,
+  mapPartnerClaimAttention,
+  mapPartnerVerificationAttention,
   mapPartnerCommercialAttention,
   sortAdminAttentionItems,
   summarizeAdminAttention,
@@ -255,9 +257,20 @@ test("zero, one and multiple-source summaries use the same deterministic active 
   assert.equal(summary.byState.RESOLVED, 1);
 });
 
+test("Partner claim and verification Attention lifecycles use stable keys, deep links and conflict priority", () => {
+  const claim=mapPartnerClaimAttention({id:"claim-1",status:"PENDING",resourceName:"Veterina ABC",createdAt:"2026-09-15T09:00:00.000Z",updatedAt:"2026-09-15T09:00:00.000Z",conflict:1},NOW);
+  assert.equal(claim.key,"partner-claim:claim-1"); assert.equal(claim.targetHref,"/admin/partners/claims/claim-1"); assert.equal(claim.priority,"HIGH"); assert.equal(claim.attentionState,"NEW");
+  const cancelled=mapPartnerClaimAttention({...claim,id:"claim-2",status:"CANCELLED",resourceName:"Veterina ABC",conflict:0},NOW);
+  assert.equal(cancelled.attentionState,"DISMISSED");
+  const verification=mapPartnerVerificationAttention({id:"verify-1",status:"PENDING_VERIFICATION",resourceName:"Klub ABC",createdAt:"2026-09-15T08:00:00.000Z",updatedAt:"2026-09-15T08:00:00.000Z",submittedAt:"2026-09-15T08:00:00.000Z",conflict:0},NOW);
+  assert.equal(verification.key,"partner-verification:verify-1"); assert.equal(verification.targetHref,"/admin/partners/verifications/verify-1"); assert.equal(verification.priority,"MEDIUM"); assert.equal(verification.attentionState,"NEW");
+  assert.equal(mapPartnerVerificationAttention({...verification,status:"VERIFIED"},NOW).attentionState,"RESOLVED");
+  assert.equal(mapPartnerVerificationAttention({...verification,status:"REJECTED"},NOW).attentionState,"DISMISSED");
+});
+
 test("all source queries stay bounded and the attention store remains read-only", () => {
   assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 9);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 11);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
@@ -272,6 +285,8 @@ test("target hrefs point to existing admin route patterns", () => {
     "../app/admin/hodnotenia/page.tsx",
     "../app/admin/adopcie/[id]/page.tsx",
     "../app/admin/stratene-najdene/page.tsx",
+    "../app/admin/partners/claims/[id]/page.tsx",
+    "../app/admin/partners/verifications/[id]/page.tsx",
     "../app/admin/partners/commercial/[id]/page.tsx",
     "../app/admin/operations/geo/page.tsx",
   ];
