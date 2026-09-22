@@ -4,12 +4,15 @@ import { chromium } from "@playwright/test";
 
 const DEFAULT_BASE_URL = "http://localhost:5173";
 const DEFAULT_CANONICAL_ORIGIN = "https://psipedia.sk";
+const DEFAULT_WORKERS = 1;
+const MAX_WORKERS = 16;
 const EXPECTED_BREEDS = 343;
 
 function parseArguments(argv) {
   const options = {
     baseUrl: DEFAULT_BASE_URL,
     canonicalOrigin: DEFAULT_CANONICAL_ORIGIN,
+    workers: DEFAULT_WORKERS,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -19,6 +22,13 @@ function parseArguments(argv) {
       index += 1;
     } else if (argument === "--canonical-origin" && value) {
       options.canonicalOrigin = value.replace(/\/$/, "");
+      index += 1;
+    } else if (argument === "--workers" && value) {
+      const workers = Number.parseInt(value, 10);
+      if (!Number.isInteger(workers) || workers < 1 || workers > MAX_WORKERS) {
+        throw new Error(`--workers must be an integer between 1 and ${MAX_WORKERS}; received ${JSON.stringify(value)}`);
+      }
+      options.workers = workers;
       index += 1;
     } else {
       throw new Error(`Unknown or incomplete argument: ${argument}`);
@@ -53,33 +63,8 @@ function obviousRuntimeFailure(text) {
   return /Internal Server Error|Application error|This page could not be found|Unhandled Runtime Error|Minified React error/i.test(text);
 }
 
-const { baseUrl, canonicalOrigin } = parseArguments(process.argv.slice(2));
-const sitemapResponse = await fetch(`${baseUrl}/sitemap.xml`, {
-  headers: { accept: "application/xml,text/xml;q=0.9,*/*;q=0.8" },
-});
-if (!sitemapResponse.ok) {
-  throw new Error(`[breed-profile-audit] sitemap returned HTTP ${sitemapResponse.status}`);
-}
-const breedPaths = sitemapBreedPaths(await sitemapResponse.text());
-if (breedPaths.length !== EXPECTED_BREEDS) {
-  throw new Error(`[breed-profile-audit] ${breedPaths.length} canonical breed URLs found; expected exactly ${EXPECTED_BREEDS}`);
-}
-
-console.log(`[breed-profile-audit] Loaded ${breedPaths.length} published canonical breed URLs from sitemap.`);
-
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-await context.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
-const page = await context.newPage();
-page.setDefaultNavigationTimeout(10_000);
-page.setDefaultTimeout(5_000);
-
-const failures = [];
-let checked = 0;
-
-for (let index = 0; index < breedPaths.length; index += 1) {
-  const path = breedPaths[index];
-  checked += 1;
+async function checkBreedPath(page, path, { baseUrl, canonicalOrigin }) {
+  const failures = [];
   const pageErrors = [];
   const consoleErrors = [];
 
@@ -90,6 +75,7 @@ for (let index = 0; index < breedPaths.length; index += 1) {
     if (/Failed to load resource|googletagmanager|Google Analytics/i.test(text)) return;
     consoleErrors.push(text);
   };
+
   page.on("pageerror", onPageError);
   page.on("console", onConsole);
 
@@ -97,7 +83,7 @@ for (let index = 0; index < breedPaths.length; index += 1) {
     const response = await page.goto(`${baseUrl}${path}`, { waitUntil: "domcontentloaded" });
     if (!response || response.status() !== 200) {
       failures.push(`${path}: HTTP ${response?.status() ?? "no response"}`);
-      continue;
+      return failures;
     }
 
     await page.waitForTimeout(100);
@@ -188,11 +174,61 @@ for (let index = 0; index < breedPaths.length; index += 1) {
     page.off("console", onConsole);
   }
 
-  if (checked % 50 === 0 || checked === breedPaths.length) {
-    console.log(`[breed-profile-audit] Checked ${checked}/${breedPaths.length}.`);
+  return failures;
+}
+
+const { baseUrl, canonicalOrigin, workers } = parseArguments(process.argv.slice(2));
+const sitemapResponse = await fetch(`${baseUrl}/sitemap.xml`, {
+  headers: { accept: "application/xml,text/xml;q=0.9,*/*;q=0.8" },
+});
+if (!sitemapResponse.ok) {
+  throw new Error(`[breed-profile-audit] sitemap returned HTTP ${sitemapResponse.status}`);
+}
+const breedPaths = sitemapBreedPaths(await sitemapResponse.text());
+if (breedPaths.length !== EXPECTED_BREEDS) {
+  throw new Error(`[breed-profile-audit] ${breedPaths.length} canonical breed URLs found; expected exactly ${EXPECTED_BREEDS}`);
+}
+
+const workerCount = Math.min(workers, breedPaths.length);
+console.log(
+  `[breed-profile-audit] Loaded ${breedPaths.length} published canonical breed URLs from sitemap; checking with ${workerCount} worker(s).`,
+);
+
+const browser = await chromium.launch({ headless: true });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+await context.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+
+const failures = [];
+let checked = 0;
+let nextIndex = 0;
+let nextProgress = 50;
+
+async function runWorker() {
+  const page = await context.newPage();
+  page.setDefaultNavigationTimeout(10_000);
+  page.setDefaultTimeout(5_000);
+
+  try {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= breedPaths.length) break;
+
+      const path = breedPaths[index];
+      failures.push(...await checkBreedPath(page, path, { baseUrl, canonicalOrigin }));
+      checked += 1;
+
+      if (checked >= nextProgress || checked === breedPaths.length) {
+        console.log(`[breed-profile-audit] Checked ${checked}/${breedPaths.length}.`);
+        while (nextProgress <= checked) nextProgress += 50;
+      }
+    }
+  } finally {
+    await page.close();
   }
 }
 
+await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
 await browser.close();
 
 if (failures.length) {
