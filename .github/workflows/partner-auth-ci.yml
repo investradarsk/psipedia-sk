@@ -19,7 +19,7 @@ on:
       - "drizzle/0060_partner_memberships_admin.sql"
       - "drizzle/0061_partner_commercial_interests.sql"
       - "drizzle/0063_partner_claims_verification.sql"
-      - "drizzle/0064_partner_profile_changes.sql"
+      - "drizzle/0065_partner_profile_changes.sql"
       - "lib/partner-*"
       - "lib/moderation-store.ts"
       - "lib/moderation-transition.ts"
