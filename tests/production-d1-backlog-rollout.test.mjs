@@ -64,3 +64,10 @@ test("runner never auto-restores production", async () => {
   const script = await readFile(path.join(repoRoot, "scripts/production-d1-backlog-rollout.mjs"), "utf8");
   assert.equal(script.includes('"time-travel", "restore"'), false);
 });
+
+
+test("0058 public integrity cleanup avoids D1 LIKE pattern limits", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0058_public_integrity_cleanup.sql"), "utf8");
+  assert.doesNotMatch(migration, /\bLIKE\b|\bGLOB\b/i);
+  assert.match(migration, /canonical_url\s*=\s*REPLACE\(/);
+});
