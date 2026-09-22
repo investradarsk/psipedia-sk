@@ -68,7 +68,7 @@ export async function POST(request: Request, { params }: Props) {
 
   const action = typeof body.action === "string" ? body.action : "";
   if (!(await isGeoSchemaAvailable())) {
-    return Response.json({ error: "Geo migrácia 0063 ešte nie je aplikovaná v tejto D1 databáze." }, { status: 503 });
+    return Response.json({ error: "Geo migrácia 0064 ešte nie je aplikovaná v tejto D1 databáze." }, { status: 503 });
   }
   try {
     if (action === "initialize") {
