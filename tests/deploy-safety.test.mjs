@@ -52,7 +52,7 @@ test("build failure performs no remote mutation and no deploy", async () => {
   assert.equal(harness.events.includes("deploy"), false);
 });
 
-test("Workers Builds production branch applies remote D1 migrations before deploy", async () => {
+test("Workers Builds deploys the prepared artifact without remote D1 mutation", async () => {
   const harness = createHarness({ failCommand: "build" });
   const result = await runSafeCloudflareDeployment({
     ...harness,
@@ -62,15 +62,16 @@ test("Workers Builds production branch applies remote D1 migrations before deplo
       WORKERS_CI_COMMIT_SHA: "commit-a",
     },
   });
-  assert.deepEqual(harness.events, ["remote-migration", "deploy"]);
+  assert.deepEqual(harness.events, ["deploy"]);
   assert.equal(result.fingerprint, "commit-a");
   assert.equal(harness.events.includes("config-check"), false);
   assert.equal(harness.events.includes("build"), false);
   assert.equal(harness.events.includes("artifact-validation"), false);
+  assert.equal(harness.events.includes("remote-migration"), false);
   assert.equal(harness.events.includes("remote-audit"), false);
 });
 
-test("Workers Builds preview branches never mutate the production D1 database", async () => {
+test("Workers Builds preview branches also remain read-only against remote D1", async () => {
   const harness = createHarness({ failCommand: "build" });
   const result = await runSafeCloudflareDeployment({
     ...harness,
@@ -84,23 +85,6 @@ test("Workers Builds preview branches never mutate the production D1 database", 
   assert.equal(result.fingerprint, "commit-preview");
   assert.equal(harness.events.includes("remote-migration"), false);
   assert.equal(harness.events.includes("remote-audit"), false);
-});
-
-test("Workers Builds production migration failure blocks deploy", async () => {
-  const harness = createHarness({ failCommand: "remote-migration" });
-  await assert.rejects(
-    () => runSafeCloudflareDeployment({
-      ...harness,
-      env: {
-        WORKERS_CI: "1",
-        WORKERS_CI_BRANCH: "main",
-        WORKERS_CI_COMMIT_SHA: "commit-a",
-      },
-    }),
-    /forced remote-migration failure/,
-  );
-  assert.deepEqual(harness.events, ["remote-migration"]);
-  assert.equal(harness.events.includes("deploy"), false);
 });
 
 test("artifact validation failure performs no remote mutation and no deploy", async () => {

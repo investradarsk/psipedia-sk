@@ -51,18 +51,13 @@ export async function runSafeCloudflareDeployment({
   // Its configured build command has produced dist/ before this deploy command
   // starts, so never rebuild the artifact here.
   //
-  // Preview builds must remain read-only against production infrastructure.
-  // Production builds, however, must apply D1 migrations before promoting code
-  // that may depend on the new schema. WORKERS_CI_BRANCH is injected by
-  // Cloudflare Workers Builds and identifies the branch from the push event.
+  // Do not run remote D1 migrations from Workers Builds. Cloudflare's
+  // auto-generated Workers Builds token does not include D1 edit permissions,
+  // so schema migration attempts here fail the whole production deployment.
+  // Database/schema releases remain on the explicit manual production path
+  // below, where a token with D1 permissions can run migrations before deploy.
   if (workersBuildPreparedArtifact) {
-    const workersBranch = env.WORKERS_CI_BRANCH || "";
-    if (workersBranch === "main") {
-      console.log("[deploy] Workers Builds production branch detected; applying remote D1 migrations before deploy");
-      await runCommand(DEPLOYMENT_STEPS.remoteMigration, { env });
-    } else {
-      console.log(`[deploy] Workers Builds preview branch ${workersBranch || "<unknown>"}; skipping remote D1 migration`);
-    }
+    console.log("[deploy] Workers Builds detected; deploying prepared artifact without remote D1 mutation");
     await runCommand(DEPLOYMENT_STEPS.deploy, { env });
     return Object.freeze({ fingerprint: env.WORKERS_CI_COMMIT_SHA || "workers-build-managed" });
   }
