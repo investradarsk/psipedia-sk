@@ -52,19 +52,38 @@ test("build failure performs no remote mutation and no deploy", async () => {
   assert.equal(harness.events.includes("deploy"), false);
 });
 
-test("Workers Builds reuses the prepared artifact instead of rebuilding during deploy", async () => {
+test("Workers Builds reuses the prepared artifact and code-only deploy skips remote D1 commands", async () => {
   const harness = createHarness({ failCommand: "build" });
-  await runSafeCloudflareDeployment({ ...harness, env: { WORKERS_CI: "1" } });
+  await runSafeCloudflareDeployment({
+    ...harness,
+    env: { WORKERS_CI: "1" },
+    changedFiles: ["components/home-editorial.tsx"],
+  });
   assert.deepEqual(harness.events, [
     "config-check",
     "artifact-validation",
     "prepared-artifact-validation",
-    "remote-migration",
-    "remote-audit",
     "artifact-identity-recheck",
     "deploy",
   ]);
   assert.equal(harness.events.includes("build"), false);
+  assert.equal(harness.events.includes("remote-migration"), false);
+  assert.equal(harness.events.includes("remote-audit"), false);
+});
+
+test("Workers Builds fails closed when the merge changes the remote D1 contract", async () => {
+  const harness = createHarness();
+  await assert.rejects(
+    () => runSafeCloudflareDeployment({
+      ...harness,
+      env: { WORKERS_CI: "1" },
+      changedFiles: ["drizzle/0042_example.sql"],
+    }),
+    /touches the remote D1 contract/,
+  );
+  assert.equal(harness.events.includes("remote-migration"), false);
+  assert.equal(harness.events.includes("remote-audit"), false);
+  assert.equal(harness.events.includes("deploy"), false);
 });
 
 test("artifact validation failure performs no remote mutation and no deploy", async () => {
