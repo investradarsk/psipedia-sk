@@ -96,5 +96,5 @@ test("ordinary Cloudflare deploy path never applies remote D1 migrations", async
   const deploy = await readFile(path.join(repoRoot, "scripts/deploy-cloudflare-safe.mjs"), "utf8");
   assert.doesNotMatch(deploy, /remoteMigration/);
   assert.doesNotMatch(deploy, /apply-remote-d1-migrations/);
-  assert.match(deploy, /separate manually-triggered Production D1 Migrate workflow/);
+  assert.match(deploy, /separate manual production migration workflow/);
 });
