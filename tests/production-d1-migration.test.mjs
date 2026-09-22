@@ -4,13 +4,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
 import {
   DEFAULT_TARGET_MIGRATION,
   buildScopedWranglerConfig,
   selectMigrationsThrough,
 } from "../scripts/production-d1-migrate.mjs";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("REVIEWS-1A-MIG scopes repository migrations through 0062 and excludes 0063", () => {
   const files = [
