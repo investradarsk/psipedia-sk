@@ -11,6 +11,7 @@ const authSource = await fs.readFile(new URL("../lib/partner-auth.ts", import.me
 const storeSource = await fs.readFile(new URL("../lib/partner-auth-store.ts", import.meta.url), "utf8");
 const emailSource = await fs.readFile(new URL("../lib/partner-email.ts", import.meta.url), "utf8");
 const securitySource = await fs.readFile(new URL("../lib/partner-security.ts", import.meta.url), "utf8");
+const turnstileClientSource = await fs.readFile(new URL("../components/partner-turnstile.tsx", import.meta.url), "utf8");
 const requestRoute = await fs.readFile(new URL("../app/api/partner/auth/request-link/route.ts", import.meta.url), "utf8");
 const consumeRoute = await fs.readFile(new URL("../app/api/partner/auth/consume/route.ts", import.meta.url), "utf8");
 const logoutRoute = await fs.readFile(new URL("../app/api/partner/auth/logout/route.ts", import.meta.url), "utf8");
@@ -165,6 +166,15 @@ test("Turnstile validates action, hostname and replay through the existing helpe
 
   assert.match(securitySource, /partner_auth_request/);
   assert.match(securitySource, /partner_account_deactivate/);
+});
+
+test("Partner Turnstile explicit rendering uses load + direct render without turnstile.ready()", () => {
+  assert.match(turnstileClientSource, /api\.js\?render=explicit/);
+  assert.match(turnstileClientSource, /addEventListener\("load", render, \{ once: true \}\)/);
+  assert.match(turnstileClientSource, /window\.turnstile\.render\(containerRef\.current/);
+  assert.doesNotMatch(turnstileClientSource, /turnstile(?:\?|\.)?\.ready\s*\(/);
+  assert.match(turnstileClientSource, /removeEventListener\("load", render\)/);
+  assert.match(turnstileClientSource, /window\.turnstile\.remove\(widgetId\)/);
 });
 
 test("Partner PII uses shared AES-GCM encryption and deterministic HMAC lookup", async () => {
