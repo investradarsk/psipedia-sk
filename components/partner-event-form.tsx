@@ -54,13 +54,13 @@ export function PartnerEventForm({mode,resourceId,baseRevision,initial}:Props){
         const value=draft[field.key]??"";
         const wide=field.kind==="textarea";
         if(field.kind==="select")return <label className={`partner-field ${wide?"partner-field--wide":""}`} key={field.key}><span>{field.label}</span>
-          <select value={value} required={field.required} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={state==="success"}>
+          <select value={value} required={"required" in field ? field.required : false} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={state==="success"}>
             <option value="">Vyberte…</option>{(field.options??[]).map(option=><option value={option} key={option}>{option}</option>)}
           </select></label>;
         if(field.kind==="textarea")return <label className="partner-field partner-field--wide" key={field.key}><span>{field.label}</span>
-          <textarea rows={field.key==="description"?9:field.key==="excerpt"?4:6} value={value} required={field.required} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={state==="success"}/></label>;
+          <textarea rows={field.key==="description"?9:field.key==="excerpt"?4:6} value={value} required={"required" in field ? field.required : false} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={state==="success"}/></label>;
         return <label className="partner-field" key={field.key}><span>{field.label}</span>
-          <input type={field.kind==="url"?"url":field.kind==="date"?"date":field.kind==="time"?"time":"text"} value={value} required={field.required} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={state==="success"}/></label>;
+          <input type={field.kind==="url"?"url":field.kind==="date"?"date":field.kind==="time"?"time":"text"} value={value} required={"required" in field ? field.required : false} onChange={e=>setDraft(v=>({...v,[field.key]:e.target.value}))} disabled={state==="success"}/></label>;
       })}
       {mode==="edit"?<label className="partner-profile-check partner-field--wide"><input type="checkbox" checked={cancelled} onChange={e=>setCancelled(e.target.checked)} disabled={state==="success"}/><span>Podujatie je zrušené</span></label>:null}
     </div>
