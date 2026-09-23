@@ -2,7 +2,7 @@ import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts"
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 13;
+export const ADMIN_ATTENTION_QUERY_COUNT = 14;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -15,6 +15,7 @@ export const adminAttentionSourceTypes = [
   "PARTNER_CLAIM_REVIEW",
   "PARTNER_PROFILE_CHANGE_REVIEW",
   "PARTNER_NEW_PROFILE_REVIEW",
+  "PARTNER_EVENT_REVIEW",
   "PARTNER_VERIFICATION_REVIEW",
   "PARTNER_COMMERCIAL_LEAD",
   "GEO_LOCATION_ISSUE",
@@ -65,6 +66,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   PARTNER_CLAIM_REVIEW: "Partner claims",
   PARTNER_PROFILE_CHANGE_REVIEW: "Partner úpravy profilov",
   PARTNER_NEW_PROFILE_REVIEW: "Partner nové profily",
+  PARTNER_EVENT_REVIEW: "Partner podujatia",
   PARTNER_VERIFICATION_REVIEW: "Partner overenia",
   PARTNER_COMMERCIAL_LEAD: "Partner komerčné leady",
   GEO_LOCATION_ISSUE: "Geo lokality",
@@ -461,6 +463,41 @@ export function mapPartnerNewProfileAttention(row:PartnerNewProfileAttentionRow,
       {label:"Typ",value:row.resourceType==="DIRECTORY_PROFILE"?"Služba / Directory":"Organizácia na pomoc psom"},
       {label:"Kategória / typ",value:row.categoryOrType},
       ...(duplicate?[{label:"Duplicate",value:row.duplicateConfidence}]:[]),
+    ],
+  };
+}
+
+export type PartnerEventAttentionRow = {
+  id:string;status:string;operation:string;title:string;changedFieldCount:number;duplicateConfidence:string;
+  riskFlagsJson:string;stale:number;createdAt:string;updatedAt:string;
+};
+function partnerEventAttentionState(status:string):AdminAttentionState {
+  if(status==="SUBMITTED")return "NEW";
+  if(status==="PENDING_REVIEW"||status==="QUARANTINED")return "IN_PROGRESS";
+  if(status==="APPROVED")return "RESOLVED";
+  return "DISMISSED";
+}
+export function mapPartnerEventAttention(row:PartnerEventAttentionRow,now=new Date()):AdminAttentionItem {
+  const attentionState=partnerEventAttentionState(row.status);
+  const relevantAt=isAdminAttentionActive(attentionState)?row.createdAt:row.updatedAt;
+  const high=row.duplicateConfidence==="HIGH"||Boolean(row.stale)||row.status==="QUARANTINED";
+  const riskCount=parseRiskFlagCount(row.riskFlagsJson);
+  return {
+    key:partnerAttentionKey("PARTNER_EVENT_REVIEW",row.id),
+    sourceType:"PARTNER_EVENT_REVIEW",
+    sourceId:row.id,
+    title:`Podujatie: ${row.title} čaká na kontrolu`,
+    reason:isAdminAttentionActive(attentionState)
+      ? row.operation==="CREATE"?"Partner navrhol nové podujatie.":"Partner navrhol úpravu existujúceho podujatia."
+      : row.status==="APPROVED"?"Návrh podujatia bol schválený.":row.status==="REJECTED"?"Návrh podujatia bol zamietnutý.":"Partner návrh stiahol.",
+    priority:high?"HIGH":"MEDIUM",
+    status:row.status,attentionState,createdAt:row.createdAt,relevantAt,ageDays:ageDays(relevantAt,now),
+    targetHref:partnerAttentionHref("PARTNER_EVENT_REVIEW",row.id),
+    metadata:[
+      {label:"Operácia",value:row.operation},
+      {label:"Zmenené polia",value:String(row.changedFieldCount)},
+      ...(row.duplicateConfidence!=="NONE"?[{label:"Duplicate",value:row.duplicateConfidence}]:[]),
+      ...(Boolean(row.stale)?[{label:"Riziko",value:"STALE_BASE"}]:riskCount?[{label:"Risk flags",value:String(riskCount)}]:[]),
     ],
   };
 }
