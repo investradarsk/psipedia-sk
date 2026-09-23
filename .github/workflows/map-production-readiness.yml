@@ -1,0 +1,84 @@
+name: MAP-1E Production Readiness Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-MAP-psipedia-sk-db exactly
+        required: true
+        type: string
+
+concurrency:
+  group: production-map-readiness-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Read-only production map inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main and explicit read-only confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$confirmation" = "AUDIT-MAP-psipedia-sk-db"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+      - name: Require protected D1 credential
+        run: test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Load canonical Cloudflare account id
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(x.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+
+      - name: Run SELECT-only readiness audit
+        run: node scripts/map-production-readiness.mjs
+
+      - name: Production map API read-only smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --location --output /tmp/map.json --write-out '%{http_code}' 'https://psipedia.sk/api/map?north=50&south=47&east=23&west=16&zoom=7')"
+          echo "/api/map -> $status"
+          echo "api_http_status=$status" > .map-production-readiness/api-smoke.txt
+          if [ "$status" = "200" ]; then
+            node -e '
+              const fs=require("fs");
+              const x=JSON.parse(fs.readFileSync("/tmp/map.json","utf8"));
+              if (!["items","clusters"].includes(x.mode)) throw new Error("Invalid map response mode");
+              console.log("mode="+x.mode+" count="+x.meta?.count+" matched="+x.meta?.matched);
+            '
+          fi
+
+      - name: Upload safe read-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-production-readiness-${{ github.run_id }}
+          path: |
+            .map-production-readiness/report.json
+            .map-production-readiness/api-smoke.txt
+          if-no-files-found: warn
+          retention-days: 30
