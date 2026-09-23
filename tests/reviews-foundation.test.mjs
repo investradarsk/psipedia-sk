@@ -145,11 +145,27 @@ test("creation paths use the shared canonical resource helper and directory hard
   assert.match(directoryRoute, /action !== "restore"/);
 });
 
-test("directory runtime stays compatible with production before migration 0062 is applied", async () => {
+test("directory runtime uses canonical post-0062 archived_at lifecycle", async () => {
   const directoryStore = await read("lib/directory-store.ts");
-  assert.match(directoryStore, /published_at, NULL AS archived_at, created_by, updated_by/);
-  assert.doesNotMatch(directoryStore, /SET status='archived',[^\n]*archived_at=/);
-  assert.doesNotMatch(directoryStore, /SET status='draft',[^\n]*archived_at=/);
+
+  assert.doesNotMatch(directoryStore, /NULL AS archived_at/);
+  assert.match(directoryStore, /published_at, archived_at, created_by, updated_by/);
+
+  assert.match(
+    directoryStore,
+    /SET status='archived', published_at=NULL, archived_at=\?, updated_at=\?, updated_by=\?/,
+  );
+  assert.match(directoryStore, /\.bind\(timestamp, timestamp, editorEmail, id\)/);
+
+  assert.match(
+    directoryStore,
+    /SET status='draft', published_at=NULL, archived_at=NULL, updated_at=\?, updated_by=\?/,
+  );
+  assert.match(directoryStore, /WHERE id=\? AND status='archived'/);
+
+  assert.match(directoryStore, /ensureResourceForDirectoryProfile\(id, database, now\)/);
+  assert.doesNotMatch(directoryStore, /DELETE FROM directory_profiles/);
+  assert.match(directoryStore, /WHERE status = 'published'/);
 });
 
 test("review foundation contains no public UI, aggregate cache or privacy-hostile request metadata", async () => {
