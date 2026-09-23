@@ -13,6 +13,7 @@ import {
   mapPartnerClaimAttention,
   mapPartnerProfileChangeAttention,
   mapPartnerNewProfileAttention,
+  mapPartnerEventAttention,
   mapPartnerVerificationAttention,
   mapPartnerCommercialAttention,
   sortAdminAttentionItems,
@@ -27,6 +28,7 @@ import {
   type PartnerClaimAttentionRow,
   type PartnerProfileChangeAttentionRow,
   type PartnerNewProfileAttentionRow,
+  type PartnerEventAttentionRow,
   type PartnerVerificationAttentionRow,
   type PartnerCommercialAttentionRow,
 } from "./admin-attention-queue.ts";
@@ -190,6 +192,25 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerNewProfileAttentionRow>();
 
+  const partnerEventsPromise = db.prepare(`
+    SELECT s.id,s.status,s.operation,s.risk_flags_json riskFlagsJson,
+      COALESCE(e.title,json_extract(s.proposed_patch_json,'$.title'),'Podujatie') title,
+      m.changed_field_count changedFieldCount,m.duplicate_confidence duplicateConfidence,
+      CASE WHEN m.operation='UPDATE' AND e.updated_at<>m.base_updated_at THEN 1 ELSE 0 END stale,
+      s.created_at createdAt,s.updated_at updatedAt
+    FROM partner_event_submission_metadata m
+    JOIN moderation_submissions s ON s.id=m.submission_id
+    LEFT JOIN partner_resources r ON r.id=m.partner_resource_id
+    LEFT JOIN managed_events e ON e.id=r.managed_event_id
+    WHERE s.resource_type='MANAGED_EVENT' AND s.submitter_type='PARTNER_ACCOUNT'
+    ORDER BY
+      CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 0 ELSE 1 END,
+      CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN s.created_at END ASC,
+      CASE WHEN s.status NOT IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN s.updated_at END DESC,
+      s.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerEventAttentionRow>();
+
   const verificationsPromise = db.prepare(`
     SELECT v.id,v.status,v.created_at AS createdAt,v.updated_at AS updatedAt,v.submitted_at AS submittedAt,
       COALESCE(d.name,o.name) AS resourceName,
@@ -275,7 +296,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
 
-  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, newProfiles, verifications, commercial, geo, automation] = await Promise.all([
+  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, newProfiles, partnerEvents, verifications, commercial, geo, automation] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
     safeSourceResults("news_tips", newsTipsPromise),
     safeSourceResults("directory_change_requests", changeRequestsPromise),
@@ -285,6 +306,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     safeSourceResults("partner_claims", claimsPromise),
     safeSourceResults("partner_profile_changes", profileChangesPromise),
     safeSourceResults("partner_new_profiles", newProfilesPromise),
+    safeSourceResults("partner_events", partnerEventsPromise),
     safeSourceResults("partner_resource_verifications", verificationsPromise),
     safeSourceResults("partner_commercial_interests", commercialPromise),
     safeSourceResults("geo_points", geoPromise),
@@ -301,6 +323,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...claims.map((row) => mapPartnerClaimAttention(row, now)),
     ...profileChanges.map((row) => mapPartnerProfileChangeAttention(row, now)),
     ...newProfiles.map((row) => mapPartnerNewProfileAttention(row, now)),
+    ...partnerEvents.map((row) => mapPartnerEventAttention(row, now)),
     ...verifications.map((row) => mapPartnerVerificationAttention(row, now)),
     ...commercial.map((row) => mapPartnerCommercialAttention(row, now)),
     ...geo.map((row) => mapGeoLocationAttention(row, now)),
