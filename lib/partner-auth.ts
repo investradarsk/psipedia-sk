@@ -8,6 +8,7 @@ import {
   PARTNER_SESSION_COOKIE,
   activateVerifiedPartnerAccount,
   createOrGetPendingPartnerAccount,
+  createPendingPartnerAccountIfMissing,
   createPartnerSession,
   deactivatePartnerAccount,
   getPartnerAccountByEmailHash,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/partner-security";
 import { appendPartnerAuditEvent } from "@/lib/partner-platform";
 import { normalizePartnerReturnTo } from "@/lib/partner-return-to";
+import { isPartnerOnboardingComplete } from "@/lib/partner-contact-profile";
 
 export const PARTNER_AUTH_GENERIC_RESPONSE =
   "Ak je možné pokračovať, poslali sme vám prihlasovací odkaz e-mailom.";
@@ -49,7 +51,15 @@ export type PartnerIdentity = {
   email: string;
   status: "ACTIVE";
   emailVerifiedAt: string;
+  onboardingComplete: boolean;
 };
+
+export type PartnerAuthMode = "LOGIN" | "REGISTER";
+
+function normalizePartnerAuthMode(value: unknown): PartnerAuthMode {
+  if (value === "LOGIN" || value === "REGISTER") return value;
+  throw new PartnerAuthError("Neplatný spôsob Partner prihlásenia.");
+}
 
 export type PartnerAuthBindings = PartnerEmailBindings & {
   TURNSTILE_SECRET_KEY?: string;
@@ -129,6 +139,7 @@ export async function requestPartnerMagicLink(input: {
   email: unknown;
   turnstileToken: unknown;
   returnTo?: unknown;
+  mode: unknown;
   database?: D1Database;
   bindings?: PartnerAuthBindings;
   now?: Date;
@@ -141,6 +152,7 @@ export async function requestPartnerMagicLink(input: {
   const email = normalizePartnerEmail(input.email);
   const turnstileToken = normalizeTurnstileToken(input.turnstileToken);
   const returnTo = normalizePartnerReturnTo(input.returnTo);
+  const mode = normalizePartnerAuthMode(input.mode);
   const now = input.now ?? new Date();
 
   await verifyPartnerTurnstile({
@@ -161,19 +173,30 @@ export async function requestPartnerMagicLink(input: {
 
   const emailHash = await hashPii(email, hashKey);
   const existing = await getPartnerAccountByEmailHash(emailHash, database);
-  const account = existing ?? await createOrGetPendingPartnerAccount({
-    emailCiphertext: await encryptPii(email, encryptionKey),
-    emailHash,
-    now,
-    database,
-  });
-  if (!existing) {
-    await appendPartnerAuditEvent({ actorType: "SYSTEM", actorRef: "partner-auth", action: "ACCOUNT_CREATED", targetType: "PARTNER_ACCOUNT", targetId: account.id, database, now });
+
+  // LOGIN never creates identity state. REGISTER may create a pending account,
+  // but the public response stays identical so callers cannot enumerate accounts.
+  if (!existing && mode === "LOGIN") {
+    return { message: PARTNER_AUTH_GENERIC_RESPONSE };
+  }
+
+  let account = existing;
+  if (!account) {
+    const created = await createPendingPartnerAccountIfMissing({
+      emailCiphertext: await encryptPii(email, encryptionKey),
+      emailHash,
+      now,
+      database,
+    });
+    account = created.account;
+    if (created.created) {
+      await appendPartnerAuditEvent({ actorType: "SYSTEM", actorRef: "partner-auth", action: "ACCOUNT_CREATED", targetType: "PARTNER_ACCOUNT", targetId: account.id, database, now });
+    }
   }
 
   // Public response remains identical for every lifecycle state. Suspended or
   // deactivated accounts do not receive a usable token.
-  if (account.status === "SUSPENDED" || account.status === "DEACTIVATED") {
+  if (!partnerAccountCanAuthenticate(account)) {
     return { message: PARTNER_AUTH_GENERIC_RESPONSE };
   }
 
@@ -272,6 +295,7 @@ export async function consumePartnerMagicLink(input: {
     accountId: active.id,
     cookie: session.cookie,
     expiresAt: session.expiresAt,
+    onboardingComplete: await isPartnerOnboardingComplete(active.id, database),
   };
 }
 
@@ -297,6 +321,7 @@ async function activePartnerIdentity(
     email,
     status: "ACTIVE",
     emailVerifiedAt: account.emailVerifiedAt,
+    onboardingComplete: await isPartnerOnboardingComplete(account.id, database),
   };
 }
 
@@ -321,10 +346,14 @@ export async function requirePartnerAccount(
     database?: D1Database;
     bindings?: PartnerAuthBindings;
     now?: Date;
+    allowIncompleteOnboarding?: boolean;
   } = {},
 ) {
   const identity = await getPartnerSession(input);
   if (!identity) throw new PartnerAuthError("Prihlásenie je potrebné.", 401);
+  if (!input.allowIncompleteOnboarding && !identity.onboardingComplete) {
+    throw new PartnerAuthError("Dokončite kontaktné údaje Partner účtu.", 403);
+  }
   return identity;
 }
 
@@ -361,6 +390,7 @@ export async function deactivateCurrentPartnerAccount(input: {
     database,
     bindings,
     now: input.now,
+    allowIncompleteOnboarding: true,
   });
   const secret = requireBinding(bindings.TURNSTILE_SECRET_KEY, "TURNSTILE_SECRET_KEY");
   await verifyPartnerTurnstile({
