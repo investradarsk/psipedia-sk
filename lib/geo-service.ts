@@ -98,6 +98,59 @@ function providerErrorCode(error: unknown): GeoErrorCode {
   return "PROVIDER_ERROR";
 }
 
+export function summarizeGeoDiagnosticResults(results: NormalizedGeocoderResult[]) {
+  return results.slice(0, 3).map((result) => ({
+    resultType: result.resultType,
+    confidence: result.confidence,
+    cityConfidence: result.cityConfidence,
+    streetConfidence: result.streetConfidence,
+    buildingConfidence: result.buildingConfidence,
+    matchType: result.matchType,
+    countryCode: result.countryCode,
+    region: result.region,
+    district: result.district,
+    city: result.city,
+  }));
+}
+
+export async function diagnoseGeoTarget(input: {
+  targetType: GeoTargetType;
+  targetId: number;
+  provider?: GeocoderProvider;
+  database?: GeoD1Database;
+  config?: GeoAcceptanceConfig;
+}) {
+  const point = await getGeoPointForTarget(input.targetType, input.targetId, input.database);
+  if (!point) throw new Error("Geo point neexistuje. Najprv ho inicializuj.");
+  if (!point.publicVisibility || point.publicVisibility === "HIDDEN" || !point.publicPrecision) {
+    throw new Error("Diagnostika vyžaduje schválenú verejnú geo klasifikáciu.");
+  }
+  const source = await getGeoSourceLocation(input.targetType, input.targetId, input.database);
+  if (!source) throw new Error("Canonical target neexistuje.");
+  const query = buildGeoQuery(source, point.publicVisibility, point.publicPrecision);
+  if (!query) throw new Error("Geo query nie je dostupná.");
+
+  const provider = input.provider ?? new GeoapifyGeocoder();
+  const request = { query, precision: point.publicPrecision, countryCode: source.countryCode ?? "SK" };
+  const results = point.publicVisibility === "EXACT_PUBLIC"
+    ? await provider.geocodeExact(request)
+    : await provider.geocodeApproximate(request);
+  const decision = chooseGeocoderResult({
+    results,
+    sourceCity: source.city,
+    precision: point.publicPrecision,
+    config: input.config,
+  });
+  return {
+    query,
+    resultCount: results.length,
+    accepted: Boolean(decision.result && !decision.errorCode),
+    errorCode: decision.errorCode,
+    thresholds: input.config ?? geoAcceptanceConfig(),
+    candidates: summarizeGeoDiagnosticResults(results),
+  };
+}
+
 export async function resolveGeoTarget(input: {
   targetType: GeoTargetType;
   targetId: number;

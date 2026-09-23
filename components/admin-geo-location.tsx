@@ -4,6 +4,26 @@ import { useEffect, useState } from "react";
 import type { GeoPointRecord } from "@/lib/geo-store";
 import type { GeoSourceLocation, GeoTargetType } from "@/lib/geo";
 
+type GeoDiagnostic = {
+  query: string;
+  resultCount: number;
+  accepted: boolean;
+  errorCode: string | null;
+  thresholds: { exactConfidence: number; cityConfidence: number; ambiguityDelta: number };
+  candidates: Array<{
+    resultType: string;
+    confidence: number | null;
+    cityConfidence: number | null;
+    streetConfidence: number | null;
+    buildingConfidence: number | null;
+    matchType: string | null;
+    countryCode: string;
+    region: string;
+    district: string;
+    city: string;
+  }>;
+};
+
 type Snapshot = {
   point: GeoPointRecord | null;
   source: GeoSourceLocation;
@@ -35,6 +55,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [reason, setReason] = useState("");
+  const [diagnostic, setDiagnostic] = useState<GeoDiagnostic | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -96,6 +117,25 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
     }
   }
 
+  async function diagnose() {
+    setBusy(true); setError(""); setMessage(""); setDiagnostic(null);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "diagnose" }),
+      });
+      const body = await response.json() as { diagnostic?: GeoDiagnostic; error?: string };
+      if (!response.ok || !body.diagnostic) throw new Error(body.error || "Geo diagnostika zlyhala.");
+      setDiagnostic(body.diagnostic);
+      setMessage("Geoapify diagnostika bola vykonaná bez zápisu do geo_points.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Geo diagnostika zlyhala.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) return <section className="admin-form-card" id="geo"><h2>Poloha na mape</h2><p className="admin-help">Načítavam geo stav…</p></section>;
   if (!snapshot) return <section className="admin-form-card" id="geo"><h2>Poloha na mape</h2><p className="admin-message admin-message--error">{error || "Geo stav nie je dostupný."}</p></section>;
 
@@ -146,7 +186,16 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
           void mutate({ action: "classify", visibility, precision, reason: exactEscalation ? "ADMIN_EXACT_PUBLIC_CONFIRMATION" : "ADMIN_CLASSIFICATION" }, "Privacy klasifikácia bola uložená.");
         }}>Uložiť klasifikáciu</button>
         <button type="button" disabled={busy || !snapshot.provider.configured || !point.publicVisibility || point.publicVisibility === "HIDDEN" || point.manualOverride} onClick={() => mutate({ action: "retry" }, "Geocoding pokus bol spracovaný.")}>Skúsiť geocoding</button>
+        <button type="button" disabled={busy || !snapshot.provider.configured || !point.publicVisibility || point.publicVisibility === "HIDDEN"} onClick={() => void diagnose()}>Diagnostika Geoapify (bez zápisu)</button>
       </div>
+
+      {diagnostic && <div className="admin-message">
+        <strong>Geoapify diagnostika</strong>
+        <p className="admin-help">Query: {diagnostic.query}</p>
+        <p className="admin-help">Decision: {diagnostic.accepted ? "ACCEPTED" : diagnostic.errorCode || "REJECTED"} · výsledkov {diagnostic.resultCount}</p>
+        <p className="admin-help">Thresholds: exact {diagnostic.thresholds.exactConfidence} · city {diagnostic.thresholds.cityConfidence} · ambiguity Δ {diagnostic.thresholds.ambiguityDelta}</p>
+        <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(diagnostic.candidates, null, 2)}</pre>
+      </div>}
 
       <hr />
       <h3>Manuálny marker</h3>

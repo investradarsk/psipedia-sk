@@ -7,7 +7,7 @@ import {
   type GeoTargetType,
 } from "@/lib/geo";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { resolveGeoTarget } from "@/lib/geo-service";
+import { diagnoseGeoTarget, resolveGeoTarget } from "@/lib/geo-service";
 import {
   getGeoPointForTarget,
   getGeoSourceLocation,
@@ -114,6 +114,11 @@ export async function POST(request: Request, { params }: Props) {
     if (action === "reset-manual") {
       const point = await resetManualGeoOverride(target.targetType, target.id, user.email);
       return Response.json({ point });
+    }
+
+    if (action === "diagnose") {
+      const diagnostic = await diagnoseGeoTarget({ targetType: target.targetType, targetId: target.id });
+      return Response.json({ diagnostic });
     }
 
     if (action === "retry") {
