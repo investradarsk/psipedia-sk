@@ -194,7 +194,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
 
   const partnerEventsPromise = db.prepare(`
     SELECT s.id,s.status,s.operation,s.risk_flags_json riskFlagsJson,
-      COALESCE(e.title,json_extract(s.proposed_patch_json,'$.title'),'Podujatie') title,
+      COALESCE(e.title,m.display_title,'Podujatie') title,
       m.changed_field_count changedFieldCount,m.duplicate_confidence duplicateConfidence,
       CASE WHEN m.operation='UPDATE' AND e.updated_at<>m.base_updated_at THEN 1 ELSE 0 END stale,
       s.created_at createdAt,s.updated_at updatedAt
