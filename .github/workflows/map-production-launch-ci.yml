@@ -1,0 +1,47 @@
+name: MAP-1E Production Launch Hardening
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/production-d1-map-foundation.yml"
+      - ".github/workflows/map-production-readiness.yml"
+      - ".github/workflows/map-production-launch-ci.yml"
+      - "scripts/production-d1-map-foundation.mjs"
+      - "scripts/map-production-readiness.mjs"
+      - "lib/navigation-store.ts"
+      - "lib/google-maps-consent.ts"
+      - "lib/map-query.ts"
+      - "components/google-maps-consent-controls.tsx"
+      - "app/cookies/page.tsx"
+      - "app/sukromie/page.tsx"
+      - "app/podmienky-pouzivania/page.tsx"
+      - "tests/production-d1-map-foundation.test.mjs"
+      - "tests/map-production-launch.test.mjs"
+      - "package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hardening:
+    name: Migration, launch and privacy contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run test:migration-safety
+      - run: npm run test:map-production-launch
+      - run: npm run test:geo-foundation
+      - run: npm run test:map-read-api
+      - run: npm run test:map-public-ui
+      - run: npm run test:config
+      - run: npm run db:validate-clean
+      - run: npm run lint
+      - run: npm run build
