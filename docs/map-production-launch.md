@@ -78,6 +78,19 @@ This workflow is SELECT-only. It reports safe aggregate data for:
 
 Run it once before/after the D1 rollout if an audit trail of the transition is desired, and again after each meaningful geo backfill phase.
 
+The same protected audit also runs a **read-only production privacy smoke** against the real `/api/map` response. It fails closed when:
+
+- the API is not HTTP 200 or cannot return non-truncated item-mode coverage for the three public categories;
+- a public API item is not backed by a currently eligible public `geo_points` row;
+- a hidden, stale, pending, failed or otherwise ineligible geo target appears in the public payload;
+- an `APPROXIMATE_PUBLIC` row uses `EXACT` precision;
+- a sensitive directory category is exact-public without an explicit manual override;
+- a legal-seat/unspecified organization location is exact-public without an explicit manual override;
+- an approximate item serializes its source street address;
+- raw/internal geo fields such as source fingerprints, provider/error metadata or raw `address` appear in the public payload.
+
+The privacy artifact stores aggregate counts only. It must never persist the private/source street values used for the in-memory leak comparison.
+
 ## Geo initialization and canary
 
 MAP-1E intentionally reuses MAP-1B operations instead of creating a second geocoding engine.
