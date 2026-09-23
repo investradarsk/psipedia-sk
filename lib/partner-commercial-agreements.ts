@@ -55,7 +55,7 @@ function runtimeActive(status:PartnerEntitlementStatus,startAt:string,endAt:stri
   const t=now.getTime();return Date.parse(startAt)<=t&&Date.parse(endAt)>t;
 }
 function paymentSatisfied(row:Pick<AgreementRow,"paymentMethod"|"paymentStatus">){
-  return row.paymentStatus==="PAID"||row.paymentStatus==="WAIVED"||(row.paymentMethod==="BY_AGREEMENT"&&row.paymentStatus==="NOT_REQUIRED");
+  return row.paymentStatus==="PAID"||row.paymentStatus==="WAIVED";
 }
 async function resource(database:D1Database,resourceId:string):Promise<ResourceRow|null>{
   return database.prepare(`
@@ -179,7 +179,7 @@ export async function updatePartnerCommercialAgreementAdmin(input:{
   if(input.status!==undefined){
     if(!isAgreementStatus(input.status)||!transitions[current.status].includes(input.status))throw new PartnerCommercialAgreementError(`Prechod ${current.status} → ${String(input.status)} nie je povolený.`,409);
     status=input.status;
-    if(status==="AGREED")paymentStatus=paymentMethod==="BANK_TRANSFER"?"AWAITING_PAYMENT":"NOT_REQUIRED";
+    if(status==="AGREED")paymentStatus="AWAITING_PAYMENT";
   }
   const now=input.now??new Date(),iso=now.toISOString(),adminActor=actor(input.adminEmail);
   await database.prepare(`UPDATE partner_commercial_agreements SET status=?2,payment_method=?3,payment_status=?4,price_cents=?5,currency=?6,
