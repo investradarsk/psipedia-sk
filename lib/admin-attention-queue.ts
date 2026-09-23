@@ -2,7 +2,7 @@ import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts"
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 14;
+export const ADMIN_ATTENTION_QUERY_COUNT = 15;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -18,6 +18,7 @@ export const adminAttentionSourceTypes = [
   "PARTNER_EVENT_REVIEW",
   "PARTNER_VERIFICATION_REVIEW",
   "PARTNER_COMMERCIAL_LEAD",
+  "PARTNER_COMMERCIAL_AGREEMENT",
   "GEO_LOCATION_ISSUE",
 ] as const;
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
@@ -69,6 +70,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   PARTNER_EVENT_REVIEW: "Partner podujatia",
   PARTNER_VERIFICATION_REVIEW: "Partner overenia",
   PARTNER_COMMERCIAL_LEAD: "Partner komerčné leady",
+  PARTNER_COMMERCIAL_AGREEMENT: "Partner komerčné dohody",
   GEO_LOCATION_ISSUE: "Geo lokality",
 };
 
@@ -578,6 +580,44 @@ export function mapPartnerCommercialAttention(row:PartnerCommercialAttentionRow,
     ageDays:ageDays(relevantAt,now),
     targetHref:partnerAttentionHref("PARTNER_COMMERCIAL_LEAD",row.id),
     metadata:[{label:"Typ",value:row.interestType}],
+  };
+}
+
+export type PartnerCommercialAgreementAttentionRow = {
+  id:string;
+  agreementType:string;
+  status:string;
+  paymentStatus:string;
+  endAt:string;
+  resourceName:string|null;
+  createdAt:string;
+  updatedAt:string;
+};
+
+export function mapPartnerCommercialAgreementAttention(row:PartnerCommercialAgreementAttentionRow,now=new Date()):AdminAttentionItem {
+  const endMs=Date.parse(row.endAt),daysLeft=Math.max(0,Math.ceil((endMs-now.getTime())/DAY_MS));
+  const ready=row.status==="AGREED"&&["PAID","WAIVED","NOT_REQUIRED"].includes(row.paymentStatus);
+  const expiring=row.status==="ACTIVE"&&endMs>now.getTime()&&endMs<=now.getTime()+14*DAY_MS;
+  const attentionState:AdminAttentionState=row.status==="OFFERED"||ready?"NEW":expiring?"IN_PROGRESS":"RESOLVED";
+  const reason=row.status==="OFFERED"
+    ?"Obchodná ponuka je otvorená a čaká na ďalšie spracovanie."
+    :ready?"Dohoda spĺňa platobné podmienky a čaká na manuálnu aktiváciu."
+    :expiring?`Aktívny komerčný benefit končí približne o ${daysLeft} dní.`
+    :"Komerčná dohoda momentálne nevyžaduje Attention akciu.";
+  return {
+    key:partnerAttentionKey("PARTNER_COMMERCIAL_AGREEMENT",row.id),
+    sourceType:"PARTNER_COMMERCIAL_AGREEMENT",
+    sourceId:row.id,
+    title:`${partnerCommercialTitles[row.agreementType]??"Komerčná dohoda"}${row.resourceName?` — ${row.resourceName}`:""}`,
+    reason,
+    priority:ready?"HIGH":expiring?"MEDIUM":"LOW",
+    status:`${row.status} · ${row.paymentStatus}`,
+    attentionState,
+    createdAt:row.createdAt,
+    relevantAt:attentionState==="RESOLVED"?row.updatedAt:row.createdAt,
+    ageDays:ageDays(attentionState==="RESOLVED"?row.updatedAt:row.createdAt,now),
+    targetHref:partnerAttentionHref("PARTNER_COMMERCIAL_AGREEMENT",row.id),
+    metadata:[{label:"Typ",value:row.agreementType},{label:"Platba",value:row.paymentStatus}],
   };
 }
 
