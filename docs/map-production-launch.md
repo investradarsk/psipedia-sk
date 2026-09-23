@@ -66,9 +66,11 @@ This workflow is SELECT-only. It reports safe aggregate data for:
 - organizations with multiple locations;
 - linked organization/directory profiles;
 - published/current physical event coverage;
+- repeated event-venue group counts;
 - whether `geo_points` exists;
 - geo totals by target type, visibility, status and precision;
 - manual override count;
+- GEO_LOCATION_ISSUE totals/status/error-code breakdown including privacy-critical count;
 - public resolved/exact/approximate counts;
 - directory category coverage;
 - organization SITE coverage;
