@@ -95,5 +95,6 @@ test("Partner-approved event edits lock inbound Notion sync without deleting the
   assert.match(partnerEventsMigrationSource, /PARTNER_MODERATION/);
   assert.match(syncSource, /SELECT event_id, content_hash, inbound_locked_at, inbound_lock_reason FROM event_notion_sync/);
   assert.match(syncSource, /mapping\.inbound_locked_at/);
-  assert.match(syncSource, /Canonical D1 má prednosť/);
+  assert.match(syncSource, /Partner moderation owns inbound priority/);
+  assert.match(syncSource, /return "unchanged"/);
 });
