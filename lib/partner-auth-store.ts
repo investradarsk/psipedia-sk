@@ -100,6 +100,25 @@ export async function getPartnerAccountByEmailHash(emailHash: string, database?:
   return row ? rowToAccount(row) : null;
 }
 
+export async function createPendingPartnerAccountIfMissing(input: {
+  emailCiphertext: string;
+  emailHash: string;
+  now?: Date;
+  database?: D1Database;
+}) {
+  const db = getPartnerDatabase(input.database);
+  const nowIso = (input.now ?? new Date()).toISOString();
+  const inserted = await db.prepare(
+    "INSERT OR IGNORE INTO partner_accounts " +
+    "(id,email_ciphertext,email_hash,status,created_at,updated_at) " +
+    "VALUES (?1,?2,?3,'PENDING_VERIFICATION',?4,?4) RETURNING id",
+  ).bind(crypto.randomUUID(), input.emailCiphertext, input.emailHash, nowIso).first<{ id: string }>();
+
+  const account = await getPartnerAccountByEmailHash(input.emailHash, db);
+  if (!account) throw new Error("Partner účet sa nepodarilo pripraviť.");
+  return { account, created: Boolean(inserted?.id) };
+}
+
 export async function createOrGetPendingPartnerAccount(input: {
   emailCiphertext: string;
   emailHash: string;

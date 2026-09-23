@@ -1,11 +1,8 @@
-import { cookies } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { PartnerClaimForm } from "@/components/partner-claim-form";
 import { PartnerShell } from "@/components/partner-shell";
-import { getPartnerSession } from "@/lib/partner-auth";
-import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { getClaimablePartnerResourcePreview } from "@/lib/partner-claims";
-import { partnerAuthHref } from "@/lib/partner-return-to";
+import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +14,7 @@ export default async function PartnerClaimPage({ params }: Props) {
   if (!resource) notFound();
 
   const returnTo = `/partner/prevziat-profil/${encodeURIComponent(resource.entityType)}/${resource.canonicalId}`;
-  const jar = await cookies();
-  const identity = await getPartnerSession({ token: jar.get(PARTNER_SESSION_COOKIE)?.value });
-  if (!identity) redirect(partnerAuthHref("/partner/prihlasenie", returnTo));
+  await requirePartnerPageIdentity({ returnTo });
 
   return (
     <PartnerShell

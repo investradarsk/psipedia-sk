@@ -36,9 +36,16 @@ export function PartnerVerification() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ token }),
         });
-        const data = await response.json() as { success?: boolean; error?: string };
+        const data = await response.json() as { success?: boolean; onboardingComplete?: boolean; error?: string };
         if (!response.ok || !data.success) {
           throw new Error(data.error || "Prihlasovací odkaz je neplatný alebo už expiroval.");
+        }
+        if (data.onboardingComplete === false) {
+          const onboarding = returnTo
+            ? `/partner/onboarding?returnTo=${encodeURIComponent(returnTo)}`
+            : "/partner/onboarding";
+          window.location.replace(onboarding);
+          return;
         }
         window.location.replace(returnTo || "/partner");
       } catch (error) {

@@ -95,6 +95,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   const project = testInfo.project.name as keyof typeof AUTH_TOKENS;
   const token = AUTH_TOKENS[project];
   const expectedEmail = AUTH_EMAILS[project];
+  const contactName = project === "desktop-chromium" ? "E2E Partner Desktop" : "E2E Partner Mobile";
+  const contactPhone = project === "desktop-chromium" ? "+421 900 101 202" : "+421 900 303 404";
+  const relationship = project === "desktop-chromium" ? "E2E manažér" : "E2E správca";
+  const updatedRelationship = relationship + " aktualizovaný";
   expect(token).toBeTruthy();
 
   const mobileReturnTo="/partner/prevziat-profil/DIRECTORY_PROFILE/990001";
@@ -102,6 +106,16 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     ? "/partner/overenie#token="+encodeURIComponent(token)+"&returnTo="+encodeURIComponent(mobileReturnTo)
     : "/partner/overenie#token="+encodeURIComponent(token);
   await page.goto(verificationUrl);
+  await expect(page).toHaveURL(/\/partner\/onboarding(?:\?|$)/);
+  await expect(page.getByRole("heading",{name:"Dokončite Partner účet"})).toBeVisible();
+  await page.getByLabel("Meno a priezvisko *").fill(contactName);
+  await page.getByLabel("Telefón").fill(contactPhone);
+  await page.getByLabel("Vaša úloha / vzťah k profilu").fill(relationship);
+  await expectNoHorizontalOverflow(page);
+  const onboardingAccessibility = await new AxeBuilder({ page }).analyze();
+  expect(onboardingAccessibility.violations).toEqual([]);
+  await page.getByRole("button",{name:"Pokračovať do Partner účtu"}).click();
+
   if(project==="mobile-chromium"){
     await expect(page).toHaveURL(/\/partner\/prevziat-profil\/DIRECTORY_PROFILE\/990001$/);
     await expect(page.getByRole("heading",{name:"Prevziať existujúci profil"})).toBeVisible();
@@ -276,6 +290,12 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading", { name: "Nastavenia" })).toBeVisible();
   await expect(page.getByText(expectedEmail)).toBeVisible();
   await expect(page.getByText("Aktívny")).toBeVisible();
+  await expect(page.getByLabel("Meno a priezvisko *")).toHaveValue(contactName);
+  await expect(page.getByLabel("Telefón")).toHaveValue(contactPhone);
+  await expect(page.getByLabel("Vaša úloha / vzťah k profilu")).toHaveValue(relationship);
+  await page.getByLabel("Vaša úloha / vzťah k profilu").fill(updatedRelationship);
+  await page.getByRole("button", { name: "Uložiť kontaktné údaje" }).click();
+  await expect(page.getByRole("status")).toContainText("Kontaktné údaje boli uložené.");
   await expect(page.getByRole("button", { name: "Odhlásiť sa" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Deaktivovať účet" })).toBeDisabled();
   await expectNoHorizontalOverflow(page);
@@ -296,6 +316,9 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(accountRow.getByText(AUTH_EMAILS[project])).toBeVisible();
   await accountRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:AUTH_EMAILS[project]})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Kontakt"})).toBeVisible();
+  await expect(page.getByText(project==="desktop-chromium"?"E2E Partner Desktop":"E2E Partner Mobile")).toBeVisible();
+  await expect(page.getByText(project==="desktop-chromium"?"E2E manažér aktualizovaný":"E2E správca aktualizovaný")).toBeVisible();
   await expect(page.getByRole("heading",{name:"Bezpečnostné akcie"})).toBeVisible();
   await page.goto("/admin/partners/commercial?status=NEW");
   await expect(page.getByRole("heading",{name:"Komerčné leady"})).toBeVisible();

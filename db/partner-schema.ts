@@ -23,6 +23,22 @@ export const partnerAccounts = sqliteTable(
   ],
 );
 
+export const partnerAccountProfiles = sqliteTable(
+  "partner_account_profiles",
+  {
+    accountId: text("account_id").primaryKey().references(() => partnerAccounts.id, { onDelete: "restrict" }),
+    contactNameCiphertext: text("contact_name_ciphertext").notNull(),
+    phoneCiphertext: text("phone_ciphertext"),
+    relationshipCiphertext: text("relationship_ciphertext"),
+    completedAt: text("completed_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("partner_account_profiles_updated_idx").on(table.updatedAt),
+  ],
+);
+
 export const partnerNotificationOutbox = sqliteTable(
   "partner_notification_outbox",
   {
@@ -258,6 +274,6 @@ export const partnerAuditEvents = sqliteTable("partner_audit_events", {
   targetType:text("target_type").notNull(),targetId:text("target_id").notNull(),metadataJson:text("metadata_json").notNull().default("{}"),createdAt:text("created_at").notNull(),
 }, table=>[
   check("partner_audit_actor_check",sql`${table.actorType} IN ('PARTNER','ADMIN','SYSTEM')`),
-  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_WITHDRAWN','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_WITHDRAWN','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CHANGE_SUBMITTED','EVENT_WITHDRAWN','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED')`),
+  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','COMMERCIAL_AGREEMENT_CREATED','COMMERCIAL_AGREEMENT_UPDATED','COMMERCIAL_PAYMENT_MARKED_PAID','ENTITLEMENT_ACTIVATED','ENTITLEMENT_PAUSED','ENTITLEMENT_CANCELLED','ENTITLEMENT_EXPIRED','COMMERCIAL_PROMOTION_LINKED','COMMERCIAL_CAMPAIGN_LINKED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_WITHDRAWN','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_WITHDRAWN','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CHANGE_SUBMITTED','EVENT_WITHDRAWN','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED','CONTACT_PROFILE_COMPLETED','CONTACT_PROFILE_UPDATED')`),
   index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt),
 ]);
