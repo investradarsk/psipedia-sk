@@ -9,7 +9,7 @@ const importTs=(path)=>import(pathToFileURL(new URL(path,root).pathname).href);
 
 const [migration,domain,admin,partnerApi,updateApi,withdrawApi,adminApi,attention,attentionStore,partnerAttention,email,platform,eventsPage,requestsPage,newPage,editPage]=await Promise.all([
  "drizzle/0067_partner_events.sql","lib/partner-events.ts","lib/partner-events-admin.ts","app/api/partner/events/route.ts",
- "app/api/partner/events/[resourceId]/changes/route.ts","app/api/partner/events/[id]/withdraw/route.ts","app/api/admin/partners/events/[id]/route.ts",
+ "app/api/partner/events/[id]/changes/route.ts","app/api/partner/events/[id]/withdraw/route.ts","app/api/admin/partners/events/[id]/route.ts",
  "lib/admin-attention-queue.ts","lib/admin-attention-queue-store.ts","lib/partner-attention.ts","lib/partner-email.ts","lib/partner-platform.ts",
  "app/partner/podujatia/page.tsx","app/partner/ziadosti/page.tsx","app/partner/podujatia/nove/page.tsx","app/partner/podujatia/[resourceId]/upravit/page.tsx",
 ].map(read));
