@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   profileReviewModerationReasonCodes,
@@ -55,10 +55,13 @@ export function AdminProfileReviewActions({
 }) {
   const router = useRouter();
   const actions = useMemo(() => allowedActions(currentStatus), [currentStatus]);
+  const [hydrated, setHydrated] = useState(false);
   const [reasonCode, setReasonCode] = useState("");
   const [moderatorNote, setModeratorNote] = useState("");
   const [busy, setBusy] = useState<ProfileReviewAdminAction | null>(null);
   const [message, setMessage] = useState("");
+
+  useEffect(() => setHydrated(true), []);
 
   async function run(action: ProfileReviewAdminAction) {
     if (busy) return;
@@ -114,7 +117,7 @@ export function AdminProfileReviewActions({
         <div className="admin-review-form-grid">
           <label>
             Dôvod pre zamietnutie, skrytie alebo odstránenie
-            <select value={reasonCode} onChange={(event) => setReasonCode(event.target.value)}>
+            <select disabled={!hydrated || busy !== null} value={reasonCode} onChange={(event) => setReasonCode(event.target.value)}>
               <option value="">Vyber dôvod</option>
               {profileReviewModerationReasonCodes.map((code) => (
                 <option key={code} value={code}>{reasonLabels[code]}</option>
@@ -128,6 +131,7 @@ export function AdminProfileReviewActions({
               maxLength={1000}
               value={moderatorNote}
               onChange={(event) => setModeratorNote(event.target.value)}
+              disabled={!hydrated || busy !== null}
             />
           </label>
         </div>
@@ -139,7 +143,7 @@ export function AdminProfileReviewActions({
             key={action}
             type="button"
             className={action === "REJECT" || action === "REMOVE" ? "is-danger" : undefined}
-            disabled={busy !== null}
+            disabled={!hydrated || busy !== null}
             onClick={() => run(action)}
           >
             {busy === action ? "Ukladám…" : actionLabels[action]}
