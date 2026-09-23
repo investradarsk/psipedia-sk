@@ -663,6 +663,23 @@
   font-weight: 800;
 }
 
+.providerDisclosure {
+  width: min(calc(100% - 40px), 1180px);
+  margin: -30px auto 48px;
+  padding: 14px 16px;
+  border: 1px solid rgba(23, 53, 43, .1);
+  border-radius: 14px;
+  color: var(--map-muted);
+  background: rgba(255, 253, 248, .72);
+  font-size: .74rem;
+  line-height: 1.55;
+}
+
+.providerDisclosure a {
+  color: var(--forest, #174b38);
+  font-weight: 800;
+}
+
 @media (max-width: 1100px) {
   .experience {
     width: min(calc(100% - 32px), 1180px);
