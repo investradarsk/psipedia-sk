@@ -369,7 +369,12 @@ export async function getPublicPartnerCommercialFlags(resourceType:"DIRECTORY_PR
       promoted=Boolean(p&&isPromotionVisible({status:p.status,startAt:p.startAt,endAt:p.endAt,entityPublic:true,label:p.label},now));
     }
     return {premium,promoted,sponsoredLabel:promoted?SPONSORED_LABEL:null};
-  }catch(error){if(missingCommercialSchema(error))return fallback;throw error;}
+  }catch(error){
+    console.error("Public partner commercial flags read failed",{
+      resourceType,canonicalId,error:error instanceof Error?error.message:String(error),
+    });
+    return fallback;
+  }
 }
 
 export async function getPartnerCommercialDashboardSummary(accountId:string,databaseInput?:D1Database,now=new Date()){
