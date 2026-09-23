@@ -185,7 +185,7 @@ function validTime(value: string) {
   return !value || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
-function normalizeInput(payload: ManagedEventInput) {
+export function normalizeManagedEventInput(payload: ManagedEventInput) {
   const title = payload.title?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || title);
   const excerpt = payload.excerpt?.trim() ?? "";
@@ -286,7 +286,7 @@ export async function getManagedEventById(id: number) {
 export async function createManagedEvent(payload: ManagedEventInput, editorEmail: string) {
   const database = requireD1Binding();
   await ensureEventStore(database);
-  const input = normalizeInput(payload);
+  const input = normalizeManagedEventInput(payload);
   const now = new Date().toISOString();
   const row = await database.prepare(`
     INSERT INTO managed_events (
@@ -311,7 +311,7 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
   await ensureEventStore(database);
   const existing = existingEvent ?? await getManagedEventById(id);
   if (!existing) return null;
-  const input = normalizeInput(payload);
+  const input = normalizeManagedEventInput(payload);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
