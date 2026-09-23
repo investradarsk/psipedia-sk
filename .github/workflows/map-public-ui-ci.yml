@@ -30,6 +30,9 @@ jobs:
       E2E_BASE_URL: http://localhost:5173
       PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
       MAP_UI_TEST_RENDERER: "1"
+      PUBLIC_MAP_ENABLED: "1"
+      GOOGLE_MAPS_BROWSER_API_KEY: "ci-browser-key-not-real"
+      GOOGLE_MAPS_MAP_ID: "ci-map-id-not-real"
     steps:
       - uses: actions/checkout@v4
       - name: Log revision evidence
@@ -68,6 +71,9 @@ jobs:
           {
             printf 'PII_ENCRYPTION_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
             printf 'PII_HASH_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'PUBLIC_MAP_ENABLED=1\n'
+            printf 'GOOGLE_MAPS_BROWSER_API_KEY=ci-browser-key-not-real\n'
+            printf 'GOOGLE_MAPS_MAP_ID=ci-map-id-not-real\n'
           } > .dev.vars
       - name: Apply non-adoption migrations to isolated local D1
         run: |
@@ -101,6 +107,8 @@ jobs:
           echo "$headers" | grep -qi '^permissions-policy:.*geolocation=()'
       - name: MAP-1D desktop/mobile Playwright and screenshots
         run: npx playwright test tests/e2e/map-public-ui.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: MAP-1E launch navigation and consent Playwright
+        run: npx playwright test tests/e2e/map-production-launch.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=1 --retries=0
       - name: Stop isolated local app
         if: always()
         run: |

@@ -19,6 +19,8 @@ type Props = {
   apiKey: string;
   mapId: string;
   testMode: boolean;
+  launchEnabled: boolean;
+  consentGranted: boolean;
   items: MapItem[];
   clusters: MapCluster[];
   selectedItemId: string | null;
@@ -232,7 +234,7 @@ function TestMapRenderer({
   onSelectItem,
   onClusterClick,
   onStatusChange,
-}: Omit<Props, "apiKey" | "mapId" | "testMode">) {
+}: Omit<Props, "apiKey" | "mapId" | "testMode" | "launchEnabled" | "consentGranted">) {
   useEffect(() => {
     onStatusChange("ready");
   }, [onStatusChange]);
@@ -293,6 +295,8 @@ export function GoogleMapRenderer(props: Props) {
     apiKey,
     mapId,
     testMode,
+    launchEnabled,
+    consentGranted,
     items,
     clusters,
     selectedItemId,
@@ -321,7 +325,7 @@ export function GoogleMapRenderer(props: Props) {
 
   useEffect(() => {
     if (testMode) return;
-    if (configMissing) {
+    if (!launchEnabled || !consentGranted || configMissing) {
       onStatusChange("missing-config");
       return;
     }
@@ -383,7 +387,7 @@ export function GoogleMapRenderer(props: Props) {
       markerCtorRef.current = null;
       setReady(false);
     };
-  }, [apiKey, configMissing, mapId, onStatusChange, testMode]);
+  }, [apiKey, configMissing, consentGranted, launchEnabled, mapId, onStatusChange, testMode]);
 
   useEffect(() => {
     if (testMode || !ready || !mapRef.current || !markerCtorRef.current) return;
@@ -459,10 +463,12 @@ export function GoogleMapRenderer(props: Props) {
   }, [command, testMode]);
 
   const fallbackText = useMemo(() => {
+    if (!launchEnabled) return "Interaktívna mapa ešte nie je verejne spustená";
+    if (!consentGranted) return "Google mapový podklad čaká na tvoje povolenie";
     if (configMissing) return "Google Maps nie je nakonfigurovaný";
     if (loadError) return "Mapový podklad sa nepodarilo načítať";
     return "Načítavam mapu Psipedie…";
-  }, [configMissing, loadError]);
+  }, [configMissing, consentGranted, launchEnabled, loadError]);
 
   if (testMode) {
     return (

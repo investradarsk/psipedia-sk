@@ -601,6 +601,49 @@
   display: none;
 }
 
+.mapConsentGate {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  width: min(calc(100% - 32px), 430px);
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid rgba(23, 53, 43, .16);
+  border-radius: 18px;
+  color: var(--forest-dark, #123d2f);
+  background: rgba(255, 253, 248, .96);
+  box-shadow: 0 18px 45px rgba(13, 34, 27, .18);
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.mapConsentGate span {
+  color: var(--map-muted);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.mapConsentGate button {
+  min-height: 44px;
+  justify-self: center;
+  padding: 9px 14px;
+  border: 1px solid var(--forest, #174b38);
+  border-radius: 999px;
+  color: white;
+  background: var(--forest, #174b38);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.mapConsentGate button:focus-visible {
+  outline: 3px solid var(--brand-focus, #e8bd55);
+  outline-offset: 2px;
+}
+
 .mapStatusPill {
   position: absolute;
   z-index: 4;
@@ -617,6 +660,23 @@
   background: rgba(255, 255, 255, .9);
   box-shadow: 0 5px 18px rgba(23, 53, 43, .08);
   font-size: .67rem;
+  font-weight: 800;
+}
+
+.providerDisclosure {
+  width: min(calc(100% - 40px), 1180px);
+  margin: -30px auto 48px;
+  padding: 14px 16px;
+  border: 1px solid rgba(23, 53, 43, .1);
+  border-radius: 14px;
+  color: var(--map-muted);
+  background: rgba(255, 253, 248, .72);
+  font-size: .74rem;
+  line-height: 1.55;
+}
+
+.providerDisclosure a {
+  color: var(--forest, #174b38);
   font-weight: 800;
 }
 

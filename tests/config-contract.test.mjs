@@ -173,6 +173,7 @@ test("repository configuration contract is production-safe and secret-free", asy
   assert.ok(result.secretEnvNames.includes("PII_ENCRYPTION_KEY"));
   assert.ok(result.secretEnvNames.includes("PII_HASH_KEY"));
   assert.ok(result.secretEnvNames.includes("NOTION_API_TOKEN"));
+  assert.ok(result.secretEnvNames.includes("GEOAPIFY_API_KEY"));
 });
 
 test("local Cloudflare tooling target is explicit and tied to the resolved toolchain", async () => {
