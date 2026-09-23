@@ -136,7 +136,7 @@ export async function partnerEventIdentityFingerprint(values:PartnerEventPatch){
 
 type CandidateRow={id:number;title:string;eventType:string;startDate:string;city:string;venue:string;organizer:string;registrationUrl:string|null;slug:string;status:string};
 export type PartnerEventDuplicateCandidate=CandidateRow&{confidence:Exclude<PartnerEventDuplicateConfidence,"NONE">;reasons:string[]};
-function scoreCandidate(values:PartnerEventPatch,row:CandidateRow):PartnerEventDuplicateCandidate|null{
+export function evaluatePartnerEventDuplicateCandidate(values:PartnerEventPatch,row:CandidateRow):PartnerEventDuplicateCandidate|null{
   const reasons:string[]=[];
   const sameRegistration=Boolean(url(values.registrationUrl)&&url(values.registrationUrl)===url(row.registrationUrl));
   const sameTitle=text(values.title)===text(row.title);
@@ -159,7 +159,7 @@ export async function scanPartnerEventDuplicates(values:PartnerEventPatch,dbInpu
     WHERE start_date=?1 OR registration_url IS NOT NULL
     ORDER BY start_date ASC,id ASC LIMIT 500
   `).bind(String(values.startDate),typeof values.registrationUrl==="string"&&values.registrationUrl?values.registrationUrl:null).all<CandidateRow>()).results;
-  const candidates=rows.map(row=>scoreCandidate(values,row)).filter((row):row is PartnerEventDuplicateCandidate=>Boolean(row));
+  const candidates=rows.map(row=>evaluatePartnerEventDuplicateCandidate(values,row)).filter((row):row is PartnerEventDuplicateCandidate=>Boolean(row));
   candidates.sort((a,b)=>(a.confidence===b.confidence?0:a.confidence==="HIGH"?-1:1)||a.id-b.id);
   return {confidence:(candidates[0]?.confidence??"NONE") as PartnerEventDuplicateConfidence,candidates};
 }
