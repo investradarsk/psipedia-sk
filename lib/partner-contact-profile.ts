@@ -142,32 +142,39 @@ export async function upsertPartnerContactProfile(input: {
   const key = encryptionKey(input.encryptionKey);
   const now = input.now ?? new Date();
   const nowIso = now.toISOString();
-  const existing = await database.prepare(
-    "SELECT completed_at completedAt,created_at createdAt FROM partner_account_profiles WHERE account_id=?1 LIMIT 1",
-  ).bind(input.accountId).first<{ completedAt: string; createdAt: string }>();
-  const completedAt = existing?.completedAt ?? nowIso;
-  const createdAt = existing?.createdAt ?? nowIso;
+  const contactNameCiphertext = await encryptPii(values.contactName, key);
+  const phoneCiphertext = values.phone ? await encryptPii(values.phone, key) : null;
+  const relationshipCiphertext = values.relationship ? await encryptPii(values.relationship, key) : null;
 
-  await database.prepare(
-    "INSERT INTO partner_account_profiles " +
+  const inserted = await database.prepare(
+    "INSERT OR IGNORE INTO partner_account_profiles " +
     "(account_id,contact_name_ciphertext,phone_ciphertext,relationship_ciphertext,completed_at,created_at,updated_at) " +
-    "VALUES (?1,?2,?3,?4,?5,?6,?7) " +
-    "ON CONFLICT(account_id) DO UPDATE SET contact_name_ciphertext=excluded.contact_name_ciphertext," +
-    "phone_ciphertext=excluded.phone_ciphertext,relationship_ciphertext=excluded.relationship_ciphertext,updated_at=excluded.updated_at",
+    "VALUES (?1,?2,?3,?4,?5,?5,?5) RETURNING account_id",
   ).bind(
     input.accountId,
-    await encryptPii(values.contactName, key),
-    values.phone ? await encryptPii(values.phone, key) : null,
-    values.relationship ? await encryptPii(values.relationship, key) : null,
-    completedAt,
-    createdAt,
+    contactNameCiphertext,
+    phoneCiphertext,
+    relationshipCiphertext,
     nowIso,
-  ).run();
+  ).first<{ account_id: string }>();
+
+  if (!inserted?.account_id) {
+    await database.prepare(
+      "UPDATE partner_account_profiles SET contact_name_ciphertext=?2,phone_ciphertext=?3," +
+      "relationship_ciphertext=?4,updated_at=?5 WHERE account_id=?1",
+    ).bind(
+      input.accountId,
+      contactNameCiphertext,
+      phoneCiphertext,
+      relationshipCiphertext,
+      nowIso,
+    ).run();
+  }
 
   await appendPartnerAuditEvent({
     actorType: "PARTNER",
     actorRef: `partner:${input.accountId}`,
-    action: existing ? "CONTACT_PROFILE_UPDATED" : "CONTACT_PROFILE_COMPLETED",
+    action: inserted?.account_id ? "CONTACT_PROFILE_COMPLETED" : "CONTACT_PROFILE_UPDATED",
     targetType: "PARTNER_ACCOUNT",
     targetId: input.accountId,
     database,
