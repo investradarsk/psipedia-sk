@@ -237,6 +237,9 @@ export async function approvePartnerEventUpdateAdmin(input:{id:string;adminEmail
   const now=input.now??new Date(),nowIso=now.toISOString();
   await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(changed),now:nowIso,extraStatements:[
     updateStatement(database,eventId,patch,actorRef,nowIso,input.id),
+    database.prepare(`UPDATE event_notion_sync SET inbound_locked_at=?1,inbound_lock_reason='PARTNER_MODERATION',updated_at=?1
+      WHERE event_id=?2 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='APPROVED' AND updated_at=?1 AND reviewed_by=?4)`)
+      .bind(nowIso,eventId,input.id,actorRef),
     terminal(database,input.id,"APPROVED",nowIso,actorRef,"UPDATED",String(eventId)),
     audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_CHANGE_APPROVED",nowIso,actorRef,status:"APPROVED",metadata:{eventId,changedFieldCount:changed.length}}),
     notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_CHANGE_APPROVED",now,nowIso,actorRef,status:"APPROVED"}),
