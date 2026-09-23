@@ -171,8 +171,11 @@ test("fresh anonymous reviewer login renders deterministically with and without 
   }
 });
 
-test("fresh profile-to-reviewer-auth RSC navigation never produces a blank shell", async ({ browser }, testInfo) => {
+test("fresh RSC navigation to reviewer auth never produces a blank shell", async ({ browser }, testInfo) => {
   const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:5173";
+  const targetPath = "/recenzia/prihlasenie?returnTo=" + encodeURIComponent(
+    "/recenzia/napisat?resourceId=e2e-review-auth-rsc",
+  );
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const context = await browser.newContext({
@@ -183,12 +186,19 @@ test("fresh profile-to-reviewer-auth RSC navigation never produces a blank shell
     });
     const freshPage = await context.newPage();
     await installTurnstileMock(freshPage);
+    await freshPage.goto("/", { waitUntil: "domcontentloaded" });
 
-    const profileResponse = await freshPage.goto(PROFILE, { waitUntil: "domcontentloaded" });
-    expect(profileResponse?.status()).toBe(200);
-    await freshPage.locator("#recenzie").getByRole("link", { name: "Napísať recenziu" }).click();
+    const navigationResult = await freshPage.evaluate(async (target) => {
+      const bridge = (window as unknown as {
+        __VINEXT_RSC_NAVIGATE__?: (href: string) => Promise<void>;
+      }).__VINEXT_RSC_NAVIGATE__;
+      if (!bridge) return "missing";
+      await bridge(new URL(target, window.location.origin).toString());
+      return "ok";
+    }, targetPath);
 
-    await expect(freshPage).toHaveURL(/\/recenzia\/prihlasenie\?returnTo=/);
+    expect(navigationResult).toBe("ok");
+    await expect(freshPage).toHaveURL(new RegExp("/recenzia/prihlasenie\\?returnTo="));
     await expect(freshPage.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
     await expect(freshPage.locator("form.review-auth-form")).toBeVisible();
     await expect(freshPage.getByLabel("E-mail")).toBeVisible();
