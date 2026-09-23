@@ -130,10 +130,10 @@ test("PARTNER-5 adds no online payment or Partner media-upload surface",()=>{
 });
 
 
-test("public paid markers fail safe during schema rollout",()=>{
-  assert.match(agreements,/missingCommercialSchema/);
-  assert.match(agreements,/no such table:\\s\*partner_/);
-  assert.match(agreements,/if\(missingCommercialSchema\(error\)\)return fallback/);
+test("public paid markers fail closed on optional commercial read failures",()=>{
+  assert.match(agreements,/Public partner commercial flags read failed/);
+  assert.match(agreements,/return fallback/);
+  assert.match(agreements,/premium:false,promoted:false/);
 });
 
 
