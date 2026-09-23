@@ -73,5 +73,5 @@ export function PartnerTurnstile({ siteKey, action, onToken, onExpired }: Props)
     return <p className="partner-form-message is-error" role="status">Bezpečnostné overenie momentálne nie je dostupné.</p>;
   }
 
-  return <div className="partner-turnstile" ref={containerRef} aria-label="Bezpečnostné overenie" />;
+  return <div className="partner-turnstile" ref={containerRef} role="group" aria-label="Bezpečnostné overenie" />;
 }

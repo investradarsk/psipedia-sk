@@ -4,6 +4,7 @@ import {
   type PublicProfileReview,
   type PublicProfileReviewData,
 } from "@/lib/profile-review-read";
+import { reviewAuthorAuthHref } from "@/lib/review-author-return-to";
 import styles from "./profile-review-section.module.css";
 
 function formatRating(value: number | null) {
@@ -156,6 +157,16 @@ function ProfileReviewList({ data }: { data: PublicProfileReviewData }) {
   );
 }
 
+function ReviewAuthCta({ baseHref }: { baseHref: string }) {
+  const href = reviewAuthorAuthHref(baseHref + "#recenzie");
+  return (
+    <div className={styles.ctaRow}>
+      <Link className={styles.reviewCta} href={href}>Napísať recenziu</Link>
+      <span>Najprv bezpečne overíme váš e-mail.</span>
+    </div>
+  );
+}
+
 export function ProfileReviewSection({
   data,
   baseHref,
@@ -187,6 +198,7 @@ export function ProfileReviewSection({
           <strong>Zatiaľ bez recenzií</strong>
           <p>Tento profil zatiaľ nemá hodnotenia používateľov Psipedia.sk.</p>
         </div>
+        <ReviewAuthCta baseHref={baseHref} />
       </section>
     );
   }
@@ -196,6 +208,7 @@ export function ProfileReviewSection({
     <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
       <span className={styles.eyebrow}>Skúsenosti používateľov</span>
       <h2 id="profile-reviews-heading">Recenzie</h2>
+      <ReviewAuthCta baseHref={baseHref} />
 
       <div className={styles.summary}>
         <div className={styles.score} data-review-summary-score>
