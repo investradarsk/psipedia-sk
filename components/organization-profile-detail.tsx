@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
+import { ProfileReviewSection } from "@/components/profile-review-section";
 import { LocationIcon } from "@/components/help-public-icons";
 import {
   DetailActions,
@@ -13,6 +14,7 @@ import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-syste
 import { adoptionDetailPath } from "@/lib/adoption-detail";
 import type { PublicOrganizationComposition } from "@/lib/help-organization-store";
 import type { OrganizationPublicAdoption } from "@/lib/organization-adoption-store";
+import type { PublicProfileReviewData } from "@/lib/profile-review-read";
 import {
   buildOrganizationFundraisingPresentation,
   buildOrganizationProfilePresentation,
@@ -65,7 +67,15 @@ function OrganizationAdoptionCard({ adoption }: { adoption: OrganizationPublicAd
   );
 }
 
-export function OrganizationProfileDetail({ composition }: { composition: PublicOrganizationComposition }) {
+export function OrganizationProfileDetail({
+  composition,
+  reviews,
+  reviewReadError = false,
+}: {
+  composition: PublicOrganizationComposition;
+  reviews: PublicProfileReviewData | null;
+  reviewReadError?: boolean;
+}) {
   const { organization, adoptions, fundraisingMethods } = composition;
   const presentation = buildOrganizationProfilePresentation(organization);
   const fundraising = buildOrganizationFundraisingPresentation(fundraisingMethods);
@@ -197,6 +207,12 @@ export function OrganizationProfileDetail({ composition }: { composition: Public
               </div>
             </DetailSection>
           ) : null}
+
+          <ProfileReviewSection
+            data={reviews}
+            baseHref={`/organizacie/${organization.slug}`}
+            readError={reviewReadError}
+          />
         </DetailContentLayout>
       </PageContainer>
     </main>

@@ -1,0 +1,110 @@
+name: REVIEWS-1B Public Read UI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/profile-review-read.ts"
+      - "lib/profile-review-domain.ts"
+      - "components/profile-review-section.tsx"
+      - "components/profile-review-section.module.css"
+      - "components/directory-profile-detail.tsx"
+      - "components/organization-profile-detail.tsx"
+      - "app/adresar/[category]/[slug]/page.tsx"
+      - "app/organizacie/[slug]/page.tsx"
+      - "tests/profile-review-read.test.mjs"
+      - "tests/e2e/profile-reviews-public.spec.ts"
+      - "tests/fixtures/profile-reviews-e2e.sql"
+      - "package.json"
+      - ".github/workflows/profile-reviews-public-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-reviews:
+    name: Public review read model, D1 and E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Migration safety
+        run: npm run test:migration-safety
+      - name: REVIEWS-1B read unit and D1 integration tests
+        run: node --experimental-strip-types --test tests/profile-review-read.test.mjs
+      - name: Clean D1 migration/schema validation
+        run: npm run db:validate-clean
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Configure CI-only local security keys
+        run: |
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'PII_HASH_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+          } > .dev.vars
+      - name: Apply non-adoption migrations to isolated local D1
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed public profile fixtures into isolated local D1
+        run: |
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-reviews-e2e.sql
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/reviews-1b
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-1b/server.log 2>&1 &
+          echo $! > .e2e-artifacts/reviews-1b/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/adresar/veterinari/health-fixture-vet-rich >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/reviews-1b/server.log
+            exit 1
+          fi
+      - name: REVIEWS-1B public E2E — desktop and mobile
+        run: npx playwright test tests/e2e/profile-reviews-public.spec.ts --workers=1 --retries=0
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/reviews-1b/server.pid ]; then
+            kill "$(cat .e2e-artifacts/reviews-1b/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviews-1b-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/reviews-1b/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: warn
+          retention-days: 14

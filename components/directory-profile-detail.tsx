@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
+import { ProfileReviewSection } from "@/components/profile-review-section";
 import {
   DetailContactsCard,
   DetailFactsCard,
@@ -10,9 +11,18 @@ import {
 import { Breadcrumbs, MediaFrame } from "@/components/page-system";
 import { getDirectoryCategory } from "@/lib/directory";
 import type { DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
+import type { PublicProfileReviewData } from "@/lib/profile-review-read";
 import styles from "./directory-profile-detail.module.css";
 
-export function DirectoryProfileDetail({ presentation }: { presentation: DirectoryDetailPresentation }) {
+export function DirectoryProfileDetail({
+  presentation,
+  reviews,
+  reviewReadError = false,
+}: {
+  presentation: DirectoryDetailPresentation;
+  reviews: PublicProfileReviewData | null;
+  reviewReadError?: boolean;
+}) {
   const category = getDirectoryCategory(presentation.category);
   const hasHeroLocation = Boolean(
     presentation.city || presentation.district || presentation.region || presentation.online,
@@ -143,6 +153,12 @@ export function DirectoryProfileDetail({ presentation }: { presentation: Directo
               </ul>
             </DetailSection>
           )}
+
+          <ProfileReviewSection
+            data={reviews}
+            baseHref={`/adresar/${presentation.category}/${presentation.slug}`}
+            readError={reviewReadError}
+          />
         </article>
 
         <aside className={styles.sidebar} aria-label="Kontaktné a praktické informácie">
