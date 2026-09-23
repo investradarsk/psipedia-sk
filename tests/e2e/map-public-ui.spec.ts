@@ -229,6 +229,7 @@ test.describe("MAP-1D desktop", () => {
     const mock = await installMapApiMock(page);
     await page.goto("/mapa");
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
+    await expect(page.getByTestId("map-card-service:1")).toBeVisible();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("cluster");
     await expect(page.getByTestId("map-cluster-summary")).toBeVisible();
@@ -248,6 +249,7 @@ test.describe("MAP-1D desktop", () => {
     await installMapApiMock(page);
     await page.goto("/mapa");
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
+    await expect(page.getByTestId("map-card-service:1")).toBeVisible();
 
     const search = page.getByLabel("Vyhľadávanie v mape");
 
