@@ -65,7 +65,7 @@ test.describe.serial("REVIEWS-3 admin moderation", () => {
     await page.goto(`${PUBLIC_PROFILE}?reviews3=approved#recenzie`, { waitUntil: "domcontentloaded" });
     const reviews = page.locator("#recenzie");
     await expect(reviews.getByText("3 recenzie", { exact: true })).toBeVisible();
-    await expect(reviews.getByText("3,3 z 5", { exact: true })).toBeVisible();
+    await expect(reviews.locator("[data-review-summary-score]").getByText("3,3 z 5", { exact: true })).toBeVisible();
     await expect(reviews.getByText("Táto čakajúca recenzia sa na verejnom profile nesmie zobraziť.", { exact: true })).toBeVisible();
     await expect(reviews.getByText("Prístup", { exact: true }).first()).toBeVisible();
   });
@@ -81,7 +81,7 @@ test.describe.serial("REVIEWS-3 admin moderation", () => {
     await page.goto(`${PUBLIC_PROFILE}?reviews3=hidden#recenzie`, { waitUntil: "domcontentloaded" });
     let reviews = page.locator("#recenzie");
     await expect(reviews.getByText("2 recenzie", { exact: true })).toBeVisible();
-    await expect(reviews.getByText("4,5 z 5", { exact: true })).toBeVisible();
+    await expect(reviews.locator("[data-review-summary-score]").getByText("4,5 z 5", { exact: true })).toBeVisible();
     await expect(reviews.getByText("Táto čakajúca recenzia sa na verejnom profile nesmie zobraziť.", { exact: true })).toHaveCount(0);
 
     await page.goto(`${ADMIN_LIST}/${APPROVE_REVIEW}`, { waitUntil: "domcontentloaded" });
