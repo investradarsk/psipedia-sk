@@ -11,6 +11,9 @@ export async function POST(request:Request){
     return Response.json({success:true,submission},{status:201,headers:{"Cache-Control":"private, no-store"}});
   }catch(error){
     const status=error instanceof PartnerEventError||error instanceof PartnerSecurityError?error.status:typeof (error as {status?:unknown})?.status==="number"?(error as {status:number}).status:503;
+    if(status>=500){
+      console.error("Partner event create failed",{name:error instanceof Error?error.name:"UnknownError",message:error instanceof Error?error.message:String(error)});
+    }
     return Response.json({error:status>=500?"Podujatie momentálne nie je možné odoslať.":error instanceof Error?error.message:"Požiadavka zlyhala.",code:error instanceof PartnerEventError?error.code:undefined,details:error instanceof PartnerEventError?error.details:undefined},{status,headers:{"Cache-Control":"private, no-store"}});
   }
 }
