@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { directoryCategories } from "@/lib/directory";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import { getPartnerAccountById, getPartnerDatabase } from "@/lib/partner-auth-store";
-import { normalizePartnerProfilePatch, publicPartnerProfileChangeReason, type PartnerProfileEditableValue, type PartnerProfilePatch } from "@/lib/partner-profile-changes";
+import { normalizePartnerProfilePatch, publicPartnerProfileChangeReason, type PartnerProfilePatch } from "@/lib/partner-profile-changes";
 import { enforcePartnerNewProfileRateLimit } from "@/lib/partner-security";
 import { organizationPublicationTypes } from "@/lib/help-organization-publication";
 import {
