@@ -1,0 +1,84 @@
+name: MAP-1E Launch Hardening
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/production-d1-migrate.yml"
+      - ".github/workflows/map-production-readiness.yml"
+      - ".github/workflows/map-production-launch-ci.yml"
+      - "scripts/production-d1-migrate.mjs"
+      - "tests/production-d1-migration.test.mjs"
+      - "docs/map-production-launch.md"
+      - "docs/PRODUCTION-D1-MIGRATIONS.md"
+      - "package.json"
+  workflow_dispatch:
+
+concurrency:
+  group: map-production-launch-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  launch-hardening:
+    name: Migration gates, map regressions and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Production migration and history safety
+        run: npm run test:migration-safety
+      - name: MAP-1B privacy regression
+        run: npm run test:geo-foundation
+      - name: MAP-1C API regression
+        run: npm run test:map-read-api
+      - name: MAP-1D UI contract regression
+        run: npm run test:map-public-ui
+      - name: Config contract
+        run: npm run test:config
+      - name: Clean D1 validation
+        run: npm run db:validate-clean
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Verify scoped 0063 manifest excludes later migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_MIGRATION=0063_partner_claims_verification.sql node scripts/production-d1-migrate.mjs prepare
+          node - <<'NODE'
+          const fs = require("fs");
+          const x = JSON.parse(fs.readFileSync(".production-d1/manifest.json","utf8"));
+          if (x.targetMigration !== "0063_partner_claims_verification.sql") throw new Error("wrong 0063 target");
+          if (x.includedMigrations.at(-1) !== "0063_partner_claims_verification.sql") throw new Error("0063 is not scoped last");
+          if (!x.excludedFutureMigrations.includes("0064_geo_foundation.sql")) throw new Error("0064 must be excluded from 0063 run");
+          if (!x.excludedFutureMigrations.includes("0065_partner_profile_changes.sql")) throw new Error("0065 must be excluded");
+          NODE
+      - name: Verify scoped 0064 manifest excludes 0065+
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_MIGRATION=0064_geo_foundation.sql node scripts/production-d1-migrate.mjs prepare
+          node - <<'NODE'
+          const fs = require("fs");
+          const x = JSON.parse(fs.readFileSync(".production-d1/manifest.json","utf8"));
+          if (x.targetMigration !== "0064_geo_foundation.sql") throw new Error("wrong 0064 target");
+          if (x.includedMigrations.at(-1) !== "0064_geo_foundation.sql") throw new Error("0064 is not scoped last");
+          if (!x.excludedFutureMigrations.includes("0065_partner_profile_changes.sql")) throw new Error("0065 must be excluded from 0064 run");
+          if (!x.excludedFutureMigrations.includes("0066_partner_new_profile_submissions.sql")) throw new Error("0066 must be excluded from 0064 run");
+          NODE
