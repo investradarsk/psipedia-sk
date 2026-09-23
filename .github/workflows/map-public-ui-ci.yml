@@ -11,6 +11,7 @@ on:
       - "config/runtime-env.ts"
       - ".env.example"
       - "docs/map-public-ui.md"
+      - "scripts/map-ui-bundle-report.mjs"
       - "tests/map-public-ui*.test.mjs"
       - "tests/e2e/map-public-ui.spec.ts"
       - "package.json"
