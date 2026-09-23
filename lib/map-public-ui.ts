@@ -182,7 +182,9 @@ export function mapQueryInputPreview(viewport: Pick<MapViewport, "bbox" | "zoom"
     district: filters.district || undefined,
     city: filters.city || undefined,
     search: filters.search.trim().length >= 2 ? filters.search.trim() : undefined,
-    eventType: filters.eventType as MapQueryInput["eventType"] || undefined,
+    eventType: filters.eventType
+      ? filters.eventType as MapQueryInput["eventType"]
+      : undefined,
     eventTiming: filters.eventTiming,
   };
 }
