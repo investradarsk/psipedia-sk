@@ -28,11 +28,10 @@ export default async function ReviewAuthorLoginPage({
           <span className="eyebrow">Recenzie Psipedia</span>
           <h1>E-mail je overený</h1>
           <p>
-            Vaša reviewer identita je pripravená. Samotný formulár na vytvorenie recenzie
-            bude súčasťou nasledujúcej fázy; teraz sa môžete bezpečne vrátiť na profil.
+            Vaša reviewer identita je pripravená. Môžete pokračovať tam, kde ste začali.
           </p>
           <Link className="button button--dark" href={returnTo || "/adresar"}>
-            Vrátiť sa na profil
+            Pokračovať
           </Link>
         </section>
       </main>

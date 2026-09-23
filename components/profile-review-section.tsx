@@ -4,7 +4,8 @@ import {
   type PublicProfileReview,
   type PublicProfileReviewData,
 } from "@/lib/profile-review-read";
-import { reviewAuthorAuthHref } from "@/lib/review-author-return-to";
+import { reviewSubmissionHref } from "@/lib/review-author-return-to";
+import { profileReviewSubmissionEnabled } from "@/lib/submission-feature-flags";
 import styles from "./profile-review-section.module.css";
 
 function formatRating(value: number | null) {
@@ -157,12 +158,13 @@ function ProfileReviewList({ data }: { data: PublicProfileReviewData }) {
   );
 }
 
-function ReviewAuthCta({ baseHref }: { baseHref: string }) {
-  const href = reviewAuthorAuthHref(baseHref + "#recenzie");
+function ReviewSubmissionCta({ resourceId }: { resourceId: string }) {
+  const href = reviewSubmissionHref(resourceId);
+  if (!href) return null;
   return (
     <div className={styles.ctaRow}>
       <Link className={styles.reviewCta} href={href}>Napísať recenziu</Link>
-      <span>Najprv bezpečne overíme váš e-mail.</span>
+      <span>Recenziu pred zverejnením skontrolujeme.</span>
     </div>
   );
 }
@@ -176,6 +178,8 @@ export function ProfileReviewSection({
   baseHref: string;
   readError?: boolean;
 }) {
+  const reviewSubmissionEnabled = profileReviewSubmissionEnabled();
+
   if (readError || !data) {
     return (
       <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
@@ -198,7 +202,7 @@ export function ProfileReviewSection({
           <strong>Zatiaľ bez recenzií</strong>
           <p>Tento profil zatiaľ nemá hodnotenia používateľov Psipedia.sk.</p>
         </div>
-        <ReviewAuthCta baseHref={baseHref} />
+        {reviewSubmissionEnabled ? <ReviewSubmissionCta resourceId={data.resourceId} /> : null}
       </section>
     );
   }
@@ -208,7 +212,7 @@ export function ProfileReviewSection({
     <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
       <span className={styles.eyebrow}>Skúsenosti používateľov</span>
       <h2 id="profile-reviews-heading">Recenzie</h2>
-      <ReviewAuthCta baseHref={baseHref} />
+      {reviewSubmissionEnabled ? <ReviewSubmissionCta resourceId={data.resourceId} /> : null}
 
       <div className={styles.summary}>
         <div className={styles.score} data-review-summary-score>
