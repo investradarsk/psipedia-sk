@@ -20,10 +20,20 @@ export type NormalizedGeocoderResult = {
   providerResultId: string | null;
 };
 
+export type StructuredGeocodeAddress = {
+  housenumber: string;
+  street: string;
+  postcode?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+};
+
 export type GeocodeRequest = {
   query: string;
   precision: GeoPublicPrecision;
   countryCode?: string;
+  structuredAddress?: StructuredGeocodeAddress;
   signal?: AbortSignal;
 };
 

@@ -6,6 +6,15 @@ import type { GeoSourceLocation, GeoTargetType } from "@/lib/geo";
 
 type GeoDiagnostic = {
   query: string;
+  requestMode: "structured" | "freeform";
+  structuredAddress: {
+    housenumber: string;
+    street: string;
+    postcode?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+  } | null;
   resultCount: number;
   accepted: boolean;
   errorCode: string | null;
@@ -191,7 +200,8 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
 
       {diagnostic && <div className="admin-message">
         <strong>Geoapify diagnostika</strong>
-        <p className="admin-help">Query: {diagnostic.query}</p>
+        <p className="admin-help">Request: {diagnostic.requestMode}{diagnostic.structuredAddress ? ` · ${JSON.stringify(diagnostic.structuredAddress)}` : ""}</p>
+        <p className="admin-help">Fallback query: {diagnostic.query}</p>
         <p className="admin-help">Decision: {diagnostic.accepted ? "ACCEPTED" : diagnostic.errorCode || "REJECTED"} · výsledkov {diagnostic.resultCount}</p>
         <p className="admin-help">Thresholds: exact {diagnostic.thresholds.exactConfidence} · city {diagnostic.thresholds.cityConfidence} · ambiguity Δ {diagnostic.thresholds.ambiguityDelta}</p>
         <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(diagnostic.candidates, null, 2)}</pre>
