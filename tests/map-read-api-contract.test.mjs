@@ -6,12 +6,12 @@ const route = readFileSync(new URL("../app/api/map/route.ts", import.meta.url), 
 const query = readFileSync(new URL("../lib/map-query.ts", import.meta.url), "utf8");
 const contract = readFileSync(new URL("../lib/map-contract.ts", import.meta.url), "utf8");
 
-test("public map route is GET-only, public and thin", () => {
+test("public map API remains GET-only, public and thin after the UI route is added", () => {
   assert.match(route, /export async function GET\(request: Request\)/);
   assert.doesNotMatch(route, /export async function POST|requireAdmin|requirePartner|session/i);
   assert.match(route, /parseMapQuery/);
   assert.match(route, /queryPublicMap/);
-  assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), true);
 });
 
 test("map API has bounded response, short isolated HTTP cache and HMAC-backed abuse guard", () => {
