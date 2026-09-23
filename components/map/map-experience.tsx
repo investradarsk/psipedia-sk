@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { directoryCategories } from "@/lib/directory";
 import { eventTypes, slovakRegions } from "@/lib/events";
@@ -257,7 +257,7 @@ function MapResults({
   onClearFilters: () => void;
   sheetState: "peek" | "expanded";
   onToggleSheet: () => void;
-  cardRefs: import("react").MutableRefObject<Map<string, HTMLElement>>;
+  cardRefs: MutableRefObject<Map<string, HTMLElement>>;
 }) {
   const items = responseItems(response);
   const clusters = responseClusters(response);
@@ -397,8 +397,7 @@ export function MapExperience({
   const [retryNonce, setRetryNonce] = useState(0);
   const [sheetState, setSheetState] = useState<"peek" | "expanded">("peek");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const requestGateRef = useRef<MapRequestGate | null>(null);
-  if (!requestGateRef.current) requestGateRef.current = new MapRequestGate();
+  const requestGateRef = useRef(new MapRequestGate());
   const cardRefs = useRef(new Map<string, HTMLElement>());
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const filterDialogRef = useRef<HTMLDivElement>(null);
@@ -426,7 +425,7 @@ export function MapExperience({
   }, [filters]);
 
   useEffect(() => {
-    const gate = requestGateRef.current!;
+    const gate = requestGateRef.current;
     gate.cancel();
     const scheduled = scheduleMapRequest(async () => {
       const request = gate.begin();
