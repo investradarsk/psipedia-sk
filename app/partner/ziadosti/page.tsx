@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { PartnerClaimCancelButton, PartnerVerificationRequest } from "@/components/partner-request-actions";
 import { PartnerProfileChangeWithdrawButton } from "@/components/partner-profile-change-actions";
+import { PartnerNewProfileWithdrawButton } from "@/components/partner-new-profile-actions";
 import { PartnerShell } from "@/components/partner-shell";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { listPartnerClaims, listPartnerVerificationResources } from "@/lib/partner-claims";
 import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
+import { listPartnerNewProfiles } from "@/lib/partner-new-profile";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +25,11 @@ const verificationLabels = {
 
 export default async function Page() {
   const identity = await requirePartnerPageIdentity();
-  const [claims, resources, profileChanges] = await Promise.all([
+  const [claims, resources, profileChanges, newProfiles] = await Promise.all([
     listPartnerClaims(identity.accountId),
     listPartnerVerificationResources(identity.accountId),
     listPartnerProfileChanges(identity.accountId),
+    listPartnerNewProfiles(identity.accountId),
   ]);
 
   return (
@@ -54,6 +57,34 @@ export default async function Page() {
         ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte žiadne žiadosti o prevzatie</h2><p>Žiadosť môžete začať priamo z verejného profilu cez odkaz „Spravujete tento profil?“.</p></div>}
       </section>
 
+
+
+      <section className="partner-requests-section">
+        <div className="partner-section-heading">
+          <div><span className="eyebrow">Nové profily</span><h2>Moje návrhy nových profilov</h2></div>
+          <Link href="/partner/profily/novy">Pridať nový profil</Link>
+        </div>
+        {newProfiles.length ? <div className="partner-request-list">{newProfiles.map((submission) => (
+          <article key={submission.id}>
+            <div className="partner-request-title">
+              <div><span>{submission.resourceType === "DIRECTORY_PROFILE" ? "Služba pre psov" : "Organizácia na pomoc psom"}</span><h3>{submission.displayName}</h3></div>
+              <strong>{submission.statusLabel}</strong>
+            </div>
+            <dl>
+              <div><dt>Odoslané</dt><dd>{new Date(submission.createdAt).toLocaleString("sk-SK")}</dd></div>
+              <div><dt>Typ / kategória</dt><dd>{submission.categoryOrType}</dd></div>
+            </dl>
+            {submission.duplicateWarning ? <p><strong>Kontrola duplicít:</strong> {submission.duplicateWarning}</p> : null}
+            {submission.resolutionType === "CREATED_NEW" ? <p>Profil bol vytvorený ako koncept a čaká na publikovanie.</p> : null}
+            {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim profilom.</p> : null}
+            {submission.rejectionReasonCode ? <p><strong>Dôvod:</strong> {submission.rejectionReasonCode}</p> : null}
+            <div className="partner-request-links">
+              {submission.canonicalHref ? <Link href={submission.canonicalHref}>Canonical profil →</Link> : null}
+              {submission.canWithdraw ? <PartnerNewProfileWithdrawButton id={submission.id} /> : null}
+            </div>
+          </article>
+        ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte návrh nového profilu</h2><p>Ak svoj profil na Psipedii nenájdete, môžete ho navrhnúť na moderátorskú kontrolu.</p></div>}
+      </section>
 
       <section className="partner-requests-section">
         <div className="partner-section-heading">
