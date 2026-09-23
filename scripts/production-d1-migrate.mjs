@@ -714,6 +714,9 @@ async function preflight(targetMigration) {
   const partnerRebuildBefore = targetIndex >= 63
     ? partnerRebuildSnapshot(databaseName, prepared.configPath)
     : null;
+  const geoCountBefore = targetIndex > 64
+    ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM geo_points")
+    : null;
 
   invariant(snapshot.duplicateDirectoryAnchors === 0, "Duplicate directory canonical resources detected");
   invariant(snapshot.duplicateOrganizationAnchors === 0, "Duplicate organization canonical resources detected");
@@ -739,6 +742,7 @@ async function preflight(targetMigration) {
     recoveryBookmark: bookmark,
     reviewCountBefore,
     partnerRebuildBefore,
+    geoCountBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -756,6 +760,7 @@ async function preflight(targetMigration) {
     counts: safeCounts(snapshot),
     reviewCountBefore,
     partnerRebuildBefore,
+    geoCountBefore,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -856,8 +861,20 @@ async function verify(targetMigration) {
   let geoFoundation = null;
   if (targetIndex >= 64) {
     const geoCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM geo_points");
-    if (!internal.targetApplied) invariant(geoCount === 0, "0064 is schema-only; geo_points must remain empty immediately after migration");
-    geoFoundation = { geoCount, schemaOnlyMigration: true };
+    if (targetIndex === 64 && !internal.targetApplied) {
+      invariant(geoCount === 0, "0064 is schema-only; geo_points must remain empty immediately after migration");
+    }
+    if (targetIndex > 64) {
+      invariant(
+        geoCount === internal.geoCountBefore,
+        `geo_points count changed unexpectedly: before=${internal.geoCountBefore}, after=${geoCount}`,
+      );
+    }
+    geoFoundation = {
+      geoCount,
+      schemaOnlyMigration: targetIndex === 64,
+      preservedFromPreflight: targetIndex > 64 ? geoCount === internal.geoCountBefore : null,
+    };
   }
 
   await writeJson(".production-d1/postflight-report.json", {
