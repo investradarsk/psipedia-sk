@@ -443,9 +443,11 @@ export function MapExperience({
         }
 
         setResponse(payload);
-        if (payload.mode !== "items" || !payload.items.some((item) => item.id === selectedItemId)) {
-          setSelectedItemId(null);
-        }
+        setSelectedItemId((current) => (
+          current && payload.mode === "items" && payload.items.some((item) => item.id === current)
+            ? current
+            : null
+        ));
       } catch (caught) {
         if (controller.signal.aborted || requestId !== requestSequence.current) return;
         const next = caught && typeof caught === "object" && "kind" in caught
@@ -461,7 +463,7 @@ export function MapExperience({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [apiUrl, retryNonce, selectedItemId]);
+  }, [apiUrl, retryNonce]);
 
   useEffect(() => {
     if (!mobileFiltersOpen) return;
