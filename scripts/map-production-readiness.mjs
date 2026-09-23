@@ -76,7 +76,9 @@ async function main() {
       SUM(TRIM(COALESCE(address,''))='' AND TRIM(COALESCE(city,''))<>'') city_only,
       SUM(TRIM(COALESCE(address,''))<>'' AND TRIM(COALESCE(city,''))<>'') address_and_city,
       SUM(TRIM(COALESCE(address,''))<>'' AND TRIM(COALESCE(city,''))='') address_without_city,
-      SUM(UPPER(COALESCE(address,'')) LIKE '%GPS%' OR COALESCE(address,'') LIKE '%°%') potential_coordinate_text
+      SUM(UPPER(COALESCE(address,'')) LIKE '%GPS%' OR COALESCE(address,'') LIKE '%°%'
+        OR LOWER(COALESCE(address,'')) LIKE '%latitude%'
+        OR LOWER(COALESCE(address,'')) LIKE '%longitude%') potential_coordinate_text
     FROM directory_profiles WHERE status='published' AND archived_at IS NULL
   `);
   const directoryByCategory = readQuery(db, configPath, `
@@ -139,15 +141,43 @@ async function main() {
       resolved: Number(row.resolved || 0),
       coverage_pct: pct(Number(row.resolved || 0), Number(row.eligible || 0)),
     }));
+    const publicResolved = Number(one(db, configPath, "SELECT COUNT(*) count FROM geo_points WHERE geocode_status='RESOLVED' AND public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC') AND source_fingerprint=resolved_source_fingerprint").count || 0);
+    const exactPublic = Number(one(db, configPath, "SELECT COUNT(*) count FROM geo_points WHERE geocode_status='RESOLVED' AND public_visibility='EXACT_PUBLIC' AND source_fingerprint=resolved_source_fingerprint").count || 0);
+    const approximatePublic = Number(one(db, configPath, "SELECT COUNT(*) count FROM geo_points WHERE geocode_status='RESOLVED' AND public_visibility='APPROXIMATE_PUBLIC' AND source_fingerprint=resolved_source_fingerprint").count || 0);
+    const orgCoverage = one(db, configPath, `
+      SELECT COUNT(*) eligible,
+        SUM(g.geocode_status='RESOLVED' AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+          AND g.source_fingerprint=g.resolved_source_fingerprint) resolved
+      FROM organization_locations l
+      JOIN help_organizations o ON o.id=l.organization_id
+      LEFT JOIN geo_points g ON g.organization_location_id=l.id
+      WHERE o.status='PUBLISHED' AND o.archived_at IS NULL AND l.role='SITE'
+    `);
+    const eventCoverage = one(db, configPath, `
+      SELECT COUNT(*) eligible,
+        SUM(g.geocode_status='RESOLVED' AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+          AND g.source_fingerprint=g.resolved_source_fingerprint) resolved
+      FROM managed_events e LEFT JOIN geo_points g ON g.managed_event_id=e.id
+      WHERE e.status='published' AND e.cancelled=0
+        AND COALESCE(e.end_date,e.start_date)>=DATE('now')
+        AND LOWER(TRIM(COALESCE(e.region,'')))<>'online'
+    `);
+    const orgEligible = Number(orgCoverage.eligible || 0), orgResolved = Number(orgCoverage.resolved || 0);
+    const eventEligible = Number(eventCoverage.eligible || 0), eventResolved = Number(eventCoverage.resolved || 0);
     geo = {
       schemaAvailable: true,
       total,
+      publicResolved,
+      exactPublic,
+      approximatePublic,
       byTargetType: readQuery(db, configPath, "SELECT target_type,COUNT(*) count FROM geo_points GROUP BY target_type ORDER BY target_type"),
       byVisibility: readQuery(db, configPath, "SELECT COALESCE(public_visibility,'NULL') public_visibility,COUNT(*) count FROM geo_points GROUP BY public_visibility ORDER BY public_visibility"),
       byStatus: readQuery(db, configPath, "SELECT geocode_status,COUNT(*) count FROM geo_points GROUP BY geocode_status ORDER BY geocode_status"),
       byPrecision: readQuery(db, configPath, "SELECT COALESCE(public_precision,'NULL') public_precision,COUNT(*) count FROM geo_points GROUP BY public_precision ORDER BY public_precision"),
       manualOverrides: Number(one(db, configPath, "SELECT COUNT(*) count FROM geo_points WHERE manual_override=1").count || 0),
       directoryCoverage,
+      organizations: { eligibleSites: orgEligible, resolvedSites: orgResolved, coverage_pct: pct(orgResolved, orgEligible) },
+      events: { eligibleUpcomingPhysical: eventEligible, resolved: eventResolved, coverage_pct: pct(eventResolved, eventEligible) },
     };
   }
 
