@@ -179,3 +179,11 @@ test("Partner approval locks inbound Notion sync but does not invoke Notion dire
   assert.match(update,/inbound_lock_reason='PARTNER_MODERATION'/);
   assert.doesNotMatch(update,/notionRequest|runNotionEventSyncSweep|writeBackPublishedEventToNotion/);
 });
+
+
+test("duplicate scan SQL and bind arity stay aligned",()=>{
+  const scan=domain.slice(domain.indexOf("export async function scanPartnerEventDuplicates"),domain.indexOf("type EventResourceRow"));
+  assert.match(scan,/WHERE start_date=\?1 OR registration_url IS NOT NULL/);
+  assert.match(scan,/\.bind\(String\(values\.startDate\)\)\.all<CandidateRow>/);
+  assert.doesNotMatch(scan,/\.bind\(String\(values\.startDate\),/);
+});
