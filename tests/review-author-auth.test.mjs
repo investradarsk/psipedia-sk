@@ -589,3 +589,16 @@ test("request magic-link flow dedupes reviewer identity and keeps blocked lifecy
     sqlite.close();
   }
 });
+
+
+test("anonymous reviewer session returns null without touching D1", async () => {
+  const auth = await importTs("lib/review-author-auth.ts");
+  const database = new Proxy({}, {
+    get() {
+      throw new Error("anonymous session unexpectedly touched D1");
+    },
+  });
+
+  assert.equal(await auth.getReviewAuthorSession({ database }), null);
+  assert.equal(await auth.getReviewAuthorSession({ cookieHeader: "other_cookie=1", database }), null);
+});
