@@ -30,6 +30,7 @@ jobs:
       E2E_BASE_URL: http://localhost:5173
       PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
       MAP_UI_TEST_RENDERER: "1"
+      PUBLIC_MAP_ENABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - name: Log revision evidence
