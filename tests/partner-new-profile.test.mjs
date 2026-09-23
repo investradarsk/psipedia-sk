@@ -159,20 +159,28 @@ test("HIGH duplicate requires explicit Partner confirmation and server rescans o
 
 test("admin CREATE resolution is atomic, DRAFT-only and reuses canonical create primitives",()=>{
   const create=admin.slice(admin.indexOf("export async function createPartnerNewProfileAdmin"),admin.indexOf("export async function linkPartnerNewProfileAdmin"));
+  const membershipHelper=admin.slice(admin.indexOf("function membershipStatements"),admin.indexOf("function verificationStatements"));
+  const verificationHelper=admin.slice(admin.indexOf("function verificationStatements"),admin.indexOf("function resolutionMetadataStatement"));
+  const directoryCreate=directory.slice(directory.indexOf("export function buildManagedDirectoryProfileCreateStatement"),directory.indexOf("export async function getPublishedDirectoryProfiles"));
+  const organizationCreate=helpWrite.slice(helpWrite.indexOf("export function buildOrganizationCreateStatement"),helpWrite.indexOf("export async function createOrganizationFromAdmin"));
   assert.match(create,/buildManagedDirectoryProfileCreateStatement/);
   assert.match(create,/buildOrganizationCreateStatement/);
   assert.match(create,/status:"draft"/);
+  assert.match(create,/membershipStatements/);
+  assert.match(membershipHelper,/MEMBERSHIP_CREATED/);
+  assert.match(create,/verificationStatements/);
+  assert.match(verificationHelper,/VERIFICATION_REQUESTED/);
+  assert.match(verificationHelper,/PENDING_VERIFICATION/);
   assert.match(create,/applyAtomicModerationTransition/);
   assert.match(create,/toStatus:"APPROVED"/);
   assert.match(create,/extraStatements:canonicalStatements/);
-  assert.match(create,/MEMBERSHIP_CREATED/);
-  assert.match(create,/VERIFICATION_REQUESTED/);
-  assert.match(create,/PENDING_VERIFICATION/);
   assert.match(create,/NEW_PROFILE_CREATED/);
   assert.match(create,/resolution:"CREATED_NEW"/);
   assert.doesNotMatch(create,/status:"published"|status:'published'|status:"PUBLISHED"/);
-  assert.match(directory,/buildManagedDirectoryProfileCreateStatement/);
-  assert.match(helpWrite,/buildOrganizationCreateStatement/);
+  assert.match(directoryCreate,/SELECT \?, \?, \?, 'draft'/);
+  assert.match(directoryCreate,/NULL, \?, \?/);
+  assert.match(organizationCreate,/VALUES \(\?, \?, \?, \?, \?, 'DRAFT'/);
+  assert.match(organizationCreate,/SELECT \?, \?, \?, \?, \?, 'DRAFT'/);
 });
 
 test("LINK EXISTING creates no canonical row, preserves owner semantics and hands off verification",()=>{
