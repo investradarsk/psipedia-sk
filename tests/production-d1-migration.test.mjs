@@ -128,6 +128,17 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
 });
 
 
+test("MAP-1E preserves existing review, notification and audit data during later targets", async () => {
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.match(script, /reviewCountBefore/);
+  assert.match(script, /profile_reviews count changed unexpectedly/);
+  assert.match(script, /partnerRebuildSnapshot/);
+  assert.match(script, /partner_notification_outbox data changed unexpectedly/);
+  assert.match(script, /partner_audit_events data changed unexpectedly/);
+  assert.match(script, /outboxDigest/);
+  assert.match(script, /auditDigest/);
+});
+
 test("MAP-1E geo readiness is read-only and fail-closes P1 privacy exposures", async () => {
   const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
   assert.match(script, /publicResolvedCurrent/);
