@@ -11,11 +11,20 @@ import { buildOrganizationJsonLd, buildOrganizationMetadata } from "@/lib/organi
 import { serializeJsonLd } from "@/lib/seo";
 import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
 import { isPublicPartnerResourceVerified } from "@/lib/partner-claims";
+import { getPublicProfileReviewData } from "@/lib/profile-review-read";
 
 export const dynamic = "force-dynamic";
 
 type RuntimeBindings = { DB?: AdoptionD1Database };
-type Props = { params: Promise<{ slug: string }> };
+type Search = Record<string, string | string[] | undefined>;
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Search>;
+};
+
+function scalar(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function requireDatabase() {
   const database = (env as unknown as RuntimeBindings).DB;
@@ -33,14 +42,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildOrganizationMetadata(organization);
 }
 
-export default async function OrganizationProfilePage({ params }: Props) {
+export default async function OrganizationProfilePage({ params, searchParams }: Props) {
   const { slug } = await params;
   const composition = await getPublicOrganizationCompositionBySlug(slug, requireDatabase());
 
   if (!composition) notFound();
 
+  const database = requireDatabase();
   const jsonLd = buildOrganizationJsonLd(composition.organization);
-  const partnerVerified = await isPublicPartnerResourceVerified("HELP_ORGANIZATION", composition.organization.id, requireDatabase());
+  const reviewPage = scalar((await searchParams).reviewsPage);
+  const partnerVerifiedPromise = isPublicPartnerResourceVerified("HELP_ORGANIZATION", composition.organization.id, database);
+  const reviewsPromise = getPublicProfileReviewData(database, {
+    entityType: "HELP_ORGANIZATION",
+    canonicalId: composition.organization.id,
+  }, { page: reviewPage })
+    .then((data) => ({ data, readError: false }))
+    .catch((error) => {
+      console.error("Public organization reviews read failed", {
+        organizationId: composition.organization.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { data: null, readError: true };
+    });
+  const [partnerVerified, reviewResult] = await Promise.all([partnerVerifiedPromise, reviewsPromise]);
 
   return (
     <>
@@ -48,7 +72,7 @@ export default async function OrganizationProfilePage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
-      <OrganizationProfileDetail composition={composition} />
+      <OrganizationProfileDetail composition={composition} reviews={reviewResult.data} reviewReadError={reviewResult.readError} />
       <PartnerPublicOwnership verified={partnerVerified} claimHref={`/partner/prevziat-profil/HELP_ORGANIZATION/${composition.organization.id}`} />
     </>
   );
