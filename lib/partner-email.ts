@@ -36,6 +36,12 @@ export const partnerNotificationTypes = [
   "EVENT_LINKED_EXISTING",
   "EVENT_CHANGE_APPROVED",
   "EVENT_REJECTED",
+  "COMMERCIAL_OFFER_CREATED",
+  "COMMERCIAL_AGREEMENT_UPDATED",
+  "PAYMENT_MARKED_PAID",
+  "ENTITLEMENT_ACTIVATED",
+  "ENTITLEMENT_EXPIRING",
+  "ENTITLEMENT_EXPIRED",
 ] as const;
 export type PartnerNotificationType = (typeof partnerNotificationTypes)[number];
 
@@ -272,6 +278,30 @@ async function sendPartnerAuthEmail(input: {
       EVENT_REJECTED: {
         subject: "Návrh podujatia nebol schválený",
         lines: ["Návrh podujatia alebo jeho úprav nebol schválený. Bezpečný dôvod nájdete vo svojom Partner účte."],
+      },
+      COMMERCIAL_OFFER_CREATED: {
+        subject: "Nová obchodná ponuka v Partner účte",
+        lines: ["V Partner účte máte novú ponuku alebo dohodu k propagácii. Cena, obdobie a platobný režim sú dostupné iba vo vašom Partner účte."],
+      },
+      COMMERCIAL_AGREEMENT_UPDATED: {
+        subject: "Obchodná dohoda bola aktualizovaná",
+        lines: ["Stav vašej obchodnej dohody sa zmenil. Aktuálne údaje nájdete v sekcii Propagácia."],
+      },
+      PAYMENT_MARKED_PAID: {
+        subject: "Platba bola zaevidovaná",
+        lines: ["Psipedia zaevidovala platbu k vašej obchodnej dohode. Aktivácia plateného benefitu je samostatný administrátorský krok."],
+      },
+      ENTITLEMENT_ACTIVATED: {
+        subject: "Platený benefit bol aktivovaný",
+        lines: ["Platený benefit bol administrátorom aktivovaný pre dohodnuté obdobie. Premium a sponzorované zobrazenie nepredstavujú overenie ani odporúčanie Psipedie."],
+      },
+      ENTITLEMENT_EXPIRING: {
+        subject: "Platený benefit sa blíži ku koncu",
+        lines: ["Platnosť plateného benefitu sa blíži ku koncu. Ak chcete pokračovať, kontaktujte Psipediu."],
+      },
+      ENTITLEMENT_EXPIRED: {
+        subject: "Platnosť plateného benefitu skončila",
+        lines: ["Dohodnuté obdobie plateného benefitu skončilo. Verejné zobrazenie sa po konci obdobia automaticky neuplatňuje."],
       },
     };
     const selected = copy[input.row.notification_type];
