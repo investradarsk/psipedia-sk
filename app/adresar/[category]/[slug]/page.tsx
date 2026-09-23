@@ -65,7 +65,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
   const presentation = getDirectoryDetailPresentation(profile);
   const reviewPage = scalar((await searchParams).reviewsPage);
   const partnerVerifiedPromise = isPublicPartnerResourceVerified("DIRECTORY_PROFILE", profile.id);
-  const commercialPromise = getPublicPartnerCommercialFlags("DIRECTORY_PROFILE", profile.id, reviewDatabase());
+  const commercialPromise = getPublicPartnerCommercialFlags("DIRECTORY_PROFILE", profile.id);
   const reviewsPromise = getPublicProfileReviewData(reviewDatabase(), {
     entityType: "DIRECTORY_PROFILE",
     canonicalId: profile.id,
