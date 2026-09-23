@@ -10,7 +10,7 @@ const importTs = (path) => import(pathToFileURL(new URL(path, root).pathname).hr
 const [
   migration, auth, store, authForm, requestRoute, consumeRoute, verification,
   contact, pageAuth, onboardingRoute, onboardingPage, settingsPage, adminStore,
-  adminPage, claimRoute, profileChangeRoute, newProfileRoute, eventRoute, commercialRoute,
+  adminPage, claimPage, claimRoute, profileChangeRoute, newProfileRoute, eventRoute, commercialRoute,
 ] = await Promise.all([
   "drizzle/0069_partner_auth_onboarding_hardening.sql",
   "lib/partner-auth.ts",
@@ -26,6 +26,7 @@ const [
   "app/partner/nastavenia/page.tsx",
   "lib/partner-admin-store.ts",
   "app/admin/partners/accounts/[id]/page.tsx",
+  "app/partner/prevziat-profil/[type]/[id]/page.tsx",
   "app/api/partner/claims/route.ts",
   "app/api/partner/profile-changes/route.ts",
   "app/api/partner/new-profile/route.ts",
@@ -114,6 +115,12 @@ test("contact PII is encrypted at rest and decrypted only for authenticated/admi
   assert.doesNotMatch(contact, /INSERT INTO partner_account_profiles[\s\S]{0,600}values\.contactName,/);
 });
 
+test("mixed-version reads preserve pre-H1 behavior until 0069 exists", () => {
+  assert.match(contact, /no such table:\\s\*partner_account_profiles/i);
+  assert.match(contact, /if \(isMissingContactProfileTable\(error\)\) return true/);
+  assert.match(contact, /if \(isMissingContactProfileTable\(error\)\) return null/);
+});
+
 test("magic-link verification routes incomplete accounts through onboarding and preserves safe returnTo", () => {
   assert.match(consumeRoute, /onboardingComplete: result\.onboardingComplete/);
   assert.match(verification, /data\.onboardingComplete === false/);
@@ -123,10 +130,13 @@ test("magic-link verification routes incomplete accounts through onboarding and 
   assert.match(onboardingPage, /redirect\(returnTo \|\| "\/partner"\)/);
 });
 
-test("page and mutation gates require onboarding while logout/deactivation can remain reachable", () => {
+test("page and mutation gates require onboarding while security flows stay reachable", () => {
   assert.match(pageAuth, /!options\.allowIncompleteOnboarding && !identity\.onboardingComplete/);
-  assert.match(pageAuth, /redirect\("\/partner\/onboarding"\)/);
+  assert.match(pageAuth, /partnerAuthHref\("\/partner\/prihlasenie", returnTo\)/);
+  assert.match(pageAuth, /\/partner\/onboarding\?returnTo=/);
+  assert.match(claimPage, /requirePartnerPageIdentity\(\{ returnTo \}\)/);
   assert.match(onboardingRoute, /allowIncompleteOnboarding: true/);
+  assert.match(settingsPage, /allowIncompleteOnboarding: true/);
   for (const route of [claimRoute, profileChangeRoute, newProfileRoute, eventRoute, commercialRoute]) {
     assert.match(route, /requirePartnerAccount/);
     assert.doesNotMatch(route, /allowIncompleteOnboarding: true/);
