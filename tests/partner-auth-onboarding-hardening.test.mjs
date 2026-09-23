@@ -126,6 +126,14 @@ test("contact input is bounded plain text and optional fields stay optional", as
   assert.throws(() => normalizePartnerContactInput({ contactName: "Ján Novák", phone: "abc" }), PartnerContactProfileError);
 });
 
+test("contact completion is race-safe and completion audit follows the winning insert", () => {
+  assert.match(contact, /INSERT OR IGNORE INTO partner_account_profiles/);
+  assert.match(contact, /RETURNING account_id/);
+  assert.match(contact, /if \(!inserted\?\.account_id\) \{/);
+  assert.match(contact, /UPDATE partner_account_profiles SET contact_name_ciphertext/);
+  assert.match(contact, /action: inserted\?\.account_id \? "CONTACT_PROFILE_COMPLETED" : "CONTACT_PROFILE_UPDATED"/);
+});
+
 test("contact PII is encrypted at rest and decrypted only for authenticated/admin presentation", () => {
   assert.match(contact, /encryptPii\(values\.contactName/);
   assert.match(contact, /values\.phone \? await encryptPii/);
