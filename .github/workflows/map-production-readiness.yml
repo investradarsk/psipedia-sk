@@ -2,6 +2,22 @@ name: MAP-1E Production Readiness
 
 on:
   workflow_dispatch:
+    inputs:
+      real_google_smoke_confirmed:
+        description: Confirm a real Google Maps browser smoke passed on production
+        required: true
+        type: boolean
+        default: false
+      attribution_review_confirmed:
+        description: Confirm provider/Google attribution requirements were reviewed
+        required: true
+        type: boolean
+        default: false
+      consent_privacy_review_confirmed:
+        description: Confirm consent/privacy launch review was completed
+        required: true
+        type: boolean
+        default: false
 
 concurrency:
   group: map-production-readiness
@@ -82,6 +98,10 @@ jobs:
 
       - name: Assess launch gates
         shell: bash
+        env:
+          REAL_GOOGLE_SMOKE_CONFIRMED: ${{ inputs.real_google_smoke_confirmed }}
+          ATTRIBUTION_REVIEW_CONFIRMED: ${{ inputs.attribution_review_confirmed }}
+          CONSENT_PRIVACY_REVIEW_CONFIRMED: ${{ inputs.consent_privacy_review_confirmed }}
         run: |
           set -euo pipefail
           node - <<'NODE'
@@ -104,6 +124,9 @@ jobs:
             cspAllowsGoogleMaps: /content-security-policy:/i.test(headers) && /maps\.googleapis\.com/i.test(headers),
             geolocationDisabled: /permissions-policy:.*geolocation=\(\)/i.test(headers),
             googleRendererConfigured: !html.includes("Google Maps nie je nakonfigurovaný"),
+            realGoogleSmokeConfirmed: process.env.REAL_GOOGLE_SMOKE_CONFIRMED === "true",
+            attributionReviewConfirmed: process.env.ATTRIBUTION_REVIEW_CONFIRMED === "true",
+            consentPrivacyReviewConfirmed: process.env.CONSENT_PRIVACY_REVIEW_CONFIRMED === "true",
           };
 
           const blockers = Object.entries(gates).filter(([,value]) => !value).map(([key]) => key);
