@@ -596,7 +596,7 @@ export type PartnerCommercialAgreementAttentionRow = {
 
 export function mapPartnerCommercialAgreementAttention(row:PartnerCommercialAgreementAttentionRow,now=new Date()):AdminAttentionItem {
   const endMs=Date.parse(row.endAt),daysLeft=Math.max(0,Math.ceil((endMs-now.getTime())/DAY_MS));
-  const ready=row.status==="AGREED"&&["PAID","WAIVED","NOT_REQUIRED"].includes(row.paymentStatus);
+  const ready=row.status==="AGREED"&&["PAID","WAIVED"].includes(row.paymentStatus);
   const expiring=row.status==="ACTIVE"&&endMs>now.getTime()&&endMs<=now.getTime()+14*DAY_MS;
   const attentionState:AdminAttentionState=row.status==="OFFERED"||ready?"NEW":expiring?"IN_PROGRESS":"RESOLVED";
   const reason=row.status==="OFFERED"
