@@ -28,6 +28,12 @@ import {
   type MapViewport,
 } from "@/lib/map-public-ui";
 import {
+  GOOGLE_MAPS_CONSENT_EVENT,
+  GOOGLE_MAPS_CONSENT_KEY,
+  hasGoogleMapsConsent,
+  setGoogleMapsConsent,
+} from "@/lib/google-maps-consent";
+import {
   GoogleMapRenderer,
   type MapRendererCommand,
   type MapRendererStatus,
@@ -399,6 +405,7 @@ export function MapExperience({
   const [retryNonce, setRetryNonce] = useState(0);
   const [sheetState, setSheetState] = useState<"peek" | "expanded">("peek");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [googleMapsConsent, setGoogleMapsConsentState] = useState(false);
   const requestGateRef = useRef(new MapRequestGate());
   const cardRefs = useRef(new Map<string, HTMLElement>());
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
@@ -417,6 +424,15 @@ export function MapExperience({
   const clearFilters = useCallback(() => {
     setFilters(EMPTY_MAP_FILTERS);
     setSelectedItemId(null);
+  }, []);
+
+  useEffect(() => {
+    const read = () => setGoogleMapsConsentState(
+      hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY)),
+    );
+    read();
+    window.addEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
+    return () => window.removeEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
   }, []);
 
   useEffect(() => {
@@ -541,6 +557,8 @@ export function MapExperience({
 
   const rendererStatusLabel = !launchEnabled && !testRenderer
     ? "Interaktívna mapa ešte nie je verejne spustená"
+    : launchEnabled && !googleMapsConsent && !testRenderer
+      ? "Google Maps čaká na tvoje povolenie"
     : rendererStatus === "ready"
     ? "Mapa pripravená"
     : rendererStatus === "loading"
@@ -621,6 +639,7 @@ export function MapExperience({
             mapId={googleMapId}
             testMode={testRenderer}
             launchEnabled={launchEnabled}
+            consentGranted={googleMapsConsent}
             items={items}
             clusters={clusters}
             selectedItemId={selectedItemId}
@@ -631,6 +650,13 @@ export function MapExperience({
             onClusterClick={selectCluster}
             onStatusChange={setRendererStatus}
           />
+          {launchEnabled && !googleMapsConsent && !testRenderer ? (
+            <div className={styles.mapConsentGate} data-testid="map-consent-gate">
+              <strong>Načítať interaktívnu Google mapu?</strong>
+              <span>Textové výsledky fungujú aj bez nej. Google mapový podklad sa načíta až po tvojom výslovnom povolení.</span>
+              <button type="button" onClick={() => setGoogleMapsConsent(true)}>Povoliť Google Maps</button>
+            </div>
+          ) : null}
           <div className={styles.mapStatusPill} role="status" data-testid="map-renderer-status">
             <span>{rendererStatusLabel}</span>
           </div>
