@@ -2,8 +2,10 @@ import type {
   MapBbox,
   MapCategory,
   MapEventTiming,
+  MapCluster,
   MapItem,
   MapQueryInput,
+  MapResponse,
 } from "./map-contract";
 
 export const MAP_DEFAULT_CENTER = { lat: 48.669, lng: 19.699 } as const;
@@ -182,5 +184,49 @@ export function mapQueryInputPreview(viewport: Pick<MapViewport, "bbox" | "zoom"
     search: filters.search.trim().length >= 2 ? filters.search.trim() : undefined,
     eventType: filters.eventType as MapQueryInput["eventType"] || undefined,
     eventTiming: filters.eventTiming,
+  };
+}
+
+
+export class MapRequestGate {
+  private sequence = 0;
+  private controller: AbortController | null = null;
+
+  cancel() {
+    this.sequence += 1;
+    this.controller?.abort();
+    this.controller = null;
+  }
+
+  begin() {
+    this.cancel();
+    const id = this.sequence;
+    const controller = new AbortController();
+    this.controller = controller;
+    return {
+      id,
+      signal: controller.signal,
+      isCurrent: () => this.sequence === id && !controller.signal.aborted,
+    };
+  }
+}
+
+export function scheduleMapRequest(callback: () => void, delay = MAP_FETCH_DEBOUNCE_MS) {
+  const timer = setTimeout(callback, delay);
+  return {
+    cancel: () => clearTimeout(timer),
+  };
+}
+
+export function selectedMapItemAfterResponse(current: string | null, response: MapResponse) {
+  if (!current || response.mode !== "items") return null;
+  return response.items.some((item) => item.id === current) ? current : null;
+}
+
+export function mapClusterTarget(cluster: Pick<MapCluster, "latitude" | "longitude">, currentZoom: number) {
+  return {
+    latitude: cluster.latitude,
+    longitude: cluster.longitude,
+    zoom: Math.min(20, Math.max(currentZoom + 2, 9)),
   };
 }
