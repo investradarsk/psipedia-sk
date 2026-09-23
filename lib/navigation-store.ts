@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { defaultNavigationItems, type NavigationItem } from "@/lib/navigation";
-import { configFlagEnabled } from "@/config/runtime-env";
+import { publicMapLaunchEnabled } from "@/config/runtime-env";
 
 type NavigationRow = {
   id: string;
@@ -11,7 +11,12 @@ type NavigationRow = {
   visible: number;
 };
 
-type RuntimeBindings = { DB?: D1Database; PUBLIC_MAP_ENABLED?: string };
+type RuntimeBindings = {
+  DB?: D1Database;
+  PUBLIC_MAP_ENABLED?: string;
+  GOOGLE_MAPS_BROWSER_API_KEY?: string;
+  GOOGLE_MAPS_MAP_ID?: string;
+};
 let navigationSchemaReady: Promise<void> | null = null;
 
 function getD1Binding() {
@@ -74,7 +79,11 @@ export function applyPublicMapLaunchGate(items: NavigationItem[], enabled: boole
 
 export async function getNavigationItems() {
   const bindings = env as unknown as RuntimeBindings;
-  const enabled = configFlagEnabled(bindings.PUBLIC_MAP_ENABLED ?? process.env.PUBLIC_MAP_ENABLED);
+  const enabled = publicMapLaunchEnabled({
+    PUBLIC_MAP_ENABLED: bindings.PUBLIC_MAP_ENABLED ?? process.env.PUBLIC_MAP_ENABLED,
+    GOOGLE_MAPS_BROWSER_API_KEY: bindings.GOOGLE_MAPS_BROWSER_API_KEY ?? process.env.GOOGLE_MAPS_BROWSER_API_KEY,
+    GOOGLE_MAPS_MAP_ID: bindings.GOOGLE_MAPS_MAP_ID ?? process.env.GOOGLE_MAPS_MAP_ID,
+  });
   const database = getD1Binding();
   if (!database) return applyPublicMapLaunchGate(defaultNavigationItems, enabled);
   const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
