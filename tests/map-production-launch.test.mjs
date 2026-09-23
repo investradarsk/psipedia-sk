@@ -88,6 +88,7 @@ test("production privacy smoke is read-only and compares D1 with the public API"
   assert.match(script, /Only read-only SQL is allowed/);
   assert.match(script, /https:\/\/psipedia\.sk\/api\/map/);
   assert.match(script, /APPROXIMATE_PUBLIC/);
+  assert.match(script, /SKIPPED_GEO_SCHEMA_UNAVAILABLE/);
   assert.match(script, /sensitiveExactWithoutManual/);
   assert.match(script, /organizationExactWithoutManualReview/);
   assert.match(script, /approximateStreetLeaks/);
