@@ -95,3 +95,17 @@ test("no-consent smoke has one non-conflicting storage initializer", () => {
   assert.match(noConsentTest, /localStorage\.removeItem\(key\)/);
   assert.doesNotMatch(noConsentTest, /localStorage\.setItem\(key, "necessary"\)/);
 });
+
+
+test("reviewer routes are excluded from shared HTML cache and receive private no-store headers", () => {
+  assert.match(workerSource, /isReviewAuthorRoute\(url\.pathname\)/);
+  assert.match(workerSource, /pathname === "\/recenzia" \|\| pathname\.startsWith\("\/recenzia\/"\)/);
+  assert.match(workerSource, /"Cache-Control": "private, no-store"/);
+  assert.match(workerSource, /"CDN-Cache-Control": "no-store"/);
+  assert.match(workerSource, /"Cloudflare-CDN-Cache-Control": "no-store"/);
+  assert.match(workerSource, /"Referrer-Policy": "no-referrer"/);
+  assert.match(
+    workerSource,
+    /url\.search \|\| isAdminAuthPath\(url\.pathname\) \|\| isReviewAuthorRoute\(url\.pathname\)/,
+  );
+});
