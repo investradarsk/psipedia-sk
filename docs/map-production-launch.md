@@ -255,6 +255,8 @@ Only when all three are present/valid does `Mapa` get injected directly after `S
 
 This design makes rollback immediate: turn the launch flag off (or remove renderer config) and redeploy/configure the runtime. The map link disappears while the rest of Psipedia remains unaffected.
 
+Search indexing is also launch-gated: direct `/mapa` remains `noindex,nofollow` until the effective launch gate is complete. Once flag + Browser key + Map ID are all present, normal index/follow metadata is restored.
+
 No homepage map block is added in MAP-1E.
 
 ## Production sequence
