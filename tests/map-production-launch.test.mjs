@@ -7,6 +7,7 @@ import test from "node:test";
 import { defaultNavigationItems } from "../lib/navigation.ts";
 import { applyPublicMapLaunchGate } from "../lib/navigation-store.ts";
 import { hasGoogleMapsConsent } from "../lib/google-maps-consent.ts";
+import { publicMapLaunchEnabled } from "../config/runtime-env.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -17,6 +18,25 @@ test("map navigation is deny-by-default and appears once after services when ena
   const serviceIndex = on.findIndex((item) => item.href === "/adresar");
   assert.equal(on[serviceIndex + 1]?.href, "/mapa");
   assert.equal(on.filter((item) => item.href === "/mapa").length, 1);
+});
+
+test("public launch gate requires flag, browser key and Map ID", () => {
+  assert.equal(publicMapLaunchEnabled({}), false);
+  assert.equal(publicMapLaunchEnabled({ PUBLIC_MAP_ENABLED: "1" }), false);
+  assert.equal(publicMapLaunchEnabled({
+    PUBLIC_MAP_ENABLED: "1",
+    GOOGLE_MAPS_BROWSER_API_KEY: "browser-key",
+  }), false);
+  assert.equal(publicMapLaunchEnabled({
+    PUBLIC_MAP_ENABLED: "1",
+    GOOGLE_MAPS_BROWSER_API_KEY: "browser-key",
+    GOOGLE_MAPS_MAP_ID: "map-id",
+  }), true);
+  assert.equal(publicMapLaunchEnabled({
+    PUBLIC_MAP_ENABLED: "0",
+    GOOGLE_MAPS_BROWSER_API_KEY: "browser-key",
+    GOOGLE_MAPS_MAP_ID: "map-id",
+  }), false);
 });
 
 test("Google Maps consent is explicit and deny-by-default", () => {
