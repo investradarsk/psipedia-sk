@@ -184,7 +184,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByLabel("Popis",{exact:true}).fill("Toto je dostatočne dlhý opis nového Partner podujatia, ktoré musí prejsť moderáciou.");
   await page.getByLabel("Praktické informácie").fill("Registrácia je povinná.");
   await page.getByLabel("Web").fill(project==="desktop-chromium"?"https://example.sk/new-event-desktop":"https://example.sk/new-event-mobile");
-  await page.getByLabel("Registrácia").fill(project==="desktop-chromium"?"https://example.sk/new-event-desktop/register":"https://example.sk/new-event-mobile/register");
+  await page.getByRole("textbox",{name:"Registrácia",exact:true}).fill(project==="desktop-chromium"?"https://example.sk/new-event-desktop/register":"https://example.sk/new-event-mobile/register");
   await expectNoHorizontalOverflow(page);
   const createAccessibility=await new AxeBuilder({page}).analyze();
   expect(createAccessibility.violations).toEqual([]);
