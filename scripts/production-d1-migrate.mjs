@@ -721,6 +721,49 @@ function geoReadinessSnapshot(databaseName, configPath) {
       AND resolved_source_fingerprint IS NOT NULL
       AND source_fingerprint=resolved_source_fingerprint
   `);
+  const publicDirectoryEligible = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count
+    FROM geo_points g JOIN directory_profiles d ON d.id=g.directory_profile_id
+    WHERE g.target_type='DIRECTORY_PROFILE'
+      AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+      AND g.geocode_status='RESOLVED'
+      AND g.latitude IS NOT NULL AND g.longitude IS NOT NULL
+      AND g.resolved_source_fingerprint IS NOT NULL
+      AND g.source_fingerprint=g.resolved_source_fingerprint
+      AND d.status='published' AND d.archived_at IS NULL AND d.online=0
+  `);
+  const publicOrganizationEligible = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count
+    FROM geo_points g
+    JOIN organization_locations l ON l.id=g.organization_location_id
+    JOIN help_organizations o ON o.id=l.organization_id
+    WHERE g.target_type='ORGANIZATION_LOCATION'
+      AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+      AND g.geocode_status='RESOLVED'
+      AND g.latitude IS NOT NULL AND g.longitude IS NOT NULL
+      AND g.resolved_source_fingerprint IS NOT NULL
+      AND g.source_fingerprint=g.resolved_source_fingerprint
+      AND o.status='PUBLISHED' AND o.archived_at IS NULL
+  `);
+  const publicEventEligible = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count
+    FROM geo_points g JOIN managed_events e ON e.id=g.managed_event_id
+    WHERE g.target_type='MANAGED_EVENT'
+      AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+      AND g.geocode_status='RESOLVED'
+      AND g.latitude IS NOT NULL AND g.longitude IS NOT NULL
+      AND g.resolved_source_fingerprint IS NOT NULL
+      AND g.source_fingerprint=g.resolved_source_fingerprint
+      AND e.status='published' AND e.cancelled=0 AND e.region<>'Online'
+      AND COALESCE(e.end_date,e.start_date) >= date('now')
+  `);
+  const publicMapEligible = {
+    directoryProfiles: publicDirectoryEligible,
+    organizationLocations: publicOrganizationEligible,
+    activePhysicalEvents: publicEventEligible,
+    total: publicDirectoryEligible + publicOrganizationEligible + publicEventEligible,
+  };
+
   const sensitiveExactPublic = scalarCount(databaseName, configPath, `
     SELECT COUNT(*) AS count
     FROM geo_points g JOIN directory_profiles d ON d.id=g.directory_profile_id
@@ -756,6 +799,7 @@ function geoReadinessSnapshot(databaseName, configPath) {
     geoByStatus,
     geoByVisibility,
     publicResolvedCurrent,
+    publicMapEligible,
     privacy: {
       sensitiveExactPublic,
       legalSeatExactPublic,
@@ -814,11 +858,11 @@ async function geoReadiness(targetMigration) {
     databaseId: prepared.resources.d1.database_id,
     latestAppliedMigration: historyNames.at(-1) ?? null,
     ...snapshot,
-    dataReady: snapshot.publicResolvedCurrent > 0,
-    dataReadinessReason: snapshot.publicResolvedCurrent > 0 ? "PUBLIC_RESOLVED_ROWS_AVAILABLE" : "NO_PUBLIC_RESOLVED_ROWS",
+    dataReady: snapshot.publicMapEligible.total > 0,
+    dataReadinessReason: snapshot.publicMapEligible.total > 0 ? "PUBLIC_CANONICAL_MAP_ROWS_AVAILABLE" : "NO_PUBLIC_CANONICAL_MAP_ROWS",
   };
   await writeJson(".production-d1/geo-readiness-report.json", report);
-  console.log(`[production-d1] geo readiness — sources=${snapshot.sources.total}; geoRows=${snapshot.geoTotal}; publicResolved=${snapshot.publicResolvedCurrent}; dataReady=${report.dataReady}`);
+  console.log(`[production-d1] geo readiness — sources=${snapshot.sources.total}; geoRows=${snapshot.geoTotal}; publicResolved=${snapshot.publicResolvedCurrent}; publicCanonical=${snapshot.publicMapEligible.total}; dataReady=${report.dataReady}`);
   return report;
 }
 
