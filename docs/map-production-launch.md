@@ -78,7 +78,7 @@ This workflow is SELECT-only. It reports safe aggregate data for:
 
 Run it once before/after the D1 rollout if an audit trail of the transition is desired, and again after each meaningful geo backfill phase.
 
-The same protected audit also runs a **read-only production privacy smoke** against the real `/api/map` response. It fails closed when:
+The same protected audit also runs a **read-only production privacy smoke** against the real `/api/map` response. Before 0064 it records `SKIPPED_GEO_SCHEMA_UNAVAILABLE` so the pre-migration inventory remains usable; that state is evidence only and is **not** a privacy PASS. Once `geo_points` exists, the privacy smoke must run fully and fails closed when:
 
 - the API is not HTTP 200 or cannot return non-truncated item-mode coverage for the three public categories;
 - a public API item is not backed by a currently eligible public `geo_points` row;
