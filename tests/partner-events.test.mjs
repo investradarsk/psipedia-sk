@@ -142,6 +142,18 @@ test("Partner UX exposes dashboard, create, edit, history and withdraw",()=>{
  assert.match(requestsPage,/Návrhy podujatí/);assert.match(requestsPage,/PartnerEventWithdrawButton/);
 });
 
+test("approved published UPDATE uses post-commit GEO and relevant public cache invalidation without Notion publish writeback",()=>{
+ assert.match(admin,/syncGeoPointAfterSourceChange\("MANAGED_EVENT",input\.eventId\)/);
+ assert.match(admin,/\/podujatia\/kalendar/);
+ assert.match(admin,/\/podujatia\/vystavy/);
+ assert.match(admin,/\/podujatia\/preteky/);
+ assert.match(admin,/\/podujatia\/seminare/);
+ assert.match(admin,/input\.published&&input\.invalidatePublic/);
+ assert.match(admin,/Partner event GEO sync failed/);
+ assert.match(admin,/Partner event public cache invalidation failed/);
+ assert.doesNotMatch(admin,/writeBackPublishedEventToNotion|notion-event-sync|publish writeback/i);
+});
+
 test("notifications and audit cover the PARTNER-4 lifecycle",()=>{
  for(const type of ["EVENT_SUBMITTED","EVENT_CREATED","EVENT_LINKED_EXISTING","EVENT_CHANGE_APPROVED","EVENT_REJECTED"])assert.match(email,new RegExp(type));
  for(const action of ["EVENT_SUBMITTED","EVENT_CHANGE_SUBMITTED","EVENT_WITHDRAWN","EVENT_CREATED","EVENT_LINKED_EXISTING","EVENT_CHANGE_APPROVED","EVENT_REJECTED"])assert.match(platform,new RegExp(action));
