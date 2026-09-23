@@ -31,6 +31,11 @@ export const partnerNotificationTypes = [
   "NEW_PROFILE_CREATED",
   "NEW_PROFILE_LINKED_EXISTING",
   "NEW_PROFILE_REJECTED",
+  "EVENT_SUBMITTED",
+  "EVENT_CREATED",
+  "EVENT_LINKED_EXISTING",
+  "EVENT_CHANGE_APPROVED",
+  "EVENT_REJECTED",
 ] as const;
 export type PartnerNotificationType = (typeof partnerNotificationTypes)[number];
 
@@ -247,6 +252,26 @@ async function sendPartnerAuthEmail(input: {
       NEW_PROFILE_REJECTED: {
         subject: "Návrh nového profilu nebol schválený",
         lines: ["Návrh nového profilu nebol schválený. Bezpečný dôvod nájdete vo svojom Partner účte."],
+      },
+      EVENT_SUBMITTED: {
+        subject: "Návrh podujatia sme prijali",
+        lines: ["Podujatie sme prijali a čaká na kontrolu. Zatiaľ nebolo publikované."],
+      },
+      EVENT_CREATED: {
+        subject: "Podujatie bolo vytvorené ako koncept",
+        lines: ["Podujatie bolo vytvorené ako koncept a zatiaľ nemusí byť verejne publikované."],
+      },
+      EVENT_LINKED_EXISTING: {
+        subject: "Podujatie bolo prepojené s existujúcim záznamom",
+        lines: ["Návrh bol schválený prepojením s existujúcim podujatím. Podujatie teraz nájdete medzi svojimi Partner zdrojmi."],
+      },
+      EVENT_CHANGE_APPROVED: {
+        subject: "Úpravy podujatia boli schválené",
+        lines: ["Navrhované úpravy podujatia boli schválené. Stav publikovania podujatia zostal zachovaný."],
+      },
+      EVENT_REJECTED: {
+        subject: "Návrh podujatia nebol schválený",
+        lines: ["Návrh podujatia alebo jeho úprav nebol schválený. Bezpečný dôvod nájdete vo svojom Partner účte."],
       },
     };
     const selected = copy[input.row.notification_type];

@@ -270,7 +270,7 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
 
 test("all source queries stay bounded and the attention store remains read-only", () => {
   assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 13);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 14);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
@@ -288,6 +288,7 @@ test("target hrefs point to existing admin route patterns", () => {
     "../app/admin/partners/claims/[id]/page.tsx",
     "../app/admin/partners/verifications/[id]/page.tsx",
     "../app/admin/partners/commercial/[id]/page.tsx",
+    "../app/admin/partners/events/[id]/page.tsx",
     "../app/admin/operations/geo/page.tsx",
   ];
   for (const route of routes) assert.equal(existsSync(new URL(route, import.meta.url)), true, route);

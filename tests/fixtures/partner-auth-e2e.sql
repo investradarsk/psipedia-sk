@@ -40,3 +40,35 @@ INSERT INTO partner_resources (id,entity_type,help_organization_id,created_at,up
 VALUES ('partner-resource-e2e-organization','HELP_ORGANIZATION',990002,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
 INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
 VALUES ('partner-membership-e2e-editor','partner-e2e-mobile','partner-resource-e2e-organization','EDITOR','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
+
+
+-- PARTNER-4 event fixtures: one published OWNER event and one draft EDITOR event.
+INSERT INTO managed_events (
+  id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
+  organizer,description,practical_info,website_url,registration_url,image_url,image_key,cancelled,seo_json,
+  created_at,updated_at,published_at,created_by,updated_by
+) VALUES
+  (
+    990003,'partner-e2e-publikovane-podujatie','Partner E2E Publikované Podujatie',
+    'Publikované testovacie podujatie pre Partner E2E.','Seminár','published','2099-11-10','10:00','2099-11-10','16:00',
+    'Areál Desktop','Nitra','Nitriansky kraj','Testovacia 3','Psipedia E2E',
+    'Izolovaný publikovaný fixture event pre moderované Partner úpravy.','Registrácia vopred.',
+    'https://example.sk/event-desktop','https://example.sk/event-desktop/register',NULL,NULL,0,'{}',
+    '2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','ci:partner','ci:partner'
+  ),
+  (
+    990004,'partner-e2e-koncept-podujatie','Partner E2E Koncept Podujatie',
+    'Koncept testovacieho podujatia pre Partner E2E.','Tréning','draft','2099-11-11','11:00','2099-11-11','15:00',
+    'Areál Mobile','Trnava','Trnavský kraj','Testovacia 4','Psipedia E2E',
+    'Izolovaný draft fixture event pre moderované Partner úpravy.','Prineste si vôdzku.',
+    'https://example.sk/event-mobile','https://example.sk/event-mobile/register',NULL,NULL,0,'{}',
+    '2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z',NULL,'ci:partner','ci:partner'
+  );
+
+INSERT INTO partner_resources (id,entity_type,managed_event_id,created_at,updated_at) VALUES
+  ('partner-resource-e2e-event-desktop','MANAGED_EVENT',990003,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z'),
+  ('partner-resource-e2e-event-mobile','MANAGED_EVENT',990004,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
+
+INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES
+  ('partner-membership-e2e-event-owner','partner-e2e-desktop','partner-resource-e2e-event-desktop','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z'),
+  ('partner-membership-e2e-event-editor','partner-e2e-mobile','partner-resource-e2e-event-mobile','EDITOR','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');

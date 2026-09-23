@@ -33,6 +33,8 @@ export type NotionEventSyncBindings = NotionSyncBindings & {
 type EventMappingRow = {
   event_id: number;
   content_hash: string;
+  inbound_locked_at: string | null;
+  inbound_lock_reason: string | null;
 };
 
 export type NotionEventSyncSummary = {
@@ -100,9 +102,17 @@ function validateReady(page: NotionPage) {
 }
 
 async function loadMapping(database: D1Database, pageId: string) {
-  return database.prepare(
-    "SELECT event_id, content_hash FROM event_notion_sync WHERE notion_page_id = ? LIMIT 1",
-  ).bind(pageId).first<EventMappingRow>();
+  try {
+    return await database.prepare(
+      "SELECT event_id, content_hash, inbound_locked_at, inbound_lock_reason FROM event_notion_sync WHERE notion_page_id = ? LIMIT 1",
+    ).bind(pageId).first<EventMappingRow>();
+  } catch (error) {
+    if (!/no such column: inbound_locked_at/i.test(String(error))) throw error;
+    const legacy = await database.prepare(
+      "SELECT event_id, content_hash FROM event_notion_sync WHERE notion_page_id = ? LIMIT 1",
+    ).bind(pageId).first<Pick<EventMappingRow, "event_id" | "content_hash">>();
+    return legacy ? { ...legacy, inbound_locked_at: null, inbound_lock_reason: null } : null;
+  }
 }
 
 async function upsertMapping(
@@ -195,6 +205,12 @@ async function syncOneEvent(
     const existing = await getManagedEventById(Number(mapping.event_id));
     if (!existing) {
       throw new Error("Notion záznam je prepojený na chýbajúce podujatie v Psipedii.");
+    }
+    if (mapping.inbound_locked_at) {
+      // Partner moderation owns inbound priority from this point on. Keep the
+      // mapping for publication write-back, but do not turn every hourly sweep
+      // into a failure or let Notion overwrite the canonical Partner-approved data.
+      return "unchanged";
     }
     if (existing.status !== "draft") {
       throw new Error("Prepojené podujatie už nie je Draft. Automatický sync ho nebude prepisovať ani odpublikovávať.");

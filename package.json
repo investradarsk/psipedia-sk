@@ -53,8 +53,8 @@
     "test:admin-buttons": "node --experimental-strip-types --test tests/admin-button-system.test.mjs",
     "audit:public-integrity": "node scripts/check-public-integrity.mjs",
     "test:public-integrity": "node --experimental-strip-types --test tests/public-integrity.test.mjs && npm run audit:public-integrity",
-    "test:partner-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-auth-foundation.test.mjs tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs && npm run test:partner-profile-changes && npm run test:partner-new-profile",
-    "test:partner-platform": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs && npm run test:partner-profile-changes && npm run test:partner-new-profile",
+    "test:partner-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-auth-foundation.test.mjs tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs && npm run test:partner-profile-changes && npm run test:partner-new-profile && npm run test:partner-events",
+    "test:partner-platform": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs && npm run test:partner-profile-changes && npm run test:partner-new-profile && npm run test:partner-events",
     "test:reviews-foundation": "node --experimental-strip-types --test tests/reviews-foundation.test.mjs tests/reviews-foundation-d1.test.mjs",
     "test:geo-foundation": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/geo-foundation.test.mjs",
     "test:map-read-api": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/map-read-api.test.mjs tests/map-read-api-contract.test.mjs tests/map-read-api-benchmark.test.mjs",
@@ -63,7 +63,8 @@
     "test:map-public-ui": "node --experimental-strip-types --test tests/map-public-ui.test.mjs tests/map-public-ui-contract.test.mjs",
     "test:partner-new-profile": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-new-profile.test.mjs",
     "test:map-production-launch": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/map-production-launch.test.mjs",
-    "test:review-author-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/review-author-auth.test.mjs"
+    "test:review-author-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/review-author-auth.test.mjs",
+    "test:partner-events": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-events.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

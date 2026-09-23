@@ -154,6 +154,65 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     });
     await expect(newProfilesSection.locator("article").filter({hasText:"Partner E2E Organizácia"})).toContainText("Čaká na kontrolu");
   }
+
+  const ownedEventTitle=project==="desktop-chromium"?"Partner E2E Publikované Podujatie":"Partner E2E Koncept Podujatie";
+  const newEventTitle=project==="desktop-chromium"?"Partner E2E Nové Podujatie Desktop":"Partner E2E Nové Podujatie Mobile";
+  const originalVenue=project==="desktop-chromium"?"Areál Desktop":"Areál Mobile";
+  const changedVenue=project==="desktop-chromium"?"Areál Desktop Zmenený":"Areál Mobile Zmenený";
+
+  await page.goto("/partner/podujatia");
+  await expect(page.getByRole("heading",{name:"Moje podujatia"})).toBeVisible();
+  const ownedEventCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
+  await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Publikované":"Koncept");
+  await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"OWNER":"EDITOR");
+  await expectNoHorizontalOverflow(page);
+
+  await page.getByRole("link",{name:"Pridať podujatie"}).first().click();
+  await expect(page.getByRole("heading",{name:"Pridať podujatie"})).toBeVisible();
+  await page.getByLabel("Názov",{exact:true}).fill(newEventTitle);
+  await page.getByLabel("Krátky popis").fill("Nové moderované Partner podujatie pre izolovaný E2E scenár.");
+  await page.getByLabel("Typ podujatia").selectOption("Seminár");
+  await page.getByLabel("Dátum začiatku").fill(project==="desktop-chromium"?"2099-12-01":"2099-12-02");
+  await page.getByLabel("Čas začiatku").fill("10:00");
+  await page.getByLabel("Dátum konca").fill(project==="desktop-chromium"?"2099-12-01":"2099-12-02");
+  await page.getByLabel("Čas konca").fill("16:00");
+  await page.getByLabel("Miesto").fill(project==="desktop-chromium"?"E2E Nový Areál Desktop":"E2E Nový Areál Mobile");
+  await page.getByLabel("Mesto / Online").fill(project==="desktop-chromium"?"Nitra":"Trnava");
+  await page.getByLabel("Kraj").selectOption(project==="desktop-chromium"?"Nitriansky kraj":"Trnavský kraj");
+  await page.getByLabel("Adresa").fill("E2E Eventová 1");
+  await page.getByLabel("Organizátor").fill("Psipedia Partner E2E");
+  await page.getByLabel("Popis",{exact:true}).fill("Toto je dostatočne dlhý opis nového Partner podujatia, ktoré musí prejsť moderáciou.");
+  await page.getByLabel("Praktické informácie").fill("Registrácia je povinná.");
+  await page.getByLabel("Web").fill(project==="desktop-chromium"?"https://example.sk/new-event-desktop":"https://example.sk/new-event-mobile");
+  await page.getByRole("textbox",{name:"Registrácia",exact:true}).fill(project==="desktop-chromium"?"https://example.sk/new-event-desktop/register":"https://example.sk/new-event-mobile/register");
+  await expectNoHorizontalOverflow(page);
+  const createAccessibility=await new AxeBuilder({page}).analyze();
+  expect(createAccessibility.violations).toEqual([]);
+  await page.getByRole("button",{name:"Odoslať na kontrolu"}).click();
+  await expect(page.getByRole("status")).toContainText("Podujatie sme prijali a čaká na kontrolu.");
+
+  const canonicalBeforeCreate=await page.request.get("/api/admin/events");
+  expect(canonicalBeforeCreate.ok()).toBeTruthy();
+  const canonicalBeforeCreateJson=await canonicalBeforeCreate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
+  expect(canonicalBeforeCreateJson.events?.find(item=>item.title===newEventTitle)).toBeUndefined();
+
+  await page.goto("/partner/podujatia");
+  const editCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
+  await editCard.getByRole("link",{name:"Upraviť"}).click();
+  await page.getByLabel("Miesto").fill(changedVenue);
+  await expectNoHorizontalOverflow(page);
+  await page.getByRole("button",{name:"Odoslať zmeny na kontrolu"}).click();
+  await expect(page.getByRole("status")).toContainText("Zmeny podujatia sme prijali a čakajú na kontrolu.");
+
+  const canonicalBeforeUpdate=await page.request.get("/api/admin/events");
+  expect(canonicalBeforeUpdate.ok()).toBeTruthy();
+  const canonicalBeforeUpdateJson=await canonicalBeforeUpdate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
+  expect(canonicalBeforeUpdateJson.events?.find(item=>item.title===ownedEventTitle)?.venue).toBe(originalVenue);
+
+  await page.goto("/partner/ziadosti");
+  const eventRequests=page.locator("section.partner-requests-section").filter({has:page.getByRole("heading",{name:"Návrhy podujatí"})});
+  await expect(eventRequests.locator("article").filter({hasText:newEventTitle})).toContainText("Čaká na kontrolu");
+  await expect(eventRequests.locator("article").filter({hasText:ownedEventTitle})).toContainText("Čaká na kontrolu");
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/partner/ziadosti");
@@ -266,6 +325,62 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(linkedMembership).toContainText("OWNER");
     await page.goto("/admin/partners");
   }
+
+  const eventCreateTitle=project==="desktop-chromium"?"Partner E2E Nové Podujatie Desktop":"Partner E2E Nové Podujatie Mobile";
+  const ownedEventTitle=project==="desktop-chromium"?"Partner E2E Publikované Podujatie":"Partner E2E Koncept Podujatie";
+  const changedVenue=project==="desktop-chromium"?"Areál Desktop Zmenený":"Areál Mobile Zmenený";
+  const expectedPublicationStatus=project==="desktop-chromium"?"published":"draft";
+
+  await page.goto("/admin/partners");
+  await expect(page.getByRole("link",{name:/Podujatia 2/})).toBeVisible();
+  await page.getByRole("link",{name:/Podujatia 2/}).click();
+  await expect(page.getByRole("heading",{name:"Podujatia"})).toBeVisible();
+
+  const createEventRow=page.locator(".admin-commercial-list article").filter({hasText:eventCreateTitle});
+  await expect(createEventRow).toContainText("CREATE");
+  await createEventRow.getByRole("link",{name:"Detail →"}).click();
+  await expect(page.getByRole("heading",{name:"Údaje na vytvorenie"})).toBeVisible();
+  const createEventResponse=page.waitForResponse(response=>
+    response.url().includes("/api/admin/partners/events/") &&
+    response.request().method()==="PATCH" && response.ok(),
+  );
+  page.once("dialog",dialog=>void dialog.accept());
+  await page.getByRole("button",{name:"CREATE EVENT (DRAFT)"}).click();
+  await createEventResponse;
+  await expect(page.getByText("CREATED_NEW")).toBeVisible();
+
+  const canonicalAfterCreate=await page.request.get("/api/admin/events");
+  expect(canonicalAfterCreate.ok()).toBeTruthy();
+  const canonicalAfterCreateJson=await canonicalAfterCreate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
+  expect(canonicalAfterCreateJson.events?.find(item=>item.title===eventCreateTitle)?.status).toBe("draft");
+
+  await page.goto("/admin/partners/events?status=active");
+  const updateEventRow=page.locator(".admin-commercial-list article").filter({hasText:ownedEventTitle});
+  await expect(updateEventRow).toContainText("UPDATE");
+  await updateEventRow.getByRole("link",{name:"Detail →"}).click();
+  await expect(page.getByRole("heading",{name:"OLD → NEW"})).toBeVisible();
+  await expect(page.getByText(changedVenue,{exact:true}).first()).toBeVisible();
+  const approveEventResponse=page.waitForResponse(response=>
+    response.url().includes("/api/admin/partners/events/") &&
+    response.request().method()==="PATCH" && response.ok(),
+  );
+  page.once("dialog",dialog=>void dialog.accept());
+  await page.getByRole("button",{name:"Schváliť zmeny"}).click();
+  await approveEventResponse;
+  await expect(page.getByText("UPDATED")).toBeVisible();
+
+  const canonicalAfterUpdate=await page.request.get("/api/admin/events");
+  expect(canonicalAfterUpdate.ok()).toBeTruthy();
+  const canonicalAfterUpdateJson=await canonicalAfterUpdate.json() as {events?:Array<{title?:string;venue?:string;status?:string}>};
+  const updatedEvent=canonicalAfterUpdateJson.events?.find(item=>item.title===ownedEventTitle);
+  expect(updatedEvent?.venue).toBe(changedVenue);
+  expect(updatedEvent?.status).toBe(expectedPublicationStatus);
+
+  // The isolated Partner D1 fixture intentionally does not seed managed portal sections.
+  // Canonical API assertions above prove the approved patch and publication-status preservation;
+  // public route rendering is covered by the dedicated event/public E2E suites.
+  await page.goto("/admin/partners");
+  await expect(page.getByRole("link",{name:/Podujatia 0/})).toBeVisible();
 
   if(project==="desktop-chromium"){
     await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();

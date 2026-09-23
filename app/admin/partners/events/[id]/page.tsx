@@ -1,0 +1,26 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { AdminShell } from "@/components/admin-shell";
+import { AdminPartnerEventActions } from "@/components/admin-partner-event-actions";
+import { requireAdminPageUser } from "@/lib/admin-auth";
+import { getPartnerEventAdmin } from "@/lib/partner-events-admin";
+import "../../partners.css";
+export const dynamic="force-dynamic";
+function value(v:unknown){if(typeof v==="boolean")return v?"Áno":"Nie";if(v===null||v===undefined||v==="")return "—";return String(v);}
+export default async function Page({params}:{params:Promise<{id:string}>}){
+ const {id}=await params;const user=await requireAdminPageUser(`/admin/partners/events/${id}`);const item=await getPartnerEventAdmin(id);if(!item)notFound();
+ const title=String(item.proposedPatch.title??item.currentTitle??"Podujatie");const stale=item.riskFlags.includes("STALE_BASE");
+ return <AdminShell user={user} eyebrow="Partner — podujatie" title={title} description={`${item.statusLabel} · ${item.operation} · ${item.changedFieldCount} polí`}>
+  {stale?<section className="admin-partner-conflict"><strong>⚠ STALE_BASE</strong><p>Canonical event sa od odoslania zmenil. Approval aplikuje iba explicitné polia patchu; slug a publication status zostávajú zachované.</p></section>:null}
+  {item.riskFlags.length?<section className="admin-form-card"><h2>Risk flags</h2><div className="admin-partner-risk-list">{item.riskFlags.map(flag=><span key={flag}>{flag}</span>)}</div></section>:null}
+  <div className="admin-partner-detail">
+   <section className="admin-form-card"><h2>Partner</h2><p>{item.email}</p><Link href={`/admin/partners/accounts/${item.accountId}`}>Partner účet →</Link></section>
+   <section className="admin-form-card"><h2>Moderation</h2><p>{item.operation} · {item.status}</p>{item.currentSlug&&item.currentStatus==="published"?<Link href={`/podujatia/${item.currentSlug}`} target="_blank">Verejné podujatie ↗</Link>:null}</section>
+  </div>
+  {item.operation==="CREATE"?<section className="admin-form-card admin-profile-diff"><div className="admin-profile-diff-heading"><div><span className="eyebrow">Navrhované podujatie</span><h2>Údaje na vytvorenie</h2></div><p>CREATE vždy vytvorí DRAFT. Slug generuje server; SEO, media a publication Partner nenastavuje.</p></div><div className="admin-profile-diff-list">{Object.entries(item.proposedPatch).map(([field,v])=><article key={field}><h3>{field}</h3><pre>{value(v)}</pre></article>)}</div></section>:null}
+  {item.operation==="CREATE"?<section className="admin-form-card"><h2>Duplicate candidate</h2>{item.duplicateCandidateId?<><p><strong>{item.candidateTitle}</strong> · #{item.duplicateCandidateId} · {item.candidateStartDate} · {item.candidateCity}</p><p>{item.duplicateReasons.join(" · ")}</p>{item.candidateSlug&&item.candidateStatus==="published"?<Link href={`/podujatia/${item.candidateSlug}`} target="_blank">Verejné podujatie ↗</Link>:null}</>:<p>Deterministická kontrola nenašla kandidáta.</p>}</section>:null}
+  {item.operation==="UPDATE"?<section className="admin-form-card admin-profile-diff"><div className="admin-profile-diff-heading"><div><span className="eyebrow">Moderation diff</span><h2>OLD → NEW</h2></div><p>{stale?"Zobrazená je pôvodná, aktuálna a navrhovaná hodnota.":"Zobrazené sú iba explicitne zmenené polia."}</p></div><div className="admin-profile-diff-list">{item.diff.map(field=><article key={String(field.field)} className={field.currentChangedFromBase?"is-stale":undefined}><h3>{String(field.field)}</h3>{stale?<div className="admin-profile-diff-base"><span>Partner pôvodne videl</span><pre>{value(field.baseValue)}</pre></div>:null}<div className="admin-profile-diff-columns"><div><span>Aktuálna hodnota</span><pre>{value(field.currentValue)}</pre></div><div><span>Navrhovaná hodnota</span><pre>{value(field.proposedValue)}</pre></div></div></article>)}</div></section>:null}
+  <section className="admin-form-card"><h2>Moderation history</h2><div className="admin-audit-list">{item.moderation.length?item.moderation.map((event,index)=><article key={String((event as {id?:unknown}).id??index)}><strong>{String((event as {action?:unknown}).action??"")}</strong><span>{String((event as {from_status?:unknown}).from_status??"—")} → {String((event as {to_status?:unknown}).to_status??"—")}</span><small>{new Date(String((event as {created_at?:unknown}).created_at??item.createdAt)).toLocaleString("sk-SK")}</small></article>):<p>Bez udalostí.</p>}</div></section>
+  {item.active?<AdminPartnerEventActions id={item.id} operation={item.operation} candidateId={item.duplicateCandidateId}/>:<section className="admin-form-card"><h2>Výsledok</h2><p>{item.statusLabel}</p>{item.rejectionReasonCode?<p>Dôvod: {item.rejectionReasonCode}</p>:null}{item.resolutionType?<p>Resolution: {item.resolutionType} · event #{item.resolvedEventId}</p>:null}</section>}
+ </AdminShell>;
+}

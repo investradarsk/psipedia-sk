@@ -2,11 +2,13 @@ import Link from "next/link";
 import { PartnerClaimCancelButton, PartnerVerificationRequest } from "@/components/partner-request-actions";
 import { PartnerProfileChangeWithdrawButton } from "@/components/partner-profile-change-actions";
 import { PartnerNewProfileWithdrawButton } from "@/components/partner-new-profile-actions";
+import { PartnerEventWithdrawButton } from "@/components/partner-event-actions";
 import { PartnerShell } from "@/components/partner-shell";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { listPartnerClaims, listPartnerVerificationResources } from "@/lib/partner-claims";
 import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
 import { listPartnerNewProfiles } from "@/lib/partner-new-profile";
+import { listPartnerEventSubmissions } from "@/lib/partner-events";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +27,12 @@ const verificationLabels = {
 
 export default async function Page() {
   const identity = await requirePartnerPageIdentity();
-  const [claims, resources, profileChanges, newProfiles] = await Promise.all([
+  const [claims, resources, profileChanges, newProfiles, eventSubmissions] = await Promise.all([
     listPartnerClaims(identity.accountId),
     listPartnerVerificationResources(identity.accountId),
     listPartnerProfileChanges(identity.accountId),
     listPartnerNewProfiles(identity.accountId),
+    listPartnerEventSubmissions(identity.accountId),
   ]);
 
   return (
@@ -84,6 +87,32 @@ export default async function Page() {
             </div>
           </article>
         ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte návrh nového profilu</h2><p>Ak svoj profil na Psipedii nenájdete, môžete ho navrhnúť na moderátorskú kontrolu.</p></div>}
+      </section>
+
+      <section className="partner-requests-section">
+        <div className="partner-section-heading">
+          <div><span className="eyebrow">Podujatia</span><h2>Návrhy podujatí</h2></div>
+          <Link href="/partner/podujatia/nove">Pridať podujatie</Link>
+        </div>
+        {eventSubmissions.length ? <div className="partner-request-list">{eventSubmissions.map((submission) => (
+          <article key={submission.id}>
+            <div className="partner-request-title">
+              <div><span>{submission.operation === "CREATE" ? "Nové podujatie" : "Úprava podujatia"}</span><h3>{submission.title}</h3></div>
+              <strong>{submission.statusLabel}</strong>
+            </div>
+            <dl>
+              <div><dt>Odoslané</dt><dd>{new Date(submission.createdAt).toLocaleString("sk-SK")}</dd></div>
+              <div><dt>Operácia</dt><dd>{submission.operation}</dd></div>
+            </dl>
+            {submission.resolutionType === "CREATED_NEW" ? <p>Podujatie bolo vytvorené ako koncept a zatiaľ nemusí byť verejne publikované.</p> : null}
+            {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim podujatím.</p> : null}
+            {submission.rejectionReason ? <p><strong>Dôvod:</strong> {submission.rejectionReason}</p> : null}
+            <div className="partner-request-links">
+              {submission.canonicalHref ? <Link href={submission.canonicalHref} target="_blank">Verejné podujatie ↗</Link> : null}
+              {submission.canWithdraw ? <PartnerEventWithdrawButton id={submission.id} /> : null}
+            </div>
+          </article>
+        ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte návrh podujatia</h2><p>Nové podujatie alebo úpravu vlastného podujatia môžete odoslať zo sekcie Moje podujatia.</p></div>}
       </section>
 
       <section className="partner-requests-section">

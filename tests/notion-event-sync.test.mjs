@@ -9,6 +9,7 @@ const eventRouteSource = await readFile(new URL("../app/api/admin/events/[id]/ro
 const bulkRouteSource = await readFile(new URL("../app/api/admin/events/bulk/route.ts", import.meta.url), "utf8");
 const workerSource = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
 const migrationSource = await readFile(new URL("../drizzle/0047_notion_event_sync.sql", import.meta.url), "utf8");
+const partnerEventsMigrationSource = await readFile(new URL("../drizzle/0067_partner_events.sql", import.meta.url), "utf8");
 const wranglerSource = await readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 
 test("Ready Notion events flow into Psipedia as draft only", () => {
@@ -85,4 +86,15 @@ test("publishing a Notion-linked event writes public state back to Notion", () =
   assert.match(eventRouteSource, /before\.status !== "published" && event\.status === "published"/);
   assert.match(eventRouteSource, /writeBackPublishedEventToNotion/);
   assert.match(bulkRouteSource, /writeBackPublishedEventToNotion/);
+});
+
+
+test("Partner-approved event edits lock inbound Notion sync without deleting the mapping", () => {
+  assert.match(partnerEventsMigrationSource, /event_notion_sync/);
+  assert.match(partnerEventsMigrationSource, /inbound_locked_at/);
+  assert.match(partnerEventsMigrationSource, /PARTNER_MODERATION/);
+  assert.match(syncSource, /SELECT event_id, content_hash, inbound_locked_at, inbound_lock_reason FROM event_notion_sync/);
+  assert.match(syncSource, /mapping\.inbound_locked_at/);
+  assert.match(syncSource, /Partner moderation owns inbound priority/);
+  assert.match(syncSource, /return "unchanged"/);
 });

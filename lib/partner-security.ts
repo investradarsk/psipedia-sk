@@ -133,3 +133,48 @@ export async function enforcePartnerNewProfileScanRateLimit(input: {
   }
   return result;
 }
+
+
+export async function enforcePartnerEventCreateRateLimit(input: {
+  database: D1Database;
+  accountId: string;
+  identityFingerprint: string;
+  hashKey: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const store = createD1RateLimitStore(input.database);
+  const [accountKey, identityKey] = await Promise.all([
+    deriveRateLimitKey("partner-event-create-account", input.accountId, input.hashKey),
+    deriveRateLimitKey("partner-event-create-identity", input.accountId + ":" + input.identityFingerprint, input.hashKey),
+  ]);
+  const [accountResult, identityResult] = await Promise.all([
+    enforceRateLimit(store, accountKey, 12, 60 * 60, now),
+    enforceRateLimit(store, identityKey, 3, 60 * 60, now),
+  ]);
+  if (!accountResult.allowed || !identityResult.allowed) {
+    throw new PartnerSecurityError("Za krátky čas bolo odoslaných priveľa návrhov podujatí. Skúste to neskôr.", 429);
+  }
+  return { account: accountResult, identity: identityResult };
+}
+
+export async function enforcePartnerEventUpdateRateLimit(input: {
+  database: D1Database;
+  accountId: string;
+  resourceId: string;
+  hashKey: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const store = createD1RateLimitStore(input.database);
+  const key = await deriveRateLimitKey(
+    "partner-event-update",
+    input.accountId + ":" + input.resourceId,
+    input.hashKey,
+  );
+  const result = await enforceRateLimit(store, key, 8, 60 * 60, now);
+  if (!result.allowed) {
+    throw new PartnerSecurityError("Za krátky čas bolo odoslaných priveľa návrhov úprav podujatia. Skúste to neskôr.", 429);
+  }
+  return result;
+}
