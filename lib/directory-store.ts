@@ -579,7 +579,7 @@ function normalizeStringList(value: unknown) {
   return [...new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))].slice(0, 20);
 }
 
-function normalizeProfileInput(
+export function normalizeManagedDirectoryProfileInput(
   payload: ManagedDirectoryProfileInput,
   currentImportData: Record<string, string | number | null> | null = null,
 ) {
@@ -648,6 +648,43 @@ function normalizeProfileInput(
     seo: cleanEditableSeo(payload.seo),
     searchText: directorySearchText({ name, excerpt, description, services, qualifications, city, district, region, address }),
   };
+}
+
+export function buildManagedDirectoryProfileCreateStatement(
+  database: D1Database,
+  input: ReturnType<typeof normalizeManagedDirectoryProfileInput>,
+  editorEmail: string,
+  nowIso: string,
+  guard?: { submissionId: string; actorRef: string },
+) {
+  const columns = `slug, name, category, status, excerpt, description, services_json, qualifications_json,
+    city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
+    source_data_json, verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by`;
+  const values = [
+    input.slug, input.name, input.category, input.status, input.excerpt, input.description,
+    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
+    input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
+    JSON.stringify(input.seo), input.searchText, nowIso, nowIso, input.status === "published" ? nowIso : null, editorEmail, editorEmail,
+  ];
+  if (!guard) {
+    return database.prepare(`INSERT INTO directory_profiles (${columns})
+      VALUES (${values.map(() => "?").join(",")}) RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(...values);
+  }
+  const guardedValues = [
+    input.slug, input.name, input.category, input.excerpt, input.description,
+    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
+    input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
+    JSON.stringify(input.seo), input.searchText, nowIso, nowIso, editorEmail, editorEmail,
+  ];
+  return database.prepare(`INSERT INTO directory_profiles (${columns})
+    SELECT ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?
+    WHERE EXISTS(
+      SELECT 1 FROM moderation_submissions
+      WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?
+    )
+    RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(...guardedValues, guard.submissionId, nowIso, guard.actorRef);
 }
 
 export async function getPublishedDirectoryProfiles(category?: DirectoryCategorySlug, limit = 500) {
@@ -880,21 +917,9 @@ export async function getManagedDirectoryProfileById(id: number) {
 export async function createManagedDirectoryProfile(payload: ManagedDirectoryProfileInput, editorEmail: string) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const input = normalizeProfileInput(payload);
+  const input = normalizeManagedDirectoryProfileInput(payload);
   const now = new Date().toISOString();
-  const row = await database.prepare(`
-    INSERT INTO directory_profiles (
-      slug, name, category, status, excerpt, description, services_json, qualifications_json,
-      city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
-      source_data_json, verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${DIRECTORY_PROFILE_COLUMNS}
-  `).bind(
-    input.slug, input.name, input.category, input.status, input.excerpt, input.description,
-    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
-    input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
-    now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
-  ).first<DirectoryProfileRow>();
+  const row = await buildManagedDirectoryProfileCreateStatement(database, input, editorEmail, now).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
   await ensureResourceForDirectoryProfile(row.id, database, new Date(now));
   return rowToManagedProfile(row);
@@ -906,7 +931,7 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
   const existing = existingProfile ?? await getManagedDirectoryProfileById(id);
   if (!existing) return null;
   if (existing.status === "archived") throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
-  const input = normalizeProfileInput(payload, existing.importData);
+  const input = normalizeManagedDirectoryProfileInput(payload, existing.importData);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`

@@ -65,6 +65,41 @@ export function isOrganizationAdminWriteConflict(error: unknown) {
     || error instanceof OrganizationPublicationTransitionError;
 }
 
+export function buildOrganizationCreateStatement(
+  database: AdoptionD1Database,
+  input: OrganizationAdminInput,
+  editorEmail: string,
+  timestamp: string,
+  guard?: { submissionId: string; actorRef: string },
+) {
+  const columns = `name, slug, legal_name, registration_number, type, status,
+    short_description, description, public_email, public_phone,
+    website_url, facebook_url, instagram_url,
+    address, city, district, region, country_code,
+    image_url, image_key, directory_profile_id, import_key, source_url,
+    source_data_json, seo_json, published_at, last_verified_at, archived_at,
+    created_at, updated_at, created_by, updated_by`;
+  const values = [
+    input.name, input.slug, input.legalName, input.registrationNumber, input.type,
+    input.shortDescription, input.description, input.publicEmail, input.publicPhone,
+    input.websiteUrl, input.facebookUrl, input.instagramUrl,
+    "", "", "", "", "SK",
+    input.imageUrl, input.imageKey, null, null, input.sourceUrl,
+    "{}", "{}", null, null, null,
+    timestamp, timestamp, editorEmail, editorEmail,
+  ];
+  if (!guard) {
+    return database.prepare(`INSERT INTO help_organizations (${columns})
+      VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(...values);
+  }
+  return database.prepare(`INSERT INTO help_organizations (${columns})
+    SELECT ?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE EXISTS(
+      SELECT 1 FROM moderation_submissions
+      WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?
+    )`).bind(...values, guard.submissionId, timestamp, guard.actorRef);
+}
+
 export async function createOrganizationFromAdmin(
   payload: unknown,
   editorEmail: string,
@@ -75,22 +110,7 @@ export async function createOrganizationFromAdmin(
   const db = requireD1Binding(database);
   const timestamp = now.toISOString();
   try {
-    const result = await db.prepare(`
-      INSERT INTO help_organizations (
-        name, slug, legal_name, registration_number, type, status,
-        short_description, description, public_email, public_phone,
-        website_url, facebook_url, instagram_url,
-        address, city, district, region, country_code,
-        image_url, image_key, directory_profile_id, import_key, source_url,
-        source_data_json, seo_json, published_at, last_verified_at, archived_at,
-        created_at, updated_at, created_by, updated_by
-      ) VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, '', '', '', '', 'SK', ?, ?, NULL, NULL, ?, '{}', '{}', NULL, NULL, NULL, ?, ?, ?, ?)
-    `).bind(
-      input.name, input.slug, input.legalName, input.registrationNumber, input.type,
-      input.shortDescription, input.description, input.publicEmail, input.publicPhone,
-      input.websiteUrl, input.facebookUrl, input.instagramUrl, input.imageUrl, input.imageKey,
-      input.sourceUrl, timestamp, timestamp, editorEmail, editorEmail,
-    ).run() as RunResult;
+    const result = await buildOrganizationCreateStatement(db, input, editorEmail, timestamp).run() as RunResult;
     const id = Number(result.meta?.last_row_id ?? 0);
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Databáza nevrátila ID novej organizácie.");
     await ensureResourceForHelpOrganization(id, db, now);
