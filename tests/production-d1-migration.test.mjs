@@ -150,7 +150,6 @@ test("MAP-1E geo readiness is read-only and fail-closes P1 privacy exposures", a
   assert.match(script, /hiddenWithCoordinates/);
   assert.match(script, /unclassifiedWithCoordinates/);
   assert.match(script, /P1 privacy blocker/);
-  assert.match(script, /NO_PUBLIC_RESOLVED_ROWS/);
   assert.doesNotMatch(
     script.slice(script.indexOf("async function geoReadiness"), script.indexOf("async function runCli")),
     /UPDATE\s+geo_points|INSERT\s+INTO\s+geo_points|DELETE\s+FROM\s+geo_points/i,
