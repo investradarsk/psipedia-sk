@@ -11,7 +11,7 @@ import {
   safeGeoErrorStatus,
   sourceGeoFingerprint,
 } from "../lib/geo.ts";
-import { chooseGeocoderResult } from "../lib/geo-service.ts";
+import { chooseGeocoderResult, summarizeGeoDiagnosticResults } from "../lib/geo-service.ts";
 import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 import { GeocoderProviderError } from "../lib/geo-provider.ts";
 import { selectGeoCanaryCandidates } from "../lib/geo-operations.ts";
@@ -267,6 +267,30 @@ test("conservative result chooser rejects ambiguity, wrong country and low confi
   }).errorCode, "AMBIGUOUS");
 });
 
+
+test("admin geocoder diagnostics expose bounded decision metadata without persisting provider candidates", () => {
+  const candidates = summarizeGeoDiagnosticResults([
+    {
+      latitude: 48.1, longitude: 17.1, country: "Slovakia", countryCode: "SK",
+      region: "Bratislavský kraj", district: "Bratislava I", city: "Bratislava",
+      resultType: "building", confidence: 0.93, cityConfidence: 1, streetConfidence: 1,
+      buildingConfidence: 0.7, matchType: "full_match", provider: "geoapify", provenance: "OSM",
+      sourceLicense: "ODbL", providerResultId: "1",
+    },
+    {
+      latitude: 48.2, longitude: 17.2, country: "Slovakia", countryCode: "SK",
+      region: "Bratislavský kraj", district: "Bratislava I", city: "Bratislava",
+      resultType: "street", confidence: 0.91, cityConfidence: 1, streetConfidence: 0.9,
+      buildingConfidence: null, matchType: "match_by_building", provider: "geoapify", provenance: "OSM",
+      sourceLicense: "ODbL", providerResultId: "2",
+    },
+  ]);
+  assert.equal(candidates.length, 2);
+  assert.deepEqual(Object.keys(candidates[0]).sort(), [
+    "buildingConfidence", "city", "cityConfidence", "confidence", "countryCode",
+    "district", "matchType", "region", "resultType", "streetConfidence",
+  ].sort());
+});
 
 test("Geoapify adapter handles disabled, normalized success and 429 retryability with injected fetch", async () => {
   const disabled = new GeoapifyGeocoder({ apiKey: "" });
