@@ -7,7 +7,6 @@ import {
   PARTNER_AUTH_PURPOSE,
   PARTNER_SESSION_COOKIE,
   activateVerifiedPartnerAccount,
-  createOrGetPendingPartnerAccount,
   createPendingPartnerAccountIfMissing,
   createPartnerSession,
   deactivatePartnerAccount,
