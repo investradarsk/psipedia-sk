@@ -355,7 +355,7 @@ export async function scanPartnerNewProfileDuplicates(
       SELECT id,name,category,city,address,website_url websiteUrl,source_data_json sourceDataJson,status,slug
       FROM directory_profiles
       WHERE status<>'archived'
-      ORDER BY id DESC LIMIT 5000
+      ORDER BY id DESC
     `).all<DirectoryCandidateRow>();
     for (const row of rows.results) {
       const contacts = readDirectoryPublicContacts(safeSourceData(row.sourceDataJson), row.websiteUrl ?? "");
@@ -391,7 +391,7 @@ export async function scanPartnerNewProfileDuplicates(
         ORDER BY x.is_primary DESC,x.sort_order ASC,x.id ASC LIMIT 1
       )
       WHERE o.status<>'ARCHIVED'
-      ORDER BY o.id DESC LIMIT 5000
+      ORDER BY o.id DESC
     `).all<HelpCandidateRow>();
     for (const row of rows.results) {
       const candidate = evaluatePartnerDuplicateCandidate({
