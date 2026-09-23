@@ -60,3 +60,16 @@ test("map, cookie, privacy and terms surfaces disclose Google Maps", async () =>
   ]);
   for (const source of sources) assert.match(source, /Google Maps/);
 });
+
+
+test("Geoapify credential is server-secret only", async () => {
+  const runtimeEnv = await readFile(path.join(root, "config/runtime-env.ts"), "utf8");
+  const example = await readFile(path.join(root, ".env.example"), "utf8");
+  const geocoder = await readFile(path.join(root, "lib/geoapify-geocoder.ts"), "utf8");
+  assert.match(runtimeEnv, /SECRET_ENV_NAMES[\s\S]*"GEOAPIFY_API_KEY"/);
+  assert.doesNotMatch(runtimeEnv, /OPTIONAL_ENV_NAMES[\s\S]*"GEOAPIFY_API_KEY"[\s\S]*CI_ONLY_ENV_NAMES/);
+  assert.match(example, /GEOAPIFY_API_KEY=\n/);
+  assert.doesNotMatch(example, /NEXT_PUBLIC_GEOAPIFY/i);
+  assert.doesNotMatch(geocoder, /NEXT_PUBLIC_GEOAPIFY|process\.env\.GEOAPIFY/i);
+  assert.match(geocoder, /cloudflare:workers/);
+});
