@@ -64,9 +64,11 @@ test("Google Maps consent is explicit and deny-by-default", () => {
 test("renderer requires launch flag and consent before Google load", async () => {
   const renderer = await readFile(path.join(root, "components/map/google-map-renderer.tsx"), "utf8");
   const page = await readFile(path.join(root, "app/mapa/page.tsx"), "utf8");
+  const runtimeEnv = await readFile(path.join(root, "config/runtime-env.ts"), "utf8");
   assert.match(renderer, /!launchEnabled \|\| !consentGranted \|\| configMissing/);
-  assert.match(page, /PUBLIC_MAP_ENABLED/);
-  assert.match(page, /publicMapEnabled \? process\.env\.GOOGLE_MAPS_BROWSER_API_KEY/);
+  assert.match(runtimeEnv, /PUBLIC_MAP_ENABLED/);
+  assert.match(page, /publicMapLaunchEnabled\(launchEnv\)/);
+  assert.match(page, /publicMapEnabled \? launchEnv\.GOOGLE_MAPS_BROWSER_API_KEY/);
 });
 
 test("readiness audit exposes only a read-only D1 execution path", async () => {
