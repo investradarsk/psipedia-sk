@@ -166,3 +166,13 @@ test("scope excludes Partner media upload, premium entitlement, billing and dire
  assert.doesNotMatch(domain,/status:"published"|status='published'/i);
  assert.doesNotMatch(partnerApi,/publish/i);
 });
+
+
+test("Partner approval locks inbound Notion sync but does not invoke Notion directly",()=>{
+  const update=admin.slice(admin.indexOf("export async function approvePartnerEventUpdateAdmin"),admin.indexOf("export const partnerEventRejectionReasons"));
+  assert.match(migration,/ALTER TABLE `event_notion_sync` ADD COLUMN `inbound_locked_at`/);
+  assert.match(migration,/PARTNER_MODERATION/);
+  assert.match(update,/UPDATE event_notion_sync SET inbound_locked_at=/);
+  assert.match(update,/inbound_lock_reason='PARTNER_MODERATION'/);
+  assert.doesNotMatch(update,/notionRequest|runNotionEventSyncSweep|writeBackPublishedEventToNotion/);
+});
