@@ -84,7 +84,7 @@ The same protected audit also runs a **read-only production privacy smoke** agai
 - a public API item is not backed by a currently eligible public `geo_points` row;
 - a hidden, stale, pending, failed or otherwise ineligible geo target appears in the public payload;
 - an `APPROXIMATE_PUBLIC` row uses `EXACT` precision;
-- an `EXACT_PUBLIC + RESOLVED` marker lacks an admin moderation event proving explicit visibility review (or manual marker placement);
+- an `EXACT_PUBLIC + RESOLVED` marker lacks a current admin moderation event proving explicit visibility review (or manual marker placement); a later `GEO_SOURCE_STALE` event invalidates the older approval until the changed exact source is reviewed again;
 - an approximate item serializes its source street address;
 - raw/internal geo fields such as source fingerprints, provider/error metadata or raw `address` appear in the public payload.
 
