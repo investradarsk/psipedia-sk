@@ -34,6 +34,10 @@ CREATE INDEX `partner_commercial_agreement_resource_status_idx`
 CREATE INDEX `partner_commercial_agreement_payment_status_idx`
   ON `partner_commercial_agreements`(`payment_status`,`status`,`updated_at`);
 
+CREATE UNIQUE INDEX `partner_commercial_promotion_provenance_unique`
+  ON `monetization_promotions`(`provenance`)
+  WHERE substr(`provenance`,1,18)='partner-agreement:';
+
 CREATE TABLE `partner_entitlements` (
   `id` text PRIMARY KEY NOT NULL,
   `account_id` text NOT NULL REFERENCES `partner_accounts`(`id`) ON DELETE RESTRICT,
