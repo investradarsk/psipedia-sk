@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { partnerEventFields, type PartnerEventPatch } from "@/lib/partner-events";
+import { partnerEventFields, type PartnerEventPatch } from "@/lib/partner-event-fields";
 
 type DuplicateCandidate={id:number;title:string;startDate:string;city:string;confidence:string;reasons:string[]};
 type Props={mode:"create"|"edit";resourceId?:string;baseRevision?:string;initial?:PartnerEventPatch};
