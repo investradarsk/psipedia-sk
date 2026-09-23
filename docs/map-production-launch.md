@@ -184,6 +184,26 @@ Before setting the flag:
 
 Do not use an unrestricted browser key.
 
+### Psipedia Cloudflare runtime placement
+
+The current deploy command uses Wrangler with `--keep-vars`, so externally configured Worker variables are preserved across normal deployments.
+
+Use the production Worker runtime configuration as follows:
+
+- `GEOAPIFY_API_KEY` — Cloudflare **Secret** (encrypted server-side binding);
+- `GOOGLE_MAPS_BROWSER_API_KEY` — Worker variable configured outside source control;
+- `GOOGLE_MAPS_MAP_ID` — Worker variable configured outside source control;
+- `PUBLIC_MAP_ENABLED` — Worker variable, keep `0`/unset until the final launch gate.
+
+Recommended rollout order:
+
+1. configure Geoapify secret only when the real provider key exists;
+2. configure restricted Google Browser key + Map ID while `PUBLIC_MAP_ENABLED` is still off;
+3. complete real renderer/privacy/CSP smoke;
+4. set `PUBLIC_MAP_ENABLED=1` only after every launch blocker is cleared.
+
+Never commit credential values to `wrangler.jsonc`, `.env.example`, workflow YAML or documentation.
+
 The current production page itself reports **Google Maps nie je nakonfigurovaný**, so credentials are not presently proven available.
 
 ## Current Google cost model
