@@ -100,3 +100,9 @@ CREATE TRIGGER `partner_audit_events_no_update`
 CREATE TRIGGER `partner_audit_events_no_delete`
   BEFORE DELETE ON `partner_audit_events`
   BEGIN SELECT RAISE(ABORT, 'partner_audit_events is append-only'); END;
+
+
+-- Source priority: once an admin approves a Partner UPDATE, canonical D1 wins over inbound Notion sync.
+ALTER TABLE `event_notion_sync` ADD COLUMN `inbound_locked_at` text;
+ALTER TABLE `event_notion_sync` ADD COLUMN `inbound_lock_reason` text
+  CHECK (`inbound_lock_reason` IS NULL OR `inbound_lock_reason` IN ('PARTNER_MODERATION'));
