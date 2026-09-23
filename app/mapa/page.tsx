@@ -19,10 +19,12 @@ type Props = {
 };
 
 export default async function MapPage({ searchParams }: Props) {
-  const initialFilters = parseMapUiFilters(await searchParams);
+  const rawSearchParams = await searchParams;
+  const initialFilters = parseMapUiFilters(rawSearchParams);
   const googleApiKey = process.env.GOOGLE_MAPS_BROWSER_API_KEY ?? "";
   const googleMapId = process.env.GOOGLE_MAPS_MAP_ID ?? "";
-  const testRenderer = process.env.MAP_UI_TEST_RENDERER === "1";
+  const testRenderer = process.env.MAP_UI_TEST_RENDERER === "1"
+    && rawSearchParams.__mapRenderer !== "real";
 
   return (
     <main id="obsah" className={styles.page}>
