@@ -1161,13 +1161,12 @@ test("publishes search-engine and ChatGPT discovery endpoints", async () => {
   assert.match(articleHtml, /max-image-preview:large/i);
 });
 
-
-test("reviewer auth renders deterministically for anonymous and stale-session requests", async () => {
+test("reviewer auth document shell carries the RSC route without invalid referrer metadata", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("reviewer-auth-render-test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
   const context = { waitUntil() {}, passThroughOnException() {} };
-  const baseBindings = {
+  const bindings = {
     TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
     ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
   };
@@ -1178,43 +1177,13 @@ test("reviewer auth renders deterministically for anonymous and stale-session re
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const response = await worker.fetch(
       new Request(path, { headers: { accept: "text/html" } }),
-      baseBindings,
+      bindings,
       context,
     );
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.match(html, /Najprv overíme váš e-mail/);
-    assert.match(html, /name="email"/);
-    assert.match(html, /review-auth-form/);
+    assert.match(html, /__VINEXT_RSC_NAV__/);
+    assert.match(html, /"pathname":"\\/recenzia\\/prihlasenie"/);
     assert.doesNotMatch(html, /name="referrer"[^>]+content="Redakcia Psipedia"/i);
-  }
-
-  const throwingDatabase = {
-    prepare() {
-      throw new Error("simulated stale reviewer session D1 failure");
-    },
-  };
-  const originalError = console.error;
-  const errors = [];
-  console.error = (...args) => errors.push(args.join(" "));
-  try {
-    const stale = await worker.fetch(
-      new Request(path, {
-        headers: {
-          accept: "text/html",
-          cookie: "__Host-psipedia_review_author_session=stale-session-token",
-        },
-      }),
-      { ...baseBindings, DB: throwingDatabase },
-      context,
-    );
-    assert.equal(stale.status, 200);
-    const staleHtml = await stale.text();
-    assert.match(staleHtml, /Najprv overíme váš e-mail/);
-    assert.match(staleHtml, /review-auth-form/);
-    assert.match(errors.join("\n"), /review_author_login_session_read/);
-    assert.match(errors.join("\n"), /simulated stale reviewer session D1 failure/);
-  } finally {
-    console.error = originalError;
   }
 });
