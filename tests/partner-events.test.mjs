@@ -64,13 +64,16 @@ test("Partner self-service rejects an event whose full range is already past",as
 
 test("deterministic duplicate rules classify registration URL and title/date/city as HIGH",async()=>{
  const {evaluatePartnerEventDuplicateCandidate}=await importTs("lib/partner-events.ts");
- const incoming={title:"Výcvikový deň",eventType:"Tréning",startDate:"2099-11-03",city:"Nitra",venue:"Areál",organizer:"Klub",registrationUrl:"https://www.example.sk/register"};
- const candidate={id:7,title:"Iné meno",eventType:"Tréning",startDate:"2099-11-03",city:"Bratislava",venue:"Iné",organizer:"Iný",registrationUrl:"https://example.sk/register/",slug:"event",status:"published"};
+ const incoming={title:"Výcvikový deň",eventType:"Tréning",startDate:"2099-11-03",city:"Nitra",region:"Nitriansky kraj",venue:"Areál",organizer:"Klub",registrationUrl:"https://www.example.sk/register"};
+ const candidate={id:7,title:"Iné meno",eventType:"Tréning",startDate:"2099-11-03",city:"Bratislava",region:"Bratislavský kraj",venue:"Iné",organizer:"Iný",registrationUrl:"https://example.sk/register/",slug:"event",status:"published"};
  assert.equal(evaluatePartnerEventDuplicateCandidate(incoming,candidate).confidence,"HIGH");
  const titleCandidate={...candidate,id:8,title:"Výcvikový deň",city:"Nitra",registrationUrl:null};
  assert.equal(evaluatePartnerEventDuplicateCandidate(incoming,titleCandidate).confidence,"HIGH");
  const medium={...candidate,id:9,title:"Výcvikový deň",city:"Košice",registrationUrl:null};
  assert.equal(evaluatePartnerEventDuplicateCandidate(incoming,medium).confidence,"MEDIUM");
+ const regionMedium={...candidate,id:10,title:"Výcvikový deň",eventType:"Iné",city:"Košice",region:"Nitriansky kraj",registrationUrl:null};
+ assert.equal(evaluatePartnerEventDuplicateCandidate(incoming,regionMedium).confidence,"MEDIUM");
+ assert.ok(evaluatePartnerEventDuplicateCandidate(incoming,regionMedium).reasons.includes("Rovnaký názov, dátum a kraj"));
  assert.equal(evaluatePartnerEventDuplicateCandidate({...incoming,title:"Úplne iné",registrationUrl:"",venue:"X",organizer:"Y"},{...candidate,registrationUrl:null}),null);
 });
 
