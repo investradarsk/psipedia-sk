@@ -226,10 +226,11 @@ test("outstanding reviewer token is revoked on repeated issue and expired token 
   sqlite.close();
 });
 
-test("review auth return path is profile-only and blocks open redirects", async () => {
+test("review auth return path allows canonical profiles and the review form while blocking open redirects", async () => {
   const { normalizeReviewAuthorReturnTo } = await importTs("lib/review-author-return-to.ts");
   assert.equal(normalizeReviewAuthorReturnTo("/adresar/veterinari/moja-klinika#recenzie"), "/adresar/veterinari/moja-klinika#recenzie");
   assert.equal(normalizeReviewAuthorReturnTo("/organizacie/utulok?reviewsPage=2#recenzie"), "/organizacie/utulok?reviewsPage=2#recenzie");
+  assert.equal(normalizeReviewAuthorReturnTo("/recenzia/napisat?resourceId=opaque.directory.1"), "/recenzia/napisat?resourceId=opaque.directory.1");
   for (const bad of [
     "https://evil.example/",
     "//evil.example/path",
@@ -240,6 +241,8 @@ test("review auth return path is profile-only and blocks open redirects", async 
     "/recenzie",
     "/adresar/veterinari",
     "/organizacie/a/b",
+    "/recenzia/napisat?resourceId=ok&next=https%3A%2F%2Fevil.example",
+    "/recenzia/napisat?resourceId=../unsafe",
   ]) {
     assert.equal(normalizeReviewAuthorReturnTo(bad), null, bad);
   }
