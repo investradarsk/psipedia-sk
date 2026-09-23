@@ -4,8 +4,14 @@ import { expect, test, type Page } from "@playwright/test";
 test.describe.configure({ mode: "serial" });
 
 const AUTH_TOKENS = {
-  "desktop-chromium": "partner-e2e-desktop-auth-token-0000000000000001",
-  "mobile-chromium": "partner-e2e-mobile-auth-token-000000000000000002",
+  "desktop-chromium": [
+    "partner-e2e-desktop-auth-token-0000000000000001",
+    "partner-e2e-desktop-auth-token-retry-000000000001",
+  ],
+  "mobile-chromium": [
+    "partner-e2e-mobile-auth-token-000000000000000002",
+    "partner-e2e-mobile-auth-token-retry-0000000000002",
+  ],
 } as const;
 
 const AUTH_EMAILS = {
@@ -66,7 +72,8 @@ test("public Directory profile exposes free claim CTA and only asserts pre-verif
 
 test("valid one-time link creates a session and exposes membership dashboard/settings", async ({ page }, testInfo) => {
   const project = testInfo.project.name as keyof typeof AUTH_TOKENS;
-  const token = AUTH_TOKENS[project];
+  const tokens = AUTH_TOKENS[project];
+  const token = tokens[Math.min(testInfo.retry, tokens.length - 1)];
   const expectedEmail = AUTH_EMAILS[project];
   expect(token).toBeTruthy();
 
