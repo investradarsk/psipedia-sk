@@ -253,7 +253,6 @@ function TestMapRenderer({
             data-testid={`cluster-${cluster.id}`}
             onClick={() => {
               onClusterClick(cluster);
-              onViewportChange(testClusterViewport(cluster, viewport.zoom));
             }}
           >
             {cluster.count}
@@ -299,6 +298,7 @@ export function GoogleMapRenderer(props: Props) {
   const onSelectItemRef = useRef(onSelectItem);
   const onClusterClickRef = useRef(onClusterClick);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
   useEffect(() => { onSelectItemRef.current = onSelectItem; }, [onSelectItem]);
@@ -317,6 +317,7 @@ export function GoogleMapRenderer(props: Props) {
 
     async function initialize() {
       if (!containerRef.current || mapRef.current) return;
+      setLoadError(false);
       onStatusChange("loading");
       try {
         const google = await loadGoogleMaps(apiKey);
@@ -353,6 +354,7 @@ export function GoogleMapRenderer(props: Props) {
       } catch {
         if (disposed) return;
         googleLoaderPromise = null;
+        setLoadError(true);
         onStatusChange("load-error");
       }
     }
@@ -445,8 +447,9 @@ export function GoogleMapRenderer(props: Props) {
 
   const fallbackText = useMemo(() => {
     if (configMissing) return "Google Maps nie je nakonfigurovaný";
-    return "Mapový podklad sa nepodarilo načítať";
-  }, [configMissing]);
+    if (loadError) return "Mapový podklad sa nepodarilo načítať";
+    return "Načítavam mapu Psipedie…";
+  }, [configMissing, loadError]);
 
   if (testMode) {
     return (
