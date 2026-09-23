@@ -258,7 +258,7 @@ function MapResults({
   onClearFilters: () => void;
   sheetState: "peek" | "expanded";
   onToggleSheet: () => void;
-  cardRefs: React.MutableRefObject<Map<string, HTMLElement>>;
+  cardRefs: import("react").MutableRefObject<Map<string, HTMLElement>>;
 }) {
   const items = responseItems(response);
   const clusters = responseClusters(response);
@@ -355,19 +355,22 @@ function MapResults({
         ) : null}
       </div>
 
-      {response?.meta.truncated ? (
-        <div className={styles.truncatedNotice} data-testid="map-truncated-state">
-          Zobrazuje sa iba časť výsledkov. Priblíž mapu alebo spresni filtre.
-        </div>
-      ) : response?.meta.attribution?.length ? (
-        <div className={styles.attribution} aria-label="Zdroj lokalizačných údajov">
-          {response.meta.attribution.map((item, index) => (
-            item.url
-              ? <a href={item.url} target="_blank" rel="noreferrer" key={`${item.label}-${index}`}>{item.label}</a>
-              : <span key={`${item.label}-${index}`}>{item.label}</span>
-          ))}
-        </div>
-      ) : <div />}
+      <div>
+        {response?.meta.truncated ? (
+          <div className={styles.truncatedNotice} data-testid="map-truncated-state">
+            Zobrazuje sa iba časť výsledkov. Priblíž mapu alebo spresni filtre.
+          </div>
+        ) : null}
+        {response?.meta.attribution?.length ? (
+          <div className={styles.attribution} aria-label="Zdroj lokalizačných údajov">
+            {response.meta.attribution.map((item, index) => (
+              item.url
+                ? <a href={item.url} target="_blank" rel="noreferrer" key={`${item.label}-${index}`}>{item.label}</a>
+                : <span key={`${item.label}-${index}`}>{item.label}</span>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </aside>
   );
 }
