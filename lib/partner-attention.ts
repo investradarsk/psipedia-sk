@@ -29,7 +29,7 @@ export async function loadPartnerPendingSummary(database?:D1Database){
       db.prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>(),
       db.prepare(`SELECT COUNT(*) count FROM partner_commercial_agreements
         WHERE status='OFFERED'
-          OR (status='AGREED' AND payment_status IN ('PAID','WAIVED','NOT_REQUIRED'))
+          OR (status='AGREED' AND payment_status IN ('PAID','WAIVED'))
           OR (status='ACTIVE' AND end_at>?1 AND end_at<=?2)`).bind(nowIso,expiringAt).first<{count:number}>().catch(()=>null),
     ]);
     const claims=Number(claimRow?.count??0);
