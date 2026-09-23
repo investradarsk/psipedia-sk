@@ -49,40 +49,60 @@ SELECT
   '2026-08', NULL, 1, 'VISIBLE', '[]',
   '2026-09-20T08:00:00.000Z','2026-09-20T08:00:00.000Z','2026-09-20T09:00:00.000Z'
 FROM partner_resources r INNER JOIN directory_profiles d ON d.id=r.directory_profile_id
-WHERE d.slug='health-fixture-vet-rich'
-UNION ALL
+WHERE d.slug='health-fixture-vet-rich';
+
+INSERT OR REPLACE INTO profile_reviews (
+  id, resource_id, author_id, overall_rating, body, service_month, service_type_key,
+  rating_schema_version, status, risk_flags_json, created_at, updated_at, published_at
+)
 SELECT
   'e2e-review-vet-visible-2', r.id, 'e2e-review-author-2', 4,
   'Bezpečný text <script>alert(1)</script> a veľmi dlhý reťazec https://example.invalid/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa zostávajú obyčajným textom.',
   '2026-09', 'raw-unknown-service-key', 1, 'VISIBLE', '[]',
   '2026-09-21T08:00:00.000Z','2026-09-21T08:00:00.000Z','2026-09-21T09:00:00.000Z'
 FROM partner_resources r INNER JOIN directory_profiles d ON d.id=r.directory_profile_id
-WHERE d.slug='health-fixture-vet-rich'
-UNION ALL
+WHERE d.slug='health-fixture-vet-rich';
+
+INSERT OR REPLACE INTO profile_reviews (
+  id, resource_id, author_id, overall_rating, body, service_month, service_type_key,
+  rating_schema_version, status, risk_flags_json, created_at, updated_at, published_at
+)
 SELECT
   'e2e-review-vet-hidden', r.id, 'e2e-review-author-3', 1,
   'Táto skrytá recenzia sa na verejnom profile nesmie zobraziť.',
   NULL, NULL, 1, 'HIDDEN', '[]',
   '2026-09-22T08:00:00.000Z','2026-09-22T08:00:00.000Z',NULL
 FROM partner_resources r INNER JOIN directory_profiles d ON d.id=r.directory_profile_id
-WHERE d.slug='health-fixture-vet-rich'
-UNION ALL
+WHERE d.slug='health-fixture-vet-rich';
+
+INSERT OR REPLACE INTO profile_reviews (
+  id, resource_id, author_id, overall_rating, body, service_month, service_type_key,
+  rating_schema_version, status, risk_flags_json, created_at, updated_at, published_at
+)
 SELECT
   'e2e-review-vet-pending', r.id, 'e2e-review-author-4', 1,
   'Táto čakajúca recenzia sa na verejnom profile nesmie zobraziť.',
   NULL, NULL, 1, 'PENDING_REVIEW', '[]',
   '2026-09-22T09:00:00.000Z','2026-09-22T09:00:00.000Z',NULL
 FROM partner_resources r INNER JOIN directory_profiles d ON d.id=r.directory_profile_id
-WHERE d.slug='health-fixture-vet-rich'
-UNION ALL
+WHERE d.slug='health-fixture-vet-rich';
+
+INSERT OR REPLACE INTO profile_reviews (
+  id, resource_id, author_id, overall_rating, body, service_month, service_type_key,
+  rating_schema_version, status, risk_flags_json, created_at, updated_at, published_at
+)
 SELECT
   'e2e-review-trainer-visible', r.id, 'e2e-review-author-1', 4,
   'Tréning bol zrozumiteľný a prístup ku psovi bol pokojný a praktický.',
   '2026-07', NULL, 1, 'VISIBLE', '[]',
   '2026-09-19T08:00:00.000Z','2026-09-19T08:00:00.000Z','2026-09-19T09:00:00.000Z'
 FROM partner_resources r INNER JOIN directory_profiles d ON d.id=r.directory_profile_id
-WHERE d.slug='e2e-services-detail-long'
-UNION ALL
+WHERE d.slug='e2e-services-detail-long';
+
+INSERT OR REPLACE INTO profile_reviews (
+  id, resource_id, author_id, overall_rating, body, service_month, service_type_key,
+  rating_schema_version, status, risk_flags_json, created_at, updated_at, published_at
+)
 SELECT
   'e2e-review-org-visible', r.id, 'e2e-review-author-1', 5,
   'Organizácia komunikovala jasne a pomoc bola zorganizovaná veľmi dobre.',
