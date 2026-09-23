@@ -55,12 +55,30 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("MAP-1E supported production targets are explicit and stop at geo foundation", () => {
+test("production D1 supported targets are explicit through partner commercial activation", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
     "0064_geo_foundation.sql",
+    "0065_partner_profile_changes.sql",
+    "0066_partner_new_profile_submissions.sql",
+    "0067_partner_events.sql",
+    "0068_partner_commercial_activation.sql",
   ]);
+});
+
+test("partner rollout scopes 0065 through 0068 independently and excludes every future migration", () => {
+  const files = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+    "0069_future_migration.sql",
+  ];
+  for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
+    const result = selectMigrationsThrough(files, targetMigration);
+    assert.equal(result.selected.at(-1), targetMigration);
+    assert.equal(result.selected.some((name) => Number(name.slice(0, 4)) > result.targetIndex), false);
+    assert.equal(result.excludedFuture.every((name) => Number(name.slice(0, 4)) > result.targetIndex), true);
+  }
 });
 
 test("scoped Wrangler config keeps exact canonical production D1 identity", () => {
@@ -116,19 +134,19 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.doesNotMatch(workflow, /^\s*pull_request:/m);
   assert.match(workflow, /environment:\s*production/);
   assert.match(workflow, /secrets\.CLOUDFLARE_D1_API_TOKEN/);
-  assert.match(workflow, /0063_partner_claims_verification\.sql/);
-  assert.match(workflow, /0064_geo_foundation\.sql/);
-  assert.match(workflow, /expected_confirmation="APPLY-\$\{migration_index\}-psipedia-sk-db"/);
+  for (const migration of SUPPORTED_PRODUCTION_TARGETS) {
+    assert.equal(workflow.includes(`- ${migration}`), true, `workflow target missing: ${migration}`);
+    const index = migration.slice(0, 4);
+    assert.equal(workflow.includes(`APPLY-${index}-psipedia-sk-db`), true, `confirmation missing for ${migration}`);
+  }
   assert.match(workflow, /inputs\.target_migration == '0064_geo_foundation\.sql'/);
   assert.match(workflow, /node scripts\/production-d1-migrate\.mjs geo-readiness/);
   assert.match(workflow, /\/api\/map\?north=50&south=47&east=23&west=16&zoom=12/);
-  assert.doesNotMatch(workflow, /0065_partner_profile_changes\.sql\s*$/m);
-  assert.doesNotMatch(workflow, /0066_partner_new_profile_submissions\.sql\s*$/m);
   assert.doesNotMatch(workflow, /wrangler\s+deploy|deploy:cloudflare/);
 });
 
 
-test("MAP-1E preserves existing review, notification and audit data during later targets", async () => {
+test("partner rollout preserves rebuilt rows, append-only audit triggers and verifies target signatures", async () => {
   const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
   assert.match(script, /reviewCountBefore/);
   assert.match(script, /profile_reviews count changed unexpectedly/);
@@ -137,6 +155,17 @@ test("MAP-1E preserves existing review, notification and audit data during later
   assert.match(script, /partner_audit_events data changed unexpectedly/);
   assert.match(script, /outboxDigest/);
   assert.match(script, /auditDigest/);
+  assert.match(script, /partner_audit_events_no_update/);
+  assert.match(script, /partner_audit_events_no_delete/);
+  assert.match(script, /partner_profile_change_metadata/);
+  assert.match(script, /partner_new_profile_metadata/);
+  assert.match(script, /partner_event_submission_metadata/);
+  assert.match(script, /inbound_locked_at/);
+  assert.match(script, /inbound_lock_reason/);
+  assert.match(script, /partner_commercial_agreements/);
+  assert.match(script, /partner_entitlements/);
+  assert.match(script, /partner_commercial_promotion_provenance_unique/);
+  assert.match(script, /assertExactMigrationHistory/);
 });
 
 test("MAP-1E geo readiness is read-only and fail-closes P1 privacy exposures", async () => {

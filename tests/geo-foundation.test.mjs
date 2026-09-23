@@ -192,6 +192,40 @@ test("approximate queries cannot leak the private street address", () => {
   assert.match(exact, /TAJNÁ ULICA 999/);
 });
 
+test("exact queries remove repeated locality text already embedded in the source address", () => {
+  const fluffy = buildGeoQuery({
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 1196,
+    label: "Fluffy Pet Salon",
+    category: "salony-a-sluzby",
+    address: "Horná 26, 974 01 Banská Bystrica",
+    city: "Banská Bystrica",
+    district: "Banská Bystrica",
+    region: "Banskobystrický kraj",
+    countryCode: "SK",
+  }, "EXACT_PUBLIC", "EXACT");
+  assert.equal(
+    fluffy,
+    "Horná 26, 974 01 Banská Bystrica, Banskobystrický kraj, Slovakia",
+  );
+
+  const kosice = buildGeoQuery({
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 360,
+    label: "VET-MANDELÍK",
+    category: "veterinari",
+    address: "Ždiarska 21",
+    city: "Košice – Nad jazerom",
+    district: "Košice IV",
+    region: "Košický kraj",
+    countryCode: "SK",
+  }, "EXACT_PUBLIC", "EXACT");
+  assert.equal(
+    kosice,
+    "Ždiarska 21, Košice – Nad jazerom, Košice IV, Košický kraj, Slovakia",
+  );
+});
+
 test("source fingerprint changes only with location-relevant contract inputs", async () => {
   const source = {
     targetType: "DIRECTORY_PROFILE", targetId: 1, label: "Profil", category: "treneri",

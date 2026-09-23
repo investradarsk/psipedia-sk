@@ -57,6 +57,10 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0062_profile_reviews_foundation.sql",
   "0063_partner_claims_verification.sql",
   "0064_geo_foundation.sql",
+  "0065_partner_profile_changes.sql",
+  "0066_partner_new_profile_submissions.sql",
+  "0067_partner_events.sql",
+  "0068_partner_commercial_activation.sql",
 ]);
 
 export const PARTNER_CLAIM_TABLES = Object.freeze([
@@ -91,6 +95,39 @@ export const GEO_INDEXES = Object.freeze([
   "geo_points_status_updated_idx",
   "geo_points_public_spatial_idx",
   "geo_points_provider_query_idx",
+]);
+
+export const PARTNER_PROFILE_CHANGE_INDEXES = Object.freeze([
+  "partner_profile_change_active_unique",
+  "partner_profile_change_resource_created_idx",
+  "partner_profile_change_account_created_idx",
+]);
+
+export const PARTNER_NEW_PROFILE_INDEXES = Object.freeze([
+  "partner_new_profile_active_identity_unique",
+  "partner_new_profile_account_created_idx",
+  "partner_new_profile_duplicate_created_idx",
+  "partner_new_profile_resolution_idx",
+]);
+
+export const PARTNER_EVENT_INDEXES = Object.freeze([
+  "partner_event_submission_active_dedupe_unique",
+  "partner_event_submission_resource_created_idx",
+  "partner_event_submission_account_created_idx",
+  "partner_event_submission_duplicate_created_idx",
+  "partner_event_submission_resolution_idx",
+]);
+
+export const PARTNER_COMMERCIAL_INDEXES = Object.freeze([
+  "partner_commercial_agreement_interest_active_unique",
+  "partner_commercial_agreement_account_created_idx",
+  "partner_commercial_agreement_resource_status_idx",
+  "partner_commercial_agreement_payment_status_idx",
+  "partner_commercial_promotion_provenance_unique",
+  "partner_entitlement_agreement_type_unique",
+  "partner_entitlement_current_resource_type_unique",
+  "partner_entitlement_public_window_idx",
+  "partner_entitlement_end_status_idx",
 ]);
 
 export const SENSITIVE_DIRECTORY_CATEGORIES = Object.freeze([
@@ -286,12 +323,13 @@ function scalarCount(databaseName, configPath, sql) {
 
 function schemaState(databaseName, configPath) {
   const columns = d1Execute(databaseName, configPath, "PRAGMA table_info('directory_profiles')");
+  const eventNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('event_notion_sync')");
   const objects = d1Execute(
     databaseName,
     configPath,
     "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE type IN ('table','index','trigger') ORDER BY type,name",
   );
-  return { columns, objects };
+  return { columns, eventNotionSyncColumns, objects };
 }
 
 function objectMap(objects) {
@@ -322,6 +360,8 @@ function assertFoundationSchema(schema) {
 
 function targetSchemaObjects(schema, targetMigration) {
   const names = objectMap(schema.objects);
+  const outboxSql = String(names.get("partner_notification_outbox")?.sql ?? "");
+  const auditSql = String(names.get("partner_audit_events")?.sql ?? "");
   if (targetMigration === "0062_profile_reviews_foundation.sql") {
     return {
       partial: schema.columns.some((column) => column.name === "archived_at")
@@ -338,6 +378,40 @@ function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0064_geo_foundation.sql") {
     return {
       partial: names.has("geo_points") || GEO_INDEXES.some((index) => names.has(index)),
+    };
+  }
+  if (targetMigration === "0065_partner_profile_changes.sql") {
+    return {
+      partial: names.has("partner_profile_change_metadata")
+        || PARTNER_PROFILE_CHANGE_INDEXES.some((index) => names.has(index))
+        || outboxSql.includes("PROFILE_CHANGE_SUBMITTED")
+        || auditSql.includes("PROFILE_CHANGE_SUBMITTED"),
+    };
+  }
+  if (targetMigration === "0066_partner_new_profile_submissions.sql") {
+    return {
+      partial: names.has("partner_new_profile_metadata")
+        || PARTNER_NEW_PROFILE_INDEXES.some((index) => names.has(index))
+        || outboxSql.includes("NEW_PROFILE_SUBMITTED")
+        || auditSql.includes("NEW_PROFILE_SUBMITTED"),
+    };
+  }
+  if (targetMigration === "0067_partner_events.sql") {
+    return {
+      partial: names.has("partner_event_submission_metadata")
+        || PARTNER_EVENT_INDEXES.some((index) => names.has(index))
+        || schema.eventNotionSyncColumns.some((column) => column.name === "inbound_locked_at" || column.name === "inbound_lock_reason")
+        || outboxSql.includes("EVENT_SUBMITTED")
+        || auditSql.includes("EVENT_SUBMITTED"),
+    };
+  }
+  if (targetMigration === "0068_partner_commercial_activation.sql") {
+    return {
+      partial: names.has("partner_commercial_agreements")
+        || names.has("partner_entitlements")
+        || PARTNER_COMMERCIAL_INDEXES.some((index) => names.has(index))
+        || outboxSql.includes("COMMERCIAL_OFFER_CREATED")
+        || auditSql.includes("COMMERCIAL_AGREEMENT_CREATED"),
     };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
@@ -370,10 +444,107 @@ function assertGeoFoundationSchema(schema) {
   invariant(!/lost_found/i.test(geoSql), "generic geo_points schema must not contain lost/found private location data");
 }
 
+function assertPartnerNotificationAuditSchema(schema, notificationTypes, auditActions) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("partner_notification_outbox")?.type === "table", "Missing partner_notification_outbox table");
+  invariant(names.get("partner_audit_events")?.type === "table", "Missing partner_audit_events table");
+  for (const index of [
+    "partner_notification_outbox_dedupe_unique",
+    "partner_notification_outbox_status_expiry_idx",
+    "partner_notification_outbox_account_created_idx",
+    "partner_audit_target_created_idx",
+    "partner_audit_actor_created_idx",
+  ]) invariant(names.get(index)?.type === "index", `Missing partner rebuild index: ${index}`);
+  for (const trigger of PARTNER_CLAIM_TRIGGERS) invariant(names.get(trigger)?.type === "trigger", `Missing append-only partner audit trigger: ${trigger}`);
+
+  const outboxSql = String(names.get("partner_notification_outbox")?.sql ?? "");
+  const auditSql = String(names.get("partner_audit_events")?.sql ?? "");
+  for (const notificationType of notificationTypes) {
+    invariant(outboxSql.includes(notificationType), `partner_notification_outbox does not allow ${notificationType}`);
+  }
+  for (const auditAction of auditActions) {
+    invariant(auditSql.includes(auditAction), `partner_audit_events does not allow ${auditAction}`);
+  }
+}
+
+function assertPartnerProfileChangesSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("partner_profile_change_metadata")?.type === "table", "Missing partner_profile_change_metadata table");
+  for (const index of PARTNER_PROFILE_CHANGE_INDEXES) invariant(names.get(index)?.type === "index", `Missing partner profile change index: ${index}`);
+  const tableSql = String(names.get("partner_profile_change_metadata")?.sql ?? "");
+  invariant(tableSql.includes("base_snapshot_json") && tableSql.includes("changed_field_count"), "partner_profile_change_metadata signature is incomplete");
+  assertPartnerNotificationAuditSchema(
+    schema,
+    ["PROFILE_CHANGE_SUBMITTED", "PROFILE_CHANGE_APPROVED", "PROFILE_CHANGE_REJECTED"],
+    ["PROFILE_CHANGE_SUBMITTED", "PROFILE_CHANGE_WITHDRAWN", "PROFILE_CHANGE_APPROVED", "PROFILE_CHANGE_REJECTED"],
+  );
+}
+
+function assertPartnerNewProfileSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("partner_new_profile_metadata")?.type === "table", "Missing partner_new_profile_metadata table");
+  for (const index of PARTNER_NEW_PROFILE_INDEXES) invariant(names.get(index)?.type === "index", `Missing partner new-profile index: ${index}`);
+  const tableSql = String(names.get("partner_new_profile_metadata")?.sql ?? "");
+  invariant(tableSql.includes("identity_fingerprint") && tableSql.includes("duplicate_confidence") && tableSql.includes("resolution_type"), "partner_new_profile_metadata signature is incomplete");
+  assertPartnerNotificationAuditSchema(
+    schema,
+    ["NEW_PROFILE_SUBMITTED", "NEW_PROFILE_CREATED", "NEW_PROFILE_LINKED_EXISTING", "NEW_PROFILE_REJECTED"],
+    ["NEW_PROFILE_SUBMITTED", "NEW_PROFILE_WITHDRAWN", "NEW_PROFILE_CREATED", "NEW_PROFILE_LINKED_EXISTING", "NEW_PROFILE_REJECTED"],
+  );
+}
+
+function assertPartnerEventsSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("partner_event_submission_metadata")?.type === "table", "Missing partner_event_submission_metadata table");
+  for (const index of PARTNER_EVENT_INDEXES) invariant(names.get(index)?.type === "index", `Missing partner event index: ${index}`);
+  const columnNames = new Set(schema.eventNotionSyncColumns.map((column) => String(column.name)));
+  invariant(columnNames.has("inbound_locked_at"), "event_notion_sync.inbound_locked_at is missing");
+  invariant(columnNames.has("inbound_lock_reason"), "event_notion_sync.inbound_lock_reason is missing");
+  const syncSql = String(names.get("event_notion_sync")?.sql ?? "");
+  invariant(syncSql.includes("inbound_lock_reason") && syncSql.includes("PARTNER_MODERATION"), "event_notion_sync inbound lock signature is incomplete");
+  assertPartnerNotificationAuditSchema(
+    schema,
+    ["EVENT_SUBMITTED", "EVENT_CREATED", "EVENT_LINKED_EXISTING", "EVENT_CHANGE_APPROVED", "EVENT_REJECTED"],
+    ["EVENT_SUBMITTED", "EVENT_CHANGE_SUBMITTED", "EVENT_WITHDRAWN", "EVENT_CREATED", "EVENT_LINKED_EXISTING", "EVENT_CHANGE_APPROVED", "EVENT_REJECTED"],
+  );
+}
+
+function assertPartnerCommercialSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("partner_commercial_agreements")?.type === "table", "Missing partner_commercial_agreements table");
+  invariant(names.get("partner_entitlements")?.type === "table", "Missing partner_entitlements table");
+  for (const index of PARTNER_COMMERCIAL_INDEXES) invariant(names.get(index)?.type === "index", `Missing partner commercial index: ${index}`);
+
+  for (const uniqueIndex of [
+    "partner_commercial_agreement_interest_active_unique",
+    "partner_commercial_promotion_provenance_unique",
+    "partner_entitlement_agreement_type_unique",
+    "partner_entitlement_current_resource_type_unique",
+  ]) {
+    invariant(/CREATE\s+UNIQUE\s+INDEX/i.test(String(names.get(uniqueIndex)?.sql ?? "")), `Partner commercial unique constraint is missing: ${uniqueIndex}`);
+  }
+  const agreementUniqueSql = String(names.get("partner_commercial_agreement_interest_active_unique")?.sql ?? "");
+  const currentEntitlementSql = String(names.get("partner_entitlement_current_resource_type_unique")?.sql ?? "");
+  const promotionSql = String(names.get("partner_commercial_promotion_provenance_unique")?.sql ?? "");
+  invariant(agreementUniqueSql.includes("CANCELLED"), "Commercial agreement active-interest partial unique constraint is incomplete");
+  invariant(currentEntitlementSql.includes("SCHEDULED") && currentEntitlementSql.includes("ACTIVE") && currentEntitlementSql.includes("PAUSED"), "Current entitlement partial unique constraint is incomplete");
+  invariant(promotionSql.includes("provenance") && promotionSql.includes("partner-agreement:"), "Promotion provenance unique constraint is incomplete");
+
+  assertPartnerNotificationAuditSchema(
+    schema,
+    ["COMMERCIAL_OFFER_CREATED", "COMMERCIAL_AGREEMENT_UPDATED", "PAYMENT_MARKED_PAID", "ENTITLEMENT_ACTIVATED", "ENTITLEMENT_EXPIRING", "ENTITLEMENT_EXPIRED"],
+    ["COMMERCIAL_AGREEMENT_CREATED", "COMMERCIAL_AGREEMENT_UPDATED", "COMMERCIAL_PAYMENT_MARKED_PAID", "ENTITLEMENT_ACTIVATED", "ENTITLEMENT_PAUSED", "ENTITLEMENT_CANCELLED", "ENTITLEMENT_EXPIRED", "COMMERCIAL_PROMOTION_LINKED", "COMMERCIAL_CAMPAIGN_LINKED"],
+  );
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
   if (migrationIndex(targetMigration) >= 64) assertGeoFoundationSchema(schema);
+  if (migrationIndex(targetMigration) >= 65) assertPartnerProfileChangesSchema(schema);
+  if (migrationIndex(targetMigration) >= 66) assertPartnerNewProfileSchema(schema);
+  if (migrationIndex(targetMigration) >= 67) assertPartnerEventsSchema(schema);
+  if (migrationIndex(targetMigration) >= 68) assertPartnerCommercialSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -473,11 +644,25 @@ function targetState(history, schema, targetMigration) {
       `Migration ${String(targetIndex).padStart(4, "0")} is not recorded, but target schema objects already exist; possible partial/manual drift`);
     if (targetIndex > 62) assertFoundationSchema(schema);
     if (targetIndex > 63) assertPartnerClaimsSchema(schema);
+    if (targetIndex > 64) assertGeoFoundationSchema(schema);
+    if (targetIndex > 65) assertPartnerProfileChangesSchema(schema);
+    if (targetIndex > 66) assertPartnerNewProfileSchema(schema);
+    if (targetIndex > 67) assertPartnerEventsSchema(schema);
   } else {
+    invariant(latestIndex === targetIndex,
+      `Target ${targetMigration} is already applied, but production history continues through ${String(latestIndex).padStart(4, "0")}; refusing an older target`);
     assertTargetSchema(schema, targetMigration);
   }
 
   return { historyNames, latestIndex, targetApplied };
+}
+
+function assertExactMigrationHistory(historyNames, expectedNames, phase) {
+  invariant(
+    historyNames.length === expectedNames.length
+      && historyNames.every((name, index) => name === expectedNames[index]),
+    `${phase} production migration history does not exactly match the repository chain through ${expectedNames.at(-1) ?? "<none>"}`,
+  );
 }
 
 function assertProductionIdentity(resources, generated, infoPayload) {
@@ -517,6 +702,10 @@ async function preflight(targetMigration) {
   assertProductionIdentity(prepared.resources, prepared.generated, info);
   const schema = schemaState(databaseName, prepared.configPath);
   const state = targetState(history, schema, targetMigration);
+  const expectedPreflightHistory = state.targetApplied
+    ? prepared.selection.selected
+    : prepared.selection.selected.slice(0, -1);
+  assertExactMigrationHistory(state.historyNames, expectedPreflightHistory, "Preflight");
   const snapshot = dataSnapshot(databaseName, prepared.configPath);
   const targetIndex = prepared.selection.targetIndex;
   const reviewCountBefore = targetIndex >= 63
@@ -612,6 +801,7 @@ async function verify(targetMigration) {
   const schema = schemaState(databaseName, prepared.configPath);
   const state = targetState(history, schema, targetMigration);
   invariant(state.targetApplied, `Target migration is still not recorded as applied: ${targetMigration}`);
+  assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
 
   const after = dataSnapshot(databaseName, prepared.configPath);
@@ -691,6 +881,24 @@ async function verify(targetMigration) {
       indexes: PARTNER_CLAIM_INDEXES,
       triggers: PARTNER_CLAIM_TRIGGERS,
     } : null,
+    partnerProfileChanges: targetIndex >= 65 ? {
+      table: "partner_profile_change_metadata",
+      indexes: PARTNER_PROFILE_CHANGE_INDEXES,
+    } : null,
+    partnerNewProfiles: targetIndex >= 66 ? {
+      table: "partner_new_profile_metadata",
+      indexes: PARTNER_NEW_PROFILE_INDEXES,
+    } : null,
+    partnerEvents: targetIndex >= 67 ? {
+      table: "partner_event_submission_metadata",
+      indexes: PARTNER_EVENT_INDEXES,
+      notionSyncColumns: ["inbound_locked_at", "inbound_lock_reason"],
+    } : null,
+    partnerCommercial: targetIndex >= 68 ? {
+      tables: ["partner_commercial_agreements", "partner_entitlements"],
+      indexes: PARTNER_COMMERCIAL_INDEXES,
+    } : null,
+    historyVerifiedThrough: targetMigration,
     geoFoundation,
     counts: safeCounts(after),
     dataIntegrity: "PASS",
