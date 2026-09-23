@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { DirectoryProfileDetail } from "@/components/directory-profile-detail";
@@ -9,9 +10,27 @@ import { buildContentMetadata, directorySeoFallback, resolvedCanonical } from "@
 import { absoluteUrl, SITE_URL } from "@/lib/seo";
 import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
 import { isPublicPartnerResourceVerified } from "@/lib/partner-claims";
+import { getPublicProfileReviewData, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
 
 export const dynamic = "force-dynamic";
-type Props = { params: Promise<{ category: string; slug: string }> };
+type Search = Record<string, string | string[] | undefined>;
+type Props = {
+  params: Promise<{ category: string; slug: string }>;
+  searchParams: Promise<Search>;
+};
+type ReviewBindings = { DB?: ProfileReviewReadDatabase };
+
+function reviewDatabase() {
+  const database = (env as unknown as ReviewBindings).DB;
+  if (!database || typeof database.prepare !== "function") {
+    throw new Error("Databáza profilových recenzií zatiaľ nie je pripojená.");
+  }
+  return database;
+}
+
+function scalar(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 const LEGACY_DIRECTORY_SLUGS: Record<string, string> = {
   "veterinari/veterinarna-poliklinka-althea": "veterinarna-poliklinika-althea",
@@ -34,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }) : {};
 }
 
-export default async function DirectoryProfilePage({ params }: Props) {
+export default async function DirectoryProfilePage({ params, searchParams }: Props) {
   const { category, slug } = await params;
   if (!getDirectoryCategory(category)) notFound();
   const resolvedSlug = resolveDirectorySlug(category, slug);
@@ -43,7 +62,22 @@ export default async function DirectoryProfilePage({ params }: Props) {
   if (!profile) notFound();
   const canonical = resolvedCanonical(profile.seo, directoryProfileHref(profile));
   const presentation = getDirectoryDetailPresentation(profile);
-  const partnerVerified = await isPublicPartnerResourceVerified("DIRECTORY_PROFILE", profile.id);
+  const reviewPage = scalar((await searchParams).reviewsPage);
+  const partnerVerifiedPromise = isPublicPartnerResourceVerified("DIRECTORY_PROFILE", profile.id);
+  const reviewsPromise = getPublicProfileReviewData(reviewDatabase(), {
+    entityType: "DIRECTORY_PROFILE",
+    canonicalId: profile.id,
+    category: profile.category,
+  }, { page: reviewPage })
+    .then((data) => ({ data, readError: false }))
+    .catch((error) => {
+      console.error("Public directory profile reviews read failed", {
+        profileId: profile.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { data: null, readError: true };
+    });
+  const [partnerVerified, reviewResult] = await Promise.all([partnerVerifiedPromise, reviewsPromise]);
   const schemaType = profile.category === "veterinari" ? "VeterinaryCare" : ["kynologicke-kluby","chovatelske-kluby"].includes(profile.category) ? "Organization" : "LocalBusiness";
   const sameAs = [presentation.websiteUrl, presentation.facebookUrl, presentation.instagramUrl].filter((value): value is string => Boolean(value));
   const schema = { "@context":"https://schema.org", "@graph":[
@@ -58,5 +92,5 @@ export default async function DirectoryProfilePage({ params }: Props) {
       {"@type":"ListItem",position:3,name:getDirectoryCategory(profile.category)?.label,item:`${SITE_URL}/adresar/${profile.category}`}, {"@type":"ListItem",position:4,name:profile.name,item:canonical}]}
   ]};
   const claimHref = `/partner/prevziat-profil/DIRECTORY_PROFILE/${profile.id}`;
-  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} /><PartnerPublicOwnership verified={partnerVerified} claimHref={claimHref} /></>;
+  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} reviews={reviewResult.data} reviewReadError={reviewResult.readError} /><PartnerPublicOwnership verified={partnerVerified} claimHref={claimHref} /></>;
 }
