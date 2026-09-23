@@ -185,7 +185,7 @@ export async function updatePartnerCommercialAgreementAdmin(input:{
       input.paymentInstruction===undefined?current.paymentInstruction:plain(input.paymentInstruction,2000),
       input.adminNote===undefined?current.adminNote:plain(input.adminNote,3000),iso,adminActor).run();
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_AGREEMENT_UPDATED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:input.id,metadata:{oldStatus:current.status,newStatus:status,paymentStatus},database,now});
-  await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"COMMERCIAL_AGREEMENT_UPDATED",dedupeKey:`partner-agreement:${input.id}:update:${iso`,database,now});
+  await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"COMMERCIAL_AGREEMENT_UPDATED",dedupeKey:`partner-agreement:${input.id}:update:${iso}`,database,now});
   return getPartnerCommercialAgreementAdmin(input.id,database);
 }
 
