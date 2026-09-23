@@ -13,6 +13,12 @@ const AUTH_EMAILS = {
   "mobile-chromium": "partner-mobile-e2e@example.sk",
 } as const;
 
+async function dismissCookieConsent(page:Page){
+  const reject=page.getByRole("button",{name:"Odmietnuť analytiku"});
+  await reject.waitFor({state:"visible",timeout:2_000}).catch(()=>{});
+  if(await reject.isVisible().catch(()=>false))await reject.click();
+}
+
 const AUTH_ACCOUNT_IDS = {
   "desktop-chromium": "partner-e2e-desktop",
   "mobile-chromium": "partner-e2e-mobile",
@@ -54,6 +60,7 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
 
 test("public header exposes Partner login as a utility action without overflow", async ({ page }, testInfo) => {
   await page.goto("/");
+  await dismissCookieConsent(page);
   if(testInfo.project.name==="mobile-chromium"){
     await page.getByRole("button",{name:"Otvoriť menu"}).click();
     const mobileNav=page.getByRole("navigation",{name:"Mobilná navigácia"});
