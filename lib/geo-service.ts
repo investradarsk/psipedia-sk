@@ -5,10 +5,11 @@ import {
   safeGeoErrorStatus,
   type GeoErrorCode,
   type GeoPublicPrecision,
+  type GeoSourceLocation,
   type GeoTargetType,
 } from "./geo";
 import { GeoapifyGeocoder } from "./geoapify-geocoder";
-import { GeocoderProviderError, type GeocoderProvider, type NormalizedGeocoderResult } from "./geo-provider";
+import { GeocoderProviderError, type GeocodeRequest, type GeocoderProvider, type NormalizedGeocoderResult, type StructuredGeocodeAddress } from "./geo-provider";
 import {
   applyGeocoderResolution,
   getGeoPointForTarget,
@@ -98,6 +99,49 @@ function providerErrorCode(error: unknown): GeoErrorCode {
   return "PROVIDER_ERROR";
 }
 
+function municipalityName(value: string | null | undefined) {
+  const city = value?.trim() ?? "";
+  if (!city) return "";
+  return city.split(/\s+[–—-]\s+/, 1)[0]?.trim() ?? city;
+}
+
+function postalCodeFromAddress(value: string | null | undefined) {
+  const match = (value ?? "").match(/\b(\d{3})\s?(\d{2})\b/);
+  return match ? `${match[1]} ${match[2]}` : "";
+}
+
+export function buildStructuredExactAddress(source: GeoSourceLocation): StructuredGeocodeAddress | null {
+  const raw = (source.address || source.venue || "").trim();
+  if (!raw) return null;
+  const firstLine = raw.split(",", 1)[0]?.trim() ?? "";
+  const match = firstLine.match(/^(.+?)\s+(\d+\p{L}?(?:\/\d+\p{L}?)?)$/u);
+  if (!match) return null;
+  const street = match[1]?.trim() ?? "";
+  const housenumber = match[2]?.trim() ?? "";
+  if (!street || !housenumber) return null;
+
+  const countryCode = (source.countryCode || "SK").toUpperCase();
+  const structured: StructuredGeocodeAddress = {
+    street,
+    housenumber,
+    city: municipalityName(source.city) || undefined,
+    state: source.region?.trim() || undefined,
+    country: countryCode === "SK" ? "Slovakia" : countryCode,
+  };
+  const postcode = source.postalCode?.trim() || postalCodeFromAddress(raw);
+  if (postcode) structured.postcode = postcode;
+  return structured;
+}
+
+function geocodeRequest(source: GeoSourceLocation, query: string, precision: GeoPublicPrecision): GeocodeRequest {
+  return {
+    query,
+    precision,
+    countryCode: source.countryCode ?? "SK",
+    structuredAddress: precision === "EXACT" ? buildStructuredExactAddress(source) ?? undefined : undefined,
+  };
+}
+
 export function summarizeGeoDiagnosticResults(results: NormalizedGeocoderResult[]) {
   return results.slice(0, 3).map((result) => ({
     resultType: result.resultType,
@@ -131,7 +175,7 @@ export async function diagnoseGeoTarget(input: {
   if (!query) throw new Error("Geo query nie je dostupná.");
 
   const provider = input.provider ?? new GeoapifyGeocoder();
-  const request = { query, precision: point.publicPrecision, countryCode: source.countryCode ?? "SK" };
+  const request = geocodeRequest(source, query, point.publicPrecision);
   const results = point.publicVisibility === "EXACT_PUBLIC"
     ? await provider.geocodeExact(request)
     : await provider.geocodeApproximate(request);
@@ -143,6 +187,8 @@ export async function diagnoseGeoTarget(input: {
   });
   return {
     query,
+    requestMode: request.structuredAddress ? "structured" : "freeform",
+    structuredAddress: request.structuredAddress ?? null,
     resultCount: results.length,
     accepted: Boolean(decision.result && !decision.errorCode),
     errorCode: decision.errorCode,
@@ -177,7 +223,7 @@ export async function resolveGeoTarget(input: {
 
   const provider = input.provider ?? new GeoapifyGeocoder();
   try {
-    const request = { query, precision: point.publicPrecision, countryCode: source.countryCode ?? "SK" };
+    const request = geocodeRequest(source, query, point.publicPrecision);
     const results = point.publicVisibility === "EXACT_PUBLIC"
       ? await provider.geocodeExact(request)
       : await provider.geocodeApproximate(request);
