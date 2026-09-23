@@ -12,7 +12,7 @@ import {
   type PartnerEventOperation,
 } from "@/lib/partner-events";
 import { normalizeManagedEventInput } from "@/lib/event-store";
-import { applyAtomicModerationTransition, isFoundationSubmissionStatus, type FoundationSubmissionStatus } from "@/lib/moderation-transition";
+import { applyAtomicModerationTransition, type FoundationSubmissionStatus } from "@/lib/moderation-transition";
 import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 
