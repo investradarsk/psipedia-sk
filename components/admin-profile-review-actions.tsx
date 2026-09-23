@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
   profileReviewModerationReasonCodes,
@@ -15,6 +15,10 @@ const actionLabels: Record<ProfileReviewAdminAction, string> = {
   RESTORE: "Obnoviť",
   REMOVE: "Odstrániť",
 };
+
+const subscribeHydration = () => () => {};
+const getClientHydration = () => true;
+const getServerHydration = () => false;
 
 const reasonLabels: Record<(typeof profileReviewModerationReasonCodes)[number], string> = {
   SPAM: "Spam",
@@ -55,13 +59,12 @@ export function AdminProfileReviewActions({
 }) {
   const router = useRouter();
   const actions = useMemo(() => allowedActions(currentStatus), [currentStatus]);
-  const [hydrated, setHydrated] = useState(false);
+  const hydrated = useSyncExternalStore(subscribeHydration, getClientHydration, getServerHydration);
   const [reasonCode, setReasonCode] = useState("");
   const [moderatorNote, setModeratorNote] = useState("");
   const [busy, setBusy] = useState<ProfileReviewAdminAction | null>(null);
   const [message, setMessage] = useState("");
 
-  useEffect(() => setHydrated(true), []);
 
   async function run(action: ProfileReviewAdminAction) {
     if (busy) return;
