@@ -96,6 +96,8 @@ test("production privacy smoke is read-only and compares D1 with the public API"
   assert.match(script, /exactPublicWithoutPrivacyReview/);
   assert.match(script, /moderation_events/);
   assert.match(script, /GEO_VISIBILITY_CHANGED/);
+  assert.match(script, /GEO_SOURCE_STALE/);
+  assert.match(script, /stale\.created_at > approval\.created_at/);
   assert.match(script, /approximateStreetLeaks/);
   assert.match(script, /forbiddenPayloadFieldCount/);
   assert.doesNotMatch(script, /"d1",\s*"migrations",\s*"apply"/);
