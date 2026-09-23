@@ -142,6 +142,9 @@ test("MAP-1E preserves existing review, notification and audit data during later
 test("MAP-1E geo readiness is read-only and fail-closes P1 privacy exposures", async () => {
   const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
   assert.match(script, /publicResolvedCurrent/);
+  assert.match(script, /publicMapEligible/);
+  assert.match(script, /PUBLIC_CANONICAL_MAP_ROWS_AVAILABLE/);
+  assert.match(script, /NO_PUBLIC_CANONICAL_MAP_ROWS/);
   assert.match(script, /sensitiveExactPublic/);
   assert.match(script, /legalSeatExactPublic/);
   assert.match(script, /hiddenWithCoordinates/);
@@ -169,6 +172,8 @@ test("MAP-1E production readiness workflow is manual-only and read-only", async 
   assert.match(workflow, /realGoogleSmokeConfirmed/);
   assert.match(workflow, /attributionReviewConfirmed/);
   assert.match(workflow, /consentPrivacyReviewConfirmed/);
+  assert.match(workflow, /mapApiHasData/);
+  assert.match(workflow, /mapApiPrivateFieldsAbsent/);
   assert.doesNotMatch(workflow, /d1\s+migrations\s+apply|wrangler\s+deploy|deploy:cloudflare/i);
   assert.doesNotMatch(workflow, /POST\s+.*geo|INITIALIZE|CANARY/);
 });
