@@ -356,6 +356,8 @@ export async function createPartnerNewProfileAdmin(input:{
   row=await raw(input.id,database);
   if(!row||row.status!=="PENDING_REVIEW")throw new PartnerNewProfileError("Stav návrhu sa medzičasom zmenil.",409);
 
+  const account=await database.prepare("SELECT status FROM partner_accounts WHERE id=?1 LIMIT 1").bind(row.accountId).first<{status:string}>();
+  if(!account||account.status!=="ACTIVE")throw new PartnerNewProfileError("Partner účet už nie je aktívny.",409);
   const normalized=normalizePartnerNewProfile(row.resourceType,safeJson(row.proposedPatchJson,{}));
   const now=input.now??new Date(),nowIso=now.toISOString();
   const membershipId=crypto.randomUUID(),verificationId=crypto.randomUUID();
