@@ -57,6 +57,15 @@ export default async function MapPage({ searchParams }: Props) {
         testRenderer={testRenderer}
         launchEnabled={publicMapEnabled}
       />
+
+      <aside className={styles.providerDisclosure} aria-label="Informácie o mapovom podklade">
+        Interaktívny mapový podklad poskytuje Google Maps a načíta sa až po tvojom výslovnom povolení.
+        Používanie Google Maps podlieha{" "}
+        <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">podmienkam Google Maps</a>
+        {" "}a{" "}
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">zásadám ochrany súkromia Google</a>.
+        Lokalizačné údaje Psipedie a rozhodnutia o ich verejnosti zostávajú v databáze Psipedie.
+      </aside>
     </main>
   );
 }
