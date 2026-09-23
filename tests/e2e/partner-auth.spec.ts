@@ -94,6 +94,22 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
     await expect(page.getByText("OWNER")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
+
+    await page.getByRole("link", { name: "Pridať nový profil" }).click();
+    await expect(page.getByRole("heading", { name: "Pridať nový profil" })).toBeVisible();
+    await page.getByLabel("Názov").fill("Partner E2E Nová Služba");
+    await page.getByLabel("Kategória").selectOption("veterinari");
+    await page.getByLabel("Krátky popis").fill("Nová testovacia služba pre Partner E2E.");
+    await page.getByLabel("Popis").fill("Toto je nový testovací Directory profil vytvorený cez moderovaný Partner flow.");
+    await page.getByLabel("Mesto").fill("Žilina");
+    await page.getByLabel("Okres").fill("Žilina");
+    await page.getByLabel("Kraj").fill("Žilinský kraj");
+    await page.getByLabel("Adresa").fill("Unikátna 123");
+    await page.getByLabel("Web").fill("https://partner-new-e2e.example");
+    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
+    await expect(page.getByRole("status")).toContainText("Návrh nového profilu sme prijali a čaká na kontrolu.");
+
+    await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
     await page.getByLabel("Mesto").fill("Trnava");
@@ -105,6 +121,20 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
     await expect(page.getByText("EDITOR")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
+
+    await page.getByRole("link", { name: "Pridať nový profil" }).click();
+    await page.getByRole("radio", { name: /Organizácia na pomoc psom/ }).check();
+    await page.getByLabel("Názov").fill("Partner E2E Organizácia");
+    await page.getByLabel("Typ organizácie").selectOption("CIVIC_ASSOCIATION");
+    await page.getByLabel("Verejný telefón").fill("+421900111222");
+    await page.getByLabel("Web").fill("https://example.sk");
+    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
+    await expect(page.getByRole("heading", { name: "Našli sme profil, ktorý môže patriť vám." })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Spravujete tento profil?" })).toHaveAttribute("href", "/partner/prevziat-profil/HELP_ORGANIZATION/990002");
+    await page.getByRole("button", { name: "Nie je to môj profil — pokračovať" }).click();
+    await expect(page.getByRole("status")).toContainText("Návrh nového profilu sme prijali a čaká na kontrolu.");
+
+    await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
     await page.getByLabel("Verejný telefón").fill("+421900333444");
@@ -184,6 +214,50 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(page.getByRole("status")).toContainText("Zmena bola uložená.");
   await page.goto("/admin/partners");
   await expect(page.getByRole("link",{name:/Komerčné leady 0/})).toBeVisible();
+  await expect(page.getByRole("link",{name:/Nové profily 1/})).toBeVisible();
+  await page.getByRole("link",{name:/Nové profily 1/}).click();
+  await expect(page.getByRole("heading",{name:"Nové profily"})).toBeVisible();
+
+  if(project==="desktop-chromium"){
+    const newRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Nová Služba"});
+    await expect(newRow).toContainText("duplicate NONE");
+    await newRow.getByRole("link",{name:"Detail →"}).click();
+    await expect(page.getByRole("heading",{name:"Údaje na vytvorenie"})).toBeVisible();
+    const createResponse=page.waitForResponse((response)=>
+      response.url().includes("/api/admin/partners/submissions/") &&
+      response.request().method()==="PATCH" && response.ok(),
+    );
+    page.once("dialog",dialog=>void dialog.accept());
+    await page.getByRole("button",{name:"Vytvoriť nový profil"}).click();
+    await createResponse;
+    await expect(page.getByText("CREATED_NEW")).toBeVisible();
+    const directoryResponse=await page.request.get("/api/admin/directory?limit=100");
+    expect(directoryResponse.ok()).toBeTruthy();
+    const directoryJson=await directoryResponse.json() as {items?:Array<{name?:string;status?:string}>;profiles?:Array<{name?:string;status?:string}>};
+    const directoryItems=directoryJson.items??directoryJson.profiles??[];
+    expect(directoryItems.find((item)=>item.name==="Partner E2E Nová Služba")?.status).toBe("draft");
+    await page.goto("/admin/partners/accounts/partner-e2e-desktop");
+    const createdMembership=page.locator("section").filter({hasText:"Membership história"}).locator("article").filter({hasText:"Partner E2E Nová Služba"});
+    await expect(createdMembership).toContainText("OWNER");
+    await page.goto("/admin/partners");
+  }else{
+    const newRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Organizácia"});
+    await expect(newRow).toContainText("duplicate HIGH");
+    await newRow.getByRole("link",{name:"Detail →"}).click();
+    await expect(page.getByText("Rovnaká webová doména")).toBeVisible();
+    const linkResponse=page.waitForResponse((response)=>
+      response.url().includes("/api/admin/partners/submissions/") &&
+      response.request().method()==="PATCH" && response.ok(),
+    );
+    page.once("dialog",dialog=>void dialog.accept());
+    await page.getByRole("button",{name:"Prepojiť tento profil"}).first().click();
+    await linkResponse;
+    await expect(page.getByText("LINKED_EXISTING")).toBeVisible();
+    await page.goto("/admin/partners/accounts/partner-e2e-mobile");
+    const linkedMembership=page.locator("section").filter({hasText:"Membership história"}).locator("article").filter({hasText:"Partner E2E Organizácia"});
+    await expect(linkedMembership).toContainText("OWNER");
+    await page.goto("/admin/partners");
+  }
 
   if(project==="desktop-chromium"){
     await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
@@ -208,9 +282,9 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
     await page.goto("/admin/partners");
 
-    await expect(page.getByRole("link",{name:/Overenia 1/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 2/})).toBeVisible();
     await page.goto("/admin/partners/verifications?status=PENDING_VERIFICATION");
-    const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
+    const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]}).filter({hasText:"Partner E2E Veterina"});
     await expect(verificationRow).toContainText("PENDING_VERIFICATION");
     await verificationRow.getByRole("link",{name:"Detail →"}).click();
     const verificationResponse = page.waitForResponse((response) =>
@@ -240,7 +314,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await claimResponse;
     await page.goto("/admin/partners");
     await expect(page.getByRole("link",{name:/Claims 0/})).toBeVisible();
-    await expect(page.getByRole("link",{name:/Overenia 1/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 2/})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });
