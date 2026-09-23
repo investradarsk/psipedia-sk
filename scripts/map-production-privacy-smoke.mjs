@@ -190,13 +190,20 @@ async function main() {
       g.latitude, g.longitude, g.source_fingerprint, g.resolved_source_fingerprint,
       g.manual_override, g.last_error_code,
       EXISTS (
-        SELECT 1 FROM moderation_events m
-        WHERE m.resource_type='GEO_POINT'
-          AND m.subject_id=CAST(g.id AS TEXT)
-          AND m.actor_type='ADMIN'
+        SELECT 1 FROM moderation_events approval
+        WHERE approval.resource_type='GEO_POINT'
+          AND approval.subject_id=CAST(g.id AS TEXT)
+          AND approval.actor_type='ADMIN'
           AND (
-            (m.action='GEO_VISIBILITY_CHANGED' AND m.to_status IN ('PENDING','STALE'))
-            OR m.action IN ('GEO_MANUAL_SET','GEO_MANUAL_MOVED')
+            (approval.action='GEO_VISIBILITY_CHANGED' AND approval.to_status IN ('PENDING','STALE'))
+            OR approval.action IN ('GEO_MANUAL_SET','GEO_MANUAL_MOVED')
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM moderation_events stale
+            WHERE stale.resource_type='GEO_POINT'
+              AND stale.subject_id=CAST(g.id AS TEXT)
+              AND stale.action='GEO_SOURCE_STALE'
+              AND stale.created_at > approval.created_at
           )
       ) AS exact_privacy_reviewed,
       d.status AS directory_status, d.archived_at AS directory_archived_at, d.online AS directory_online,
