@@ -94,3 +94,26 @@ export async function enforcePartnerProfileChangeRateLimit(input: {
   }
   return result;
 }
+
+export async function enforcePartnerNewProfileRateLimit(input: {
+  database: D1Database;
+  accountId: string;
+  identityFingerprint: string;
+  hashKey: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const store = createD1RateLimitStore(input.database);
+  const [accountKey, identityKey] = await Promise.all([
+    deriveRateLimitKey("partner-new-profile-account", input.accountId, input.hashKey),
+    deriveRateLimitKey("partner-new-profile-identity", input.accountId + ":" + input.identityFingerprint, input.hashKey),
+  ]);
+  const [accountResult, identityResult] = await Promise.all([
+    enforceRateLimit(store, accountKey, 8, 60 * 60, now),
+    enforceRateLimit(store, identityKey, 3, 60 * 60, now),
+  ]);
+  if (!accountResult.allowed || !identityResult.allowed) {
+    throw new PartnerSecurityError("Za krátky čas bolo odoslaných priveľa návrhov nových profilov. Skúste to neskôr.", 429);
+  }
+  return { account: accountResult, identity: identityResult };
+}
