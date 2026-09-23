@@ -251,8 +251,10 @@ export async function activatePartnerCommercialAgreement(input:{id:string;campai
       throw new PartnerCommercialAgreementError("Obdobie reklamnej kampane musí byť celé v rámci obdobia obchodnej dohody.",409);
     }
     await database.prepare("UPDATE monetization_campaigns SET status='active',updated_at=?2,updated_by=?3 WHERE id=?1").bind(campaign.id,iso,adminActor).run();
-    await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',campaign_id=?2,updated_at=?3,updated_by=?4 WHERE id=?1").bind(current.id,campaign.id,iso,adminActor).run();
+    const activated=await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',campaign_id=?2,updated_at=?3,updated_by=?4 WHERE id=?1 AND status='AGREED' RETURNING id").bind(current.id,campaign.id,iso,adminActor).first<{id:string}>();
+    if(!activated)return getPartnerCommercialAgreementAdmin(current.id,database);
     await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_CAMPAIGN_LINKED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:current.id,metadata:{campaignId:campaign.id},database,now});
+    await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"COMMERCIAL_AGREEMENT_UPDATED",dedupeKey:`partner-agreement:${current.id}:campaign-activated`,database,now});
     return getPartnerCommercialAgreementAdmin(current.id,database);
   }
   if(!current.resourceId)throw new PartnerCommercialAgreementError("Profilová dohoda nemá Partner resource.",409);
