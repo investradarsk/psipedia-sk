@@ -155,7 +155,13 @@ Launch flag:
 
 `PUBLIC_MAP_ENABLED=1`
 
-The launch flag defaults to disabled. When disabled:
+The effective public launch gate is fail-closed and requires all three values at the same time:
+
+- `PUBLIC_MAP_ENABLED=1`;
+- non-empty `GOOGLE_MAPS_BROWSER_API_KEY`;
+- non-empty `GOOGLE_MAPS_MAP_ID`.
+
+If any one is missing:
 
 - Google Maps JS is not loaded;
 - `Mapa` is removed from the D1-backed and fallback public navigation;
@@ -239,13 +245,13 @@ Because the Maps loader uses `auth_referrer_policy=origin`, verify the final Goo
 
 ## Launch navigation
 
-Public navigation is controlled by:
+Public navigation uses the effective MAP launch gate:
 
-`PUBLIC_MAP_ENABLED`
+`PUBLIC_MAP_ENABLED + GOOGLE_MAPS_BROWSER_API_KEY + GOOGLE_MAPS_MAP_ID`
 
-When enabled, `Mapa` is injected directly after `Služby pre psov` without mutating the D1 navigation table.
+Only when all three are present/valid does `Mapa` get injected directly after `Služby pre psov` without mutating the D1 navigation table.
 
-This design makes rollback immediate: turn the launch flag off and redeploy/configure the runtime. The map link disappears while the rest of Psipedia remains unaffected.
+This design makes rollback immediate: turn the launch flag off (or remove renderer config) and redeploy/configure the runtime. The map link disappears while the rest of Psipedia remains unaffected.
 
 No homepage map block is added in MAP-1E.
 
