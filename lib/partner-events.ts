@@ -146,7 +146,7 @@ export async function scanPartnerEventDuplicates(values:PartnerEventPatch,dbInpu
     FROM managed_events
     WHERE start_date=?1 OR registration_url IS NOT NULL
     ORDER BY start_date ASC,id ASC LIMIT 500
-  `).bind(String(values.startDate),typeof values.registrationUrl==="string"&&values.registrationUrl?values.registrationUrl:null).all<CandidateRow>()).results;
+  `).bind(String(values.startDate)).all<CandidateRow>()).results;
   const candidates=rows.map(row=>evaluatePartnerEventDuplicateCandidate(values,row)).filter((row):row is PartnerEventDuplicateCandidate=>Boolean(row));
   candidates.sort((a,b)=>(a.confidence===b.confidence?0:a.confidence==="HIGH"?-1:1)||a.id-b.id);
   return {confidence:(candidates[0]?.confidence??"NONE") as PartnerEventDuplicateConfidence,candidates};
