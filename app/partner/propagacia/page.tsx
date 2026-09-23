@@ -8,12 +8,14 @@ export const dynamic="force-dynamic";
 const labels:Record<string,string>={PREMIUM_PROFILE:"Premium profil",PROMOTED_PROFILE:"Propagovaný profil",AD_CAMPAIGN:"Reklamná kampaň",OTHER:"Iný záujem"};
 function euro(cents:number){return new Intl.NumberFormat("sk-SK",{style:"currency",currency:"EUR"}).format(cents/100);}
 const paymentLabels:Record<string,string>={BANK_TRANSFER:"Bankový prevod",BY_AGREEMENT:"Podľa dohody"};
-export default async function Page(){
-  const identity=await requirePartnerPageIdentity();
+type Search={resource?:string|string[]};
+function scalar(value:string|string[]|undefined){return Array.isArray(value)?value[0]:value;}
+export default async function Page({searchParams}:{searchParams:Promise<Search>}){
+  const identity=await requirePartnerPageIdentity();const requestedResource=scalar((await searchParams).resource);
   const[resources,history,agreements]=await Promise.all([listPartnerResources(identity.accountId),listPartnerCommercialInterests(identity.accountId),listPartnerCommercialAgreements(identity.accountId)]);
-  const eligible=resources.filter(r=>r.role==="OWNER"||r.role==="MANAGER").map(r=>({resourceId:r.resourceId,name:r.name,role:r.role}));
+  const eligible=resources.filter(r=>r.role==="OWNER"||r.role==="MANAGER").map(r=>({resourceId:r.resourceId,name:r.name,role:r.role}));const defaultResourceId=requestedResource&&eligible.some(r=>r.resourceId===requestedResource)?requestedResource:undefined;
   return <PartnerShell title="Propagácia" description="Premium, sponzorované zvýraznenie a reklamná spolupráca sa riešia manuálnou ponukou. Bez online platobnej brány.">
-    <PartnerCommercialPanel resources={eligible}/>
+    <PartnerCommercialPanel resources={eligible} defaultResourceId={defaultResourceId}/>
     <section className="partner-commercial-history"><h2>Moje ponuky / dohody</h2>{agreements.length?<div>{agreements.map(item=><article key={item.id}>
       <div><strong>{labels[item.agreementType]??item.agreementType}</strong><span>{item.resourceName??"Komerčná spolupráca"}</span></div>
       <span className="partner-commercial-status">{item.status}</span><strong>{euro(item.priceCents)}</strong>
