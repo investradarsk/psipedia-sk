@@ -11,7 +11,7 @@ import {
   safeGeoErrorStatus,
   sourceGeoFingerprint,
 } from "../lib/geo.ts";
-import { chooseGeocoderResult, summarizeGeoDiagnosticResults } from "../lib/geo-service.ts";
+import { buildStructuredExactAddress, chooseGeocoderResult, summarizeGeoDiagnosticResults } from "../lib/geo-service.ts";
 import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 import { GeocoderProviderError } from "../lib/geo-provider.ts";
 import { selectGeoCanaryCandidates } from "../lib/geo-operations.ts";
@@ -226,6 +226,55 @@ test("exact queries remove repeated locality text already embedded in the source
   );
 });
 
+test("structured exact parsing is conservative and normalizes Slovak business addresses", () => {
+  assert.deepEqual(buildStructuredExactAddress({
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 360,
+    label: "VET-MANDELÍK",
+    category: "veterinari",
+    address: "Ždiarska 21",
+    city: "Košice – Nad jazerom",
+    district: "Košice IV",
+    region: "Košický kraj",
+    countryCode: "SK",
+  }), {
+    street: "Ždiarska",
+    housenumber: "21",
+    city: "Košice",
+    state: "Košický kraj",
+    country: "Slovakia",
+  });
+
+  assert.deepEqual(buildStructuredExactAddress({
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 1196,
+    label: "Fluffy Pet Salon",
+    category: "salony-a-sluzby",
+    address: "Horná 26, 974 01 Banská Bystrica",
+    city: "Banská Bystrica",
+    district: "Banská Bystrica",
+    region: "Banskobystrický kraj",
+    countryCode: "SK",
+  }), {
+    street: "Horná",
+    housenumber: "26",
+    postcode: "974 01",
+    city: "Banská Bystrica",
+    state: "Banskobystrický kraj",
+    country: "Slovakia",
+  });
+
+  assert.equal(buildStructuredExactAddress({
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 1,
+    label: "Unparseable",
+    category: "veterinari",
+    address: "Námestie bez čísla",
+    city: "Nitra",
+    countryCode: "SK",
+  }), null);
+});
+
 test("source fingerprint changes only with location-relevant contract inputs", async () => {
   const source = {
     targetType: "DIRECTORY_PROFILE", targetId: 1, label: "Profil", category: "treneri",
@@ -316,6 +365,42 @@ test("Geoapify adapter handles disabled, normalized success and 429 retryability
   assert.equal(result[0].provider, "geoapify");
   assert.equal(result[0].countryCode, "SK");
   assert.match(result[0].sourceLicense, /OpenStreetMap|ODbL/);
+
+  let structuredUrl = "";
+  const structured = new GeoapifyGeocoder({
+    apiKey: "test-key",
+    fetchImpl: async (input) => {
+      structuredUrl = String(input);
+      return new Response(JSON.stringify({
+        results: [{
+          lat: 48.72, lon: 21.28, country: "Slovakia", country_code: "sk",
+          state: "Košický kraj", city: "Košice", result_type: "building", place_id: "structured",
+          rank: { confidence: 1, confidence_city_level: 1, confidence_street_level: 1, confidence_building_level: 1, match_type: "full_match" },
+          datasource: { sourcename: "OpenStreetMap", attribution: "© OpenStreetMap contributors", license: "ODbL" },
+        }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  await structured.geocodeExact({
+    query: "Ždiarska 21, Košice, Slovakia",
+    precision: "EXACT",
+    countryCode: "SK",
+    structuredAddress: {
+      housenumber: "21",
+      street: "Ždiarska",
+      city: "Košice",
+      state: "Košický kraj",
+      country: "Slovakia",
+    },
+  });
+  const structuredParsed = new URL(structuredUrl);
+  assert.equal(structuredParsed.searchParams.get("text"), null);
+  assert.equal(structuredParsed.searchParams.get("housenumber"), "21");
+  assert.equal(structuredParsed.searchParams.get("street"), "Ždiarska");
+  assert.equal(structuredParsed.searchParams.get("city"), "Košice");
+  assert.equal(structuredParsed.searchParams.get("state"), "Košický kraj");
+  assert.equal(structuredParsed.searchParams.get("country"), "Slovakia");
+  assert.equal(structuredParsed.searchParams.get("filter"), "countrycode:sk");
 
   const limited = new GeoapifyGeocoder({
     apiKey: "test-key",
