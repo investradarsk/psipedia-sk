@@ -83,6 +83,10 @@ async function ensureCommercialMembership(database:D1Database,accountId:string,r
   `).bind(accountId,resourceId).first<{role:string;accountStatus:string}>();
   if(!membership||membership.accountStatus!=="ACTIVE")throw new PartnerCommercialAgreementError("Komerčná dohoda vyžaduje aktívne OWNER alebo MANAGER oprávnenie.",403);
 }
+async function ensureActiveCommercialAccount(database:D1Database,accountId:string){
+  const row=await database.prepare("SELECT status FROM partner_accounts WHERE id=?1 LIMIT 1").bind(accountId).first<{status:string}>();
+  if(!row||row.status!=="ACTIVE")throw new PartnerCommercialAgreementError("Partner účet nie je aktívny; novú platenú aktiváciu nemožno vykonať.",409);
+}
 const BASE=`SELECT a.id,a.interest_id interestId,a.account_id accountId,a.resource_id resourceId,a.agreement_type agreementType,
   a.status,a.payment_method paymentMethod,a.payment_status paymentStatus,a.price_cents priceCents,a.currency,
   a.start_at startAt,a.end_at endAt,a.partner_note partnerNote,a.payment_instruction paymentInstruction,a.admin_note adminNote,
@@ -225,6 +229,7 @@ export async function activatePartnerCommercialAgreement(input:{id:string;campai
   if(!current)throw new PartnerCommercialAgreementError("Dohoda neexistuje.",404);
   if(current.status==="ACTIVE")return current;
   if(current.status!=="AGREED")throw new PartnerCommercialAgreementError("Aktivovať možno iba dohodu v stave AGREED.",409);
+  await ensureActiveCommercialAccount(database,current.accountId);
   if(!paymentSatisfied(current))throw new PartnerCommercialAgreementError("Platobný stav zatiaľ nedovoľuje aktiváciu.",409);
   const now=input.now??new Date(),iso=now.toISOString(),adminActor=actor(input.adminEmail);
   if(Date.parse(current.endAt)<=now.getTime())throw new PartnerCommercialAgreementError("Dohodnuté obdobie už skončilo.",409);
@@ -238,9 +243,10 @@ export async function activatePartnerCommercialAgreement(input:{id:string;campai
     return getPartnerCommercialAgreementAdmin(current.id,database);
   }
   if(!current.resourceId)throw new PartnerCommercialAgreementError("Profilová dohoda nemá Partner resource.",409);
+  await ensureCommercialMembership(database,current.accountId,current.resourceId);
   const targetResource=await resource(database,current.resourceId);
   if(!targetResource)throw new PartnerCommercialAgreementError("Partner resource už neexistuje.",404);
-  if(targetResource.resourceStatus!=="published")throw new PartnerCommercialAgreementError("Platený profilový benefit možno aktivovať iba pre verejný canonical profil.",409);
+  if(!["published","PUBLISHED"].includes(targetResource.resourceStatus))throw new PartnerCommercialAgreementError("Platený profilový benefit možno aktivovať iba pre verejný canonical profil.",409);
   const target=promotionTarget(targetResource);
   const conflict=await database.prepare("SELECT id,agreement_id agreementId FROM partner_entitlements WHERE resource_id=?1 AND entitlement_type=?2 AND status IN ('SCHEDULED','ACTIVE','PAUSED') LIMIT 1")
     .bind(current.resourceId,current.agreementType).first<{id:string;agreementId:string}>();
