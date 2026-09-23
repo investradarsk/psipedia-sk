@@ -1,0 +1,137 @@
+name: Production D1 MAP Foundation 0063-0064
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type APPLY-0063-0064-psipedia-sk-db exactly
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rollout:
+    name: Preflight, apply 0063-0064, verify and map smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main and explicit production confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$confirmation" = "APPLY-0063-0064-psipedia-sk-db"
+
+      - name: Checkout exact dispatched main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Log non-secret revision evidence
+        run: |
+          echo "ref=$GITHUB_REF"
+          echo "sha=$GITHUB_SHA"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+      - name: Require protected D1 credential
+        run: test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Load canonical Cloudflare account id
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(x.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+
+      - name: Repository migration safety
+        run: npm run db:check-migrations
+
+      - name: Production build for canonical generated Wrangler binding
+        run: npm run build
+
+      - name: Production 0063-0064 preflight and Time Travel recovery point
+        id: preflight
+        run: |
+          node scripts/production-d1-map-foundation.mjs preflight
+          apply0063="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(".production-map-foundation/preflight-report.json","utf8")); process.stdout.write(String(Boolean(x.apply0063)))')"
+          apply0064="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(".production-map-foundation/preflight-report.json","utf8")); process.stdout.write(String(Boolean(x.apply0064)))')"
+          echo "apply0063=$apply0063" >> "$GITHUB_OUTPUT"
+          echo "apply0064=$apply0064" >> "$GITHUB_OUTPUT"
+
+      - name: Apply canonical 0063
+        if: steps.preflight.outputs.apply0063 == 'true'
+        run: node scripts/production-d1-map-foundation.mjs apply-step 0063_partner_claims_verification.sql
+
+      - name: Verify 0063 partner preservation
+        run: node scripts/production-d1-map-foundation.mjs verify-0063
+
+      - name: Apply canonical 0064
+        if: steps.preflight.outputs.apply0064 == 'true'
+        run: node scripts/production-d1-map-foundation.mjs apply-step 0064_geo_foundation.sql
+
+      - name: Verify 0064 geo foundation is schema-only
+        run: node scripts/production-d1-map-foundation.mjs verify-0064
+
+      - name: Final postflight
+        run: node scripts/production-d1-map-foundation.mjs postflight
+
+      - name: Production map API must become schema-healthy
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://psipedia.sk/api/map?north=50&south=47&east=23&west=16&zoom=7'
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --location --output "$body" --write-out '%{http_code}' "$url")"
+          echo "/api/map -> $status"
+          test "$status" = "200"
+          node -e '
+            const fs=require("fs");
+            const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+            if (!["items","clusters"].includes(x.mode) || !x.meta || typeof x.meta.count !== "number") {
+              throw new Error("Invalid MAP-1C response contract");
+            }
+          ' "$body"
+
+      - name: Existing production route smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          for route in "/" "/adresar" "/partner/prihlasenie" "/podujatia" "/mapa" "/sitemap.xml"
+          do
+            status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "https://psipedia.sk$route")"
+            echo "$route -> $status"
+            case "$status" in
+              200|301|302|307|308) ;;
+              *) exit 1 ;;
+            esac
+          done
+
+      - name: Upload safe rollout evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-map-foundation-${{ github.run_id }}
+          path: |
+            .production-map-foundation/preflight-report.json
+            .production-map-foundation/step-0063-report.json
+            .production-map-foundation/step-0064-report.json
+            .production-map-foundation/postflight-report.json
+          if-no-files-found: warn
+          retention-days: 30
