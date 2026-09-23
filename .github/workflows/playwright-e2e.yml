@@ -70,6 +70,7 @@ jobs:
           cat > .dev.vars <<'EOF'
           PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
           PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          TURNSTILE_SITE_KEY=1x00000000000000000000AA
           EOF
       - name: Apply foundation migrations to local D1 only
         run: |
@@ -114,6 +115,13 @@ jobs:
             tail -200 .e2e-artifacts/local-server.log
             exit 1
           fi
+      - name: REVIEWS-LAUNCH reviewer auth render hardening — desktop and mobile
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: >-
+          npm run e2e -- tests/e2e/review-author-auth.spec.ts
+          --grep "fresh anonymous reviewer login|fresh RSC navigation to reviewer auth|reviewer auth is accessible"
+          --workers=1 --retries=0
       - name: MONETIZATION-1 mobile layout, tracking and accessibility
         env:
           E2E_BASE_URL: http://localhost:5173
