@@ -79,10 +79,8 @@ export function buildOrganizationCreateStatement(
     image_url, image_key, directory_profile_id, import_key, source_url,
     source_data_json, seo_json, published_at, last_verified_at, archived_at,
     created_at, updated_at, created_by, updated_by`;
-  const beforeStatus = [
+  const values = [
     input.name, input.slug, input.legalName, input.registrationNumber, input.type,
-  ];
-  const afterStatus = [
     input.shortDescription, input.description, input.publicEmail, input.publicPhone,
     input.websiteUrl, input.facebookUrl, input.instagramUrl,
     "", "", "", "", "SK",
@@ -90,13 +88,12 @@ export function buildOrganizationCreateStatement(
     "{}", "{}", null, null, null,
     timestamp, timestamp, editorEmail, editorEmail,
   ];
-  const values = [...beforeStatus, ...afterStatus];
-  const createValuesSql = `${beforeStatus.map(() => "?").join(", ")}, 'DRAFT', ${afterStatus.map(() => "?").join(", ")}`;
   if (!guard) {
-    return database.prepare(`INSERT INTO help_organizations (${columns}) VALUES (${createValuesSql})`).bind(...values);
+    return database.prepare(`INSERT INTO help_organizations (${columns})
+      VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(...values);
   }
   return database.prepare(`INSERT INTO help_organizations (${columns})
-    SELECT ${createValuesSql}
+    SELECT ?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     WHERE EXISTS(
       SELECT 1 FROM moderation_submissions
       WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?
