@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PrivacyControls } from "@/components/privacy-controls";
+import { GoogleMapsConsentControls } from "@/components/google-maps-consent-controls";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -31,6 +32,13 @@ export default function CookiesPage() {
       <p>Pri povolenej analytike môžu byť spracúvané údaje o navštívenej stránke, čase návštevy, zariadení, prehliadači, približnej geografickej oblasti a interakciách. Nepoužívame Google Signals ani reklamné personalizačné signály.</p>
       <p>Po povolení môže Google Analytics používať analytické cookies, napríklad <code>_ga</code> a <code>_ga_*</code>.</p>
 
+      <h2>Google Maps</h2>
+      <p>Na stránke Mapa Psipedie môžeš samostatne povoliť interaktívny mapový podklad Google Maps. Pred týmto výslovným povolením Psipedia Google Maps JavaScript nenačíta a textové výsledky mapy zostávajú dostupné bez neho.</p>
+      <p>Po povolení prehliadač nadviaže spojenie so službou Google Maps. Google môže pri poskytovaní mapy spracúvať technické údaje potrebné na doručenie služby, napríklad IP adresu, informácie o prehliadači a súradnice zobrazovanej mapovej oblasti, podľa svojich podmienok a zásad ochrany súkromia. Psipedia neodosiela Google súkromné geo polohy ani nepoužíva Google Places alebo browser geocoding.</p>
+      <p>Voľbu ukladáme lokálne pod názvom <code>psipedia-google-maps-consent</code>. Môžeš ju kedykoľvek odvolať nižšie; po odvolaní stránku obnovíme, aby sa ďalší Google mapový podklad nenačítaval.</p>
+      <GoogleMapsConsentControls />
+      <p><a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">Podmienky Google Maps</a> · <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Zásady ochrany súkromia Google</a></p>
+
       <h2>Reklamné technológie tretích strán</h2>
       <p>Technická architektúra Psipedie umožňuje v budúcnosti zapnúť programmatic reklamu samostatnou konfiguráciou. Kým nie je táto integrácia nakonfigurovaná platným publisher identifikátorom, reklamný skript sa nenačíta. Ak bude integrácia zapnutá, načítanie third-party reklamného skriptu bude vyžadovať samostatnú voľbu reklamných cookies; samotný súhlas s analytikou na to nestačí.</p>
       <p>Priame first-party kampane môžu byť vykreslené bez third-party reklamného skriptu. Taký obsah je na stránke jasne označený ako <strong>Reklama</strong>; zvýraznený canonical profil alebo listing ako <strong>Sponzorované</strong>. First-party meranie zobrazení a kliknutí sa odosiela iba pri povolenej analytike alebo reklamných cookies.</p>
@@ -43,7 +51,7 @@ export default function CookiesPage() {
       <p>Pri odvolaní súhlasu Psipedia zakáže ďalšie analytické meranie a pokúsi sa odstrániť analytické cookies vytvorené pre doménu Psipedia.sk.</p>
 
       <p>Ďalšie informácie o spracúvaní údajov sú v <Link href="/sukromie">zásadách ochrany osobných údajov</Link>.</p>
-      <p className="legal-updated">Aktualizované 20. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 23. septembra 2026.</p>
     </main>
   );
 }

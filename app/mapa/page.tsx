@@ -1,30 +1,63 @@
 import type { Metadata } from "next";
+import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
 import { parseMapUiFilters } from "@/lib/map-public-ui";
 import { buildPageMetadata } from "@/lib/seo";
+import { publicMapLaunchEnabled } from "@/config/runtime-env";
 import styles from "@/components/map/map-public.module.css";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Mapa Psipedie",
-  description: "Preskúmaj služby pre psov, organizácie a podujatia na jednej spoločnej mape Psipedie.",
-  path: "/mapa",
-  canonical: "/mapa",
-});
+export function generateMetadata(): Metadata {
+  const launchEnabled = publicMapLaunchEnabled(mapLaunchEnvironment());
+  return buildPageMetadata({
+    title: "Mapa Psipedie",
+    description: "Preskúmaj služby pre psov, organizácie a podujatia na jednej spoločnej mape Psipedie.",
+    path: "/mapa",
+    canonical: "/mapa",
+    robots: launchEnabled
+      ? undefined
+      : {
+          index: false,
+          follow: false,
+          googleBot: { index: false, follow: false },
+        },
+  });
+}
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+type MapRuntimeBindings = {
+  PUBLIC_MAP_ENABLED?: string;
+  GOOGLE_MAPS_BROWSER_API_KEY?: string;
+  GOOGLE_MAPS_MAP_ID?: string;
+};
+
+function mapLaunchEnvironment() {
+  const bindings = env as unknown as MapRuntimeBindings;
+  return {
+    PUBLIC_MAP_ENABLED: bindings.PUBLIC_MAP_ENABLED ?? process.env.PUBLIC_MAP_ENABLED,
+    GOOGLE_MAPS_BROWSER_API_KEY: bindings.GOOGLE_MAPS_BROWSER_API_KEY ?? process.env.GOOGLE_MAPS_BROWSER_API_KEY,
+    GOOGLE_MAPS_MAP_ID: bindings.GOOGLE_MAPS_MAP_ID ?? process.env.GOOGLE_MAPS_MAP_ID,
+  };
+}
+
 export default async function MapPage({ searchParams }: Props) {
   const rawSearchParams = await searchParams;
   const initialFilters = parseMapUiFilters(rawSearchParams);
-  const googleApiKey = process.env.GOOGLE_MAPS_BROWSER_API_KEY ?? "";
-  const googleMapId = process.env.GOOGLE_MAPS_MAP_ID ?? "";
-  const testRenderer = process.env.MAP_UI_TEST_RENDERER === "1"
-    && rawSearchParams.__mapRenderer !== "real";
+  const mapUiTestMode = process.env.MAP_UI_TEST_RENDERER === "1";
+  const testMissingConfig = mapUiTestMode && rawSearchParams.__mapConfig === "missing";
+  const runtimeLaunchEnv = mapLaunchEnvironment();
+  const launchEnv = testMissingConfig
+    ? { ...runtimeLaunchEnv, GOOGLE_MAPS_BROWSER_API_KEY: "", GOOGLE_MAPS_MAP_ID: "" }
+    : runtimeLaunchEnv;
+  const publicMapEnabled = publicMapLaunchEnabled(launchEnv);
+  const googleApiKey = publicMapEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
+  const googleMapId = publicMapEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
+  const testRenderer = mapUiTestMode && rawSearchParams.__mapRenderer !== "real";
 
   return (
     <main id="obsah" className={styles.page}>
@@ -53,7 +86,17 @@ export default async function MapPage({ searchParams }: Props) {
         googleApiKey={googleApiKey}
         googleMapId={googleMapId}
         testRenderer={testRenderer}
+        launchEnabled={publicMapEnabled}
       />
+
+      <aside className={styles.providerDisclosure} aria-label="Informácie o mapovom podklade">
+        Interaktívny mapový podklad poskytuje Google Maps a načíta sa až po tvojom výslovnom povolení.
+        Používanie Google Maps podlieha{" "}
+        <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">podmienkam Google Maps</a>
+        {" "}a{" "}
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">zásadám ochrany súkromia Google</a>.
+        Lokalizačné údaje Psipedie a rozhodnutia o ich verejnosti zostávajú v databáze Psipedie.
+      </aside>
     </main>
   );
 }

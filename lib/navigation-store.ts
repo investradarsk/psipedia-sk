@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { defaultNavigationItems, type NavigationItem } from "@/lib/navigation";
+import { publicMapLaunchEnabled } from "@/config/runtime-env";
 
 type NavigationRow = {
   id: string;
@@ -10,7 +11,12 @@ type NavigationRow = {
   visible: number;
 };
 
-type RuntimeBindings = { DB?: D1Database };
+type RuntimeBindings = {
+  DB?: D1Database;
+  PUBLIC_MAP_ENABLED?: string;
+  GOOGLE_MAPS_BROWSER_API_KEY?: string;
+  GOOGLE_MAPS_MAP_ID?: string;
+};
 let navigationSchemaReady: Promise<void> | null = null;
 
 function getD1Binding() {
@@ -51,11 +57,38 @@ function rowToItem(row: NavigationRow): NavigationItem {
   };
 }
 
+export function applyPublicMapLaunchGate(items: NavigationItem[], enabled: boolean) {
+  const withoutMap = items.filter((item) => item.id !== "mapa" && item.href !== "/mapa");
+  if (!enabled) return withoutMap;
+  const mapItem: NavigationItem = {
+    id: "mapa",
+    label: "Mapa",
+    href: "/mapa",
+    parentId: null,
+    position: 4.5,
+    visible: true,
+  };
+  const directoryIndex = withoutMap.findIndex((item) => item.parentId === null && item.href === "/adresar");
+  if (directoryIndex < 0) return [...withoutMap, mapItem];
+  return [
+    ...withoutMap.slice(0, directoryIndex + 1),
+    mapItem,
+    ...withoutMap.slice(directoryIndex + 1),
+  ];
+}
+
 export async function getNavigationItems() {
+  const bindings = env as unknown as RuntimeBindings;
+  const enabled = publicMapLaunchEnabled({
+    PUBLIC_MAP_ENABLED: bindings.PUBLIC_MAP_ENABLED ?? process.env.PUBLIC_MAP_ENABLED,
+    GOOGLE_MAPS_BROWSER_API_KEY: bindings.GOOGLE_MAPS_BROWSER_API_KEY ?? process.env.GOOGLE_MAPS_BROWSER_API_KEY,
+    GOOGLE_MAPS_MAP_ID: bindings.GOOGLE_MAPS_MAP_ID ?? process.env.GOOGLE_MAPS_MAP_ID,
+  });
   const database = getD1Binding();
-  if (!database) return defaultNavigationItems;
+  if (!database) return applyPublicMapLaunchGate(defaultNavigationItems, enabled);
   const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
-  return result.results.length ? result.results.map(rowToItem) : defaultNavigationItems;
+  const items = result.results.length ? result.results.map(rowToItem) : defaultNavigationItems;
+  return applyPublicMapLaunchGate(items, enabled);
 }
 
 function normalizeInternalHref(value: string, label: string) {

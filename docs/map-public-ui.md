@@ -249,7 +249,7 @@ Google's native map attribution is never hidden.
 
 MAP-1D also renders `meta.attribution` exactly as returned by `/api/map`; it does not invent provider/license text.
 
-Before public launch, verify that the MAP-1C attribution payload is sufficient for the actual production provenance and provider terms. If additional OpenStreetMap attribution is contractually required, it should be represented by the authoritative API/provenance contract rather than guessed in the client.
+MAP-1E verified the current Geoapify terms and updated the authoritative MAP-1C payload. Geoapify-derived public records now carry both `Powered by Geoapify` and `© OpenStreetMap contributors`; the client still renders attribution only from the API contract.
 
 ## CSP
 
@@ -271,22 +271,17 @@ The policy does not use a bare `*`.
 
 ## Consent / privacy launch finding
 
-The current Psipedia consent implementation explicitly gates:
+MAP-1E resolves the open MAP-1D consent question conservatively with a service-specific Google Maps opt-in.
 
-- Google Analytics
-- optional programmatic advertising
+Before the visitor explicitly allows Google Maps:
 
-It does not currently contain a Google Maps-specific consent category or legal text.
+- the Google Maps JavaScript loader is not injected;
+- the provider map is not initialized;
+- Psipedia text results remain available.
 
-MAP-1D does not invent a legal conclusion and does not silently modify consent semantics.
+The preference is stored locally as `psipedia-google-maps-consent` and can be revoked on `/cookies`. MAP-1E also adds Google Maps Terms/Privacy disclosures to the map, cookie, privacy and terms surfaces.
 
-Therefore enabling the real Google Maps browser configuration for public launch remains blocked until the product/privacy review decides:
-
-1. whether Google Maps may load as a requested functional service without an additional consent gate in this implementation/jurisdiction;
-2. whether `/cookies`, `/sukromie` or terms need a Maps-specific disclosure;
-3. whether any additional Google contractual disclosure is required.
-
-Code can merge with Google config absent because the text fallback works without third-party loading.
+The separate `PUBLIC_MAP_ENABLED` runtime flag remains the operational launch gate, so code deployment does not itself enable Google or public navigation.
 
 ## Test strategy
 
@@ -366,7 +361,7 @@ Before adding a prominent navigation/homepage link, verify:
 - production `/api/map` smoke with real records
 - real Google Maps smoke
 - provider attribution requirements
-- consent/legal decision
+- service-specific Maps consent smoke
 - CSP smoke with real renderer
 - no P1 privacy issue
 

@@ -176,6 +176,13 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.body, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.viewport + 1);
 }
 
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title.includes("Google renderer is blocked before service-specific consent")) return;
+  await page.addInitScript(() => {
+    window.localStorage.setItem("psipedia-google-maps-consent", "granted");
+  });
+});
+
 test.describe("MAP-1D desktop", () => {
   test.use({ viewport: { width: 1440, height: 1000 } });
 
@@ -277,12 +284,22 @@ test.describe("MAP-1D desktop", () => {
     await page.screenshot({ path: ".e2e-artifacts/map-1d/desktop-recovered.png", fullPage: true });
   });
 
-  test("missing Google config keeps SSR and text results available without loading Google script", async ({ page }) => {
+  test("Google renderer is blocked before service-specific consent", async ({ page }) => {
     await installMapApiMock(page);
     await page.goto("/mapa?__mapRenderer=real");
 
+    await expect(page.getByTestId("map-consent-gate")).toContainText("Načítať interaktívnu Google mapu?");
+    await expect(page.getByTestId("map-card-service:1")).toBeVisible();
+    await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
+
+  });
+
+  test("missing Google config fails closed while SSR and text results remain available", async ({ page }) => {
+    await installMapApiMock(page);
+    await page.goto("/mapa?__mapRenderer=real&__mapConfig=missing");
+
     await expect(page.getByRole("heading", { level: 1, name: "Mapa Psipedie" })).toBeVisible();
-    await expect(page.getByTestId("map-renderer-status")).toContainText("Google Maps nie je nakonfigurovaný");
+    await expect(page.getByTestId("map-renderer-status")).toContainText("Interaktívna mapa ešte nie je verejne spustená");
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
     await page.screenshot({ path: ".e2e-artifacts/map-1d/desktop-config-missing.png", fullPage: true });

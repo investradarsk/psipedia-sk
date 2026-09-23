@@ -4,6 +4,7 @@ export const SECRET_ENV_NAMES = [
   "PII_ENCRYPTION_KEY",
   "PII_HASH_KEY",
   "NOTION_API_TOKEN",
+  "GEOAPIFY_API_KEY",
 ] as const;
 
 export const OPTIONAL_ENV_NAMES = [
@@ -22,6 +23,7 @@ export const OPTIONAL_ENV_NAMES = [
   "GOOGLE_ADSENSE_CLIENT_ID",
   "GOOGLE_MAPS_BROWSER_API_KEY",
   "GOOGLE_MAPS_MAP_ID",
+  "PUBLIC_MAP_ENABLED",
 ] as const;
 
 export const CI_ONLY_ENV_NAMES = [
@@ -65,6 +67,16 @@ export function configFlagEnabled(value: unknown) {
   return typeof value === "string" && (value === "1" || value.toLowerCase() === "true");
 }
 
+export function publicMapLaunchEnabled(env: {
+  PUBLIC_MAP_ENABLED?: unknown;
+  GOOGLE_MAPS_BROWSER_API_KEY?: unknown;
+  GOOGLE_MAPS_MAP_ID?: unknown;
+}) {
+  return configFlagEnabled(env.PUBLIC_MAP_ENABLED)
+    && present(env.GOOGLE_MAPS_BROWSER_API_KEY)
+    && present(env.GOOGLE_MAPS_MAP_ID);
+}
+
 export function validateRuntimeEnvironment(
   env: RuntimeConfig,
   options: { profile?: RuntimeConfigProfile } = {},
@@ -82,6 +94,7 @@ export function validateRuntimeEnvironment(
   const notionArticleSyncEnabled = configFlagEnabled(env.NOTION_ARTICLE_SYNC_ENABLED);
   const notionBreedSyncEnabled = configFlagEnabled(env.NOTION_BREED_SYNC_ENABLED);
   const notionEventSyncEnabled = configFlagEnabled(env.NOTION_EVENT_SYNC_ENABLED);
+  const publicMapRequested = configFlagEnabled(env.PUBLIC_MAP_ENABLED);
 
   // Public submission flags are opt-in. Once enabled, their security material
   // is critical and must fail closed instead of silently running unprotected.
@@ -104,6 +117,11 @@ export function validateRuntimeEnvironment(
   }
   if (notionEventSyncEnabled) {
     requireValue("NOTION_EVENTS_DATA_SOURCE_ID");
+  }
+
+  if (publicMapRequested) {
+    requireValue("GOOGLE_MAPS_BROWSER_API_KEY");
+    requireValue("GOOGLE_MAPS_MAP_ID");
   }
 
   if (profile === "production") {
@@ -131,5 +149,6 @@ export function validateRuntimeEnvironment(
     notionArticleSyncEnabled,
     notionBreedSyncEnabled,
     notionEventSyncEnabled,
+    publicMapEnabled: publicMapLaunchEnabled(env),
   });
 }

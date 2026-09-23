@@ -40,6 +40,10 @@ export default function TermsPage() {
       <p>Odosielateľ zodpovedá za to, že materiál, ktorý nám poskytne, môže oprávnene poskytnúť a že jeho odoslaním neporušuje práva iných osôb. Tip sa nezverejňuje automaticky a môže byť použitý najprv iba na interné preverenie.</p>
       <p>Neposielaj zbytočné osobné údaje, zdravotnú dokumentáciu ľudí, čísla dokladov, súkromnú korešpondenciu ani fotografie osôb bez primeraného oprávnenia.</p>
 
+      <h2>Mapa Psipedie a Google Maps</h2>
+      <p>Mapa Psipedie používa Google Maps iba ako voliteľný mapový podklad. Názvy subjektov, verejné lokality, filtre, zhluky a odkazy na profily pochádzajú z databázy Psipedie, nie z Google Places. Interaktívny Google mapový podklad sa načíta až po výslovnom povolení návštevníka.</p>
+      <p>Používanie Google Maps podlieha <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">podmienkam Google Maps</a> a <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">zásadám ochrany súkromia Google</a>. Informácie o technickej voľbe nájdeš na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>.</p>
+
       <h2>Externé odkazy</h2>
       <p>Portál môže obsahovať odkazy na stránky tretích strán. Za ich obsah, dostupnosť, bezpečnosť, obchodné podmienky a spracúvanie osobných údajov zodpovedajú ich prevádzkovatelia.</p>
 
@@ -56,7 +60,7 @@ export default function TermsPage() {
       <h2>Záverečné ustanovenia</h2>
       <p>Na prevádzku portálu sa vzťahuje právny poriadok Slovenskej republiky a priamo uplatniteľné právo Európskej únie. Tým nie sú dotknuté práva, ktoré nemožno podľa zákona vylúčiť alebo obmedziť.</p>
       <p>Tieto podmienky môžeme aktualizovať najmä pri rozšírení funkcií portálu alebo zmene právnych povinností. Aktuálne znenie bude vždy dostupné na tejto adrese.</p>
-      <p className="legal-updated">Účinné od 12. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 23. septembra 2026.</p>
     </main>
   );
 }
