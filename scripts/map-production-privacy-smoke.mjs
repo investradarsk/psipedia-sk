@@ -184,10 +184,21 @@ async function main() {
 
   const geoRows = readQuery(db, configPath, `
     SELECT
+      g.id AS geo_point_id,
       g.target_type, g.directory_profile_id, g.organization_location_id, g.managed_event_id,
       g.public_visibility, g.public_precision, g.geocode_status,
       g.latitude, g.longitude, g.source_fingerprint, g.resolved_source_fingerprint,
       g.manual_override, g.last_error_code,
+      EXISTS (
+        SELECT 1 FROM moderation_events m
+        WHERE m.resource_type='GEO_POINT'
+          AND m.subject_id=CAST(g.id AS TEXT)
+          AND m.actor_type='ADMIN'
+          AND (
+            (m.action='GEO_VISIBILITY_CHANGED' AND m.to_status IN ('PENDING','STALE'))
+            OR m.action IN ('GEO_MANUAL_SET','GEO_MANUAL_MOVED')
+          )
+      ) AS exact_privacy_reviewed,
       d.status AS directory_status, d.archived_at AS directory_archived_at, d.online AS directory_online,
       d.category AS directory_category, d.address AS directory_address, d.city AS directory_city,
       d.district AS directory_district, d.region AS directory_region,
@@ -209,10 +220,7 @@ async function main() {
   const unsafe = new Set();
   const approximateSources = new Map();
   let invalidApproxPrecision = 0;
-  let sensitiveExactWithoutManual = 0;
-  let organizationExactWithoutManualReview = 0;
-
-  const sensitiveCategories = new Set(["chovatelske-stanice", "chovatelske-kluby", "treneri", "vencenie", "kynologicke-kluby"]);
+  let exactPublicWithoutPrivacyReview = 0;
 
   for (const row of geoRows) {
     const id = itemId(row);
@@ -223,23 +231,21 @@ async function main() {
     if (row.public_visibility === "APPROXIMATE_PUBLIC" && row.public_precision === "EXACT") {
       invalidApproxPrecision += 1;
     }
-    if (row.target_type === "DIRECTORY_PROFILE"
-      && row.public_visibility === "EXACT_PUBLIC"
-      && sensitiveCategories.has(row.directory_category)
-      && Number(row.manual_override || 0) !== 1) {
-      sensitiveExactWithoutManual += 1;
-    }
-    if (row.target_type === "ORGANIZATION_LOCATION"
-      && row.public_visibility === "EXACT_PUBLIC"
-      && (row.organization_location_role === "LEGAL_SEAT" || row.organization_location_role === "UNSPECIFIED" || !row.organization_location_role)
-      && Number(row.manual_override || 0) !== 1) {
-      organizationExactWithoutManualReview += 1;
+    if (row.public_visibility === "EXACT_PUBLIC"
+      && row.geocode_status === "RESOLVED"
+      && Number(row.exact_privacy_reviewed || 0) !== 1) {
+      exactPublicWithoutPrivacyReview += 1;
     }
 
     if (safe && row.public_visibility === "APPROXIMATE_PUBLIC") {
       const address = normalize(sourceAddress(row));
       const localities = sourceLocalityParts(row).map(normalize).filter(Boolean);
-      if (address && !localities.includes(address)) approximateSources.set(id, address);
+      const streetNeedle = normalize(address.split(",")[0]);
+      if (streetNeedle && streetNeedle.length >= 4
+        && !localities.includes(address)
+        && !localities.includes(streetNeedle)) {
+        approximateSources.set(id, streetNeedle);
+      }
     }
   }
 
@@ -248,6 +254,8 @@ async function main() {
   const forbiddenFields = new Set([
     "address", "sourceFingerprint", "resolvedSourceFingerprint", "normalizedQuery",
     "queryFingerprint", "lastErrorCode", "manualUpdatedBy", "manualOverride", "provider",
+    "source_fingerprint", "resolved_source_fingerprint", "normalized_query",
+    "query_fingerprint", "last_error_code", "manual_updated_by", "manual_override",
   ]);
   let unexpectedApiItems = 0;
   let unsafeApiItems = 0;
@@ -271,8 +279,7 @@ async function main() {
 
   const failures = {
     invalidApproxPrecision,
-    sensitiveExactWithoutManual,
-    organizationExactWithoutManualReview,
+    exactPublicWithoutPrivacyReview,
     unexpectedApiItems,
     unsafeApiItems,
     approximateStreetLeaks,
