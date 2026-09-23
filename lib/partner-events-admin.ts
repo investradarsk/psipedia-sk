@@ -170,7 +170,6 @@ export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;
   const now=input.now??new Date(),nowIso=now.toISOString(),resourceId=crypto.randomUUID();
   await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:"[]",now:nowIso,extraStatements:[
     database.prepare(`INSERT OR IGNORE INTO partner_resources(id,entity_type,managed_event_id,created_at,updated_at) VALUES(?1,'MANAGED_EVENT',?2,?3,?3)`).bind(resourceId,input.canonicalId,nowIso),
-    ...membershipStatements(database,{resourceId:`event-link-placeholder`,accountId:row.accountId,actorRef,nowIso}).map(()=>database.prepare("SELECT 1")),
     database.prepare(`INSERT INTO partner_audit_events(id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at)
       SELECT ?1,'ADMIN',?2,'MEMBERSHIP_CREATED','PARTNER_RESOURCE',r.id,?3,?4 FROM partner_resources r
       WHERE r.managed_event_id=?5 AND NOT EXISTS(SELECT 1 FROM partner_memberships m WHERE m.account_id=?6 AND m.resource_id=r.id AND m.revoked_at IS NULL)`)
@@ -179,7 +178,14 @@ export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;
       SELECT ?1,?2,r.id,'OWNER',?3,?4,?3 FROM partner_resources r WHERE r.managed_event_id=?5
       AND NOT EXISTS(SELECT 1 FROM partner_memberships m WHERE m.account_id=?2 AND m.resource_id=r.id AND m.revoked_at IS NULL)`)
       .bind(crypto.randomUUID(),row.accountId,nowIso,actorRef,input.canonicalId),
-    database.prepare(`UPDATE partner_memberships SET role='OWNER',updated_at=?1 WHERE account_id=?2 AND revoked_at IS NULL AND resource_id=(SELECT id FROM partner_resources WHERE managed_event_id=?3 LIMIT 1)`).bind(nowIso,row.accountId,input.canonicalId),
+    database.prepare(`INSERT INTO partner_audit_events(id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at)
+      SELECT ?1,'ADMIN',?2,'MEMBERSHIP_ROLE_CHANGED','PARTNER_RESOURCE',r.id,?3,?4
+      FROM partner_resources r
+      JOIN partner_memberships m ON m.resource_id=r.id AND m.account_id=?5 AND m.revoked_at IS NULL
+      WHERE r.managed_event_id=?6 AND m.role<>'OWNER'`)
+      .bind(crypto.randomUUID(),actorRef,JSON.stringify({accountId:row.accountId,role:"OWNER"}),nowIso,row.accountId,input.canonicalId),
+    database.prepare(`UPDATE partner_memberships SET role='OWNER',updated_at=?1 WHERE account_id=?2 AND revoked_at IS NULL AND role<>'OWNER'
+      AND resource_id=(SELECT id FROM partner_resources WHERE managed_event_id=?3 LIMIT 1)`).bind(nowIso,row.accountId,input.canonicalId),
     database.prepare(`UPDATE partner_event_submission_metadata SET dedupe_active=0,resolution_type='LINKED_EXISTING',resolved_event_id=?1,partner_resource_id=(SELECT id FROM partner_resources WHERE managed_event_id=?1 LIMIT 1)
       WHERE submission_id=?2 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?2 AND status='APPROVED' AND updated_at=?3 AND reviewed_by=?4)`).bind(input.canonicalId,input.id,nowIso,actorRef),
     audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_LINKED_EXISTING",nowIso,actorRef,status:"APPROVED",metadata:{eventId:input.canonicalId}}),
