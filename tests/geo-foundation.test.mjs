@@ -265,10 +265,10 @@ test("Gate A inventory is SELECT-only and never reads private lost/found storage
   assert.doesNotMatch(inventory, /private_latitude|private_longitude/i);
 });
 
-test("generic geo foundation never targets lost/found and MAP-1C keeps the UI boundary", () => {
+test("generic geo foundation never targets lost/found and MAP-1D keeps the public privacy boundary", () => {
   assert.doesNotMatch(migration, /lost_found/i);
   assert.doesNotMatch(geoStore, /lost_found_dog_private_details|private_latitude|private_longitude/i);
   assert.doesNotMatch(publicMapRoute + publicMapQuery, /lost_found_dog_private_details|private_latitude|private_longitude/i);
-  assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), true);
   assert.equal(existsSync(new URL("../app/api/map/route.ts", import.meta.url)), true);
 });
