@@ -22,11 +22,15 @@ type Props = {
 export default async function MapPage({ searchParams }: Props) {
   const rawSearchParams = await searchParams;
   const initialFilters = parseMapUiFilters(rawSearchParams);
-  const publicMapEnabled = publicMapLaunchEnabled(process.env);
-  const googleApiKey = publicMapEnabled ? process.env.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
-  const googleMapId = publicMapEnabled ? process.env.GOOGLE_MAPS_MAP_ID ?? "" : "";
-  const testRenderer = process.env.MAP_UI_TEST_RENDERER === "1"
-    && rawSearchParams.__mapRenderer !== "real";
+  const mapUiTestMode = process.env.MAP_UI_TEST_RENDERER === "1";
+  const testMissingConfig = mapUiTestMode && rawSearchParams.__mapConfig === "missing";
+  const launchEnv = testMissingConfig
+    ? { ...process.env, GOOGLE_MAPS_BROWSER_API_KEY: "", GOOGLE_MAPS_MAP_ID: "" }
+    : process.env;
+  const publicMapEnabled = publicMapLaunchEnabled(launchEnv);
+  const googleApiKey = publicMapEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
+  const googleMapId = publicMapEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
+  const testRenderer = mapUiTestMode && rawSearchParams.__mapRenderer !== "real";
 
   return (
     <main id="obsah" className={styles.page}>
