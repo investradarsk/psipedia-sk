@@ -27,7 +27,12 @@ test.describe("MAP-1E launch navigation", () => {
     test.skip(!isMobile, "Mobile launch navigation check");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+    await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+    await page.waitForTimeout(100);
+    const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible');
+    await expect(menuTrigger).toHaveAttribute("aria-label", "Otvoriť menu");
+    await menuTrigger.click();
+    await expect(menuTrigger).toHaveAttribute("aria-expanded", "true");
     const menu = page.locator("#mobile-menu");
     await expect(menu.getByRole("link", { name: "Mapa", exact: true })).toHaveAttribute("href", "/mapa");
     await expect(menu.getByRole("link", { name: "Mapa", exact: true })).toBeVisible();
