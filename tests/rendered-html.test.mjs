@@ -1183,7 +1183,7 @@ test("reviewer auth document shell carries the RSC route without invalid referre
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /__VINEXT_RSC_NAV__/);
-    assert.match(html, /"pathname":"\\/recenzia\\/prihlasenie"/);
+    assert.ok(html.includes('"pathname":"/recenzia/prihlasenie"'));
     assert.doesNotMatch(html, /name="referrer"[^>]+content="Redakcia Psipedia"/i);
   }
 });
