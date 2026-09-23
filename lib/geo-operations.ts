@@ -8,7 +8,7 @@ import {
   type GeoTargetType,
 } from "./geo";
 import { GeoapifyGeocoder } from "./geoapify-geocoder";
-import { chooseGeocoderResult } from "./geo-service";
+import { chooseGeocoderResult, resolveGeoTarget } from "./geo-service";
 import {
   getGeoPointForTarget,
   initializeGeoPointForTarget,
@@ -168,4 +168,93 @@ export async function runGeoCanary(input: {
     }
   }
   return { configured: true, executed: items.filter((item) => item.outcome !== "skipped").length, items };
+}
+
+
+export async function runGeoBackfillChunk(input: {
+  limit: number;
+  targetType?: GeoTargetType | null;
+  directoryCategory?: string | null;
+  database?: GeoD1Database;
+}) {
+  const limit = Math.max(1, Math.min(20, Math.trunc(input.limit)));
+  const provider = new GeoapifyGeocoder();
+  if (!provider.isConfigured()) {
+    return {
+      configured: false,
+      requested: limit,
+      attempted: 0,
+      resolved: 0,
+      needsReview: 0,
+      failed: 0,
+      pending: 0,
+      skipped: 0,
+      items: [],
+      error: "GEOAPIFY_API_KEY is not configured.",
+    };
+  }
+
+  const preview = await previewGeoCandidates({
+    limit: Math.min(200, Math.max(limit * 10, 50)),
+    targetType: input.targetType,
+    directoryCategory: input.directoryCategory,
+    database: input.database,
+  });
+
+  const candidates = [];
+  const now = Date.now();
+  for (const item of preview.items) {
+    if (candidates.length >= limit) break;
+    const point = await getGeoPointForTarget(item.targetType, item.targetId, input.database);
+    if (!point || point.geocodeStatus !== "PENDING" || point.manualOverride) continue;
+    if (!point.publicVisibility || point.publicVisibility === "HIDDEN" || !point.publicPrecision) continue;
+    if (point.retryAfterAt && Date.parse(point.retryAfterAt) > now) continue;
+    candidates.push(item);
+  }
+
+  const report = {
+    configured: true,
+    requested: limit,
+    eligible: candidates.length,
+    attempted: 0,
+    resolved: 0,
+    needsReview: 0,
+    failed: 0,
+    pending: 0,
+    skipped: 0,
+    items: [] as Array<{ targetType: string; targetId: number; status: string; errorCode: string | null }>,
+  };
+
+  for (const item of candidates) {
+    report.attempted += 1;
+    try {
+      const point = await resolveGeoTarget({
+        targetType: item.targetType,
+        targetId: item.targetId,
+        provider,
+        database: input.database,
+      });
+      if (point.geocodeStatus === "RESOLVED") report.resolved += 1;
+      else if (point.geocodeStatus === "NEEDS_REVIEW") report.needsReview += 1;
+      else if (point.geocodeStatus === "FAILED") report.failed += 1;
+      else if (point.geocodeStatus === "PENDING") report.pending += 1;
+      else report.skipped += 1;
+      report.items.push({
+        targetType: item.targetType,
+        targetId: item.targetId,
+        status: point.geocodeStatus,
+        errorCode: point.lastErrorCode,
+      });
+    } catch {
+      report.failed += 1;
+      report.items.push({
+        targetType: item.targetType,
+        targetId: item.targetId,
+        status: "FAILED",
+        errorCode: "PROVIDER_ERROR",
+      });
+    }
+  }
+
+  return report;
 }
