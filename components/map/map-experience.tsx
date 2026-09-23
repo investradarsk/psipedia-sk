@@ -12,13 +12,17 @@ import {
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
   MAP_FETCH_DEBOUNCE_MS,
+  MapRequestGate,
   buildMapApiUrl,
   isApproximateMapItem,
   mapFiltersForCategory,
   mapFiltersForDistrict,
   mapFiltersForRegion,
+  mapClusterTarget,
   mapItemTypeLabel,
   mapResultLabel,
+  scheduleMapRequest,
+  selectedMapItemAfterResponse,
   serializeMapUiFilters,
   type MapUiFilters,
   type MapViewport,
@@ -391,7 +395,8 @@ export function MapExperience({
   const [retryNonce, setRetryNonce] = useState(0);
   const [sheetState, setSheetState] = useState<"peek" | "expanded">("peek");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const requestSequence = useRef(0);
+  const requestGateRef = useRef<MapRequestGate | null>(null);
+  if (!requestGateRef.current) requestGateRef.current = new MapRequestGate();
   const cardRefs = useRef(new Map<string, HTMLElement>());
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const filterDialogRef = useRef<HTMLDivElement>(null);
@@ -419,18 +424,19 @@ export function MapExperience({
   }, [filters]);
 
   useEffect(() => {
-    const requestId = ++requestSequence.current;
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
+    const gate = requestGateRef.current!;
+    gate.cancel();
+    const scheduled = scheduleMapRequest(async () => {
+      const request = gate.begin();
       setLoading(true);
       setError(null);
       try {
         const result = await fetch(apiUrl, {
-          signal: controller.signal,
+          signal: request.signal,
           headers: { Accept: "application/json" },
         });
         const payload: unknown = await result.json().catch(() => null);
-        if (requestId !== requestSequence.current) return;
+        if (!request.isCurrent()) return;
 
         if (!result.ok) {
           if (result.status === 400) throw { kind: "validation", message: "Filtre sa nepodarilo spracovať." } satisfies MapApiError;
@@ -443,25 +449,21 @@ export function MapExperience({
         }
 
         setResponse(payload);
-        setSelectedItemId((current) => (
-          current && payload.mode === "items" && payload.items.some((item) => item.id === current)
-            ? current
-            : null
-        ));
+        setSelectedItemId((current) => selectedMapItemAfterResponse(current, payload));
       } catch (caught) {
-        if (controller.signal.aborted || requestId !== requestSequence.current) return;
+        if (!request.isCurrent()) return;
         const next = caught && typeof caught === "object" && "kind" in caught
           ? caught as MapApiError
           : { kind: "network", message: "Spojenie s mapou sa prerušilo." } satisfies MapApiError;
         setError(next);
       } finally {
-        if (!controller.signal.aborted && requestId === requestSequence.current) setLoading(false);
+        if (request.isCurrent()) setLoading(false);
       }
     }, MAP_FETCH_DEBOUNCE_MS);
 
     return () => {
-      window.clearTimeout(timer);
-      controller.abort();
+      scheduled.cancel();
+      gate.cancel();
     };
   }, [apiUrl, retryNonce]);
 
@@ -523,13 +525,14 @@ export function MapExperience({
 
   const selectCluster = useCallback((cluster: MapCluster) => {
     setSelectedItemId(null);
+    const target = mapClusterTarget(cluster, viewport.zoom);
     setRendererCommand((current) => ({
       key: (current?.key ?? 0) + 1,
       type: "cluster",
       id: cluster.id,
-      latitude: cluster.latitude,
-      longitude: cluster.longitude,
-      zoom: Math.min(20, Math.max(viewport.zoom + 2, 9)),
+      latitude: target.latitude,
+      longitude: target.longitude,
+      zoom: target.zoom,
     }));
   }, [viewport.zoom]);
 
