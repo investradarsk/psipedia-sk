@@ -226,7 +226,7 @@ test.describe("MAP-1D desktop", () => {
   });
 
   test("server clusters zoom to item mode without a second hidden endpoint", async ({ page }) => {
-    await installMapApiMock(page);
+    const mock = await installMapApiMock(page);
     await page.goto("/mapa");
 
     await page.getByLabel("Vyhľadávanie v mape").fill("cluster");
@@ -234,9 +234,13 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByRole("button", { name: "Priblížiť oblasť s 34 záznamami" })).toBeVisible();
     await page.screenshot({ path: ".e2e-artifacts/map-1d/desktop-clusters.png", fullPage: true });
 
+    const requestsBeforeZoom = mock.requests.length;
     await page.getByRole("button", { name: "Priblížiť oblasť s 34 záznamami" }).click();
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
+    const zoomRequestDelta = mock.requests.length - requestsBeforeZoom;
+    console.log(`MAP_UI_REQUESTS cluster_zoom_delta=${zoomRequestDelta}`);
+    expect(zoomRequestDelta).toBe(1);
   });
 
   test("empty, truncated and API failure states remain distinct and retryable", async ({ page }) => {
