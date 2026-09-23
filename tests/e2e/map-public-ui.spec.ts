@@ -176,6 +176,12 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.body, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.viewport + 1);
 }
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("psipedia-google-maps-consent", "granted");
+  });
+});
+
 test.describe("MAP-1D desktop", () => {
   test.use({ viewport: { width: 1440, height: 1000 } });
 
@@ -275,6 +281,21 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
 
     await page.screenshot({ path: ".e2e-artifacts/map-1d/desktop-recovered.png", fullPage: true });
+  });
+
+  test("Google renderer is blocked before service-specific consent", async ({ page }) => {
+    await installMapApiMock(page);
+    await page.goto("/mapa");
+    await page.evaluate(() => window.localStorage.removeItem("psipedia-google-maps-consent"));
+    await page.goto("/mapa?__mapRenderer=real");
+
+    await expect(page.getByTestId("map-consent-gate")).toContainText("Načítať interaktívnu Google mapu?");
+    await expect(page.getByTestId("map-card-service:1")).toBeVisible();
+    await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Povoliť Google Maps" }).click();
+    await expect(page.getByTestId("map-consent-gate")).toHaveCount(0);
+    await expect(page.getByTestId("map-renderer-status")).toContainText("Google Maps nie je nakonfigurovaný");
   });
 
   test("missing Google config keeps SSR and text results available without loading Google script", async ({ page }) => {
