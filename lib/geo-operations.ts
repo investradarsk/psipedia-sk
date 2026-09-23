@@ -34,6 +34,14 @@ export type GeoDryRunItem = {
   alreadyInitialized: boolean;
 };
 
+export function isSafeAutoGeoCandidate(item: GeoDryRunItem) {
+  return !item.requiresReview
+    && Boolean(item.proposedVisibility)
+    && item.proposedVisibility !== "HIDDEN"
+    && Boolean(item.proposedPrecision)
+    && Boolean(item.normalizedQuery);
+}
+
 export async function previewGeoCandidates(options: {
   limit?: number;
   targetType?: GeoTargetType | null;
@@ -91,17 +99,28 @@ export async function initializeGeoCandidates(input: {
   actorRef: string;
   targetType?: GeoTargetType | null;
   directoryCategory?: string | null;
+  safeOnly?: boolean;
   database?: GeoD1Database;
 }) {
   const limit = Math.max(1, Math.min(100, Math.trunc(input.limit)));
   const preview = await previewGeoCandidates({
-    limit,
+    limit: input.safeOnly ? Math.min(500, Math.max(limit * 10, 50)) : limit,
     targetType: input.targetType,
     directoryCategory: input.directoryCategory,
     database: input.database,
   });
-  const report = { requested: preview.items.length, created: 0, existing: 0, failed: 0, failures: [] as Array<{ targetType: string; targetId: number; error: string }> };
-  for (const item of preview.items) {
+  const eligible = (input.safeOnly ? preview.items.filter(isSafeAutoGeoCandidate) : preview.items).slice(0, limit);
+  const report = {
+    requested: limit,
+    scanned: preview.items.length,
+    eligible: eligible.length,
+    safeOnly: Boolean(input.safeOnly),
+    created: 0,
+    existing: 0,
+    failed: 0,
+    failures: [] as Array<{ targetType: string; targetId: number; error: string }>,
+  };
+  for (const item of eligible) {
     try {
       const result = await initializeGeoPointForTarget(item.targetType, item.targetId, input.actorRef, input.database);
       if (result.created) report.created += 1; else report.existing += 1;
@@ -115,13 +134,7 @@ export async function initializeGeoCandidates(input: {
 
 export function selectGeoCanaryCandidates(items: GeoDryRunItem[], requestedLimit: number) {
   const limit = Math.max(1, Math.min(10, Math.trunc(requestedLimit)));
-  const eligible = items.filter((item) =>
-    !item.requiresReview
-    && Boolean(item.proposedVisibility)
-    && item.proposedVisibility !== "HIDDEN"
-    && Boolean(item.proposedPrecision)
-    && Boolean(item.normalizedQuery),
-  );
+  const eligible = items.filter(isSafeAutoGeoCandidate);
 
   const selected: GeoDryRunItem[] = [];
   const selectedKeys = new Set<string>();
