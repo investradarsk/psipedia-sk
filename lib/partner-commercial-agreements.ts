@@ -34,6 +34,10 @@ type AgreementRow={
 };
 type PartnerAgreementView=Omit<AgreementRow,"adminNote"|"paidBy"|"createdBy"|"updatedBy">;
 
+function missingCommercialSchema(error:unknown){
+  const message=error instanceof Error?error.message:String(error);
+  return /no such table:\s*partner_(?:commercial_agreements|entitlements)/i.test(message);
+}
 function isAgreementType(value:unknown):value is PartnerAgreementType{return typeof value==="string"&&(partnerAgreementTypes as readonly string[]).includes(value);}
 function isAgreementStatus(value:unknown):value is PartnerAgreementStatus{return typeof value==="string"&&(partnerAgreementStatuses as readonly string[]).includes(value);}
 function isPaymentMethod(value:unknown):value is PartnerPaymentMethod{return typeof value==="string"&&(partnerPaymentMethods as readonly string[]).includes(value);}
@@ -103,8 +107,10 @@ const BASE=`SELECT a.id,a.interest_id interestId,a.account_id accountId,a.resour
   LEFT JOIN partner_entitlements ent ON ent.agreement_id=a.id`;
 
 export async function listPartnerCommercialAgreements(accountId:string,database?:D1Database):Promise<PartnerAgreementView[]>{
-  const rows=(await getPartnerDatabase(database).prepare(BASE+" WHERE a.account_id=?1 ORDER BY a.created_at DESC LIMIT 100").bind(accountId).all<AgreementRow>()).results;
-  return rows.map(({adminNote:_,paidBy:__,createdBy:___,updatedBy:____,...safe})=>safe);
+  try{
+    const rows=(await getPartnerDatabase(database).prepare(BASE+" WHERE a.account_id=?1 ORDER BY a.created_at DESC LIMIT 100").bind(accountId).all<AgreementRow>()).results;
+    return rows.map(({adminNote:_,paidBy:__,createdBy:___,updatedBy:____,...safe})=>safe);
+  }catch(error){if(missingCommercialSchema(error))return [];throw error;}
 }
 export async function listPartnerCommercialAgreementsAdmin(database?:D1Database){
   return (await getPartnerDatabase(database).prepare(BASE+" ORDER BY a.updated_at DESC LIMIT 250").all<AgreementRow>()).results;
@@ -316,31 +322,36 @@ export async function expireEndedCommercialItems(databaseInput?:D1Database,now=n
 }
 
 export async function getPublicPartnerCommercialFlags(resourceType:"DIRECTORY_PROFILE"|"HELP_ORGANIZATION",canonicalId:number,databaseInput?:D1Database,now=new Date()){
-  const database=getPartnerDatabase(databaseInput),resourceRow=await database.prepare(`
-    SELECT id FROM partner_resources WHERE entity_type=?1 AND
-      ((?1='DIRECTORY_PROFILE' AND directory_profile_id=?2) OR (?1='HELP_ORGANIZATION' AND help_organization_id=?2)) LIMIT 1
-  `).bind(resourceType,canonicalId).first<{id:string}>();
-  if(!resourceRow)return {premium:false,promoted:false,sponsoredLabel:null as string|null};
-  const entitlements=(await database.prepare(`SELECT entitlement_type entitlementType,status,start_at startAt,end_at endAt,promotion_id promotionId
-    FROM partner_entitlements WHERE resource_id=?1 AND status IN ('SCHEDULED','ACTIVE','PAUSED')`).bind(resourceRow.id)
-    .all<{entitlementType:"PREMIUM_PROFILE"|"PROMOTED_PROFILE";status:PartnerEntitlementStatus;startAt:string;endAt:string;promotionId:string|null}>()).results;
-  const premium=entitlements.some(x=>x.entitlementType==="PREMIUM_PROFILE"&&runtimeActive(x.status,x.startAt,x.endAt,now));
-  let promoted=false;
-  const promotedEnt=entitlements.find(x=>x.entitlementType==="PROMOTED_PROFILE"&&runtimeActive(x.status,x.startAt,x.endAt,now)&&x.promotionId);
-  if(promotedEnt?.promotionId){
-    const p=await database.prepare(`SELECT status,start_at startAt,end_at endAt,label FROM monetization_promotions WHERE id=?1 LIMIT 1`).bind(promotedEnt.promotionId)
-      .first<{status:"draft"|"active"|"paused"|"archived";startAt:string|null;endAt:string|null;label:string}>();
-    promoted=Boolean(p&&isPromotionVisible({status:p.status,startAt:p.startAt,endAt:p.endAt,entityPublic:true,label:p.label},now));
-  }
-  return {premium,promoted,sponsoredLabel:promoted?SPONSORED_LABEL:null};
+  const fallback={premium:false,promoted:false,sponsoredLabel:null as string|null};
+  try{
+    const database=getPartnerDatabase(databaseInput),resourceRow=await database.prepare(`
+      SELECT id FROM partner_resources WHERE entity_type=?1 AND
+        ((?1='DIRECTORY_PROFILE' AND directory_profile_id=?2) OR (?1='HELP_ORGANIZATION' AND help_organization_id=?2)) LIMIT 1
+    `).bind(resourceType,canonicalId).first<{id:string}>();
+    if(!resourceRow)return fallback;
+    const entitlements=(await database.prepare(`SELECT entitlement_type entitlementType,status,start_at startAt,end_at endAt,promotion_id promotionId
+      FROM partner_entitlements WHERE resource_id=?1 AND status IN ('SCHEDULED','ACTIVE','PAUSED')`).bind(resourceRow.id)
+      .all<{entitlementType:"PREMIUM_PROFILE"|"PROMOTED_PROFILE";status:PartnerEntitlementStatus;startAt:string;endAt:string;promotionId:string|null}>()).results;
+    const premium=entitlements.some(x=>x.entitlementType==="PREMIUM_PROFILE"&&runtimeActive(x.status,x.startAt,x.endAt,now));
+    let promoted=false;
+    const promotedEnt=entitlements.find(x=>x.entitlementType==="PROMOTED_PROFILE"&&runtimeActive(x.status,x.startAt,x.endAt,now)&&x.promotionId);
+    if(promotedEnt?.promotionId){
+      const p=await database.prepare(`SELECT status,start_at startAt,end_at endAt,label FROM monetization_promotions WHERE id=?1 LIMIT 1`).bind(promotedEnt.promotionId)
+        .first<{status:"draft"|"active"|"paused"|"archived";startAt:string|null;endAt:string|null;label:string}>();
+      promoted=Boolean(p&&isPromotionVisible({status:p.status,startAt:p.startAt,endAt:p.endAt,entityPublic:true,label:p.label},now));
+    }
+    return {premium,promoted,sponsoredLabel:promoted?SPONSORED_LABEL:null};
+  }catch(error){if(missingCommercialSchema(error))return fallback;throw error;}
 }
 
 export async function getPartnerCommercialDashboardSummary(accountId:string,databaseInput?:D1Database,now=new Date()){
   const database=getPartnerDatabase(databaseInput),iso=now.toISOString();
+  try{
   const [open, premium, promoted]=await Promise.all([
     database.prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE account_id=?1 AND status IN ('NEW','CONTACTED','INTERESTED')").bind(accountId).first<{count:number}>(),
     database.prepare(`SELECT COUNT(*) count FROM partner_entitlements WHERE account_id=?1 AND entitlement_type='PREMIUM_PROFILE' AND status IN ('ACTIVE','SCHEDULED') AND start_at<=?2 AND end_at>?2`).bind(accountId,iso).first<{count:number}>(),
     database.prepare(`SELECT COUNT(*) count FROM partner_entitlements WHERE account_id=?1 AND entitlement_type='PROMOTED_PROFILE' AND status IN ('ACTIVE','SCHEDULED') AND start_at<=?2 AND end_at>?2`).bind(accountId,iso).first<{count:number}>(),
   ]);
   return {openRequests:Number(open?.count??0),activePremium:Number(premium?.count??0),activePromotions:Number(promoted?.count??0)};
+  }catch(error){if(missingCommercialSchema(error))return {openRequests:0,activePremium:0,activePromotions:0};throw error;}
 }
