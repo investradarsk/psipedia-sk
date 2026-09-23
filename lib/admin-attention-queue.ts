@@ -2,10 +2,11 @@ import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts"
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 15;
+export const ADMIN_ATTENTION_QUERY_COUNT = 16;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
+  "PROFILE_REVIEW_MODERATION",
   "NEWS_TIP",
   "DIRECTORY_CHANGE_REQUEST",
   "DIRECTORY_INQUIRY",
@@ -58,6 +59,7 @@ export type AdminAttentionFilters = {
 
 export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string> = {
   MODERATION_SUBMISSION: "Moderácia",
+  PROFILE_REVIEW_MODERATION: "Profilové recenzie",
   NEWS_TIP: "Tipy pre redakciu",
   DIRECTORY_CHANGE_REQUEST: "Návrhy úprav",
   DIRECTORY_INQUIRY: "Dopyty",
@@ -169,6 +171,59 @@ export function mapModerationAttention(row: ModerationAttentionRow, now = new Da
     ageDays: ageDays(relevantAt, now),
     targetHref: target.href,
     metadata: [{ label: "Operácia", value: row.operation }],
+  };
+}
+
+
+export type ProfileReviewAttentionRow = {
+  id: string;
+  status: string;
+  riskFlagsJson: string;
+  createdAt: string;
+  updatedAt: string;
+  targetName: string;
+  targetType: string;
+  targetCategory: string | null;
+};
+
+function profileReviewAttentionState(status: string): AdminAttentionState {
+  if (status === "PENDING_REVIEW") return "NEW";
+  if (status === "VISIBLE" || status === "HIDDEN") return "RESOLVED";
+  return "DISMISSED";
+}
+
+export function mapProfileReviewAttention(row: ProfileReviewAttentionRow, now = new Date()): AdminAttentionItem {
+  const riskFlagCount = parseRiskFlagCount(row.riskFlagsJson);
+  const attentionState = profileReviewAttentionState(row.status);
+  const priority: AdminAttentionPriority = riskFlagCount > 0 && isAdminAttentionActive(attentionState) ? "HIGH" : "MEDIUM";
+  const relevantAt = isAdminAttentionActive(attentionState) ? row.createdAt : row.updatedAt;
+  const reason = row.status === "PENDING_REVIEW"
+    ? riskFlagCount > 0
+      ? `Recenzia čaká na kontrolu a má ${riskFlagCount} rizikový${riskFlagCount === 1 ? "" : "ch"} signál${riskFlagCount === 1 ? "" : "ov"}.`
+      : "Nová profilová recenzia čaká na moderáciu."
+    : row.status === "VISIBLE"
+      ? "Recenzia bola schválená a je verejná."
+      : row.status === "HIDDEN"
+        ? "Recenzia je dočasne skrytá."
+        : row.status === "REJECTED"
+          ? "Recenzia bola zamietnutá."
+          : "Recenzia už nevyžaduje aktívnu moderáciu.";
+  const metadata: AdminAttentionMetadata[] = [{ label: "Typ profilu", value: row.targetType }];
+  if (row.targetCategory) metadata.push({ label: "Kategória", value: row.targetCategory });
+  return {
+    key: `profile-review:${row.id}`,
+    sourceType: "PROFILE_REVIEW_MODERATION",
+    sourceId: row.id,
+    title: `Recenzia: ${row.targetName || "Profil"}`,
+    reason,
+    priority,
+    status: row.status,
+    attentionState,
+    createdAt: row.createdAt,
+    relevantAt,
+    ageDays: ageDays(relevantAt, now),
+    targetHref: `/admin/recenzie-profilov/${row.id}`,
+    metadata,
   };
 }
 
