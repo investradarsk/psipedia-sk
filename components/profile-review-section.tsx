@@ -48,8 +48,8 @@ function reviewPageHref(baseHref: string, page: number) {
 function RatingStars({ rating }: { rating: number }) {
   const label = formatRating(rating) ?? String(rating);
   return (
-    <span className={styles.rating}>
-      <span className={styles.stars} aria-hidden="true">★★★★★</span>
+    <span className={styles.rating} data-review-rating>
+      <span className={styles.stars} aria-hidden="true">★</span>
       <span>{label} z 5</span>
     </span>
   );
@@ -198,7 +198,7 @@ export function ProfileReviewSection({
       <h2 id="profile-reviews-heading">Recenzie</h2>
 
       <div className={styles.summary}>
-        <div className={styles.score}>
+        <div className={styles.score} data-review-summary-score>
           <strong>{average}</strong>
           <RatingStars rating={data.summary.average ?? 0} />
           <span>{reviewCountLabel(data.summary.count)}</span>

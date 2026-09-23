@@ -21,7 +21,7 @@ test("directory zero state has no fake rating or submission CTA", async ({ page 
   await expect(reviews.getByRole("heading", { name: "Recenzie" })).toBeVisible();
   await expect(reviews.getByText("Zatiaľ bez recenzií", { exact: true })).toBeVisible();
   await expect(reviews.getByText(/0,0/)).toHaveCount(0);
-  await expect(reviews.getByText("★★★★★", { exact: true })).toHaveCount(0);
+  await expect(reviews.locator("[data-review-rating]")).toHaveCount(0);
   await expect(reviews.getByRole("link", { name: /Napísať recenziu/i })).toHaveCount(0);
   await expect(reviews.getByRole("button", { name: /Napísať recenziu/i })).toHaveCount(0);
   await expectReviewAxeClean(page);
@@ -31,7 +31,7 @@ test("directory visible reviews render summary, distribution, dimensions and saf
   const response = await page.goto("/adresar/veterinari/health-fixture-vet-rich", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   const reviews = page.locator("#recenzie");
-  await expect(reviews.getByText("4,5 z 5", { exact: true })).toBeVisible();
+  await expect(reviews.locator("[data-review-summary-score]").getByText("4,5 z 5", { exact: true })).toBeVisible();
   await expect(reviews.getByText("2 recenzie", { exact: true })).toBeVisible();
   await expect(reviews.getByText("Prístup", { exact: true }).first()).toBeVisible();
   await expect(reviews.getByText("Komunikácia", { exact: true }).first()).toBeVisible();
@@ -60,7 +60,7 @@ test("different directory category reuses engine with configured labels", async 
   const response = await page.goto("/adresar/treneri/e2e-services-detail-long", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   const reviews = page.locator("#recenzie");
-  await expect(reviews.getByText("4,0 z 5", { exact: true })).toBeVisible();
+  await expect(reviews.locator("[data-review-summary-score]").getByText("4,0 z 5", { exact: true })).toBeVisible();
   await expect(reviews.getByText("Kvalita tréningu", { exact: true }).first()).toBeVisible();
   await expect(reviews.getByText("Kvalita starostlivosti", { exact: true })).toHaveCount(0);
 });
@@ -69,7 +69,7 @@ test("organization profile uses the same review engine", async ({ page }) => {
   const response = await page.goto("/organizacie/e2e-organizacia", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   const reviews = page.locator("#recenzie");
-  await expect(reviews.getByText("5,0 z 5", { exact: true })).toBeVisible();
+  await expect(reviews.locator("[data-review-summary-score]").getByText("5,0 z 5", { exact: true })).toBeVisible();
   await expect(reviews.getByText("Kvalita služby", { exact: true }).first()).toBeVisible();
   await expect(reviews.getByText("Organizácia komunikovala jasne a pomoc bola zorganizovaná veľmi dobre.", { exact: true })).toBeVisible();
   await expectReviewAxeClean(page);
