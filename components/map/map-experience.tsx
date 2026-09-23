@@ -51,10 +51,9 @@ type Props = {
 type FilterPanelProps = {
   filters: MapUiFilters;
   onChange: (filters: MapUiFilters) => void;
-  compact?: boolean;
 };
 
-function FilterFields({ filters, onChange, compact = false }: FilterPanelProps) {
+function FilterFields({ filters, onChange }: FilterPanelProps) {
   const serviceCategory = filters.category === "services";
   const eventCategory = filters.category === "events";
   const regions = slovakRegions.filter((region) => region !== "Online");
@@ -136,7 +135,7 @@ function FilterFields({ filters, onChange, compact = false }: FilterPanelProps) 
         </>
       ) : null}
 
-      {!compact && !serviceCategory && !eventCategory ? (
+      {!serviceCategory && !eventCategory ? (
         <label>
           <span>Podkategória</span>
           <input
@@ -665,7 +664,7 @@ export function MapExperience({
               >×</button>
             </header>
             <div className={styles.mobileFilterBody}>
-              <FilterFields filters={filters} onChange={updateFilters} compact />
+              <FilterFields filters={filters} onChange={updateFilters} />
             </div>
             <footer className={styles.mobileFilterActions}>
               <button type="button" onClick={clearFilters}>Zrušiť filtre</button>
