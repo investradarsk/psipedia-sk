@@ -121,6 +121,21 @@ async function main() {
         OR LOWER(TRIM(COALESCE(venue,'')))='online') online
     FROM managed_events WHERE status='published'
   `);
+  const repeatedVenues = one(db, configPath, `
+    SELECT COUNT(*) repeated_venue_groups,
+      COALESCE(SUM(event_count),0) events_in_repeated_venues
+    FROM (
+      SELECT LOWER(TRIM(COALESCE(venue,''))) venue_key,
+        LOWER(TRIM(COALESCE(address,''))) address_key,
+        LOWER(TRIM(COALESCE(city,''))) city_key,
+        COUNT(*) event_count
+      FROM managed_events
+      WHERE status='published'
+        AND (TRIM(COALESCE(venue,''))<>'' OR TRIM(COALESCE(address,''))<>'')
+      GROUP BY venue_key,address_key,city_key
+      HAVING COUNT(*)>1
+    )
+  `);
   const geoPresent = Number(one(db, configPath,
     "SELECT COUNT(*) count FROM sqlite_schema WHERE type='table' AND name='geo_points'").count || 0) === 1;
 
@@ -175,6 +190,12 @@ async function main() {
       byStatus: readQuery(db, configPath, "SELECT geocode_status,COUNT(*) count FROM geo_points GROUP BY geocode_status ORDER BY geocode_status"),
       byPrecision: readQuery(db, configPath, "SELECT COALESCE(public_precision,'NULL') public_precision,COUNT(*) count FROM geo_points GROUP BY public_precision ORDER BY public_precision"),
       manualOverrides: Number(one(db, configPath, "SELECT COUNT(*) count FROM geo_points WHERE manual_override=1").count || 0),
+      attentionIssues: {
+        total: Number(one(db, configPath, "SELECT COUNT(*) count FROM geo_points WHERE geocode_status IN ('NEEDS_REVIEW','STALE','FAILED')").count || 0),
+        byStatus: readQuery(db, configPath, "SELECT geocode_status status,COUNT(*) count FROM geo_points WHERE geocode_status IN ('NEEDS_REVIEW','STALE','FAILED') GROUP BY geocode_status ORDER BY geocode_status"),
+        byErrorCode: readQuery(db, configPath, "SELECT COALESCE(last_error_code,'NULL') error_code,COUNT(*) count FROM geo_points WHERE geocode_status IN ('NEEDS_REVIEW','STALE','FAILED') GROUP BY last_error_code ORDER BY count DESC,error_code"),
+        privacyCritical: Number(one(db, configPath, "SELECT COUNT(*) count FROM geo_points WHERE geocode_status IN ('NEEDS_REVIEW','STALE','FAILED') AND last_error_code IN ('CONFLICTING_PUBLIC_PRIVATE_LOCATION','PRIVACY_CLASSIFICATION_MISSING')").count || 0),
+      },
       directoryCoverage,
       organizations: { eligibleSites: orgEligible, resolvedSites: orgResolved, coverage_pct: pct(orgResolved, orgEligible) },
       events: { eligibleUpcomingPhysical: eventEligible, resolved: eventResolved, coverage_pct: pct(eventResolved, eventEligible) },
@@ -189,7 +210,7 @@ async function main() {
     directory,
     directoryByCategory,
     organizations: { ...organizations, locationsByRole: locations, multipleLocations },
-    events,
+    events: { ...events, repeatedVenues },
     geo,
   };
   await fs.writeFile(path.join(outDir, "report.json"), JSON.stringify(report, null, 2) + "\n");
