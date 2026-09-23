@@ -113,7 +113,8 @@ test("public claim CTA and Partner request history implement the PARTNER-2 UX",(
   assert.match(publicOwnership,/Spravujete tento profil\?/);
   assert.match(publicOwnership,/Správa základných údajov profilu je bezplatná/);
   assert.match(claimPage,/Prevziať existujúci profil/);
-  assert.match(claimPage,/partnerAuthHref/);
+  assert.match(claimPage,/requirePartnerPageIdentity\(\{ returnTo \}\)/);
+  assert.match(claimPage,/\/partner\/prevziat-profil\//);
   assert.match(requestsPage,/Prevzatie profilov/);
   assert.match(requestsPage,/Overenie správcu/);
   assert.match(requestsPage,/PartnerClaimCancelButton/);
