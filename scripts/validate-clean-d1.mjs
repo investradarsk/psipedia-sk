@@ -10,6 +10,7 @@ import * as lostFoundSchema from "../db/lost-found-dogs-schema.ts";
 import * as adoptionSchema from "../db/adoption-schema.ts";
 import * as helpOrganizationSchema from "../db/help-organization-schema.ts";
 import * as geoSchema from "../db/geo-schema.ts";
+import * as partnerSchema from "../db/partner-schema.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const hostingConfig = JSON.parse(await fs.readFile(path.join(root, ".openai", "hosting.json"), "utf8"));
@@ -176,7 +177,7 @@ async function writeLegacyAdoptionBootstrap() {
 
 function collectExpectedSchema() {
   const expected = new Map();
-  const modules = [schema, foundationSchema, lostFoundSchema, adoptionSchema, helpOrganizationSchema, geoSchema];
+  const modules = [schema, foundationSchema, lostFoundSchema, adoptionSchema, helpOrganizationSchema, geoSchema, partnerSchema];
 
   for (const schemaModule of modules) {
     for (const value of Object.values(schemaModule)) {

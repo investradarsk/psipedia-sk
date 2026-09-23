@@ -30,7 +30,7 @@ const MODERATION_EVENT_CAS_SQL = `
     id, submission_id, resource_type, subject_id, action, actor_type, actor_ref,
     from_status, to_status, reason_code, changed_fields_json, request_id, created_at
   )
-  SELECT ?, id, resource_type, subject_id, 'STATUS_CHANGED', 'ADMIN', ?,
+  SELECT ?, id, resource_type, subject_id, 'STATUS_CHANGED', ?, ?,
     status, ?, ?, ?, ?, ?
   FROM moderation_submissions
   WHERE id = ? AND status = ?
@@ -47,12 +47,14 @@ export async function applyAtomicModerationTransition(database: Pick<D1Database,
   id: string;
   expectedStatus: FoundationSubmissionStatus;
   toStatus: FoundationSubmissionStatus;
+  actorType?: "ADMIN" | "PARTNER" | "SYSTEM";
   actorRef: string;
   reasonCode?: string | null;
   requestId?: string | null;
   eventId: string;
   changedFieldsJson: string;
   now: string;
+  extraStatements?: D1PreparedStatement[];
 }) {
   if (!canTransitionModerationSubmission(input.expectedStatus, input.toStatus)) {
     throw new Error("Invalid moderation state transition");
@@ -62,6 +64,7 @@ export async function applyAtomicModerationTransition(database: Pick<D1Database,
   // so a stale transition writes neither the event nor the state change.
   const eventStatement = database.prepare(MODERATION_EVENT_CAS_SQL).bind(
     input.eventId,
+    input.actorType ?? "ADMIN",
     input.actorRef,
     input.toStatus,
     input.reasonCode ?? null,
@@ -81,6 +84,7 @@ export async function applyAtomicModerationTransition(database: Pick<D1Database,
     input.expectedStatus,
   );
 
-  const [, stateResult] = await database.batch<{ id: string }>([eventStatement, stateStatement]);
+  const results = await database.batch([eventStatement, stateStatement, ...(input.extraStatements ?? [])]);
+  const stateResult = results[1] as D1Result<{ id: string }> | undefined;
   if (stateResult?.results.length !== 1) throw new ModerationStateConflictError();
 }

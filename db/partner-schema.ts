@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { helpOrganizations } from "./help-organization-schema";
 import { directoryProfiles, managedEvents } from "./schema";
+import { moderationSubmissions } from "./foundation-schema";
 
 export const partnerAccounts = sqliteTable(
   "partner_accounts",
@@ -41,7 +42,7 @@ export const partnerNotificationOutbox = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED')`),
+    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED')`),
     check("partner_notification_outbox_status_check", sql`${table.status} IN ('PENDING','SENDING','SENT','FAILED','EXPIRED')`),
     uniqueIndex("partner_notification_outbox_dedupe_unique").on(table.dedupeKey),
     index("partner_notification_outbox_status_expiry_idx").on(table.status, table.expiresAt, table.updatedAt),
@@ -129,11 +130,28 @@ export const partnerResourceVerifications = sqliteTable("partner_resource_verifi
   index("partner_resource_verifications_resource_status_idx").on(table.resourceId,table.status),
 ]);
 
+export const partnerProfileChangeMetadata = sqliteTable("partner_profile_change_metadata", {
+  submissionId:text("submission_id").primaryKey().references(()=>moderationSubmissions.id,{onDelete:"restrict"}),
+  partnerResourceId:text("partner_resource_id").notNull().references(()=>partnerResources.id,{onDelete:"restrict"}),
+  partnerAccountId:text("partner_account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  baseUpdatedAt:text("base_updated_at").notNull(),
+  baseSnapshotJson:text("base_snapshot_json").notNull().default("{}"),
+  changedFieldCount:integer("changed_field_count").notNull().default(0),
+  dedupeActive:integer("dedupe_active").notNull().default(1),
+  createdAt:text("created_at").notNull(),
+}, table=>[
+  check("partner_profile_change_changed_field_count_check",sql`${table.changedFieldCount} >= 0 AND ${table.changedFieldCount} <= 64`),
+  check("partner_profile_change_dedupe_active_check",sql`${table.dedupeActive} IN (0,1)`),
+  uniqueIndex("partner_profile_change_active_unique").on(table.partnerAccountId,table.partnerResourceId).where(sql`${table.dedupeActive}=1`),
+  index("partner_profile_change_resource_created_idx").on(table.partnerResourceId,table.createdAt),
+  index("partner_profile_change_account_created_idx").on(table.partnerAccountId,table.createdAt),
+]);
+
 export const partnerAuditEvents = sqliteTable("partner_audit_events", {
   id:text("id").primaryKey(),actorType:text("actor_type").notNull(),actorRef:text("actor_ref").notNull(),action:text("action").notNull(),
   targetType:text("target_type").notNull(),targetId:text("target_id").notNull(),metadataJson:text("metadata_json").notNull().default("{}"),createdAt:text("created_at").notNull(),
 }, table=>[
   check("partner_audit_actor_check",sql`${table.actorType} IN ('PARTNER','ADMIN','SYSTEM')`),
-  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED')`),
+  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_WITHDRAWN','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED')`),
   index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt),
 ]);
