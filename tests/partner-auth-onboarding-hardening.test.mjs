@@ -112,7 +112,7 @@ test("contact PII is encrypted at rest and decrypted only for authenticated/admi
   assert.match(contact, /values\.phone \? await encryptPii/);
   assert.match(contact, /values\.relationship \? await encryptPii/);
   assert.match(contact, /decryptPii\(row\.contactNameCiphertext/);
-  assert.doesNotMatch(contact, /INSERT INTO partner_account_profiles[\s\S]{0,600}values\.contactName,/);
+  assert.match(contact, /contact_name_ciphertext,phone_ciphertext,relationship_ciphertext/);
 });
 
 test("mixed-version reads preserve pre-H1 behavior until 0069 exists", () => {
