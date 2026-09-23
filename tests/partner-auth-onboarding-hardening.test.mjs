@@ -8,10 +8,11 @@ const read = (path) => fs.readFile(new URL("../" + path, import.meta.url), "utf8
 const importTs = (path) => import(pathToFileURL(new URL(path, root).pathname).href);
 
 const [
-  migration, auth, store, authForm, requestRoute, consumeRoute, verification,
+  migration68, migration, auth, store, authForm, requestRoute, consumeRoute, verification,
   contact, pageAuth, onboardingRoute, onboardingPage, settingsPage, adminStore,
   adminPage, claimPage, claimRoute, profileChangeRoute, newProfileRoute, eventRoute, commercialRoute,
 ] = await Promise.all([
+  "drizzle/0068_partner_commercial_activation.sql",
   "drizzle/0069_partner_auth_onboarding_hardening.sql",
   "lib/partner-auth.ts",
   "lib/partner-auth-store.ts",
@@ -46,6 +47,24 @@ test("0069 adds a 1:1 encrypted contact profile and preserves append-only audit 
   assert.match(migration, /INSERT INTO `partner_audit_events_next`[\s\S]+FROM `partner_audit_events`/);
   assert.match(migration, /partner_audit_events_no_update/);
   assert.match(migration, /partner_audit_events_no_delete/);
+});
+
+test("0069 preserves every 0068 Partner audit action and adds only contact-profile lifecycle actions", () => {
+  const actions = (sql) => {
+    const start = sql.indexOf("CREATE TABLE `partner_audit_events");
+    const end = sql.indexOf(");", start);
+    return [...sql.slice(start, end + 2).matchAll(/'([A-Z][A-Z0-9_]*)'/g)]
+      .map((match) => match[1])
+      .filter((value) => !["PARTNER", "ADMIN", "SYSTEM"].includes(value));
+  };
+  const previous = actions(migration68);
+  const next = actions(migration);
+  for (const action of previous) assert.ok(next.includes(action), `0069 lost audit action ${action}`);
+  assert.deepEqual(next.filter((action) => !previous.includes(action)), [
+    "CONTACT_PROFILE_COMPLETED",
+    "CONTACT_PROFILE_UPDATED",
+  ]);
+  assert.equal(new Set(next).size, next.length);
 });
 
 test("LOGIN and REGISTER are explicit validated server intentions", () => {
