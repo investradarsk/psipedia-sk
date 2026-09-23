@@ -150,7 +150,7 @@
 }
 
 .filterButton {
-  display: inline-flex;
+  display: none;
   min-width: 112px;
   align-items: center;
   justify-content: center;
@@ -695,6 +695,7 @@
   }
 
   .filterButton {
+    display: inline-flex;
     min-width: 52px;
     padding-inline: 11px;
   }
