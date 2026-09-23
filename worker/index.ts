@@ -179,6 +179,14 @@ const worker = {
         "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
       });
     }
+    if (isReviewAuthorRoute(url.pathname)) {
+      return responseWithHeaders(response, {
+        "Cache-Control": "private, no-store",
+        "CDN-Cache-Control": "no-store",
+        "Cloudflare-CDN-Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+      });
+    }
     if (isAdminAuthPath(url.pathname) || url.pathname.startsWith("/api/")) {
       return responseWithHeader(response, "Cache-Control", "private, no-store");
     }
@@ -257,7 +265,7 @@ const worker = {
 };
 
 function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): { storage: Cache; key: Request } | null {
-  if (request.method !== "GET" || url.search || isAdminAuthPath(url.pathname)) return null;
+  if (request.method !== "GET" || url.search || isAdminAuthPath(url.pathname) || isReviewAuthorRoute(url.pathname)) return null;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/media/") || url.pathname.startsWith("/_")) return null;
   if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
   const accept = request.headers.get("accept") ?? "";
@@ -291,6 +299,10 @@ function responseWithHeaders(response: Response, values: Record<string, string>)
   const headers = new Headers(response.headers);
   for (const [name, value] of Object.entries(values)) headers.set(name, value);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+function isReviewAuthorRoute(pathname: string): boolean {
+  return pathname === "/recenzia" || pathname.startsWith("/recenzia/");
 }
 
 function isAdminAuthPath(pathname: string): boolean {
