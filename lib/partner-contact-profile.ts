@@ -49,13 +49,14 @@ function plainText(value: unknown, label: string, options: { min?: number; max: 
     throw new PartnerContactProfileError(`${label} je povinné.`);
   }
   if (typeof value !== "string") throw new PartnerContactProfileError(`${label} má neplatný formát.`);
-  const clean = value.normalize("NFKC").replace(/\s+/g, " ").trim();
+  const normalized = value.normalize("NFKC").trim();
+  if (/[\u0000-\u001F\u007F<>]/.test(normalized)) {
+    throw new PartnerContactProfileError(`${label} obsahuje nepovolené znaky.`);
+  }
+  const clean = normalized.replace(/ {2,}/g, " ");
   if (!clean && options.optional) return null;
   if (clean.length < (options.min ?? 1) || clean.length > options.max) {
     throw new PartnerContactProfileError(`${label} má neplatnú dĺžku.`);
-  }
-  if (/[\u0000-\u001F\u007F<>]/.test(clean)) {
-    throw new PartnerContactProfileError(`${label} obsahuje nepovolené znaky.`);
   }
   return clean;
 }
