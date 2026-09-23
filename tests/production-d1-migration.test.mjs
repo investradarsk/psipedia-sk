@@ -163,6 +163,12 @@ test("MAP-1E production readiness workflow is manual-only and read-only", async 
   assert.match(workflow, /production-d1-migrate\.mjs geo-readiness/);
   assert.match(workflow, /MAP_LAUNCH_READY/);
   assert.match(workflow, /Google Maps nie je nakonfigurovaný/);
+  assert.match(workflow, /real_google_smoke_confirmed/);
+  assert.match(workflow, /attribution_review_confirmed/);
+  assert.match(workflow, /consent_privacy_review_confirmed/);
+  assert.match(workflow, /realGoogleSmokeConfirmed/);
+  assert.match(workflow, /attributionReviewConfirmed/);
+  assert.match(workflow, /consentPrivacyReviewConfirmed/);
   assert.doesNotMatch(workflow, /d1\s+migrations\s+apply|wrangler\s+deploy|deploy:cloudflare/i);
   assert.doesNotMatch(workflow, /POST\s+.*geo|INITIALIZE|CANARY/);
 });
