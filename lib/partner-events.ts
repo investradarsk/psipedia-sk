@@ -1,5 +1,8 @@
 import { env } from "cloudflare:workers";
-import { bratislavaDateKey, eventTypes, slovakRegions } from "@/lib/events";
+import { bratislavaDateKey } from "@/lib/events";
+import { partnerEventFields, type PartnerEventPatch, type PartnerEventValue } from "@/lib/partner-event-fields";
+export { partnerEventFields } from "@/lib/partner-event-fields";
+export type { PartnerEventField, PartnerEventPatch, PartnerEventValue } from "@/lib/partner-event-fields";
 import { normalizeManagedEventInput, type ManagedEventInput } from "@/lib/event-store";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
 import { requirePartnerPermission, type PartnerRole } from "@/lib/partner-platform";
@@ -17,35 +20,12 @@ import {
 type RuntimeBindings={DB?:D1Database;PII_HASH_KEY?:string};
 export type PartnerEventOperation="CREATE"|"UPDATE";
 export type PartnerEventDuplicateConfidence="NONE"|"MEDIUM"|"HIGH";
-export type PartnerEventValue=string|boolean|null;
-export type PartnerEventPatch=Record<string,PartnerEventValue>;
-
 export class PartnerEventError extends Error{
   readonly status:number;
   readonly code?:string;
   readonly details?:unknown;
   constructor(message:string,status=400,code?:string,details?:unknown){super(message);this.status=status;this.code=code;this.details=details;}
 }
-
-export const partnerEventFields=[
-  {key:"title",label:"Názov",kind:"text",required:true},
-  {key:"excerpt",label:"Krátky popis",kind:"textarea",required:true},
-  {key:"eventType",label:"Typ podujatia",kind:"select",required:true,options:eventTypes},
-  {key:"startDate",label:"Dátum začiatku",kind:"date",required:true},
-  {key:"startTime",label:"Čas začiatku",kind:"time"},
-  {key:"endDate",label:"Dátum konca",kind:"date"},
-  {key:"endTime",label:"Čas konca",kind:"time"},
-  {key:"venue",label:"Miesto",kind:"text"},
-  {key:"city",label:"Mesto / Online",kind:"text",required:true},
-  {key:"region",label:"Kraj",kind:"select",required:true,options:slovakRegions},
-  {key:"address",label:"Adresa",kind:"text"},
-  {key:"organizer",label:"Organizátor",kind:"text",required:true},
-  {key:"description",label:"Popis",kind:"textarea",required:true},
-  {key:"practicalInfo",label:"Praktické informácie",kind:"textarea"},
-  {key:"websiteUrl",label:"Web",kind:"url"},
-  {key:"registrationUrl",label:"Registrácia",kind:"url"},
-] as const;
-export type PartnerEventField=(typeof partnerEventFields)[number];
 
 const CREATE_KEYS=new Set(partnerEventFields.map(field=>field.key));
 const UPDATE_KEYS=new Set<string>([...CREATE_KEYS,"cancelled"]);
