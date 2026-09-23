@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
 import { parseMapUiFilters } from "@/lib/map-public-ui";
@@ -9,7 +10,7 @@ import styles from "@/components/map/map-public.module.css";
 export const dynamic = "force-dynamic";
 
 export function generateMetadata(): Metadata {
-  const launchEnabled = publicMapLaunchEnabled(process.env);
+  const launchEnabled = publicMapLaunchEnabled(mapLaunchEnvironment());
   return buildPageMetadata({
     title: "Mapa Psipedie",
     description: "Preskúmaj služby pre psov, organizácie a podujatia na jednej spoločnej mape Psipedie.",
@@ -29,14 +30,30 @@ type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+type MapRuntimeBindings = {
+  PUBLIC_MAP_ENABLED?: string;
+  GOOGLE_MAPS_BROWSER_API_KEY?: string;
+  GOOGLE_MAPS_MAP_ID?: string;
+};
+
+function mapLaunchEnvironment() {
+  const bindings = env as unknown as MapRuntimeBindings;
+  return {
+    PUBLIC_MAP_ENABLED: bindings.PUBLIC_MAP_ENABLED ?? process.env.PUBLIC_MAP_ENABLED,
+    GOOGLE_MAPS_BROWSER_API_KEY: bindings.GOOGLE_MAPS_BROWSER_API_KEY ?? process.env.GOOGLE_MAPS_BROWSER_API_KEY,
+    GOOGLE_MAPS_MAP_ID: bindings.GOOGLE_MAPS_MAP_ID ?? process.env.GOOGLE_MAPS_MAP_ID,
+  };
+}
+
 export default async function MapPage({ searchParams }: Props) {
   const rawSearchParams = await searchParams;
   const initialFilters = parseMapUiFilters(rawSearchParams);
   const mapUiTestMode = process.env.MAP_UI_TEST_RENDERER === "1";
   const testMissingConfig = mapUiTestMode && rawSearchParams.__mapConfig === "missing";
+  const runtimeLaunchEnv = mapLaunchEnvironment();
   const launchEnv = testMissingConfig
-    ? { ...process.env, GOOGLE_MAPS_BROWSER_API_KEY: "", GOOGLE_MAPS_MAP_ID: "" }
-    : process.env;
+    ? { ...runtimeLaunchEnv, GOOGLE_MAPS_BROWSER_API_KEY: "", GOOGLE_MAPS_MAP_ID: "" }
+    : runtimeLaunchEnv;
   const publicMapEnabled = publicMapLaunchEnabled(launchEnv);
   const googleApiKey = publicMapEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
   const googleMapId = publicMapEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
