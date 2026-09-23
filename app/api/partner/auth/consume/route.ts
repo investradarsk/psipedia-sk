@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const body = await request.json() as Record<string, unknown>;
     const result = await consumePartnerMagicLink({ token: body.token });
     return Response.json(
-      { success: true },
+      { success: true, onboardingComplete: result.onboardingComplete },
       {
         status: 200,
         headers: {
