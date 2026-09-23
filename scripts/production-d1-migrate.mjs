@@ -437,6 +437,24 @@ function safeCounts(snapshot) {
   };
 }
 
+function partnerRebuildSnapshot(databaseName, configPath) {
+  const outboxRows = d1Execute(databaseName, configPath, `
+    SELECT id,partner_account_id,notification_type,dedupe_key,status,encrypted_secret,expires_at,
+      attempts,last_attempt_at,provider_message_id,last_error,sent_at,created_at,updated_at
+    FROM partner_notification_outbox ORDER BY id
+  `);
+  const auditRows = d1Execute(databaseName, configPath, `
+    SELECT id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at
+    FROM partner_audit_events ORDER BY id
+  `);
+  return {
+    outboxCount: outboxRows.length,
+    auditCount: auditRows.length,
+    outboxDigest: stableHash(outboxRows),
+    auditDigest: stableHash(auditRows),
+  };
+}
+
 function targetState(history, schema, targetMigration) {
   invariant(SUPPORTED_PRODUCTION_TARGETS.includes(targetMigration), `Unsupported production migration target: ${targetMigration}`);
   const targetIndex = migrationIndex(targetMigration);
@@ -500,6 +518,13 @@ async function preflight(targetMigration) {
   const schema = schemaState(databaseName, prepared.configPath);
   const state = targetState(history, schema, targetMigration);
   const snapshot = dataSnapshot(databaseName, prepared.configPath);
+  const targetIndex = prepared.selection.targetIndex;
+  const reviewCountBefore = targetIndex >= 63
+    ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews")
+    : null;
+  const partnerRebuildBefore = targetIndex >= 63
+    ? partnerRebuildSnapshot(databaseName, prepared.configPath)
+    : null;
 
   invariant(snapshot.duplicateDirectoryAnchors === 0, "Duplicate directory canonical resources detected");
   invariant(snapshot.duplicateOrganizationAnchors === 0, "Duplicate organization canonical resources detected");
@@ -523,6 +548,8 @@ async function preflight(targetMigration) {
     accountId: prepared.resources.account_id,
     workerName: prepared.generated.name,
     recoveryBookmark: bookmark,
+    reviewCountBefore,
+    partnerRebuildBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -538,6 +565,8 @@ async function preflight(targetMigration) {
     recoveryMechanism: "D1 Time Travel",
     recoveryBookmark: bookmark,
     counts: safeCounts(snapshot),
+    reviewCountBefore,
+    partnerRebuildBefore,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -611,9 +640,29 @@ async function verify(targetMigration) {
   }
 
   const reviewCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews");
-  invariant(reviewCount === 0, "profile_reviews must remain empty in REVIEWS-1A-MIG; fake or unexpected reviews are not allowed");
-
   const targetIndex = migrationIndex(targetMigration);
+  if (targetIndex === 62 && !internal.targetApplied) {
+    invariant(reviewCount === 0, "profile_reviews must remain empty on first 0062 foundation rollout");
+  }
+  if (targetIndex >= 63) {
+    invariant(
+      reviewCount === internal.reviewCountBefore,
+      `profile_reviews count changed unexpectedly: before=${internal.reviewCountBefore}, after=${reviewCount}`,
+    );
+    const partnerRebuildAfter = partnerRebuildSnapshot(databaseName, prepared.configPath);
+    invariant(
+      partnerRebuildAfter.outboxCount === internal.partnerRebuildBefore.outboxCount
+        && partnerRebuildAfter.outboxDigest === internal.partnerRebuildBefore.outboxDigest,
+      "partner_notification_outbox data changed unexpectedly",
+    );
+    invariant(
+      partnerRebuildAfter.auditCount === internal.partnerRebuildBefore.auditCount
+        && partnerRebuildAfter.auditDigest === internal.partnerRebuildBefore.auditDigest,
+      "partner_audit_events data changed unexpectedly",
+    );
+  }
+
+  
   let geoFoundation = null;
   if (targetIndex >= 64) {
     const geoCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM geo_points");
@@ -635,6 +684,8 @@ async function verify(targetMigration) {
     reviewIndexes: REVIEW_INDEXES,
     reviewTriggers: REVIEW_TRIGGERS,
     reviewCount,
+    reviewCountPreserved: targetIndex >= 63 ? reviewCount === internal.reviewCountBefore : true,
+    partnerRebuildPreserved: targetIndex >= 63,
     partnerClaims: targetIndex >= 63 ? {
       tables: PARTNER_CLAIM_TABLES,
       indexes: PARTNER_CLAIM_INDEXES,
@@ -647,7 +698,7 @@ async function verify(targetMigration) {
     unexpectedMigrationsApplied: false,
   });
 
-  console.log(`[production-d1] verification PASS — ${targetMigration} applied; archived_at=yes; reviewTables=${REVIEW_TABLES.length}; reviewCount=0`);
+  console.log(`[production-d1] verification PASS — ${targetMigration} applied; archived_at=yes; reviewTables=${REVIEW_TABLES.length}; reviewCount=${reviewCount}`);
   if (geoFoundation) console.log(`[production-d1] geo schema PASS — geo_points=${geoFoundation.geoCount}; schemaOnly=${geoFoundation.schemaOnlyMigration}`);
   console.log(`[production-d1] backfill PASS — missingDirectory=0; missingOrganizations=0; resources=${after.partnerResources}; memberships preserved=${after.partnerMemberships}`);
 }
