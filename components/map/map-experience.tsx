@@ -46,6 +46,7 @@ type Props = {
   googleApiKey: string;
   googleMapId: string;
   testRenderer?: boolean;
+  launchEnabled?: boolean;
 };
 
 type FilterPanelProps = {
@@ -379,6 +380,7 @@ export function MapExperience({
   googleApiKey,
   googleMapId,
   testRenderer = false,
+  launchEnabled = false,
 }: Props) {
   const [filters, setFilters] = useState(initialFilters);
   const [viewport, setViewport] = useState<MapViewport>({
@@ -537,7 +539,9 @@ export function MapExperience({
     }));
   }, [viewport.zoom]);
 
-  const rendererStatusLabel = rendererStatus === "ready"
+  const rendererStatusLabel = !launchEnabled && !testRenderer
+    ? "Interaktívna mapa ešte nie je verejne spustená"
+    : rendererStatus === "ready"
     ? "Mapa pripravená"
     : rendererStatus === "loading"
       ? "Načítavam mapu"
@@ -616,6 +620,7 @@ export function MapExperience({
             apiKey={googleApiKey}
             mapId={googleMapId}
             testMode={testRenderer}
+            launchEnabled={launchEnabled}
             items={items}
             clusters={clusters}
             selectedItemId={selectedItemId}
