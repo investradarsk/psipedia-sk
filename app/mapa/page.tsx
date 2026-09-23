@@ -3,7 +3,7 @@ import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
 import { parseMapUiFilters } from "@/lib/map-public-ui";
 import { buildPageMetadata } from "@/lib/seo";
-import { configFlagEnabled } from "@/config/runtime-env";
+import { publicMapLaunchEnabled } from "@/config/runtime-env";
 import styles from "@/components/map/map-public.module.css";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ type Props = {
 export default async function MapPage({ searchParams }: Props) {
   const rawSearchParams = await searchParams;
   const initialFilters = parseMapUiFilters(rawSearchParams);
-  const publicMapEnabled = configFlagEnabled(process.env.PUBLIC_MAP_ENABLED);
+  const publicMapEnabled = publicMapLaunchEnabled(process.env);
   const googleApiKey = publicMapEnabled ? process.env.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
   const googleMapId = publicMapEnabled ? process.env.GOOGLE_MAPS_MAP_ID ?? "" : "";
   const testRenderer = process.env.MAP_UI_TEST_RENDERER === "1"
