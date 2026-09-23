@@ -115,6 +115,26 @@ export async function listPartnerCommercialAgreements(accountId:string,database?
 export async function listPartnerCommercialAgreementsAdmin(database?:D1Database){
   return (await getPartnerDatabase(database).prepare(BASE+" ORDER BY a.updated_at DESC LIMIT 250").all<AgreementRow>()).results;
 }
+export async function getPartnerCommercialAdminSummary(databaseInput?:D1Database,now=new Date()){
+  const database=getPartnerDatabase(databaseInput),nowIso=now.toISOString(),expiringAt=new Date(now.getTime()+14*86400000).toISOString();
+  try{
+    const row=await database.prepare(`SELECT
+      SUM(CASE WHEN payment_status='AWAITING_PAYMENT' THEN 1 ELSE 0 END) awaitingPayment,
+      SUM(CASE WHEN status='AGREED' AND payment_status IN ('PAID','WAIVED') THEN 1 ELSE 0 END) readyToActivate,
+      SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) active,
+      SUM(CASE WHEN status='ACTIVE' AND end_at>?1 AND end_at<=?2 THEN 1 ELSE 0 END) expiringSoon
+      FROM partner_commercial_agreements`).bind(nowIso,expiringAt).first<{awaitingPayment:number|null;readyToActivate:number|null;active:number|null;expiringSoon:number|null}>();
+    return {
+      awaitingPayment:Number(row?.awaitingPayment??0),
+      readyToActivate:Number(row?.readyToActivate??0),
+      active:Number(row?.active??0),
+      expiringSoon:Number(row?.expiringSoon??0),
+    };
+  }catch(error){
+    if(missingCommercialSchema(error))return {awaitingPayment:0,readyToActivate:0,active:0,expiringSoon:0};
+    throw error;
+  }
+}
 export async function getPartnerCommercialAgreementAdmin(id:string,database?:D1Database){
   return getPartnerDatabase(database).prepare(BASE+" WHERE a.id=?1 LIMIT 1").bind(id).first<AgreementRow>();
 }
