@@ -117,3 +117,19 @@ export async function enforcePartnerNewProfileRateLimit(input: {
   }
   return { account: accountResult, identity: identityResult };
 }
+
+export async function enforcePartnerNewProfileScanRateLimit(input: {
+  database: D1Database;
+  accountId: string;
+  hashKey: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const store = createD1RateLimitStore(input.database);
+  const key = await deriveRateLimitKey("partner-new-profile-scan", input.accountId, input.hashKey);
+  const result = await enforceRateLimit(store, key, 30, 60 * 60, now);
+  if (!result.allowed) {
+    throw new PartnerSecurityError("Za krátky čas bolo vykonaných priveľa kontrol nového profilu. Skúste to neskôr.", 429);
+  }
+  return result;
+}
