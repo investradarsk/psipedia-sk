@@ -133,6 +133,14 @@ function isRetryablePartnerEmailError(error: string) {
     || /^resend_http_5\d\d$/.test(error);
 }
 
+const PARTNER_AUTH_RESPONSE_FLOOR_MS = 750;
+
+async function genericPartnerAuthResponse(startedAtMs: number) {
+  const remaining = PARTNER_AUTH_RESPONSE_FLOOR_MS - (Date.now() - startedAtMs);
+  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+  return { message: PARTNER_AUTH_GENERIC_RESPONSE };
+}
+
 export async function requestPartnerMagicLink(input: {
   request: Request;
   email: unknown;
@@ -170,13 +178,14 @@ export async function requestPartnerMagicLink(input: {
     now,
   });
 
+  const responseStartedAt = Date.now();
   const emailHash = await hashPii(email, hashKey);
   const existing = await getPartnerAccountByEmailHash(emailHash, database);
 
   // LOGIN never creates identity state. REGISTER may create a pending account,
   // but the public response stays identical so callers cannot enumerate accounts.
   if (!existing && mode === "LOGIN") {
-    return { message: PARTNER_AUTH_GENERIC_RESPONSE };
+    return genericPartnerAuthResponse(responseStartedAt);
   }
 
   let account = existing;
@@ -196,7 +205,7 @@ export async function requestPartnerMagicLink(input: {
   // Public response remains identical for every lifecycle state. Suspended or
   // deactivated accounts do not receive a usable token.
   if (!partnerAccountCanAuthenticate(account)) {
-    return { message: PARTNER_AUTH_GENERIC_RESPONSE };
+    return genericPartnerAuthResponse(responseStartedAt);
   }
 
   const authToken = await issuePartnerAuthToken(account.id, database);
@@ -249,7 +258,7 @@ export async function requestPartnerMagicLink(input: {
     }));
   }
 
-  return { message: PARTNER_AUTH_GENERIC_RESPONSE };
+  return genericPartnerAuthResponse(responseStartedAt);
 }
 
 export async function consumePartnerMagicLink(input: {
