@@ -102,6 +102,8 @@ jobs:
           echo "$headers" | grep -qi '^permissions-policy:.*geolocation=()'
       - name: MAP-1D desktop/mobile Playwright and screenshots
         run: npx playwright test tests/e2e/map-public-ui.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: MAP-1E launch navigation and consent Playwright
+        run: npx playwright test tests/e2e/map-production-launch.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=1 --retries=0
       - name: Stop isolated local app
         if: always()
         run: |
