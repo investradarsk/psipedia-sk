@@ -12,6 +12,7 @@ import { serializeJsonLd } from "@/lib/seo";
 import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
 import { isPublicPartnerResourceVerified } from "@/lib/partner-claims";
 import { getPublicProfileReviewData } from "@/lib/profile-review-read";
+import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreements";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
   const jsonLd = buildOrganizationJsonLd(composition.organization);
   const reviewPage = scalar((await searchParams).reviewsPage);
   const partnerVerifiedPromise = isPublicPartnerResourceVerified("HELP_ORGANIZATION", composition.organization.id, database);
+  const commercialPromise = getPublicPartnerCommercialFlags("HELP_ORGANIZATION", composition.organization.id);
   const reviewsPromise = getPublicProfileReviewData(database, {
     entityType: "HELP_ORGANIZATION",
     canonicalId: composition.organization.id,
@@ -64,7 +66,7 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
       });
       return { data: null, readError: true };
     });
-  const [partnerVerified, reviewResult] = await Promise.all([partnerVerifiedPromise, reviewsPromise]);
+  const [partnerVerified, reviewResult, commercial] = await Promise.all([partnerVerifiedPromise, reviewsPromise, commercialPromise]);
 
   return (
     <>
@@ -72,7 +74,7 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
-      <OrganizationProfileDetail composition={composition} reviews={reviewResult.data} reviewReadError={reviewResult.readError} />
+      <OrganizationProfileDetail composition={composition} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} />
       <PartnerPublicOwnership verified={partnerVerified} claimHref={`/partner/prevziat-profil/HELP_ORGANIZATION/${composition.organization.id}`} />
     </>
   );

@@ -42,7 +42,7 @@ export const partnerNotificationOutbox = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED')`),
+    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED','COMMERCIAL_OFFER_CREATED','COMMERCIAL_AGREEMENT_UPDATED','PAYMENT_MARKED_PAID','ENTITLEMENT_ACTIVATED','ENTITLEMENT_EXPIRING','ENTITLEMENT_EXPIRED')`),
     check("partner_notification_outbox_status_check", sql`${table.status} IN ('PENDING','SENDING','SENT','FAILED','EXPIRED')`),
     uniqueIndex("partner_notification_outbox_dedupe_unique").on(table.dedupeKey),
     index("partner_notification_outbox_status_expiry_idx").on(table.status, table.expiresAt, table.updatedAt),
@@ -90,6 +90,57 @@ export const partnerCommercialInterests = sqliteTable("partner_commercial_intere
   index("partner_commercial_resource_created_idx").on(table.resourceId,table.createdAt),
 ]);
 
+
+
+export const partnerCommercialAgreements = sqliteTable("partner_commercial_agreements", {
+  id:text("id").primaryKey(),
+  interestId:text("interest_id").references(()=>partnerCommercialInterests.id,{onDelete:"restrict"}),
+  accountId:text("account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  resourceId:text("resource_id").references(()=>partnerResources.id,{onDelete:"restrict"}),
+  agreementType:text("agreement_type").notNull(),
+  status:text("status").notNull().default("DRAFT"),
+  paymentMethod:text("payment_method").notNull(),
+  paymentStatus:text("payment_status").notNull().default("NOT_REQUIRED"),
+  priceCents:integer("price_cents").notNull(),
+  currency:text("currency").notNull().default("EUR"),
+  startAt:text("start_at").notNull(),endAt:text("end_at").notNull(),
+  partnerNote:text("partner_note"),paymentInstruction:text("payment_instruction"),adminNote:text("admin_note"),
+  paidAt:text("paid_at"),paidBy:text("paid_by"),campaignId:text("campaign_id"),
+  createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
+  createdBy:text("created_by").notNull(),updatedBy:text("updated_by").notNull(),
+}, table=>[
+  check("partner_commercial_agreement_type_check",sql`${table.agreementType} IN ('PREMIUM_PROFILE','PROMOTED_PROFILE','AD_CAMPAIGN')`),
+  check("partner_commercial_agreement_status_check",sql`${table.status} IN ('DRAFT','OFFERED','AGREED','ACTIVE','EXPIRED','CANCELLED')`),
+  check("partner_commercial_agreement_payment_method_check",sql`${table.paymentMethod} IN ('BANK_TRANSFER','BY_AGREEMENT')`),
+  check("partner_commercial_agreement_payment_status_check",sql`${table.paymentStatus} IN ('NOT_REQUIRED','AWAITING_PAYMENT','PAID','WAIVED')`),
+  check("partner_commercial_agreement_price_check",sql`${table.priceCents} >= 0 AND ${table.priceCents} <= 2147483647`),
+  check("partner_commercial_agreement_currency_check",sql`${table.currency}='EUR'`),
+  check("partner_commercial_agreement_window_check",sql`${table.endAt} > ${table.startAt}`),
+  uniqueIndex("partner_commercial_agreement_interest_active_unique").on(table.interestId).where(sql`${table.interestId} IS NOT NULL AND ${table.status}<>'CANCELLED'`),
+  index("partner_commercial_agreement_account_created_idx").on(table.accountId,table.createdAt),
+  index("partner_commercial_agreement_resource_status_idx").on(table.resourceId,table.status,table.endAt),
+  index("partner_commercial_agreement_payment_status_idx").on(table.paymentStatus,table.status,table.updatedAt),
+]);
+
+export const partnerEntitlements = sqliteTable("partner_entitlements", {
+  id:text("id").primaryKey(),
+  accountId:text("account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  resourceId:text("resource_id").notNull().references(()=>partnerResources.id,{onDelete:"restrict"}),
+  agreementId:text("agreement_id").notNull().references(()=>partnerCommercialAgreements.id,{onDelete:"restrict"}),
+  entitlementType:text("entitlement_type").notNull(),status:text("status").notNull().default("SCHEDULED"),
+  startAt:text("start_at").notNull(),endAt:text("end_at").notNull(),promotionId:text("promotion_id"),
+  createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
+  activatedAt:text("activated_at"),activatedBy:text("activated_by"),
+  cancelledAt:text("cancelled_at"),cancelledBy:text("cancelled_by"),
+}, table=>[
+  check("partner_entitlement_type_check",sql`${table.entitlementType} IN ('PREMIUM_PROFILE','PROMOTED_PROFILE')`),
+  check("partner_entitlement_status_check",sql`${table.status} IN ('SCHEDULED','ACTIVE','PAUSED','EXPIRED','CANCELLED')`),
+  check("partner_entitlement_window_check",sql`${table.endAt} > ${table.startAt}`),
+  uniqueIndex("partner_entitlement_agreement_type_unique").on(table.agreementId,table.entitlementType),
+  uniqueIndex("partner_entitlement_current_resource_type_unique").on(table.resourceId,table.entitlementType).where(sql`${table.status} IN ('SCHEDULED','ACTIVE','PAUSED')`),
+  index("partner_entitlement_public_window_idx").on(table.resourceId,table.entitlementType,table.status,table.startAt,table.endAt),
+  index("partner_entitlement_end_status_idx").on(table.endAt,table.status),
+]);
 
 export const partnerClaims = sqliteTable("partner_claims", {
   id:text("id").primaryKey(),

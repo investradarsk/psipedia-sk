@@ -18,10 +18,12 @@ export function DirectoryProfileDetail({
   presentation,
   reviews,
   reviewReadError = false,
+  commercial,
 }: {
   presentation: DirectoryDetailPresentation;
   reviews: PublicProfileReviewData | null;
   reviewReadError?: boolean;
+  commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
 }) {
   const category = getDirectoryCategory(presentation.category);
   const hasHeroLocation = Boolean(
@@ -86,6 +88,8 @@ export function DirectoryProfileDetail({
                 <span className={styles.categoryBadge}>{category?.singular ?? category?.label}</span>
                 {presentation.verified && <span className={styles.verifiedBadge}>Overené</span>}
                 {presentation.featured && <span className={styles.featuredBadge}>Odporúčame</span>}
+                {commercial?.premium && <span className={styles.premiumBadge} title="Platené rozšírenie profilu.">Premium profil</span>}
+                {commercial?.promoted && <span className={styles.sponsoredBadge}>{commercial.sponsoredLabel ?? "Sponzorované"}</span>}
               </div>
 
               <h1>{presentation.name}</h1>

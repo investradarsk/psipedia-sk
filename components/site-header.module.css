@@ -491,3 +491,17 @@
     height: 5px;
   }
 }
+
+
+.mobileUtilityLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.mobileUtilityLinks a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}

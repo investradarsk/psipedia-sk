@@ -11,6 +11,7 @@ import { absoluteUrl, SITE_URL } from "@/lib/seo";
 import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
 import { isPublicPartnerResourceVerified } from "@/lib/partner-claims";
 import { getPublicProfileReviewData, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
+import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreements";
 
 export const dynamic = "force-dynamic";
 type Search = Record<string, string | string[] | undefined>;
@@ -64,6 +65,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
   const presentation = getDirectoryDetailPresentation(profile);
   const reviewPage = scalar((await searchParams).reviewsPage);
   const partnerVerifiedPromise = isPublicPartnerResourceVerified("DIRECTORY_PROFILE", profile.id);
+  const commercialPromise = getPublicPartnerCommercialFlags("DIRECTORY_PROFILE", profile.id);
   const reviewsPromise = getPublicProfileReviewData(reviewDatabase(), {
     entityType: "DIRECTORY_PROFILE",
     canonicalId: profile.id,
@@ -77,7 +79,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       });
       return { data: null, readError: true };
     });
-  const [partnerVerified, reviewResult] = await Promise.all([partnerVerifiedPromise, reviewsPromise]);
+  const [partnerVerified, reviewResult, commercial] = await Promise.all([partnerVerifiedPromise, reviewsPromise, commercialPromise]);
   const schemaType = profile.category === "veterinari" ? "VeterinaryCare" : ["kynologicke-kluby","chovatelske-kluby"].includes(profile.category) ? "Organization" : "LocalBusiness";
   const sameAs = [presentation.websiteUrl, presentation.facebookUrl, presentation.instagramUrl].filter((value): value is string => Boolean(value));
   const schema = { "@context":"https://schema.org", "@graph":[
@@ -92,5 +94,5 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       {"@type":"ListItem",position:3,name:getDirectoryCategory(profile.category)?.label,item:`${SITE_URL}/adresar/${profile.category}`}, {"@type":"ListItem",position:4,name:profile.name,item:canonical}]}
   ]};
   const claimHref = `/partner/prevziat-profil/DIRECTORY_PROFILE/${profile.id}`;
-  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} reviews={reviewResult.data} reviewReadError={reviewResult.readError} /><PartnerPublicOwnership verified={partnerVerified} claimHref={claimHref} /></>;
+  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} /><PartnerPublicOwnership verified={partnerVerified} claimHref={claimHref} /></>;
 }

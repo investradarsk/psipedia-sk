@@ -26,6 +26,25 @@ INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,creat
 VALUES ('partner-membership-e2e-owner','partner-e2e-desktop','partner-resource-e2e-directory','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
 
 
+-- PARTNER-5 commercial public rendering fixtures.
+INSERT INTO partner_commercial_agreements
+  (id,interest_id,account_id,resource_id,agreement_type,status,payment_method,payment_status,price_cents,currency,start_at,end_at,partner_note,payment_instruction,admin_note,paid_at,paid_by,created_at,updated_at,created_by,updated_by)
+VALUES
+  ('partner-e2e-agreement-premium',NULL,'partner-e2e-desktop','partner-resource-e2e-directory','PREMIUM_PROFILE','ACTIVE','BANK_TRANSFER','PAID',9900,'EUR','2026-01-01T00:00:00.000Z','2099-01-01T00:00:00.000Z','Premium E2E',NULL,'internal','2026-01-01T00:00:00.000Z','admin:e2e','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','admin:e2e','admin:e2e'),
+  ('partner-e2e-agreement-promoted',NULL,'partner-e2e-desktop','partner-resource-e2e-directory','PROMOTED_PROFILE','ACTIVE','BY_AGREEMENT','WAIVED',14900,'EUR','2026-01-01T00:00:00.000Z','2099-01-01T00:00:00.000Z','Promoted E2E',NULL,'internal',NULL,NULL,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','admin:e2e','admin:e2e');
+
+INSERT INTO monetization_promotions
+  (id,entity_type,entity_id,status,start_at,end_at,label,priority,provenance,admin_note,created_at,updated_at,created_by,updated_by)
+VALUES
+  ('partner-e2e-promotion','directory','990001','active','2026-01-01T00:00:00.000Z','2099-01-01T00:00:00.000Z','Sponzorované',0,'partner-agreement:partner-e2e-agreement-promoted','', '2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','admin:e2e','admin:e2e');
+
+INSERT INTO partner_entitlements
+  (id,account_id,resource_id,agreement_id,entitlement_type,status,start_at,end_at,promotion_id,created_at,updated_at,activated_at,activated_by)
+VALUES
+  ('partner-e2e-entitlement-premium','partner-e2e-desktop','partner-resource-e2e-directory','partner-e2e-agreement-premium','PREMIUM_PROFILE','ACTIVE','2026-01-01T00:00:00.000Z','2099-01-01T00:00:00.000Z',NULL,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','admin:e2e'),
+  ('partner-e2e-entitlement-promoted','partner-e2e-desktop','partner-resource-e2e-directory','partner-e2e-agreement-promoted','PROMOTED_PROFILE','ACTIVE','2026-01-01T00:00:00.000Z','2099-01-01T00:00:00.000Z','partner-e2e-promotion','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z','admin:e2e');
+
+
 -- PARTNER-3A Help Organization fixture: EDITOR membership, deliberately without VERIFIED trust badge.
 INSERT INTO help_organizations (
   id,name,slug,legal_name,type,status,short_description,description,public_email,public_phone,

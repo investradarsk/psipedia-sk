@@ -273,6 +273,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
 
           <div className="header-actions">
             <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
+            <Link href="/partner/prihlasenie" className="header-contact-link" data-partner-login-entry>Prihlásiť sa</Link>
             <button className="icon-button search-trigger" type="button" onClick={openSearch} aria-label="Otvoriť vyhľadávanie">
               <SearchIcon />
               <span>Hľadať</span>
@@ -366,7 +367,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                 )}
               </div>
             ))}
-            <Link href="/o-nas#kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link>
+            <div className={styles.mobileUtilityLinks}><Link href="/o-nas#kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href="/partner/prihlasenie" className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>Prihlásiť sa</Link></div>
             <button type="button" onClick={openSearch}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
         </div>

@@ -75,6 +75,18 @@
   content: "★";
 }
 
+.premiumBadge {
+  color: var(--forest-dark);
+  background: #f4efe1;
+  border: 1px solid rgba(96, 76, 37, 0.18);
+}
+
+.sponsoredBadge {
+  color: #7d351f;
+  background: #fff0e9;
+  border: 1px solid rgba(185, 71, 50, 0.2);
+}
+
 .heroCopy h1 {
   max-width: 17ch;
   margin: 18px 0 16px;

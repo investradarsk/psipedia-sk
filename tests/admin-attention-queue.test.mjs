@@ -16,6 +16,7 @@ import {
   mapPartnerClaimAttention,
   mapPartnerVerificationAttention,
   mapPartnerCommercialAttention,
+  mapPartnerCommercialAgreementAttention,
   sortAdminAttentionItems,
   summarizeAdminAttention,
 } from "../lib/admin-attention-queue.ts";
@@ -158,6 +159,17 @@ test("Partner commercial Attention maps lifecycle, stable key and direct deep li
   assert.equal(notNow.attentionState,"DISMISSED");
 });
 
+test("Partner commercial agreement Attention isolates manual activation work", () => {
+  const ready=mapPartnerCommercialAgreementAttention({id:"agreement-1",agreementType:"PROMOTED_PROFILE",status:"AGREED",paymentStatus:"PAID",endAt:"2026-10-20T12:00:00.000Z",resourceName:"Veterina",createdAt:"2026-09-14T10:00:00.000Z",updatedAt:"2026-09-15T10:00:00.000Z"},NOW);
+  const waiting=mapPartnerCommercialAgreementAttention({id:"agreement-2",agreementType:"PREMIUM_PROFILE",status:"AGREED",paymentStatus:"AWAITING_PAYMENT",endAt:"2026-10-20T12:00:00.000Z",resourceName:"Hotel",createdAt:"2026-09-14T10:00:00.000Z",updatedAt:"2026-09-15T10:00:00.000Z"},NOW);
+  assert.equal(ready.key,"partner-agreement:agreement-1");
+  assert.equal(ready.targetHref,"/admin/partners/commercial/agreements/agreement-1");
+  assert.equal(ready.priority,"HIGH");
+  assert.equal(ready.attentionState,"NEW");
+  assert.equal(waiting.attentionState,"RESOLVED");
+});
+
+
 test("geo Attention uses one source with privacy-aware severity and direct deep links", () => {
   const sensitive = mapGeoLocationAttention({
     id: 91,
@@ -270,7 +282,7 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
 
 test("all source queries stay bounded and the attention store remains read-only", () => {
   assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 14);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 15);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
