@@ -7,6 +7,8 @@ const experience = readFileSync(new URL("../components/map/map-experience.tsx", 
 const renderer = readFileSync(new URL("../components/map/google-map-renderer.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../components/map/map-public.module.css", import.meta.url), "utf8");
 const navigation = readFileSync(new URL("../lib/navigation.ts", import.meta.url), "utf8");
+const rootLayout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+const homePage = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const env = readFileSync(new URL("../config/runtime-env.ts", import.meta.url), "utf8");
 const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
@@ -29,6 +31,7 @@ test("Google is isolated to renderer and map experience consumes only /api/map",
   assert.doesNotMatch(renderer + experience, /\b(?:Places|NearbySearch|Geocoder|Geoapify)\b/i);
   assert.match(experience, /buildMapApiUrl/);
   assert.doesNotMatch(experience, /fetch\(["']https?:\/\//);
+  assert.doesNotMatch(rootLayout + homePage, /google-map-renderer|maps\.googleapis\.com/i);
 });
 
 test("one map instance survives filters and the renderer reconciles markers", () => {
