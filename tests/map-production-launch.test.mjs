@@ -82,6 +82,21 @@ test("readiness audit exposes only a read-only D1 execution path", async () => {
   assert.match(workflow, /AUDIT-MAP-psipedia-sk-db/);
 });
 
+test("production privacy smoke is read-only and compares D1 with the public API", async () => {
+  const script = await readFile(path.join(root, "scripts/map-production-privacy-smoke.mjs"), "utf8");
+  const workflow = await readFile(path.join(root, ".github/workflows/map-production-readiness.yml"), "utf8");
+  assert.match(script, /Only read-only SQL is allowed/);
+  assert.match(script, /https:\/\/psipedia\.sk\/api\/map/);
+  assert.match(script, /APPROXIMATE_PUBLIC/);
+  assert.match(script, /sensitiveExactWithoutManual/);
+  assert.match(script, /organizationExactWithoutManualReview/);
+  assert.match(script, /approximateStreetLeaks/);
+  assert.match(script, /forbiddenPayloadFieldCount/);
+  assert.doesNotMatch(script, /"d1",\s*"migrations",\s*"apply"/);
+  assert.match(workflow, /map-production-privacy-smoke\.mjs/);
+  assert.match(workflow, /privacy-smoke\.json/);
+});
+
 test("Geoapify-derived records expose both provider and OSM attribution", async () => {
   const query = await readFile(path.join(root, "lib/map-query.ts"), "utf8");
   assert.match(query, /Powered by Geoapify/);
