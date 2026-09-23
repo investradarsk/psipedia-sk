@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 declare global {
   interface Window {
     turnstile?: {
-      ready(callback: () => void): void;
       render(container: HTMLElement, options: Record<string, unknown>): string;
       remove(widgetId: string): void;
     };
@@ -28,30 +27,29 @@ export function PartnerTurnstile({ siteKey, action, onToken, onExpired }: Props)
     if (!siteKey || !containerRef.current) return;
     let cancelled = false;
     let widgetId: string | null = null;
+    let script: HTMLScriptElement | null = null;
 
     const render = () => {
-      window.turnstile?.ready(() => {
-        if (cancelled || !containerRef.current || !window.turnstile) return;
-        widgetId = window.turnstile.render(containerRef.current, {
-          sitekey: siteKey,
-          action,
-          theme: "light",
-          callback: (token: string) => onToken(token),
-          "expired-callback": () => {
-            onToken("");
-            onExpired?.();
-          },
-          "error-callback": () => {
-            onToken("");
-          },
-        });
+      if (cancelled || !containerRef.current || !window.turnstile) return;
+      widgetId = window.turnstile.render(containerRef.current, {
+        sitekey: siteKey,
+        action,
+        theme: "light",
+        callback: (token: string) => onToken(token),
+        "expired-callback": () => {
+          onToken("");
+          onExpired?.();
+        },
+        "error-callback": () => {
+          onToken("");
+        },
       });
     };
 
     if (window.turnstile) {
       render();
     } else {
-      let script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+      script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
       if (!script) {
         script = document.createElement("script");
         script.id = SCRIPT_ID;
@@ -65,6 +63,7 @@ export function PartnerTurnstile({ siteKey, action, onToken, onExpired }: Props)
 
     return () => {
       cancelled = true;
+      script?.removeEventListener("load", render);
       if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
     };
   }, [siteKey, action, onToken, onExpired]);
