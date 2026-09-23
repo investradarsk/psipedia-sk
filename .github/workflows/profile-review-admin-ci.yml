@@ -1,0 +1,150 @@
+name: REVIEWS-3 Admin Moderation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/recenzie-profilov/**"
+      - "app/api/admin/profile-reviews/**"
+      - "components/admin-profile-review-actions.tsx"
+      - "components/admin-shell.tsx"
+      - "lib/admin-auth.ts"
+      - "lib/admin-attention-queue.ts"
+      - "lib/admin-attention-queue-store.ts"
+      - "lib/profile-review-admin.ts"
+      - "lib/profile-review-admin-transition.ts"
+      - "lib/profile-review-domain.ts"
+      - "lib/profile-review-read.ts"
+      - "tests/profile-review-admin.test.mjs"
+      - "tests/admin-attention-queue.test.mjs"
+      - "tests/e2e/profile-review-admin.spec.ts"
+      - "tests/fixtures/profile-review-admin-e2e.sql"
+      - "package.json"
+      - ".github/workflows/profile-review-admin-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: reviews-3-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    name: Review admin — domain, Attention, regressions, D1, lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Migration safety
+        run: npm run db:check-migrations
+      - name: REVIEWS-3 atomic moderation and Attention tests
+        run: npm run test:reviews-admin
+      - name: REVIEWS-1B public read regression
+        run: npm run test:reviews-public-read
+      - name: REVIEWS-2A reviewer auth regression
+        run: npm run test:review-author-auth
+      - name: REVIEWS-2B submission regression
+        run: npm run test:reviews-submission
+      - name: Partner platform regression
+        run: npm run test:partner-platform
+      - name: Clean D1 migration chain
+        run: npm run db:validate-clean
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+
+  e2e:
+    name: Review admin — desktop/mobile/public/a11y
+    needs: validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+      E2E_BASE_URL: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Configure isolated review admin runtime
+        run: |
+          PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
+          PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$PII_ENCRYPTION_KEY"
+            printf 'PII_HASH_KEY=%s\n' "$PII_HASH_KEY"
+            printf 'PROFILE_REVIEW_SUBMISSIONS_ENABLED=%s\n' 'false'
+          } > .dev.vars
+      - run: npm run build
+      - name: Apply migrations to isolated local D1
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed isolated review moderation fixtures
+        run: |
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-reviews-e2e.sql
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/profile-review-admin-e2e.sql
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/reviews-3
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-3/server.log 2>&1 &
+          echo $! > .e2e-artifacts/reviews-3/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/admin/recenzie-profilov >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/reviews-3/server.log
+            exit 1
+          fi
+      - name: REVIEWS-1B public browser regression
+        run: npx playwright test tests/e2e/profile-reviews-public.spec.ts --workers=1 --retries=0
+      - name: REVIEWS-3 Playwright — desktop/mobile/a11y
+        run: npx playwright test tests/e2e/profile-review-admin.spec.ts --workers=1 --retries=0
+      - name: Assert canonical moderation outcomes
+        run: |
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command "SELECT id,status,published_at,overall_rating,body FROM profile_reviews WHERE id IN ('e2e-review-vet-pending','e2e-review-admin-risk-pending') ORDER BY id;" --json > .e2e-artifacts/reviews-3/review-outcomes.json
+          node -e 'const fs=require("node:fs");const d=JSON.parse(fs.readFileSync(".e2e-artifacts/reviews-3/review-outcomes.json","utf8"));const rows=d.flatMap(x=>x.results||[]);const approved=rows.find(x=>x.id==="e2e-review-vet-pending");const rejected=rows.find(x=>x.id==="e2e-review-admin-risk-pending");if(approved?.status!=="VISIBLE"||!approved?.published_at||rejected?.status!=="REJECTED"){console.error(rows);process.exit(1)}'
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/reviews-3/server.pid ]; then
+            kill "$(cat .e2e-artifacts/reviews-3/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviews-3-e2e-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/reviews-3/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14

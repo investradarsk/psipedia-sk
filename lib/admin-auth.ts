@@ -94,3 +94,29 @@ export function unauthorizedAdminResponse() {
     { status: 401 },
   );
 }
+
+export async function requireAdminMutation(request: Request) {
+  const user = await getAdminApiUser();
+  if (!user) return { response: unauthorizedAdminResponse() as Response, user: null };
+
+  const site = request.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin" && site !== "none") {
+    return {
+      response: Response.json({ error: "Cross-site požiadavka bola odmietnutá." }, { status: 403 }),
+      user: null,
+    };
+  }
+
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      if (new URL(origin).host !== new URL(request.url).host) {
+        return { response: Response.json({ error: "Neplatný origin." }, { status: 403 }), user: null };
+      }
+    } catch {
+      return { response: Response.json({ error: "Neplatný origin." }, { status: 403 }), user: null };
+    }
+  }
+
+  return { response: null, user };
+}
