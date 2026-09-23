@@ -12,7 +12,7 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
   const user=await requireAdminPageUser("/admin/partners/commercial"),raw=await searchParams,status=typeof raw.status==="string"?raw.status:"NEW",interestType=typeof raw.type==="string"?raw.type:"all",q=typeof raw.q==="string"?raw.q:"";
   const[items,agreements]=await Promise.all([listPartnerCommercialInterestsAdmin({status,interestType,q}),listPartnerCommercialAgreementsAdmin()]);
   const awaiting=agreements.filter(a=>a.paymentStatus==="AWAITING_PAYMENT").length;
-  const ready=agreements.filter(a=>a.status==="AGREED"&&(a.paymentStatus==="PAID"||a.paymentStatus==="WAIVED"||(a.paymentMethod==="BY_AGREEMENT"&&a.paymentStatus==="NOT_REQUIRED"))).length;
+  const ready=agreements.filter(a=>a.status==="AGREED"&&(a.paymentStatus==="PAID"||a.paymentStatus==="WAIVED")).length;
   const active=agreements.filter(a=>a.status==="ACTIVE").length;
   const expiring=agreements.filter(a=>a.status==="ACTIVE"&&Date.parse(a.endAt)-Date.now()<=14*86400000&&Date.parse(a.endAt)>Date.now()).length;
   return <AdminShell user={user} eyebrow="Partner commercial" title="Komerčný hub" description="Leady, manuálne dohody, platby a platené aktivácie bez online payment gateway.">
