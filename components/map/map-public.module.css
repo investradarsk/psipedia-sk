@@ -601,6 +601,49 @@
   display: none;
 }
 
+.mapConsentGate {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  width: min(calc(100% - 32px), 430px);
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid rgba(23, 53, 43, .16);
+  border-radius: 18px;
+  color: var(--forest-dark, #123d2f);
+  background: rgba(255, 253, 248, .96);
+  box-shadow: 0 18px 45px rgba(13, 34, 27, .18);
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.mapConsentGate span {
+  color: var(--map-muted);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.mapConsentGate button {
+  min-height: 44px;
+  justify-self: center;
+  padding: 9px 14px;
+  border: 1px solid var(--forest, #174b38);
+  border-radius: 999px;
+  color: white;
+  background: var(--forest, #174b38);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.mapConsentGate button:focus-visible {
+  outline: 3px solid var(--brand-focus, #e8bd55);
+  outline-offset: 2px;
+}
+
 .mapStatusPill {
   position: absolute;
   z-index: 4;
