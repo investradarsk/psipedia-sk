@@ -130,6 +130,32 @@ test("online events are skipped and city-only events stay approximate", () => {
   assert.equal(cityOnly.proposedPrecision, "MUNICIPALITY");
 });
 
+test("directory online sentinels never become geocodable public markers", () => {
+  const onlineOnly = {
+    targetType: "DIRECTORY_PROFILE", targetId: 582, label: "Klub", category: "chovatelske-kluby",
+    address: "", city: "Online", region: "Slovensko", countryCode: "SK", online: true,
+  };
+  const hidden = classifyGeoSource(onlineOnly);
+  assert.equal(hidden.proposedVisibility, "HIDDEN");
+  assert.equal(hidden.proposedPrecision, null);
+  assert.equal(hidden.requiresReview, false);
+  assert.equal(hidden.reasonCode, "ONLINE_ONLY");
+  assert.equal(buildGeoQuery(onlineOnly, hidden.proposedVisibility, hidden.proposedPrecision), null);
+
+  const conflicting = classifyGeoSource({
+    ...onlineOnly, address: "Hlavná 1", city: "Online", online: false,
+  });
+  assert.equal(conflicting.proposedVisibility, null);
+  assert.equal(conflicting.requiresReview, true);
+  assert.equal(conflicting.reasonCode, "CONFLICTING_GEO");
+
+  const hybrid = classifyGeoSource({
+    ...onlineOnly, city: "Nitra", region: "Nitriansky kraj", online: true,
+  });
+  assert.equal(hybrid.proposedVisibility, "APPROXIMATE_PUBLIC");
+  assert.equal(hybrid.proposedPrecision, "MUNICIPALITY");
+});
+
 test("approximate queries cannot leak the private street address", () => {
   const source = {
     targetType: "DIRECTORY_PROFILE", targetId: 1, label: "Tréner", category: "treneri",
