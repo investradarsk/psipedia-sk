@@ -59,6 +59,8 @@ jobs:
         run: npm run lint
       - name: Production build
         run: npm run build
+      - name: MAP-1D bundle evidence
+        run: node scripts/map-ui-bundle-report.mjs
       - run: npx playwright install --with-deps chromium
       - name: Configure CI-only local security keys
         run: |
