@@ -211,6 +211,143 @@ Prominent discovery should be enabled only after:
 - Google renderer launch gate complete
 - attribution/consent decisions complete
 
+
+## Extended read-only inventory and privacy smoke
+
+MAP-1E also retains the broader read-only audit from the original launch-hardening branch.
+
+The readiness workflow requires the explicit confirmation:
+
+`AUDIT-MAP-psipedia-sk-db`
+
+In addition to the scoped 0064 migration readiness report, it executes:
+
+- `scripts/map-production-readiness.mjs` for aggregate canonical coverage and Attention Center inventory;
+- `scripts/map-production-privacy-smoke.mjs` to compare eligible production D1 geo rows with the real public `/api/map` payload.
+
+The privacy smoke is SELECT-only. Before 0064 it records `SKIPPED_GEO_SCHEMA_UNAVAILABLE`; that is evidence only and never counts as a privacy PASS.
+
+Once `geo_points` exists, launch readiness requires the privacy smoke to pass. It fails closed for conditions including:
+
+- public API items not backed by currently eligible public geo rows;
+- hidden, stale, pending, failed or otherwise ineligible rows appearing publicly;
+- `APPROXIMATE_PUBLIC` rows using exact precision;
+- exact public rows without a current explicit moderation/manual-placement approval;
+- later source-staleness invalidating an older exact-location approval;
+- approximate display locations leaking their source street address;
+- internal fields such as fingerprints, raw address, provider/error metadata or manual-override metadata appearing in the public payload.
+
+Retained privacy evidence contains aggregate counts only and must not persist private/source street values.
+
+## Geo initialization and bounded rollout
+
+MAP-1E does not mass-geocode production data.
+
+Supported operations remain bounded:
+
+1. read-only inventory and classification;
+2. initialization in capped batches;
+3. very small Geoapify canaries;
+4. human review of sensitive/exact candidates;
+5. bounded backfill chunks only after approval.
+
+Sensitive/home-based categories remain conservative. A source street address is not permission to publish an exact marker.
+
+## Geoapify production configuration
+
+Server geocoding uses:
+
+`GEOAPIFY_API_KEY`
+
+Requirements:
+
+- server-only secret;
+- never a `NEXT_PUBLIC_*` variable;
+- never committed to source control;
+- configure only in the production runtime;
+- retain required Geoapify and OpenStreetMap attribution for returned provider-derived public data.
+
+Provider calls are never part of the production D1 schema migration.
+
+## Google Maps consent, configuration and launch flag
+
+Renderer configuration uses:
+
+- `GOOGLE_MAPS_BROWSER_API_KEY`
+- `GOOGLE_MAPS_MAP_ID`
+
+Public launch additionally requires:
+
+`PUBLIC_MAP_ENABLED=1`
+
+The effective public launch gate is deny-by-default and requires all three values simultaneously. If any is absent, Google Maps JavaScript is not loaded and the public `Mapa` navigation item is not exposed.
+
+Before enabling the flag:
+
+1. enable billing and Maps JavaScript API in the production Google Cloud project;
+2. create the production Map ID used by Advanced Markers;
+3. create a browser API key;
+4. restrict website use to the canonical Psipedia production origin;
+5. restrict the key to Maps JavaScript API;
+6. configure quota/usage monitoring;
+7. configure key and Map ID outside source control;
+8. complete a real production browser smoke.
+
+Google Maps uses a service-specific opt-in stored under:
+
+`psipedia-google-maps-consent`
+
+Before consent, the Google script is not injected and text results remain usable. Consent can be revoked from `/cookies`.
+
+Relevant disclosure surfaces are:
+
+- `/mapa`
+- `/cookies`
+- `/sukromie`
+- `/podmienky-pouzivania`
+
+MAP V1 does not use browser geolocation, Google Places or browser-side geocoding.
+
+## Public navigation and indexing
+
+The map navigation item is injected only when the effective launch gate passes. It appears after `Služby pre psov` without mutating the D1 navigation table.
+
+Direct `/mapa` access remains available while launch is disabled, but the route stays `noindex,nofollow` until the effective public launch gate passes.
+
+No homepage map block is introduced by MAP-1E.
+
+## Production launch sequence after schema rollout
+
+After 0063 and 0064 are applied and verified:
+
+1. run MAP-1E Production Readiness with the explicit read-only confirmation;
+2. verify production `/api/map` returns the normal HTTP 200 MAP-1C contract;
+3. review dry-run classification and sensitive/exact candidates;
+4. configure `GEOAPIFY_API_KEY`;
+5. run small stratified provider canaries;
+6. initialize/backfill only approved records in bounded chunks;
+7. rerun readiness and clear actionable `GEO_LOCATION_ISSUE` items;
+8. configure restricted Google browser key and Map ID while `PUBLIC_MAP_ENABLED` remains off;
+9. verify consent, attribution, CSP and privacy on desktop and mobile;
+10. confirm the real Google renderer smoke;
+11. set `PUBLIC_MAP_ENABLED=1`;
+12. run final production smoke and monitor.
+
+Keep the public launch flag off while any hard blocker remains, including 503/API contract failure, missing 0064, empty/unusable public data, unresolved privacy findings, missing attribution, unacceptable canary quality, unrestricted Google configuration, consent/CSP failure or production browser regressions.
+
+## Operational evidence
+
+Retain, per production phase:
+
+- GitHub Actions run URL;
+- exact main SHA;
+- migration/readiness artifacts;
+- aggregate counts before and after;
+- canary/backfill aggregate outcomes;
+- final privacy smoke result.
+
+Never retain API keys, raw IPs, private addresses or provider secrets in these artifacts.
+
 ## Recovery
 
 Every production mutation creates a D1 Time Travel bookmark in preflight evidence.
