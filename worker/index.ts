@@ -84,6 +84,19 @@ const LEGACY_BREED_REDIRECTS: Readonly<Record<string, string>> = {
   "/plemena/madarska-vyzla": "/plemena/madarsky-kratkosrsty-stavac-vyzla",
 };
 const PUBLIC_HTML_CACHE_TTL_SECONDS = 45;
+const MAP_PAGE_CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://maps.gstatic.com https://www.googletagmanager.com https://pagead2.googlesyndication.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com",
+  "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://www.google-analytics.com https://region1.google-analytics.com https://pagead2.googlesyndication.com",
+  "frame-src 'self' https://*.google.com https://googleads.g.doubleclick.net",
+  "worker-src 'self' blob:",
+].join("; ");
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -157,7 +170,14 @@ const worker = {
       }, allowedWidths);
     }
 
-    const response = await handler.fetch(appRequest, env, ctx);
+    let response = await handler.fetch(appRequest, env, ctx);
+    if (url.pathname === "/mapa") {
+      response = responseWithHeaders(response, {
+        "Content-Security-Policy": MAP_PAGE_CSP,
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
+      });
+    }
     if (isAdminAuthPath(url.pathname) || url.pathname.startsWith("/api/")) {
       return responseWithHeader(response, "Cache-Control", "private, no-store");
     }
