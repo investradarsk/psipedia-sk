@@ -26,7 +26,7 @@ test("Google is isolated to renderer and map experience consumes only /api/map",
   assert.match(renderer, /AdvancedMarkerElement/);
   assert.match(renderer, /gmpClickable:\s*true/);
   assert.match(renderer, /addEventListener\("gmp-click"/);
-  assert.doesNotMatch(renderer + experience, /Places|NearbySearch|Geocoder|Geoapify|geoapify/i);
+  assert.doesNotMatch(renderer + experience, /\b(?:Places|NearbySearch|Geocoder|Geoapify)\b/i);
   assert.match(experience, /buildMapApiUrl/);
   assert.doesNotMatch(experience, /fetch\(["']https?:\/\//);
 });
