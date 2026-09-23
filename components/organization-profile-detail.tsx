@@ -71,10 +71,12 @@ export function OrganizationProfileDetail({
   composition,
   reviews,
   reviewReadError = false,
+  commercial,
 }: {
   composition: PublicOrganizationComposition;
   reviews: PublicProfileReviewData | null;
   reviewReadError?: boolean;
+  commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
 }) {
   const { organization, adoptions, fundraisingMethods } = composition;
   const presentation = buildOrganizationProfilePresentation(organization);
@@ -129,6 +131,10 @@ export function OrganizationProfileDetail({
 
       <SectionHero className={styles.hero}>
         <p className={styles.eyebrow}>Pomoc psom · organizácia</p>
+        {(commercial?.premium || commercial?.promoted) ? <div className={styles.commercialBadges}>
+          {commercial.premium ? <span className={styles.premiumBadge} title="Platené rozšírenie profilu.">Premium profil</span> : null}
+          {commercial.promoted ? <span className={styles.sponsoredBadge}>{commercial.sponsoredLabel ?? "Sponzorované"}</span> : null}
+        </div> : null}
         <h1>{organization.name}</h1>
         {presentation.shortDescription ? <p className={styles.lead}>{presentation.shortDescription}</p> : null}
         {presentation.location ? <p className={styles.location} data-organization-location-summary><LocationIcon size={16} /> {presentation.location}</p> : null}
