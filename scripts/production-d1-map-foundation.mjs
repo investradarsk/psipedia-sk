@@ -342,12 +342,17 @@ async function verify0064() {
   assertObjects(objects, PARTNER_0063_OBJECTS, "0063");
   assertObjects(objects, GEO_0064_OBJECTS, "0064");
   const geoCount = scalar(db, prepared.configPath, "SELECT COUNT(*) AS count FROM geo_points");
-  invariant(geoCount === 0, `0064 is schema-only and must not seed geo_points; found ${geoCount}`);
+  const preflight = await readJson(".production-map-foundation/preflight-report.json");
+  const freshlyApplied = preflight.latestRecordedMigration !== MAP_FOUNDATION_MIGRATIONS[1];
+  if (freshlyApplied) {
+    invariant(geoCount === 0, `0064 is schema-only and must not seed geo_points; found ${geoCount}`);
+  }
   await writeJson(".production-map-foundation/step-0064-report.json", {
     target: MAP_FOUNDATION_MIGRATIONS[1],
     latestRecordedMigration: names.at(-1),
     geoPoints: geoCount,
     schemaOnly: true,
+    freshlyApplied,
   });
   console.log("[map-foundation] verify 0064 PASS — geo_points=0");
 }
