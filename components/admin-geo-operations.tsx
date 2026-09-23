@@ -46,7 +46,7 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
 
     <section className="admin-form-card">
       <h2>Dry-run classifier</h2>
-      <p className="admin-help">Provider sa nevolá. Zoznam je deterministický a zobrazuje iba návrh privacy/query/fingerprint kontraktu.</p>
+      <p className="admin-help">Provider sa nevolá pri dry-rune. Canary prehľadá bounded vzorku a provider zavolá iba pre kandidátov bez povinného privacy review.</p>
       <div className="admin-editor-actions">
         <button type="button" disabled={busy} onClick={async () => {
           if (!window.confirm("Vytvoriť najviac 20 geo_points riadkov bez provider callov? Ide iba o explicitnú inicializáciu operations state.")) return;
@@ -54,7 +54,7 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
           if (report) { setMessage("Inicializácia geo riadkov skončila."); await refresh(); }
         }}>Inicializovať max. 20 riadkov</button>
         <button type="button" disabled={busy || !providerConfigured} onClick={async () => {
-          if (!window.confirm("Spustiť najviac 5 Geoapify canary requestov? Výsledky sa NEUKLADAJÚ do geo_points.")) return;
+          if (!window.confirm("Spustiť najviac 5 Geoapify canary requestov iba pre kandidátov bez povinného privacy review? Výsledky sa NEUKLADAJÚ do geo_points.")) return;
           const report = await action({ action: "canary", limit: 5, confirm: "CANARY" });
           if (report) { setCanary(report); setMessage("Canary skončil; nič sa nepublikovalo ani nepersistovalo."); }
         }}>Spustiť max. 5 canary requestov</button>

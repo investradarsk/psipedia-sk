@@ -113,6 +113,42 @@ export async function initializeGeoCandidates(input: {
   return report;
 }
 
+export function selectGeoCanaryCandidates(items: GeoDryRunItem[], requestedLimit: number) {
+  const limit = Math.max(1, Math.min(10, Math.trunc(requestedLimit)));
+  const eligible = items.filter((item) =>
+    !item.requiresReview
+    && Boolean(item.proposedVisibility)
+    && item.proposedVisibility !== "HIDDEN"
+    && Boolean(item.proposedPrecision)
+    && Boolean(item.normalizedQuery),
+  );
+
+  const selected: GeoDryRunItem[] = [];
+  const selectedKeys = new Set<string>();
+  const coveredTargets = new Set<GeoTargetType>();
+
+  // First pass: prefer target-type diversity so an unfiltered canary is not just
+  // the first geocodable category in database sort order.
+  for (const item of eligible) {
+    if (selected.length >= limit) break;
+    if (coveredTargets.has(item.targetType)) continue;
+    selected.push(item);
+    selectedKeys.add(`${item.targetType}:${item.targetId}`);
+    coveredTargets.add(item.targetType);
+  }
+
+  // Second pass: fill the remaining bounded sample deterministically.
+  for (const item of eligible) {
+    if (selected.length >= limit) break;
+    const key = `${item.targetType}:${item.targetId}`;
+    if (selectedKeys.has(key)) continue;
+    selected.push(item);
+    selectedKeys.add(key);
+  }
+
+  return { eligible, selected };
+}
+
 export async function runGeoCanary(input: {
   limit: number;
   targetType?: GeoTargetType | null;
@@ -121,25 +157,22 @@ export async function runGeoCanary(input: {
 }) {
   const limit = Math.max(1, Math.min(10, Math.trunc(input.limit)));
   const preview = await previewGeoCandidates({
-    limit,
+    limit: Math.min(200, Math.max(limit * 20, 50)),
     targetType: input.targetType,
     directoryCategory: input.directoryCategory,
     database: input.database,
   });
   const provider = new GeoapifyGeocoder();
   if (!provider.isConfigured()) {
-    return { configured: false, executed: 0, items: [], error: "GEOAPIFY_API_KEY is not configured." };
+    return { configured: false, requested: limit, scanned: preview.items.length, eligible: 0, executed: 0, items: [], error: "GEOAPIFY_API_KEY is not configured." };
   }
 
+  const selection = selectGeoCanaryCandidates(preview.items, limit);
   const items = [];
-  for (const candidate of preview.items) {
-    if (!candidate.proposedVisibility || candidate.proposedVisibility === "HIDDEN" || !candidate.proposedPrecision || !candidate.normalizedQuery) {
-      items.push({ ...candidate, outcome: "skipped", providerResults: 0, decision: candidate.reasonCode ?? "not_geocodable" });
-      continue;
-    }
+  for (const candidate of selection.selected) {
     try {
       const precision = candidate.proposedPrecision as GeoPublicPrecision;
-      const request = { query: candidate.normalizedQuery, precision, countryCode: "SK" };
+      const request = { query: candidate.normalizedQuery!, precision, countryCode: "SK" };
       const results = candidate.proposedVisibility === "EXACT_PUBLIC"
         ? await provider.geocodeExact(request)
         : await provider.geocodeApproximate(request);
@@ -167,7 +200,15 @@ export async function runGeoCanary(input: {
       items.push({ ...candidate, outcome: "provider_error", providerResults: 0, decision: error instanceof Error ? error.message : "provider_error" });
     }
   }
-  return { configured: true, executed: items.filter((item) => item.outcome !== "skipped").length, items };
+  return {
+    configured: true,
+    requested: limit,
+    scanned: preview.items.length,
+    eligible: selection.eligible.length,
+    reviewBlocked: preview.items.filter((item) => item.requiresReview).length,
+    executed: items.length,
+    items,
+  };
 }
 
 
