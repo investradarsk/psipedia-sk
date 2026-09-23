@@ -77,7 +77,7 @@ test("Promoted reuses canonical monetization promotions with mandatory Sponsored
 });
 
 test("AD campaign links an existing monetization campaign and never invents creative",()=>{
-  assert.match(agreements,/SELECT id,status FROM monetization_campaigns/);
+  assert.match(agreements,/SELECT id,status,start_at startAt,end_at endAt FROM monetization_campaigns/);
   assert.match(agreements,/Najprv vytvorte bezpečnú reklamnú kampaň/);
   assert.match(agreements,/Obdobie reklamnej kampane musí byť celé v rámci obdobia obchodnej dohody/);
   assert.doesNotMatch(agreements,/createDirectCampaign|creative_image_url|destination_url/);
