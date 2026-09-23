@@ -214,7 +214,6 @@ function TestMapRenderer({
   items,
   clusters,
   selectedItemId,
-  viewport,
   command,
   onViewportChange,
   onSelectItem,
@@ -226,20 +225,19 @@ function TestMapRenderer({
   }, [onStatusChange]);
 
   useEffect(() => {
-    if (!command) return;
-    if (command.type === "cluster") {
-      onViewportChange({
-        ...testClusterViewport({
-          id: command.id,
-          latitude: command.latitude,
-          longitude: command.longitude,
-          count: 1,
-          categoryCounts: { services: 0, organizations: 0, events: 0 },
-        }, viewport.zoom),
-        zoom: command.zoom,
-      });
-    }
-  }, [command, onViewportChange, viewport.zoom]);
+    if (!command || command.type !== "cluster") return;
+    const syntheticCluster = {
+      id: command.id,
+      latitude: command.latitude,
+      longitude: command.longitude,
+      count: 1,
+      categoryCounts: { services: 0, organizations: 0, events: 0 },
+    };
+    onViewportChange({
+      ...testClusterViewport(syntheticCluster, Math.max(3, command.zoom - 2)),
+      zoom: command.zoom,
+    });
+  }, [command, onViewportChange]);
 
   return (
     <div className={styles.testMap} data-testid="map-test-renderer" data-map-init-count="1">
@@ -251,6 +249,7 @@ function TestMapRenderer({
             className={styles.clusterMarker}
             key={cluster.id}
             data-testid={`cluster-${cluster.id}`}
+            aria-label={`Priblížiť oblasť s ${cluster.count} záznamami`}
             onClick={() => {
               onClusterClick(cluster);
             }}
@@ -264,6 +263,7 @@ function TestMapRenderer({
             className={markerClass(item, selectedItemId === item.id)}
             key={item.id}
             data-testid={`marker-${item.id}`}
+            aria-label={item.name}
             aria-pressed={selectedItemId === item.id}
             onClick={() => onSelectItem(item.id)}
           >
