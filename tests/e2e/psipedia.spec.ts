@@ -357,6 +357,45 @@ test("@production help landing and canonical adoption detail work", async ({ pag
   await expect(page.locator("h1")).toBeVisible();
 });
 
+test("@production reviewer auth renders content in repeated fresh contexts and is never shared-cacheable", async ({ browser }, testInfo) => {
+  const baseURL = process.env.E2E_BASE_URL ?? "https://psipedia.sk";
+  const path = "/recenzia/prihlasenie?returnTo=" + encodeURIComponent(
+    "/recenzia/napisat?resourceId=production-reviewer-auth-smoke",
+  );
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const context = await browser.newContext({
+      baseURL,
+      viewport: testInfo.project.name === "mobile-chromium"
+        ? { width: 390, height: 844 }
+        : { width: 1440, height: 900 },
+    });
+    const freshPage = await context.newPage();
+    const response = await freshPage.goto(path, { waitUntil: "commit" });
+
+    expect(response, `reviewer auth attempt ${attempt + 1} has no response`).not.toBeNull();
+    expect(response?.status(), `reviewer auth attempt ${attempt + 1}`).toBe(200);
+    await expect(freshPage.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+    await expect(freshPage.getByLabel("E-mail")).toBeVisible();
+    await expect(freshPage.locator("form.review-auth-form")).toBeVisible();
+
+    const headers = response!.headers();
+    expect(headers["cache-control"] ?? "").toMatch(/private/i);
+    expect(headers["cache-control"] ?? "").toMatch(/no-store/i);
+    expect(headers["cdn-cache-control"] ?? "no-store").not.toMatch(/public/i);
+    expect(headers["cloudflare-cdn-cache-control"] ?? "no-store").not.toMatch(/public/i);
+    expect(headers["referrer-policy"] ?? "").toBe("no-referrer");
+    expect(headers["x-psipedia-cache"] ?? "").not.toBe("HIT");
+
+    const overflow = await freshPage.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, `reviewer auth attempt ${attempt + 1} horizontal overflow`).toBeLessThanOrEqual(1);
+
+    await context.close();
+  }
+});
+
 test("@production robots and sitemaps are available and valid", async ({ request }) => {
   const checks = [["/robots.txt", /User-agent:/i], ["/sitemap.xml", /<urlset|<sitemapindex/i], ["/news-sitemap.xml", /<urlset/i]] as const;
   for (const [path, content] of checks) {
