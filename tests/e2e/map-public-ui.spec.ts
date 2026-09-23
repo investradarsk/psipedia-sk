@@ -228,6 +228,7 @@ test.describe("MAP-1D desktop", () => {
   test("server clusters zoom to item mode without a second hidden endpoint", async ({ page }) => {
     const mock = await installMapApiMock(page);
     await page.goto("/mapa");
+    await expect(page.getByTestId("map-test-renderer")).toBeVisible();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("cluster");
     await expect(page.getByTestId("map-cluster-summary")).toBeVisible();
@@ -246,6 +247,7 @@ test.describe("MAP-1D desktop", () => {
   test("empty, truncated and API failure states remain distinct and retryable", async ({ page }) => {
     await installMapApiMock(page);
     await page.goto("/mapa");
+    await expect(page.getByTestId("map-test-renderer")).toBeVisible();
 
     const search = page.getByLabel("Vyhľadávanie v mape");
 
@@ -291,6 +293,7 @@ test.describe("MAP-1D mobile", () => {
   test("bottom sheet, mobile filters, marker selection and no horizontal overflow", async ({ page }) => {
     await installMapApiMock(page);
     await page.goto("/mapa");
+    await expect(page.getByTestId("map-test-renderer")).toBeVisible();
 
     const results = page.getByTestId("map-results-panel");
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
