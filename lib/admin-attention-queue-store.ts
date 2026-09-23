@@ -196,7 +196,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     SELECT s.id,s.status,s.operation,s.risk_flags_json riskFlagsJson,
       COALESCE(e.title,m.display_title,'Podujatie') title,
       m.changed_field_count changedFieldCount,m.duplicate_confidence duplicateConfidence,
-      CASE WHEN m.operation='UPDATE' AND e.updated_at<>m.base_updated_at THEN 1 ELSE 0 END stale,
+      CASE WHEN m.base_updated_at IS NOT NULL AND e.updated_at<>m.base_updated_at THEN 1 ELSE 0 END stale,
       s.created_at createdAt,s.updated_at updatedAt
     FROM partner_event_submission_metadata m
     JOIN moderation_submissions s ON s.id=m.submission_id
