@@ -8,7 +8,7 @@ import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
 export const dynamic = "force-dynamic";
 
 export default async function PartnerSettingsPage() {
-  const identity = await requirePartnerPageIdentity();
+  const identity = await requirePartnerPageIdentity({ allowIncompleteOnboarding: true });
   const contactProfile = await getPartnerContactProfile(identity.accountId);
 
   return (
