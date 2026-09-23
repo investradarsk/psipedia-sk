@@ -187,6 +187,9 @@ test("fresh RSC navigation to reviewer auth never produces a blank shell", async
     const freshPage = await context.newPage();
     await installTurnstileMock(freshPage);
     await freshPage.goto("/", { waitUntil: "domcontentloaded" });
+    await freshPage.waitForFunction(() => (
+      typeof (window as unknown as { __VINEXT_RSC_NAVIGATE__?: unknown }).__VINEXT_RSC_NAVIGATE__ === "function"
+    ));
 
     const navigationResult = await freshPage.evaluate(async (target) => {
       const bridge = (window as unknown as {
