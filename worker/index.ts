@@ -89,11 +89,11 @@ const MAP_PAGE_CSP = [
   "base-uri 'self'",
   "object-src 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://maps.gstatic.com https://www.googletagmanager.com https://pagead2.googlesyndication.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com https://www.googletagmanager.com https://pagead2.googlesyndication.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com",
-  "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://www.google-analytics.com https://region1.google-analytics.com https://pagead2.googlesyndication.com",
+  "connect-src 'self' data: blob: https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://www.google-analytics.com https://region1.google-analytics.com https://pagead2.googlesyndication.com",
   "frame-src 'self' https://*.google.com https://googleads.g.doubleclick.net",
   "worker-src 'self' blob:",
 ].join("; ");
