@@ -27,6 +27,10 @@ export const partnerNotificationTypes = [
   "PROFILE_CHANGE_SUBMITTED",
   "PROFILE_CHANGE_APPROVED",
   "PROFILE_CHANGE_REJECTED",
+  "NEW_PROFILE_SUBMITTED",
+  "NEW_PROFILE_CREATED",
+  "NEW_PROFILE_LINKED_EXISTING",
+  "NEW_PROFILE_REJECTED",
 ] as const;
 export type PartnerNotificationType = (typeof partnerNotificationTypes)[number];
 
@@ -227,6 +231,22 @@ async function sendPartnerAuthEmail(input: {
       PROFILE_CHANGE_REJECTED: {
         subject: "Návrh úprav nebol schválený",
         lines: ["Návrh úprav nebol schválený. Stav a bezpečný dôvod nájdete vo svojom Partner účte."],
+      },
+      NEW_PROFILE_SUBMITTED: {
+        subject: "Návrh nového profilu sme prijali",
+        lines: ["Návrh nového profilu sme prijali a čaká na moderátorskú kontrolu. Verejný profil zatiaľ nevznikol."],
+      },
+      NEW_PROFILE_CREATED: {
+        subject: "Nový profil bol vytvorený ako koncept",
+        lines: ["Návrh bol schválený a profil bol vytvorený ako koncept. Profil ešte nemusí byť verejne publikovaný."],
+      },
+      NEW_PROFILE_LINKED_EXISTING: {
+        subject: "Návrh bol prepojený s existujúcim profilom",
+        lines: ["Návrh bol schválený prepojením s existujúcim profilom. Profil teraz môžete spravovať v Partner účte; overenie správcu zostáva samostatné."],
+      },
+      NEW_PROFILE_REJECTED: {
+        subject: "Návrh nového profilu nebol schválený",
+        lines: ["Návrh nového profilu nebol schválený. Bezpečný dôvod nájdete vo svojom Partner účte."],
       },
     };
     const selected = copy[input.row.notification_type];

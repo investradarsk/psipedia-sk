@@ -2,7 +2,7 @@ import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts"
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 12;
+export const ADMIN_ATTENTION_QUERY_COUNT = 13;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -14,6 +14,7 @@ export const adminAttentionSourceTypes = [
   "AUTOMATION_FINDING",
   "PARTNER_CLAIM_REVIEW",
   "PARTNER_PROFILE_CHANGE_REVIEW",
+  "PARTNER_NEW_PROFILE_REVIEW",
   "PARTNER_VERIFICATION_REVIEW",
   "PARTNER_COMMERCIAL_LEAD",
   "GEO_LOCATION_ISSUE",
@@ -63,6 +64,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   AUTOMATION_FINDING: "Automatický research",
   PARTNER_CLAIM_REVIEW: "Partner claims",
   PARTNER_PROFILE_CHANGE_REVIEW: "Partner úpravy profilov",
+  PARTNER_NEW_PROFILE_REVIEW: "Partner nové profily",
   PARTNER_VERIFICATION_REVIEW: "Partner overenia",
   PARTNER_COMMERCIAL_LEAD: "Partner komerčné leady",
   GEO_LOCATION_ISSUE: "Geo lokality",
@@ -413,6 +415,52 @@ export function mapPartnerProfileChangeAttention(row:PartnerProfileChangeAttenti
       {label:"Typ",value:row.resourceType},
       {label:"Zmenené polia",value:String(row.changedFieldCount)},
       ...(stale?[{label:"Riziko",value:"STALE_BASE"}]:riskFlagCount?[{label:"Risk flags",value:String(riskFlagCount)}]:[]),
+    ],
+  };
+}
+
+export type PartnerNewProfileAttentionRow = {
+  id:string;
+  status:string;
+  displayName:string;
+  resourceType:string;
+  categoryOrType:string;
+  duplicateConfidence:string;
+  createdAt:string;
+  updatedAt:string;
+};
+
+function partnerNewProfileAttentionState(status:string):AdminAttentionState {
+  if(status==="SUBMITTED")return "NEW";
+  if(status==="PENDING_REVIEW"||status==="QUARANTINED")return "IN_PROGRESS";
+  if(status==="APPROVED")return "RESOLVED";
+  return "DISMISSED";
+}
+
+export function mapPartnerNewProfileAttention(row:PartnerNewProfileAttentionRow,now=new Date()):AdminAttentionItem {
+  const attentionState=partnerNewProfileAttentionState(row.status);
+  const relevantAt=isAdminAttentionActive(attentionState)?row.createdAt:row.updatedAt;
+  const duplicate=row.duplicateConfidence==="HIGH"||row.duplicateConfidence==="MEDIUM";
+  return {
+    key:partnerAttentionKey("PARTNER_NEW_PROFILE_REVIEW",row.id),
+    sourceType:"PARTNER_NEW_PROFILE_REVIEW",
+    sourceId:row.id,
+    title:`Nový profil: ${row.displayName} čaká na kontrolu`,
+    reason:isAdminAttentionActive(attentionState)
+      ? duplicate?"Nájdený možný existujúci profil.":"Partner navrhol vytvorenie nového profilu."
+      : row.status==="APPROVED"?"Návrh nového profilu bol schválený."
+        : row.status==="REJECTED"?"Návrh nového profilu bol zamietnutý.":"Partner návrh stiahol.",
+    priority:row.duplicateConfidence==="HIGH"?"HIGH":"MEDIUM",
+    status:row.status,
+    attentionState,
+    createdAt:row.createdAt,
+    relevantAt,
+    ageDays:ageDays(relevantAt,now),
+    targetHref:partnerAttentionHref("PARTNER_NEW_PROFILE_REVIEW",row.id),
+    metadata:[
+      {label:"Typ",value:row.resourceType==="DIRECTORY_PROFILE"?"Služba / Directory":"Organizácia na pomoc psom"},
+      {label:"Kategória / typ",value:row.categoryOrType},
+      ...(duplicate?[{label:"Duplicate",value:row.duplicateConfidence}]:[]),
     ],
   };
 }
