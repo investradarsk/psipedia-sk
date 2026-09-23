@@ -141,11 +141,18 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
     await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
     await page.goto("/partner/ziadosti");
-    const organizationChange = page.locator(".partner-request-list article").filter({ hasText: "Partner E2E Organizácia" }).first();
+    const profileChangesSection=page.locator("section.partner-requests-section").filter({
+      has: page.getByRole("heading",{name:"Úpravy profilov"}),
+    });
+    const organizationChange=profileChangesSection.locator("article").filter({hasText:"Partner E2E Organizácia"});
     await expect(organizationChange).toContainText("Čaká na kontrolu");
     page.once("dialog", dialog => void dialog.accept());
     await organizationChange.getByRole("button", { name: "Zrušiť návrh" }).click();
     await expect(organizationChange).toContainText("Zrušené");
+    const newProfilesSection=page.locator("section.partner-requests-section").filter({
+      has: page.getByRole("heading",{name:"Moje návrhy nových profilov"}),
+    });
+    await expect(newProfilesSection.locator("article").filter({hasText:"Partner E2E Organizácia"})).toContainText("Čaká na kontrolu");
   }
   await expectNoHorizontalOverflow(page);
 
