@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { directoryCategories } from "@/lib/directory";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import { getPartnerAccountById, getPartnerDatabase } from "@/lib/partner-auth-store";
-import { normalizePartnerProfilePatch, type PartnerProfileEditableValue, type PartnerProfilePatch } from "@/lib/partner-profile-changes";
+import { normalizePartnerProfilePatch, publicPartnerProfileChangeReason, type PartnerProfileEditableValue, type PartnerProfilePatch } from "@/lib/partner-profile-changes";
 import { enforcePartnerNewProfileRateLimit } from "@/lib/partner-security";
 import { organizationPublicationTypes } from "@/lib/help-organization-publication";
 import {
@@ -261,7 +261,7 @@ function safeSourceData(value: string) {
   }
 }
 
-function evaluateCandidate(input: {
+export function evaluatePartnerDuplicateCandidate(input: {
   resourceType: PartnerNewProfileResourceType;
   incoming: PartnerProfilePatch;
   categoryOrType: string;
@@ -359,7 +359,7 @@ export async function scanPartnerNewProfileDuplicates(
     `).all<DirectoryCandidateRow>();
     for (const row of rows.results) {
       const contacts = readDirectoryPublicContacts(safeSourceData(row.sourceDataJson), row.websiteUrl ?? "");
-      const candidate = evaluateCandidate({
+      const candidate = evaluatePartnerDuplicateCandidate({
         resourceType: "DIRECTORY_PROFILE",
         incoming: profile.values,
         categoryOrType: profile.categoryOrType,
@@ -394,7 +394,7 @@ export async function scanPartnerNewProfileDuplicates(
       ORDER BY o.id DESC LIMIT 5000
     `).all<HelpCandidateRow>();
     for (const row of rows.results) {
-      const candidate = evaluateCandidate({
+      const candidate = evaluatePartnerDuplicateCandidate({
         resourceType: "HELP_ORGANIZATION",
         incoming: profile.values,
         categoryOrType: profile.categoryOrType,
@@ -616,6 +616,7 @@ export async function listPartnerNewProfiles(accountId: string, dbInput?: D1Data
   return result.results.map((row)=>({
     ...row,
     statusLabel: statusLabel(row.status),
+    rejectionReason: publicPartnerProfileChangeReason(row.rejectionReasonCode),
     duplicateWarning: row.duplicateConfidence === "HIGH"
       ? "Pri návrhu sa našiel silný možný existujúci profil."
       : row.duplicateConfidence === "MEDIUM" ? "Pri návrhu sa našiel možný podobný profil." : null,
