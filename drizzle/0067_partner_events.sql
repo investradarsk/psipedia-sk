@@ -3,6 +3,7 @@ CREATE TABLE `partner_event_submission_metadata` (
   `partner_account_id` text NOT NULL REFERENCES `partner_accounts`(`id`) ON DELETE RESTRICT,
   `partner_resource_id` text REFERENCES `partner_resources`(`id`) ON DELETE RESTRICT,
   `operation` text NOT NULL CHECK (`operation` IN ('CREATE','UPDATE')),
+  `display_title` text NOT NULL,
   `base_updated_at` text,
   `base_snapshot_json` text NOT NULL DEFAULT '{}',
   `changed_field_count` integer NOT NULL DEFAULT 0 CHECK (`changed_field_count` >= 0 AND `changed_field_count` <= 32),
