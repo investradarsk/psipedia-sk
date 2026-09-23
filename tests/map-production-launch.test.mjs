@@ -109,3 +109,13 @@ test("Geoapify credential is server-secret only", async () => {
   assert.doesNotMatch(geocoder, /NEXT_PUBLIC_GEOAPIFY|process\.env\.GEOAPIFY/i);
   assert.match(geocoder, /cloudflare:workers/);
 });
+
+
+test("readiness audit covers repeated venues and geo attention issues", async () => {
+  const script = await readFile(path.join(root, "scripts/map-production-readiness.mjs"), "utf8");
+  assert.match(script, /repeated_venue_groups/);
+  assert.match(script, /events_in_repeated_venues/);
+  assert.match(script, /attentionIssues/);
+  assert.match(script, /CONFLICTING_PUBLIC_PRIVATE_LOCATION/);
+  assert.match(script, /PRIVACY_CLASSIFICATION_MISSING/);
+});
