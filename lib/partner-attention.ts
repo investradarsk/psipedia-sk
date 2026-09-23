@@ -18,15 +18,17 @@ export async function loadPartnerPendingSummary(database?:D1Database){
   try{
     const {getPartnerDatabase}=await import("./partner-auth-store");
     const db=getPartnerDatabase(database);
-    const [claimRow,verificationRow,commercialRow]=await Promise.all([
+    const [claimRow,profileChangeRow,verificationRow,commercialRow]=await Promise.all([
       db.prepare("SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'").first<{count:number}>(),
+      db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION') AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>(),
     ]);
     const claims=Number(claimRow?.count??0);
+    const profileChanges=Number(profileChangeRow?.count??0);
     const verifications=Number(verificationRow?.count??0);
     const commercial=Number(commercialRow?.count??0);
-    return {...emptyPartnerPendingSummary(),claims,verifications,commercial,total:claims+verifications+commercial};
+    return {...emptyPartnerPendingSummary(),claims,profileChanges,verifications,commercial,total:claims+profileChanges+verifications+commercial};
   }catch{
     return emptyPartnerPendingSummary();
   }

@@ -12,7 +12,7 @@ import {
 } from "@/lib/moderation-transition";
 import { safeAuditJson } from "@/lib/submission-security";
 
-export const FOUNDATION_RESOURCE_TYPES = ["LOST_FOUND_CASE", "ADOPTION_DOG", "ORGANIZATION_CHANGE", "PROFILE_REVIEW"] as const;
+export const FOUNDATION_RESOURCE_TYPES = ["LOST_FOUND_CASE", "ADOPTION_DOG", "ORGANIZATION_CHANGE", "PROFILE_REVIEW", "DIRECTORY_PROFILE", "HELP_ORGANIZATION"] as const;
 export type FoundationResourceType = (typeof FOUNDATION_RESOURCE_TYPES)[number];
 export {
   FOUNDATION_SUBMISSION_STATUSES,
@@ -38,7 +38,7 @@ export async function createModerationSubmission(input: {
   resourceType: FoundationResourceType;
   subjectId?: string | null;
   operation: "CREATE" | "UPDATE" | "REMOVE" | "REOPEN";
-  submitterType: "PUBLIC_REPORTER" | "VERIFIED_ORG" | "ADMIN";
+  submitterType: "PUBLIC_REPORTER" | "VERIFIED_ORG" | "PARTNER_ACCOUNT" | "ADMIN";
   submitterRef?: string | null;
   proposedPatch?: Record<string, unknown>;
   riskFlags?: string[];
@@ -75,7 +75,7 @@ export async function getModerationSubmission(id: string) {
   return db.select().from(moderationSubmissions).where(eq(moderationSubmissions.id, id)).limit(1).then((rows) => rows[0] ?? null);
 }
 
-export async function transitionModerationSubmission(input: { id: string; toStatus: FoundationSubmissionStatus; actorRef: string; reasonCode?: string | null; requestId?: string | null }) {
+export async function transitionModerationSubmission(input: { id: string; toStatus: FoundationSubmissionStatus; actorType?: "ADMIN" | "PARTNER" | "SYSTEM"; actorRef: string; reasonCode?: string | null; requestId?: string | null }) {
   const current = await getModerationSubmission(input.id);
   if (!current) return null;
   if (!isFoundationSubmissionStatus(current.status) || !canTransitionModerationSubmission(current.status, input.toStatus)) throw new Error("Invalid moderation state transition");
@@ -86,6 +86,7 @@ export async function transitionModerationSubmission(input: { id: string; toStat
     id: input.id,
     expectedStatus: current.status,
     toStatus: input.toStatus,
+    actorType: input.actorType,
     actorRef: input.actorRef,
     reasonCode: input.reasonCode ?? null,
     requestId: input.requestId ?? null,

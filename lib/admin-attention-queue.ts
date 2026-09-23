@@ -2,7 +2,7 @@ import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts"
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
 export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
-export const ADMIN_ATTENTION_QUERY_COUNT = 11;
+export const ADMIN_ATTENTION_QUERY_COUNT = 12;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -13,6 +13,7 @@ export const adminAttentionSourceTypes = [
   "ADOPTION_STALE",
   "AUTOMATION_FINDING",
   "PARTNER_CLAIM_REVIEW",
+  "PARTNER_PROFILE_CHANGE_REVIEW",
   "PARTNER_VERIFICATION_REVIEW",
   "PARTNER_COMMERCIAL_LEAD",
   "GEO_LOCATION_ISSUE",
@@ -61,6 +62,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   ADOPTION_STALE: "Adopcie",
   AUTOMATION_FINDING: "Automatický research",
   PARTNER_CLAIM_REVIEW: "Partner claims",
+  PARTNER_PROFILE_CHANGE_REVIEW: "Partner úpravy profilov",
   PARTNER_VERIFICATION_REVIEW: "Partner overenia",
   PARTNER_COMMERCIAL_LEAD: "Partner komerčné leady",
   GEO_LOCATION_ISSUE: "Geo lokality",
@@ -364,6 +366,54 @@ export function mapPartnerClaimAttention(row:PartnerClaimAttentionRow,now=new Da
     ageDays:ageDays(relevantAt,now),
     targetHref:partnerAttentionHref("PARTNER_CLAIM_REVIEW",row.id),
     metadata:Boolean(row.conflict)?[{label:"Riziko",value:"Ownership konflikt"}]:undefined,
+  };
+}
+
+export type PartnerProfileChangeAttentionRow = {
+  id:string;
+  status:string;
+  resourceName:string;
+  resourceType:string;
+  changedFieldCount:number;
+  riskFlagsJson:string;
+  stale:number;
+  createdAt:string;
+  updatedAt:string;
+};
+
+function partnerProfileChangeAttentionState(status:string):AdminAttentionState {
+  if(status==="SUBMITTED")return "NEW";
+  if(status==="PENDING_REVIEW"||status==="QUARANTINED")return "IN_PROGRESS";
+  if(status==="APPROVED")return "RESOLVED";
+  return "DISMISSED";
+}
+
+export function mapPartnerProfileChangeAttention(row:PartnerProfileChangeAttentionRow,now=new Date()):AdminAttentionItem {
+  const attentionState=partnerProfileChangeAttentionState(row.status);
+  const relevantAt=isAdminAttentionActive(attentionState)?row.createdAt:row.updatedAt;
+  const riskFlagCount=parseRiskFlagCount(row.riskFlagsJson);
+  const stale=Boolean(row.stale);
+  return {
+    key:partnerAttentionKey("PARTNER_PROFILE_CHANGE_REVIEW",row.id),
+    sourceType:"PARTNER_PROFILE_CHANGE_REVIEW",
+    sourceId:row.id,
+    title:`${row.resourceName} čaká na schválenie úprav`,
+    reason:isAdminAttentionActive(attentionState)
+      ? `Partner navrhol zmenu ${row.changedFieldCount} polí.`
+      : row.status==="APPROVED"?"Úpravy profilu boli schválené."
+        : row.status==="REJECTED"?"Návrh úprav bol zamietnutý.":"Partner návrh stiahol.",
+    priority:stale?"HIGH":"MEDIUM",
+    status:row.status,
+    attentionState,
+    createdAt:row.createdAt,
+    relevantAt,
+    ageDays:ageDays(relevantAt,now),
+    targetHref:partnerAttentionHref("PARTNER_PROFILE_CHANGE_REVIEW",row.id),
+    metadata:[
+      {label:"Typ",value:row.resourceType},
+      {label:"Zmenené polia",value:String(row.changedFieldCount)},
+      ...(stale?[{label:"Riziko",value:"STALE_BASE"}]:riskFlagCount?[{label:"Risk flags",value:String(riskFlagCount)}]:[]),
+    ],
   };
 }
 

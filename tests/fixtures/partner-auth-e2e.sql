@@ -24,3 +24,19 @@ INSERT INTO partner_resources (id,entity_type,directory_profile_id,created_at,up
 VALUES ('partner-resource-e2e-directory','DIRECTORY_PROFILE',990001,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
 INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
 VALUES ('partner-membership-e2e-owner','partner-e2e-desktop','partner-resource-e2e-directory','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
+
+
+-- PARTNER-3A Help Organization fixture: EDITOR membership, deliberately without VERIFIED trust badge.
+INSERT INTO help_organizations (
+  id,name,slug,legal_name,type,status,short_description,description,public_email,public_phone,
+  website_url,address,city,district,region,country_code,published_at,created_at,updated_at,created_by,updated_by
+) VALUES (
+  990002,'Partner E2E Organizácia','partner-e2e-organizacia','Partner E2E Organizácia o.z.','CIVIC_ASSOCIATION','PUBLISHED',
+  'Testovacia organizácia pre Partner E2E.','Izolovaný lokálny fixture pre moderované úpravy Partner profilu.',
+  'organizacia@example.sk','+421900111222','https://example.sk','Testovacia 2','Trnava','Trnava','Trnavský kraj','SK',
+  '2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','ci:partner','ci:partner'
+);
+INSERT INTO partner_resources (id,entity_type,help_organization_id,created_at,updated_at)
+VALUES ('partner-resource-e2e-organization','HELP_ORGANIZATION',990002,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
+INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
+VALUES ('partner-membership-e2e-editor','partner-e2e-mobile','partner-resource-e2e-organization','EDITOR','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');

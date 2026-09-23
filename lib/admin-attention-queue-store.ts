@@ -11,6 +11,7 @@ import {
   mapModerationAttention,
   mapNewsTipAttention,
   mapPartnerClaimAttention,
+  mapPartnerProfileChangeAttention,
   mapPartnerVerificationAttention,
   mapPartnerCommercialAttention,
   sortAdminAttentionItems,
@@ -23,6 +24,7 @@ import {
   type ModerationAttentionRow,
   type NewsTipAttentionRow,
   type PartnerClaimAttentionRow,
+  type PartnerProfileChangeAttentionRow,
   type PartnerVerificationAttentionRow,
   type PartnerCommercialAttentionRow,
 } from "./admin-attention-queue.ts";
@@ -152,6 +154,26 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerClaimAttentionRow>();
 
+  const profileChangesPromise = db.prepare(`
+    SELECT s.id,s.status,s.resource_type resourceType,s.risk_flags_json riskFlagsJson,
+      s.created_at createdAt,s.updated_at updatedAt,COALESCE(d.name,o.name) resourceName,
+      m.changed_field_count changedFieldCount,
+      CASE WHEN COALESCE(d.updated_at,o.updated_at)<>m.base_updated_at THEN 1 ELSE 0 END stale
+    FROM moderation_submissions s
+    JOIN partner_profile_change_metadata m ON m.submission_id=s.id
+    JOIN partner_resources r ON r.id=m.partner_resource_id
+    LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
+    LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+    WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION')
+      AND s.submitter_type='PARTNER_ACCOUNT'
+    ORDER BY
+      CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 0 ELSE 1 END,
+      CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN s.created_at END ASC,
+      CASE WHEN s.status NOT IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN s.updated_at END DESC,
+      s.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerProfileChangeAttentionRow>();
+
   const verificationsPromise = db.prepare(`
     SELECT v.id,v.status,v.created_at AS createdAt,v.updated_at AS updatedAt,v.submitted_at AS submittedAt,
       COALESCE(d.name,o.name) AS resourceName,
@@ -237,7 +259,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
 
-  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, verifications, commercial, geo, automation] = await Promise.all([
+  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, verifications, commercial, geo, automation] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
     safeSourceResults("news_tips", newsTipsPromise),
     safeSourceResults("directory_change_requests", changeRequestsPromise),
@@ -245,6 +267,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     safeSourceResults("article_feedback", feedbackPromise),
     safeSourceResults("adoption_stale", adoptionsPromise),
     safeSourceResults("partner_claims", claimsPromise),
+    safeSourceResults("partner_profile_changes", profileChangesPromise),
     safeSourceResults("partner_resource_verifications", verificationsPromise),
     safeSourceResults("partner_commercial_interests", commercialPromise),
     safeSourceResults("geo_points", geoPromise),
@@ -259,6 +282,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...feedback.map((row) => mapArticleFeedbackAttention(row, now)),
     ...adoptions.map((row) => mapAdoptionStaleAttention(row, now)),
     ...claims.map((row) => mapPartnerClaimAttention(row, now)),
+    ...profileChanges.map((row) => mapPartnerProfileChangeAttention(row, now)),
     ...verifications.map((row) => mapPartnerVerificationAttention(row, now)),
     ...commercial.map((row) => mapPartnerCommercialAttention(row, now)),
     ...geo.map((row) => mapGeoLocationAttention(row, now)),
@@ -278,6 +302,7 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
     ["ADOPTION_STALE",`SELECT COUNT(*) count FROM adoption_dogs WHERE status IN ('ACTIVE','RESERVED') AND (last_verified_at IS NULL OR last_verified_at<?)`,[staleThreshold]],
     ["AUTOMATION_FINDING",`SELECT COUNT(*) count FROM automation_findings WHERE review_status IN ('NEW','IN_REVIEW')`,[]],
     ["PARTNER_CLAIM_REVIEW",`SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'`,[]],
+    ["PARTNER_PROFILE_CHANGE_REVIEW",`SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION') AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],
     ["PARTNER_VERIFICATION_REVIEW",`SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'`,[]],
     ["PARTNER_COMMERCIAL_LEAD",`SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'`,[]],
     ["GEO_LOCATION_ISSUE",`SELECT COUNT(*) count FROM geo_points WHERE geocode_status IN ('NEEDS_REVIEW','STALE','FAILED')`,[]],

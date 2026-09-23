@@ -73,3 +73,24 @@ export async function verifyPartnerTurnstile(input: {
   if (!result.ok) throw new PartnerSecurityError("Bezpečnostné overenie zlyhalo. Obnovte formulár a skúste to znova.", 400);
   return result;
 }
+
+export async function enforcePartnerProfileChangeRateLimit(input: {
+  database: D1Database;
+  accountId: string;
+  resourceId: string;
+  hashKey: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const store = createD1RateLimitStore(input.database);
+  const key = await deriveRateLimitKey(
+    "partner-profile-change",
+    input.accountId + ":" + input.resourceId,
+    input.hashKey,
+  );
+  const result = await enforceRateLimit(store, key, 6, 60 * 60, now);
+  if (!result.allowed) {
+    throw new PartnerSecurityError("Za krátky čas bolo odoslaných priveľa návrhov úprav. Skúste to neskôr.", 429);
+  }
+  return result;
+}

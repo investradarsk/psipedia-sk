@@ -270,7 +270,7 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
 
 test("all source queries stay bounded and the attention store remains read-only", () => {
   assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 11);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 12);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);

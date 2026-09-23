@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { PartnerClaimCancelButton, PartnerVerificationRequest } from "@/components/partner-request-actions";
+import { PartnerProfileChangeWithdrawButton } from "@/components/partner-profile-change-actions";
 import { PartnerShell } from "@/components/partner-shell";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { listPartnerClaims, listPartnerVerificationResources } from "@/lib/partner-claims";
+import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +23,10 @@ const verificationLabels = {
 
 export default async function Page() {
   const identity = await requirePartnerPageIdentity();
-  const [claims, resources] = await Promise.all([
+  const [claims, resources, profileChanges] = await Promise.all([
     listPartnerClaims(identity.accountId),
     listPartnerVerificationResources(identity.accountId),
+    listPartnerProfileChanges(identity.accountId),
   ]);
 
   return (
@@ -49,6 +52,31 @@ export default async function Page() {
             </div>
           </article>
         ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte žiadne žiadosti o prevzatie</h2><p>Žiadosť môžete začať priamo z verejného profilu cez odkaz „Spravujete tento profil?“.</p></div>}
+      </section>
+
+
+      <section className="partner-requests-section">
+        <div className="partner-section-heading">
+          <div><span className="eyebrow">Moderované zmeny</span><h2>Úpravy profilov</h2></div>
+        </div>
+        {profileChanges.length ? <div className="partner-request-list">{profileChanges.map((change) => (
+          <article key={change.id}>
+            <div className="partner-request-title">
+              <div><span>{change.resourceType === "DIRECTORY_PROFILE" ? "Adresár" : "Organizácia"}</span><h3>{change.resourceName}</h3></div>
+              <strong>{change.statusLabel}</strong>
+            </div>
+            <dl>
+              <div><dt>Odoslané</dt><dd>{new Date(change.createdAt).toLocaleString("sk-SK")}</dd></div>
+              <div><dt>Zmenené polia</dt><dd>{change.changedFields.length}</dd></div>
+            </dl>
+            <p>{change.changedFields.join(", ")}</p>
+            {change.rejectionReason ? <p><strong>Dôvod:</strong> {change.rejectionReason}</p> : null}
+            <div className="partner-request-links">
+              <Link href={change.publicHref} target="_blank">Verejný profil ↗</Link>
+              {change.canWithdraw ? <PartnerProfileChangeWithdrawButton id={change.id} /> : null}
+            </div>
+          </article>
+        ))}</div> : <div className="partner-empty"><h2>Zatiaľ nemáte žiadne návrhy úprav</h2><p>Úpravu môžete odoslať zo sekcie Moje profily.</p></div>}
       </section>
 
       <section className="partner-requests-section">
