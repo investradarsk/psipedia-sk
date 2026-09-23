@@ -43,6 +43,10 @@ function encryptionKey(value?: string) {
   return key.trim();
 }
 
+function isMissingContactProfileTable(error: unknown) {
+  return error instanceof Error && /no such table:\s*partner_account_profiles/i.test(error.message);
+}
+
 function plainText(value: unknown, label: string, options: { min?: number; max: number; optional?: boolean }) {
   if (value === null || value === undefined || value === "") {
     if (options.optional) return null;
@@ -78,10 +82,17 @@ export function normalizePartnerContactInput(input: {
 }
 
 export async function isPartnerOnboardingComplete(accountId: string, database?: D1Database) {
-  const row = await runtimeDatabase(database).prepare(
-    "SELECT completed_at FROM partner_account_profiles WHERE account_id=?1 LIMIT 1",
-  ).bind(accountId).first<{ completed_at: string | null }>();
-  return Boolean(row?.completed_at);
+  try {
+    const row = await runtimeDatabase(database).prepare(
+      "SELECT completed_at FROM partner_account_profiles WHERE account_id=?1 LIMIT 1",
+    ).bind(accountId).first<{ completed_at: string | null }>();
+    return Boolean(row?.completed_at);
+  } catch (error) {
+    // Mixed-version deploy safety: before 0069 is applied, preserve pre-H1
+    // behavior instead of breaking every active Partner session.
+    if (isMissingContactProfileTable(error)) return true;
+    throw error;
+  }
 }
 
 export async function getPartnerContactProfile(
@@ -89,11 +100,17 @@ export async function getPartnerContactProfile(
   input: { database?: D1Database; encryptionKey?: string } = {},
 ): Promise<PartnerContactProfile | null> {
   const database = runtimeDatabase(input.database);
-  const row = await database.prepare(
-    "SELECT account_id accountId,contact_name_ciphertext contactNameCiphertext,phone_ciphertext phoneCiphertext," +
-    "relationship_ciphertext relationshipCiphertext,completed_at completedAt,created_at createdAt,updated_at updatedAt " +
-    "FROM partner_account_profiles WHERE account_id=?1 LIMIT 1",
-  ).bind(accountId).first<Row>();
+  let row: Row | null;
+  try {
+    row = await database.prepare(
+      "SELECT account_id accountId,contact_name_ciphertext contactNameCiphertext,phone_ciphertext phoneCiphertext," +
+      "relationship_ciphertext relationshipCiphertext,completed_at completedAt,created_at createdAt,updated_at updatedAt " +
+      "FROM partner_account_profiles WHERE account_id=?1 LIMIT 1",
+    ).bind(accountId).first<Row>();
+  } catch (error) {
+    if (isMissingContactProfileTable(error)) return null;
+    throw error;
+  }
   if (!row) return null;
   const key = encryptionKey(input.encryptionKey);
   return {
