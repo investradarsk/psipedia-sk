@@ -22,7 +22,7 @@ type AdminRow={
   rejectionReasonCode:string|null;createdAt:string;updatedAt:string;reviewedAt:string|null;reviewedBy:string|null;
   accountId:string;resourceId:string|null;baseUpdatedAt:string|null;baseSnapshotJson:string;changedFieldCount:number;
   duplicateConfidence:string;duplicateCandidateId:number|null;duplicateReasonsJson:string;resolutionType:string|null;resolvedEventId:number|null;
-  emailCiphertext:string;currentUpdatedAt:string|null;currentTitle:string|null;currentSlug:string|null;currentStatus:string|null;
+  emailCiphertext:string;currentUpdatedAt:string|null;currentTitle:string|null;currentSlug:string|null;currentStatus:string|null;currentEventType:string|null;currentStartDate:string|null;currentRegion:string|null;
   candidateTitle:string|null;candidateSlug:string|null;candidateStatus:string|null;candidateStartDate:string|null;candidateCity:string|null;
 };
 function db(input?:D1Database){return getPartnerDatabase(input??(env as unknown as Bindings).DB);}
@@ -36,7 +36,7 @@ const SELECT=`
     m.partner_account_id accountId,m.partner_resource_id resourceId,m.base_updated_at baseUpdatedAt,m.base_snapshot_json baseSnapshotJson,
     m.changed_field_count changedFieldCount,m.duplicate_confidence duplicateConfidence,m.duplicate_candidate_id duplicateCandidateId,
     m.duplicate_reasons_json duplicateReasonsJson,m.resolution_type resolutionType,m.resolved_event_id resolvedEventId,
-    a.email_ciphertext emailCiphertext,e.updated_at currentUpdatedAt,e.title currentTitle,e.slug currentSlug,e.status currentStatus,
+    a.email_ciphertext emailCiphertext,e.updated_at currentUpdatedAt,e.title currentTitle,e.slug currentSlug,e.status currentStatus,e.event_type currentEventType,e.start_date currentStartDate,e.region currentRegion,
     d.title candidateTitle,d.slug candidateSlug,d.status candidateStatus,d.start_date candidateStartDate,d.city candidateCity
   FROM partner_event_submission_metadata m
   JOIN moderation_submissions s ON s.id=m.submission_id
@@ -49,15 +49,21 @@ async function hydrate(row:AdminRow,encryptionKey:string){
   const patch=json<PartnerEventPatch>(row.proposedPatchJson,{});
   const risks=json<string[]>(row.riskFlagsJson,[]).filter(x=>typeof x==="string");
   if(row.operation==="UPDATE"&&active(row.status)&&row.baseUpdatedAt&&row.currentUpdatedAt!==row.baseUpdatedAt&&!risks.includes("STALE_BASE"))risks.push("STALE_BASE");
-  return {...row,email:await decryptPii(row.emailCiphertext,encryptionKey),proposedPatch:patch,riskFlags:risks,statusLabel:label(row.status),active:active(row.status),duplicateReasons:json<string[]>(row.duplicateReasonsJson,[])};
+  const eventType=typeof patch.eventType==="string"?patch.eventType:row.currentEventType;const startDate=typeof patch.startDate==="string"?patch.startDate:row.currentStartDate;const region=typeof patch.region==="string"?patch.region:row.currentRegion;const needsAttention=risks.length>0||row.duplicateConfidence==="HIGH"||row.status==="QUARANTINED";return {...row,email:await decryptPii(row.emailCiphertext,encryptionKey),proposedPatch:patch,riskFlags:risks,statusLabel:label(row.status),active:active(row.status),duplicateReasons:json<string[]>(row.duplicateReasonsJson,[]),eventType,startDate,region,needsAttention};
 }
 async function raw(id:string,database:D1Database){return database.prepare(SELECT+" WHERE s.id=?1 LIMIT 1").bind(id).first<AdminRow>();}
-export async function listPartnerEventsAdmin(input:{status?:string;operation?:string;q?:string;database?:D1Database;encryptionKey?:string}={}){
+export async function listPartnerEventsAdmin(input:{status?:string;operation?:string;eventType?:string;region?:string;dateFrom?:string;dateTo?:string;attention?:string;q?:string;database?:D1Database;encryptionKey?:string}={}){
   const database=db(input.database);
   const rows=(await database.prepare(SELECT+" ORDER BY CASE WHEN s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') THEN 0 ELSE 1 END,s.created_at ASC LIMIT 300").all<AdminRow>()).results;
   let items=await Promise.all(rows.map(row=>hydrate(row,key(input.encryptionKey))));
   if(input.status&&input.status!=="all")items=input.status==="active"?items.filter(x=>x.active):items.filter(x=>x.status===input.status);
   if(input.operation&&input.operation!=="all")items=items.filter(x=>x.operation===input.operation);
+  if(input.eventType&&input.eventType!=="all")items=items.filter(x=>x.eventType===input.eventType);
+  if(input.region&&input.region!=="all")items=items.filter(x=>x.region===input.region);
+  if(input.dateFrom)items=items.filter(x=>Boolean(x.startDate)&&String(x.startDate)>=input.dateFrom!);
+  if(input.dateTo)items=items.filter(x=>Boolean(x.startDate)&&String(x.startDate)<=input.dateTo!);
+  if(input.attention==="attention")items=items.filter(x=>x.needsAttention);
+  if(input.attention==="normal")items=items.filter(x=>!x.needsAttention);
   if(input.q){const q=input.q.toLowerCase();items=items.filter(x=>String(x.proposedPatch.title??x.currentTitle??"").toLowerCase().includes(q)||x.email.toLowerCase().includes(q));}
   return items;
 }
