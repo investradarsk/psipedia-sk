@@ -263,7 +263,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LEFT JOIN managed_events e ON e.id=r.managed_event_id
     ORDER BY
       CASE
-        WHEN a.status='AGREED' AND a.payment_status IN ('PAID','WAIVED','NOT_REQUIRED') THEN 0
+        WHEN a.status='AGREED' AND a.payment_status IN ('PAID','WAIVED') THEN 0
         WHEN a.status='OFFERED' THEN 1
         WHEN a.status='ACTIVE' THEN 2
         ELSE 3
@@ -374,7 +374,7 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
     ["PARTNER_COMMERCIAL_LEAD",`SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'`,[]],
     ["PARTNER_COMMERCIAL_AGREEMENT",`SELECT COUNT(*) count FROM partner_commercial_agreements
       WHERE status='OFFERED'
-        OR (status='AGREED' AND payment_status IN ('PAID','WAIVED','NOT_REQUIRED'))
+        OR (status='AGREED' AND payment_status IN ('PAID','WAIVED'))
         OR (status='ACTIVE' AND end_at>? AND end_at<=?)`,[nowIso,expiringAt]],
     ["GEO_LOCATION_ISSUE",`SELECT COUNT(*) count FROM geo_points WHERE geocode_status IN ('NEEDS_REVIEW','STALE','FAILED')`,[]],
   ] as const;
