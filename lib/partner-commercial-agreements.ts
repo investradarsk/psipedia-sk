@@ -215,14 +215,17 @@ export async function waivePartnerCommercialAgreementPayment(input:{id:string;ad
 }
 
 async function insertPromotion(database:D1Database,row:AgreementRow,target:ReturnType<typeof promotionTarget>,adminActor:string,nowIso:string){
-  const existing=await database.prepare("SELECT id FROM monetization_promotions WHERE provenance=?1 LIMIT 1").bind(`partner-agreement:${row.id}`).first<{id:string}>();
+  const provenance=`partner-agreement:${row.id}`;
+  const existing=await database.prepare("SELECT id FROM monetization_promotions WHERE provenance=?1 LIMIT 1").bind(provenance).first<{id:string}>();
   if(existing)return existing.id;
   const id=crypto.randomUUID();
-  await database.prepare(`INSERT INTO monetization_promotions
+  await database.prepare(`INSERT OR IGNORE INTO monetization_promotions
     (id,entity_type,entity_id,status,start_at,end_at,label,priority,provenance,admin_note,created_at,updated_at,created_by,updated_by)
     VALUES (?1,?2,?3,'active',?4,?5,?6,0,?7,'',?8,?8,?9,?9)`)
-    .bind(id,target.entityType,target.entityId,row.startAt,row.endAt,SPONSORED_LABEL,`partner-agreement:${row.id}`,nowIso,adminActor).run();
-  return id;
+    .bind(id,target.entityType,target.entityId,row.startAt,row.endAt,SPONSORED_LABEL,provenance,nowIso,adminActor).run();
+  const linked=await database.prepare("SELECT id FROM monetization_promotions WHERE provenance=?1 LIMIT 1").bind(provenance).first<{id:string}>();
+  if(!linked)throw new PartnerCommercialAgreementError("Sponzorovanú promotion sa nepodarilo bezpečne vytvoriť.",409);
+  return linked.id;
 }
 export async function activatePartnerCommercialAgreement(input:{id:string;campaignId?:unknown;adminEmail:string;database?:D1Database;now?:Date}){
   const database=getPartnerDatabase(input.database),current=await getPartnerCommercialAgreementAdmin(input.id,database);
@@ -254,14 +257,17 @@ export async function activatePartnerCommercialAgreement(input:{id:string;campai
   let promotionId:string|null=null;
   if(current.agreementType==="PROMOTED_PROFILE")promotionId=await insertPromotion(database,current,target,adminActor,iso);
   const entStatus:PartnerEntitlementStatus=Date.parse(current.startAt)>now.getTime()?"SCHEDULED":"ACTIVE";
-  const entitlementId=conflict?.id??crypto.randomUUID();
+  let entitlementId=conflict?.id??crypto.randomUUID();
   if(!conflict){
-    await database.prepare(`INSERT INTO partner_entitlements
+    await database.prepare(`INSERT OR IGNORE INTO partner_entitlements
       (id,account_id,resource_id,agreement_id,entitlement_type,status,start_at,end_at,promotion_id,created_at,updated_at,activated_at,activated_by)
       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10,?10,?11)`)
       .bind(entitlementId,current.accountId,current.resourceId,current.id,current.agreementType,entStatus,current.startAt,current.endAt,promotionId,iso,adminActor).run();
+    const linked=await database.prepare("SELECT id FROM partner_entitlements WHERE agreement_id=?1 AND entitlement_type=?2 LIMIT 1").bind(current.id,current.agreementType).first<{id:string}>();
+    if(!linked)throw new PartnerCommercialAgreementError("Platený benefit sa nepodarilo bezpečne aktivovať.",409);
+    entitlementId=linked.id;
   }
-  await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',updated_at=?2,updated_by=?3 WHERE id=?1").bind(current.id,iso,adminActor).run();
+  await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',updated_at=?2,updated_by=?3 WHERE id=?1 AND status='AGREED'").bind(current.id,iso,adminActor).run();
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"ENTITLEMENT_ACTIVATED",targetType:"PARTNER_ENTITLEMENT",targetId:entitlementId,metadata:{agreementId:current.id,entitlementType:current.agreementType,status:entStatus},database,now});
   if(promotionId)await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_PROMOTION_LINKED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:current.id,metadata:{promotionId},database,now});
   await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"ENTITLEMENT_ACTIVATED",dedupeKey:`partner-agreement:${current.id}:activated`,database,now});
