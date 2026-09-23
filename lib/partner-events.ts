@@ -156,8 +156,8 @@ export async function scanPartnerEventDuplicates(values:PartnerEventPatch,dbInpu
   const rows=(await db.prepare(`
     SELECT id,title,event_type eventType,start_date startDate,city,venue,organizer,registration_url registrationUrl,slug,status
     FROM managed_events
-    WHERE start_date=?1 OR registration_url=?2
-    ORDER BY start_date ASC,id ASC LIMIT 100
+    WHERE start_date=?1 OR registration_url IS NOT NULL
+    ORDER BY start_date ASC,id ASC LIMIT 500
   `).bind(String(values.startDate),typeof values.registrationUrl==="string"&&values.registrationUrl?values.registrationUrl:null).all<CandidateRow>()).results;
   const candidates=rows.map(row=>scoreCandidate(values,row)).filter((row):row is PartnerEventDuplicateCandidate=>Boolean(row));
   candidates.sort((a,b)=>(a.confidence===b.confidence?0:a.confidence==="HIGH"?-1:1)||a.id-b.id);
@@ -180,6 +180,27 @@ function valuesFromRow(row:EventResourceRow):PartnerEventPatch{
   return {title:row.title,excerpt:row.excerpt,eventType:row.eventType,startDate:row.startDate,startTime:row.startTime,endDate:row.endDate,endTime:row.endTime,venue:row.venue,city:row.city,region:row.region,address:row.address,organizer:row.organizer,description:row.description,practicalInfo:row.practicalInfo,websiteUrl:row.websiteUrl,registrationUrl:row.registrationUrl,cancelled:Boolean(row.cancelled)};
 }
 async function revision(updatedAt:string,values:PartnerEventPatch){return digest(updatedAt+"\n"+JSON.stringify(values));}
+export async function listPartnerManagedEvents(accountId:string,dbInput?:D1Database){
+  const db=database(dbInput);
+  const rows=(await db.prepare(`
+    SELECT r.id resourceId,e.id canonicalId,m.role,e.title,e.slug,e.status,e.start_date startDate,e.start_time startTime,e.end_date endDate,
+      e.venue,e.city,e.region,e.event_type eventType,e.cancelled,
+      EXISTS(
+        SELECT 1 FROM partner_event_submission_metadata pem
+        JOIN moderation_submissions s ON s.id=pem.submission_id
+        WHERE pem.partner_account_id=?1 AND pem.partner_resource_id=r.id AND pem.operation='UPDATE'
+          AND pem.dedupe_active=1 AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')
+      ) pendingChange
+    FROM partner_memberships m
+    JOIN partner_accounts a ON a.id=m.account_id AND a.status='ACTIVE'
+    JOIN partner_resources r ON r.id=m.resource_id AND r.entity_type='MANAGED_EVENT'
+    JOIN managed_events e ON e.id=r.managed_event_id
+    WHERE m.account_id=?1 AND m.revoked_at IS NULL
+    ORDER BY e.start_date ASC,e.start_time ASC,e.id ASC
+  `).bind(accountId).all<{resourceId:string;canonicalId:number;role:PartnerRole;title:string;slug:string;status:string;startDate:string;startTime:string;endDate:string|null;venue:string;city:string;region:string;eventType:string;cancelled:number;pendingChange:number}>()).results;
+  return rows.map(row=>({...row,cancelled:Boolean(row.cancelled),pendingChange:Boolean(row.pendingChange),publicHref:row.status==="published"?`/podujatia/${row.slug}`:null}));
+}
+
 export async function getPartnerEventEditor(accountId:string,resourceId:string,dbInput?:D1Database){
   const db=database(dbInput);
   const membership=await requirePartnerPermission(accountId,resourceId,"EVENT_SUBMIT",db);
