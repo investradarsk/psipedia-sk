@@ -57,8 +57,13 @@ export async function POST(request: Request) {
   try {
     if (action === "initialize") {
       if (body.confirm !== "INITIALIZE") return Response.json({ error: "Chýba explicitné INITIALIZE potvrdenie." }, { status: 400 });
+      const safeOnly = body.safeOnly === true;
+      if (safeOnly && !targetType) return Response.json({ error: "Safe-only initialization vyžaduje explicitný target type." }, { status: 400 });
+      if (safeOnly && targetType === "DIRECTORY_PROFILE" && !directoryCategory) {
+        return Response.json({ error: "Safe-only directory initialization vyžaduje explicitnú category." }, { status: 400 });
+      }
       const limit = Math.max(1, Math.min(100, Math.trunc(Number(body.limit) || 20)));
-      const report = await initializeGeoCandidates({ limit, actorRef: user.email, targetType, directoryCategory });
+      const report = await initializeGeoCandidates({ limit, actorRef: user.email, targetType, directoryCategory, safeOnly });
       return Response.json({ report, fullBackfillEnabled: false });
     }
 
