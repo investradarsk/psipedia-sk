@@ -694,13 +694,14 @@ async function verify(targetMigration) {
     geoFoundation,
     counts: safeCounts(after),
     dataIntegrity: "PASS",
-    resourceBackfill: "PASS",
+    canonicalResourcesPreserved: "PASS",
+    resourceBackfill: targetIndex === 62 ? "PASS" : "NOT_APPLICABLE",
     unexpectedMigrationsApplied: false,
   });
 
   console.log(`[production-d1] verification PASS — ${targetMigration} applied; archived_at=yes; reviewTables=${REVIEW_TABLES.length}; reviewCount=${reviewCount}`);
   if (geoFoundation) console.log(`[production-d1] geo schema PASS — geo_points=${geoFoundation.geoCount}; schemaOnly=${geoFoundation.schemaOnlyMigration}`);
-  console.log(`[production-d1] backfill PASS — missingDirectory=0; missingOrganizations=0; resources=${after.partnerResources}; memberships preserved=${after.partnerMemberships}`);
+  console.log(`[production-d1] canonical resources PASS — missingDirectory=0; missingOrganizations=0; resources=${after.partnerResources}; memberships preserved=${after.partnerMemberships}`);
 }
 
 
