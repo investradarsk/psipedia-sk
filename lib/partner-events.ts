@@ -114,7 +114,7 @@ export async function partnerEventIdentityFingerprint(values:PartnerEventPatch){
   return digest([text(values.title),values.startDate,text(values.city),url(values.registrationUrl)].join("|"));
 }
 
-type CandidateRow={id:number;title:string;eventType:string;startDate:string;city:string;venue:string;organizer:string;registrationUrl:string|null;slug:string;status:string};
+type CandidateRow={id:number;title:string;eventType:string;startDate:string;city:string;region:string;venue:string;organizer:string;registrationUrl:string|null;slug:string;status:string};
 export type PartnerEventDuplicateCandidate=CandidateRow&{confidence:Exclude<PartnerEventDuplicateConfidence,"NONE">;reasons:string[]};
 export function evaluatePartnerEventDuplicateCandidate(values:PartnerEventPatch,row:CandidateRow):PartnerEventDuplicateCandidate|null{
   const reasons:string[]=[];
@@ -122,19 +122,27 @@ export function evaluatePartnerEventDuplicateCandidate(values:PartnerEventPatch,
   const sameTitle=text(values.title)===text(row.title);
   const sameDate=String(values.startDate)===row.startDate;
   const sameCity=Boolean(text(values.city)&&text(values.city)===text(row.city));
+  const sameRegion=Boolean(text(values.region)&&text(values.region)===text(row.region));
   const sameVenue=Boolean(text(values.venue)&&text(values.venue)===text(row.venue));
   const sameOrganizer=Boolean(text(values.organizer)&&text(values.organizer)===text(row.organizer));
+  const sameEventType=Boolean(text(values.eventType)&&text(values.eventType)===text(row.eventType));
   if(sameRegistration)reasons.push("Rovnaký registračný odkaz");
   if(sameTitle&&sameDate&&sameCity)reasons.push("Rovnaký názov, dátum a mesto");
-  if(sameTitle&&sameDate)reasons.push("Rovnaký názov a dátum");
+  if(sameTitle&&sameDate&&sameEventType)reasons.push("Rovnaký názov, dátum a typ podujatia");
+  if(sameTitle&&sameDate&&sameRegion)reasons.push("Rovnaký názov, dátum a kraj");
   if(sameDate&&sameVenue&&sameOrganizer)reasons.push("Rovnaký dátum, miesto a organizátor");
-  const confidence:PartnerEventDuplicateConfidence=sameRegistration||sameTitle&&sameDate&&sameCity?"HIGH":sameTitle&&sameDate||sameDate&&sameVenue&&sameOrganizer?"MEDIUM":"NONE";
+  const confidence:PartnerEventDuplicateConfidence=
+    sameRegistration||sameTitle&&sameDate&&(sameCity||sameVenue&&sameOrganizer)
+      ?"HIGH"
+      :sameTitle&&sameDate&&(sameEventType||sameRegion)||sameDate&&sameVenue&&sameOrganizer
+        ?"MEDIUM"
+        :"NONE";
   return confidence==="NONE"?null:{...row,confidence,reasons};
 }
 export async function scanPartnerEventDuplicates(values:PartnerEventPatch,dbInput?:D1Database){
   const db=database(dbInput);
   const rows=(await db.prepare(`
-    SELECT id,title,event_type eventType,start_date startDate,city,venue,organizer,registration_url registrationUrl,slug,status
+    SELECT id,title,event_type eventType,start_date startDate,city,region,venue,organizer,registration_url registrationUrl,slug,status
     FROM managed_events
     WHERE start_date=?1 OR registration_url IS NOT NULL
     ORDER BY start_date ASC,id ASC LIMIT 500
