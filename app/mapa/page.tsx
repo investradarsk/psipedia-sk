@@ -8,12 +8,22 @@ import styles from "@/components/map/map-public.module.css";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Mapa Psipedie",
-  description: "Preskúmaj služby pre psov, organizácie a podujatia na jednej spoločnej mape Psipedie.",
-  path: "/mapa",
-  canonical: "/mapa",
-});
+export function generateMetadata(): Metadata {
+  const launchEnabled = publicMapLaunchEnabled(process.env);
+  return buildPageMetadata({
+    title: "Mapa Psipedie",
+    description: "Preskúmaj služby pre psov, organizácie a podujatia na jednej spoločnej mape Psipedie.",
+    path: "/mapa",
+    canonical: "/mapa",
+    robots: launchEnabled
+      ? undefined
+      : {
+          index: false,
+          follow: false,
+          googleBot: { index: false, follow: false },
+        },
+  });
+}
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
