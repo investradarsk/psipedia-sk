@@ -94,6 +94,7 @@ export function validateRuntimeEnvironment(
   const notionArticleSyncEnabled = configFlagEnabled(env.NOTION_ARTICLE_SYNC_ENABLED);
   const notionBreedSyncEnabled = configFlagEnabled(env.NOTION_BREED_SYNC_ENABLED);
   const notionEventSyncEnabled = configFlagEnabled(env.NOTION_EVENT_SYNC_ENABLED);
+  const publicMapRequested = configFlagEnabled(env.PUBLIC_MAP_ENABLED);
 
   // Public submission flags are opt-in. Once enabled, their security material
   // is critical and must fail closed instead of silently running unprotected.
@@ -116,6 +117,11 @@ export function validateRuntimeEnvironment(
   }
   if (notionEventSyncEnabled) {
     requireValue("NOTION_EVENTS_DATA_SOURCE_ID");
+  }
+
+  if (publicMapRequested) {
+    requireValue("GOOGLE_MAPS_BROWSER_API_KEY");
+    requireValue("GOOGLE_MAPS_MAP_ID");
   }
 
   if (profile === "production") {
@@ -143,5 +149,6 @@ export function validateRuntimeEnvironment(
     notionArticleSyncEnabled,
     notionBreedSyncEnabled,
     notionEventSyncEnabled,
+    publicMapEnabled: publicMapLaunchEnabled(env),
   });
 }
