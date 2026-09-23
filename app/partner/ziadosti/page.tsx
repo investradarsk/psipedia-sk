@@ -77,7 +77,7 @@ export default async function Page() {
             {submission.duplicateWarning ? <p><strong>Kontrola duplicít:</strong> {submission.duplicateWarning}</p> : null}
             {submission.resolutionType === "CREATED_NEW" ? <p>Profil bol vytvorený ako koncept a čaká na publikovanie.</p> : null}
             {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim profilom.</p> : null}
-            {submission.rejectionReasonCode ? <p><strong>Dôvod:</strong> {submission.rejectionReasonCode}</p> : null}
+            {submission.rejectionReason ? <p><strong>Dôvod:</strong> {submission.rejectionReason}</p> : null}
             <div className="partner-request-links">
               {submission.canonicalHref ? <Link href={submission.canonicalHref}>Canonical profil →</Link> : null}
               {submission.canWithdraw ? <PartnerNewProfileWithdrawButton id={submission.id} /> : null}
