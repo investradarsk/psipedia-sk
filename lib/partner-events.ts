@@ -209,8 +209,8 @@ export async function submitPartnerEventCreate(input:{accountId:string;event:unk
     await db.batch([
       db.prepare(`INSERT INTO moderation_submissions(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,duplicate_resource_type,duplicate_subject_id,created_at,updated_at)
         VALUES(?1,'MANAGED_EVENT',NULL,'CREATE','SUBMITTED','PARTNER_ACCOUNT',?2,?3,?4,?5,?6,?7,?7)`).bind(id,input.accountId,JSON.stringify(values),JSON.stringify(duplicateFlags(scan)),top?"MANAGED_EVENT":null,top?String(top.id):null,nowIso),
-      db.prepare(`INSERT INTO partner_event_submission_metadata(submission_id,partner_account_id,partner_resource_id,operation,base_updated_at,base_snapshot_json,changed_field_count,dedupe_key,dedupe_active,duplicate_confidence,duplicate_candidate_id,duplicate_reasons_json,created_at)
-        VALUES(?1,?2,NULL,'CREATE',NULL,'{}',?3,?4,1,?5,?6,?7,?8)`).bind(id,input.accountId,fields.length,`CREATE:${fingerprint}`,scan.confidence,top?.id??null,JSON.stringify(top?.reasons??[]),nowIso),
+      db.prepare(`INSERT INTO partner_event_submission_metadata(submission_id,partner_account_id,partner_resource_id,operation,display_title,base_updated_at,base_snapshot_json,changed_field_count,dedupe_key,dedupe_active,duplicate_confidence,duplicate_candidate_id,duplicate_reasons_json,created_at)
+        VALUES(?1,?2,NULL,'CREATE',?3,NULL,'{}',?4,?5,1,?6,?7,?8,?9)`).bind(id,input.accountId,String(values.title),fields.length,`CREATE:${fingerprint}`,scan.confidence,top?.id??null,JSON.stringify(top?.reasons??[]),nowIso),
       db.prepare(`INSERT INTO moderation_events(id,submission_id,resource_type,subject_id,action,actor_type,actor_ref,from_status,to_status,changed_fields_json,created_at)
         VALUES(?1,?2,'MANAGED_EVENT',NULL,'SUBMISSION_CREATED','PARTNER',?3,NULL,'SUBMITTED',?4,?5)`).bind(crypto.randomUUID(),id,input.accountId,JSON.stringify(fields),nowIso),
       db.prepare(`INSERT INTO partner_audit_events(id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at)
@@ -244,8 +244,8 @@ export async function submitPartnerEventUpdate(input:{accountId:string;resourceI
     await db.batch([
       db.prepare(`INSERT INTO moderation_submissions(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,created_at,updated_at)
         VALUES(?1,'MANAGED_EVENT',?2,'UPDATE','SUBMITTED','PARTNER_ACCOUNT',?3,?4,?5,?6,?6)`).bind(id,String(editor.resource.canonicalId),input.accountId,JSON.stringify(patch),JSON.stringify(riskFlags),nowIso),
-      db.prepare(`INSERT INTO partner_event_submission_metadata(submission_id,partner_account_id,partner_resource_id,operation,base_updated_at,base_snapshot_json,changed_field_count,dedupe_key,dedupe_active,duplicate_confidence,duplicate_reasons_json,created_at)
-        VALUES(?1,?2,?3,'UPDATE',?4,?5,?6,?7,1,'NONE','[]',?8)`).bind(id,input.accountId,input.resourceId,editor.baseUpdatedAt,JSON.stringify(editor.values),changed.length,key,nowIso),
+      db.prepare(`INSERT INTO partner_event_submission_metadata(submission_id,partner_account_id,partner_resource_id,operation,display_title,base_updated_at,base_snapshot_json,changed_field_count,dedupe_key,dedupe_active,duplicate_confidence,duplicate_reasons_json,created_at)
+        VALUES(?1,?2,?3,'UPDATE',?4,?5,?6,?7,?8,1,'NONE','[]',?9)`).bind(id,input.accountId,input.resourceId,editor.resource.title,editor.baseUpdatedAt,JSON.stringify(editor.values),changed.length,key,nowIso),
       db.prepare(`INSERT INTO moderation_events(id,submission_id,resource_type,subject_id,action,actor_type,actor_ref,from_status,to_status,changed_fields_json,created_at)
         VALUES(?1,?2,'MANAGED_EVENT',?3,'SUBMISSION_CREATED','PARTNER',?4,NULL,'SUBMITTED',?5,?6)`).bind(crypto.randomUUID(),id,String(editor.resource.canonicalId),input.accountId,JSON.stringify(changed),nowIso),
       db.prepare(`INSERT INTO partner_audit_events(id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at)
