@@ -14,6 +14,7 @@ import {
 import { chooseGeocoderResult } from "../lib/geo-service.ts";
 import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 import { GeocoderProviderError } from "../lib/geo-provider.ts";
+import { selectGeoCanaryCandidates } from "../lib/geo-operations.ts";
 
 const migration = readFileSync(new URL("../drizzle/0064_geo_foundation.sql", import.meta.url), "utf8");
 const geoStore = readFileSync(new URL("../lib/geo-store.ts", import.meta.url), "utf8");
@@ -154,6 +155,28 @@ test("directory online sentinels never become geocodable public markers", () => 
   });
   assert.equal(hybrid.proposedVisibility, "APPROXIMATE_PUBLIC");
   assert.equal(hybrid.proposedPrecision, "MUNICIPALITY");
+});
+
+test("canary selector never sends review-blocked or hidden candidates and prefers target diversity", () => {
+  const base = {
+    label: "x", category: null, locationRole: null, city: "Nitra", district: null, region: "Nitriansky kraj",
+    proposedPrecision: "MUNICIPALITY", reasonCode: null, sourceFingerprint: "fp", alreadyInitialized: false,
+  };
+  const items = [
+    { ...base, targetType: "DIRECTORY_PROFILE", targetId: 1, proposedVisibility: null, requiresReview: true, normalizedQuery: null },
+    { ...base, targetType: "MANAGED_EVENT", targetId: 2, proposedVisibility: "EXACT_PUBLIC", proposedPrecision: "EXACT", requiresReview: true, normalizedQuery: "Hlavná 1, Nitra, Slovakia" },
+    { ...base, targetType: "DIRECTORY_PROFILE", targetId: 3, proposedVisibility: "HIDDEN", requiresReview: false, normalizedQuery: null },
+    { ...base, targetType: "DIRECTORY_PROFILE", targetId: 4, proposedVisibility: "APPROXIMATE_PUBLIC", requiresReview: false, normalizedQuery: "Nitra, Slovakia" },
+    { ...base, targetType: "MANAGED_EVENT", targetId: 5, proposedVisibility: "APPROXIMATE_PUBLIC", requiresReview: false, normalizedQuery: "Trnava, Slovakia" },
+    { ...base, targetType: "DIRECTORY_PROFILE", targetId: 6, proposedVisibility: "APPROXIMATE_PUBLIC", requiresReview: false, normalizedQuery: "Žilina, Slovakia" },
+  ];
+  const selection = selectGeoCanaryCandidates(items, 2);
+  assert.deepEqual(selection.selected.map((item) => [item.targetType, item.targetId]), [
+    ["DIRECTORY_PROFILE", 4],
+    ["MANAGED_EVENT", 5],
+  ]);
+  assert.equal(selection.eligible.length, 3);
+  assert.equal(selection.selected.some((item) => item.requiresReview), false);
 });
 
 test("approximate queries cannot leak the private street address", () => {
