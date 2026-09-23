@@ -100,7 +100,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.getByLabel("Názov").fill("Partner E2E Nová Služba");
     await page.getByLabel("Kategória").selectOption("veterinari");
     await page.getByLabel("Krátky popis").fill("Nová testovacia služba pre Partner E2E.");
-    await page.getByLabel("Popis").fill("Toto je nový testovací Directory profil vytvorený cez moderovaný Partner flow.");
+    await page.getByLabel("Popis", { exact: true }).fill("Toto je nový testovací Directory profil vytvorený cez moderovaný Partner flow.");
     await page.getByLabel("Mesto").fill("Žilina");
     await page.getByLabel("Okres").fill("Žilina");
     await page.getByLabel("Kraj").fill("Žilinský kraj");
