@@ -97,7 +97,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
     await expect(page.getByRole("heading", { name: "Pridať nový profil" })).toBeVisible();
-    await page.getByLabel("Názov").fill("Partner E2E Nová Služba");
+    await page.getByLabel("Názov", { exact: true }).fill("Partner E2E Nová Služba");
     await page.getByLabel("Kategória").selectOption("veterinari");
     await page.getByLabel("Krátky popis").fill("Nová testovacia služba pre Partner E2E.");
     await page.getByLabel("Popis", { exact: true }).fill("Toto je nový testovací Directory profil vytvorený cez moderovaný Partner flow.");
@@ -124,7 +124,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
     await page.getByRole("radio", { name: /Organizácia na pomoc psom/ }).check();
-    await page.getByLabel("Názov").fill("Partner E2E Organizácia");
+    await page.getByLabel("Názov", { exact: true }).fill("Partner E2E Organizácia");
     await page.getByLabel("Typ organizácie").selectOption("CIVIC_ASSOCIATION");
     await page.getByLabel("Verejný telefón").fill("+421900111222");
     await page.getByLabel("Web").fill("https://example.sk");
