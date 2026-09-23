@@ -245,8 +245,11 @@ export async function activatePartnerCommercialAgreement(input:{id:string;campai
   if(Date.parse(current.endAt)<=now.getTime())throw new PartnerCommercialAgreementError("Dohodnuté obdobie už skončilo.",409);
   if(current.agreementType==="AD_CAMPAIGN"){
     if(typeof input.campaignId!=="string"||!input.campaignId.trim())throw new PartnerCommercialAgreementError("Najprv vytvorte bezpečnú reklamnú kampaň v existujúcom monetization engine.");
-    const campaign=await database.prepare("SELECT id,status FROM monetization_campaigns WHERE id=?1 LIMIT 1").bind(input.campaignId.trim()).first<{id:string;status:string}>();
+    const campaign=await database.prepare("SELECT id,status,start_at startAt,end_at endAt FROM monetization_campaigns WHERE id=?1 LIMIT 1").bind(input.campaignId.trim()).first<{id:string;status:string;startAt:string|null;endAt:string|null}>();
     if(!campaign||campaign.status==="archived")throw new PartnerCommercialAgreementError("Kampaň neexistuje alebo je archivovaná.",404);
+    if(!campaign.startAt||!campaign.endAt||Date.parse(campaign.startAt)<Date.parse(current.startAt)||Date.parse(campaign.endAt)>Date.parse(current.endAt)){
+      throw new PartnerCommercialAgreementError("Obdobie reklamnej kampane musí byť celé v rámci obdobia obchodnej dohody.",409);
+    }
     await database.prepare("UPDATE monetization_campaigns SET status='active',updated_at=?2,updated_by=?3 WHERE id=?1").bind(campaign.id,iso,adminActor).run();
     await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',campaign_id=?2,updated_at=?3,updated_by=?4 WHERE id=?1").bind(current.id,campaign.id,iso,adminActor).run();
     await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_CAMPAIGN_LINKED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:current.id,metadata:{campaignId:campaign.id},database,now});
@@ -310,13 +313,14 @@ export async function cancelPartnerCommercialAgreement(input:{id:string;adminEma
 
 export async function expireEndedCommercialItems(databaseInput?:D1Database,now=new Date()){
   const database=getPartnerDatabase(databaseInput),iso=now.toISOString();
-  const rows=(await database.prepare(`SELECT a.id,a.account_id accountId,e.id entitlementId,e.promotion_id promotionId
+  const rows=(await database.prepare(`SELECT a.id,a.account_id accountId,a.campaign_id campaignId,e.id entitlementId,e.promotion_id promotionId
     FROM partner_commercial_agreements a LEFT JOIN partner_entitlements e ON e.agreement_id=a.id
-    WHERE a.status='ACTIVE' AND a.end_at<=?1 LIMIT 100`).bind(iso).all<{id:string;accountId:string;entitlementId:string|null;promotionId:string|null}>()).results;
+    WHERE a.status='ACTIVE' AND a.end_at<=?1 LIMIT 100`).bind(iso).all<{id:string;accountId:string;campaignId:string|null;entitlementId:string|null;promotionId:string|null}>()).results;
   for(const row of rows){
     await database.prepare("UPDATE partner_commercial_agreements SET status='EXPIRED',updated_at=?2,updated_by='system:commercial-expiry' WHERE id=?1 AND status='ACTIVE'").bind(row.id,iso).run();
     if(row.entitlementId)await database.prepare("UPDATE partner_entitlements SET status='EXPIRED',updated_at=?2 WHERE id=?1 AND status IN ('ACTIVE','SCHEDULED')").bind(row.entitlementId,iso).run();
     if(row.promotionId)await database.prepare("UPDATE monetization_promotions SET status='archived',updated_at=?2,updated_by='system:commercial-expiry' WHERE id=?1").bind(row.promotionId,iso).run();
+    if(row.campaignId)await database.prepare("UPDATE monetization_campaigns SET status='paused',updated_at=?2,updated_by='system:commercial-expiry' WHERE id=?1 AND status='active'").bind(row.campaignId,iso).run();
     await appendPartnerAuditEvent({actorType:"SYSTEM",actorRef:"system:commercial-expiry",action:"ENTITLEMENT_EXPIRED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:row.id,metadata:{automatic:true},database,now});
     await queuePartnerLifecycleNotification({accountId:row.accountId,notificationType:"ENTITLEMENT_EXPIRED",dedupeKey:`partner-agreement:${row.id}:expired`,database,now});
   }
