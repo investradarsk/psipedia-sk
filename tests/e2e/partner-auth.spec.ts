@@ -52,10 +52,30 @@ test("anonymous Partner shell and settings redirect to login", async ({ page }) 
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
 });
 
+test("public header exposes Partner login as a utility action without overflow", async ({ page }, testInfo) => {
+  await page.goto("/");
+  if(testInfo.project.name==="mobile-chromium"){
+    await page.getByRole("button",{name:"Otvoriť menu"}).click();
+    const mobileNav=page.getByRole("navigation",{name:"Mobilná navigácia"});
+    const login=mobileNav.getByRole("link",{name:"Prihlásiť sa"});
+    await expect(login).toBeVisible();
+    await expect(login).toHaveAttribute("href","/partner/prihlasenie");
+  }else{
+    const login=page.locator("[data-header-masthead]").getByRole("link",{name:"Prihlásiť sa"});
+    await expect(login).toBeVisible();
+    await expect(login).toHaveAttribute("href","/partner/prihlasenie");
+    const mainNav=page.getByRole("navigation",{name:"Hlavná navigácia"});
+    await expect(mainNav.getByRole("link",{name:"Prihlásiť sa"})).toHaveCount(0);
+  }
+  await expectNoHorizontalOverflow(page);
+});
+
 test("public Directory profile exposes free claim CTA and only asserts pre-verification state on desktop", async ({ page }, testInfo) => {
   await page.goto("/adresar/veterinari/partner-e2e-veterina");
   await expect(page.getByRole("heading", { name: "Spravujete tento profil?" })).toBeVisible();
   await expect(page.getByText("Správa základných údajov profilu je bezplatná.")).toBeVisible();
+  await expect(page.getByText("Premium profil",{exact:true})).toBeVisible();
+  await expect(page.getByText("Sponzorované",{exact:true})).toBeVisible();
   const claimLink=page.getByRole("link",{name:"Spravovať tento profil"});
   await expect(claimLink).toHaveAttribute("href","/partner/prevziat-profil/DIRECTORY_PROFILE/990001");
   if (testInfo.project.name === "desktop-chromium") {
