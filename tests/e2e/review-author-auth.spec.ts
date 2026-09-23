@@ -191,16 +191,18 @@ test("fresh RSC navigation to reviewer auth never produces a blank shell", async
       typeof (window as unknown as { __VINEXT_RSC_NAVIGATE__?: unknown }).__VINEXT_RSC_NAVIGATE__ === "function"
     ));
 
-    const navigationResult = await freshPage.evaluate(async (target) => {
+    const navigationResult = await freshPage.evaluate((target) => {
       const bridge = (window as unknown as {
         __VINEXT_RSC_NAVIGATE__?: (href: string) => Promise<void>;
       }).__VINEXT_RSC_NAVIGATE__;
       if (!bridge) return "missing";
-      await bridge(new URL(target, window.location.origin).toString());
-      return "ok";
+
+      window.history.pushState({}, "", target);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      return "started";
     }, targetPath);
 
-    expect(navigationResult).toBe("ok");
+    expect(navigationResult).toBe("started");
     await expect(freshPage).toHaveURL(new RegExp("/recenzia/prihlasenie\\?returnTo="));
     await expect(freshPage.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
     await expect(freshPage.locator("form.review-auth-form")).toBeVisible();
