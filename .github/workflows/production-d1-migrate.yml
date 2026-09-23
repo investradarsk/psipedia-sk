@@ -12,6 +12,10 @@ on:
           - 0062_profile_reviews_foundation.sql
           - 0063_partner_claims_verification.sql
           - 0064_geo_foundation.sql
+          - 0065_partner_profile_changes.sql
+          - 0066_partner_new_profile_submissions.sql
+          - 0067_partner_events.sql
+          - 0068_partner_commercial_activation.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -40,8 +44,16 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
           confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
-          migration_index="${TARGET_MIGRATION%%_*}"
-          expected_confirmation="APPLY-${migration_index}-psipedia-sk-db"
+          case "$TARGET_MIGRATION" in
+            0062_profile_reviews_foundation.sql) expected_confirmation="APPLY-0062-psipedia-sk-db" ;;
+            0063_partner_claims_verification.sql) expected_confirmation="APPLY-0063-psipedia-sk-db" ;;
+            0064_geo_foundation.sql) expected_confirmation="APPLY-0064-psipedia-sk-db" ;;
+            0065_partner_profile_changes.sql) expected_confirmation="APPLY-0065-psipedia-sk-db" ;;
+            0066_partner_new_profile_submissions.sql) expected_confirmation="APPLY-0066-psipedia-sk-db" ;;
+            0067_partner_events.sql) expected_confirmation="APPLY-0067-psipedia-sk-db" ;;
+            0068_partner_commercial_activation.sql) expected_confirmation="APPLY-0068-psipedia-sk-db" ;;
+            *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
+          esac
           test "$confirmation" = "$expected_confirmation"
 
       - name: Checkout exact dispatched main revision
