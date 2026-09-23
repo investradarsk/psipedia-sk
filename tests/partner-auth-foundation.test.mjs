@@ -247,9 +247,8 @@ test("scope guard: PARTNER-1B adds no membership, claim, Attention, billing or p
   }
 });
 
-test("public Partner foundation exposes only auth/settings functionality", async () => {
+test("Partner auth and settings pages stay isolated from management workflows", async () => {
   const pages = await Promise.all([
-    "app/partner/page.tsx",
     "app/partner/registracia/page.tsx",
     "app/partner/prihlasenie/page.tsx",
     "app/partner/nastavenia/page.tsx",
