@@ -134,3 +134,11 @@ test("public paid markers fail safe during schema rollout",()=>{
   assert.match(agreements,/no such table:\\s\*partner_/);
   assert.match(agreements,/if\(missingCommercialSchema\(error\)\)return fallback/);
 });
+
+
+test("state-changing admin retries are CAS protected",()=>{
+  assert.match(agreements,/payment_status<>'PAID' RETURNING id/);
+  assert.match(agreements,/status='AGREED' RETURNING id/);
+  assert.match(agreements,/if\(!changed\)return getPartnerCommercialAgreementAdmin/);
+  assert.match(agreements,/if\(!activated\)return getPartnerCommercialAgreementAdmin/);
+});
