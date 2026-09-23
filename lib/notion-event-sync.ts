@@ -207,7 +207,10 @@ async function syncOneEvent(
       throw new Error("Notion záznam je prepojený na chýbajúce podujatie v Psipedii.");
     }
     if (mapping.inbound_locked_at) {
-      throw new Error("Prepojené podujatie má schválenú Partner úpravu. Canonical D1 má prednosť a automatický Notion sync ho nebude prepisovať.");
+      // Partner moderation owns inbound priority from this point on. Keep the
+      // mapping for publication write-back, but do not turn every hourly sweep
+      // into a failure or let Notion overwrite the canonical Partner-approved data.
+      return "unchanged";
     }
     if (existing.status !== "draft") {
       throw new Error("Prepojené podujatie už nie je Draft. Automatický sync ho nebude prepisovať ani odpublikovávať.");
