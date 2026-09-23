@@ -1,7 +1,7 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { isGeoTargetType, type GeoTargetType } from "@/lib/geo";
 import { geoapifyApiKey } from "@/lib/geoapify-geocoder";
-import { initializeGeoCandidates, previewGeoCandidates, runGeoCanary } from "@/lib/geo-operations";
+import { initializeGeoCandidates, previewGeoCandidates, runGeoBackfillChunk, runGeoCanary } from "@/lib/geo-operations";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +67,17 @@ export async function POST(request: Request) {
       const limit = Math.max(1, Math.min(10, Math.trunc(Number(body.limit) || 5)));
       const report = await runGeoCanary({ limit, targetType, directoryCategory });
       return Response.json({ report, persisted: false });
+    }
+
+    if (action === "backfill") {
+      if (body.confirm !== "BACKFILL-CHUNK") return Response.json({ error: "Chýba explicitné BACKFILL-CHUNK potvrdenie." }, { status: 400 });
+      if (!targetType) return Response.json({ error: "Bounded backfill vyžaduje explicitný target type." }, { status: 400 });
+      if (targetType === "DIRECTORY_PROFILE" && !directoryCategory) {
+        return Response.json({ error: "Directory backfill vyžaduje explicitnú category." }, { status: 400 });
+      }
+      const limit = Math.max(1, Math.min(20, Math.trunc(Number(body.limit) || 5)));
+      const report = await runGeoBackfillChunk({ limit, targetType, directoryCategory });
+      return Response.json({ report, persisted: true, fullBackfillEnabled: false });
     }
 
     return Response.json({ error: "Neznáma geo operations akcia." }, { status: 400 });
