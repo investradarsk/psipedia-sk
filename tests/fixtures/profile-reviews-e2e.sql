@@ -15,7 +15,8 @@ INSERT OR REPLACE INTO review_authors (
 ) VALUES
   ('e2e-review-author-1','cipher-e2e-1','hash-e2e-1','Jana Testovacia','ACTIVE','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z'),
   ('e2e-review-author-2','cipher-e2e-2','hash-e2e-2',NULL,'ACTIVE','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z'),
-  ('e2e-review-author-3','cipher-e2e-3','hash-e2e-3','Neverejný E2E','ACTIVE','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z');
+  ('e2e-review-author-3','cipher-e2e-3','hash-e2e-3','Neverejný E2E','ACTIVE','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z'),
+  ('e2e-review-author-4','cipher-e2e-4','hash-e2e-4','Čakajúci E2E','ACTIVE','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z','2026-09-23T06:00:00.000Z');
 
 INSERT OR REPLACE INTO partner_accounts (
   id, email_ciphertext, email_hash, status, email_verified_at, created_at, updated_at
@@ -67,7 +68,7 @@ FROM partner_resources r INNER JOIN directory_profiles d ON d.id=r.directory_pro
 WHERE d.slug='health-fixture-vet-rich'
 UNION ALL
 SELECT
-  'e2e-review-vet-pending', r.id, 'e2e-review-author-3', 1,
+  'e2e-review-vet-pending', r.id, 'e2e-review-author-4', 1,
   'Táto čakajúca recenzia sa na verejnom profile nesmie zobraziť.',
   NULL, NULL, 1, 'PENDING_REVIEW', '[]',
   '2026-09-22T09:00:00.000Z','2026-09-22T09:00:00.000Z',NULL
