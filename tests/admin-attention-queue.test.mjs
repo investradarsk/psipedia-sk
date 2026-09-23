@@ -12,6 +12,7 @@ import {
   mapDirectoryInquiryAttention,
   mapGeoLocationAttention,
   mapModerationAttention,
+  mapProfileReviewAttention,
   mapNewsTipAttention,
   mapPartnerClaimAttention,
   mapPartnerVerificationAttention,
@@ -74,6 +75,26 @@ test("moderation presentation maps the existing lifecycle and ignores unsupporte
     createdAt: "2026-09-12T12:00:00.000Z",
     updatedAt: "2026-09-12T12:00:00.000Z",
   }, NOW), null);
+});
+
+
+test("profile review Attention uses direct detail links, deterministic priority and resolves after moderation", () => {
+  const pending = mapProfileReviewAttention({
+    id: "review-1", status: "PENDING_REVIEW", riskFlagsJson: "[]",
+    createdAt: "2026-09-15T10:00:00.000Z", updatedAt: "2026-09-15T10:00:00.000Z",
+    targetName: "Veterina Test", targetType: "DIRECTORY_PROFILE", targetCategory: "veterinari",
+  }, NOW);
+  const risky = mapProfileReviewAttention({ ...pending, id: "review-2", riskFlagsJson: '["EXCESSIVE_URLS"]' }, NOW);
+  const visible = mapProfileReviewAttention({ ...pending, id: "review-3", status: "VISIBLE", updatedAt: "2026-09-15T11:00:00.000Z" }, NOW);
+  const rejected = mapProfileReviewAttention({ ...pending, id: "review-4", status: "REJECTED", updatedAt: "2026-09-15T11:00:00.000Z" }, NOW);
+  assert.equal(pending.sourceType, "PROFILE_REVIEW_MODERATION");
+  assert.equal(pending.priority, "MEDIUM");
+  assert.equal(pending.attentionState, "NEW");
+  assert.equal(pending.targetHref, "/admin/recenzie-profilov/review-1");
+  assert.equal(risky.priority, "HIGH");
+  assert.equal(visible.attentionState, "RESOLVED");
+  assert.equal(rejected.attentionState, "DISMISSED");
+  assert.equal(isAdminAttentionActive(visible), false);
 });
 
 test("news tip lifecycle keeps reviewing active and terminal states in history", () => {
@@ -282,7 +303,7 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
 
 test("all source queries stay bounded and the attention store remains read-only", () => {
   assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 15);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 16);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
@@ -302,6 +323,7 @@ test("target hrefs point to existing admin route patterns", () => {
     "../app/admin/partners/commercial/[id]/page.tsx",
     "../app/admin/partners/events/[id]/page.tsx",
     "../app/admin/operations/geo/page.tsx",
+    "../app/admin/recenzie-profilov/[id]/page.tsx",
   ];
   for (const route of routes) assert.equal(existsSync(new URL(route, import.meta.url)), true, route);
 });

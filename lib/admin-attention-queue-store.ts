@@ -9,6 +9,7 @@ import {
   mapDirectoryInquiryAttention,
   mapGeoLocationAttention,
   mapModerationAttention,
+  mapProfileReviewAttention,
   mapNewsTipAttention,
   mapPartnerClaimAttention,
   mapPartnerProfileChangeAttention,
@@ -25,6 +26,7 @@ import {
   type DirectoryInquiryAttentionRow,
   type GeoLocationAttentionRow,
   type ModerationAttentionRow,
+  type ProfileReviewAttentionRow,
   type NewsTipAttentionRow,
   type PartnerClaimAttentionRow,
   type PartnerProfileChangeAttentionRow,
@@ -78,6 +80,24 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
       id ASC
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<ModerationAttentionRow>();
+
+  const profileReviewsPromise = db.prepare(`
+    SELECT review.id, review.status, review.risk_flags_json AS riskFlagsJson,
+      review.created_at AS createdAt, review.updated_at AS updatedAt,
+      resource.entity_type AS targetType,
+      COALESCE(directory.name, organization.name, 'Profil') AS targetName,
+      directory.category AS targetCategory
+    FROM profile_reviews review
+    JOIN partner_resources resource ON resource.id=review.resource_id
+    LEFT JOIN directory_profiles directory ON directory.id=resource.directory_profile_id
+    LEFT JOIN help_organizations organization ON organization.id=resource.help_organization_id
+    ORDER BY
+      CASE WHEN review.status='PENDING_REVIEW' THEN 0 ELSE 1 END,
+      CASE WHEN review.status='PENDING_REVIEW' THEN review.created_at END ASC,
+      CASE WHEN review.status<>'PENDING_REVIEW' THEN review.updated_at END DESC,
+      review.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<ProfileReviewAttentionRow>();
 
   const newsTipsPromise = db.prepare(`
     SELECT id, title, topic, status, created_at AS createdAt, updated_at AS updatedAt
@@ -317,8 +337,9 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
 
-  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, newProfiles, partnerEvents, verifications, commercial, commercialAgreements, geo, automation] = await Promise.all([
+  const [moderation, profileReviews, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, newProfiles, partnerEvents, verifications, commercial, commercialAgreements, geo, automation] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
+    safeSourceResults("profile_reviews", profileReviewsPromise),
     safeSourceResults("news_tips", newsTipsPromise),
     safeSourceResults("directory_change_requests", changeRequestsPromise),
     safeSourceResults("directory_inquiries", inquiriesPromise),
@@ -337,6 +358,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
 
   return sortAdminAttentionItems([
     ...moderation.map((row) => mapModerationAttention(row, now)).filter((item) => item !== null),
+    ...profileReviews.map((row) => mapProfileReviewAttention(row, now)),
     ...newsTips.map((row) => mapNewsTipAttention(row, now)),
     ...changeRequests.map((row) => mapDirectoryChangeRequestAttention(row, now)),
     ...inquiries.map((row) => mapDirectoryInquiryAttention(row, now)),
@@ -360,6 +382,7 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
   const nowIso=now.toISOString(),expiringAt=new Date(now.getTime()+14*86_400_000).toISOString();
   const queries=[
     ["MODERATION_SUBMISSION",`SELECT COUNT(*) count FROM moderation_submissions WHERE resource_type IN ('LOST_FOUND_CASE','ADOPTION_DOG') AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],
+    ["PROFILE_REVIEW_MODERATION",`SELECT COUNT(*) count FROM profile_reviews WHERE status='PENDING_REVIEW'`,[]],
     ["NEWS_TIP",`SELECT COUNT(*) count FROM news_tips WHERE status IN ('new','reviewing')`,[]],
     ["DIRECTORY_CHANGE_REQUEST",`SELECT COUNT(*) count FROM directory_profile_change_requests WHERE status='new'`,[]],
     ["DIRECTORY_INQUIRY",`SELECT COUNT(*) count FROM directory_inquiries WHERE status IN ('new','read')`,[]],
