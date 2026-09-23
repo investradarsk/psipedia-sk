@@ -117,6 +117,23 @@ function nonEmpty(...values: Array<string | null | undefined>) {
   return values.map((value) => value?.trim() ?? "").filter(Boolean);
 }
 
+function distinctGeoParts(...values: Array<string | null | undefined>) {
+  const parts: string[] = [];
+  const normalizedParts: string[] = [];
+  for (const raw of values) {
+    const value = raw?.trim() ?? "";
+    if (!value) continue;
+    const normalized = normalizeGeoText(value);
+    const redundant = normalizedParts.some((existing) =>
+      existing === normalized || existing.includes(normalized) || normalized.includes(existing),
+    );
+    if (redundant) continue;
+    parts.push(value);
+    normalizedParts.push(normalized);
+  }
+  return parts;
+}
+
 export function classifyGeoSource(source: GeoSourceLocation): GeoClassification {
   const city = source.city?.trim() ?? "";
   const address = source.address?.trim() ?? "";
@@ -200,7 +217,13 @@ export function buildGeoQuery(
     return nonEmpty(source.city, source.district, source.region, country).join(", ") || null;
   }
 
-  return nonEmpty(source.address || source.venue, source.city, source.district, source.region, country).join(", ") || null;
+  return distinctGeoParts(
+    source.address || source.venue,
+    source.city,
+    source.district,
+    source.region,
+    country,
+  ).join(", ") || null;
 }
 
 function fingerprintPayload(input: GeoFingerprintInput) {
