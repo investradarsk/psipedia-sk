@@ -671,13 +671,20 @@ export function buildManagedDirectoryProfileCreateStatement(
     return database.prepare(`INSERT INTO directory_profiles (${columns})
       VALUES (${values.map(() => "?").join(",")}) RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(...values);
   }
+  const guardedValues = [
+    input.slug, input.name, input.category, input.excerpt, input.description,
+    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
+    input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
+    JSON.stringify(input.seo), input.searchText, nowIso, nowIso, editorEmail, editorEmail,
+  ];
   return database.prepare(`INSERT INTO directory_profiles (${columns})
-    SELECT ${values.map(() => "?").join(",")}
+    SELECT ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?
     WHERE EXISTS(
       SELECT 1 FROM moderation_submissions
       WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?
     )
-    RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(...values, guard.submissionId, nowIso, guard.actorRef);
+    RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(...guardedValues, guard.submissionId, nowIso, guard.actorRef);
 }
 
 export async function getPublishedDirectoryProfiles(category?: DirectoryCategorySlug, limit = 500) {
