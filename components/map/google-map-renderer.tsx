@@ -234,7 +234,7 @@ function TestMapRenderer({
   onSelectItem,
   onClusterClick,
   onStatusChange,
-}: Omit<Props, "apiKey" | "mapId" | "testMode">) {
+}: Omit<Props, "apiKey" | "mapId" | "testMode" | "launchEnabled" | "consentGranted">) {
   useEffect(() => {
     onStatusChange("ready");
   }, [onStatusChange]);
