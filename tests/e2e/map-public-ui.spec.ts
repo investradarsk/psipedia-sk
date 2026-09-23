@@ -214,7 +214,7 @@ test.describe("MAP-1D desktop", () => {
     await page.getByLabel("Okres").fill("Nitra");
     await page.getByLabel("Mesto / obec").fill("Nitra");
     await expect(page).toHaveURL(/subcategory=veterinari/);
-    await expect(page).toHaveURL(/region=Nitriansky+kraj|region=Nitriansky%20kraj/);
+    await expect.poll(() => new URL(page.url()).searchParams.get("region")).toBe("Nitriansky kraj");
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.getByTestId("map-test-renderer")).toHaveAttribute("data-map-init-count", "1");
 
