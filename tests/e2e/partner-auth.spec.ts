@@ -157,8 +157,9 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.getByRole("button", { name: "Odoslať na overenie" }).click();
     await expect(page.getByRole("status")).toContainText("Žiadosť o overenie čaká na kontrolu.");
   } else {
-    await expect(page.getByText("Čaká na kontrolu")).toBeVisible();
-    await expect(page.getByText("E2E poverený správca")).toBeVisible();
+    const claimRow=page.locator(".partner-request-list article").filter({hasText:"E2E poverený správca"}).first();
+    await expect(claimRow).toContainText("Čaká na kontrolu");
+    await expect(claimRow).toContainText("E2E poverený správca");
   }
   await expectNoHorizontalOverflow(page);
 
