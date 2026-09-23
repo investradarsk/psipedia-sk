@@ -176,6 +176,19 @@ function markerClass(item: MapItem, selected: boolean) {
   ].filter(Boolean).join(" ");
 }
 
+function detachGoogleMarker(marker: GoogleAdvancedMarkerElement) {
+  marker.map = null;
+}
+
+function moveGoogleMarker(
+  marker: GoogleAdvancedMarkerElement,
+  map: GoogleMapInstance,
+  position: LatLngLiteral,
+) {
+  marker.map = map;
+  marker.position = position;
+}
+
 function viewportFromMap(map: GoogleMapInstance): MapViewport | null {
   const bounds = map.getBounds();
   const center = map.getCenter();
@@ -314,6 +327,7 @@ export function GoogleMapRenderer(props: Props) {
     }
     let disposed = false;
     let idleListener: ListenerHandle | null = null;
+    const markerRegistry = markersRef.current;
 
     async function initialize() {
       if (!containerRef.current || mapRef.current) return;
@@ -363,8 +377,8 @@ export function GoogleMapRenderer(props: Props) {
     return () => {
       disposed = true;
       idleListener?.remove?.();
-      for (const record of markersRef.current.values()) record.marker.map = null;
-      markersRef.current.clear();
+      for (const record of markerRegistry.values()) detachGoogleMarker(record.marker);
+      markerRegistry.clear();
       mapRef.current = null;
       markerCtorRef.current = null;
       setReady(false);
@@ -375,15 +389,16 @@ export function GoogleMapRenderer(props: Props) {
     if (testMode || !ready || !mapRef.current || !markerCtorRef.current) return;
     const map = mapRef.current;
     const AdvancedMarkerElement = markerCtorRef.current;
+    const markerRegistry = markersRef.current;
     const nextKeys = new Set<string>();
 
     for (const item of items) {
       const key = `item:${item.id}`;
       nextKeys.add(key);
       const signature = itemSignature(item);
-      let record = markersRef.current.get(key);
+      let record = markerRegistry.get(key);
       if (!record || record.signature !== signature) {
-        if (record) record.marker.map = null;
+        if (record) detachGoogleMarker(record.marker);
         const element = document.createElement("div");
         element.textContent = markerSymbol(item);
         element.className = markerClass(item, selectedItemId === item.id);
@@ -397,10 +412,9 @@ export function GoogleMapRenderer(props: Props) {
         marker.append(element);
         marker.addEventListener("gmp-click", () => onSelectItemRef.current(item.id));
         record = { marker, element, signature };
-        markersRef.current.set(key, record);
+        markerRegistry.set(key, record);
       } else {
-        record.marker.map = map;
-        record.marker.position = { lat: item.latitude, lng: item.longitude };
+        moveGoogleMarker(record.marker, map, { lat: item.latitude, lng: item.longitude });
         record.element.className = markerClass(item, selectedItemId === item.id);
       }
     }
@@ -409,9 +423,9 @@ export function GoogleMapRenderer(props: Props) {
       const key = `cluster:${cluster.id}`;
       nextKeys.add(key);
       const signature = clusterSignature(cluster);
-      let record = markersRef.current.get(key);
+      let record = markerRegistry.get(key);
       if (!record || record.signature !== signature) {
-        if (record) record.marker.map = null;
+        if (record) detachGoogleMarker(record.marker);
         const element = document.createElement("div");
         element.textContent = String(cluster.count);
         element.className = styles.clusterMarker;
@@ -425,17 +439,16 @@ export function GoogleMapRenderer(props: Props) {
         marker.append(element);
         marker.addEventListener("gmp-click", () => onClusterClickRef.current(cluster));
         record = { marker, element, signature };
-        markersRef.current.set(key, record);
+        markerRegistry.set(key, record);
       } else {
-        record.marker.map = map;
-        record.marker.position = { lat: cluster.latitude, lng: cluster.longitude };
+        moveGoogleMarker(record.marker, map, { lat: cluster.latitude, lng: cluster.longitude });
       }
     }
 
-    for (const [key, record] of markersRef.current) {
+    for (const [key, record] of markerRegistry) {
       if (nextKeys.has(key)) continue;
-      record.marker.map = null;
-      markersRef.current.delete(key);
+      detachGoogleMarker(record.marker);
+      markerRegistry.delete(key);
     }
   }, [clusters, items, ready, selectedItemId, testMode]);
 
