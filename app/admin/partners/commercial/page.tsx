@@ -24,11 +24,11 @@ export default async function Page({searchParams}:{searchParams:Promise<Search>}
       <span>{a.status}</span><span>{a.paymentStatus}</span><span>{new Date(a.endAt).toLocaleDateString("sk-SK")}</span>
       <Link href={`/admin/partners/commercial/agreements/${a.id}`}>Detail dohody →</Link>
     </article>):<p>Zatiaľ nie sú vytvorené žiadne dohody.</p>}</div></section>
-    <section className="admin-form-card"><h2>Commercial leady</h2><form className="admin-commercial-filters">
+    <section className="admin-form-card"><h2>Komerčné leady</h2><form className="admin-commercial-filters">
       <label>Stav<select name="status" defaultValue={status}><option value="all">Všetky</option>{partnerCommercialStatuses.map(x=><option key={x}>{x}</option>)}</select></label>
       <label>Typ<select name="type" defaultValue={interestType}><option value="all">Všetky</option>{partnerCommercialInterestTypes.map(x=><option key={x}>{x}</option>)}</select></label>
       <label>Hľadať<input name="q" defaultValue={q}/></label><button>Filtrovať</button></form>
-      <div className="admin-commercial-list">{items.length?items.map(item=><article key={item.id}><div><strong>{item.resourceName??item.email}</strong><small>{item.email} · {item.interestType}</small></div><span>{item.status}</span><span>{new Date(item.createdAt).toLocaleString("sk-SK")}</span><p>{item.message??"Bez správy"}</p><Link href={`/admin/partners/commercial/${item.id}`}>Detail leadu →</Link></article>):<p>Žiadne leady pre zvolený filter.</p>}</div>
+      <div className="admin-commercial-list">{items.length?items.map(item=><article key={item.id}><div><strong>{item.resourceName??item.email}</strong><small>{item.email} · {item.interestType}</small></div><span>{item.status}</span><span>{new Date(item.createdAt).toLocaleString("sk-SK")}</span><p>{item.message??"Bez správy"}</p><Link href={`/admin/partners/commercial/${item.id}`}>Detail →</Link></article>):<p>Žiadne leady pre zvolený filter.</p>}</div>
     </section>
   </AdminShell>;
 }
