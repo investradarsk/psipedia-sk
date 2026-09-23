@@ -28,6 +28,7 @@ test("0068 separates lead, agreement, payment and entitlement lifecycles",()=>{
   assert.match(migration,/currency.*EUR/i);
   assert.match(migration,/paid_at/);assert.match(migration,/paid_by/);
   assert.match(migration,/partner_entitlement_current_resource_type_unique/);
+  assert.match(migration,/partner_commercial_promotion_provenance_unique/);
   assert.match(migration,/partner_commercial_agreement_interest_active_unique/);
 });
 
@@ -68,6 +69,8 @@ test("Promoted reuses canonical monetization promotions with mandatory Sponsored
   assert.match(agreements,/entityType:"directory"/);
   assert.match(agreements,/entityType:"organization"/);
   assert.match(agreements,/isPromotionVisible/);
+  assert.match(agreements,/INSERT OR IGNORE INTO monetization_promotions/);
+  assert.match(agreements,/INSERT OR IGNORE INTO partner_entitlements/);
   assert.match(directoryDetail,/Sponzorované/);
   assert.match(orgDetail,/Sponzorované/);
   assert.match(agreements,/priority,provenance/);
