@@ -285,8 +285,7 @@ test.describe("MAP-1D desktop", () => {
 
   test("Google renderer is blocked before service-specific consent", async ({ page }) => {
     await installMapApiMock(page);
-    await page.goto("/mapa");
-    await page.evaluate(() => window.localStorage.removeItem("psipedia-google-maps-consent"));
+    await page.addInitScript(() => window.localStorage.removeItem("psipedia-google-maps-consent"));
     await page.goto("/mapa?__mapRenderer=real");
 
     await expect(page.getByTestId("map-consent-gate")).toContainText("Načítať interaktívnu Google mapu?");
