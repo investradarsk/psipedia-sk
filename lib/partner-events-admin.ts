@@ -146,11 +146,24 @@ function membershipStatements(database:D1Database,input:{resourceId:string;accou
   ];
 }
 
-async function sideEffects(input:{eventId:number;slug:string;published:boolean;locationChanged:boolean;invalidatePublic:boolean;publicOrigin?:string;workerVersionId?:string}){
+function publicEventTypePaths(eventTypes:string[]){
+  const paths=new Set<string>();
+  for(const eventType of eventTypes){
+    if(eventType==="Výstava")paths.add("/podujatia/vystavy");
+    if(eventType==="Preteky")paths.add("/podujatia/preteky");
+    if(eventType==="Seminár"||eventType==="Tréning")paths.add("/podujatia/seminare");
+  }
+  return [...paths];
+}
+async function sideEffects(input:{eventId:number;slug:string;published:boolean;locationChanged:boolean;invalidatePublic:boolean;eventTypes?:string[];publicOrigin?:string;workerVersionId?:string}){
   if(input.locationChanged)await syncGeoPointAfterSourceChange("MANAGED_EVENT",input.eventId).catch(error=>console.warn("Partner event GEO sync failed",{eventId:input.eventId,error:String(error)}));
   if(input.published&&input.invalidatePublic&&input.publicOrigin){
-    await invalidateVersionedPublicHtmlCacheUrl(new URL(`/podujatia/${input.slug}`,input.publicOrigin),input.workerVersionId??(env as unknown as Bindings).CF_VERSION_METADATA?.id)
-      .catch(error=>{console.warn("Partner event public cache invalidation failed",{eventId:input.eventId,error:String(error)});return false;});
+    const version=input.workerVersionId??(env as unknown as Bindings).CF_VERSION_METADATA?.id;
+    const paths=[`/podujatia/${input.slug}`,"/podujatia","/podujatia/kalendar","/",...publicEventTypePaths(input.eventTypes??[])];
+    await Promise.all(paths.map(path=>
+      invalidateVersionedPublicHtmlCacheUrl(new URL(path,input.publicOrigin!),version)
+        .catch(error=>{console.warn("Partner event public cache invalidation failed",{eventId:input.eventId,path,error:String(error)});return false;})
+    ));
   }
 }
 
@@ -223,7 +236,7 @@ export async function approvePartnerEventUpdateAdmin(input:{id:string;adminEmail
     notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_CHANGE_APPROVED",now,nowIso,actorRef,status:"APPROVED"}),
   ]});
   const locationChanged=changed.some(field=>["venue","city","region","address"].includes(field));
-  await sideEffects({eventId,slug:current.slug,published:current.status==="published",locationChanged,invalidatePublic:true,publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
+  await sideEffects({eventId,slug:current.slug,published:current.status==="published",locationChanged,invalidatePublic:true,eventTypes:[current.eventType,typeof patch.eventType==="string"?patch.eventType:current.eventType],publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
   return getPartnerEventAdmin(input.id,{database});
 }
 
