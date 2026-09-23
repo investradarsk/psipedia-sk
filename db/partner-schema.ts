@@ -42,7 +42,7 @@ export const partnerNotificationOutbox = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED')`),
+    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED')`),
     check("partner_notification_outbox_status_check", sql`${table.status} IN ('PENDING','SENDING','SENT','FAILED','EXPIRED')`),
     uniqueIndex("partner_notification_outbox_dedupe_unique").on(table.dedupeKey),
     index("partner_notification_outbox_status_expiry_idx").on(table.status, table.expiresAt, table.updatedAt),
@@ -172,11 +172,40 @@ export const partnerNewProfileMetadata = sqliteTable("partner_new_profile_metada
   index("partner_new_profile_resolution_idx").on(table.resolutionType,table.resolvedCanonicalId),
 ]);
 
+export const partnerEventSubmissionMetadata = sqliteTable("partner_event_submission_metadata", {
+  submissionId:text("submission_id").primaryKey().references(()=>moderationSubmissions.id,{onDelete:"restrict"}),
+  partnerAccountId:text("partner_account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
+  partnerResourceId:text("partner_resource_id").references(()=>partnerResources.id,{onDelete:"restrict"}),
+  operation:text("operation").notNull(),
+  baseUpdatedAt:text("base_updated_at"),
+  baseSnapshotJson:text("base_snapshot_json").notNull().default("{}"),
+  changedFieldCount:integer("changed_field_count").notNull().default(0),
+  dedupeKey:text("dedupe_key").notNull(),
+  dedupeActive:integer("dedupe_active").notNull().default(1),
+  duplicateConfidence:text("duplicate_confidence").notNull().default("NONE"),
+  duplicateCandidateId:integer("duplicate_candidate_id").references(()=>managedEvents.id,{onDelete:"restrict"}),
+  duplicateReasonsJson:text("duplicate_reasons_json").notNull().default("[]"),
+  resolutionType:text("resolution_type"),
+  resolvedEventId:integer("resolved_event_id").references(()=>managedEvents.id,{onDelete:"restrict"}),
+  createdAt:text("created_at").notNull(),
+}, table=>[
+  check("partner_event_submission_operation_check",sql`${table.operation} IN ('CREATE','UPDATE')`),
+  check("partner_event_submission_changed_count_check",sql`${table.changedFieldCount} >= 0 AND ${table.changedFieldCount} <= 32`),
+  check("partner_event_submission_dedupe_active_check",sql`${table.dedupeActive} IN (0,1)`),
+  check("partner_event_submission_duplicate_check",sql`${table.duplicateConfidence} IN ('NONE','MEDIUM','HIGH')`),
+  check("partner_event_submission_resolution_check",sql`${table.resolutionType} IS NULL OR ${table.resolutionType} IN ('CREATED_NEW','LINKED_EXISTING','UPDATED')`),
+  uniqueIndex("partner_event_submission_active_dedupe_unique").on(table.partnerAccountId,table.dedupeKey).where(sql`${table.dedupeActive}=1`),
+  index("partner_event_submission_resource_created_idx").on(table.partnerResourceId,table.createdAt),
+  index("partner_event_submission_account_created_idx").on(table.partnerAccountId,table.createdAt),
+  index("partner_event_submission_duplicate_created_idx").on(table.duplicateConfidence,table.duplicateCandidateId,table.createdAt),
+  index("partner_event_submission_resolution_idx").on(table.resolutionType,table.resolvedEventId),
+]);
+
 export const partnerAuditEvents = sqliteTable("partner_audit_events", {
   id:text("id").primaryKey(),actorType:text("actor_type").notNull(),actorRef:text("actor_ref").notNull(),action:text("action").notNull(),
   targetType:text("target_type").notNull(),targetId:text("target_id").notNull(),metadataJson:text("metadata_json").notNull().default("{}"),createdAt:text("created_at").notNull(),
 }, table=>[
   check("partner_audit_actor_check",sql`${table.actorType} IN ('PARTNER','ADMIN','SYSTEM')`),
-  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_WITHDRAWN','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_WITHDRAWN','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED')`),
+  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_WITHDRAWN','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_WITHDRAWN','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CHANGE_SUBMITTED','EVENT_WITHDRAWN','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED')`),
   index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt),
 ]);
