@@ -726,10 +726,29 @@ async function geoReadiness(targetMigration) {
   const databaseName = prepared.resources.d1.database_name;
   const history = migrationHistory(databaseName, prepared.configPath);
   const schema = schemaState(databaseName, prepared.configPath);
-  const state = targetState(history, schema, "0064_geo_foundation.sql");
-  invariant(state.targetApplied, "0064_geo_foundation.sql is not applied in production");
-  assertTargetSchema(schema, "0064_geo_foundation.sql");
+  const historyNames = history.map((row) => String(row.name));
+  const schemaRecorded = historyNames.includes("0064_geo_foundation.sql");
+  const schemaObjectPresent = objectMap(schema.objects).get("geo_points")?.type === "table";
 
+  if (!schemaRecorded || !schemaObjectPresent) {
+    const report = {
+      checkedAt: new Date().toISOString(),
+      targetMigration: "0064_geo_foundation.sql",
+      databaseName,
+      databaseId: prepared.resources.d1.database_id,
+      schemaReady: false,
+      latestAppliedMigration: historyNames.at(-1) ?? null,
+      historyRecorded: schemaRecorded,
+      geoTablePresent: schemaObjectPresent,
+      dataReady: false,
+      dataReadinessReason: "GEO_SCHEMA_NOT_APPLIED",
+    };
+    await writeJson(".production-d1/geo-readiness-report.json", report);
+    console.log(`[production-d1] geo readiness — schemaReady=false; latest=${report.latestAppliedMigration ?? "<none>"}`);
+    return report;
+  }
+
+  assertTargetSchema(schema, "0064_geo_foundation.sql");
   const snapshot = geoReadinessSnapshot(databaseName, prepared.configPath);
   invariant(snapshot.privacy.sensitiveExactPublic === 0, "P1 privacy blocker: sensitive directory category has EXACT_PUBLIC resolved coordinates");
   invariant(snapshot.privacy.legalSeatExactPublic === 0, "P1 privacy blocker: LEGAL_SEAT has EXACT_PUBLIC resolved coordinates");
@@ -741,6 +760,7 @@ async function geoReadiness(targetMigration) {
     targetMigration: "0064_geo_foundation.sql",
     databaseName,
     databaseId: prepared.resources.d1.database_id,
+    latestAppliedMigration: historyNames.at(-1) ?? null,
     ...snapshot,
     dataReady: snapshot.publicResolvedCurrent > 0,
     dataReadinessReason: snapshot.publicResolvedCurrent > 0 ? "PUBLIC_RESOLVED_ROWS_AVAILABLE" : "NO_PUBLIC_RESOLVED_ROWS",
