@@ -168,6 +168,19 @@ test("partner rollout preserves rebuilt rows, append-only audit triggers and ver
   assert.match(script, /assertExactMigrationHistory/);
 });
 
+test("post-0064 production rollouts preserve populated geo_points instead of requiring emptiness", async () => {
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.match(script, /const geoCountBefore = targetIndex > 64/);
+  assert.match(script, /targetIndex === 64 && !internal\.targetApplied/);
+  assert.match(script, /targetIndex > 64/);
+  assert.match(script, /geo_points count changed unexpectedly/);
+  assert.match(script, /preservedFromPreflight/);
+  assert.doesNotMatch(
+    script,
+    /if \(!internal\.targetApplied\) invariant\(geoCount === 0, "0064 is schema-only;/,
+  );
+});
+
 test("MAP-1E geo readiness is read-only and fail-closes P1 privacy exposures", async () => {
   const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
   assert.match(script, /publicResolvedCurrent/);
