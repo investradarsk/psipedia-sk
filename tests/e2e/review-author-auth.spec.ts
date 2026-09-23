@@ -12,7 +12,6 @@ const RETURN_TO = PROFILE + "#recenzie";
 async function installTurnstileMock(page: Page) {
   await page.addInitScript(() => {
     (window as unknown as { turnstile: unknown }).turnstile = {
-      ready(callback: () => void) { callback(); },
       render(_container: HTMLElement, options: Record<string, unknown>) {
         const callback = options.callback as ((token: string) => void) | undefined;
         queueMicrotask(() => callback?.("review-e2e-turnstile-token"));
@@ -138,6 +137,79 @@ test("reviewer logout revokes session cookie independently of Partner auth", asy
 
   await page.goto("/recenzia/prihlasenie?returnTo=" + encodeURIComponent(RETURN_TO));
   await expect(page.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+});
+
+test("fresh anonymous reviewer login renders deterministically with and without returnTo", async ({ browser }, testInfo) => {
+  const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:5173";
+  const validSubmissionReturnTo = "/recenzia/napisat?resourceId=e2e-review-auth-fresh";
+  const paths = [
+    "/recenzia/prihlasenie",
+    "/recenzia/prihlasenie?returnTo=" + encodeURIComponent(validSubmissionReturnTo),
+  ];
+
+  for (const path of paths) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const context = await browser.newContext({
+        baseURL,
+        viewport: testInfo.project.name === "mobile-chromium"
+          ? { width: 390, height: 844 }
+          : { width: 1440, height: 900 },
+      });
+      const freshPage = await context.newPage();
+      await installTurnstileMock(freshPage);
+
+      const response = await freshPage.goto(path, { waitUntil: "domcontentloaded" });
+      expect(response?.status(), `${path} attempt ${attempt + 1}`).toBe(200);
+      await expect(freshPage.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+      await expect(freshPage.getByLabel("E-mail")).toBeVisible();
+      await expect(freshPage.locator("form.review-auth-form")).toBeVisible();
+      await expect(freshPage.locator(".partner-turnstile")).toBeVisible();
+      await expectNoHorizontalOverflow(freshPage, `${path} attempt ${attempt + 1}`);
+
+      await context.close();
+    }
+  }
+});
+
+test("fresh RSC navigation to reviewer auth never produces a blank shell", async ({ browser }, testInfo) => {
+  const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:5173";
+  const targetPath = "/recenzia/prihlasenie?returnTo=" + encodeURIComponent(
+    "/recenzia/napisat?resourceId=e2e-review-auth-rsc",
+  );
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const context = await browser.newContext({
+      baseURL,
+      viewport: testInfo.project.name === "mobile-chromium"
+        ? { width: 390, height: 844 }
+        : { width: 1440, height: 900 },
+    });
+    const freshPage = await context.newPage();
+    await installTurnstileMock(freshPage);
+    await freshPage.goto("/", { waitUntil: "domcontentloaded" });
+    await freshPage.waitForFunction(() => (
+      typeof (window as unknown as { __VINEXT_RSC_NAVIGATE__?: unknown }).__VINEXT_RSC_NAVIGATE__ === "function"
+    ));
+
+    const navigationResult = await freshPage.evaluate((target) => {
+      const bridge = (window as unknown as {
+        __VINEXT_RSC_NAVIGATE__?: (href: string) => Promise<void>;
+      }).__VINEXT_RSC_NAVIGATE__;
+      if (!bridge) return "missing";
+
+      window.history.pushState({}, "", target);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      return "started";
+    }, targetPath);
+
+    expect(navigationResult).toBe("started");
+    await expect(freshPage).toHaveURL(new RegExp("/recenzia/prihlasenie\\?returnTo="));
+    await expect(freshPage.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+    await expect(freshPage.locator("form.review-auth-form")).toBeVisible();
+    await expect(freshPage.getByLabel("E-mail")).toBeVisible();
+
+    await context.close();
+  }
 });
 
 test("reviewer auth is accessible and has no horizontal overflow at 390x844", async ({ page }, testInfo) => {

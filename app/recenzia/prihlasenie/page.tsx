@@ -17,9 +17,19 @@ export default async function ReviewAuthorLoginPage({
   const returnTo = normalizeReviewAuthorReturnTo(typeof raw.returnTo === "string" ? raw.returnTo : null);
   const siteKey = getPartnerTurnstileSiteKey();
   const jar = await cookies();
-  const identity = await getReviewAuthorSession({
-    token: jar.get(REVIEW_AUTHOR_SESSION_COOKIE)?.value,
-  });
+  const sessionToken = jar.get(REVIEW_AUTHOR_SESSION_COOKIE)?.value;
+  let identity = null;
+  if (sessionToken) {
+    try {
+      identity = await getReviewAuthorSession({ token: sessionToken });
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "review_author_login_session_read",
+        result: "failed",
+        error: error instanceof Error ? error.message : "unknown_error",
+      }));
+    }
+  }
 
   if (identity) {
     return (
