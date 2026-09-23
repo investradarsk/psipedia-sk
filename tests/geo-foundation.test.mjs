@@ -14,7 +14,7 @@ import {
 import { buildStructuredExactAddress, chooseGeocoderResult, summarizeGeoDiagnosticResults } from "../lib/geo-service.ts";
 import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 import { GeocoderProviderError } from "../lib/geo-provider.ts";
-import { selectGeoCanaryCandidates } from "../lib/geo-operations.ts";
+import { isSafeAutoGeoCandidate, selectGeoCanaryCandidates } from "../lib/geo-operations.ts";
 
 const migration = readFileSync(new URL("../drizzle/0064_geo_foundation.sql", import.meta.url), "utf8");
 const geoStore = readFileSync(new URL("../lib/geo-store.ts", import.meta.url), "utf8");
@@ -23,6 +23,7 @@ const operations = readFileSync(new URL("../lib/geo-operations.ts", import.meta.
 const operationsApi = readFileSync(new URL("../app/api/admin/geo/operations/route.ts", import.meta.url), "utf8");
 const geoAdminApi = readFileSync(new URL("../app/api/admin/geo/[targetType]/[id]/route.ts", import.meta.url), "utf8");
 const geoAdminComponent = readFileSync(new URL("../components/admin-geo-location.tsx", import.meta.url), "utf8");
+const geoOperationsComponent = readFileSync(new URL("../components/admin-geo-operations.tsx", import.meta.url), "utf8");
 const inventory = readFileSync(new URL("../scripts/geo-production-inventory.sql", import.meta.url), "utf8");
 const publicMapRoute = readFileSync(new URL("../app/api/map/route.ts", import.meta.url), "utf8");
 const publicMapQuery = readFileSync(new URL("../lib/map-query.ts", import.meta.url), "utf8");
@@ -155,6 +156,26 @@ test("directory online sentinels never become geocodable public markers", () => 
   });
   assert.equal(hybrid.proposedVisibility, "APPROXIMATE_PUBLIC");
   assert.equal(hybrid.proposedPrecision, "MUNICIPALITY");
+});
+
+test("safe rollout initialization excludes review-blocked, hidden and non-geocodable candidates", () => {
+  const base = {
+    targetType: "MANAGED_EVENT", targetId: 1, label: "Event", category: null, locationRole: null,
+    city: "Nitra", district: null, region: "Nitriansky kraj", proposedPrecision: "MUNICIPALITY",
+    reasonCode: null, sourceFingerprint: "fp", alreadyInitialized: false,
+  };
+  assert.equal(isSafeAutoGeoCandidate({
+    ...base, proposedVisibility: "APPROXIMATE_PUBLIC", requiresReview: false, normalizedQuery: "Nitra, Slovakia",
+  }), true);
+  assert.equal(isSafeAutoGeoCandidate({
+    ...base, proposedVisibility: "EXACT_PUBLIC", proposedPrecision: "EXACT", requiresReview: true, normalizedQuery: "Hlavná 1, Nitra, Slovakia",
+  }), false);
+  assert.equal(isSafeAutoGeoCandidate({
+    ...base, proposedVisibility: "HIDDEN", requiresReview: false, normalizedQuery: null,
+  }), false);
+  assert.equal(isSafeAutoGeoCandidate({
+    ...base, proposedVisibility: null, requiresReview: true, normalizedQuery: null,
+  }), false);
 });
 
 test("canary selector never sends review-blocked or hidden candidates and prefers target diversity", () => {
@@ -447,13 +468,21 @@ test("pre-migration deployment remains fail-safe when geo_points is not yet appl
   assert.match(geoAdminComponent, /Canonical profil funguje ďalej bez geo operácií/);
 });
 
-test("operations are bounded, explicit and full production backfill remains absent", () => {
+test("operations are bounded, scoped and full production backfill remains absent", () => {
   assert.match(operations, /Math\.min\(100/);
   assert.match(operations, /Math\.min\(10/);
+  assert.match(operations, /Math\.min\(20/);
+  assert.match(operations, /safeOnly/);
   assert.match(operationsApi, /confirm !== "INITIALIZE"/);
   assert.match(operationsApi, /confirm !== "CANARY"/);
+  assert.match(operationsApi, /confirm !== "BACKFILL-CHUNK"/);
+  assert.match(operationsApi, /Bounded backfill vyžaduje explicitný target type/);
+  assert.match(operationsApi, /Safe-only initialization vyžaduje explicitný target type/);
   assert.match(operationsApi, /fullBackfillEnabled: false/);
-  assert.doesNotMatch(operations + operationsApi, /geocodeAll|geocode_everything|fullBackfill\s*=\s*true/i);
+  assert.match(geoOperationsComponent, /Inicializovať SAFE max\. 20/);
+  assert.match(geoOperationsComponent, /Backfill max\. 5/);
+  assert.match(geoOperationsComponent, /Vyber target/);
+  assert.doesNotMatch(operations + operationsApi + geoOperationsComponent, /geocodeAll|geocode_everything|fullBackfill\s*=\s*true/i);
 });
 
 test("Gate A inventory is SELECT-only and never reads private lost/found storage", () => {
