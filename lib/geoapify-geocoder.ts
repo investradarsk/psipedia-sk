@@ -88,7 +88,17 @@ export class GeoapifyGeocoder implements GeocoderProvider {
     if (!this.apiKey) throw new GeocoderProviderError("DISABLED", "Geoapify provider is not configured.");
 
     const url = new URL(GEOAPIFY_ENDPOINT);
-    url.searchParams.set("text", query);
+    const structured = !approximate ? request.structuredAddress : undefined;
+    if (structured?.street && structured.housenumber) {
+      url.searchParams.set("housenumber", structured.housenumber);
+      url.searchParams.set("street", structured.street);
+      if (structured.postcode) url.searchParams.set("postcode", structured.postcode);
+      if (structured.city) url.searchParams.set("city", structured.city);
+      if (structured.state) url.searchParams.set("state", structured.state);
+      if (structured.country) url.searchParams.set("country", structured.country);
+    } else {
+      url.searchParams.set("text", query);
+    }
     url.searchParams.set("format", "json");
     url.searchParams.set("lang", "sk");
     url.searchParams.set("limit", "5");
