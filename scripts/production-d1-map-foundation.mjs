@@ -307,10 +307,15 @@ async function applyStep(target) {
 }
 
 async function verify0063() {
-  const prepared = await prepare(MAP_FOUNDATION_MIGRATIONS[0]);
+  const prepared = await prepare(MAP_FOUNDATION_MIGRATIONS[1]);
   const db = prepared.resources.d1.database_name;
   const names = history(db, prepared.configPath).map((row) => String(row.name));
-  assertHistoryExactly(names, expectedPrefix(prepared.files, MAP_FOUNDATION_MIGRATIONS[0]), "verify 0063");
+  const latest = names.at(-1);
+  invariant(
+    latest === MAP_FOUNDATION_MIGRATIONS[0] || latest === MAP_FOUNDATION_MIGRATIONS[1],
+    `verify 0063 requires production at 0063 or 0064; latest=${latest ?? "<none>"}`,
+  );
+  assertHistoryExactly(names, expectedPrefix(prepared.files, latest), "verify 0063");
   const objects = schemaObjects(db, prepared.configPath);
   assertObjects(objects, PARTNER_0063_OBJECTS, "0063");
   const internal = await readJson(".production-map-foundation/preflight-internal.json");
