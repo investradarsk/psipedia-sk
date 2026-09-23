@@ -176,7 +176,7 @@ Before setting the flag:
 3. enable **Maps JavaScript API**;
 4. create a production Map ID compatible with Advanced Markers;
 5. create a browser API key;
-6. restrict the key to the canonical Psipedia HTTPS origin(s);
+6. restrict the website key to `https://psipedia.sk/*`; the current `www.psipedia.sk` host redirects to the canonical non-www origin, so do not add it unless that routing changes;
 7. restrict the key to Maps JavaScript API only;
 8. configure usage/quota monitoring;
 9. place key/Map ID in the correct production environment mechanism;
