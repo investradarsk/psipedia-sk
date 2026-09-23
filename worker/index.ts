@@ -7,6 +7,7 @@ import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-so
 import { createProductionOrganizationEnricher } from "../lib/data-automation-organization-enrichment";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runPartnerNotificationSweep } from "../lib/partner-email";
+import { runReviewAuthorNotificationSweep } from "../lib/review-author-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
@@ -189,12 +190,20 @@ const worker = {
   },
 
   async scheduled(_controller: unknown, env: Env, _ctx: ExecutionContext): Promise<void> {
-    const [summary, editorial, partnerNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery] = await Promise.all([
+    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
         console.error(JSON.stringify({
           event: "partner_notification_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.name : "unknown_error",
+        }));
+        return { candidates: 0, sent: 0, failed: 1, expired: 0, skipped: 0 };
+      }),
+      runReviewAuthorNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "review_author_notification_sweep",
           result: "failed",
           error: error instanceof Error ? error.name : "unknown_error",
         }));
@@ -237,6 +246,7 @@ const worker = {
     }));
     console.info(JSON.stringify({ event: "editorial_notification_sweep", ...editorial }));
     console.info(JSON.stringify({ event: "partner_notification_sweep", ...partnerNotifications }));
+    console.info(JSON.stringify({ event: "review_author_notification_sweep", ...reviewAuthorNotifications }));
     console.info(JSON.stringify({ event: "notion_article_sync_sweep", ...notionArticles }));
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));

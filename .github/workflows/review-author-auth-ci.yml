@@ -1,0 +1,143 @@
+name: REVIEWS-2A Review Author Authentication
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/recenzia/**"
+      - "app/api/review-author/**"
+      - "components/review-author-*"
+      - "components/profile-review-section.tsx"
+      - "components/profile-review-section.module.css"
+      - "components/cookie-consent.tsx"
+      - "components/programmatic-ad-loader.tsx"
+      - "lib/review-author-*"
+      - "lib/resource-access.ts"
+      - "lib/resource-access-store.ts"
+      - "lib/pii-crypto.ts"
+      - "lib/rate-limit.ts"
+      - "lib/turnstile.ts"
+      - "worker/index.ts"
+      - "tests/review-author-auth.test.mjs"
+      - "tests/e2e/review-author-auth.spec.ts"
+      - "tests/fixtures/review-author-auth-e2e.sql"
+      - "package.json"
+      - ".github/workflows/review-author-auth-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: reviews-2a-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Reviewer auth — security, D1, lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Migration safety
+        run: npm run db:check-migrations
+      - name: REVIEWS-2A reviewer auth tests
+        run: npm run test:review-author-auth
+      - name: Clean D1 migration chain
+        run: npm run db:validate-clean
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  e2e:
+    name: Reviewer auth — desktop/mobile accessibility and security
+    needs: security
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+      E2E_BASE_URL: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Configure CI-only local PII keys
+        run: |
+          PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
+          PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$PII_ENCRYPTION_KEY"
+            printf 'PII_HASH_KEY=%s\n' "$PII_HASH_KEY"
+            printf 'TURNSTILE_SITE_KEY=%s\n' 'review-e2e-site-key'
+            printf 'TURNSTILE_SECRET_KEY=%s\n' 'review-e2e-secret-key'
+          } > .dev.vars
+      - name: Apply migrations to isolated local D1
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed isolated reviewer auth fixtures
+        run: |
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/review-author-auth-e2e.sql
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/reviews-2a
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/reviews-2a/server.log 2>&1 &
+          echo $! > .e2e-artifacts/reviews-2a/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/recenzia/prihlasenie >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/reviews-2a/server.log
+            exit 1
+          fi
+      - name: Reviewer auth Playwright — desktop
+        run: npm run e2e -- tests/e2e/review-author-auth.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: Reviewer auth Playwright — mobile
+        run: npm run e2e -- tests/e2e/review-author-auth.spec.ts --project=mobile-chromium --workers=1 --retries=0
+      - name: Assert auth flow creates no review rows
+        run: |
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command "SELECT COUNT(*) AS review_count FROM profile_reviews;" --json > .e2e-artifacts/reviews-2a/profile-review-count.json
+          node -e 'const fs=require("node:fs");const data=JSON.parse(fs.readFileSync(".e2e-artifacts/reviews-2a/profile-review-count.json","utf8"));const rows=data.flatMap(x=>x.results||[]);if(rows.length!==1||Number(rows[0].review_count)!==0){console.error(data);process.exit(1)}'
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/reviews-2a/server.pid ]; then
+            kill "$(cat .e2e-artifacts/reviews-2a/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviews-2a-e2e-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/reviews-2a/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
