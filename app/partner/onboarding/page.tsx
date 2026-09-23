@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PartnerContactProfileForm } from "@/components/partner-contact-profile-form";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
@@ -28,6 +29,9 @@ export default async function PartnerOnboardingPage({
           <h2>Kontaktná osoba</h2>
           <p>Meno a priezvisko je povinné. Telefón a vaša úloha sú voliteľné.</p>
           <PartnerContactProfileForm mode="onboarding" returnTo={returnTo} />
+          <p className="partner-auth-switch">
+            Potrebujete sa odhlásiť alebo spravovať bezpečnosť účtu? <Link href="/partner/nastavenia">Otvoriť nastavenia</Link>.
+          </p>
         </div>
       </section>
     </main>
