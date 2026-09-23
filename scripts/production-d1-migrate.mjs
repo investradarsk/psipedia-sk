@@ -53,6 +53,54 @@ export const REVIEW_TRIGGERS = Object.freeze([
   "moderation_events_no_delete",
 ]);
 
+export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
+  "0062_profile_reviews_foundation.sql",
+  "0063_partner_claims_verification.sql",
+  "0064_geo_foundation.sql",
+]);
+
+export const PARTNER_CLAIM_TABLES = Object.freeze([
+  "partner_claims",
+  "partner_resource_verifications",
+]);
+
+export const PARTNER_CLAIM_INDEXES = Object.freeze([
+  "partner_claims_pending_unique",
+  "partner_claims_status_created_idx",
+  "partner_claims_account_created_idx",
+  "partner_claims_resource_status_idx",
+  "partner_resource_verifications_account_resource_unique",
+  "partner_resource_verifications_status_submitted_idx",
+  "partner_resource_verifications_resource_status_idx",
+  "partner_notification_outbox_dedupe_unique",
+  "partner_notification_outbox_status_expiry_idx",
+  "partner_notification_outbox_account_created_idx",
+  "partner_audit_target_created_idx",
+  "partner_audit_actor_created_idx",
+]);
+
+export const PARTNER_CLAIM_TRIGGERS = Object.freeze([
+  "partner_audit_events_no_update",
+  "partner_audit_events_no_delete",
+]);
+
+export const GEO_INDEXES = Object.freeze([
+  "geo_points_directory_unique",
+  "geo_points_organization_location_unique",
+  "geo_points_event_unique",
+  "geo_points_status_updated_idx",
+  "geo_points_public_spatial_idx",
+  "geo_points_provider_query_idx",
+]);
+
+export const SENSITIVE_DIRECTORY_CATEGORIES = Object.freeze([
+  "chovatelske-stanice",
+  "chovatelske-kluby",
+  "treneri",
+  "vencenie",
+  "kynologicke-kluby",
+]);
+
 function invariant(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -190,6 +238,7 @@ async function migrationFileNames() {
 }
 
 export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_MIGRATION } = {}) {
+  invariant(SUPPORTED_PRODUCTION_TARGETS.includes(targetMigration), `Unsupported production migration target: ${targetMigration}`);
   const [files, resources, generated] = await Promise.all([
     migrationFileNames(),
     readJson("config/cloudflare-resources.json"),
@@ -270,6 +319,63 @@ function assertFoundationSchema(schema) {
   );
 }
 
+
+function targetSchemaObjects(schema, targetMigration) {
+  const names = objectMap(schema.objects);
+  if (targetMigration === "0062_profile_reviews_foundation.sql") {
+    return {
+      partial: schema.columns.some((column) => column.name === "archived_at")
+        || REVIEW_TABLES.some((table) => names.has(table))
+        || names.has("directory_profiles_archive_idx"),
+    };
+  }
+  if (targetMigration === "0063_partner_claims_verification.sql") {
+    return {
+      partial: PARTNER_CLAIM_TABLES.some((table) => names.has(table))
+        || PARTNER_CLAIM_INDEXES.slice(0, 7).some((index) => names.has(index)),
+    };
+  }
+  if (targetMigration === "0064_geo_foundation.sql") {
+    return {
+      partial: names.has("geo_points") || GEO_INDEXES.some((index) => names.has(index)),
+    };
+  }
+  throw new Error(`Unsupported production migration target: ${targetMigration}`);
+}
+
+function assertPartnerClaimsSchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of PARTNER_CLAIM_TABLES) invariant(names.get(table)?.type === "table", `Missing partner claim table: ${table}`);
+  for (const index of PARTNER_CLAIM_INDEXES) invariant(names.get(index)?.type === "index", `Missing partner claim index: ${index}`);
+  for (const trigger of PARTNER_CLAIM_TRIGGERS) invariant(names.get(trigger)?.type === "trigger", `Missing partner audit trigger: ${trigger}`);
+
+  const outboxSql = String(names.get("partner_notification_outbox")?.sql ?? "");
+  const auditSql = String(names.get("partner_audit_events")?.sql ?? "");
+  invariant(outboxSql.includes("CLAIM_SUBMITTED"), "partner_notification_outbox does not allow claim notifications");
+  invariant(outboxSql.includes("VERIFICATION_APPROVED"), "partner_notification_outbox does not allow verification notifications");
+  invariant(auditSql.includes("CLAIM_SUBMITTED"), "partner_audit_events does not allow claim audit actions");
+  invariant(auditSql.includes("VERIFICATION_REQUESTED"), "partner_audit_events does not allow verification audit actions");
+}
+
+function assertGeoFoundationSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("geo_points")?.type === "table", "Missing geo_points table");
+  for (const index of GEO_INDEXES) invariant(names.get(index)?.type === "index", `Missing geo index: ${index}`);
+  const geoSql = String(names.get("geo_points")?.sql ?? "");
+  invariant(geoSql.includes("DIRECTORY_PROFILE"), "geo_points target constraint is missing DIRECTORY_PROFILE");
+  invariant(geoSql.includes("ORGANIZATION_LOCATION"), "geo_points target constraint is missing ORGANIZATION_LOCATION");
+  invariant(geoSql.includes("MANAGED_EVENT"), "geo_points target constraint is missing MANAGED_EVENT");
+  invariant(geoSql.includes("APPROXIMATE_PUBLIC"), "geo_points public visibility constraint is incomplete");
+  invariant(geoSql.includes("resolved_source_fingerprint"), "geo_points resolved fingerprint column is missing");
+  invariant(!/lost_found/i.test(geoSql), "generic geo_points schema must not contain lost/found private location data");
+}
+
+function assertTargetSchema(schema, targetMigration) {
+  assertFoundationSchema(schema);
+  if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
+  if (migrationIndex(targetMigration) >= 64) assertGeoFoundationSchema(schema);
+}
+
 function migrationHistory(databaseName, configPath) {
   return d1Execute(databaseName, configPath, "SELECT id,name,applied_at FROM d1_migrations ORDER BY id");
 }
@@ -331,7 +437,26 @@ function safeCounts(snapshot) {
   };
 }
 
+function partnerRebuildSnapshot(databaseName, configPath) {
+  const outboxRows = d1Execute(databaseName, configPath, `
+    SELECT id,partner_account_id,notification_type,dedupe_key,status,encrypted_secret,expires_at,
+      attempts,last_attempt_at,provider_message_id,last_error,sent_at,created_at,updated_at
+    FROM partner_notification_outbox ORDER BY id
+  `);
+  const auditRows = d1Execute(databaseName, configPath, `
+    SELECT id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at
+    FROM partner_audit_events ORDER BY id
+  `);
+  return {
+    outboxCount: outboxRows.length,
+    auditCount: auditRows.length,
+    outboxDigest: stableHash(outboxRows),
+    auditDigest: stableHash(auditRows),
+  };
+}
+
 function targetState(history, schema, targetMigration) {
+  invariant(SUPPORTED_PRODUCTION_TARGETS.includes(targetMigration), `Unsupported production migration target: ${targetMigration}`);
   const targetIndex = migrationIndex(targetMigration);
   const historyNames = history.map((row) => String(row.name));
   const indexes = historyNames.map((name) => {
@@ -339,21 +464,20 @@ function targetState(history, schema, targetMigration) {
   });
   const latestIndex = indexes.length ? Math.max(...indexes) : -1;
   const targetApplied = historyNames.includes(targetMigration);
-  const names = objectMap(schema.objects);
-  const archivedAtExists = schema.columns.some((column) => column.name === "archived_at");
-  const reviewTablesPresent = REVIEW_TABLES.filter((table) => names.get(table)?.type === "table");
-  const partialPhysicalState = archivedAtExists || reviewTablesPresent.length > 0 || names.has("directory_profiles_archive_idx");
+  const targetObjects = targetSchemaObjects(schema, targetMigration);
 
   if (!targetApplied) {
     invariant(latestIndex === targetIndex - 1,
       `Target ${targetMigration} is pending, but latest applied migration is ${latestIndex < 0 ? "<unknown>" : String(latestIndex).padStart(4, "0")}; expected exactly ${String(targetIndex - 1).padStart(4, "0")}`);
-    invariant(!partialPhysicalState,
-      "Migration 0062 is not recorded, but 0062 schema objects already exist; possible partial/manual drift");
+    invariant(!targetObjects.partial,
+      `Migration ${String(targetIndex).padStart(4, "0")} is not recorded, but target schema objects already exist; possible partial/manual drift`);
+    if (targetIndex > 62) assertFoundationSchema(schema);
+    if (targetIndex > 63) assertPartnerClaimsSchema(schema);
   } else {
-    assertFoundationSchema(schema);
+    assertTargetSchema(schema, targetMigration);
   }
 
-  return { historyNames, latestIndex, targetApplied, archivedAtExists, reviewTablesPresent };
+  return { historyNames, latestIndex, targetApplied };
 }
 
 function assertProductionIdentity(resources, generated, infoPayload) {
@@ -394,6 +518,13 @@ async function preflight(targetMigration) {
   const schema = schemaState(databaseName, prepared.configPath);
   const state = targetState(history, schema, targetMigration);
   const snapshot = dataSnapshot(databaseName, prepared.configPath);
+  const targetIndex = prepared.selection.targetIndex;
+  const reviewCountBefore = targetIndex >= 63
+    ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews")
+    : null;
+  const partnerRebuildBefore = targetIndex >= 63
+    ? partnerRebuildSnapshot(databaseName, prepared.configPath)
+    : null;
 
   invariant(snapshot.duplicateDirectoryAnchors === 0, "Duplicate directory canonical resources detected");
   invariant(snapshot.duplicateOrganizationAnchors === 0, "Duplicate organization canonical resources detected");
@@ -417,6 +548,8 @@ async function preflight(targetMigration) {
     accountId: prepared.resources.account_id,
     workerName: prepared.generated.name,
     recoveryBookmark: bookmark,
+    reviewCountBefore,
+    partnerRebuildBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -432,6 +565,8 @@ async function preflight(targetMigration) {
     recoveryMechanism: "D1 Time Travel",
     recoveryBookmark: bookmark,
     counts: safeCounts(snapshot),
+    reviewCountBefore,
+    partnerRebuildBefore,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -477,7 +612,7 @@ async function verify(targetMigration) {
   const schema = schemaState(databaseName, prepared.configPath);
   const state = targetState(history, schema, targetMigration);
   invariant(state.targetApplied, `Target migration is still not recorded as applied: ${targetMigration}`);
-  assertFoundationSchema(schema);
+  assertTargetSchema(schema, targetMigration);
 
   const after = dataSnapshot(databaseName, prepared.configPath);
   const before = internal.before;
@@ -505,7 +640,35 @@ async function verify(targetMigration) {
   }
 
   const reviewCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews");
-  invariant(reviewCount === 0, "profile_reviews must remain empty in REVIEWS-1A-MIG; fake or unexpected reviews are not allowed");
+  const targetIndex = migrationIndex(targetMigration);
+  if (targetIndex === 62 && !internal.targetApplied) {
+    invariant(reviewCount === 0, "profile_reviews must remain empty on first 0062 foundation rollout");
+  }
+  if (targetIndex >= 63) {
+    invariant(
+      reviewCount === internal.reviewCountBefore,
+      `profile_reviews count changed unexpectedly: before=${internal.reviewCountBefore}, after=${reviewCount}`,
+    );
+    const partnerRebuildAfter = partnerRebuildSnapshot(databaseName, prepared.configPath);
+    invariant(
+      partnerRebuildAfter.outboxCount === internal.partnerRebuildBefore.outboxCount
+        && partnerRebuildAfter.outboxDigest === internal.partnerRebuildBefore.outboxDigest,
+      "partner_notification_outbox data changed unexpectedly",
+    );
+    invariant(
+      partnerRebuildAfter.auditCount === internal.partnerRebuildBefore.auditCount
+        && partnerRebuildAfter.auditDigest === internal.partnerRebuildBefore.auditDigest,
+      "partner_audit_events data changed unexpectedly",
+    );
+  }
+
+  
+  let geoFoundation = null;
+  if (targetIndex >= 64) {
+    const geoCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM geo_points");
+    if (!internal.targetApplied) invariant(geoCount === 0, "0064 is schema-only; geo_points must remain empty immediately after migration");
+    geoFoundation = { geoCount, schemaOnlyMigration: true };
+  }
 
   await writeJson(".production-d1/postflight-report.json", {
     targetMigration,
@@ -515,19 +678,192 @@ async function verify(targetMigration) {
     databaseId: prepared.resources.d1.database_id,
     accountId: prepared.resources.account_id,
     workerName: prepared.generated.name,
+    verifiedTargetIndex: targetIndex,
     archivedAt: true,
     reviewTables: REVIEW_TABLES,
     reviewIndexes: REVIEW_INDEXES,
     reviewTriggers: REVIEW_TRIGGERS,
     reviewCount,
+    reviewCountPreserved: targetIndex >= 63 ? reviewCount === internal.reviewCountBefore : true,
+    partnerRebuildPreserved: targetIndex >= 63,
+    partnerClaims: targetIndex >= 63 ? {
+      tables: PARTNER_CLAIM_TABLES,
+      indexes: PARTNER_CLAIM_INDEXES,
+      triggers: PARTNER_CLAIM_TRIGGERS,
+    } : null,
+    geoFoundation,
     counts: safeCounts(after),
     dataIntegrity: "PASS",
-    resourceBackfill: "PASS",
+    canonicalResourcesPreserved: "PASS",
+    resourceBackfill: targetIndex === 62 ? "PASS" : "NOT_APPLICABLE",
     unexpectedMigrationsApplied: false,
   });
 
-  console.log(`[production-d1] verification PASS — ${targetMigration} applied; archived_at=yes; reviewTables=${REVIEW_TABLES.length}; reviewCount=0`);
-  console.log(`[production-d1] backfill PASS — missingDirectory=0; missingOrganizations=0; resources=${after.partnerResources}; memberships preserved=${after.partnerMemberships}`);
+  console.log(`[production-d1] verification PASS — ${targetMigration} applied; archived_at=yes; reviewTables=${REVIEW_TABLES.length}; reviewCount=${reviewCount}`);
+  if (geoFoundation) console.log(`[production-d1] geo schema PASS — geo_points=${geoFoundation.geoCount}; schemaOnly=${geoFoundation.schemaOnlyMigration}`);
+  console.log(`[production-d1] canonical resources PASS — missingDirectory=0; missingOrganizations=0; resources=${after.partnerResources}; memberships preserved=${after.partnerMemberships}`);
+}
+
+
+function geoReadinessSnapshot(databaseName, configPath) {
+  const geoTotal = scalarCount(databaseName, configPath, "SELECT COUNT(*) AS count FROM geo_points");
+  const geoByTarget = d1Execute(databaseName, configPath,
+    "SELECT target_type,COUNT(*) AS count FROM geo_points GROUP BY target_type ORDER BY target_type");
+  const geoByStatus = d1Execute(databaseName, configPath,
+    "SELECT geocode_status,COUNT(*) AS count FROM geo_points GROUP BY geocode_status ORDER BY geocode_status");
+  const geoByVisibility = d1Execute(databaseName, configPath,
+    "SELECT COALESCE(public_visibility,'UNCLASSIFIED') AS public_visibility,COUNT(*) AS count FROM geo_points GROUP BY COALESCE(public_visibility,'UNCLASSIFIED') ORDER BY public_visibility");
+  const publicResolvedCurrent = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count FROM geo_points
+    WHERE public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+      AND geocode_status='RESOLVED'
+      AND latitude IS NOT NULL AND longitude IS NOT NULL
+      AND resolved_source_fingerprint IS NOT NULL
+      AND source_fingerprint=resolved_source_fingerprint
+  `);
+  const publicDirectoryEligible = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count
+    FROM geo_points g JOIN directory_profiles d ON d.id=g.directory_profile_id
+    WHERE g.target_type='DIRECTORY_PROFILE'
+      AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+      AND g.geocode_status='RESOLVED'
+      AND g.latitude IS NOT NULL AND g.longitude IS NOT NULL
+      AND g.resolved_source_fingerprint IS NOT NULL
+      AND g.source_fingerprint=g.resolved_source_fingerprint
+      AND d.status='published' AND d.archived_at IS NULL AND d.online=0
+  `);
+  const publicOrganizationEligible = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count
+    FROM geo_points g
+    JOIN organization_locations l ON l.id=g.organization_location_id
+    JOIN help_organizations o ON o.id=l.organization_id
+    WHERE g.target_type='ORGANIZATION_LOCATION'
+      AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+      AND g.geocode_status='RESOLVED'
+      AND g.latitude IS NOT NULL AND g.longitude IS NOT NULL
+      AND g.resolved_source_fingerprint IS NOT NULL
+      AND g.source_fingerprint=g.resolved_source_fingerprint
+      AND o.status='PUBLISHED' AND o.archived_at IS NULL
+  `);
+  const publicEventEligible = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count
+    FROM geo_points g JOIN managed_events e ON e.id=g.managed_event_id
+    WHERE g.target_type='MANAGED_EVENT'
+      AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
+      AND g.geocode_status='RESOLVED'
+      AND g.latitude IS NOT NULL AND g.longitude IS NOT NULL
+      AND g.resolved_source_fingerprint IS NOT NULL
+      AND g.source_fingerprint=g.resolved_source_fingerprint
+      AND e.status='published' AND e.cancelled=0 AND e.region<>'Online'
+      AND COALESCE(e.end_date,e.start_date) >= date('now')
+  `);
+  const publicMapEligible = {
+    directoryProfiles: publicDirectoryEligible,
+    organizationLocations: publicOrganizationEligible,
+    activePhysicalEvents: publicEventEligible,
+    total: publicDirectoryEligible + publicOrganizationEligible + publicEventEligible,
+  };
+
+  const sensitiveExactPublic = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count
+    FROM geo_points g JOIN directory_profiles d ON d.id=g.directory_profile_id
+    WHERE g.target_type='DIRECTORY_PROFILE'
+      AND g.public_visibility='EXACT_PUBLIC'
+      AND g.geocode_status='RESOLVED'
+      AND d.category IN ('${SENSITIVE_DIRECTORY_CATEGORIES.join("','")}')
+  `);
+  const legalSeatExactPublic = scalarCount(databaseName, configPath, `
+    SELECT COUNT(*) AS count
+    FROM geo_points g JOIN organization_locations l ON l.id=g.organization_location_id
+    WHERE g.target_type='ORGANIZATION_LOCATION'
+      AND l.role='LEGAL_SEAT'
+      AND g.public_visibility='EXACT_PUBLIC'
+      AND g.geocode_status='RESOLVED'
+  `);
+  const hiddenWithCoordinates = scalarCount(databaseName, configPath,
+    "SELECT COUNT(*) AS count FROM geo_points WHERE public_visibility='HIDDEN' AND (latitude IS NOT NULL OR longitude IS NOT NULL)");
+  const unclassifiedWithCoordinates = scalarCount(databaseName, configPath,
+    "SELECT COUNT(*) AS count FROM geo_points WHERE public_visibility IS NULL AND (latitude IS NOT NULL OR longitude IS NOT NULL)");
+
+  const sourceDirectory = scalarCount(databaseName, configPath,
+    "SELECT COUNT(*) AS count FROM directory_profiles WHERE status='published' AND archived_at IS NULL AND online=0");
+  const sourceOrganizationLocations = scalarCount(databaseName, configPath,
+    "SELECT COUNT(*) AS count FROM organization_locations l JOIN help_organizations o ON o.id=l.organization_id WHERE o.status='PUBLISHED' AND o.archived_at IS NULL");
+  const sourceEvents = scalarCount(databaseName, configPath,
+    "SELECT COUNT(*) AS count FROM managed_events WHERE status='published' AND cancelled=0 AND region<>'Online' AND COALESCE(end_date,start_date) >= date('now')");
+
+  return {
+    schemaReady: true,
+    geoTotal,
+    geoByTarget,
+    geoByStatus,
+    geoByVisibility,
+    publicResolvedCurrent,
+    publicMapEligible,
+    privacy: {
+      sensitiveExactPublic,
+      legalSeatExactPublic,
+      hiddenWithCoordinates,
+      unclassifiedWithCoordinates,
+    },
+    sources: {
+      directoryProfiles: sourceDirectory,
+      organizationLocations: sourceOrganizationLocations,
+      activePhysicalEvents: sourceEvents,
+      total: sourceDirectory + sourceOrganizationLocations + sourceEvents,
+    },
+  };
+}
+
+async function geoReadiness(targetMigration) {
+  invariant(migrationIndex(targetMigration) >= 64, "Geo readiness requires target migration 0064 or later");
+  const prepared = await prepareScopedMigration({ targetMigration });
+  assertCredentialContract(prepared.resources);
+  const databaseName = prepared.resources.d1.database_name;
+  const history = migrationHistory(databaseName, prepared.configPath);
+  const schema = schemaState(databaseName, prepared.configPath);
+  const historyNames = history.map((row) => String(row.name));
+  const schemaRecorded = historyNames.includes("0064_geo_foundation.sql");
+  const schemaObjectPresent = objectMap(schema.objects).get("geo_points")?.type === "table";
+
+  if (!schemaRecorded || !schemaObjectPresent) {
+    const report = {
+      checkedAt: new Date().toISOString(),
+      targetMigration: "0064_geo_foundation.sql",
+      databaseName,
+      databaseId: prepared.resources.d1.database_id,
+      schemaReady: false,
+      latestAppliedMigration: historyNames.at(-1) ?? null,
+      historyRecorded: schemaRecorded,
+      geoTablePresent: schemaObjectPresent,
+      dataReady: false,
+      dataReadinessReason: "GEO_SCHEMA_NOT_APPLIED",
+    };
+    await writeJson(".production-d1/geo-readiness-report.json", report);
+    console.log(`[production-d1] geo readiness — schemaReady=false; latest=${report.latestAppliedMigration ?? "<none>"}`);
+    return report;
+  }
+
+  assertTargetSchema(schema, "0064_geo_foundation.sql");
+  const snapshot = geoReadinessSnapshot(databaseName, prepared.configPath);
+  invariant(snapshot.privacy.sensitiveExactPublic === 0, "P1 privacy blocker: sensitive directory category has EXACT_PUBLIC resolved coordinates");
+  invariant(snapshot.privacy.legalSeatExactPublic === 0, "P1 privacy blocker: LEGAL_SEAT has EXACT_PUBLIC resolved coordinates");
+  invariant(snapshot.privacy.hiddenWithCoordinates === 0, "P1 privacy blocker: HIDDEN geo rows contain coordinates");
+  invariant(snapshot.privacy.unclassifiedWithCoordinates === 0, "P1 privacy blocker: unclassified geo rows contain coordinates");
+
+  const report = {
+    checkedAt: new Date().toISOString(),
+    targetMigration: "0064_geo_foundation.sql",
+    databaseName,
+    databaseId: prepared.resources.d1.database_id,
+    latestAppliedMigration: historyNames.at(-1) ?? null,
+    ...snapshot,
+    dataReady: snapshot.publicMapEligible.total > 0,
+    dataReadinessReason: snapshot.publicMapEligible.total > 0 ? "PUBLIC_CANONICAL_MAP_ROWS_AVAILABLE" : "NO_PUBLIC_CANONICAL_MAP_ROWS",
+  };
+  await writeJson(".production-d1/geo-readiness-report.json", report);
+  console.log(`[production-d1] geo readiness — sources=${snapshot.sources.total}; geoRows=${snapshot.geoTotal}; publicResolved=${snapshot.publicResolvedCurrent}; publicCanonical=${snapshot.publicMapEligible.total}; dataReady=${report.dataReady}`);
+  return report;
 }
 
 async function runCli() {
@@ -541,7 +877,8 @@ async function runCli() {
   if (command === "preflight") return preflight(targetMigration);
   if (command === "apply") return apply(targetMigration);
   if (command === "verify") return verify(targetMigration);
-  throw new Error("Usage: node scripts/production-d1-migrate.mjs <prepare|preflight|apply|verify>");
+  if (command === "geo-readiness") return geoReadiness(targetMigration);
+  throw new Error("Usage: node scripts/production-d1-migrate.mjs <prepare|preflight|apply|verify|geo-readiness>");
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

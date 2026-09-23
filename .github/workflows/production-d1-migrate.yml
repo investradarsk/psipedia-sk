@@ -10,8 +10,10 @@ on:
         default: 0062_profile_reviews_foundation.sql
         options:
           - 0062_profile_reviews_foundation.sql
+          - 0063_partner_claims_verification.sql
+          - 0064_geo_foundation.sql
       confirmation:
-        description: Type APPLY-0062-psipedia-sk-db exactly
+        description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
         type: string
 
@@ -38,7 +40,9 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
           confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
-          test "$confirmation" = "APPLY-0062-psipedia-sk-db"
+          migration_index="${TARGET_MIGRATION%%_*}"
+          expected_confirmation="APPLY-${migration_index}-psipedia-sk-db"
+          test "$confirmation" = "$expected_confirmation"
 
       - name: Checkout exact dispatched main revision
         uses: actions/checkout@v4
@@ -98,11 +102,15 @@ jobs:
       - name: Install Chromium for production smoke
         run: npx playwright install --with-deps chromium
 
+      - name: Geo readiness report
+        if: inputs.target_migration == '0064_geo_foundation.sql'
+        run: node scripts/production-d1-migrate.mjs geo-readiness
+
       - name: Key production route smoke
         shell: bash
         run: |
           set -euo pipefail
-          for route in             "/"             "/adresar"             "/adresar/veterinari/ab-vet-piestany"             "/pomoc-psom/utulky"             "/sitemap.xml"             "/recenzie"
+          for route in             "/"             "/adresar"             "/adresar/veterinari/ab-vet-piestany"             "/pomoc-psom/utulky"             "/sitemap.xml"             "/recenzie"             "/mapa"
           do
             status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "https://psipedia.sk$route")"
             echo "$route -> $status"
@@ -111,6 +119,27 @@ jobs:
               *) exit 1 ;;
             esac
           done
+
+      - name: Public map API smoke after geo migration
+        if: inputs.target_migration == '0064_geo_foundation.sql'
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://psipedia.sk/api/map?north=50&south=47&east=23&west=16&zoom=12'
+          status="$(curl --silent --show-error --location --output .production-d1/map-api-smoke.json --write-out '%{http_code}' "$url")"
+          echo "/api/map -> $status"
+          test "$status" = "200"
+          node - <<'NODE'
+          const fs = require("fs");
+          const body = JSON.parse(fs.readFileSync(".production-d1/map-api-smoke.json","utf8"));
+          if (body.mode !== "items" && body.mode !== "clusters") throw new Error("Unexpected map response mode");
+          if (!body.meta || typeof body.meta.count !== "number") throw new Error("Map response meta is missing");
+          const serialized = JSON.stringify(body);
+          for (const forbidden of ["source_fingerprint","resolved_source_fingerprint","normalized_query","query_fingerprint","last_error_code","manual_updated_by"]) {
+            if (serialized.includes(forbidden)) throw new Error(`Private/internal map field leaked: ${forbidden}`);
+          }
+          console.log(`MAP_PRODUCTION_SMOKE mode=${body.mode} count=${body.meta.count} matched=${body.meta.matched} truncated=${body.meta.truncated}`);
+          NODE
 
       - name: Production Playwright smoke — desktop
         env:
@@ -131,5 +160,7 @@ jobs:
             .production-d1/manifest.json
             .production-d1/preflight-report.json
             .production-d1/postflight-report.json
+            .production-d1/geo-readiness-report.json
+            .production-d1/map-api-smoke.json
           if-no-files-found: warn
           retention-days: 30

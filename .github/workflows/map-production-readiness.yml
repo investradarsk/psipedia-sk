@@ -1,0 +1,178 @@
+name: MAP-1E Production Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      real_google_smoke_confirmed:
+        description: Confirm a real Google Maps browser smoke passed on production
+        required: true
+        type: boolean
+        default: false
+      attribution_review_confirmed:
+        description: Confirm provider/Google attribution requirements were reviewed
+        required: true
+        type: boolean
+        default: false
+      consent_privacy_review_confirmed:
+        description: Confirm consent/privacy launch review was completed
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: map-production-readiness
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Read-only production map readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      TARGET_MIGRATION: 0064_geo_foundation.sql
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+
+      - name: Checkout exact main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      - name: Require protected read credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Load canonical Cloudflare account id
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(x.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+
+      - name: Migration safety
+        run: npm run db:check-migrations
+
+      - name: Build production artifact
+        run: npm run build
+
+      - name: Prepare scoped 0064 read config
+        run: node scripts/production-d1-migrate.mjs prepare
+
+      - name: Read-only D1 geo readiness report
+        run: node scripts/production-d1-migrate.mjs geo-readiness
+
+      - name: Public map HTTP evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .production-d1
+
+          map_url='https://psipedia.sk/api/map?north=50&south=47&east=23&west=16&zoom=12'
+          map_status="$(curl --silent --show-error --location --output .production-d1/map-api-readiness.json --write-out '%{http_code}' "$map_url")"
+          echo "$map_status" > .production-d1/map-api-status.txt
+
+          page_status="$(curl --silent --show-error --location --dump-header .production-d1/map-page-headers.txt --output .production-d1/map-page.html --write-out '%{http_code}' 'https://psipedia.sk/mapa')"
+          echo "$page_status" > .production-d1/map-page-status.txt
+
+          echo "/api/map -> $map_status"
+          echo "/mapa -> $page_status"
+
+      - name: Assess launch gates
+        shell: bash
+        env:
+          REAL_GOOGLE_SMOKE_CONFIRMED: ${{ inputs.real_google_smoke_confirmed }}
+          ATTRIBUTION_REVIEW_CONFIRMED: ${{ inputs.attribution_review_confirmed }}
+          CONSENT_PRIVACY_REVIEW_CONFIRMED: ${{ inputs.consent_privacy_review_confirmed }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require("fs");
+          const readiness = JSON.parse(fs.readFileSync(".production-d1/geo-readiness-report.json","utf8"));
+          const apiStatus = fs.readFileSync(".production-d1/map-api-status.txt","utf8").trim();
+          const pageStatus = fs.readFileSync(".production-d1/map-page-status.txt","utf8").trim();
+          const headers = fs.readFileSync(".production-d1/map-page-headers.txt","utf8");
+          const html = fs.readFileSync(".production-d1/map-page.html","utf8");
+
+          let apiBody = null;
+          try { apiBody = JSON.parse(fs.readFileSync(".production-d1/map-api-readiness.json","utf8")); } catch {}
+
+          const forbiddenMapFields = ["source_fingerprint","resolved_source_fingerprint","normalized_query","query_fingerprint","last_error_code","manual_updated_by"];
+          const serializedApiBody = apiBody ? JSON.stringify(apiBody) : "";
+          const mapApiContract = Boolean(apiBody && (apiBody.mode === "items" || apiBody.mode === "clusters") && apiBody.meta);
+          const mapApiHasData = Boolean(mapApiContract && Number(apiBody.meta?.matched ?? 0) > 0);
+          const mapApiPrivateFieldsAbsent = forbiddenMapFields.every((field) => !serializedApiBody.includes(field));
+
+          const gates = {
+            schemaReady: readiness.schemaReady === true,
+            dataReady: readiness.dataReady === true,
+            mapApi200: apiStatus === "200",
+            mapPage200: pageStatus === "200",
+            mapApiContract,
+            mapApiHasData,
+            mapApiPrivateFieldsAbsent,
+            cspAllowsGoogleMaps: /content-security-policy:/i.test(headers) && /maps\.googleapis\.com/i.test(headers),
+            geolocationDisabled: /permissions-policy:.*geolocation=\(\)/i.test(headers),
+            googleRendererConfigured: !html.includes("Google Maps nie je nakonfigurovaný"),
+            realGoogleSmokeConfirmed: process.env.REAL_GOOGLE_SMOKE_CONFIRMED === "true",
+            attributionReviewConfirmed: process.env.ATTRIBUTION_REVIEW_CONFIRMED === "true",
+            consentPrivacyReviewConfirmed: process.env.CONSENT_PRIVACY_REVIEW_CONFIRMED === "true",
+          };
+
+          const blockers = Object.entries(gates).filter(([,value]) => !value).map(([key]) => key);
+          const report = {
+            checkedAt: new Date().toISOString(),
+            gates,
+            blockers,
+            launchReady: blockers.length === 0,
+            geo: readiness,
+            publicMap: apiBody && apiStatus === "200" ? {
+              mode: apiBody.mode,
+              count: apiBody.meta?.count ?? null,
+              matched: apiBody.meta?.matched ?? null,
+              truncated: apiBody.meta?.truncated ?? null,
+            } : null,
+          };
+          fs.writeFileSync(".production-d1/map-launch-readiness.json", JSON.stringify(report,null,2)+"\n");
+          console.log(`MAP_LAUNCH_READY=${report.launchReady}`);
+          console.log(`MAP_LAUNCH_BLOCKERS=${blockers.join(",") || "<none>"}`);
+          if (!report.launchReady) process.exitCode = 1;
+          NODE
+
+      - name: Remove HTML body from retained evidence
+        if: always()
+        shell: bash
+        run: rm -f .production-d1/map-page.html
+
+      - name: Upload safe readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-production-readiness-${{ github.run_id }}
+          path: |
+            .production-d1/geo-readiness-report.json
+            .production-d1/map-launch-readiness.json
+            .production-d1/map-api-readiness.json
+            .production-d1/map-api-status.txt
+            .production-d1/map-page-status.txt
+            .production-d1/map-page-headers.txt
+          if-no-files-found: warn
+          retention-days: 30

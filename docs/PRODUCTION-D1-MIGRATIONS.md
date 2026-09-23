@@ -199,3 +199,60 @@ After this migration-process PR is merged to `main` and the `production` environ
 8. Retain the workflow run and safe report artifact as the rollout record.
 
 Do not proceed to REVIEWS-1B until the workflow proves 0062 applied and all postconditions pass.
+
+
+---
+
+## MAP-1E: sequential rollout through 0064
+
+The protected `Production D1 Migrate` workflow now supports only these explicit targets:
+
+- `0062_profile_reviews_foundation.sql`
+- `0063_partner_claims_verification.sql`
+- `0064_geo_foundation.sql`
+
+Later repository migrations are intentionally excluded.
+
+When production is at 0062, the required map rollout is:
+
+1. dispatch target `0063_partner_claims_verification.sql`
+2. enter confirmation `APPLY-0063-psipedia-sk-db`
+3. require the full workflow to pass
+4. dispatch target `0064_geo_foundation.sql`
+5. enter confirmation `APPLY-0064-psipedia-sk-db`
+6. require the full workflow to pass
+7. run the manual `MAP-1E Production Readiness` workflow
+
+Do not dispatch 0064 while production migration history still ends at 0062. The preflight deliberately rejects that state.
+
+### 0064-specific postflight
+
+After 0064, the migration workflow additionally:
+
+- verifies the `geo_points` schema and indexes;
+- verifies that the first schema-only application did not insert geo rows;
+- produces `.production-d1/geo-readiness-report.json`;
+- calls the public `/api/map` endpoint and requires HTTP 200 with the public MAP contract;
+- rejects leaked internal geo fields in that response.
+
+A successful 0064 migration means the map schema is available. It does **not** mean public map data are ready.
+
+### Read-only map readiness
+
+`MAP-1E Production Readiness` is a separate manual workflow.
+
+It does not run `d1 migrations apply`, deploy, initialize geo rows, or call the geocoder.
+
+It reports:
+
+- whether 0064 is recorded and `geo_points` exists;
+- public/current RESOLVED geo count;
+- source inventory counts;
+- privacy blocker counts;
+- `/api/map` and `/mapa` status;
+- CSP / Permissions-Policy evidence;
+- a safe configured/not-configured Google renderer signal.
+
+The readiness artifact is the authoritative evidence for deciding whether the public navigation/homepage launch gate can be considered.
+
+See `docs/map-production-launch.md` for the complete MAP-1E rollout and launch criteria.
