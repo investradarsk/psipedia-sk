@@ -7,7 +7,7 @@ import test from "node:test";
 import { defaultNavigationItems } from "../lib/navigation.ts";
 import { applyPublicMapLaunchGate } from "../lib/navigation-store.ts";
 import { hasGoogleMapsConsent } from "../lib/google-maps-consent.ts";
-import { publicMapLaunchEnabled } from "../config/runtime-env.ts";
+import { ConfigurationError, publicMapLaunchEnabled, validateRuntimeEnvironment } from "../config/runtime-env.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -37,6 +37,22 @@ test("public launch gate requires flag, browser key and Map ID", () => {
     GOOGLE_MAPS_BROWSER_API_KEY: "browser-key",
     GOOGLE_MAPS_MAP_ID: "map-id",
   }), false);
+});
+
+test("production config rejects a requested launch without Google renderer config", () => {
+  assert.throws(
+    () => validateRuntimeEnvironment({
+      PUBLIC_MAP_ENABLED: "1",
+      AUTH_MODE: "cloudflare-access",
+      ACCESS_TEAM_DOMAIN: "example.cloudflareaccess.com",
+      ACCESS_AUD: "aud",
+      PII_ENCRYPTION_KEY: "enc",
+      PII_HASH_KEY: "hash",
+    }, { profile: "production" }),
+    (error) => error instanceof ConfigurationError
+      && error.missing.includes("GOOGLE_MAPS_BROWSER_API_KEY")
+      && error.missing.includes("GOOGLE_MAPS_MAP_ID"),
+  );
 });
 
 test("Google Maps consent is explicit and deny-by-default", () => {
