@@ -100,7 +100,7 @@ jobs:
           echo "$headers" | grep -qi 'maps.googleapis.com'
           echo "$headers" | grep -qi '^permissions-policy:.*geolocation=()'
       - name: MAP-1D desktop/mobile Playwright and screenshots
-        run: npx playwright test tests/e2e/map-public-ui.spec.ts --workers=1 --retries=0
+        run: npx playwright test tests/e2e/map-public-ui.spec.ts --project=desktop-chromium --workers=1 --retries=0
       - name: Stop isolated local app
         if: always()
         run: |
