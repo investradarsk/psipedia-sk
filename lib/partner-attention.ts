@@ -22,13 +22,15 @@ export async function loadPartnerPendingSummary(database?:D1Database){
       db.prepare("SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION') AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_new_profile_metadata m ON m.submission_id=s.id WHERE s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
+      db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_event_submission_metadata m ON m.submission_id=s.id WHERE s.resource_type='MANAGED_EVENT' AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'").first<{count:number}>(),
     ]);
     const claims=Number(claimRow?.count??0);
     const profileChanges=Number(profileChangeRow?.count??0);
     const newProfiles=Number(newProfileRow?.count??0);
-    const events=Number(eventRow?.count??0);\n    const verifications=Number(verificationRow?.count??0);
+    const events=Number(eventRow?.count??0);
+    const verifications=Number(verificationRow?.count??0);
     const commercial=Number(commercialRow?.count??0);
     return {...emptyPartnerPendingSummary(),claims,profileChanges,newProfiles,events,verifications,commercial,total:claims+profileChanges+newProfiles+events+verifications+commercial};
   }catch{
