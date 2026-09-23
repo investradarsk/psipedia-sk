@@ -74,7 +74,7 @@ export function applyPublicMapLaunchGate(items: NavigationItem[], enabled: boole
 
 export async function getNavigationItems() {
   const bindings = env as unknown as RuntimeBindings;
-  const enabled = configFlagEnabled(bindings.PUBLIC_MAP_ENABLED);
+  const enabled = configFlagEnabled(bindings.PUBLIC_MAP_ENABLED ?? process.env.PUBLIC_MAP_ENABLED);
   const database = getD1Binding();
   if (!database) return applyPublicMapLaunchGate(defaultNavigationItems, enabled);
   const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
