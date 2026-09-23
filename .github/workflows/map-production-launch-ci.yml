@@ -25,6 +25,7 @@ on:
       - "app/podmienky-pouzivania/page.tsx"
       - "tests/production-d1-map-foundation.test.mjs"
       - "tests/map-production-launch.test.mjs"
+      - "tests/config-contract.test.mjs"
       - "package.json"
   workflow_dispatch:
 
