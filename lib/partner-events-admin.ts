@@ -13,7 +13,6 @@ import {
 } from "@/lib/partner-events";
 import { normalizeManagedEventInput } from "@/lib/event-store";
 import { applyAtomicModerationTransition, isFoundationSubmissionStatus, type FoundationSubmissionStatus } from "@/lib/moderation-transition";
-import { transitionModerationSubmission } from "@/lib/moderation-store";
 import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 
@@ -85,7 +84,17 @@ export async function getPartnerEventAdmin(id:string,input:{database?:D1Database
 async function pending(id:string,status:string,actorRef:string,database:D1Database,requestId?:string|null){
   if(status==="PENDING_REVIEW")return;
   if(status!=="SUBMITTED"&&status!=="QUARANTINED")throw new PartnerEventError("Tento návrh už nie je možné rozhodnúť.",409);
-  await transitionModerationSubmission({id,toStatus:"PENDING_REVIEW",actorType:"ADMIN",actorRef,requestId:requestId??null});
+  await applyAtomicModerationTransition(database,{
+    id,
+    expectedStatus:status as FoundationSubmissionStatus,
+    toStatus:"PENDING_REVIEW",
+    actorType:"ADMIN",
+    actorRef,
+    requestId:requestId??null,
+    eventId:crypto.randomUUID(),
+    changedFieldsJson:JSON.stringify(["status"]),
+    now:new Date().toISOString(),
+  });
 }
 function terminal(database:D1Database,id:string,status:"APPROVED"|"REJECTED",nowIso:string,actorRef:string,resolution:string|null,eventSql:string|null){
   return database.prepare(`UPDATE partner_event_submission_metadata SET dedupe_active=0,resolution_type=?1,resolved_event_id=${eventSql??"resolved_event_id"} WHERE submission_id=?2 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?2 AND status=?3 AND updated_at=?4 AND reviewed_by=?5)`).bind(resolution,id,status,nowIso,actorRef);
