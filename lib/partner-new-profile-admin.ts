@@ -25,7 +25,6 @@ import {
 import {
   applyAtomicModerationTransition,
   isFoundationSubmissionStatus,
-  type FoundationSubmissionStatus,
 } from "@/lib/moderation-transition";
 import { transitionModerationSubmission } from "@/lib/moderation-store";
 
@@ -476,7 +475,6 @@ export async function linkPartnerNewProfileAdmin(input:{
       submissionId:input.id,accountId:row.accountId,type:"NEW_PROFILE_LINKED_EXISTING",status:"APPROVED",actorRef,now,nowIso,
     }),
   ];
-  void spec;
   await applyAtomicModerationTransition(database,{
     id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,
     requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["resolution"]),
