@@ -84,7 +84,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Configure isolated review admin runtime
+      - name: Configure CI-only local PII keys and isolated review admin runtime
         run: |
           PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
           PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
