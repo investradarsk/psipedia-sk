@@ -53,7 +53,7 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
   const jsonLd = buildOrganizationJsonLd(composition.organization);
   const reviewPage = scalar((await searchParams).reviewsPage);
   const partnerVerifiedPromise = isPublicPartnerResourceVerified("HELP_ORGANIZATION", composition.organization.id, database);
-  const commercialPromise = getPublicPartnerCommercialFlags("HELP_ORGANIZATION", composition.organization.id, database);
+  const commercialPromise = getPublicPartnerCommercialFlags("HELP_ORGANIZATION", composition.organization.id);
   const reviewsPromise = getPublicProfileReviewData(database, {
     entityType: "HELP_ORGANIZATION",
     canonicalId: composition.organization.id,
