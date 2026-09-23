@@ -54,6 +54,8 @@ test("new reviewer starts from profile, sees generic success, consumes magic lin
   await reviews.getByRole("link", { name: "Napísať recenziu" }).click();
 
   await expect(page).toHaveURL(/\/recenzia\/prihlasenie\?returnTo=/);
+  const authReturnTo = new URL(page.url()).searchParams.get("returnTo");
+  expect(authReturnTo).toMatch(/^\/recenzia\/napisat\?resourceId=/);
   await expect(page.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
   const submitButton = page.getByRole("button", { name: "Poslať overovací odkaz" });
   await expect(submitButton).toBeEnabled();
@@ -69,18 +71,18 @@ test("new reviewer starts from profile, sees generic success, consumes magic lin
   await page.unroute("**/api/review-author/auth/request-link");
   await page.goto(
     "/recenzia/overenie#token=" + encodeURIComponent(token) +
-    "&returnTo=" + encodeURIComponent(RETURN_TO),
+    "&returnTo=" + encodeURIComponent(authReturnTo!),
   );
-  await expect(page).toHaveURL(new RegExp(PROFILE + "#recenzie$"));
-  await expect(page.locator("#recenzie").getByText("Zatiaľ bez recenzií", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/recenzia\/napisat\?resourceId=/);
+  await expect(page.getByRole("heading", { name: "Napísať recenziu" })).toBeVisible();
 
-  await page.goto("/recenzia/prihlasenie?returnTo=" + encodeURIComponent(RETURN_TO));
+  await page.goto("/recenzia/prihlasenie?returnTo=" + encodeURIComponent(authReturnTo!));
   await expect(page.getByRole("heading", { name: "E-mail je overený" })).toBeVisible();
-  await expect(page.getByText(/formulár na vytvorenie recenzie bude súčasťou nasledujúcej fázy/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Pokračovať" })).toBeVisible();
 
   await page.goto(
     "/recenzia/overenie#token=" + encodeURIComponent(token) +
-    "&returnTo=" + encodeURIComponent(RETURN_TO),
+    "&returnTo=" + encodeURIComponent(authReturnTo!),
   );
   await expect(page.getByRole("heading", { name: "Odkaz sa nepodarilo overiť" })).toBeVisible();
   await expect(page.getByText(/už bol použitý|neplatný|expirovaný/)).toBeVisible();

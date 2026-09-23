@@ -1,19 +1,23 @@
 export const REVIEW_AUTHOR_RETURN_TO_MAX_LENGTH = 1000;
 
-export function normalizeReviewAuthorReturnTo(value: unknown): string | null {
+function parseInternalPath(value: unknown) {
   if (typeof value !== "string") return null;
   const clean = value.trim();
   if (!clean || clean.length > REVIEW_AUTHOR_RETURN_TO_MAX_LENGTH) return null;
   if (!clean.startsWith("/") || clean.startsWith("//") || clean.includes("\\")) return null;
   if (/[\u0000-\u001F\u007F]/.test(clean)) return null;
 
-  let parsed: URL;
   try {
-    parsed = new URL(clean, "https://psipedia.invalid");
+    const parsed = new URL(clean, "https://psipedia.invalid");
+    return parsed.origin === "https://psipedia.invalid" ? parsed : null;
   } catch {
     return null;
   }
-  if (parsed.origin !== "https://psipedia.invalid") return null;
+}
+
+export function normalizeReviewProfileReturnTo(value: unknown): string | null {
+  const parsed = parseInternalPath(value);
+  if (!parsed) return null;
 
   const segments = parsed.pathname.split("/").filter(Boolean);
   const isDirectoryProfile = segments.length === 3
@@ -30,6 +34,25 @@ export function normalizeReviewAuthorReturnTo(value: unknown): string | null {
   const hash = parsed.hash === "#recenzie" ? "#recenzie" : "";
   const query = search.toString();
   return parsed.pathname + (query ? "?" + query : "") + hash;
+}
+
+export function normalizeReviewSubmissionReturnTo(value: unknown): string | null {
+  const parsed = parseInternalPath(value);
+  if (!parsed || parsed.pathname !== "/recenzia/napisat" || parsed.hash) return null;
+  const resourceId = parsed.searchParams.get("resourceId")?.trim() ?? "";
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(resourceId)) return null;
+  const allowed = new URLSearchParams({ resourceId });
+  if (parsed.searchParams.toString() !== allowed.toString()) return null;
+  return "/recenzia/napisat?" + allowed.toString();
+}
+
+export function normalizeReviewAuthorReturnTo(value: unknown): string | null {
+  return normalizeReviewProfileReturnTo(value) ?? normalizeReviewSubmissionReturnTo(value);
+}
+
+export function reviewSubmissionHref(resourceId: string) {
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(resourceId)) return null;
+  return "/recenzia/napisat?resourceId=" + encodeURIComponent(resourceId);
 }
 
 export function reviewAuthorAuthHref(returnTo: string) {

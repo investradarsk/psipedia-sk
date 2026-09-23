@@ -13,6 +13,7 @@ export const OPTIONAL_ENV_NAMES = [
   "LOST_FOUND_SUBMISSIONS_ENABLED",
   "ADOPTION_SUBMISSIONS_ENABLED",
   "ORGANIZATION_SUBMISSIONS_ENABLED",
+  "PROFILE_REVIEW_SUBMISSIONS_ENABLED",
   "NOTION_ARTICLE_SYNC_ENABLED",
   "NOTION_ARTICLES_DATA_SOURCE_ID",
   "NOTION_BREED_SYNC_ENABLED",
@@ -90,7 +91,8 @@ export function validateRuntimeEnvironment(
   const publicSubmissionEnabled =
     configFlagEnabled(env.LOST_FOUND_SUBMISSIONS_ENABLED)
     || configFlagEnabled(env.ADOPTION_SUBMISSIONS_ENABLED)
-    || configFlagEnabled(env.ORGANIZATION_SUBMISSIONS_ENABLED);
+    || configFlagEnabled(env.ORGANIZATION_SUBMISSIONS_ENABLED)
+    || configFlagEnabled(env.PROFILE_REVIEW_SUBMISSIONS_ENABLED);
   const notionArticleSyncEnabled = configFlagEnabled(env.NOTION_ARTICLE_SYNC_ENABLED);
   const notionBreedSyncEnabled = configFlagEnabled(env.NOTION_BREED_SYNC_ENABLED);
   const notionEventSyncEnabled = configFlagEnabled(env.NOTION_EVENT_SYNC_ENABLED);

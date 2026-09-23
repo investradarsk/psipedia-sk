@@ -83,3 +83,46 @@ export async function verifyReviewAuthorTurnstile(input: {
   }
   return result;
 }
+
+export async function enforceProfileReviewSubmissionRateLimits(input: {
+  database: D1Database;
+  request: Request;
+  authorId: string;
+  hashKey: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const store = createD1RateLimitStore(input.database);
+  const authorKey = await deriveRateLimitKey("profile-review-submit-author", input.authorId, input.hashKey);
+  const clientKey = await deriveRateLimitKey("profile-review-submit-client", clientIdentifier(input.request), input.hashKey);
+  const [authorResult, clientResult] = await Promise.all([
+    enforceRateLimit(store, authorKey, 8, 60 * 60, now),
+    enforceRateLimit(store, clientKey, 20, 60 * 60, now),
+  ]);
+  if (!authorResult.allowed || !clientResult.allowed) {
+    throw new ReviewAuthorSecurityError("Za krátky čas bolo odoslaných priveľa recenzií. Skúste to neskôr.", 429);
+  }
+}
+
+export async function verifyProfileReviewSubmissionTurnstile(input: {
+  database: D1Database;
+  request: Request;
+  token: string;
+  secret: string;
+  now?: Date;
+}) {
+  const url = new URL(input.request.url);
+  const result = await verifyTurnstile({
+    token: input.token,
+    secret: input.secret,
+    expectedHostname: url.hostname,
+    expectedAction: "profile_review_submit",
+    remoteIp: input.request.headers.get("cf-connecting-ip")?.trim() || undefined,
+    replayStore: createD1TurnstileReplayStore(input.database),
+    now: input.now,
+  });
+  if (!result.ok) {
+    throw new ReviewAuthorSecurityError("Bezpečnostné overenie zlyhalo. Obnovte formulár a skúste to znova.", 400);
+  }
+  return result;
+}
