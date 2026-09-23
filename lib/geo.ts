@@ -108,6 +108,11 @@ export function normalizeGeoCountryCode(value: string | null | undefined) {
   return (value?.trim() || "SK").toUpperCase();
 }
 
+function isOnlineGeoMarker(value: string | null | undefined) {
+  const normalized = normalizeGeoText(value);
+  return normalized === "online" || normalized === "online-only" || normalized === "online only";
+}
+
 function nonEmpty(...values: Array<string | null | undefined>) {
   return values.map((value) => value?.trim() ?? "").filter(Boolean);
 }
@@ -150,7 +155,17 @@ export function classifyGeoSource(source: GeoSourceLocation): GeoClassification 
   }
 
   if (source.targetType === "DIRECTORY_PROFILE") {
-    if (source.online && !address && !city) {
+    const cityIsOnline = isOnlineGeoMarker(city);
+    const addressIsOnline = isOnlineGeoMarker(address);
+    const regionIsOnline = isOnlineGeoMarker(source.region);
+    const hasPhysicalCity = Boolean(city && !cityIsOnline);
+    const hasPhysicalAddress = Boolean(address && !addressIsOnline);
+    const hasOnlineSentinel = cityIsOnline || addressIsOnline || regionIsOnline;
+
+    if (hasOnlineSentinel && (hasPhysicalCity || hasPhysicalAddress)) {
+      return { proposedVisibility: null, proposedPrecision: null, requiresReview: true, reasonCode: "CONFLICTING_GEO", explanation: "Profil kombinuje online sentinel s fyzickou lokalitou; pred geokódovaním vyžaduje manuálnu kontrolu." };
+    }
+    if (hasOnlineSentinel || (source.online && !hasPhysicalAddress && !hasPhysicalCity)) {
       return { proposedVisibility: "HIDDEN", proposedPrecision: null, requiresReview: false, reasonCode: "ONLINE_ONLY", explanation: "Online-only profil nemá fyzický marker." };
     }
     const category = source.category ?? "";
