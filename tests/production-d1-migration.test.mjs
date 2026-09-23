@@ -143,6 +143,19 @@ test("MAP-1E geo readiness is read-only and fail-closes P1 privacy exposures", a
   );
 });
 
+test("MAP-1E production readiness workflow is manual-only and read-only", async () => {
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/map-production-readiness.yml"), "utf8");
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /^\s*push:/m);
+  assert.doesNotMatch(workflow, /^\s*pull_request:/m);
+  assert.match(workflow, /environment:\s*production/);
+  assert.match(workflow, /production-d1-migrate\.mjs geo-readiness/);
+  assert.match(workflow, /MAP_LAUNCH_READY/);
+  assert.match(workflow, /Google Maps nie je nakonfigurovaný/);
+  assert.doesNotMatch(workflow, /d1\s+migrations\s+apply|wrangler\s+deploy|deploy:cloudflare/i);
+  assert.doesNotMatch(workflow, /POST\s+.*geo|INITIALIZE|CANARY/);
+});
+
 test("ordinary Cloudflare deploy path never applies remote D1 migrations", async () => {
   const deploy = await readFile(path.join(repoRoot, "scripts/deploy-cloudflare-safe.mjs"), "utf8");
   assert.doesNotMatch(deploy, /remoteMigration/);
