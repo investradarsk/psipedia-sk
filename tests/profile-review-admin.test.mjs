@@ -155,15 +155,15 @@ test("approve atomically publishes review and appends one privacy-safe audit eve
   assert.equal(row.publishedAt, "2026-09-23T12:00:00.000Z");
   assert.equal(row.rating, 4);
   assert.equal(row.body, "Canonical reviewer text must never be edited by moderation.");
-  assert.deepEqual(events(sqlite), [{
-    id: "event-1",
-    action: "PROFILE_REVIEW_APPROVED",
-    actorType: "ADMIN",
-    actorRef: "admin:hashed-actor",
-    fromStatus: "PENDING_REVIEW",
-    toStatus: "VISIBLE",
-    reasonCode: null,
-  }]);
+  const audit = events(sqlite);
+  assert.equal(audit.length, 1);
+  assert.equal(audit[0].id, "event-1");
+  assert.equal(audit[0].action, "PROFILE_REVIEW_APPROVED");
+  assert.equal(audit[0].actorType, "ADMIN");
+  assert.equal(audit[0].actorRef, "admin:hashed-actor");
+  assert.equal(audit[0].fromStatus, "PENDING_REVIEW");
+  assert.equal(audit[0].toStatus, "VISIBLE");
+  assert.equal(audit[0].reasonCode, null);
   sqlite.close();
 });
 
