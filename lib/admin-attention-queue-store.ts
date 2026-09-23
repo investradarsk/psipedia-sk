@@ -16,6 +16,7 @@ import {
   mapPartnerEventAttention,
   mapPartnerVerificationAttention,
   mapPartnerCommercialAttention,
+  mapPartnerCommercialAgreementAttention,
   sortAdminAttentionItems,
   type AdoptionStaleAttentionRow,
   type AutomationFindingAttentionRow,
@@ -31,6 +32,7 @@ import {
   type PartnerEventAttentionRow,
   type PartnerVerificationAttentionRow,
   type PartnerCommercialAttentionRow,
+  type PartnerCommercialAgreementAttentionRow,
 } from "./admin-attention-queue.ts";
 
 export type AdminAttentionD1Database = Pick<D1Database, "prepare">;
@@ -251,6 +253,25 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerCommercialAttentionRow>();
 
+  const commercialAgreementsPromise = db.prepare(`
+    SELECT a.id,a.agreement_type agreementType,a.status,a.payment_status paymentStatus,a.end_at endAt,
+      a.created_at createdAt,a.updated_at updatedAt,COALESCE(d.name,o.name,e.title) resourceName
+    FROM partner_commercial_agreements a
+    LEFT JOIN partner_resources r ON r.id=a.resource_id
+    LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
+    LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+    LEFT JOIN managed_events e ON e.id=r.managed_event_id
+    ORDER BY
+      CASE
+        WHEN a.status='AGREED' AND a.payment_status IN ('PAID','WAIVED','NOT_REQUIRED') THEN 0
+        WHEN a.status='OFFERED' THEN 1
+        WHEN a.status='ACTIVE' THEN 2
+        ELSE 3
+      END,
+      a.updated_at ASC,a.id ASC
+    LIMIT ?
+  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<PartnerCommercialAgreementAttentionRow>();
+
   const geoPromise = db.prepare(`
     SELECT g.id, g.target_type AS targetType,
       COALESCE(g.directory_profile_id, g.organization_location_id, g.managed_event_id) AS targetId,
@@ -296,7 +317,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
 
-  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, newProfiles, partnerEvents, verifications, commercial, geo, automation] = await Promise.all([
+  const [moderation, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, newProfiles, partnerEvents, verifications, commercial, commercialAgreements, geo, automation] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
     safeSourceResults("news_tips", newsTipsPromise),
     safeSourceResults("directory_change_requests", changeRequestsPromise),
@@ -309,6 +330,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     safeSourceResults("partner_events", partnerEventsPromise),
     safeSourceResults("partner_resource_verifications", verificationsPromise),
     safeSourceResults("partner_commercial_interests", commercialPromise),
+    safeSourceResults("partner_commercial_agreements", commercialAgreementsPromise),
     safeSourceResults("geo_points", geoPromise),
     safeSourceResults("automation_findings", automationPromise),
   ]);
@@ -326,6 +348,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...partnerEvents.map((row) => mapPartnerEventAttention(row, now)),
     ...verifications.map((row) => mapPartnerVerificationAttention(row, now)),
     ...commercial.map((row) => mapPartnerCommercialAttention(row, now)),
+    ...commercialAgreements.map((row) => mapPartnerCommercialAgreementAttention(row, now)),
     ...geo.map((row) => mapGeoLocationAttention(row, now)),
     ...automation.map((row) => mapAutomationFindingAttention(row, now)),
   ]);
@@ -334,6 +357,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
 export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1Database, now = new Date()) {
   const db=requireD1Binding(database);
   const staleThreshold=new Date(now.getTime()-ADOPTION_STALE_DAYS*86_400_000).toISOString();
+  const nowIso=now.toISOString(),expiringAt=new Date(now.getTime()+14*86_400_000).toISOString();
   const queries=[
     ["MODERATION_SUBMISSION",`SELECT COUNT(*) count FROM moderation_submissions WHERE resource_type IN ('LOST_FOUND_CASE','ADOPTION_DOG') AND status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],
     ["NEWS_TIP",`SELECT COUNT(*) count FROM news_tips WHERE status IN ('new','reviewing')`,[]],
@@ -348,6 +372,10 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
     ["PARTNER_EVENT_REVIEW",`SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_event_submission_metadata m ON m.submission_id=s.id WHERE s.resource_type='MANAGED_EVENT' AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],
     ["PARTNER_VERIFICATION_REVIEW",`SELECT COUNT(*) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'`,[]],
     ["PARTNER_COMMERCIAL_LEAD",`SELECT COUNT(*) count FROM partner_commercial_interests WHERE status='NEW'`,[]],
+    ["PARTNER_COMMERCIAL_AGREEMENT",`SELECT COUNT(*) count FROM partner_commercial_agreements
+      WHERE status='OFFERED'
+        OR (status='AGREED' AND payment_status IN ('PAID','WAIVED','NOT_REQUIRED'))
+        OR (status='ACTIVE' AND end_at>? AND end_at<=?)`,[nowIso,expiringAt]],
     ["GEO_LOCATION_ISSUE",`SELECT COUNT(*) count FROM geo_points WHERE geocode_status IN ('NEEDS_REVIEW','STALE','FAILED')`,[]],
   ] as const;
   const counts=await Promise.all(queries.map(async([source,sql,bindings])=>{
