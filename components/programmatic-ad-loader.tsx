@@ -17,6 +17,7 @@ const CONSENT_EVENT = "psipedia:consent-changed";
 export function ProgrammaticAdLoader({ enabled, clientId }: { enabled: boolean; clientId: string }) {
   const pathname = usePathname();
   const isPartnerRoute = pathname.startsWith("/partner");
+  const isReviewAuthRoute = pathname.startsWith("/recenzia");
 
   useEffect(() => {
     function isInternalTraffic() {
@@ -29,6 +30,7 @@ export function ProgrammaticAdLoader({ enabled, clientId }: { enabled: boolean; 
 
     function maybeLoad() {
       if (isPartnerRoute) return;
+      if (isReviewAuthRoute) return;
       if (isInternalTraffic()) return;
       const stored = window.localStorage.getItem(CONSENT_KEY);
       const consent: ConsentChoice | null = stored === "necessary" || stored === "analytics" || stored === "advertising" ? stored : null;
@@ -48,6 +50,6 @@ export function ProgrammaticAdLoader({ enabled, clientId }: { enabled: boolean; 
       window.removeEventListener(CONSENT_EVENT, maybeLoad);
       window.removeEventListener(INTERNAL_TRAFFIC_EVENT, maybeLoad);
     };
-  }, [clientId, enabled, isPartnerRoute]);
+  }, [clientId, enabled, isPartnerRoute, isReviewAuthRoute]);
   return null;
 }

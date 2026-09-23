@@ -113,6 +113,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   const pathname = usePathname();
   const isAdminRoute = pathname.startsWith("/admin");
   const isPartnerRoute = pathname.startsWith("/partner");
+  const isReviewAuthRoute = pathname.startsWith("/recenzia");
   const [ready, setReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [savedChoice, setSavedChoice] = useState<ConsentChoice | null>(null);
@@ -162,10 +163,10 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   }, [openSettings]);
 
   useEffect(() => {
-    if (ready && !isInternalTraffic && (savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute && !isPartnerRoute) {
+    if (ready && !isInternalTraffic && (savedChoice === "analytics" || savedChoice === "advertising") && !isAdminRoute && !isPartnerRoute && !isReviewAuthRoute) {
       void sendPageView(pathname);
     }
-  }, [isAdminRoute, isInternalTraffic, isPartnerRoute, pathname, ready, savedChoice]);
+  }, [isAdminRoute, isInternalTraffic, isPartnerRoute, isReviewAuthRoute, pathname, ready, savedChoice]);
 
   function saveChoice(choice: ConsentChoice) {
     const revokingAdvertising = savedChoice === "advertising" && choice !== "advertising";
@@ -178,6 +179,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   }
 
   if (isPartnerRoute) return null;
+  if (isReviewAuthRoute) return null;
   if (isAdminRoute || !ready || !isOpen) return null;
 
   return (
