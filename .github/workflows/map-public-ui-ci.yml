@@ -31,6 +31,8 @@ jobs:
       PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
       MAP_UI_TEST_RENDERER: "1"
       PUBLIC_MAP_ENABLED: "1"
+      GOOGLE_MAPS_BROWSER_API_KEY: "ci-browser-key-not-real"
+      GOOGLE_MAPS_MAP_ID: "ci-map-id-not-real"
     steps:
       - uses: actions/checkout@v4
       - name: Log revision evidence
