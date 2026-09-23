@@ -6,7 +6,7 @@ const contracts={
   PARTNER_CLAIM_REVIEW:{key:"partner-claim",href:"/admin/partners/claims"},
   PARTNER_PROFILE_CHANGE_REVIEW:{key:"partner-change",href:"/admin/partners/changes"},
   PARTNER_NEW_PROFILE_REVIEW:{key:"partner-submission",href:"/admin/partners/submissions"},
-  PARTNER_EVENT_REVIEW:{key:"partner-event",href:"/admin/podujatia"},
+  PARTNER_EVENT_REVIEW:{key:"partner-event",href:"/admin/partners/events"},
   PARTNER_VERIFICATION_REVIEW:{key:"partner-verification",href:"/admin/partners/verifications"},
   PARTNER_COMMERCIAL_LEAD:{key:"partner-commercial",href:"/admin/partners/commercial"},
 } as const;
@@ -18,7 +18,7 @@ export async function loadPartnerPendingSummary(database?:D1Database){
   try{
     const {getPartnerDatabase}=await import("./partner-auth-store");
     const db=getPartnerDatabase(database);
-    const [claimRow,profileChangeRow,newProfileRow,verificationRow,commercialRow]=await Promise.all([
+    const [claimRow,profileChangeRow,newProfileRow,eventRow,verificationRow,commercialRow]=await Promise.all([
       db.prepare("SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION') AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
       db.prepare("SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_new_profile_metadata m ON m.submission_id=s.id WHERE s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')").first<{count:number}>(),
@@ -28,9 +28,9 @@ export async function loadPartnerPendingSummary(database?:D1Database){
     const claims=Number(claimRow?.count??0);
     const profileChanges=Number(profileChangeRow?.count??0);
     const newProfiles=Number(newProfileRow?.count??0);
-    const verifications=Number(verificationRow?.count??0);
+    const events=Number(eventRow?.count??0);\n    const verifications=Number(verificationRow?.count??0);
     const commercial=Number(commercialRow?.count??0);
-    return {...emptyPartnerPendingSummary(),claims,profileChanges,newProfiles,verifications,commercial,total:claims+profileChanges+newProfiles+verifications+commercial};
+    return {...emptyPartnerPendingSummary(),claims,profileChanges,newProfiles,events,verifications,commercial,total:claims+profileChanges+newProfiles+events+verifications+commercial};
   }catch{
     return emptyPartnerPendingSummary();
   }
