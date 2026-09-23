@@ -78,7 +78,7 @@ export default async function PrivacyPage() {
       <p>Zoznam obľúbených článkov a voľba týkajúca sa analytiky sa ukladajú lokálne v prehliadači. Zoznam obľúbených nie je používateľský účet a samotný zoznam Psipedia neposiela na server. Podrobnosti sú na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>.</p>
 
       <h2>Komu môžu byť údaje sprístupnené</h2>
-      <p>Údaje môžu byť v nevyhnutnom rozsahu sprístupnené poskytovateľom hostingu, databázy a bezpečnostnej infraštruktúry, poskytovateľovi e-mailovej služby pri e-mailovej komunikácii a spoločnosti Google pri povolenej analytike. Údaje môžu byť sprístupnené aj orgánu verejnej moci, ak to vyžaduje zákon. Osobné údaje nepredávame.</p>
+      <p>Údaje môžu byť v nevyhnutnom rozsahu sprístupnené poskytovateľom hostingu, databázy a bezpečnostnej infraštruktúry, poskytovateľovi e-mailovej služby pri e-mailovej komunikácii a spoločnosti Google pri povolenej analytike alebo pri samostatne povolenom mapovom podklade Google Maps. Údaje môžu byť sprístupnené aj orgánu verejnej moci, ak to vyžaduje zákon. Osobné údaje nepredávame.</p>
 
       <h2>Prenosy mimo Európskeho hospodárskeho priestoru</h2>
       <p>Ak technický poskytovateľ spracúva údaje mimo EHP, prenos sa môže uskutočniť iba pri splnení podmienok kapitoly V GDPR, napríklad na základe rozhodnutia Európskej komisie o primeranosti alebo vhodných záruk.</p>
