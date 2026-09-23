@@ -304,6 +304,8 @@ test.describe("MAP-1D mobile", () => {
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Filtre/ })).toBeFocused();
 
+    await page.getByRole("button", { name: "Zmenšiť" }).click();
+    await expect(results).toHaveAttribute("data-sheet-state", "peek");
     await page.getByTestId("marker-service:1").click();
     await expect(results).toHaveAttribute("data-sheet-state", "expanded");
     await expect(page.getByTestId("map-card-service:1")).toHaveAttribute("data-selected", "true");
