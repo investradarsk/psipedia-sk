@@ -71,6 +71,9 @@ jobs:
           {
             printf 'PII_ENCRYPTION_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
             printf 'PII_HASH_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'PUBLIC_MAP_ENABLED=1\n'
+            printf 'GOOGLE_MAPS_BROWSER_API_KEY=ci-browser-key-not-real\n'
+            printf 'GOOGLE_MAPS_MAP_ID=ci-map-id-not-real\n'
           } > .dev.vars
       - name: Apply non-adoption migrations to isolated local D1
         run: |
