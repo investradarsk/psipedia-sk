@@ -38,7 +38,14 @@ const localBindingConfig = {
   // Production keeps Cloudflare Access from wrangler.jsonc. Only the explicit
   // local E2E bootstrap disables that Worker-level gate so the existing
   // localhost preview admin identity can reach the normal admin API routes.
-  ...(isExplicitLocalE2eBootstrap ? { vars: { AUTH_MODE: "local-e2e-preview" } } : {}),
+  ...(isExplicitLocalE2eBootstrap
+    ? {
+        vars: {
+          AUTH_MODE: "local-e2e-preview",
+          MAP_UI_TEST_RENDERER: process.env.MAP_UI_TEST_RENDERER ?? "",
+        },
+      }
+    : {}),
   d1_databases: d1
     ? [
         {
