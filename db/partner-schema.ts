@@ -177,6 +177,7 @@ export const partnerEventSubmissionMetadata = sqliteTable("partner_event_submiss
   partnerAccountId:text("partner_account_id").notNull().references(()=>partnerAccounts.id,{onDelete:"restrict"}),
   partnerResourceId:text("partner_resource_id").references(()=>partnerResources.id,{onDelete:"restrict"}),
   operation:text("operation").notNull(),
+  displayTitle:text("display_title").notNull(),
   baseUpdatedAt:text("base_updated_at"),
   baseSnapshotJson:text("base_snapshot_json").notNull().default("{}"),
   changedFieldCount:integer("changed_field_count").notNull().default(0),
