@@ -50,7 +50,8 @@ test("public map API exposes only approved current canonical geo items", async (
   expect(body.items.filter((item: { name: string }) => item.name === "MAP E2E Multi Site Org")).toHaveLength(2);
   expect(body.items.filter((item: { latitude: number; longitude: number }) => item.latitude === 48.306 && item.longitude === 18.086)).toHaveLength(2);
 
-  expect(body.meta.attribution).toContainEqual({ label: "Geoapify", url: "https://www.geoapify.com/" });
+  expect(body.meta.attribution).toContainEqual({ label: "Powered by Geoapify", url: "https://www.geoapify.com/" });
+  expect(body.meta.attribution).toContainEqual({ label: "© OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" });
 
   const serialized = JSON.stringify(body);
   for (const forbidden of [

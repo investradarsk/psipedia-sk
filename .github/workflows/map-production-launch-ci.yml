@@ -8,6 +8,23 @@ on:
       - ".github/workflows/map-production-readiness.yml"
       - ".github/workflows/map-production-launch-ci.yml"
       - "scripts/production-d1-migrate.mjs"
+      - "scripts/map-production-readiness.mjs"
+      - "scripts/map-production-privacy-smoke.mjs"
+      - "config/runtime-env.ts"
+      - ".env.example"
+      - "app/mapa/**"
+      - "components/map/**"
+      - "lib/geo-operations.ts"
+      - "app/api/admin/geo/operations/route.ts"
+      - "lib/navigation-store.ts"
+      - "lib/google-maps-consent.ts"
+      - "lib/map-query.ts"
+      - "components/google-maps-consent-controls.tsx"
+      - "app/cookies/page.tsx"
+      - "app/sukromie/page.tsx"
+      - "app/podmienky-pouzivania/page.tsx"
+      - "tests/map-production-launch.test.mjs"
+      - "tests/config-contract.test.mjs"
       - "tests/production-d1-migration.test.mjs"
       - "docs/map-production-launch.md"
       - "docs/PRODUCTION-D1-MIGRATIONS.md"
@@ -42,6 +59,8 @@ jobs:
       - run: npm ci
       - name: Production migration and history safety
         run: npm run test:migration-safety
+      - name: MAP-1E launch, consent and privacy contracts
+        run: npm run test:map-production-launch
       - name: MAP-1B privacy regression
         run: npm run test:geo-foundation
       - name: MAP-1C API regression

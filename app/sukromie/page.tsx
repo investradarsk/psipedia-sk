@@ -69,11 +69,16 @@ export default async function PrivacyPage() {
       <p>Google Analytics 4 používame iba po výslovnom súhlase návštevníka. Pred udelením súhlasu sa analytický skript nenačíta. Psipedia má vypnuté Google Signals aj reklamné personalizačné signály.</p>
       <p>Pri povolenej analytike môžu byť spracované údaje o navštívených stránkach, čase návštevy, zariadení, prehliadači, približnej geografickej oblasti a interakciách. Súhlas môžeš kedykoľvek zmeniť cez <strong>Nastavenia cookies</strong> v pätičke.</p>
 
+      <h2>Google Maps</h2>
+      <p>Na stránke Mapa Psipedie používame interaktívny mapový podklad Google Maps od spoločnosti Google až po samostatnom výslovnom povolení návštevníka. Bez tohto povolenia sa Google Maps skript nenačíta a mapa zostáva použiteľná ako textový zoznam verejných výsledkov.</p>
+      <p>Po povolení môže Google pri poskytovaní mapy spracúvať technické údaje, najmä IP adresu, údaje o prehliadači a súradnice zobrazovanej mapovej oblasti. Psipedia neposkytuje Google súkromné adresy z geo moderácie, nepoužíva Google Places ani browser geocoding a nežiada browser geolocation.</p>
+      <p>Podrobnosti o voľbe a jej odvolaní sú na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>. Používanie mapového podkladu podlieha aj <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">podmienkam Google Maps</a> a <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">zásadám ochrany súkromia Google</a>.</p>
+
       <h2>Obľúbené články a lokálne úložisko</h2>
       <p>Zoznam obľúbených článkov a voľba týkajúca sa analytiky sa ukladajú lokálne v prehliadači. Zoznam obľúbených nie je používateľský účet a samotný zoznam Psipedia neposiela na server. Podrobnosti sú na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>.</p>
 
       <h2>Komu môžu byť údaje sprístupnené</h2>
-      <p>Údaje môžu byť v nevyhnutnom rozsahu sprístupnené poskytovateľom hostingu, databázy a bezpečnostnej infraštruktúry, poskytovateľovi e-mailovej služby pri e-mailovej komunikácii a spoločnosti Google pri povolenej analytike. Údaje môžu byť sprístupnené aj orgánu verejnej moci, ak to vyžaduje zákon. Osobné údaje nepredávame.</p>
+      <p>Údaje môžu byť v nevyhnutnom rozsahu sprístupnené poskytovateľom hostingu, databázy a bezpečnostnej infraštruktúry, poskytovateľovi e-mailovej služby pri e-mailovej komunikácii a spoločnosti Google pri povolenej analytike alebo pri samostatne povolenom mapovom podklade Google Maps. Údaje môžu byť sprístupnené aj orgánu verejnej moci, ak to vyžaduje zákon. Osobné údaje nepredávame.</p>
 
       <h2>Prenosy mimo Európskeho hospodárskeho priestoru</h2>
       <p>Ak technický poskytovateľ spracúva údaje mimo EHP, prenos sa môže uskutočniť iba pri splnení podmienok kapitoly V GDPR, napríklad na základe rozhodnutia Európskej komisie o primeranosti alebo vhodných záruk.</p>
@@ -90,7 +95,7 @@ export default async function PrivacyPage() {
 
       <h2>Zmeny týchto informácií</h2>
       <p>Text aktualizujeme pred spustením funkcie, ktorá významne mení účel alebo rozsah spracúvania osobných údajov, a pri zmene právnych alebo technických podmienok.</p>
-      <p className="legal-updated">Aktualizované 12. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 23. septembra 2026.</p>
     </main>
   );
 }

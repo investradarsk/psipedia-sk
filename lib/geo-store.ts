@@ -450,12 +450,23 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
   if (state.sourceFingerprint === current.sourceFingerprint) return current;
 
   const now = new Date().toISOString();
+  const exactNeedsPrivacyReview = current.publicVisibility === "EXACT_PUBLIC" && !current.manualOverride;
   if (current.publicVisibility === "HIDDEN") {
     await db.prepare(`
       UPDATE geo_points SET source_fingerprint=?, normalized_query=NULL, query_fingerprint=NULL,
         latitude=NULL, longitude=NULL, geocode_status='SKIPPED', resolved_source_fingerprint=NULL,
         last_error_code='PRIVATE_HIDDEN', last_error_at=?, updated_at=? WHERE id=?
     `).bind(state.sourceFingerprint, now, now, current.id).run();
+  } else if (exactNeedsPrivacyReview) {
+    const reviewState = await sourceState(source, null, null);
+    await db.prepare(`
+      UPDATE geo_points SET public_visibility=NULL, public_precision=NULL,
+        latitude=NULL, longitude=NULL, resolution_method=NULL, provider=NULL, provenance=NULL, source_license=NULL,
+        normalized_query=NULL, query_fingerprint=NULL, source_fingerprint=?, resolved_source_fingerprint=NULL,
+        geocode_status='NEEDS_REVIEW', last_error_code='PRIVACY_CLASSIFICATION_MISSING',
+        last_error_at=?, retry_after_at=NULL, attempt_count=0, last_geocoded_at=NULL, updated_at=?
+      WHERE id=?
+    `).bind(reviewState.sourceFingerprint, now, now, current.id).run();
   } else {
     await db.prepare(`
       UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
@@ -469,8 +480,12 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
   if (point) await writeGeoModerationEvent({
     geoPointId: point.id, action: "GEO_SOURCE_STALE", actorType: "SYSTEM",
     fromStatus: current.geocodeStatus, toStatus: point.geocodeStatus,
-    reasonCode: current.manualOverride ? "MANUAL_REVIEW" : null,
-    changedFields: ["source_fingerprint", "normalized_query", "query_fingerprint", "geocode_status"],
+    reasonCode: exactNeedsPrivacyReview
+      ? "PRIVACY_CLASSIFICATION_MISSING"
+      : current.manualOverride ? "MANUAL_REVIEW" : null,
+    changedFields: exactNeedsPrivacyReview
+      ? ["public_visibility", "public_precision", "source_fingerprint", "geocode_status"]
+      : ["source_fingerprint", "normalized_query", "query_fingerprint", "geocode_status"],
   }, db);
   return point;
 }

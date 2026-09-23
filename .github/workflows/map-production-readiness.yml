@@ -3,6 +3,10 @@ name: MAP-1E Production Readiness
 on:
   workflow_dispatch:
     inputs:
+      confirmation:
+        description: Type AUDIT-MAP-psipedia-sk-db exactly
+        required: true
+        type: string
       real_google_smoke_confirmed:
         description: Confirm a real Google Maps browser smoke passed on production
         required: true
@@ -36,11 +40,13 @@ jobs:
       TARGET_MIGRATION: 0064_geo_foundation.sql
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
     steps:
-      - name: Require main
+      - name: Require main and explicit read-only confirmation
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
+          confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$confirmation" = "AUDIT-MAP-psipedia-sk-db"
 
       - name: Checkout exact main revision
         uses: actions/checkout@v4
@@ -80,6 +86,9 @@ jobs:
       - name: Read-only D1 geo readiness report
         run: node scripts/production-d1-migrate.mjs geo-readiness
 
+      - name: Read-only canonical map inventory
+        run: node scripts/map-production-readiness.mjs
+
       - name: Public map HTTP evidence
         shell: bash
         run: |
@@ -96,6 +105,9 @@ jobs:
           echo "/api/map -> $map_status"
           echo "/mapa -> $page_status"
 
+      - name: Production privacy smoke — D1 vs public API
+        run: node scripts/map-production-privacy-smoke.mjs
+
       - name: Assess launch gates
         shell: bash
         env:
@@ -111,6 +123,7 @@ jobs:
           const pageStatus = fs.readFileSync(".production-d1/map-page-status.txt","utf8").trim();
           const headers = fs.readFileSync(".production-d1/map-page-headers.txt","utf8");
           const html = fs.readFileSync(".production-d1/map-page.html","utf8");
+          const privacy = JSON.parse(fs.readFileSync(".map-production-readiness/privacy-smoke.json","utf8"));
 
           let apiBody = null;
           try { apiBody = JSON.parse(fs.readFileSync(".production-d1/map-api-readiness.json","utf8")); } catch {}
@@ -129,6 +142,7 @@ jobs:
             mapApiContract,
             mapApiHasData,
             mapApiPrivateFieldsAbsent,
+            privacySmokePassed: privacy.skipped === false && privacy.passed === true,
             cspAllowsGoogleMaps: /content-security-policy:/i.test(headers) && /maps\.googleapis\.com/i.test(headers),
             geolocationDisabled: /permissions-policy:.*geolocation=\(\)/i.test(headers),
             googleRendererConfigured: !html.includes("Google Maps nie je nakonfigurovaný"),
@@ -174,5 +188,7 @@ jobs:
             .production-d1/map-api-status.txt
             .production-d1/map-page-status.txt
             .production-d1/map-page-headers.txt
+            .map-production-readiness/report.json
+            .map-production-readiness/privacy-smoke.json
           if-no-files-found: warn
           retention-days: 30

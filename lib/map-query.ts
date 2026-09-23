@@ -479,7 +479,10 @@ export async function queryPublicMap(
   const matched = filtered.length;
   const items = filtered.map(mapCandidateToItem);
   const hasGeoapify = filtered.some((candidate) => candidate.provider?.toLowerCase() === "geoapify");
-  const attribution = hasGeoapify ? [{ label: "Geoapify", url: "https://www.geoapify.com/" }] : undefined;
+  const attribution = hasGeoapify ? [
+    { label: "Powered by Geoapify", url: "https://www.geoapify.com/" },
+    { label: "© OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
+  ] : undefined;
   const mode = mapResponseMode(query);
 
   if (mode === "clusters") {
