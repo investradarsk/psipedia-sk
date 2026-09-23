@@ -1,9 +1,8 @@
 import {
-  assertReviewableResourceType,
   type CanonicalResourceType,
   type ReviewableCanonicalResourceType,
 } from "./canonical-resource.ts";
-import { reviewRatingConfig } from "./profile-review-domain.ts";
+import { assertReviewableResourceType, reviewRatingConfig } from "./profile-review-domain.ts";
 
 export const PUBLIC_PROFILE_REVIEW_PAGE_SIZE = 10;
 export const PUBLIC_REVIEW_AUTHOR_FALLBACK = "Používateľ Psipedia.sk";
