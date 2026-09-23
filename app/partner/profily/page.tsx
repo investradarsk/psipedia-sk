@@ -32,7 +32,7 @@ export default async function Page() {
                 {partnerRoleHasPermission(item.role, "PROFILE_SUBMIT_CHANGE") ? (
                   <Link className="button button--dark" href={`/partner/profily/${encodeURIComponent(item.resourceId)}/upravit`}>Upraviť údaje</Link>
                 ) : null}
-                {item.publicHref ? <Link href={item.publicHref} target="_blank">Verejný profil ↗</Link> : null}
+                {partnerRoleHasPermission(item.role, "COMMERCIAL_INTEREST_CREATE") ? <Link href={`/partner/propagacia?resource=${encodeURIComponent(item.resourceId)}`}>Možnosti propagácie</Link> : null}\n                {item.publicHref ? <Link href={item.publicHref} target="_blank">Verejný profil ↗</Link> : null}
               </div>
             </article>
           ))}
