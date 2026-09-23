@@ -205,7 +205,8 @@ export async function markPartnerCommercialAgreementPaid(input:{id:string;adminE
   if(current.status!=="AGREED")throw new PartnerCommercialAgreementError("Platbu možno potvrdiť iba pri dohodnutej ponuke.",409);
   if(current.paymentStatus==="PAID")return current;
   const now=input.now??new Date(),iso=now.toISOString(),adminActor=actor(input.adminEmail);
-  await database.prepare("UPDATE partner_commercial_agreements SET payment_status='PAID',paid_at=?2,paid_by=?3,updated_at=?2,updated_by=?3 WHERE id=?1").bind(input.id,iso,adminActor).run();
+  const changed=await database.prepare("UPDATE partner_commercial_agreements SET payment_status='PAID',paid_at=?2,paid_by=?3,updated_at=?2,updated_by=?3 WHERE id=?1 AND payment_status<>'PAID' RETURNING id").bind(input.id,iso,adminActor).first<{id:string}>();
+  if(!changed)return getPartnerCommercialAgreementAdmin(input.id,database);
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_PAYMENT_MARKED_PAID",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:input.id,metadata:{paymentMethod:current.paymentMethod},database,now});
   await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"PAYMENT_MARKED_PAID",dedupeKey:`partner-agreement:${input.id}:paid`,database,now});
   return getPartnerCommercialAgreementAdmin(input.id,database);
@@ -273,7 +274,8 @@ export async function activatePartnerCommercialAgreement(input:{id:string;campai
     if(!linked)throw new PartnerCommercialAgreementError("Platený benefit sa nepodarilo bezpečne aktivovať.",409);
     entitlementId=linked.id;
   }
-  await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',updated_at=?2,updated_by=?3 WHERE id=?1 AND status='AGREED'").bind(current.id,iso,adminActor).run();
+  const activated=await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',updated_at=?2,updated_by=?3 WHERE id=?1 AND status='AGREED' RETURNING id").bind(current.id,iso,adminActor).first<{id:string}>();
+  if(!activated)return getPartnerCommercialAgreementAdmin(current.id,database);
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"ENTITLEMENT_ACTIVATED",targetType:"PARTNER_ENTITLEMENT",targetId:entitlementId,metadata:{agreementId:current.id,entitlementType:current.agreementType,status:entStatus},database,now});
   if(promotionId)await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_PROMOTION_LINKED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:current.id,metadata:{promotionId},database,now});
   await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"ENTITLEMENT_ACTIVATED",dedupeKey:`partner-agreement:${current.id}:activated`,database,now});
