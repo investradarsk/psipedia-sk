@@ -127,3 +127,10 @@ test("PARTNER-5 adds no online payment or Partner media-upload surface",()=>{
   assert.doesNotMatch(implementation,/stripe|apple pay|google pay|payment webhook|checkout session|recurring billing|automatic renewal/i);
   assert.doesNotMatch(implementation,/partner.*upload|upload.*partner/i);
 });
+
+
+test("public paid markers fail safe during schema rollout",()=>{
+  assert.match(agreements,/missingCommercialSchema/);
+  assert.match(agreements,/no such table:\\s\*partner_/);
+  assert.match(agreements,/if\(missingCommercialSchema\(error\)\)return fallback/);
+});
