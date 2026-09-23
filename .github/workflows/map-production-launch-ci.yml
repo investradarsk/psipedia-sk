@@ -9,6 +9,7 @@ on:
       - ".github/workflows/map-production-launch-ci.yml"
       - "scripts/production-d1-map-foundation.mjs"
       - "scripts/map-production-readiness.mjs"
+      - "scripts/map-production-privacy-smoke.mjs"
       - "config/runtime-env.ts"
       - ".env.example"
       - "app/mapa/**"
