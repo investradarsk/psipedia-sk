@@ -45,10 +45,17 @@ test.describe("MAP-1E launch navigation", () => {
 
   test("cookie settings expose a revocable Google Maps choice", async ({ page }) => {
     await page.goto("/cookies");
+    await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+    await page.waitForTimeout(100);
+
     await expect(page.getByRole("heading", { name: "Google Maps" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Povoliť Google Maps" })).toBeVisible();
-    await page.getByRole("button", { name: "Povoliť Google Maps" }).click();
-    await expect(page.getByText(/Google Maps:.*povolené/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Vypnúť Google Maps" })).toBeVisible();
+    const controls = page.locator(".privacy-controls").filter({ hasText: "Google Maps:" });
+    const enable = controls.getByRole("button", { name: "Povoliť Google Maps" });
+    await expect(enable).toBeVisible();
+    await enable.click();
+
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem("psipedia-google-maps-consent"))).toBe("granted");
+    await expect(controls.locator("strong")).toHaveText("povolené");
+    await expect(controls.getByRole("button", { name: "Vypnúť Google Maps" })).toBeVisible();
   });
 });
