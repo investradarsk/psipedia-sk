@@ -104,7 +104,7 @@ function assertNotPast(values:PartnerEventPatch){
 export function normalizePartnerEventCreate(raw:unknown){
   const source=object(raw);strictKeys(source,CREATE_KEYS);
   const values=editable(normalizeManagedEventInput(eventInput(source)));
-  values.cancelled=false;assertNotPast(values);
+  delete values.cancelled;assertNotPast(values);
   return values;
 }
 export function normalizePartnerEventUpdate(raw:unknown,current:PartnerEventPatch){
