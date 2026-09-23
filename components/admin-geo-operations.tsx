@@ -3,6 +3,19 @@
 import { useState } from "react";
 import type { GeoDryRunItem } from "@/lib/geo-operations";
 
+type BackfillChunkReport = {
+  configured?: boolean;
+  requested?: number;
+  eligible?: number;
+  attempted?: number;
+  resolved?: number;
+  needsReview?: number;
+  failed?: number;
+  pending?: number;
+  skipped?: number;
+  items?: Array<{ targetType: string; targetId: number; status: string; errorCode: string | null }>;
+};
+
 export function AdminGeoOperations({ initialItems, providerConfigured }: {
   initialItems: GeoDryRunItem[];
   providerConfigured: boolean;
@@ -16,20 +29,28 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
   const [backfillReport, setBackfillReport] = useState<unknown>(null);
   const [targetType, setTargetType] = useState("");
   const [directoryCategory, setDirectoryCategory] = useState("");
+  const [progress, setProgress] = useState("");
+
+  async function postAction(payload: Record<string, unknown>) {
+    const response = await fetch("/api/admin/geo/operations", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
+    });
+    const body = await response.json() as { error?: string; report?: unknown };
+    if (!response.ok) throw new Error(body.error || "Geo operácia zlyhala.");
+    return body.report;
+  }
 
   async function action(payload: Record<string, unknown>) {
-    setBusy(true); setError(""); setMessage("");
+    setBusy(true); setError(""); setMessage(""); setProgress("Spracúvam…");
     try {
-      const response = await fetch("/api/admin/geo/operations", {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
-      });
-      const body = await response.json() as { error?: string; report?: unknown };
-      if (!response.ok) throw new Error(body.error || "Geo operácia zlyhala.");
-      return body.report;
+      return await postAction(payload);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Geo operácia zlyhala.");
       return null;
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+      setProgress("");
+    }
   }
 
   async function refresh() {
@@ -91,20 +112,63 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
         }}>Inicializovať SAFE max. 20</button>
 
         <button type="button" disabled={busy || !providerConfigured || !targetType || (targetType === "DIRECTORY_PROFILE" && !directoryCategory.trim())} onClick={async () => {
-          if (!window.confirm(`Spustiť bounded backfill max. 5 pre ${targetType}${directoryCategory ? ` / ${directoryCategory}` : ""}? Operácia zapisuje iba výsledky už inicializovaných PENDING kandidátov.`)) return;
-          const report = await action({
-            action: "backfill",
-            limit: 5,
-            confirm: "BACKFILL-CHUNK",
-            targetType,
-            directoryCategory: targetType === "DIRECTORY_PROFILE" ? directoryCategory.trim() : null,
-          });
-          if (report) {
-            setBackfillReport(report);
-            setMessage("Bounded backfill chunk skončil.");
-            await refresh();
+          if (!window.confirm(`Spustiť bounded backfill max. 5 pre ${targetType}${directoryCategory ? ` / ${directoryCategory}` : ""}? Operácia pôjde po jednom kandidátovi, aby bolo vidieť priebeh a aby jeden dlhý request nezablokoval celý batch.`)) return;
+
+          const total = 5;
+          const aggregate: BackfillChunkReport = {
+            configured: true,
+            requested: total,
+            eligible: 0,
+            attempted: 0,
+            resolved: 0,
+            needsReview: 0,
+            failed: 0,
+            pending: 0,
+            skipped: 0,
+            items: [],
+          };
+
+          setBusy(true);
+          setError("");
+          setMessage("");
+          setBackfillReport(aggregate);
+
+          try {
+            for (let index = 1; index <= total; index += 1) {
+              setProgress(`Backfill prebieha: ${index}/${total}…`);
+
+              const raw = await postAction({
+                action: "backfill",
+                limit: 1,
+                confirm: "BACKFILL-CHUNK",
+                targetType,
+                directoryCategory: targetType === "DIRECTORY_PROFILE" ? directoryCategory.trim() : null,
+              });
+              const report = (raw ?? {}) as BackfillChunkReport;
+
+              aggregate.eligible = (aggregate.eligible ?? 0) + (report.eligible ?? 0);
+              aggregate.attempted = (aggregate.attempted ?? 0) + (report.attempted ?? 0);
+              aggregate.resolved = (aggregate.resolved ?? 0) + (report.resolved ?? 0);
+              aggregate.needsReview = (aggregate.needsReview ?? 0) + (report.needsReview ?? 0);
+              aggregate.failed = (aggregate.failed ?? 0) + (report.failed ?? 0);
+              aggregate.pending = (aggregate.pending ?? 0) + (report.pending ?? 0);
+              aggregate.skipped = (aggregate.skipped ?? 0) + (report.skipped ?? 0);
+              aggregate.items = [...(aggregate.items ?? []), ...(report.items ?? [])];
+              setBackfillReport({ ...aggregate, items: [...(aggregate.items ?? [])] });
+
+              if ((report.eligible ?? 0) === 0 || (report.attempted ?? 0) === 0) break;
+            }
+
+            setMessage(`Bounded backfill skončil: ${aggregate.attempted ?? 0} spracovaných, ${aggregate.resolved ?? 0} resolved.`);
+          } catch (caught) {
+            const detail = caught instanceof Error ? caught.message : "Geo operácia zlyhala.";
+            setError(`Backfill sa prerušil po ${aggregate.attempted ?? 0} potvrdených krokoch. Posledný request nemá potvrdený výsledok: ${detail}`);
+          } finally {
+            setProgress("");
+            setBusy(false);
+            try { await refresh(); } catch { /* Report zostáva viditeľný aj keď refresh zlyhá. */ }
           }
-        }}>Backfill max. 5</button>
+        }}>{busy && progress.startsWith("Backfill") ? "Backfill prebieha…" : "Backfill max. 5"}</button>
 
         <button type="button" disabled={busy || !providerConfigured || !targetType || (targetType === "DIRECTORY_PROFILE" && !directoryCategory.trim())} onClick={async () => {
           if (!window.confirm("Spustiť najviac 5 Geoapify canary requestov iba pre kandidátov bez povinného privacy review? Výsledky sa NEUKLADAJÚ do geo_points.")) return;
@@ -120,6 +184,7 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
 
         <button type="button" disabled={busy} onClick={() => void refresh()}>Obnoviť dry-run</button>
       </div>
+      {progress && <p className="admin-message" role="status" aria-live="polite"><strong>{progress}</strong></p>}
       {message && <p className="admin-message" role="status">{message}</p>}
       {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
     </section>
