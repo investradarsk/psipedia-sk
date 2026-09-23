@@ -17,7 +17,7 @@ const [migration,domain,admin,partnerApi,updateApi,withdrawApi,adminApi,attentio
 test("0067 is a 1:1 Partner event metadata extension with no parallel workflow status",()=>{
  assert.match(migration,/CREATE TABLE `partner_event_submission_metadata`/);
  assert.match(migration,/`submission_id` text PRIMARY KEY NOT NULL REFERENCES `moderation_submissions`/);
- assert.match(migration,/`operation` text NOT NULL CHECK \\(`operation` IN \\('CREATE','UPDATE'\\)\\)/);
+ assert.match(migration,/`operation` text NOT NULL CHECK \(`operation` IN \('CREATE','UPDATE'\)\)/);
  assert.match(migration,/partner_event_submission_active_dedupe_unique/);
  assert.match(migration,/WHERE `dedupe_active`=1/);
  assert.match(migration,/CREATED_NEW/);assert.match(migration,/LINKED_EXISTING/);assert.match(migration,/UPDATED/);
@@ -108,7 +108,7 @@ test("UPDATE approval applies only mapped Partner fields and does not touch stat
  const columns=admin.slice(admin.indexOf("const COLUMN"),admin.indexOf("function updateStatement"));
  assert.match(update,/normalizePartnerEventUpdate/);assert.match(update,/updateStatement/);assert.match(update,/EVENT_CHANGE_APPROVED/);
  assert.doesNotMatch(columns,/slug|status|published_at|seo|image/i);
- assert.doesNotMatch(update,/notionRequest|runNotionEventSyncSweep|writeBackPublishedEventToNotion|publishManagedEvent|status='published'|slug\\s*=/i);
+ assert.doesNotMatch(update,/notionRequest|runNotionEventSyncSweep|writeBackPublishedEventToNotion|publishManagedEvent|status='published'|slug\s*=/i);
 });
 
 test("cancelled remains a moderated update field",()=>{
