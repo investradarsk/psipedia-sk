@@ -176,7 +176,8 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.body, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.viewport + 1);
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title.includes("Google renderer is blocked before service-specific consent")) return;
   await page.addInitScript(() => {
     window.localStorage.setItem("psipedia-google-maps-consent", "granted");
   });
@@ -285,7 +286,6 @@ test.describe("MAP-1D desktop", () => {
 
   test("Google renderer is blocked before service-specific consent", async ({ page }) => {
     await installMapApiMock(page);
-    await page.addInitScript(() => window.localStorage.removeItem("psipedia-google-maps-consent"));
     await page.goto("/mapa?__mapRenderer=real");
 
     await expect(page.getByTestId("map-consent-gate")).toContainText("Načítať interaktívnu Google mapu?");
