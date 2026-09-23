@@ -10,6 +10,10 @@ export default async function Page() {
   const items = (await listPartnerResources(identity.accountId)).filter((item) => item.entityType !== "MANAGED_EVENT");
   return (
     <PartnerShell title="Moje profily" description="Profily, ku ktorým máte aktívne Partner členstvo.">
+      <section className="partner-new-profile-cta">
+        <div><span className="eyebrow">Chýba váš profil?</span><h2>Pridať nový profil</h2><p>Ak profil už na Psipedii existuje, použite „Spravujete tento profil?“ namiesto vytvárania duplikátu.</p></div>
+        <Link className="button button--dark" href="/partner/profily/novy">Pridať nový profil</Link>
+      </section>
       {items.length ? (
         <div className="partner-resource-grid">
           {items.map((item) => (
