@@ -102,9 +102,17 @@ function validateReady(page: NotionPage) {
 }
 
 async function loadMapping(database: D1Database, pageId: string) {
-  return database.prepare(
-    "SELECT event_id, content_hash, inbound_locked_at, inbound_lock_reason FROM event_notion_sync WHERE notion_page_id = ? LIMIT 1",
-  ).bind(pageId).first<EventMappingRow>();
+  try {
+    return await database.prepare(
+      "SELECT event_id, content_hash, inbound_locked_at, inbound_lock_reason FROM event_notion_sync WHERE notion_page_id = ? LIMIT 1",
+    ).bind(pageId).first<EventMappingRow>();
+  } catch (error) {
+    if (!/no such column: inbound_locked_at/i.test(String(error))) throw error;
+    const legacy = await database.prepare(
+      "SELECT event_id, content_hash FROM event_notion_sync WHERE notion_page_id = ? LIMIT 1",
+    ).bind(pageId).first<Pick<EventMappingRow, "event_id" | "content_hash">>();
+    return legacy ? { ...legacy, inbound_locked_at: null, inbound_lock_reason: null } : null;
+  }
 }
 
 async function upsertMapping(
