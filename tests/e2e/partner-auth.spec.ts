@@ -151,6 +151,7 @@ test("public header exposes Partner login as a utility action without overflow",
 });
 
 test("anonymous Directory profile separates management from public correction and preserves returnTo", async ({ page }, testInfo) => {
+  if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/adresar/veterinari/partner-e2e-veterina");
   await expect(page.getByRole("heading", { name: "Spravujete tento profil?" })).toBeVisible();
   await expect(page.getByText("Správa základných údajov profilu je bezplatná.")).toBeVisible();
@@ -173,6 +174,7 @@ test("anonymous Directory profile separates management from public correction an
 
 test("valid one-time link creates a session and exposes membership dashboard/settings", async ({ page }, testInfo) => {
   const project = testInfo.project.name as keyof typeof AUTH_TOKENS;
+  if (project === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
   const token = AUTH_TOKENS[project];
   const expectedEmail = AUTH_EMAILS[project];
   const contactName = project === "desktop-chromium" ? "E2E Partner Desktop" : "E2E Partner Mobile";
