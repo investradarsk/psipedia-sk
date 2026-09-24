@@ -270,6 +270,20 @@ test("seeded query layer combines filters, privacy, publication, event lifecycle
   assert.deepEqual(filtered.items.map((item) => item.name), ["Veterina Nitra"]);
 });
 
+test("low zoom singleton buckets preserve the existing public MapItem DTO", async () => {
+  const result = await queryPublicMap(
+    parseMapQuery(params({ zoom: "7" })),
+    fakeDb({ services: [row({ name: "Singleton Vet", slug: "singleton-vet" })] }),
+    NOW,
+  );
+  assert.equal(result.mode, "clusters");
+  assert.equal(result.clusters.length, 1);
+  assert.equal(result.clusters[0].count, 1);
+  assert.equal(result.clusters[0].singletonItem?.name, "Singleton Vet");
+  assert.equal(result.clusters[0].singletonItem?.href, "/adresar/veterinari/singleton-vet");
+  assert.equal(JSON.stringify(result.clusters[0].singletonItem).includes("sourceFingerprint"), false);
+});
+
 test("low zoom returns clusters instead of thousands of marker payloads", async () => {
   const services = Array.from({ length: 1200 }, (_, index) => row({
     geo_point_id: index + 1,

@@ -359,7 +359,7 @@ export function GoogleMapRenderer(props: Props) {
           zoomControl: true,
           keyboardShortcuts: true,
           clickableIcons: false,
-          gestureHandling: "cooperative",
+          gestureHandling: "greedy",
         });
         mapRef.current = map;
         markerCtorRef.current = markerLibrary.AdvancedMarkerElement;

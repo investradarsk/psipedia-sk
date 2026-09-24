@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type MutableRefObject, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { directoryCategories } from "@/lib/directory";
 import { eventTypes, slovakRegions } from "@/lib/events";
@@ -192,11 +192,20 @@ function isMapResponse(value: unknown): value is MapResponse {
 }
 
 function responseItems(response: MapResponse | null) {
-  return response?.mode === "items" ? response.items : [];
+  if (response?.mode === "items") return response.items;
+  if (response?.mode !== "clusters") return [];
+  return response.clusters.flatMap((cluster) =>
+    cluster.count === 1 && cluster.singletonItem ? [cluster.singletonItem] : [],
+  );
 }
 
 function responseClusters(response: MapResponse | null) {
-  return response?.mode === "clusters" ? response.clusters : [];
+  if (response?.mode !== "clusters") return [];
+  return response.clusters.filter((cluster) => cluster.count !== 1 || !cluster.singletonItem);
+}
+
+function isInteractiveSheetTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest("button, a, input, select, textarea"));
 }
 
 function MapResultCard({
@@ -254,6 +263,7 @@ function MapResults({
   onClearFilters,
   sheetState,
   onToggleSheet,
+  onSheetStateChange,
   cardRefs,
 }: {
   response: MapResponse | null;
@@ -265,6 +275,7 @@ function MapResults({
   onClearFilters: () => void;
   sheetState: "peek" | "expanded";
   onToggleSheet: () => void;
+  onSheetStateChange: (state: "peek" | "expanded") => void;
   cardRefs: MutableRefObject<Map<string, HTMLElement>>;
 }) {
   const items = responseItems(response);
@@ -275,14 +286,141 @@ function MapResults({
       : `${response.meta.count} oblastí · ${mapResultLabel(response.meta.matched)}`
     : "Výsledky";
 
+  const panelRef = useRef<HTMLElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startY: number;
+    lastY: number;
+    startTime: number;
+    startState: "peek" | "expanded";
+    maxTravel: number;
+    active: boolean;
+    source: "header" | "list";
+  } | null>(null);
+  const pointerCleanupRef = useRef<(() => void) | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+
+  const clearPointerListeners = () => {
+    pointerCleanupRef.current?.();
+    pointerCleanupRef.current = null;
+  };
+
+  const resetSheetDrag = () => {
+    clearPointerListeners();
+    dragRef.current = null;
+    setDragOffset(0);
+    setDragging(false);
+  };
+
+  const moveSheetDrag = (event: PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const delta = event.clientY - drag.startY;
+    drag.lastY = event.clientY;
+
+    if (drag.source === "list" && !drag.active) {
+      if ((scrollRef.current?.scrollTop ?? 0) > 0 || delta <= 8) return;
+      drag.active = true;
+      setDragging(true);
+    }
+    if (!drag.active) return;
+
+    event.preventDefault();
+    const nextOffset = drag.startState === "peek"
+      ? Math.max(-drag.maxTravel, Math.min(0, delta))
+      : Math.min(drag.maxTravel, Math.max(0, delta));
+    setDragOffset(nextOffset);
+  };
+
+  const endSheetDrag = (event: PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.active) {
+      resetSheetDrag();
+      return;
+    }
+
+    const delta = event.clientY - drag.startY;
+    const elapsed = Math.max(1, event.timeStamp - drag.startTime);
+    const velocity = delta / elapsed;
+    const threshold = Math.min(96, Math.max(48, drag.maxTravel * 0.18));
+
+    if (drag.startState === "peek") {
+      onSheetStateChange(delta < -threshold || velocity < -0.45 ? "expanded" : "peek");
+    } else {
+      onSheetStateChange(delta > threshold || velocity > 0.45 ? "peek" : "expanded");
+    }
+    resetSheetDrag();
+  };
+
+  const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>, source: "header" | "list") => {
+    if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (source === "header" && isInteractiveSheetTarget(event.target)) return;
+    if (source === "list" && (sheetState !== "expanded" || (scrollRef.current?.scrollTop ?? 0) > 0)) return;
+
+    clearPointerListeners();
+    const panelHeight = panelRef.current?.getBoundingClientRect().height ?? 0;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      lastY: event.clientY,
+      startTime: event.timeStamp,
+      startState: sheetState,
+      maxTravel: Math.max(0, panelHeight - 132),
+      active: source === "header",
+      source,
+    };
+
+    if (source === "header") setDragging(true);
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Window listeners below keep the gesture robust if capture is unavailable.
+    }
+
+    const onMove = (nativeEvent: PointerEvent) => moveSheetDrag(nativeEvent);
+    const onUp = (nativeEvent: PointerEvent) => endSheetDrag(nativeEvent);
+    const onCancel = (nativeEvent: PointerEvent) => {
+      if (dragRef.current?.pointerId === nativeEvent.pointerId) resetSheetDrag();
+    };
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    pointerCleanupRef.current = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+    };
+  };
+
+  useEffect(() => () => {
+    pointerCleanupRef.current?.();
+    pointerCleanupRef.current = null;
+  }, []);
+
+  const sheetStyle = { "--map-sheet-drag-y": `${dragOffset}px` } as CSSProperties;
+
   return (
     <aside
+      ref={panelRef}
       className={styles.resultsPanel}
       data-sheet-state={sheetState}
+      data-sheet-dragging={dragging ? "true" : "false"}
       aria-label="Výsledky mapy"
       data-testid="map-results-panel"
+      style={sheetStyle}
     >
-      <header className={styles.resultsHead}>
+      <header
+        className={styles.resultsHead}
+        data-testid="map-sheet-header"
+        onPointerDown={(event) => beginSheetDrag(event, "header")}
+      >
+        <span className={styles.sheetHandle} data-testid="map-sheet-handle" aria-hidden="true" />
         <div className={styles.resultsHeadTop}>
           <h2>{countLabel}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -305,7 +443,13 @@ function MapResults({
         </p>
       </header>
 
-      <div className={styles.resultsScroll} id="map-result-scroll">
+      <div
+        ref={scrollRef}
+        className={styles.resultsScroll}
+        id="map-result-scroll"
+        data-testid="map-results-scroll"
+        onPointerDown={(event) => beginSheetDrag(event, "list")}
+      >
         {error ? (
           <div className={styles.stateCard} role="alert" data-testid="map-api-error">
             <strong>{error.message}</strong>
@@ -534,17 +678,19 @@ export function MapExperience({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [mobileFiltersOpen]);
 
-  const selectItem = useCallback((item: MapItem) => {
+  const selectItem = useCallback((item: MapItem, focusMap = true) => {
     setSelectedItemId(item.id);
     setSheetState("expanded");
-    setRendererCommand((current) => ({
-      key: (current?.key ?? 0) + 1,
-      type: "item",
-      id: item.id,
-      latitude: item.latitude,
-      longitude: item.longitude,
-      zoom: Math.max(viewport.zoom, 13),
-    }));
+    if (focusMap) {
+      setRendererCommand((current) => ({
+        key: (current?.key ?? 0) + 1,
+        type: "item",
+        id: item.id,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        zoom: Math.max(viewport.zoom, 13),
+      }));
+    }
     window.requestAnimationFrame(() => {
       cardRefs.current.get(item.id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
@@ -552,8 +698,11 @@ export function MapExperience({
 
   const selectItemById = useCallback((id: string) => {
     const item = items.find((candidate) => candidate.id === id);
-    if (item) selectItem(item);
-  }, [items, selectItem]);
+    if (!item) return;
+    const singletonClusterItem = response?.mode === "clusters"
+      && response.clusters.some((cluster) => cluster.count === 1 && cluster.singletonItem?.id === id);
+    selectItem(item, !singletonClusterItem);
+  }, [items, response, selectItem]);
 
   const selectCluster = useCallback((cluster: MapCluster) => {
     setSelectedItemId(null);
@@ -643,6 +792,7 @@ export function MapExperience({
           onClearFilters={clearFilters}
           sheetState={sheetState}
           onToggleSheet={() => setSheetState((value) => value === "peek" ? "expanded" : "peek")}
+          onSheetStateChange={setSheetState}
           cardRefs={cardRefs}
         />
 

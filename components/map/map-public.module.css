@@ -592,6 +592,7 @@
   justify-content: center;
 }
 
+.sheetHandle,
 .sheetToggle {
   display: none;
 }
@@ -800,26 +801,38 @@
     border: 1px solid var(--map-panel-border);
     border-radius: 20px 20px 14px 14px;
     box-shadow: 0 -12px 35px rgba(20, 47, 37, .18);
-    transform: translateY(calc(100% - 132px));
+    overscroll-behavior: contain;
+    transform: translateY(calc(100% - 132px + var(--map-sheet-drag-y, 0px)));
     transition: transform 220ms ease;
   }
 
   .resultsPanel[data-sheet-state="expanded"] {
-    transform: translateY(0);
+    transform: translateY(var(--map-sheet-drag-y, 0px));
+  }
+
+  .resultsPanel[data-sheet-dragging="true"] {
+    transition: none;
   }
 
   .resultsHead {
     padding: 10px 14px 9px;
-    cursor: default;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
   }
 
-  .resultsHead::before {
+  .resultsPanel[data-sheet-dragging="true"] .resultsHead {
+    cursor: grabbing;
+  }
+
+  .sheetHandle {
+    display: block;
     width: 44px;
     height: 5px;
     justify-self: center;
     border-radius: 999px;
     background: rgba(23, 53, 43, .2);
-    content: "";
+    pointer-events: none;
   }
 
   .sheetToggle {
@@ -833,6 +846,9 @@
 
   .resultsScroll {
     padding: 9px;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
 
   .resultSelect {

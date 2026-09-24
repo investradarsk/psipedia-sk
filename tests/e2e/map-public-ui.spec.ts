@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 
 const serviceItem = {
   id: "service:1",
@@ -137,6 +137,37 @@ async function installMapApiMock(page: Page) {
       });
       return;
     }
+    if (search === "singleton" && zoom < 9) {
+      const clusters = [{
+        id: "cluster:singleton-event",
+        latitude: eventItem.latitude,
+        longitude: eventItem.longitude,
+        count: 1,
+        categoryCounts: { services: 0, organizations: 0, events: 1 },
+        singletonItem: eventItem,
+      }];
+      await json(route, 200, {
+        mode: "clusters",
+        clusters,
+        meta: responseMeta(url, clusters.length, { matched: 1 }),
+      });
+      return;
+    }
+    if (search === "many") {
+      const items = Array.from({ length: 12 }, (_, index) => ({
+        ...serviceItem,
+        id: `service:${index + 10}`,
+        entityId: index + 10,
+        name: `Veterina ${index + 1}`,
+        href: `/adresar/veterinari/veterina-${index + 1}`,
+      }));
+      await json(route, 200, {
+        mode: "items",
+        items,
+        meta: responseMeta(url, items.length),
+      });
+      return;
+    }
 
     let items = allItems;
     if (category) items = items.filter((item) => item.category === category);
@@ -164,6 +195,28 @@ async function installMapApiMock(page: Page) {
   });
 
   return { requests };
+}
+
+async function swipePointer(locator: Locator, deltaY: number, startOffsetY = 24) {
+  await locator.scrollIntoViewIfNeeded();
+  const initialBox = await locator.boundingBox();
+  expect(initialBox).not.toBeNull();
+
+  const offsetX = Math.min(initialBox!.width / 2, 120);
+  const offsetY = Math.min(startOffsetY, Math.max(8, initialBox!.height / 2));
+  await locator.hover({ position: { x: offsetX, y: offsetY } });
+
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+
+  const page = locator.page();
+  const startX = box!.x + offsetX;
+  const startY = box!.y + offsetY;
+
+  await page.mouse.down();
+  await page.mouse.move(startX, startY + deltaY, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(260);
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -255,6 +308,29 @@ test.describe("MAP-1D desktop", () => {
     expect(zoomRequestDelta).toBe(1);
   });
 
+  test("singleton cluster is exposed as an item marker and selects without zoom-only navigation", async ({ page }) => {
+    const mock = await installMapApiMock(page);
+    await page.goto("/mapa");
+    await expect(page.getByTestId("map-test-renderer")).toBeVisible();
+
+    await page.getByLabel("Vyhľadávanie v mape").fill("singleton");
+    await expect(page.getByRole("button", { name: "Priblížiť oblasť s 1 záznamami" })).toHaveCount(0);
+    await expect(page.getByTestId("marker-event:3")).toBeVisible();
+    await expect(page.getByTestId("map-card-event:3")).toBeVisible();
+
+    const requestsBeforeSelect = mock.requests.length;
+    await page.getByTestId("marker-event:3").click();
+    await expect(page.getByTestId("map-card-event:3")).toHaveAttribute("data-selected", "true");
+    await expect(page.getByTestId("map-card-event:3")).toContainText("Psia výstava Nitra");
+    await expect(page.getByTestId("map-card-event:3")).toContainText("Nitra");
+    await expect(page.getByTestId("map-card-event:3")).toContainText("1. októbra 2030");
+    expect(new URL(page.url()).pathname).toBe("/mapa");
+    expect(mock.requests.length - requestsBeforeSelect).toBe(0);
+    await expect.poll(() => page.evaluate(() => (
+      window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }
+    ).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
+  });
+
   test("empty, truncated and API failure states remain distinct and retryable", async ({ page }) => {
     await installMapApiMock(page);
     await page.goto("/mapa");
@@ -312,18 +388,42 @@ test.describe("MAP-1D desktop", () => {
 test.describe("MAP-1D mobile", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("bottom sheet, mobile filters, marker selection and no horizontal overflow", async ({ page }) => {
+  test("bottom sheet gestures, mobile filters, marker selection and no horizontal overflow", async ({ page }) => {
     await installMapApiMock(page);
     await page.goto("/mapa");
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
 
     const results = page.getByTestId("map-results-panel");
+    const header = page.getByTestId("map-sheet-header");
+    const resultScroll = page.getByTestId("map-results-scroll");
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-initial.png", fullPage: true });
+
+    await swipePointer(header, -120);
+    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
+
+    await swipePointer(header, 120);
+    await expect(results).toHaveAttribute("data-sheet-state", "peek");
 
     await page.getByRole("button", { name: "Výsledky" }).click();
     await expect(results).toHaveAttribute("data-sheet-state", "expanded");
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-sheet-expanded.png", fullPage: true });
+
+    await page.getByLabel("Vyhľadávanie v mape").fill("many");
+    await expect(page.getByTestId("map-card-service:10")).toBeVisible();
+    await resultScroll.hover();
+    await page.mouse.wheel(0, 420);
+    await expect.poll(() => resultScroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await resultScroll.evaluate((element) => { element.scrollTop = 0; });
+    await swipePointer(resultScroll, 120);
+    await expect(results).toHaveAttribute("data-sheet-state", "peek");
+
+    const map = page.getByTestId("map-test-renderer");
+    await swipePointer(map, -90);
+    await expect(results).toHaveAttribute("data-sheet-state", "peek");
+
+    await page.getByRole("button", { name: "Výsledky" }).click();
+    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
 
     await page.getByRole("button", { name: /Filtre/ }).click();
     const dialog = page.getByTestId("map-filter-dialog");
@@ -333,6 +433,8 @@ test.describe("MAP-1D mobile", () => {
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Filtre/ })).toBeFocused();
 
+    await page.getByLabel("Vyhľadávanie v mape").fill("");
+    await expect(page.getByTestId("marker-service:1")).toBeVisible();
     await page.getByRole("button", { name: "Zmenšiť" }).click();
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
     await page.getByTestId("marker-service:1").click();
@@ -341,7 +443,32 @@ test.describe("MAP-1D mobile", () => {
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-selected.png", fullPage: true });
 
     await expectNoHorizontalOverflow(page);
+    await expect.poll(() => page.evaluate(() => (
+      window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }
+    ).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
     const axe = await new AxeBuilder({ page }).include("main").analyze();
     expect(axe.violations).toEqual([]);
+  });
+
+  test("singleton marker selects and exposes its result without automatic detail navigation", async ({ page }) => {
+    await installMapApiMock(page);
+    await page.goto("/mapa");
+    const results = page.getByTestId("map-results-panel");
+
+    await page.getByLabel("Vyhľadávanie v mape").fill("singleton");
+    await expect(results).toHaveAttribute("data-sheet-state", "peek");
+    await expect(page.getByTestId("marker-event:3")).toBeVisible();
+
+    await page.getByTestId("marker-event:3").click();
+    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
+    await expect(page.getByTestId("map-card-event:3")).toHaveAttribute("data-selected", "true");
+    await expect(page.getByTestId("map-card-event:3")).toBeVisible();
+    await expect(page.getByTestId("map-card-event:3").getByRole("link", { name: "Detail podujatia" }))
+      .toHaveAttribute("href", "/podujatia/psia-vystava-nitra");
+    expect(new URL(page.url()).pathname).toBe("/mapa");
+    await expect.poll(() => page.evaluate(() => (
+      window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }
+    ).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
+    await expectNoHorizontalOverflow(page);
   });
 });
