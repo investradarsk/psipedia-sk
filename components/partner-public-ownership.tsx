@@ -7,7 +7,7 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
     return (
       <>
         <div>
-          <h2>Tento profil spravujete cez Partner účet.</h2>
+          <h2 id="partner-profile-management-heading">Tento profil spravujete cez Partner účet.</h2>
           <p>Zmeny verejných údajov odošlete na kontrolu priamo zo svojho Partner účtu.</p>
         </div>
         <div className={styles.actions}>
@@ -22,7 +22,7 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
     return (
       <>
         <div>
-          <h2>Žiadosť o správu profilu čaká na kontrolu.</h2>
+          <h2 id="partner-profile-management-heading">Žiadosť o správu profilu čaká na kontrolu.</h2>
           <p>Ďalšiu žiadosť netreba posielať. Stav nájdete vo svojom Partner účte.</p>
         </div>
         <div className={styles.actions}>
@@ -36,7 +36,7 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
     return (
       <>
         <div>
-          <h2>Predchádzajúca žiadosť bola zamietnutá.</h2>
+          <h2 id="partner-profile-management-heading">Predchádzajúca žiadosť bola zamietnutá.</h2>
           <p>{state.hasDecisionNote ? "Dôvod nájdete v histórii žiadostí." : "Stav predchádzajúcej žiadosti nájdete vo svojom Partner účte."}</p>
         </div>
         <div className={styles.actions}>
@@ -51,7 +51,7 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
     return (
       <>
         <div>
-          <h2>Spravujete tento profil?</h2>
+          <h2 id="partner-profile-management-heading">Spravujete tento profil?</h2>
           <p>Ak ste majiteľ alebo poverený správca, môžete požiadať o jeho správu cez Partner účet.</p>
         </div>
         <div className={styles.actions}>
@@ -64,7 +64,7 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
   return (
     <>
       <div>
-        <h2>Spravujete tento profil?</h2>
+        <h2 id="partner-profile-management-heading">Spravujete tento profil?</h2>
         <p>Správa základných údajov profilu je bezplatná. Prihláste sa do Partner účtu a požiadajte o jeho správu.</p>
       </div>
       <div className={styles.actions}>
