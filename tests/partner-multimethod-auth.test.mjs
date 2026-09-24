@@ -185,28 +185,28 @@ test("Google ID-token validation uses local JWKS fixtures for nonce, issuer, aud
       email: "partner-oidc-test@example.sk",
     });
 
-    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
-      idToken: token({ tokenNonce: "wrong-nonce" }),
+    await assert.rejects(async () => google.verifyPartnerGoogleIdToken({
+      idToken: await token({ tokenNonce: "wrong-nonce" }),
       nonce,
       clientId,
     }));
-    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
-      idToken: token({ issuer: "https://issuer.invalid" }),
+    await assert.rejects(async () => google.verifyPartnerGoogleIdToken({
+      idToken: await token({ issuer: "https://issuer.invalid" }),
       nonce,
       clientId,
     }));
-    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
-      idToken: token({ audience: "wrong-client.apps.googleusercontent.com" }),
+    await assert.rejects(async () => google.verifyPartnerGoogleIdToken({
+      idToken: await token({ audience: "wrong-client.apps.googleusercontent.com" }),
       nonce,
       clientId,
     }));
-    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
-      idToken: token({ issuedAt: now - 7200, expiresAt: now - 3600 }),
+    await assert.rejects(async () => google.verifyPartnerGoogleIdToken({
+      idToken: await token({ issuedAt: now - 7200, expiresAt: now - 3600 }),
       nonce,
       clientId,
     }));
-    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
-      idToken: token({ emailVerified: false }),
+    await assert.rejects(async () => google.verifyPartnerGoogleIdToken({
+      idToken: await token({ emailVerified: false }),
       nonce,
       clientId,
     }));
