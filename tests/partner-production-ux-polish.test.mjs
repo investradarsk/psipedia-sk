@@ -115,7 +115,7 @@ test("password controls are accessible and preserve password-manager semantics",
 
 test("logout is discoverable in the Partner shell and keeps the secure backend flow", () => {
   assert.match(partnerShell, /<PartnerLogoutButton \/>/);
-  assert.match(settingsActions, /<PartnerLogoutButton className="button button--dark" accessibleName="Odhlásiť sa" \/>/);
+  assert.match(settingsActions, /<PartnerLogoutButton[\s\S]*accessibleName="Odhlásiť sa"[\s\S]*onBusyChange=\{setLogoutBusy\}/);
   assert.match(logoutButton, /fetch\("\/api\/partner\/auth\/logout"/);
   assert.match(logoutButton, /method: "POST"/);
   assert.match(logoutButton, /window\.location\.replace\("\/partner\/prihlasenie"\)/);
@@ -134,6 +134,7 @@ test("Partner-facing terminology and raw codes are localized", () => {
   assert.match(requestsPage, /getPartnerEditableFields/);
   assert.match(requestsPage, /profileFieldLabel\(change\.resourceType, key\)/);
   assert.match(requestsPage, /partnerEventOperationLabel\(submission\.operation\)/);
+  assert.match(requestsPage, /profileCategoryLabel\(submission\.resourceType, submission\.categoryOrType\)/);
   assert.doesNotMatch(requestsPage, /changedFields\.join|>Canonical profil →<|Nemáte OWNER profil/);
 
   assert.doesNotMatch(partnerHome, /aktuálneho členstva|spravujete .*zdroj/i);
@@ -169,6 +170,7 @@ test("shared Partner labels cover roles, commercial states, payments and event o
     'PAID: "Zaplatené"',
     'CREATE: "Nové podujatie"',
     'UPDATE: "Úprava podujatia"',
+    'CIVIC_ASSOCIATION", "Občianske združenie"',
   ]) {
     assert.ok(uiLabels.includes(expected), `missing Partner UI mapping: ${expected}`);
   }
