@@ -8,11 +8,12 @@ export function PartnerSettingsActions({ siteKey }: { siteKey: string }) {
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [busy, setBusy] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
   const [error, setError] = useState("");
   const onToken = useCallback((token: string) => setTurnstileToken(token), []);
 
   async function deactivate() {
-    if (!confirmDeactivate || !turnstileToken || busy) return;
+    if (!confirmDeactivate || !turnstileToken || busy || logoutBusy) return;
     setBusy(true);
     setError("");
     try {
@@ -35,7 +36,12 @@ export function PartnerSettingsActions({ siteKey }: { siteKey: string }) {
       <section className="partner-settings-card">
         <h2>Odhlásenie</h2>
         <p>Odhlásite sa z tohto zariadenia. Ostatné prihlásenia zostanú aktívne.</p>
-        <PartnerLogoutButton className="button button--dark" accessibleName="Odhlásiť sa" />
+        <PartnerLogoutButton
+          className="button button--dark"
+          accessibleName="Odhlásiť sa"
+          disabled={busy}
+          onBusyChange={setLogoutBusy}
+        />
       </section>
 
       <section className="partner-settings-card partner-danger-zone">
@@ -60,7 +66,7 @@ export function PartnerSettingsActions({ siteKey }: { siteKey: string }) {
           className="button partner-danger-button"
           type="button"
           onClick={deactivate}
-          disabled={busy || !confirmDeactivate || !turnstileToken || !siteKey}
+          disabled={busy || logoutBusy || !confirmDeactivate || !turnstileToken || !siteKey}
         >
           {busy ? "Deaktivujem…" : "Deaktivovať účet"}
         </button>
