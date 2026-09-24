@@ -4,7 +4,7 @@ import {
   partnerRoles,
   type PartnerRole,
 } from "./partner-platform";
-import type { PartnerClaimableResourceType } from "./partner-claims";
+import { isPublicPartnerResourceVerified, type PartnerClaimableResourceType } from "./partner-claims";
 import { normalizePartnerReturnTo, partnerAuthHref } from "./partner-return-to";
 
 type PublicPartnerProfileBase = {
@@ -80,6 +80,16 @@ export async function getPublicPartnerProfileManagementState(input: {
     : "help_organization_id";
   const claimHref = publicPartnerClaimHref(input.entityType, id);
 
+  if (!input.accountId) {
+    const verified = await isPublicPartnerResourceVerified(input.entityType, id, database);
+    const returnTo = normalizePartnerReturnTo(claimHref);
+    return {
+      kind: "anonymous",
+      verified,
+      managementHref: partnerAuthHref("/partner/prihlasenie", returnTo),
+    };
+  }
+
   const row = await database.prepare(`
     SELECT
       r.id resourceId,
@@ -127,16 +137,6 @@ export async function getPublicPartnerProfileManagementState(input: {
   `).bind(input.entityType, id, accountId).first<PublicPartnerProfileStateRow>();
 
   const verified = Boolean(row?.verified);
-
-  if (!input.accountId) {
-    const returnTo = normalizePartnerReturnTo(claimHref);
-    return {
-      kind: "anonymous",
-      verified,
-      managementHref: partnerAuthHref("/partner/prihlasenie", returnTo),
-    };
-  }
-
   const role = membershipRole(row?.membershipRole ?? null);
   if (row?.resourceId && role) {
     return {
