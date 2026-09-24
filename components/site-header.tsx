@@ -14,7 +14,13 @@ function isPathActive(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }
 
-export function SiteHeader({ navigationItems }: { navigationItems: NavigationItem[] }) {
+export function SiteHeader({
+  navigationItems,
+  partnerAuthenticated,
+}: {
+  navigationItems: NavigationItem[];
+  partnerAuthenticated: boolean;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -29,6 +35,8 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
   const headerRef = useRef<HTMLElement>(null);
   const suppressMenuFocus = useRef(false);
   const pathname = usePathname();
+  const partnerHref = partnerAuthenticated ? "/partner" : "/partner/prihlasenie";
+  const partnerLabel = partnerAuthenticated ? "Partner účet" : "Prihlásiť sa";
   const nav = useMemo(() => {
     const visible = navigationItems.filter((item) => item.visible);
     return visible.filter((item) => !item.parentId).map((item) => {
@@ -62,6 +70,25 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
     }, 0);
     return () => window.clearTimeout(timer);
   }, [pathname]);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    const root = document.documentElement;
+    const property = "--psipedia-sticky-header-height";
+    const update = () => {
+      root.style.setProperty(property, `${Math.ceil(header.getBoundingClientRect().height)}px`);
+    };
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty(property);
+    };
+  }, []);
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -273,7 +300,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
 
           <div className="header-actions">
             <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
-            <Link href="/partner/prihlasenie" className="header-contact-link" data-partner-login-entry>Prihlásiť sa</Link>
+            <Link href={partnerHref} className="header-contact-link" data-partner-login-entry>{partnerLabel}</Link>
             <button className="icon-button search-trigger" type="button" onClick={openSearch} aria-label="Otvoriť vyhľadávanie">
               <SearchIcon />
               <span>Hľadať</span>
@@ -367,7 +394,7 @@ export function SiteHeader({ navigationItems }: { navigationItems: NavigationIte
                 )}
               </div>
             ))}
-            <div className={styles.mobileUtilityLinks}><Link href="/o-nas#kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href="/partner/prihlasenie" className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>Prihlásiť sa</Link></div>
+            <div className={styles.mobileUtilityLinks}><Link href="/o-nas#kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href={partnerHref} className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>{partnerLabel}</Link></div>
             <button type="button" onClick={openSearch}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
         </div>
