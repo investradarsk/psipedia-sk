@@ -36,6 +36,15 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
   test(path + " is usable, accessible and overflow-safe", async ({ page }) => {
     await page.goto(path);
     await expect(page.locator("main#obsah")).toBeVisible();
+    await expect(page.getByLabel("E-mail")).toBeVisible();
+    await expect(page.getByLabel("Heslo")).toBeVisible();
+    if (path === "/partner/registracia") {
+      await expect(page.getByLabel("Potvrdenie hesla")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Vytvoriť Partner účet" })).toBeDisabled();
+    } else {
+      await expect(page.getByRole("button", { name: "Prihlásiť sa" })).toBeDisabled();
+      await expect(page.getByRole("link", { name: "Zabudli ste heslo?" })).toBeVisible();
+    }
     await expect(page.getByLabel("Pracovný e-mail")).toBeVisible();
     await expect(page.getByRole("button", { name: "Poslať prihlasovací odkaz" })).toBeDisabled();
     await expectNoHorizontalOverflow(page);
@@ -43,6 +52,21 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
     expect(accessibility.violations).toEqual([]);
   });
 }
+
+test("forgot and reset password surfaces are accessible and overflow-safe", async ({ page }) => {
+  await page.goto("/partner/zabudnute-heslo");
+  await expect(page.getByRole("heading", { name: "Zabudli ste heslo?" })).toBeVisible();
+  await expect(page.getByLabel("E-mail")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Poslať odkaz na obnovenie hesla" })).toBeDisabled();
+  await expectNoHorizontalOverflow(page);
+  const forgotAccessibility = await new AxeBuilder({ page }).analyze();
+  expect(forgotAccessibility.violations).toEqual([]);
+
+  await page.goto("/partner/obnova-hesla");
+  await expect(page.getByRole("heading", { name: "Obnovenie hesla" })).toBeVisible();
+  await expect(page.getByText("Odkaz na obnovenie hesla nie je platný alebo už expiroval.")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
 
 test("invalid verification link has a safe recovery state", async ({ page }) => {
   await page.goto("/partner/overenie");
@@ -331,6 +355,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByLabel("Vaša úloha / vzťah k profilu").fill(updatedRelationship);
   await page.getByRole("button", { name: "Uložiť kontaktné údaje" }).click();
   await expect(page.getByRole("status")).toContainText("Kontaktné údaje boli uložené.");
+  await expect(page.getByRole("heading", { name: "Prihlasovanie a bezpečnosť" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Odhlásiť sa" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Deaktivovať účet" })).toBeDisabled();
   await expectNoHorizontalOverflow(page);
@@ -363,6 +388,7 @@ test("internal admin Partner overview and account detail are protected admin pag
   await accountRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:AUTH_EMAILS[project]})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Kontakt"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Prihlasovacie metódy"})).toBeVisible();
   await expect(page.getByText(project==="desktop-chromium"?"E2E Partner Desktop":"E2E Partner Mobile")).toBeVisible();
   await expect(page.getByText(project==="desktop-chromium"?"E2E manažér aktualizovaný":"E2E správca aktualizovaný")).toBeVisible();
   await expect(page.getByRole("heading",{name:"Bezpečnostné akcie"})).toBeVisible();
