@@ -39,6 +39,38 @@ export const partnerAccountProfiles = sqliteTable(
   ],
 );
 
+export const partnerPasswordCredentials = sqliteTable(
+  "partner_password_credentials",
+  {
+    accountId: text("account_id").primaryKey().references(() => partnerAccounts.id, { onDelete: "restrict" }),
+    passwordHash: text("password_hash").notNull(),
+    hashVersion: integer("hash_version").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("partner_password_credentials_hash_version_check", sql`${table.hashVersion} = 1`),
+  ],
+);
+
+export const partnerAuthIdentities = sqliteTable(
+  "partner_auth_identities",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("account_id").notNull().references(() => partnerAccounts.id, { onDelete: "restrict" }),
+    provider: text("provider").notNull(),
+    providerSubject: text("provider_subject").notNull(),
+    linkedAt: text("linked_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("partner_auth_identities_provider_check", sql`${table.provider} IN ('GOOGLE')`),
+    uniqueIndex("partner_auth_identities_provider_subject_unique").on(table.provider, table.providerSubject),
+    uniqueIndex("partner_auth_identities_account_provider_unique").on(table.accountId, table.provider),
+  ],
+);
+
 export const partnerNotificationOutbox = sqliteTable(
   "partner_notification_outbox",
   {
@@ -58,7 +90,7 @@ export const partnerNotificationOutbox = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED','COMMERCIAL_OFFER_CREATED','COMMERCIAL_AGREEMENT_UPDATED','PAYMENT_MARKED_PAID','ENTITLEMENT_ACTIVATED','ENTITLEMENT_EXPIRING','ENTITLEMENT_EXPIRED')`),
+    check("partner_notification_outbox_type_check", sql`${table.notificationType} IN ('AUTH_MAGIC_LINK','PASSWORD_RESET','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','VERIFICATION_APPROVED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED','COMMERCIAL_OFFER_CREATED','COMMERCIAL_AGREEMENT_UPDATED','PAYMENT_MARKED_PAID','ENTITLEMENT_ACTIVATED','ENTITLEMENT_EXPIRING','ENTITLEMENT_EXPIRED')`),
     check("partner_notification_outbox_status_check", sql`${table.status} IN ('PENDING','SENDING','SENT','FAILED','EXPIRED')`),
     uniqueIndex("partner_notification_outbox_dedupe_unique").on(table.dedupeKey),
     index("partner_notification_outbox_status_expiry_idx").on(table.status, table.expiresAt, table.updatedAt),
@@ -274,6 +306,6 @@ export const partnerAuditEvents = sqliteTable("partner_audit_events", {
   targetType:text("target_type").notNull(),targetId:text("target_id").notNull(),metadataJson:text("metadata_json").notNull().default("{}"),createdAt:text("created_at").notNull(),
 }, table=>[
   check("partner_audit_actor_check",sql`${table.actorType} IN ('PARTNER','ADMIN','SYSTEM')`),
-  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','COMMERCIAL_AGREEMENT_CREATED','COMMERCIAL_AGREEMENT_UPDATED','COMMERCIAL_PAYMENT_MARKED_PAID','ENTITLEMENT_ACTIVATED','ENTITLEMENT_PAUSED','ENTITLEMENT_CANCELLED','ENTITLEMENT_EXPIRED','COMMERCIAL_PROMOTION_LINKED','COMMERCIAL_CAMPAIGN_LINKED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_WITHDRAWN','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_WITHDRAWN','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CHANGE_SUBMITTED','EVENT_WITHDRAWN','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED','CONTACT_PROFILE_COMPLETED','CONTACT_PROFILE_UPDATED')`),
+  check("partner_audit_action_check",sql`${table.action} IN ('ACCOUNT_CREATED','EMAIL_VERIFIED','ACCOUNT_SUSPENDED','ACCOUNT_REACTIVATED','ACCOUNT_DEACTIVATED','SESSIONS_REVOKED','MEMBERSHIP_CREATED','MEMBERSHIP_ROLE_CHANGED','MEMBERSHIP_REVOKED','COMMERCIAL_INTEREST_CREATED','COMMERCIAL_INTEREST_STATUS_CHANGED','COMMERCIAL_INTEREST_NOTE_UPDATED','COMMERCIAL_AGREEMENT_CREATED','COMMERCIAL_AGREEMENT_UPDATED','COMMERCIAL_PAYMENT_MARKED_PAID','ENTITLEMENT_ACTIVATED','ENTITLEMENT_PAUSED','ENTITLEMENT_CANCELLED','ENTITLEMENT_EXPIRED','COMMERCIAL_PROMOTION_LINKED','COMMERCIAL_CAMPAIGN_LINKED','CLAIM_SUBMITTED','CLAIM_APPROVED','CLAIM_REJECTED','CLAIM_CANCELLED','VERIFICATION_REQUESTED','VERIFICATION_VERIFIED','VERIFICATION_REJECTED','PROFILE_CHANGE_SUBMITTED','PROFILE_CHANGE_WITHDRAWN','PROFILE_CHANGE_APPROVED','PROFILE_CHANGE_REJECTED','NEW_PROFILE_SUBMITTED','NEW_PROFILE_WITHDRAWN','NEW_PROFILE_CREATED','NEW_PROFILE_LINKED_EXISTING','NEW_PROFILE_REJECTED','EVENT_SUBMITTED','EVENT_CHANGE_SUBMITTED','EVENT_WITHDRAWN','EVENT_CREATED','EVENT_LINKED_EXISTING','EVENT_CHANGE_APPROVED','EVENT_REJECTED','CONTACT_PROFILE_COMPLETED','CONTACT_PROFILE_UPDATED','PASSWORD_SET','PASSWORD_CHANGED','PASSWORD_RESET_COMPLETED','GOOGLE_IDENTITY_LINKED')`),
   index("partner_audit_target_created_idx").on(table.targetType,table.targetId,table.createdAt),
 ]);
