@@ -78,7 +78,7 @@ type CandidateRow = {
   district: string;
   region: string;
   address: string;
-  search_text: string;
+  search_text: string | null;
   verified: number;
   featured: number;
   location_role: MapItem["locationRole"] | null;
@@ -120,7 +120,7 @@ function rowToCandidate(row: CandidateRow): MapCandidate {
     district: row.district,
     region: row.region,
     address: row.address,
-    searchText: row.search_text,
+    searchText: row.search_text ?? "",
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     locationRole: row.location_role,
@@ -182,8 +182,9 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
       d.city, d.district, d.region, d.address,
-      (d.name || ' ' || d.excerpt || ' ' || d.description || ' ' || d.services_json || ' ' ||
-        d.city || ' ' || d.district || ' ' || d.region) AS search_text,
+      (coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
+        coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
+        coalesce(d.region, '')) AS search_text,
       d.verified, d.featured, NULL AS location_role,
       NULL AS event_start_date, NULL AS event_start_time, NULL AS event_end_date, NULL AS event_end_time,
       d.status AS canonical_status, d.archived_at, 0 AS cancelled, d.online,
@@ -216,8 +217,9 @@ function organizationStatement(query: MapQueryInput, db: MapD1Database) {
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
       l.city, l.district, l.region, l.address,
-      (o.name || ' ' || o.short_description || ' ' || o.description || ' ' ||
-        l.label || ' ' || l.city || ' ' || l.district || ' ' || l.region) AS search_text,
+      (coalesce(o.name, '') || ' ' || coalesce(o.short_description, '') || ' ' || coalesce(o.description, '') || ' ' ||
+        coalesce(l.label, '') || ' ' || coalesce(l.city, '') || ' ' || coalesce(l.district, '') || ' ' ||
+        coalesce(l.region, '')) AS search_text,
       0 AS verified, 0 AS featured, l.role AS location_role,
       NULL AS event_start_date, NULL AS event_start_time, NULL AS event_end_date, NULL AS event_end_time,
       o.status AS canonical_status, o.archived_at, 0 AS cancelled, 0 AS online,
@@ -257,8 +259,9 @@ function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) 
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
       e.city, '' AS district, e.region, e.address,
-      (e.title || ' ' || e.excerpt || ' ' || e.organizer || ' ' || e.venue || ' ' ||
-        e.event_type || ' ' || e.city || ' ' || e.region) AS search_text,
+      (coalesce(e.title, '') || ' ' || coalesce(e.excerpt, '') || ' ' || coalesce(e.organizer, '') || ' ' ||
+        coalesce(e.venue, '') || ' ' || coalesce(e.event_type, '') || ' ' || coalesce(e.city, '') || ' ' ||
+        coalesce(e.region, '')) AS search_text,
       0 AS verified, 0 AS featured, NULL AS location_role,
       e.start_date AS event_start_date, e.start_time AS event_start_time,
       e.end_date AS event_end_date, e.end_time AS event_end_time,
