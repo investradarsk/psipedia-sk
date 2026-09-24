@@ -32,6 +32,7 @@ export type PublicPartnerProfileManagementState =
     })
   | (PublicPartnerProfileBase & {
       kind: "member";
+      role: PartnerRole;
       editHref: string | null;
       accountHref: string;
     });
@@ -144,6 +145,7 @@ export async function getPublicPartnerProfileManagementState(input: {
     return {
       kind: "member",
       verified,
+      role,
       editHref: partnerRoleHasPermission(role, "PROFILE_SUBMIT_CHANGE")
         ? `/partner/profily/${encodeURIComponent(row.resourceId)}/upravit`
         : null,
