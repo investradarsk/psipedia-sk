@@ -323,6 +323,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     readJson("dist/server/wrangler.json"),
   ]);
   const selection = selectMigrationsThrough(files, targetMigration);
+  const targetMigrationBytes = await fs.readFile(path.join(repoRoot, "drizzle", targetMigration));
+  const targetMigrationSha256 = createHash("sha256").update(targetMigrationBytes).digest("hex");
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -336,6 +338,7 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
   await fs.writeFile(path.join(workDir, "manifest.json"), `${JSON.stringify({
     targetMigration,
     targetIndex: selection.targetIndex,
+    targetMigrationSha256,
     includedMigrations: selection.selected,
     excludedFutureMigrations: selection.excludedFuture,
     databaseName: resources.d1.database_name,
@@ -343,7 +346,7 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     accountId: resources.account_id,
     workerName: generated.name ?? null,
   }, null, 2)}\n`);
-  return { resources, generated, selection, workDir, scopedDir, configPath: path.join(scopedDir, "wrangler.json") };
+  return { resources, generated, selection, targetMigrationSha256, workDir, scopedDir, configPath: path.join(scopedDir, "wrangler.json") };
 }
 
 function d1Execute(databaseName, configPath, sql) {
@@ -787,6 +790,86 @@ function partnerRebuildSnapshot(databaseName, configPath) {
   };
 }
 
+function partnerAuthPreservationSnapshot(databaseName, configPath) {
+  const datasets = {
+    partnerAccounts: d1Execute(databaseName, configPath, `
+      SELECT id,email_ciphertext,email_hash,status,email_verified_at,suspended_at,deactivated_at,created_at,updated_at
+      FROM partner_accounts ORDER BY id
+    `),
+    partnerSessions: d1Execute(databaseName, configPath, `
+      SELECT id,resource_type,subject_id,session_hash,permissions_json,expires_at,created_at,last_used_at,revoked_at
+      FROM resource_management_sessions
+      WHERE resource_type='PARTNER_ACCOUNT'
+      ORDER BY id
+    `),
+    partnerAccountProfiles: d1Execute(databaseName, configPath, `
+      SELECT account_id,contact_name_ciphertext,phone_ciphertext,relationship_ciphertext,completed_at,created_at,updated_at
+      FROM partner_account_profiles ORDER BY account_id
+    `),
+    partnerMemberships: d1Execute(databaseName, configPath, `
+      SELECT id,account_id,resource_id,role,created_at,created_by,updated_at,revoked_at,revoked_by
+      FROM partner_memberships ORDER BY id
+    `),
+    partnerClaims: d1Execute(databaseName, configPath, `
+      SELECT id,account_id,resource_id,status,request_message,created_at,updated_at,reviewed_at,reviewed_by,decision_note,cancelled_at
+      FROM partner_claims ORDER BY id
+    `),
+    partnerNotificationOutbox: d1Execute(databaseName, configPath, `
+      SELECT id,partner_account_id,notification_type,dedupe_key,status,encrypted_secret,expires_at,
+        attempts,last_attempt_at,provider_message_id,last_error,sent_at,created_at,updated_at
+      FROM partner_notification_outbox ORDER BY id
+    `),
+    partnerAuditEvents: d1Execute(databaseName, configPath, `
+      SELECT id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at
+      FROM partner_audit_events ORDER BY id
+    `),
+  };
+  return Object.fromEntries(Object.entries(datasets).map(([name, rows]) => [
+    name,
+    { count: rows.length, digest: stableHash(rows) },
+  ]));
+}
+
+export function assertPartnerAuthPreserved(before, after) {
+  invariant(before && after, "Partner auth preservation snapshots are required");
+  for (const [name, expected] of Object.entries(before)) {
+    const actual = after[name];
+    invariant(actual, `Missing postflight preservation snapshot: ${name}`);
+    invariant(
+      actual.count === expected.count && actual.digest === expected.digest,
+      `${name} data changed unexpectedly`,
+    );
+  }
+}
+
+function partnerH3IntegritySnapshot(databaseName, configPath) {
+  return {
+    passwordCredentialCount: scalarCount(databaseName, configPath, "SELECT COUNT(*) AS count FROM partner_password_credentials"),
+    googleIdentityCount: scalarCount(databaseName, configPath, "SELECT COUNT(*) AS count FROM partner_auth_identities"),
+    orphanPasswordCredentials: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM partner_password_credentials c WHERE NOT EXISTS (SELECT 1 FROM partner_accounts a WHERE a.id=c.account_id)"),
+    orphanAuthIdentities: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM partner_auth_identities i WHERE NOT EXISTS (SELECT 1 FROM partner_accounts a WHERE a.id=i.account_id)"),
+    invalidHashVersions: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM partner_password_credentials WHERE hash_version<>1"),
+    invalidIdentityProviders: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM partner_auth_identities WHERE provider<>'GOOGLE'"),
+    duplicateProviderSubjects: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM (SELECT provider,provider_subject FROM partner_auth_identities GROUP BY provider,provider_subject HAVING COUNT(*)>1)"),
+    duplicateAccountProviders: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM (SELECT account_id,provider FROM partner_auth_identities GROUP BY account_id,provider HAVING COUNT(*)>1)"),
+  };
+}
+
+function assertPartnerH3Integrity(snapshot) {
+  invariant(snapshot.orphanPasswordCredentials === 0, "Orphan partner_password_credentials rows detected");
+  invariant(snapshot.orphanAuthIdentities === 0, "Orphan partner_auth_identities rows detected");
+  invariant(snapshot.invalidHashVersions === 0, "Invalid partner password hash_version detected");
+  invariant(snapshot.invalidIdentityProviders === 0, "Invalid Partner auth identity provider detected");
+  invariant(snapshot.duplicateProviderSubjects === 0, "Duplicate Google provider_subject identity detected");
+  invariant(snapshot.duplicateAccountProviders === 0, "Duplicate account/provider identity detected");
+}
+
 function targetState(history, schema, targetMigration, expectedHistory) {
   const targetIndex = migrationIndex(targetMigration);
   const historyNames = history.map((row) => String(row.name));
@@ -871,6 +954,9 @@ async function preflight(targetMigration) {
   const geoCountBefore = targetIndex > 64
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM geo_points")
     : null;
+  const partnerAuthBefore = targetIndex >= 70
+    ? partnerAuthPreservationSnapshot(databaseName, prepared.configPath)
+    : null;
 
   invariant(snapshot.duplicateDirectoryAnchors === 0, "Duplicate directory canonical resources detected");
   invariant(snapshot.duplicateOrganizationAnchors === 0, "Duplicate organization canonical resources detected");
@@ -894,14 +980,17 @@ async function preflight(targetMigration) {
     accountId: prepared.resources.account_id,
     workerName: prepared.generated.name,
     recoveryBookmark: bookmark,
+    targetMigrationSha256: prepared.targetMigrationSha256,
     reviewCountBefore,
     partnerRebuildBefore,
     geoCountBefore,
+    partnerAuthBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
   await writeJson(".production-d1/preflight-report.json", {
     targetMigration,
+    targetMigrationSha256: prepared.targetMigrationSha256,
     targetApplied: state.targetApplied,
     latestAppliedMigration: state.historyNames.at(-1) ?? null,
     repositoryExcludedFutureMigrations: prepared.selection.excludedFuture,
@@ -915,6 +1004,7 @@ async function preflight(targetMigration) {
     reviewCountBefore,
     partnerRebuildBefore,
     geoCountBefore,
+    partnerAuthBefore,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -1031,6 +1121,16 @@ async function verify(targetMigration) {
     };
   }
 
+  let partnerAuthPreservation = null;
+  let partnerH3Integrity = null;
+  if (targetIndex >= 70) {
+    const partnerAuthAfter = partnerAuthPreservationSnapshot(databaseName, prepared.configPath);
+    assertPartnerAuthPreserved(internal.partnerAuthBefore, partnerAuthAfter);
+    partnerAuthPreservation = partnerAuthAfter;
+    partnerH3Integrity = partnerH3IntegritySnapshot(databaseName, prepared.configPath);
+    assertPartnerH3Integrity(partnerH3Integrity);
+  }
+
   let partnerContactProfileCount = null;
   if (targetIndex >= 69) {
     partnerContactProfileCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM partner_account_profiles");
@@ -1041,6 +1141,7 @@ async function verify(targetMigration) {
 
   await writeJson(".production-d1/postflight-report.json", {
     targetMigration,
+    targetMigrationSha256: prepared.targetMigrationSha256,
     applied: true,
     latestAppliedMigration: state.historyNames.at(-1) ?? null,
     databaseName,
@@ -1083,6 +1184,14 @@ async function verify(targetMigration) {
       count: partnerContactProfileCount,
       encryptedColumns: ["contact_name_ciphertext", "phone_ciphertext", "relationship_ciphertext"],
       auditActions: ["CONTACT_PROFILE_COMPLETED", "CONTACT_PROFILE_UPDATED"],
+    } : null,
+    partnerMultimethodAuth: targetIndex >= 70 ? {
+      tables: PARTNER_MULTIMETHOD_AUTH_TABLES,
+      uniqueIndexes: PARTNER_MULTIMETHOD_AUTH_INDEXES,
+      notificationTypes: ["AUTH_MAGIC_LINK", "PASSWORD_RESET"],
+      auditActions: ["PASSWORD_SET", "PASSWORD_CHANGED", "PASSWORD_RESET_COMPLETED", "GOOGLE_IDENTITY_LINKED"],
+      preservation: partnerAuthPreservation,
+      integrity: partnerH3Integrity,
     } : null,
     historyVerifiedThrough: targetMigration,
     geoFoundation,
