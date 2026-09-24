@@ -15,6 +15,7 @@ import { normalizeManagedEventInput } from "@/lib/event-store";
 import { applyAtomicModerationTransition, ModerationStateConflictError, type FoundationSubmissionStatus } from "@/lib/moderation-transition";
 import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
+import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 
 type Bindings={DB?:D1Database;PII_ENCRYPTION_KEY?:string;CF_VERSION_METADATA?:{id?:string}};
 type AdminRow={
@@ -27,6 +28,13 @@ type AdminRow={
 };
 function db(input?:D1Database){return getPartnerDatabase(input??(env as unknown as Bindings).DB);}
 function key(value?:string){const k=value??(env as unknown as Bindings).PII_ENCRYPTION_KEY;if(!k)throw new PartnerEventError("PII_ENCRYPTION_KEY nie je nakonfigurovaný.",503);return k;}
+async function assertEventIndependentOwnershipApprover(input:Parameters<typeof assertIndependentOwnershipApprover>[0]){
+  try{await assertIndependentOwnershipApprover(input);}
+  catch(error){
+    if(error instanceof PartnerOwnershipApprovalGuardError)throw new PartnerEventError(error.message,error.status);
+    throw error;
+  }
+}
 function json<T>(value:string,fallback:T):T{try{return JSON.parse(value) as T}catch{return fallback}}
 function active(status:string){return ["SUBMITTED","PENDING_REVIEW","QUARANTINED"].includes(status);}
 function label(status:string){return status==="SUBMITTED"?"Nové":status==="PENDING_REVIEW"?"Čaká na rozhodnutie":status==="QUARANTINED"?"Dodatočná kontrola":status==="APPROVED"?"Schválené":status==="REJECTED"?"Zamietnuté":"Zrušené";}
@@ -178,6 +186,7 @@ async function sideEffects(input:{eventId:number;slug:string;published:boolean;l
 
 export async function createPartnerEventAdmin(input:{id:string;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;publicOrigin?:string;workerVersionId?:string}){
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);if(row.operation!=="CREATE")throw new PartnerEventError("Táto akcia je iba pre nové podujatie.",409);
+  await assertEventIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
   const values=normalizePartnerEventCreate(json(row.proposedPatchJson,{}));const scan=await scanPartnerEventDuplicates(values,database);void scan;
   const slug=await uniqueSlug(String(values.title),database,values),resourceId=crypto.randomUUID(),now=input.now??new Date(),nowIso=now.toISOString();
@@ -197,6 +206,8 @@ export async function createPartnerEventAdmin(input:{id:string;adminEmail:string
 export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date}){
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);if(row.operation!=="CREATE")throw new PartnerEventError("Prepojenie je iba pre nový návrh.",409);
   const existing=await currentEvent(input.canonicalId,database);if(!existing)throw new PartnerEventError("Existujúce podujatie sa nenašlo.",404);
+  const targetResource=await database.prepare("SELECT id FROM partner_resources WHERE managed_event_id=?1 LIMIT 1").bind(input.canonicalId).first<{id:string}>();
+  await assertEventIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,resourceId:targetResource?.id??null,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
   const now=input.now??new Date(),nowIso=now.toISOString(),resourceId=crypto.randomUUID();
   await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:"[]",now:nowIso,extraStatements:[
