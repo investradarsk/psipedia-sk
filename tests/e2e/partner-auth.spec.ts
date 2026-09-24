@@ -68,6 +68,39 @@ test("forgot and reset password surfaces are accessible and overflow-safe", asyn
   await expectNoHorizontalOverflow(page);
 });
 
+test("mocked Google OAuth return bridge cannot fall through to 404", async ({ page }) => {
+  const targets = [
+    { intent: "LINK", target: "/partner/prepojit-google" },
+    { intent: "LOGIN", target: "/partner" },
+    { intent: "REGISTER", target: "/partner/onboarding?returnTo=" + encodeURIComponent("/partner") },
+  ];
+
+  for (const { intent, target } of targets) {
+    const response = await page.request.get(
+      "/partner/google-navrat?to=" + encodeURIComponent(target),
+      { maxRedirects: 0 },
+    );
+    expect(response.status(), intent + " bridge status").toBe(303);
+    expect(response.headers()["location"], intent + " bridge target").toBe(target);
+  }
+
+  const external = await page.request.get(
+    "/partner/google-navrat?to=" + encodeURIComponent("https://attacker.example/steal"),
+    { maxRedirects: 0 },
+  );
+  expect(external.status()).toBe(303);
+  expect(external.headers()["location"]).toBe("/partner");
+
+  const rendered = await page.goto(
+    "/partner/google-navrat?to=" + encodeURIComponent("/partner/prihlasenie?google=mocked"),
+    { waitUntil: "domcontentloaded" },
+  );
+  expect(rendered?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/partner\/prihlasenie\?google=mocked$/);
+  await expect(page.getByRole("heading", { name: "Prihlásenie do Partner účtu" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test("invalid verification link has a safe recovery state", async ({ page }) => {
   await page.goto("/partner/overenie");
   await expect(page.getByRole("heading", { name: "Odkaz sa nepodarilo overiť" })).toBeVisible();
