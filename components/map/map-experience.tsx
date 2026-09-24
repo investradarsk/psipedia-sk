@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { directoryCategories } from "@/lib/directory";
@@ -18,6 +19,7 @@ import {
   mapFiltersForCategory,
   mapFiltersForDistrict,
   mapFiltersForRegion,
+  mapFiltersFromSearchParams,
   mapClusterTarget,
   mapItemTypeLabel,
   mapResultLabel,
@@ -48,10 +50,9 @@ type MapApiError = {
 };
 
 type Props = {
-  initialFilters: MapUiFilters;
   googleApiKey: string;
   googleMapId: string;
-  testRenderer?: boolean;
+  testRendererEnvironment?: boolean;
   rendererEnabled?: boolean;
 };
 
@@ -382,13 +383,23 @@ function MapResults({
 }
 
 export function MapExperience({
-  initialFilters,
   googleApiKey,
   googleMapId,
-  testRenderer = false,
+  testRendererEnvironment = false,
   rendererEnabled = false,
 }: Props) {
-  const [filters, setFilters] = useState(initialFilters);
+  const searchParams = useSearchParams();
+  const rendererQueryMode = testRendererEnvironment ? searchParams.get("__mapRenderer") : null;
+  const missingConfigQuery = testRendererEnvironment ? searchParams.get("__mapConfig") : null;
+  const testRenderer = testRendererEnvironment && rendererQueryMode !== "real";
+  const testMissingConfig = testRendererEnvironment && missingConfigQuery === "missing";
+  const effectiveGoogleApiKey = testMissingConfig ? "" : googleApiKey;
+  const effectiveGoogleMapId = testMissingConfig ? "" : googleMapId;
+  const effectiveRendererEnabled = !testMissingConfig && rendererEnabled;
+
+  const [filters, setFilters] = useState<MapUiFilters>(() =>
+    mapFiltersFromSearchParams(new URLSearchParams(searchParams.toString())),
+  );
   const [viewport, setViewport] = useState<MapViewport>({
     bbox: MAP_DEFAULT_BBOX,
     center: MAP_DEFAULT_CENTER,
@@ -399,7 +410,7 @@ export function MapExperience({
   const [error, setError] = useState<MapApiError | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [rendererStatus, setRendererStatus] = useState<MapRendererStatus>(
-    testRenderer ? "ready" : (!googleApiKey || !googleMapId ? "missing-config" : "loading"),
+    testRenderer ? "ready" : (!effectiveGoogleApiKey || !effectiveGoogleMapId ? "missing-config" : "loading"),
   );
   const [rendererCommand, setRendererCommand] = useState<MapRendererCommand | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
@@ -437,10 +448,12 @@ export function MapExperience({
 
   useEffect(() => {
     const params = serializeMapUiFilters(filters);
+    if (rendererQueryMode) params.set("__mapRenderer", rendererQueryMode);
+    if (missingConfigQuery) params.set("__mapConfig", missingConfigQuery);
     const query = params.toString();
     const nextUrl = query ? `/mapa?${query}` : "/mapa";
     window.history.replaceState(window.history.state, "", nextUrl);
-  }, [filters]);
+  }, [filters, missingConfigQuery, rendererQueryMode]);
 
   useEffect(() => {
     const gate = requestGateRef.current;
@@ -555,9 +568,9 @@ export function MapExperience({
     }));
   }, [viewport.zoom]);
 
-  const rendererStatusLabel = !rendererEnabled && !testRenderer
+  const rendererStatusLabel = !effectiveRendererEnabled && !testRenderer
     ? "Google Maps nie je nakonfigurovaný"
-    : rendererEnabled && !googleMapsConsent && !testRenderer
+    : effectiveRendererEnabled && !googleMapsConsent && !testRenderer
       ? "Google Maps čaká na tvoje povolenie"
     : rendererStatus === "ready"
     ? "Mapa pripravená"
@@ -635,10 +648,10 @@ export function MapExperience({
 
         <div className={styles.mapPanel}>
           <GoogleMapRenderer
-            apiKey={googleApiKey}
-            mapId={googleMapId}
+            apiKey={effectiveGoogleApiKey}
+            mapId={effectiveGoogleMapId}
             testMode={testRenderer}
-            rendererEnabled={rendererEnabled}
+            rendererEnabled={effectiveRendererEnabled}
             consentGranted={googleMapsConsent}
             items={items}
             clusters={clusters}
@@ -650,7 +663,7 @@ export function MapExperience({
             onClusterClick={selectCluster}
             onStatusChange={setRendererStatus}
           />
-          {rendererEnabled && !googleMapsConsent && !testRenderer ? (
+          {effectiveRendererEnabled && !googleMapsConsent && !testRenderer ? (
             <div className={styles.mapConsentGate} data-testid="map-consent-gate">
               <strong>Načítať interaktívnu Google mapu?</strong>
               <span>Textové výsledky fungujú aj bez nej. Google mapový podklad sa načíta až po tvojom výslovnom povolení.</span>

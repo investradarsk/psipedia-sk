@@ -224,6 +224,9 @@ test.describe("MAP-1D desktop", () => {
     await expect.poll(() => new URL(page.url()).searchParams.get("region")).toBe("Nitriansky kraj");
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.getByTestId("map-test-renderer")).toHaveAttribute("data-map-init-count", "1");
+    await expect.poll(() => page.evaluate(() => (
+      window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }
+    ).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
 
     await page.screenshot({ path: ".e2e-artifacts/map-1d/desktop-items-selected.png", fullPage: true });
     await expectNoHorizontalOverflow(page);
