@@ -198,33 +198,36 @@ async function installMapApiMock(page: Page) {
 }
 
 async function swipePointer(locator: Locator, deltaY: number, startY = 120) {
-  await locator.evaluate((element, gesture) => {
-    const common: PointerEventInit = {
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      pointerId: 41,
-      pointerType: "touch",
-      isPrimary: true,
-      clientX: 40,
-      button: 0,
-    };
-    element.dispatchEvent(new PointerEvent("pointerdown", {
-      ...common,
-      buttons: 1,
-      clientY: gesture.startY,
-    }));
-    element.dispatchEvent(new PointerEvent("pointermove", {
-      ...common,
-      buttons: 1,
-      clientY: gesture.startY + gesture.deltaY,
-    }));
-    element.dispatchEvent(new PointerEvent("pointerup", {
-      ...common,
-      buttons: 0,
-      clientY: gesture.startY + gesture.deltaY,
-    }));
-  }, { deltaY, startY });
+  const common = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    pointerId: 41,
+    pointerType: "touch",
+    isPrimary: true,
+    clientX: 40,
+    button: 0,
+  };
+
+  await locator.dispatchEvent("pointerdown", {
+    ...common,
+    buttons: 1,
+    clientY: startY,
+  });
+  await locator.page().waitForTimeout(16);
+
+  await locator.dispatchEvent("pointermove", {
+    ...common,
+    buttons: 1,
+    clientY: startY + deltaY,
+  });
+  await locator.page().waitForTimeout(16);
+
+  await locator.dispatchEvent("pointerup", {
+    ...common,
+    buttons: 0,
+    clientY: startY + deltaY,
+  });
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
