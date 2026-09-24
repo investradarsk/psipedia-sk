@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { OrganizationProfileDetail } from "@/components/organization-profile-detail";
@@ -10,7 +11,9 @@ import {
 import { buildOrganizationJsonLd, buildOrganizationMetadata } from "@/lib/organization-seo";
 import { serializeJsonLd } from "@/lib/seo";
 import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
-import { isPublicPartnerResourceVerified } from "@/lib/partner-claims";
+import { getPartnerSession } from "@/lib/partner-auth";
+import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
+import { getPublicPartnerProfileManagementState } from "@/lib/partner-public-profile";
 import { getPublicProfileReviewData } from "@/lib/profile-review-read";
 import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreements";
 
@@ -52,7 +55,15 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
   const database = requireDatabase();
   const jsonLd = buildOrganizationJsonLd(composition.organization);
   const reviewPage = scalar((await searchParams).reviewsPage);
-  const partnerVerifiedPromise = isPublicPartnerResourceVerified("HELP_ORGANIZATION", composition.organization.id, database);
+  const jar = await cookies();
+  const partnerToken = jar.get(PARTNER_SESSION_COOKIE)?.value;
+  const partnerIdentity = partnerToken ? await getPartnerSession({ token: partnerToken }) : null;
+  const partnerStatePromise = getPublicPartnerProfileManagementState({
+    accountId: partnerIdentity?.accountId ?? null,
+    entityType: "HELP_ORGANIZATION",
+    canonicalId: composition.organization.id,
+    database,
+  });
   const commercialPromise = getPublicPartnerCommercialFlags("HELP_ORGANIZATION", composition.organization.id);
   const reviewsPromise = getPublicProfileReviewData(database, {
     entityType: "HELP_ORGANIZATION",
@@ -66,7 +77,7 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
       });
       return { data: null, readError: true };
     });
-  const [partnerVerified, reviewResult, commercial] = await Promise.all([partnerVerifiedPromise, reviewsPromise, commercialPromise]);
+  const [partnerState, reviewResult, commercial] = await Promise.all([partnerStatePromise, reviewsPromise, commercialPromise]);
 
   return (
     <>
@@ -75,7 +86,7 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <OrganizationProfileDetail composition={composition} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} />
-      <PartnerPublicOwnership verified={partnerVerified} claimHref={`/partner/prevziat-profil/HELP_ORGANIZATION/${composition.organization.id}`} />
+      <PartnerPublicOwnership state={partnerState} correctionHref="/opravy-a-podnety" />
     </>
   );
 }
