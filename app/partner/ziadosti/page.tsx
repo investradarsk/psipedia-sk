@@ -52,6 +52,7 @@ export default async function Page() {
               <div><dt>Overenie správcu</dt><dd>{verificationLabels[claim.verificationState]}</dd></div>
             </dl>
             {claim.requestMessage ? <p>{claim.requestMessage}</p> : null}
+            {claim.status === "REJECTED" && claim.decisionNote ? <p><strong>Dôvod:</strong> {claim.decisionNote}</p> : null}
             <div className="partner-request-links">
               <Link href={claim.publicHref} target="_blank">Verejný profil ↗</Link>
               {claim.status === "PENDING" ? <PartnerClaimCancelButton claimId={claim.id} /> : null}
