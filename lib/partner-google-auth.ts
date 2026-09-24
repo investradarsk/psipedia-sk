@@ -187,21 +187,25 @@ async function exchangeCode(code:unknown,flow:GoogleFlow,config:ReturnType<typeo
   return data.id_token;
 }
 
-async function verifyIdToken(idToken:string,flow:GoogleFlow,config:ReturnType<typeof requireGoogleConfig>){
-  const verified=await jwtVerify(idToken,googleJwks,{
+export async function verifyPartnerGoogleIdToken(input:{
+  idToken:string;
+  nonce:string;
+  clientId:string;
+}){
+  const verified=await jwtVerify(input.idToken,googleJwks,{
     algorithms:["RS256"],
     issuer:["https://accounts.google.com","accounts.google.com"],
-    audience:config.clientId,
+    audience:input.clientId,
     clockTolerance:5,
   });
   const payload=verified.payload;
-  if(typeof payload.nonce!=="string"||!safeEqual(payload.nonce,flow.nonce)){
+  if(typeof payload.nonce!=="string"||!safeEqual(payload.nonce,input.nonce)){
     throw new PartnerGoogleAuthError("Google prihlásenie nie je platné.");
   }
-  if(Array.isArray(payload.aud)&&payload.aud.length>1&&payload.azp!==config.clientId){
+  if(Array.isArray(payload.aud)&&payload.aud.length>1&&payload.azp!==input.clientId){
     throw new PartnerGoogleAuthError("Google prihlásenie nie je platné.");
   }
-  if(typeof payload.azp==="string"&&payload.azp!==config.clientId){
+  if(typeof payload.azp==="string"&&payload.azp!==input.clientId){
     throw new PartnerGoogleAuthError("Google prihlásenie nie je platné.");
   }
   if(typeof payload.sub!=="string"||!payload.sub||payload.sub.length>255){
@@ -236,7 +240,11 @@ export async function handlePartnerGoogleCallback(input:{
   const now=input.now??new Date();
   const flow=await readFlow(input.request.headers.get("cookie"),input.state,config,now);
   const idToken=await exchangeCode(input.code,flow,config,input.fetchImpl??fetch);
-  const google=await verifyIdToken(idToken,flow,config);
+  const google=await verifyPartnerGoogleIdToken({
+    idToken,
+    nonce:flow.nonce,
+    clientId:config.clientId,
+  });
   const cookies=[clearCookie(GOOGLE_FLOW_COOKIE,"Lax")];
   const linked=await getPartnerGoogleIdentityBySubject(google.providerSubject,database);
 
