@@ -65,7 +65,13 @@ export function PartnerSecuritySettings({passwordSet:initialPasswordSet,googleLi
     <div className="partner-auth-method-row partner-google-setting">
       <div><strong>Google</strong><span>{googleLinked?"Prepojené":"Neprepojené"}</span></div>
       {!googleLinked&&googleEnabled?
-        <a className="button button--dark" href="/api/partner/auth/google/start?intent=LINK&returnTo=%2Fpartner%2Fnastavenia">Prepojiť Google účet</a>
+        <button
+          className="button button--dark"
+          type="button"
+          onClick={()=>window.location.assign("/api/partner/auth/google/start?intent=LINK&returnTo=%2Fpartner%2Fnastavenia")}
+        >
+          Prepojiť Google účet
+        </button>
         :null}
     </div>
     {!googleEnabled&&!googleLinked?<p className="partner-password-hint">Prihlásenie cez Google zatiaľ nie je aktivované.</p>:null}
