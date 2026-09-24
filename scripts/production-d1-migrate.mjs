@@ -370,6 +370,7 @@ function schemaState(databaseName, configPath) {
   const eventNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('event_notion_sync')");
   const partnerAccountColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_accounts')");
   const partnerSessionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_management_sessions')");
+  const partnerAccessTokenColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_access_tokens')");
   const partnerPasswordCredentialColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_password_credentials')");
   const partnerAuthIdentityColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_auth_identities')");
   const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
@@ -384,6 +385,7 @@ function schemaState(databaseName, configPath) {
     eventNotionSyncColumns,
     partnerAccountColumns,
     partnerSessionColumns,
+    partnerAccessTokenColumns,
     partnerPasswordCredentialColumns,
     partnerAuthIdentityColumns,
     partnerPasswordCredentialForeignKeys,
@@ -646,6 +648,7 @@ function assertPartnerAuthCompatibilitySchema(schema) {
   const names = objectMap(schema.objects);
   invariant(names.get("partner_accounts")?.type === "table", "Missing partner_accounts table");
   invariant(names.get("resource_management_sessions")?.type === "table", "Missing resource_management_sessions table");
+  invariant(names.get("resource_access_tokens")?.type === "table", "Missing resource_access_tokens table");
   assertRequiredColumns(schema.partnerAccountColumns, "partner_accounts", [
     "id", "email_ciphertext", "email_hash", "status", "email_verified_at",
     "suspended_at", "deactivated_at", "created_at", "updated_at",
@@ -654,6 +657,17 @@ function assertPartnerAuthCompatibilitySchema(schema) {
     "id", "resource_type", "subject_id", "session_hash", "permissions_json",
     "expires_at", "created_at", "last_used_at", "revoked_at",
   ]);
+  assertRequiredColumns(schema.partnerAccessTokenColumns, "resource_access_tokens", [
+    "id", "resource_type", "subject_id", "purpose", "token_hash",
+    "expires_at", "used_at", "revoked_at", "created_at",
+  ]);
+  for (const index of ["resource_access_tokens_hash_unique", "resource_access_tokens_subject_purpose_idx"]) {
+    invariant(names.get(index)?.type === "index", `Missing reset-token storage index: ${index}`);
+  }
+  invariant(
+    /CREATE\s+UNIQUE\s+INDEX/i.test(String(names.get("resource_access_tokens_hash_unique")?.sql ?? "")),
+    "resource_access_tokens token-hash uniqueness contract is missing",
+  );
   assertPartnerContactProfileSchema(schema);
 }
 
@@ -799,6 +813,12 @@ function partnerAuthPreservationSnapshot(databaseName, configPath) {
     partnerSessions: d1Execute(databaseName, configPath, `
       SELECT id,resource_type,subject_id,session_hash,permissions_json,expires_at,created_at,last_used_at,revoked_at
       FROM resource_management_sessions
+      WHERE resource_type='PARTNER_ACCOUNT'
+      ORDER BY id
+    `),
+    partnerAccessTokens: d1Execute(databaseName, configPath, `
+      SELECT id,resource_type,subject_id,purpose,token_hash,expires_at,used_at,revoked_at,created_at
+      FROM resource_access_tokens
       WHERE resource_type='PARTNER_ACCOUNT'
       ORDER BY id
     `),
@@ -1189,6 +1209,12 @@ async function verify(targetMigration) {
       tables: PARTNER_MULTIMETHOD_AUTH_TABLES,
       uniqueIndexes: PARTNER_MULTIMETHOD_AUTH_INDEXES,
       notificationTypes: ["AUTH_MAGIC_LINK", "PASSWORD_RESET"],
+      resetTokenStorage: {
+        table: "resource_access_tokens",
+        purpose: "PARTNER_PASSWORD_RESET",
+        uniqueIndex: "resource_access_tokens_hash_unique",
+        lookupIndex: "resource_access_tokens_subject_purpose_idx",
+      },
       auditActions: ["PASSWORD_SET", "PASSWORD_CHANGED", "PASSWORD_RESET_COMPLETED", "GOOGLE_IDENTITY_LINKED"],
       preservation: partnerAuthPreservation,
       integrity: partnerH3Integrity,
