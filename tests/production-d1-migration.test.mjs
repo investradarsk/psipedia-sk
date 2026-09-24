@@ -6,9 +6,13 @@ import test from "node:test";
 
 import {
   DEFAULT_TARGET_MIGRATION,
+  PARTNER_MULTIMETHOD_AUTH_INDEXES,
+  PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
+  assertPartnerAuthPreserved,
   buildScopedWranglerConfig,
   selectMigrationsThrough,
+  validateProductionTargetHistory,
 } from "../scripts/production-d1-migrate.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -55,7 +59,7 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("production D1 supported targets are explicit through Partner H1 onboarding hardening", () => {
+test("production D1 supported targets are explicit through Partner H3 multimethod auth", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
@@ -65,6 +69,7 @@ test("production D1 supported targets are explicit through Partner H1 onboarding
     "0067_partner_events.sql",
     "0068_partner_commercial_activation.sql",
     "0069_partner_auth_onboarding_hardening.sql",
+    "0070_partner_multimethod_auth.sql",
   ]);
 });
 
@@ -86,12 +91,102 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes 007
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0070_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0069_partner_auth_onboarding_hardening.sql");
   assert.equal(result.targetIndex, 69);
   assert.equal(result.selected.at(-1), "0069_partner_auth_onboarding_hardening.sql");
-  assert.deepEqual(result.excludedFuture, ["0070_future_migration.sql"]);
+  assert.deepEqual(result.excludedFuture, ["0070_partner_multimethod_auth.sql"]);
+});
+
+test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes future migrations", () => {
+  const files = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+    "0071_future_migration.sql",
+  ];
+  const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
+  assert.equal(result.targetIndex, 70);
+  assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
+  assert.deepEqual(result.excludedFuture, ["0071_future_migration.sql"]);
+});
+
+test("PARTNER-H3 history guard accepts 0069 applied with 0070 pending", () => {
+  const expected = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+  ];
+  const history = expected.slice(0, -1);
+  const state = validateProductionTargetHistory(history, expected, "0070_partner_multimethod_auth.sql");
+  assert.deepEqual(state, { latestIndex: 69, targetApplied: false });
+});
+
+test("PARTNER-H3 history guard rejects missing 0069", () => {
+  const expected = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+  ];
+  assert.throws(
+    () => validateProductionTargetHistory(expected.slice(0, -2), expected, "0070_partner_multimethod_auth.sql"),
+    /expected exactly 0069/,
+  );
+});
+
+test("PARTNER-H3 history guard accepts already-applied 0070 as safe no-op state", () => {
+  const expected = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+  ];
+  const state = validateProductionTargetHistory(expected, expected, "0070_partner_multimethod_auth.sql");
+  assert.deepEqual(state, { latestIndex: 70, targetApplied: true });
+});
+
+test("PARTNER-H3 history guard rejects future applied migration", () => {
+  const expected = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+  ];
+  assert.throws(
+    () => validateProductionTargetHistory([...expected, "0071_future_migration.sql"], expected, "0070_partner_multimethod_auth.sql"),
+    /continues through 0071/,
+  );
+});
+
+test("PARTNER-H3 history guard rejects a migration-history gap", () => {
+  const expected = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+  ];
+  const history = expected.slice(0, -1).filter((name) => !name.startsWith("0068_"));
+  assert.throws(
+    () => validateProductionTargetHistory(history, expected, "0070_partner_multimethod_auth.sql"),
+    /does not exactly match/,
+  );
+});
+
+test("PARTNER-H3 history guard rejects unknown target", () => {
+  const expected = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+  ];
+  assert.throws(
+    () => validateProductionTargetHistory(expected, expected, "0071_unknown.sql"),
+    /Unsupported production migration target/,
+  );
+});
+
+test("PARTNER-H3 data preservation mismatch fails closed", () => {
+  const before = {
+    partnerAccounts: { count: 2, digest: "accounts" },
+    partnerSessions: { count: 1, digest: "sessions" },
+  };
+  assert.doesNotThrow(() => assertPartnerAuthPreserved(before, structuredClone(before)));
+  assert.throws(
+    () => assertPartnerAuthPreserved(before, {
+      partnerAccounts: { count: 2, digest: "changed" },
+      partnerSessions: { count: 1, digest: "sessions" },
+    }),
+    /partnerAccounts data changed unexpectedly/,
+  );
 });
 
 test("scoped Wrangler config keeps exact canonical production D1 identity", () => {
@@ -153,6 +248,12 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
     assert.equal(workflow.includes(`APPLY-${index}-psipedia-sk-db`), true, `confirmation missing for ${migration}`);
   }
   assert.match(workflow, /inputs\.target_migration == '0064_geo_foundation\.sql'/);
+  assert.match(workflow, /0070_partner_multimethod_auth\.sql/);
+  assert.match(workflow, /APPLY-0070-psipedia-sk-db/);
+  assert.match(workflow, /git fetch --no-tags origin main/);
+  assert.match(workflow, /partner\/prihlasenie/);
+  assert.match(workflow, /partner\/registracia/);
+  assert.match(workflow, /partner\/zabudnute-heslo/);
   assert.match(workflow, /node scripts\/production-d1-migrate\.mjs geo-readiness/);
   assert.match(workflow, /\/api\/map\?north=50&south=47&east=23&west=16&zoom=12/);
   assert.doesNotMatch(workflow, /wrangler\s+deploy|deploy:cloudflare/);
@@ -184,6 +285,41 @@ test("partner rollout preserves rebuilt rows, append-only audit triggers and ver
   assert.match(script, /CONTACT_PROFILE_UPDATED/);
   assert.match(script, /0069 is schema\/onboarding foundation only/);
   assert.match(script, /assertExactMigrationHistory/);
+  assert.match(script, /partnerAuthPreservationSnapshot/);
+  assert.match(script, /partnerAccounts data changed unexpectedly/);
+  assert.match(script, /partnerSessions/);
+  assert.match(script, /partnerAccountProfiles/);
+  assert.match(script, /partnerClaims/);
+  assert.match(script, /partnerMultimethodAuth/);
+  assert.match(script, /PASSWORD_RESET/);
+  assert.match(script, /GOOGLE_IDENTITY_LINKED/);
+  assert.match(script, /targetMigrationSha256/);
+});
+
+test("PARTNER-H3 0070 migration and rollout verification cover exact auth contracts", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0070_partner_multimethod_auth.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.deepEqual(PARTNER_MULTIMETHOD_AUTH_TABLES, [
+    "partner_password_credentials",
+    "partner_auth_identities",
+  ]);
+  assert.deepEqual(PARTNER_MULTIMETHOD_AUTH_INDEXES, [
+    "partner_auth_identities_provider_subject_unique",
+    "partner_auth_identities_account_provider_unique",
+  ]);
+  assert.match(migration, /CHECK \(`hash_version` = 1\)/);
+  assert.match(migration, /CHECK \(`provider` IN \('GOOGLE'\)\)/);
+  assert.match(migration, /REFERENCES `partner_accounts`\(`id`\) ON DELETE RESTRICT/);
+  assert.match(migration, /PASSWORD_RESET/);
+  assert.match(migration, /PASSWORD_SET/);
+  assert.match(migration, /PASSWORD_CHANGED/);
+  assert.match(migration, /PASSWORD_RESET_COMPLETED/);
+  assert.match(migration, /GOOGLE_IDENTITY_LINKED/);
+  assert.match(script, /partnerPasswordCredentialForeignKeys/);
+  assert.match(script, /partnerAuthIdentityForeignKeys/);
+  assert.match(script, /duplicateProviderSubjects/);
+  assert.match(script, /duplicateAccountProviders/);
+  assert.match(script, /assertPartnerH3Integrity/);
 });
 
 test("post-0064 production rollouts preserve populated geo_points instead of requiring emptiness", async () => {
