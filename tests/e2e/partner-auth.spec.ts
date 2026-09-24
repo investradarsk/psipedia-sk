@@ -43,13 +43,13 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
     await expect(passwordInput).toHaveAttribute("type","password");
     await expect(passwordInput).toHaveAttribute("autocomplete", path === "/partner/prihlasenie" ? "current-password" : "new-password");
     const showPassword = page.getByRole("button",{name:"Zobraziť heslo"}).first();
-    await showPassword.focus();
-    await page.keyboard.press("Enter");
+    await showPassword.click();
     await expect(passwordInput).toHaveAttribute("type","text");
     const hidePassword = page.getByRole("button",{name:"Skryť heslo"}).first();
-    await expect(hidePassword).toBeFocused();
+    await hidePassword.focus();
     await page.keyboard.press("Enter");
     await expect(passwordInput).toHaveAttribute("type","password");
+    await expect(page.getByRole("button",{name:"Zobraziť heslo"}).first()).toBeFocused();
     if (path === "/partner/registracia") {
       await expect(page.getByLabel("Potvrdenie hesla",{exact:true})).toHaveAttribute("autocomplete","new-password");
       await expect(page.getByText("Heslo musí mať aspoň 12 znakov.",{exact:true})).toBeVisible();
