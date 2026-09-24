@@ -43,8 +43,10 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
     await expect(passwordInput).toHaveAttribute("type","password");
     await expect(passwordInput).toHaveAttribute("autocomplete", path === "/partner/prihlasenie" ? "current-password" : "new-password");
     const showPassword = page.getByRole("button",{name:"Zobraziť heslo"}).first();
-    await showPassword.click();
-    await expect(passwordInput).toHaveAttribute("type","text");
+    await expect.poll(async () => {
+      if (await showPassword.isVisible()) await showPassword.click();
+      return passwordInput.getAttribute("type");
+    }).toBe("text");
     const hidePassword = page.getByRole("button",{name:"Skryť heslo"}).first();
     await hidePassword.focus();
     await page.keyboard.press("Enter");
