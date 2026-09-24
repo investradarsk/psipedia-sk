@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
+import { SignJWT, exportJWK, generateKeyPair } from "jose";
 
 const root = new URL("../", import.meta.url);
 const read = (path) => fs.readFile(new URL("../" + path, import.meta.url), "utf8");
@@ -122,6 +123,104 @@ test("Google uses authorization code + PKCE + state + nonce and JOSE remote JWKS
   assert.match(googleAuth, /audience:config\.clientId/);
   assert.match(googleAuth, /payload\.email_verified!==true/);
   assert.match(googleAuth, /payload\.sub/);
+});
+
+test("Google ID-token validation uses local JWKS fixtures for nonce, issuer, audience, expiry and verified email", async () => {
+  const { publicKey, privateKey } = await generateKeyPair("RS256");
+  const jwk = await exportJWK(publicKey);
+  Object.assign(jwk, { kid: "partner-h3-test-key", alg: "RS256", use: "sig" });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url === "https://www.googleapis.com/oauth2/v3/certs") {
+      return new Response(JSON.stringify({ keys: [jwk] }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    }
+    return originalFetch(input, init);
+  };
+
+  try {
+    const google = await importTs("lib/partner-google-auth.ts");
+    const clientId = "partner-h3-test.apps.googleusercontent.com";
+    const nonce = "local-oidc-nonce";
+    const now = Math.floor(Date.now() / 1000);
+
+    async function token(overrides = {}) {
+      const {
+        issuer = "https://accounts.google.com",
+        audience = clientId,
+        tokenNonce = nonce,
+        emailVerified = true,
+        issuedAt = now,
+        expiresAt = now + 600,
+      } = overrides;
+      return new SignJWT({
+        nonce: tokenNonce,
+        email: "partner-oidc-test@example.sk",
+        email_verified: emailVerified,
+        azp: clientId,
+      })
+        .setProtectedHeader({ alg: "RS256", kid: "partner-h3-test-key" })
+        .setIssuer(issuer)
+        .setAudience(audience)
+        .setSubject("google-sub-local-fixture")
+        .setIssuedAt(issuedAt)
+        .setExpirationTime(expiresAt)
+        .sign(privateKey);
+    }
+
+    const valid = await google.verifyPartnerGoogleIdToken({
+      idToken: await token(),
+      nonce,
+      clientId,
+    });
+    assert.deepEqual(valid, {
+      providerSubject: "google-sub-local-fixture",
+      email: "partner-oidc-test@example.sk",
+    });
+
+    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
+      idToken: token({ tokenNonce: "wrong-nonce" }),
+      nonce,
+      clientId,
+    }));
+    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
+      idToken: token({ issuer: "https://issuer.invalid" }),
+      nonce,
+      clientId,
+    }));
+    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
+      idToken: token({ audience: "wrong-client.apps.googleusercontent.com" }),
+      nonce,
+      clientId,
+    }));
+    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
+      idToken: token({ issuedAt: now - 7200, expiresAt: now - 3600 }),
+      nonce,
+      clientId,
+    }));
+    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
+      idToken: token({ emailVerified: false }),
+      nonce,
+      clientId,
+    }));
+
+    const signed = await token();
+    const tampered = signed.slice(0, -1) + (signed.endsWith("a") ? "b" : "a");
+    await assert.rejects(() => google.verifyPartnerGoogleIdToken({
+      idToken: tampered,
+      nonce,
+      clientId,
+    }));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("Google identity uses sub, never email, and existing-email collision requires authenticated confirmation", () => {
