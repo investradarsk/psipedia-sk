@@ -237,7 +237,6 @@ type ClaimHistoryRow = {
   createdAt: string;
   updatedAt: string;
   reviewedAt: string | null;
-  decisionNote: string | null;
   canonicalId: number;
   name: string;
   slug: string;
@@ -254,7 +253,7 @@ function historyHref(row: ClaimHistoryRow) {
 export async function listPartnerClaims(accountId: string, database?: D1Database) {
   const rows = (await getPartnerDatabase(database).prepare(`
     SELECT c.id,c.resource_id resourceId,r.entity_type entityType,c.status,c.request_message requestMessage,
-      c.created_at createdAt,c.updated_at updatedAt,c.reviewed_at reviewedAt,c.decision_note decisionNote,
+      c.created_at createdAt,c.updated_at updatedAt,c.reviewed_at reviewedAt,
       COALESCE(d.id,o.id) canonicalId,COALESCE(d.name,o.name) name,COALESCE(d.slug,o.slug) slug,
       d.category directoryCategory,v.status verificationStatus
     FROM partner_claims c
