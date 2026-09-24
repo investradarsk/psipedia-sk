@@ -68,7 +68,7 @@ test("forgot and reset password surfaces are accessible and overflow-safe", asyn
   await expectNoHorizontalOverflow(page);
 });
 
-test("mocked Google OAuth return bridge cannot fall through to 404", async ({ page }) => {
+test("mocked Google OAuth return bridge creates a 200 same-site navigation boundary", async ({ page }) => {
   const targets = [
     { intent: "LINK", target: "/partner/prepojit-google" },
     { intent: "LOGIN", target: "/partner" },
@@ -80,20 +80,36 @@ test("mocked Google OAuth return bridge cannot fall through to 404", async ({ pa
       "/partner/google-navrat?to=" + encodeURIComponent(target),
       { maxRedirects: 0 },
     );
-    expect(response.status(), intent + " bridge status").toBe(303);
-    expect(response.headers()["location"], intent + " bridge target").toBe(target);
+    expect(response.status(), intent + " bridge status").toBe(200);
+    expect(response.headers()["location"], intent + " bridge must not server-redirect").toBeUndefined();
+    expect(response.headers()["set-cookie"], intent + " bridge must not touch cookies").toBeUndefined();
+    const html = await response.text();
+    expect(html).toContain("Dokončujem prihlásenie");
+    expect(html).toContain(target.split("?")[0]);
   }
 
-  const external = await page.request.get(
-    "/partner/google-navrat?to=" + encodeURIComponent("https://attacker.example/steal"),
-    { maxRedirects: 0 },
-  );
-  expect(external.status()).toBe(303);
-  expect(external.headers()["location"]).toBe("/partner");
+  for (const unsafe of [
+    "https://attacker.example/steal",
+    "//attacker.example/steal",
+    "/api/partner/auth/google/callback",
+    "/admin",
+  ]) {
+    const response = await page.request.get(
+      "/partner/google-navrat?to=" + encodeURIComponent(unsafe),
+      { maxRedirects: 0 },
+    );
+    expect(response.status()).toBe(200);
+    expect(response.headers()["location"]).toBeUndefined();
+    expect(response.headers()["set-cookie"]).toBeUndefined();
+    const html = await response.text();
+    expect(html).toContain('href="/partner"');
+    expect(html).not.toContain('href="https://attacker.example');
+    expect(html).not.toContain('href="//attacker.example');
+  }
 
   const rendered = await page.goto(
     "/partner/google-navrat?to=" + encodeURIComponent("/partner/prihlasenie?google=mocked"),
-    { waitUntil: "domcontentloaded" },
+    { referer: "https://accounts.google.com/", waitUntil: "domcontentloaded" },
   );
   expect(rendered?.status()).toBe(200);
   await expect(page).toHaveURL(/\/partner\/prihlasenie\?google=mocked$/);
@@ -165,6 +181,17 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.goto(verificationUrl);
   await expect(page).toHaveURL(/\/partner\/onboarding(?:\?|$)/);
   await expect(page.getByRole("heading",{name:"Dokončite Partner účet"})).toBeVisible();
+
+  const registerReturnTo = project === "mobile-chromium" ? mobileReturnTo : "/partner";
+  const registerBridgeResponse = await page.goto(
+    "/partner/google-navrat?to=" + encodeURIComponent("/partner/onboarding?returnTo=" + encodeURIComponent(registerReturnTo)),
+    { referer: "https://accounts.google.com/", waitUntil: "domcontentloaded" },
+  );
+  expect(registerBridgeResponse?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/partner\/onboarding\?returnTo=/);
+  expect(new URL(page.url()).searchParams.get("returnTo")).toBe(registerReturnTo);
+  await expect(page.getByRole("heading",{name:"Dokončite Partner účet"})).toBeVisible();
+
   await page.getByLabel("Meno a priezvisko *").fill(contactName);
   await page.getByLabel("Telefón").fill(contactPhone);
   await page.getByLabel("Vaša úloha / vzťah k profilu").fill(relationship);
@@ -186,6 +213,22 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+
+  const linkBridgeResponse = await page.goto(
+    "/partner/google-navrat?to=" + encodeURIComponent("/partner/prepojit-google"),
+    { referer: "https://accounts.google.com/", waitUntil: "domcontentloaded" },
+  );
+  expect(linkBridgeResponse?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/partner\/prepojit-google$/);
+  await expect(page.getByRole("heading", { name: "Prepojiť Google účet" })).toBeVisible();
+
+  const loginBridgeResponse = await page.goto(
+    "/partner/google-navrat?to=" + encodeURIComponent("/partner"),
+    { referer: "https://accounts.google.com/", waitUntil: "domcontentloaded" },
+  );
+  expect(loginBridgeResponse?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/partner$/);
+  await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
 
   if (project === "mobile-chromium") {
     await page.getByRole("button", { name: "Otvoriť menu" }).click();
