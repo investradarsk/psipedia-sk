@@ -129,6 +129,16 @@ export async function auditConfigurationContract(root = defaultRoot) {
   assert.equal(wrangler.vars?.AUTH_MODE, "cloudflare-access", "production AUTH_MODE must fail closed to cloudflare-access");
   assert.ok(wrangler.vars?.ACCESS_TEAM_DOMAIN, "production ACCESS_TEAM_DOMAIN must be declared in wrangler.jsonc");
   assert.ok(wrangler.vars?.ACCESS_AUD, "production ACCESS_AUD must be declared in wrangler.jsonc");
+  assert.equal(
+    wrangler.vars?.PARTNER_FROM_EMAIL,
+    "Psipedia.sk <recenzie@psipedia.sk>",
+    "production PARTNER_FROM_EMAIL must stay deployment-persistent in wrangler.jsonc",
+  );
+  assert.equal(
+    wrangler.vars?.PROFILE_REVIEW_SUBMISSIONS_ENABLED,
+    "true",
+    "production review submissions must stay enabled in canonical wrangler config",
+  );
   assert.equal(wrangler.vars?.NOTION_ARTICLE_SYNC_ENABLED, "true", "production Notion article sync must stay enabled in wrangler.jsonc");
   assert.equal(
     wrangler.vars?.NOTION_ARTICLES_DATA_SOURCE_ID,

@@ -23,6 +23,8 @@
     "AUTH_MODE": "cloudflare-access",
     "ACCESS_TEAM_DOMAIN": "https://autumn-sea-d25d.cloudflareaccess.com",
     "ACCESS_AUD": "ad835e8eb494d146e63fafa62bbefb3f162f8f299b12930f745b717c56bc2df7",
+    "PARTNER_FROM_EMAIL": "Psipedia.sk <recenzie@psipedia.sk>",
+    "PROFILE_REVIEW_SUBMISSIONS_ENABLED": "true",
     "NOTION_ARTICLE_SYNC_ENABLED": "true",
     "NOTION_ARTICLES_DATA_SOURCE_ID": "ae042534-c878-427e-bc76-ef587a8c61cf",
     "NOTION_BREED_SYNC_ENABLED": "true",
