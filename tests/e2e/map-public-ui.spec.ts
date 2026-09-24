@@ -197,15 +197,32 @@ async function installMapApiMock(page: Page) {
   return { requests };
 }
 
-async function dragVertical(page: Page, locator: Locator, deltaY: number, startOffsetY = 24) {
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  const x = box!.x + Math.min(box!.width / 2, 120);
-  const startY = box!.y + Math.min(startOffsetY, Math.max(8, box!.height / 2));
-  await page.mouse.move(x, startY);
-  await page.mouse.down();
-  await page.mouse.move(x, startY + deltaY, { steps: 6 });
-  await page.mouse.up();
+async function swipePointer(locator: Locator, deltaY: number, startY = 120) {
+  const pointerId = 41;
+  const common = {
+    pointerId,
+    pointerType: "touch",
+    isPrimary: true,
+    clientX: 40,
+  };
+  await locator.dispatchEvent("pointerdown", {
+    ...common,
+    button: 0,
+    buttons: 1,
+    clientY: startY,
+  });
+  await locator.dispatchEvent("pointermove", {
+    ...common,
+    button: 0,
+    buttons: 1,
+    clientY: startY + deltaY,
+  });
+  await locator.dispatchEvent("pointerup", {
+    ...common,
+    button: 0,
+    buttons: 0,
+    clientY: startY + deltaY,
+  });
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -313,7 +330,7 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByTestId("map-card-event:3")).toContainText("Psia výstava Nitra");
     await expect(page.getByTestId("map-card-event:3")).toContainText("Nitra");
     await expect(page.getByTestId("map-card-event:3")).toContainText("1. októbra 2030");
-    await expect(page).toHaveURL(/search=singleton/);
+    expect(new URL(page.url()).pathname).toBe("/mapa");
     expect(mock.requests.length - requestsBeforeSelect).toBe(0);
     await expect.poll(() => page.evaluate(() => (
       window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }
@@ -388,10 +405,10 @@ test.describe("MAP-1D mobile", () => {
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-initial.png", fullPage: true });
 
-    await dragVertical(page, header, -120, 10);
+    await swipePointer(header, -120);
     await expect(results).toHaveAttribute("data-sheet-state", "expanded");
 
-    await dragVertical(page, header, 120, 10);
+    await swipePointer(header, 120);
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
 
     await page.getByRole("button", { name: "Výsledky" }).click();
@@ -404,11 +421,11 @@ test.describe("MAP-1D mobile", () => {
     await page.mouse.wheel(0, 420);
     await expect.poll(() => resultScroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     await resultScroll.evaluate((element) => { element.scrollTop = 0; });
-    await dragVertical(page, resultScroll, 120, 26);
+    await swipePointer(resultScroll, 120);
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
 
     const map = page.getByTestId("map-test-renderer");
-    await dragVertical(page, map, -90, 80);
+    await swipePointer(map, -90);
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
 
     await page.getByRole("button", { name: "Výsledky" }).click();
@@ -454,7 +471,7 @@ test.describe("MAP-1D mobile", () => {
     await expect(page.getByTestId("map-card-event:3")).toBeVisible();
     await expect(page.getByTestId("map-card-event:3").getByRole("link", { name: "Detail podujatia" }))
       .toHaveAttribute("href", "/podujatia/psia-vystava-nitra");
-    await expect(page).toHaveURL(/search=singleton/);
+    expect(new URL(page.url()).pathname).toBe("/mapa");
     await expect.poll(() => page.evaluate(() => (
       window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }
     ).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
