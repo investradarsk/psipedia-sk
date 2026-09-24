@@ -488,6 +488,15 @@ test("pre-migration deployment remains fail-safe when geo_points is not yet appl
   assert.match(geoAdminComponent, /Canonical profil funguje ďalej bez geo operácií/);
 });
 
+test("bounded backfill scans the full canonical target window without expanding provider writes", () => {
+  const start = operations.indexOf("export async function runGeoBackfillChunk");
+  const block = operations.slice(start, start + 5000);
+  assert.match(block, /limit:\s*500/);
+  assert.match(block, /if \(candidates\.length >= limit\) break/);
+  assert.match(block, /requested:\s*limit/);
+  assert.match(block, /scanned:\s*preview\.items\.length/);
+});
+
 test("bounded backfill UI shows live progress and executes one provider candidate per request", () => {
   assert.match(geoOperationsComponent, /Backfill prebieha:/);
   assert.match(geoOperationsComponent, /limit: 1/);
