@@ -107,6 +107,11 @@ test("UPDATE approval applies only mapped Partner fields and does not touch stat
  const update=admin.slice(admin.indexOf("export async function approvePartnerEventUpdateAdmin"),admin.indexOf("export const partnerEventRejectionReasons"));
  const columns=admin.slice(admin.indexOf("const COLUMN"),admin.indexOf("function updateStatement"));
  assert.match(update,/normalizePartnerEventUpdate/);assert.match(update,/updateStatement/);assert.match(update,/EVENT_CHANGE_APPROVED/);
+ assert.match(update,/current\.updatedAt!==row\.baseUpdatedAt/);
+ assert.match(update,/eventSnapshotChanged\(base,currentValues\(current\)\)/);
+ assert.match(update,/transitionGuard:\{sql:"EXISTS\(SELECT 1 FROM managed_events WHERE id=\? AND updated_at=\?\)"/);
+ assert.match(update,/ModerationStateConflictError/);
+ assert.match(update,/Podujatie sa od vytvorenia žiadosti zmenilo/);
  assert.doesNotMatch(columns,/slug|status|published_at|seo|image/i);
  assert.doesNotMatch(update,/notionRequest|runNotionEventSyncSweep|writeBackPublishedEventToNotion|publishManagedEvent|status='published'|slug\s*=/i);
 });

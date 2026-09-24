@@ -5,7 +5,8 @@ INSERT INTO partner_accounts (
   ('partner-e2e-desktop','v1.AQIDBAUGBwgJCgsM.foljWk6Zj5pn9Emm92WBSuHUZfTa_WFZb0iSJiQFwdd3DzoDgvWpd_ptLvdX6w','fixture-desktop-hash','PENDING_VERIFICATION',NULL,NULL,NULL,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z'),
   ('partner-e2e-mobile','v1.AgMEBQYHCAkKCwwN.Ra-B23fOA1ZK3kMrW4VznNIMD5It5v3KVcvNMCAmnocPv2wxHUMYn5wBVIcm','fixture-mobile-hash','PENDING_VERIFICATION',NULL,NULL,NULL,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z'),
   ('partner-e2e-suspended','v1.AQIDBAUGBwgJCgsM.foljWk6Zj5pn9Emm92WBSuHUZfTa_WFZb0iSJiQFwdd3DzoDgvWpd_ptLvdX6w','fixture-suspended-hash','SUSPENDED','2026-09-20T20:00:00.000Z','2026-09-21T20:00:00.000Z',NULL,'2026-09-20T20:00:00.000Z','2026-09-21T20:00:00.000Z'),
-  ('partner-e2e-deactivated','v1.AQIDBAUGBwgJCgsM.foljWk6Zj5pn9Emm92WBSuHUZfTa_WFZb0iSJiQFwdd3DzoDgvWpd_ptLvdX6w','fixture-deactivated-hash','DEACTIVATED','2026-09-20T20:00:00.000Z',NULL,'2026-09-21T20:00:00.000Z','2026-09-20T20:00:00.000Z','2026-09-21T20:00:00.000Z');
+  ('partner-e2e-deactivated','v1.AQIDBAUGBwgJCgsM.foljWk6Zj5pn9Emm92WBSuHUZfTa_WFZb0iSJiQFwdd3DzoDgvWpd_ptLvdX6w','fixture-deactivated-hash','DEACTIVATED','2026-09-20T20:00:00.000Z',NULL,'2026-09-21T20:00:00.000Z','2026-09-20T20:00:00.000Z','2026-09-21T20:00:00.000Z'),
+  ('partner-e2e-admin-self','v1.AQIDBAUGBwgJCgsM.foljWk6Zj5pn9Emm92WBSuHUZfTa_WFZb0iSJiQFwdd3DzoDgvWpd_ptLvdX6w','WyejHJCyTx3hOPwwfARTlIgm-O6c4Wzf_R7MeOZkSyg','ACTIVE','2026-09-21T20:00:00.000Z',NULL,NULL,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
 
 INSERT INTO resource_access_tokens (
   id,resource_type,subject_id,purpose,token_hash,expires_at,used_at,revoked_at,created_at
@@ -59,6 +60,24 @@ INSERT INTO partner_resources (id,entity_type,help_organization_id,created_at,up
 VALUES ('partner-resource-e2e-organization','HELP_ORGANIZATION',990002,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
 INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
 VALUES ('partner-membership-e2e-editor','partner-e2e-mobile','partner-resource-e2e-organization','EDITOR','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
+
+INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
+VALUES ('partner-membership-e2e-admin-self','partner-e2e-admin-self','partner-resource-e2e-organization','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
+
+-- PARTNER-H5 moderation-integrity fixtures. The account hash maps preview@psipedia.local
+-- to the CI-only PII_HASH_KEY configured by the Partner workflow.
+INSERT INTO partner_claims (
+  id,account_id,resource_id,status,request_message,created_at,updated_at
+) VALUES (
+  'partner-e2e-self-claim','partner-e2e-admin-self','partner-resource-e2e-directory','PENDING',
+  'E2E self-approval guard claim','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z'
+);
+INSERT INTO partner_resource_verifications (
+  id,account_id,resource_id,status,request_note,created_at,updated_at,submitted_at
+) VALUES (
+  'partner-e2e-self-verification','partner-e2e-admin-self','partner-resource-e2e-organization','PENDING_VERIFICATION',
+  'E2E self-approval guard verification','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z'
+);
 
 
 -- PARTNER-4 event fixtures: one published OWNER event and one draft EDITOR event.

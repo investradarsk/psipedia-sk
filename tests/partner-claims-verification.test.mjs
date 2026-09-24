@@ -85,6 +85,21 @@ test("claim approval upgrades or creates audited OWNER membership without destru
   assert.match(claimAdminApi,/REJECT/);
 });
 
+test("ownership-sensitive approvals block a deterministically mapped admin from approving their own Partner request",()=>{
+  assert.match(admin,/hashPii\(normalizeEmail\(input\.adminEmail\), piiHashKey\(input\.hashKey\)\)/);
+  assert.match(admin,/a\.email_hash=\?1 AND a\.status='ACTIVE'/);
+  assert.match(admin,/m\.account_id=a\.id AND m\.resource_id=\?2 AND m\.revoked_at IS NULL/);
+  assert.match(admin,/mapped\.accountId === input\.accountId \|\| Boolean\(mapped\.resourceMember\)/);
+  assert.match(admin,/Vlastnú žiadosť o správu profilu musí schváliť iný administrátor/);
+  const claimApproval=admin.slice(admin.indexOf("export async function approvePartnerClaimAdmin"),admin.indexOf("export async function rejectPartnerClaimAdmin"));
+  assert.ok(claimApproval.indexOf("assertIndependentOwnershipApprover")<claimApproval.indexOf("ensurePartnerOwnerMembershipAdmin"));
+  const verificationDecision=admin.slice(admin.indexOf("export async function decidePartnerVerificationAdmin"));
+  assert.match(verificationDecision,/if \(input\.action === "VERIFY"\)/);
+  assert.match(verificationDecision,/assertIndependentOwnershipApprover/);
+  assert.match(claimAdminApi,/approvePartnerClaimAdmin/);
+  assert.match(verificationAdminApi,/decidePartnerVerificationAdmin/);
+});
+
 test("verification is a separate account-resource state and no row means UNVERIFIED",()=>{
   assert.match(claims,/return row\?\.status \?\? "UNVERIFIED"/);
   assert.match(claims,/membership\.role !== "OWNER"/);

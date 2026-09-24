@@ -12,7 +12,7 @@ import {
   type PartnerEventOperation,
 } from "@/lib/partner-events";
 import { normalizeManagedEventInput } from "@/lib/event-store";
-import { applyAtomicModerationTransition, type FoundationSubmissionStatus } from "@/lib/moderation-transition";
+import { applyAtomicModerationTransition, ModerationStateConflictError, type FoundationSubmissionStatus } from "@/lib/moderation-transition";
 import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 
@@ -73,6 +73,9 @@ async function currentEvent(id:number,database:D1Database){
   return database.prepare(`SELECT id,slug,title,excerpt,event_type eventType,status,start_date startDate,start_time startTime,end_date endDate,end_time endTime,venue,city,region,address,organizer,description,practical_info practicalInfo,website_url websiteUrl,registration_url registrationUrl,cancelled,updated_at updatedAt FROM managed_events WHERE id=?1 LIMIT 1`).bind(id).first<CurrentEvent>();
 }
 function currentValues(e:CurrentEvent):PartnerEventPatch{return {title:e.title,excerpt:e.excerpt,eventType:e.eventType,startDate:e.startDate,startTime:e.startTime,endDate:e.endDate,endTime:e.endTime,venue:e.venue,city:e.city,region:e.region,address:e.address,organizer:e.organizer,description:e.description,practicalInfo:e.practicalInfo,websiteUrl:e.websiteUrl,registrationUrl:e.registrationUrl,cancelled:Boolean(e.cancelled)};}
+function eventSnapshotChanged(base:PartnerEventPatch,current:PartnerEventPatch){
+  return Object.keys(base).some(field=>JSON.stringify(base[field]??null)!==JSON.stringify(current[field]??null));
+}
 export async function getPartnerEventAdmin(id:string,input:{database?:D1Database;encryptionKey?:string}={}){
   const database=db(input.database),row=await raw(id,database);if(!row)return null;
   const item=await hydrate(row,key(input.encryptionKey));
@@ -233,17 +236,35 @@ export async function approvePartnerEventUpdateAdmin(input:{id:string;adminEmail
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);if(row.operation!=="UPDATE"||!row.subjectId)throw new PartnerEventError("Táto akcia je iba pre úpravu podujatia.",409);
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
   const eventId=Number(row.subjectId),current=await currentEvent(eventId,database);if(!current)throw new PartnerEventError("Canonical podujatie sa nenašlo.",404);
-  const base=json<PartnerEventPatch>(row.baseSnapshotJson,{}),patch=normalizePartnerEventUpdate(json(row.proposedPatchJson,{}),base),changed=Object.keys(patch);
+  const base=json<PartnerEventPatch>(row.baseSnapshotJson,{});
+  if(!row.baseUpdatedAt||current.updatedAt!==row.baseUpdatedAt||eventSnapshotChanged(base,currentValues(current))){
+    throw new PartnerEventError("Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
+  }
+  const patch=normalizePartnerEventUpdate(json(row.proposedPatchJson,{}),base),changed=Object.keys(patch);
   const now=input.now??new Date(),nowIso=now.toISOString();
-  await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(changed),now:nowIso,extraStatements:[
-    updateStatement(database,eventId,patch,actorRef,nowIso,input.id),
-    database.prepare(`UPDATE event_notion_sync SET inbound_locked_at=?1,inbound_lock_reason='PARTNER_MODERATION',updated_at=?1
-      WHERE event_id=?2 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='APPROVED' AND updated_at=?1 AND reviewed_by=?4)`)
-      .bind(nowIso,eventId,input.id,actorRef),
-    terminal(database,input.id,"APPROVED",nowIso,actorRef,"UPDATED",String(eventId)),
-    audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_CHANGE_APPROVED",nowIso,actorRef,status:"APPROVED",metadata:{eventId,changedFieldCount:changed.length}}),
-    notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_CHANGE_APPROVED",now,nowIso,actorRef,status:"APPROVED"}),
-  ]});
+  try{
+    await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(changed),now:nowIso,
+      transitionGuard:{sql:"EXISTS(SELECT 1 FROM managed_events WHERE id=? AND updated_at=?)",bindings:[eventId,row.baseUpdatedAt]},
+      extraStatements:[
+        updateStatement(database,eventId,patch,actorRef,nowIso,input.id),
+        database.prepare(`UPDATE event_notion_sync SET inbound_locked_at=?1,inbound_lock_reason='PARTNER_MODERATION',updated_at=?1
+          WHERE event_id=?2 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='APPROVED' AND updated_at=?1 AND reviewed_by=?4)`)
+          .bind(nowIso,eventId,input.id,actorRef),
+        terminal(database,input.id,"APPROVED",nowIso,actorRef,"UPDATED",String(eventId)),
+        audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_CHANGE_APPROVED",nowIso,actorRef,status:"APPROVED",metadata:{eventId,changedFieldCount:changed.length}}),
+        notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_CHANGE_APPROVED",now,nowIso,actorRef,status:"APPROVED"}),
+      ],
+    });
+  }catch(error){
+    if(error instanceof ModerationStateConflictError){
+      const latest=await currentEvent(eventId,database);
+      if(!latest||!row.baseUpdatedAt||latest.updatedAt!==row.baseUpdatedAt||eventSnapshotChanged(base,currentValues(latest))){
+        throw new PartnerEventError("Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
+      }
+      throw new PartnerEventError("Stav žiadosti sa medzičasom zmenil. Obnovte stránku a skúste rozhodnutie znova.",409);
+    }
+    throw error;
+  }
   const locationChanged=changed.some(field=>["venue","city","region","address"].includes(field));
   await sideEffects({eventId,slug:current.slug,published:current.status==="published",locationChanged,invalidatePublic:true,eventTypes:[current.eventType,typeof patch.eventType==="string"?patch.eventType:current.eventType],publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
   return getPartnerEventAdmin(input.id,{database});

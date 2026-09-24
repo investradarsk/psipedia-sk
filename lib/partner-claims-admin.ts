@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { decryptPii } from "./pii-crypto";
+import { decryptPii, hashPii, normalizeEmail } from "./pii-crypto";
 import { ensurePartnerOwnerMembershipAdmin } from "./partner-admin-store";
 import { getPartnerAccountById, getPartnerDatabase } from "./partner-auth-store";
 import {
@@ -13,7 +13,7 @@ import {
 import { queuePartnerLifecycleNotification } from "./partner-email";
 import { appendPartnerAuditEvent } from "./partner-platform";
 
-type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
+type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string; PII_HASH_KEY?: string };
 function db(database?: D1Database) {
   return getPartnerDatabase(database ?? (env as unknown as Bindings).DB);
 }
@@ -24,6 +24,36 @@ function piiKey(value?: string) {
 }
 function adminActor(email: string) {
   return `admin:${email.trim().toLowerCase()}`;
+}
+function piiHashKey(value?: string) {
+  const hashKey = value ?? (env as unknown as Bindings).PII_HASH_KEY;
+  if (!hashKey) throw new PartnerClaimAdminError("PII_HASH_KEY nie je nakonfigurovaný.", 503);
+  return hashKey;
+}
+async function assertIndependentOwnershipApprover(input: {
+  adminEmail: string;
+  accountId: string;
+  resourceId: string;
+  database: D1Database;
+  hashKey?: string;
+}) {
+  const emailHash = await hashPii(normalizeEmail(input.adminEmail), piiHashKey(input.hashKey));
+  const mapped = await input.database.prepare(`
+    SELECT a.id accountId,
+      EXISTS(
+        SELECT 1 FROM partner_memberships m
+        WHERE m.account_id=a.id AND m.resource_id=?2 AND m.revoked_at IS NULL
+      ) resourceMember
+    FROM partner_accounts a
+    WHERE a.email_hash=?1 AND a.status='ACTIVE'
+    LIMIT 1
+  `).bind(emailHash, input.resourceId).first<{ accountId: string; resourceMember: number }>();
+  if (mapped && (mapped.accountId === input.accountId || Boolean(mapped.resourceMember))) {
+    throw new PartnerClaimAdminError(
+      "Vlastnú žiadosť o správu profilu musí schváliť iný administrátor.",
+      403,
+    );
+  }
 }
 function safeId(value: string) {
   return /^[A-Za-z0-9_-]{1,128}$/.test(value);
@@ -224,10 +254,18 @@ export async function approvePartnerClaimAdmin(input: {
   adminEmail: string;
   database?: D1Database;
   now?: Date;
+  hashKey?: string;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatný claim.");
   const database = db(input.database);
   const claim = await claimForDecision(input.id, database);
+  await assertIndependentOwnershipApprover({
+    adminEmail: input.adminEmail,
+    accountId: claim.accountId,
+    resourceId: claim.resourceId,
+    database,
+    hashKey: input.hashKey,
+  });
   const now = input.now ?? new Date();
   await ensurePartnerOwnerMembershipAdmin({
     accountId: claim.accountId,
@@ -439,10 +477,20 @@ export async function decidePartnerVerificationAdmin(input: {
   adminEmail: string;
   database?: D1Database;
   now?: Date;
+  hashKey?: string;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatné overenie.");
   const database = db(input.database);
   const verification = await pendingVerificationForDecision(input.id, database);
+  if (input.action === "VERIFY") {
+    await assertIndependentOwnershipApprover({
+      adminEmail: input.adminEmail,
+      accountId: verification.accountId,
+      resourceId: verification.resourceId,
+      database,
+      hashKey: input.hashKey,
+    });
+  }
   const note = normalizePartnerClaimText(input.reviewNote, 2000);
   const now = input.now ?? new Date();
   const iso = now.toISOString();

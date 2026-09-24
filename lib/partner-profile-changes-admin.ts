@@ -21,6 +21,7 @@ import {
 import {
   applyAtomicModerationTransition,
   canTransitionModerationSubmission,
+  ModerationStateConflictError,
   isFoundationSubmissionStatus,
   type FoundationSubmissionStatus,
 } from "@/lib/moderation-transition";
@@ -248,6 +249,9 @@ export async function approvePartnerProfileChangeAdmin(input:{
   if(String(canonical.canonicalId)!==row.subjectId||canonical.entityType!==row.resourceType){
     throw new PartnerProfileChangeError("Canonical cieľ návrhu nie je konzistentný.",409);
   }
+  if(canonical.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values)){
+    throw new PartnerProfileChangeError("Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
+  }
   const base=safeJson<PartnerProfilePatch>(row.baseSnapshotJson,{});
   const stored=safePatch(row.proposedPatchJson);
   const patch=normalizePartnerProfilePatch(row.resourceType,stored,base);
@@ -258,8 +262,30 @@ export async function approvePartnerProfileChangeAdmin(input:{
   const canonicalStatements=row.resourceType==="DIRECTORY_PROFILE"
     ? [buildDirectoryApplyStatement(database,canonical,patch,actorRef,nowIso,input.id)]
     : buildHelpApplyStatements(database,canonical,patch,actorRef,nowIso,input.id);
+  const transitionGuard=row.resourceType==="DIRECTORY_PROFILE"
+    ? {sql:"EXISTS(SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=?)",bindings:[canonical.canonicalId,row.baseUpdatedAt] as const}
+    : canonical.locationId===null
+      ? {
+          sql:"EXISTS(SELECT 1 FROM help_organizations WHERE id=? AND updated_at=?) AND NOT EXISTS(SELECT 1 FROM organization_locations WHERE organization_id=?)",
+          bindings:[canonical.canonicalId,row.baseUpdatedAt,canonical.canonicalId] as const,
+        }
+      : {
+          sql:`EXISTS(SELECT 1 FROM help_organizations WHERE id=? AND updated_at=?)
+            AND (SELECT id FROM organization_locations WHERE organization_id=? ORDER BY is_primary DESC,sort_order ASC,id ASC LIMIT 1)=?
+            AND EXISTS(
+              SELECT 1 FROM organization_locations
+              WHERE id=? AND organization_id=?
+                AND address IS ? AND city IS ? AND district IS ? AND region IS ? AND country_code IS ?
+            )`,
+          bindings:[
+            canonical.canonicalId,row.baseUpdatedAt,canonical.canonicalId,canonical.locationId,
+            canonical.locationId,canonical.canonicalId,
+            base.address??"",base.city??"",base.district??"",base.region??"",base.countryCode??"",
+          ] as const,
+        };
 
-  await applyAtomicModerationTransition(database,{
+  try{
+    await applyAtomicModerationTransition(database,{
     id:input.id,
     expectedStatus:"PENDING_REVIEW",
     toStatus:"APPROVED",
@@ -269,6 +295,7 @@ export async function approvePartnerProfileChangeAdmin(input:{
     eventId:crypto.randomUUID(),
     changedFieldsJson:JSON.stringify(changedFields),
     now:nowIso,
+    transitionGuard,
     extraStatements:[
       ...canonicalStatements,
       terminalMetadataStatement(database,input.id,"APPROVED",nowIso,actorRef),
@@ -280,7 +307,17 @@ export async function approvePartnerProfileChangeAdmin(input:{
         id:input.id,accountId:row.accountId,type:"PROFILE_CHANGE_APPROVED",now,nowIso,actorRef,status:"APPROVED",
       }),
     ],
-  });
+    });
+  }catch(error){
+    if(error instanceof ModerationStateConflictError){
+      const latest=await loadPartnerCanonicalForResource(row.resourceId,database);
+      if(latest.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,latest.values)){
+        throw new PartnerProfileChangeError("Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
+      }
+      throw new PartnerProfileChangeError("Stav žiadosti sa medzičasom zmenil. Obnovte stránku a skúste rozhodnutie znova.",409);
+    }
+    throw error;
+  }
   return getPartnerProfileChangeAdmin(input.id,{database});
 }
 

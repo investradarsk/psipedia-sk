@@ -44,6 +44,15 @@ function createD1Harness() {
       request_id TEXT,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE canonical_records (
+      id TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE decision_side_effects (
+      id TEXT PRIMARY KEY,
+      submission_id TEXT NOT NULL
+    );
   `);
 
   const makeStatement = (sql, params = []) => ({
@@ -172,6 +181,79 @@ test("two moderation requests from the same original state have one deterministi
   assert.deepEqual(readEvents(sqlite).map(({ fromStatus, toStatus }) => ({ fromStatus, toStatus })), [
     { fromStatus: "SUBMITTED", toStatus: "PENDING_REVIEW" },
   ]);
+  sqlite.close();
+});
+
+test("canonical revision guard allows a fresh decision and its guarded side effects exactly once", async () => {
+  const { applyAtomicModerationTransition } = await importTs("lib/moderation-transition.ts");
+  const { sqlite, database } = createD1Harness();
+  seedSubmission(sqlite, "canonical-fresh", "PENDING_REVIEW");
+  sqlite.prepare("INSERT INTO canonical_records(id,value,updated_at) VALUES (?,?,?)")
+    .run("profile-1", "old", "2026-09-15T17:00:00.000Z");
+
+  const input = transitionInput("canonical-fresh", "PENDING_REVIEW", "APPROVED", 24);
+  await applyAtomicModerationTransition(database, {
+    ...input,
+    transitionGuard: {
+      sql: "EXISTS(SELECT 1 FROM canonical_records WHERE id=? AND updated_at=?)",
+      bindings: ["profile-1", "2026-09-15T17:00:00.000Z"],
+    },
+    extraStatements: [
+      database.prepare(`UPDATE canonical_records SET value='new',updated_at=?1 WHERE id='profile-1'
+        AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?2 AND status='APPROVED' AND updated_at=?1 AND reviewed_by=?3)`)
+        .bind(input.now, input.id, input.actorRef),
+      database.prepare(`INSERT INTO decision_side_effects(id,submission_id)
+        SELECT 'approved','canonical-fresh' WHERE EXISTS(
+          SELECT 1 FROM moderation_submissions WHERE id='canonical-fresh' AND status='APPROVED' AND updated_at=?1 AND reviewed_by=?2
+        )`).bind(input.now, input.actorRef),
+    ],
+  });
+
+  assert.equal(readStatus(sqlite, "canonical-fresh"), "APPROVED");
+  assert.equal(readEvents(sqlite).length, 1);
+  assert.deepEqual(
+    sqlite.prepare("SELECT value,updated_at AS updatedAt FROM canonical_records WHERE id='profile-1'").get(),
+    { value: "new", updatedAt: input.now },
+  );
+  assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM decision_side_effects").get().count, 1);
+  sqlite.close();
+});
+
+test("canonical revision guard rejects a stale decision without canonical mutation, success event or side effect", async () => {
+  const { applyAtomicModerationTransition, ModerationStateConflictError } = await importTs("lib/moderation-transition.ts");
+  const { sqlite, database } = createD1Harness();
+  seedSubmission(sqlite, "canonical-stale", "PENDING_REVIEW");
+  sqlite.prepare("INSERT INTO canonical_records(id,value,updated_at) VALUES (?,?,?)")
+    .run("profile-2", "newer", "2026-09-15T17:30:00.000Z");
+
+  const input = transitionInput("canonical-stale", "PENDING_REVIEW", "APPROVED", 25);
+  await assert.rejects(
+    () => applyAtomicModerationTransition(database, {
+      ...input,
+      transitionGuard: {
+        sql: "EXISTS(SELECT 1 FROM canonical_records WHERE id=? AND updated_at=?)",
+        bindings: ["profile-2", "2026-09-15T17:00:00.000Z"],
+      },
+      extraStatements: [
+        database.prepare(`UPDATE canonical_records SET value='overwritten',updated_at=?1 WHERE id='profile-2'
+          AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?2 AND status='APPROVED' AND updated_at=?1 AND reviewed_by=?3)`)
+          .bind(input.now, input.id, input.actorRef),
+        database.prepare(`INSERT INTO decision_side_effects(id,submission_id)
+          SELECT 'false-success','canonical-stale' WHERE EXISTS(
+            SELECT 1 FROM moderation_submissions WHERE id='canonical-stale' AND status='APPROVED' AND updated_at=?1 AND reviewed_by=?2
+          )`).bind(input.now, input.actorRef),
+      ],
+    }),
+    ModerationStateConflictError,
+  );
+
+  assert.equal(readStatus(sqlite, "canonical-stale"), "PENDING_REVIEW");
+  assert.equal(readEvents(sqlite).length, 0);
+  assert.deepEqual(
+    sqlite.prepare("SELECT value,updated_at AS updatedAt FROM canonical_records WHERE id='profile-2'").get(),
+    { value: "newer", updatedAt: "2026-09-15T17:30:00.000Z" },
+  );
+  assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM decision_side_effects").get().count, 0);
   sqlite.close();
 });
 

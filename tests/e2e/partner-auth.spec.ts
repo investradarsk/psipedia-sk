@@ -496,6 +496,108 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
 });
 
+test("stale Partner moderation approval is rejected at decision time without overwriting canonical data", async ({ page }, testInfo) => {
+  const project = testInfo.project.name as keyof typeof AUTH_ACCOUNT_IDS;
+
+  if (project === "desktop-chromium") {
+    await page.goto("/admin/partners/changes?status=active&q=" + encodeURIComponent("Partner E2E Veterina"));
+    const profileRequest = page.locator(".admin-commercial-list article").filter({ hasText: "Partner E2E Veterina" }).first();
+    await expect(profileRequest).toBeVisible();
+    const profileDetailHref = await profileRequest.getByRole("link", { name: "Detail →" }).getAttribute("href");
+    expect(profileDetailHref).toBeTruthy();
+
+    const profileResponse = await page.request.get("/api/admin/directory/990001");
+    expect(profileResponse.ok()).toBeTruthy();
+    const profileJson = await profileResponse.json() as { profile: Record<string, unknown> & { city?: string } };
+    const externalProfileUpdate = await page.request.put("/api/admin/directory/990001", {
+      data: { ...profileJson.profile, city: "Bratislava" },
+    });
+    expect(externalProfileUpdate.ok()).toBeTruthy();
+
+    await page.goto(profileDetailHref!);
+    await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
+    page.once("dialog", dialog => void dialog.accept());
+    await page.getByRole("button", { name: "Schváliť zmeny" }).click();
+    await expect(page.getByRole("status")).toContainText(
+      "Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
+    );
+
+    await page.reload();
+    await expect(page.getByText(/Čaká na rozhodnutie/).first()).toBeVisible();
+    const canonicalAfter = await page.request.get("/api/admin/directory/990001");
+    const canonicalAfterJson = await canonicalAfter.json() as { profile: { city?: string } };
+    expect(canonicalAfterJson.profile.city).toBe("Bratislava");
+  }
+
+  const eventId = project === "desktop-chromium" ? 990003 : 990004;
+  const eventTitle = project === "desktop-chromium" ? "Partner E2E Publikované Podujatie" : "Partner E2E Koncept Podujatie";
+  const originalVenue = project === "desktop-chromium" ? "Areál Desktop" : "Areál Mobile";
+  await page.goto("/admin/partners/events?status=active&operation=UPDATE&q=" + encodeURIComponent(eventTitle));
+  const eventRequest = page.locator(".admin-commercial-list article").filter({ hasText: eventTitle }).first();
+  await expect(eventRequest).toBeVisible();
+  const eventDetailHref = await eventRequest.getByRole("link", { name: "Detail →" }).getAttribute("href");
+  expect(eventDetailHref).toBeTruthy();
+
+  const eventResponse = await page.request.get(`/api/admin/events/${eventId}`);
+  expect(eventResponse.ok()).toBeTruthy();
+  const eventJson = await eventResponse.json() as {
+    event: { eventType: string; cancelled: boolean; updatedAt: string; venue: string };
+  };
+  const origin = new URL(page.url()).origin;
+  const externalEventUpdate = await page.request.patch(`/api/admin/events/${eventId}`, {
+    headers: { origin },
+    data: {
+      eventType: eventJson.event.eventType,
+      cancelled: eventJson.event.cancelled,
+      updatedAt: eventJson.event.updatedAt,
+    },
+  });
+  expect(externalEventUpdate.ok()).toBeTruthy();
+
+  await page.goto(eventDetailHref!);
+  await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
+  page.once("dialog", dialog => void dialog.accept());
+  await page.getByRole("button", { name: "Schváliť zmeny" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
+  );
+
+  await page.reload();
+  await expect(page.getByText(/PENDING_REVIEW/).first()).toBeVisible();
+  await expect(page.getByText("PENDING_REVIEW → APPROVED", { exact: true })).toHaveCount(0);
+  const canonicalEventAfter = await page.request.get(`/api/admin/events/${eventId}`);
+  const canonicalEventAfterJson = await canonicalEventAfter.json() as { event: { venue: string } };
+  expect(canonicalEventAfterJson.event.venue).toBe(originalVenue);
+  await expectNoHorizontalOverflow(page);
+});
+
+test("ownership-sensitive self-approval is blocked by the backend for direct admin API calls", async ({ page }) => {
+  const claimResponse = await page.request.patch("/api/admin/partners/claims/partner-e2e-self-claim", {
+    data: { action: "APPROVE", decisionNote: "" },
+  });
+  expect(claimResponse.status()).toBe(403);
+  const claimJson = await claimResponse.json() as { error?: string };
+  expect(claimJson.error).toContain("Vlastnú žiadosť o správu profilu musí schváliť iný administrátor.");
+
+  await page.goto("/admin/partners/claims/partner-e2e-self-claim");
+  await expect(page.getByText(/PENDING · DIRECTORY_PROFILE/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Schváliť" })).toBeVisible();
+  await expect(page.getByText("CLAIM_APPROVED", { exact: true })).toHaveCount(0);
+
+  const verificationResponse = await page.request.patch("/api/admin/partners/verifications/partner-e2e-self-verification", {
+    data: { action: "VERIFY", reviewNote: "" },
+  });
+  expect(verificationResponse.status()).toBe(403);
+  const verificationJson = await verificationResponse.json() as { error?: string };
+  expect(verificationJson.error).toContain("Vlastnú žiadosť o správu profilu musí schváliť iný administrátor.");
+
+  await page.goto("/admin/partners/verifications/partner-e2e-self-verification");
+  await expect(page.getByText(/PENDING_VERIFICATION · membership OWNER/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Overiť" })).toBeVisible();
+  await expect(page.getByText("VERIFICATION_VERIFIED", { exact: true })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
 test("internal admin Partner overview and account detail are protected admin pages", async ({ page }, testInfo) => {
   const project=testInfo.project.name as keyof typeof AUTH_EMAILS;
   await page.goto("/admin/partners");
