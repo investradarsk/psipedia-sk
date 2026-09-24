@@ -270,6 +270,34 @@ test("seeded query layer combines filters, privacy, publication, event lifecycle
   assert.deepEqual(filtered.items.map((item) => item.name), ["Veterina Nitra"]);
 });
 
+test("nullable projected search text fails closed instead of crashing the public map query", async () => {
+  const result = await queryPublicMap(
+    parseMapQuery(params({ search: "nullable" })),
+    fakeDb({
+      events: [row({
+        geo_point_id: 40,
+        entity_type: "event",
+        entity_id: 240,
+        name: "Nullable event",
+        slug: "nullable-event",
+        subcategory: "Výstava",
+        latitude: 48.4,
+        longitude: 18.2,
+        canonical_status: "published",
+        event_start_date: "2030-10-01",
+        event_end_date: "2030-10-01",
+        search_text: null,
+        verified: 0,
+        featured: 0,
+        online: 0,
+      })],
+    }),
+    NOW,
+  );
+  assert.equal(result.mode, "items");
+  assert.deepEqual(result.items, []);
+});
+
 test("low zoom singleton buckets preserve the existing public MapItem DTO", async () => {
   const result = await queryPublicMap(
     parseMapQuery(params({ zoom: "7" })),
