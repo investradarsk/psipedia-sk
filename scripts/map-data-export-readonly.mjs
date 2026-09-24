@@ -37,6 +37,7 @@ function runWrangler(args) {
   const bin = process.platform === "win32" ? "npx.cmd" : "npx";
   const result = spawnSync(bin, ["wrangler", ...args], {
     encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
     env: { ...process.env, WRANGLER_SEND_METRICS: "false", NO_UPDATE_NOTIFIER: "1" },
   });
   if (result.error) throw result.error;
