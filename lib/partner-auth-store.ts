@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { hashOpaqueToken } from "@/lib/resource-access";
 import {
   createResourceManagementSession,
   issueResourceAccessToken,
@@ -199,6 +200,15 @@ export async function revokeAllPartnerSessions(accountId: string, now = new Date
     "UPDATE resource_management_sessions SET revoked_at=?2 " +
     "WHERE resource_type=?3 AND subject_id=?1 AND revoked_at IS NULL",
   ).bind(accountId, now.toISOString(), PARTNER_ACCOUNT_RESOURCE_TYPE).run();
+}
+
+export async function revokeOtherPartnerSessions(accountId:string,currentToken:string,now=new Date(),database?:D1Database){
+  const db=getPartnerDatabase(database);
+  const currentHash=await hashOpaqueToken(currentToken);
+  await db.prepare(
+    "UPDATE resource_management_sessions SET revoked_at=?2 WHERE resource_type=?3 AND subject_id=?1 " +
+    "AND session_hash<>?4 AND revoked_at IS NULL",
+  ).bind(accountId,now.toISOString(),PARTNER_ACCOUNT_RESOURCE_TYPE,currentHash).run();
 }
 
 async function transitionPartnerAccount(

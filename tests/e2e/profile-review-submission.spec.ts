@@ -229,7 +229,14 @@ test("mobile 390x844 review form is keyboard-accessible, axe-clean and has no do
   await setCookie(context, REVIEW_COOKIE, reviewerSessions.mobile);
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await openDirectoryForm(page);
+  const response = await page.goto(DIRECTORY_PROFILE, { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  const reviews = page.locator("#recenzie");
+  const cta = reviews.getByRole("link", { name: "Napísať recenziu" });
+  await expect(cta).toHaveAttribute("href", "/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE);
+  await page.goto("/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Napísať recenziu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Odoslať recenziu" })).toBeEnabled();
   await expectNoHorizontalOverflow(page, "review submission form 390x844");
 
   const firstOverall = page.locator('input[name="overallRating"][value="1"]');

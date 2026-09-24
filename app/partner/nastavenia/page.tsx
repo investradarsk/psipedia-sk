@@ -1,15 +1,21 @@
 import { PartnerContactProfileForm } from "@/components/partner-contact-profile-form";
 import { PartnerSettingsActions } from "@/components/partner-settings-actions";
+import { PartnerSecuritySettings } from "@/components/partner-security-settings";
 import { PartnerShell } from "@/components/partner-shell";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { getPartnerContactProfile } from "@/lib/partner-contact-profile";
 import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
+import { getPartnerAuthMethodSummary } from "@/lib/partner-auth-methods";
+import { isPartnerGoogleOAuthEnabled } from "@/lib/partner-google-auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function PartnerSettingsPage() {
   const identity = await requirePartnerPageIdentity({ allowIncompleteOnboarding: true });
-  const contactProfile = await getPartnerContactProfile(identity.accountId);
+  const [contactProfile, authMethods] = await Promise.all([
+    getPartnerContactProfile(identity.accountId),
+    getPartnerAuthMethodSummary(identity.accountId),
+  ]);
 
   return (
     <PartnerShell title="Nastavenia" description="Kontaktné a bezpečnostné nastavenia Partner účtu.">
@@ -37,6 +43,12 @@ export default async function PartnerSettingsPage() {
           }}
         />
       </section>
+
+      <PartnerSecuritySettings
+        passwordSet={authMethods.passwordSet}
+        googleLinked={authMethods.googleLinked}
+        googleEnabled={isPartnerGoogleOAuthEnabled()}
+      />
 
       <PartnerSettingsActions siteKey={getPartnerTurnstileSiteKey()} />
     </PartnerShell>

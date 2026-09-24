@@ -19,6 +19,7 @@ export type PartnerEmailBindings = {
 
 export const partnerNotificationTypes = [
   "AUTH_MAGIC_LINK",
+  "PASSWORD_RESET",
   "CLAIM_SUBMITTED",
   "CLAIM_APPROVED",
   "CLAIM_REJECTED",
@@ -111,9 +112,39 @@ export async function queuePartnerMagicLinkEmail(input: {
   return id;
 }
 
+export async function queuePartnerPasswordResetEmail(input: {
+  accountId: string;
+  rawToken: string;
+  expiresAt: string;
+  database?: D1Database;
+  bindings?: PartnerEmailBindings;
+  now?: Date;
+}) {
+  const bindings = runtimeBindings(input.bindings);
+  const database = getPartnerDatabase(input.database ?? bindings.DB);
+  const encryptionKey = requireEncryptionKey(bindings);
+  const nowIso = (input.now ?? new Date()).toISOString();
+  const id = crypto.randomUUID();
+  const encryptedSecret = await encryptPii(JSON.stringify({ token: input.rawToken }), encryptionKey);
+  const dedupeKey = "partner-password-reset/" + id;
+
+  await database.prepare(
+    "UPDATE partner_notification_outbox SET status='EXPIRED',encrypted_secret=NULL,last_error=NULL,updated_at=?2 " +
+    "WHERE partner_account_id=?1 AND notification_type='PASSWORD_RESET' AND status NOT IN ('SENT','EXPIRED')",
+  ).bind(input.accountId, nowIso).run();
+
+  await database.prepare(
+    "INSERT INTO partner_notification_outbox " +
+    "(id,partner_account_id,notification_type,dedupe_key,status,encrypted_secret,expires_at,attempts,created_at,updated_at) " +
+    "VALUES (?1,?2,'PASSWORD_RESET',?3,'PENDING',?4,?5,0,?6,?6)",
+  ).bind(id, input.accountId, dedupeKey, encryptedSecret, input.expiresAt, nowIso).run();
+
+  return id;
+}
+
 export async function queuePartnerLifecycleNotification(input: {
   accountId: string;
-  notificationType: Exclude<PartnerNotificationType, "AUTH_MAGIC_LINK">;
+  notificationType: Exclude<PartnerNotificationType, "AUTH_MAGIC_LINK" | "PASSWORD_RESET">;
   dedupeKey: string;
   database?: D1Database;
   bindings?: PartnerEmailBindings;
@@ -209,8 +240,31 @@ async function sendPartnerAuthEmail(input: {
       "Odkaz je jednorazový a platí 15 minút.",
       "Ak ste o prihlásenie nežiadali, tento e-mail ignorujte.",
     ].join("\n");
+  } else if (input.row.notification_type === "PASSWORD_RESET") {
+    if (!input.row.encrypted_secret) return { ok: false as const, error: "missing_encrypted_password_reset_secret" };
+    let rawToken = "";
+    try {
+      const decrypted = await decryptPii(input.row.encrypted_secret, encryptionKey);
+      const envelope = JSON.parse(decrypted) as { token?: unknown };
+      rawToken = typeof envelope.token === "string" ? envelope.token : "";
+    } catch {
+      return { ok: false as const, error: "partner_password_reset_secret_decrypt_failed" };
+    }
+    if (!rawToken) return { ok: false as const, error: "partner_password_reset_secret_invalid" };
+    const fragment = new URLSearchParams({ token: rawToken });
+    const resetUrl = SITE_URL + "/partner/obnova-hesla#" + fragment.toString();
+    subject = "Obnovenie hesla Partner účtu Psipedia";
+    text = [
+      "Dobrý deň,",
+      "",
+      "heslo Partner účtu môžete bezpečne obnoviť cez tento odkaz:",
+      resetUrl,
+      "",
+      "Odkaz je jednorazový a platí 30 minút.",
+      "Ak ste o zmenu hesla nežiadali, tento e-mail ignorujte.",
+    ].join("\n");
   } else {
-    const copy: Record<Exclude<PartnerNotificationType, "AUTH_MAGIC_LINK">, { subject: string; lines: string[] }> = {
+    const copy: Record<Exclude<PartnerNotificationType, "AUTH_MAGIC_LINK" | "PASSWORD_RESET">, { subject: string; lines: string[] }> = {
       CLAIM_SUBMITTED: {
         subject: "Žiadosť o prevzatie profilu sme prijali",
         lines: ["Vašu žiadosť o prevzatie existujúceho profilu sme prijali a čaká na kontrolu."],

@@ -57,7 +57,7 @@ export async function verifyPartnerTurnstile(input: {
   request: Request;
   token: string;
   secret: string;
-  action: "partner_auth_request" | "partner_account_deactivate";
+  action: "partner_auth_request" | "partner_password_register" | "partner_password_login" | "partner_password_reset_request" | "partner_account_deactivate";
   now?: Date;
 }) {
   const url = new URL(input.request.url);

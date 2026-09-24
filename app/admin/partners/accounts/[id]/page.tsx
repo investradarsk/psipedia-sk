@@ -62,6 +62,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </section>
 
         <section className="admin-form-card">
+          <h2>Prihlasovacie metódy</h2>
+          <p><strong>Magic link:</strong> dostupný</p>
+          <p><strong>Heslo:</strong> {account.authMethods.passwordSet ? "nastavené" : "nenastavené"}</p>
+          <p><strong>Google:</strong> {account.authMethods.googleLinked ? "prepojené" : "neprepojené"}</p>
+          {account.authMethods.googleLinkedAt ? (
+            <p><strong>Google prepojené:</strong> {new Date(account.authMethods.googleLinkedAt).toLocaleString("sk-SK")}</p>
+          ) : null}
+        </section>
+
+        <section className="admin-form-card">
           <h2>Membership história</h2>
           {memberships.length ? memberships.map((membership) => (
             <article key={membership.id}>
