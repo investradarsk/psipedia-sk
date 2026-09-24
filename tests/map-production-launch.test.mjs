@@ -70,18 +70,21 @@ test("Google Maps consent is explicit and deny-by-default", () => {
   assert.equal(hasGoogleMapsConsent("granted"), true);
 });
 
-test("renderer requires launch flag and consent before Google load", async () => {
+test("renderer requires renderer config and consent before Google load", async () => {
   const renderer = await readFile(path.join(root, "components/map/google-map-renderer.tsx"), "utf8");
   const page = await readFile(path.join(root, "app/mapa/page.tsx"), "utf8");
   const runtimeEnv = await readFile(path.join(root, "config/runtime-env.ts"), "utf8");
-  assert.match(renderer, /!launchEnabled \|\| !consentGranted \|\| configMissing/);
+  assert.match(renderer, /!rendererEnabled \|\| !consentGranted \|\| configMissing/);
   assert.match(runtimeEnv, /PUBLIC_MAP_ENABLED/);
   assert.match(page, /cloudflare:workers/);
   assert.match(page, /bindings\.PUBLIC_MAP_ENABLED \?\? process\.env\.PUBLIC_MAP_ENABLED/);
   assert.match(page, /bindings\.GOOGLE_MAPS_BROWSER_API_KEY \?\? process\.env\.GOOGLE_MAPS_BROWSER_API_KEY/);
   assert.match(page, /bindings\.GOOGLE_MAPS_MAP_ID \?\? process\.env\.GOOGLE_MAPS_MAP_ID/);
   assert.match(page, /publicMapLaunchEnabled\(launchEnv\)/);
-  assert.match(page, /publicMapEnabled \? launchEnv\.GOOGLE_MAPS_BROWSER_API_KEY/);
+  assert.match(page, /googleMapsRendererConfigured\(launchEnv\)/);
+  assert.match(page, /publicMapLaunchEnabled\(launchEnv\)/);
+  assert.match(page, /googleRendererEnabled \? launchEnv\.GOOGLE_MAPS_BROWSER_API_KEY/);
+  assert.match(page, /rendererEnabled=\{googleRendererEnabled\}/);
 });
 
 test("readiness audit exposes only a read-only D1 execution path", async () => {
