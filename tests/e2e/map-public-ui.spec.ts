@@ -348,6 +348,7 @@ test.describe("MAP-1D desktop", () => {
     const mock = await installMapApiMock(page);
     await page.goto("/mapa");
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
+    await expect(page.getByTestId("map-card-service:1")).toBeVisible();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("singleton");
     await expect(page.getByRole("heading", { level: 2, name: "1 oblasť · 1 výsledok" })).toBeVisible();
@@ -498,6 +499,7 @@ test.describe("MAP-1D mobile", () => {
     await installMapApiMock(page);
     await page.goto("/mapa");
     const results = page.getByTestId("map-results-panel");
+    await expect(page.getByTestId("map-card-service:1")).toBeVisible();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("singleton");
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
