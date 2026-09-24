@@ -226,6 +226,44 @@ test("Google ID-token validation uses local JWKS fixtures for nonce, issuer, aud
   }
 });
 
+test("Google return bridge is a real safe route for LINK, LOGIN and REGISTER targets", async () => {
+  const google = await importTs("lib/partner-google-auth.ts");
+  const bridge = await importTs("app/partner/google-navrat/route.ts");
+
+  const targets = [
+    "/partner",
+    "/partner/prepojit-google",
+    "/partner/onboarding?returnTo=" + encodeURIComponent("/partner/nastavenia"),
+  ];
+
+  for (const target of targets) {
+    const location = google.googleReturnBridge(target);
+    assert.match(location, /^\/partner\/google-navrat\?to=/);
+
+    const response = bridge.GET(new Request("https://psipedia.sk" + location, {
+      headers: { cookie: "__Host-psipedia_partner_session=preserve-me" },
+    }));
+
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("location"), target);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+    assert.equal(response.headers.get("set-cookie"), null, "bridge must not overwrite callback/session cookies");
+  }
+
+  for (const unsafe of [
+    "https://attacker.example/steal",
+    "//attacker.example/steal",
+    "/api/partner/auth/google/callback",
+    "/admin",
+  ]) {
+    const response = bridge.GET(new Request(
+      "https://psipedia.sk/partner/google-navrat?to=" + encodeURIComponent(unsafe),
+    ));
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("location"), "/partner");
+  }
+});
+
 test("Google identity uses sub, never email, and existing-email collision requires authenticated confirmation", () => {
   assert.match(methods, /provider_subject/);
   assert.match(methods, /WHERE provider='GOOGLE' AND provider_subject=\?1/);
