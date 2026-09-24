@@ -62,12 +62,21 @@ const EVENT_OPERATION_LABELS: Record<string, string> = {
   UPDATE: "Úprava podujatia",
 };
 
+export const partnerOrganizationTypeOptions = [
+  ["SHELTER", "Útulok"],
+  ["CIVIC_ASSOCIATION", "Občianske združenie"],
+  ["RESCUE_ORGANIZATION", "Záchranná organizácia"],
+  ["MUNICIPAL_ORGANIZATION", "Mestská / obecná organizácia"],
+  ["NONPROFIT", "Nezisková organizácia"],
+  ["OTHER", "Iný typ organizácie"],
+] as const;
+
 function label(value: string, labels: Record<string, string>) {
   return labels[value] ?? value;
 }
 
 export function partnerRoleLabel(value: PartnerRole | string) {
-  return label(value, ROLE_LABELS);
+  return ROLE_LABELS[value as PartnerRole] ?? value;
 }
 
 export function partnerResourceStatusLabel(value: string) {
@@ -92,4 +101,8 @@ export function partnerPaymentStatusLabel(value: string) {
 
 export function partnerEventOperationLabel(value: string) {
   return label(value, EVENT_OPERATION_LABELS);
+}
+
+export function partnerOrganizationTypeLabel(value: string) {
+  return partnerOrganizationTypeOptions.find(([type]) => type === value)?.[1] ?? value;
 }
