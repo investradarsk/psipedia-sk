@@ -123,17 +123,41 @@ async function installMapApiMock(page: Page) {
       return;
     }
     if (search === "cluster" && zoom < 9) {
-      const clusters = [{
-        id: "cluster:nitra",
-        latitude: 48.31,
-        longitude: 18.1,
-        count: 34,
-        categoryCounts: { services: 20, organizations: 7, events: 7 },
-      }];
+      const clusters = [
+        {
+          id: "cluster:nitra",
+          latitude: 48.31,
+          longitude: 18.1,
+          count: 2,
+          categoryCounts: { services: 1, organizations: 1, events: 0 },
+        },
+        {
+          id: "cluster:trnava",
+          latitude: 48.377,
+          longitude: 17.588,
+          count: 2,
+          categoryCounts: { services: 1, organizations: 1, events: 0 },
+        },
+        {
+          id: "cluster:bratislava",
+          latitude: 48.1486,
+          longitude: 17.1077,
+          count: 2,
+          categoryCounts: { services: 1, organizations: 0, events: 1 },
+        },
+        {
+          id: "cluster:singleton-event",
+          latitude: eventItem.latitude,
+          longitude: eventItem.longitude,
+          count: 1,
+          categoryCounts: { services: 0, organizations: 0, events: 1 },
+          singletonItem: eventItem,
+        },
+      ];
       await json(route, 200, {
         mode: "clusters",
         clusters,
-        meta: responseMeta(url, clusters.length, { matched: 34 }),
+        meta: responseMeta(url, clusters.length, { matched: 7 }),
       });
       return;
     }
@@ -246,6 +270,10 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Mapa Psipedie" })).toBeVisible();
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
+    await expect(page.getByTestId("map-results-guidance")).toHaveText("Vyber výsledok na mape alebo v zozname.");
+    await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
+    await expect(page.getByTestId("map-provider-disclosure")).toHaveCount(0);
+    await expect(page.getByLabel("Zdroj lokalizačných údajov")).toContainText("Geoapify");
     await expect(page.getByTestId("map-card-organization:2:location:20")).toContainText("Približná poloha");
     await expect(page.getByTestId("map-card-organization:2:location:20")).not.toContainText("Súkromná");
     await expect(page.getByRole("link", { name: "Zobraziť profil" }).first()).toHaveAttribute(
@@ -295,12 +323,16 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("cluster");
-    await expect(page.getByTestId("map-cluster-summary")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Priblížiť oblasť s 34 záznamami" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "4 oblasti · 7 výsledkov" })).toBeVisible();
+    await expect(page.getByTestId("map-results-guidance")).toContainText("Priblíž mapu alebo vyber zhluk");
+    await expect(page.getByTestId("map-cluster-summary")).toContainText("Mapa je zatiaľ v súhrnnom pohľade.");
+    await expect(page.getByTestId("map-cluster-summary")).toContainText("7 výsledkov je zoskupených do 4 oblastí");
+    const groupedCluster = page.getByRole("button", { name: "Priblížiť oblasť s 2 záznamami" }).first();
+    await expect(groupedCluster).toBeVisible();
     await page.screenshot({ path: ".e2e-artifacts/map-1d/desktop-clusters.png", fullPage: true });
 
     const requestsBeforeZoom = mock.requests.length;
-    await page.getByRole("button", { name: "Priblížiť oblasť s 34 záznamami" }).click();
+    await groupedCluster.click();
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
     const zoomRequestDelta = mock.requests.length - requestsBeforeZoom;
@@ -314,13 +346,19 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("singleton");
+    await expect(page.getByRole("heading", { level: 2, name: "1 oblasť · 1 výsledok" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Priblížiť oblasť s 1 záznamami" })).toHaveCount(0);
+    await expect(page.getByTestId("map-results-guidance")).toHaveText("Vyber výsledok na mape alebo v zozname.");
+    await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
+    await expect(page.getByTestId("map-empty-state")).toHaveCount(0);
     await expect(page.getByTestId("marker-event:3")).toBeVisible();
     await expect(page.getByTestId("map-card-event:3")).toBeVisible();
 
     const requestsBeforeSelect = mock.requests.length;
     await page.getByTestId("marker-event:3").click();
     await expect(page.getByTestId("map-card-event:3")).toHaveAttribute("data-selected", "true");
+    await expect(page.getByTestId("map-results-guidance")).toHaveText("Vybraný výsledok nájdeš nižšie.");
+    await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
     await expect(page.getByTestId("map-card-event:3")).toContainText("Psia výstava Nitra");
     await expect(page.getByTestId("map-card-event:3")).toContainText("Nitra");
     await expect(page.getByTestId("map-card-event:3")).toContainText("1. októbra 2030");
@@ -368,6 +406,8 @@ test.describe("MAP-1D desktop", () => {
     await page.goto("/mapa?__mapRenderer=real");
 
     await expect(page.getByTestId("map-consent-gate")).toContainText("Načítať interaktívnu Google mapu?");
+    await expect(page.getByTestId("map-provider-disclosure")).toContainText("načíta sa až po tvojom výslovnom povolení");
+    await expect(page.getByTestId("map-provider-disclosure").getByRole("link", { name: "podmienkam Google Maps" })).toBeVisible();
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
 
@@ -457,11 +497,16 @@ test.describe("MAP-1D mobile", () => {
 
     await page.getByLabel("Vyhľadávanie v mape").fill("singleton");
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
+    await expect(page.getByTestId("map-results-guidance")).toHaveText("Vyber výsledok na mape alebo v zozname.");
+    await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
+    await expect(page.getByTestId("map-empty-state")).toHaveCount(0);
     await expect(page.getByTestId("marker-event:3")).toBeVisible();
 
     await page.getByTestId("marker-event:3").click();
     await expect(results).toHaveAttribute("data-sheet-state", "expanded");
     await expect(page.getByTestId("map-card-event:3")).toHaveAttribute("data-selected", "true");
+    await expect(page.getByTestId("map-results-guidance")).toHaveText("Vybraný výsledok nájdeš nižšie.");
+    await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
     await expect(page.getByTestId("map-card-event:3")).toBeVisible();
     await expect(page.getByTestId("map-card-event:3").getByRole("link", { name: "Detail podujatia" }))
       .toHaveAttribute("href", "/podujatia/psia-vystava-nitra");
