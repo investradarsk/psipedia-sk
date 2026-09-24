@@ -42,6 +42,21 @@ export function isSafeAutoGeoCandidate(item: GeoDryRunItem) {
     && Boolean(item.normalizedQuery);
 }
 
+export function selectSafeUninitializedGeoCandidates(items: GeoDryRunItem[], requestedLimit: number) {
+  const limit = Math.max(1, Math.min(100, Math.trunc(requestedLimit)));
+  const safe = items.filter(isSafeAutoGeoCandidate);
+  const eligible = safe.filter((item) => !item.alreadyInitialized);
+  return {
+    safe,
+    eligible,
+    selected: eligible.slice(0, limit),
+    alreadyInitializedSkipped: safe.length - eligible.length,
+    reviewBlocked: items.filter((item) => item.requiresReview).length,
+    hidden: items.filter((item) => item.proposedVisibility === "HIDDEN").length,
+    unclassified: items.filter((item) => !item.proposedVisibility).length,
+  };
+}
+
 export async function previewGeoCandidates(options: {
   limit?: number;
   targetType?: GeoTargetType | null;
@@ -94,6 +109,41 @@ export async function previewGeoCandidates(options: {
   return { items, counts, total: items.length };
 }
 
+export async function previewSafeGeoInitialization(input: {
+  limit: number;
+  targetType: GeoTargetType;
+  directoryCategory?: string | null;
+  database?: GeoD1Database;
+}) {
+  const limit = Math.max(1, Math.min(100, Math.trunc(input.limit)));
+  const preview = await previewGeoCandidates({
+    limit: Math.min(500, Math.max(limit * 10, 50)),
+    targetType: input.targetType,
+    directoryCategory: input.directoryCategory,
+    database: input.database,
+  });
+  const selection = selectSafeUninitializedGeoCandidates(preview.items, limit);
+  return {
+    requested: limit,
+    scanned: preview.items.length,
+    safe: selection.safe.length,
+    availableUninitialized: selection.eligible.length,
+    alreadyInitializedSkipped: selection.alreadyInitializedSkipped,
+    reviewBlocked: selection.reviewBlocked,
+    hidden: selection.hidden,
+    unclassified: selection.unclassified,
+    selected: selection.selected.map((item) => ({
+      targetType: item.targetType,
+      targetId: item.targetId,
+      label: item.label,
+      proposedVisibility: item.proposedVisibility,
+      proposedPrecision: item.proposedPrecision,
+      normalizedQuery: item.normalizedQuery,
+      sourceFingerprint: item.sourceFingerprint,
+    })),
+  };
+}
+
 export async function initializeGeoCandidates(input: {
   limit: number;
   actorRef: string;
@@ -109,12 +159,18 @@ export async function initializeGeoCandidates(input: {
     directoryCategory: input.directoryCategory,
     database: input.database,
   });
-  const eligible = (input.safeOnly ? preview.items.filter(isSafeAutoGeoCandidate) : preview.items).slice(0, limit);
+  const safeSelection = input.safeOnly
+    ? selectSafeUninitializedGeoCandidates(preview.items, limit)
+    : null;
+  const eligible = input.safeOnly ? safeSelection!.selected : preview.items.slice(0, limit);
   const report = {
     requested: limit,
     scanned: preview.items.length,
     eligible: eligible.length,
+    availableUninitialized: safeSelection?.eligible.length ?? null,
+    alreadyInitializedSkipped: safeSelection?.alreadyInitializedSkipped ?? 0,
     safeOnly: Boolean(input.safeOnly),
+    selectedIds: eligible.map((item) => item.targetId),
     created: 0,
     existing: 0,
     failed: 0,
