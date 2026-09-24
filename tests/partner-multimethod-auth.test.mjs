@@ -212,7 +212,10 @@ test("Google ID-token validation uses local JWKS fixtures for nonce, issuer, aud
     }));
 
     const signed = await token();
-    const tampered = signed.slice(0, -1) + (signed.endsWith("a") ? "b" : "a");
+    const [header, payload, signature] = signed.split(".");
+    assert.ok(header && payload && signature);
+    const tamperedSignature = (signature.startsWith("a") ? "b" : "a") + signature.slice(1);
+    const tampered = [header, payload, tamperedSignature].join(".");
     await assert.rejects(() => google.verifyPartnerGoogleIdToken({
       idToken: tampered,
       nonce,
