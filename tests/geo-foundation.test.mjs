@@ -468,6 +468,14 @@ test("pre-migration deployment remains fail-safe when geo_points is not yet appl
   assert.match(geoAdminComponent, /Canonical profil funguje ďalej bez geo operácií/);
 });
 
+test("bounded backfill UI shows live progress and executes one provider candidate per request", () => {
+  assert.match(geoOperationsComponent, /Backfill prebieha:/);
+  assert.match(geoOperationsComponent, /limit: 1/);
+  assert.match(geoOperationsComponent, /for \(let index = 1; index <= total; index \+= 1\)/);
+  assert.match(geoOperationsComponent, /setBackfillReport/);
+  assert.match(geoOperationsComponent, /posledný request nemá potvrdený výsledok/i);
+});
+
 test("operations are bounded, scoped and full production backfill remains absent", () => {
   assert.match(operations, /Math\.min\(100/);
   assert.match(operations, /Math\.min\(10/);
