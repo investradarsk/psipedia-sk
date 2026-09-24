@@ -198,6 +198,7 @@ async function installMapApiMock(page: Page) {
 }
 
 async function swipePointer(locator: Locator, deltaY: number, startOffsetY = 24) {
+  await locator.scrollIntoViewIfNeeded();
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
 
