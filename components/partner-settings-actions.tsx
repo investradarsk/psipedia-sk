@@ -23,7 +23,8 @@ export function PartnerSettingsActions({ siteKey }: { siteKey: string }) {
         body: JSON.stringify({ turnstileToken }),
       });
       const data = await response.json() as { success?: boolean; error?: string };
-      if (!response.ok || !data.success) throw new Error(data.error || "Deaktivácia sa nepodarila.");
+      if (!response.ok) throw new Error(data.error || "Deaktivácia sa nepodarila.");
+      if (!data.success) throw new Error(data.error || "Deaktivácia sa nepodarila.");
       window.location.replace("/partner/prihlasenie");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Deaktivácia sa nepodarila.");
