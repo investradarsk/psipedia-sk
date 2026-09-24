@@ -36,10 +36,10 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
   test(path + " is usable, accessible and overflow-safe", async ({ page }) => {
     await page.goto(path);
     await expect(page.locator("main#obsah")).toBeVisible();
-    await expect(page.getByLabel("E-mail")).toBeVisible();
-    await expect(page.getByLabel("Heslo")).toBeVisible();
+    await expect(page.getByLabel("E-mail",{exact:true})).toBeVisible();
+    await expect(page.getByLabel("Heslo",{exact:true})).toBeVisible();
     if (path === "/partner/registracia") {
-      await expect(page.getByLabel("Potvrdenie hesla")).toBeVisible();
+      await expect(page.getByLabel("Potvrdenie hesla",{exact:true})).toBeVisible();
       await expect(page.getByRole("button", { name: "Vytvoriť Partner účet" })).toBeDisabled();
     } else {
       await expect(page.getByRole("button", { name: "Prihlásiť sa" })).toBeDisabled();
@@ -56,7 +56,7 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
 test("forgot and reset password surfaces are accessible and overflow-safe", async ({ page }) => {
   await page.goto("/partner/zabudnute-heslo");
   await expect(page.getByRole("heading", { name: "Zabudli ste heslo?" })).toBeVisible();
-  await expect(page.getByLabel("E-mail")).toBeVisible();
+  await expect(page.getByLabel("E-mail",{exact:true})).toBeVisible();
   await expect(page.getByRole("button", { name: "Poslať odkaz na obnovenie hesla" })).toBeDisabled();
   await expectNoHorizontalOverflow(page);
   const forgotAccessibility = await new AxeBuilder({ page }).analyze();
