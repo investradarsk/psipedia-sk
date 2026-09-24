@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { PartnerPasswordField } from "@/components/partner-password-field";
 
 export function PartnerPasswordResetForm(){
   const [token,setToken]=useState("");
@@ -46,16 +47,27 @@ export function PartnerPasswordResetForm(){
   }
 
   return <form className="partner-auth-form" onSubmit={submit}>
-    <label className="partner-field">
-      <span>Nové heslo</span>
-      <input type="password" autoComplete="new-password" value={password}
-        onChange={event=>setPassword(event.target.value)} minLength={12} maxLength={1024} required disabled={!token}/>
-    </label>
-    <label className="partner-field">
-      <span>Potvrdenie nového hesla</span>
-      <input type="password" autoComplete="new-password" value={confirmation}
-        onChange={event=>setConfirmation(event.target.value)} minLength={12} maxLength={1024} required disabled={!token}/>
-    </label>
+    <PartnerPasswordField
+      label="Nové heslo"
+      autoComplete="new-password"
+      value={password}
+      onChange={event=>setPassword(event.target.value)}
+      minLength={12}
+      maxLength={1024}
+      required
+      disabled={!token}
+      hint="Heslo musí mať aspoň 12 znakov."
+    />
+    <PartnerPasswordField
+      label="Potvrdenie nového hesla"
+      autoComplete="new-password"
+      value={confirmation}
+      onChange={event=>setConfirmation(event.target.value)}
+      minLength={12}
+      maxLength={1024}
+      required
+      disabled={!token}
+    />
     {result&&<p className={"partner-form-message is-"+result.type} role="status" aria-live="polite">{result.text}</p>}
     {token?<button className="button button--coral partner-submit" type="submit" disabled={busy}>
       {busy?"Ukladám…":"Uložiť nové heslo"}

@@ -7,7 +7,7 @@ export default function PartnerPasswordResetPage(){
     <section className="partner-verification-card">
       <span className="eyebrow">Partner Psipedia</span>
       <h1>Obnovenie hesla</h1>
-      <p>Nastavte nové heslo. Po zmene z bezpečnostných dôvodov zneplatníme všetky existujúce Partner sessions.</p>
+      <p>Nastavte nové heslo. Po zmene z bezpečnostných dôvodov zneplatníme všetky existujúce prihlásenia Partner účtu.</p>
       <PartnerPasswordResetForm/>
     </section>
   </main>;
