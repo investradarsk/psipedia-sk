@@ -159,11 +159,20 @@ const GEO_PUBLIC_WHERE = `
   AND g.source_fingerprint = g.resolved_source_fingerprint
 `;
 
+const D1_LIKE_PATTERN_MAX_BYTES = 50;
+const D1_LIKE_WILDCARD_BYTES = 2;
+
 function parameterizedSearch(query: MapQueryInput, expression: string) {
   if (!query.search) return { sql: "", bindings: [] as unknown[] };
+  const normalized = normalizeDirectorySearchText(query.search);
+  // normalizeDirectorySearchText() is ASCII-only. D1 caps LIKE/GLOB patterns at
+  // 50 bytes, so reserve two bytes for the surrounding % wildcards. The SQL
+  // predicate remains only a safe prefilter; candidateMatchesQuery() below
+  // validates the complete normalized search string in application code.
+  const sqlNeedle = normalized.slice(0, D1_LIKE_PATTERN_MAX_BYTES - D1_LIKE_WILDCARD_BYTES);
   return {
     sql: ` AND ${sqlNormalizedExpression(expression)} LIKE ?`,
-    bindings: [`%${normalizeDirectorySearchText(query.search)}%`] as unknown[],
+    bindings: [`%${sqlNeedle}%`] as unknown[],
   };
 }
 

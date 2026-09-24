@@ -270,6 +270,55 @@ test("seeded query layer combines filters, privacy, publication, event lifecycle
   assert.deepEqual(filtered.items.map((item) => item.name), ["Veterina Nitra"]);
 });
 
+test("long map search stays within the D1 LIKE pattern limit and still matches the full normalized query", async () => {
+  const name = "Špeciálna výstava švajčiarskych salašníckych psov";
+  const event = row({
+    geo_point_id: 40,
+    entity_type: "event",
+    entity_id: 240,
+    name,
+    slug: "specialna-vystava-svajciarskych-salasnickych-psov",
+    subcategory: "Výstava",
+    latitude: 48.05,
+    longitude: 17.77,
+    canonical_status: "published",
+    event_start_date: "2030-10-01",
+    event_start_time: "09:00",
+    event_end_date: "2030-10-01",
+    event_end_time: "16:00",
+    verified: 0,
+    featured: 0,
+    online: 0,
+  });
+  const base = fakeDb({ events: [event] });
+  const guardedDb = {
+    prepare(sql) {
+      const statement = base.prepare(sql);
+      const originalBind = statement.bind.bind(statement);
+      statement.bind = (...bindings) => {
+        for (const binding of bindings) {
+          if (typeof binding === "string" && binding.startsWith("%") && binding.endsWith("%")) {
+            assert.ok(new TextEncoder().encode(binding).length <= 50, `D1 LIKE pattern too long: ${binding}`);
+          }
+        }
+        return originalBind(...bindings);
+      };
+      return statement;
+    },
+  };
+
+  const result = await queryPublicMap(
+    parseMapQuery(params({ zoom: "7", category: "events", search: name })),
+    guardedDb,
+    NOW,
+  );
+
+  assert.equal(result.mode, "clusters");
+  assert.equal(result.meta.matched, 1);
+  assert.equal(result.clusters[0].count, 1);
+  assert.equal(result.clusters[0].singletonItem?.name, name);
+});
+
 test("low zoom singleton buckets preserve the existing public MapItem DTO", async () => {
   const result = await queryPublicMap(
     parseMapQuery(params({ zoom: "7" })),
