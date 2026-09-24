@@ -101,11 +101,13 @@ test("Partner commercial history exposes safe fields and CTA deep-link is constr
   assert.doesNotMatch(partnerPage,/adminNote|paidBy/);
 });
 
-test("public Partner login is a utility link beside Contact and not main navigation",()=>{
-  assert.match(header,/href="\/o-nas#kontakt"[^>]*>Kontakt<\/Link>\s*<Link href="\/partner\/prihlasenie"[^>]*>Prihlásiť sa<\/Link>/);
+test("public Partner account entry stays a utility link beside Contact and not main navigation",()=>{
+  assert.match(header,/partnerHref = partnerAuthenticated \? "\/partner" : "\/partner\/prihlasenie"/);
+  assert.match(header,/partnerLabel = partnerAuthenticated \? "Partner účet" : "Prihlásiť sa"/);
+  assert.match(header,/href="\/o-nas#kontakt"[^>]*>Kontakt<\/Link>\s*<Link href=\{partnerHref\}[^>]*>\{partnerLabel\}<\/Link>/);
   assert.match(header,/data-partner-login-entry/);
   const mainNav=header.slice(header.indexOf('<nav className="main-nav"'),header.indexOf('</nav>',header.indexOf('<nav className="main-nav"'))+6);
-  assert.doesNotMatch(mainNav,/partner\/prihlasenie|Prihlásiť sa|Pre partnerov|Partner Portal/);
+  assert.doesNotMatch(mainNav,/partnerHref|partner\/prihlasenie|Prihlásiť sa|Partner účet|Pre partnerov|Partner Portal/);
 });
 
 test("Attention has distinct agreement source and stable operational key",()=>{
