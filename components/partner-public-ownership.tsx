@@ -37,11 +37,11 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
       <>
         <div>
           <h2 id="partner-profile-management-heading">Predchádzajúca žiadosť bola zamietnutá.</h2>
-          <p>{state.hasDecisionNote ? "Dôvod nájdete v histórii žiadostí." : "Stav predchádzajúcej žiadosti nájdete vo svojom Partner účte."}</p>
+          <p>Stav predchádzajúcej žiadosti nájdete vo svojom Partner účte.</p>
         </div>
         <div className={styles.actions}>
           <Link className={styles.primaryCta} href={state.claimHref}>Požiadať znova o správu profilu</Link>
-          <Link className={styles.secondaryCta} href={state.requestHref}>{state.hasDecisionNote ? "Pozrieť dôvod" : "Zobraziť žiadosti"}</Link>
+          <Link className={styles.secondaryCta} href={state.requestHref}>Zobraziť žiadosti</Link>
         </div>
       </>
     );
