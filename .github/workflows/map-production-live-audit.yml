@@ -1,0 +1,59 @@
+name: MAP V1 Live Production Audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/map-production-live-audit.yml"
+      - "tests/e2e/map-production-live.spec.ts"
+  workflow_dispatch:
+
+concurrency:
+  group: map-v1-live-production-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  live-production-map:
+    name: Live production map (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: desktop
+            project: desktop-chromium
+          - label: mobile-390x844
+            project: mobile-chromium
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run read-only live production map audit — ${{ matrix.label }}
+        env:
+          E2E_BASE_URL: https://psipedia.sk
+        run: npx playwright test tests/e2e/map-production-live.spec.ts --project="${{ matrix.project }}" --workers=1
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-v1-live-production-${{ matrix.label }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
