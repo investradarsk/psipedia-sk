@@ -1105,6 +1105,12 @@ test("renders the public legal centre and privacy controls", async () => {
   const privacyHtml = await privacy.text();
   assert.match(privacyHtml, /Ochrana osobných údajov/);
   assert.match(privacyHtml, /Aké údaje a prečo spracúvame/);
+  assert.match(privacyHtml, /Partner účet a správa profilov/);
+  assert.match(privacyHtml, /Prihlásenie cez Google/);
+  assert.match(privacyHtml, /Google heslo Psipedia nedostáva/);
+  assert.match(privacyHtml, /Cloudflare Turnstile/);
+  assert.match(privacyHtml, /E-maily Partner účtu/);
+  assert.doesNotMatch(privacyHtml, /zatiaľ nie je verejne spustená/i);
   assert.match(privacyHtml, /Cookies a lokálne úložisko/);
 
   const cookies = await worker.fetch(new Request("http://localhost/cookies", { headers: { accept: "text/html" } }), bindings, context);
@@ -1115,7 +1121,14 @@ test("renders the public legal centre and privacy controls", async () => {
 
   const terms = await worker.fetch(new Request("http://localhost/podmienky-pouzivania", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(terms.status, 200);
-  assert.match(await terms.text(), /Podmienky používania/);
+  const termsHtml = await terms.text();
+  assert.match(termsHtml, /Podmienky používania/);
+  assert.match(termsHtml, /Partner účet/);
+  assert.match(termsHtml, /jednorazovým odkazom zaslaným e-mailom/);
+  assert.match(termsHtml, /heslom alebo cez Google/);
+  assert.match(termsHtml, /samo osebe nezakladá právo spravovať konkrétny profil/);
+  assert.match(termsHtml, /Deaktivácia Partner účtu/);
+  assert.doesNotMatch(termsHtml, /zatiaľ nie je verejne spustená/i);
 
   const corrections = await worker.fetch(new Request("http://localhost/opravy-a-podnety", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(corrections.status, 200);

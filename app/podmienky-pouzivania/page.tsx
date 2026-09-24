@@ -25,10 +25,12 @@ export default function TermsPage() {
       <h2>Služby pre psov a adresár</h2>
       <p>Zaradenie veterinára, trénera, salónu, klubu, chovateľskej stanice, organizácie alebo iného subjektu do adresára samo osebe nepredstavuje odporúčanie, garanciu kvality ani potvrdenie odbornej spôsobilosti. Za svoju ponuku, oprávnenia, ceny, aktuálnosť údajov a plnenie služby zodpovedá konkrétny poskytovateľ.</p>
 
-      <h2>Budúce účty a správa profilov</h2>
-      <p>Psipedia pripravuje možnosť, aby si poskytovateľ služby mohol vytvoriť účet, požiadať o priradenie svojho profilu a navrhovať zmeny údajov. Táto funkcia zatiaľ nie je verejne spustená.</p>
-      <p>Po spustení bude používateľ zodpovedať za pravdivosť a oprávnenosť údajov, ktoré navrhne. Návrh zmeny nebude znamenať automatické zverejnenie; Psipedia si ponechá možnosť zmenu preveriť, upraviť, odmietnuť alebo schváliť pred publikovaním.</p>
-      <p>Žiadosť o priradenie profilu môže vyžadovať primerané overenie, že používateľ je oprávnený konať za danú prevádzku, organizáciu alebo službu.</p>
+      <h2>Partner účet</h2>
+      <p>Partner účet je pracovný účet pre osoby a organizácie, ktoré na Psipedia.sk spravujú alebo žiadajú o správu profilov služieb, organizácií alebo podujatí. Nie je určený ako bežný spotrebiteľský ani sociálny účet.</p>
+      <p>Podľa aktuálne dostupných možností sa možno prihlásiť jednorazovým odkazom zaslaným e-mailom, heslom alebo cez Google. Používateľ zodpovedá za zabezpečenie svojho prístupu a za pravdivosť údajov, ktoré v Partner účte poskytne alebo navrhne.</p>
+      <p>Vytvorenie Partner účtu samo osebe nezakladá právo spravovať konkrétny profil. O správu existujúceho profilu možno požiadať a Psipedia môže pred jej udelením primerane overiť oprávnenie žiadateľa. Rozsah správy sa riadi schváleným priradením k danému profilu alebo podujatiu.</p>
+      <p>Partner môže navrhovať úpravy spravovaných profilov a podujatí a pri podporovaných typoch aj nový profil alebo nové podujatie. Návrhy sa nemusia zverejniť okamžite; Psipedia ich môže pred zverejnením preveriť, upraviť, odmietnuť alebo schváliť.</p>
+      <p>Deaktivácia Partner účtu zablokuje ďalší prístup k účtu a zneplatní jeho aktívne prihlásenia. Sama osebe však nemaže verejné profily, služby, organizácie ani podujatia, ktoré existujú nezávisle od Partner účtu.</p>
 
       <h2>Podujatia</h2>
       <p>Informácie o podujatiach môžu pochádzať od organizátorov alebo z verejných zdrojov. Termín, miesto, podmienky účasti a prípadné zmeny alebo zrušenie si pred cestou over u organizátora.</p>
@@ -60,7 +62,7 @@ export default function TermsPage() {
       <h2>Záverečné ustanovenia</h2>
       <p>Na prevádzku portálu sa vzťahuje právny poriadok Slovenskej republiky a priamo uplatniteľné právo Európskej únie. Tým nie sú dotknuté práva, ktoré nemožno podľa zákona vylúčiť alebo obmedziť.</p>
       <p>Tieto podmienky môžeme aktualizovať najmä pri rozšírení funkcií portálu alebo zmene právnych povinností. Aktuálne znenie bude vždy dostupné na tejto adrese.</p>
-      <p className="legal-updated">Aktualizované 23. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 24. septembra 2026.</p>
     </main>
   );
 }

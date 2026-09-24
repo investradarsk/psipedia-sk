@@ -58,10 +58,27 @@ export default async function PrivacyPage() {
         </section>
 
         <section>
-          <h3>Budúce účty poskytovateľov služieb</h3>
-          <p>Psipedia pripravuje možnosť, aby si napríklad veterinár, psí salón, tréner alebo iný poskytovateľ mohol vytvoriť účet, požiadať o priradenie svojho profilu a navrhovať jeho zmeny. Táto funkcia zatiaľ nie je verejne spustená.</p>
-          <p>Po jej spustení budeme na vytvorenie a zabezpečenie účtu spracúvať najmä meno, e-mail, údaje potrebné na overenie vzťahu k profilu, históriu navrhovaných zmien a bezpečnostné záznamy. Verejná zmena profilu sa nebude publikovať automaticky; pred zverejnením ju bude môcť Psipedia skontrolovať a schváliť.</p>
-          <p>Pred spustením tejto funkcie tieto zásady doplníme o presný rozsah údajov, dobu uchovávania a prípadných ďalších poskytovateľov použitých na prihlasovanie.</p>
+          <h3>Partner účet a správa profilov</h3>
+          <p>Pri Partner účte spracúvame e-mail účtu, stav účtu, meno kontaktnej osoby, voliteľný telefón a voliteľnú informáciu o úlohe alebo vzťahu k spravovanému profilu. Podľa používaných funkcií spracúvame aj údaje o spôsoboch prihlásenia, prihláseniach a bezpečnostných udalostiach, žiadostiach o správu profilov, navrhovaných zmenách, nových profiloch alebo podujatiach a ich histórii. Ak Partner využíva obchodné funkcie, evidujeme aj súvisiace žiadosti a stav dohôd.</p>
+          <p>Tieto údaje používame na vytvorenie a zabezpečenie Partner účtu, overenie prístupu, vybavenie žiadostí o správu, kontrolu navrhovaných zmien a komunikáciu o stave Partner účtu a jeho podaní. Vytvorenie účtu samo osebe neznamená automatické právo spravovať konkrétny profil.</p>
+          <p>Ak si Partner nastaví heslo, neuchovávame ho v čitateľnej podobe. Systém uchováva iba bezpečne odvodený údaj potrebný na overenie hesla.</p>
+        </section>
+
+        <section>
+          <h3>Prihlásenie cez Google</h3>
+          <p>Ak použiješ prihlásenie alebo prepojenie cez Google, Psipedia po úspešnom overení použije identifikátor potrebný na bezpečné rozpoznanie toho istého Google účtu a overenú e-mailovú adresu. Tieto údaje slúžia na prihlásenie, vytvorenie Partner účtu alebo jeho prepojenie s existujúcim Partner účtom.</p>
+          <p>Google heslo Psipedia nedostáva. Prihlasovací proces môže sprístupniť aj základné profilové údaje Google účtu, aktuálna implementácia ich však trvalo neukladá ani nepoužíva na vytvorenie profilu Partnera. Psipedia podľa aktuálneho fungovania trvalo neuchováva ani údaje, ktoré by jej umožnili dlhodobý prístup k Google účtu.</p>
+          <p>Ak už rovnaká e-mailová adresa patrí existujúcemu Partner účtu, samotná zhoda e-mailu nestačí na automatické prepojenie. Prepojenie Google identity s existujúcim Partner účtom vyžaduje osobitné potvrdenie v prihlásenom účte.</p>
+        </section>
+
+        <section>
+          <h3>Bezpečnostné overenie Partner účtu</h3>
+          <p>Pri registračných, prihlasovacích a vybraných bezpečnostných úkonoch používame Cloudflare Turnstile na ochranu formulárov a účtov pred automatizovaným zneužitím. Cloudflare pri poskytnutí tejto bezpečnostnej služby môže spracúvať technické údaje potrebné na vyhodnotenie požiadavky a ochranu služby.</p>
+        </section>
+
+        <section>
+          <h3>E-maily Partner účtu</h3>
+          <p>Partner účet používa e-mailové správy napríklad na jednorazové prihlasovacie odkazy, obnovenie hesla a dôležité oznámenia o žiadostiach, zmenách alebo stave účtu. Na doručenie používame poskytovateľa e-mailovej služby, ktorému sprístupníme e-mailovú adresu príjemcu a obsah potrebný na odoslanie konkrétnej správy.</p>
         </section>
       </div>
 
@@ -78,13 +95,14 @@ export default async function PrivacyPage() {
       <p>Zoznam obľúbených článkov a voľba týkajúca sa analytiky sa ukladajú lokálne v prehliadači. Zoznam obľúbených nie je používateľský účet a samotný zoznam Psipedia neposiela na server. Podrobnosti sú na stránke <Link href="/cookies">Cookies a lokálne úložisko</Link>.</p>
 
       <h2>Komu môžu byť údaje sprístupnené</h2>
-      <p>Údaje môžu byť v nevyhnutnom rozsahu sprístupnené poskytovateľom hostingu, databázy a bezpečnostnej infraštruktúry, poskytovateľovi e-mailovej služby pri e-mailovej komunikácii a spoločnosti Google pri povolenej analytike alebo pri samostatne povolenom mapovom podklade Google Maps. Údaje môžu byť sprístupnené aj orgánu verejnej moci, ak to vyžaduje zákon. Osobné údaje nepredávame.</p>
+      <p>Údaje môžu byť v nevyhnutnom rozsahu sprístupnené poskytovateľom hostingu, databázy a bezpečnostnej infraštruktúry, poskytovateľovi e-mailovej služby pri e-mailovej komunikácii, spoločnosti Google pri použití Google prihlásenia, povolenej analytike alebo samostatne povolenom mapovom podklade Google Maps a spoločnosti Cloudflare pri bezpečnostnom overení Turnstile. Údaje môžu byť sprístupnené aj orgánu verejnej moci, ak to vyžaduje zákon. Osobné údaje nepredávame.</p>
 
       <h2>Prenosy mimo Európskeho hospodárskeho priestoru</h2>
       <p>Ak technický poskytovateľ spracúva údaje mimo EHP, prenos sa môže uskutočniť iba pri splnení podmienok kapitoly V GDPR, napríklad na základe rozhodnutia Európskej komisie o primeranosti alebo vhodných záruk.</p>
 
       <h2>Ako dlho údaje uchovávame</h2>
       <p>Údaje uchovávame iba počas obdobia potrebného na účel, na ktorý boli získané. Pri určovaní doby prihliadame na trvanie komunikácie, potrebu preveriť podnet, bezpečnostné potreby, zákonné povinnosti a ochranu právnych nárokov. Keď údaje už nepotrebujeme a nemáme iný právny dôvod na ich uchovanie, vymažeme ich alebo anonymizujeme.</p>
+      <p>Deaktiváciou Partner účtu sa zablokuje ďalšie prihlásenie a zneplatnia sa aktívne prihlásenia a nepoužité prihlasovacie odkazy. Verejné profily, služby, organizácie alebo podujatia sa tým automaticky nemažú. Údaje a história Partner účtu sa pri deaktivácii nemažú automaticky v tom istom okamihu; ich ďalšie uchovanie sa riadi nevyhnutnosťou na účely správy účtu, bezpečnosti a evidencie vykonaných úkonov.</p>
 
       <h2>Tvoje práva</h2>
       <p>Podľa okolností máš právo požiadať o prístup k údajom, opravu, vymazanie, obmedzenie spracúvania, prenosnosť údajov a namietať spracúvanie založené na oprávnenom záujme. Ak sa spracúvanie opiera o súhlas, môžeš ho kedykoľvek odvolať bez vplyvu na zákonnosť spracúvania pred odvolaním.</p>
@@ -95,7 +113,7 @@ export default async function PrivacyPage() {
 
       <h2>Zmeny týchto informácií</h2>
       <p>Text aktualizujeme pred spustením funkcie, ktorá významne mení účel alebo rozsah spracúvania osobných údajov, a pri zmene právnych alebo technických podmienok.</p>
-      <p className="legal-updated">Aktualizované 23. septembra 2026.</p>
+      <p className="legal-updated">Aktualizované 24. septembra 2026.</p>
     </main>
   );
 }
