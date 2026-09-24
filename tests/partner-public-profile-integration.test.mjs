@@ -133,6 +133,7 @@ test("public Partner state model resolves anonymous, eligible, pending, rejected
     assert.deepEqual(member, {
       kind: "member",
       verified: true,
+      role,
       editHref: "/partner/profily/resource-a/upravit",
       accountHref: "/partner/profily",
     });
@@ -204,7 +205,7 @@ test("rejected request reason is available only in the authenticated Partner req
   assert.match(claims, /c\.decision_note decisionNote/);
   assert.match(requestsPage, /claim\.status === "REJECTED" && claim\.decisionNote/);
   assert.match(requestsPage, /<strong>Dôvod:<\/strong>/);
-  assert.doesNotMatch(publicOwnership, /decisionNote/);
+  assert.doesNotMatch(publicOwnership, /rejectedDecisionNote|decision_note/);
 });
 
 test("session-specific public profile HTML cannot enter the shared Worker cache", () => {
