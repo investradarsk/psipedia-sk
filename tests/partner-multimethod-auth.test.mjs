@@ -226,9 +226,11 @@ test("Google ID-token validation uses local JWKS fixtures for nonce, issuer, aud
   }
 });
 
-test("Google return bridge is a real safe route for LINK, LOGIN and REGISTER targets", async () => {
+test("Google return bridge is a safe same-site client-navigation boundary for LINK, LOGIN and REGISTER", async () => {
   const google = await importTs("lib/partner-google-auth.ts");
-  const bridge = await importTs("app/partner/google-navrat/route.ts");
+  const returnTo = await importTs("lib/partner-return-to.ts");
+  const bridgePage = await read("app/partner/google-navrat/page.tsx");
+  const bridgeClient = await read("components/partner-google-return-navigation.tsx");
 
   const targets = [
     "/partner",
@@ -239,15 +241,8 @@ test("Google return bridge is a real safe route for LINK, LOGIN and REGISTER tar
   for (const target of targets) {
     const location = google.googleReturnBridge(target);
     assert.match(location, /^\/partner\/google-navrat\?to=/);
-
-    const response = bridge.GET(new Request("https://psipedia.sk" + location, {
-      headers: { cookie: "__Host-psipedia_partner_session=preserve-me" },
-    }));
-
-    assert.equal(response.status, 303);
-    assert.equal(response.headers.get("location"), target);
-    assert.equal(response.headers.get("cache-control"), "private, no-store");
-    assert.equal(response.headers.get("set-cookie"), null, "bridge must not overwrite callback/session cookies");
+    const rawTarget = new URL("https://psipedia.sk" + location).searchParams.get("to");
+    assert.equal(returnTo.normalizePartnerReturnTo(rawTarget) ?? "/partner", target);
   }
 
   for (const unsafe of [
@@ -256,12 +251,17 @@ test("Google return bridge is a real safe route for LINK, LOGIN and REGISTER tar
     "/api/partner/auth/google/callback",
     "/admin",
   ]) {
-    const response = bridge.GET(new Request(
-      "https://psipedia.sk/partner/google-navrat?to=" + encodeURIComponent(unsafe),
-    ));
-    assert.equal(response.status, 303);
-    assert.equal(response.headers.get("location"), "/partner");
+    assert.equal(returnTo.normalizePartnerReturnTo(unsafe) ?? "/partner", "/partner");
   }
+
+  assert.match(bridgePage, /normalizePartnerReturnTo/);
+  assert.match(bridgePage, /PartnerGoogleReturnNavigation target=\{target\}/);
+  assert.match(bridgePage, /Dokončujem prihlásenie/);
+  assert.doesNotMatch(bridgePage, /redirect\(|new Response|Location:/);
+  assert.match(bridgeClient, /window\.location\.replace\(target\)/);
+  assert.doesNotMatch(bridgeClient, /document\.cookie|set-cookie|fetch\(/i);
+  assert.match(googleAuth, /secureCookie\(GOOGLE_PENDING_LINK_COOKIE,encrypted,FLOW_TTL_SECONDS,"Strict"\)/);
+  await assert.rejects(() => fs.access(new URL("../app/partner/google-navrat/route.ts", import.meta.url)));
 });
 
 test("Google identity uses sub, never email, and existing-email collision requires authenticated confirmation", () => {
