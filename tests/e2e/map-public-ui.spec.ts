@@ -197,37 +197,18 @@ async function installMapApiMock(page: Page) {
   return { requests };
 }
 
-async function swipePointer(locator: Locator, deltaY: number, startY = 120) {
-  const common = {
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    pointerId: 41,
-    pointerType: "touch",
-    isPrimary: true,
-    clientX: 40,
-    button: 0,
-  };
+async function swipePointer(locator: Locator, deltaY: number, startOffsetY = 24) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
 
-  await locator.dispatchEvent("pointerdown", {
-    ...common,
-    buttons: 1,
-    clientY: startY,
-  });
-  await locator.page().waitForTimeout(16);
+  const page = locator.page();
+  const startX = box!.x + Math.min(box!.width / 2, 120);
+  const startY = box!.y + Math.min(startOffsetY, Math.max(8, box!.height / 2));
 
-  await locator.dispatchEvent("pointermove", {
-    ...common,
-    buttons: 1,
-    clientY: startY + deltaY,
-  });
-  await locator.page().waitForTimeout(16);
-
-  await locator.dispatchEvent("pointerup", {
-    ...common,
-    buttons: 0,
-    clientY: startY + deltaY,
-  });
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX, startY + deltaY, { steps: 8 });
+  await page.mouse.up();
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
