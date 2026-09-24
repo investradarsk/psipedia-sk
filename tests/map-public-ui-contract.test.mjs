@@ -73,6 +73,16 @@ test("singleton clusters reuse public MapItems while multi clusters retain zoom 
   assert.match(experience, /cluster\.count !== 1 \|\| !cluster\.singletonItem/);
 });
 
+test("map guidance and provider disclosure follow canonical client state", () => {
+  assert.match(experience, /hasGroupedClusters/);
+  assert.match(experience, /hasSelectedItem/);
+  assert.match(experience, /Vyber výsledok na mape alebo v zozname/);
+  assert.match(experience, /Vybraný výsledok nájdeš nižšie/);
+  assert.match(experience, /googleMapsConsent && rendererStatus === "ready"/);
+  assert.match(experience, /data-testid="map-provider-disclosure"/);
+  assert.doesNotMatch(page, /className=\{styles\.providerDisclosure\}/);
+});
+
 test("map config is documented without committing a real browser key", () => {
   assert.match(env, /GOOGLE_MAPS_BROWSER_API_KEY/);
   assert.match(env, /GOOGLE_MAPS_MAP_ID/);

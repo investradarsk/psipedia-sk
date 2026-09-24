@@ -125,7 +125,7 @@ test("Geoapify-derived records expose both provider and OSM attribution", async 
 
 test("map, cookie, privacy and terms surfaces disclose Google Maps", async () => {
   const sources = await Promise.all([
-    readFile(path.join(root, "app/mapa/page.tsx"), "utf8"),
+    readFile(path.join(root, "components/map/map-experience.tsx"), "utf8"),
     readFile(path.join(root, "app/cookies/page.tsx"), "utf8"),
     readFile(path.join(root, "app/sukromie/page.tsx"), "utf8"),
     readFile(path.join(root, "app/podmienky-pouzivania/page.tsx"), "utf8"),

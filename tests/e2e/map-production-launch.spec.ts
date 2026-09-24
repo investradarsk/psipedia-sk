@@ -56,6 +56,11 @@ test.describe("MAP-1E launch navigation", () => {
 
     await expect.poll(() => page.evaluate(() => window.localStorage.getItem("psipedia-google-maps-consent"))).toBe("granted");
     await expect(controls.locator("strong")).toHaveText("povolené");
-    await expect(controls.getByRole("button", { name: "Vypnúť Google Maps" })).toBeVisible();
+    const disable = controls.getByRole("button", { name: "Vypnúť Google Maps" });
+    await expect(disable).toBeVisible();
+    await disable.click();
+    await page.waitForLoadState("domcontentloaded");
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem("psipedia-google-maps-consent"))).toBeNull();
+    await expect(controls.locator("strong")).toHaveText("nepovolené");
   });
 });
