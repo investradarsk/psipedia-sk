@@ -413,15 +413,36 @@ export function mapCandidateToItem(candidate: MapCandidate): MapItem {
 
 export function clusterMapItems(items: MapItem[], zoom: number, limit = MAP_MAX_CLUSTERS): MapCluster[] {
   const grid = mapClusterGridSize(zoom);
-  const buckets = new Map<string, { lat: number; lng: number; count: number; services: number; organizations: number; events: number; x: number; y: number }>();
+  const buckets = new Map<string, {
+    lat: number;
+    lng: number;
+    count: number;
+    services: number;
+    organizations: number;
+    events: number;
+    x: number;
+    y: number;
+    singletonItem?: MapItem;
+  }>();
   for (const item of items) {
     const x = Math.floor((item.longitude + 180) / grid);
     const y = Math.floor((item.latitude + 90) / grid);
     const key = `${x}:${y}`;
-    const bucket = buckets.get(key) ?? { lat: 0, lng: 0, count: 0, services: 0, organizations: 0, events: 0, x, y };
+    const bucket = buckets.get(key) ?? {
+      lat: 0,
+      lng: 0,
+      count: 0,
+      services: 0,
+      organizations: 0,
+      events: 0,
+      x,
+      y,
+      singletonItem: item,
+    };
     bucket.lat += item.latitude;
     bucket.lng += item.longitude;
     bucket.count += 1;
+    if (bucket.count > 1) bucket.singletonItem = undefined;
     if (item.category === "services") bucket.services += 1;
     else if (item.category === "organizations") bucket.organizations += 1;
     else bucket.events += 1;
@@ -438,6 +459,7 @@ export function clusterMapItems(items: MapItem[], zoom: number, limit = MAP_MAX_
         organizations: bucket.organizations,
         events: bucket.events,
       },
+      singletonItem: bucket.count === 1 ? bucket.singletonItem : undefined,
     }))
     .sort((left, right) => right.count - left.count || left.id.localeCompare(right.id))
     .slice(0, Math.max(1, Math.min(MAP_MAX_CLUSTERS, limit)));
