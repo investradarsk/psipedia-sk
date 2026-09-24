@@ -74,6 +74,7 @@ test.describe("MAP V1 live production launch audit", () => {
     }
   });
   test.beforeEach(async ({ page, isMobile }) => {
+    await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
     if (isMobile) await page.setViewportSize({ width: 390, height: 844 });
   });
 
