@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { encryptPii, hashPii, normalizeEmail } from "@/lib/pii-crypto";
+import { partnerSessionTokenFromCookieHeader } from "@/lib/partner-auth";
 import {
   PARTNER_ACCOUNT_RESOURCE_TYPE,
   createPartnerSession,
@@ -7,7 +8,6 @@ import {
   getPartnerAccountById,
   getPartnerDatabase,
   issuePartnerAuthToken,
-  partnerSessionTokenFromCookieHeader,
   revokeAllPartnerSessions,
   revokeOtherPartnerSessions,
 } from "@/lib/partner-auth-store";
