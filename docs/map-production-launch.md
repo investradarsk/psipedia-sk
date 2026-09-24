@@ -280,7 +280,7 @@ Public launch additionally requires:
 
 `PUBLIC_MAP_ENABLED=1`
 
-The effective public launch gate is deny-by-default and requires all three values simultaneously. If any is absent, Google Maps JavaScript is not loaded and the public `Mapa` navigation item is not exposed.
+The public launch gate is deny-by-default and requires all three values simultaneously. The Google renderer readiness gate is separate: a restricted browser key plus Map ID may be configured while `PUBLIC_MAP_ENABLED=0` so the direct `/mapa` route can complete a controlled real-renderer smoke after explicit consent. In that pre-launch state the route remains noindex and the public `Mapa` navigation item is not exposed.
 
 Before enabling the flag:
 
