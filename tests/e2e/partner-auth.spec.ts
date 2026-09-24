@@ -161,6 +161,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(accountLink).toBeVisible();
     await expect(accountLink).toHaveAttribute("href", "/partner");
     await page.getByRole("button", { name: "Zavrieť menu" }).click();
+    await expect.poll(
+      () => page.locator("#mobile-menu").evaluate((element) => element.getBoundingClientRect().height),
+      { timeout: 2_000 },
+    ).toBeLessThanOrEqual(1);
   } else {
     const accountLink = page.locator("[data-header-masthead]").getByRole("link", { name: "Partner účet" });
     await expect(accountLink).toBeVisible();
