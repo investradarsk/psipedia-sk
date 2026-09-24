@@ -9,7 +9,7 @@ const importTs=(path)=>import(pathToFileURL(new URL(path,root).pathname).href);
 
 const [
   migration,claims,admin,email,platform,attention,attentionStore,claimApi,cancelApi,verificationApi,
-  claimAdminApi,verificationAdminApi,claimPage,requestsPage,directoryPage,organizationPage,publicOwnership,publicProfile,
+  claimAdminApi,verificationAdminApi,claimPage,requestsPage,directoryPage,organizationPage,publicOwnership,publicProfile,ownershipGuard,
 ]=await Promise.all([
   "drizzle/0063_partner_claims_verification.sql",
   "lib/partner-claims.ts",
@@ -29,6 +29,7 @@ const [
   "app/organizacie/[slug]/page.tsx",
   "components/partner-public-ownership.tsx",
   "lib/partner-public-profile.ts",
+  "lib/partner-ownership-approval.ts",
 ].map(read));
 
 test("0063 creates canonical claims and verification with FKs, checks, indexes and append-only audit",()=>{
@@ -86,16 +87,16 @@ test("claim approval upgrades or creates audited OWNER membership without destru
 });
 
 test("ownership-sensitive approvals block a deterministically mapped admin from approving their own Partner request",()=>{
-  assert.match(admin,/hashPii\(normalizeEmail\(input\.adminEmail\), piiHashKey\(input\.hashKey\)\)/);
-  assert.match(admin,/a\.email_hash=\?1 AND a\.status='ACTIVE'/);
-  assert.match(admin,/m\.account_id=a\.id AND m\.resource_id=\?2 AND m\.revoked_at IS NULL/);
-  assert.match(admin,/mapped\.accountId === input\.accountId \|\| Boolean\(mapped\.resourceMember\)/);
-  assert.match(admin,/Vlastnú žiadosť o správu profilu musí schváliť iný administrátor/);
+  assert.match(ownershipGuard,/hashPii\(normalizeEmail\(input\.adminEmail\), hashKey\)/);
+  assert.match(ownershipGuard,/a\.email_hash=\?1 AND a\.status='ACTIVE'/);
+  assert.match(ownershipGuard,/m\.account_id=a\.id AND m\.resource_id=\?2 AND m\.revoked_at IS NULL/);
+  assert.match(ownershipGuard,/mapped\.accountId === input\.accountId \|\| Boolean\(mapped\.resourceMember\)/);
+  assert.match(ownershipGuard,/Vlastnú žiadosť o správu profilu musí schváliť iný administrátor/);
   const claimApproval=admin.slice(admin.indexOf("export async function approvePartnerClaimAdmin"),admin.indexOf("export async function rejectPartnerClaimAdmin"));
-  assert.ok(claimApproval.indexOf("assertIndependentOwnershipApprover")<claimApproval.indexOf("ensurePartnerOwnerMembershipAdmin"));
+  assert.ok(claimApproval.indexOf("assertClaimIndependentOwnershipApprover")<claimApproval.indexOf("ensurePartnerOwnerMembershipAdmin"));
   const verificationDecision=admin.slice(admin.indexOf("export async function decidePartnerVerificationAdmin"));
   assert.match(verificationDecision,/if \(input\.action === "VERIFY"\)/);
-  assert.match(verificationDecision,/assertIndependentOwnershipApprover/);
+  assert.match(verificationDecision,/assertClaimIndependentOwnershipApprover/);
   assert.match(claimAdminApi,/approvePartnerClaimAdmin/);
   assert.match(verificationAdminApi,/decidePartnerVerificationAdmin/);
 });
