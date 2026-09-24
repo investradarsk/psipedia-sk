@@ -6,6 +6,7 @@ const read=(path)=>fs.readFile(new URL("../"+path,import.meta.url),"utf8");
 const migration=await read("drizzle/0068_partner_commercial_activation.sql");
 const agreements=await read("lib/partner-commercial-agreements.ts");
 const partnerPage=await read("app/partner/propagacia/page.tsx");
+const uiLabels=await read("lib/partner-ui-labels.ts");
 const partnerProfiles=await read("app/partner/profily/page.tsx");
 const adminCreate=await read("app/api/admin/partners/commercial/agreements/route.ts");
 const adminMutation=await read("app/api/admin/partners/commercial/agreements/[id]/route.ts");
@@ -92,8 +93,9 @@ test("profile eligibility excludes managed events from Premium and Promoted",()=
 
 test("Partner commercial history exposes safe fields and CTA deep-link is constrained",()=>{
   assert.match(partnerPage,/Moje ponuky \/ dohody/);
-  assert.match(partnerPage,/Bankový prevod/);
-  assert.match(partnerPage,/Podľa dohody/);
+  assert.match(partnerPage,/partnerPaymentMethodLabel\(item\.paymentMethod\)/);
+  assert.match(uiLabels,/BANK_TRANSFER: "Bankový prevod"/);
+  assert.match(uiLabels,/BY_AGREEMENT: "Podľa dohody"/);
   assert.match(partnerPage,/Platobné údaje vám zašleme po dohode/);
   assert.match(partnerProfiles,/Možnosti propagácie/);
   assert.match(partnerProfiles,/COMMERCIAL_INTEREST_CREATE/);
