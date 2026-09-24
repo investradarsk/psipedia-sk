@@ -228,7 +228,7 @@ function postAuthTarget(onboardingComplete:boolean,returnTo:string|null){
   return returnTo??"/partner";
 }
 
-function googleReturnBridge(target:string){
+export function googleReturnBridge(target:string){
   const safeTarget=normalizePartnerReturnTo(target)??"/partner";
   return "/partner/google-navrat?to="+encodeURIComponent(safeTarget);
 }
