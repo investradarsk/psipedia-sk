@@ -14,7 +14,7 @@ import {
 import { buildStructuredExactAddress, chooseGeocoderResult, summarizeGeoDiagnosticResults } from "../lib/geo-service.ts";
 import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 import { GeocoderProviderError } from "../lib/geo-provider.ts";
-import { isSafeAutoGeoCandidate, selectGeoCanaryCandidates } from "../lib/geo-operations.ts";
+import { isSafeAutoGeoCandidate, selectGeoCanaryCandidates, selectSafeUninitializedGeoCandidates } from "../lib/geo-operations.ts";
 
 const migration = readFileSync(new URL("../drizzle/0064_geo_foundation.sql", import.meta.url), "utf8");
 const geoStore = readFileSync(new URL("../lib/geo-store.ts", import.meta.url), "utf8");
@@ -176,6 +176,26 @@ test("safe rollout initialization excludes review-blocked, hidden and non-geocod
   assert.equal(isSafeAutoGeoCandidate({
     ...base, proposedVisibility: null, requiresReview: true, normalizedQuery: null,
   }), false);
+});
+
+test("subsequent SAFE initialization skips already initialized Batch 1 rows before applying the limit", () => {
+  const base = {
+    targetType: "MANAGED_EVENT", label: "Event", category: null, locationRole: null,
+    city: "Nitra", district: null, region: "Nitriansky kraj",
+    proposedVisibility: "APPROXIMATE_PUBLIC", proposedPrecision: "MUNICIPALITY",
+    requiresReview: false, reasonCode: null, normalizedQuery: "Nitra, Nitriansky kraj, Slovakia",
+    sourceFingerprint: "fp",
+  };
+  const items = [
+    ...Array.from({ length: 20 }, (_, index) => ({ ...base, targetId: 47 + index, alreadyInitialized: true })),
+    ...Array.from({ length: 25 }, (_, index) => ({ ...base, targetId: 67 + index, alreadyInitialized: false })),
+    { ...base, targetId: 200, alreadyInitialized: false, requiresReview: true, proposedVisibility: "EXACT_PUBLIC", proposedPrecision: "EXACT" },
+  ];
+  const selection = selectSafeUninitializedGeoCandidates(items, 20);
+  assert.equal(selection.alreadyInitializedSkipped, 20);
+  assert.equal(selection.eligible.length, 25);
+  assert.deepEqual(selection.selected.map((item) => item.targetId), Array.from({ length: 20 }, (_, index) => 67 + index));
+  assert.equal(selection.selected.some((item) => item.alreadyInitialized), false);
 });
 
 test("canary selector never sends review-blocked or hidden candidates and prefers target diversity", () => {
@@ -481,6 +501,10 @@ test("operations are bounded, scoped and full production backfill remains absent
   assert.match(operations, /Math\.min\(10/);
   assert.match(operations, /Math\.min\(20/);
   assert.match(operations, /safeOnly/);
+  assert.match(operations, /alreadyInitializedSkipped/);
+  assert.match(operations, /selectSafeUninitializedGeoCandidates/);
+  assert.match(operationsApi, /previewSafeGeoInitialization/);
+  assert.match(geoOperationsComponent, /Nasledujúci SAFE batch preview/);
   assert.match(operationsApi, /confirm !== "INITIALIZE"/);
   assert.match(operationsApi, /confirm !== "CANARY"/);
   assert.match(operationsApi, /confirm !== "BACKFILL-CHUNK"/);
