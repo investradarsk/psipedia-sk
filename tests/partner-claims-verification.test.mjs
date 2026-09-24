@@ -91,7 +91,7 @@ test("ownership-sensitive approvals block a deterministically mapped admin from 
   assert.match(ownershipGuard,/WHERE a\.email_hash=\?1/);
   assert.match(ownershipGuard,/m\.account_id=a\.id AND m\.resource_id=\?2 AND m\.revoked_at IS NULL/);
   assert.match(ownershipGuard,/mapped\.accountId === input\.accountId \|\| Boolean\(mapped\.resourceMember\)/);
-  assert.match(ownershipGuard,/Vlastnú žiadosť o správu profilu musí schváliť iný administrátor/);
+  assert.match(ownershipGuard,/Vlastnú žiadosť s pridelením oprávnenia na správu musí schváliť iný administrátor/);
   const claimApproval=admin.slice(admin.indexOf("export async function approvePartnerClaimAdmin"),admin.indexOf("export async function rejectPartnerClaimAdmin"));
   assert.ok(claimApproval.indexOf("assertClaimIndependentOwnershipApprover")<claimApproval.indexOf("ensurePartnerOwnerMembershipAdmin"));
   const verificationDecision=admin.slice(admin.indexOf("export async function decidePartnerVerificationAdmin"));
