@@ -57,6 +57,22 @@ function isRelevantConsoleError(text: string) {
 }
 
 test.describe("MAP V1 live production launch audit", () => {
+  test("@map-production-live diagnostic production search matrix", async ({ request }) => {
+    const base = "/api/map?north=50&south=47&east=23&west=16&zoom=7";
+    const cases = [
+      ["ascii", "search=vystava"],
+      ["diacritic", "search=v%C3%BDstava"],
+      ["events-ascii", "category=events&search=vystava"],
+      ["events-diacritic", "category=events&search=v%C3%BDstava"],
+      ["city", "search=Nitra"],
+      ["events-city", "category=events&search=Nitra"],
+    ] as const;
+    for (const [label, query] of cases) {
+      const response = await request.get(`${base}&${query}`);
+      const body = await response.text();
+      console.log(`MAP_SEARCH_DIAG label=${label} status=${response.status()} body=${body.slice(0, 180)}`);
+    }
+  });
   test.beforeEach(async ({ page, isMobile }) => {
     if (isMobile) await page.setViewportSize({ width: 390, height: 844 });
   });
