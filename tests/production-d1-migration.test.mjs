@@ -73,11 +73,11 @@ test("production D1 supported targets are explicit through Partner H3 multimetho
   ]);
 });
 
-test("partner rollout scopes 0065 through 0069 independently and excludes every future migration", () => {
+test("partner rollout scopes 0065 through 0070 independently and excludes every future migration", () => {
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0070_future_migration.sql",
+    "0071_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -286,7 +286,7 @@ test("partner rollout preserves rebuilt rows, append-only audit triggers and ver
   assert.match(script, /0069 is schema\/onboarding foundation only/);
   assert.match(script, /assertExactMigrationHistory/);
   assert.match(script, /partnerAuthPreservationSnapshot/);
-  assert.match(script, /partnerAccounts data changed unexpectedly/);
+  assert.match(script, /\$\{name\} data changed unexpectedly/);
   assert.match(script, /partnerSessions/);
   assert.match(script, /partnerAccountProfiles/);
   assert.match(script, /partnerClaims/);
