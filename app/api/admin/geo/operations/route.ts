@@ -1,7 +1,7 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { isGeoTargetType, type GeoTargetType } from "@/lib/geo";
 import { geoapifyApiKey } from "@/lib/geoapify-geocoder";
-import { initializeGeoCandidates, previewGeoCandidates, runGeoBackfillChunk, runGeoCanary } from "@/lib/geo-operations";
+import { initializeGeoCandidates, previewGeoCandidates, previewSafeGeoInitialization, runGeoBackfillChunk, runGeoCanary } from "@/lib/geo-operations";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +26,23 @@ export async function GET(request: Request) {
   if (!user) return unauthorizedAdminResponse();
   const url = new URL(request.url);
   try {
+    const targetType = target(url.searchParams.get("target"));
+    const directoryCategory = url.searchParams.get("category") || null;
     const preview = await previewGeoCandidates({
       limit: int(url.searchParams.get("limit"), 50, 200),
-      targetType: target(url.searchParams.get("target")),
-      directoryCategory: url.searchParams.get("category") || null,
+      targetType,
+      directoryCategory,
     });
+    const safeInitialization = targetType
+      ? await previewSafeGeoInitialization({
+          limit: 20,
+          targetType,
+          directoryCategory,
+        })
+      : null;
     return Response.json({
       preview,
+      safeInitialization,
       providerConfigured: Boolean(geoapifyApiKey()),
       fullBackfillEnabled: false,
       productionInventoryExecuted: false,
