@@ -453,64 +453,70 @@ async function main() {
     ...categoryBreakdown.map((row) => `| ${row.category} | ${row.total} | ${row.physical} | ${row.onlineOnly} | ${row.ambiguous} |`),
   ].join("\n");
 
-  const report = `# MAP ROW-LEVEL AUDIT EXPORT — ${status}
-
-Generated: ${new Date().toISOString()}
-
-## Safety
-
-- Mode: **STRICT READ-ONLY**
-- Production SQL gate accepts only SELECT/WITH/PRAGMA and rejects mutation/DDL keywords.
-- No geocoding.
-- No backfill/import.
-- No writes to directory_profiles, managed_events, help_organizations, organization_locations, geo_points or feature flags.
-- directory internal_email and the full source_data_json are intentionally excluded.
-- CSV cells beginning with formula-control characters are neutralized.
-
-## Counts
-
-| Dataset | Exported | Expected |
-|---|---:|---:|
-| directory_profiles | ${directoryExported} | ${expected.directory ?? "not asserted"} |
-| current/upcoming physical managed_events | ${eventsExported} | ${expected.events ?? "not asserted"} |
-| published help_organizations | ${organizationsExported} | ${expected.organizations ?? "not asserted"} |
-| organization_locations | ${organizationLocationsExported} | ${expected.organizationLocations ?? "not asserted"} |
-
-## Directory online semantics
-
-- online=true total: **${onlineTotal}**
-- online=true with physical evidence: **${onlinePhysical}**
-- likely online-only: **${onlineOnly}**
-- ambiguous: **${onlineAmbiguous}**
-
-${categoryTable}
-
-The row-level IDs and reasons are in `directory_online_semantics_audit.csv`.
-
-## Canonical-model notes
-
-- `directory_profiles` has no dedicated `phone`, `postal_code` or `subcategory` column. The export reads only known public aliases from `source_data_json`; it never emits the full JSON.
-- `managed_events` has no canonical `district` column and no online boolean. The export leaves district empty and derives online/physical state from the same location sentinel semantics used by the existing production readiness audit.
-- `organization_locations` has no independent publication-status column. Organization publication state plus location role/primary/sort order are exported; current geo visibility/status is included when a linked geo_point exists.
-
-## Missing-field inventory
-
-```json
-${JSON.stringify(missing, null, 2)}
-```
-
-## Files
-
-- directory_row_level_export.csv
-- events_row_level_export.csv
-- organizations_row_level_export.csv
-- directory_online_semantics_audit.csv
-- summary.md
-
-${blockers.length ? `## Blockers\n\n${blockers.map((item) => `- ${item}`).join("\n")}\n` : ""}
-
-**MAP ROW-LEVEL AUDIT EXPORT — ${status}${blockers.length ? ` — ${blockers.join("; ")}` : ""}**
-`;
+  const reportLines = [
+    "# MAP ROW-LEVEL AUDIT EXPORT — " + status,
+    "",
+    "Generated: " + new Date().toISOString(),
+    "",
+    "## Safety",
+    "",
+    "- Mode: **STRICT READ-ONLY**",
+    "- Production SQL gate accepts only SELECT/WITH/PRAGMA and rejects mutation/DDL keywords.",
+    "- No geocoding.",
+    "- No backfill/import.",
+    "- No writes to directory_profiles, managed_events, help_organizations, organization_locations, geo_points or feature flags.",
+    "- directory internal_email and the full source_data_json are intentionally excluded.",
+    "- CSV cells beginning with formula-control characters are neutralized.",
+    "",
+    "## Counts",
+    "",
+    "| Dataset | Exported | Expected |",
+    "|---|---:|---:|",
+    "| directory_profiles | " + directoryExported + " | " + (expected.directory ?? "not asserted") + " |",
+    "| current/upcoming physical managed_events | " + eventsExported + " | " + (expected.events ?? "not asserted") + " |",
+    "| published help_organizations | " + organizationsExported + " | " + (expected.organizations ?? "not asserted") + " |",
+    "| organization_locations | " + organizationLocationsExported + " | " + (expected.organizationLocations ?? "not asserted") + " |",
+    "",
+    "## Directory online semantics",
+    "",
+    "- online=true total: **" + onlineTotal + "**",
+    "- online=true with physical evidence: **" + onlinePhysical + "**",
+    "- likely online-only: **" + onlineOnly + "**",
+    "- ambiguous: **" + onlineAmbiguous + "**",
+    "",
+    categoryTable,
+    "",
+    "The row-level IDs and reasons are in directory_online_semantics_audit.csv.",
+    "",
+    "## Canonical-model notes",
+    "",
+    "- directory_profiles has no dedicated phone, postal_code or subcategory column. The export reads only known public aliases from source_data_json; it never emits the full JSON.",
+    "- managed_events has no canonical district column and no online boolean. The export leaves district empty and derives online/physical state from the same location sentinel semantics used by the existing production readiness audit.",
+    "- organization_locations has no independent publication-status column. Organization publication state plus location role/primary/sort order are exported; current geo visibility/status is included when a linked geo_point exists.",
+    "",
+    "## Missing-field inventory",
+    "",
+    "~~~json",
+    JSON.stringify(missing, null, 2),
+    "~~~",
+    "",
+    "## Files",
+    "",
+    "- directory_row_level_export.csv",
+    "- events_row_level_export.csv",
+    "- organizations_row_level_export.csv",
+    "- directory_online_semantics_audit.csv",
+    "- summary.md",
+    "",
+  ];
+  if (blockers.length) {
+    reportLines.push("## Blockers", "", ...blockers.map((item) => "- " + item), "");
+  }
+  reportLines.push(
+    "**MAP ROW-LEVEL AUDIT EXPORT — " + status + (blockers.length ? " — " + blockers.join("; ") : "") + "**",
+    "",
+  );
+  const report = reportLines.join("\n");
 
   await fs.writeFile(path.join(outDir, "summary.md"), report, "utf8");
 
