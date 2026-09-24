@@ -10,6 +10,7 @@ import {
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
   assertPartnerAuthPreserved,
+  assertPendingTargetSchemaClean,
   buildScopedWranglerConfig,
   selectMigrationsThrough,
   validateProductionTargetHistory,
@@ -160,6 +161,16 @@ test("PARTNER-H3 history guard rejects a migration-history gap", () => {
   assert.throws(
     () => validateProductionTargetHistory(history, expected, "0070_partner_multimethod_auth.sql"),
     /does not exactly match/,
+  );
+});
+
+test("PARTNER-H3 schema precondition rejects partial/manual 0070 objects", () => {
+  assert.doesNotThrow(() =>
+    assertPendingTargetSchemaClean("0070_partner_multimethod_auth.sql", { partial: false }),
+  );
+  assert.throws(
+    () => assertPendingTargetSchemaClean("0070_partner_multimethod_auth.sql", { partial: true }),
+    /target schema objects already exist; possible partial\/manual drift/,
   );
 });
 
