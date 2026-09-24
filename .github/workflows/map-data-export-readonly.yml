@@ -1,0 +1,87 @@
+name: MAP-DATA-EXPORT Read-only Production Audit
+
+on:
+  push:
+    branches:
+      - codex/map-data-export-readonly
+    paths:
+      - scripts/map-data-export-readonly.mjs
+      - tests/map-data-export-readonly.test.mjs
+      - .github/workflows/map-data-export-readonly.yml
+  workflow_dispatch:
+
+concurrency:
+  group: map-data-export-readonly-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    name: Strict read-only production row export
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      EXPECTED_DIRECTORY_COUNT: "1809"
+      EXPECTED_EVENT_COUNT: "140"
+      EXPECTED_ORGANIZATION_COUNT: "106"
+      EXPECTED_ORGANIZATION_LOCATION_COUNT: "106"
+    steps:
+      - name: Require exact audit branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_REF" = "refs/heads/codex/map-data-export-readonly"
+
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit-test exporter safety and classification
+        run: node --test tests/map-data-export-readonly.test.mjs
+
+      - name: Migration safety
+        run: npm run db:check-migrations
+
+      - name: Require protected read credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Load canonical Cloudflare account id
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(x.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+
+      - name: Export production audit rows — READ ONLY
+        run: node scripts/map-data-export-readonly.mjs
+
+      - name: Upload row-level audit export
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-data-export-${{ github.run_id }}
+          path: |
+            .map-data-export/directory_row_level_export.csv
+            .map-data-export/events_row_level_export.csv
+            .map-data-export/organizations_row_level_export.csv
+            .map-data-export/directory_online_semantics_audit.csv
+            .map-data-export/summary.md
+          if-no-files-found: warn
+          retention-days: 30
