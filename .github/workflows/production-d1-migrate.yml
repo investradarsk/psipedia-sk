@@ -17,6 +17,7 @@ on:
           - 0067_partner_events.sql
           - 0068_partner_commercial_activation.sql
           - 0069_partner_auth_onboarding_hardening.sql
+          - 0070_partner_multimethod_auth.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -54,6 +55,7 @@ jobs:
             0067_partner_events.sql) expected_confirmation="APPLY-0067-psipedia-sk-db" ;;
             0068_partner_commercial_activation.sql) expected_confirmation="APPLY-0068-psipedia-sk-db" ;;
             0069_partner_auth_onboarding_hardening.sql) expected_confirmation="APPLY-0069-psipedia-sk-db" ;;
+            0070_partner_multimethod_auth.sql) expected_confirmation="APPLY-0070-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
@@ -63,11 +65,19 @@ jobs:
         with:
           ref: ${{ github.sha }}
 
+      - name: Require dispatched revision to still be current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
       - name: Log non-secret revision evidence
         run: |
           echo "ref=$GITHUB_REF"
           echo "sha=$GITHUB_SHA"
           echo "checked_out_sha=$(git rev-parse HEAD)"
+          echo "current_main_sha=$(git rev-parse origin/main)"
           echo "target_migration=$TARGET_MIGRATION"
 
       - name: Set up Node.js
@@ -124,7 +134,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for route in             "/"             "/adresar"             "/adresar/veterinari/ab-vet-piestany"             "/pomoc-psom/utulky"             "/sitemap.xml"             "/recenzie"             "/mapa"
+          for route in             "/"             "/adresar"             "/adresar/veterinari/ab-vet-piestany"             "/pomoc-psom/utulky"             "/sitemap.xml"             "/recenzie"             "/mapa"             "/partner/prihlasenie"             "/partner/registracia"             "/partner/zabudnute-heslo"
           do
             status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "https://psipedia.sk$route")"
             echo "$route -> $status"

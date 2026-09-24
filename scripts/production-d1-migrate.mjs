@@ -62,6 +62,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0067_partner_events.sql",
   "0068_partner_commercial_activation.sql",
   "0069_partner_auth_onboarding_hardening.sql",
+  "0070_partner_multimethod_auth.sql",
 ]);
 
 export const PARTNER_CLAIM_TABLES = Object.freeze([
@@ -135,6 +136,16 @@ export const PARTNER_CONTACT_PROFILE_INDEXES = Object.freeze([
   "partner_account_profiles_updated_idx",
 ]);
 
+export const PARTNER_MULTIMETHOD_AUTH_TABLES = Object.freeze([
+  "partner_password_credentials",
+  "partner_auth_identities",
+]);
+
+export const PARTNER_MULTIMETHOD_AUTH_INDEXES = Object.freeze([
+  "partner_auth_identities_provider_subject_unique",
+  "partner_auth_identities_account_provider_unique",
+]);
+
 export const SENSITIVE_DIRECTORY_CATEGORIES = Object.freeze([
   "chovatelske-stanice",
   "chovatelske-kluby",
@@ -151,6 +162,31 @@ function migrationIndex(fileName) {
   const match = /^(\d{4})_[a-z0-9]+(?:_[a-z0-9]+)*\.sql$/.exec(fileName);
   invariant(match, `Invalid migration filename: ${fileName}`);
   return Number(match[1]);
+}
+
+export function validateProductionTargetHistory(historyNames, expectedNames, targetMigration) {
+  invariant(SUPPORTED_PRODUCTION_TARGETS.includes(targetMigration), `Unsupported production migration target: ${targetMigration}`);
+  invariant(expectedNames.at(-1) === targetMigration, "Expected migration chain must end at the requested target");
+  const targetIndex = migrationIndex(targetMigration);
+  const indexes = historyNames.map((name) => {
+    try { return migrationIndex(name); } catch { return -1; }
+  });
+  const latestIndex = indexes.length ? Math.max(...indexes) : -1;
+  const targetApplied = historyNames.includes(targetMigration);
+  if (targetApplied) {
+    invariant(
+      latestIndex === targetIndex,
+      `Target ${targetMigration} is already applied, but production history continues through ${String(latestIndex).padStart(4, "0")}; refusing an older target`,
+    );
+  } else {
+    invariant(
+      latestIndex === targetIndex - 1,
+      `Target ${targetMigration} is pending, but latest applied migration is ${latestIndex < 0 ? "<unknown>" : String(latestIndex).padStart(4, "0")}; expected exactly ${String(targetIndex - 1).padStart(4, "0")}`,
+    );
+  }
+  const expectedHistory = targetApplied ? expectedNames : expectedNames.slice(0, -1);
+  assertExactMigrationHistory(historyNames, expectedHistory, "Target history guard");
+  return { latestIndex, targetApplied };
 }
 
 export function selectMigrationsThrough(fileNames, targetMigration = DEFAULT_TARGET_MIGRATION) {
@@ -287,6 +323,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     readJson("dist/server/wrangler.json"),
   ]);
   const selection = selectMigrationsThrough(files, targetMigration);
+  const targetMigrationBytes = await fs.readFile(path.join(repoRoot, "drizzle", targetMigration));
+  const targetMigrationSha256 = createHash("sha256").update(targetMigrationBytes).digest("hex");
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -300,6 +338,7 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
   await fs.writeFile(path.join(workDir, "manifest.json"), `${JSON.stringify({
     targetMigration,
     targetIndex: selection.targetIndex,
+    targetMigrationSha256,
     includedMigrations: selection.selected,
     excludedFutureMigrations: selection.excludedFuture,
     databaseName: resources.d1.database_name,
@@ -307,7 +346,7 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     accountId: resources.account_id,
     workerName: generated.name ?? null,
   }, null, 2)}\n`);
-  return { resources, generated, selection, workDir, scopedDir, configPath: path.join(scopedDir, "wrangler.json") };
+  return { resources, generated, selection, targetMigrationSha256, workDir, scopedDir, configPath: path.join(scopedDir, "wrangler.json") };
 }
 
 function d1Execute(databaseName, configPath, sql) {
@@ -329,12 +368,30 @@ function scalarCount(databaseName, configPath, sql) {
 function schemaState(databaseName, configPath) {
   const columns = d1Execute(databaseName, configPath, "PRAGMA table_info('directory_profiles')");
   const eventNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('event_notion_sync')");
+  const partnerAccountColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_accounts')");
+  const partnerSessionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_management_sessions')");
+  const partnerAccessTokenColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_access_tokens')");
+  const partnerPasswordCredentialColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_password_credentials')");
+  const partnerAuthIdentityColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_auth_identities')");
+  const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
+  const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const objects = d1Execute(
     databaseName,
     configPath,
     "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE type IN ('table','index','trigger') ORDER BY type,name",
   );
-  return { columns, eventNotionSyncColumns, objects };
+  return {
+    columns,
+    eventNotionSyncColumns,
+    partnerAccountColumns,
+    partnerSessionColumns,
+    partnerAccessTokenColumns,
+    partnerPasswordCredentialColumns,
+    partnerAuthIdentityColumns,
+    partnerPasswordCredentialForeignKeys,
+    partnerAuthIdentityForeignKeys,
+    objects,
+  };
 }
 
 function objectMap(objects) {
@@ -425,6 +482,17 @@ function targetSchemaObjects(schema, targetMigration) {
         || PARTNER_CONTACT_PROFILE_INDEXES.some((index) => names.has(index))
         || auditSql.includes("CONTACT_PROFILE_COMPLETED")
         || auditSql.includes("CONTACT_PROFILE_UPDATED"),
+    };
+  }
+  if (targetMigration === "0070_partner_multimethod_auth.sql") {
+    return {
+      partial: PARTNER_MULTIMETHOD_AUTH_TABLES.some((table) => names.has(table))
+        || PARTNER_MULTIMETHOD_AUTH_INDEXES.some((index) => names.has(index))
+        || outboxSql.includes("PASSWORD_RESET")
+        || auditSql.includes("PASSWORD_SET")
+        || auditSql.includes("PASSWORD_CHANGED")
+        || auditSql.includes("PASSWORD_RESET_COMPLETED")
+        || auditSql.includes("GOOGLE_IDENTITY_LINKED"),
     };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
@@ -569,6 +637,82 @@ function assertPartnerContactProfileSchema(schema) {
   );
 }
 
+function assertRequiredColumns(columns, tableName, requiredColumns) {
+  const names = new Set(columns.map((column) => String(column.name)));
+  for (const column of requiredColumns) {
+    invariant(names.has(column), `${tableName}.${column} is missing`);
+  }
+}
+
+function assertPartnerAuthCompatibilitySchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("partner_accounts")?.type === "table", "Missing partner_accounts table");
+  invariant(names.get("resource_management_sessions")?.type === "table", "Missing resource_management_sessions table");
+  invariant(names.get("resource_access_tokens")?.type === "table", "Missing resource_access_tokens table");
+  assertRequiredColumns(schema.partnerAccountColumns, "partner_accounts", [
+    "id", "email_ciphertext", "email_hash", "status", "email_verified_at",
+    "suspended_at", "deactivated_at", "created_at", "updated_at",
+  ]);
+  assertRequiredColumns(schema.partnerSessionColumns, "resource_management_sessions", [
+    "id", "resource_type", "subject_id", "session_hash", "permissions_json",
+    "expires_at", "created_at", "last_used_at", "revoked_at",
+  ]);
+  assertRequiredColumns(schema.partnerAccessTokenColumns, "resource_access_tokens", [
+    "id", "resource_type", "subject_id", "purpose", "token_hash",
+    "expires_at", "used_at", "revoked_at", "created_at",
+  ]);
+  for (const index of ["resource_access_tokens_hash_unique", "resource_access_tokens_subject_purpose_idx"]) {
+    invariant(names.get(index)?.type === "index", `Missing reset-token storage index: ${index}`);
+  }
+  invariant(
+    /CREATE\s+UNIQUE\s+INDEX/i.test(String(names.get("resource_access_tokens_hash_unique")?.sql ?? "")),
+    "resource_access_tokens token-hash uniqueness contract is missing",
+  );
+  assertPartnerContactProfileSchema(schema);
+}
+
+function assertPartnerMultimethodAuthSchema(schema) {
+  const names = objectMap(schema.objects);
+  assertPartnerAuthCompatibilitySchema(schema);
+  for (const table of PARTNER_MULTIMETHOD_AUTH_TABLES) {
+    invariant(names.get(table)?.type === "table", `Missing Partner H3 auth table: ${table}`);
+  }
+  for (const index of PARTNER_MULTIMETHOD_AUTH_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing Partner H3 auth index: ${index}`);
+    invariant(/CREATE\s+UNIQUE\s+INDEX/i.test(String(names.get(index)?.sql ?? "")), `Partner H3 auth unique constraint is missing: ${index}`);
+  }
+
+  assertRequiredColumns(schema.partnerPasswordCredentialColumns, "partner_password_credentials", [
+    "account_id", "password_hash", "hash_version", "created_at", "updated_at",
+  ]);
+  assertRequiredColumns(schema.partnerAuthIdentityColumns, "partner_auth_identities", [
+    "id", "account_id", "provider", "provider_subject", "linked_at", "created_at", "updated_at",
+  ]);
+
+  const passwordAccount = schema.partnerPasswordCredentialColumns.find((column) => String(column.name) === "account_id");
+  invariant(Number(passwordAccount?.pk ?? 0) === 1, "partner_password_credentials account_id primary-key uniqueness is missing");
+  const identityId = schema.partnerAuthIdentityColumns.find((column) => String(column.name) === "id");
+  invariant(Number(identityId?.pk ?? 0) === 1, "partner_auth_identities id primary key is missing");
+
+  const passwordSql = String(names.get("partner_password_credentials")?.sql ?? "");
+  const identitySql = String(names.get("partner_auth_identities")?.sql ?? "");
+  invariant(passwordSql.includes("CHECK (`hash_version` = 1)"), "partner_password_credentials hash_version CHECK is missing");
+  invariant(identitySql.includes("CHECK (`provider` IN ('GOOGLE'))"), "partner_auth_identities provider CHECK is missing");
+
+  const passwordFk = schema.partnerPasswordCredentialForeignKeys.find((fk) =>
+    String(fk.from) === "account_id" && String(fk.table) === "partner_accounts" && String(fk.to) === "id");
+  invariant(passwordFk && String(passwordFk.on_delete).toUpperCase() === "RESTRICT", "partner_password_credentials account foreign key is missing or unsafe");
+  const identityFk = schema.partnerAuthIdentityForeignKeys.find((fk) =>
+    String(fk.from) === "account_id" && String(fk.table) === "partner_accounts" && String(fk.to) === "id");
+  invariant(identityFk && String(identityFk.on_delete).toUpperCase() === "RESTRICT", "partner_auth_identities account foreign key is missing or unsafe");
+
+  assertPartnerNotificationAuditSchema(
+    schema,
+    ["AUTH_MAGIC_LINK", "PASSWORD_RESET"],
+    ["CONTACT_PROFILE_COMPLETED", "CONTACT_PROFILE_UPDATED", "PASSWORD_SET", "PASSWORD_CHANGED", "PASSWORD_RESET_COMPLETED", "GOOGLE_IDENTITY_LINKED"],
+  );
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -578,6 +722,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 67) assertPartnerEventsSchema(schema);
   if (migrationIndex(targetMigration) >= 68) assertPartnerCommercialSchema(schema);
   if (migrationIndex(targetMigration) >= 69) assertPartnerContactProfileSchema(schema);
+  if (migrationIndex(targetMigration) >= 70) assertPartnerMultimethodAuthSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -659,22 +804,107 @@ function partnerRebuildSnapshot(databaseName, configPath) {
   };
 }
 
-function targetState(history, schema, targetMigration) {
-  invariant(SUPPORTED_PRODUCTION_TARGETS.includes(targetMigration), `Unsupported production migration target: ${targetMigration}`);
+function partnerAuthPreservationSnapshot(databaseName, configPath) {
+  const datasets = {
+    partnerAccounts: d1Execute(databaseName, configPath, `
+      SELECT id,email_ciphertext,email_hash,status,email_verified_at,suspended_at,deactivated_at,created_at,updated_at
+      FROM partner_accounts ORDER BY id
+    `),
+    partnerSessions: d1Execute(databaseName, configPath, `
+      SELECT id,resource_type,subject_id,session_hash,permissions_json,expires_at,created_at,last_used_at,revoked_at
+      FROM resource_management_sessions
+      WHERE resource_type='PARTNER_ACCOUNT'
+      ORDER BY id
+    `),
+    partnerAccessTokens: d1Execute(databaseName, configPath, `
+      SELECT id,resource_type,subject_id,purpose,token_hash,expires_at,used_at,revoked_at,created_at
+      FROM resource_access_tokens
+      WHERE resource_type='PARTNER_ACCOUNT'
+      ORDER BY id
+    `),
+    partnerAccountProfiles: d1Execute(databaseName, configPath, `
+      SELECT account_id,contact_name_ciphertext,phone_ciphertext,relationship_ciphertext,completed_at,created_at,updated_at
+      FROM partner_account_profiles ORDER BY account_id
+    `),
+    partnerMemberships: d1Execute(databaseName, configPath, `
+      SELECT id,account_id,resource_id,role,created_at,created_by,updated_at,revoked_at,revoked_by
+      FROM partner_memberships ORDER BY id
+    `),
+    partnerClaims: d1Execute(databaseName, configPath, `
+      SELECT id,account_id,resource_id,status,request_message,created_at,updated_at,reviewed_at,reviewed_by,decision_note,cancelled_at
+      FROM partner_claims ORDER BY id
+    `),
+    partnerNotificationOutbox: d1Execute(databaseName, configPath, `
+      SELECT id,partner_account_id,notification_type,dedupe_key,status,encrypted_secret,expires_at,
+        attempts,last_attempt_at,provider_message_id,last_error,sent_at,created_at,updated_at
+      FROM partner_notification_outbox ORDER BY id
+    `),
+    partnerAuditEvents: d1Execute(databaseName, configPath, `
+      SELECT id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at
+      FROM partner_audit_events ORDER BY id
+    `),
+  };
+  return Object.fromEntries(Object.entries(datasets).map(([name, rows]) => [
+    name,
+    { count: rows.length, digest: stableHash(rows) },
+  ]));
+}
+
+export function assertPartnerAuthPreserved(before, after) {
+  invariant(before && after, "Partner auth preservation snapshots are required");
+  for (const [name, expected] of Object.entries(before)) {
+    const actual = after[name];
+    invariant(actual, `Missing postflight preservation snapshot: ${name}`);
+    invariant(
+      actual.count === expected.count && actual.digest === expected.digest,
+      `${name} data changed unexpectedly`,
+    );
+  }
+}
+
+function partnerH3IntegritySnapshot(databaseName, configPath) {
+  return {
+    passwordCredentialCount: scalarCount(databaseName, configPath, "SELECT COUNT(*) AS count FROM partner_password_credentials"),
+    googleIdentityCount: scalarCount(databaseName, configPath, "SELECT COUNT(*) AS count FROM partner_auth_identities"),
+    orphanPasswordCredentials: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM partner_password_credentials c WHERE NOT EXISTS (SELECT 1 FROM partner_accounts a WHERE a.id=c.account_id)"),
+    orphanAuthIdentities: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM partner_auth_identities i WHERE NOT EXISTS (SELECT 1 FROM partner_accounts a WHERE a.id=i.account_id)"),
+    invalidHashVersions: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM partner_password_credentials WHERE hash_version<>1"),
+    invalidIdentityProviders: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM partner_auth_identities WHERE provider<>'GOOGLE'"),
+    duplicateProviderSubjects: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM (SELECT provider,provider_subject FROM partner_auth_identities GROUP BY provider,provider_subject HAVING COUNT(*)>1)"),
+    duplicateAccountProviders: scalarCount(databaseName, configPath,
+      "SELECT COUNT(*) AS count FROM (SELECT account_id,provider FROM partner_auth_identities GROUP BY account_id,provider HAVING COUNT(*)>1)"),
+  };
+}
+
+function assertPartnerH3Integrity(snapshot) {
+  invariant(snapshot.orphanPasswordCredentials === 0, "Orphan partner_password_credentials rows detected");
+  invariant(snapshot.orphanAuthIdentities === 0, "Orphan partner_auth_identities rows detected");
+  invariant(snapshot.invalidHashVersions === 0, "Invalid partner password hash_version detected");
+  invariant(snapshot.invalidIdentityProviders === 0, "Invalid Partner auth identity provider detected");
+  invariant(snapshot.duplicateProviderSubjects === 0, "Duplicate Google provider_subject identity detected");
+  invariant(snapshot.duplicateAccountProviders === 0, "Duplicate account/provider identity detected");
+}
+
+export function assertPendingTargetSchemaClean(targetMigration, targetObjects) {
+  invariant(
+    !targetObjects?.partial,
+    `Migration ${String(migrationIndex(targetMigration)).padStart(4, "0")} is not recorded, but target schema objects already exist; possible partial/manual drift`,
+  );
+}
+
+function targetState(history, schema, targetMigration, expectedHistory) {
   const targetIndex = migrationIndex(targetMigration);
   const historyNames = history.map((row) => String(row.name));
-  const indexes = historyNames.map((name) => {
-    try { return migrationIndex(name); } catch { return -1; }
-  });
-  const latestIndex = indexes.length ? Math.max(...indexes) : -1;
-  const targetApplied = historyNames.includes(targetMigration);
+  const historyState = validateProductionTargetHistory(historyNames, expectedHistory, targetMigration);
   const targetObjects = targetSchemaObjects(schema, targetMigration);
 
-  if (!targetApplied) {
-    invariant(latestIndex === targetIndex - 1,
-      `Target ${targetMigration} is pending, but latest applied migration is ${latestIndex < 0 ? "<unknown>" : String(latestIndex).padStart(4, "0")}; expected exactly ${String(targetIndex - 1).padStart(4, "0")}`);
-    invariant(!targetObjects.partial,
-      `Migration ${String(targetIndex).padStart(4, "0")} is not recorded, but target schema objects already exist; possible partial/manual drift`);
+  if (!historyState.targetApplied) {
+    assertPendingTargetSchemaClean(targetMigration, targetObjects);
     if (targetIndex > 62) assertFoundationSchema(schema);
     if (targetIndex > 63) assertPartnerClaimsSchema(schema);
     if (targetIndex > 64) assertGeoFoundationSchema(schema);
@@ -682,13 +912,12 @@ function targetState(history, schema, targetMigration) {
     if (targetIndex > 66) assertPartnerNewProfileSchema(schema);
     if (targetIndex > 67) assertPartnerEventsSchema(schema);
     if (targetIndex > 68) assertPartnerCommercialSchema(schema);
+    if (targetIndex > 69) assertPartnerAuthCompatibilitySchema(schema);
   } else {
-    invariant(latestIndex === targetIndex,
-      `Target ${targetMigration} is already applied, but production history continues through ${String(latestIndex).padStart(4, "0")}; refusing an older target`);
     assertTargetSchema(schema, targetMigration);
   }
 
-  return { historyNames, latestIndex, targetApplied };
+  return { historyNames, latestIndex: historyState.latestIndex, targetApplied: historyState.targetApplied };
 }
 
 function assertExactMigrationHistory(historyNames, expectedNames, phase) {
@@ -735,7 +964,7 @@ async function preflight(targetMigration) {
   ]);
   assertProductionIdentity(prepared.resources, prepared.generated, info);
   const schema = schemaState(databaseName, prepared.configPath);
-  const state = targetState(history, schema, targetMigration);
+  const state = targetState(history, schema, targetMigration, prepared.selection.selected);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -750,6 +979,9 @@ async function preflight(targetMigration) {
     : null;
   const geoCountBefore = targetIndex > 64
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM geo_points")
+    : null;
+  const partnerAuthBefore = targetIndex >= 70
+    ? partnerAuthPreservationSnapshot(databaseName, prepared.configPath)
     : null;
 
   invariant(snapshot.duplicateDirectoryAnchors === 0, "Duplicate directory canonical resources detected");
@@ -774,14 +1006,17 @@ async function preflight(targetMigration) {
     accountId: prepared.resources.account_id,
     workerName: prepared.generated.name,
     recoveryBookmark: bookmark,
+    targetMigrationSha256: prepared.targetMigrationSha256,
     reviewCountBefore,
     partnerRebuildBefore,
     geoCountBefore,
+    partnerAuthBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
   await writeJson(".production-d1/preflight-report.json", {
     targetMigration,
+    targetMigrationSha256: prepared.targetMigrationSha256,
     targetApplied: state.targetApplied,
     latestAppliedMigration: state.historyNames.at(-1) ?? null,
     repositoryExcludedFutureMigrations: prepared.selection.excludedFuture,
@@ -795,6 +1030,7 @@ async function preflight(targetMigration) {
     reviewCountBefore,
     partnerRebuildBefore,
     geoCountBefore,
+    partnerAuthBefore,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -811,6 +1047,7 @@ async function apply(targetMigration) {
   const internal = await readJson(".production-d1/preflight-internal.json");
   invariant(internal.targetMigration === targetMigration, "Preflight target does not match requested target");
   invariant(internal.databaseId === prepared.resources.d1.database_id, "Preflight database does not match canonical target");
+  invariant(internal.targetMigrationSha256 === prepared.targetMigrationSha256, "Target migration content changed after preflight");
   if (internal.targetApplied) {
     console.log(`[production-d1] ${targetMigration} is already applied; apply is a no-op`);
     return;
@@ -835,10 +1072,11 @@ async function verify(targetMigration) {
   assertCredentialContract(prepared.resources);
   const internal = await readJson(".production-d1/preflight-internal.json");
   invariant(internal.targetMigration === targetMigration, "Preflight target does not match verification target");
+  invariant(internal.targetMigrationSha256 === prepared.targetMigrationSha256, "Target migration content changed after preflight");
   const databaseName = prepared.resources.d1.database_name;
   const history = migrationHistory(databaseName, prepared.configPath);
   const schema = schemaState(databaseName, prepared.configPath);
-  const state = targetState(history, schema, targetMigration);
+  const state = targetState(history, schema, targetMigration, prepared.selection.selected);
   invariant(state.targetApplied, `Target migration is still not recorded as applied: ${targetMigration}`);
   assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
@@ -911,6 +1149,16 @@ async function verify(targetMigration) {
     };
   }
 
+  let partnerAuthPreservation = null;
+  let partnerH3Integrity = null;
+  if (targetIndex >= 70) {
+    const partnerAuthAfter = partnerAuthPreservationSnapshot(databaseName, prepared.configPath);
+    assertPartnerAuthPreserved(internal.partnerAuthBefore, partnerAuthAfter);
+    partnerAuthPreservation = partnerAuthAfter;
+    partnerH3Integrity = partnerH3IntegritySnapshot(databaseName, prepared.configPath);
+    assertPartnerH3Integrity(partnerH3Integrity);
+  }
+
   let partnerContactProfileCount = null;
   if (targetIndex >= 69) {
     partnerContactProfileCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM partner_account_profiles");
@@ -921,6 +1169,7 @@ async function verify(targetMigration) {
 
   await writeJson(".production-d1/postflight-report.json", {
     targetMigration,
+    targetMigrationSha256: prepared.targetMigrationSha256,
     applied: true,
     latestAppliedMigration: state.historyNames.at(-1) ?? null,
     databaseName,
@@ -963,6 +1212,20 @@ async function verify(targetMigration) {
       count: partnerContactProfileCount,
       encryptedColumns: ["contact_name_ciphertext", "phone_ciphertext", "relationship_ciphertext"],
       auditActions: ["CONTACT_PROFILE_COMPLETED", "CONTACT_PROFILE_UPDATED"],
+    } : null,
+    partnerMultimethodAuth: targetIndex >= 70 ? {
+      tables: PARTNER_MULTIMETHOD_AUTH_TABLES,
+      uniqueIndexes: PARTNER_MULTIMETHOD_AUTH_INDEXES,
+      notificationTypes: ["AUTH_MAGIC_LINK", "PASSWORD_RESET"],
+      resetTokenStorage: {
+        table: "resource_access_tokens",
+        purpose: "PARTNER_PASSWORD_RESET",
+        uniqueIndex: "resource_access_tokens_hash_unique",
+        lookupIndex: "resource_access_tokens_subject_purpose_idx",
+      },
+      auditActions: ["PASSWORD_SET", "PASSWORD_CHANGED", "PASSWORD_RESET_COMPLETED", "GOOGLE_IDENTITY_LINKED"],
+      preservation: partnerAuthPreservation,
+      integrity: partnerH3Integrity,
     } : null,
     historyVerifiedThrough: targetMigration,
     geoFoundation,
