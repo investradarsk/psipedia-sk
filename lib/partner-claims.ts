@@ -143,7 +143,7 @@ export async function createPartnerClaim(input: {
   const now = input.now ?? new Date();
   const resourceId = await getOrCreateResourceAnchor(preview.entityType, preview.canonicalId, database, now);
   const membership = await activeMembership(database, input.accountId, resourceId);
-  if (membership?.role === "OWNER") throw new PartnerClaimError("Tento profil už spravujete.", 409);
+  if (membership) throw new PartnerClaimError("Tento profil už spravujete cez Partner účet.", 409);
 
   const existing = await pendingClaim(database, input.accountId, resourceId);
   if (existing) {
@@ -237,6 +237,7 @@ type ClaimHistoryRow = {
   createdAt: string;
   updatedAt: string;
   reviewedAt: string | null;
+  decisionNote: string | null;
   canonicalId: number;
   name: string;
   slug: string;
@@ -253,7 +254,7 @@ function historyHref(row: ClaimHistoryRow) {
 export async function listPartnerClaims(accountId: string, database?: D1Database) {
   const rows = (await getPartnerDatabase(database).prepare(`
     SELECT c.id,c.resource_id resourceId,r.entity_type entityType,c.status,c.request_message requestMessage,
-      c.created_at createdAt,c.updated_at updatedAt,c.reviewed_at reviewedAt,
+      c.created_at createdAt,c.updated_at updatedAt,c.reviewed_at reviewedAt,c.decision_note decisionNote,
       COALESCE(d.id,o.id) canonicalId,COALESCE(d.name,o.name) name,COALESCE(d.slug,o.slug) slug,
       d.category directoryCategory,v.status verificationStatus
     FROM partner_claims c
