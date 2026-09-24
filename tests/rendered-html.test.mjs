@@ -1160,3 +1160,30 @@ test("publishes search-engine and ChatGPT discovery endpoints", async () => {
   assert.match(articleHtml, /"BreadcrumbList"/);
   assert.match(articleHtml, /max-image-preview:large/i);
 });
+
+test("reviewer auth document shell carries the RSC route without invalid referrer metadata", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("reviewer-auth-render-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const context = { waitUntil() {}, passThroughOnException() {} };
+  const bindings = {
+    TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+  };
+  const path = "http://localhost/recenzia/prihlasenie?returnTo=" + encodeURIComponent(
+    "/recenzia/napisat?resourceId=render-reviewer-auth",
+  );
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await worker.fetch(
+      new Request(path, { headers: { accept: "text/html" } }),
+      bindings,
+      context,
+    );
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /__VINEXT_RSC_NAV__/);
+    assert.ok(html.includes('"pathname":"/recenzia/prihlasenie"'));
+    assert.doesNotMatch(html, /name="referrer"[^>]+content="Redakcia Psipedia"/i);
+  }
+});

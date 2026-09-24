@@ -26,7 +26,7 @@ export function PartnerAuthForm({ mode, siteKey, returnTo = null }: Props) {
       const response = await fetch("/api/partner/auth/request-link", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, turnstileToken, returnTo }),
+        body: JSON.stringify({ email, turnstileToken, returnTo, mode: mode === "login" ? "LOGIN" : "REGISTER" }),
       });
       const data = await response.json() as { message?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Prihlasovací odkaz sa nepodarilo vyžiadať.");

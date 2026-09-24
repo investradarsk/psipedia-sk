@@ -76,12 +76,15 @@ test("session authorization reloads account status live and revokes blocked sess
   assert.match(storeSource, /status: "SUSPENDED" \| "DEACTIVATED"/);
 });
 
-test("anti-enumeration response is one canonical public string for account lifecycle states", () => {
+test("anti-enumeration response is one canonical public contract for auth lifecycle states", () => {
   assert.match(authSource, /PARTNER_AUTH_GENERIC_RESPONSE/);
-  assert.match(authSource, /account\.status === "SUSPENDED" \|\| account\.status === "DEACTIVATED"/);
-  assert.match(authSource, /return \{ message: PARTNER_AUTH_GENERIC_RESPONSE \}/);
+  assert.match(authSource, /!existing && mode === "LOGIN"/);
+  assert.match(authSource, /!partnerAccountCanAuthenticate\(account\)/);
+  assert.match(authSource, /PARTNER_AUTH_RESPONSE_FLOOR_MS = 750/);
+  assert.match(authSource, /genericPartnerAuthResponse\(responseStartedAt\)/);
   assert.doesNotMatch(requestRoute, /Účet neexistuje|email je registrovaný|suspendovaný/i);
   assert.match(requestRoute, /requestPartnerMagicLink/);
+  assert.match(requestRoute, /mode: body\.mode/);
 });
 
 test("partner JSON mutation guard rejects missing/cross origin and bad content type", async () => {

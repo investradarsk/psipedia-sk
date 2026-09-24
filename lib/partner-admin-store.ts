@@ -3,6 +3,7 @@ import { decryptPii } from "./pii-crypto";
 import { appendPartnerAuditEvent, partnerResourceTypes, partnerRoles, type PartnerResourceType, type PartnerRole } from "./partner-platform";
 import { getPartnerAccountById, getPartnerDatabase, type PartnerAccountStatus } from "./partner-auth-store";
 import { ensureCanonicalResource } from "./canonical-resource";
+import { getPartnerContactProfile } from "./partner-contact-profile";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 function db(database?: D1Database) { return getPartnerDatabase(database ?? (env as unknown as Bindings).DB); }
@@ -31,15 +32,17 @@ export async function getPartnerAdminSummary(database?:D1Database){
 export async function getPartnerAccountAdmin(id:string,input:{database?:D1Database;encryptionKey?:string}={}){
   const account=await getPartnerAccountById(id,db(input.database)); if(!account)return null;
   const database=db(input.database);
-  const [memberships,audit,sessions]=await Promise.all([
+  const key=piiKey(input.encryptionKey);
+  const [memberships,audit,sessions,contactProfile]=await Promise.all([
     database.prepare(`SELECT m.id,m.resource_id resourceId,m.role,m.created_at createdAt,m.updated_at updatedAt,m.revoked_at revokedAt,m.revoked_by revokedBy,r.entity_type entityType,
       COALESCE(d.name,o.name,e.title) resourceName FROM partner_memberships m JOIN partner_resources r ON r.id=m.resource_id
       LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id LEFT JOIN help_organizations o ON o.id=r.help_organization_id LEFT JOIN managed_events e ON e.id=r.managed_event_id
       WHERE m.account_id=? ORDER BY m.created_at DESC`).bind(id).all(),
     database.prepare(`SELECT id,actor_type actorType,actor_ref actorRef,action,target_type targetType,target_id targetId,metadata_json metadataJson,created_at createdAt FROM partner_audit_events WHERE target_id=? OR actor_ref=? ORDER BY created_at DESC LIMIT 100`).bind(id,`partner:${id}`).all(),
     database.prepare(`SELECT COUNT(*) total,SUM(revoked_at IS NULL AND expires_at>datetime('now')) active,MAX(created_at) lastCreatedAt FROM resource_management_sessions WHERE resource_type='PARTNER_ACCOUNT' AND subject_id=?`).bind(id).first(),
+    getPartnerContactProfile(id,{database,encryptionKey:key}),
   ]);
-  return {...account,email:await decryptPii(account.emailCiphertext,piiKey(input.encryptionKey)),memberships:memberships.results,audit:audit.results,sessions:sessions??{total:0,active:0,lastCreatedAt:null}};
+  return {...account,email:await decryptPii(account.emailCiphertext,key),contactProfile,memberships:memberships.results,audit:audit.results,sessions:sessions??{total:0,active:0,lastCreatedAt:null}};
 }
 
 export async function setPartnerAccountStatusAdmin(input:{accountId:string;action:"SUSPEND"|"REACTIVATE"|"DEACTIVATE"|"REVOKE_SESSIONS";adminEmail:string;database?:D1Database;now?:Date}){
