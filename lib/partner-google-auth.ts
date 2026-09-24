@@ -198,6 +198,12 @@ async function verifyIdToken(idToken:string,flow:GoogleFlow,config:ReturnType<ty
   if(typeof payload.nonce!=="string"||!safeEqual(payload.nonce,flow.nonce)){
     throw new PartnerGoogleAuthError("Google prihlásenie nie je platné.");
   }
+  if(Array.isArray(payload.aud)&&payload.aud.length>1&&payload.azp!==config.clientId){
+    throw new PartnerGoogleAuthError("Google prihlásenie nie je platné.");
+  }
+  if(typeof payload.azp==="string"&&payload.azp!==config.clientId){
+    throw new PartnerGoogleAuthError("Google prihlásenie nie je platné.");
+  }
   if(typeof payload.sub!=="string"||!payload.sub||payload.sub.length>255){
     throw new PartnerGoogleAuthError("Google prihlásenie nie je platné.");
   }
@@ -269,6 +275,9 @@ export async function handlePartnerGoogleCallback(input:{
   const emailHash=await hashPii(google.email,config.hashKey);
   const existing=await getPartnerAccountByEmailHash(emailHash,database);
   if(existing){
+    if(existing.status!=="ACTIVE"&&existing.status!=="PENDING_VERIFICATION"){
+      return {location:"/partner/prihlasenie?google=unavailable",cookies};
+    }
     const pending:PendingLink={
       accountId:existing.id,providerSubject:google.providerSubject,
       returnTo:flow.returnTo,expiresAt:now.getTime()+FLOW_TTL_SECONDS*1000,
@@ -316,6 +325,9 @@ export async function handlePartnerGoogleCallback(input:{
     }
     const racedEmail=await getPartnerAccountByEmailHash(emailHash,database);
     if(racedEmail){
+      if(racedEmail.status!=="ACTIVE"&&racedEmail.status!=="PENDING_VERIFICATION"){
+        return {location:"/partner/prihlasenie?google=unavailable",cookies};
+      }
       const pending:PendingLink={
         accountId:racedEmail.id,providerSubject:google.providerSubject,
         returnTo:flow.returnTo,expiresAt:now.getTime()+FLOW_TTL_SECONDS*1000,
