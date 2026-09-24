@@ -34,6 +34,14 @@ async function mapCanvas(page: Page) {
   return page.getByTestId("google-map-renderer").locator('[aria-label="Interaktívna mapa Psipedie"]');
 }
 
+async function clickRenderedMarker(page: Page, selector: string) {
+  const marker = page.locator(selector).filter({ visible: true }).first();
+  await expect(marker).toBeVisible({ timeout: 15000 });
+  const box = await marker.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const m = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -116,10 +124,12 @@ test.describe("MAP V1 live production launch audit", () => {
     await page.getByLabel("Vyhľadávanie v mape").fill(singletonTarget.name);
     await expect(page.getByText(singletonTarget.name, { exact: true }).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
-    const singletonMarker = page.locator("gmp-advanced-marker").filter({ has: page.locator("[data-map-marker]") }).first();
-    await expect(singletonMarker).toBeVisible({ timeout: 10000 });
-    await singletonMarker.click();
+    const requestsBeforeSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
+    await clickRenderedMarker(page, "[data-map-marker]");
     await expect(page.locator('[data-selected="true"]')).toContainText(singletonTarget.name);
+    await page.waitForTimeout(500);
+    const requestsAfterSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
+    expect(requestsAfterSingletonClick).toBe(requestsBeforeSingletonClick);
     expect(new URL(page.url()).pathname).toBe("/mapa");
 
     // Filter/search must not recreate the Google map.
@@ -161,11 +171,10 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
     await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
 
-    const cluster = page.locator("gmp-advanced-marker").filter({ has: page.locator('[data-map-cluster="true"]') }).first();
-    await expect(cluster).toBeVisible({ timeout: 15000 });
     const beforeUrl = page.url();
-    await cluster.click();
-    await page.waitForTimeout(1200);
+    const beforeApiCount = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
+    await clickRenderedMarker(page, '[data-map-cluster="true"]');
+    await expect.poll(async () => page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length), { timeout: 12000 }).toBeGreaterThan(beforeApiCount);
     expect(new URL(page.url()).pathname).toBe(new URL(beforeUrl).pathname);
     await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
 
@@ -185,6 +194,7 @@ test.describe("MAP V1 live production launch audit", () => {
     test.skip(!isMobile, "Mobile-only production interaction audit");
     await page.addInitScript(() => localStorage.setItem("psipedia-google-maps-consent", "granted"));
     await page.goto("/mapa", { waitUntil: "domcontentloaded" });
+    await dismissAnalyticsBanner(page);
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
 
     const panel = page.getByTestId("map-results-panel");
@@ -204,9 +214,9 @@ test.describe("MAP V1 live production launch audit", () => {
     for (let i = 0; i < 4; i++) {
       const metrics = await scroll.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
       if (metrics.scrollHeight > metrics.clientHeight + 8) break;
-      const clusters = page.locator("gmp-advanced-marker").filter({ has: page.locator('[data-map-cluster="true"]') });
+      const clusters = page.locator('[data-map-cluster="true"]');
       if (await clusters.count() === 0) break;
-      await clusters.first().click();
+      await clickRenderedMarker(page, '[data-map-cluster="true"]');
       await page.waitForTimeout(1000);
     }
 
