@@ -51,3 +51,11 @@ test("geo unavailable is explicit and no fake empty-map fallback exists", () => 
   assert.match(route, /status: 503/);
   assert.doesNotMatch(route, /MapGeoUnavailableError[\s\S]{0,400}status: 200/);
 });
+
+
+test("map query search projection coalesces nullable public text before JS filtering", () => {
+  assert.match(query, /coalesce\(d\.excerpt, ''\)[\s\S]{0,500}AS search_text/);
+  assert.match(query, /coalesce\(o\.short_description, ''\)[\s\S]{0,500}AS search_text/);
+  assert.match(query, /coalesce\(e\.excerpt, ''\)[\s\S]{0,500}coalesce\(e\.venue, ''\)[\s\S]{0,500}AS search_text/);
+  assert.match(query, /searchText: row\.search_text \?\? ""/);
+});
