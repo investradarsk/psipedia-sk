@@ -39,6 +39,9 @@ test("one map instance survives filters and the renderer reconciles markers", ()
   assert.match(renderer, /__PSIPEDIA_MAP_INIT_COUNT__/);
   assert.match(renderer, /markersRef = useRef\(new Map/);
   assert.match(renderer, /nextKeys = new Set/);
+  assert.match(experience, /useSearchParams/);
+  assert.match(experience, /mapFiltersFromSearchParams/);
+  assert.doesNotMatch(page, /searchParams:/);
   assert.doesNotMatch(experience, /key=\{.*filters/i);
 });
 
