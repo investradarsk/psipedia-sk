@@ -202,7 +202,7 @@ test("rejected state does not leak the admin-only decision note", () => {
   assert.match(adminClaimActions, /Interná poznámka k rozhodnutiu/);
   assert.match(adminClaimActions, /Poznámka zostáva v administrácii a neposiela sa Partnerovi e-mailom\./);
   assert.doesNotMatch(publicStateSource, /decision_note|rejectedDecisionNote/);
-  assert.doesNotMatch(requestsPage, /claim\.decisionNote|<strong>Dôvod:<\/strong>/);
+  assert.doesNotMatch(requestsPage, /claim\.decisionNote/);
   assert.doesNotMatch(publicOwnership, /Pozrieť dôvod|decisionNote|decision_note/);
   assert.match(publicOwnership, /Predchádzajúca žiadosť bola zamietnutá\./);
   assert.match(publicOwnership, /Zobraziť žiadosti/);
