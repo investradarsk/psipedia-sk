@@ -486,7 +486,7 @@ function MapResults({
           </div>
         ) : null}
 
-        {!error && hasGroupedClusters && !hasSelectedItem ? (
+        {!error && response?.mode === "clusters" && hasGroupedClusters && !hasSelectedItem ? (
           <div className={styles.stateCard} data-testid="map-cluster-summary">
             <strong>Mapa je zatiaľ v súhrnnom pohľade.</strong>
             <span>{mapResultLabel(response.meta.matched)} je zoskupených do {response.meta.count} oblastí. Vyber zhluk na mape alebo mapu priblíž.</span>
