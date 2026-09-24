@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PartnerAuthForm } from "@/components/partner-auth-form";
+import { PartnerPasswordAuthForm } from "@/components/partner-password-auth-form";
+import { isPartnerGoogleOAuthEnabled } from "@/lib/partner-google-auth";
 import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
 import { normalizePartnerReturnTo } from "@/lib/partner-return-to";
 
@@ -9,6 +11,9 @@ export default async function PartnerRegistrationPage({ searchParams }: { search
   const raw = await searchParams;
   const returnTo = normalizePartnerReturnTo(typeof raw.returnTo === "string" ? raw.returnTo : null);
   const siteKey = getPartnerTurnstileSiteKey();
+  const googleEnabled = isPartnerGoogleOAuthEnabled();
+  const googleHref = "/api/partner/auth/google/start?intent=REGISTER" +
+    (returnTo ? "&returnTo=" + encodeURIComponent(returnTo) : "");
 
   return (
     <main id="obsah" className="partner-shell">
@@ -21,12 +26,21 @@ export default async function PartnerRegistrationPage({ searchParams }: { search
             <strong>Čo nasleduje</strong>
             <p>Po prihlásení budete môcť v ďalších krokoch prepojiť svoju organizáciu alebo službu.</p>
           </div>
-          <p className="partner-auth-help">Už máte účet? <Link href={returnTo ? `/partner/prihlasenie?returnTo=${encodeURIComponent(returnTo)}` : "/partner/prihlasenie"}>Prihláste sa rovnakým spôsobom cez e-mailový odkaz.</Link></p>
+          <p className="partner-auth-help">Už máte účet? <Link href={returnTo ? `/partner/prihlasenie?returnTo=${encodeURIComponent(returnTo)}` : "/partner/prihlasenie"}>Prihláste sa.</Link></p>
         </div>
         <div className="partner-auth-card">
           <h2>Vytvoriť Partner účet</h2>
-          <p>Zadajte pracovný e-mail. Heslo nepotrebujete — pošleme vám jednorazový prihlasovací odkaz.</p>
-          <PartnerAuthForm mode="register" siteKey={siteKey} returnTo={returnTo} />
+          {googleEnabled ? <a className="button button--google partner-google-button" href={googleHref}>Pokračovať cez Google</a> : null}
+          {googleEnabled ? <div className="partner-auth-divider"><span>alebo</span></div> : null}
+
+          <PartnerPasswordAuthForm mode="register" siteKey={siteKey} returnTo={returnTo} />
+
+          <div className="partner-auth-divider"><span>alebo</span></div>
+          <div className="partner-auth-alternative">
+            <h3>Registrovať sa pomocou odkazu na e-mail</h3>
+            <p>Ak nechcete používať heslo, môžete pokračovať existujúcim jednorazovým odkazom.</p>
+            <PartnerAuthForm mode="register" siteKey={siteKey} returnTo={returnTo} />
+          </div>
         </div>
       </section>
     </main>
