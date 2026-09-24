@@ -80,7 +80,6 @@ test("renderer requires renderer config and consent before Google load", async (
   assert.match(page, /bindings\.PUBLIC_MAP_ENABLED \?\? process\.env\.PUBLIC_MAP_ENABLED/);
   assert.match(page, /bindings\.GOOGLE_MAPS_BROWSER_API_KEY \?\? process\.env\.GOOGLE_MAPS_BROWSER_API_KEY/);
   assert.match(page, /bindings\.GOOGLE_MAPS_MAP_ID \?\? process\.env\.GOOGLE_MAPS_MAP_ID/);
-  assert.match(page, /publicMapLaunchEnabled\(launchEnv\)/);
   assert.match(page, /googleMapsRendererConfigured\(launchEnv\)/);
   assert.match(page, /publicMapLaunchEnabled\(launchEnv\)/);
   assert.match(page, /googleRendererEnabled \? launchEnv\.GOOGLE_MAPS_BROWSER_API_KEY/);
