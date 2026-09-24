@@ -56,6 +56,7 @@ function runWrangler(args) {
   const result = spawnSync(bin, ["wrangler", ...args], {
     encoding: "utf8",
     env: { ...process.env, WRANGLER_SEND_METRICS: "false", NO_UPDATE_NOTIFIER: "1" },
+    maxBuffer: 32 * 1024 * 1024,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(text(result.stderr) || "D1 read failed");
@@ -78,6 +79,18 @@ function readQuery(db, configPath, sql) {
 
 function one(db, configPath, sql) {
   return readQuery(db, configPath, sql)[0] ?? {};
+}
+
+function readPaged(db, configPath, sql, pageSize = 500) {
+  const output = [];
+  let offset = 0;
+  for (;;) {
+    const batch = readQuery(db, configPath, `${sql}\nLIMIT ${pageSize} OFFSET ${offset}`);
+    output.push(...batch);
+    if (batch.length < pageSize) return output;
+    offset += batch.length;
+    invariant(offset < 100000, "Pagination safety limit exceeded");
+  }
 }
 
 function csvCell(value) {
@@ -230,7 +243,7 @@ async function main() {
   const organizationsExpected = number(one(db, configPath, "SELECT COUNT(*) count FROM help_organizations WHERE status='PUBLISHED' AND archived_at IS NULL").count);
   const locationsExpected = number(one(db, configPath, "SELECT COUNT(*) count FROM organization_locations").count);
 
-  const directoryRaw = readQuery(db, configPath, `
+  const directoryRaw = readPaged(db, configPath, `
     SELECT d.id,d.slug,d.name,d.category,d.status,d.published_at,d.archived_at,d.online,
       d.address,d.city,d.district,d.region,d.website_url,d.verified,d.featured,
       o.id organization_id,o.slug organization_slug,o.name organization_name,
@@ -274,7 +287,7 @@ async function main() {
     return name && (address || city) ? `${name}|${address}|${city}` : "";
   });
 
-  const eventsRaw = readQuery(db, configPath, `
+  const eventsRaw = readPaged(db, configPath, `
     SELECT e.id,e.slug,e.title,e.status,e.cancelled,e.start_date,e.start_time,e.end_date,e.end_time,
       e.event_type,e.venue,e.address,e.city,e.region,e.organizer,e.website_url,e.registration_url,
       g.id geo_point_id,g.geocode_status,g.public_visibility,g.public_precision,
@@ -315,7 +328,7 @@ async function main() {
     row.repeated_venue_review = key.replaceAll("|", "") && (eventVenueCounts.get(key)??0)>1 ? 1 : 0;
   }
 
-  const organizationsRaw = readQuery(db, configPath, `
+  const organizationsRaw = readPaged(db, configPath, `
     SELECT o.id,o.slug,o.name,o.type,o.status,o.archived_at,o.website_url,o.source_url,o.directory_profile_id,
       o.address,o.city,o.district,o.region,o.country_code,
       (SELECT COUNT(*) FROM organization_locations l WHERE l.organization_id=o.id) location_count
@@ -331,7 +344,7 @@ async function main() {
     address_completeness: addressCompleteness(row), missing_fields: missingAddressFields(row), needs_external_research: addressCompleteness(row)==="HAS_EXACT_ADDRESS"?0:1,
   }));
 
-  const locationsRaw = readQuery(db, configPath, `
+  const locationsRaw = readPaged(db, configPath, `
     SELECT l.id,l.organization_id,o.name organization_name,o.slug organization_slug,o.status organization_status,
       l.role,l.label,l.address,l.city,l.district,l.region,l.country_code,l.is_primary,l.sort_order,o.source_url,
       g.id geo_point_id,g.geocode_status,g.public_visibility,g.public_precision,
