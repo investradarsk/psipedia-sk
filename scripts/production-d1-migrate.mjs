@@ -62,6 +62,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0067_partner_events.sql",
   "0068_partner_commercial_activation.sql",
   "0069_partner_auth_onboarding_hardening.sql",
+  "0070_partner_multimethod_auth.sql",
 ]);
 
 export const PARTNER_CLAIM_TABLES = Object.freeze([
@@ -135,6 +136,16 @@ export const PARTNER_CONTACT_PROFILE_INDEXES = Object.freeze([
   "partner_account_profiles_updated_idx",
 ]);
 
+export const PARTNER_MULTIMETHOD_AUTH_TABLES = Object.freeze([
+  "partner_password_credentials",
+  "partner_auth_identities",
+]);
+
+export const PARTNER_MULTIMETHOD_AUTH_INDEXES = Object.freeze([
+  "partner_auth_identities_provider_subject_unique",
+  "partner_auth_identities_account_provider_unique",
+]);
+
 export const SENSITIVE_DIRECTORY_CATEGORIES = Object.freeze([
   "chovatelske-stanice",
   "chovatelske-kluby",
@@ -151,6 +162,31 @@ function migrationIndex(fileName) {
   const match = /^(\d{4})_[a-z0-9]+(?:_[a-z0-9]+)*\.sql$/.exec(fileName);
   invariant(match, `Invalid migration filename: ${fileName}`);
   return Number(match[1]);
+}
+
+export function validateProductionTargetHistory(historyNames, expectedNames, targetMigration) {
+  invariant(SUPPORTED_PRODUCTION_TARGETS.includes(targetMigration), `Unsupported production migration target: ${targetMigration}`);
+  invariant(expectedNames.at(-1) === targetMigration, "Expected migration chain must end at the requested target");
+  const targetIndex = migrationIndex(targetMigration);
+  const indexes = historyNames.map((name) => {
+    try { return migrationIndex(name); } catch { return -1; }
+  });
+  const latestIndex = indexes.length ? Math.max(...indexes) : -1;
+  const targetApplied = historyNames.includes(targetMigration);
+  if (targetApplied) {
+    invariant(
+      latestIndex === targetIndex,
+      `Target ${targetMigration} is already applied, but production history continues through ${String(latestIndex).padStart(4, "0")}; refusing an older target`,
+    );
+  } else {
+    invariant(
+      latestIndex === targetIndex - 1,
+      `Target ${targetMigration} is pending, but latest applied migration is ${latestIndex < 0 ? "<unknown>" : String(latestIndex).padStart(4, "0")}; expected exactly ${String(targetIndex - 1).padStart(4, "0")}`,
+    );
+  }
+  const expectedHistory = targetApplied ? expectedNames : expectedNames.slice(0, -1);
+  assertExactMigrationHistory(historyNames, expectedHistory, "Target history guard");
+  return { latestIndex, targetApplied };
 }
 
 export function selectMigrationsThrough(fileNames, targetMigration = DEFAULT_TARGET_MIGRATION) {
@@ -329,12 +365,28 @@ function scalarCount(databaseName, configPath, sql) {
 function schemaState(databaseName, configPath) {
   const columns = d1Execute(databaseName, configPath, "PRAGMA table_info('directory_profiles')");
   const eventNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('event_notion_sync')");
+  const partnerAccountColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_accounts')");
+  const partnerSessionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_management_sessions')");
+  const partnerPasswordCredentialColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_password_credentials')");
+  const partnerAuthIdentityColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_auth_identities')");
+  const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
+  const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const objects = d1Execute(
     databaseName,
     configPath,
     "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE type IN ('table','index','trigger') ORDER BY type,name",
   );
-  return { columns, eventNotionSyncColumns, objects };
+  return {
+    columns,
+    eventNotionSyncColumns,
+    partnerAccountColumns,
+    partnerSessionColumns,
+    partnerPasswordCredentialColumns,
+    partnerAuthIdentityColumns,
+    partnerPasswordCredentialForeignKeys,
+    partnerAuthIdentityForeignKeys,
+    objects,
+  };
 }
 
 function objectMap(objects) {
@@ -425,6 +477,17 @@ function targetSchemaObjects(schema, targetMigration) {
         || PARTNER_CONTACT_PROFILE_INDEXES.some((index) => names.has(index))
         || auditSql.includes("CONTACT_PROFILE_COMPLETED")
         || auditSql.includes("CONTACT_PROFILE_UPDATED"),
+    };
+  }
+  if (targetMigration === "0070_partner_multimethod_auth.sql") {
+    return {
+      partial: PARTNER_MULTIMETHOD_AUTH_TABLES.some((table) => names.has(table))
+        || PARTNER_MULTIMETHOD_AUTH_INDEXES.some((index) => names.has(index))
+        || outboxSql.includes("PASSWORD_RESET")
+        || auditSql.includes("PASSWORD_SET")
+        || auditSql.includes("PASSWORD_CHANGED")
+        || auditSql.includes("PASSWORD_RESET_COMPLETED")
+        || auditSql.includes("GOOGLE_IDENTITY_LINKED"),
     };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
@@ -569,6 +632,70 @@ function assertPartnerContactProfileSchema(schema) {
   );
 }
 
+function assertRequiredColumns(columns, tableName, requiredColumns) {
+  const names = new Set(columns.map((column) => String(column.name)));
+  for (const column of requiredColumns) {
+    invariant(names.has(column), `${tableName}.${column} is missing`);
+  }
+}
+
+function assertPartnerAuthCompatibilitySchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("partner_accounts")?.type === "table", "Missing partner_accounts table");
+  invariant(names.get("resource_management_sessions")?.type === "table", "Missing resource_management_sessions table");
+  assertRequiredColumns(schema.partnerAccountColumns, "partner_accounts", [
+    "id", "email_ciphertext", "email_hash", "status", "email_verified_at",
+    "suspended_at", "deactivated_at", "created_at", "updated_at",
+  ]);
+  assertRequiredColumns(schema.partnerSessionColumns, "resource_management_sessions", [
+    "id", "resource_type", "subject_id", "session_hash", "permissions_json",
+    "expires_at", "created_at", "last_used_at", "revoked_at",
+  ]);
+  assertPartnerContactProfileSchema(schema);
+}
+
+function assertPartnerMultimethodAuthSchema(schema) {
+  const names = objectMap(schema.objects);
+  assertPartnerAuthCompatibilitySchema(schema);
+  for (const table of PARTNER_MULTIMETHOD_AUTH_TABLES) {
+    invariant(names.get(table)?.type === "table", `Missing Partner H3 auth table: ${table}`);
+  }
+  for (const index of PARTNER_MULTIMETHOD_AUTH_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing Partner H3 auth index: ${index}`);
+    invariant(/CREATE\s+UNIQUE\s+INDEX/i.test(String(names.get(index)?.sql ?? "")), `Partner H3 auth unique constraint is missing: ${index}`);
+  }
+
+  assertRequiredColumns(schema.partnerPasswordCredentialColumns, "partner_password_credentials", [
+    "account_id", "password_hash", "hash_version", "created_at", "updated_at",
+  ]);
+  assertRequiredColumns(schema.partnerAuthIdentityColumns, "partner_auth_identities", [
+    "id", "account_id", "provider", "provider_subject", "linked_at", "created_at", "updated_at",
+  ]);
+
+  const passwordAccount = schema.partnerPasswordCredentialColumns.find((column) => String(column.name) === "account_id");
+  invariant(Number(passwordAccount?.pk ?? 0) === 1, "partner_password_credentials account_id primary-key uniqueness is missing");
+  const identityId = schema.partnerAuthIdentityColumns.find((column) => String(column.name) === "id");
+  invariant(Number(identityId?.pk ?? 0) === 1, "partner_auth_identities id primary key is missing");
+
+  const passwordSql = String(names.get("partner_password_credentials")?.sql ?? "");
+  const identitySql = String(names.get("partner_auth_identities")?.sql ?? "");
+  invariant(passwordSql.includes("CHECK (`hash_version` = 1)"), "partner_password_credentials hash_version CHECK is missing");
+  invariant(identitySql.includes("CHECK (`provider` IN ('GOOGLE'))"), "partner_auth_identities provider CHECK is missing");
+
+  const passwordFk = schema.partnerPasswordCredentialForeignKeys.find((fk) =>
+    String(fk.from) === "account_id" && String(fk.table) === "partner_accounts" && String(fk.to) === "id");
+  invariant(passwordFk && String(passwordFk.on_delete).toUpperCase() === "RESTRICT", "partner_password_credentials account foreign key is missing or unsafe");
+  const identityFk = schema.partnerAuthIdentityForeignKeys.find((fk) =>
+    String(fk.from) === "account_id" && String(fk.table) === "partner_accounts" && String(fk.to) === "id");
+  invariant(identityFk && String(identityFk.on_delete).toUpperCase() === "RESTRICT", "partner_auth_identities account foreign key is missing or unsafe");
+
+  assertPartnerNotificationAuditSchema(
+    schema,
+    ["AUTH_MAGIC_LINK", "PASSWORD_RESET"],
+    ["CONTACT_PROFILE_COMPLETED", "CONTACT_PROFILE_UPDATED", "PASSWORD_SET", "PASSWORD_CHANGED", "PASSWORD_RESET_COMPLETED", "GOOGLE_IDENTITY_LINKED"],
+  );
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -578,6 +705,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 67) assertPartnerEventsSchema(schema);
   if (migrationIndex(targetMigration) >= 68) assertPartnerCommercialSchema(schema);
   if (migrationIndex(targetMigration) >= 69) assertPartnerContactProfileSchema(schema);
+  if (migrationIndex(targetMigration) >= 70) assertPartnerMultimethodAuthSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -659,20 +787,13 @@ function partnerRebuildSnapshot(databaseName, configPath) {
   };
 }
 
-function targetState(history, schema, targetMigration) {
-  invariant(SUPPORTED_PRODUCTION_TARGETS.includes(targetMigration), `Unsupported production migration target: ${targetMigration}`);
+function targetState(history, schema, targetMigration, expectedHistory) {
   const targetIndex = migrationIndex(targetMigration);
   const historyNames = history.map((row) => String(row.name));
-  const indexes = historyNames.map((name) => {
-    try { return migrationIndex(name); } catch { return -1; }
-  });
-  const latestIndex = indexes.length ? Math.max(...indexes) : -1;
-  const targetApplied = historyNames.includes(targetMigration);
+  const historyState = validateProductionTargetHistory(historyNames, expectedHistory, targetMigration);
   const targetObjects = targetSchemaObjects(schema, targetMigration);
 
-  if (!targetApplied) {
-    invariant(latestIndex === targetIndex - 1,
-      `Target ${targetMigration} is pending, but latest applied migration is ${latestIndex < 0 ? "<unknown>" : String(latestIndex).padStart(4, "0")}; expected exactly ${String(targetIndex - 1).padStart(4, "0")}`);
+  if (!historyState.targetApplied) {
     invariant(!targetObjects.partial,
       `Migration ${String(targetIndex).padStart(4, "0")} is not recorded, but target schema objects already exist; possible partial/manual drift`);
     if (targetIndex > 62) assertFoundationSchema(schema);
@@ -682,13 +803,12 @@ function targetState(history, schema, targetMigration) {
     if (targetIndex > 66) assertPartnerNewProfileSchema(schema);
     if (targetIndex > 67) assertPartnerEventsSchema(schema);
     if (targetIndex > 68) assertPartnerCommercialSchema(schema);
+    if (targetIndex > 69) assertPartnerAuthCompatibilitySchema(schema);
   } else {
-    invariant(latestIndex === targetIndex,
-      `Target ${targetMigration} is already applied, but production history continues through ${String(latestIndex).padStart(4, "0")}; refusing an older target`);
     assertTargetSchema(schema, targetMigration);
   }
 
-  return { historyNames, latestIndex, targetApplied };
+  return { historyNames, latestIndex: historyState.latestIndex, targetApplied: historyState.targetApplied };
 }
 
 function assertExactMigrationHistory(historyNames, expectedNames, phase) {
@@ -735,7 +855,7 @@ async function preflight(targetMigration) {
   ]);
   assertProductionIdentity(prepared.resources, prepared.generated, info);
   const schema = schemaState(databaseName, prepared.configPath);
-  const state = targetState(history, schema, targetMigration);
+  const state = targetState(history, schema, targetMigration, prepared.selection.selected);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -838,7 +958,7 @@ async function verify(targetMigration) {
   const databaseName = prepared.resources.d1.database_name;
   const history = migrationHistory(databaseName, prepared.configPath);
   const schema = schemaState(databaseName, prepared.configPath);
-  const state = targetState(history, schema, targetMigration);
+  const state = targetState(history, schema, targetMigration, prepared.selection.selected);
   invariant(state.targetApplied, `Target migration is still not recorded as applied: ${targetMigration}`);
   assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
