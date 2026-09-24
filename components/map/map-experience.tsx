@@ -298,45 +298,23 @@ function MapResults({
     active: boolean;
     source: "header" | "list";
   } | null>(null);
+  const pointerCleanupRef = useRef<(() => void) | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
 
+  const clearPointerListeners = () => {
+    pointerCleanupRef.current?.();
+    pointerCleanupRef.current = null;
+  };
+
   const resetSheetDrag = () => {
+    clearPointerListeners();
     dragRef.current = null;
     setDragOffset(0);
     setDragging(false);
   };
 
-  const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>, source: "header" | "list") => {
-    if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    if (source === "header" && isInteractiveSheetTarget(event.target)) return;
-    if (source === "list" && (sheetState !== "expanded" || (scrollRef.current?.scrollTop ?? 0) > 0)) return;
-
-    const panelHeight = panelRef.current?.getBoundingClientRect().height ?? 0;
-    const drag = {
-      pointerId: event.pointerId,
-      startY: event.clientY,
-      lastY: event.clientY,
-      startTime: event.timeStamp,
-      startState: sheetState,
-      maxTravel: Math.max(0, panelHeight - 132),
-      active: source === "header",
-      source,
-    };
-    dragRef.current = drag;
-
-    if (drag.active) {
-      setDragging(true);
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId);
-      } catch {
-        // Synthetic test events and cancelled browser gestures may not expose capture.
-      }
-    }
-  };
-
-  const moveSheetDrag = (event: ReactPointerEvent<HTMLElement>) => {
+  const moveSheetDrag = (event: PointerEvent) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
 
@@ -347,11 +325,6 @@ function MapResults({
       if ((scrollRef.current?.scrollTop ?? 0) > 0 || delta <= 8) return;
       drag.active = true;
       setDragging(true);
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId);
-      } catch {
-        // Pointer capture is progressive enhancement for the drag gesture.
-      }
     }
     if (!drag.active) return;
 
@@ -362,7 +335,7 @@ function MapResults({
     setDragOffset(nextOffset);
   };
 
-  const endSheetDrag = (event: ReactPointerEvent<HTMLElement>) => {
+  const endSheetDrag = (event: PointerEvent) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (!drag.active) {
@@ -383,7 +356,50 @@ function MapResults({
     resetSheetDrag();
   };
 
-  const cancelSheetDrag = () => resetSheetDrag();
+  const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>, source: "header" | "list") => {
+    if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (source === "header" && isInteractiveSheetTarget(event.target)) return;
+    if (source === "list" && (sheetState !== "expanded" || (scrollRef.current?.scrollTop ?? 0) > 0)) return;
+
+    clearPointerListeners();
+    const panelHeight = panelRef.current?.getBoundingClientRect().height ?? 0;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      lastY: event.clientY,
+      startTime: event.timeStamp,
+      startState: sheetState,
+      maxTravel: Math.max(0, panelHeight - 132),
+      active: source === "header",
+      source,
+    };
+
+    if (source === "header") setDragging(true);
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Window listeners below keep the gesture robust if capture is unavailable.
+    }
+
+    const onMove = (nativeEvent: PointerEvent) => moveSheetDrag(nativeEvent);
+    const onUp = (nativeEvent: PointerEvent) => endSheetDrag(nativeEvent);
+    const onCancel = (nativeEvent: PointerEvent) => {
+      if (dragRef.current?.pointerId === nativeEvent.pointerId) resetSheetDrag();
+    };
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    pointerCleanupRef.current = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+    };
+  };
+
+  useEffect(() => () => clearPointerListeners(), []);
+
   const sheetStyle = { "--map-sheet-drag-y": `${dragOffset}px` } as CSSProperties;
 
   return (
@@ -400,9 +416,6 @@ function MapResults({
         className={styles.resultsHead}
         data-testid="map-sheet-header"
         onPointerDown={(event) => beginSheetDrag(event, "header")}
-        onPointerMove={moveSheetDrag}
-        onPointerUp={endSheetDrag}
-        onPointerCancel={cancelSheetDrag}
       >
         <span className={styles.sheetHandle} data-testid="map-sheet-handle" aria-hidden="true" />
         <div className={styles.resultsHeadTop}>
@@ -433,9 +446,6 @@ function MapResults({
         id="map-result-scroll"
         data-testid="map-results-scroll"
         onPointerDown={(event) => beginSheetDrag(event, "list")}
-        onPointerMove={moveSheetDrag}
-        onPointerUp={endSheetDrag}
-        onPointerCancel={cancelSheetDrag}
       >
         {error ? (
           <div className={styles.stateCard} role="alert" data-testid="map-api-error">
