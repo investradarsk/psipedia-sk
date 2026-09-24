@@ -5,18 +5,23 @@ import { useState } from "react";
 type Props = {
   className?: string;
   accessibleName?: string;
+  disabled?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 };
 
 export function PartnerLogoutButton({
   className = "partner-shell-logout",
   accessibleName = "Odhlásiť sa z Partner účtu",
+  disabled = false,
+  onBusyChange,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function logout() {
-    if (busy) return;
+    if (busy || disabled) return;
     setBusy(true);
+    onBusyChange?.(true);
     setError("");
     try {
       const response = await fetch("/api/partner/auth/logout", {
@@ -29,6 +34,7 @@ export function PartnerLogoutButton({
     } catch {
       setError("Odhlásenie sa nepodarilo. Skúste to znova.");
       setBusy(false);
+      onBusyChange?.(false);
     }
   }
 
@@ -39,7 +45,7 @@ export function PartnerLogoutButton({
         type="button"
         aria-label={accessibleName}
         onClick={logout}
-        disabled={busy}
+        disabled={busy || disabled}
       >
         {busy ? "Odhlasujem…" : "Odhlásiť sa"}
       </button>
