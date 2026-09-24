@@ -288,6 +288,7 @@ test("partner rollout preserves rebuilt rows, append-only audit triggers and ver
   assert.match(script, /partnerAuthPreservationSnapshot/);
   assert.match(script, /\$\{name\} data changed unexpectedly/);
   assert.match(script, /partnerSessions/);
+  assert.match(script, /partnerAccessTokens/);
   assert.match(script, /partnerAccountProfiles/);
   assert.match(script, /partnerClaims/);
   assert.match(script, /partnerMultimethodAuth/);
@@ -317,6 +318,9 @@ test("PARTNER-H3 0070 migration and rollout verification cover exact auth contra
   assert.match(migration, /GOOGLE_IDENTITY_LINKED/);
   assert.match(script, /partnerPasswordCredentialForeignKeys/);
   assert.match(script, /partnerAuthIdentityForeignKeys/);
+  assert.match(script, /resource_access_tokens_hash_unique/);
+  assert.match(script, /resource_access_tokens_subject_purpose_idx/);
+  assert.match(script, /PARTNER_PASSWORD_RESET/);
   assert.match(script, /duplicateProviderSubjects/);
   assert.match(script, /duplicateAccountProviders/);
   assert.match(script, /assertPartnerH3Integrity/);
