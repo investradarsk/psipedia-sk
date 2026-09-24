@@ -130,6 +130,19 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("navigation", { name: "Partner navigácia" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
+  if (project === "mobile-chromium") {
+    await page.getByRole("button", { name: "Otvoriť menu" }).click();
+    const mobileNav = page.getByRole("navigation", { name: "Mobilná navigácia" });
+    const accountLink = mobileNav.getByRole("link", { name: "Partner účet" });
+    await expect(accountLink).toBeVisible();
+    await expect(accountLink).toHaveAttribute("href", "/partner");
+    await page.getByRole("button", { name: "Zavrieť menu" }).click();
+  } else {
+    const accountLink = page.locator("[data-header-masthead]").getByRole("link", { name: "Partner účet" });
+    await expect(accountLink).toBeVisible();
+    await expect(accountLink).toHaveAttribute("href", "/partner");
+  }
+
   await page.getByRole("link", { name: "Moje profily" }).click();
   if (project === "desktop-chromium") {
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
@@ -208,8 +221,30 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"OWNER":"EDITOR");
   await expectNoHorizontalOverflow(page);
 
+  if (project === "mobile-chromium") {
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
   await page.getByRole("link",{name:"Pridať podujatie"}).first().click();
   await expect(page.getByRole("heading",{name:"Pridať podujatie"})).toBeVisible();
+  await expect(page.getByText("Po schválení administrátorom sa podujatie uloží ako koncept. Obrázok, SEO údaje a zverejnenie následne doplní redakcia Psipedie.")).toBeVisible();
+  const partnerLayout = await page.evaluate(() => {
+    const stickyHeader = document.querySelector<HTMLElement>(".site-header");
+    const heading = document.querySelector<HTMLElement>(".partner-page-heading h1");
+    const intro = document.querySelector<HTMLElement>(".partner-new-profile-intro");
+    if (!stickyHeader || !heading || !intro) return null;
+    const headerBox = stickyHeader.getBoundingClientRect();
+    return {
+      headerBottom: headerBox.bottom,
+      headingTop: heading.getBoundingClientRect().top,
+      introTop: intro.getBoundingClientRect().top,
+      viewportWidth: window.innerWidth,
+    };
+  });
+  expect(partnerLayout).not.toBeNull();
+  expect(partnerLayout!.headingTop).toBeGreaterThanOrEqual(partnerLayout!.headerBottom - 1);
+  expect(partnerLayout!.introTop).toBeGreaterThanOrEqual(partnerLayout!.headerBottom - 1);
+  if (project === "mobile-chromium") expect(partnerLayout!.viewportWidth).toBe(390);
+  await expectNoHorizontalOverflow(page);
   await page.getByLabel("Názov",{exact:true}).fill(newEventTitle);
   await page.getByLabel("Krátky popis").fill("Nové moderované Partner podujatie pre izolovaný E2E scenár.");
   await page.getByLabel("Typ podujatia").selectOption("Seminár");
@@ -305,6 +340,17 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
   await page.getByRole("button", { name: "Odhlásiť sa" }).click();
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
+  if (project === "mobile-chromium") {
+    await page.getByRole("button", { name: "Otvoriť menu" }).click();
+    const mobileNav = page.getByRole("navigation", { name: "Mobilná navigácia" });
+    const loginLink = mobileNav.getByRole("link", { name: "Prihlásiť sa" });
+    await expect(loginLink).toBeVisible();
+    await expect(loginLink).toHaveAttribute("href", "/partner/prihlasenie");
+  } else {
+    const loginLink = page.locator("[data-header-masthead]").getByRole("link", { name: "Prihlásiť sa" });
+    await expect(loginLink).toBeVisible();
+    await expect(loginLink).toHaveAttribute("href", "/partner/prihlasenie");
+  }
 });
 
 test("internal admin Partner overview and account detail are protected admin pages", async ({ page }, testInfo) => {

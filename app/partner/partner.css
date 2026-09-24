@@ -2,6 +2,7 @@
   width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
   padding: clamp(48px, 7vw, 90px) 0 88px;
+  scroll-margin-top: calc(var(--psipedia-sticky-header-height, 0px) + 16px);
   color: var(--ink);
 }
 

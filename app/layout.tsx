@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { CookieConsent } from "@/components/cookie-consent";
 import { ProgrammaticAdLoader } from "@/components/programmatic-ad-loader";
 import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
+import { getPartnerSession } from "@/lib/partner-auth";
+import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 import "./design-system.css";
@@ -67,6 +70,9 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const navigationItems = await getNavigationItems();
+  const jar = await cookies();
+  const partnerToken = jar.get(PARTNER_SESSION_COOKIE)?.value;
+  const partnerSession = partnerToken ? await getPartnerSession({ token: partnerToken }) : null;
   const programmaticClientId = process.env.GOOGLE_ADSENSE_CLIENT_ID ?? "";
   const programmaticEnabled = process.env.PROGRAMMATIC_ADS_ENABLED === "true";
   const advertisingConsentEnabled = programmaticEnabled && isValidGooglePublisherClientId(programmaticClientId);
@@ -74,7 +80,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="sk">
       <body>
-        <SiteHeader navigationItems={navigationItems} />
+        <SiteHeader navigationItems={navigationItems} partnerAuthenticated={Boolean(partnerSession)} />
         {children}
         <SiteFooter />
         <CookieConsent advertisingEnabled={advertisingConsentEnabled} />
