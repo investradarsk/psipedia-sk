@@ -236,6 +236,7 @@ function TestMapRenderer({
   onStatusChange,
 }: Omit<Props, "apiKey" | "mapId" | "testMode" | "rendererEnabled" | "consentGranted">) {
   useEffect(() => {
+    window.__PSIPEDIA_MAP_INIT_COUNT__ = (window.__PSIPEDIA_MAP_INIT_COUNT__ ?? 0) + 1;
     onStatusChange("ready");
   }, [onStatusChange]);
 
