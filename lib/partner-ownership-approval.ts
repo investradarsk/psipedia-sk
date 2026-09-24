@@ -41,7 +41,7 @@ export async function assertIndependentOwnershipApprover(input: {
 
   if (mapped && (mapped.accountId === input.accountId || Boolean(mapped.resourceMember))) {
     throw new PartnerOwnershipApprovalGuardError(
-      "Vlastnú žiadosť o správu profilu musí schváliť iný administrátor.",
+      "Vlastnú žiadosť s pridelením oprávnenia na správu musí schváliť iný administrátor.",
       403,
     );
   }
