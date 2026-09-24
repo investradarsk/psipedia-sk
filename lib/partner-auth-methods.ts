@@ -1,4 +1,4 @@
-import { getPartnerDatabase, type PartnerAccountRecord } from "@/lib/partner-auth-store";
+import { getPartnerDatabase } from "@/lib/partner-auth-store";
 
 export type PartnerPasswordCredential = {
   accountId: string;
