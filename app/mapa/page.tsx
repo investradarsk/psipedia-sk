@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
 import { parseMapUiFilters } from "@/lib/map-public-ui";
 import { buildPageMetadata } from "@/lib/seo";
-import { publicMapLaunchEnabled } from "@/config/runtime-env";
+import { googleMapsRendererConfigured, publicMapLaunchEnabled } from "@/config/runtime-env";
 import styles from "@/components/map/map-public.module.css";
 
 export const dynamic = "force-dynamic";
@@ -54,9 +54,10 @@ export default async function MapPage({ searchParams }: Props) {
   const launchEnv = testMissingConfig
     ? { ...runtimeLaunchEnv, GOOGLE_MAPS_BROWSER_API_KEY: "", GOOGLE_MAPS_MAP_ID: "" }
     : runtimeLaunchEnv;
+  const googleRendererEnabled = googleMapsRendererConfigured(launchEnv);
   const publicMapEnabled = publicMapLaunchEnabled(launchEnv);
-  const googleApiKey = publicMapEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
-  const googleMapId = publicMapEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
+  const googleApiKey = googleRendererEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
+  const googleMapId = googleRendererEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
   const testRenderer = mapUiTestMode && rawSearchParams.__mapRenderer !== "real";
 
   return (
@@ -86,7 +87,7 @@ export default async function MapPage({ searchParams }: Props) {
         googleApiKey={googleApiKey}
         googleMapId={googleMapId}
         testRenderer={testRenderer}
-        launchEnabled={publicMapEnabled}
+        rendererEnabled={googleRendererEnabled}
       />
 
       <aside className={styles.providerDisclosure} aria-label="Informácie o mapovom podklade">
