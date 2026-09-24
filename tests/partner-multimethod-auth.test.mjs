@@ -51,13 +51,15 @@ test("0070 preserves outbox and append-only audit rows while extending explicit 
   assert.match(schema, /partnerAuthIdentities/);
 });
 
-test("password KDF is versioned PBKDF2-HMAC-SHA256 with random salt and Unicode/passphrase support", async () => {
+test("password KDF is versioned scrypt with random salt and Unicode/passphrase support", async () => {
   const password = await importTs("lib/partner-password.ts");
   assert.equal(password.PARTNER_PASSWORD_MIN_LENGTH, 12);
-  assert.equal(password.PARTNER_PASSWORD_PBKDF2_ITERATIONS, 600000);
+  assert.equal(password.PARTNER_PASSWORD_SCRYPT_N, 16384);
+  assert.equal(password.PARTNER_PASSWORD_SCRYPT_R, 8);
+  assert.equal(password.PARTNER_PASSWORD_SCRYPT_P, 5);
   const phrase = "dlhá fráza 🐕 bez povinného čísla";
   const encoded = await password.hashPartnerPassword(phrase);
-  assert.match(encoded, /^pbkdf2-sha256\$1\$600000\$/);
+  assert.match(encoded, /^scrypt\$1\$16384\$8\$5\$/);
   assert.equal(await password.verifyPartnerPassword(phrase, encoded), true);
   assert.equal(await password.verifyPartnerPassword(phrase + "x", encoded), false);
   const second = await password.hashPartnerPassword(phrase);
