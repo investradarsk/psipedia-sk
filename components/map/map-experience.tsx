@@ -204,6 +204,12 @@ function responseClusters(response: MapResponse | null) {
   return response.clusters.filter((cluster) => cluster.count !== 1 || !cluster.singletonItem);
 }
 
+function mapAreaLabel(count: number) {
+  if (count === 1) return "1 oblasť";
+  if (count >= 2 && count <= 4) return `${count} oblasti`;
+  return `${count} oblastí`;
+}
+
 function isInteractiveSheetTarget(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest("button, a, input, select, textarea"));
 }
@@ -285,7 +291,7 @@ function MapResults({
   const countLabel = response
     ? response.mode === "items"
       ? mapResultLabel(response.meta.count)
-      : `${response.meta.count} oblastí · ${mapResultLabel(response.meta.matched)}`
+      : `${mapAreaLabel(response.meta.count)} · ${mapResultLabel(response.meta.matched)}`
     : "Výsledky";
   const resultsGuidance = hasSelectedItem
     ? "Vybraný výsledok nájdeš nižšie."
