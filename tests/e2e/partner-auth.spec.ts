@@ -150,18 +150,25 @@ test("public header exposes Partner login as a utility action without overflow",
   await expectNoHorizontalOverflow(page);
 });
 
-test("public Directory profile exposes free claim CTA and only asserts pre-verification state on desktop", async ({ page }, testInfo) => {
+test("anonymous Directory profile separates management from public correction and preserves returnTo", async ({ page }, testInfo) => {
   await page.goto("/adresar/veterinari/partner-e2e-veterina");
   await expect(page.getByRole("heading", { name: "Spravujete tento profil?" })).toBeVisible();
   await expect(page.getByText("Správa základných údajov profilu je bezplatná.")).toBeVisible();
   await expect(page.getByText("Premium profil",{exact:true})).toBeVisible();
   await expect(page.getByText("Sponzorované",{exact:true})).toBeVisible();
+  const claimPath="/partner/prevziat-profil/DIRECTORY_PROFILE/990001";
   const claimLink=page.getByRole("link",{name:"Spravovať tento profil"});
-  await expect(claimLink).toHaveAttribute("href","/partner/prevziat-profil/DIRECTORY_PROFILE/990001");
+  await expect(claimLink).toHaveAttribute("href","/partner/prihlasenie?returnTo="+encodeURIComponent(claimPath));
+  await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toHaveAttribute(
+    "href",
+    "/adresar/veterinari/partner-e2e-veterina/upravit",
+  );
   if (testInfo.project.name === "desktop-chromium") {
     await expect(page.getByText("Overený správca")).toHaveCount(0);
   }
   await expectNoHorizontalOverflow(page);
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
 });
 
 test("valid one-time link creates a session and exposes membership dashboard/settings", async ({ page }, testInfo) => {
@@ -202,10 +209,21 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
   if(project==="mobile-chromium"){
     await expect(page).toHaveURL(/\/partner\/prevziat-profil\/DIRECTORY_PROFILE\/990001$/);
+    await page.goto("/adresar/veterinari/partner-e2e-veterina");
+    await expect(page.getByRole("heading",{name:"Spravujete tento profil?"})).toBeVisible();
+    const requestManagement=page.getByRole("link",{name:"Požiadať o správu profilu"});
+    await expect(requestManagement).toHaveAttribute("href","/partner/prevziat-profil/DIRECTORY_PROFILE/990001");
+    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toBeVisible();
+    await requestManagement.click();
     await expect(page.getByRole("heading",{name:"Prevziať existujúci profil"})).toBeVisible();
     await page.getByLabel(/Ako ste spojení/).fill("E2E poverený správca");
     await page.getByRole("button",{name:"Odoslať žiadosť o prevzatie"}).click();
     await expect(page.getByRole("status")).toContainText("Žiadosť sme prijali a čaká na kontrolu.");
+    await page.goto("/adresar/veterinari/partner-e2e-veterina");
+    await expect(page.getByRole("heading",{name:"Žiadosť o správu profilu čaká na kontrolu."})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Zobraziť stav žiadosti"})).toHaveAttribute("href","/partner/ziadosti");
+    await expect(page.getByRole("link",{name:"Požiadať o správu profilu"})).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
     await page.goto("/partner");
   } else {
     await expect(page).toHaveURL(/\/partner$/);
@@ -275,6 +293,15 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Nitra", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("heading",{name:"Tento profil spravujete cez Partner účet."})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Upraviť profil"})).toHaveAttribute(
+      "href",
+      "/partner/profily/partner-resource-e2e-directory/upravit",
+    );
+    await expect(page.getByRole("link",{name:"Spravovať tento profil"})).toHaveCount(0);
+    await expect(page.getByRole("link",{name:"Požiadať o správu profilu"})).toHaveCount(0);
+    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toBeVisible();
+    await expectNoHorizontalOverflow(page);
   } else {
     await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
     await expect(page.getByText("EDITOR")).toBeVisible();
@@ -311,6 +338,17 @@ test("valid one-time link creates a session and exposes membership dashboard/set
       has: page.getByRole("heading",{name:"Moje návrhy nových profilov"}),
     });
     await expect(newProfilesSection.locator("article").filter({hasText:"Partner E2E Organizácia"})).toContainText("Čaká na kontrolu");
+
+    await page.goto("/organizacie/partner-e2e-organizacia");
+    await expect(page.getByRole("heading",{name:"Tento profil spravujete cez Partner účet."})).toBeVisible();
+    await expect(page.getByRole("link",{name:"Upraviť profil"})).toHaveAttribute(
+      "href",
+      "/partner/profily/partner-resource-e2e-organization/upravit",
+    );
+    await expect(page.getByRole("link",{name:"Otvoriť Partner účet"})).toHaveAttribute("href","/partner/profily");
+    await expect(page.getByRole("link",{name:"Navrhnúť opravu údajov"})).toHaveAttribute("href","/opravy-a-podnety");
+    await expect(page.getByRole("link",{name:"Požiadať o správu profilu"})).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
   }
 
   const ownedEventTitle=project==="desktop-chromium"?"Partner E2E Publikované Podujatie":"Partner E2E Koncept Podujatie";
