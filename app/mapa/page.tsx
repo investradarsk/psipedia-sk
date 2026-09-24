@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
-import { parseMapUiFilters } from "@/lib/map-public-ui";
 import { buildPageMetadata } from "@/lib/seo";
 import { googleMapsRendererConfigured, publicMapLaunchEnabled } from "@/config/runtime-env";
 import styles from "@/components/map/map-public.module.css";
@@ -26,10 +25,6 @@ export function generateMetadata(): Metadata {
   });
 }
 
-type Props = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
 type MapRuntimeBindings = {
   PUBLIC_MAP_ENABLED?: string;
   GOOGLE_MAPS_BROWSER_API_KEY?: string;
@@ -45,20 +40,13 @@ function mapLaunchEnvironment() {
   };
 }
 
-export default async function MapPage({ searchParams }: Props) {
-  const rawSearchParams = await searchParams;
-  const initialFilters = parseMapUiFilters(rawSearchParams);
+export default function MapPage() {
   const mapUiTestMode = process.env.MAP_UI_TEST_RENDERER === "1";
-  const testMissingConfig = mapUiTestMode && rawSearchParams.__mapConfig === "missing";
-  const runtimeLaunchEnv = mapLaunchEnvironment();
-  const launchEnv = testMissingConfig
-    ? { ...runtimeLaunchEnv, GOOGLE_MAPS_BROWSER_API_KEY: "", GOOGLE_MAPS_MAP_ID: "" }
-    : runtimeLaunchEnv;
+  const launchEnv = mapLaunchEnvironment();
   const googleRendererEnabled = googleMapsRendererConfigured(launchEnv);
   const publicMapEnabled = publicMapLaunchEnabled(launchEnv);
   const googleApiKey = googleRendererEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
   const googleMapId = googleRendererEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
-  const testRenderer = mapUiTestMode && rawSearchParams.__mapRenderer !== "real";
 
   return (
     <main id="obsah" className={styles.page}>
@@ -83,10 +71,9 @@ export default async function MapPage({ searchParams }: Props) {
       </section>
 
       <MapExperience
-        initialFilters={initialFilters}
         googleApiKey={googleApiKey}
         googleMapId={googleMapId}
-        testRenderer={testRenderer}
+        testRendererEnvironment={mapUiTestMode}
         rendererEnabled={googleRendererEnabled}
       />
 
