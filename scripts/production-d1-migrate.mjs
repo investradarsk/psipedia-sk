@@ -890,6 +890,13 @@ function assertPartnerH3Integrity(snapshot) {
   invariant(snapshot.duplicateAccountProviders === 0, "Duplicate account/provider identity detected");
 }
 
+export function assertPendingTargetSchemaClean(targetMigration, targetObjects) {
+  invariant(
+    !targetObjects?.partial,
+    `Migration ${String(migrationIndex(targetMigration)).padStart(4, "0")} is not recorded, but target schema objects already exist; possible partial/manual drift`,
+  );
+}
+
 function targetState(history, schema, targetMigration, expectedHistory) {
   const targetIndex = migrationIndex(targetMigration);
   const historyNames = history.map((row) => String(row.name));
@@ -897,8 +904,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   const targetObjects = targetSchemaObjects(schema, targetMigration);
 
   if (!historyState.targetApplied) {
-    invariant(!targetObjects.partial,
-      `Migration ${String(targetIndex).padStart(4, "0")} is not recorded, but target schema objects already exist; possible partial/manual drift`);
+    assertPendingTargetSchemaClean(targetMigration, targetObjects);
     if (targetIndex > 62) assertFoundationSchema(schema);
     if (targetIndex > 63) assertPartnerClaimsSchema(schema);
     if (targetIndex > 64) assertGeoFoundationSchema(schema);
