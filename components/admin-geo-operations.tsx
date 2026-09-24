@@ -3,6 +3,26 @@
 import { useState } from "react";
 import type { GeoDryRunItem } from "@/lib/geo-operations";
 
+type SafeInitializationPreview = {
+  requested: number;
+  scanned: number;
+  safe: number;
+  availableUninitialized: number;
+  alreadyInitializedSkipped: number;
+  reviewBlocked: number;
+  hidden: number;
+  unclassified: number;
+  selected: Array<{
+    targetType: string;
+    targetId: number;
+    label: string;
+    proposedVisibility: string | null;
+    proposedPrecision: string | null;
+    normalizedQuery: string | null;
+    sourceFingerprint: string;
+  }>;
+};
+
 type BackfillChunkReport = {
   configured?: boolean;
   requested?: number;
@@ -30,6 +50,7 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
   const [targetType, setTargetType] = useState("");
   const [directoryCategory, setDirectoryCategory] = useState("");
   const [progress, setProgress] = useState("");
+  const [safeInitialization, setSafeInitialization] = useState<SafeInitializationPreview | null>(null);
 
   async function postAction(payload: Record<string, unknown>) {
     const response = await fetch("/api/admin/geo/operations", {
@@ -58,9 +79,14 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
     if (targetType) params.set("target", targetType);
     if (targetType === "DIRECTORY_PROFILE" && directoryCategory.trim()) params.set("category", directoryCategory.trim());
     const response = await fetch(`/api/admin/geo/operations?${params.toString()}`, { cache: "no-store" });
-    const body = await response.json() as { preview?: { items: GeoDryRunItem[] }; error?: string };
+    const body = await response.json() as {
+      preview?: { items: GeoDryRunItem[] };
+      safeInitialization?: SafeInitializationPreview | null;
+      error?: string;
+    };
     if (!response.ok || !body.preview) throw new Error(body.error || "Dry-run sa nepodarilo obnoviť.");
     setItems(body.preview.items);
+    setSafeInitialization(body.safeInitialization ?? null);
   }
 
   return <div className="admin-event-editor" data-admin-geo-operations>
@@ -188,6 +214,27 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
       {message && <p className="admin-message" role="status">{message}</p>}
       {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
     </section>
+
+    {safeInitialization ? <section className="admin-form-card">
+      <h2>Nasledujúci SAFE batch preview</h2>
+      <p className="admin-help">
+        Scanned {safeInitialization.scanned} · SAFE {safeInitialization.safe} · available uninitialized {safeInitialization.availableUninitialized}
+        {" · "}already initialized skipped {safeInitialization.alreadyInitializedSkipped}
+        {" · "}review blocked {safeInitialization.reviewBlocked} · hidden {safeInitialization.hidden} · unclassified {safeInitialization.unclassified}
+      </p>
+      <div style={{ overflowX: "auto" }}>
+        <table className="admin-table">
+          <thead><tr><th>Target</th><th>Názov</th><th>Visibility</th><th>Precision</th><th>Query</th></tr></thead>
+          <tbody>{safeInitialization.selected.map((item) => <tr key={`${item.targetType}:${item.targetId}`}>
+            <td>{item.targetType} #{item.targetId}</td>
+            <td>{item.label}</td>
+            <td>{item.proposedVisibility ?? "UNCLASSIFIED"}</td>
+            <td>{item.proposedPrecision ?? "—"}</td>
+            <td>{item.normalizedQuery ?? "—"}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </section> : null}
 
     <section className="admin-form-card">
       <h2>Prvých {items.length} dry-run kandidátov</h2>
