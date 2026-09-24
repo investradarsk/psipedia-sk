@@ -204,6 +204,12 @@ function responseClusters(response: MapResponse | null) {
   return response.clusters.filter((cluster) => cluster.count !== 1 || !cluster.singletonItem);
 }
 
+function mapAreaLabel(count: number) {
+  if (count === 1) return "1 oblasť";
+  if (count >= 2 && count <= 4) return `${count} oblasti`;
+  return `${count} oblastí`;
+}
+
 function isInteractiveSheetTarget(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest("button, a, input, select, textarea"));
 }
@@ -280,11 +286,20 @@ function MapResults({
 }) {
   const items = responseItems(response);
   const clusters = responseClusters(response);
+  const hasSelectedItem = Boolean(selectedItemId && items.some((item) => item.id === selectedItemId));
+  const hasGroupedClusters = response?.mode === "clusters" && clusters.length > 0;
   const countLabel = response
     ? response.mode === "items"
       ? mapResultLabel(response.meta.count)
-      : `${response.meta.count} oblastí · ${mapResultLabel(response.meta.matched)}`
+      : `${mapAreaLabel(response.meta.count)} · ${mapResultLabel(response.meta.matched)}`
     : "Výsledky";
+  const resultsGuidance = hasSelectedItem
+    ? "Vybraný výsledok nájdeš nižšie."
+    : hasGroupedClusters
+      ? "Priblíž mapu alebo vyber zhluk, aby sa zobrazili jednotlivé miesta."
+      : items.length > 0
+        ? "Vyber výsledok na mape alebo v zozname."
+        : "Výsledky sa zobrazia podľa aktuálnej oblasti a filtrov.";
 
   const panelRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -436,11 +451,7 @@ function MapResults({
             </button>
           </div>
         </div>
-        <p aria-live="polite">
-          {response?.mode === "clusters"
-            ? "Priblíž mapu alebo vyber zhluk, aby sa zobrazili jednotlivé miesta."
-            : "Vyber kartu alebo marker. Detail sa otvorí až cez samostatné tlačidlo."}
-        </p>
+        <p aria-live="polite" data-testid="map-results-guidance">{resultsGuidance}</p>
       </header>
 
       <div
@@ -473,7 +484,7 @@ function MapResults({
           </div>
         ) : null}
 
-        {!error && response?.mode === "clusters" && clusters.length === 0 ? (
+        {!error && response?.mode === "clusters" && clusters.length === 0 && items.length === 0 ? (
           <div className={styles.stateCard} data-testid="map-empty-state">
             <strong>V tejto oblasti sme nenašli záznamy pre zvolené filtre.</strong>
             <span>Skús zrušiť filtre alebo zmeniť oblasť mapy.</span>
@@ -481,10 +492,10 @@ function MapResults({
           </div>
         ) : null}
 
-        {!error && response?.mode === "clusters" && clusters.length > 0 ? (
+        {!error && response?.mode === "clusters" && hasGroupedClusters && !hasSelectedItem ? (
           <div className={styles.stateCard} data-testid="map-cluster-summary">
             <strong>Mapa je zatiaľ v súhrnnom pohľade.</strong>
-            <span>{mapResultLabel(response.meta.matched)} je zoskupených do {response.meta.count} oblastí. Klikni na zhluk na mape a priblíž sa.</span>
+            <span>{mapResultLabel(response.meta.matched)} je zoskupených do {response.meta.count} oblastí. Vyber zhluk na mape alebo mapu priblíž.</span>
           </div>
         ) : null}
 
@@ -728,9 +739,11 @@ export function MapExperience({
       : rendererStatus === "missing-config"
         ? "Google Maps nie je nakonfigurovaný"
         : "Mapový podklad nie je dostupný";
+  const showProviderDisclosure = !(googleMapsConsent && rendererStatus === "ready");
 
   return (
-    <section className={styles.experience} aria-label="Interaktívna mapa Psipedie">
+    <>
+      <section className={styles.experience} aria-label="Interaktívna mapa Psipedie">
       <div className={styles.toolbar}>
         <div className={styles.primaryRow}>
           <label className={styles.searchField}>
@@ -884,6 +897,22 @@ export function MapExperience({
           Mapa zobrazuje {clusters.length} zoskupených oblastí.
         </span>
       ) : null}
-    </section>
+      </section>
+
+      {showProviderDisclosure ? (
+        <aside
+          className={styles.providerDisclosure}
+          aria-label="Informácie o mapovom podklade"
+          data-testid="map-provider-disclosure"
+        >
+          Interaktívny mapový podklad poskytuje Google Maps a načíta sa až po tvojom výslovnom povolení.
+          Používanie Google Maps podlieha{" "}
+          <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">podmienkam Google Maps</a>
+          {" "}a{" "}
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">zásadám ochrany súkromia Google</a>.
+          Lokalizačné údaje Psipedie a rozhodnutia o ich verejnosti zostávajú v databáze Psipedie.
+        </aside>
+      ) : null}
+    </>
   );
 }
