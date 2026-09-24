@@ -52,7 +52,7 @@ type Props = {
   googleApiKey: string;
   googleMapId: string;
   testRenderer?: boolean;
-  launchEnabled?: boolean;
+  rendererEnabled?: boolean;
 };
 
 type FilterPanelProps = {
@@ -386,7 +386,7 @@ export function MapExperience({
   googleApiKey,
   googleMapId,
   testRenderer = false,
-  launchEnabled = false,
+  rendererEnabled = false,
 }: Props) {
   const [filters, setFilters] = useState(initialFilters);
   const [viewport, setViewport] = useState<MapViewport>({
@@ -555,9 +555,9 @@ export function MapExperience({
     }));
   }, [viewport.zoom]);
 
-  const rendererStatusLabel = !launchEnabled && !testRenderer
-    ? "Interaktívna mapa ešte nie je verejne spustená"
-    : launchEnabled && !googleMapsConsent && !testRenderer
+  const rendererStatusLabel = !rendererEnabled && !testRenderer
+    ? "Google Maps nie je nakonfigurovaný"
+    : rendererEnabled && !googleMapsConsent && !testRenderer
       ? "Google Maps čaká na tvoje povolenie"
     : rendererStatus === "ready"
     ? "Mapa pripravená"
@@ -638,7 +638,7 @@ export function MapExperience({
             apiKey={googleApiKey}
             mapId={googleMapId}
             testMode={testRenderer}
-            launchEnabled={launchEnabled}
+            rendererEnabled={rendererEnabled}
             consentGranted={googleMapsConsent}
             items={items}
             clusters={clusters}
@@ -650,7 +650,7 @@ export function MapExperience({
             onClusterClick={selectCluster}
             onStatusChange={setRendererStatus}
           />
-          {launchEnabled && !googleMapsConsent && !testRenderer ? (
+          {rendererEnabled && !googleMapsConsent && !testRenderer ? (
             <div className={styles.mapConsentGate} data-testid="map-consent-gate">
               <strong>Načítať interaktívnu Google mapu?</strong>
               <span>Textové výsledky fungujú aj bez nej. Google mapový podklad sa načíta až po tvojom výslovnom povolení.</span>

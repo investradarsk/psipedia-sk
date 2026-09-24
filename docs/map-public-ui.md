@@ -281,7 +281,7 @@ Before the visitor explicitly allows Google Maps:
 
 The preference is stored locally as `psipedia-google-maps-consent` and can be revoked on `/cookies`. MAP-1E also adds Google Maps Terms/Privacy disclosures to the map, cookie, privacy and terms surfaces.
 
-The separate `PUBLIC_MAP_ENABLED` runtime flag remains the operational launch gate, so code deployment does not itself enable Google or public navigation.
+The separate `PUBLIC_MAP_ENABLED` runtime flag remains the operational public-navigation/indexing launch gate. A restricted browser key plus Map ID can be configured earlier so the direct `/mapa` route can run a controlled real Google smoke after explicit consent without exposing the map in public navigation.
 
 ## Test strategy
 

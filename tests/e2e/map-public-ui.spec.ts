@@ -299,7 +299,7 @@ test.describe("MAP-1D desktop", () => {
     await page.goto("/mapa?__mapRenderer=real&__mapConfig=missing");
 
     await expect(page.getByRole("heading", { level: 1, name: "Mapa Psipedie" })).toBeVisible();
-    await expect(page.getByTestId("map-renderer-status")).toContainText("Interaktívna mapa ešte nie je verejne spustená");
+    await expect(page.getByTestId("map-renderer-status")).toContainText("Google Maps nie je nakonfigurovaný");
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
     await page.screenshot({ path: ".e2e-artifacts/map-1d/desktop-config-missing.png", fullPage: true });
