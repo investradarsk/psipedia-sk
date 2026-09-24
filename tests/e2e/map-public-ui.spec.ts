@@ -210,6 +210,7 @@ async function swipePointer(locator: Locator, deltaY: number, startOffsetY = 24)
   await page.mouse.down();
   await page.mouse.move(startX, startY + deltaY, { steps: 8 });
   await page.mouse.up();
+  await page.waitForTimeout(260);
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
