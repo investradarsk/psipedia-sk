@@ -71,7 +71,10 @@ function responseMeta(url: URL, count: number, options: { matched?: number; trun
     },
     zoom: Number(url.searchParams.get("zoom") ?? 7),
     cacheTtlSeconds: 30,
-    attribution: [{ label: "Geoapify", url: "https://www.geoapify.com/" }],
+    attribution: [
+      { label: "Powered by Geoapify", url: "https://www.geoapify.com/" },
+      { label: "© OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
+    ],
   };
 }
 
@@ -273,7 +276,8 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByTestId("map-results-guidance")).toHaveText("Vyber výsledok na mape alebo v zozname.");
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
     await expect(page.getByTestId("map-provider-disclosure")).toHaveCount(0);
-    await expect(page.getByLabel("Zdroj lokalizačných údajov")).toContainText("Geoapify");
+    await expect(page.getByLabel("Zdroj lokalizačných údajov")).toContainText("Powered by Geoapify");
+    await expect(page.getByLabel("Zdroj lokalizačných údajov")).toContainText("© OpenStreetMap contributors");
     await expect(page.getByTestId("map-card-organization:2:location:20")).toContainText("Približná poloha");
     await expect(page.getByTestId("map-card-organization:2:location:20")).not.toContainText("Súkromná");
     await expect(page.getByRole("link", { name: "Zobraziť profil" }).first()).toHaveAttribute(
