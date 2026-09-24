@@ -1,0 +1,94 @@
+name: MAP Data Row-Level Audit Export
+
+on:
+  pull_request:
+    paths:
+      - scripts/map-data-row-level-export.mjs
+      - tests/map-data-row-level-export.test.mjs
+      - .github/workflows/map-data-row-level-export.yml
+
+concurrency:
+  group: map-data-row-level-export-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  static-safety:
+    name: Static read-only safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/map-data-row-level-export.test.mjs
+      - run: node --check scripts/map-data-row-level-export.mjs
+
+  production-readonly-export:
+    name: Production D1 read-only export
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor == 'investradarsk'
+    needs: static-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Log immutable revision evidence
+        run: |
+          echo "pr=${{ github.event.pull_request.number }}"
+          echo "head_sha=${{ github.event.pull_request.head.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+
+      - name: Require protected read credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Load canonical Cloudflare account id
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(x.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+
+      - name: Re-run read-only guard before production access
+        run: node --test tests/map-data-row-level-export.test.mjs
+
+      - name: Export canonical production rows and audit counts
+        run: node scripts/map-data-row-level-export.mjs
+
+      - name: Upload row-level audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psipedia-map-data-row-level-audit-${{ github.run_id }}
+          path: |
+            .map-data-export/directory_row_level_export.csv
+            .map-data-export/events_row_level_export.csv
+            .map-data-export/organizations_row_level_export.csv
+            .map-data-export/organization_locations_row_level_export.csv
+            .map-data-export/directory_online_semantics_audit.csv
+            .map-data-export/map_source_filter_risk_report.csv
+            .map-data-export/map_data_export_manifest.json
+            .map-data-export/map_data_export_summary.md
+          if-no-files-found: error
+          retention-days: 30
