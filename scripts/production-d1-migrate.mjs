@@ -1041,6 +1041,7 @@ async function apply(targetMigration) {
   const internal = await readJson(".production-d1/preflight-internal.json");
   invariant(internal.targetMigration === targetMigration, "Preflight target does not match requested target");
   invariant(internal.databaseId === prepared.resources.d1.database_id, "Preflight database does not match canonical target");
+  invariant(internal.targetMigrationSha256 === prepared.targetMigrationSha256, "Target migration content changed after preflight");
   if (internal.targetApplied) {
     console.log(`[production-d1] ${targetMigration} is already applied; apply is a no-op`);
     return;
@@ -1065,6 +1066,7 @@ async function verify(targetMigration) {
   assertCredentialContract(prepared.resources);
   const internal = await readJson(".production-d1/preflight-internal.json");
   invariant(internal.targetMigration === targetMigration, "Preflight target does not match verification target");
+  invariant(internal.targetMigrationSha256 === prepared.targetMigrationSha256, "Target migration content changed after preflight");
   const databaseName = prepared.resources.d1.database_name;
   const history = migrationHistory(databaseName, prepared.configPath);
   const schema = schemaState(databaseName, prepared.configPath);
