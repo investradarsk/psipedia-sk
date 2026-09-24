@@ -181,6 +181,15 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.goto(verificationUrl);
   await expect(page).toHaveURL(/\/partner\/onboarding(?:\?|$)/);
   await expect(page.getByRole("heading",{name:"Dokončite Partner účet"})).toBeVisible();
+
+  const registerBridgeResponse = await page.goto(
+    "/partner/google-navrat?to=" + encodeURIComponent("/partner/onboarding?returnTo=" + encodeURIComponent("/partner")),
+    { referer: "https://accounts.google.com/", waitUntil: "domcontentloaded" },
+  );
+  expect(registerBridgeResponse?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/partner\/onboarding\?returnTo=%2Fpartner$/);
+  await expect(page.getByRole("heading",{name:"Dokončite Partner účet"})).toBeVisible();
+
   await page.getByLabel("Meno a priezvisko *").fill(contactName);
   await page.getByLabel("Telefón").fill(contactPhone);
   await page.getByLabel("Vaša úloha / vzťah k profilu").fill(relationship);
