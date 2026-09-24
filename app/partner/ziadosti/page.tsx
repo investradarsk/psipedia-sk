@@ -4,10 +4,11 @@ import { PartnerProfileChangeWithdrawButton } from "@/components/partner-profile
 import { PartnerNewProfileWithdrawButton } from "@/components/partner-new-profile-actions";
 import { PartnerEventWithdrawButton } from "@/components/partner-event-actions";
 import { PartnerShell } from "@/components/partner-shell";
+import { getDirectoryCategory } from "@/lib/directory";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { listPartnerClaims, listPartnerVerificationResources } from "@/lib/partner-claims";
 import { getPartnerEditableFields, listPartnerProfileChanges } from "@/lib/partner-profile-changes";
-import { partnerEventOperationLabel } from "@/lib/partner-ui-labels";
+import { partnerEventOperationLabel, partnerOrganizationTypeLabel } from "@/lib/partner-ui-labels";
 import { listPartnerNewProfiles } from "@/lib/partner-new-profile";
 import { listPartnerEventSubmissions } from "@/lib/partner-events";
 
@@ -28,6 +29,12 @@ const verificationLabels = {
 
 function profileFieldLabel(resourceType: Parameters<typeof getPartnerEditableFields>[0], key: string) {
   return getPartnerEditableFields(resourceType).find((field) => field.key === key)?.label ?? key;
+}
+
+function profileCategoryLabel(resourceType: "DIRECTORY_PROFILE" | "HELP_ORGANIZATION", value: string) {
+  return resourceType === "DIRECTORY_PROFILE"
+    ? getDirectoryCategory(value)?.label ?? value
+    : partnerOrganizationTypeLabel(value);
 }
 
 export default async function Page() {
@@ -80,7 +87,7 @@ export default async function Page() {
             </div>
             <dl>
               <div><dt>Odoslané</dt><dd>{new Date(submission.createdAt).toLocaleString("sk-SK")}</dd></div>
-              <div><dt>Typ / kategória</dt><dd>{submission.categoryOrType}</dd></div>
+              <div><dt>Typ / kategória</dt><dd>{profileCategoryLabel(submission.resourceType, submission.categoryOrType)}</dd></div>
             </dl>
             {submission.duplicateWarning ? <p><strong>Kontrola duplicít:</strong> {submission.duplicateWarning}</p> : null}
             {submission.resolutionType === "CREATED_NEW" ? <p>Profil bol vytvorený ako koncept a čaká na publikovanie.</p> : null}
