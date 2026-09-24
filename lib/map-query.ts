@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { bratislavaDateKey, eventDateTimeIso } from "./events";
 import { isGeoSchemaAvailable } from "./geo-store";
-import { normalizeDirectorySearchText } from "./directory-store";
+import { normalizeDirectorySearchText, sqlNormalizedExpression } from "./directory-store";
 import {
   MAP_CACHE_TTL_SECONDS,
   MAP_INTERNAL_ROW_LIMIT,
@@ -159,13 +159,30 @@ const GEO_PUBLIC_WHERE = `
   AND g.source_fingerprint = g.resolved_source_fingerprint
 `;
 
-// Search filtering is intentionally applied after loading only public/current geo candidates.
- // The dataset is bounded per entity type by MAP_INTERNAL_ROW_LIMIT (5001), and the
- // application-layer normalized text excludes private address fields. Keeping search
- // out of the SQL avoids D1/SQLite parser failures from deeply nested diacritic
- // normalization expressions while preserving privacy-safe accent-insensitive matching.
+const D1_LIKE_PATTERN_MAX_BYTES = 50;
+const D1_LIKE_WILDCARD_BYTES = 2;
+
+function parameterizedSearch(query: MapQueryInput, expression: string) {
+  if (!query.search) return { sql: "", bindings: [] as unknown[] };
+  const normalized = normalizeDirectorySearchText(query.search);
+  // normalizeDirectorySearchText() is ASCII-only. D1 caps LIKE/GLOB patterns at
+  // 50 bytes, so reserve two bytes for the surrounding % wildcards. The SQL
+  // predicate remains only a safe prefilter; candidateMatchesQuery() below
+  // validates the complete normalized search string in application code.
+  const sqlNeedle = normalized.slice(0, D1_LIKE_PATTERN_MAX_BYTES - D1_LIKE_WILDCARD_BYTES);
+  return {
+    sql: ` AND ${sqlNormalizedExpression(expression)} LIKE ?`,
+    bindings: [`%${sqlNeedle}%`] as unknown[],
+  };
+}
+
 function serviceStatement(query: MapQueryInput, db: MapD1Database) {
   const bbox = bboxSql(query);
+  const search = parameterizedSearch(query, `
+    coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
+    coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
+    coalesce(d.region, '')
+  `);
   return db.prepare(`
     SELECT
       g.id AS geo_point_id, 'service' AS entity_type, d.id AS entity_id,
@@ -188,13 +205,18 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
       AND d.archived_at IS NULL
       AND d.online = 0
       AND ${bbox.sql}
+      ${search.sql}
     ORDER BY g.id ASC
     LIMIT ?
-  `).bind(...bbox.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `).bind(...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 function organizationStatement(query: MapQueryInput, db: MapD1Database) {
   const bbox = bboxSql(query);
+  const search = parameterizedSearch(query, `
+    coalesce(o.name, '') || ' ' || coalesce(o.short_description, '') || ' ' || coalesce(o.description, '') || ' ' ||
+    coalesce(l.label, '') || ' ' || coalesce(l.city, '') || ' ' || coalesce(l.district, '') || ' ' || coalesce(l.region, '')
+  `);
   return db.prepare(`
     SELECT
       g.id AS geo_point_id, 'organization' AS entity_type, o.id AS entity_id,
@@ -217,13 +239,18 @@ function organizationStatement(query: MapQueryInput, db: MapD1Database) {
       AND o.status = 'PUBLISHED'
       AND o.archived_at IS NULL
       AND ${bbox.sql}
+      ${search.sql}
     ORDER BY g.id ASC
     LIMIT ?
-  `).bind(...bbox.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `).bind(...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) {
   const bbox = bboxSql(query);
+  const search = parameterizedSearch(query, `
+    coalesce(e.title, '') || ' ' || coalesce(e.excerpt, '') || ' ' || coalesce(e.organizer, '') || ' ' ||
+    coalesce(e.venue, '') || ' ' || coalesce(e.event_type, '') || ' ' || coalesce(e.city, '') || ' ' || coalesce(e.region, '')
+  `);
   const timing = query.eventTiming === "current"
     ? "e.start_date <= ? AND COALESCE(e.end_date, e.start_date) >= ?"
     : query.eventTiming === "upcoming"
@@ -255,9 +282,10 @@ function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) 
       AND e.region <> 'Online'
       AND ${timing}
       AND ${bbox.sql}
+      ${search.sql}
     ORDER BY e.start_date ASC, e.start_time ASC, g.id ASC
     LIMIT ?
-  `).bind(...timingBindings, ...bbox.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `).bind(...timingBindings, ...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 export function isPublicMapCandidate(candidate: MapCandidate, today = bratislavaDateKey()) {
