@@ -398,7 +398,10 @@ function MapResults({
     };
   };
 
-  useEffect(() => () => clearPointerListeners(), []);
+  useEffect(() => () => {
+    pointerCleanupRef.current?.();
+    pointerCleanupRef.current = null;
+  }, []);
 
   const sheetStyle = { "--map-sheet-drag-y": `${dragOffset}px` } as CSSProperties;
 
