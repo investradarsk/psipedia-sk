@@ -954,7 +954,9 @@ test("filters a directory category on the server and keeps verification data pri
     assert.match(detailHtml, /mailto:klub@example.com/);
     assert.match(detailHtml, /Navigovať/);
     assert.match(detailHtml, /href="\/adresar\/kynologicke-kluby\?region=Bratislavsk%C3%BD%20kraj"/);
-    assert.match(detailHtml, /Ste majiteľom tohto profilu/);
+    assert.match(detailHtml, /Spravujete tento profil\?/);
+    assert.match(detailHtml, /Navrhnúť opravu údajov/);
+    assert.doesNotMatch(detailHtml, /Ste majiteľom tohto profilu/);
   } finally {
     for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
     Object.assign(runtimeEnv, previousRuntimeEnv);
