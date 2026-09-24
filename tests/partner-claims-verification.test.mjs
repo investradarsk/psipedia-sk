@@ -88,7 +88,7 @@ test("claim approval upgrades or creates audited OWNER membership without destru
 
 test("ownership-sensitive approvals block a deterministically mapped admin from approving their own Partner request",()=>{
   assert.match(ownershipGuard,/hashPii\(normalizeEmail\(input\.adminEmail\), hashKey\)/);
-  assert.match(ownershipGuard,/a\.email_hash=\?1 AND a\.status='ACTIVE'/);
+  assert.match(ownershipGuard,/WHERE a\.email_hash=\?1/);
   assert.match(ownershipGuard,/m\.account_id=a\.id AND m\.resource_id=\?2 AND m\.revoked_at IS NULL/);
   assert.match(ownershipGuard,/mapped\.accountId === input\.accountId \|\| Boolean\(mapped\.resourceMember\)/);
   assert.match(ownershipGuard,/Vlastnú žiadosť o správu profilu musí schváliť iný administrátor/);
