@@ -304,8 +304,12 @@ export async function runGeoBackfillChunk(input: {
     };
   }
 
+  // Provider work remains bounded by `limit`, but candidate discovery must
+  // not shrink with the write limit. The admin UI intentionally calls this
+  // endpoint with limit=1 for visible progress; scanning only the first 50
+  // canonical rows can otherwise strand later initialized PENDING candidates.
   const preview = await previewGeoCandidates({
-    limit: Math.min(200, Math.max(limit * 10, 50)),
+    limit: 500,
     targetType: input.targetType,
     directoryCategory: input.directoryCategory,
     database: input.database,
@@ -325,6 +329,7 @@ export async function runGeoBackfillChunk(input: {
   const report = {
     configured: true,
     requested: limit,
+    scanned: preview.items.length,
     eligible: candidates.length,
     attempted: 0,
     resolved: 0,
