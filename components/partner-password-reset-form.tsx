@@ -12,8 +12,10 @@ export function PartnerPasswordResetForm(){
 
   useEffect(()=>{
     const params=new URLSearchParams(window.location.hash.replace(/^#/,""));
-    setToken(params.get("token")||"");
+    const resetToken=params.get("token")||"";
     window.history.replaceState(null,"","/partner/obnova-hesla");
+    const timer=window.setTimeout(()=>setToken(resetToken),0);
+    return ()=>window.clearTimeout(timer);
   },[]);
 
   async function submit(event:FormEvent<HTMLFormElement>){
