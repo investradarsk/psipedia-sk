@@ -227,6 +227,11 @@ function postAuthTarget(onboardingComplete:boolean,returnTo:string|null){
   }
   return returnTo??"/partner";
 }
+
+function googleReturnBridge(target:string){
+  const safeTarget=normalizePartnerReturnTo(target)??"/partner";
+  return "/partner/google-navrat?to="+encodeURIComponent(safeTarget);
+}
 async function pendingLinkCookie(input:PendingLink,key:string){
   const encrypted=await encryptPii(JSON.stringify(input),key);
   return secureCookie(GOOGLE_PENDING_LINK_COOKIE,encrypted,FLOW_TTL_SECONDS,"Strict");
@@ -255,7 +260,7 @@ export async function handlePartnerGoogleCallback(input:{
     const session=await createPartnerSession(linked.accountId,database);
     cookies.push(session.cookie);
     const onboardingComplete=await isPartnerOnboardingComplete(linked.accountId,database);
-    return {location:postAuthTarget(onboardingComplete,flow.returnTo),cookies};
+    return {location:googleReturnBridge(postAuthTarget(onboardingComplete,flow.returnTo)),cookies};
   }
 
   if(flow.intent==="LINK"){
@@ -268,7 +273,7 @@ export async function handlePartnerGoogleCallback(input:{
       returnTo:flow.returnTo??"/partner/nastavenia",expiresAt:now.getTime()+FLOW_TTL_SECONDS*1000,
     };
     cookies.push(await pendingLinkCookie(pending,config.encryptionKey));
-    return {location:"/partner/prepojit-google",cookies};
+    return {location:googleReturnBridge("/partner/prepojit-google"),cookies};
   }
 
   if(linked){
@@ -277,7 +282,7 @@ export async function handlePartnerGoogleCallback(input:{
     const session=await createPartnerSession(linked.accountId,database);
     cookies.push(session.cookie);
     const onboardingComplete=await isPartnerOnboardingComplete(linked.accountId,database);
-    return {location:postAuthTarget(onboardingComplete,flow.returnTo),cookies};
+    return {location:googleReturnBridge(postAuthTarget(onboardingComplete,flow.returnTo)),cookies};
   }
 
   const emailHash=await hashPii(google.email,config.hashKey);
@@ -317,7 +322,7 @@ export async function handlePartnerGoogleCallback(input:{
     });
     const session=await createPartnerSession(created.accountId,database);
     cookies.push(session.cookie);
-    return {location:postAuthTarget(false,flow.returnTo),cookies};
+    return {location:googleReturnBridge(postAuthTarget(false,flow.returnTo)),cookies};
   }catch(error){
     const racedIdentity=await getPartnerGoogleIdentityBySubject(google.providerSubject,database);
     if(racedIdentity){
@@ -326,7 +331,7 @@ export async function handlePartnerGoogleCallback(input:{
         const session=await createPartnerSession(racedIdentity.accountId,database);
         cookies.push(session.cookie);
         return {
-          location:postAuthTarget(await isPartnerOnboardingComplete(racedIdentity.accountId,database),flow.returnTo),
+          location:googleReturnBridge(postAuthTarget(await isPartnerOnboardingComplete(racedIdentity.accountId,database),flow.returnTo)),
           cookies,
         };
       }
