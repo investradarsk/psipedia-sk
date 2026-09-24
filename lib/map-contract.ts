@@ -51,6 +51,7 @@ export type MapCluster = {
     organizations: number;
     events: number;
   };
+  singletonItem?: MapItem;
 };
 
 export type MapResponseMeta = {
