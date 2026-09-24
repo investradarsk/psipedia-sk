@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { partnerOrganizationTypeLabel, partnerOrganizationTypeOptions } from "@/lib/partner-ui-labels";
 
 type ResourceType = "DIRECTORY_PROFILE" | "HELP_ORGANIZATION";
 type Candidate = {
@@ -16,15 +17,6 @@ type Candidate = {
   confidence: "HIGH" | "MEDIUM";
   reasons: string[];
 };
-
-const organizationTypes = [
-  ["SHELTER", "Útulok"],
-  ["CIVIC_ASSOCIATION", "Občianske združenie"],
-  ["RESCUE_ORGANIZATION", "Záchranná organizácia"],
-  ["MUNICIPAL_ORGANIZATION", "Mestská / obecná organizácia"],
-  ["NONPROFIT", "Nezisková organizácia"],
-  ["OTHER", "Iný typ organizácie"],
-] as const;
 
 type DirectoryCategory = { slug: string; label: string };
 
@@ -162,7 +154,7 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
       ) : (
         <div className="partner-profile-edit-grid">
           <label className="partner-field"><span>Názov</span><input required value={organization.name} onChange={(e)=>setOrganization({...organization,name:e.target.value})}/></label>
-          <label className="partner-field"><span>Typ organizácie</span><select required value={organization.type} onChange={(e)=>setOrganization({...organization,type:e.target.value})}>{organizationTypes.map(([v,l])=><option value={v} key={v}>{l}</option>)}</select></label>
+          <label className="partner-field"><span>Typ organizácie</span><select required value={organization.type} onChange={(e)=>setOrganization({...organization,type:e.target.value})}>{partnerOrganizationTypeOptions.map(([v,l])=><option value={v} key={v}>{l}</option>)}</select></label>
           <label className="partner-field"><span>Právny názov</span><input value={organization.legalName} onChange={(e)=>setOrganization({...organization,legalName:e.target.value})}/></label>
           <label className="partner-field"><span>Registračné číslo</span><input value={organization.registrationNumber} onChange={(e)=>setOrganization({...organization,registrationNumber:e.target.value})}/></label>
           <label className="partner-field partner-field--wide"><span>Krátky popis</span><textarea rows={3} value={organization.shortDescription} onChange={(e)=>setOrganization({...organization,shortDescription:e.target.value})}/></label>
@@ -186,7 +178,7 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
           <div className="partner-duplicate-list">
             {candidates.map((candidate)=>(
               <article key={candidate.resourceType+candidate.canonicalId}>
-                <div><strong>{candidate.name}</strong><span>{candidate.city || candidate.categoryOrType}</span></div>
+                <div><strong>{candidate.name}</strong><span>{candidate.city || (candidate.resourceType === "HELP_ORGANIZATION" ? partnerOrganizationTypeLabel(candidate.categoryOrType) : categories.find((category) => category.slug === candidate.categoryOrType)?.label ?? candidate.categoryOrType)}</span></div>
                 <p>{candidate.reasons.join(" · ")}</p>
                 <div className="partner-request-links">
                   {candidate.publicHref ? <Link href={candidate.publicHref} target="_blank">Pozrieť profil ↗</Link> : null}
