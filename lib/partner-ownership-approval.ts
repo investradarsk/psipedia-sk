@@ -35,7 +35,7 @@ export async function assertIndependentOwnershipApprover(input: {
         )
       END resourceMember
     FROM partner_accounts a
-    WHERE a.email_hash=?1 AND a.status='ACTIVE'
+    WHERE a.email_hash=?1
     LIMIT 1
   `).bind(emailHash, input.resourceId ?? null).first<{ accountId: string; resourceMember: number }>();
 
