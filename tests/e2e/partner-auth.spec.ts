@@ -577,7 +577,7 @@ test("ownership-sensitive self-approval is blocked by the backend for direct adm
   });
   expect(claimResponse.status()).toBe(403);
   const claimJson = await claimResponse.json() as { error?: string };
-  expect(claimJson.error).toContain("Vlastnú žiadosť o správu profilu musí schváliť iný administrátor.");
+  expect(claimJson.error).toContain("Vlastnú žiadosť s pridelením oprávnenia na správu musí schváliť iný administrátor.");
 
   await page.goto("/admin/partners/claims/partner-e2e-self-claim");
   await expect(page.getByText(/PENDING · DIRECTORY_PROFILE/)).toBeVisible();
@@ -589,7 +589,7 @@ test("ownership-sensitive self-approval is blocked by the backend for direct adm
   });
   expect(verificationResponse.status()).toBe(403);
   const verificationJson = await verificationResponse.json() as { error?: string };
-  expect(verificationJson.error).toContain("Vlastnú žiadosť o správu profilu musí schváliť iný administrátor.");
+  expect(verificationJson.error).toContain("Vlastnú žiadosť s pridelením oprávnenia na správu musí schváliť iný administrátor.");
 
   await page.goto("/admin/partners/verifications/partner-e2e-self-verification");
   await expect(page.getByText(/PENDING_VERIFICATION · membership OWNER/)).toBeVisible();
