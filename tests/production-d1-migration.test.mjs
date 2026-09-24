@@ -55,7 +55,7 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("production D1 supported targets are explicit through partner commercial activation", () => {
+test("production D1 supported targets are explicit through Partner H1 onboarding hardening", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
@@ -64,14 +64,15 @@ test("production D1 supported targets are explicit through partner commercial ac
     "0066_partner_new_profile_submissions.sql",
     "0067_partner_events.sql",
     "0068_partner_commercial_activation.sql",
+    "0069_partner_auth_onboarding_hardening.sql",
   ]);
 });
 
-test("partner rollout scopes 0065 through 0068 independently and excludes every future migration", () => {
+test("partner rollout scopes 0065 through 0069 independently and excludes every future migration", () => {
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0069_future_migration.sql",
+    "0070_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -79,6 +80,18 @@ test("partner rollout scopes 0065 through 0068 independently and excludes every 
     assert.equal(result.selected.some((name) => Number(name.slice(0, 4)) > result.targetIndex), false);
     assert.equal(result.excludedFuture.every((name) => Number(name.slice(0, 4)) > result.targetIndex), true);
   }
+});
+
+test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes 0070", () => {
+  const files = [
+    ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
+    ...SUPPORTED_PRODUCTION_TARGETS,
+    "0070_future_migration.sql",
+  ];
+  const result = selectMigrationsThrough(files, "0069_partner_auth_onboarding_hardening.sql");
+  assert.equal(result.targetIndex, 69);
+  assert.equal(result.selected.at(-1), "0069_partner_auth_onboarding_hardening.sql");
+  assert.deepEqual(result.excludedFuture, ["0070_future_migration.sql"]);
 });
 
 test("scoped Wrangler config keeps exact canonical production D1 identity", () => {
@@ -165,6 +178,11 @@ test("partner rollout preserves rebuilt rows, append-only audit triggers and ver
   assert.match(script, /partner_commercial_agreements/);
   assert.match(script, /partner_entitlements/);
   assert.match(script, /partner_commercial_promotion_provenance_unique/);
+  assert.match(script, /partner_account_profiles/);
+  assert.match(script, /partner_account_profiles_updated_idx/);
+  assert.match(script, /CONTACT_PROFILE_COMPLETED/);
+  assert.match(script, /CONTACT_PROFILE_UPDATED/);
+  assert.match(script, /0069 is schema\/onboarding foundation only/);
   assert.match(script, /assertExactMigrationHistory/);
 });
 
