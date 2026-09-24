@@ -62,7 +62,7 @@ test("password KDF is versioned PBKDF2-HMAC-SHA256 with random salt and Unicode/
   assert.equal(await password.verifyPartnerPassword(phrase + "x", encoded), false);
   const second = await password.hashPartnerPassword(phrase);
   assert.notEqual(encoded, second, "per-password random salt must change the stored hash");
-  assert.throws(() => password.validatePartnerPassword(" short pass "), password.PartnerPasswordError);
+  assert.throws(() => password.validatePartnerPassword("short pass"), password.PartnerPasswordError);
   assert.equal(password.validatePartnerPassword("  leading spaces stay  "), "  leading spaces stay  ");
 });
 
