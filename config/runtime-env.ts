@@ -68,14 +68,21 @@ export function configFlagEnabled(value: unknown) {
   return typeof value === "string" && (value === "1" || value.toLowerCase() === "true");
 }
 
+export function googleMapsRendererConfigured(env: {
+  GOOGLE_MAPS_BROWSER_API_KEY?: unknown;
+  GOOGLE_MAPS_MAP_ID?: unknown;
+}) {
+  return present(env.GOOGLE_MAPS_BROWSER_API_KEY)
+    && present(env.GOOGLE_MAPS_MAP_ID);
+}
+
 export function publicMapLaunchEnabled(env: {
   PUBLIC_MAP_ENABLED?: unknown;
   GOOGLE_MAPS_BROWSER_API_KEY?: unknown;
   GOOGLE_MAPS_MAP_ID?: unknown;
 }) {
   return configFlagEnabled(env.PUBLIC_MAP_ENABLED)
-    && present(env.GOOGLE_MAPS_BROWSER_API_KEY)
-    && present(env.GOOGLE_MAPS_MAP_ID);
+    && googleMapsRendererConfigured(env);
 }
 
 export function validateRuntimeEnvironment(
