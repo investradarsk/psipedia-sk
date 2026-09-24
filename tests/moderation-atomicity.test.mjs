@@ -211,10 +211,9 @@ test("canonical revision guard allows a fresh decision and its guarded side effe
 
   assert.equal(readStatus(sqlite, "canonical-fresh"), "APPROVED");
   assert.equal(readEvents(sqlite).length, 1);
-  assert.deepEqual(
-    sqlite.prepare("SELECT value,updated_at AS updatedAt FROM canonical_records WHERE id='profile-1'").get(),
-    { value: "new", updatedAt: input.now },
-  );
+  const freshCanonical = sqlite.prepare("SELECT value,updated_at AS updatedAt FROM canonical_records WHERE id='profile-1'").get();
+  assert.equal(freshCanonical.value, "new");
+  assert.equal(freshCanonical.updatedAt, input.now);
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM decision_side_effects").get().count, 1);
   sqlite.close();
 });
@@ -249,10 +248,9 @@ test("canonical revision guard rejects a stale decision without canonical mutati
 
   assert.equal(readStatus(sqlite, "canonical-stale"), "PENDING_REVIEW");
   assert.equal(readEvents(sqlite).length, 0);
-  assert.deepEqual(
-    sqlite.prepare("SELECT value,updated_at AS updatedAt FROM canonical_records WHERE id='profile-2'").get(),
-    { value: "newer", updatedAt: "2026-09-15T17:30:00.000Z" },
-  );
+  const staleCanonical = sqlite.prepare("SELECT value,updated_at AS updatedAt FROM canonical_records WHERE id='profile-2'").get();
+  assert.equal(staleCanonical.value, "newer");
+  assert.equal(staleCanonical.updatedAt, "2026-09-15T17:30:00.000Z");
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM decision_side_effects").get().count, 0);
   sqlite.close();
 });
