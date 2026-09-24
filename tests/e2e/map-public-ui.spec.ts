@@ -199,14 +199,20 @@ async function installMapApiMock(page: Page) {
 
 async function swipePointer(locator: Locator, deltaY: number, startOffsetY = 24) {
   await locator.scrollIntoViewIfNeeded();
+  const initialBox = await locator.boundingBox();
+  expect(initialBox).not.toBeNull();
+
+  const offsetX = Math.min(initialBox!.width / 2, 120);
+  const offsetY = Math.min(startOffsetY, Math.max(8, initialBox!.height / 2));
+  await locator.hover({ position: { x: offsetX, y: offsetY } });
+
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
 
   const page = locator.page();
-  const startX = box!.x + Math.min(box!.width / 2, 120);
-  const startY = box!.y + Math.min(startOffsetY, Math.max(8, box!.height / 2));
+  const startX = box!.x + offsetX;
+  const startY = box!.y + offsetY;
 
-  await page.mouse.move(startX, startY);
   await page.mouse.down();
   await page.mouse.move(startX, startY + deltaY, { steps: 8 });
   await page.mouse.up();
