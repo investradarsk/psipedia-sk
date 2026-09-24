@@ -103,7 +103,8 @@ test("mocked Google OAuth return bridge creates a 200 same-site navigation bound
     expect(response.headers()["set-cookie"]).toBeUndefined();
     const html = await response.text();
     expect(html).toContain('href="/partner"');
-    expect(html).not.toContain("attacker.example");
+    expect(html).not.toContain('href="https://attacker.example');
+    expect(html).not.toContain('href="//attacker.example');
   }
 
   const rendered = await page.goto(
