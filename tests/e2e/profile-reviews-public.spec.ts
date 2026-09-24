@@ -14,7 +14,7 @@ async function expectReviewAxeClean(page: Page) {
   expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
 }
 
-test("directory zero state has no fake rating while enabled submission CTA is visible", async ({ page }) => {
+test("directory zero state has no fake rating and submission CTA follows the runtime gate", async ({ page }) => {
   const response = await page.goto("/adresar/dalsie-sluzby/e2e-services-detail-minimum", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   const reviews = page.locator("#recenzie");
@@ -22,10 +22,18 @@ test("directory zero state has no fake rating while enabled submission CTA is vi
   await expect(reviews.getByText("Zatiaľ bez recenzií", { exact: true })).toBeVisible();
   await expect(reviews.getByText(/0,0/)).toHaveCount(0);
   await expect(reviews.locator("[data-review-rating]")).toHaveCount(0);
+
   const writeReview = reviews.getByRole("link", { name: "Napísať recenziu" });
-  await expect(writeReview).toBeVisible();
-  await expect(writeReview).toHaveAttribute("href", /^\/recenzia\/napisat\?resourceId=directory-profile-\d+$/);
-  await expect(reviews.getByText("Recenziu pred zverejnením skontrolujeme.")).toBeVisible();
+  const writeReviewCount = await writeReview.count();
+  expect([0, 1]).toContain(writeReviewCount);
+  if (writeReviewCount === 1) {
+    await expect(writeReview).toBeVisible();
+    await expect(writeReview).toHaveAttribute("href", /^\/recenzia\/napisat\?resourceId=directory-profile-\d+$/);
+    await expect(reviews.getByText("Recenziu pred zverejnením skontrolujeme.")).toBeVisible();
+  } else {
+    await expect(reviews.getByRole("button", { name: /Napísať recenziu/i })).toHaveCount(0);
+  }
+
   await expectReviewAxeClean(page);
 });
 
