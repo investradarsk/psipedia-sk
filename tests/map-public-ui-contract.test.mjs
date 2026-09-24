@@ -53,12 +53,24 @@ test("client lifecycle is debounce + AbortController based and canonical href st
   assert.doesNotMatch(experience, /\/adresar\/\$\{|\/podujatia\/\$\{|\/organizacie\/\$\{/);
 });
 
-test("mobile bottom sheet and filter dialog have explicit accessibility and overflow boundaries", () => {
+test("mobile bottom sheet and filter dialog have explicit accessibility, gestures and overflow boundaries", () => {
   assert.match(experience, /role="dialog"/);
   assert.match(experience, /aria-modal="true"/);
   assert.match(experience, /event\.key === "Escape"/);
+  assert.match(experience, /onPointerDown/);
+  assert.match(experience, /setPointerCapture/);
+  assert.match(experience, /data-sheet-dragging/);
+  assert.match(css, /touch-action:\s*none/);
+  assert.match(css, /touch-action:\s*pan-y/);
+  assert.match(css, /overscroll-behavior-y:\s*contain/);
   assert.match(css, /390|100dvh|overflow-x:\s*hidden|data-sheet-state/);
   assert.match(css, /@media \(max-width: 760px\)/);
+});
+
+test("singleton clusters reuse public MapItems while multi clusters retain zoom behavior", () => {
+  assert.match(renderer, /gestureHandling:\s*"greedy"/);
+  assert.match(experience, /cluster\.count === 1 && cluster\.singletonItem/);
+  assert.match(experience, /cluster\.count !== 1 \|\| !cluster\.singletonItem/);
 });
 
 test("map config is documented without committing a real browser key", () => {
