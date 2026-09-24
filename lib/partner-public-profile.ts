@@ -28,7 +28,6 @@ export type PublicPartnerProfileManagementState =
       kind: "rejected";
       claimHref: string;
       requestHref: string;
-      hasDecisionNote: boolean;
     })
   | (PublicPartnerProfileBase & {
       kind: "member";
@@ -42,7 +41,6 @@ type PublicPartnerProfileStateRow = {
   membershipRole: string | null;
   pendingClaimId: string | null;
   rejectedClaimId: string | null;
-  rejectedDecisionNote: string | null;
   verified: number;
 };
 
@@ -88,7 +86,6 @@ export async function getPublicPartnerProfileManagementState(input: {
       m.role membershipRole,
       pending.id pendingClaimId,
       rejected.id rejectedClaimId,
-      rejected.decision_note rejectedDecisionNote,
       EXISTS(
         SELECT 1
         FROM partner_memberships verified_membership
@@ -167,7 +164,6 @@ export async function getPublicPartnerProfileManagementState(input: {
       verified,
       claimHref,
       requestHref: "/partner/ziadosti",
-      hasDecisionNote: Boolean(row.rejectedDecisionNote?.trim()),
     };
   }
 
