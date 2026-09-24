@@ -22,6 +22,18 @@ async function swipe(locator: Locator, deltaY: number) {
   await locator.page().waitForTimeout(320);
 }
 
+async function dismissAnalyticsBanner(page: Page) {
+  const decline = page.getByRole("button", { name: "Odmietnuť analytiku" });
+  if (await decline.isVisible().catch(() => false)) {
+    await decline.click();
+    await expect(decline).toHaveCount(0);
+  }
+}
+
+async function mapCanvas(page: Page) {
+  return page.getByTestId("google-map-renderer").locator('[aria-label="Interaktívna mapa Psipedie"]');
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const m = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -79,6 +91,7 @@ test.describe("MAP V1 live production launch audit", () => {
 
     await page.addInitScript(() => localStorage.removeItem("psipedia-google-maps-consent"));
     await page.goto("/mapa", { waitUntil: "domcontentloaded" });
+    await dismissAnalyticsBanner(page);
     await expect(page.getByRole("heading", { level: 1, name: "Mapa Psipedie" })).toBeVisible();
     await expect(page.getByTestId("map-consent-gate")).toBeVisible();
     await expect(page.getByTestId("map-provider-disclosure")).toBeVisible();
@@ -92,7 +105,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await page.getByTestId("map-consent-gate").getByRole("button", { name: "Povoliť Google Maps" }).click();
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(1);
-    await expect(page.getByLabel("Interaktívna mapa Psipedie")).toBeVisible();
+    await expect(await mapCanvas(page)).toBeVisible();
     await expect(page.getByTestId("map-provider-disclosure")).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
     expect(googleJsRequests.length).toBeGreaterThanOrEqual(1);
@@ -144,6 +157,7 @@ test.describe("MAP V1 live production launch audit", () => {
 
     await page.addInitScript(() => localStorage.setItem("psipedia-google-maps-consent", "granted"));
     await page.goto("/mapa", { waitUntil: "domcontentloaded" });
+    await dismissAnalyticsBanner(page);
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
     await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
 
@@ -156,7 +170,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
 
     // A real drag on the Google canvas must pan the map rather than move the results sheet.
-    const canvas = page.getByLabel("Interaktívna mapa Psipedie");
+    const canvas = await mapCanvas(page);
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
     await page.mouse.move(box!.x + box!.width * 0.65, box!.y + box!.height * 0.45);
@@ -206,7 +220,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await swipe(scroll, 130);
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
-    const canvas = page.getByLabel("Interaktívna mapa Psipedie");
+    const canvas = await mapCanvas(page);
     await swipe(canvas, -100);
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
