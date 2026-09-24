@@ -9,7 +9,7 @@ const importTs=(path)=>import(pathToFileURL(new URL(path,root).pathname).href);
 
 const [
   migration,claims,admin,email,platform,attention,attentionStore,claimApi,cancelApi,verificationApi,
-  claimAdminApi,verificationAdminApi,claimPage,requestsPage,directoryPage,organizationPage,publicOwnership,
+  claimAdminApi,verificationAdminApi,claimPage,requestsPage,directoryPage,organizationPage,publicOwnership,publicProfile,
 ]=await Promise.all([
   "drizzle/0063_partner_claims_verification.sql",
   "lib/partner-claims.ts",
@@ -28,6 +28,7 @@ const [
   "app/adresar/[category]/[slug]/page.tsx",
   "app/organizacie/[slug]/page.tsx",
   "components/partner-public-ownership.tsx",
+  "lib/partner-public-profile.ts",
 ].map(read));
 
 test("0063 creates canonical claims and verification with FKs, checks, indexes and append-only audit",()=>{
@@ -53,7 +54,7 @@ test("claim scope is restricted to Directory and Help Organization and never cla
   assert.match(claims,/status='PUBLISHED'.*published_at IS NOT NULL.*archived_at IS NULL/s);
   assert.match(claims,/INSERT OR IGNORE INTO partner_resources/);
   assert.match(claims,/partner_claims WHERE account_id=.*status='PENDING'/s);
-  assert.match(claims,/membership\?\.role === "OWNER"/);
+  assert.match(claims,/if \(membership\) throw new PartnerClaimError/);
   assert.match(claims,/Tento profil už spravujete/);
   assert.match(claims,/COUNT\(\*\) count FROM partner_claims WHERE account_id/);
 });
@@ -96,13 +97,12 @@ test("verification is a separate account-resource state and no row means UNVERIF
 });
 
 test("public Partner badge requires ACTIVE account, active membership and VERIFIED Partner verification",()=>{
-  const publicCheck=claims.slice(claims.indexOf("isPublicPartnerResourceVerified"));
-  assert.match(publicCheck,/a\.status='ACTIVE'/);
-  assert.match(publicCheck,/m\.revoked_at IS NULL/);
-  assert.match(publicCheck,/v\.status='VERIFIED'/);
-  assert.doesNotMatch(publicCheck,/d\.verified|directory_profiles\.verified/);
-  assert.match(directoryPage,/isPublicPartnerResourceVerified\("DIRECTORY_PROFILE", profile\.id\)/);
-  assert.match(organizationPage,/isPublicPartnerResourceVerified\("HELP_ORGANIZATION", composition\.organization\.id/);
+  assert.match(publicProfile,/verified_account\.status='ACTIVE'/);
+  assert.match(publicProfile,/verified_membership\.revoked_at IS NULL/);
+  assert.match(publicProfile,/verification\.status='VERIFIED'/);
+  assert.doesNotMatch(publicProfile,/d\.verified|directory_profiles\.verified/);
+  assert.match(directoryPage,/getPublicPartnerProfileManagementState/);
+  assert.match(organizationPage,/getPublicPartnerProfileManagementState/);
   assert.match(publicOwnership,/Overený správca/);
   assert.match(publicOwnership,/Nejde o odporúčanie služby ani platené zvýraznenie/);
 });
