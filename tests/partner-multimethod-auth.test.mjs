@@ -120,7 +120,7 @@ test("Google uses authorization code + PKCE + state + nonce and JOSE remote JWKS
   assert.match(googleAuth, /nonce/);
   assert.match(googleAuth, /algorithms:\["RS256"\]/);
   assert.match(googleAuth, /issuer:\["https:\/\/accounts\.google\.com","accounts\.google\.com"\]/);
-  assert.match(googleAuth, /audience:config\.clientId/);
+  assert.match(googleAuth, /audience:input\.clientId/);
   assert.match(googleAuth, /payload\.email_verified!==true/);
   assert.match(googleAuth, /payload\.sub/);
 });
