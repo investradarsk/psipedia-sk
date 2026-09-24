@@ -143,7 +143,7 @@ export async function createPartnerClaim(input: {
   const now = input.now ?? new Date();
   const resourceId = await getOrCreateResourceAnchor(preview.entityType, preview.canonicalId, database, now);
   const membership = await activeMembership(database, input.accountId, resourceId);
-  if (membership?.role === "OWNER") throw new PartnerClaimError("Tento profil už spravujete.", 409);
+  if (membership) throw new PartnerClaimError("Tento profil už spravujete cez Partner účet.", 409);
 
   const existing = await pendingClaim(database, input.accountId, resourceId);
   if (existing) {

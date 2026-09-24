@@ -172,17 +172,6 @@ export function DirectoryProfileDetail({
         </aside>
       </section>
 
-      <section className={`shell ${styles.ownerBox}`}>
-        <div className={styles.ownerCopy}>
-          <span className={styles.ownerIcon} aria-hidden="true">✎</span>
-          <div>
-            <strong>Ste majiteľom tohto profilu?</strong>
-            <p>Doplňte alebo opravte údaje o svojej službe.</p>
-          </div>
-        </div>
-        <Link href={`/adresar/${presentation.category}/${presentation.slug}/upravit`}>Navrhnúť úpravu profilu</Link>
-      </section>
-
       <section className={styles.contactSection} id="kontakt">
         <div className={`shell ${styles.contactShell}`}>
           <DirectoryContactForm profileId={presentation.id} profileName={presentation.name} />
