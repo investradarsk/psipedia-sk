@@ -23,6 +23,8 @@
     "AUTH_MODE": "cloudflare-access",
     "ACCESS_TEAM_DOMAIN": "https://autumn-sea-d25d.cloudflareaccess.com",
     "ACCESS_AUD": "ad835e8eb494d146e63fafa62bbefb3f162f8f299b12930f745b717c56bc2df7",
+    "GOOGLE_OAUTH_CLIENT_ID": "550179001371-7riorj30rfhqr247850ou3k8oun4h8kc.apps.googleusercontent.com",
+    "GOOGLE_OAUTH_ENABLED": "false",
     "GOOGLE_MAPS_MAP_ID": "112b90c9eba732df680daf9e",
     "PARTNER_FROM_EMAIL": "Psipedia.sk <recenzie@psipedia.sk>",
     "PROFILE_REVIEW_SUBMISSIONS_ENABLED": "true",
