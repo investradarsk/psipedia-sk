@@ -61,6 +61,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0066_partner_new_profile_submissions.sql",
   "0067_partner_events.sql",
   "0068_partner_commercial_activation.sql",
+  "0069_partner_auth_onboarding_hardening.sql",
 ]);
 
 export const PARTNER_CLAIM_TABLES = Object.freeze([
@@ -128,6 +129,10 @@ export const PARTNER_COMMERCIAL_INDEXES = Object.freeze([
   "partner_entitlement_current_resource_type_unique",
   "partner_entitlement_public_window_idx",
   "partner_entitlement_end_status_idx",
+]);
+
+export const PARTNER_CONTACT_PROFILE_INDEXES = Object.freeze([
+  "partner_account_profiles_updated_idx",
 ]);
 
 export const SENSITIVE_DIRECTORY_CATEGORIES = Object.freeze([
@@ -414,6 +419,14 @@ function targetSchemaObjects(schema, targetMigration) {
         || auditSql.includes("COMMERCIAL_AGREEMENT_CREATED"),
     };
   }
+  if (targetMigration === "0069_partner_auth_onboarding_hardening.sql") {
+    return {
+      partial: names.has("partner_account_profiles")
+        || PARTNER_CONTACT_PROFILE_INDEXES.some((index) => names.has(index))
+        || auditSql.includes("CONTACT_PROFILE_COMPLETED")
+        || auditSql.includes("CONTACT_PROFILE_UPDATED"),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -537,6 +550,25 @@ function assertPartnerCommercialSchema(schema) {
   );
 }
 
+function assertPartnerContactProfileSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("partner_account_profiles")?.type === "table", "Missing partner_account_profiles table");
+  for (const index of PARTNER_CONTACT_PROFILE_INDEXES) invariant(names.get(index)?.type === "index", `Missing partner contact profile index: ${index}`);
+
+  const profileSql = String(names.get("partner_account_profiles")?.sql ?? "");
+  invariant(profileSql.includes("contact_name_ciphertext"), "partner_account_profiles.contact_name_ciphertext is missing");
+  invariant(profileSql.includes("phone_ciphertext"), "partner_account_profiles.phone_ciphertext is missing");
+  invariant(profileSql.includes("relationship_ciphertext"), "partner_account_profiles.relationship_ciphertext is missing");
+  invariant(profileSql.includes("completed_at"), "partner_account_profiles.completed_at is missing");
+  invariant(profileSql.includes("REFERENCES `partner_accounts`"), "partner_account_profiles account foreign key is missing");
+
+  assertPartnerNotificationAuditSchema(
+    schema,
+    [],
+    ["CONTACT_PROFILE_COMPLETED", "CONTACT_PROFILE_UPDATED"],
+  );
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -545,6 +577,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 66) assertPartnerNewProfileSchema(schema);
   if (migrationIndex(targetMigration) >= 67) assertPartnerEventsSchema(schema);
   if (migrationIndex(targetMigration) >= 68) assertPartnerCommercialSchema(schema);
+  if (migrationIndex(targetMigration) >= 69) assertPartnerContactProfileSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -648,6 +681,7 @@ function targetState(history, schema, targetMigration) {
     if (targetIndex > 65) assertPartnerProfileChangesSchema(schema);
     if (targetIndex > 66) assertPartnerNewProfileSchema(schema);
     if (targetIndex > 67) assertPartnerEventsSchema(schema);
+    if (targetIndex > 68) assertPartnerCommercialSchema(schema);
   } else {
     invariant(latestIndex === targetIndex,
       `Target ${targetMigration} is already applied, but production history continues through ${String(latestIndex).padStart(4, "0")}; refusing an older target`);
@@ -877,6 +911,14 @@ async function verify(targetMigration) {
     };
   }
 
+  let partnerContactProfileCount = null;
+  if (targetIndex >= 69) {
+    partnerContactProfileCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM partner_account_profiles");
+    if (targetIndex === 69 && !internal.targetApplied) {
+      invariant(partnerContactProfileCount === 0, "0069 is schema/onboarding foundation only; partner_account_profiles must be empty immediately after migration");
+    }
+  }
+
   await writeJson(".production-d1/postflight-report.json", {
     targetMigration,
     applied: true,
@@ -914,6 +956,13 @@ async function verify(targetMigration) {
     partnerCommercial: targetIndex >= 68 ? {
       tables: ["partner_commercial_agreements", "partner_entitlements"],
       indexes: PARTNER_COMMERCIAL_INDEXES,
+    } : null,
+    partnerContactProfile: targetIndex >= 69 ? {
+      table: "partner_account_profiles",
+      indexes: PARTNER_CONTACT_PROFILE_INDEXES,
+      count: partnerContactProfileCount,
+      encryptedColumns: ["contact_name_ciphertext", "phone_ciphertext", "relationship_ciphertext"],
+      auditActions: ["CONTACT_PROFILE_COMPLETED", "CONTACT_PROFILE_UPDATED"],
     } : null,
     historyVerifiedThrough: targetMigration,
     geoFoundation,
