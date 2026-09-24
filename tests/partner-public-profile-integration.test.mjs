@@ -17,6 +17,7 @@ const [
   requestsPage,
   platform,
   worker,
+  adminClaimActions,
 ] = await Promise.all([
   "lib/partner-public-profile.ts",
   "components/partner-public-ownership.tsx",
@@ -27,6 +28,7 @@ const [
   "app/partner/ziadosti/page.tsx",
   "lib/partner-platform.ts",
   "worker/index.ts",
+  "components/admin-partner-claim-actions.tsx",
 ].map(read));
 
 function stateDatabase(row) {
@@ -69,7 +71,6 @@ test("public Partner state model resolves anonymous, eligible, pending, rejected
       membershipRole: null,
       pendingClaimId: null,
       rejectedClaimId: null,
-      rejectedDecisionNote: null,
       verified: 0,
     }),
   });
@@ -85,7 +86,6 @@ test("public Partner state model resolves anonymous, eligible, pending, rejected
       membershipRole: null,
       pendingClaimId: "claim-pending",
       rejectedClaimId: "claim-old-rejected",
-      rejectedDecisionNote: "old",
       verified: 0,
     }),
   });
@@ -104,7 +104,6 @@ test("public Partner state model resolves anonymous, eligible, pending, rejected
       membershipRole: null,
       pendingClaimId: null,
       rejectedClaimId: "claim-rejected",
-      rejectedDecisionNote: "Chýbalo oprávnenie.",
       verified: 0,
     }),
   });
@@ -113,7 +112,6 @@ test("public Partner state model resolves anonymous, eligible, pending, rejected
     verified: false,
     claimHref: "/partner/prevziat-profil/HELP_ORGANIZATION/77",
     requestHref: "/partner/ziadosti",
-    hasDecisionNote: true,
   });
 
   for (const role of ["OWNER", "MANAGER", "EDITOR"]) {
@@ -126,8 +124,7 @@ test("public Partner state model resolves anonymous, eligible, pending, rejected
         membershipRole: role,
         pendingClaimId: "stale-pending-must-not-win",
         rejectedClaimId: "stale-rejected-must-not-win",
-        rejectedDecisionNote: "old",
-        verified: 1,
+          verified: 1,
       }),
     });
     assert.deepEqual(member, {
@@ -201,11 +198,14 @@ test("backend rejects a new ownership request for every active membership role",
   assert.match(platform, /MANAGER: new Set\(\["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE"/);
 });
 
-test("rejected request reason is available only in the authenticated Partner request history", () => {
-  assert.match(claims, /c\.decision_note decisionNote/);
-  assert.match(requestsPage, /claim\.status === "REJECTED" && claim\.decisionNote/);
-  assert.match(requestsPage, /<strong>Dôvod:<\/strong>/);
-  assert.doesNotMatch(publicOwnership, /rejectedDecisionNote|decision_note/);
+test("rejected state does not leak the admin-only decision note", () => {
+  assert.match(adminClaimActions, /Interná poznámka k rozhodnutiu/);
+  assert.match(adminClaimActions, /Poznámka zostáva v administrácii a neposiela sa Partnerovi e-mailom\./);
+  assert.doesNotMatch(publicStateSource, /decision_note|rejectedDecisionNote/);
+  assert.doesNotMatch(requestsPage, /claim\.decisionNote|<strong>Dôvod:<\/strong>/);
+  assert.doesNotMatch(publicOwnership, /Pozrieť dôvod|decisionNote|decision_note/);
+  assert.match(publicOwnership, /Predchádzajúca žiadosť bola zamietnutá\./);
+  assert.match(publicOwnership, /Zobraziť žiadosti/);
 });
 
 test("session-specific public profile HTML cannot enter the shared Worker cache", () => {
