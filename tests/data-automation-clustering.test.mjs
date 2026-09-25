@@ -166,7 +166,7 @@ test("G1 semantic kind hard guards reject incompatible subjects and UNKNOWN", ()
 
 test("G1 strategy boundary preserves EVENT and keeps non-EVENT fail-safe", () => {
   assert.equal(automationEntityResolutionStrategyFor("EVENT")?.matcherImplemented, true);
-  assert.equal(automationEntityResolutionStrategyFor("DIRECTORY")?.matcherImplemented, false);
+  assert.equal(automationEntityResolutionStrategyFor("DIRECTORY")?.matcherImplemented, true);
   assert.equal(automationEntityResolutionStrategyFor("ORGANIZATION")?.matcherImplemented, false);
   assert.equal(automationEntityResolutionStrategyFor("ADOPTION"), null);
 });
