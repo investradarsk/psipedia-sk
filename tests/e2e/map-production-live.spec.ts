@@ -11,15 +11,23 @@ type LiveMapBody = {
 
 async function swipe(locator: Locator, deltaY: number) {
   await locator.scrollIntoViewIfNeeded();
+  const initialBox = await locator.boundingBox();
+  expect(initialBox).not.toBeNull();
+
+  const offsetX = Math.min(initialBox!.width / 2, 120);
+  const offsetY = Math.min(24, Math.max(8, initialBox!.height / 2));
+  await locator.hover({ position: { x: offsetX, y: offsetY } });
+
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  const x = box!.x + Math.min(box!.width / 2, 120);
-  const y = box!.y + Math.min(24, Math.max(8, box!.height / 2));
-  await locator.page().mouse.move(x, y);
-  await locator.page().mouse.down();
-  await locator.page().mouse.move(x, y + deltaY, { steps: 10 });
-  await locator.page().mouse.up();
-  await locator.page().waitForTimeout(320);
+
+  const page = locator.page();
+  const x = box!.x + offsetX;
+  const y = box!.y + offsetY;
+  await page.mouse.down();
+  await page.mouse.move(x, y + deltaY, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(320);
 }
 
 async function dismissAnalyticsBanner(page: Page) {
@@ -53,6 +61,11 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 function isRelevantConsoleError(text: string) {
+  const expectedBlockedCloudflareInsightsBeacon =
+    /static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(text)
+    && /content security policy|refused to (load|execute)/i.test(text);
+  if (expectedBlockedCloudflareInsightsBeacon) return false;
+
   return /Google Maps JavaScript API error|InvalidKeyMapError|ApiNotActivatedMapError|RefererNotAllowedMapError|BillingNotEnabledMapError|content security policy|refused to (load|connect|execute)|maps\.googleapis\.com.*(403|denied|error)/i.test(text);
 }
 
