@@ -176,10 +176,9 @@ test("successful activation atomically marks previous-good and preserves attribu
   insert.run("r2", ...common, "PASS", "CANDIDATE", '{"attribution":"MV SR"}', "2026-09-26");
   db.prepare("UPDATE address_reference_runtime SET active_release_id='r1',updated_at='x' WHERE singleton_id=1").run();
   db.prepare("UPDATE address_reference_runtime SET previous_good_release_id='r1',active_release_id='r2',updated_at='y' WHERE singleton_id=1").run();
-  assert.deepEqual(
-    db.prepare("SELECT active_release_id,previous_good_release_id FROM address_reference_runtime WHERE singleton_id=1").get(),
-    { active_release_id: "r2", previous_good_release_id: "r1" },
-  );
+  const runtime = db.prepare("SELECT active_release_id,previous_good_release_id FROM address_reference_runtime WHERE singleton_id=1").get();
+  assert.equal(runtime.active_release_id, "r2");
+  assert.equal(runtime.previous_good_release_id, "r1");
   assert.equal(db.prepare("SELECT status FROM address_dataset_releases WHERE id='r1'").get().status, "PREVIOUS_GOOD");
   assert.equal(db.prepare("SELECT status FROM address_dataset_releases WHERE id='r2'").get().status, "ACTIVE");
   assert.match(db.prepare("SELECT provenance_json FROM address_dataset_releases WHERE id='r2'").get().provenance_json, /attribution/);
