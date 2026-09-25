@@ -135,7 +135,6 @@ export function AdminAutomationSourceManager({
                   <div className={styles.itemTitle}>
                     <strong>{candidate.label}</strong>
                     <span className={[styles.badge, styles.badgeWarning].join(" ")}>Nový návrh</span>
-                    <span className={styles.badge}>{candidate.entityType}</span>
                   </div>
                   <p>{candidate.reason}</p>
                   <p><a href={candidate.sourceUrl} target="_blank" rel="noreferrer">Otvoriť nájdený web ↗</a></p>
@@ -190,7 +189,6 @@ export function AdminAutomationSourceManager({
                       <div className={styles.itemTitle}>
                         <strong>{source.label}</strong>
                         <span className={[styles.badge, state.className].join(" ")}>{state.label}</span>
-                        <span className={styles.badge}>{source.entityType}</span>
                       </div>
                       <p>{source.lastErrorCode ? "Posledná chyba: " + source.lastErrorCode : "Ďalšia kontrola: " + formatDate(source.nextCheckAt)}</p>
                     </div>
@@ -215,7 +213,6 @@ export function AdminAutomationSourceManager({
                         <div className={styles.itemTitle}>
                           <strong>{source.label}</strong>
                           <span className={[styles.badge, state.className].join(" ")}>{state.label}</span>
-                          <span className={styles.badge}>{source.entityType}</span>
                         </div>
                         <p>Ďalšia kontrola: {formatDate(source.nextCheckAt)}</p>
                       </div>
