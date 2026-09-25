@@ -434,7 +434,7 @@ export async function runExplicitGeoOnboarding(input: {
     resolved: 0,
     needsReview: 0,
     failed: 0,
-    blocked: 0,
+    blocked: preview.blocked,
     providerConfigured,
     targetIds,
     items: [] as Array<{
@@ -464,9 +464,6 @@ export async function runExplicitGeoOnboarding(input: {
     else if (outcome === "RESOLVED") report.resolved += 1;
     else if (outcome === "NEEDS_REVIEW") report.needsReview += 1;
     else if (outcome === "FAILED") report.failed += 1;
-    if (["SKIP_MANUAL","SKIP_STALE_SOURCE","SKIP_NOT_FOUND","SKIP_NOT_PUBLISHED","BLOCK_PRIVACY","BLOCK_QUERY"].includes(outcome)) {
-      report.blocked += 1;
-    }
     report.items.push({
       targetId: item.targetId,
       name: item.name,
@@ -545,6 +542,7 @@ export async function runExplicitGeoOnboarding(input: {
       );
       const query = buildGeoQuery(source, input.visibility, input.precision);
       if (!approximateGeoQueryUsesOnlyLocality(source, query)) {
+        report.blocked += 1;
         push(item, "BLOCK_QUERY", {
           afterStatus: classified.geocodeStatus,
           manualOverride: classified.manualOverride,
@@ -555,6 +553,7 @@ export async function runExplicitGeoOnboarding(input: {
         continue;
       }
       if (classified.manualOverride) {
+        report.blocked += 1;
         push(item, "SKIP_MANUAL", {
           afterStatus: classified.geocodeStatus,
           manualOverride: true,
@@ -565,6 +564,7 @@ export async function runExplicitGeoOnboarding(input: {
         continue;
       }
       if (classified.sourceFingerprint !== expectedFingerprint) {
+        report.blocked += 1;
         push(item, "SKIP_STALE_SOURCE", {
           afterStatus: classified.geocodeStatus,
           sourceFingerprint: classified.sourceFingerprint,
