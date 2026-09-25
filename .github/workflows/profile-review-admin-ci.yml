@@ -19,7 +19,6 @@ on:
       - "tests/admin-attention-queue.test.mjs"
       - "tests/e2e/profile-review-admin.spec.ts"
       - "tests/fixtures/profile-review-admin-e2e.sql"
-      - "package.json"
       - ".github/workflows/profile-review-admin-ci.yml"
   workflow_dispatch:
 
