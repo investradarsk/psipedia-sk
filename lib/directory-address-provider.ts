@@ -48,11 +48,11 @@ function safeSuggestion(result: NormalizedGeocoderResult): DirectoryAddressSugge
   if (!result.providerResultId || result.countryCode !== "SK") return null;
   return {
     providerResultId: result.providerResultId,
-    formatted: result.formatted,
-    addressLine1: result.addressLine1,
-    addressLine2: result.addressLine2,
-    street: result.street,
-    houseNumber: result.housenumber,
+    formatted: result.formatted ?? "",
+    addressLine1: result.addressLine1 ?? "",
+    addressLine2: result.addressLine2 ?? "",
+    street: result.street ?? "",
+    houseNumber: result.housenumber ?? "",
     postalCode: normalizeSlovakPostalCode(result.postcode),
     city: result.city,
     district: result.district,
@@ -98,7 +98,7 @@ export function verifyDirectoryExactCandidates(input: {
   const accepted = candidates.filter((result) => {
     const buildingType = result.resultType === "building"
       || (result.resultType === "amenity" && Boolean(result.housenumber) && Boolean(result.postcode));
-    const validPostcode = SK_POSTCODE.test(result.postcode);
+    const validPostcode = SK_POSTCODE.test(result.postcode ?? "");
     const cityOk = localityMatches(locality.city, result.city || result.district);
     const regionOk = !result.region || localityMatches(locality.region, result.region);
     const districtOk = !result.district || localityMatches(locality.district, result.district);
@@ -123,14 +123,14 @@ export function verifyDirectoryExactCandidates(input: {
   }
 
   const result = accepted[0];
-  const street = result.street.trim();
+  const street = (result.street ?? "").trim();
   return {
     region: locality.region,
     district: locality.district,
     city: locality.city,
     postalCode: normalizeSlovakPostalCode(result.postcode),
     street,
-    houseNumber: result.housenumber.trim(),
+    houseNumber: (result.housenumber ?? "").trim(),
     addressFormat: street ? "STREET" : "MUNICIPALITY_NUMBER",
     providerResult: result,
   };
@@ -159,8 +159,8 @@ export async function verifyDirectoryAddressSelection(input: {
       precision: "EXACT",
       countryCode: "SK",
       structuredAddress: {
-        housenumber: selected.housenumber,
-        street: selected.street,
+        housenumber: selected.housenumber ?? "",
+        street: selected.street ?? "",
         postcode: selected.postcode,
         city: input.city,
         state: input.region,
