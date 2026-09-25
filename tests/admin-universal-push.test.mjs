@@ -211,5 +211,3 @@ test("settings explain broad alert coverage without per-category preferences",()
   assert.match(settings,/nových podaniach, Partner aktivitách a automatických nálezoch/);
   assert.doesNotMatch(settings,/notificationCategories|per-category|kategóri.*upozornen/i);
 });
-
-// CI trigger: validate ADMIN-PUSH-2 against production migration tooling hotfix.
