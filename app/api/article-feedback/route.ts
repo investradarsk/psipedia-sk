@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const payload = await request.json() as PublicArticleFeedbackInput;
     if (payload.website?.trim()) return Response.json({ success: true }, { status: 201 });
     const saved = await createArticleFeedback(payload);
-    if (!saved.helpful) await processEditorialNotification("article_feedback", saved).catch(() => {
+    if (!saved.helpful) await processEditorialNotification("article_feedback", saved, { mirrorAdminPush: true }).catch(() => {
       console.error(JSON.stringify({ event: "editorial_notification", resourceType: "article_feedback", resourceId: saved.id, result: "failed", error: "outbox_processing_failed" }));
     });
     return Response.json({ success: true }, { status: 201 });

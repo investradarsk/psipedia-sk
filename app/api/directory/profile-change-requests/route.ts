@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json() as DirectoryProfileChangeRequestInput;
     const saved = await createDirectoryProfileChangeRequest(payload);
-    await processEditorialNotification("directory_profile_change_request", saved).catch(() => {
+    await processEditorialNotification("directory_profile_change_request", saved, { mirrorAdminPush: true }).catch(() => {
       console.error(JSON.stringify({ event: "editorial_notification", resourceType: "directory_profile_change_request", resourceId: saved.id, result: "failed", error: "outbox_processing_failed" }));
     });
     return Response.json({ success: true }, { status: 201 });

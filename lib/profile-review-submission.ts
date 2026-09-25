@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import { normalizePlainText, safeAuditJson } from "@/lib/submission-security";
 import {
   PROFILE_REVIEW_BODY_MAX,
@@ -417,6 +418,29 @@ export async function createPendingProfileReview(input: {
       );
     }
     throw error;
+  }
+
+  try {
+    await enqueueAdminNotificationEvent(db, {
+      eventType: "profile_review_submitted",
+      sourceType: "PROFILE_REVIEW_MODERATION",
+      resourceType: "profile_review",
+      resourceRef: reviewId,
+      actorType: "REVIEW_AUTHOR",
+      actorRef: input.reviewer.authorId,
+      targetUrl: `/admin/recenzie-profilov/${reviewId}`,
+      title: "Nová recenzia čaká na kontrolu",
+      body: `Recenzia profilu ${input.target.name} čaká na moderáciu.`,
+      tag: `profile-review-${reviewId}`,
+      dedupeKey: `profile-review/${reviewId}`,
+    }, now);
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "profile_review_admin_push_enqueue",
+      reviewId,
+      result: "failed",
+      error: error instanceof Error ? error.message : "unknown",
+    }));
   }
 
   return {

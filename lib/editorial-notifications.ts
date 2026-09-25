@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { enqueueAutomationFindingAdminNotification, enqueueEditorialReferenceAdminNotification } from "@/lib/admin-notifications";
 import type { ArticleFeedback } from "@/lib/article-feedback-store";
 import type { DirectoryProfileChangeRequest } from "@/lib/directory";
 import type { NewsTip } from "@/lib/news-tip";
@@ -18,7 +19,7 @@ export type EditorialNotificationResourceType =
   | "automation_finding";
 type EditorialNotificationResource = DirectoryProfileChangeRequest | NewsTip | ArticleFeedback | AutomationFindingNotification;
 type RuntimeBindings = EditorialEmailBindings & { DB?: D1Database };
-type Options = { database?: D1Database; bindings?: EditorialEmailBindings; now?: Date };
+type Options = { database?: D1Database; bindings?: EditorialEmailBindings; now?: Date; mirrorAdminPush?: boolean };
 type OutboxRow = {
   id: number; resource_type: EditorialNotificationResourceType; resource_id: number;
   notification_type: "new"; status: "pending" | "sent" | "failed"; attempts: number;
@@ -28,6 +29,30 @@ type OutboxRow = {
 
 const COLUMNS = `id, resource_type, resource_id, notification_type, status, attempts,
   last_attempt_at, sent_at, last_error, provider_message_id, created_at, updated_at`;
+
+
+async function mirrorAdminPushEvent(
+  database: D1Database,
+  resourceType: EditorialNotificationResourceType,
+  resourceId: number,
+  now: Date,
+) {
+  try {
+    if (resourceType === "automation_finding") {
+      await enqueueAutomationFindingAdminNotification(database, resourceId, now);
+    } else {
+      await enqueueEditorialReferenceAdminNotification(database, resourceType, resourceId, now);
+    }
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "admin_notification_event_enqueue",
+      resourceType,
+      resourceId,
+      result: "failed",
+      error: error instanceof Error ? error.message.slice(0, 180) : "unknown",
+    }));
+  }
+}
 
 function runtime(options: Options = {}) {
   const bindings = env as unknown as RuntimeBindings;
@@ -72,6 +97,7 @@ export async function enqueueEditorialNotification(
 ) {
   const { database, now } = runtime(options);
   const outbox = await getOrCreate(database, resourceType, resourceId, now.toISOString());
+  if (options.mirrorAdminPush) await mirrorAdminPushEvent(database, resourceType, resourceId, now);
   return { id: outbox.id, status: outbox.status };
 }
 
@@ -84,6 +110,7 @@ export async function processEditorialNotification(
   const { database, bindings, now } = runtime(options);
   const nowIso = now.toISOString();
   const outbox = await getOrCreate(database, resourceType, resource.id, nowIso);
+  if (options.mirrorAdminPush) await mirrorAdminPushEvent(database, resourceType, resource.id, now);
   if (outbox.status === "sent") {
     log(resourceType, resource.id, "already_sent");
     return { status: "already_sent" as const, providerMessageId: outbox.provider_message_id };

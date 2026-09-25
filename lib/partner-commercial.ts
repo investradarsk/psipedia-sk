@@ -58,7 +58,26 @@ export async function createPartnerCommercialInterest(input:{accountId:string;in
     VALUES (?1,?2,?3,?4,'NEW',?5,?6,?6)`).bind(id,input.accountId,resourceId,input.interestType,message,nowIso).run();
   const current=await findNew(database,input.accountId,resourceId,input.interestType);
   if(!current)throw new PartnerCommercialError("Záujem sa nepodarilo uložiť.",503);
-  if(current.id===id)await appendPartnerAuditEvent({actorType:"PARTNER",actorRef:`partner:${input.accountId}`,action:"COMMERCIAL_INTEREST_CREATED",targetType:"PARTNER_COMMERCIAL_INTEREST",targetId:id,metadata:{interestType:input.interestType,resourceId:resourceId??"account"},database,now});
+  if(current.id===id){
+    await appendPartnerAuditEvent({actorType:"PARTNER",actorRef:`partner:${input.accountId}`,action:"COMMERCIAL_INTEREST_CREATED",targetType:"PARTNER_COMMERCIAL_INTEREST",targetId:id,metadata:{interestType:input.interestType,resourceId:resourceId??"account"},database,now});
+    try{
+      await enqueueAdminNotificationEvent(database,{
+        eventType:"partner_commercial_lead_created",
+        sourceType:"PARTNER_COMMERCIAL_LEAD",
+        resourceType:"partner_commercial_interest",
+        resourceRef:id,
+        actorType:"PARTNER",
+        actorRef:`partner:${input.accountId}`,
+        targetUrl:`/admin/partners/commercial/${id}`,
+        title:"Nový Partner dopyt na propagáciu",
+        body:`Partner prejavil záujem o ${input.interestType}.`,
+        tag:`partner-commercial-${id}`,
+        dedupeKey:`partner-commercial-lead/${id}`,
+      },now);
+    }catch(error){
+      console.error(JSON.stringify({event:"partner_commercial_admin_push_enqueue",interestId:id,result:"failed",error:error instanceof Error?error.message:"unknown"}));
+    }
+  }
   return {id:current.id,deduplicated:current.id!==id};
 }
 export async function listPartnerCommercialInterests(accountId:string,database?:D1Database){

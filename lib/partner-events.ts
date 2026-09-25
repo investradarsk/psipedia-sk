@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import { bratislavaDateKey } from "@/lib/events";
 import { partnerEventFields, type PartnerEventPatch, type PartnerEventValue } from "@/lib/partner-event-fields";
 export { partnerEventFields } from "@/lib/partner-event-fields";
@@ -230,6 +231,23 @@ export async function submitPartnerEventCreate(input:{accountId:string;event:unk
     if(/partner_event_submission_active_dedupe_unique|UNIQUE constraint failed/i.test(String(error)))throw new PartnerEventError("Rovnaký návrh podujatia už čaká na spracovanie.",409);
     throw error;
   }
+  try {
+    await enqueueAdminNotificationEvent(db, {
+      eventType: "partner_event_submitted",
+      sourceType: "PARTNER_EVENT_REVIEW",
+      resourceType: "partner_event_submission",
+      resourceRef: id,
+      actorType: "PARTNER",
+      actorRef: `partner:${input.accountId}`,
+      targetUrl: `/admin/partners/events/${id}`,
+      title: "Partner pridal nové podujatie",
+      body: `${String(values.title)} čaká na kontrolu.`,
+      tag: `partner-event-${id}`,
+      dedupeKey: `partner-event-create/${id}`,
+    }, now);
+  } catch (error) {
+    console.error(JSON.stringify({event:"partner_event_admin_push_enqueue",submissionId:id,operation:"CREATE",result:"failed",error:error instanceof Error?error.message:"unknown"}));
+  }
   return {id,operation:"CREATE" as const,status:"SUBMITTED" as const,title:String(values.title),duplicateConfidence:scan.confidence};
 }
 
@@ -264,6 +282,23 @@ export async function submitPartnerEventUpdate(input:{accountId:string;resourceI
   }catch(error){
     if(/partner_event_submission_active_dedupe_unique|UNIQUE constraint failed/i.test(String(error)))throw new PartnerEventError("Pre toto podujatie už máte návrh, ktorý čaká na spracovanie.",409);
     throw error;
+  }
+  try {
+    await enqueueAdminNotificationEvent(db, {
+      eventType: "partner_event_change_submitted",
+      sourceType: "PARTNER_EVENT_REVIEW",
+      resourceType: "partner_event_submission",
+      resourceRef: id,
+      actorType: "PARTNER",
+      actorRef: `partner:${input.accountId}`,
+      targetUrl: `/admin/partners/events/${id}`,
+      title: "Partner navrhol úpravu podujatia",
+      body: `${editor.resource.title} čaká na kontrolu.`,
+      tag: `partner-event-${id}`,
+      dedupeKey: `partner-event-update/${id}`,
+    }, now);
+  } catch (error) {
+    console.error(JSON.stringify({event:"partner_event_admin_push_enqueue",submissionId:id,operation:"UPDATE",result:"failed",error:error instanceof Error?error.message:"unknown"}));
   }
   return {id,operation:"UPDATE" as const,status:"SUBMITTED" as const,resourceId:input.resourceId,title:editor.resource.title,changedFields:changed};
 }
