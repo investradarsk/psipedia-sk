@@ -52,7 +52,6 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [houseNumber, setHouseNumber] = useState(profile?.houseNumber ?? "");
   const [addressFormat, setAddressFormat] = useState<DirectoryAddressFormat | "">(profile?.addressFormat ?? "");
   const [addressProviderResultId, setAddressProviderResultId] = useState("");
-  const [serviceAddressTouched, setServiceAddressTouched] = useState(false);
   const [online, setOnline] = useState(profile?.online ?? false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
@@ -217,7 +216,6 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
                   setStreet("");
                   setHouseNumber("");
                   setAddressFormat("");
-                  setServiceAddressTouched(true);
                 }
               }}
             />
@@ -233,7 +231,6 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
                 setStreet("");
                 setHouseNumber("");
                 setAddressFormat("");
-                setServiceAddressTouched(true);
               }}
               onSelect={(suggestion) => {
                 setAddressProviderResultId(suggestion.providerResultId);
@@ -241,7 +238,6 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
                 setStreet(suggestion.street);
                 setHouseNumber(suggestion.houseNumber);
                 setAddressFormat(suggestion.street ? "STREET" : "MUNICIPALITY_NUMBER");
-                setServiceAddressTouched(true);
               }}
             />
             {(street || houseNumber || postalCode || addressFormat) ? (
