@@ -113,6 +113,8 @@ test("live production audit preserves Google Maps consent and uses the interacti
     /localStorage\.getItem\("psipedia-google-maps-consent"\)\)\)\.toBe\("granted"\)/,
   );
   assert.match(liveAudit, /getByTestId\("map-sheet-header"\)/);
+  assert.match(liveAudit, /header\.scrollIntoViewIfNeeded\(\)/);
+  assert.match(liveAudit, /document\.elementFromPoint\(x, y\)/);
   assert.doesNotMatch(liveAudit, /getByTestId\("map-sheet-handle"\)/);
 });
 
