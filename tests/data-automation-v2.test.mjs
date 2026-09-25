@@ -203,7 +203,7 @@ test("ZSK adapter follows only the current iframe per supported category and ded
 test("ZSK connector nested HTML fetches reuse safe transport and remain bounded", async () => {
   const requests = [];
   const responseFor = (url) => {
-    if (url === "https://zsksr.sk/kalendar") return fixture("zsk-sr-calendar-root.html");
+    if (url === "https://zsksr.sk/kalendar/" || url === "https://zsksr.sk/kalendar") return fixture("zsk-sr-calendar-root.html");
     if (url.includes("/kalendar/narodne-akcie")) return fixture("zsk-sr-category-national.html");
     if (url.includes("/kalendar/skusky-obedience-a-rally-obedience")) return fixture("zsk-sr-category-obedience.html");
     if (url.includes("/kalendar/sportove-kynologicke-akcie")) return fixture("zsk-sr-category-sport.html");
@@ -244,9 +244,9 @@ test("ZSK observations reuse the existing EVENT clustering contract", () => {
     canonicalEntityId: 901,
     canonicalEntityKey: "event:901",
     fields: {
-      title: "O pohár KK Bodona Piešťany",
+      title: "o pohar kk bodona piestany",
       startDate: "2026-10-18",
-      city: "Piešťany",
+      city: "piestany",
     },
   }]);
   assert.equal(decision.quality, "STRONG");
