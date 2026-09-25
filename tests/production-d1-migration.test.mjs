@@ -221,7 +221,7 @@ test("0071/0072 canonical SQL and production tooling cover notification and Part
   assert.match(migration71, /admin_push_event_deliveries_event_subscription_unique/);
 
   assert.match(migration72, /ALTER TABLE `moderation_submissions` ADD COLUMN `media_asset_id`/);
-  assert.match(migration72, /REFERENCES `media_assets`(`id`) ON DELETE RESTRICT/);
+  assert.match(migration72, /REFERENCES `media_assets`\(`id`\) ON DELETE RESTRICT/);
   assert.match(migration72, /moderation_submissions_media_asset_unique/);
   assert.match(migration72, /moderation_partner_media_attach_guard/);
   assert.match(migration72, /moderation_partner_media_attach_state/);
