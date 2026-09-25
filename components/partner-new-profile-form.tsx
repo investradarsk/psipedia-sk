@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { partnerOrganizationTypeLabel, partnerOrganizationTypeOptions } from "@/lib/partner-ui-labels";
 import { PartnerMediaField } from "@/components/partner-media-field";
+import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 
 type ResourceType = "DIRECTORY_PROFILE" | "HELP_ORGANIZATION";
 type Candidate = {
@@ -141,9 +142,12 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
           <label className="partner-field partner-field--wide"><span>Popis</span><textarea required minLength={40} rows={7} value={directory.description} onChange={(e)=>setDirectory({...directory,description:e.target.value})}/></label>
           <label className="partner-field"><span>Služby</span><textarea rows={5} value={directory.services} onChange={(e)=>setDirectory({...directory,services:e.target.value})}/><small>Jedna služba na riadok.</small></label>
           <label className="partner-field"><span>Kvalifikácie</span><textarea rows={5} value={directory.qualifications} onChange={(e)=>setDirectory({...directory,qualifications:e.target.value})}/><small>Jedna položka na riadok.</small></label>
-          <label className="partner-field"><span>Mesto</span><input required value={directory.city} onChange={(e)=>setDirectory({...directory,city:e.target.value})}/></label>
-          <label className="partner-field"><span>Okres</span><input value={directory.district} onChange={(e)=>setDirectory({...directory,district:e.target.value})}/></label>
-          <label className="partner-field"><span>Kraj</span><input required placeholder="napr. Nitriansky kraj" value={directory.region} onChange={(e)=>setDirectory({...directory,region:e.target.value})}/></label>
+          <SlovakiaLocationSelector
+            value={{ region: directory.region, district: directory.district, city: directory.city }}
+            onChange={(location) => setDirectory((current) => ({ ...current, ...location }))}
+            required
+            idPrefix="partner-new-directory-location"
+          />
           <label className="partner-field"><span>Adresa</span><input value={directory.address} onChange={(e)=>setDirectory({...directory,address:e.target.value})}/></label>
           <label className="partner-profile-check"><input type="checkbox" checked={directory.online} onChange={(e)=>setDirectory({...directory,online:e.target.checked})}/><span>Ponúkam aj online služby</span></label>
           <label className="partner-field"><span>Poznámka k cene</span><input value={directory.priceNote} onChange={(e)=>setDirectory({...directory,priceNote:e.target.value})}/></label>
@@ -166,11 +170,24 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
           <label className="partner-field"><span>Web</span><input type="url" value={organization.websiteUrl} onChange={(e)=>setOrganization({...organization,websiteUrl:e.target.value})}/></label>
           <label className="partner-field"><span>Facebook</span><input type="url" value={organization.facebookUrl} onChange={(e)=>setOrganization({...organization,facebookUrl:e.target.value})}/></label>
           <label className="partner-field"><span>Instagram</span><input type="url" value={organization.instagramUrl} onChange={(e)=>setOrganization({...organization,instagramUrl:e.target.value})}/></label>
+          <label className="partner-field"><span>Kód krajiny</span><input maxLength={2} value={organization.countryCode} onChange={(e)=>setOrganization((current) => {
+            const countryCode = e.target.value.toUpperCase();
+            return { ...current, countryCode, ...(countryCode === "SK" && current.countryCode !== "SK" ? { city: "", district: "", region: "" } : {}) };
+          })}/></label>
           <label className="partner-field"><span>Adresa</span><input value={organization.address} onChange={(e)=>setOrganization({...organization,address:e.target.value})}/></label>
-          <label className="partner-field"><span>Mesto</span><input value={organization.city} onChange={(e)=>setOrganization({...organization,city:e.target.value})}/></label>
-          <label className="partner-field"><span>Okres</span><input value={organization.district} onChange={(e)=>setOrganization({...organization,district:e.target.value})}/></label>
-          <label className="partner-field"><span>Kraj</span><input placeholder="napr. Trnavský kraj" value={organization.region} onChange={(e)=>setOrganization({...organization,region:e.target.value})}/></label>
-          <label className="partner-field"><span>Kód krajiny</span><input maxLength={2} value={organization.countryCode} onChange={(e)=>setOrganization({...organization,countryCode:e.target.value.toUpperCase()})}/></label>
+          {organization.countryCode.trim().toUpperCase() === "SK" ? (
+            <SlovakiaLocationSelector
+              value={{ region: organization.region, district: organization.district, city: organization.city }}
+              onChange={(location) => setOrganization((current) => ({ ...current, ...location }))}
+              idPrefix="partner-new-organization-location"
+            />
+          ) : (
+            <>
+              <label className="partner-field"><span>Mesto</span><input value={organization.city} onChange={(e)=>setOrganization({...organization,city:e.target.value})}/></label>
+              <label className="partner-field"><span>Okres</span><input value={organization.district} onChange={(e)=>setOrganization({...organization,district:e.target.value})}/></label>
+              <label className="partner-field"><span>Kraj / región</span><input value={organization.region} onChange={(e)=>setOrganization({...organization,region:e.target.value})}/></label>
+            </>
+          )}
         </div>
       )}
 

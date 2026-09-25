@@ -308,9 +308,30 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.getByLabel("Kategória").selectOption("veterinari");
     await page.getByLabel("Krátky popis").fill("Nová testovacia služba pre Partner E2E.");
     await page.getByLabel("Popis", { exact: true }).fill("Toto je nový testovací Directory profil vytvorený cez moderovaný Partner flow.");
-    await page.getByLabel("Mesto").fill("Žilina");
-    await page.getByLabel("Okres").fill("Žilina");
-    await page.getByLabel("Kraj").fill("Žilinský kraj");
+    await page.getByLabel("Kraj", { exact: true }).selectOption("Nitriansky kraj");
+    await page.getByLabel("Okres", { exact: true }).selectOption("Nitra");
+    const newDirectoryMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
+    await newDirectoryMunicipality.fill("nitra");
+    await newDirectoryMunicipality.press("ArrowDown");
+    await newDirectoryMunicipality.press("Enter");
+    await expect(newDirectoryMunicipality).toHaveValue("Nitra");
+
+    await page.getByLabel("Kraj", { exact: true }).selectOption("Žilinský kraj");
+    await expect(page.getByLabel("Okres", { exact: true })).toHaveValue("");
+    await expect(newDirectoryMunicipality).toHaveValue("");
+
+    await page.getByLabel("Okres", { exact: true }).selectOption("Martin");
+    await newDirectoryMunicipality.fill("martin");
+    await newDirectoryMunicipality.press("ArrowDown");
+    await newDirectoryMunicipality.press("Enter");
+    await expect(newDirectoryMunicipality).toHaveValue("Martin");
+
+    await page.getByLabel("Okres", { exact: true }).selectOption("Žilina");
+    await expect(newDirectoryMunicipality).toHaveValue("");
+    await newDirectoryMunicipality.fill("zilina");
+    await newDirectoryMunicipality.press("ArrowDown");
+    await newDirectoryMunicipality.press("Enter");
+    await expect(newDirectoryMunicipality).toHaveValue("Žilina");
     await page.getByLabel("Adresa").fill("Unikátna 123");
     await page.getByLabel("Web").fill("https://partner-new-e2e.example");
     await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
@@ -319,7 +340,13 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
-    await page.getByLabel("Mesto").fill("Trnava");
+    await page.getByLabel("Kraj", { exact: true }).selectOption("Trnavský kraj");
+    await page.getByLabel("Okres", { exact: true }).selectOption("Trnava");
+    const editMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
+    await editMunicipality.fill("trnava");
+    await editMunicipality.press("ArrowDown");
+    await editMunicipality.press("Enter");
+    await expect(editMunicipality).toHaveValue("Trnava");
     await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
     await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
@@ -344,6 +371,16 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.getByLabel("Typ organizácie").selectOption("CIVIC_ASSOCIATION");
     await page.getByLabel("Verejný telefón").fill("+421900111222");
     await page.getByLabel("Web").fill("https://example.sk");
+    await page.getByLabel("Kraj", { exact: true }).selectOption("Nitriansky kraj");
+    await page.getByLabel("Okres", { exact: true }).selectOption("Zlaté Moravce");
+    const organizationMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
+    await organizationMunicipality.fill("tesarske");
+    await organizationMunicipality.press("ArrowDown");
+    await organizationMunicipality.press("Enter");
+    await expect(organizationMunicipality).toHaveValue("Tesárske Mlyňany");
+    await expectNoHorizontalOverflow(page);
+    const locationAccessibility = await new AxeBuilder({ page }).analyze();
+    expect(locationAccessibility.violations).toEqual([]);
     await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
     await expect(page.getByRole("heading", { name: "Našli sme profil, ktorý môže patriť vám." })).toBeVisible();
     await expect(page.getByRole("link", { name: "Spravujete tento profil?" })).toHaveAttribute("href", "/partner/prevziat-profil/HELP_ORGANIZATION/990002");
@@ -549,7 +586,6 @@ test("stale Partner moderation approval is rejected at decision time without ove
     const externalProfileUpdate = await page.request.put("/api/admin/directory/990005", {
       data: {
         ...profileJson.profile,
-        city: "Bratislava",
         description: "Izolovaný lokálny fixture s externou H5 zmenou pre stale-base E2E overenie.",
       },
     });
@@ -567,7 +603,7 @@ test("stale Partner moderation approval is rejected at decision time without ove
     await expect(page.getByText(/Čaká na rozhodnutie/).first()).toBeVisible();
     const canonicalAfter = await page.request.get("/api/admin/directory/990005");
     const canonicalAfterJson = await canonicalAfter.json() as { profile: { city?: string } };
-    expect(canonicalAfterJson.profile.city).toBe("Bratislava");
+    expect(canonicalAfterJson.profile.city).toBe("Nitra");
   }
 
   const eventId = 990006;
@@ -777,7 +813,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(page.getByRole("link",{name:/Úpravy 2/})).toBeVisible();
     await page.goto("/admin/partners/changes?status=active");
     const changeRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Veterina"});
-    await expect(changeRow).toContainText("1 zmenených polí");
+    await expect(changeRow).toContainText("3 zmenených polí");
     await changeRow.getByRole("link",{name:"Detail →"}).click();
     await expect(page.getByRole("heading",{name:"OLD → NEW"})).toBeVisible();
     await expect(page.getByText("Nitra",{exact:true}).first()).toBeVisible();
