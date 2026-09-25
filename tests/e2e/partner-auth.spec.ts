@@ -751,7 +751,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
     await page.goto("/admin/partners");
 
-    await expect(page.getByRole("link",{name:/Overenia 2/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 4/})).toBeVisible();
     await page.goto("/admin/partners/verifications?status=PENDING_VERIFICATION");
     const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]}).filter({hasText:"Partner E2E Veterina"});
     await expect(verificationRow).toContainText("PENDING_VERIFICATION");
@@ -767,7 +767,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Overený správca")).toBeVisible();
   }else{
-    await expect(page.getByRole("link",{name:/Claims 1/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Claims 2/})).toBeVisible();
     await page.goto("/admin/partners/claims?status=PENDING");
     const claimRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
     await expect(claimRow).toContainText("Ownership konflikt");
@@ -782,7 +782,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.getByRole("button",{name:"Schváliť"}).click();
     await claimResponse;
     await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Claims 0/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Claims 1/})).toBeVisible();
     await expect(page.getByRole("link",{name:/Overenia 3/})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
