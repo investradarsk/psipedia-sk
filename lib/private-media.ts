@@ -3,8 +3,8 @@ export const MAX_PRIVATE_IMAGE_SIDE = 12_000;
 export const MAX_PRIVATE_IMAGE_PIXELS = 50_000_000;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-type ImageOutput = { response(): Promise<Response> };
-export type ImagesBindingLike = { input(stream: ReadableStream<Uint8Array>): { transform(options: Record<string, unknown>): { output(options: Record<string, unknown>): ImageOutput } } };
+type ImageTransformationResultLike = { response(): Response | Promise<Response> };
+export type ImagesBindingLike = { input(stream: ReadableStream<Uint8Array>): { transform(options: Record<string, unknown>): { output(options: Record<string, unknown>): Promise<ImageTransformationResultLike> } } };
 export type R2ObjectLike = { body: ReadableStream<Uint8Array>; arrayBuffer(): Promise<ArrayBuffer>; httpEtag?: string; writeHttpMetadata?(headers: Headers): void };
 export type PrivateBucketLike = {
   put(key: string, value: ArrayBuffer | Uint8Array | ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>;
@@ -115,15 +115,19 @@ export async function ingestPrivateImage(input: {
     customMetadata: { visibility: "private-quarantine" },
   });
 
+  let stage = "transform-output";
   try {
     const source = new Blob([input.bytes.slice().buffer], { type: detectedMime }).stream();
-    const transformed = input.images.input(source)
+    const transformed = await input.images.input(source)
       .transform({ width: 2000, height: 2000, fit: "scale-down", metadata: "none" })
       .output({ format: "image/webp", quality: 85, anim: false });
+    stage = "response";
     const response = await transformed.response();
     if (!response.ok) throw new Error("Image transformation failed");
+    stage = "read-output";
     const safeBytes = new Uint8Array(await response.arrayBuffer());
     if (!safeBytes.byteLength || safeBytes.byteLength > MAX_PRIVATE_IMAGE_BYTES) throw new Error("Processed image is invalid");
+    stage = "safe-write";
     await input.privateBucket.put(safeKey, safeBytes, {
       httpMetadata: { contentType: "image/webp" },
       customMetadata: { visibility: "private-safe", metadataStripped: "true" },
@@ -134,6 +138,11 @@ export async function ingestPrivateImage(input: {
       width: dimensions.width, height: dimensions.height, sha256: await sha256(input.bytes),
     };
   } catch (error) {
+    console.error("[private-media] image pipeline failure", {
+      stage,
+      errorClass: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : "Unknown image pipeline failure",
+    });
     await input.privateBucket.delete(rawKey).catch(() => undefined);
     await input.privateBucket.delete(safeKey).catch(() => undefined);
     throw error;
