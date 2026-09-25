@@ -3,7 +3,6 @@ import {
   DIRECTORY_SEMANTIC_KIND,
   directoryCandidateKeys,
   directoryObservationSemanticKind,
-  directoryRecordFields,
   isDirectoryFacilityObservation,
   normalizeDirectoryEvidenceField,
   selectDirectoryClusterCandidate,
