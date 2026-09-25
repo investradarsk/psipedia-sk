@@ -149,6 +149,8 @@ test("public eligibility is fail-closed for hidden, stale, review, failed, unpub
     { canonicalStatus: "draft" },
     { archivedAt: "2026-09-22T00:00:00Z" },
   ]) assert.equal(isPublicMapCandidate({ ...candidate, ...patch }, "2026-09-22"), false);
+  assert.equal(isPublicMapCandidate({ ...candidate, publicVisibility: "APPROXIMATE_PUBLIC", precision: "MUNICIPALITY" }, "2026-09-22"), false);
+  assert.equal(isPublicMapCandidate({ ...candidate, online: true }, "2026-09-22"), true, "physical + online exact service remains map-eligible");
 });
 
 test("approximate public display never includes source street while exact may include approved address", () => {
@@ -245,7 +247,7 @@ test("seeded query layer combines filters, privacy, publication, event lifecycle
   assert.equal(result.mode, "items");
   const body = JSON.stringify(result);
   assert.match(body, /Veterina Nitra/);
-  assert.match(body, /Sensitive breeder/);
+  assert.doesNotMatch(body, /Sensitive breeder/);
   assert.doesNotMatch(body, /Neverejná 77/);
   assert.doesNotMatch(body, /Hidden/);
   assert.doesNotMatch(body, /Stale/);
