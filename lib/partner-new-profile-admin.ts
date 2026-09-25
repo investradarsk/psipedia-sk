@@ -28,6 +28,7 @@ import {
 } from "@/lib/moderation-transition";
 import { transitionModerationSubmission } from "@/lib/moderation-store";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
+import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 type Resolution = "CREATED_NEW" | "LINKED_EXISTING";
@@ -57,6 +58,11 @@ type AdminRow = {
   resolvedResourceId:string|null;
   resolvedCanonicalId:number|null;
   dedupeActive:number;
+  mediaAssetId:string|null;
+  mediaMime:string|null;
+  mediaSizeBytes:number|null;
+  mediaWidth:number|null;
+  mediaHeight:number|null;
 };
 
 function db(input?:D1Database){return getPartnerDatabase(input??(env as unknown as Bindings).DB);}
@@ -93,6 +99,7 @@ function safeCandidates(value:string){
 const BASE=`
   SELECT s.id,s.resource_type resourceType,s.status,s.submitter_ref submitterRef,
     s.proposed_patch_json proposedPatchJson,s.risk_flags_json riskFlagsJson,
+    s.media_asset_id mediaAssetId,ma.original_mime mediaMime,ma.size_bytes mediaSizeBytes,ma.width mediaWidth,ma.height mediaHeight,
     s.duplicate_resource_type duplicateResourceType,s.duplicate_subject_id duplicateSubjectId,
     s.rejection_reason_code rejectionReasonCode,s.created_at createdAt,s.updated_at updatedAt,
     s.reviewed_at reviewedAt,s.reviewed_by reviewedBy,
@@ -104,6 +111,7 @@ const BASE=`
   FROM partner_new_profile_metadata m
   JOIN moderation_submissions s ON s.id=m.submission_id
   JOIN partner_accounts a ON a.id=m.partner_account_id
+  LEFT JOIN media_assets ma ON ma.id=s.media_asset_id
 `;
 
 async function raw(id:string,database:D1Database){
@@ -117,6 +125,10 @@ async function hydrate(row:AdminRow,key:string){
     duplicateCandidates:safeCandidates(row.duplicateCandidatesJson),
     riskFlags:safeJson<string[]>(row.riskFlagsJson,[]).filter((item)=>typeof item==="string"),
     proposedProfile:normalizePartnerNewProfile(row.resourceType,safeJson(row.proposedPatchJson,{})),
+    media:row.mediaAssetId?{
+      id:row.mediaAssetId,originalMime:row.mediaMime,sizeBytes:row.mediaSizeBytes,width:row.mediaWidth,height:row.mediaHeight,
+      previewUrl:`/api/admin/partners/media/${row.mediaAssetId}`,
+    }:null,
     active:active(row.status),
     statusLabel:statusLabel(row.status),
     rejectionReason:publicPartnerProfileChangeReason(row.rejectionReasonCode),
