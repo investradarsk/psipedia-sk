@@ -64,7 +64,7 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("production D1 supported targets are explicit through 0075 ZSK event source", () => {
+test("production D1 supported targets are explicit through 0076 non-event foundation", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
@@ -80,6 +80,7 @@ test("production D1 supported targets are explicit through 0075 ZSK event source
     "0073_automation_multisource_entity_resolution.sql",
     "0074_directory_service_address.sql",
     "0075_automation_zsk_event_source.sql",
+    "0076_automation_non_event_entity_resolution_foundation.sql",
   ]);
 });
 
@@ -94,7 +95,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0076_future_migration.sql",
+    "0077_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -126,7 +127,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0076_future_migration.sql",
+    "0077_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -137,7 +138,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0073_automation_multisource_entity_resolution.sql",
     "0074_directory_service_address.sql",
     "0075_automation_zsk_event_source.sql",
-    "0076_future_migration.sql",
+    "0077_future_migration.sql",
   ]);
 });
 
@@ -378,6 +379,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.match(workflow, /APPLY-0074-psipedia-sk-db/);
   assert.match(workflow, /0075_automation_zsk_event_source\.sql/);
   assert.match(workflow, /APPLY-0075-psipedia-sk-db/);
+  assert.match(workflow, /0076_automation_non_event_entity_resolution_foundation\.sql/);
+  assert.match(workflow, /APPLY-0076-psipedia-sk-db/);
   assert.match(workflow, /git fetch --no-tags origin main/);
   assert.match(workflow, /partner\/prihlasenie/);
   assert.match(workflow, /partner\/registracia/);
@@ -510,4 +513,17 @@ test("ordinary Cloudflare deploy path never applies remote D1 migrations", async
   assert.doesNotMatch(deploy, /remoteMigration/);
   assert.doesNotMatch(deploy, /apply-remote-d1-migrations/);
   assert.match(deploy, /separate manual production migration workflow/);
+});
+
+
+test("0076 non-event entity-resolution foundation is additive and guarded", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0076_automation_non_event_entity_resolution_foundation.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.match(migration, /ADD COLUMN \`semantic_kind\`/);
+  assert.match(migration, /CREATE TABLE \`automation_entity_candidate_keys\`/);
+  assert.match(migration, /automation_entity_clusters_type_semantic_updated_idx/);
+  assert.match(migration, /automation_entity_candidate_keys_lookup_idx/);
+  assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM|UPDATE\s+(directory_profiles|help_organizations|automation_entity_clusters)/i);
+  assert.match(script, /0076_automation_non_event_entity_resolution_foundation\.sql/);
+  assert.match(script, /assertAutomationNonEventFoundationSchema/);
 });
