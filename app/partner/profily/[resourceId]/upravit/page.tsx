@@ -37,6 +37,8 @@ export default async function Page({ params }: { params: Promise<{ resourceId: s
           fields={editor.fields}
           values={editor.values}
           baseRevision={editor.baseRevision}
+          resourceType={editor.resource.entityType}
+          currentImageUrl={editor.resource.imageUrl}
         />
       </section>
     </PartnerShell>
