@@ -1,7 +1,16 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { isGeoTargetType, type GeoTargetType } from "@/lib/geo";
+import { isGeoPublicPrecision, isGeoPublicVisibility, isGeoTargetType, type GeoTargetType } from "@/lib/geo";
 import { geoapifyApiKey } from "@/lib/geoapify-geocoder";
-import { initializeGeoCandidates, previewGeoCandidates, previewSafeGeoInitialization, runGeoBackfillChunk, runGeoCanary } from "@/lib/geo-operations";
+import {
+  initializeGeoCandidates,
+  previewExplicitGeoOnboarding,
+  previewGeoCandidates,
+  previewSafeGeoInitialization,
+  runExplicitGeoOnboarding,
+  runGeoBackfillChunk,
+  runGeoCanary,
+  validateExplicitGeoTargetIds,
+} from "@/lib/geo-operations";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +74,40 @@ export async function POST(request: Request) {
   const directoryCategory = typeof body.directoryCategory === "string" ? body.directoryCategory : null;
 
   try {
+    if (action === "explicit-preview" || action === "explicit-onboard") {
+      if (!targetType) return Response.json({ error: "Explicitný onboarding vyžaduje explicitný targetType." }, { status: 400 });
+      let targetIds: number[];
+      try { targetIds = validateExplicitGeoTargetIds(body.targetIds); }
+      catch (error) {
+        return Response.json({ error: error instanceof Error ? error.message : "Neplatné target IDs." }, { status: 400 });
+      }
+      const visibility = body.visibility;
+      const precision = body.precision;
+      if (!isGeoPublicVisibility(visibility)) {
+        return Response.json({ error: "Explicitný onboarding vyžaduje platnú visibility." }, { status: 400 });
+      }
+      if (!isGeoPublicPrecision(precision)) {
+        return Response.json({ error: "Explicitný onboarding vyžaduje platnú precision." }, { status: 400 });
+      }
+
+      if (action === "explicit-preview") {
+        const report = await previewExplicitGeoOnboarding({ targetType, targetIds, visibility, precision });
+        return Response.json({ report, persisted: false, providerCalled: false });
+      }
+
+      if (body.confirm !== "EXPLICIT-ONBOARD") {
+        return Response.json({ error: "Chýba explicitné EXPLICIT-ONBOARD potvrdenie." }, { status: 400 });
+      }
+      const report = await runExplicitGeoOnboarding({
+        targetType,
+        targetIds,
+        visibility,
+        precision,
+        actorRef: user.email,
+      });
+      return Response.json({ report, persisted: true, fullBackfillEnabled: false });
+    }
+
     if (action === "initialize") {
       if (body.confirm !== "INITIALIZE") return Response.json({ error: "Chýba explicitné INITIALIZE potvrdenie." }, { status: 400 });
       const safeOnly = body.safeOnly === true;

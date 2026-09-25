@@ -63,6 +63,22 @@ Full production backfill remains disabled until all gates are independently comp
 
 The admin Operations page allows dry-run classification, bounded explicit initialization, and at most 5 provider canary calls from the UI. There is deliberately no "geocode everything" action.
 
+### Explicit-ID safe onboarding
+
+A2 adds a separate admin-only explicit-ID path without changing the existing ordered bulk initializer.
+
+- `explicit-preview` accepts only an explicit target type plus 1–20 unique positive integer IDs and never writes or calls the provider.
+- `explicit-onboard` requires `EXPLICIT-ONBOARD` confirmation and processes only the requested ID set.
+- The first supported production contract is intentionally limited to `DIRECTORY_PROFILE + APPROXIMATE_PUBLIC + MUNICIPALITY`.
+- Exact requests are blocked rather than upgraded or downgraded.
+- Approximate queries are regenerated through `buildGeoQuery()` and checked against a locality-only source before any provider call.
+- Manual overrides, stale fingerprints, existing NEEDS_REVIEW/FAILED rows, unpublished or missing canonicals, and query/privacy mismatches fail closed.
+- Current RESOLVED rows with matching fingerprints are idempotent no-ops.
+- Provider configuration is checked before the first write so a missing Geoapify secret cannot leave newly initialized rows behind.
+- Per-target execution reuses the existing geo store, visibility/fingerprint state machine, Geoapify adapter, moderation events and Attention Center.
+
+The explicit operation has no wildcard, range, category-only, or implicit next-candidate mode.
+
 ## Safe rollout
 
 Migration `0064_geo_foundation.sql` is schema-only. It does not insert geo rows or call any provider.
