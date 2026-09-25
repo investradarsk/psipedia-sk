@@ -115,7 +115,14 @@ jobs:
             kill "$(cat .e2e-artifacts/map-1d/server.pid)" 2>/dev/null || true
           fi
           sleep 1
-          nohup env MAP_UI_TEST_RENDERER=0 PUBLIC_MAP_ENABLED=0 GOOGLE_MAPS_BROWSER_API_KEY=ci-browser-key-not-real GOOGLE_MAPS_MAP_ID=ci-map-id-not-real npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/map-1d/server-off.log 2>&1 &
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'PII_HASH_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'PUBLIC_MAP_ENABLED=0\n'
+            printf 'GOOGLE_MAPS_BROWSER_API_KEY=ci-browser-key-not-real\n'
+            printf 'GOOGLE_MAPS_MAP_ID=ci-map-id-not-real\n'
+          } > .dev.vars
+          nohup env MAP_UI_TEST_RENDERER=0 npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/map-1d/server-off.log 2>&1 &
           echo $! > .e2e-artifacts/map-1d/server.pid
           ready=0
           for attempt in $(seq 1 90); do
