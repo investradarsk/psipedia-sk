@@ -202,15 +202,17 @@ test("ZSK adapter follows only the current iframe per supported category and ded
 
 test("ZSK connector nested HTML fetches reuse safe transport and remain bounded", async () => {
   const requests = [];
-  const responseFor = (url) => {
-    if (url === "https://zsksr.sk/kalendar/" || url === "https://zsksr.sk/kalendar") return fixture("zsk-sr-calendar-root.html");
-    if (url.includes("/kalendar/narodne-akcie")) return fixture("zsk-sr-category-national.html");
-    if (url.includes("/kalendar/skusky-obedience-a-rally-obedience")) return fixture("zsk-sr-category-obedience.html");
-    if (url.includes("/kalendar/sportove-kynologicke-akcie")) return fixture("zsk-sr-category-sport.html");
-    if (url.includes("zsk_akcie.php")) return fixture("zsk-sr-table-national.html");
-    if (url.includes("zsk_skusky.php")) return fixture("zsk-sr-table-obedience.html");
-    if (url.includes("zsk_sport.php")) return fixture("zsk-sr-table-sport.html");
-    throw new Error("unexpected ZSK connector URL " + url);
+  const responseFor = (rawUrl) => {
+    const url = new URL(rawUrl);
+    const cleanPath = url.pathname.replace(/\\\/+$/, "");
+    if (url.hostname === "zsksr.sk" && cleanPath === "/kalendar") return fixture("zsk-sr-calendar-root.html");
+    if (url.hostname === "zsksr.sk" && cleanPath.endsWith("/kalendar/narodne-akcie")) return fixture("zsk-sr-category-national.html");
+    if (url.hostname === "zsksr.sk" && cleanPath.endsWith("/kalendar/skusky-obedience-a-rally-obedience")) return fixture("zsk-sr-category-obedience.html");
+    if (url.hostname === "zsksr.sk" && cleanPath.endsWith("/kalendar/sportove-kynologicke-akcie")) return fixture("zsk-sr-category-sport.html");
+    if (url.hostname === "suchno.sk" && cleanPath.endsWith("/app_test/zsk_akcie.php")) return fixture("zsk-sr-table-national.html");
+    if (url.hostname === "suchno.sk" && cleanPath.endsWith("/app_test/zsk_skusky.php")) return fixture("zsk-sr-table-obedience.html");
+    if (url.hostname === "suchno.sk" && cleanPath.endsWith("/app_test/zsk_sport.php")) return fixture("zsk-sr-table-sport.html");
+    throw new Error("unexpected ZSK connector URL " + rawUrl);
   };
   const rows = await fetchAutomationSourceRecords(source({
     sourceKey: "zsk-sr-events",
