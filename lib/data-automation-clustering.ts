@@ -6,6 +6,11 @@ import {
   type AutomationSource,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
+import {
+  automationSemanticKindsCompatible,
+  type AutomationCandidateKey,
+  type AutomationSemanticKind,
+} from "./data-automation-identity.ts";
 
 export const automationClusterMatchQualities = ["EXACT", "STRONG", "POSSIBLE", "NONE"] as const;
 export type AutomationClusterMatchQuality = (typeof automationClusterMatchQualities)[number];
@@ -23,6 +28,63 @@ export const automationSourceRoles = [
 export type AutomationSourceRole = (typeof automationSourceRoles)[number];
 
 type AutomationClusterDatabase = Pick<D1Database, "prepare" | "batch">;
+
+export type AutomationIndexedClusterCandidate = {
+  id: number;
+  semanticKind: AutomationSemanticKind;
+  canonicalEntityId: number | null;
+  canonicalEntityKey: string | null;
+};
+
+export function canAutomationObservationEnterCluster(input: {
+  entityType: AutomationSource["entityType"];
+  observationSemanticKind: AutomationSemanticKind;
+  clusterSemanticKind: AutomationSemanticKind;
+}) {
+  return automationSemanticKindsCompatible(
+    input.entityType,
+    input.observationSemanticKind,
+    input.clusterSemanticKind,
+  );
+}
+
+export async function lookupAutomationClusterCandidates(input: {
+  entityType: AutomationSource["entityType"];
+  semanticKind: AutomationSemanticKind;
+  keys: AutomationCandidateKey[];
+  limit?: number;
+}, database: AutomationClusterDatabase): Promise<AutomationIndexedClusterCandidate[]> {
+  if (input.semanticKind === "UNKNOWN" || input.keys.length === 0) return [];
+  const keys = [...new Map(input.keys.map((key) => [
+    [key.keyType, key.namespace, key.normalizedValue].join("\\u0000"), key,
+  ])).values()].slice(0, 16);
+  const clauses = keys.map(() => "(k.key_type=? AND k.key_namespace=? AND k.normalized_value=?)").join(" OR ");
+  const bindings = keys.flatMap((key) => [key.keyType, key.namespace, key.normalizedValue]);
+  const limit = Math.max(1, Math.min(250, Math.floor(input.limit ?? 100)));
+  try {
+    const rows = await database.prepare(`SELECT DISTINCT c.id,c.semantic_kind,c.canonical_entity_id,c.canonical_entity_key,c.updated_at
+      FROM automation_entity_candidate_keys k
+      JOIN automation_entity_clusters c ON c.id=k.cluster_id
+      WHERE k.entity_type=? AND k.semantic_kind=? AND (${clauses})
+      ORDER BY c.updated_at DESC,c.id DESC LIMIT ?`).bind(
+      input.entityType, input.semanticKind, ...bindings, limit,
+    ).all<{
+      id: number;
+      semantic_kind: AutomationSemanticKind;
+      canonical_entity_id: number | null;
+      canonical_entity_key: string | null;
+    }>();
+    return rows.results.map((row) => ({
+      id: Number(row.id),
+      semanticKind: row.semantic_kind,
+      canonicalEntityId: row.canonical_entity_id == null ? null : Number(row.canonical_entity_id),
+      canonicalEntityKey: row.canonical_entity_key,
+    }));
+  } catch (error) {
+    if (isMissingClusterSchema(error)) return [];
+    throw error;
+  }
+}
 
 export type EventClusterCandidate = {
   id: number;
@@ -241,9 +303,14 @@ async function recentEventCandidates(database: AutomationClusterDatabase): Promi
   }));
 }
 
-async function createCluster(entityType: AutomationSource["entityType"], at: string, database: AutomationClusterDatabase) {
-  const row = await database.prepare(`INSERT INTO automation_entity_clusters (entity_type,created_at,updated_at)
-    VALUES (?,?,?) RETURNING id`).bind(entityType, at, at).first<{ id: number }>();
+async function createCluster(
+  entityType: AutomationSource["entityType"],
+  semanticKind: AutomationSemanticKind,
+  at: string,
+  database: AutomationClusterDatabase,
+) {
+  const row = await database.prepare(`INSERT INTO automation_entity_clusters (entity_type,semantic_kind,created_at,updated_at)
+    VALUES (?,?,?,?) RETURNING id`).bind(entityType, semanticKind, at, at).first<{ id: number }>();
   if (!row) throw new Error("automation_cluster_create_failed");
   return Number(row.id);
 }
@@ -396,13 +463,26 @@ async function recordEventEvidence(input: {
   }
 }
 
-export async function resolveAutomationEntityCluster(input: {
+type AutomationClusterResolverInput = {
   source: AutomationSource;
   observationId: number;
   record: AutomationSourceRecord;
   detectedAt: string;
-}, database: AutomationClusterDatabase): Promise<AutomationClusterResolution | null> {
-  if (input.source.entityType !== "EVENT") return null;
+};
+
+type AutomationEntityResolutionStrategy = {
+  entityType: AutomationSource["entityType"];
+  matcherImplemented: boolean;
+  resolve: (
+    input: AutomationClusterResolverInput,
+    database: AutomationClusterDatabase,
+  ) => Promise<AutomationClusterResolution | null>;
+};
+
+async function resolveEventAutomationEntityCluster(
+  input: AutomationClusterResolverInput,
+  database: AutomationClusterDatabase,
+): Promise<AutomationClusterResolution | null> {
   try {
     const existing = await database.prepare(`SELECT c.id,c.canonical_entity_id,c.canonical_entity_key
       FROM automation_cluster_source_records sr
@@ -430,7 +510,7 @@ export async function resolveAutomationEntityCluster(input: {
         canonicalEntityId = matched?.canonicalEntityId ?? null;
         canonicalEntityKey = matched?.canonicalEntityKey ?? null;
       } else {
-        clusterId = await createCluster(input.source.entityType, input.detectedAt, database);
+        clusterId = await createCluster(input.source.entityType, "EVENT", input.detectedAt, database);
         if (decision.quality === "POSSIBLE" && decision.possibleCandidateIds.length) {
           await recordClusterMatchCandidates({
             observationId: input.observationId,
@@ -466,6 +546,37 @@ export async function resolveAutomationEntityCluster(input: {
     if (isMissingClusterSchema(error)) return null;
     throw error;
   }
+}
+
+const EVENT_ENTITY_RESOLUTION_STRATEGY: AutomationEntityResolutionStrategy = {
+  entityType: "EVENT",
+  matcherImplemented: true,
+  resolve: resolveEventAutomationEntityCluster,
+};
+
+function foundationOnlyStrategy(entityType: "DIRECTORY" | "ORGANIZATION"): AutomationEntityResolutionStrategy {
+  return {
+    entityType,
+    matcherImplemented: false,
+    resolve: async () => null,
+  };
+}
+
+export function automationEntityResolutionStrategyFor(
+  entityType: AutomationSource["entityType"],
+): AutomationEntityResolutionStrategy | null {
+  if (entityType === "EVENT") return EVENT_ENTITY_RESOLUTION_STRATEGY;
+  if (entityType === "DIRECTORY" || entityType === "ORGANIZATION") return foundationOnlyStrategy(entityType);
+  return null;
+}
+
+export async function resolveAutomationEntityCluster(
+  input: AutomationClusterResolverInput,
+  database: AutomationClusterDatabase,
+): Promise<AutomationClusterResolution | null> {
+  const strategy = automationEntityResolutionStrategyFor(input.source.entityType);
+  if (!strategy?.matcherImplemented) return null;
+  return strategy.resolve(input, database);
 }
 
 export async function linkAutomationFindingToCluster(
