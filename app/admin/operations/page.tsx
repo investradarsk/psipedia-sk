@@ -71,20 +71,20 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
           <span className={styles.hubOpen}>Prejsť na úlohy ↓</span>
         </a>
 
-        <Link className={`${styles.hubCard} ${newCandidates > 0 ? styles.hubCardPrimary : ""}`} href="/admin/operations/automation/sources#kandidati">
+        <Link className={`${styles.hubCard} ${newCandidates > 0 ? styles.hubCardPrimary : ""}`} href="/admin/automatizacie">
           <span className={styles.hubKicker}>Nové zdroje</span>
           <div className={styles.hubMetric}><strong>{automationAvailable ? newCandidates : "—"}</strong><span>na posúdenie</span></div>
-          <h2>Nájdené weby a registre</h2>
-          <p>Automatizácia našla nové možné zdroje. Ty iba rozhodneš, ktoré má Psipedia používať.</p>
-          <span className={styles.hubOpen}>Skontrolovať zdroje →</span>
+          <h2>Automatizačné zdroje</h2>
+          <p>Nastavenie a stav zdrojov patria do samostatnej sekcie Automatizácie; tu zostáva iba ľudské rozhodovanie.</p>
+          <span className={styles.hubOpen}>Otvoriť automatizácie →</span>
         </Link>
 
-        <Link className={`${styles.hubCard} ${sourceIssues > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/operations/automation">
+        <Link className={`${styles.hubCard} ${sourceIssues > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/automatizacie">
           <span className={styles.hubKicker}>Automatizácia</span>
           <div className={styles.hubMetric}><strong>{automationAvailable ? sourceIssues : "—"}</strong><span>vyžaduje kontrolu</span></div>
-          <h2>Stav automatizácií</h2>
+          <h2>Automatizácie</h2>
           <p>{sourceIssues > 0 ? "Niektorý zdroj čaká na schválenie alebo hlási problém." : "Zdroje nehlásia problém, ktorý by od teba vyžadoval zásah."}</p>
-          <span className={styles.hubOpen}>Otvoriť prehľad →</span>
+          <span className={styles.hubOpen}>Otvoriť automatizácie →</span>
         </Link>
         <Link className={styles.hubCard} href="/admin/operations/geo">
           <span className={styles.hubKicker}>Geo foundation</span>
