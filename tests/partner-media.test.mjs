@@ -23,13 +23,17 @@ const [
 test("0072 binds exactly one staged media asset to a Partner moderation submission with DB ownership and intent guards",()=>{
   assert.match(migration,/ADD COLUMN `media_asset_id` text REFERENCES `media_assets`/);
   assert.match(migration,/moderation_submissions_media_asset_unique/);
+  assert.match(migration,/moderation_partner_media_submitter_guard/);
+  assert.match(migration,/moderation_partner_media_attach_guard/);
   assert.match(migration,/BEFORE INSERT ON `moderation_submissions`/);
   assert.match(migration,/NEW.`submitter_type` <> 'PARTNER_ACCOUNT'/);
+  assert.match(migration,/partner media requires Partner submission/);
   assert.match(migration,/m.`owner_id` = NEW.`submitter_ref`/);
   assert.match(migration,/m.`state` = 'PENDING'/);
   for(const intent of ["PARTNER_PROFILE_CREATE","PARTNER_PROFILE_UPDATE","PARTNER_EVENT_CREATE","PARTNER_EVENT_UPDATE"])assert.match(migration,new RegExp(intent));
   assert.match(migration,/AFTER INSERT ON `moderation_submissions`/);
   assert.match(migration,/SET `state`='ATTACHED'/);
+  assert.doesNotMatch(migration,/SELECT\s+CASE|owner_type`\s*=\s*CASE/i);
   assert.doesNotMatch(migration,/UPDATE `directory_profiles`|UPDATE `help_organizations`|UPDATE `managed_events`/);
 });
 
