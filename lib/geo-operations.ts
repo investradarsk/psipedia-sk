@@ -416,11 +416,13 @@ export async function runExplicitGeoOnboarding(input: {
   actorRef: string;
   database?: GeoD1Database;
   provider?: GeocoderProvider;
+  providerConfigured?: boolean;
 }) {
   const targetIds = validateExplicitGeoTargetIds(input.targetIds);
   const preview = await previewExplicitGeoOnboarding({ ...input, targetIds });
   const provider = input.provider ?? new GeoapifyGeocoder();
-  const providerConfigured = input.provider ? true : (provider as GeoapifyGeocoder).isConfigured();
+  const providerConfigured = input.providerConfigured
+    ?? (input.provider ? true : (provider as GeoapifyGeocoder).isConfigured());
 
   const report = {
     requested: targetIds.length,
@@ -543,7 +545,6 @@ export async function runExplicitGeoOnboarding(input: {
       );
       const query = buildGeoQuery(source, input.visibility, input.precision);
       if (!approximateGeoQueryUsesOnlyLocality(source, query)) {
-        report.blocked += 1;
         push(item, "BLOCK_QUERY", {
           afterStatus: classified.geocodeStatus,
           manualOverride: classified.manualOverride,
@@ -554,7 +555,6 @@ export async function runExplicitGeoOnboarding(input: {
         continue;
       }
       if (classified.manualOverride) {
-        report.blocked += 1;
         push(item, "SKIP_MANUAL", {
           afterStatus: classified.geocodeStatus,
           manualOverride: true,
@@ -565,7 +565,6 @@ export async function runExplicitGeoOnboarding(input: {
         continue;
       }
       if (classified.sourceFingerprint !== expectedFingerprint) {
-        report.blocked += 1;
         push(item, "SKIP_STALE_SOURCE", {
           afterStatus: classified.geocodeStatus,
           sourceFingerprint: classified.sourceFingerprint,
