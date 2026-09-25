@@ -63,4 +63,43 @@ test.describe("MAP-1E launch navigation", () => {
     await expect.poll(() => page.evaluate(() => window.localStorage.getItem("psipedia-google-maps-consent"))).toBeNull();
     await expect(controls.locator("strong")).toHaveText("nepovolené");
   });
+
+  test("kill switch blocks Google renderer with config present even after consent", async ({ page, isMobile }) => {
+    test.skip(process.env.MAP_KILL_SWITCH_E2E !== "1", "Launch-disabled runtime only");
+    if (isMobile) await page.setViewportSize({ width: 390, height: 844 });
+
+    const googleRequests: string[] = [];
+    page.on("request", (request) => {
+      if (/maps\.googleapis\.com\/maps\/api\/js/i.test(request.url())) googleRequests.push(request.url());
+    });
+    await page.addInitScript(() => {
+      localStorage.setItem("psipedia-cookie-consent", "necessary");
+      localStorage.setItem("psipedia-google-maps-consent", "granted");
+    });
+
+    const response = await page.goto("/mapa", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: "Mapa Psipedie" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("psipedia-google-maps-consent"))).toBe("granted");
+    await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
+    await expect(page.getByTestId("map-consent-gate")).toHaveCount(0);
+    await expect(page.getByTestId("map-renderer-status")).toHaveText(/Google Maps nie je nakonfigurovaný/);
+    await page.waitForTimeout(500);
+    expect(googleRequests).toEqual([]);
+
+    const robots = page.locator('meta[name="robots"]');
+    await expect(robots).toHaveAttribute("content", /noindex/i);
+    await expect(robots).toHaveAttribute("content", /nofollow/i);
+
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    if (isMobile) {
+      const menuTrigger = page.locator('button[aria-controls="mobile-menu"]:visible');
+      await menuTrigger.click();
+      await expect(page.locator("#mobile-menu").getByRole("link", { name: "Mapa", exact: true })).toHaveCount(0);
+    } else {
+      await expect(page.locator(".desktop-nav").getByRole("link", { name: "Mapa", exact: true })).toHaveCount(0);
+    }
+    expect(googleRequests).toEqual([]);
+    await expectNoHorizontalOverflow(page);
+  });
 });
