@@ -224,7 +224,11 @@ test.describe("admin directory v2", () => {
     await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
     await page.getByLabel("Krátky popis").fill("Testovací profil vytvorený cez nový directory admin flow.");
     await page.getByLabel("Podrobný popis").fill("Toto je dostatočne dlhý deterministický popis používaný iba v lokálnom E2E teste administrácie.");
-    await page.getByLabel("Mesto").fill("Nitra");
+    await page.getByLabel("Kraj").selectOption({ label: "Nitriansky kraj" });
+    await page.getByLabel("Okres").selectOption({ label: "Nitra" });
+    const municipality = page.getByLabel("Obec / mesto");
+    await municipality.fill("Nitra");
+    await page.locator('[role="listbox"] [role="option"]').filter({ hasText: /^Nitra$/ }).click();
     await page.getByLabel("Verejný telefón").fill("neplatny-telefon");
     await page.getByRole("button", { name: "Publikovať profil" }).click();
     await expect(page.getByRole("alert")).toContainText("Telefónne číslo nie je platné.");
