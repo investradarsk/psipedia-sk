@@ -1,7 +1,7 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { createManagedDirectoryProfile, isDirectoryProfileConflict, listManagedDirectoryProfileSummaries, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection } from "@/lib/directory-address-provider";
-import { applyVerifiedDirectoryAddressGeo, withVerifiedDirectoryAddress } from "@/lib/directory-address-save";
+import { applyVerifiedDirectoryAddressGeo, requireDirectoryAddressProviderSchema, withVerifiedDirectoryAddress } from "@/lib/directory-address-save";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     let payload = body;
     let verified = null;
     if (physicalLocality) {
+      await requireDirectoryAddressProviderSchema();
       if (!body.addressProviderResultId?.trim()) {
         throw new Error("Vyber konkrétnu adresu z Geoapify návrhov.");
       }
