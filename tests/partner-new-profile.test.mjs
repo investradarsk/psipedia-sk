@@ -167,6 +167,8 @@ test("admin CREATE resolution is atomic, DRAFT-only and reuses canonical create 
   assert.match(create,/buildOrganizationCreateStatement/);
   assert.match(create,/status:"draft"/);
   assert.match(create,/membershipStatements/);
+  assert.match(create,/assertNewProfileIndependentOwnershipApprover/);
+  assert.ok(create.indexOf("assertNewProfileIndependentOwnershipApprover")<create.indexOf("applyAtomicModerationTransition"));
   assert.match(membershipHelper,/MEMBERSHIP_CREATED/);
   assert.match(create,/verificationStatements/);
   assert.match(verificationHelper,/VERIFICATION_REQUESTED/);
@@ -187,6 +189,9 @@ test("LINK EXISTING creates no canonical row, preserves owner semantics and hand
   const link=admin.slice(admin.indexOf("export async function linkPartnerNewProfileAdmin"),admin.indexOf("export async function rejectPartnerNewProfileAdmin"));
   assert.match(link,/canonicalExists/);
   assert.match(link,/resourceAnchorStatement/);
+  assert.match(link,/assertNewProfileIndependentOwnershipApprover/);
+  assert.match(link,/targetResource/);
+  assert.ok(link.indexOf("assertNewProfileIndependentOwnershipApprover")<link.indexOf("applyAtomicModerationTransition"));
   assert.match(link,/membershipStatements/);
   assert.match(link,/verificationStatements/);
   assert.match(link,/resolution:"LINKED_EXISTING"/);

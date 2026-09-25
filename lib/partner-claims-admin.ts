@@ -12,6 +12,7 @@ import {
 } from "./partner-claims";
 import { queuePartnerLifecycleNotification } from "./partner-email";
 import { appendPartnerAuditEvent } from "./partner-platform";
+import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "./partner-ownership-approval";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 function db(database?: D1Database) {
@@ -34,6 +35,17 @@ export class PartnerClaimAdminError extends Error {
   constructor(message: string, status = 400) {
     super(message);
     this.status = status;
+  }
+}
+
+async function assertClaimIndependentOwnershipApprover(input: Parameters<typeof assertIndependentOwnershipApprover>[0]) {
+  try {
+    await assertIndependentOwnershipApprover(input);
+  } catch (error) {
+    if (error instanceof PartnerOwnershipApprovalGuardError) {
+      throw new PartnerClaimAdminError(error.message, error.status);
+    }
+    throw error;
   }
 }
 
@@ -224,10 +236,18 @@ export async function approvePartnerClaimAdmin(input: {
   adminEmail: string;
   database?: D1Database;
   now?: Date;
+  hashKey?: string;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatný claim.");
   const database = db(input.database);
   const claim = await claimForDecision(input.id, database);
+  await assertClaimIndependentOwnershipApprover({
+    adminEmail: input.adminEmail,
+    accountId: claim.accountId,
+    resourceId: claim.resourceId,
+    database,
+    hashKey: input.hashKey,
+  });
   const now = input.now ?? new Date();
   await ensurePartnerOwnerMembershipAdmin({
     accountId: claim.accountId,
@@ -439,10 +459,20 @@ export async function decidePartnerVerificationAdmin(input: {
   adminEmail: string;
   database?: D1Database;
   now?: Date;
+  hashKey?: string;
 }) {
   if (!safeId(input.id)) throw new PartnerClaimAdminError("Neplatné overenie.");
   const database = db(input.database);
   const verification = await pendingVerificationForDecision(input.id, database);
+  if (input.action === "VERIFY") {
+    await assertClaimIndependentOwnershipApprover({
+      adminEmail: input.adminEmail,
+      accountId: verification.accountId,
+      resourceId: verification.resourceId,
+      database,
+      hashKey: input.hashKey,
+    });
+  }
   const note = normalizePartnerClaimText(input.reviewNote, 2000);
   const now = input.now ?? new Date();
   const iso = now.toISOString();
