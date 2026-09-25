@@ -1,5 +1,6 @@
 import type { AutomationEntityType } from "./data-automation";
 import type { AutomationSourceAdminRow } from "./data-automation-source-store";
+import type { AutomationFindingSummary } from "./data-automation-store";
 
 export type AutomationUxCategory = {
   slug: string;
@@ -50,8 +51,23 @@ export function automationCategoryLastCheck(sources: AutomationSourceAdminRow[])
     .sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
 }
 
-export function automationCategoryFindingCount(sources: AutomationSourceAdminRow[]) {
-  return sources.reduce((sum, source) => sum + Math.max(0, source.newFindingCount), 0);
+export function automationFindingsForSources(findings: AutomationFindingSummary[], sources: AutomationSourceAdminRow[]) {
+  const sourceIds = new Set(sources.map((source) => source.id));
+  return findings.filter((finding) =>
+    sourceIds.has(finding.sourceId)
+    && (finding.reviewStatus === "NEW" || finding.reviewStatus === "IN_REVIEW")
+  );
+}
+
+export function automationCategoryFindingCount(findings: AutomationFindingSummary[], sources: AutomationSourceAdminRow[]) {
+  return automationFindingsForSources(findings, sources).length;
+}
+
+export function automationSourceFindingCount(findings: AutomationFindingSummary[], sourceId: number) {
+  return findings.filter((finding) =>
+    finding.sourceId === sourceId
+    && (finding.reviewStatus === "NEW" || finding.reviewStatus === "IN_REVIEW")
+  ).length;
 }
 
 export function automationFieldLabel(field: string) {
