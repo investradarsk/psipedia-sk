@@ -126,7 +126,21 @@ const EVENT_EVIDENCE_FIELDS = [
   "canonicalExternalId",
 ] as const;
 
-const HIGH_IMPACT_EVENT_FIELDS = new Set(["startDate", "endDate", "cancelled", "status", "venue", "city"]);
+const HIGH_IMACT_EVENT_FIELDS_COMPAT = new Set(["startDate", "endDate", "cancelled", "status", "venue", "city"]);
+const HIGH_IMPACT_EVENT_FIELDS = HIGH_IMACT_EVENT_FIELDS_COMPAT;
+const HIGH_IMPACT_ORGANIZATION_FIELDS = new Set([
+  "ico",
+  "registryId",
+  "organizationName",
+  "activeStatus",
+  "domain",
+  "operatorMeaning",
+  "organizationType",
+]);
+const HIGH_IMPACT_CLUSTER_FIELDS = new Set([
+  ...HIGH_IMPACT_EVENT_FIELDS,
+  ...HIGH_IMPACT_ORGANIZATION_FIELDS,
+]);
 
 function text(value: unknown) {
   const result = String(value ?? "").trim();
@@ -378,7 +392,7 @@ async function recomputeFieldState(
   const uniqueValues = [...new Set(rows.results.map((row) => row.normalized_value))];
   const existingPreferred = rows.results.find((row) => Number(row.is_preferred) === 1);
   const conflicting = uniqueValues.length > 1;
-  const preferred = conflicting && HIGH_IMPACT_EVENT_FIELDS.has(fieldName) && existingPreferred
+  const preferred = conflicting && HIGH_IMPACT_CLUSTER_FIELDS.has(fieldName) && existingPreferred
     ? existingPreferred
     : rows.results[0];
 
@@ -393,7 +407,7 @@ async function recomputeFieldState(
     if (open) {
       await database.prepare(`UPDATE automation_field_conflicts SET
         impact=?,selected_evidence_id=?,values_fingerprint=?,updated_at=? WHERE id=?`).bind(
-        HIGH_IMPACT_EVENT_FIELDS.has(fieldName) ? "HIGH" : "NORMAL",
+        HIGH_IMPACT_CLUSTER_FIELDS.has(fieldName) ? "HIGH" : "NORMAL",
         preferred.id,
         valuesFingerprint,
         at,
@@ -405,7 +419,7 @@ async function recomputeFieldState(
         VALUES (?,?,?,'OPEN',?,?,?,?)`).bind(
         clusterId,
         fieldName,
-        HIGH_IMPACT_EVENT_FIELDS.has(fieldName) ? "HIGH" : "NORMAL",
+        HIGH_IMPACT_CLUSTER_FIELDS.has(fieldName) ? "HIGH" : "NORMAL",
         preferred.id,
         valuesFingerprint,
         at,
@@ -511,6 +525,9 @@ function organizationFields(record: AutomationSourceRecord) {
   const registryId = normalizeAutomationExactText(organizationValue(record, "registryId", "registry_id", "legalRegistryId"));
   const registryNamespace = normalizeAutomationExactText(organizationValue(record, "registryNamespace", "registry_namespace", "legalRegistryNamespace"));
   const facilityRegistryId = normalizeAutomationExactText(organizationValue(record, "sourceApprovalNumber", "facilityRegistryId"));
+  const activeStatus = normalizeAutomationExactText(organizationValue(record, "status", "active"));
+  const organizationType = normalizeAutomationDiscoveryKey(organizationValue(record, "organizationType", "type"));
+  const operatorMeaning = normalizeAutomationDiscoveryKey(organizationValue(record, "operatorName", "operator"));
 
   if (name) fields.organizationName = name;
   if (municipality) fields.municipality = municipality;
@@ -523,7 +540,26 @@ function organizationFields(record: AutomationSourceRecord) {
     fields.registryNamespace = registryNamespace;
   }
   if (facilityRegistryId) fields.facilityRegistryId = facilityRegistryId;
+  if (activeStatus) fields.activeStatus = activeStatus;
+  if (organizationType) fields.organizationType = organizationType;
+  if (operatorMeaning) fields.operatorMeaning = operatorMeaning;
   return fields;
+}
+
+function organizationRawEvidence(record: AutomationSourceRecord, fieldName: string) {
+  if (fieldName === "organizationName") return organizationValue(record, "legalName", "legal_name", "name");
+  if (fieldName === "municipality") return organizationValue(record, "municipality", "city");
+  if (fieldName === "domain") return organizationValue(record, "websiteUrl", "website_url", "domain");
+  if (fieldName === "phone") return organizationValue(record, "publicPhone", "phone");
+  if (fieldName === "email") return organizationValue(record, "publicEmail", "email");
+  if (fieldName === "ico") return organizationValue(record, "ico", "registrationNumber");
+  if (fieldName === "registryId") return organizationValue(record, "registryId", "registry_id", "legalRegistryId");
+  if (fieldName === "registryNamespace") return organizationValue(record, "registryNamespace", "registry_namespace", "legalRegistryNamespace");
+  if (fieldName === "facilityRegistryId") return organizationValue(record, "sourceApprovalNumber", "facilityRegistryId");
+  if (fieldName === "activeStatus") return organizationValue(record, "status", "active");
+  if (fieldName === "organizationType") return organizationValue(record, "organizationType", "type");
+  if (fieldName === "operatorMeaning") return organizationValue(record, "operatorName", "operator");
+  return null;
 }
 
 export function organizationCandidateKeys(
@@ -723,7 +759,7 @@ async function recordOrganizationEvidence(input: {
         input.source.id,
         input.record.sourceRecordId,
         fieldName,
-        stableJson(normalizedValue),
+        stableJson(organizationRawEvidence(input.record, fieldName) ?? normalizedValue),
         normalizedValue,
         valueHash,
         authority.role,
@@ -769,23 +805,52 @@ async function resolveOrganizationAutomationEntityCluster(
       canonicalEntityKey = existing.canonical_entity_key;
       decision = { quality: "EXACT", candidateId: clusterId, possibleCandidateIds: [], reason: "same_source_record_history" };
     } else {
-      const candidates = await organizationCandidates(semanticKind, input.record, database);
-      decision = selectOrganizationClusterCandidate(input.record, semanticKind, candidates);
-      if ((decision.quality === "EXACT" || decision.quality === "STRONG") && decision.candidateId) {
-        clusterId = decision.candidateId;
-        const matched = candidates.find((candidate) => candidate.id === clusterId);
-        canonicalEntityId = matched?.canonicalEntityId ?? null;
-        canonicalEntityKey = matched?.canonicalEntityKey ?? null;
+      const canonicalRaw = organizationValue(input.record, "canonicalOrganizationId", "canonicalEntityId");
+      const canonicalId = Number(canonicalRaw);
+      const verifiedCanonical = Number.isInteger(canonicalId) && canonicalId > 0
+        ? await database.prepare(
+            "SELECT id,semantic_kind,canonical_entity_id,canonical_entity_key FROM automation_entity_clusters WHERE entity_type=? AND canonical_entity_id=? LIMIT 1",
+          ).bind("ORGANIZATION", canonicalId).first<{
+            id: number;
+            semantic_kind: AutomationSemanticKind;
+            canonical_entity_id: number;
+            canonical_entity_key: string | null;
+          }>()
+        : null;
+
+      if (verifiedCanonical && canAutomationObservationEnterCluster({
+        entityType: "ORGANIZATION",
+        observationSemanticKind: semanticKind,
+        clusterSemanticKind: verifiedCanonical.semantic_kind,
+      })) {
+        clusterId = Number(verifiedCanonical.id);
+        canonicalEntityId = Number(verifiedCanonical.canonical_entity_id);
+        canonicalEntityKey = verifiedCanonical.canonical_entity_key;
+        decision = {
+          quality: "EXACT",
+          candidateId: clusterId,
+          possibleCandidateIds: [],
+          reason: "verified_canonical_organization_linkage",
+        };
       } else {
-        clusterId = await createOrganizationCluster(semanticKind, input.detectedAt, database);
-        if (decision.quality === "POSSIBLE" && decision.possibleCandidateIds.length) {
-          await recordClusterMatchCandidates({
-            observationId: input.observationId,
-            candidateIds: decision.possibleCandidateIds,
-            quality: "POSSIBLE",
-            reason: decision.reason,
-            at: input.detectedAt,
-          }, database);
+        const candidates = await organizationCandidates(semanticKind, input.record, database);
+        decision = selectOrganizationClusterCandidate(input.record, semanticKind, candidates);
+        if ((decision.quality === "EXACT" || decision.quality === "STRONG") && decision.candidateId) {
+          clusterId = decision.candidateId;
+          const matched = candidates.find((candidate) => candidate.id === clusterId);
+          canonicalEntityId = matched?.canonicalEntityId ?? null;
+          canonicalEntityKey = matched?.canonicalEntityKey ?? null;
+        } else {
+          clusterId = await createOrganizationCluster(semanticKind, input.detectedAt, database);
+          if (decision.quality === "POSSIBLE" && decision.possibleCandidateIds.length) {
+            await recordClusterMatchCandidates({
+              observationId: input.observationId,
+              candidateIds: decision.possibleCandidateIds,
+              quality: "POSSIBLE",
+              reason: decision.reason,
+              at: input.detectedAt,
+            }, database);
+          }
         }
       }
     }
