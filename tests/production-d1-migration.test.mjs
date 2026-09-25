@@ -64,7 +64,7 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("production D1 supported targets are explicit through 0073 automation entity resolution", () => {
+test("production D1 supported targets are explicit through 0074 ZSK event source", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
@@ -93,7 +93,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0074_future_migration.sql",
+    "0075_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -123,7 +123,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0074_future_migration.sql",
+    "0075_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -132,7 +132,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0071_admin_universal_notifications.sql",
     "0072_partner_media_uploads.sql",
     "0073_automation_multisource_entity_resolution.sql",
-    "0074_future_migration.sql",
+    "0075_future_migration.sql",
   ]);
 });
 
