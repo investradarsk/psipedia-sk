@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { PartnerPasswordField } from "@/components/partner-password-field";
 
 type Props={
   passwordSet:boolean;
@@ -40,21 +41,33 @@ export function PartnerSecuritySettings({passwordSet:initialPasswordSet,googleLi
       <div><strong>Heslo</strong><span>{passwordSet?"Nastavené":"Nenastavené"}</span></div>
     </div>
     <form className="partner-auth-form partner-password-settings-form" onSubmit={submit}>
-      {passwordSet?<label className="partner-field">
-        <span>Aktuálne heslo</span>
-        <input type="password" autoComplete="current-password" value={currentPassword}
-          onChange={event=>setCurrentPassword(event.target.value)} maxLength={1024} required />
-      </label>:null}
-      <label className="partner-field">
-        <span>{passwordSet?"Nové heslo":"Nastaviť heslo"}</span>
-        <input type="password" autoComplete="new-password" value={newPassword}
-          onChange={event=>setNewPassword(event.target.value)} minLength={12} maxLength={1024} required />
-      </label>
-      <label className="partner-field">
-        <span>Potvrdenie nového hesla</span>
-        <input type="password" autoComplete="new-password" value={confirmation}
-          onChange={event=>setConfirmation(event.target.value)} minLength={12} maxLength={1024} required />
-      </label>
+      {passwordSet?<PartnerPasswordField
+        label="Aktuálne heslo"
+        autoComplete="current-password"
+        value={currentPassword}
+        onChange={event=>setCurrentPassword(event.target.value)}
+        maxLength={1024}
+        required
+      />:null}
+      <PartnerPasswordField
+        label={passwordSet?"Nové heslo":"Nastaviť heslo"}
+        autoComplete="new-password"
+        value={newPassword}
+        onChange={event=>setNewPassword(event.target.value)}
+        minLength={12}
+        maxLength={1024}
+        required
+        hint="Heslo musí mať aspoň 12 znakov."
+      />
+      <PartnerPasswordField
+        label="Potvrdenie nového hesla"
+        autoComplete="new-password"
+        value={confirmation}
+        onChange={event=>setConfirmation(event.target.value)}
+        minLength={12}
+        maxLength={1024}
+        required
+      />
       {result&&<p className={"partner-form-message is-"+result.type} role="status" aria-live="polite">{result.text}</p>}
       <button className="button button--dark" type="submit" disabled={busy}>
         {busy?"Ukladám…":passwordSet?"Zmeniť heslo":"Nastaviť heslo"}

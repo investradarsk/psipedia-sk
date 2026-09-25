@@ -1,10 +1,65 @@
 "use client";
-import {useState,type FormEvent} from "react";import {useRouter} from "next/navigation";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+
 type Resource={resourceId:string;name:string;role:string};
-const options=[["PREMIUM_PROFILE","Premium profil","Platené rozšírenie profilu bez vplyvu na overenie alebo organické poradie."],["PROMOTED_PROFILE","Propagovaný profil","Platené zvýraznenie, ktoré je verejne označené ako Sponzorované."],["AD_CAMPAIGN","Reklamná kampaň","Individuálne dohodnutá reklamná kampaň cez existujúce reklamné plochy Psipedie."],["OTHER","Iný záujem","Napíšte nám, o akú spoluprácu máte záujem."]] as const;
+
+const options=[
+  ["PREMIUM_PROFILE","Premium profil","Platené rozšírenie profilu bez vplyvu na overenie alebo organické poradie."],
+  ["PROMOTED_PROFILE","Sponzorované zvýraznenie","Platené zvýraznenie profilu, ktoré je verejne označené ako Sponzorované."],
+  ["AD_CAMPAIGN","Reklamná kampaň","Individuálne dohodnutá reklamná kampaň cez existujúce reklamné plochy Psipedie."],
+  ["OTHER","Iný záujem","Napíšte nám, o akú spoluprácu máte záujem."],
+] as const;
+
 export function PartnerCommercialPanel({resources,defaultResourceId}:{resources:Resource[];defaultResourceId?:string}){
-  const router=useRouter(),[interestType,setInterestType]=useState("PREMIUM_PROFILE"),[resourceId,setResourceId]=useState(defaultResourceId&&resources.some(r=>r.resourceId===defaultResourceId)?defaultResourceId:resources[0]?.resourceId??""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[notice,setNotice]=useState<{kind:"success"|"error";text:string}|null>(null);
-  function choose(type:string){setInterestType(type);document.getElementById("partner-commercial-form")?.scrollIntoView({behavior:"smooth",block:"start"});}
-  async function submit(e:FormEvent){e.preventDefault();setBusy(true);setNotice(null);try{const r=await fetch("/api/partner/commercial",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({interestType,resourceId:resourceId||null,message})});const j=await r.json() as {error?:string};if(!r.ok)throw new Error(j.error||"Odoslanie zlyhalo.");setNotice({kind:"success",text:"Ďakujeme. Váš záujem sme prijali."});setMessage("");router.refresh();}catch(error){setNotice({kind:"error",text:error instanceof Error?error.message:"Odoslanie zlyhalo."});}finally{setBusy(false)}}
-  return <><div className="partner-resource-grid">{options.slice(0,3).map(([type,title,copy])=><article className="partner-resource-card" key={type}><span>Individuálna ponuka</span><h2>{title}</h2><p>{copy}</p><small>Cena sa určuje podľa dohody.</small><button type="button" className="partner-commercial-cta" onClick={()=>choose(type)}>Mám záujem</button></article>)}</div><section id="partner-commercial-form" className="partner-commercial-form-card"><h2>Mám záujem o propagáciu</h2><p>Ide o nezáväzný záujem. Nevytvára objednávku, platbu ani neaktivuje Premium či sponzorované zobrazenie.</p><form onSubmit={submit} className="partner-auth-form"><label className="partner-field">Typ záujmu<select value={interestType} onChange={e=>setInterestType(e.target.value)}>{options.map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label><label className="partner-field">Profil alebo zdroj (voliteľné)<select value={resourceId} onChange={e=>setResourceId(e.target.value)}><option value="">Bez konkrétneho profilu</option>{resources.map(r=><option value={r.resourceId} key={r.resourceId}>{r.name} · {r.role}</option>)}</select></label><label className="partner-field">Krátka správa<textarea maxLength={1000} rows={5} value={message} onChange={e=>setMessage(e.target.value)} placeholder="Čo by ste chceli propagovať alebo s čím vám môžeme pomôcť?" /></label><button className="partner-submit button" disabled={busy}>{busy?"Odosielam…":"Odoslať nezáväzný záujem"}</button>{notice&&<p role="status" className={`partner-form-message is-${notice.kind}`}>{notice.text}</p>}</form></section></>;
+  const router=useRouter();
+  const [interestType,setInterestType]=useState("PREMIUM_PROFILE");
+  const [resourceId,setResourceId]=useState(defaultResourceId&&resources.some(r=>r.resourceId===defaultResourceId)?defaultResourceId:resources[0]?.resourceId??"");
+  const [message,setMessage]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [notice,setNotice]=useState<{kind:"success"|"error";text:string}|null>(null);
+
+  function choose(type:string){
+    setInterestType(type);
+    document.getElementById("partner-commercial-form")?.scrollIntoView({behavior:"smooth",block:"start"});
+  }
+
+  async function submit(e:FormEvent){
+    e.preventDefault();
+    setBusy(true);
+    setNotice(null);
+    try{
+      const r=await fetch("/api/partner/commercial",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({interestType,resourceId:resourceId||null,message})});
+      const j=await r.json() as {error?:string};
+      if(!r.ok)throw new Error(j.error||"Odoslanie zlyhalo.");
+      setNotice({kind:"success",text:"Ďakujeme. Váš záujem sme prijali."});
+      setMessage("");
+      router.refresh();
+    }catch(error){
+      setNotice({kind:"error",text:error instanceof Error?error.message:"Odoslanie zlyhalo."});
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  return <>
+    <div className="partner-resource-grid">
+      {options.slice(0,3).map(([type,title,copy])=><article className="partner-resource-card" key={type}>
+        <span>Individuálna ponuka</span><h2>{title}</h2><p>{copy}</p><small>Cena sa určuje podľa dohody.</small>
+        <button type="button" className="partner-commercial-cta" onClick={()=>choose(type)}>Mám záujem</button>
+      </article>)}
+    </div>
+    <section id="partner-commercial-form" className="partner-commercial-form-card">
+      <h2>Mám záujem o propagáciu</h2>
+      <p>Ide o nezáväzný záujem. Nevytvára objednávku, platbu ani neaktivuje Premium či sponzorované zobrazenie.</p>
+      <form onSubmit={submit} className="partner-auth-form">
+        <label className="partner-field">Typ záujmu<select value={interestType} onChange={e=>setInterestType(e.target.value)}>{options.map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
+        <label className="partner-field">Profil alebo podujatie (voliteľné)<select value={resourceId} onChange={e=>setResourceId(e.target.value)}><option value="">Bez konkrétneho profilu alebo podujatia</option>{resources.map(r=><option value={r.resourceId} key={r.resourceId}>{r.name} · {r.role}</option>)}</select></label>
+        <label className="partner-field">Krátka správa<textarea maxLength={1000} rows={5} value={message} onChange={e=>setMessage(e.target.value)} placeholder="Čo by ste chceli propagovať alebo s čím vám môžeme pomôcť?" /></label>
+        <button className="partner-submit button" disabled={busy}>{busy?"Odosielam…":"Odoslať nezáväzný záujem"}</button>
+        {notice&&<p role="status" aria-live="polite" className={`partner-form-message is-${notice.kind}`}>{notice.text}</p>}
+      </form>
+    </section>
+  </>;
 }

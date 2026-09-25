@@ -33,13 +33,28 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
-  test(path + " is usable, accessible and overflow-safe", async ({ page }) => {
+  test(path + " is usable, accessible and overflow-safe", async ({ page }, testInfo) => {
+    if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path);
     await expect(page.locator("main#obsah")).toBeVisible();
     await expect(page.getByLabel("E-mail",{exact:true})).toBeVisible();
-    await expect(page.getByLabel("Heslo",{exact:true})).toBeVisible();
+    const passwordInput = page.getByLabel("Heslo",{exact:true});
+    await expect(passwordInput).toBeVisible();
+    await expect(passwordInput).toHaveAttribute("type","password");
+    await expect(passwordInput).toHaveAttribute("autocomplete", path === "/partner/prihlasenie" ? "current-password" : "new-password");
+    const showPassword = page.getByRole("button",{name:"Zobraziť heslo"}).first();
+    await expect.poll(async () => {
+      if (await showPassword.isVisible()) await showPassword.click();
+      return passwordInput.getAttribute("type");
+    }).toBe("text");
+    const hidePassword = page.getByRole("button",{name:"Skryť heslo"}).first();
+    await hidePassword.focus();
+    await page.keyboard.press("Enter");
+    await expect(passwordInput).toHaveAttribute("type","password");
+    await expect(page.getByRole("button",{name:"Zobraziť heslo"}).first()).toBeFocused();
     if (path === "/partner/registracia") {
-      await expect(page.getByLabel("Potvrdenie hesla",{exact:true})).toBeVisible();
+      await expect(page.getByLabel("Potvrdenie hesla",{exact:true})).toHaveAttribute("autocomplete","new-password");
+      await expect(page.getByText("Heslo musí mať aspoň 12 znakov.",{exact:true})).toBeVisible();
       await expect(page.getByRole("button", { name: "Vytvoriť Partner účet" })).toBeDisabled();
     } else {
       await expect(page.getByRole("button", { name: "Prihlásiť sa" })).toBeDisabled();
@@ -53,7 +68,8 @@ for (const path of ["/partner/registracia", "/partner/prihlasenie"]) {
   });
 }
 
-test("forgot and reset password surfaces are accessible and overflow-safe", async ({ page }) => {
+test("forgot and reset password surfaces are accessible and overflow-safe", async ({ page }, testInfo) => {
+  if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/partner/zabudnute-heslo");
   await expect(page.getByRole("heading", { name: "Zabudli ste heslo?" })).toBeVisible();
   await expect(page.getByLabel("E-mail",{exact:true})).toBeVisible();
@@ -66,6 +82,19 @@ test("forgot and reset password surfaces are accessible and overflow-safe", asyn
   await expect(page.getByRole("heading", { name: "Obnovenie hesla" })).toBeVisible();
   await expect(page.getByText("Odkaz na obnovenie hesla nie je platný alebo už expiroval.")).toBeVisible();
   await expectNoHorizontalOverflow(page);
+
+  await page.goto("/partner/obnova-hesla#token=e2e-password-token");
+  const newPassword = page.getByLabel("Nové heslo",{exact:true});
+  await expect(newPassword).toBeVisible();
+  await expect(newPassword).toHaveAttribute("type","password");
+  await expect(newPassword).toHaveAttribute("autocomplete","new-password");
+  await expect(page.getByLabel("Potvrdenie nového hesla",{exact:true})).toHaveAttribute("autocomplete","new-password");
+  await expect(page.getByText("Heslo musí mať aspoň 12 znakov.",{exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Zobraziť heslo"}).first().click();
+  await expect(newPassword).toHaveAttribute("type","text");
+  await expectNoHorizontalOverflow(page);
+  const resetAccessibility = await new AxeBuilder({ page }).analyze();
+  expect(resetAccessibility.violations).toEqual([]);
 });
 
 test("mocked Google OAuth return bridge creates a 200 same-site navigation boundary", async ({ page }) => {
@@ -270,7 +299,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByRole("link", { name: "Moje profily" }).click();
   if (project === "desktop-chromium") {
     await expect(page.getByRole("heading", { name: "Partner E2E Veterina" })).toBeVisible();
-    await expect(page.getByText("OWNER")).toBeVisible();
+    await expect(page.getByText("Vlastník")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
@@ -306,7 +335,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await expectNoHorizontalOverflow(page);
   } else {
     await expect(page.getByRole("heading", { name: "Partner E2E Organizácia" })).toBeVisible();
-    await expect(page.getByText("EDITOR")).toBeVisible();
+    await expect(page.getByText("Editor")).toBeVisible();
     await expect(page.getByText("Neoverené")).toBeVisible();
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
@@ -333,6 +362,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     });
     const organizationChange=profileChangesSection.locator("article").filter({hasText:"Partner E2E Organizácia"});
     await expect(organizationChange).toContainText("Čaká na kontrolu");
+    await expect(organizationChange).toContainText("Verejný telefón");
+    await expect(organizationChange).not.toContainText("publicPhone");
     page.once("dialog", dialog => void dialog.accept());
     await organizationChange.getByRole("button", { name: "Zrušiť návrh" }).click();
     await expect(organizationChange).toContainText("Zrušené");
@@ -362,7 +393,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading",{name:"Moje podujatia"})).toBeVisible();
   const ownedEventCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
   await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Publikované":"Koncept");
-  await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"OWNER":"EDITOR");
+  await expect(ownedEventCard).toContainText(project==="desktop-chromium"?"Vlastník":"Editor");
   await expectNoHorizontalOverflow(page);
 
   if (project === "mobile-chromium") {
@@ -452,7 +483,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByRole("link", { name: "Propagácia" }).click();
   await expect(page.getByRole("heading", { name: "Propagácia" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Premium profil" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Propagovaný profil" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sponzorované zvýraznenie" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Reklamná kampaň" })).toBeVisible();
   if (project === "mobile-chromium") {
     await page.getByLabel("Typ záujmu").selectOption("OTHER");
@@ -461,7 +492,12 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByRole("button", { name: "Odoslať nezáväzný záujem" }).click();
   await expect(page.getByRole("status")).toContainText("Ďakujeme. Váš záujem sme prijali.");
   await expect(page.getByRole("heading", { name: "Odoslané záujmy" })).toBeVisible();
-  await expect(page.getByText("E2E nezáväzný záujem")).toBeVisible();
+  const commercialHistory = page.locator("section.partner-commercial-history").filter({
+    has: page.getByRole("heading",{name:"Odoslané záujmy"}),
+  });
+  const commercialInterest = commercialHistory.locator("article").filter({hasText:"E2E nezáväzný záujem"});
+  await expect(commercialInterest).toContainText("Nové");
+  await expect(commercialInterest).not.toContainText("NEW");
   await expectNoHorizontalOverflow(page);
 
   await page.getByRole("link", { name: "Nastavenia" }).click();
@@ -476,14 +512,15 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByRole("button", { name: "Uložiť kontaktné údaje" }).click();
   await expect(page.getByRole("status")).toContainText("Kontaktné údaje boli uložené.");
   await expect(page.getByRole("heading", { name: "Prihlasovanie a bezpečnosť" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Odhlásiť sa" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Odhlásiť sa z Partner účtu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Odhlásiť sa", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Deaktivovať účet" })).toBeDisabled();
   await expectNoHorizontalOverflow(page);
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
 
-  await page.getByRole("button", { name: "Odhlásiť sa" }).click();
+  await page.getByRole("button", { name: "Odhlásiť sa", exact: true }).click();
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
   if (project === "mobile-chromium") {
     const loginLink = page.locator("#mobile-menu [data-partner-login-entry]");

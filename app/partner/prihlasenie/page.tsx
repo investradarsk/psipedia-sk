@@ -27,7 +27,7 @@ export default async function PartnerLoginPage({ searchParams }: { searchParams:
         <div className="partner-auth-copy">
           <span className="eyebrow">Partner Psipedia</span>
           <h1>Prihlásenie do Partner účtu</h1>
-          <p className="lead">Prihláste sa cez Google, heslom alebo jednorazovým odkazom na e-mail.</p>
+          <p className="lead">{googleEnabled ? "Prihláste sa cez Google, heslom alebo jednorazovým odkazom na e-mail." : "Prihláste sa heslom alebo jednorazovým odkazom na e-mail."}</p>
           <p className="partner-auth-help">Partner účet ešte nemáte? <Link href={returnTo ? `/partner/registracia?returnTo=${encodeURIComponent(returnTo)}` : "/partner/registracia"}>Začnite registráciu.</Link></p>
         </div>
         <div className="partner-auth-card">

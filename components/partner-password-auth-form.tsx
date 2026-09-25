@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useState } from "react";
+import { PartnerPasswordField } from "@/components/partner-password-field";
 import { PartnerTurnstile } from "@/components/partner-turnstile";
 
 type Props = {
@@ -60,6 +61,8 @@ export function PartnerPasswordAuthForm({ mode, siteKey, returnTo = null }: Prop
     }
   }
 
+  const passwordHint = mode === "register" ? "Heslo musí mať aspoň 12 znakov." : undefined;
+
   return (
     <form className="partner-auth-form" onSubmit={submit}>
       <label className="partner-field">
@@ -67,18 +70,28 @@ export function PartnerPasswordAuthForm({ mode, siteKey, returnTo = null }: Prop
         <input type="email" autoComplete="email" inputMode="email" value={email}
           onChange={(event) => setEmail(event.target.value)} maxLength={320} required />
       </label>
-      <label className="partner-field">
-        <span>Heslo</span>
-        <input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"}
-          value={password} onChange={(event) => setPassword(event.target.value)}
-          minLength={mode === "register" ? 12 : undefined} maxLength={1024} required />
-      </label>
+
+      <PartnerPasswordField
+        label="Heslo"
+        autoComplete={mode === "login" ? "current-password" : "new-password"}
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+        minLength={mode === "register" ? 12 : undefined}
+        maxLength={1024}
+        required
+        hint={passwordHint}
+      />
+
       {mode === "register" ? (
-        <label className="partner-field">
-          <span>Potvrdenie hesla</span>
-          <input type="password" autoComplete="new-password" value={passwordConfirmation}
-            onChange={(event) => setPasswordConfirmation(event.target.value)} minLength={12} maxLength={1024} required />
-        </label>
+        <PartnerPasswordField
+          label="Potvrdenie hesla"
+          autoComplete="new-password"
+          value={passwordConfirmation}
+          onChange={(event) => setPasswordConfirmation(event.target.value)}
+          minLength={12}
+          maxLength={1024}
+          required
+        />
       ) : null}
 
       <PartnerTurnstile
@@ -95,9 +108,7 @@ export function PartnerPasswordAuthForm({ mode, siteKey, returnTo = null }: Prop
 
       {mode === "login" ? (
         <p className="partner-auth-switch"><Link href="/partner/zabudnute-heslo">Zabudli ste heslo?</Link></p>
-      ) : (
-        <p className="partner-password-hint">Použite aspoň 12 znakov. Môžete použiť aj dlhú heslovú frázu.</p>
-      )}
+      ) : null}
     </form>
   );
 }
