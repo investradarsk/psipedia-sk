@@ -189,10 +189,12 @@ test("Google descriptive copy follows the same availability flag as the CTA", ()
 
 test("Slovakia location selector is dependent, searchable and keyboard/screen-reader accessible", () => {
   assert.match(locationSelector, /SLOVAK_REGIONS\.map/);
+  assert.match(locationSelector, /const selectedRegion = value\.region/);
+  assert.match(locationSelector, /const selectedDistrict = value\.district/);
+  assert.match(locationSelector, /const selectedCity = value\.city/);
   assert.match(locationSelector, /getSlovakDistricts\(selectedRegion\)/);
   assert.match(locationSelector, /searchSlovakMunicipalities\(selectedDistrict, query/);
-  assert.match(locationSelector, /setSelectedDistrict\(""/);
-  assert.match(locationSelector, /setSelectedCity\(""/);
+  assert.doesNotMatch(locationSelector, /setSelectedRegion|setSelectedDistrict|setSelectedCity/);
   assert.match(locationSelector, /onChange\(\{ region, district: "", city: "" \}\)/);
   assert.match(locationSelector, /onChange\(\{ region: selectedRegion, district, city: "" \}\)/);
   assert.match(locationSelector, /role="combobox"/);
