@@ -410,7 +410,7 @@ export async function createPartnerNewProfileAdmin(input:{
       publicPhone:String(values.publicPhone),publicEmail:String(values.publicEmail),
       facebookUrl:String(values.facebookUrl),instagramUrl:String(values.instagramUrl),
       internalEmail:null,imageUrl:media?.imageUrl??null,imageKey:media?.imageKey??null,verified:false,featured:false,seo:{},
-    });
+    }, null, { descriptionOptional: true });
     canonicalStatements.push(buildManagedDirectoryProfileCreateStatement(database,canonicalInput,actorRef,nowIso,{submissionId:input.id,actorRef}));
     canonicalSql=`SELECT id FROM directory_profiles WHERE category='${canonicalCategory.replaceAll("'","''")}' AND slug='${slug.replaceAll("'","''")}' LIMIT 1`;
   }else{

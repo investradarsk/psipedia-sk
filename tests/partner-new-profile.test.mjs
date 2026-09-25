@@ -10,6 +10,7 @@ const importTs=(path)=>import(pathToFileURL(new URL(path,root).pathname).href);
 const [
   migration,domain,admin,partnerApi,scanApi,withdrawApi,adminApi,attention,attentionStore,
   partnerAttention,email,platform,directory,helpWrite,profilesPage,requestsPage,newPage,legacyDirectory,
+  newForm,locationSelector,partnerCss,profileChanges,
 ]=await Promise.all([
   "drizzle/0066_partner_new_profile_submissions.sql",
   "lib/partner-new-profile.ts",
@@ -29,6 +30,10 @@ const [
   "app/partner/ziadosti/page.tsx",
   "app/partner/profily/novy/page.tsx",
   "lib/directory-store.ts",
+  "components/partner-new-profile-form.tsx",
+  "components/slovakia-location-selector.tsx",
+  "app/partner/partner.css",
+  "lib/partner-profile-changes.ts",
 ].map(read));
 
 test("0066 is a 1:1 metadata extension without a parallel workflow status",()=>{
@@ -70,8 +75,8 @@ test("Directory self-service categories use current public list and reject legac
   const base={
     name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",
     description:"Toto je dostatočne dlhý verejný popis testovacieho profilu.",
-    services:[],qualifications:[],city:"Nitra",district:"Nitra",region:"Nitriansky kraj",address:"",
-    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"",facebookUrl:"",instagramUrl:"",
+    services:[],qualifications:[],city:"Nitra",district:"Nitra",region:"Nitriansky kraj",address:"Hlavná 1",
+    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
   };
   assert.equal(normalizePartnerNewProfile("DIRECTORY_PROFILE",base).categoryOrType,"veterinari");
   for(const category of ["psie-skoly","utulky-a-zachrana"]){
@@ -109,8 +114,8 @@ test("server rejects inconsistent Slovak new-profile locations", async()=>{
   const base={
     name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",
     description:"Toto je dostatočne dlhý verejný popis testovacieho profilu.",
-    services:[],qualifications:[],city:"Zlaté Moravce",district:"Zlaté Moravce",region:"Nitriansky kraj",address:"",
-    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"",facebookUrl:"",instagramUrl:"",
+    services:[],qualifications:[],city:"Zlaté Moravce",district:"Zlaté Moravce",region:"Nitriansky kraj",address:"Hlavná 1",
+    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
   };
   assert.equal(normalizePartnerNewProfile("DIRECTORY_PROFILE",base).values.city,"Zlaté Moravce");
   assert.throws(
@@ -120,7 +125,7 @@ test("server rejects inconsistent Slovak new-profile locations", async()=>{
 
   const help={
     name:"OZ Test",type:"CIVIC_ASSOCIATION",legalName:"",registrationNumber:"",shortDescription:"",description:"",
-    publicEmail:"",publicPhone:"",websiteUrl:"",facebookUrl:"",instagramUrl:"",address:"",
+    publicEmail:"info@example.sk",publicPhone:"",websiteUrl:"",facebookUrl:"",instagramUrl:"",address:"Hlavná 1",
     city:"Neverice",district:"Zlaté Moravce",region:"Nitriansky kraj",countryCode:"SK",
   };
   assert.equal(normalizePartnerNewProfile("HELP_ORGANIZATION",help).values.city,"Neverice");
@@ -139,13 +144,124 @@ test("server field allowlist rejects system and unknown fields",async()=>{
   const base={
     name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",
     description:"Toto je dostatočne dlhý verejný popis testovacieho profilu.",
-    services:[],qualifications:[],city:"Nitra",district:"",region:"Nitriansky kraj",address:"",
-    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"",facebookUrl:"",instagramUrl:"",
+    services:[],qualifications:[],city:"Nitra",district:"Nitra",region:"Nitriansky kraj",address:"Hlavná 1",
+    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
   };
   for(const key of ["slug","status","verified","featured","sourceDataJson","searchText","imageUrl","publishedAt","unknownField"]){
     assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,[key]:"x"}),/nie je možné/);
   }
 });
+
+
+test("CREATE required contract enforces directory address, full Slovak location and email OR phone OR web", async()=>{
+  const {normalizePartnerNewProfile}=await importTs("lib/partner-new-profile.ts");
+  const base={
+    name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",description:"",
+    services:[],qualifications:[],city:"Nitra",district:"Nitra",region:"Nitriansky kraj",address:"Hlavná 1",
+    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
+  };
+  assert.equal(normalizePartnerNewProfile("DIRECTORY_PROFILE",base).values.description,"");
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,name:""}),/Názov/);
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,category:""}),/kategóriu/);
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,excerpt:"príliš krátke"}),/príliš krátky/);
+  assert.doesNotThrow(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,excerpt:"12345678901234567890"}));
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,address:""}),/Adresa je povinná/);
+  for(const key of ["region","district","city"]) {
+    assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,[key]:""}),/Vyberte/);
+  }
+  const noContact={...base,publicEmail:"",publicPhone:"",websiteUrl:""};
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",noContact),/aspoň jeden verejný kontakt/);
+  assert.doesNotThrow(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...noContact,publicEmail:"a@b.sk"}));
+  assert.doesNotThrow(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...noContact,publicPhone:"+421 900 111 222"}));
+  assert.doesNotThrow(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...noContact,websiteUrl:"https://example.sk"}));
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...noContact,facebookUrl:"https://facebook.com/test"}),/aspoň jeden verejný kontakt/);
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...noContact,instagramUrl:"https://instagram.com/test"}),/aspoň jeden verejný kontakt/);
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,publicEmail:"zly-email"}),/platný formát/);
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,publicPhone:"CALL-ME"}),/platný formát/);
+  assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,websiteUrl:"example.sk"}),/platná URL/);
+});
+
+test("CREATE required contract enforces help organization SK fields and preserves non-SK fallback", async()=>{
+  const {normalizePartnerNewProfile}=await importTs("lib/partner-new-profile.ts");
+  const base={
+    name:"OZ Test",type:"CIVIC_ASSOCIATION",legalName:"",registrationNumber:"",shortDescription:"",description:"",
+    publicEmail:"info@example.sk",publicPhone:"",websiteUrl:"",facebookUrl:"",instagramUrl:"",address:"Hlavná 1",
+    city:"Neverice",district:"Zlaté Moravce",region:"Nitriansky kraj",countryCode:"SK",
+  };
+  assert.doesNotThrow(()=>normalizePartnerNewProfile("HELP_ORGANIZATION",base));
+  assert.throws(()=>normalizePartnerNewProfile("HELP_ORGANIZATION",{...base,address:""}),/Adresa je povinná/);
+  assert.throws(()=>normalizePartnerNewProfile("HELP_ORGANIZATION",{...base,city:""}),/Vyberte obec alebo mesto/);
+  assert.throws(()=>normalizePartnerNewProfile("HELP_ORGANIZATION",{...base,publicEmail:"",publicPhone:"",websiteUrl:""}),/aspoň jeden verejný kontakt/);
+  assert.doesNotThrow(()=>normalizePartnerNewProfile("HELP_ORGANIZATION",{
+    ...base,countryCode:"CZ",city:"",district:"",region:"",address:"Pražská 1",publicEmail:"",websiteUrl:"https://example.cz",
+  }));
+});
+
+test("new-profile UX mirrors limits, exposes inline errors and preserves media state on validation failures",()=>{
+  assert.match(newForm,/Polia označené/);
+  assert.match(newForm,/Krátky popis<RequiredMark/);
+  assert.match(newForm,/Adresa<RequiredMark/);
+  assert.match(newForm,/Kontakt<RequiredMark/);
+  assert.match(newForm,/Vyplňte aspoň jeden: e-mail, telefón alebo web\./);
+  assert.match(newForm,/20–700 znakov/);
+  assert.match(newForm,/Max\. 20 000 znakov/);
+  assert.match(newForm,/maxLength=\{180\}/);
+  assert.match(newForm,/maxLength=\{300\}/);
+  assert.match(newForm,/maxLength=\{1200\}/);
+  assert.match(newForm,/maxLength=\{320\}/);
+  assert.match(newForm,/maxLength=\{100\}/);
+  assert.match(newForm,/Skontrolujte označené polia\./);
+  assert.match(newForm,/aria-invalid/);
+  assert.match(newForm,/aria-describedby/);
+  assert.match(newForm,/data-field-error/);
+  assert.match(newForm,/querySelector<HTMLElement>\('\[data-field-error="true"\]'\)/);
+  assert.match(newForm,/noValidate/);
+  assert.match(newForm,/PartnerMediaField/);
+  assert.doesNotMatch(newForm,/setMediaAssetId\(null\)/);
+  assert.match(locationSelector,/Kraj\{requiredMark\}/);
+  assert.match(locationSelector,/Okres\{requiredMark\}/);
+  assert.match(locationSelector,/Obec \/ mesto\{requiredMark\}/);
+  assert.match(locationSelector,/ArrowDown/);
+  assert.match(locationSelector,/ArrowUp/);
+  assert.match(locationSelector,/Escape/);
+  assert.match(partnerCss,/@media\(max-width:760px\)/);
+  assert.match(partnerCss,/partner-contact-grid\{grid-template-columns:1fr\}/);
+  assert.match(partnerCss,/partner-field input\[aria-invalid="true"\]/);
+});
+
+test("directory long description is optional for CREATE and remains bounded at 20k in shared validation",()=>{
+  assert.match(profileChanges,/\{ key: "description", label: "Popis", kind: "textarea" \}/);
+  assert.match(profileChanges,/textValue\(value, "Popis", 20_000\)/);
+  assert.doesNotMatch(profileChanges,/textValue\(value, "Popis", 20_000, true, 40\)/);
+});
+
+test("Partner admin canonical draft preserves optional directory description without weakening default canonical validation", async()=>{
+  const {normalizeManagedDirectoryProfileInput}=await importTs("lib/directory-store.ts");
+  const payload={
+    slug:"partner-optional-description",
+    name:"Partner Optional Description",
+    category:"veterinari",
+    status:"draft",
+    excerpt:"Krátky popis má určite aspoň dvadsať znakov.",
+    description:"",
+    city:"Nitra",
+    district:"Nitra",
+    region:"Nitriansky kraj",
+    address:"Hlavná 1",
+    services:[],
+    qualifications:[],
+    websiteUrl:"https://example.sk",
+    publicEmail:"info@example.sk",
+    publicPhone:"",
+    facebookUrl:"",
+    instagramUrl:"",
+  };
+  assert.throws(()=>normalizeManagedDirectoryProfileInput(payload),/Podrobný popis/);
+  const normalized=normalizeManagedDirectoryProfileInput(payload,null,{descriptionOptional:true});
+  assert.equal(normalized.description,"");
+  assert.match(admin,/descriptionOptional: true/);
+});
+
 
 test("duplicate normalizers are deterministic and conservative",async()=>{
   const mod=await importTs("lib/partner-new-profile.ts");
