@@ -20,12 +20,12 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("automation source management is responsive and axe-clean on admin desktop/mobile projects", async ({ page }) => {
-  const response = await page.goto("/admin/operations/automation/sources", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/admin/automatizacie/zdroje", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
 
   await expect(page.getByRole("heading", { name: "Zdroje a discovery", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Stav automatizácie", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Prehľad automatizácií", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Čaká na tvoje rozhodnutie", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Monitorované zdroje", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Automatické hľadanie nových zdrojov", exact: true })).toBeVisible();
@@ -160,7 +160,7 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   expect(disabled.source.enabled).toBe(false);
   expect(disabled.source.reviewStatus).toBe("APPROVED");
 
-  const detailResponse = await page.goto(`/admin/operations/automation/sources/${id}`, { waitUntil: "domcontentloaded" });
+  const detailResponse = await page.goto(`/admin/automatizacie/zdroje/${id}`, { waitUntil: "domcontentloaded" });
   expect(detailResponse?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: editedLabel, exact: true })).toBeVisible();
   await expect(page.getByText("APPROVED", { exact: true }).first()).toBeVisible();
