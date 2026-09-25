@@ -1,0 +1,25 @@
+{
+  "provider": "Ministerstvo vnútra SR",
+  "dataset": "Register adries / RAGEO Open Data",
+  "catalog_url": "https://rageo.minv.sk/opendata/katalog.json",
+  "metadata_pattern": "https://rageo.minv.sk/opendata/dataset/metadata/address_by_nuts3_{NUTS3}.json",
+  "download_pattern": "https://rageo.minv.sk/opendata/dataset/address_by_nuts3_{NUTS3}.geojson",
+  "expected_regions": ["SK010", "SK021", "SK022", "SK023", "SK031", "SK032", "SK041", "SK042"],
+  "license": "CC BY 4.0",
+  "license_uri": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+  "update_frequency": "DAILY",
+  "format": "GeoJSON",
+  "encoding": "UTF-8",
+  "crs": "urn:ogc:def:crs:OGC:1.3:CRS84",
+  "reference_d1": {
+    "database_name": "psipedia-address-reference",
+    "reserved_future_binding": "ADDRESS_REFERENCE_DB",
+    "schema_file": "./address-reference/schema.sql",
+    "runtime_binding_enabled": false,
+    "provisioning": "manual GitHub Actions workflow only"
+  },
+  "attribution": {
+    "required": true,
+    "text": "Zdroj: Ministerstvo vnútra SR — Register adries / RAGEO Open Data, CC BY 4.0"
+  }
+}
