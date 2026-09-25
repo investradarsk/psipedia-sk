@@ -201,9 +201,10 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
     JOIN directory_profiles d ON d.id = g.directory_profile_id
     WHERE g.target_type = 'DIRECTORY_PROFILE'
       AND ${GEO_PUBLIC_WHERE}
+      AND g.public_visibility = 'EXACT_PUBLIC'
+      AND g.public_precision = 'EXACT'
       AND d.status = 'published'
       AND d.archived_at IS NULL
-      AND d.online = 0
       AND ${bbox.sql}
       ${search.sql}
     ORDER BY g.id ASC
@@ -296,7 +297,10 @@ export function isPublicMapCandidate(candidate: MapCandidate, today = bratislava
   if (candidate.latitude < -90 || candidate.latitude > 90 || candidate.longitude < -180 || candidate.longitude > 180) return false;
 
   if (candidate.entityType === "service") {
-    return candidate.canonicalStatus === "published" && candidate.archivedAt === null && !candidate.online;
+    return candidate.canonicalStatus === "published"
+      && candidate.archivedAt === null
+      && candidate.publicVisibility === "EXACT_PUBLIC"
+      && candidate.precision === "EXACT";
   }
   if (candidate.entityType === "organization") {
     return candidate.canonicalStatus === "PUBLISHED" && candidate.archivedAt === null;
