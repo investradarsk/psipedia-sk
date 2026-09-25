@@ -235,6 +235,34 @@ test("directory long description is optional for CREATE and remains bounded at 2
   assert.doesNotMatch(profileChanges,/textValue\(value, "Popis", 20_000, true, 40\)/);
 });
 
+test("Partner admin canonical draft preserves optional directory description without weakening default canonical validation", async()=>{
+  const {normalizeManagedDirectoryProfileInput}=await importTs("lib/directory-store.ts");
+  const payload={
+    slug:"partner-optional-description",
+    name:"Partner Optional Description",
+    category:"veterinari",
+    status:"draft",
+    excerpt:"Krátky popis má určite aspoň dvadsať znakov.",
+    description:"",
+    city:"Nitra",
+    district:"Nitra",
+    region:"Nitriansky kraj",
+    address:"Hlavná 1",
+    services:[],
+    qualifications:[],
+    websiteUrl:"https://example.sk",
+    publicEmail:"info@example.sk",
+    publicPhone:"",
+    facebookUrl:"",
+    instagramUrl:"",
+  };
+  assert.throws(()=>normalizeManagedDirectoryProfileInput(payload),/Podrobný popis/);
+  const normalized=normalizeManagedDirectoryProfileInput(payload,null,{descriptionOptional:true});
+  assert.equal(normalized.description,"");
+  assert.match(admin,/descriptionOptional: true/);
+});
+
+
 test("duplicate normalizers are deterministic and conservative",async()=>{
   const mod=await importTs("lib/partner-new-profile.ts");
   assert.equal(mod.normalizeDuplicateName("  Veterína ÁBC, s.r.o. "),"veterina abc s r o");
