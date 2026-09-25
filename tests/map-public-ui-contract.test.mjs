@@ -114,7 +114,9 @@ test("live production audit preserves Google Maps consent and uses the interacti
   );
   assert.match(liveAudit, /getByTestId\("map-sheet-header"\)/);
   assert.match(liveAudit, /header\.scrollIntoViewIfNeeded\(\)/);
+  assert.match(liveAudit, /await locator\.hover\(\)/);
   assert.match(liveAudit, /document\.elementFromPoint\(x, y\)/);
+  assert.match(liveAudit, /element\.contains\(target\)/);
   assert.doesNotMatch(liveAudit, /getByTestId\("map-sheet-handle"\)/);
 });
 
