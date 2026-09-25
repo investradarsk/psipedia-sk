@@ -64,7 +64,7 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("production D1 supported targets are explicit through 0072 Partner Media", () => {
+test("production D1 supported targets are explicit through 0073 automation entity resolution", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
@@ -77,6 +77,7 @@ test("production D1 supported targets are explicit through 0072 Partner Media", 
     "0070_partner_multimethod_auth.sql",
     "0071_admin_universal_notifications.sql",
     "0072_partner_media_uploads.sql",
+    "0073_automation_multisource_entity_resolution.sql",
   ]);
 });
 
@@ -87,11 +88,11 @@ test("production D1 target allowlist tracks every canonical migration from 0062 
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, canonicalTargets);
 });
 
-test("partner rollout scopes 0065 through 0072 independently and excludes every future migration", () => {
+test("post-0064 rollout scopes every supported target independently and excludes future migrations", () => {
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0073_future_migration.sql",
+    "0074_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -113,6 +114,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0070_partner_multimethod_auth.sql",
     "0071_admin_universal_notifications.sql",
     "0072_partner_media_uploads.sql",
+    "0073_automation_multisource_entity_resolution.sql",
   ]);
 });
 
@@ -120,7 +122,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0073_future_migration.sql",
+    "0074_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -128,7 +130,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   assert.deepEqual(result.excludedFuture, [
     "0071_admin_universal_notifications.sql",
     "0072_partner_media_uploads.sql",
-    "0073_future_migration.sql",
+    "0073_automation_multisource_entity_resolution.sql",
+    "0074_future_migration.sql",
   ]);
 });
 
@@ -234,6 +237,25 @@ test("0071/0072 canonical SQL and production tooling cover notification and Part
   assert.match(script, /assertPartnerMediaPrerequisites/);
 });
 
+test("0073 automation entity-resolution migration is append-only and production tooling verifies its schema", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0073_automation_multisource_entity_resolution.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.doesNotMatch(migration, /DROP TABLE|ALTER TABLE|DELETE FROM|UPDATE automation_/i);
+  for (const table of [
+    "automation_entity_clusters",
+    "automation_cluster_observations",
+    "automation_cluster_match_candidates",
+    "automation_cluster_source_records",
+    "automation_field_evidence",
+    "automation_field_conflicts",
+    "automation_cluster_findings",
+    "automation_cluster_canonical_claims",
+  ]) assert.equal(migration.includes("CREATE TABLE `" + table + "`"), true);
+  assert.match(script, /assertAutomationEntityResolutionPrerequisites/);
+  assert.match(script, /assertAutomationEntityResolutionSchema/);
+  assert.match(script, /0073_automation_multisource_entity_resolution\.sql/);
+});
+
 test("PARTNER-H3 schema precondition rejects partial/manual 0070 objects", () => {
   assert.doesNotThrow(() =>
     assertPendingTargetSchemaClean("0070_partner_multimethod_auth.sql", { partial: false }),
@@ -331,6 +353,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.match(workflow, /inputs\.target_migration == '0064_geo_foundation\.sql'/);
   assert.match(workflow, /0072_partner_media_uploads\.sql/);
   assert.match(workflow, /APPLY-0072-psipedia-sk-db/);
+  assert.match(workflow, /0073_automation_multisource_entity_resolution\.sql/);
+  assert.match(workflow, /APPLY-0073-psipedia-sk-db/);
   assert.match(workflow, /git fetch --no-tags origin main/);
   assert.match(workflow, /partner\/prihlasenie/);
   assert.match(workflow, /partner\/registracia/);
