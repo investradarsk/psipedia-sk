@@ -20,9 +20,12 @@ on:
       - "tests/admin-pwa.test.mjs"
       - "tests/e2e/admin-pwa.spec.ts"
       - ".env.example"
-      - "package.json"
       - ".github/workflows/admin-pwa-ci.yml"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

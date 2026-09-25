@@ -27,7 +27,6 @@ on:
       - "tests/e2e/profile-review-submission.spec.ts"
       - "tests/e2e/review-author-auth.spec.ts"
       - "tests/fixtures/profile-review-submission-e2e.sql"
-      - "package.json"
       - ".github/workflows/profile-review-submission-ci.yml"
   workflow_dispatch:
 

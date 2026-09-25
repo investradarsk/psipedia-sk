@@ -54,7 +54,6 @@ on:
       - "tests/partner-media.test.mjs"
       - "tests/e2e/partner-auth.spec.ts"
       - "tests/fixtures/partner-auth-e2e.sql"
-      - "package.json"
       - ".github/workflows/partner-auth-ci.yml"
   workflow_dispatch:
 
