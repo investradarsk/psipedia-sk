@@ -7,6 +7,7 @@ import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
   preserveDirectoryPhysicalAddress,
+  requireDirectoryAddressProviderSchema,
   withVerifiedDirectoryAddress,
 } from "@/lib/directory-address-save";
 
@@ -43,6 +44,7 @@ export async function PUT(request: Request, { params }: Props) {
     let verified = null;
     let payload = body;
     if (body.addressProviderResultId?.trim()) {
+      await requireDirectoryAddressProviderSchema();
       verified = await verifyDirectoryAddressSelection({
         region: body.region ?? before.region,
         district: body.district ?? before.district,
