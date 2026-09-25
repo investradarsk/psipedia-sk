@@ -30,6 +30,7 @@ import {
   linkAutomationFindingToCluster,
   resolveAutomationEntityCluster,
 } from "./data-automation-clustering.ts";
+import { isDirectoryFacilityObservation } from "./data-automation-directory-matching.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 
