@@ -63,6 +63,8 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0068_partner_commercial_activation.sql",
   "0069_partner_auth_onboarding_hardening.sql",
   "0070_partner_multimethod_auth.sql",
+  "0071_admin_universal_notifications.sql",
+  "0072_partner_media_uploads.sql",
 ]);
 
 export const PARTNER_CLAIM_TABLES = Object.freeze([
@@ -144,6 +146,28 @@ export const PARTNER_MULTIMETHOD_AUTH_TABLES = Object.freeze([
 export const PARTNER_MULTIMETHOD_AUTH_INDEXES = Object.freeze([
   "partner_auth_identities_provider_subject_unique",
   "partner_auth_identities_account_provider_unique",
+]);
+
+export const ADMIN_NOTIFICATION_TABLES = Object.freeze([
+  "admin_notification_runtime",
+  "admin_notification_events",
+  "admin_push_event_deliveries",
+]);
+
+export const ADMIN_NOTIFICATION_INDEXES = Object.freeze([
+  "admin_notification_events_dedupe_unique",
+  "admin_notification_events_created_idx",
+  "admin_push_event_deliveries_event_subscription_unique",
+  "admin_push_event_deliveries_status_updated_idx",
+]);
+
+export const PARTNER_MEDIA_INDEXES = Object.freeze([
+  "moderation_submissions_media_asset_unique",
+]);
+
+export const PARTNER_MEDIA_TRIGGERS = Object.freeze([
+  "moderation_partner_media_attach_guard",
+  "moderation_partner_media_attach_state",
 ]);
 
 export const SENSITIVE_DIRECTORY_CATEGORIES = Object.freeze([
@@ -373,8 +397,10 @@ function schemaState(databaseName, configPath) {
   const partnerAccessTokenColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_access_tokens')");
   const partnerPasswordCredentialColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_password_credentials')");
   const partnerAuthIdentityColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_auth_identities')");
+  const moderationSubmissionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('moderation_submissions')");
   const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
   const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
+  const moderationSubmissionForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('moderation_submissions')");
   const objects = d1Execute(
     databaseName,
     configPath,
@@ -388,8 +414,10 @@ function schemaState(databaseName, configPath) {
     partnerAccessTokenColumns,
     partnerPasswordCredentialColumns,
     partnerAuthIdentityColumns,
+    moderationSubmissionColumns,
     partnerPasswordCredentialForeignKeys,
     partnerAuthIdentityForeignKeys,
+    moderationSubmissionForeignKeys,
     objects,
   };
 }
@@ -493,6 +521,19 @@ function targetSchemaObjects(schema, targetMigration) {
         || auditSql.includes("PASSWORD_CHANGED")
         || auditSql.includes("PASSWORD_RESET_COMPLETED")
         || auditSql.includes("GOOGLE_IDENTITY_LINKED"),
+    };
+  }
+  if (targetMigration === "0071_admin_universal_notifications.sql") {
+    return {
+      partial: ADMIN_NOTIFICATION_TABLES.some((table) => names.has(table))
+        || ADMIN_NOTIFICATION_INDEXES.some((index) => names.has(index)),
+    };
+  }
+  if (targetMigration === "0072_partner_media_uploads.sql") {
+    return {
+      partial: schema.moderationSubmissionColumns.some((column) => String(column.name) === "media_asset_id")
+        || PARTNER_MEDIA_INDEXES.some((index) => names.has(index))
+        || PARTNER_MEDIA_TRIGGERS.some((trigger) => names.has(trigger)),
     };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
@@ -713,6 +754,56 @@ function assertPartnerMultimethodAuthSchema(schema) {
   );
 }
 
+function assertAdminUniversalNotificationsSchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of ADMIN_NOTIFICATION_TABLES) {
+    invariant(names.get(table)?.type === "table", `Missing admin notification table: ${table}`);
+  }
+  for (const index of ADMIN_NOTIFICATION_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing admin notification index: ${index}`);
+  }
+  for (const uniqueIndex of [
+    "admin_notification_events_dedupe_unique",
+    "admin_push_event_deliveries_event_subscription_unique",
+  ]) {
+    invariant(/CREATE\s+UNIQUE\s+INDEX/i.test(String(names.get(uniqueIndex)?.sql ?? "")), `Admin notification unique constraint is missing: ${uniqueIndex}`);
+  }
+
+  const runtimeSql = String(names.get("admin_notification_runtime")?.sql ?? "");
+  const eventsSql = String(names.get("admin_notification_events")?.sql ?? "");
+  const deliveriesSql = String(names.get("admin_push_event_deliveries")?.sql ?? "");
+  invariant(runtimeSql.includes("rollout_started_at"), "admin_notification_runtime rollout watermark is missing");
+  invariant(eventsSql.includes("dedupe_key") && eventsSql.includes("/admin/%"), "admin_notification_events safety signature is incomplete");
+  invariant(deliveriesSql.includes("admin_notification_events") && deliveriesSql.includes("admin_push_subscriptions"), "admin_push_event_deliveries foreign-key signature is incomplete");
+}
+
+function assertPartnerMediaPrerequisites(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("moderation_submissions")?.type === "table", "Missing moderation_submissions table for Partner Media");
+  invariant(names.get("media_assets")?.type === "table", "Missing media_assets table for Partner Media");
+}
+
+function assertPartnerMediaSchema(schema) {
+  const names = objectMap(schema.objects);
+  assertPartnerMediaPrerequisites(schema);
+  assertRequiredColumns(schema.moderationSubmissionColumns, "moderation_submissions", ["media_asset_id"]);
+  for (const index of PARTNER_MEDIA_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing Partner Media index: ${index}`);
+    invariant(/CREATE\s+UNIQUE\s+INDEX/i.test(String(names.get(index)?.sql ?? "")), `Partner Media unique constraint is missing: ${index}`);
+  }
+  for (const trigger of PARTNER_MEDIA_TRIGGERS) {
+    invariant(names.get(trigger)?.type === "trigger", `Missing Partner Media trigger: ${trigger}`);
+  }
+
+  const guardSql = String(names.get("moderation_partner_media_attach_guard")?.sql ?? "");
+  const stateSql = String(names.get("moderation_partner_media_attach_state")?.sql ?? "");
+  invariant(guardSql.includes("PARTNER_ACCOUNT") && guardSql.includes("PENDING") && guardSql.includes("invalid partner media attachment"), "Partner Media attach guard signature is incomplete");
+  invariant(stateSql.includes("ATTACHED"), "Partner Media attach-state trigger signature is incomplete");
+  const mediaFk = schema.moderationSubmissionForeignKeys.find((fk) =>
+    String(fk.from) === "media_asset_id" && String(fk.table) === "media_assets" && String(fk.to) === "id");
+  invariant(mediaFk && String(mediaFk.on_delete).toUpperCase() === "RESTRICT", "moderation_submissions.media_asset_id foreign key is missing or unsafe");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -723,6 +814,8 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 68) assertPartnerCommercialSchema(schema);
   if (migrationIndex(targetMigration) >= 69) assertPartnerContactProfileSchema(schema);
   if (migrationIndex(targetMigration) >= 70) assertPartnerMultimethodAuthSchema(schema);
+  if (migrationIndex(targetMigration) >= 71) assertAdminUniversalNotificationsSchema(schema);
+  if (migrationIndex(targetMigration) >= 72) assertPartnerMediaSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -913,6 +1006,11 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 67) assertPartnerEventsSchema(schema);
     if (targetIndex > 68) assertPartnerCommercialSchema(schema);
     if (targetIndex > 69) assertPartnerAuthCompatibilitySchema(schema);
+    if (targetIndex > 70) assertPartnerMultimethodAuthSchema(schema);
+    if (targetIndex > 71) {
+      assertAdminUniversalNotificationsSchema(schema);
+      assertPartnerMediaPrerequisites(schema);
+    }
   } else {
     assertTargetSchema(schema, targetMigration);
   }
