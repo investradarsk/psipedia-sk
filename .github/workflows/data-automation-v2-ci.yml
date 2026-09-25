@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "app/admin/operations/automation/**"
+      - "app/admin/automatizacie/**"
       - "app/api/admin/automation-sources/**"
       - "app/api/admin/automation-source-candidates/**"
       - "components/admin-automation-source-*.tsx"
@@ -15,6 +16,7 @@ on:
       - "drizzle/0056_scheduled_source_discovery.sql"
       - "drizzle/0057_automation_background_run_lock.sql"
       - "tests/data-automation*.test.mjs"
+      - "tests/automation-admin-v2-ux.test.mjs"
       - "tests/fixtures/data-automation/**"
       - "tests/e2e/data-automation-v2.spec.ts"
       - ".github/workflows/data-automation-v2-ci.yml"
@@ -45,7 +47,7 @@ jobs:
       - run: npm ci
       - run: npm run db:check-migrations
       - name: Focused AUTOMATION-1 + AUTOMATION-2 tests
-        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v2.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/data-automation-background-run.test.mjs tests/admin-attention-queue.test.mjs
+        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v2.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/data-automation-background-run.test.mjs tests/admin-attention-queue.test.mjs tests/automation-admin-v2-ux.test.mjs
       - run: npm run build
 
   admin-e2e:
@@ -83,7 +85,7 @@ jobs:
           echo $! > .e2e-artifacts/data-automation-v2/server.pid
           ready=0
           for attempt in $(seq 1 90); do
-            if curl --silent --fail http://localhost:5173/admin/operations/automation/sources >/dev/null; then
+            if curl --silent --fail http://localhost:5173/admin/automatizacie/zdroje >/dev/null; then
               ready=1
               break
             fi
