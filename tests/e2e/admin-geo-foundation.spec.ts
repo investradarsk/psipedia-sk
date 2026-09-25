@@ -47,7 +47,7 @@ test.describe("MAP-1B admin geo foundation", () => {
     await page.goto("/admin/operations/geo", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "Geo foundation" })).toBeVisible();
     await expect(page.getByText(/Full production backfill je hard-disabled/)).toBeVisible();
-    await expect(page.getByLabel("Target type")).toBeVisible();
+    await expect(page.getByLabel("Target type", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Inicializovať SAFE max. 20" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Backfill max. 5" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Canary max. 5" })).toBeVisible();
@@ -62,7 +62,7 @@ test.describe("MAP-1B admin geo foundation", () => {
     await expect(explicit.getByRole("button", { name: "Náhľad" })).toBeDisabled();
     await expect(explicit.getByRole("button", { name: "Spustiť explicitný batch" })).toHaveCount(0);
 
-    await page.getByLabel("Target type").selectOption("MANAGED_EVENT");
+    await page.getByLabel("Target type", { exact: true }).selectOption("MANAGED_EVENT");
     await expect(page.getByLabel("Directory category")).toHaveCount(0);
   });
 });
