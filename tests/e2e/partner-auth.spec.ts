@@ -500,16 +500,16 @@ test("stale Partner moderation approval is rejected at decision time without ove
   const project = testInfo.project.name as keyof typeof AUTH_ACCOUNT_IDS;
 
   if (project === "desktop-chromium") {
-    await page.goto("/admin/partners/changes?status=active&q=" + encodeURIComponent("Partner E2E Veterina"));
-    const profileRequest = page.locator(".admin-commercial-list article").filter({ hasText: "Partner E2E Veterina" }).first();
+    await page.goto("/admin/partners/changes?status=active&q=" + encodeURIComponent("Partner H5 Stale Profil"));
+    const profileRequest = page.locator(".admin-commercial-list article").filter({ hasText: "Partner H5 Stale Profil" }).first();
     await expect(profileRequest).toBeVisible();
     const profileDetailHref = await profileRequest.getByRole("link", { name: "Detail →" }).getAttribute("href");
     expect(profileDetailHref).toBeTruthy();
 
-    const profileResponse = await page.request.get("/api/admin/directory/990001");
+    const profileResponse = await page.request.get("/api/admin/directory/990005");
     expect(profileResponse.ok()).toBeTruthy();
     const profileJson = await profileResponse.json() as { profile: Record<string, unknown> & { city?: string } };
-    const externalProfileUpdate = await page.request.put("/api/admin/directory/990001", {
+    const externalProfileUpdate = await page.request.put("/api/admin/directory/990005", {
       data: {
         ...profileJson.profile,
         city: "Bratislava",
@@ -528,14 +528,14 @@ test("stale Partner moderation approval is rejected at decision time without ove
 
     await page.reload();
     await expect(page.getByText(/Čaká na rozhodnutie/).first()).toBeVisible();
-    const canonicalAfter = await page.request.get("/api/admin/directory/990001");
+    const canonicalAfter = await page.request.get("/api/admin/directory/990005");
     const canonicalAfterJson = await canonicalAfter.json() as { profile: { city?: string } };
     expect(canonicalAfterJson.profile.city).toBe("Bratislava");
   }
 
-  const eventId = project === "desktop-chromium" ? 990003 : 990004;
-  const eventTitle = project === "desktop-chromium" ? "Partner E2E Publikované Podujatie" : "Partner E2E Koncept Podujatie";
-  const originalVenue = project === "desktop-chromium" ? "Areál Desktop" : "Areál Mobile";
+  const eventId = 990006;
+  const eventTitle = "Partner H5 Stale Podujatie";
+  const originalVenue = "Areál H5";
   await page.goto("/admin/partners/events?status=active&operation=UPDATE&q=" + encodeURIComponent(eventTitle));
   const eventRequest = page.locator(".admin-commercial-list article").filter({ hasText: eventTitle }).first();
   await expect(eventRequest).toBeVisible();
@@ -678,8 +678,8 @@ test("internal admin Partner overview and account detail are protected admin pag
   const expectedPublicationStatus=project==="desktop-chromium"?"published":"draft";
 
   await page.goto("/admin/partners");
-  await expect(page.getByRole("link",{name:/Podujatia 2/})).toBeVisible();
-  await page.getByRole("link",{name:/Podujatia 2/}).click();
+  await expect(page.getByRole("link",{name:/Podujatia 3/})).toBeVisible();
+  await page.getByRole("link",{name:/Podujatia 3/}).click();
   await expect(page.getByRole("heading",{name:"Podujatia"})).toBeVisible();
 
   const createEventRow=page.locator(".admin-commercial-list article").filter({hasText:eventCreateTitle});
@@ -726,10 +726,10 @@ test("internal admin Partner overview and account detail are protected admin pag
   // Canonical API assertions above prove the approved patch and publication-status preservation;
   // public route rendering is covered by the dedicated event/public E2E suites.
   await page.goto("/admin/partners");
-  await expect(page.getByRole("link",{name:/Podujatia 0/})).toBeVisible();
+  await expect(page.getByRole("link",{name:/Podujatia 1/})).toBeVisible();
 
   if(project==="desktop-chromium"){
-    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Úpravy 2/})).toBeVisible();
     await page.goto("/admin/partners/changes?status=active");
     const changeRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Veterina"});
     await expect(changeRow).toContainText("1 zmenených polí");
@@ -746,7 +746,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.getByRole("button",{name:"Schváliť zmeny"}).click();
     await changeResponse;
     await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Úpravy 0/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
     await page.goto("/admin/partners");
