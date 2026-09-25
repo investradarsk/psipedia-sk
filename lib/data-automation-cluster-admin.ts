@@ -295,3 +295,29 @@ export async function getAutomationClusterDetail(id: number, databaseInput?: Dat
     throw error;
   }
 }
+
+
+export async function listAutomationClusterFindingIds(clusterIds: number[], databaseInput?: Database): Promise<number[]> {
+  if (!clusterIds.length) return [];
+  const db = database(databaseInput);
+  try {
+    const result = await db.prepare(`SELECT finding_id FROM automation_cluster_findings WHERE cluster_id IN (${placeholders(clusterIds)})`)
+      .bind(...clusterIds).all<{ finding_id: number }>();
+    return result.results.map((row) => Number(row.finding_id));
+  } catch (error) {
+    if (isMissingSchema(error)) return [];
+    throw error;
+  }
+}
+
+export async function getAutomationClusterIdForFinding(findingId: number, databaseInput?: Database): Promise<number | null> {
+  const db = database(databaseInput);
+  try {
+    const row = await db.prepare(`SELECT cluster_id FROM automation_cluster_findings WHERE finding_id=? LIMIT 1`)
+      .bind(findingId).first<{ cluster_id: number }>();
+    return row ? Number(row.cluster_id) : null;
+  } catch (error) {
+    if (isMissingSchema(error)) return null;
+    throw error;
+  }
+}
