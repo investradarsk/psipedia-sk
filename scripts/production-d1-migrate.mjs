@@ -66,6 +66,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0071_admin_universal_notifications.sql",
   "0072_partner_media_uploads.sql",
   "0073_automation_multisource_entity_resolution.sql",
+  "0074_automation_zsk_event_source.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
