@@ -1,4 +1,5 @@
 import type { ArticleSeo } from "@/lib/content";
+import type { DirectoryAddressFormat, DirectoryServiceAddressConfirmation } from "@/lib/directory-service-address";
 
 export const directoryCategories = [
   { slug: "veterinari", label: "Veterinári", singular: "Veterinárne pracovisko", icon: "🩺", description: "Ambulancie, kliniky, pohotovosti a špecializovaná starostlivosť." },
@@ -87,6 +88,12 @@ export type PublicDirectoryProfile = {
   district: string;
   region: string;
   address: string;
+  postalCode: string;
+  street: string;
+  houseNumber: string;
+  addressFormat: DirectoryAddressFormat | "";
+  serviceAddressConfirmation: DirectoryServiceAddressConfirmation;
+  formattedServiceAddress?: string | null;
   online: boolean;
   priceNote: string;
   websiteUrl: string | null;
