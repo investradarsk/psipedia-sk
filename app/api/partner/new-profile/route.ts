@@ -14,6 +14,7 @@ export async function POST(request: Request) {
       resourceType: body.resourceType,
       profile: body.profile,
       confirmDuplicate: body.confirmDuplicate === true,
+      mediaAssetId: body.mediaAssetId,
     });
     return Response.json({ success: true, submission }, {
       status: 201,
