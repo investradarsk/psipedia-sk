@@ -140,7 +140,9 @@ test("remaining Attention sources use the rollout watermark instead of replaying
   assert.match(events,/status='ACTIVE' AND end_at>\? AND end_at<=\?/);
   assert.match(events,/partner_commercial_agreement_expiring/);
   assert.match(events,/submitterType === "ADMIN"/);
-  assert.match(events,/adminNotificationAdminActorRef\(actorRef\)/);
+  assert.match(events,/candidate\.startsWith\("admin:"\) && candidate\.includes\("@"\)/);
+  assert.match(events,/adminNotificationAdminActorRef\(candidate\.slice\("admin:"\.length\)\)/);
+  assert.match(events,/adminNotificationAdminActorRef\(candidate\)/);
   assert.match(push,/enqueueUncoveredAttentionAdminNotifications/);
 });
 
