@@ -3,7 +3,7 @@ export const MAX_PRIVATE_IMAGE_SIDE = 12_000;
 export const MAX_PRIVATE_IMAGE_PIXELS = 50_000_000;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-type ImageTransformationResultLike = { response(): Response };
+type ImageTransformationResultLike = { response(): Response | Promise<Response> };
 export type ImagesBindingLike = { input(stream: ReadableStream<Uint8Array>): { transform(options: Record<string, unknown>): { output(options: Record<string, unknown>): Promise<ImageTransformationResultLike> } } };
 export type R2ObjectLike = { body: ReadableStream<Uint8Array>; arrayBuffer(): Promise<ArrayBuffer>; httpEtag?: string; writeHttpMetadata?(headers: Headers): void };
 export type PrivateBucketLike = {
@@ -122,7 +122,7 @@ export async function ingestPrivateImage(input: {
       .transform({ width: 2000, height: 2000, fit: "scale-down", metadata: "none" })
       .output({ format: "image/webp", quality: 85, anim: false });
     stage = "response";
-    const response = transformed.response();
+    const response = await transformed.response();
     if (!response.ok) throw new Error("Image transformation failed");
     stage = "read-output";
     const safeBytes = new Uint8Array(await response.arrayBuffer());
