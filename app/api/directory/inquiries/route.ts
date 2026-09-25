@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     const saved = await createDirectoryInquiry(payload);
     try {
-      await processDirectoryInquiryNotification(saved.inquiry, "new");
+      await processDirectoryInquiryNotification(saved.inquiry, "new", { mirrorAdminPush: saved.created });
     } catch {
       console.error(JSON.stringify({
         event: "directory_inquiry_notification",

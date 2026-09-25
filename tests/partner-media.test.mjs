@@ -12,7 +12,7 @@ const [
   newProfile,profileChanges,events,newProfileAdmin,profileChangesAdmin,eventsAdmin,
   newProfileForm,profileEditForm,eventForm,mediaField,partnerCss,adminCss,worker,
 ]=await Promise.all([
-  "drizzle/0071_partner_media_uploads.sql","lib/private-media.ts","lib/partner-media.ts","lib/partner-security.ts",
+  "drizzle/0072_partner_media_uploads.sql","lib/private-media.ts","lib/partner-media.ts","lib/partner-security.ts",
   "app/api/partner/media/route.ts","app/api/partner/media/[id]/route.ts","app/api/admin/partners/media/[id]/route.ts","app/media/[...key]/route.ts",
   "lib/partner-new-profile.ts","lib/partner-profile-changes.ts","lib/partner-events.ts",
   "lib/partner-new-profile-admin.ts","lib/partner-profile-changes-admin.ts","lib/partner-events-admin.ts",
@@ -20,7 +20,7 @@ const [
   "components/partner-media-field.tsx","app/partner/partner.css","app/admin/partners/partners.css","worker/index.ts",
 ].map(read));
 
-test("0071 binds exactly one staged media asset to a Partner moderation submission with DB ownership and intent guards",()=>{
+test("0072 binds exactly one staged media asset to a Partner moderation submission with DB ownership and intent guards",()=>{
   assert.match(migration,/ADD COLUMN `media_asset_id` text REFERENCES `media_assets`/);
   assert.match(migration,/moderation_submissions_media_asset_unique/);
   assert.match(migration,/BEFORE INSERT ON `moderation_submissions`/);

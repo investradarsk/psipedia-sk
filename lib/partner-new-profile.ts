@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import { directoryCategories } from "@/lib/directory";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import { getPartnerAccountById, getPartnerDatabase } from "@/lib/partner-auth-store";
@@ -577,6 +578,24 @@ export async function submitPartnerNewProfile(input: {
       throw new PartnerNewProfileError("Priložený obrázok už nie je platný pre túto žiadosť.",409,"INVALID_MEDIA");
     }
     throw error;
+  }
+
+  try {
+    await enqueueAdminNotificationEvent(db, {
+      eventType: "partner_new_profile_submitted",
+      sourceType: "PARTNER_NEW_PROFILE_REVIEW",
+      resourceType: "partner_new_profile",
+      resourceRef: id,
+      actorType: "PARTNER",
+      actorRef: `partner:${input.accountId}`,
+      targetUrl: `/admin/partners/submissions/${id}`,
+      title: "Partner navrhol nový profil",
+      body: `${result.profile.displayName} čaká na kontrolu.`,
+      tag: `partner-new-profile-${id}`,
+      dedupeKey: `partner-new-profile/${id}`,
+    }, now);
+  } catch (error) {
+    console.error(JSON.stringify({ event: "partner_new_profile_admin_push_enqueue", submissionId: id, result: "failed", error: error instanceof Error ? error.message : "unknown" }));
   }
 
   return {

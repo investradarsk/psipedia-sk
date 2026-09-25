@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const payload = await request.json() as PublicNewsTipInput;
     if (payload.company?.trim()) return Response.json({ success: true }, { status: 201 });
     const saved = await createNewsTip(payload);
-    await processEditorialNotification("news_tip", saved).catch(() => {
+    await processEditorialNotification("news_tip", saved, { mirrorAdminPush: true }).catch(() => {
       console.error(JSON.stringify({ event: "editorial_notification", resourceType: "news_tip", resourceId: saved.id, result: "failed", error: "outbox_processing_failed" }));
     });
     return Response.json({ success: true }, { status: 201 });

@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { enqueuePartnerAccountRegistrationAdminNotification } from "@/lib/admin-notifications";
 import { clearManagementSessionCookie } from "@/lib/resource-access";
 import { consumeResourceAccessToken } from "@/lib/resource-access-store";
 import { decryptPii, encryptPii, hashPii, normalizeEmail } from "@/lib/pii-crypto";
@@ -199,6 +200,16 @@ export async function requestPartnerMagicLink(input: {
     account = created.account;
     if (created.created) {
       await appendPartnerAuditEvent({ actorType: "SYSTEM", actorRef: "partner-auth", action: "ACCOUNT_CREATED", targetType: "PARTNER_ACCOUNT", targetId: account.id, database, now });
+      try {
+        await enqueuePartnerAccountRegistrationAdminNotification(database, account.id, now);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "partner_registration_admin_push_enqueue",
+          accountId: account.id,
+          result: "failed",
+          error: error instanceof Error ? error.message : "unknown",
+        }));
+      }
     }
   }
 

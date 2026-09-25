@@ -240,7 +240,7 @@ export function AdminPwaSettings() {
 
       <section className="admin-panel">
         <h2>Upozornenia na tomto zariadení</h2>
-        <p>Push používame iba na dôležité položky, ktoré vyžadujú pozornosť. Povolenie sa zobrazí až po tvojom kliknutí.</p>
+        <p>Upozornenia dostanete pri nových podaniach, Partner aktivitách a automatických nálezoch. Povolenie sa zobrazí až po vašom kliknutí.</p>
         <dl className={styles.statusList}>
           <div><dt>Stav</dt><dd data-testid="push-state">{stateLabel[pushState]}</dd></div>
           <div><dt>Povolenie</dt><dd>{notificationPermission}</dd></div>

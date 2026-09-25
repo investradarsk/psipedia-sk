@@ -111,6 +111,19 @@ interface ExecutionContext {
 // dangerouslyAllowSVG: true in next.config.js and uncomment below:
 // const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
 
+const ADMIN_PUSH_ONLY_CRON = "5,10,15,20,25,30,35,40,45,50,55 * * * *";
+
+async function runScheduledAdminPush(env: Env) {
+  return runAdminPushSweep({ database: env.DB, bindings: env }).catch((error) => {
+    console.error(JSON.stringify({
+      event: "admin_push_sweep",
+      result: "failed",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return { configured: false, candidates: 0, sent: 0, failed: 1, dead: 0 };
+  });
+}
+
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -198,7 +211,12 @@ const worker = {
     return cacheable;
   },
 
-  async scheduled(_controller: unknown, env: Env, _ctx: ExecutionContext): Promise<void> {
+  async scheduled(controller: { cron?: string }, env: Env, _ctx: ExecutionContext): Promise<void> {
+    if (controller.cron === ADMIN_PUSH_ONLY_CRON) {
+      const adminPush = await runScheduledAdminPush(env);
+      console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
+      return;
+    }
     const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery, partnerMediaCleanup] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
@@ -244,14 +262,7 @@ const worker = {
     ]);
     // Run push after the editorial sweep so notifications created during
     // this cron can be delivered in the same scheduled execution.
-    const adminPush = await runAdminPushSweep({ database: env.DB, bindings: env }).catch((error) => {
-      console.error(JSON.stringify({
-        event: "admin_push_sweep",
-        result: "failed",
-        error: error instanceof Error ? error.message : String(error),
-      }));
-      return { configured: false, candidates: 0, sent: 0, failed: 1, dead: 0 };
-    });
+    const adminPush = await runScheduledAdminPush(env);
 
     console.info(JSON.stringify({
       event: "directory_inquiry_reminder_sweep",

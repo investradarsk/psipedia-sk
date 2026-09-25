@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import type { DirectoryInquiry } from "@/lib/directory";
 import {
   getDirectoryInquiryStatus,
@@ -33,6 +34,7 @@ type NotificationOptions = {
   database?: D1Database;
   bindings?: EditorialEmailBindings;
   now?: Date;
+  mirrorAdminPush?: boolean;
 };
 
 type SweepSummary = { candidates: number; sent: number; failed: number; skipped: number };
@@ -124,6 +126,29 @@ export async function processDirectoryInquiryNotification(
   }
 
   const outbox = await getOrCreateOutbox(database, inquiry.id, notificationType, nowIso);
+  if (notificationType === "new" && options.mirrorAdminPush) {
+    try {
+      await enqueueAdminNotificationEvent(database, {
+        eventType: "directory_inquiry_submitted",
+        sourceType: "DIRECTORY_INQUIRY",
+        resourceType: "directory_inquiry",
+        resourceRef: inquiry.id,
+        actorType: "PUBLIC",
+        targetUrl: `/admin/dopyty#dopyt-${inquiry.id}`,
+        title: "Nový dopyt",
+        body: `Prišiel nový dopyt k profilu ${inquiry.profileName}.`,
+        tag: `directory-inquiry-${inquiry.id}`,
+        dedupeKey: `directory-inquiry/${inquiry.id}`,
+      }, now);
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "directory_inquiry_admin_push_enqueue",
+        inquiryId: inquiry.id,
+        result: "failed",
+        error: safeError(error instanceof Error ? error.message : String(error)),
+      }));
+    }
+  }
   if (notificationStatus(outbox.status) === "sent") {
     logAttempt({
       inquiryId: inquiry.id,

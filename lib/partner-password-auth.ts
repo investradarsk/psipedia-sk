@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { enqueuePartnerAccountRegistrationAdminNotification } from "@/lib/admin-notifications";
 import { encryptPii, hashPii, normalizeEmail } from "@/lib/pii-crypto";
 import { partnerSessionTokenFromCookieHeader } from "@/lib/partner-auth";
 import {
@@ -188,6 +189,11 @@ export async function registerPartnerWithPassword(input:{
       actorType:"SYSTEM",actorRef:"partner-password-auth",action:"PASSWORD_SET",
       targetType:"PARTNER_ACCOUNT",targetId:accountId,database,now,
     });
+    try {
+      await enqueuePartnerAccountRegistrationAdminNotification(database, accountId, now);
+    } catch (error) {
+      console.error(JSON.stringify({event:"partner_registration_admin_push_enqueue",method:"password",accountId,result:"failed",error:error instanceof Error?error.message:"unknown"}));
+    }
     await sendVerificationMagicLink(accountId,returnTo,{database,bindings,now});
   }
 

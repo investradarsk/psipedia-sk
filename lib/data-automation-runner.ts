@@ -24,6 +24,7 @@ import {
   type AutomationD1Database,
 } from "./data-automation-store.ts";
 import { enqueueEditorialNotification } from "./editorial-notifications";
+import { enqueueAutomationFindingAdminNotification } from "./admin-notifications";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 
@@ -96,7 +97,13 @@ async function maybeQueueHighPriorityNotification(
   database: D1Database,
   now: Date,
 ) {
-  if (!createdOrReopened || automationFindingPriority(type) !== "HIGH") return;
+  if (!createdOrReopened) return;
+  try {
+    await enqueueAutomationFindingAdminNotification(database, findingId, now);
+  } catch (error) {
+    console.error(JSON.stringify({ event: "data_automation_admin_push_enqueue", findingId, result: "failed", error: safeErrorCode(error) }));
+  }
+  if (automationFindingPriority(type) !== "HIGH") return;
   try {
     await enqueueEditorialNotification("automation_finding", findingId, { database, now });
   } catch (error) {
