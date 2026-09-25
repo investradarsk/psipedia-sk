@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { verifyDirectoryExactCandidates } from "../lib/directory-address-provider.ts";
+import {
+  autocompleteDirectoryAddress,
+  verifyDirectoryAddressSelection,
+  verifyDirectoryExactCandidates,
+} from "../lib/directory-address-provider.ts";
 
 const locality = {
   region: "Nitriansky kraj",
@@ -37,6 +41,70 @@ function result(patch = {}) {
     ...patch,
   };
 }
+
+
+test("autocomplete requires canonical locality and minimum query length before provider access", async () => {
+  let calls = 0;
+  const provider = { autocomplete: async () => { calls += 1; return []; } };
+  await assert.rejects(
+    autocompleteDirectoryAddress({ region: "Nitriansky kraj", district: "Nitra", city: "Neexistujúca obec", query: "Hlavná", provider }),
+    /platný kraj, okres a obec/,
+  );
+  await assert.rejects(
+    autocompleteDirectoryAddress({ ...locality, query: "Hl", provider }),
+    /aspoň 3 znaky/,
+  );
+  assert.equal(calls, 0);
+});
+
+test("autocomplete filters to selected Slovak locality and returns at most five safe suggestions", async () => {
+  const candidates = [
+    result(),
+    result({ providerResultId: "wrong-country", countryCode: "AT" }),
+    result({ providerResultId: "wrong-city", city: "Nitra", district: "Nitra" }),
+    ...Array.from({ length: 7 }, (_, index) => result({ providerResultId: `extra-${index}` })),
+  ];
+  const provider = { autocomplete: async () => candidates };
+  const suggestions = await autocompleteDirectoryAddress({ ...locality, query: "Župná", provider });
+  assert.equal(suggestions.length, 5);
+  assert.equal(suggestions.every((item) => item.city === "Zlaté Moravce"), true);
+  assert.equal(suggestions.some((item) => item.providerResultId === "wrong-country"), false);
+  assert.equal(Object.hasOwn(suggestions[0], "latitude"), false);
+  assert.equal(Object.hasOwn(suggestions[0], "longitude"), false);
+});
+
+test("save revalidation resolves provider identity again and requires the same ranked house result", async () => {
+  const calls = [];
+  const provider = {
+    lookupPlace: async (providerResultId) => {
+      calls.push(["details", providerResultId]);
+      return [result({ providerResultId })];
+    },
+    geocodeExact: async (request) => {
+      calls.push(["geocode", request.structuredAddress?.housenumber, request.structuredAddress?.postcode]);
+      return [result()];
+    },
+  };
+  const verified = await verifyDirectoryAddressSelection({
+    ...locality,
+    providerResultId: "place-1",
+    provider,
+  });
+  assert.equal(verified.providerResult.providerResultId, "place-1");
+  assert.deepEqual(calls, [
+    ["details", "place-1"],
+    ["geocode", "12", "95301"],
+  ]);
+
+  const changedProvider = {
+    lookupPlace: provider.lookupPlace,
+    geocodeExact: async () => [result({ providerResultId: "different-place" })],
+  };
+  await assert.rejects(
+    verifyDirectoryAddressSelection({ ...locality, providerResultId: "place-1", provider: changedProvider }),
+    /serverovom overení zmenil/,
+  );
+});
 
 test("strict exact gate accepts a high-confidence STREET building and normalizes postcode", () => {
   const verified = verifyDirectoryExactCandidates({ ...locality, results: [result()] });
