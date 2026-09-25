@@ -71,7 +71,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
           <span className={styles.hubOpen}>Prejsť na úlohy ↓</span>
         </a>
 
-        <Link className={`${styles.hubCard} ${newCandidates > 0 ? styles.hubCardPrimary : ""}`} href="/admin/automatizacie">
+        <Link className={`${styles.hubCard} ${newCandidates > 0 ? styles.hubCardPrimary : ""}`} href="/admin/automatizacie/zdroje#kandidati">
           <span className={styles.hubKicker}>Nové zdroje</span>
           <div className={styles.hubMetric}><strong>{automationAvailable ? newCandidates : "—"}</strong><span>na posúdenie</span></div>
           <h2>Automatizačné zdroje</h2>
