@@ -126,8 +126,7 @@ const EVENT_EVIDENCE_FIELDS = [
   "canonicalExternalId",
 ] as const;
 
-const HIGH_IMACT_EVENT_FIELDS_COMPAT = new Set(["startDate", "endDate", "cancelled", "status", "venue", "city"]);
-const HIGH_IMPACT_EVENT_FIELDS = HIGH_IMACT_EVENT_FIELDS_COMPAT;
+const HIGH_IMPACT_EVENT_FIELDS = new Set(["startDate", "endDate", "cancelled", "status", "venue", "city"]);
 const HIGH_IMPACT_ORGANIZATION_FIELDS = new Set([
   "ico",
   "registryId",
