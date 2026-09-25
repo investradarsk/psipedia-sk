@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       resourceId: body.resourceId,
       baseRevision: body.baseRevision,
       patch: body.patch,
+      mediaAssetId: body.mediaAssetId,
     });
     return Response.json({ success: true, change }, {
       status: 201,
