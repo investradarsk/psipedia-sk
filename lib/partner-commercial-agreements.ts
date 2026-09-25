@@ -1,4 +1,5 @@
 import { getPartnerDatabase } from "./partner-auth-store";
+import { adminNotificationAdminActorRef, enqueueAdminNotificationEvent } from "./admin-notifications";
 import { normalizePartnerCommercialText, type PartnerCommercialInterestType } from "./partner-commercial";
 import { appendPartnerAuditEvent } from "./partner-platform";
 import { queuePartnerLifecycleNotification } from "./partner-email";
@@ -42,6 +43,46 @@ function isAgreementType(value:unknown):value is PartnerAgreementType{return typ
 function isAgreementStatus(value:unknown):value is PartnerAgreementStatus{return typeof value==="string"&&(partnerAgreementStatuses as readonly string[]).includes(value);}
 function isPaymentMethod(value:unknown):value is PartnerPaymentMethod{return typeof value==="string"&&(partnerPaymentMethods as readonly string[]).includes(value);}
 function actor(email:string){return "admin:"+email.trim().toLowerCase();}
+
+async function enqueueCommercialAdminEvent(input:{
+  database:D1Database;
+  eventType:string;
+  agreementId:string;
+  actorType:"ADMIN"|"SYSTEM";
+  adminEmail?:string;
+  systemActorRef?:string;
+  title:string;
+  body:string;
+  dedupeKey:string;
+  now:Date;
+}) {
+  try {
+    const actorRef=input.actorType==="ADMIN"
+      ? await adminNotificationAdminActorRef(input.adminEmail??"")
+      : input.systemActorRef??"system:commercial";
+    await enqueueAdminNotificationEvent(input.database,{
+      eventType:input.eventType,
+      sourceType:"PARTNER_COMMERCIAL_AGREEMENT",
+      resourceType:"partner_commercial_agreement",
+      resourceRef:input.agreementId,
+      actorType:input.actorType,
+      actorRef,
+      targetUrl:`/admin/partners/commercial/agreements/${input.agreementId}`,
+      title:input.title,
+      body:input.body,
+      tag:`partner-agreement-${input.agreementId}`,
+      dedupeKey:input.dedupeKey,
+    },input.now);
+  } catch(error) {
+    console.error(JSON.stringify({
+      event:"partner_commercial_admin_push_enqueue",
+      eventType:input.eventType,
+      agreementId:input.agreementId,
+      result:"failed",
+      error:error instanceof Error?error.message:"unknown",
+    }));
+  }
+}
 function plain(value:unknown,max:number){return normalizePartnerCommercialText(value,max);}
 function priceCents(value:unknown){
   if(typeof value!=="number"||!Number.isSafeInteger(value)||value<0||value>2147483647)throw new PartnerCommercialAgreementError("Cena musí byť bezpečné celé číslo v centoch.");
@@ -179,6 +220,7 @@ export async function createPartnerCommercialAgreementFromLead(input:{
   }
   await database.prepare("UPDATE partner_commercial_interests SET status='CLOSED',status_updated_at=?2,status_updated_by=?3,updated_at=?2 WHERE id=?1").bind(lead.id,iso,adminActor).run();
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_AGREEMENT_CREATED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:id,metadata:{interestId:lead.id,agreementType:lead.interestType,priceCents:price,currency},database,now});
+  await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_agreement_created",agreementId:id,actorType:"ADMIN",adminEmail:input.adminEmail,title:"Nová Partner komerčná dohoda",body:`${lead.interestType} ponuka bola vytvorená.`,dedupeKey:`partner-commercial-agreement/${id}/created`,now});
   await queuePartnerLifecycleNotification({accountId:lead.accountId,notificationType:"COMMERCIAL_OFFER_CREATED",dedupeKey:`partner-agreement:${id}:offer`,database,now});
   return getPartnerCommercialAgreementAdmin(id,database);
 }
@@ -215,6 +257,7 @@ export async function updatePartnerCommercialAgreementAdmin(input:{
       input.paymentInstruction===undefined?current.paymentInstruction:plain(input.paymentInstruction,2000),
       input.adminNote===undefined?current.adminNote:plain(input.adminNote,3000),iso,adminActor).run();
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_AGREEMENT_UPDATED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:input.id,metadata:{oldStatus:current.status,newStatus:status,paymentStatus},database,now});
+  await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_agreement_updated",agreementId:input.id,actorType:"ADMIN",adminEmail:input.adminEmail,title:"Partner dohoda bola upravená",body:`${current.status} → ${status}; platba: ${paymentStatus}.`,dedupeKey:`partner-commercial-agreement/${input.id}/update/${iso}`,now});
   await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"COMMERCIAL_AGREEMENT_UPDATED",dedupeKey:`partner-agreement:${input.id}:update:${iso}`,database,now});
   return getPartnerCommercialAgreementAdmin(input.id,database);
 }
@@ -228,6 +271,7 @@ export async function markPartnerCommercialAgreementPaid(input:{id:string;adminE
   const changed=await database.prepare("UPDATE partner_commercial_agreements SET payment_status='PAID',paid_at=?2,paid_by=?3,updated_at=?2,updated_by=?3 WHERE id=?1 AND payment_status<>'PAID' RETURNING id").bind(input.id,iso,adminActor).first<{id:string}>();
   if(!changed)return getPartnerCommercialAgreementAdmin(input.id,database);
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_PAYMENT_MARKED_PAID",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:input.id,metadata:{paymentMethod:current.paymentMethod},database,now});
+  await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_payment_paid",agreementId:input.id,actorType:"ADMIN",adminEmail:input.adminEmail,title:"Platba Partner dohody potvrdená",body:"Platba bola označená ako uhradená.",dedupeKey:`partner-commercial-agreement/${input.id}/paid`,now});
   await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"PAYMENT_MARKED_PAID",dedupeKey:`partner-agreement:${input.id}:paid`,database,now});
   return getPartnerCommercialAgreementAdmin(input.id,database);
 }
@@ -238,6 +282,7 @@ export async function waivePartnerCommercialAgreementPayment(input:{id:string;ad
   const now=input.now??new Date(),iso=now.toISOString(),adminActor=actor(input.adminEmail);
   await database.prepare("UPDATE partner_commercial_agreements SET payment_status='WAIVED',updated_at=?2,updated_by=?3 WHERE id=?1").bind(input.id,iso,adminActor).run();
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_AGREEMENT_UPDATED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:input.id,metadata:{paymentStatus:"WAIVED"},database,now});
+  await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_payment_waived",agreementId:input.id,actorType:"ADMIN",adminEmail:input.adminEmail,title:"Platba Partner dohody odpustená",body:"Platobný stav bol zmenený na WAIVED.",dedupeKey:`partner-commercial-agreement/${input.id}/waived`,now});
   return getPartnerCommercialAgreementAdmin(input.id,database);
 }
 
@@ -274,6 +319,7 @@ export async function activatePartnerCommercialAgreement(input:{id:string;campai
     const activated=await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',campaign_id=?2,updated_at=?3,updated_by=?4 WHERE id=?1 AND status='AGREED' RETURNING id").bind(current.id,campaign.id,iso,adminActor).first<{id:string}>();
     if(!activated)return getPartnerCommercialAgreementAdmin(current.id,database);
     await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_CAMPAIGN_LINKED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:current.id,metadata:{campaignId:campaign.id},database,now});
+    await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_agreement_activated",agreementId:current.id,actorType:"ADMIN",adminEmail:input.adminEmail,title:"Partner dohoda aktivovaná",body:"Reklamná kampaň bola aktivovaná.",dedupeKey:`partner-commercial-agreement/${current.id}/activated`,now});
     await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"COMMERCIAL_AGREEMENT_UPDATED",dedupeKey:`partner-agreement:${current.id}:campaign-activated`,database,now});
     return getPartnerCommercialAgreementAdmin(current.id,database);
   }
@@ -302,6 +348,7 @@ export async function activatePartnerCommercialAgreement(input:{id:string;campai
   const activated=await database.prepare("UPDATE partner_commercial_agreements SET status='ACTIVE',updated_at=?2,updated_by=?3 WHERE id=?1 AND status='AGREED' RETURNING id").bind(current.id,iso,adminActor).first<{id:string}>();
   if(!activated)return getPartnerCommercialAgreementAdmin(current.id,database);
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"ENTITLEMENT_ACTIVATED",targetType:"PARTNER_ENTITLEMENT",targetId:entitlementId,metadata:{agreementId:current.id,entitlementType:current.agreementType,status:entStatus},database,now});
+  await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_agreement_activated",agreementId:current.id,actorType:"ADMIN",adminEmail:input.adminEmail,title:"Partner benefit aktivovaný",body:`${current.agreementType} je ${entStatus}.`,dedupeKey:`partner-commercial-agreement/${current.id}/activated`,now});
   if(promotionId)await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_PROMOTION_LINKED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:current.id,metadata:{promotionId},database,now});
   await queuePartnerLifecycleNotification({accountId:current.accountId,notificationType:"ENTITLEMENT_ACTIVATED",dedupeKey:`partner-agreement:${current.id}:activated`,database,now});
   return getPartnerCommercialAgreementAdmin(current.id,database);
@@ -315,6 +362,7 @@ export async function pausePartnerCommercialEntitlement(input:{agreementId:strin
   await database.prepare("UPDATE partner_entitlements SET status='PAUSED',updated_at=?2 WHERE id=?1").bind(current.entitlementId,iso).run();
   if(current.promotionId)await database.prepare("UPDATE monetization_promotions SET status='paused',updated_at=?2,updated_by=?3 WHERE id=?1").bind(current.promotionId,iso,adminActor).run();
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"ENTITLEMENT_PAUSED",targetType:"PARTNER_ENTITLEMENT",targetId:current.entitlementId,metadata:{agreementId:current.id},database,now});
+  await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_entitlement_paused",agreementId:current.id,actorType:"ADMIN",adminEmail:input.adminEmail,title:"Partner benefit pozastavený",body:"Aktívny Partner benefit bol pozastavený.",dedupeKey:`partner-commercial-agreement/${current.id}/paused/${iso}`,now});
   return getPartnerCommercialAgreementAdmin(current.id,database);
 }
 export async function cancelPartnerCommercialAgreement(input:{id:string;adminEmail:string;database?:D1Database;now?:Date}){
@@ -330,6 +378,7 @@ export async function cancelPartnerCommercialAgreement(input:{id:string;adminEma
   }
   if(current.campaignId)await database.prepare("UPDATE monetization_campaigns SET status='paused',updated_at=?2,updated_by=?3 WHERE id=?1 AND status='active'").bind(current.campaignId,iso,adminActor).run();
   await appendPartnerAuditEvent({actorType:"ADMIN",actorRef:adminActor,action:"COMMERCIAL_AGREEMENT_UPDATED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:current.id,metadata:{newStatus:"CANCELLED"},database,now});
+  await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_agreement_cancelled",agreementId:current.id,actorType:"ADMIN",adminEmail:input.adminEmail,title:"Partner dohoda zrušená",body:"Komerčná dohoda bola zrušená.",dedupeKey:`partner-commercial-agreement/${current.id}/cancelled`,now});
   return getPartnerCommercialAgreementAdmin(current.id,database);
 }
 
@@ -344,6 +393,7 @@ export async function expireEndedCommercialItems(databaseInput?:D1Database,now=n
     if(row.promotionId)await database.prepare("UPDATE monetization_promotions SET status='archived',updated_at=?2,updated_by='system:commercial-expiry' WHERE id=?1").bind(row.promotionId,iso).run();
     if(row.campaignId)await database.prepare("UPDATE monetization_campaigns SET status='paused',updated_at=?2,updated_by='system:commercial-expiry' WHERE id=?1 AND status='active'").bind(row.campaignId,iso).run();
     await appendPartnerAuditEvent({actorType:"SYSTEM",actorRef:"system:commercial-expiry",action:"ENTITLEMENT_EXPIRED",targetType:"PARTNER_COMMERCIAL_AGREEMENT",targetId:row.id,metadata:{automatic:true},database,now});
+    await enqueueCommercialAdminEvent({database,eventType:"partner_commercial_agreement_expired",agreementId:row.id,actorType:"SYSTEM",systemActorRef:"system:commercial-expiry",title:"Partner dohoda skončila",body:"Komerčná dohoda automaticky expirovala.",dedupeKey:`partner-commercial-agreement/${row.id}/expired`,now});
     await queuePartnerLifecycleNotification({accountId:row.accountId,notificationType:"ENTITLEMENT_EXPIRED",dedupeKey:`partner-agreement:${row.id}:expired`,database,now});
   }
   return rows.length;
