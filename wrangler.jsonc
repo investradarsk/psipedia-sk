@@ -27,6 +27,7 @@
     "TURNSTILE_SITE_KEY": "0x4AAAAAAFBd3Szmmo8Bz8qr",
     "GOOGLE_OAUTH_ENABLED": "true",
     "GOOGLE_MAPS_MAP_ID": "112b90c9eba732df680daf9e",
+    "PUBLIC_MAP_ENABLED": "1",
     "PARTNER_FROM_EMAIL": "Psipedia.sk <recenzie@psipedia.sk>",
     "PROFILE_REVIEW_SUBMISSIONS_ENABLED": "true",
     "NOTION_ARTICLE_SYNC_ENABLED": "true",
