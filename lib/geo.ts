@@ -1,3 +1,5 @@
+import { directoryExactGeoCandidate, evaluateDirectoryServiceAddress, type DirectoryAddressFormat, type DirectoryServiceAddressConfirmation } from "@/lib/directory-service-address";
+
 export const geoTargetTypes = ["DIRECTORY_PROFILE", "ORGANIZATION_LOCATION", "MANAGED_EVENT"] as const;
 export type GeoTargetType = (typeof geoTargetTypes)[number];
 
@@ -43,6 +45,10 @@ export type GeoSourceLocation = {
   district?: string;
   region?: string;
   postalCode?: string;
+  street?: string;
+  houseNumber?: string;
+  addressFormat?: DirectoryAddressFormat | "";
+  serviceAddressConfirmation?: DirectoryServiceAddressConfirmation;
   countryCode?: string;
   online?: boolean;
   published?: boolean;
@@ -69,21 +75,6 @@ export type GeoFingerprintInput = {
   sourceAddress?: string | null;
 };
 
-const exactCandidateCategories = new Set([
-  "veterinari",
-  "salony-a-sluzby",
-  "fyzioterapia",
-  "hotely-a-opatrovanie",
-]);
-
-const approximateDirectoryCategories = new Set([
-  "treneri",
-  "kynologicke-kluby",
-  "chovatelske-kluby",
-  "chovatelske-stanice",
-  "vencenie",
-]);
-
 export function isGeoTargetType(value: string): value is GeoTargetType {
   return (geoTargetTypes as readonly string[]).includes(value);
 }
@@ -106,11 +97,6 @@ export function normalizeGeoText(value: string | null | undefined) {
 
 export function normalizeGeoCountryCode(value: string | null | undefined) {
   return (value?.trim() || "SK").toUpperCase();
-}
-
-function isOnlineGeoMarker(value: string | null | undefined) {
-  const normalized = normalizeGeoText(value);
-  return normalized === "online" || normalized === "online-only" || normalized === "online only";
 }
 
 function nonEmpty(...values: Array<string | null | undefined>) {
@@ -172,31 +158,39 @@ export function classifyGeoSource(source: GeoSourceLocation): GeoClassification 
   }
 
   if (source.targetType === "DIRECTORY_PROFILE") {
-    const cityIsOnline = isOnlineGeoMarker(city);
-    const addressIsOnline = isOnlineGeoMarker(address);
-    const regionIsOnline = isOnlineGeoMarker(source.region);
-    const hasPhysicalCity = Boolean(city && !cityIsOnline);
-    const hasPhysicalAddress = Boolean(address && !addressIsOnline);
-    const hasOnlineSentinel = cityIsOnline || addressIsOnline || regionIsOnline;
+    const serviceAddress = {
+      region: source.region ?? "",
+      district: source.district ?? "",
+      city: source.city ?? "",
+      postalCode: source.postalCode ?? "",
+      street: source.street ?? "",
+      houseNumber: source.houseNumber ?? "",
+      addressFormat: source.addressFormat ?? "",
+      serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
+      online: source.online,
+    };
+    const evaluation = evaluateDirectoryServiceAddress(serviceAddress);
+    const candidate = directoryExactGeoCandidate(serviceAddress);
 
-    if (hasOnlineSentinel && (hasPhysicalCity || hasPhysicalAddress)) {
-      return { proposedVisibility: null, proposedPrecision: null, requiresReview: true, reasonCode: "CONFLICTING_GEO", explanation: "Profil kombinuje online sentinel s fyzickou lokalitou; pred geokódovaním vyžaduje manuálnu kontrolu." };
+    if (candidate) {
+      return {
+        proposedVisibility: "EXACT_PUBLIC",
+        proposedPrecision: "EXACT",
+        requiresReview: false,
+        reasonCode: null,
+        explanation: "Potvrdená kompletná adresa prevádzky je exact-only mapový kandidát.",
+      };
     }
-    if (hasOnlineSentinel || (source.online && !hasPhysicalAddress && !hasPhysicalCity)) {
+    if (evaluation.reason === "ONLINE_ONLY") {
       return { proposedVisibility: "HIDDEN", proposedPrecision: null, requiresReview: false, reasonCode: "ONLINE_ONLY", explanation: "Online-only profil nemá fyzický marker." };
     }
-    const category = source.category ?? "";
-    if (approximateDirectoryCategories.has(category)) {
-      return city
-        ? { proposedVisibility: "APPROXIMATE_PUBLIC", proposedPrecision: "MUNICIPALITY", requiresReview: false, reasonCode: null, explanation: "Citlivejší typ služby sa predvolene zobrazuje iba na úrovni obce/mesta." }
-        : { proposedVisibility: null, proposedPrecision: null, requiresReview: true, reasonCode: "SOURCE_INCOMPLETE", explanation: "Citlivejší profil nemá obec/mesto pre bezpečný približný marker." };
+    if (evaluation.reason === "LEGACY_UNCONFIRMED") {
+      return { proposedVisibility: null, proposedPrecision: null, requiresReview: true, reasonCode: "PRIVACY_CLASSIFICATION_MISSING", explanation: "Legacy adresa nie je potvrdená ako adresa prevádzky." };
     }
-    if (exactCandidateCategories.has(category) && (address || city)) {
-      return { proposedVisibility: "EXACT_PUBLIC", proposedPrecision: "EXACT", requiresReview: true, reasonCode: "PRIVACY_CLASSIFICATION_MISSING", explanation: "Verejná prevádzka je exact kandidát, ale street address sama o sebe nie je súhlas na exact marker." };
+    if (evaluation.state === "NEEDS_REVIEW") {
+      return { proposedVisibility: null, proposedPrecision: null, requiresReview: true, reasonCode: "CONFLICTING_GEO", explanation: "Structured adresa prevádzky je neplatná alebo konfliktná." };
     }
-    if (city) {
-      return { proposedVisibility: "APPROXIMATE_PUBLIC", proposedPrecision: "MUNICIPALITY", requiresReview: false, reasonCode: null, explanation: "Neštruktúrovaný typ služby sa bezpečne predvolí na municipality marker." };
-    }
+    return { proposedVisibility: null, proposedPrecision: null, requiresReview: true, reasonCode: "SOURCE_INCOMPLETE", explanation: "Directory profil nemá kompletnú structured adresu prevádzky." };
   }
 
   return { proposedVisibility: null, proposedPrecision: null, requiresReview: true, reasonCode: "SOURCE_INCOMPLETE", explanation: "Location source sa nedá bezpečne klasifikovať automaticky." };
@@ -209,6 +203,28 @@ export function buildGeoQuery(
 ) {
   if (visibility === "HIDDEN") return null;
   const country = normalizeGeoCountryCode(source.countryCode) === "SK" ? "Slovakia" : normalizeGeoCountryCode(source.countryCode);
+
+  if (source.targetType === "DIRECTORY_PROFILE") {
+    if (visibility !== "EXACT_PUBLIC" || precision !== "EXACT") return null;
+    const candidate = directoryExactGeoCandidate({
+      region: source.region ?? "",
+      district: source.district ?? "",
+      city: source.city ?? "",
+      postalCode: source.postalCode ?? "",
+      street: source.street ?? "",
+      houseNumber: source.houseNumber ?? "",
+      addressFormat: source.addressFormat ?? "",
+      serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
+      online: source.online,
+    });
+    if (!candidate) return null;
+    return distinctGeoParts(
+      candidate.formattedAddress.replace(/\n/g, ", "),
+      source.district,
+      source.region,
+      country,
+    ).join(", ") || null;
+  }
 
   if (visibility === "APPROXIMATE_PUBLIC") {
     if (precision === "NEIGHBORHOOD") {
@@ -272,7 +288,21 @@ export function geoFingerprintInput(
     district: source.district,
     city: source.city,
     postalCode: source.postalCode,
-    sourceAddress: includeStreet ? (source.address || source.venue) : null,
+    sourceAddress: includeStreet
+      ? (source.targetType === "DIRECTORY_PROFILE"
+          ? directoryExactGeoCandidate({
+              region: source.region ?? "",
+              district: source.district ?? "",
+              city: source.city ?? "",
+              postalCode: source.postalCode ?? "",
+              street: source.street ?? "",
+              houseNumber: source.houseNumber ?? "",
+              addressFormat: source.addressFormat ?? "",
+              serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
+              online: source.online,
+            })?.formattedAddress ?? null
+          : (source.address || source.venue))
+      : null,
   };
 }
 
