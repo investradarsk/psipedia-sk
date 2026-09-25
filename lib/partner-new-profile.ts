@@ -124,36 +124,62 @@ function rejectUnknownFields(raw: Record<string, unknown>, allowed: Set<string>)
 
 export function normalizePartnerNewProfile(resourceType: PartnerNewProfileResourceType, value: unknown): PartnerNewProfileNormalized {
   const raw = record(value);
+  const hasPublicContact = stringPresent(raw.publicEmail) || stringPresent(raw.publicPhone) || stringPresent(raw.websiteUrl);
+  const requireText = (key: string, message: string) => {
+    if (!stringPresent(raw[key])) throw new PartnerNewProfileError(message);
+  };
+
   if (resourceType === "DIRECTORY_PROFILE") {
     rejectUnknownFields(raw, DIRECTORY_ALLOWED);
     const category = typeof raw.category === "string" ? raw.category.trim() : "";
     if (!directoryCategories.some((item) => item.slug === category)) {
       throw new PartnerNewProfileError("Vyber podporovanú kategóriu služby.");
     }
-    for (const [key, label] of [["name", "Názov"], ["excerpt", "Krátky popis"], ["description", "Popis"], ["city", "Mesto"], ["region", "Kraj"]] as const) {
-      if (!stringPresent(raw[key])) throw new PartnerNewProfileError(`${label} je povinný údaj.`);
+
+    requireText("name", "Názov je povinný údaj.");
+    requireText("excerpt", "Krátky popis je povinný údaj.");
+    requireText("region", "Vyberte kraj.");
+    requireText("district", "Vyberte okres.");
+    requireText("city", "Vyberte obec alebo mesto.");
+    requireText("address", "Adresa je povinná.");
+    if (!hasPublicContact) {
+      throw new PartnerNewProfileError("Zadajte aspoň jeden verejný kontakt: e-mail, telefón alebo web.");
     }
+
     const editable = Object.fromEntries(Object.entries(raw).filter(([key]) => key !== "category"));
     const patch = normalizePartnerProfilePatch("DIRECTORY_PROFILE", editable, {
       ...DIRECTORY_DEFAULTS,
       name: "__new_profile__",
       excerpt: "__new_profile_excerpt_that_is_long_enough__",
-      description: "__new_profile_description_that_is_long_enough_for_validation__",
       city: "__new_city__",
-      region: "Online",
+      district: "__new_district__",
+      region: "Nitriansky kraj",
+      address: "__new_address__",
     });
     const values = { ...DIRECTORY_DEFAULTS, ...patch, category };
     return { resourceType, displayName: String(values.name), categoryOrType: category, values };
   }
 
   rejectUnknownFields(raw, HELP_ALLOWED);
-  if (!stringPresent(raw.name)) throw new PartnerNewProfileError("Názov je povinný údaj.");
+  requireText("name", "Názov je povinný údaj.");
   if (!stringPresent(raw.type)) throw new PartnerNewProfileError("Typ organizácie je povinný údaj.");
   const type = String(raw.type);
   if (!(organizationPublicationTypes as readonly string[]).includes(type)) {
     throw new PartnerNewProfileError("Vyber platný typ organizácie.");
   }
+
   const countryCode = raw.countryCode === undefined ? "SK" : raw.countryCode;
+  const normalizedCountryCode = typeof countryCode === "string" ? countryCode.trim().toUpperCase() : "";
+  requireText("address", "Adresa je povinná.");
+  if (!hasPublicContact) {
+    throw new PartnerNewProfileError("Zadajte aspoň jeden verejný kontakt: e-mail, telefón alebo web.");
+  }
+  if (normalizedCountryCode === "SK") {
+    requireText("region", "Vyberte kraj.");
+    requireText("district", "Vyberte okres.");
+    requireText("city", "Vyberte obec alebo mesto.");
+  }
+
   const editable = { ...raw, countryCode };
   const patch = normalizePartnerProfilePatch("HELP_ORGANIZATION", editable, {
     ...HELP_DEFAULTS,
