@@ -61,8 +61,19 @@ VALUES ('partner-resource-e2e-organization','HELP_ORGANIZATION',990002,'2026-09-
 INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
 VALUES ('partner-membership-e2e-editor','partner-e2e-mobile','partner-resource-e2e-organization','EDITOR','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
 
+INSERT INTO directory_profiles (
+  id,slug,name,category,status,excerpt,description,city,region,created_at,updated_at,published_at,created_by,updated_by
+) VALUES (
+  990007,'partner-h5-self-approval-profil','Partner H5 Self Approval Profil','veterinari','published',
+  'Izolovaný H5 profil pre self-approval guard.',
+  'Izolovaný H5 canonical profil určený iba pre overenie self-approval bezpečnostného guardu.',
+  'Nitra','Nitriansky kraj',
+  '2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','ci:h5','ci:h5'
+);
+INSERT INTO partner_resources (id,entity_type,directory_profile_id,created_at,updated_at)
+VALUES ('partner-resource-e2e-admin-self-target','DIRECTORY_PROFILE',990007,'2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z');
 INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at)
-VALUES ('partner-membership-e2e-admin-self','partner-e2e-admin-self','partner-resource-e2e-organization','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
+VALUES ('partner-membership-e2e-admin-self','partner-e2e-admin-self','partner-resource-e2e-admin-self-target','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
 
 -- PARTNER-H5 moderation-integrity fixtures. The account hash maps preview@psipedia.local
 -- to the CI-only PII_HASH_KEY configured by the Partner workflow.
@@ -75,7 +86,7 @@ INSERT INTO partner_claims (
 INSERT INTO partner_resource_verifications (
   id,account_id,resource_id,status,request_note,created_at,updated_at,submitted_at
 ) VALUES (
-  'partner-e2e-self-verification','partner-e2e-admin-self','partner-resource-e2e-organization','PENDING_VERIFICATION',
+  'partner-e2e-self-verification','partner-e2e-admin-self','partner-resource-e2e-admin-self-target','PENDING_VERIFICATION',
   'E2E self-approval guard verification','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z','2026-09-21T20:00:00.000Z'
 );
 
