@@ -38,7 +38,10 @@ type GeoapifyResult = {
   };
 };
 
-type GeoapifyResponse = { results?: GeoapifyResult[] };
+type GeoapifyResponse = {
+  results?: GeoapifyResult[];
+  features?: Array<{ properties?: GeoapifyResult }>;
+};
 
 const GEOAPIFY_ENDPOINT = "https://api.geoapify.com/v1/geocode/search";
 const GEOAPIFY_AUTOCOMPLETE_ENDPOINT = "https://api.geoapify.com/v1/geocode/autocomplete";
@@ -151,7 +154,8 @@ export class GeoapifyGeocoder implements GeocoderProvider {
       }
 
       const body = await response.json() as GeoapifyResponse;
-      return (body.results ?? []).map(normalizeResult).filter((item): item is NormalizedGeocoderResult => item !== null);
+      const rawResults = body.results ?? body.features?.map((feature) => feature.properties ?? {}) ?? [];
+      return rawResults.map(normalizeResult).filter((item): item is NormalizedGeocoderResult => item !== null);
     } finally {
       clearTimeout(timeout);
       request.signal?.removeEventListener("abort", relayAbort);
