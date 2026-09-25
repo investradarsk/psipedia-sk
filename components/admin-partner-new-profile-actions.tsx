@@ -10,12 +10,13 @@ const reasons = [
   ["OTHER", "Iný dôvod"],
 ] as const;
 
-export function AdminPartnerNewProfileActions({ id, candidateIds }: { id: string; candidateIds: number[] }) {
+export function AdminPartnerNewProfileActions({ id, candidateIds, hasImage=false }: { id: string; candidateIds: number[]; hasImage?:boolean }) {
   const router=useRouter();
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [reasonCode,setReasonCode]=useState("INCORRECT_INFORMATION");
   const [canonicalId,setCanonicalId]=useState(candidateIds[0] ? String(candidateIds[0]) : "");
+  const [applyImage,setApplyImage]=useState(false);
 
   async function run(action:"CREATE_NEW"|"LINK_EXISTING"|"REJECT", explicitCanonicalId?:number){
     if(busy)return;
@@ -32,7 +33,7 @@ export function AdminPartnerNewProfileActions({ id, candidateIds }: { id: string
         method:"PATCH",headers:{"content-type":"application/json"},
         body:JSON.stringify({
           action,
-          ...(action==="LINK_EXISTING"?{canonicalId:linkId}:{}),
+          ...(action==="LINK_EXISTING"?{canonicalId:linkId,applyImage}:{}),
           ...(action==="REJECT"?{reasonCode}:{}),
         }),
       });
@@ -52,6 +53,7 @@ export function AdminPartnerNewProfileActions({ id, candidateIds }: { id: string
     </div>
     <div className="admin-commercial-actions">
       <label>Canonical ID existujúceho profilu<input inputMode="numeric" value={canonicalId} onChange={(e)=>setCanonicalId(e.target.value)}/></label>
+{hasImage?<label className="admin-partner-checkbox"><input type="checkbox" checked={applyImage} onChange={e=>setApplyImage(e.target.checked)} disabled={busy}/><span>Použiť nahraný obrázok aj pre existujúci profil</span></label>:null}
       <button type="button" disabled={busy} onClick={()=>run("LINK_EXISTING")}>Prepojiť s existujúcim profilom</button>
     </div>
     <div className="admin-commercial-actions">
