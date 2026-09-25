@@ -597,11 +597,19 @@ test("stale Partner moderation approval is rejected at decision time without ove
 
   await page.goto(eventDetailHref!);
   await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
+  const staleEventResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/admin/partners/events/") &&
+    response.request().method() === "PATCH",
+  );
   page.once("dialog", dialog => void dialog.accept());
   await page.getByRole("button", { name: "Schváliť zmeny" }).click();
-  await expect(page.getByRole("status")).toContainText(
+  const staleEventResponse = await staleEventResponsePromise;
+  expect(staleEventResponse.status()).toBe(409);
+  const staleEventJson = await staleEventResponse.json() as { error?: string };
+  expect(staleEventJson.error).toBe(
     "Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
   );
+  await expect(page.getByRole("status")).toContainText(staleEventJson.error!);
 
   await page.reload();
   await expect(page.getByText(/PENDING_REVIEW/).first()).toBeVisible();
