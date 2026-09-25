@@ -71,7 +71,10 @@
     "test:reviews-submission": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/profile-review-submission.test.mjs",
     "test:partner-commercial-v1": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-commercial-agreements.test.mjs",
     "test:reviews-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/profile-review-admin.test.mjs tests/admin-attention-queue.test.mjs",
-    "test:partner-h3": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-multimethod-auth.test.mjs"
+    "test:partner-h3": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-multimethod-auth.test.mjs",
+    "test:address-reference": "node --experimental-strip-types --test tests/address-reference-foundation.test.mjs",
+    "address-reference:prepare": "node --experimental-strip-types scripts/address-reference-import.mjs prepare",
+    "address-reference:activate-local": "node --experimental-strip-types scripts/address-reference-import.mjs activate-local"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

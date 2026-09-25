@@ -53,13 +53,16 @@ export function validateAddressFeature(feature, municipalityById) {
   assert.equal(feature?.geometry?.type, "Point", "address geometry must be Point");
   assert.ok(Array.isArray(feature.geometry.coordinates) && feature.geometry.coordinates.length >= 2, "Point coordinates are required");
   const [longitude, latitude] = feature.geometry.coordinates;
-  assert.ok(Number.isFinite(longitude) && longitude >= -180 && longitude <= 180, "longitude is out of range");
-  assert.ok(Number.isFinite(latitude) && latitude >= -90 && latitude <= 90, "latitude is out of range");
+  assert.ok(Number.isFinite(longitude) && longitude >= 16 && longitude <= 23, "longitude is outside Slovakia envelope");
+  assert.ok(Number.isFinite(latitude) && latitude >= 47 && latitude <= 50, "latitude is outside Slovakia envelope");
 
   const properties = feature?.properties;
   assert.ok(properties && typeof properties === "object" && !Array.isArray(properties), "source properties are required");
-  const unexpected = Object.keys(properties).filter((key) => !ALLOWED_SOURCE_PROPERTIES.has(key));
+  const sourceKeys = Object.keys(properties);
+  const unexpected = sourceKeys.filter((key) => !ALLOWED_SOURCE_PROPERTIES.has(key));
+  const missing = [...ALLOWED_SOURCE_PROPERTIES].filter((key) => !sourceKeys.includes(key));
   assert.deepEqual(unexpected, [], `unexpected source properties: ${unexpected.join(", ")}`);
+  assert.deepEqual(missing, [], `missing source properties: ${missing.join(", ")}`);
 
   const sourceAddressId = normalizeCanonicalText(properties.identifier);
   assert.ok(sourceAddressId, "identifier is required");
