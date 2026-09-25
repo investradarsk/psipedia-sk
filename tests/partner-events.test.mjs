@@ -173,9 +173,11 @@ test("notifications and audit cover the PARTNER-4 lifecycle",()=>{
  assert.match(email,/vytvorené ako koncept/i);
 });
 
-test("scope excludes Partner media upload, premium entitlement, billing and direct publication",()=>{
+test("event media stays moderated while premium, billing and direct publication remain out of scope",()=>{
  const combined=[domain,admin,partnerApi,updateApi,withdrawApi,adminApi,newPage,editPage].join("\n");
- assert.doesNotMatch(combined,/media_assets|R2Bucket|uploadPartnerImage|stripe|checkout|subscription|billing|premium_entitlement|sponsored_entitlement/i);
+ assert.match(domain,/media_asset_id/);
+ assert.match(admin,/publishPartnerSubmissionMedia/);
+ assert.doesNotMatch(combined,/\/api\/admin\/uploads|x-upload-folder|R2Bucket|stripe|checkout|subscription|billing|premium_entitlement|sponsored_entitlement/i);
  assert.doesNotMatch(domain,/status:"published"|status='published'/i);
  assert.doesNotMatch(partnerApi,/publish/i);
 });
