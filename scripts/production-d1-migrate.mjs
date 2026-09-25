@@ -65,6 +65,33 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0070_partner_multimethod_auth.sql",
   "0071_admin_universal_notifications.sql",
   "0072_partner_media_uploads.sql",
+  "0073_automation_multisource_entity_resolution.sql",
+]);
+
+export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
+  "automation_source_authority",
+  "automation_entity_clusters",
+  "automation_cluster_observations",
+  "automation_cluster_match_candidates",
+  "automation_cluster_source_records",
+  "automation_field_evidence",
+  "automation_field_conflicts",
+  "automation_cluster_findings",
+  "automation_cluster_canonical_claims",
+]);
+
+export const AUTOMATION_ENTITY_RESOLUTION_INDEXES = Object.freeze([
+  "automation_entity_clusters_type_updated_idx",
+  "automation_entity_clusters_canonical_unique",
+  "automation_cluster_observation_unique",
+  "automation_cluster_match_candidates_cluster_idx",
+  "automation_cluster_source_records_cluster_idx",
+  "automation_field_evidence_observation_field_unique",
+  "automation_field_evidence_current_idx",
+  "automation_field_evidence_source_record_idx",
+  "automation_field_conflicts_open_unique",
+  "automation_field_conflicts_status_idx",
+  "automation_cluster_findings_finding_unique",
 ]);
 
 export const PARTNER_CLAIM_TABLES = Object.freeze([
@@ -537,6 +564,12 @@ function targetSchemaObjects(schema, targetMigration) {
         || PARTNER_MEDIA_TRIGGERS.some((trigger) => names.has(trigger)),
     };
   }
+  if (targetMigration === "0073_automation_multisource_entity_resolution.sql") {
+    return {
+      partial: AUTOMATION_ENTITY_RESOLUTION_TABLES.some((table) => names.has(table))
+        || AUTOMATION_ENTITY_RESOLUTION_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -825,6 +858,30 @@ function assertPartnerMediaSchema(schema) {
   invariant(mediaFk && String(mediaFk.on_delete).toUpperCase() === "RESTRICT", "moderation_submissions.media_asset_id foreign key is missing or unsafe");
 }
 
+function assertAutomationEntityResolutionPrerequisites(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of ["automation_sources", "automation_observations", "automation_findings"]) {
+    invariant(names.get(table)?.type === "table", `Missing automation entity-resolution prerequisite: ${table}`);
+  }
+}
+
+function assertAutomationEntityResolutionSchema(schema) {
+  const names = objectMap(schema.objects);
+  assertAutomationEntityResolutionPrerequisites(schema);
+  for (const table of AUTOMATION_ENTITY_RESOLUTION_TABLES) {
+    invariant(names.get(table)?.type === "table", `Missing automation entity-resolution table: ${table}`);
+  }
+  for (const index of AUTOMATION_ENTITY_RESOLUTION_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing automation entity-resolution index: ${index}`);
+  }
+  const clusterSql = String(names.get("automation_entity_clusters")?.sql ?? "");
+  const evidenceSql = String(names.get("automation_field_evidence")?.sql ?? "");
+  const conflictSql = String(names.get("automation_field_conflicts")?.sql ?? "");
+  invariant(clusterSql.includes("canonical_entity_id"), "automation_entity_clusters canonical linkage is missing");
+  invariant(evidenceSql.includes("authority_score") && evidenceSql.includes("is_preferred"), "automation_field_evidence provenance signature is incomplete");
+  invariant(conflictSql.includes("OPEN") && conflictSql.includes("RESOLVED"), "automation_field_conflicts lifecycle signature is incomplete");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -837,6 +894,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 70) assertPartnerMultimethodAuthSchema(schema);
   if (migrationIndex(targetMigration) >= 71) assertAdminUniversalNotificationsSchema(schema);
   if (migrationIndex(targetMigration) >= 72) assertPartnerMediaSchema(schema);
+  if (migrationIndex(targetMigration) >= 73) assertAutomationEntityResolutionSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1034,6 +1092,10 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 71) {
       assertAdminUniversalNotificationsSchema(schema);
       assertPartnerMediaPrerequisites(schema);
+    }
+    if (targetIndex > 72) {
+      assertPartnerMediaSchema(schema);
+      assertAutomationEntityResolutionPrerequisites(schema);
     }
   } else {
     assertTargetSchema(schema, targetMigration);

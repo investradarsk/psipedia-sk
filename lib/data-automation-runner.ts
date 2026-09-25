@@ -25,6 +25,11 @@ import {
 } from "./data-automation-store.ts";
 import { enqueueEditorialNotification } from "./editorial-notifications";
 import { enqueueAutomationFindingAdminNotification } from "./admin-notifications";
+import {
+  linkAutomationClusterCanonical,
+  linkAutomationFindingToCluster,
+  resolveAutomationEntityCluster,
+} from "./data-automation-clustering.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 
@@ -196,7 +201,97 @@ async function processRecord(
     detectedAt,
   }, database);
 
-  const match = await matchAutomationCanonical(source, record, database);
+  const clusterResolution = await resolveAutomationEntityCluster({
+    source,
+    observationId,
+    record,
+    detectedAt,
+  }, database);
+
+  if (clusterResolution?.quality === "POSSIBLE") {
+    const findingType = "DUPLICATE_CANDIDATE" as const;
+    const fingerprint = automationFindingFingerprint({
+      sourceKey: source.sourceKey,
+      sourceRecordId: record.sourceRecordId,
+      findingType,
+      canonicalEntityId: null,
+      payloadHash: proposalHash,
+    });
+    const result = await upsertAutomationFinding({
+      source,
+      observationId,
+      sourceRecordId: record.sourceRecordId,
+      sourceUrl: record.sourceUrl,
+      sourceTimestamp: record.sourceTimestamp,
+      findingType,
+      canonicalEntityId: null,
+      canonicalEntityKey: null,
+      matchQuality: "UNCERTAIN",
+      before: null,
+      proposed: record.proposed,
+      diff: buildAutomationDiff(null, record.proposed),
+      payloadHash: proposalHash,
+      fingerprint,
+      reason: `Multi-source cluster match vyžaduje review; kandidátne clustre: ${clusterResolution.possibleCandidateIds.join(", ") || "bez jednoznačného kandidáta"}.`,
+      detectedAt,
+    }, database);
+    await linkAutomationFindingToCluster(result.id, clusterResolution.clusterId, detectedAt, database);
+    await maybeQueueHighPriorityNotification(
+      result.id,
+      findingType,
+      result.created || result.reopened,
+      database,
+      new Date(detectedAt),
+    );
+    return { finding: findingType, ...result };
+  }
+
+  let match = await matchAutomationCanonical(source, record, database);
+
+  if (clusterResolution?.canonicalEntityId && !match.entityId) {
+    match = {
+      entityType: source.entityType,
+      entityId: null,
+      entityKey: null,
+      quality: "UNCERTAIN",
+      before: null,
+      candidates: [{
+        id: clusterResolution.canonicalEntityId,
+        key: clusterResolution.canonicalEntityKey ?? `${source.entityType.toLowerCase()}:${clusterResolution.canonicalEntityId}`,
+      }],
+    };
+  }
+
+  if (clusterResolution && match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
+    const linked = await linkAutomationClusterCanonical({
+      clusterId: clusterResolution.clusterId,
+      entityType: source.entityType,
+      canonicalEntityId: match.entityId,
+      canonicalEntityKey: match.entityKey,
+      at: detectedAt,
+    }, database);
+    if (linked.conflictCanonicalEntityId && linked.conflictCanonicalEntityId !== match.entityId) {
+      const conflictingEntityId = match.entityId;
+      const conflictingEntityKey = match.entityKey;
+      match = {
+        entityType: source.entityType,
+        entityId: null,
+        entityKey: null,
+        quality: "UNCERTAIN",
+        before: null,
+        candidates: [
+          {
+            id: linked.conflictCanonicalEntityId,
+            key: clusterResolution.canonicalEntityKey ?? `${source.entityType.toLowerCase()}:${linked.conflictCanonicalEntityId}`,
+          },
+          {
+            id: conflictingEntityId,
+            key: conflictingEntityKey ?? `${source.entityType.toLowerCase()}:${conflictingEntityId}`,
+          },
+        ],
+      };
+    }
+  }
   const classified = classifyAutomationFinding({ match, proposed: record.proposed });
   if (!classified) return { finding: null, created: false, reopened: false };
 
@@ -225,6 +320,9 @@ async function processRecord(
     reason: findingReason(classified.findingType, record, match.candidates ?? []),
     detectedAt,
   }, database);
+  if (clusterResolution) {
+    await linkAutomationFindingToCluster(result.id, clusterResolution.clusterId, detectedAt, database);
+  }
 
   await maybeQueueHighPriorityNotification(
     result.id,
