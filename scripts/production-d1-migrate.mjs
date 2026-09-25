@@ -68,6 +68,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0073_automation_multisource_entity_resolution.sql",
   "0074_directory_service_address.sql",
   "0075_automation_zsk_event_source.sql",
+  "0076_automation_non_event_entity_resolution_foundation.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -80,6 +81,16 @@ export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
   "automation_field_conflicts",
   "automation_cluster_findings",
   "automation_cluster_canonical_claims",
+]);
+
+export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
+  "automation_entity_candidate_keys",
+]);
+
+export const AUTOMATION_NON_EVENT_FOUNDATION_INDEXES = Object.freeze([
+  "automation_entity_clusters_type_semantic_updated_idx",
+  "automation_entity_candidate_keys_cluster_key_unique",
+  "automation_entity_candidate_keys_lookup_idx",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_INDEXES = Object.freeze([
@@ -578,6 +589,17 @@ function targetSchemaObjects(schema, targetMigration) {
       partial: schema.columns.some((column) => serviceAddressColumns.has(String(column.name))),
     };
   }
+  if (targetMigration === "0075_automation_zsk_event_source.sql") {
+    return { partial: false };
+  }
+  if (targetMigration === "0076_automation_non_event_entity_resolution_foundation.sql") {
+    const clusterSql = String(names.get("automation_entity_clusters")?.sql ?? "");
+    return {
+      partial: clusterSql.includes("semantic_kind")
+        || AUTOMATION_NON_EVENT_FOUNDATION_TABLES.some((table) => names.has(table))
+        || AUTOMATION_NON_EVENT_FOUNDATION_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -890,6 +912,22 @@ function assertAutomationEntityResolutionSchema(schema) {
   invariant(conflictSql.includes("OPEN") && conflictSql.includes("RESOLVED"), "automation_field_conflicts lifecycle signature is incomplete");
 }
 
+function assertAutomationNonEventFoundationSchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of AUTOMATION_NON_EVENT_FOUNDATION_TABLES) {
+    invariant(names.get(table)?.type === "table", `Missing non-event automation foundation table: ${table}`);
+  }
+  for (const index of AUTOMATION_NON_EVENT_FOUNDATION_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing non-event automation foundation index: ${index}`);
+  }
+  const clusterSql = String(names.get("automation_entity_clusters")?.sql ?? "");
+  const candidateSql = String(names.get("automation_entity_candidate_keys")?.sql ?? "");
+  invariant(clusterSql.includes("semantic_kind"), "automation_entity_clusters semantic_kind is missing");
+  invariant(clusterSql.includes("PERSON") && clusterSql.includes("FACILITY_OR_SERVICE_PROFILE"), "directory semantic-kind guard signature is incomplete");
+  invariant(clusterSql.includes("LEGAL_ORGANIZATION") && clusterSql.includes("FACILITY"), "organization semantic-kind guard signature is incomplete");
+  invariant(candidateSql.includes("REGISTRY_ID") && candidateSql.includes("ICO") && candidateSql.includes("DOMAIN"), "automation candidate-key identity signature is incomplete");
+}
+
 function assertDirectoryServiceAddressSchema(schema) {
   assertRequiredColumns(schema.columns, "directory_profiles", [
     "postal_code",
@@ -919,6 +957,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 72) assertPartnerMediaSchema(schema);
   if (migrationIndex(targetMigration) >= 73) assertAutomationEntityResolutionSchema(schema);
   if (migrationIndex(targetMigration) >= 74) assertDirectoryServiceAddressSchema(schema);
+  if (migrationIndex(targetMigration) >= 76) assertAutomationNonEventFoundationSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
