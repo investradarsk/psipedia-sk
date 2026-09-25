@@ -6,6 +6,7 @@ import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { automationCanonicalAdminHref, automationCanonicalNewHref, isSafeAutomationSourceUrl } from "@/lib/data-automation";
 import { getAutomationFindingDetail } from "@/lib/data-automation-store";
+import { automationFieldLabel, automationFindingLabel } from "@/lib/admin-automation-presentation";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -26,18 +27,6 @@ function valueText(value: unknown) {
   if (typeof value === "boolean") return value ? "Áno" : "Nie";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
-}
-
-function findingLabel(value: string) {
-  const labels: Record<string, string> = {
-    NEW_ENTITY: "Nový záznam",
-    POSSIBLE_UPDATE: "Navrhovaná zmena",
-    POSSIBLE_INACTIVE: "Možná neaktivita",
-    POSSIBLE_CANCELLED: "Možné zrušenie",
-    DUPLICATE_CANDIDATE: "Možná duplicita",
-    SOURCE_ERROR: "Chyba zdroja",
-  };
-  return labels[value] ?? value;
 }
 
 function entityLabel(value: string) {
@@ -83,7 +72,7 @@ export default async function AutomationFindingPage({ params }: Props) {
     <AdminShell
       user={user}
       eyebrow="Automatizácie"
-      title={entityLabel(finding.entityType) + " · " + findingLabel(finding.findingType)}
+      title={entityLabel(finding.entityType) + " · " + automationFindingLabel(finding.findingType)}
       description="Automatizácia niečo našla. Skontroluj zdroj a navrhovanú zmenu; nič sa nezmení bez tvojho rozhodnutia."
       actions={<Link href="/admin/operations">← Späť na úlohy</Link>}
     >
@@ -112,7 +101,7 @@ export default async function AutomationFindingPage({ params }: Props) {
             <div className="is-heading" role="row"><strong>Pole</strong><strong>Teraz</strong><strong>Návrh</strong></div>
             {differences.map(([field, change]) => (
               <div role="row" key={field}>
-                <strong>{field}</strong>
+                <strong>{automationFieldLabel(field)}</strong>
                 <span>{valueText(change.before)}</span>
                 <span>{valueText(change.after)}</span>
               </div>

@@ -230,8 +230,8 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
           <p>{status.text}</p>
         </div>
         <div className={styles.badges}>
-          <span className={[styles.badge, source.reviewStatus === "APPROVED" ? styles.badgeGood : styles.badgeWarning].join(" ")}>{source.reviewStatus}</span>
-          <span className={[styles.badge, source.enabled ? styles.badgeGood : styles.badgeWarning].join(" ")}>{source.enabled ? "ENABLED" : "DISABLED"}</span>
+          <span className={[styles.badge, source.reviewStatus === "APPROVED" ? styles.badgeGood : styles.badgeWarning].join(" ")}>{source.reviewStatus === "APPROVED" ? "Schválený" : source.reviewStatus === "REJECTED" ? "Zamietnutý" : "Čaká na schválenie"}</span>
+          <span className={[styles.badge, source.enabled ? styles.badgeGood : styles.badgeWarning].join(" ")}>{source.enabled ? "Aktívny" : "Vypnutý"}</span>
           {source.lastRunStatus && <span className={[styles.badge, source.lastRunStatus === "FAILED" ? styles.badgeDanger : styles.badgeGood].join(" ")}>{source.lastRunStatus}</span>}
         </div>
       </section>

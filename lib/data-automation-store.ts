@@ -502,6 +502,45 @@ export async function resolveAutomationSourceErrors(sourceId: number, at: string
     WHERE source_id=? AND finding_type='SOURCE_ERROR' AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED')`).bind(at, sourceId).run();
 }
 
+export type AutomationFindingSummary = {
+  id: number;
+  sourceId: number;
+  sourceLabel: string;
+  entityType: AutomationSource["entityType"];
+  findingType: AutomationFindingType;
+  sourceUrl: string | null;
+  reason: string;
+  priority: AutomationPriority;
+  reviewStatus: AutomationReviewStatus;
+  lastDetectedAt: string;
+};
+
+export async function listAutomationFindingSummaries(
+  database?: AutomationD1Database,
+  limit = 200,
+): Promise<AutomationFindingSummary[]> {
+  const db = getDatabase(database);
+  const result = await db.prepare(`SELECT f.id,f.source_id,s.label AS source_label,f.entity_type,f.finding_type,
+      f.source_url,f.reason,f.priority,f.review_status,f.last_detected_at
+    FROM automation_findings f
+    JOIN automation_sources s ON s.id=f.source_id
+    ORDER BY CASE f.review_status WHEN 'NEW' THEN 0 WHEN 'IN_REVIEW' THEN 1 ELSE 2 END,
+      f.last_detected_at DESC,f.id DESC
+    LIMIT ?`).bind(Math.max(1, Math.min(500, limit))).all<Record<string, unknown>>();
+  return result.results.map((row) => ({
+    id: Number(row.id),
+    sourceId: Number(row.source_id),
+    sourceLabel: String(row.source_label ?? ""),
+    entityType: row.entity_type as AutomationSource["entityType"],
+    findingType: row.finding_type as AutomationFindingType,
+    sourceUrl: row.source_url ? String(row.source_url) : null,
+    reason: String(row.reason ?? ""),
+    priority: row.priority as AutomationPriority,
+    reviewStatus: row.review_status as AutomationReviewStatus,
+    lastDetectedAt: String(row.last_detected_at ?? ""),
+  }));
+}
+
 export async function getAutomationFindingDetail(id: number, database?: AutomationD1Database): Promise<AutomationFindingDetail | null> {
   const db = getDatabase(database);
   const row = await db.prepare(`SELECT f.*,s.source_key,s.label AS source_label

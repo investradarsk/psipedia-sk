@@ -20,8 +20,8 @@ test("operations center, shared bell and active/history controls are accessible 
 
   await expect(page.getByRole("heading", { name: "Operácie", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Centrum pozornosti", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nájdené weby a registre", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Stav automatizácií", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Automatizačné zdroje", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Automatizácie", exact: true })).toBeVisible();
   await expect(page.getByTestId("admin-attention-queue")).toBeVisible();
 
   const bell = page.getByTestId("admin-notification-bell");
