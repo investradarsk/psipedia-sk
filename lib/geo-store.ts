@@ -207,15 +207,21 @@ export async function getGeoSourceLocation(targetType: GeoTargetType, id: number
   const db = requireGeoD1(database);
 
   if (targetType === "DIRECTORY_PROFILE") {
-    const row = await db.prepare(`
-      SELECT id, name, category, address, city, district, region, online, status
-      FROM directory_profiles WHERE id = ? LIMIT 1
-    `).bind(id).first<Record<string, unknown>>();
+    const row = await db.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
+      .bind(id).first<Record<string, unknown>>();
     if (!row) return null;
+    const addressFormat = row.address_format === "STREET" || row.address_format === "MUNICIPALITY_NUMBER"
+      ? row.address_format
+      : "";
     return {
       targetType, targetId: Number(row.id), label: String(row.name ?? ""), category: String(row.category ?? ""),
       address: String(row.address ?? ""), city: String(row.city ?? ""), district: String(row.district ?? ""),
-      region: String(row.region ?? ""), countryCode: "SK", online: Boolean(row.online),
+      region: String(row.region ?? ""), postalCode: String(row.postal_code ?? ""), street: String(row.street ?? ""),
+      houseNumber: String(row.house_number ?? ""), addressFormat,
+      serviceAddressConfirmation: row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
+        ? "CONFIRMED_SERVICE_LOCATION"
+        : "LEGACY_UNCONFIRMED",
+      countryCode: "SK", online: Boolean(row.online),
       published: row.status === "published",
     };
   }

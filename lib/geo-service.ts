@@ -111,6 +111,25 @@ function postalCodeFromAddress(value: string | null | undefined) {
 }
 
 export function buildStructuredExactAddress(source: GeoSourceLocation): StructuredGeocodeAddress | null {
+  const countryCode = (source.countryCode || "SK").toUpperCase();
+
+  if (source.targetType === "DIRECTORY_PROFILE") {
+    if (source.addressFormat !== "STREET") return null;
+    const street = source.street?.trim() ?? "";
+    const housenumber = source.houseNumber?.trim() ?? "";
+    if (!street || !housenumber) return null;
+    const structured: StructuredGeocodeAddress = {
+      street,
+      housenumber,
+      city: municipalityName(source.city) || undefined,
+      state: source.region?.trim() || undefined,
+      country: countryCode === "SK" ? "Slovakia" : countryCode,
+    };
+    const postcode = source.postalCode?.trim();
+    if (postcode) structured.postcode = postcode;
+    return structured;
+  }
+
   const raw = (source.address || source.venue || "").trim();
   if (!raw) return null;
   const firstLine = raw.split(",", 1)[0]?.trim() ?? "";
@@ -120,7 +139,6 @@ export function buildStructuredExactAddress(source: GeoSourceLocation): Structur
   const housenumber = match[2]?.trim() ?? "";
   if (!street || !housenumber) return null;
 
-  const countryCode = (source.countryCode || "SK").toUpperCase();
   const structured: StructuredGeocodeAddress = {
     street,
     housenumber,

@@ -11,7 +11,8 @@ import {
 } from "@/components/admin-interaction-system";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
-import { slovakRegions } from "@/lib/events";
+import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
+import { evaluateDirectoryServiceAddress, type DirectoryAddressFormat } from "@/lib/directory-service-address";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { directorySeoFallback } from "@/lib/content-seo";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
@@ -42,10 +43,14 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [description, setDescription] = useState(profile?.description ?? "");
   const [services, setServices] = useState(profile?.services.join("\n") ?? "");
   const [qualifications, setQualifications] = useState(profile?.qualifications.join("\n") ?? "");
-  const [city, setCity] = useState(profile?.city ?? "");
-  const [district, setDistrict] = useState(profile?.district ?? "");
-  const [region, setRegion] = useState(profile?.region ?? "Nitriansky kraj");
-  const [address, setAddress] = useState(profile?.address ?? "");
+  const [city, setCity] = useState(profile?.city === "Online" ? "" : profile?.city ?? "");
+  const [district, setDistrict] = useState(profile?.district === "Online" ? "" : profile?.district ?? "");
+  const [region, setRegion] = useState(profile?.region === "Online" ? "" : profile?.region ?? "");
+  const [postalCode, setPostalCode] = useState(profile?.postalCode ?? "");
+  const [street, setStreet] = useState(profile?.street ?? "");
+  const [houseNumber, setHouseNumber] = useState(profile?.houseNumber ?? "");
+  const [addressFormat, setAddressFormat] = useState<DirectoryAddressFormat | "">(profile?.addressFormat ?? "");
+  const [serviceAddressTouched, setServiceAddressTouched] = useState(!profile);
   const [online, setOnline] = useState(profile?.online ?? false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
@@ -103,7 +108,9 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
         body: JSON.stringify({
           name, slug, category, status: nextStatus, excerpt, description,
           services: listFromText(services), qualifications: listFromText(qualifications),
-          city, district, region, address, online, priceNote,
+          city, district, region, postalCode, street, houseNumber, addressFormat,
+          confirmServiceAddress: !profile || serviceAddressTouched,
+          online, priceNote,
           websiteUrl: websiteUrl || null,
           publicPhone, publicEmail, facebookUrl, instagramUrl,
           internalEmail: internalEmail || null,
@@ -154,6 +161,20 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
     );
   }
 
+  const addressEvaluation = evaluateDirectoryServiceAddress({
+    region,
+    district,
+    city,
+    postalCode,
+    street,
+    houseNumber,
+    addressFormat,
+    serviceAddressConfirmation: (!profile || serviceAddressTouched || profile?.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION")
+      ? "CONFIRMED_SERVICE_LOCATION"
+      : "LEGACY_UNCONFIRMED",
+    online,
+  });
+
   const categoryInfo = getDirectoryCategory(category);
   return (
     <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
@@ -172,14 +193,55 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-location" className="admin-form-card">
-            <div className="admin-card-heading"><div><span>02</span><div><h2>Lokalita</h2><p>Existujúci directory contract používa jednu adresu profilu.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>02</span><div><h2>Adresa prevádzky / miesta služby</h2><p>Jedna canonical verejná adresa pre profil, filtre, vyhľadávanie, mapu a geocoding.</p></div></div></div>
+            {profile?.serviceAddressConfirmation === "LEGACY_UNCONFIRMED" && profile.address ? (
+              <p className="admin-message admin-message--error">
+                Historická adresa „{profile.address}“ zostáva iba migračný/auditný údaj. Nie je potvrdená ako adresa prevádzky a exact geo contract ju nepoužíva.
+              </p>
+            ) : null}
+            <SlovakiaLocationSelector
+              value={{ region, district, city }}
+              required={!online}
+              idPrefix="directory-service-location"
+              onChange={(location) => {
+                setRegion(location.region);
+                setDistrict(location.district);
+                setCity(location.city);
+                setServiceAddressTouched(true);
+              }}
+            />
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-region">Kraj</label><select id="directory-region" value={region} onChange={(event) => setRegion(event.target.value)}>{slovakRegions.map((item) => <option key={item}>{item}</option>)}</select></div>
-              <div className="admin-field"><label htmlFor="directory-city">Mesto</label><input id="directory-city" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Nitra alebo Online" required /></div>
-              <div className="admin-field"><label htmlFor="directory-district">Okres <small>nepovinné</small></label><input id="directory-district" value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Nitra" /></div>
-              <div className="admin-field"><label htmlFor="directory-address">Adresa <small>nepovinné</small></label><input id="directory-address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Ulica a číslo" /></div>
+              <div className="admin-field">
+                <label htmlFor="directory-address-format">Typ adresy</label>
+                <select id="directory-address-format" value={addressFormat} onChange={(event) => {
+                  const next = event.target.value as DirectoryAddressFormat | "";
+                  setAddressFormat(next);
+                  if (next === "MUNICIPALITY_NUMBER") setStreet("");
+                  setServiceAddressTouched(true);
+                }}>
+                  <option value="">Vyberte typ adresy</option>
+                  <option value="STREET">Ulica + číslo</option>
+                  <option value="MUNICIPALITY_NUMBER">Obec + číslo (bez ulice)</option>
+                </select>
+              </div>
+              {addressFormat !== "MUNICIPALITY_NUMBER" ? (
+                <div className="admin-field">
+                  <label htmlFor="directory-street">Ulica</label>
+                  <input id="directory-street" value={street} onChange={(event) => { setStreet(event.target.value); setServiceAddressTouched(true); }} placeholder="Hviezdoslavova" />
+                  <small>Dočasne ručné pole. Authoritative street autocomplete bude doplnený v ADDRESS-DATA-1.</small>
+                </div>
+              ) : null}
+              <div className="admin-field">
+                <label htmlFor="directory-house-number">Číslo domu</label>
+                <input id="directory-house-number" value={houseNumber} onChange={(event) => { setHouseNumber(event.target.value); setServiceAddressTouched(true); }} placeholder="88 alebo 123" />
+              </div>
+              <div className="admin-field">
+                <label htmlFor="directory-postal-code">PSČ</label>
+                <input id="directory-postal-code" inputMode="numeric" value={postalCode} onChange={(event) => { setPostalCode(event.target.value); setServiceAddressTouched(true); }} placeholder="953 01" />
+                <small>Dočasne ručné pole. Automatické PSČ/address-point dáta budú doplnené v ADDRESS-DATA-1.</small>
+              </div>
             </div>
-            <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Profil sa dá vyhľadať filtrom „Dostupné online“.</small></span></label>
+            <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Ak má profil aj fyzickú prevádzku, vyplň adresu vyššie. Online-only profil môže zostať bez fyzickej adresy a nebude mapovým kandidátom.</small></span></label>
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-content" className="admin-form-card">
@@ -219,7 +281,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
         <aside className="admin-event-preview admin-directory-preview">
           <span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <img src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div>
           <span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overený" : ""}</span><h2>{name || "Názov profilu"}</h2><p>{excerpt || "Krátky popis profilu sa zobrazí tu."}</p>
-          <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Mesto"}{district ? ` · okres ${district}` : ""} · {region}</dd></div><div><dt>Dostupnosť</dt><dd>{online ? "Osobne aj online" : "Osobne"}</dd></div></dl>
+          <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez fyzickej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (addressEvaluation.state === "COMPLETE" ? "Kompletná" : addressEvaluation.state)}</dd></div><div><dt>Dostupnosť</dt><dd>{online ? (city ? "Osobne aj online" : "Online") : "Osobne"}</dd></div></dl>
         </aside>
       </div>
 

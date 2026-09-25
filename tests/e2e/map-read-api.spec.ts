@@ -21,7 +21,7 @@ test("public map API exposes only approved current canonical geo items", async (
   const names = body.items.map((item: { name: string }) => item.name);
   expect(names).toContain("MAP E2E Veterina A");
   expect(names).toContain("MAP E2E Veterina B");
-  expect(names).toContain("MAP E2E Chovateľská stanica");
+  expect(names).not.toContain("MAP E2E Chovateľská stanica");
   expect(names).toContain("MAP E2E Linked Organization");
   expect(names).toContain("MAP E2E Multi Site Org");
   expect(names).toContain("MAP E2E Budúca výstava");
@@ -33,10 +33,8 @@ test("public map API exposes only approved current canonical geo items", async (
   expect(names).not.toContain("MAP E2E Minulé podujatie");
   expect(names).not.toContain("MAP E2E Zrušené podujatie");
 
-  const breeder = body.items.find((item: { name: string }) => item.name === "MAP E2E Chovateľská stanica");
-  expect(breeder.displayLocation).not.toContain("Súkromná 77");
-  expect(breeder.precision).toBe("MUNICIPALITY");
-
+  // ADDRESS-1 is exact-only for DIRECTORY_PROFILE. The synthetic breeder fixture
+  // intentionally remains APPROXIMATE_PUBLIC / MUNICIPALITY and must be excluded.
   const serviceArea = body.items.find(
     (item: { name: string; locationRole?: string }) =>
       item.name === "MAP E2E Multi Site Org" && item.locationRole === "SERVICE_AREA",
