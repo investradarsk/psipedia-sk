@@ -7,6 +7,7 @@ import {
   normalizeDirectoryEvidenceField,
   selectDirectoryClusterCandidate,
   type DirectoryClusterCandidate,
+  type DirectoryClusterDecision,
 } from "./data-automation-directory-matching.ts";
 import type { AutomationCandidateKey, AutomationSemanticKind } from "./data-automation-identity.ts";
 
@@ -347,7 +348,7 @@ export async function resolveDirectoryAutomationEntityCluster(input: {
       canonical_entity_key: string | null;
     }>();
 
-    let decision;
+    let decision: DirectoryClusterDecision;
     let clusterId: number;
     let canonicalEntityId: number | null = null;
     let canonicalEntityKey: string | null = null;
