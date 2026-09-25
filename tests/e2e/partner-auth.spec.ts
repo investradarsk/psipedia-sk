@@ -483,7 +483,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.getByRole("link", { name: "Propagácia" }).click();
   await expect(page.getByRole("heading", { name: "Propagácia" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Premium profil" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Propagovaný profil" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sponzorované zvýraznenie" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Reklamná kampaň" })).toBeVisible();
   if (project === "mobile-chromium") {
     await page.getByLabel("Typ záujmu").selectOption("OTHER");
