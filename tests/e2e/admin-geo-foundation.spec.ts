@@ -55,9 +55,9 @@ test.describe("MAP-1B admin geo foundation", () => {
 
     const explicit = page.locator("[data-admin-explicit-geo-onboarding]");
     await expect(explicit.getByRole("heading", { name: "Explicitný onboarding" })).toBeVisible();
-    await expect(explicit.getByLabel("Target type")).toHaveValue("DIRECTORY_PROFILE");
-    await expect(explicit.getByLabel("Visibility")).toHaveValue("APPROXIMATE_PUBLIC");
-    await expect(explicit.getByLabel("Precision")).toHaveValue("MUNICIPALITY");
+    await expect(explicit.getByLabel("Explicit target type")).toHaveValue("DIRECTORY_PROFILE");
+    await expect(explicit.getByLabel("Explicit visibility")).toHaveValue("APPROXIMATE_PUBLIC");
+    await expect(explicit.getByLabel("Explicit precision")).toHaveValue("MUNICIPALITY");
     await expect(explicit.getByLabel("Canonical IDs")).toBeVisible();
     await expect(explicit.getByRole("button", { name: "Náhľad" })).toBeDisabled();
     await expect(explicit.getByRole("button", { name: "Spustiť explicitný batch" })).toHaveCount(0);
