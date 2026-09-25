@@ -10,12 +10,7 @@ export class PartnerSecurityError extends Error {
   }
 }
 
-export function assertPartnerJsonMutation(request: Request) {
-  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("application/json")) {
-    throw new PartnerSecurityError("Požiadavka musí používať application/json.", 415);
-  }
-
+export function assertPartnerMutationOrigin(request: Request) {
   const url = new URL(request.url);
   const origin = request.headers.get("origin");
   if (!origin || origin !== url.origin) {
@@ -26,6 +21,14 @@ export function assertPartnerJsonMutation(request: Request) {
   if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
     throw new PartnerSecurityError("Cross-site mutation bola zablokovaná.", 403);
   }
+}
+
+export function assertPartnerJsonMutation(request: Request) {
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new PartnerSecurityError("Požiadavka musí používať application/json.", 415);
+  }
+  assertPartnerMutationOrigin(request);
 }
 
 function clientIdentifier(request: Request) {
@@ -175,6 +178,23 @@ export async function enforcePartnerEventUpdateRateLimit(input: {
   const result = await enforceRateLimit(store, key, 8, 60 * 60, now);
   if (!result.allowed) {
     throw new PartnerSecurityError("Za krátky čas bolo odoslaných priveľa návrhov úprav podujatia. Skúste to neskôr.", 429);
+  }
+  return result;
+}
+
+
+export async function enforcePartnerMediaUploadRateLimit(input: {
+  database: D1Database;
+  accountId: string;
+  hashKey: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const store = createD1RateLimitStore(input.database);
+  const key = await deriveRateLimitKey("partner-media-upload", input.accountId, input.hashKey);
+  const result = await enforceRateLimit(store, key, 20, 60 * 60, now);
+  if (!result.allowed) {
+    throw new PartnerSecurityError("Za krátky čas bolo nahraných priveľa obrázkov. Skúste to neskôr.", 429);
   }
   return result;
 }
