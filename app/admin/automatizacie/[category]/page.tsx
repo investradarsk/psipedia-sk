@@ -5,6 +5,7 @@ import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
 import { listAutomationFindingSummaries } from "@/lib/data-automation-store";
+import { listAutomationClusterFindingIds, listAutomationClusterSummaries } from "@/lib/data-automation-cluster-admin";
 import {
   automationCategoryBySlug,
   automationSourcesForCategory,
@@ -40,6 +41,14 @@ export default async function AutomationCategoryPage({ params }: Props) {
   try { [allSources, allFindings] = await Promise.all([listAutomationSourcesAdmin(undefined, 200), listAutomationFindingSummaries(undefined, 500)]); } catch { unavailable = true; }
   const sources = automationSourcesForCategory(allSources, slug);
   const categoryFindings = automationFindingsForSources(allFindings, sources);
+  let clusters = [];
+  let linkedFindingIds: number[] = [];
+  try {
+    clusters = await listAutomationClusterSummaries({ sourceIds: sources.map((source) => source.id), entityTypes: category.entityTypes, limit: 50 });
+    linkedFindingIds = await listAutomationClusterFindingIds(clusters.map((cluster) => cluster.id));
+  } catch { /* graceful legacy fallback */ }
+  const linkedSet = new Set(linkedFindingIds);
+  const legacyFindings = categoryFindings.filter((finding) => !linkedSet.has(finding.id));
   const findingCount = automationCategoryFindingCount(allFindings, sources);
   const status = unavailable ? "Čaká na dáta" : automationCategoryStatus(sources);
 
@@ -53,49 +62,43 @@ export default async function AutomationCategoryPage({ params }: Props) {
     >
       <section className={[styles.statusHero, status === "Problém" ? styles.statusHeroWarning : styles.statusHeroGood].join(" ")}>
         <div><strong>{status}</strong><p>{sources.length ? sources.filter((source) => source.enabled).length + " aktívnych zdrojov" : "Pre túto kategóriu zatiaľ nie je nastavený aktívny zdroj."} · posledná kontrola {formatDate(automationCategoryLastCheck(sources))}</p></div>
-        <div className={styles.statusCount}><strong>{findingCount}</strong><span>na kontrolu</span></div>
+        <div className={styles.statusCount}><strong>{clusters.length || findingCount}</strong><span>{clusters.length ? "logických entít" : "na kontrolu"}</span></div>
       </section>
 
       <section className={styles.section}>
-        <div className={styles.sectionHeader}><div><h2>Nálezy</h2><p>Nové položky z posledných behov zdrojov. Rozhodnutia človeka zostávajú v Operáciách / Centre pozornosti.</p></div><span className={styles.sectionCount}>{findingCount}</span></div>
-        {categoryFindings.length ? (
-          <div className={styles.itemList}>{categoryFindings.slice(0, 20).map((finding) => (
-            <div className={styles.itemCard} key={finding.id}>
+        <div className={styles.sectionHeader}><div><h2>Nálezy</h2><p>Primárne zobrazenie je podľa logických entít. Viac observations z viacerých zdrojov sa zobrazuje ako jedna položka.</p></div><span className={styles.sectionCount}>{clusters.length || findingCount}</span></div>
+        {clusters.length ? (
+          <div className={styles.itemList}>{clusters.map((cluster) => (
+            <div className={styles.itemCard} key={cluster.id}>
               <div className={styles.itemMain}>
-                <div className={styles.itemTitle}><strong>{automationFindingLabel(finding.findingType)}</strong><span className={styles.badge}>{finding.sourceLabel}</span></div>
-                <p>{finding.reason}</p><p>Nájdené {formatDate(finding.lastDetectedAt)}</p>
+                <div className={styles.itemTitle}><strong>{cluster.title}</strong>{cluster.sourceCount > 1 && <span className={styles.badgeGood}>{cluster.sourceCount} zdroje</span>}{cluster.sourceCount === 1 && <span className={styles.badge}>1 zdroj</span>}{cluster.openConflictCount > 0 && <span className={styles.badgeDanger}>{cluster.openConflictCount} konflikt</span>}{cluster.possibleMatchCount > 0 && <span className={styles.badgeWarning}>Možná zhoda</span>}</div>
+                <p>{cluster.openFindingCount} otvorených zmien · {cluster.canonicalEntityId ? "canonical napojené" : "canonical nenapojené"} · posledná zmena {formatDate(cluster.updatedAt)}</p>
               </div>
-              <Link className={styles.itemAction} href={"/admin/operations/automation/" + finding.id}>Skontrolovať</Link>
+              <Link className={styles.itemAction} href={"/admin/automatizacie/" + slug + "/cluster/" + cluster.id}>Otvoriť entitu</Link>
             </div>
           ))}</div>
+        ) : categoryFindings.length ? (
+          <div className={styles.itemList}>{categoryFindings.slice(0, 20).map((finding) => (
+            <div className={styles.itemCard} key={finding.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{automationFindingLabel(finding.findingType)}</strong><span className={styles.badge}>{finding.sourceLabel}</span></div><p>{finding.reason}</p><p>Nájdené {formatDate(finding.lastDetectedAt)}</p></div><Link className={styles.itemAction} href={"/admin/operations/automation/" + finding.id}>Skontrolovať</Link></div>
+          ))}</div>
         ) : <div className={styles.empty}>Žiadne otvorené nálezy na kontrolu.</div>}
+
+        {clusters.length > 0 && legacyFindings.length > 0 && <details className={styles.advanced}><summary>Staršie nálezy bez cluster linkage ({legacyFindings.length})</summary><div className={styles.advancedBody}><div className={styles.itemList}>{legacyFindings.slice(0, 20).map((finding) => <div className={styles.itemCard} key={finding.id}><div className={styles.itemMain}><strong>{automationFindingLabel(finding.findingType)}</strong><p>{finding.reason}</p></div><Link className={styles.itemAction} href={"/admin/operations/automation/" + finding.id}>Skontrolovať</Link></div>)}</div></div></details>}
       </section>
 
       <section className={styles.section} id="zdroje">
         <div className={styles.sectionHeader}><div><h2>Zdroje</h2><p>Zobrazujú sa iba reálne nakonfigurované zdroje.</p></div><span className={styles.sectionCount}>{sources.length}</span></div>
         {sources.length ? <div className={styles.itemList}>{sources.map((source) => (
-          <div className={styles.itemCard} key={source.id}>
-            <div className={styles.itemMain}>
-              <div className={styles.itemTitle}><strong>{source.label}</strong><span className={styles.badge}>{source.enabled ? "Aktívny" : "Vypnutý"}</span></div>
-              <p>{automationSourceDomain(source.sourceUrl)} · sleduje: {category.title}</p>
-              <p>Posledná úspešná kontrola: {formatDate(source.lastSuccessAt)} · ďalšia kontrola: {formatDate(source.nextCheckAt)} · na kontrolu: {automationSourceFindingCount(allFindings, source.id)}</p>
-              {source.lastErrorCode && <p><strong>Problém:</strong> {automationReadableError(source.lastErrorCode)}</p>}
-            </div>
-            <Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link>
-          </div>
+          <div className={styles.itemCard} key={source.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{source.label}</strong><span className={styles.badge}>{source.enabled ? "Aktívny" : "Vypnutý"}</span></div><p>{automationSourceDomain(source.sourceUrl)} · sleduje: {category.title}</p><p>Posledná úspešná kontrola: {formatDate(source.lastSuccessAt)} · ďalšia kontrola: {formatDate(source.nextCheckAt)} · na kontrolu: {automationSourceFindingCount(allFindings, source.id)}</p>{source.lastErrorCode && <p><strong>Problém:</strong> {automationReadableError(source.lastErrorCode)}</p>}</div><Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link></div>
         ))}</div> : <div className={styles.empty}>Nenastavené — pre túto kategóriu momentálne neexistuje nakonfigurovaný zdroj.</div>}
       </section>
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}><div><h2>História</h2><p>Prehľad poslednej aktivity podľa jednotlivých zdrojov.</p></div></div>
-        {sources.length ? <div className={styles.techGrid}>{sources.map((source) => (
-          <div className={styles.techRow} key={source.id}><strong>{source.label}</strong><span>Posledná kontrola {formatDate(source.lastCheckedAt)} · stav {source.lastRunStatus ?? "—"}</span><span>Skontrolované {source.checkedCount} · nové {source.newFindingCount} · chyby {source.errorCount}</span></div>
-        ))}</div> : <p>Zatiaľ bez histórie.</p>}
+        {sources.length ? <div className={styles.techGrid}>{sources.map((source) => <div className={styles.techRow} key={source.id}><strong>{source.label}</strong><span>Posledná kontrola {formatDate(source.lastCheckedAt)} · stav {source.lastRunStatus ?? "—"}</span><span>Skontrolované {source.checkedCount} · nové {source.newFindingCount} · chyby {source.errorCount}</span></div>)}</div> : <p>Zatiaľ bez histórie.</p>}
       </section>
 
-      {sources.length > 0 && <details className={styles.advanced}><summary>Nastavenia / technické údaje</summary><div className={styles.advancedBody}>
-        {sources.map((source) => <div className={styles.techRow} key={source.id}><strong>{source.label}</strong><span>{source.entityType} · {source.connectorType} · cadence {source.cadenceMinutes} min</span><span>source key {source.sourceKey}</span></div>)}
-      </div></details>}
+      {sources.length > 0 && <details className={styles.advanced}><summary>Nastavenia / technické údaje</summary><div className={styles.advancedBody}>{sources.map((source) => <div className={styles.techRow} key={source.id}><strong>{source.label}</strong><span>{source.entityType} · {source.connectorType} · cadence {source.cadenceMinutes} min</span><span>source key {source.sourceKey}</span></div>)}</div></details>}
     </AdminShell>
   );
 }
