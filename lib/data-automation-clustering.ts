@@ -258,7 +258,7 @@ export function selectEventClusterCandidate(
 
 function isMissingClusterSchema(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return /no such table:\s*automation_(?:entity_clusters|cluster_|field_evidence|source_authority)/i.test(message);
+  return /no such table:\s*automation_(?:entity_clusters|entity_candidate_keys|cluster_|field_evidence|source_authority)|no such column:\s*semantic_kind/i.test(message);
 }
 
 async function sourceAuthority(sourceId: number, database: AutomationClusterDatabase) {
@@ -303,14 +303,9 @@ async function recentEventCandidates(database: AutomationClusterDatabase): Promi
   }));
 }
 
-async function createCluster(
-  entityType: AutomationSource["entityType"],
-  semanticKind: AutomationSemanticKind,
-  at: string,
-  database: AutomationClusterDatabase,
-) {
-  const row = await database.prepare(`INSERT INTO automation_entity_clusters (entity_type,semantic_kind,created_at,updated_at)
-    VALUES (?,?,?,?) RETURNING id`).bind(entityType, semanticKind, at, at).first<{ id: number }>();
+async function createCluster(entityType: AutomationSource["entityType"], at: string, database: AutomationClusterDatabase) {
+  const row = await database.prepare(`INSERT INTO automation_entity_clusters (entity_type,created_at,updated_at)
+    VALUES (?,?,?) RETURNING id`).bind(entityType, at, at).first<{ id: number }>();
   if (!row) throw new Error("automation_cluster_create_failed");
   return Number(row.id);
 }
@@ -510,7 +505,7 @@ async function resolveEventAutomationEntityCluster(
         canonicalEntityId = matched?.canonicalEntityId ?? null;
         canonicalEntityKey = matched?.canonicalEntityKey ?? null;
       } else {
-        clusterId = await createCluster(input.source.entityType, "EVENT", input.detectedAt, database);
+        clusterId = await createCluster(input.source.entityType, input.detectedAt, database);
         if (decision.quality === "POSSIBLE" && decision.possibleCandidateIds.length) {
           await recordClusterMatchCandidates({
             observationId: input.observationId,
