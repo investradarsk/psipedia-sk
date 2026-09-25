@@ -10,16 +10,28 @@ type LiveMapBody = {
 };
 
 async function swipe(locator: Locator, deltaY: number) {
-  await locator.scrollIntoViewIfNeeded();
+  await expect(locator).toBeVisible();
+
+  // Use Playwright's actionable hover to bring the real gesture surface into
+  // view. A raw scrollIntoView can place it underneath the fixed site header.
+  await locator.hover();
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  const x = box!.x + Math.min(box!.width / 2, 120);
-  const y = box!.y + Math.min(24, Math.max(8, box!.height / 2));
-  await locator.page().mouse.move(x, y);
-  await locator.page().mouse.down();
-  await locator.page().mouse.move(x, y + deltaY, { steps: 10 });
-  await locator.page().mouse.up();
-  await locator.page().waitForTimeout(320);
+
+  const page = locator.page();
+  const x = box!.x + box!.width / 2;
+  const y = box!.y + box!.height / 2;
+  const locatorReceivesPointer = await locator.evaluate((element, { x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    return Boolean(target && element.contains(target));
+  }, { x, y });
+  expect(locatorReceivesPointer).toBe(true);
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + deltaY, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(320);
 }
 
 async function swipeSheetHeader(header: Locator, panel: Locator, deltaY: number) {
@@ -287,6 +299,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
 
     await scroll.evaluate((el) => { el.scrollTop = 0; });
+    await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBe(0);
     await swipe(scroll, 130);
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
