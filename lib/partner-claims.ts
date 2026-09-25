@@ -186,6 +186,23 @@ export async function createPartnerClaim(input: {
       database,
       now,
     });
+    try {
+      await enqueueAdminNotificationEvent(database, {
+        eventType: "partner_claim_submitted",
+        sourceType: "PARTNER_CLAIM_REVIEW",
+        resourceType: "partner_claim",
+        resourceRef: id,
+        actorType: "PARTNER",
+        actorRef: `partner:${input.accountId}`,
+        targetUrl: `/admin/partners/claims/${id}`,
+        title: "Nová žiadosť o správu profilu",
+        body: "Partner požiadal o správu profilu.",
+        tag: `partner-claim-${id}`,
+        dedupeKey: `partner-claim/${id}`,
+      }, now);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "partner_claim_admin_push_enqueue", claimId: id, result: "failed", error: error instanceof Error ? error.message : "unknown" }));
+    }
   }
   await queuePartnerLifecycleNotification({
     accountId: input.accountId,
@@ -363,6 +380,23 @@ export async function requestPartnerVerification(input: {
     database,
     now,
   });
+  try {
+    await enqueueAdminNotificationEvent(database, {
+      eventType: "partner_verification_requested",
+      sourceType: "PARTNER_VERIFICATION_REVIEW",
+      resourceType: "partner_resource_verification",
+      resourceRef: id,
+      actorType: "PARTNER",
+      actorRef: `partner:${input.accountId}`,
+      targetUrl: `/admin/partners/verifications/${id}`,
+      title: "Nové overenie správcu",
+      body: "Žiadosť čaká na kontrolu.",
+      tag: `partner-verification-${id}`,
+      dedupeKey: `partner-verification/${id}/${iso}`,
+    }, now);
+  } catch (error) {
+    console.error(JSON.stringify({ event: "partner_verification_admin_push_enqueue", verificationId: id, result: "failed", error: error instanceof Error ? error.message : "unknown" }));
+  }
   return { id, deduplicated: false };
 }
 

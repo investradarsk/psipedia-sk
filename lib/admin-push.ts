@@ -1,4 +1,6 @@
 import { env } from "cloudflare:workers";
+import { enqueueUncoveredAttentionAdminNotifications } from "@/lib/admin-notifications";
+import { hashPii, normalizeEmail } from "@/lib/pii-crypto";
 import {
   normalizeAdminNotificationPath,
   sendWebPush,
@@ -13,6 +15,7 @@ type RuntimeBindings = {
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
   VAPID_SUBJECT?: string;
+  PII_HASH_KEY?: string;
 };
 
 type RuntimeOptions = {
@@ -30,7 +33,7 @@ export type AdminPushSubscriptionInput = {
   platform?: string;
 };
 
-type PushDeliveryRow = {
+type LegacyPushDeliveryRow = {
   id: number;
   notification_id: number;
   subscription_id: number;
@@ -40,6 +43,28 @@ type PushDeliveryRow = {
   endpoint: string;
   p256dh: string;
   auth: string;
+};
+
+type EventDeliveryRow = {
+  id: number;
+  event_id: number;
+  subscription_id: number;
+  status: "pending" | "sent" | "failed" | "dead";
+  attempts: number;
+  last_error: string | null;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  title: string;
+  body: string;
+  target_url: string;
+  tag: string;
+};
+
+type ActiveSubscriptionRow = {
+  id: number;
+  admin_email: string;
+  created_at: string;
 };
 
 const MAX_DEVICES_PER_ADMIN = 10;
@@ -228,34 +253,44 @@ async function describeNotification(database: D1Database, resourceType: string, 
   return null;
 }
 
-async function ensureDeliveries(database: D1Database, nowIso: string) {
-  const recentCutoff = new Date(new Date(nowIso).getTime() - 30 * 86_400_000).toISOString();
-  const notifications = await database.prepare(`SELECT id, resource_type, resource_id, created_at
-    FROM editorial_notifications
-    WHERE resource_type IN ('automation_finding','directory_profile_change_request','article_feedback')
-      AND created_at >= ?
+async function adminActorRefForSubscription(email: string, hashKey: string | undefined) {
+  const key = hashKey?.trim();
+  if (!key) return null;
+  return `admin:${await hashPii(normalizeEmail(email), key)}`;
+}
+
+async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBindings, nowIso: string) {
+  const subscriptions = await database.prepare(`SELECT id, admin_email, created_at
+    FROM admin_push_subscriptions
+    WHERE enabled = 1
     ORDER BY created_at ASC
-    LIMIT 100`).bind(recentCutoff).all<{ id: number; resource_type: string; resource_id: number; created_at: string }>();
+    LIMIT 50`).all<ActiveSubscriptionRow>();
 
-  const subscriptions = await database.prepare(`SELECT id, created_at FROM admin_push_subscriptions
-    WHERE enabled = 1 ORDER BY created_at DESC LIMIT 50`).all<{ id: number; created_at: string }>();
+  for (const subscription of subscriptions.results) {
+    const ownActorRef = await adminActorRefForSubscription(subscription.admin_email, bindings.PII_HASH_KEY);
+    const events = await database.prepare(`SELECT e.id
+      FROM admin_notification_events e
+      WHERE e.created_at >= ?
+        AND NOT EXISTS (
+          SELECT 1 FROM admin_push_event_deliveries d
+          WHERE d.event_id = e.id AND d.subscription_id = ?
+        )
+        AND (
+          (? IS NULL AND e.actor_type <> 'ADMIN')
+          OR
+          (? IS NOT NULL AND NOT (e.actor_type = 'ADMIN' AND e.actor_ref = ?))
+        )
+      ORDER BY e.created_at ASC, e.id ASC
+      LIMIT 100`)
+      .bind(subscription.created_at, subscription.id, ownActorRef, ownActorRef, ownActorRef)
+      .all<{ id: number }>();
 
-  for (const notification of notifications.results) {
-    const descriptor = await describeNotification(
-      database,
-      notification.resource_type,
-      notification.resource_id,
-    );
-    if (!descriptor) continue;
-    for (const subscription of subscriptions.results) {
-      // Do not replay events that predate the first registration of this device.
-      // last_seen_at changes during ordinary status checks and must never suppress a pending event.
-      if (notification.created_at < subscription.created_at) continue;
-      await database.prepare(`INSERT INTO admin_push_deliveries (
-        notification_id, subscription_id, status, attempts, created_at, updated_at
-      ) VALUES (?, ?, 'pending', 0, ?, ?)
-      ON CONFLICT(notification_id, subscription_id) DO NOTHING`)
-        .bind(notification.id, subscription.id, nowIso, nowIso).run();
+    for (const event of events.results) {
+      await database.prepare(`INSERT INTO admin_push_event_deliveries (
+          event_id, subscription_id, status, attempts, created_at, updated_at
+        ) VALUES (?, ?, 'pending', 0, ?, ?)
+        ON CONFLICT(event_id, subscription_id) DO NOTHING`)
+        .bind(event.id, subscription.id, nowIso, nowIso).run();
     }
   }
 }
@@ -271,52 +306,46 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   if (!vapid) return { configured: false, candidates: 0, sent: 0, failed: 0, dead: 0 };
 
   const nowIso = resolved.now.toISOString();
-  await ensureDeliveries(resolved.database, nowIso);
-  const rows = await resolved.database.prepare(`SELECT d.id, d.notification_id, d.subscription_id,
-      d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth
-    FROM admin_push_deliveries d
+  await enqueueUncoveredAttentionAdminNotifications(resolved.database, resolved.now).catch((error) => {
+    console.warn(JSON.stringify({
+      event: "admin_attention_push_bridge",
+      result: "failed",
+      error: safeError(error),
+    }));
+  });
+  await ensureEventDeliveries(resolved.database, resolved.bindings, nowIso);
+
+  const summary = { configured: true, candidates: 0, sent: 0, failed: 0, dead: 0 };
+
+  const eventRows = await resolved.database.prepare(`SELECT d.id, d.event_id, d.subscription_id,
+      d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth,
+      e.title, e.body, e.target_url, e.tag
+    FROM admin_push_event_deliveries d
     JOIN admin_push_subscriptions s ON s.id = d.subscription_id
+    JOIN admin_notification_events e ON e.id = d.event_id
     WHERE d.status IN ('pending','failed') AND d.attempts < ? AND s.enabled = 1
     ORDER BY d.created_at ASC
     LIMIT ?`)
     .bind(MAX_ATTEMPTS, MAX_DELIVERIES_PER_SWEEP)
-    .all<PushDeliveryRow>();
+    .all<EventDeliveryRow>();
 
-  const summary = { configured: true, candidates: rows.results.length, sent: 0, failed: 0, dead: 0 };
-  for (const row of rows.results) {
+  summary.candidates += eventRows.results.length;
+  for (const row of eventRows.results) {
     try {
-      const notification = await resolved.database.prepare(
-        "SELECT resource_type, resource_id FROM editorial_notifications WHERE id = ? LIMIT 1",
-      ).bind(row.notification_id).first<{ resource_type: string; resource_id: number }>();
-      if (!notification) {
-        await resolved.database.prepare(
-          "UPDATE admin_push_deliveries SET status = 'dead', last_error = 'notification_missing', updated_at = ? WHERE id = ?",
-        ).bind(nowIso, row.id).run();
-        summary.dead += 1;
-        continue;
-      }
-      const descriptor = await describeNotification(
-        resolved.database,
-        notification.resource_type,
-        notification.resource_id,
-      );
-      if (!descriptor) {
-        await resolved.database.prepare(
-          "UPDATE admin_push_deliveries SET status = 'dead', last_error = 'no_longer_notifiable', updated_at = ? WHERE id = ?",
-        ).bind(nowIso, row.id).run();
-        summary.dead += 1;
-        continue;
-      }
-
       const result = await sendWebPush(
         { endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth } satisfies WebPushSubscription,
-        { ...descriptor, url: normalizeAdminNotificationPath(descriptor.url) },
+        {
+          title: row.title,
+          body: row.body,
+          url: normalizeAdminNotificationPath(row.target_url),
+          tag: row.tag,
+        },
         vapid,
         { fetchImpl: resolved.fetchImpl, now: resolved.now, ttlSeconds: 300 },
       );
 
       if (result.ok) {
-        await resolved.database.prepare(`UPDATE admin_push_deliveries
+        await resolved.database.prepare(`UPDATE admin_push_event_deliveries
           SET status = 'sent', attempts = attempts + 1, sent_at = ?, last_error = NULL, updated_at = ?
           WHERE id = ?`).bind(nowIso, nowIso, row.id).run();
         summary.sent += 1;
@@ -327,30 +356,119 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
         await resolved.database.prepare(
           "UPDATE admin_push_subscriptions SET enabled = 0, updated_at = ? WHERE id = ?",
         ).bind(nowIso, row.subscription_id).run();
-        await resolved.database.prepare(`UPDATE admin_push_deliveries
+        await resolved.database.prepare(`UPDATE admin_push_event_deliveries
           SET status = 'dead', attempts = attempts + 1, last_error = ?, updated_at = ? WHERE id = ?`)
           .bind(`push_${result.status}`, nowIso, row.id).run();
         summary.dead += 1;
         continue;
       }
 
-      await resolved.database.prepare(`UPDATE admin_push_deliveries
+      await resolved.database.prepare(`UPDATE admin_push_event_deliveries
         SET status = ?, attempts = attempts + 1, last_error = ?, updated_at = ? WHERE id = ?`)
         .bind(result.retryable ? "failed" : "dead", `push_${result.status}`, nowIso, row.id).run();
       if (result.retryable) summary.failed += 1;
       else summary.dead += 1;
     } catch (error) {
-      await resolved.database.prepare(`UPDATE admin_push_deliveries
+      await resolved.database.prepare(`UPDATE admin_push_event_deliveries
         SET status = 'failed', attempts = attempts + 1, last_error = ?, updated_at = ? WHERE id = ?`)
         .bind(safeError(error), nowIso, row.id).run();
       summary.failed += 1;
     }
   }
+
+  const remaining = Math.max(0, MAX_DELIVERIES_PER_SWEEP - eventRows.results.length);
+  if (remaining > 0) {
+    const legacyRows = await resolved.database.prepare(`SELECT d.id, d.notification_id, d.subscription_id,
+        d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth
+      FROM admin_push_deliveries d
+      JOIN admin_push_subscriptions s ON s.id = d.subscription_id
+      WHERE d.status IN ('pending','failed') AND d.attempts < ? AND s.enabled = 1
+      ORDER BY d.created_at ASC
+      LIMIT ?`)
+      .bind(MAX_ATTEMPTS, remaining)
+      .all<LegacyPushDeliveryRow>();
+
+    summary.candidates += legacyRows.results.length;
+    for (const row of legacyRows.results) {
+      try {
+        const notification = await resolved.database.prepare(
+          "SELECT resource_type, resource_id FROM editorial_notifications WHERE id = ? LIMIT 1",
+        ).bind(row.notification_id).first<{ resource_type: string; resource_id: number }>();
+        if (!notification) {
+          await resolved.database.prepare(
+            "UPDATE admin_push_deliveries SET status = 'dead', last_error = 'notification_missing', updated_at = ? WHERE id = ?",
+          ).bind(nowIso, row.id).run();
+          summary.dead += 1;
+          continue;
+        }
+        const descriptor = await describeNotification(
+          resolved.database,
+          notification.resource_type,
+          notification.resource_id,
+        );
+        if (!descriptor) {
+          await resolved.database.prepare(
+            "UPDATE admin_push_deliveries SET status = 'dead', last_error = 'no_longer_notifiable', updated_at = ? WHERE id = ?",
+          ).bind(nowIso, row.id).run();
+          summary.dead += 1;
+          continue;
+        }
+
+        const result = await sendWebPush(
+          { endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth } satisfies WebPushSubscription,
+          { ...descriptor, url: normalizeAdminNotificationPath(descriptor.url) },
+          vapid,
+          { fetchImpl: resolved.fetchImpl, now: resolved.now, ttlSeconds: 300 },
+        );
+
+        if (result.ok) {
+          await resolved.database.prepare(`UPDATE admin_push_deliveries
+            SET status = 'sent', attempts = attempts + 1, sent_at = ?, last_error = NULL, updated_at = ?
+            WHERE id = ?`).bind(nowIso, nowIso, row.id).run();
+          summary.sent += 1;
+          continue;
+        }
+
+        if (result.expired) {
+          await resolved.database.prepare(
+            "UPDATE admin_push_subscriptions SET enabled = 0, updated_at = ? WHERE id = ?",
+          ).bind(nowIso, row.subscription_id).run();
+          await resolved.database.prepare(`UPDATE admin_push_deliveries
+            SET status = 'dead', attempts = attempts + 1, last_error = ?, updated_at = ? WHERE id = ?`)
+            .bind(`push_${result.status}`, nowIso, row.id).run();
+          summary.dead += 1;
+          continue;
+        }
+
+        await resolved.database.prepare(`UPDATE admin_push_deliveries
+          SET status = ?, attempts = attempts + 1, last_error = ?, updated_at = ? WHERE id = ?`)
+          .bind(result.retryable ? "failed" : "dead", `push_${result.status}`, nowIso, row.id).run();
+        if (result.retryable) summary.failed += 1;
+        else summary.dead += 1;
+      } catch (error) {
+        await resolved.database.prepare(`UPDATE admin_push_deliveries
+          SET status = 'failed', attempts = attempts + 1, last_error = ?, updated_at = ? WHERE id = ?`)
+          .bind(safeError(error), nowIso, row.id).run();
+        summary.failed += 1;
+      }
+    }
+  }
+
   const deliveryRetentionCutoff = new Date(resolved.now.getTime() - 30 * 86_400_000).toISOString();
-  const disabledSubscriptionCutoff = new Date(resolved.now.getTime() - 90 * 86_400_000).toISOString();
+  const eventRetentionCutoff = new Date(resolved.now.getTime() - 90 * 86_400_000).toISOString();
+  const disabledSubscriptionCutoff = eventRetentionCutoff;
+  await resolved.database.prepare(
+    "DELETE FROM admin_push_event_deliveries WHERE status IN ('sent','dead') AND updated_at < ?",
+  ).bind(deliveryRetentionCutoff).run();
   await resolved.database.prepare(
     "DELETE FROM admin_push_deliveries WHERE status IN ('sent','dead') AND updated_at < ?",
   ).bind(deliveryRetentionCutoff).run();
+  await resolved.database.prepare(`DELETE FROM admin_notification_events
+    WHERE created_at < ?
+      AND NOT EXISTS (
+        SELECT 1 FROM admin_push_event_deliveries d
+        WHERE d.event_id = admin_notification_events.id AND d.status IN ('pending','failed')
+      )`).bind(eventRetentionCutoff).run();
   await resolved.database.prepare(
     "DELETE FROM admin_push_subscriptions WHERE enabled = 0 AND updated_at < ?",
   ).bind(disabledSubscriptionCutoff).run();

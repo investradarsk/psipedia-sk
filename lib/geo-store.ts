@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { adminNotificationAdminActorRef, enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import {
   buildGeoQuery,
   classifyGeoSource,
@@ -92,6 +93,50 @@ const targetColumns: Record<GeoTargetType, "directory_profile_id" | "organizatio
   ORGANIZATION_LOCATION: "organization_location_id",
   MANAGED_EVENT: "managed_event_id",
 };
+
+function geoAdminTargetUrl(targetType: GeoTargetType, targetIdValue: number) {
+  if (targetType === "DIRECTORY_PROFILE") return `/admin/adresar/${targetIdValue}#geo`;
+  if (targetType === "MANAGED_EVENT") return `/admin/podujatia/${targetIdValue}#geo`;
+  return "/admin/operations/geo";
+}
+
+async function enqueueGeoAttentionEvent(input: {
+  database: GeoD1Database;
+  point: GeoPointRecord;
+  label: string;
+  actorType: "ADMIN" | "SYSTEM";
+  actorRef?: string | null;
+  activationKey: string;
+  now: string;
+}) {
+  if (!["NEEDS_REVIEW", "STALE", "FAILED"].includes(input.point.geocodeStatus)) return;
+  try {
+    const actorRef = input.actorType === "ADMIN" && input.actorRef
+      ? await adminNotificationAdminActorRef(input.actorRef)
+      : input.actorRef ?? null;
+    await enqueueAdminNotificationEvent(input.database, {
+      eventType: "geo_actionable_state",
+      sourceType: "GEO_LOCATION_ISSUE",
+      resourceType: "geo_point",
+      resourceRef: input.point.id,
+      actorType: input.actorType,
+      actorRef,
+      targetUrl: geoAdminTargetUrl(input.point.targetType, input.point.targetId),
+      title: "Mapa vyžaduje kontrolu",
+      body: `Lokalita ${input.label || `#${input.point.targetId}`} potrebuje zásah.`,
+      tag: `geo-location-${input.point.id}`,
+      dedupeKey: `geo/${input.point.id}/${input.activationKey}/${input.point.geocodeStatus}/${input.point.lastErrorCode ?? "none"}`,
+    }, input.now);
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "geo_admin_push_enqueue",
+      geoPointId: input.point.id,
+      result: "failed",
+      error: error instanceof Error ? error.message : "unknown",
+    }));
+  }
+}
+
 
 export function requireGeoD1(database?: GeoD1Database) {
   const bound = (env as unknown as GeoBindings).DB;
@@ -302,6 +347,10 @@ export async function initializeGeoPointForTarget(targetType: GeoTargetType, id:
     geoPointId: point.id, action: "GEO_INITIALIZED", actorType: "ADMIN", actorRef,
     toStatus: point.geocodeStatus, reasonCode: point.lastErrorCode, changedFields: ["target", "public_visibility", "public_precision", "source_fingerprint"],
   }, db);
+  await enqueueGeoAttentionEvent({
+    database: db, point, label: source.label, actorType: "ADMIN", actorRef,
+    activationKey: point.sourceFingerprint, now,
+  });
   return { point, created: true };
 }
 
@@ -477,16 +526,22 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
     ).run();
   }
   const point = await getGeoPointForTarget(targetType, targetIdValue, db);
-  if (point) await writeGeoModerationEvent({
-    geoPointId: point.id, action: "GEO_SOURCE_STALE", actorType: "SYSTEM",
-    fromStatus: current.geocodeStatus, toStatus: point.geocodeStatus,
-    reasonCode: exactNeedsPrivacyReview
-      ? "PRIVACY_CLASSIFICATION_MISSING"
-      : current.manualOverride ? "MANUAL_REVIEW" : null,
-    changedFields: exactNeedsPrivacyReview
-      ? ["public_visibility", "public_precision", "source_fingerprint", "geocode_status"]
-      : ["source_fingerprint", "normalized_query", "query_fingerprint", "geocode_status"],
-  }, db);
+  if (point) {
+    await writeGeoModerationEvent({
+      geoPointId: point.id, action: "GEO_SOURCE_STALE", actorType: "SYSTEM",
+      fromStatus: current.geocodeStatus, toStatus: point.geocodeStatus,
+      reasonCode: exactNeedsPrivacyReview
+        ? "PRIVACY_CLASSIFICATION_MISSING"
+        : current.manualOverride ? "MANUAL_REVIEW" : null,
+      changedFields: exactNeedsPrivacyReview
+        ? ["public_visibility", "public_precision", "source_fingerprint", "geocode_status"]
+        : ["source_fingerprint", "normalized_query", "query_fingerprint", "geocode_status"],
+    }, db);
+    await enqueueGeoAttentionEvent({
+      database: db, point, label: source.label, actorType: "SYSTEM", actorRef: "geo-source-sync",
+      activationKey: point.sourceFingerprint, now,
+    });
+  }
   return point;
 }
 
@@ -532,7 +587,15 @@ export async function recordGeocoderFailure(input: {
     UPDATE geo_points SET geocode_status=?, last_error_code=?, last_error_at=?, retry_after_at=?,
       attempt_count=attempt_count+1, updated_at=? WHERE id=? AND manual_override=0
   `).bind(input.status, input.errorCode, now, input.retryAfterAt ?? null, now, current.id).run();
-  return getGeoPointForTarget(input.targetType, input.targetId, db);
+  const point = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (point && (current.geocodeStatus !== point.geocodeStatus || current.lastErrorCode !== point.lastErrorCode)) {
+    const source = await getGeoSourceLocation(input.targetType, input.targetId, db);
+    await enqueueGeoAttentionEvent({
+      database: db, point, label: source?.label ?? "", actorType: "SYSTEM", actorRef: "geo-geocoder",
+      activationKey: `${point.sourceFingerprint}/${point.lastErrorAt ?? now}`, now,
+    });
+  }
+  return point;
 }
 
 export async function listGeoCandidateSources(options: {

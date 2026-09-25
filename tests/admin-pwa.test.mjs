@@ -83,9 +83,9 @@ test("subscription ownership, idempotency, multiple devices and cleanup are expl
   assert.match(push, /Push subscription patrí inému admin účtu/);
   assert.match(push, /MAX_DEVICES_PER_ADMIN = 10/);
   assert.match(push, /ON CONFLICT\(endpoint\) DO UPDATE/);
-  assert.match(push, /SELECT id, created_at FROM admin_push_subscriptions/);
-  assert.match(push, /notification\.created_at < subscription\.created_at/);
-  assert.doesNotMatch(push, /notification\.created_at < subscription\.last_seen_at/);
+  assert.match(push, /SELECT id, admin_email, created_at/);
+  assert.match(push, /e\.created_at >= \?/);
+  assert.doesNotMatch(push, /e\.created_at >= subscription\.last_seen_at/);
   assert.match(push, /WHERE admin_push_subscriptions\.admin_email = excluded\.admin_email/);
   assert.match(push, /result\.expired/);
   assert.match(push, /enabled = 0/);
