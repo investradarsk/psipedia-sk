@@ -9,11 +9,14 @@ import {
 } from "../lib/data-automation-discovery.ts";
 import {
   agilitySkEventsAdapter,
+  parseZskSrCalendarTable,
   skjExhibitionCalendarAdapter,
   svpsSheltersRegisterAdapter,
+  zskSrEventsAdapter,
 } from "../lib/data-automation-real-sources.ts";
 import { parseAutomationSourceAdminInput } from "../lib/data-automation-source-admin.ts";
 import { isSafeAutomationSourceUrl } from "../lib/data-automation.ts";
+import { selectEventClusterCandidate } from "../lib/data-automation-clustering.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const fixture = (name) => readFileSync(new URL("./fixtures/data-automation/" + name, import.meta.url), "utf8");
@@ -111,6 +114,158 @@ test("agility.sk controlled HTML fixture normalizes upcoming agility events", as
   assert.equal(rows[1].proposed.venue, "Cvičisko AK Kamzík");
   assert.equal(rows[1].proposed.city, undefined);
   assert.equal(rows[1].proposed.websiteUrl, "https://agilityportal.sk/sk/preteky/popradske-skusky-102026");
+});
+
+
+test("ZSK table parser keeps only evidenced fields and preserves status changes", () => {
+  const rows = parseZskSrCalendarTable({
+    html: fixture("zsk-sr-table-national.html"),
+    sourceUrl: "https://suchno.sk/app_test/zsk_akcie.php?form=1&typ=2",
+    category: "Národné akcie",
+  });
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].proposed.title, "O pohár KK Bodona Piešťany");
+  assert.equal(rows[0].proposed.startDate, "2026-10-18");
+  assert.equal(rows[0].proposed.endDate, undefined);
+  assert.equal(rows[0].proposed.city, "Piešťany");
+  assert.equal(rows[0].proposed.venue, "Piešťany");
+  assert.equal(rows[0].proposed.eventType, "Preteky");
+  assert.equal(rows[0].proposed.websiteUrl, "https://example.sk/propozicie/pohar-bodona");
+  assert.equal(rows[0].proposed.registrationUrl, "https://example.sk/prihlaska/pohar-bodona");
+  assert.equal(rows[0].proposed.organizer, undefined);
+  assert.equal(rows[0].proposed.region, undefined);
+  assert.equal(rows[0].proposed.district, undefined);
+
+  assert.equal(rows[1].proposed.startDate, "2026-10-09");
+  assert.equal(rows[1].proposed.endDate, "2026-10-11");
+
+  assert.equal(rows[2].proposed.cancelled, true);
+  assert.equal(rows[2].proposed.status, "CANCELLED");
+  assert.equal(rows[2].proposed.city, undefined);
+  assert.equal(rows[2].proposed.venue, "CANIS arena, Most pri Bratislave");
+});
+
+test("ZSK parser recognizes obedience, date changes, postponement and Slovak diacritics", () => {
+  const rows = parseZskSrCalendarTable({
+    html: fixture("zsk-sr-table-obedience.html"),
+    sourceUrl: "https://suchno.sk/app_test/zsk_skusky.php?form=2&typ=3",
+    category: "Skúšky obedience a Rally obedience",
+  });
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].proposed.eventType, "Iné");
+  assert.equal(rows[0].proposed.city, "Nitra");
+  assert.match(String(rows[0].proposed.practicalInfo), /Ľubica Kováčová/);
+  assert.equal(rows[1].proposed.status, "DATE_CHANGED");
+  assert.equal(rows[2].proposed.status, "POSTPONED");
+  assert.equal(rows[2].proposed.endDate, undefined);
+});
+
+test("ZSK adapter follows only the current iframe per supported category and dedupes one logical event", async () => {
+  const calls = [];
+  const fetchHtml = async (url) => {
+    calls.push(url);
+    if (url.includes("/kalendar/narodne-akcie")) {
+      return { html: fixture("zsk-sr-category-national.html"), finalUrl: url };
+    }
+    if (url.includes("/kalendar/skusky-obedience-a-rally-obedience")) {
+      return { html: fixture("zsk-sr-category-obedience.html"), finalUrl: url };
+    }
+    if (url.includes("/kalendar/sportove-kynologicke-akcie")) {
+      return { html: fixture("zsk-sr-category-sport.html"), finalUrl: url };
+    }
+    if (url.includes("zsk_akcie.php")) {
+      return { html: fixture("zsk-sr-table-national.html"), finalUrl: url };
+    }
+    if (url.includes("zsk_skusky.php")) {
+      return { html: fixture("zsk-sr-table-obedience.html"), finalUrl: url };
+    }
+    if (url.includes("zsk_sport.php")) {
+      return { html: fixture("zsk-sr-table-sport.html"), finalUrl: url };
+    }
+    throw new Error("unexpected ZSK fixture URL " + url);
+  };
+  const rows = await zskSrEventsAdapter({
+    html: fixture("zsk-sr-calendar-root.html"),
+    source: source({
+      sourceKey: "zsk-sr-events",
+      sourceUrl: "https://zsksr.sk/kalendar/",
+      config: { htmlAdapterKey: "zsk-sr-events", expectedMinRecords: 1 },
+    }),
+    fetchHtml,
+  });
+  assert.equal(rows.length, 7);
+  assert.equal(calls.length, 6);
+  assert.equal(calls.some((url) => url.includes("1735686000")), false);
+  assert.equal(rows.filter((row) => String(row.proposed.title).includes("O pohár KK Bodona")).length, 1);
+  assert.ok(rows.every((row) => row.sourceRecordId.length <= 240));
+});
+
+test("ZSK connector nested HTML fetches reuse safe transport and remain bounded", async () => {
+  const requests = [];
+  const responseFor = (url) => {
+    if (url === "https://zsksr.sk/kalendar") return fixture("zsk-sr-calendar-root.html");
+    if (url.includes("/kalendar/narodne-akcie")) return fixture("zsk-sr-category-national.html");
+    if (url.includes("/kalendar/skusky-obedience-a-rally-obedience")) return fixture("zsk-sr-category-obedience.html");
+    if (url.includes("/kalendar/sportove-kynologicke-akcie")) return fixture("zsk-sr-category-sport.html");
+    if (url.includes("zsk_akcie.php")) return fixture("zsk-sr-table-national.html");
+    if (url.includes("zsk_skusky.php")) return fixture("zsk-sr-table-obedience.html");
+    if (url.includes("zsk_sport.php")) return fixture("zsk-sr-table-sport.html");
+    throw new Error("unexpected ZSK connector URL " + url);
+  };
+  const rows = await fetchAutomationSourceRecords(source({
+    sourceKey: "zsk-sr-events",
+    sourceUrl: "https://zsksr.sk/kalendar/",
+    config: { htmlAdapterKey: "zsk-sr-events", expectedMinRecords: 1 },
+    maxRecordsPerRun: 2,
+  }), {
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      return new Response(responseFor(String(url)), {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      });
+    },
+    htmlAdapters: { "zsk-sr-events": zskSrEventsAdapter },
+  });
+  assert.equal(rows.length, 2);
+  assert.equal(requests.length, 7);
+  assert.ok(requests.every((url) => url.startsWith("https://")));
+});
+
+
+test("ZSK observations reuse the existing EVENT clustering contract", () => {
+  const [row] = parseZskSrCalendarTable({
+    html: fixture("zsk-sr-table-national.html"),
+    sourceUrl: "https://suchno.sk/app_test/zsk_akcie.php?form=1&typ=2",
+    category: "Národné akcie",
+  });
+  const decision = selectEventClusterCandidate(row, [{
+    id: 44,
+    canonicalEntityId: 901,
+    canonicalEntityKey: "event:901",
+    fields: {
+      title: "O pohár KK Bodona Piešťany",
+      startDate: "2026-10-18",
+      city: "Piešťany",
+    },
+  }]);
+  assert.equal(decision.quality, "STRONG");
+  assert.equal(decision.candidateId, 44);
+  assert.equal(row.proposed.externalId, undefined);
+});
+
+test("ZSK source provisioning stays disabled, pending and authoritative only as evidence", () => {
+  const migration = read("drizzle/0074_automation_zsk_event_source.sql");
+  assert.match(migration, /'zsk-sr-events'/);
+  assert.match(migration, /'https:\/\/zsksr\.sk\/kalendar\/'/);
+  assert.match(migration, /'EVENT'/);
+  assert.match(migration, /'CONTROLLED_HTML'/);
+  assert.match(migration, /0,360,1500,10000,2,1500,200/);
+  assert.match(migration, /'PENDING'/);
+  assert.match(migration, /'OFFICIAL_CLUB_CALENDAR',90/);
+  assert.doesNotMatch(migration, /INSERT INTO (managed_events|help_organizations|directory_profiles|adoption_dogs|lost_found_dog_reports|help_cases)/i);
+  const adapters = read("lib/data-automation-real-sources.ts");
+  assert.match(adapters, /"zsk-sr-events": zskSrEventsAdapter/);
 });
 
 test("SVPS controlled HTML fixture normalizes shelters and quarantine stations", async () => {
