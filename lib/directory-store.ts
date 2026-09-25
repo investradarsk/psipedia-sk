@@ -582,6 +582,7 @@ function normalizeStringList(value: unknown) {
 export function normalizeManagedDirectoryProfileInput(
   payload: ManagedDirectoryProfileInput,
   currentImportData: Record<string, string | number | null> | null = null,
+  options: { descriptionOptional?: boolean } = {},
 ) {
   const name = payload.name?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || name);
@@ -599,7 +600,7 @@ export function normalizeManagedDirectoryProfileInput(
   if (!category) throw new Error("Vyber kategóriu adresára.");
   if (allDirectoryCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu profilu.");
   if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
-  if (description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
+  if (!options.descriptionOptional && description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
   if (!city) throw new Error("Doplň mesto alebo uveď Online.");
   if (!region) throw new Error("Vyber kraj.");
   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
