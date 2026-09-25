@@ -62,6 +62,65 @@ test("private image pipeline accepts only JPEG PNG WebP, validates bytes and dim
   assert.match(privateMedia,/safe\//);
 });
 
+test("private image pipeline awaits async Images output before response and stores safe output",async()=>{
+  const mod=await importTs("lib/private-media.ts");
+  const png=new Uint8Array(24);
+  png.set([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a],0);
+  png.set([0x49,0x48,0x44,0x52],12);
+  new DataView(png.buffer).setUint32(16,640,false);
+  new DataView(png.buffer).setUint32(20,480,false);
+
+  const events=[];
+  const puts=[];
+  const deletes=[];
+  const privateBucket={
+    async put(key,value,options){puts.push({key,value,options});},
+    async get(){return null;},
+    async delete(key){deletes.push(key);},
+  };
+  const images={
+    input(){
+      return {
+        transform(){
+          return {
+            output:async()=>{
+              events.push("output:start");
+              await Promise.resolve();
+              events.push("output:resolved");
+              return {
+                response(){
+                  events.push("response");
+                  return new Response(new Uint8Array([1,2,3]),{status:200,headers:{"content-type":"image/webp"}});
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const result=await mod.ingestPrivateImage({
+    bytes:png,
+    declaredMime:"image/png",
+    ownerType:"PARTNER_ACCOUNT",
+    ownerId:"account-1",
+    assetId:"asset-1",
+    privateBucket,
+    images,
+  });
+
+  assert.deepEqual(events,["output:start","output:resolved","response"]);
+  assert.equal(deletes.length,0);
+  assert.equal(puts.length,2);
+  assert.match(puts[0].key,/^quarantine\/PARTNER_ACCOUNT\/account-1\/asset-1-/);
+  assert.equal(puts[1].key,"safe/PARTNER_ACCOUNT/account-1/asset-1.webp");
+  assert.equal(result.safeMime,"image/webp");
+  assert.equal(result.safeSizeBytes,3);
+  assert.match(privateMedia,/output\(options: Record<string, unknown>\): Promise<ImageTransformationResultLike>/);
+  assert.match(privateMedia,/const transformed = await input\.images\.input\(source\)/);
+});
+
 test("Partner upload endpoint is separately authorized, same-origin, rate-limited and never accepts arbitrary object keys",()=>{
   assert.match(upload,/requirePartnerAccount/);
   assert.match(upload,/assertPartnerMutationOrigin/);
