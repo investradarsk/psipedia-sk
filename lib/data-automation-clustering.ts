@@ -11,6 +11,7 @@ import {
   type AutomationCandidateKey,
   type AutomationSemanticKind,
 } from "./data-automation-identity.ts";
+import { resolveDirectoryAutomationEntityCluster } from "./data-automation-directory-clustering.ts";
 
 export const automationClusterMatchQualities = ["EXACT", "STRONG", "POSSIBLE", "NONE"] as const;
 export type AutomationClusterMatchQuality = (typeof automationClusterMatchQualities)[number];
