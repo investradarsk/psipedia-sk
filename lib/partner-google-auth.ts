@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { env } from "cloudflare:workers";
 import { SITE_URL } from "@/config/public-site";
+import { enqueuePartnerAccountRegistrationAdminNotification } from "@/lib/admin-notifications";
 import { decryptPii, encryptPii, hashPii, normalizeEmail } from "@/lib/pii-crypto";
 import {
   createPartnerSession,
@@ -320,6 +321,11 @@ export async function handlePartnerGoogleCallback(input:{
       actorType:"SYSTEM",actorRef:"partner-google-auth",action:"GOOGLE_IDENTITY_LINKED",
       targetType:"PARTNER_ACCOUNT",targetId:created.accountId,database,now,
     });
+    try {
+      await enqueuePartnerAccountRegistrationAdminNotification(database, created.accountId, now);
+    } catch (error) {
+      console.error(JSON.stringify({event:"partner_registration_admin_push_enqueue",method:"google",accountId:created.accountId,result:"failed",error:error instanceof Error?error.message:"unknown"}));
+    }
     const session=await createPartnerSession(created.accountId,database);
     cookies.push(session.cookie);
     return {location:googleReturnBridge(postAuthTarget(false,flow.returnTo)),cookies};
