@@ -59,7 +59,7 @@
     "test:partner-h4": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-public-profile-integration.test.mjs",
     "test:partner-platform": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs && npm run test:partner-profile-changes && npm run test:partner-new-profile && npm run test:partner-events && npm run test:partner-commercial-v1",
     "test:reviews-foundation": "node --experimental-strip-types --test tests/reviews-foundation.test.mjs tests/reviews-foundation-d1.test.mjs",
-    "test:geo-foundation": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/geo-foundation.test.mjs",
+    "test:geo-foundation": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-service-address.test.mjs tests/geo-foundation.test.mjs",
     "test:map-read-api": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/map-read-api.test.mjs tests/map-read-api-contract.test.mjs tests/map-read-api-benchmark.test.mjs",
     "test:partner-profile-changes": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-profile-changes.test.mjs",
     "test:reviews-public-read": "node --experimental-strip-types --test tests/profile-review-read.test.mjs",

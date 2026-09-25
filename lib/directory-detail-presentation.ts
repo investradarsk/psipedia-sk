@@ -86,14 +86,17 @@ function splitDescription(value: string | null) {
 }
 
 export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile): DirectoryDetailPresentation {
+  const publicAddress = profile.formattedServiceAddress
+    ? profile.formattedServiceAddress.replace(/\n/g, ", ")
+    : profile.address;
   const phoneValue = usefulDirectoryDetailValue(importedValue(profile, "Telefón", "Telefon", "phone"));
   const rawEmail = usefulDirectoryDetailValue(importedValue(profile, "E-mail", "Email", "email"));
   const emails = rawEmail?.split(/[;,]/).map((item) => item.trim()).filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item)) ?? [];
   const websiteUrl = publicDirectoryDetailUrl(importedValue(profile, "Web", "Webstránka") ?? profile.websiteUrl);
   const facebookUrl = publicDirectoryDetailUrl(importedValue(profile, "Facebook"));
   const instagramUrl = publicDirectoryDetailUrl(importedValue(profile, "Instagram"));
-  const navigationQuery = [profile.address, profile.city, profile.district, profile.region, "Slovensko"].filter(Boolean).join(", ");
-  const navigationUrl = profile.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(navigationQuery)}` : null;
+  const navigationQuery = [publicAddress, profile.city, profile.district, profile.region, "Slovensko"].filter(Boolean).join(", ");
+  const navigationUrl = publicAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(navigationQuery)}` : null;
   const factLabels = [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
   const facts = factLabels.flatMap((label) => {
     const value = usefulDirectoryDetailValue(importedValue(profile, label));
@@ -128,7 +131,7 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     city: profile.city,
     district: profile.district,
     region: profile.region,
-    address: profile.address,
+    address: publicAddress,
     online: profile.online,
     priceNote: profile.priceNote,
     imageUrl: profile.imageUrl,

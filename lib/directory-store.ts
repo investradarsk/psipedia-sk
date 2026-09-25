@@ -20,6 +20,13 @@ import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { mergeDirectoryPublicContactData } from "@/lib/directory-profile-metadata";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
+import {
+  directoryAddressFormats,
+  evaluateDirectoryServiceAddress,
+  normalizeSlovakPostalCode,
+  type DirectoryAddressFormat,
+  type DirectoryServiceAddressConfirmation,
+} from "@/lib/directory-service-address";
 
 export type ManagedDirectoryProfileInput = {
   slug?: string;
@@ -34,6 +41,11 @@ export type ManagedDirectoryProfileInput = {
   district?: string;
   region?: string;
   address?: string;
+  postalCode?: string;
+  street?: string;
+  houseNumber?: string;
+  addressFormat?: string;
+  confirmServiceAddress?: boolean;
   online?: boolean;
   priceNote?: string;
   websiteUrl?: string | null;
@@ -118,6 +130,11 @@ type DirectoryProfileRow = {
   district: string;
   region: string;
   address: string;
+  postal_code?: string;
+  street?: string;
+  house_number?: string;
+  address_format?: string;
+  service_address_confirmation?: string;
   online: number;
   price_note: string;
   website_url: string | null;
@@ -331,10 +348,14 @@ function directorySearchText(input: {
   district: string;
   region: string;
   address: string;
+  postalCode?: string;
+  street?: string;
+  houseNumber?: string;
 }) {
   return normalizeDirectorySearchText([
     input.name, input.excerpt, input.description, input.services.join(" "),
     input.qualifications.join(" "), input.city, input.district, input.region, input.address,
+    input.postalCode ?? "", input.street ?? "", input.houseNumber ?? "",
   ].join(" "));
 }
 
@@ -385,6 +406,23 @@ const DIRECTORY_PUBLIC_FACET_SEARCH = sqlNormalizedExpression(`
 `);
 
 function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
+  const addressFormat = directoryAddressFormats.includes(row.address_format as DirectoryAddressFormat)
+    ? row.address_format as DirectoryAddressFormat
+    : "";
+  const serviceAddressConfirmation: DirectoryServiceAddressConfirmation = row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
+    ? "CONFIRMED_SERVICE_LOCATION"
+    : "LEGACY_UNCONFIRMED";
+  const serviceAddress = evaluateDirectoryServiceAddress({
+    region: row.region,
+    district: row.district,
+    city: row.city,
+    postalCode: row.postal_code ?? "",
+    street: row.street ?? "",
+    houseNumber: row.house_number ?? "",
+    addressFormat,
+    serviceAddressConfirmation,
+    online: Boolean(row.online),
+  });
   return {
     id: row.id,
     slug: row.slug,
@@ -398,6 +436,12 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     district: row.district || String(safeImportData(row.source_data_json)?.["Okres"] ?? ""),
     region: normalizeDirectoryRegion(row.region) ?? "Online",
     address: row.address,
+    postalCode: row.postal_code ?? "",
+    street: row.street ?? "",
+    houseNumber: row.house_number ?? "",
+    addressFormat,
+    serviceAddressConfirmation,
+    formattedServiceAddress: serviceAddress.state === "COMPLETE" ? serviceAddress.formattedAddress : null,
     online: Boolean(row.online),
     priceNote: row.price_note,
     websiteUrl: row.website_url,
@@ -415,6 +459,9 @@ function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JS
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
   return {
     ...rowToPublicProfile(row),
+    city: row.city,
+    district: row.district,
+    region: row.region,
     services: safeList(row.services_json),
     qualifications: safeList(row.qualifications_json),
     status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
@@ -582,7 +629,11 @@ function normalizeStringList(value: unknown) {
 export function normalizeManagedDirectoryProfileInput(
   payload: ManagedDirectoryProfileInput,
   currentImportData: Record<string, string | number | null> | null = null,
-  options: { descriptionOptional?: boolean } = {},
+  options: {
+    descriptionOptional?: boolean;
+    currentServiceAddressConfirmation?: DirectoryServiceAddressConfirmation;
+    legacyAddress?: string;
+  } = {},
 ) {
   const name = payload.name?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || name);
@@ -592,8 +643,10 @@ export function normalizeManagedDirectoryProfileInput(
   const description = payload.description?.trim() ?? "";
   const city = payload.city?.trim() ?? "";
   const district = payload.district?.trim() ?? "";
-  const region = normalizeDirectoryRegion(payload.region);
+  const rawRegion = payload.region?.trim() ?? "";
+  const region = rawRegion ? normalizeDirectoryRegion(rawRegion) : null;
   const imageUrl = payload.imageUrl?.trim() || null;
+  const online = Boolean(payload.online);
 
   if (!name) throw new Error("Doplň názov profilu.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa profilu nie je platná.");
@@ -601,13 +654,41 @@ export function normalizeManagedDirectoryProfileInput(
   if (allDirectoryCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu profilu.");
   if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
   if (!options.descriptionOptional && description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
-  if (!city) throw new Error("Doplň mesto alebo uveď Online.");
-  if (!region) throw new Error("Vyber kraj.");
+  if (rawRegion && !region) throw new Error("Vyber platný kraj.");
+  if (!online && (!city || !district || !region)) throw new Error("Pre osobnú službu vyber kraj, okres a obec / mesto.");
   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
+
+  const addressFormat = directoryAddressFormats.includes(payload.addressFormat as DirectoryAddressFormat)
+    ? payload.addressFormat as DirectoryAddressFormat
+    : "";
+  if (payload.addressFormat && !addressFormat) throw new Error("Neplatný formát adresy prevádzky.");
+
+  const postalCode = normalizeSlovakPostalCode(payload.postalCode);
+  const street = payload.street?.trim() ?? "";
+  const houseNumber = payload.houseNumber?.trim() ?? "";
+  const serviceAddressConfirmation: DirectoryServiceAddressConfirmation = payload.confirmServiceAddress === true
+    ? "CONFIRMED_SERVICE_LOCATION"
+    : options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED";
+  const legacyAddress = payload.address === undefined ? options.legacyAddress ?? "" : payload.address.trim();
+
+  const serviceAddress = evaluateDirectoryServiceAddress({
+    region: region ?? rawRegion,
+    district,
+    city,
+    postalCode,
+    street,
+    houseNumber,
+    addressFormat,
+    serviceAddressConfirmation,
+    online,
+  });
+  if (serviceAddress.reason === "LOCALITY_INVALID" || serviceAddress.reason === "ONLINE_SENTINEL_CONFLICT") {
+    throw new Error("Kraj, okres a obec / mesto netvoria platnú slovenskú lokalitu.");
+  }
+  const authoritativeAddressText = serviceAddress.formattedAddress ?? legacyAddress;
 
   const services = normalizeStringList(payload.services);
   const qualifications = normalizeStringList(payload.qualifications);
-  const address = payload.address?.trim() ?? "";
   const websiteUrl = normalizeUrl(payload.websiteUrl);
   const publicPhone = payload.publicPhone === undefined ? undefined : normalizePublicPhone(payload.publicPhone);
   const publicEmail = payload.publicEmail === undefined ? undefined : normalizeEmail(payload.publicEmail) ?? "";
@@ -631,9 +712,16 @@ export function normalizeManagedDirectoryProfileInput(
     qualifications,
     city,
     district,
-    region,
-    address,
-    online: Boolean(payload.online),
+    region: region ?? rawRegion,
+    address: legacyAddress,
+    postalCode,
+    street,
+    houseNumber,
+    addressFormat,
+    serviceAddressConfirmation,
+    serviceAddressState: serviceAddress.state,
+    formattedServiceAddress: serviceAddress.formattedAddress,
+    online,
     priceNote: payload.priceNote?.trim() ?? "",
     websiteUrl,
     publicPhone,
@@ -647,7 +735,10 @@ export function normalizeManagedDirectoryProfileInput(
     verified: Boolean(payload.verified),
     featured: Boolean(payload.featured),
     seo: cleanEditableSeo(payload.seo),
-    searchText: directorySearchText({ name, excerpt, description, services, qualifications, city, district, region, address }),
+    searchText: directorySearchText({
+      name, excerpt, description, services, qualifications, city, district, region: region ?? rawRegion,
+      address: authoritativeAddressText, postalCode, street, houseNumber,
+    }),
   };
 }
 
@@ -659,33 +750,42 @@ export function buildManagedDirectoryProfileCreateStatement(
   guard?: { submissionId: string; actorRef: string },
 ) {
   const columns = `slug, name, category, status, excerpt, description, services_json, qualifications_json,
-    city, district, region, address, online, price_note, website_url, internal_email, image_url, image_key,
+    city, district, region, address, postal_code, street, house_number, address_format, service_address_confirmation,
+    online, price_note, website_url, internal_email, image_url, image_key,
     source_data_json, verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by`;
-  const values = [
-    input.slug, input.name, input.category, input.status, input.excerpt, input.description,
-    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
-    input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
-    JSON.stringify(input.seo), input.searchText, nowIso, nowIso, input.status === "published" ? nowIso : null, editorEmail, editorEmail,
-  ];
-  if (!guard) {
-    return database.prepare(`INSERT INTO directory_profiles (${columns})
-      VALUES (${values.map(() => "?").join(",")}) RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(...values);
-  }
-  const guardedValues = [
+  const commonValues = [
     input.slug, input.name, input.category, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
-    input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
+    input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
-    JSON.stringify(input.seo), input.searchText, nowIso, nowIso, editorEmail, editorEmail,
+    JSON.stringify(input.seo), input.searchText,
   ];
+  if (!guard) {
+    const values = [
+      input.slug, input.name, input.category, input.status, input.excerpt, input.description,
+      JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
+      input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
+      input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+      input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
+      JSON.stringify(input.seo), input.searchText, nowIso, nowIso, input.status === "published" ? nowIso : null, editorEmail, editorEmail,
+    ];
+    return database.prepare(`INSERT INTO directory_profiles (${columns})
+      VALUES (${values.map(() => "?").join(",")}) RETURNING *`).bind(...values);
+  }
+  const guardedValues = [...commonValues, nowIso, nowIso, editorEmail, editorEmail];
+  const guardedSelectValues = [
+    "?", "?", "?", "'draft'",
+    ...Array.from({ length: 26 }, () => "?"),
+    "NULL", "?", "?",
+  ].join(", ");
   return database.prepare(`INSERT INTO directory_profiles (${columns})
-    SELECT ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?
+    SELECT ${guardedSelectValues}
     WHERE EXISTS(
       SELECT 1 FROM moderation_submissions
       WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?
     )
-    RETURNING ${DIRECTORY_PROFILE_COLUMNS}`).bind(...guardedValues, guard.submissionId, nowIso, guard.actorRef);
+    RETURNING *`).bind(...guardedValues, guard.submissionId, nowIso, guard.actorRef);
 }
 
 export async function getPublishedDirectoryProfiles(category?: DirectoryCategorySlug, limit = 500) {
@@ -856,7 +956,7 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
 const getPublishedDirectoryProfileUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
   if (!database || !isDirectoryCategory(category)) return null;
-  const row = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1`).bind(category, slug).first<DirectoryProfileRow>();
+  const row = await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<DirectoryProfileRow>();
   return row ? rowToPublicProfile(row) : null;
 };
 export const getPublishedDirectoryProfile = cache(getPublishedDirectoryProfileUncached);
@@ -911,7 +1011,7 @@ export async function listManagedDirectoryProfileSummaries(options: {
 export async function getManagedDirectoryProfileById(id: number) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const row = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? LIMIT 1`).bind(id).first<DirectoryProfileRow>();
+  const row = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1").bind(id).first<DirectoryProfileRow>();
   return row ? rowToManagedProfile(row) : null;
 }
 
@@ -932,19 +1032,24 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
   const existing = existingProfile ?? await getManagedDirectoryProfileById(id);
   if (!existing) return null;
   if (existing.status === "archived") throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
-  const input = normalizeManagedDirectoryProfileInput(payload, existing.importData);
+  const input = normalizeManagedDirectoryProfileInput(payload, existing.importData, {
+    currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
+    legacyAddress: existing.address,
+  });
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
     UPDATE directory_profiles SET
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
-      qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, online = ?, price_note = ?, website_url = ?,
+      qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
+      address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
       internal_email = ?, image_url = ?, image_key = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
-    WHERE id = ? RETURNING ${DIRECTORY_PROFILE_COLUMNS}
+    WHERE id = ? RETURNING *
   `).bind(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
-    input.address, input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
+    input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
   ).first<DirectoryProfileRow>();
@@ -963,7 +1068,7 @@ export async function archiveManagedDirectoryProfile(id: number, editorEmail: st
     UPDATE directory_profiles
     SET status='archived', published_at=NULL, archived_at=?, updated_at=?, updated_by=?
     WHERE id=? AND status IN ('draft','published')
-    RETURNING ${DIRECTORY_PROFILE_COLUMNS}
+    RETURNING *
   `).bind(timestamp, timestamp, editorEmail, id).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo archivovať.");
   return rowToManagedProfile(row);
@@ -981,7 +1086,7 @@ export async function restoreManagedDirectoryProfile(id: number, editorEmail: st
     UPDATE directory_profiles
     SET status='draft', published_at=NULL, archived_at=NULL, updated_at=?, updated_by=?
     WHERE id=? AND status='archived'
-    RETURNING ${DIRECTORY_PROFILE_COLUMNS}
+    RETURNING *
   `).bind(timestamp, editorEmail, id).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo obnoviť.");
   return rowToManagedProfile(row);
