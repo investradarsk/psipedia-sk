@@ -191,14 +191,15 @@ test("legacy push remains drain-only and universal push does not create a parall
   assert.doesNotMatch(migration,/email_outbox|recipient_email/);
 });
 
-test("five-minute push cadence does not accelerate hourly background workloads",()=>{
+test("one five-minute cron preserves hourly full work without consuming a second trigger",()=>{
   const wrangler=read("wrangler.jsonc");
   const worker=read("worker/index.ts");
-  const pushCron="5,10,15,20,25,30,35,40,45,50,55 * * * *";
-  assert.match(wrangler,/"0 \* \* \* \*"/);
-  assert.ok(wrangler.includes(pushCron));
-  assert.ok(worker.includes(`ADMIN_PUSH_ONLY_CRON = "${pushCron}"`));
-  const fastBranch=worker.slice(worker.indexOf("if (controller.cron === ADMIN_PUSH_ONLY_CRON)"),worker.indexOf("const [summary, editorial"));
+  const pushCron="*/5 * * * *";
+  assert.ok(wrangler.includes(`"crons": ["${pushCron}"]`));
+  assert.ok(worker.includes(`ADMIN_PUSH_CRON = "${pushCron}"`));
+  assert.match(worker,/scheduledTime/);
+  assert.match(worker,/getUTCMinutes\(\) === 0/);
+  const fastBranch=worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"),worker.indexOf("const [summary, editorial"));
   assert.match(fastBranch,/runScheduledAdminPush\(env\)/);
   assert.match(fastBranch,/return;/);
   assert.doesNotMatch(fastBranch,/runDataAutomationSweep|runNotion|runEditorialNotificationSweep|runPartnerNotificationSweep/);

@@ -111,7 +111,15 @@ interface ExecutionContext {
 // dangerouslyAllowSVG: true in next.config.js and uncomment below:
 // const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
 
-const ADMIN_PUSH_ONLY_CRON = "5,10,15,20,25,30,35,40,45,50,55 * * * *";
+const ADMIN_PUSH_CRON = "*/5 * * * *";
+
+function isFullHourlyScheduledSweep(controller: { cron?: string; scheduledTime?: number }) {
+  // Keep one Cloudflare Cron Trigger: minute 00 runs the full hourly work,
+  // while the other five-minute ticks deliver admin push only.
+  if (controller.cron !== ADMIN_PUSH_CRON) return true;
+  if (typeof controller.scheduledTime !== "number") return false;
+  return new Date(controller.scheduledTime).getUTCMinutes() === 0;
+}
 
 async function runScheduledAdminPush(env: Env) {
   return runAdminPushSweep({ database: env.DB, bindings: env }).catch((error) => {
@@ -211,8 +219,8 @@ const worker = {
     return cacheable;
   },
 
-  async scheduled(controller: { cron?: string }, env: Env, _ctx: ExecutionContext): Promise<void> {
-    if (controller.cron === ADMIN_PUSH_ONLY_CRON) {
+  async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
+    if (!isFullHourlyScheduledSweep(controller)) {
       const adminPush = await runScheduledAdminPush(env);
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
       return;

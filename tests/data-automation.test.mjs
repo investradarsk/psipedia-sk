@@ -260,8 +260,9 @@ test("13. scheduled job reuses the existing hourly Worker contract and stays bou
   const runner = readFileSync(new URL("../lib/data-automation-runner.ts", import.meta.url), "utf8");
   assert.match(worker, /productionAutomationHtmlAdapters/);
   assert.match(worker, /runDataAutomationSweep\(\{ database: env\.DB, htmlAdapters: productionAutomationHtmlAdapters, organizationEnricher: createProductionOrganizationEnricher\(\) \}\)/);
-  assert.match(wrangler, /"crons": \["0 \* \* \* \*"/);
-  const pushOnlyBranch = worker.slice(worker.indexOf("if (controller.cron === ADMIN_PUSH_ONLY_CRON)"), worker.indexOf("const [summary, editorial"));
+  assert.match(wrangler, /"crons": \["\*\/5 \* \* \* \*"\]/);
+  assert.match(worker, /getUTCMinutes\(\) === 0/);
+  const pushOnlyBranch = worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"), worker.indexOf("const [summary, editorial"));
   assert.match(pushOnlyBranch, /runScheduledAdminPush\(env\)/);
   assert.match(pushOnlyBranch, /return;/);
   assert.doesNotMatch(pushOnlyBranch, /runDataAutomationSweep/);

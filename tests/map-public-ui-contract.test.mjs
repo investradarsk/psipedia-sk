@@ -60,6 +60,7 @@ test("mobile bottom sheet and filter dialog have explicit accessibility, gesture
   assert.match(experience, /onPointerDown/);
   assert.match(experience, /setPointerCapture/);
   assert.match(experience, /data-sheet-dragging/);
+  assert.match(experience, /loadingDot} role="status" aria-label="Načítavam výsledky"/);
   assert.match(css, /touch-action:\s*none/);
   assert.match(css, /touch-action:\s*pan-y/);
   assert.match(css, /overscroll-behavior-y:\s*contain/);
