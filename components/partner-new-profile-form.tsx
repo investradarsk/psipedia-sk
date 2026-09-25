@@ -79,15 +79,16 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
 
   function errorProps(key: string, helpId?: string) {
     const error = fieldErrors[key];
+    const contactError = ["publicEmail", "publicPhone", "websiteUrl"].includes(key) ? fieldErrors.contact : undefined;
     const errorId = `partner-new-${resourceType.toLowerCase()}-${key}-error`;
     const describedBy = [helpId, error ? errorId : ""].filter(Boolean).join(" ") || undefined;
     return {
       error,
       errorId,
       input: {
-        "aria-invalid": Boolean(error),
+        "aria-invalid": Boolean(error || contactError),
         "aria-describedby": describedBy,
-        "data-field-error": error ? "true" : undefined,
+        "data-field-error": error || contactError ? "true" : undefined,
       },
     };
   }
