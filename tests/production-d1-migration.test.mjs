@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -17,6 +17,10 @@ import {
 } from "../scripts/production-d1-migrate.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function supportedTargetsThrough(index) {
+  return SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) <= index);
+}
 
 test("REVIEWS-1A-MIG scopes repository migrations through 0062 and excludes 0063", () => {
   const files = [
@@ -60,7 +64,7 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("production D1 supported targets are explicit through Partner H3 multimethod auth", () => {
+test("production D1 supported targets are explicit through 0072 Partner Media", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
@@ -71,14 +75,23 @@ test("production D1 supported targets are explicit through Partner H3 multimetho
     "0068_partner_commercial_activation.sql",
     "0069_partner_auth_onboarding_hardening.sql",
     "0070_partner_multimethod_auth.sql",
+    "0071_admin_universal_notifications.sql",
+    "0072_partner_media_uploads.sql",
   ]);
 });
 
-test("partner rollout scopes 0065 through 0070 independently and excludes every future migration", () => {
+test("production D1 target allowlist tracks every canonical migration from 0062 onward", async () => {
+  const canonicalTargets = (await readdir(path.join(repoRoot, "drizzle")))
+    .filter((name) => /^\d{4}_.+\.sql$/.test(name) && Number(name.slice(0, 4)) >= 62)
+    .sort();
+  assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, canonicalTargets);
+});
+
+test("partner rollout scopes 0065 through 0072 independently and excludes every future migration", () => {
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0071_future_migration.sql",
+    "0073_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -88,7 +101,7 @@ test("partner rollout scopes 0065 through 0070 independently and excludes every 
   }
 });
 
-test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes 0070", () => {
+test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes later targets", () => {
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
@@ -96,25 +109,33 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes 007
   const result = selectMigrationsThrough(files, "0069_partner_auth_onboarding_hardening.sql");
   assert.equal(result.targetIndex, 69);
   assert.equal(result.selected.at(-1), "0069_partner_auth_onboarding_hardening.sql");
-  assert.deepEqual(result.excludedFuture, ["0070_partner_multimethod_auth.sql"]);
+  assert.deepEqual(result.excludedFuture, [
+    "0070_partner_multimethod_auth.sql",
+    "0071_admin_universal_notifications.sql",
+    "0072_partner_media_uploads.sql",
+  ]);
 });
 
 test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes future migrations", () => {
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0071_future_migration.sql",
+    "0073_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
-  assert.deepEqual(result.excludedFuture, ["0071_future_migration.sql"]);
+  assert.deepEqual(result.excludedFuture, [
+    "0071_admin_universal_notifications.sql",
+    "0072_partner_media_uploads.sql",
+    "0073_future_migration.sql",
+  ]);
 });
 
 test("PARTNER-H3 history guard accepts 0069 applied with 0070 pending", () => {
   const expected = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...supportedTargetsThrough(70),
   ];
   const history = expected.slice(0, -1);
   const state = validateProductionTargetHistory(history, expected, "0070_partner_multimethod_auth.sql");
@@ -124,7 +145,7 @@ test("PARTNER-H3 history guard accepts 0069 applied with 0070 pending", () => {
 test("PARTNER-H3 history guard rejects missing 0069", () => {
   const expected = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...supportedTargetsThrough(70),
   ];
   assert.throws(
     () => validateProductionTargetHistory(expected.slice(0, -2), expected, "0070_partner_multimethod_auth.sql"),
@@ -135,7 +156,7 @@ test("PARTNER-H3 history guard rejects missing 0069", () => {
 test("PARTNER-H3 history guard accepts already-applied 0070 as safe no-op state", () => {
   const expected = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...supportedTargetsThrough(70),
   ];
   const state = validateProductionTargetHistory(expected, expected, "0070_partner_multimethod_auth.sql");
   assert.deepEqual(state, { latestIndex: 70, targetApplied: true });
@@ -144,7 +165,7 @@ test("PARTNER-H3 history guard accepts already-applied 0070 as safe no-op state"
 test("PARTNER-H3 history guard rejects future applied migration", () => {
   const expected = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...supportedTargetsThrough(70),
   ];
   assert.throws(
     () => validateProductionTargetHistory([...expected, "0071_future_migration.sql"], expected, "0070_partner_multimethod_auth.sql"),
@@ -155,13 +176,59 @@ test("PARTNER-H3 history guard rejects future applied migration", () => {
 test("PARTNER-H3 history guard rejects a migration-history gap", () => {
   const expected = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...supportedTargetsThrough(70),
   ];
   const history = expected.slice(0, -1).filter((name) => !name.startsWith("0068_"));
   assert.throws(
     () => validateProductionTargetHistory(history, expected, "0070_partner_multimethod_auth.sql"),
     /does not exactly match/,
   );
+});
+
+test("0071 and 0072 history guards enforce strictly sequential rollout and safe no-op detection", () => {
+  const prefix = Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`);
+  const through71 = [...prefix, ...supportedTargetsThrough(71)];
+  const through72 = [...prefix, ...supportedTargetsThrough(72)];
+
+  assert.deepEqual(
+    validateProductionTargetHistory(through71.slice(0, -1), through71, "0071_admin_universal_notifications.sql"),
+    { latestIndex: 70, targetApplied: false },
+  );
+  assert.deepEqual(
+    validateProductionTargetHistory(through71, through71, "0071_admin_universal_notifications.sql"),
+    { latestIndex: 71, targetApplied: true },
+  );
+  assert.deepEqual(
+    validateProductionTargetHistory(through72.slice(0, -1), through72, "0072_partner_media_uploads.sql"),
+    { latestIndex: 71, targetApplied: false },
+  );
+  assert.deepEqual(
+    validateProductionTargetHistory(through72, through72, "0072_partner_media_uploads.sql"),
+    { latestIndex: 72, targetApplied: true },
+  );
+});
+
+test("0071/0072 canonical SQL and production tooling cover notification and Partner Media schema", async () => {
+  const migration71 = await readFile(path.join(repoRoot, "drizzle/0071_admin_universal_notifications.sql"), "utf8");
+  const migration72 = await readFile(path.join(repoRoot, "drizzle/0072_partner_media_uploads.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+
+  for (const name of ["admin_notification_runtime", "admin_notification_events", "admin_push_event_deliveries"]) {
+    assert.match(migration71, new RegExp(`CREATE TABLE \\\`${name}\\\``));
+  }
+  assert.match(migration71, /rollout_started_at/);
+  assert.match(migration71, /admin_notification_events_dedupe_unique/);
+  assert.match(migration71, /admin_push_event_deliveries_event_subscription_unique/);
+
+  assert.match(migration72, /ALTER TABLE `moderation_submissions` ADD COLUMN `media_asset_id`/);
+  assert.match(migration72, /REFERENCES `media_assets`(`id`) ON DELETE RESTRICT/);
+  assert.match(migration72, /moderation_submissions_media_asset_unique/);
+  assert.match(migration72, /moderation_partner_media_attach_guard/);
+  assert.match(migration72, /moderation_partner_media_attach_state/);
+
+  assert.match(script, /assertAdminUniversalNotificationsSchema/);
+  assert.match(script, /assertPartnerMediaSchema/);
+  assert.match(script, /assertPartnerMediaPrerequisites/);
 });
 
 test("PARTNER-H3 schema precondition rejects partial/manual 0070 objects", () => {
@@ -259,8 +326,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
     assert.equal(workflow.includes(`APPLY-${index}-psipedia-sk-db`), true, `confirmation missing for ${migration}`);
   }
   assert.match(workflow, /inputs\.target_migration == '0064_geo_foundation\.sql'/);
-  assert.match(workflow, /0070_partner_multimethod_auth\.sql/);
-  assert.match(workflow, /APPLY-0070-psipedia-sk-db/);
+  assert.match(workflow, /0072_partner_media_uploads\.sql/);
+  assert.match(workflow, /APPLY-0072-psipedia-sk-db/);
   assert.match(workflow, /git fetch --no-tags origin main/);
   assert.match(workflow, /partner\/prihlasenie/);
   assert.match(workflow, /partner\/registracia/);
