@@ -32,7 +32,6 @@ on:
       - "scripts/check-config-contract.mjs"
       - "tests/article-modern-reading-experience.test.mjs"
       - "tests/e2e/article-reading-experience.spec.ts"
-      - "package.json"
       - "package-lock.json"
       - "playwright.config.ts"
       - "vite.config.*"
