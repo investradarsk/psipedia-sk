@@ -120,6 +120,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0073_automation_multisource_entity_resolution.sql",
     "0074_directory_service_address.sql",
     "0075_automation_zsk_event_source.sql",
+    "0076_automation_non_event_entity_resolution_foundation.sql",
   ]);
 });
 
@@ -138,6 +139,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0073_automation_multisource_entity_resolution.sql",
     "0074_directory_service_address.sql",
     "0075_automation_zsk_event_source.sql",
+    "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_future_migration.sql",
   ]);
 });
