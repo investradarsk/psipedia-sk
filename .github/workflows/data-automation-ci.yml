@@ -17,6 +17,7 @@ on:
       - "drizzle/0056_scheduled_source_discovery.sql"
       - "drizzle/0057_automation_background_run_lock.sql"
       - "drizzle/0073_automation_multisource_entity_resolution.sql"
+      - "drizzle/0074_automation_zsk_event_source.sql"
       - "tests/data-automation.test.mjs"
       - "tests/data-automation-apply.test.mjs"
       - "tests/data-automation-v4.test.mjs"
