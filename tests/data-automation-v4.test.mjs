@@ -104,9 +104,11 @@ test("search discovery remains provider-gated rather than scraping search engine
 });
 
 test("admin source screen exposes discovery health and candidate review", () => {
-  const page = read("app/admin/operations/automation/sources/page.tsx");
+  const page = read("app/admin/automatizacie/zdroje/page.tsx");
   const manager = read("components/admin-automation-source-manager.tsx");
   assert.match(page, /listAutomationDiscoveryRoots/);
+  const legacy = read("app/admin/operations/automation/sources/page.tsx");
+  assert.match(legacy, /redirect\("\/admin\/automatizacie\/zdroje"\)/);
   assert.match(manager, /Automatické hľadanie nových zdrojov/);
   assert.match(manager, /lastCheckedAt/);
   assert.match(manager, /lastSuccessAt/);
