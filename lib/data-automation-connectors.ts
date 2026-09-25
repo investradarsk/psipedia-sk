@@ -24,6 +24,7 @@ export type AutomationFetch = typeof fetch;
 export type ControlledHtmlAdapter = (input: {
   html: string;
   source: AutomationSource;
+  fetchHtml?: (url: string) => Promise<{ html: string; finalUrl: string }>;
 }) => Promise<AutomationSourceRecord[]> | AutomationSourceRecord[];
 
 export type AutomationConnectorContext = {
@@ -147,6 +148,7 @@ function expectedMinimumRecords(source: AutomationSource) {
   if (source.config.htmlAdapterKey === "svps-shelters-register") return 10;
   if (source.config.htmlAdapterKey === "skj-exhibition-calendar") return 1;
   if (source.config.htmlAdapterKey === "agility-sk-events") return 1;
+  if (source.config.htmlAdapterKey === "zsk-sr-events") return 1;
   return 0;
 }
 
@@ -313,7 +315,19 @@ export async function fetchAutomationSourceRecords(
     const html = await responseText(response);
     let parsed: AutomationSourceRecord[];
     try {
-      const result = await adapter({ html, source: effectiveSource });
+      const result = await adapter({
+        html,
+        source: effectiveSource,
+        fetchHtml: async (url) => {
+          const nestedUrl = canonicalizeSourceUrl(url);
+          if (!nestedUrl || !isSafeAutomationSourceUrl(nestedUrl)) {
+            throw new AutomationConnectorError("adapter_nested_url_not_safe");
+          }
+          const nestedSource = { ...effectiveSource, sourceUrl: nestedUrl };
+          const nested = await fetchOnce(nestedSource, fetchImpl, context.onResponse);
+          return { html: await responseText(nested.response), finalUrl: nested.finalUrl };
+        },
+      });
       if (!Array.isArray(result)) throw new Error("adapter_result_not_array");
       parsed = result;
     } catch (error) {
