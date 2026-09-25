@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
 import { buildPageMetadata } from "@/lib/seo";
-import { googleMapsRendererConfigured, publicMapLaunchEnabled } from "@/config/runtime-env";
+import { publicMapLaunchEnabled } from "@/config/runtime-env";
 import styles from "@/components/map/map-public.module.css";
 
 export const dynamic = "force-dynamic";
@@ -43,8 +43,8 @@ function mapLaunchEnvironment() {
 export default function MapPage() {
   const mapUiTestMode = process.env.MAP_UI_TEST_RENDERER === "1";
   const launchEnv = mapLaunchEnvironment();
-  const googleRendererEnabled = googleMapsRendererConfigured(launchEnv);
   const publicMapEnabled = publicMapLaunchEnabled(launchEnv);
+  const googleRendererEnabled = publicMapEnabled;
   const googleApiKey = googleRendererEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
   const googleMapId = googleRendererEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
 
