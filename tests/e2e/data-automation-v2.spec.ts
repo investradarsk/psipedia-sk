@@ -188,3 +188,14 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
+
+
+test("automation category cluster-first view is responsive and axe-clean", async ({ page }) => {
+  const response = await page.goto("/admin/automatizacie/podujatia", { waitUntil: "domcontentloaded" });
+  expect(response).not.toBeNull();
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("heading", { name: "Podujatia", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nálezy", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectAxeClean(page);
+});
