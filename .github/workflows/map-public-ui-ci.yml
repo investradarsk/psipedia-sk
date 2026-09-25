@@ -109,6 +109,30 @@ jobs:
         run: npx playwright test tests/e2e/map-public-ui.spec.ts --project=desktop-chromium --workers=1 --retries=0
       - name: MAP-1E launch navigation and consent Playwright
         run: npx playwright test tests/e2e/map-production-launch.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=1 --retries=0
+      - name: Restart app with rollback kill-switch OFF
+        run: |
+          if [ -f .e2e-artifacts/map-1d/server.pid ]; then
+            kill "$(cat .e2e-artifacts/map-1d/server.pid)" 2>/dev/null || true
+          fi
+          sleep 1
+          nohup env MAP_UI_TEST_RENDERER=0 PUBLIC_MAP_ENABLED=0 GOOGLE_MAPS_BROWSER_API_KEY=ci-browser-key-not-real GOOGLE_MAPS_MAP_ID=ci-map-id-not-real npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/map-1d/server-off.log 2>&1 &
+          echo $! > .e2e-artifacts/map-1d/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/mapa >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/map-1d/server-off.log
+            exit 1
+          fi
+      - name: MAP V1 rollback kill-switch browser regression
+        env:
+          MAP_E2E_EXPECT_PUBLIC_MAP_DISABLED: "1"
+        run: npx playwright test tests/e2e/map-production-launch.spec.ts --project=desktop-chromium --workers=1 --retries=0 --grep "rollback kill-switch"
       - name: Stop isolated local app
         if: always()
         run: |
