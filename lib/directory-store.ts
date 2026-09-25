@@ -46,6 +46,7 @@ export type ManagedDirectoryProfileInput = {
   houseNumber?: string;
   addressFormat?: string;
   confirmServiceAddress?: boolean;
+  addressProviderResultId?: string;
   online?: boolean;
   priceNote?: string;
   websiteUrl?: string | null;
