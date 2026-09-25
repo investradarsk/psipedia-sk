@@ -6,7 +6,8 @@ import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { automationCanonicalAdminHref, automationCanonicalNewHref, isSafeAutomationSourceUrl } from "@/lib/data-automation";
 import { getAutomationFindingDetail } from "@/lib/data-automation-store";
-import { automationFieldLabel, automationFindingLabel } from "@/lib/admin-automation-presentation";
+import { getAutomationClusterIdForFinding } from "@/lib/data-automation-cluster-admin";
+import { automationCategoryForSource, automationFieldLabel, automationFindingLabel } from "@/lib/admin-automation-presentation";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -67,6 +68,8 @@ export default async function AutomationFindingPage({ params }: Props) {
   const newCanonicalHref = !canonicalHref && finding.reviewStatus === "APPROVED" ? automationCanonicalNewHref(finding.entityType) : null;
   const safeSourceHref = finding.sourceUrl && isSafeAutomationSourceUrl(finding.sourceUrl) ? finding.sourceUrl : null;
   const differences = Object.entries(finding.diff);
+  const clusterId = await getAutomationClusterIdForFinding(finding.id);
+  const categorySlug = automationCategoryForSource({ entityType: finding.entityType, sourceKey: finding.sourceKey, label: finding.sourceLabel, sourceUrl: finding.sourceUrl });
 
   return (
     <AdminShell
@@ -111,6 +114,7 @@ export default async function AutomationFindingPage({ params }: Props) {
 
         <div className={styles.quickActions} style={{ marginTop: 16 }}>
           {safeSourceHref && <a href={safeSourceHref} target="_blank" rel="noreferrer">Otvoriť pôvodný zdroj ↗</a>}
+          {clusterId && categorySlug && <Link href={"/admin/automatizacie/" + categorySlug + "/cluster/" + clusterId}>Zobraziť kontext logickej entity</Link>}
           {canonicalHref && <Link href={canonicalHref}>Otvoriť záznam v Psipedii</Link>}
           {newCanonicalHref && <Link href={newCanonicalHref}>Otvoriť nový koncept</Link>}
         </div>
