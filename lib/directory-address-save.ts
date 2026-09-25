@@ -4,9 +4,16 @@ import {
   applyGeocoderResolution,
   getGeoPointForTarget,
   initializeGeoPointForTarget,
+  isGeoProviderResultIdSchemaAvailable,
   setGeoVisibility,
   syncGeoPointAfterSourceChange,
 } from "@/lib/geo-store";
+
+export async function requireDirectoryAddressProviderSchema() {
+  if (!await isGeoProviderResultIdSchemaAvailable()) {
+    throw new Error("Address provider schema ešte nie je aktivovaná. Najprv aplikuj migration 0077.");
+  }
+}
 
 export function withVerifiedDirectoryAddress(
   payload: ManagedDirectoryProfileInput,
