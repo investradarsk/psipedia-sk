@@ -11,32 +11,28 @@ type LiveMapBody = {
 
 async function swipe(locator: Locator, deltaY: number) {
   await locator.scrollIntoViewIfNeeded();
-  const initialBox = await locator.boundingBox();
-  expect(initialBox).not.toBeNull();
-
-  const offsetX = Math.min(initialBox!.width / 2, 120);
-  const offsetY = Math.min(24, Math.max(8, initialBox!.height / 2));
-  await locator.hover({ position: { x: offsetX, y: offsetY } });
-
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-
-  const page = locator.page();
-  const x = box!.x + offsetX;
-  const y = box!.y + offsetY;
-  await page.mouse.down();
-  await page.mouse.move(x, y + deltaY, { steps: 10 });
-  await page.mouse.up();
-  await page.waitForTimeout(320);
+  const x = box!.x + Math.min(box!.width / 2, 120);
+  const y = box!.y + Math.min(24, Math.max(8, box!.height / 2));
+  await locator.page().mouse.move(x, y);
+  await locator.page().mouse.down();
+  await locator.page().mouse.move(x, y + deltaY, { steps: 10 });
+  await locator.page().mouse.up();
+  await locator.page().waitForTimeout(320);
 }
 
 async function swipeSheetHandle(handle: Locator, deltaY: number) {
+  await handle.evaluate((element) => {
+    element.scrollIntoView({ block: "center", inline: "nearest" });
+  });
+  await handle.page().waitForTimeout(80);
+
   const box = await handle.boundingBox();
   expect(box).not.toBeNull();
 
-  // The visual handle has pointer-events:none; its coordinates deliberately
-  // hit the non-interactive parent header without scrolling it under the
-  // sticky global site header.
+  // The visual handle has pointer-events:none, so these coordinates hit its
+  // non-interactive parent header while staying clear of the sticky site header.
   const page = handle.page();
   const x = box!.x + box!.width / 2;
   const y = box!.y + box!.height / 2;
