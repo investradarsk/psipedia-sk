@@ -12,6 +12,7 @@ import {
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
+import { DirectoryAddressAutocomplete } from "@/components/directory-address-autocomplete";
 import { evaluateDirectoryServiceAddress, type DirectoryAddressFormat } from "@/lib/directory-service-address";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { directorySeoFallback } from "@/lib/content-seo";
@@ -50,7 +51,8 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
   const [street, setStreet] = useState(profile?.street ?? "");
   const [houseNumber, setHouseNumber] = useState(profile?.houseNumber ?? "");
   const [addressFormat, setAddressFormat] = useState<DirectoryAddressFormat | "">(profile?.addressFormat ?? "");
-  const [serviceAddressTouched, setServiceAddressTouched] = useState(!profile);
+  const [addressProviderResultId, setAddressProviderResultId] = useState("");
+  const [serviceAddressTouched, setServiceAddressTouched] = useState(false);
   const [online, setOnline] = useState(profile?.online ?? false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
@@ -109,7 +111,8 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
           name, slug, category, status: nextStatus, excerpt, description,
           services: listFromText(services), qualifications: listFromText(qualifications),
           city, district, region, postalCode, street, houseNumber, addressFormat,
-          confirmServiceAddress: !profile || serviceAddressTouched,
+          addressProviderResultId: addressProviderResultId || undefined,
+          confirmServiceAddress: false,
           online, priceNote,
           websiteUrl: websiteUrl || null,
           publicPhone, publicEmail, facebookUrl, instagramUrl,
@@ -169,7 +172,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
     street,
     houseNumber,
     addressFormat,
-    serviceAddressConfirmation: (!profile || serviceAddressTouched || profile?.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION")
+    serviceAddressConfirmation: (addressProviderResultId || profile?.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION")
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
     online,
@@ -204,43 +207,54 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
               required={!online}
               idPrefix="directory-service-location"
               onChange={(location) => {
+                const changed = location.region !== region || location.district !== district || location.city !== city;
                 setRegion(location.region);
                 setDistrict(location.district);
                 setCity(location.city);
+                if (changed) {
+                  setAddressProviderResultId("");
+                  setPostalCode("");
+                  setStreet("");
+                  setHouseNumber("");
+                  setAddressFormat("");
+                  setServiceAddressTouched(true);
+                }
+              }}
+            />
+            <DirectoryAddressAutocomplete
+              region={region}
+              district={district}
+              city={city}
+              selectedProviderResultId={addressProviderResultId}
+              disabled={online && !region && !district && !city}
+              onClearSelection={() => {
+                setAddressProviderResultId("");
+                setPostalCode("");
+                setStreet("");
+                setHouseNumber("");
+                setAddressFormat("");
+                setServiceAddressTouched(true);
+              }}
+              onSelect={(suggestion) => {
+                setAddressProviderResultId(suggestion.providerResultId);
+                setPostalCode(suggestion.postalCode);
+                setStreet(suggestion.street);
+                setHouseNumber(suggestion.houseNumber);
+                setAddressFormat(suggestion.street ? "STREET" : "MUNICIPALITY_NUMBER");
                 setServiceAddressTouched(true);
               }}
             />
-            <div className="admin-field-grid">
-              <div className="admin-field">
-                <label htmlFor="directory-address-format">Typ adresy</label>
-                <select id="directory-address-format" value={addressFormat} onChange={(event) => {
-                  const next = event.target.value as DirectoryAddressFormat | "";
-                  setAddressFormat(next);
-                  if (next === "MUNICIPALITY_NUMBER") setStreet("");
-                  setServiceAddressTouched(true);
-                }}>
-                  <option value="">Vyberte typ adresy</option>
-                  <option value="STREET">Ulica + číslo</option>
-                  <option value="MUNICIPALITY_NUMBER">Obec + číslo (bez ulice)</option>
-                </select>
-              </div>
-              {addressFormat !== "MUNICIPALITY_NUMBER" ? (
+            {(street || houseNumber || postalCode || addressFormat) ? (
+              <div className="admin-field-grid" aria-label="Adresa overená poskytovateľom">
                 <div className="admin-field">
-                  <label htmlFor="directory-street">Ulica</label>
-                  <input id="directory-street" value={street} onChange={(event) => { setStreet(event.target.value); setServiceAddressTouched(true); }} placeholder="Hviezdoslavova" />
-                  <small>Dočasne ručné pole. Authoritative street autocomplete bude doplnený v ADDRESS-DATA-1.</small>
+                  <label>Typ adresy</label>
+                  <input value={addressFormat === "MUNICIPALITY_NUMBER" ? "Obec + číslo (bez ulice)" : addressFormat === "STREET" ? "Ulica + číslo" : ""} readOnly />
                 </div>
-              ) : null}
-              <div className="admin-field">
-                <label htmlFor="directory-house-number">Číslo domu</label>
-                <input id="directory-house-number" value={houseNumber} onChange={(event) => { setHouseNumber(event.target.value); setServiceAddressTouched(true); }} placeholder="88 alebo 123" />
+                {addressFormat === "STREET" ? <div className="admin-field"><label>Ulica</label><input value={street} readOnly /></div> : null}
+                <div className="admin-field"><label>Číslo domu</label><input value={houseNumber} readOnly /></div>
+                <div className="admin-field"><label>PSČ</label><input value={postalCode} readOnly /></div>
               </div>
-              <div className="admin-field">
-                <label htmlFor="directory-postal-code">PSČ</label>
-                <input id="directory-postal-code" inputMode="numeric" value={postalCode} onChange={(event) => { setPostalCode(event.target.value); setServiceAddressTouched(true); }} placeholder="953 01" />
-                <small>Dočasne ručné pole. Automatické PSČ/address-point dáta budú doplnené v ADDRESS-DATA-1.</small>
-              </div>
-            </div>
+            ) : null}
             <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Ak má profil aj fyzickú prevádzku, vyplň adresu vyššie. Online-only profil môže zostať bez fyzickej adresy a nebude mapovým kandidátom.</small></span></label>
           </AdminEditorSection>
 
