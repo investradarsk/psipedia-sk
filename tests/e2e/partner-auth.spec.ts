@@ -401,7 +401,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
   await page.getByRole("link",{name:"Pridať podujatie"}).first().click();
   await expect(page.getByRole("heading",{name:"Pridať podujatie"})).toBeVisible();
-  await expect(page.getByText("Po schválení administrátorom sa podujatie uloží ako koncept. Obrázok, SEO údaje a zverejnenie následne doplní redakcia Psipedie.")).toBeVisible();
+  await expect(page.getByText("Po schválení administrátorom sa podujatie uloží ako koncept. Priložený obrázok prejde rovnakou moderátorskou kontrolou; SEO údaje a zverejnenie zostávajú redakčným krokom.")).toBeVisible();
   const partnerLayout = await page.evaluate(() => {
     const stickyHeader = document.querySelector<HTMLElement>(".site-header");
     const heading = document.querySelector<HTMLElement>(".partner-page-heading h1");
