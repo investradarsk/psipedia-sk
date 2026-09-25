@@ -57,9 +57,11 @@ export async function createPartnerPendingMedia(input: {
     throw new PartnerMediaError("Obrázok môže mať najviac 8 MB.", 413);
   }
 
+  const assetId = crypto.randomUUID();
   let result;
   try {
     result = await ingestPrivateImage({
+      assetId,
       bytes: input.bytes,
       declaredMime: input.declaredMime,
       ownerType: input.intent,
