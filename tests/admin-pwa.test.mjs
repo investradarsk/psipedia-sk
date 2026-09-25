@@ -96,6 +96,17 @@ test("subscription ownership, idempotency, multiple devices and cleanup are expl
   assert.doesNotMatch(migration, /UNIQUE[^\n]*admin_email/i);
 });
 
+test("ADMIN-PUSH-2 canonical migration creates the sweep event and delivery schema", () => {
+  const migration = read("../drizzle/0071_admin_universal_notifications.sql");
+  assert.match(migration, /CREATE TABLE `admin_notification_runtime`/);
+  assert.match(migration, /rollout_started_at/);
+  assert.match(migration, /CREATE TABLE `admin_notification_events`/);
+  assert.match(migration, /admin_notification_events_dedupe_unique/);
+  assert.match(migration, /CREATE TABLE `admin_push_event_deliveries`/);
+  assert.match(migration, /admin_push_event_deliveries_event_subscription_unique/);
+  assert.match(migration, /REFERENCES `admin_push_subscriptions`\(`id`\) ON DELETE CASCADE/);
+});
+
 test("notification click URLs are constrained to admin routes", () => {
   assert.equal(normalizeAdminNotificationPath("/admin"), "/admin");
   assert.equal(normalizeAdminNotificationPath("/admin/operations/automation/7?x=1#detail"), "/admin/operations/automation/7?x=1#detail");
