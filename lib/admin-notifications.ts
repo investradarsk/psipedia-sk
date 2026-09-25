@@ -237,8 +237,16 @@ export async function enqueueUncoveredAttentionAdminNotifications(
         : row.submitterType === "PARTNER_ACCOUNT" ? "PARTNER" : "PUBLIC";
       let actorRef = row.submitterRef || null;
       if (actorType === "ADMIN") {
-        if (actorRef?.includes("@")) actorRef = await adminNotificationAdminActorRef(actorRef);
-        else if (!actorRef?.startsWith("admin:")) actorRef = null;
+        const candidate = actorRef?.trim() ?? "";
+        if (candidate.startsWith("admin:") && candidate.includes("@")) {
+          actorRef = await adminNotificationAdminActorRef(candidate.slice("admin:".length));
+        } else if (candidate.includes("@")) {
+          actorRef = await adminNotificationAdminActorRef(candidate);
+        } else if (candidate.startsWith("admin:")) {
+          actorRef = candidate;
+        } else {
+          actorRef = null;
+        }
       }
       const result = await enqueueAdminNotificationEvent(database, {
         eventType: "moderation_submission_actionable",
