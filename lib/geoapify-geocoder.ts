@@ -12,6 +12,15 @@ type GeoapifyResult = {
   state?: string;
   county?: string;
   city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  street?: string;
+  housenumber?: string;
+  postcode?: string;
+  formatted?: string;
+  address_line1?: string;
+  address_line2?: string;
   result_type?: string;
   place_id?: string;
   rank?: {
@@ -32,6 +41,8 @@ type GeoapifyResult = {
 type GeoapifyResponse = { results?: GeoapifyResult[] };
 
 const GEOAPIFY_ENDPOINT = "https://api.geoapify.com/v1/geocode/search";
+const GEOAPIFY_AUTOCOMPLETE_ENDPOINT = "https://api.geoapify.com/v1/geocode/autocomplete";
+const GEOAPIFY_PLACE_DETAILS_ENDPOINT = "https://api.geoapify.com/v2/place-details";
 const DEFAULT_TIMEOUT_MS = 8_000;
 
 export function geoapifyApiKey(bindings?: GeoapifyBindings) {
@@ -52,7 +63,13 @@ function normalizeResult(result: GeoapifyResult): NormalizedGeocoderResult | nul
     countryCode: (result.country_code ?? "").toUpperCase(),
     region: result.state ?? "",
     district: result.county ?? "",
-    city: result.city ?? "",
+    city: result.city ?? result.town ?? result.village ?? result.municipality ?? "",
+    street: result.street ?? "",
+    housenumber: result.housenumber ?? "",
+    postcode: result.postcode ?? "",
+    formatted: result.formatted ?? "",
+    addressLine1: result.address_line1 ?? "",
+    addressLine2: result.address_line2 ?? "",
     resultType: result.result_type ?? "unknown",
     confidence: finite(result.rank?.confidence) ? result.rank!.confidence! : null,
     cityConfidence: finite(result.rank?.confidence_city_level) ? result.rank!.confidence_city_level! : null,
@@ -147,5 +164,55 @@ export class GeoapifyGeocoder implements GeocoderProvider {
 
   geocodeApproximate(request: GeocodeRequest) {
     return this.search(request, true);
+  }
+
+  async autocomplete(input: { query: string; region: string; district: string; city: string; signal?: AbortSignal }) {
+    const query = input.query.trim();
+    if (query.length < 3 || query.length > 160) throw new GeocoderProviderError("INVALID_INPUT", "Autocomplete query must contain 3 to 160 characters.");
+    if (!this.apiKey) throw new GeocoderProviderError("DISABLED", "Geoapify provider is not configured.");
+    const url = new URL(GEOAPIFY_AUTOCOMPLETE_ENDPOINT);
+    url.searchParams.set("text", `${query}, ${input.city}, ${input.district}, ${input.region}, Slovensko`);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("lang", "sk");
+    url.searchParams.set("limit", "5");
+    url.searchParams.set("filter", "countrycode:sk");
+    url.searchParams.set("apiKey", this.apiKey);
+    return this.fetchResults(url, input.signal);
+  }
+
+  async lookupPlace(providerResultId: string, signal?: AbortSignal) {
+    const id = providerResultId.trim();
+    if (!id || id.length > 300) throw new GeocoderProviderError("INVALID_INPUT", "Geoapify place id is invalid.");
+    if (!this.apiKey) throw new GeocoderProviderError("DISABLED", "Geoapify provider is not configured.");
+    const url = new URL(GEOAPIFY_PLACE_DETAILS_ENDPOINT);
+    url.searchParams.set("id", id);
+    url.searchParams.set("features", "details");
+    url.searchParams.set("lang", "sk");
+    url.searchParams.set("apiKey", this.apiKey);
+    return this.fetchResults(url, signal);
+  }
+
+  private async fetchResults(url: URL, signal?: AbortSignal) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const relayAbort = () => controller.abort();
+    signal?.addEventListener("abort", relayAbort, { once: true });
+    try {
+      let response: Response;
+      try {
+        response = await this.fetchImpl(url, { method: "GET", signal: controller.signal, headers: { accept: "application/json" } });
+      } catch (error) {
+        if (controller.signal.aborted) throw new GeocoderProviderError("PROVIDER_ERROR", "Geoapify request timed out or was aborted.", { retryable: true });
+        throw new GeocoderProviderError("PROVIDER_ERROR", error instanceof Error ? error.message : "Geoapify request failed.", { retryable: true });
+      }
+      if (response.status === 429) throw new GeocoderProviderError("RATE_LIMITED", "Geoapify rate limit reached.", { retryable: true, httpStatus: 429 });
+      if (response.status >= 500) throw new GeocoderProviderError("PROVIDER_ERROR", "Geoapify is temporarily unavailable.", { retryable: true, httpStatus: response.status });
+      if (!response.ok) throw new GeocoderProviderError("INVALID_INPUT", `Geoapify rejected the request with HTTP ${response.status}.`, { httpStatus: response.status });
+      const body = await response.json() as GeoapifyResponse;
+      return (body.results ?? []).map(normalizeResult).filter((item): item is NormalizedGeocoderResult => item !== null);
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", relayAbort);
+    }
   }
 }
