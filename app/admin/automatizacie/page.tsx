@@ -32,7 +32,7 @@ export default async function AutomationAdminPage() {
       eyebrow="Admin"
       title="Automatizácie"
       description="Čo Psipedia kontroluje automaticky. Operácie zostávajú samostatným miestom pre úlohy, ktoré vyžadujú tvoje rozhodnutie."
-      actions={<Link href="/admin/operations">Operácie</Link>}
+      actions={<><Link href="/admin/automatizacie/zdroje">Zdroje a discovery</Link><Link href="/admin/operations">Operácie</Link></>}
     >
       {unavailable ? (
         <section className="admin-panel">
