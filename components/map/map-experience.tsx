@@ -439,7 +439,7 @@ function MapResults({
         <div className={styles.resultsHeadTop}>
           <h2>{countLabel}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {loading ? <span className={styles.loadingDot} aria-label="Načítavam výsledky" /> : null}
+            {loading ? <span className={styles.loadingDot} role="status" aria-label="Načítavam výsledky" /> : null}
             <button
               type="button"
               className={styles.sheetToggle}
