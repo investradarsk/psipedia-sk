@@ -350,8 +350,10 @@ test("admin CREATE resolution is atomic, DRAFT-only and reuses canonical create 
   assert.match(create,/NEW_PROFILE_CREATED/);
   assert.match(create,/resolution:"CREATED_NEW"/);
   assert.doesNotMatch(create,/status:"published"|status:'published'|status:"PUBLISHED"/);
-  assert.match(directoryCreate,/SELECT \?, \?, \?, 'draft'/);
-  assert.match(directoryCreate,/NULL, \?, \?/);
+  assert.match(directoryCreate,/guardedSelectValues = \[/);
+  assert.match(directoryCreate,/"\?", "\?", "\?", "'draft'"/);
+  assert.match(directoryCreate,/"NULL", "\?", "\?"/);
+  assert.match(directoryCreate,/WHERE id=\? AND status='APPROVED' AND reviewed_at=\? AND reviewed_by=\?/);
   assert.match(organizationCreate,/VALUES \(\?, \?, \?, \?, \?, 'DRAFT'/);
   assert.match(organizationCreate,/SELECT \?, \?, \?, \?, \?, 'DRAFT'/);
 });
