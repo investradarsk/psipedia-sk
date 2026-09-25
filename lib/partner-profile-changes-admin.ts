@@ -26,6 +26,7 @@ import {
   type FoundationSubmissionStatus,
 } from "@/lib/moderation-transition";
 import { transitionModerationSubmission } from "@/lib/moderation-store";
+import { publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 
@@ -52,6 +53,11 @@ type AdminRow = {
   directoryCategory:string|null;
   emailCiphertext:string;
   currentUpdatedAt:string;
+  mediaAssetId:string|null;
+  mediaMime:string|null;
+  mediaSizeBytes:number|null;
+  mediaWidth:number|null;
+  mediaHeight:number|null;
 };
 
 function db(input?:D1Database){return getPartnerDatabase(input??(env as unknown as Bindings).DB);}
@@ -76,6 +82,7 @@ function statusLabel(status:string){
 const BASE_SELECT=`
   SELECT s.id,s.resource_type resourceType,s.subject_id subjectId,s.operation,s.status,
     s.submitter_ref submitterRef,s.proposed_patch_json proposedPatchJson,s.risk_flags_json riskFlagsJson,
+    s.media_asset_id mediaAssetId,ma.original_mime mediaMime,ma.size_bytes mediaSizeBytes,ma.width mediaWidth,ma.height mediaHeight,
     s.rejection_reason_code rejectionReasonCode,s.created_at createdAt,s.updated_at updatedAt,
     s.reviewed_at reviewedAt,s.reviewed_by reviewedBy,
     m.partner_resource_id resourceId,m.partner_account_id accountId,m.base_updated_at baseUpdatedAt,
@@ -86,6 +93,7 @@ const BASE_SELECT=`
   JOIN moderation_submissions s ON s.id=m.submission_id
   JOIN partner_resources r ON r.id=m.partner_resource_id
   JOIN partner_accounts a ON a.id=m.partner_account_id
+  LEFT JOIN media_assets ma ON ma.id=s.media_asset_id
   LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
   LEFT JOIN help_organizations o ON o.id=r.help_organization_id
 `;
@@ -98,7 +106,11 @@ async function hydrate(row:AdminRow,key:string){
     ...row,
     email:await decryptPii(row.emailCiphertext,key),
     proposedPatch:patch,
-    changedFields:Object.keys(patch),
+    media:row.mediaAssetId?{
+      id:row.mediaAssetId,originalMime:row.mediaMime,sizeBytes:row.mediaSizeBytes,width:row.mediaWidth,height:row.mediaHeight,
+      previewUrl:`/api/admin/partners/media/${row.mediaAssetId}`,
+    }:null,
+    changedFields:[...Object.keys(patch),...(row.mediaAssetId?["image"]:[])],
     riskFlags:risks,
     statusLabel:statusLabel(row.status),
     active:isActive(row.status),
@@ -150,7 +162,7 @@ export async function getPartnerProfileChangeAdmin(id:string,input:{database?:D1
   const item=await hydrate(row,encryptionKey(input.encryptionKey));
   const canonical=await loadPartnerCanonicalForResource(row.resourceId,database);
   const base=safeJson<PartnerProfilePatch>(row.baseSnapshotJson,{});
-  const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base);
+  const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base,Boolean(row.mediaAssetId));
   const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values);
   const risks=[...new Set([...partnerProfileChangeRiskFlags(proposed),...item.riskFlags,...(stale?["STALE_BASE"]:[])])];
   const labels=new Map(getPartnerEditableFields(row.resourceType).map(field=>[field.key,field.label]));
@@ -168,9 +180,19 @@ export async function getPartnerProfileChangeAdmin(id:string,input:{database?:D1
     stale,
     baseSnapshot:base,
     currentValues:canonical.values,
+    currentImageUrl:canonical.imageUrl,
     diff,
     publicHref:canonical.publicHref,
   };
+}
+
+function imageApplyStatement(database:D1Database,input:{
+  resourceType:PartnerProfileChangeResourceType;canonicalId:number;submissionId:string;imageUrl:string;imageKey:string;nowIso:string;actorRef:string;
+}){
+  const table=input.resourceType==="DIRECTORY_PROFILE"?"directory_profiles":"help_organizations";
+  return database.prepare(`UPDATE ${table} SET image_url=?1,image_key=?2,updated_at=?3,updated_by=?4
+    WHERE id=?5 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?6 AND status='APPROVED' AND updated_at=?3 AND reviewed_by=?4)`)
+    .bind(input.imageUrl,input.imageKey,input.nowIso,input.actorRef,input.canonicalId,input.submissionId);
 }
 
 async function ensurePendingReview(id:string,status:string,actorRef:string,database:D1Database,requestId?:string|null){
@@ -254,14 +276,23 @@ export async function approvePartnerProfileChangeAdmin(input:{
   }
   const base=safeJson<PartnerProfilePatch>(row.baseSnapshotJson,{});
   const stored=safePatch(row.proposedPatchJson);
-  const patch=normalizePartnerProfilePatch(row.resourceType,stored,base);
-  const changedFields=Object.keys(patch);
+  const patch=normalizePartnerProfilePatch(row.resourceType,stored,base,Boolean(row.mediaAssetId));
+  const media=await publishPartnerSubmissionMedia({
+    submissionId:input.id,database,publicFolder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory",
+  });
+  const changedFields=[...Object.keys(patch),...(media?["image"]:[])];
   const now=input.now??new Date();
   const nowIso=now.toISOString();
 
-  const canonicalStatements=row.resourceType==="DIRECTORY_PROFILE"
-    ? [buildDirectoryApplyStatement(database,canonical,patch,actorRef,nowIso,input.id)]
-    : buildHelpApplyStatements(database,canonical,patch,actorRef,nowIso,input.id);
+  const canonicalStatements:D1PreparedStatement[]=Object.keys(patch).length
+    ? row.resourceType==="DIRECTORY_PROFILE"
+      ? [buildDirectoryApplyStatement(database,canonical,patch,actorRef,nowIso,input.id)]
+      : buildHelpApplyStatements(database,canonical,patch,actorRef,nowIso,input.id)
+    : [];
+  if(media)canonicalStatements.push(imageApplyStatement(database,{
+    resourceType:row.resourceType,canonicalId:canonical.canonicalId,submissionId:input.id,
+    imageUrl:media.imageUrl,imageKey:media.imageKey,nowIso,actorRef,
+  }));
   const transitionGuard=row.resourceType==="DIRECTORY_PROFILE"
     ? {sql:"EXISTS(SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=?)",bindings:[canonical.canonicalId,row.baseUpdatedAt] as const}
     : canonical.locationId===null
@@ -298,6 +329,7 @@ export async function approvePartnerProfileChangeAdmin(input:{
     transitionGuard,
     extraStatements:[
       ...canonicalStatements,
+      terminalPartnerMediaStatement({database,submissionId:input.id,state:"APPROVED",nowIso,actorRef,publicKey:media?.imageKey??null}),
       terminalMetadataStatement(database,input.id,"APPROVED",nowIso,actorRef),
       auditStatement(database,{
         id:input.id,accountId:row.accountId,action:"PROFILE_CHANGE_APPROVED",nowIso,actorRef,
@@ -333,7 +365,7 @@ export async function rejectPartnerProfileChangeAdmin(input:{
   row=await rawAdminRow(input.id,database);
   if(!row||row.status!=="PENDING_REVIEW")throw new PartnerProfileChangeError("Stav návrhu sa medzičasom zmenil.",409);
   const patch=safePatch(row.proposedPatchJson);
-  const changedFields=Object.keys(patch);
+  const changedFields=[...Object.keys(patch),...(row.mediaAssetId?["image"]:[])];
   const now=input.now??new Date();
   const nowIso=now.toISOString();
 
@@ -349,6 +381,7 @@ export async function rejectPartnerProfileChangeAdmin(input:{
     changedFieldsJson:JSON.stringify(changedFields),
     now:nowIso,
     extraStatements:[
+      terminalPartnerMediaStatement({database,submissionId:input.id,state:"REJECTED",nowIso,actorRef}),
       terminalMetadataStatement(database,input.id,"REJECTED",nowIso,actorRef),
       auditStatement(database,{
         id:input.id,accountId:row.accountId,action:"PROFILE_CHANGE_REJECTED",nowIso,actorRef,
