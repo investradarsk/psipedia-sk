@@ -43,9 +43,20 @@ test.describe("MAP-1B admin geo foundation", () => {
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
-  test("geo operations shows gates and never exposes an unbounded full-backfill action", async ({ page }) => {
+  test("geo operations is operator-first and advanced safety gates remain available", async ({ page }) => {
     await page.goto("/admin/operations/geo", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 1, name: "Geo foundation" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Mapa — profily" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Stav verejných profilov" })).toBeVisible();
+    await expect(page.getByPlaceholder("Hľadať názov, obec, okres alebo kategóriu")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Na mape" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Čaká na spracovanie" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Treba skontrolovať" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Chýba adresa" })).toBeVisible();
+
+    const advanced = page.getByText("Pokročilé nástroje", { exact: true });
+    await expect(advanced).toBeVisible();
+    await advanced.click();
+
     await expect(page.getByText(/Full production backfill je hard-disabled/)).toBeVisible();
     await expect(page.getByLabel("Target type", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Inicializovať SAFE max. 20" })).toBeVisible();
@@ -64,5 +75,8 @@ test.describe("MAP-1B admin geo foundation", () => {
 
     await page.getByLabel("Target type", { exact: true }).selectOption("MANAGED_EVENT");
     await expect(page.getByLabel("Directory category")).toHaveCount(0);
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
   });
 });
