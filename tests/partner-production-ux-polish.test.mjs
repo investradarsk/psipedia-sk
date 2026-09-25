@@ -27,6 +27,8 @@ const [
   promotionPage,
   commercialPanel,
   uiLabels,
+  locationSelector,
+  newProfileForm,
 ] = await Promise.all([
   "app/layout.tsx",
   "components/site-header.tsx",
@@ -50,6 +52,8 @@ const [
   "app/partner/propagacia/page.tsx",
   "components/partner-commercial-panel.tsx",
   "lib/partner-ui-labels.ts",
+  "components/slovakia-location-selector.tsx",
+  "components/partner-new-profile-form.tsx",
 ].map(read));
 
 test("public header derives Partner auth state on the server", () => {
@@ -180,4 +184,25 @@ test("Google descriptive copy follows the same availability flag as the CTA", ()
   assert.match(loginPage, /googleEnabled \? "Prihláste sa cez Google/);
   assert.match(loginPage, /: "Prihláste sa heslom alebo jednorazovým odkazom na e-mail\."/);
   assert.match(loginPage, /\{googleEnabled \? <a className="button button--google partner-google-button"/);
+});
+
+
+test("Slovakia location selector is dependent, searchable and keyboard/screen-reader accessible", () => {
+  assert.match(locationSelector, /SLOVAK_REGIONS\.map/);
+  assert.match(locationSelector, /getSlovakDistricts\(selectedRegion\)/);
+  assert.match(locationSelector, /searchSlovakMunicipalities\(selectedDistrict, query/);
+  assert.match(locationSelector, /setSelectedDistrict\(""/);
+  assert.match(locationSelector, /setSelectedCity\(""/);
+  assert.match(locationSelector, /onChange\(\{ region, district: "", city: "" \}\)/);
+  assert.match(locationSelector, /onChange\(\{ region: selectedRegion, district, city: "" \}\)/);
+  assert.match(locationSelector, /role="combobox"/);
+  assert.match(locationSelector, /aria-autocomplete="list"/);
+  assert.match(locationSelector, /aria-activedescendant/);
+  assert.match(locationSelector, /event\.key === "ArrowDown"/);
+  assert.match(locationSelector, /event\.key === "Enter"/);
+  assert.match(locationSelector, /Obec \/ mesto/);
+  assert.match(newProfileForm, /countryCode\.trim\(\)\.toUpperCase\(\) === "SK"/);
+  assert.match(newProfileForm, /Kraj \/ región/);
+  assert.match(partnerCss, /\.partner-location-selector\{grid-column:1\/-1;display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(partnerCss, /@media\(max-width:760px\)\{\.partner-location-selector\{grid-template-columns:minmax\(0,1fr\)\}/);
 });

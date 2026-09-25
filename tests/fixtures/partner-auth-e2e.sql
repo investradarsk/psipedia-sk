@@ -125,12 +125,12 @@ INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,creat
 -- PARTNER-H5 isolated stale-approval fixtures. These deliberately use separate canonical
 -- resources so stale-rejection tests do not contaminate the normal successful Partner E2E flow.
 INSERT INTO directory_profiles (
-  id,slug,name,category,status,excerpt,description,city,region,created_at,updated_at,published_at,created_by,updated_by
+  id,slug,name,category,status,excerpt,description,city,district,region,created_at,updated_at,published_at,created_by,updated_by
 ) VALUES (
   990005,'partner-h5-stale-profil','Partner H5 Stale Profil','veterinari','published',
   'Izolovaný H5 profil pre stale approval.',
   'Izolovaný H5 canonical profil určený iba pre stale approval E2E overenie.',
-  'Nitra','Nitriansky kraj',
+  'Nitra','Nitra','Nitriansky kraj',
   '2026-09-21T19:00:00.000Z','2026-09-21T19:00:00.000Z','2026-09-21T19:00:00.000Z','ci:h5','ci:h5'
 );
 INSERT INTO partner_resources (id,entity_type,directory_profile_id,created_at,updated_at)
@@ -141,7 +141,7 @@ INSERT INTO moderation_submissions (
   proposed_patch_json,risk_flags_json,created_at,updated_at
 ) VALUES (
   'partner-e2e-h5-stale-profile-change','DIRECTORY_PROFILE','990005','UPDATE','PENDING_REVIEW',
-  'PARTNER_ACCOUNT','partner-e2e-desktop','{"city":"Trnava"}','[]',
+  'PARTNER_ACCOUNT','partner-e2e-desktop','{"city":"Trnava","district":"Trnava","region":"Trnavský kraj"}','[]',
   '2026-09-21T19:05:00.000Z','2026-09-21T19:05:00.000Z'
 );
 INSERT INTO partner_profile_change_metadata (
@@ -150,8 +150,8 @@ INSERT INTO partner_profile_change_metadata (
 ) VALUES (
   'partner-e2e-h5-stale-profile-change','partner-resource-e2e-h5-stale-profile','partner-e2e-desktop',
   '2026-09-21T19:00:00.000Z',
-  '{"name":"Partner H5 Stale Profil","excerpt":"Izolovaný H5 profil pre stale approval.","description":"Izolovaný H5 canonical profil určený iba pre stale approval E2E overenie.","services":[],"qualifications":[],"city":"Nitra","district":"","region":"Nitriansky kraj","address":"","online":false,"priceNote":"","websiteUrl":"","publicPhone":"","publicEmail":"","facebookUrl":"","instagramUrl":""}',
-  1,1,'2026-09-21T19:05:00.000Z'
+  '{"name":"Partner H5 Stale Profil","excerpt":"Izolovaný H5 profil pre stale approval.","description":"Izolovaný H5 canonical profil určený iba pre stale approval E2E overenie.","services":[],"qualifications":[],"city":"Nitra","district":"Nitra","region":"Nitriansky kraj","address":"","online":false,"priceNote":"","websiteUrl":"","publicPhone":"","publicEmail":"","facebookUrl":"","instagramUrl":""}',
+  3,1,'2026-09-21T19:05:00.000Z'
 );
 
 INSERT INTO managed_events (
