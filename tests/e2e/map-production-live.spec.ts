@@ -22,24 +22,24 @@ async function swipe(locator: Locator, deltaY: number) {
   await locator.page().waitForTimeout(320);
 }
 
-async function swipeSheetHandle(handle: Locator, deltaY: number) {
-  await handle.evaluate((element) => {
-    element.scrollIntoView({ block: "center", inline: "nearest" });
-  });
-  await handle.page().waitForTimeout(80);
+async function swipeSheetHeader(header: Locator, panel: Locator, deltaY: number) {
+  await expect(header).toBeVisible();
+  await expect(panel).toHaveAttribute("data-sheet-dragging", "false");
 
-  const box = await handle.boundingBox();
+  const box = await header.boundingBox();
   expect(box).not.toBeNull();
 
-  // The visual handle has pointer-events:none, so these coordinates hit its
-  // non-interactive parent header while staying clear of the sticky site header.
-  const page = handle.page();
-  const x = box!.x + box!.width / 2;
-  const y = box!.y + box!.height / 2;
+  // Start inside the actual interactive header, away from its toggle button.
+  // The visual handle itself has pointer-events:none and is not a stable hit target.
+  const page = header.page();
+  const x = box!.x + Math.min(28, box!.width / 4);
+  const y = box!.y + Math.min(18, Math.max(12, box!.height / 4));
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x, y + deltaY, { steps: 10 });
   await page.mouse.up();
+
+  await expect(panel).toHaveAttribute("data-sheet-dragging", "false");
   await page.waitForTimeout(320);
 }
 
@@ -140,8 +140,10 @@ test.describe("MAP V1 live production launch audit", () => {
       if (msg.type() === "error" && isRelevantConsoleError(msg.text())) relevantConsoleErrors.push(msg.text());
     });
 
-    await page.addInitScript(() => localStorage.removeItem("psipedia-google-maps-consent"));
+    // Playwright creates a fresh browser context for every test. Do not install a
+    // persistent init script that would delete this key again on /cookies.
     await page.goto("/mapa", { waitUntil: "domcontentloaded" });
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("psipedia-google-maps-consent"))).toBeNull();
     await dismissAnalyticsBanner(page);
     await expect(page.getByRole("heading", { level: 1, name: "Mapa Psipedie" })).toBeVisible();
     await expect(page.getByTestId("map-consent-gate")).toBeVisible();
@@ -154,6 +156,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect(attribution).toContainText("© OpenStreetMap contributors");
 
     await page.getByTestId("map-consent-gate").getByRole("button", { name: "Povoliť Google Maps" }).click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("psipedia-google-maps-consent"))).toBe("granted");
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(1);
     await expect(await mapCanvas(page)).toBeVisible();
@@ -241,13 +244,13 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
 
     const panel = page.getByTestId("map-results-panel");
-    const handle = page.getByTestId("map-sheet-handle");
+    const header = page.getByTestId("map-sheet-header");
     const scroll = page.getByTestId("map-results-scroll");
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
-    await swipeSheetHandle(handle, -130);
+    await swipeSheetHeader(header, panel, -130);
     await expect(panel).toHaveAttribute("data-sheet-state", "expanded");
-    await swipeSheetHandle(handle, 130);
+    await swipeSheetHeader(header, panel, 130);
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
     await page.getByRole("button", { name: "Výsledky" }).click();
