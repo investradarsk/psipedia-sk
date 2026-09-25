@@ -80,9 +80,11 @@ test("renderer kill-switch is bound to the effective public launch gate", async 
   assert.match(page, /bindings\.PUBLIC_MAP_ENABLED \?\? process\.env\.PUBLIC_MAP_ENABLED/);
   assert.match(page, /bindings\.GOOGLE_MAPS_BROWSER_API_KEY \?\? process\.env\.GOOGLE_MAPS_BROWSER_API_KEY/);
   assert.match(page, /bindings\.GOOGLE_MAPS_MAP_ID \?\? process\.env\.GOOGLE_MAPS_MAP_ID/);
-  assert.match(page, /googleMapsRendererConfigured\(launchEnv\)/);
-  assert.match(page, /publicMapLaunchEnabled\(launchEnv\)/);
+  assert.match(page, /const publicMapEnabled = publicMapLaunchEnabled\(launchEnv\);/);
+  assert.match(page, /const googleRendererEnabled = publicMapEnabled;/);
+  assert.doesNotMatch(page, /googleRendererEnabled = googleMapsRendererConfigured\(launchEnv\)/);
   assert.match(page, /googleRendererEnabled \? launchEnv\.GOOGLE_MAPS_BROWSER_API_KEY/);
+  assert.match(page, /googleRendererEnabled \? launchEnv\.GOOGLE_MAPS_MAP_ID/);
   assert.match(page, /rendererEnabled=\{googleRendererEnabled\}/);
 });
 
