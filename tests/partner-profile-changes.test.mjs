@@ -158,6 +158,16 @@ test("stale-base review and explicit patch apply are visible and atomic with mod
   assert.match(admin, /terminalMetadataStatement/);
   assert.match(admin, /PROFILE_CHANGE_APPROVED/);
   assert.match(admin, /PROFILE_CHANGE_REJECTED/);
+  assert.match(admin, /canonical\.updatedAt!==row\.baseUpdatedAt/);
+  assert.match(admin, /partnerProfileChangeIsStale\(row\.baseSnapshotJson,canonical\.values\)/);
+  assert.match(admin, /transitionGuard/);
+  assert.match(admin, /directory_profiles WHERE id=\? AND updated_at=\?/);
+  assert.match(admin, /help_organizations WHERE id=\? AND updated_at=\?/);
+  assert.match(admin, /organization_locations WHERE organization_id=\?/);
+  assert.match(admin, /ORDER BY is_primary DESC,sort_order ASC,id ASC LIMIT 1/);
+  assert.match(admin, /country_code IS \?/);
+  assert.match(admin, /ModerationStateConflictError/);
+  assert.match(admin, /Verejný profil sa od vytvorenia žiadosti zmenil/);
   assert.match(adminApi, /invalidateVersionedPublicHtmlCacheUrl/);
   assert.match(adminApi, /partner_profile_change_public_cache_invalidation_failed/);
 });

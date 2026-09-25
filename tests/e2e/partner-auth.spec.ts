@@ -533,6 +533,112 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
 });
 
+test("stale Partner moderation approval is rejected at decision time without overwriting canonical data", async ({ page }, testInfo) => {
+  const project = testInfo.project.name as keyof typeof AUTH_ACCOUNT_IDS;
+
+  if (project === "desktop-chromium") {
+    await page.goto("/admin/partners/changes?status=active&q=" + encodeURIComponent("Partner H5 Stale Profil"));
+    const profileRequest = page.locator(".admin-commercial-list article").filter({ hasText: "Partner H5 Stale Profil" }).first();
+    await expect(profileRequest).toBeVisible();
+    const profileDetailHref = await profileRequest.getByRole("link", { name: "Detail →" }).getAttribute("href");
+    expect(profileDetailHref).toBeTruthy();
+
+    const profileResponse = await page.request.get("/api/admin/directory/990005");
+    expect(profileResponse.ok()).toBeTruthy();
+    const profileJson = await profileResponse.json() as { profile: Record<string, unknown> & { city?: string } };
+    const externalProfileUpdate = await page.request.put("/api/admin/directory/990005", {
+      data: {
+        ...profileJson.profile,
+        city: "Bratislava",
+        description: "Izolovaný lokálny fixture s externou H5 zmenou pre stale-base E2E overenie.",
+      },
+    });
+    expect(externalProfileUpdate.ok()).toBeTruthy();
+
+    await page.goto(profileDetailHref!);
+    await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
+    page.once("dialog", dialog => void dialog.accept());
+    await page.getByRole("button", { name: "Schváliť zmeny" }).click();
+    await expect(page.getByRole("status")).toContainText(
+      "Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
+    );
+
+    await page.reload();
+    await expect(page.getByText(/Čaká na rozhodnutie/).first()).toBeVisible();
+    const canonicalAfter = await page.request.get("/api/admin/directory/990005");
+    const canonicalAfterJson = await canonicalAfter.json() as { profile: { city?: string } };
+    expect(canonicalAfterJson.profile.city).toBe("Bratislava");
+  }
+
+  const eventId = 990006;
+  const eventTitle = "Partner H5 Stale Podujatie";
+  const originalVenue = "Areál H5";
+  await page.goto("/admin/partners/events?status=active&operation=UPDATE&q=" + encodeURIComponent(eventTitle));
+  const eventRequest = page.locator(".admin-commercial-list article").filter({ hasText: eventTitle }).first();
+  await expect(eventRequest).toBeVisible();
+  const eventDetailHref = await eventRequest.getByRole("link", { name: "Detail →" }).getAttribute("href");
+  expect(eventDetailHref).toBeTruthy();
+
+  const eventResponse = await page.request.get(`/api/admin/events/${eventId}`);
+  expect(eventResponse.ok()).toBeTruthy();
+  const eventJson = await eventResponse.json() as {
+    event: { eventType: string; cancelled: boolean; updatedAt: string; venue: string };
+  };
+  const origin = new URL(page.url()).origin;
+  const externalEventUpdate = await page.request.patch(`/api/admin/events/${eventId}`, {
+    headers: { origin },
+    data: {
+      eventType: eventJson.event.eventType,
+      cancelled: eventJson.event.cancelled,
+      updatedAt: eventJson.event.updatedAt,
+    },
+  });
+  expect(externalEventUpdate.ok()).toBeTruthy();
+
+  await page.goto(eventDetailHref!);
+  await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
+  page.once("dialog", dialog => void dialog.accept());
+  await page.getByRole("button", { name: "Schváliť zmeny" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
+  );
+
+  await page.reload();
+  await expect(page.getByText(/PENDING_REVIEW/).first()).toBeVisible();
+  await expect(page.getByText("PENDING_REVIEW → APPROVED", { exact: true })).toHaveCount(0);
+  const canonicalEventAfter = await page.request.get(`/api/admin/events/${eventId}`);
+  const canonicalEventAfterJson = await canonicalEventAfter.json() as { event: { venue: string } };
+  expect(canonicalEventAfterJson.event.venue).toBe(originalVenue);
+  await expectNoHorizontalOverflow(page);
+});
+
+test("ownership-sensitive self-approval is blocked by the backend for direct admin API calls", async ({ page }) => {
+  const claimResponse = await page.request.patch("/api/admin/partners/claims/partner-e2e-self-claim", {
+    data: { action: "APPROVE", decisionNote: "" },
+  });
+  expect(claimResponse.status()).toBe(403);
+  const claimJson = await claimResponse.json() as { error?: string };
+  expect(claimJson.error).toContain("Vlastnú žiadosť s pridelením oprávnenia na správu musí schváliť iný administrátor.");
+
+  await page.goto("/admin/partners/claims/partner-e2e-self-claim");
+  await expect(page.getByText(/PENDING · DIRECTORY_PROFILE/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Schváliť" })).toBeVisible();
+  await expect(page.getByText("CLAIM_APPROVED", { exact: true })).toHaveCount(0);
+
+  const verificationResponse = await page.request.patch("/api/admin/partners/verifications/partner-e2e-self-verification", {
+    data: { action: "VERIFY", reviewNote: "" },
+  });
+  expect(verificationResponse.status()).toBe(403);
+  const verificationJson = await verificationResponse.json() as { error?: string };
+  expect(verificationJson.error).toContain("Vlastnú žiadosť s pridelením oprávnenia na správu musí schváliť iný administrátor.");
+
+  await page.goto("/admin/partners/verifications/partner-e2e-self-verification");
+  await expect(page.getByText(/PENDING_VERIFICATION · membership OWNER/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Overiť" })).toBeVisible();
+  await expect(page.getByText("VERIFICATION_VERIFIED", { exact: true })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
 test("internal admin Partner overview and account detail are protected admin pages", async ({ page }, testInfo) => {
   const project=testInfo.project.name as keyof typeof AUTH_EMAILS;
   await page.goto("/admin/partners");
@@ -609,8 +715,8 @@ test("internal admin Partner overview and account detail are protected admin pag
   const expectedPublicationStatus=project==="desktop-chromium"?"published":"draft";
 
   await page.goto("/admin/partners");
-  await expect(page.getByRole("link",{name:/Podujatia 2/})).toBeVisible();
-  await page.getByRole("link",{name:/Podujatia 2/}).click();
+  await expect(page.getByRole("link",{name:/Podujatia 3/})).toBeVisible();
+  await page.getByRole("link",{name:/Podujatia 3/}).click();
   await expect(page.getByRole("heading",{name:"Podujatia"})).toBeVisible();
 
   const createEventRow=page.locator(".admin-commercial-list article").filter({hasText:eventCreateTitle});
@@ -657,10 +763,10 @@ test("internal admin Partner overview and account detail are protected admin pag
   // Canonical API assertions above prove the approved patch and publication-status preservation;
   // public route rendering is covered by the dedicated event/public E2E suites.
   await page.goto("/admin/partners");
-  await expect(page.getByRole("link",{name:/Podujatia 0/})).toBeVisible();
+  await expect(page.getByRole("link",{name:/Podujatia 1/})).toBeVisible();
 
   if(project==="desktop-chromium"){
-    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Úpravy 2/})).toBeVisible();
     await page.goto("/admin/partners/changes?status=active");
     const changeRow=page.locator(".admin-commercial-list article").filter({hasText:"Partner E2E Veterina"});
     await expect(changeRow).toContainText("1 zmenených polí");
@@ -677,12 +783,12 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.getByRole("button",{name:"Schváliť zmeny"}).click();
     await changeResponse;
     await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Úpravy 0/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Trnava",{exact:true}).first()).toBeVisible();
     await page.goto("/admin/partners");
 
-    await expect(page.getByRole("link",{name:/Overenia 2/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 3/})).toBeVisible();
     await page.goto("/admin/partners/verifications?status=PENDING_VERIFICATION");
     const verificationRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]}).filter({hasText:"Partner E2E Veterina"});
     await expect(verificationRow).toContainText("PENDING_VERIFICATION");
@@ -698,7 +804,7 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Overený správca")).toBeVisible();
   }else{
-    await expect(page.getByRole("link",{name:/Claims 1/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Claims 2/})).toBeVisible();
     await page.goto("/admin/partners/claims?status=PENDING");
     const claimRow=page.locator(".admin-commercial-list article").filter({hasText:AUTH_EMAILS[project]});
     await expect(claimRow).toContainText("Ownership konflikt");
@@ -713,8 +819,8 @@ test("internal admin Partner overview and account detail are protected admin pag
     await page.getByRole("button",{name:"Schváliť"}).click();
     await claimResponse;
     await page.goto("/admin/partners");
-    await expect(page.getByRole("link",{name:/Claims 0/})).toBeVisible();
-    await expect(page.getByRole("link",{name:/Overenia 3/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Claims 1/})).toBeVisible();
+    await expect(page.getByRole("link",{name:/Overenia 4/})).toBeVisible();
   }
   await expectNoHorizontalOverflow(page);
 });

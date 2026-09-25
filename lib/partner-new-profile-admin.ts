@@ -27,6 +27,7 @@ import {
   isFoundationSubmissionStatus,
 } from "@/lib/moderation-transition";
 import { transitionModerationSubmission } from "@/lib/moderation-store";
+import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 type Resolution = "CREATED_NEW" | "LINKED_EXISTING";
@@ -63,6 +64,13 @@ function piiKey(value?:string){
   const key=value??(env as unknown as Bindings).PII_ENCRYPTION_KEY;
   if(!key)throw new PartnerNewProfileError("PII_ENCRYPTION_KEY nie je nakonfigurovaný.",503);
   return key;
+}
+async function assertNewProfileIndependentOwnershipApprover(input:Parameters<typeof assertIndependentOwnershipApprover>[0]){
+  try{await assertIndependentOwnershipApprover(input);}
+  catch(error){
+    if(error instanceof PartnerOwnershipApprovalGuardError)throw new PartnerNewProfileError(error.message,error.status);
+    throw error;
+  }
 }
 function safeJson<T>(value:string,fallback:T):T{try{return JSON.parse(value) as T;}catch{return fallback;}}
 function active(status:string){return status==="SUBMITTED"||status==="PENDING_REVIEW"||status==="QUARANTINED";}
@@ -350,6 +358,7 @@ export async function createPartnerNewProfileAdmin(input:{
   let row=await raw(input.id,database);
   if(!row)throw new PartnerNewProfileError("Návrh sa nenašiel.",404);
   if(row.status==="APPROVED"&&row.resolutionType)return getPartnerNewProfileAdmin(input.id,{database});
+  await assertNewProfileIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);
   await ensurePendingReview(input.id,row.status,actorRef,database,input.requestId);
   row=await raw(input.id,database);
@@ -444,6 +453,12 @@ export async function linkPartnerNewProfileAdmin(input:{
   if(!canonical)throw new PartnerNewProfileError("Existujúci canonical profil sa nenašiel alebo je archivovaný.",404);
   const account=await database.prepare("SELECT status FROM partner_accounts WHERE id=?1 LIMIT 1").bind(row.accountId).first<{status:string}>();
   if(!account||account.status!=="ACTIVE")throw new PartnerNewProfileError("Partner účet už nie je aktívny.",409);
+  const column=row.resourceType==="DIRECTORY_PROFILE"?"directory_profile_id":"help_organization_id";
+  const targetResource=await database.prepare(`SELECT id FROM partner_resources WHERE ${column}=?1 LIMIT 1`)
+    .bind(input.canonicalId).first<{id:string}>();
+  await assertNewProfileIndependentOwnershipApprover({
+    adminEmail:input.adminEmail,accountId:row.accountId,resourceId:targetResource?.id??null,database,
+  });
   const existing=await currentMembershipAndVerification({accountId:row.accountId,type:row.resourceType,canonicalId:input.canonicalId,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);
   await ensurePendingReview(input.id,row.status,actorRef,database,input.requestId);

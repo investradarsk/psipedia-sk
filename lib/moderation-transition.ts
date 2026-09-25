@@ -54,15 +54,22 @@ export async function applyAtomicModerationTransition(database: Pick<D1Database,
   eventId: string;
   changedFieldsJson: string;
   now: string;
+  transitionGuard?: {
+    sql: string;
+    bindings?: readonly unknown[];
+  };
   extraStatements?: D1PreparedStatement[];
 }) {
   if (!canTransitionModerationSubmission(input.expectedStatus, input.toStatus)) {
     throw new Error("Invalid moderation state transition");
   }
 
-  // D1 batch is a transaction. The event is conditional on the same old state as the CAS update,
-  // so a stale transition writes neither the event nor the state change.
-  const eventStatement = database.prepare(MODERATION_EVENT_CAS_SQL).bind(
+  // D1 batch is a transaction. The event and state transition use the same CAS predicate.
+  // Optional trusted transition guards let callers bind the decision to canonical revision state
+  // without turning a failed guard into an approved moderation event or running guarded extras.
+  const guardSql = input.transitionGuard ? ` AND (${input.transitionGuard.sql})` : "";
+  const guardBindings = input.transitionGuard?.bindings ?? [];
+  const eventStatement = database.prepare(MODERATION_EVENT_CAS_SQL + guardSql).bind(
     input.eventId,
     input.actorType ?? "ADMIN",
     input.actorRef,
@@ -73,8 +80,9 @@ export async function applyAtomicModerationTransition(database: Pick<D1Database,
     input.now,
     input.id,
     input.expectedStatus,
+    ...guardBindings,
   );
-  const stateStatement = database.prepare(MODERATION_STATE_CAS_SQL).bind(
+  const stateStatement = database.prepare(MODERATION_STATE_CAS_SQL.replace("  RETURNING id", guardSql + "\n  RETURNING id")).bind(
     input.toStatus,
     input.now,
     input.actorRef,
@@ -82,6 +90,7 @@ export async function applyAtomicModerationTransition(database: Pick<D1Database,
     input.now,
     input.id,
     input.expectedStatus,
+    ...guardBindings,
   );
 
   const results = await database.batch([eventStatement, stateStatement, ...(input.extraStatements ?? [])]);

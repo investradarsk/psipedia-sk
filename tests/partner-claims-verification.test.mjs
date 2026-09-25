@@ -9,7 +9,7 @@ const importTs=(path)=>import(pathToFileURL(new URL(path,root).pathname).href);
 
 const [
   migration,claims,admin,email,platform,attention,attentionStore,claimApi,cancelApi,verificationApi,
-  claimAdminApi,verificationAdminApi,claimPage,requestsPage,directoryPage,organizationPage,publicOwnership,publicProfile,
+  claimAdminApi,verificationAdminApi,claimPage,requestsPage,directoryPage,organizationPage,publicOwnership,publicProfile,ownershipGuard,
 ]=await Promise.all([
   "drizzle/0063_partner_claims_verification.sql",
   "lib/partner-claims.ts",
@@ -29,6 +29,7 @@ const [
   "app/organizacie/[slug]/page.tsx",
   "components/partner-public-ownership.tsx",
   "lib/partner-public-profile.ts",
+  "lib/partner-ownership-approval.ts",
 ].map(read));
 
 test("0063 creates canonical claims and verification with FKs, checks, indexes and append-only audit",()=>{
@@ -83,6 +84,21 @@ test("claim approval upgrades or creates audited OWNER membership without destru
   assert.match(claimAdminApi,/requirePartnerAdminMutation/);
   assert.match(claimAdminApi,/APPROVE/);
   assert.match(claimAdminApi,/REJECT/);
+});
+
+test("ownership-sensitive approvals block a deterministically mapped admin from approving their own Partner request",()=>{
+  assert.match(ownershipGuard,/hashPii\(normalizeEmail\(input\.adminEmail\), hashKey\)/);
+  assert.match(ownershipGuard,/WHERE a\.email_hash=\?1/);
+  assert.match(ownershipGuard,/m\.account_id=a\.id AND m\.resource_id=\?2 AND m\.revoked_at IS NULL/);
+  assert.match(ownershipGuard,/mapped\.accountId === input\.accountId \|\| Boolean\(mapped\.resourceMember\)/);
+  assert.match(ownershipGuard,/Vlastnú žiadosť s pridelením oprávnenia na správu musí schváliť iný administrátor/);
+  const claimApproval=admin.slice(admin.indexOf("export async function approvePartnerClaimAdmin"),admin.indexOf("export async function rejectPartnerClaimAdmin"));
+  assert.ok(claimApproval.indexOf("assertClaimIndependentOwnershipApprover")<claimApproval.indexOf("ensurePartnerOwnerMembershipAdmin"));
+  const verificationDecision=admin.slice(admin.indexOf("export async function decidePartnerVerificationAdmin"));
+  assert.match(verificationDecision,/if \(input\.action === "VERIFY"\)/);
+  assert.match(verificationDecision,/assertClaimIndependentOwnershipApprover/);
+  assert.match(claimAdminApi,/approvePartnerClaimAdmin/);
+  assert.match(verificationAdminApi,/decidePartnerVerificationAdmin/);
 });
 
 test("verification is a separate account-resource state and no row means UNVERIFIED",()=>{

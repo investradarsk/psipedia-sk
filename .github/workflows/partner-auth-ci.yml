@@ -41,6 +41,7 @@ on:
       - "lib/turnstile.ts"
       - "worker/index.ts"
       - "tests/partner-auth-foundation.test.mjs"
+      - "tests/moderation-atomicity.test.mjs"
       - "tests/partner-multimethod-auth.test.mjs"
       - "tests/partner-memberships-admin.test.mjs"
       - "tests/partner-commercial-interest.test.mjs"
@@ -87,6 +88,8 @@ jobs:
         run: npm run db:validate-clean
       - name: Partner auth security tests
         run: npm run test:partner-auth
+      - name: Moderation integrity CAS tests
+        run: node --experimental-strip-types --test tests/moderation-atomicity.test.mjs
       - name: Lint
         run: npm run lint
       - name: Build
