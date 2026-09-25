@@ -4,7 +4,10 @@ import test from "node:test";
 import {
   automationEntityResolutionStrategyFor,
   canAutomationObservationEnterCluster,
+  organizationCandidateKeys,
+  organizationObservationSemanticKind,
   selectEventClusterCandidate,
+  selectOrganizationClusterCandidate,
 } from "../lib/data-automation-clustering.ts";
 import {
   normalizeAutomationAddressComponents,
@@ -167,7 +170,7 @@ test("G1 semantic kind hard guards reject incompatible subjects and UNKNOWN", ()
 test("G1 strategy boundary preserves EVENT and keeps non-EVENT fail-safe", () => {
   assert.equal(automationEntityResolutionStrategyFor("EVENT")?.matcherImplemented, true);
   assert.equal(automationEntityResolutionStrategyFor("DIRECTORY")?.matcherImplemented, false);
-  assert.equal(automationEntityResolutionStrategyFor("ORGANIZATION")?.matcherImplemented, false);
+  assert.equal(automationEntityResolutionStrategyFor("ORGANIZATION")?.matcherImplemented, true);
   assert.equal(automationEntityResolutionStrategyFor("ADOPTION"), null);
 });
 
@@ -227,4 +230,174 @@ test("G1 EVENT regression keeps legacy EVENT matching semantics unchanged", () =
   assert.match(clustering, /HIGH_IMPACT_EVENT_FIELDS/);
   assert.match(clustering, /createCluster\(input\.source\.entityType, input\.detectedAt/);
   assert.equal(clustering.includes("INSERT INTO automation_entity_clusters (entity_type,semantic_kind"), false);
+});
+
+
+test("G3 organization semantic gate allows roots and blocks facility/person/unknown", () => {
+  assert.equal(organizationObservationSemanticKind(record({ semanticKind: "LEGAL_ORGANIZATION" })), "LEGAL_ORGANIZATION");
+  assert.equal(organizationObservationSemanticKind(record({ semanticKind: "PUBLIC_ORGANIZATION" })), "PUBLIC_ORGANIZATION");
+  assert.equal(organizationObservationSemanticKind(record({ semanticKind: "RESCUE_GROUP" })), "RESCUE_GROUP");
+  assert.equal(organizationObservationSemanticKind(record({ semanticKind: "FACILITY" })), "FACILITY");
+  assert.equal(organizationObservationSemanticKind(record({})), "UNKNOWN");
+
+  for (const kind of ["FACILITY", "PERSON", "UNKNOWN", "BRANCH"]) {
+    const decision = selectOrganizationClusterCandidate(
+      record({ semanticKind: kind, name: "Test", city: "Nitra" }),
+      kind,
+      [],
+    );
+    assert.equal(decision.quality, "NONE");
+  }
+});
+
+test("G3 exact organization identity uses IČO or namespaced legal registry id", () => {
+  const ico = selectOrganizationClusterCandidate(
+    record({ semanticKind: "LEGAL_ORGANIZATION", name: "OZ Labka", ico: "12345678" }),
+    "LEGAL_ORGANIZATION",
+    [{
+      id: 11,
+      semanticKind: "LEGAL_ORGANIZATION",
+      canonicalEntityId: null,
+      canonicalEntityKey: null,
+      fields: { organizationName: "oz labka", ico: "12345678" },
+    }],
+  );
+  assert.equal(ico.quality, "EXACT");
+  assert.equal(ico.reason, "exact_organization_ico");
+
+  const registry = selectOrganizationClusterCandidate(
+    record({
+      semanticKind: "PUBLIC_ORGANIZATION",
+      name: "Mesto Test",
+      registryId: "ABC-42",
+      registryNamespace: "RPO",
+    }),
+    "PUBLIC_ORGANIZATION",
+    [{
+      id: 12,
+      semanticKind: "PUBLIC_ORGANIZATION",
+      canonicalEntityId: null,
+      canonicalEntityKey: null,
+      fields: { organizationName: "mesto test", registryId: "abc-42", registryNamespace: "rpo" },
+    }],
+  );
+  assert.equal(registry.quality, "EXACT");
+  assert.equal(registry.reason, "exact_namespaced_legal_registry_id");
+});
+
+test("G3 facility registry id and generic source ids never form organization EXACT", () => {
+  const input = record({
+    semanticKind: "LEGAL_ORGANIZATION",
+    name: "OZ Labka",
+    city: "Nitra",
+    sourceApprovalNumber: "SK-UT-123",
+    externalId: "42",
+  });
+  const decision = selectOrganizationClusterCandidate(
+    input,
+    "LEGAL_ORGANIZATION",
+    [{
+      id: 13,
+      semanticKind: "LEGAL_ORGANIZATION",
+      canonicalEntityId: null,
+      canonicalEntityKey: null,
+      fields: {
+        organizationName: "oz labka",
+        municipality: "nitra",
+        facilityRegistryId: "sk-ut-123",
+      },
+    }],
+  );
+  assert.notEqual(decision.quality, "EXACT");
+
+  const keys = organizationCandidateKeys(input, "LEGAL_ORGANIZATION");
+  assert.equal(keys.some((key) => key.normalizedValue === "sk-ut-123"), false);
+  assert.equal(keys.some((key) => key.normalizedValue === "42"), false);
+});
+
+test("G3 safe STRONG requires unique name + municipality + domain or phone + email", () => {
+  const byDomain = selectOrganizationClusterCandidate(
+    record({
+      semanticKind: "RESCUE_GROUP",
+      name: "Pomoc labkam",
+      city: "Sala",
+      websiteUrl: "https://pomoc.sk",
+    }),
+    "RESCUE_GROUP",
+    [{
+      id: 20,
+      semanticKind: "RESCUE_GROUP",
+      canonicalEntityId: null,
+      canonicalEntityKey: null,
+      fields: {
+        organizationName: "pomoc labkam",
+        municipality: "sala",
+        domain: "pomoc.sk",
+      },
+    }],
+  );
+  assert.equal(byDomain.quality, "STRONG");
+
+  const ambiguous = selectOrganizationClusterCandidate(
+    record({
+      semanticKind: "RESCUE_GROUP",
+      name: "Pomoc labkam",
+      city: "Sala",
+      websiteUrl: "https://pomoc.sk",
+    }),
+    "RESCUE_GROUP",
+    [20, 21].map((id) => ({
+      id,
+      semanticKind: "RESCUE_GROUP",
+      canonicalEntityId: null,
+      canonicalEntityKey: null,
+      fields: {
+        organizationName: "pomoc labkam",
+        municipality: "sala",
+        domain: "pomoc.sk",
+      },
+    })),
+  );
+  assert.equal(ambiguous.quality, "POSSIBLE");
+  assert.deepEqual(ambiguous.possibleCandidateIds, [20, 21]);
+});
+
+test("G3 organization hard guards keep legal/public organization distinct from facility", () => {
+  const legalToFacility = selectOrganizationClusterCandidate(
+    record({ semanticKind: "LEGAL_ORGANIZATION", name: "OZ Labka", ico: "12345678" }),
+    "LEGAL_ORGANIZATION",
+    [{
+      id: 30,
+      semanticKind: "FACILITY",
+      canonicalEntityId: null,
+      canonicalEntityKey: null,
+      fields: { organizationName: "oz labka", ico: "12345678" },
+    }],
+  );
+  assert.equal(legalToFacility.quality, "NONE");
+
+  const publicToFacility = selectOrganizationClusterCandidate(
+    record({ semanticKind: "PUBLIC_ORGANIZATION", name: "Mesto Test", ico: "87654321" }),
+    "PUBLIC_ORGANIZATION",
+    [{
+      id: 31,
+      semanticKind: "FACILITY",
+      canonicalEntityId: null,
+      canonicalEntityKey: null,
+      fields: { organizationName: "mesto test", ico: "87654321" },
+    }],
+  );
+  assert.equal(publicToFacility.quality, "NONE");
+});
+
+test("G3 implementation is migration-free, bounded and performs no canonical organization writes", () => {
+  const clustering = readFileSync(new URL("../lib/data-automation-clustering.ts", import.meta.url), "utf8");
+  assert.match(clustering, /entityType: "ORGANIZATION"/);
+  assert.match(clustering, /lookupAutomationClusterCandidates/);
+  assert.match(clustering, /limit: 100/);
+  assert.match(clustering, /sourceApprovalNumber/);
+  assert.match(clustering, /verified_canonical_organization_linkage/);
+  assert.match(clustering, /HIGH_IMPACT_ORGANIZATION_FIELDS/);
+  assert.doesNotMatch(clustering, /UPDATE help_organizations|INSERT INTO help_organizations|DELETE FROM help_organizations/i);
+  assert.doesNotMatch(clustering, /UPDATE directory_profiles|INSERT INTO directory_profiles/i);
 });
