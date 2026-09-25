@@ -304,10 +304,18 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
     await expect(page.getByRole("heading", { name: "Pridať nový profil" })).toBeVisible();
+    await expect(page.getByText("Polia označené", { exact: false })).toBeVisible();
+    await expect(page.getByText("Vyplňte aspoň jeden: e-mail, telefón alebo web.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
+    await expect(page.getByRole("alert")).toContainText("Skontrolujte označené polia.");
+    await expect(page.getByLabel("Názov", { exact: true })).toBeFocused();
+    await expect(page.getByText("Názov je povinný.", { exact: true })).toBeVisible();
     await page.getByLabel("Názov", { exact: true }).fill("Partner E2E Nová Služba");
     await page.getByLabel("Kategória").selectOption("veterinari");
-    await page.getByLabel("Krátky popis").fill("Nová testovacia služba pre Partner E2E.");
-    await page.getByLabel("Popis", { exact: true }).fill("Toto je nový testovací Directory profil vytvorený cez moderovaný Partner flow.");
+    const directoryExcerpt = page.getByLabel("Krátky popis");
+    await directoryExcerpt.fill("Nová testovacia služba pre Partner E2E.");
+    await expect(page.getByText(/\/ 700$/)).toBeVisible();
+    await expect(page.getByText("Max. 20 000 znakov", { exact: true })).toBeVisible();
     await page.getByLabel("Kraj", { exact: true }).selectOption("Nitriansky kraj");
     await page.getByLabel("Okres", { exact: true }).selectOption("Nitra");
     const newDirectoryMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
@@ -333,7 +341,14 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await newDirectoryMunicipality.press("Enter");
     await expect(newDirectoryMunicipality).toHaveValue("Žilina");
     await page.getByLabel("Adresa").fill("Unikátna 123");
+    await page.getByLabel("Web").fill("partner-new-e2e.example");
+    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
+    await expect(page.getByText("Web musí byť platná adresa začínajúca http:// alebo https://.", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Web")).toBeFocused();
     await page.getByLabel("Web").fill("https://partner-new-e2e.example");
+    await expectNoHorizontalOverflow(page);
+    const newDirectoryAccessibility = await new AxeBuilder({ page }).analyze();
+    expect(newDirectoryAccessibility.violations).toEqual([]);
     await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
     await expect(page.getByRole("status")).toContainText("Návrh nového profilu sme prijali a čaká na kontrolu.");
 
@@ -367,8 +382,13 @@ test("valid one-time link creates a session and exposes membership dashboard/set
 
     await page.getByRole("link", { name: "Pridať nový profil" }).click();
     await page.getByRole("radio", { name: /Organizácia na pomoc psom/ }).check();
+    await expect(page.getByText("Polia označené", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
+    await expect(page.getByRole("alert")).toContainText("Skontrolujte označené polia.");
+    await expect(page.getByLabel("Názov", { exact: true })).toBeFocused();
     await page.getByLabel("Názov", { exact: true }).fill("Partner E2E Organizácia");
     await page.getByLabel("Typ organizácie").selectOption("CIVIC_ASSOCIATION");
+    await page.getByLabel("Adresa").fill("Hlavná 1");
     await page.getByLabel("Verejný telefón").fill("+421900111222");
     await page.getByLabel("Web").fill("https://example.sk");
     await page.getByLabel("Kraj", { exact: true }).selectOption("Nitriansky kraj");
