@@ -14,7 +14,16 @@ import {
 import { buildStructuredExactAddress, chooseGeocoderResult, summarizeGeoDiagnosticResults } from "../lib/geo-service.ts";
 import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 import { GeocoderProviderError } from "../lib/geo-provider.ts";
-import { isSafeAutoGeoCandidate, selectGeoCanaryCandidates, selectSafeUninitializedGeoCandidates } from "../lib/geo-operations.ts";
+import {
+  approximateGeoQueryUsesOnlyLocality,
+  explicitGeoContractBlockReason,
+  isSafeAutoGeoCandidate,
+  previewExplicitGeoOnboarding,
+  runExplicitGeoOnboarding,
+  selectGeoCanaryCandidates,
+  selectSafeUninitializedGeoCandidates,
+  validateExplicitGeoTargetIds,
+} from "../lib/geo-operations.ts";
 
 const migration = readFileSync(new URL("../drizzle/0064_geo_foundation.sql", import.meta.url), "utf8");
 const geoStore = readFileSync(new URL("../lib/geo-store.ts", import.meta.url), "utf8");
@@ -524,6 +533,241 @@ test("operations are bounded, scoped and full production backfill remains absent
   assert.match(geoOperationsComponent, /Backfill max\. 5/);
   assert.match(geoOperationsComponent, /Vyber target/);
   assert.doesNotMatch(operations + operationsApi + geoOperationsComponent, /geocodeAll|geocode_everything|fullBackfill\s*=\s*true/i);
+});
+
+
+function explicitTestDb({ directory = {}, geo = {} } = {}) {
+  const reads = [];
+  let writes = 0;
+  const pointRow = (id, patch = {}) => ({
+    id: 1000 + id,
+    target_type: "DIRECTORY_PROFILE",
+    directory_profile_id: id,
+    organization_location_id: null,
+    managed_event_id: null,
+    public_visibility: null,
+    public_precision: null,
+    latitude: null,
+    longitude: null,
+    resolution_method: null,
+    provider: null,
+    provenance: null,
+    source_license: null,
+    normalized_query: null,
+    query_fingerprint: null,
+    source_fingerprint: "old-fingerprint",
+    resolved_source_fingerprint: null,
+    geocode_status: "PENDING",
+    last_error_code: null,
+    last_error_at: null,
+    retry_after_at: null,
+    attempt_count: 0,
+    manual_override: 0,
+    manual_updated_at: null,
+    manual_updated_by: null,
+    last_geocoded_at: null,
+    created_at: "2026-09-25T00:00:00Z",
+    updated_at: "2026-09-25T00:00:00Z",
+    ...patch,
+  });
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          const id = Number(args[0]);
+          return {
+            async first() {
+              if (/FROM directory_profiles WHERE id = \?/m.test(sql)) {
+                reads.push(["directory", id]);
+                return directory[id] ?? null;
+              }
+              if (/FROM geo_points WHERE directory_profile_id = \?/m.test(sql)) {
+                reads.push(["geo", id]);
+                const value = geo[id];
+                return value ? pointRow(id, value) : null;
+              }
+              return null;
+            },
+            async all() { return { results: [] }; },
+            async run() {
+              writes += 1;
+              throw new Error("unexpected write in explicit read-only fixture");
+            },
+          };
+        },
+        async first() { return null; },
+        async all() { return { results: [] }; },
+        async run() {
+          writes += 1;
+          throw new Error("unexpected write in explicit read-only fixture");
+        },
+      };
+    },
+    async batch() { return []; },
+  };
+  return { db, reads, get writes() { return writes; } };
+}
+
+function directoryFixture(id, patch = {}) {
+  return {
+    id,
+    name: "Fixture " + id,
+    category: "kynologicke-kluby",
+    address: "Súkromná 12",
+    city: "Nitra",
+    district: "Nitra",
+    region: "Nitriansky kraj",
+    online: 0,
+    status: "published",
+    ...patch,
+  };
+}
+
+test("explicit target IDs are bounded, unique positive safe integers and preserve requested order", () => {
+  assert.deepEqual(validateExplicitGeoTargetIds([3, 5, 10]), [3, 5, 10]);
+  assert.throws(() => validateExplicitGeoTargetIds([]), /1 až 20/);
+  assert.throws(() => validateExplicitGeoTargetIds(Array.from({ length: 21 }, (_, i) => i + 1)), /najviac 20/);
+  assert.throws(() => validateExplicitGeoTargetIds([3, 3]), /unique/);
+  assert.throws(() => validateExplicitGeoTargetIds([0]), /kladné safe integer/);
+  assert.throws(() => validateExplicitGeoTargetIds(["3"]), /kladné safe integer/);
+});
+
+test("explicit onboarding contract never silently upgrades or downgrades exact/other target requests", () => {
+  assert.equal(explicitGeoContractBlockReason("DIRECTORY_PROFILE", "APPROXIMATE_PUBLIC", "MUNICIPALITY"), null);
+  assert.match(explicitGeoContractBlockReason("DIRECTORY_PROFILE", "EXACT_PUBLIC", "EXACT"), /APPROXIMATE_PUBLIC/);
+  assert.match(explicitGeoContractBlockReason("MANAGED_EVENT", "APPROXIMATE_PUBLIC", "MUNICIPALITY"), /DIRECTORY_PROFILE/);
+});
+
+test("explicit approximate municipality query is locality-only even when canonical street exists", () => {
+  const source = {
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 3,
+    label: "Sensitive fixture",
+    category: "kynologicke-kluby",
+    address: "TAJNÁ ULICA 999",
+    city: "Nitra",
+    district: "Nitra",
+    region: "Nitriansky kraj",
+    countryCode: "SK",
+    published: true,
+  };
+  const query = buildGeoQuery(source, "APPROXIMATE_PUBLIC", "MUNICIPALITY");
+  assert.equal(approximateGeoQueryUsesOnlyLocality(source, query), true);
+  assert.doesNotMatch(query, /TAJNÁ|999/i);
+});
+
+test("explicit preview touches only requested IDs and blocks missing/unpublished rows", async () => {
+  const fixture = explicitTestDb({
+    directory: {
+      3: directoryFixture(3),
+      10: directoryFixture(10, { status: "DRAFT" }),
+      11: directoryFixture(11),
+    },
+  });
+  const report = await previewExplicitGeoOnboarding({
+    targetType: "DIRECTORY_PROFILE",
+    targetIds: [3, 5, 10],
+    visibility: "APPROXIMATE_PUBLIC",
+    precision: "MUNICIPALITY",
+    database: fixture.db,
+  });
+  assert.deepEqual(report.targetIds, [3, 5, 10]);
+  assert.equal(report.items.length, 3);
+  assert.equal(report.items[0].eligibleForInitialization, true);
+  assert.equal(report.items[1].blockReason, "SKIP_NOT_FOUND");
+  assert.equal(report.items[2].blockReason, "SKIP_NOT_PUBLISHED");
+  assert.equal(fixture.reads.some(([, id]) => id === 11), false);
+  assert.equal(fixture.writes, 0);
+});
+
+test("explicit preview protects manual override and treats current resolved rows as idempotent", async () => {
+  const source = {
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 3,
+    label: "Fixture 3",
+    category: "kynologicke-kluby",
+    address: "Súkromná 12",
+    city: "Nitra",
+    district: "Nitra",
+    region: "Nitriansky kraj",
+    countryCode: "SK",
+    published: true,
+  };
+  const fingerprint = await sourceGeoFingerprint(geoFingerprintInput(source, "APPROXIMATE_PUBLIC", "MUNICIPALITY"));
+
+  const manual = explicitTestDb({
+    directory: { 3: directoryFixture(3) },
+    geo: { 3: { manual_override: 1, source_fingerprint: fingerprint } },
+  });
+  const manualReport = await previewExplicitGeoOnboarding({
+    targetType: "DIRECTORY_PROFILE", targetIds: [3],
+    visibility: "APPROXIMATE_PUBLIC", precision: "MUNICIPALITY", database: manual.db,
+  });
+  assert.equal(manualReport.items[0].blockReason, "SKIP_MANUAL");
+  assert.equal(manual.writes, 0);
+
+  const resolved = explicitTestDb({
+    directory: { 3: directoryFixture(3) },
+    geo: { 3: {
+      public_visibility: "APPROXIMATE_PUBLIC",
+      public_precision: "MUNICIPALITY",
+      source_fingerprint: fingerprint,
+      resolved_source_fingerprint: fingerprint,
+      geocode_status: "RESOLVED",
+      latitude: 48.3,
+      longitude: 18.1,
+    } },
+  });
+  const resolvedReport = await previewExplicitGeoOnboarding({
+    targetType: "DIRECTORY_PROFILE", targetIds: [3],
+    visibility: "APPROXIMATE_PUBLIC", precision: "MUNICIPALITY", database: resolved.db,
+  });
+  assert.equal(resolvedReport.items[0].alreadyResolved, true);
+  assert.equal(resolvedReport.items[0].eligibleForResolve, false);
+  assert.equal(resolved.writes, 0);
+});
+
+test("explicit execute safely reports provider-missing and partial target blocks without writes", async () => {
+  const fixture = explicitTestDb({
+    directory: {
+      3: directoryFixture(3),
+      10: directoryFixture(10, { status: "DRAFT" }),
+      11: directoryFixture(11),
+    },
+  });
+  const report = await runExplicitGeoOnboarding({
+    targetType: "DIRECTORY_PROFILE",
+    targetIds: [3, 5, 10],
+    visibility: "APPROXIMATE_PUBLIC",
+    precision: "MUNICIPALITY",
+    actorRef: "test@example.invalid",
+    database: fixture.db,
+    providerConfigured: false,
+  });
+  assert.equal(report.providerConfigured, false);
+  assert.equal(report.requested, 3);
+  assert.equal(report.items.length, 3);
+  assert.deepEqual(report.items.map((item) => item.targetId), [3, 5, 10]);
+  assert.equal(report.items[0].outcome, "ERROR");
+  assert.equal(report.items[0].errorCode, "PROVIDER_DISABLED");
+  assert.equal(report.items[1].outcome, "SKIP_NOT_FOUND");
+  assert.equal(report.items[2].outcome, "SKIP_NOT_PUBLISHED");
+  assert.equal(fixture.reads.some(([, id]) => id === 11), false);
+  assert.equal(fixture.writes, 0);
+});
+
+test("explicit admin API keeps auth, same-origin and explicit confirmation guards", () => {
+  assert.match(operationsApi, /getAdminApiUser/);
+  assert.match(operationsApi, /sameOriginJson/);
+  assert.match(operationsApi, /explicit-preview/);
+  assert.match(operationsApi, /explicit-onboard/);
+  assert.match(operationsApi, /EXPLICIT-ONBOARD/);
+  assert.match(operationsApi, /validateExplicitGeoTargetIds/);
+  assert.match(operations, /for \(const targetId of targetIds\)/);
+  const explicitStart = operations.indexOf("export async function previewExplicitGeoOnboarding");
+  const explicitEnd = operations.indexOf("export function selectGeoCanaryCandidates");
+  const explicitBlock = operations.slice(explicitStart, explicitEnd);
+  assert.doesNotMatch(explicitBlock, /listGeoCandidateSources/);
 });
 
 test("Gate A inventory is SELECT-only and never reads private lost/found storage", () => {
