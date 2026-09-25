@@ -369,3 +369,68 @@
   .partner-auth-method-row .button,.partner-google-button{width:100%;justify-content:center}
   .partner-password-settings-form{max-width:none}
 }
+
+
+/* PARTNER-LAUNCH-B: focused auth/account accessibility polish */
+.partner-password-control{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  align-items:stretch;
+}
+.partner-password-toggle{
+  min-width:48px;
+  min-height:48px;
+  padding:0 12px;
+  border:1px solid #c9d5ce;
+  border-radius:11px;
+  color:#174b38;
+  background:#fff;
+  font:inherit;
+  font-size:.82rem;
+  font-weight:800;
+  cursor:pointer;
+}
+.partner-password-toggle:hover{background:#f7faf7}
+.partner-password-toggle:focus-visible,
+.partner-shell-logout:focus-visible{
+  outline:3px solid rgba(31,104,75,.22);
+  outline-offset:2px;
+}
+.partner-password-requirement{
+  color:var(--muted);
+  font-size:.8rem;
+  font-weight:500;
+  line-height:1.5;
+}
+.partner-dashboard-header nav .partner-logout-control{
+  display:grid;
+  flex:0 0 auto;
+  gap:4px;
+}
+.partner-shell-logout{
+  min-height:40px;
+  padding:9px 11px;
+  border:0;
+  border-radius:9px;
+  color:var(--muted);
+  background:transparent;
+  font:inherit;
+  font-size:.83rem;
+  font-weight:750;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.partner-shell-logout:hover{background:#edf5ef;color:#174b38}
+.partner-shell-logout:disabled{cursor:not-allowed;opacity:.55}
+.partner-logout-error{
+  max-width:220px;
+  color:#8b3126;
+  font-size:.72rem;
+  line-height:1.35;
+  white-space:normal;
+}
+@media(max-width:760px){
+  .partner-shell-logout{min-height:44px}
+  .partner-dashboard-header nav .partner-logout-error{max-width:180px}
+}

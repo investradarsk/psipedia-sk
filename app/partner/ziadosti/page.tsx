@@ -4,9 +4,11 @@ import { PartnerProfileChangeWithdrawButton } from "@/components/partner-profile
 import { PartnerNewProfileWithdrawButton } from "@/components/partner-new-profile-actions";
 import { PartnerEventWithdrawButton } from "@/components/partner-event-actions";
 import { PartnerShell } from "@/components/partner-shell";
+import { getDirectoryCategory } from "@/lib/directory";
 import { requirePartnerPageIdentity } from "@/lib/partner-page-auth";
 import { listPartnerClaims, listPartnerVerificationResources } from "@/lib/partner-claims";
-import { listPartnerProfileChanges } from "@/lib/partner-profile-changes";
+import { getPartnerEditableFields, listPartnerProfileChanges } from "@/lib/partner-profile-changes";
+import { partnerEventOperationLabel, partnerOrganizationTypeLabel } from "@/lib/partner-ui-labels";
 import { listPartnerNewProfiles } from "@/lib/partner-new-profile";
 import { listPartnerEventSubmissions } from "@/lib/partner-events";
 
@@ -24,6 +26,16 @@ const verificationLabels = {
   VERIFIED: "Overené",
   REJECTED: "Overenie zamietnuté",
 } as const;
+
+function profileFieldLabel(resourceType: Parameters<typeof getPartnerEditableFields>[0], key: string) {
+  return getPartnerEditableFields(resourceType).find((field) => field.key === key)?.label ?? key;
+}
+
+function profileCategoryLabel(resourceType: "DIRECTORY_PROFILE" | "HELP_ORGANIZATION", value: string) {
+  return resourceType === "DIRECTORY_PROFILE"
+    ? getDirectoryCategory(value)?.label ?? value
+    : partnerOrganizationTypeLabel(value);
+}
 
 export default async function Page() {
   const identity = await requirePartnerPageIdentity();
@@ -75,14 +87,14 @@ export default async function Page() {
             </div>
             <dl>
               <div><dt>Odoslané</dt><dd>{new Date(submission.createdAt).toLocaleString("sk-SK")}</dd></div>
-              <div><dt>Typ / kategória</dt><dd>{submission.categoryOrType}</dd></div>
+              <div><dt>Typ / kategória</dt><dd>{profileCategoryLabel(submission.resourceType, submission.categoryOrType)}</dd></div>
             </dl>
             {submission.duplicateWarning ? <p><strong>Kontrola duplicít:</strong> {submission.duplicateWarning}</p> : null}
             {submission.resolutionType === "CREATED_NEW" ? <p>Profil bol vytvorený ako koncept a čaká na publikovanie.</p> : null}
             {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim profilom.</p> : null}
             {submission.rejectionReason ? <p><strong>Dôvod:</strong> {submission.rejectionReason}</p> : null}
             <div className="partner-request-links">
-              {submission.canonicalHref ? <Link href={submission.canonicalHref}>Canonical profil →</Link> : null}
+              {submission.canonicalHref ? <Link href={submission.canonicalHref}>Verejný profil →</Link> : null}
               {submission.canWithdraw ? <PartnerNewProfileWithdrawButton id={submission.id} /> : null}
             </div>
           </article>
@@ -102,7 +114,7 @@ export default async function Page() {
             </div>
             <dl>
               <div><dt>Odoslané</dt><dd>{new Date(submission.createdAt).toLocaleString("sk-SK")}</dd></div>
-              <div><dt>Operácia</dt><dd>{submission.operation}</dd></div>
+              <div><dt>Typ návrhu</dt><dd>{partnerEventOperationLabel(submission.operation)}</dd></div>
             </dl>
             {submission.resolutionType === "CREATED_NEW" ? <p>Podujatie bolo vytvorené ako koncept a zatiaľ nemusí byť verejne publikované.</p> : null}
             {submission.resolutionType === "LINKED_EXISTING" ? <p>Návrh bol prepojený s existujúcim podujatím.</p> : null}
@@ -129,7 +141,7 @@ export default async function Page() {
               <div><dt>Odoslané</dt><dd>{new Date(change.createdAt).toLocaleString("sk-SK")}</dd></div>
               <div><dt>Zmenené polia</dt><dd>{change.changedFields.length}</dd></div>
             </dl>
-            <p>{change.changedFields.join(", ")}</p>
+            <p>{change.changedFields.map((key) => profileFieldLabel(change.resourceType, key)).join(", ")}</p>
             {change.rejectionReason ? <p><strong>Dôvod:</strong> {change.rejectionReason}</p> : null}
             <div className="partner-request-links">
               <Link href={change.publicHref} target="_blank">Verejný profil ↗</Link>
@@ -153,7 +165,7 @@ export default async function Page() {
               <PartnerVerificationRequest resourceId={resource.resourceId} state={resource.verificationState} />
             </div>
           </article>
-        ))}</div> : <div className="partner-empty"><h2>Nemáte OWNER profil vhodný na overenie</h2><p>Po schválení prevzatia sa profil zobrazí medzi vašimi spravovanými profilmi.</p></div>}
+        ))}</div> : <div className="partner-empty"><h2>Nemáte profil vhodný na overenie</h2><p>Po schválení prevzatia sa profil zobrazí medzi vašimi spravovanými profilmi.</p></div>}
       </section>
     </PartnerShell>
   );
