@@ -163,8 +163,8 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   const detailResponse = await page.goto(`/admin/automatizacie/zdroje/${id}`, { waitUntil: "domcontentloaded" });
   expect(detailResponse?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: editedLabel, exact: true })).toBeVisible();
-  await expect(page.getByText("APPROVED", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("DISABLED", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Schválený", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Vypnutý", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("SUCCESS", { exact: true }).first()).toBeVisible();
 
   const testSourceButton = page.getByRole("button", { name: "Otestovať zdroj", exact: true });
