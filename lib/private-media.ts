@@ -97,6 +97,7 @@ export async function ingestPrivateImage(input: {
   declaredMime: string;
   ownerType: string;
   ownerId: string;
+  assetId?: string;
   privateBucket: PrivateBucketLike;
   images: ImagesBindingLike;
 }) {
@@ -106,7 +107,7 @@ export async function ingestPrivateImage(input: {
   if (!detectedMime || detectedMime !== input.declaredMime) throw new Error("Image MIME mismatch");
   const dimensions = validateImageDimensions(imageDimensions(input.bytes, detectedMime));
 
-  const assetId = crypto.randomUUID();
+  const assetId = input.assetId ?? crypto.randomUUID();
   const rawKey = `quarantine/${input.ownerType}/${input.ownerId}/${assetId}-${randomSuffix()}`;
   const safeKey = `safe/${input.ownerType}/${input.ownerId}/${assetId}.webp`;
   await input.privateBucket.put(rawKey, input.bytes, {
