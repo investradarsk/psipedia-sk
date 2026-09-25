@@ -39,13 +39,25 @@ test("payloads stay short, admin-only and free of raw submission PII",()=>{
   assert.doesNotMatch(events,/request_message|request_note|reviewer.*email|contact_phone|contact_email/);
 });
 
-test("Partner registration alerts only on actual account creation, never ordinary login",()=>{
+test("Partner registration alerts cover magic-link, password and Google creation without ordinary login alerts",()=>{
+  const notifications=read("lib/admin-notifications.ts");
+  assert.match(notifications,/enqueuePartnerAccountRegistrationAdminNotification/);
+  assert.match(notifications,/partner_account_registered/);
+  assert.match(notifications,/\/admin\/partners\/accounts\//);
+
   const auth=read("lib/partner-auth.ts");
   const created=auth.slice(auth.indexOf("if (created.created)"),auth.indexOf("// Public response remains identical"));
-  assert.match(created,/partner_account_registered/);
-  assert.match(created,/\/admin\/partners\/accounts\//);
+  assert.match(created,/enqueuePartnerAccountRegistrationAdminNotification/);
   const login=auth.slice(auth.indexOf('if (!existing && mode === "LOGIN")'),auth.indexOf("let account = existing"));
-  assert.doesNotMatch(login,/enqueueAdminNotificationEvent|partner_account_registered/);
+  assert.doesNotMatch(login,/enqueuePartnerAccountRegistrationAdminNotification/);
+
+  const password=read("lib/partner-password-auth.ts");
+  const passwordRegister=password.slice(password.indexOf("export async function registerPartnerWithPassword"),password.indexOf("export async function loginPartnerWithPassword"));
+  assert.match(passwordRegister,/if\(created\)[\s\S]+enqueuePartnerAccountRegistrationAdminNotification/);
+
+  const google=read("lib/partner-google-auth.ts");
+  const googleCreate=google.slice(google.indexOf("const accountId=crypto.randomUUID()"),google.indexOf("export async function getPendingGoogleLink"));
+  assert.match(googleCreate,/createActiveGooglePartnerAccount[\s\S]+enqueuePartnerAccountRegistrationAdminNotification/);
 });
 
 test("Partner actionable creation events have universal admin push coverage",()=>{
@@ -71,6 +83,22 @@ test("Partner actionable creation events have universal admin push coverage",()=
   const commercial=read("lib/partner-commercial.ts");
   assert.match(commercial,/partner_commercial_lead_created/);
   assert.match(commercial,/\/admin\/partners\/commercial\//);
+});
+
+test("Partner commercial agreement lifecycle has universal push coverage with admin self-suppression identity",()=>{
+  const source=read("lib/partner-commercial-agreements.ts");
+  assert.match(source,/adminNotificationAdminActorRef/);
+  assert.match(source,/partner_commercial_agreement_created/);
+  assert.match(source,/partner_commercial_agreement_updated/);
+  assert.match(source,/partner_commercial_payment_paid/);
+  assert.match(source,/partner_commercial_payment_waived/);
+  assert.match(source,/partner_commercial_agreement_activated/);
+  assert.match(source,/partner_commercial_entitlement_paused/);
+  assert.match(source,/partner_commercial_agreement_cancelled/);
+  assert.match(source,/partner_commercial_agreement_expired/);
+  assert.match(source,/actorType:"SYSTEM"/);
+  assert.match(source,/\/admin\/partners\/commercial\/agreements\//);
+  assert.match(source,/partner_commercial_admin_push_enqueue/);
 });
 
 test("public, review, automation and geo actionable events have push coverage",()=>{
