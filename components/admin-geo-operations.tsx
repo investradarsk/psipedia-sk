@@ -23,6 +23,42 @@ type SafeInitializationPreview = {
   }>;
 };
 
+type ExplicitPreviewItem = {
+  targetType: string;
+  targetId: number;
+  canonicalExists: boolean;
+  publishedEligible: boolean;
+  name: string;
+  category: string | null;
+  city: string | null;
+  district: string | null;
+  region: string | null;
+  canonicalAddressPresent: boolean;
+  geoPointExists: boolean;
+  currentGeocodeStatus: string | null;
+  currentVisibility: string | null;
+  currentPrecision: string | null;
+  manualOverride: boolean;
+  sourceFingerprint: string | null;
+  resolvedSourceFingerprint: string | null;
+  normalizedQuery: string | null;
+  eligibleForInitialization: boolean;
+  eligibleForClassification: boolean;
+  eligibleForResolve: boolean;
+  alreadyResolved: boolean;
+  blockReason: string | null;
+};
+
+type ExplicitPreviewReport = {
+  requested: number;
+  matched: number;
+  eligible: number;
+  alreadyResolved: number;
+  blocked: number;
+  targetIds: number[];
+  items: ExplicitPreviewItem[];
+};
+
 type BackfillChunkReport = {
   configured?: boolean;
   requested?: number;
@@ -51,6 +87,37 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
   const [directoryCategory, setDirectoryCategory] = useState("");
   const [progress, setProgress] = useState("");
   const [safeInitialization, setSafeInitialization] = useState<SafeInitializationPreview | null>(null);
+  const [explicitTargetType, setExplicitTargetType] = useState("DIRECTORY_PROFILE");
+  const [explicitIdsText, setExplicitIdsText] = useState("");
+  const [explicitVisibility, setExplicitVisibility] = useState("APPROXIMATE_PUBLIC");
+  const [explicitPrecision, setExplicitPrecision] = useState("MUNICIPALITY");
+  const [explicitPreview, setExplicitPreview] = useState<ExplicitPreviewReport | null>(null);
+  const [explicitReport, setExplicitReport] = useState<unknown>(null);
+  const [explicitConfirmed, setExplicitConfirmed] = useState(false);
+
+  function parsedExplicitIds() {
+    const raw = explicitIdsText.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
+    if (!raw.length) throw new Error("Zadaj 1 až 20 ID.");
+    if (raw.length > 20) throw new Error("Maximum je 20 ID.");
+    const ids = raw.map((value) => Number(value));
+    if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) throw new Error("ID musia byť kladné celé čísla.");
+    if (new Set(ids).size !== ids.length) throw new Error("ID musia byť unique.");
+    return ids;
+  }
+
+  const explicitPreviewMatchesRequested = (() => {
+    if (!explicitPreview) return false;
+    try {
+      const ids = parsedExplicitIds();
+      return explicitPreview.requested === ids.length
+        && explicitPreview.matched === ids.length
+        && explicitPreview.targetIds.length === ids.length
+        && explicitPreview.targetIds.every((id, index) => id === ids[index])
+        && explicitPreview.items.every((item, index) => item.targetId === ids[index]);
+    } catch {
+      return false;
+    }
+  })();
 
   async function postAction(payload: Record<string, unknown>) {
     const response = await fetch("/api/admin/geo/operations", {
@@ -96,6 +163,144 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
       <p className="admin-help"><strong>Gate B:</strong> Slovak quality canary nie je automaticky spustený.</p>
       <p className="admin-help"><strong>Gate C:</strong> Geoapify provider {providerConfigured ? "má dostupný server-side secret." : "nemá dostupný server-side secret."}</p>
       <p className="admin-message admin-message--error"><strong>Full production backfill je hard-disabled.</strong> Táto stránka nemá akciu „geocode všetko“.</p>
+    </section>
+
+    <section className="admin-form-card" data-admin-explicit-geo-onboarding>
+      <h2>Explicitný onboarding</h2>
+      <p className="admin-help">
+        Spracuje iba presne zadané ID (max. 20). Preview nerobí writes ani provider calls.
+        Prvý production contract je striktne DIRECTORY_PROFILE + APPROXIMATE_PUBLIC + MUNICIPALITY.
+      </p>
+      <div className="admin-field-grid">
+        <div className="admin-field">
+          <label htmlFor="geo-explicit-target">Target type</label>
+          <select id="geo-explicit-target" value={explicitTargetType} onChange={(event) => {
+            setExplicitTargetType(event.target.value);
+            setExplicitPreview(null);
+            setExplicitConfirmed(false);
+          }}>
+            <option value="DIRECTORY_PROFILE">DIRECTORY_PROFILE</option>
+            <option value="MANAGED_EVENT">MANAGED_EVENT</option>
+            <option value="ORGANIZATION_LOCATION">ORGANIZATION_LOCATION</option>
+          </select>
+        </div>
+        <div className="admin-field">
+          <label htmlFor="geo-explicit-visibility">Visibility</label>
+          <select id="geo-explicit-visibility" value={explicitVisibility} onChange={(event) => {
+            setExplicitVisibility(event.target.value);
+            setExplicitPreview(null);
+            setExplicitConfirmed(false);
+          }}>
+            <option value="APPROXIMATE_PUBLIC">APPROXIMATE_PUBLIC</option>
+            <option value="EXACT_PUBLIC">EXACT_PUBLIC</option>
+            <option value="HIDDEN">HIDDEN</option>
+          </select>
+        </div>
+        <div className="admin-field">
+          <label htmlFor="geo-explicit-precision">Precision</label>
+          <select id="geo-explicit-precision" value={explicitPrecision} onChange={(event) => {
+            setExplicitPrecision(event.target.value);
+            setExplicitPreview(null);
+            setExplicitConfirmed(false);
+          }}>
+            <option value="MUNICIPALITY">MUNICIPALITY</option>
+            <option value="NEIGHBORHOOD">NEIGHBORHOOD</option>
+            <option value="SERVICE_AREA">SERVICE_AREA</option>
+            <option value="APPROXIMATE">APPROXIMATE</option>
+            <option value="EXACT">EXACT</option>
+          </select>
+        </div>
+      </div>
+      <div className="admin-field">
+        <label htmlFor="geo-explicit-ids">Canonical IDs</label>
+        <textarea
+          id="geo-explicit-ids"
+          rows={3}
+          value={explicitIdsText}
+          onChange={(event) => {
+            setExplicitIdsText(event.target.value);
+            setExplicitPreview(null);
+            setExplicitConfirmed(false);
+          }}
+          placeholder="3, 5, 10 alebo jedno ID na riadok"
+        />
+        <p className="admin-help">Iba explicitné positive integer IDs. Wildcard, range a category-only execution nie sú podporované.</p>
+      </div>
+      <div className="admin-editor-actions">
+        <button type="button" disabled={busy || !explicitIdsText.trim()} onClick={async () => {
+          setError(""); setMessage(""); setExplicitReport(null); setExplicitConfirmed(false);
+          let ids: number[];
+          try { ids = parsedExplicitIds(); }
+          catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Neplatné ID.");
+            return;
+          }
+          const report = await action({
+            action: "explicit-preview",
+            targetType: explicitTargetType,
+            targetIds: ids,
+            visibility: explicitVisibility,
+            precision: explicitPrecision,
+          });
+          if (report) {
+            setExplicitPreview(report as ExplicitPreviewReport);
+            setMessage("Explicitný preview dokončený. Bez writes a bez provider callov.");
+          }
+        }}>Náhľad</button>
+      </div>
+
+      {explicitPreview ? <>
+        <p className="admin-help">
+          Requested {explicitPreview.requested} · matched {explicitPreview.matched} · eligible {explicitPreview.eligible}
+          {" · "}already resolved {explicitPreview.alreadyResolved} · blocked {explicitPreview.blocked}
+        </p>
+        <p className="admin-help"><strong>Exact IDs:</strong> {explicitPreview.targetIds.join(", ")}</p>
+        <div style={{ overflowX: "auto" }}>
+          <table className="admin-table">
+            <thead><tr><th>ID</th><th>Názov</th><th>Stav</th><th>Query</th><th>Block</th></tr></thead>
+            <tbody>{explicitPreview.items.map((item) => <tr key={item.targetType + ":" + item.targetId}>
+              <td>{item.targetId}</td>
+              <td>{item.name || "—"}</td>
+              <td>{item.alreadyResolved ? "ALREADY_RESOLVED" : item.eligibleForResolve ? "ELIGIBLE" : "BLOCKED"}</td>
+              <td>{item.normalizedQuery ?? "—"}</td>
+              <td>{item.blockReason ?? "—"}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        {!explicitPreviewMatchesRequested && <p className="admin-message admin-message--error" role="alert">
+          Preview target set sa nezhoduje so zadaným setom. Execute je zablokovaný.
+        </p>}
+        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+          <input type="checkbox" checked={explicitConfirmed} onChange={(event) => setExplicitConfirmed(event.target.checked)} />
+          Potvrdzujem presný target set a normalized queries z preview.
+        </label>
+        <div className="admin-editor-actions">
+          <button type="button" disabled={busy || !providerConfigured || !explicitConfirmed || !explicitPreviewMatchesRequested} onClick={async () => {
+            let ids: number[];
+            try { ids = parsedExplicitIds(); }
+            catch (caught) {
+              setError(caught instanceof Error ? caught.message : "Neplatné ID.");
+              return;
+            }
+            if (!window.confirm("Spustiť explicitný geo batch iba pre ID: " + ids.join(", ") + "?")) return;
+            const report = await action({
+              action: "explicit-onboard",
+              targetType: explicitTargetType,
+              targetIds: ids,
+              visibility: explicitVisibility,
+              precision: explicitPrecision,
+              confirm: "EXPLICIT-ONBOARD",
+            });
+            if (report) {
+              setExplicitReport(report);
+              setMessage("Explicitný batch skončil. Skontroluj per-target report.");
+              setExplicitConfirmed(false);
+            }
+          }}>Spustiť explicitný batch</button>
+        </div>
+      </> : null}
+
+      {explicitReport ? <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(explicitReport, null, 2)}</pre> : null}
     </section>
 
     <section className="admin-form-card">
