@@ -92,8 +92,12 @@ test("admin CREATE is atomic and hard-forces canonical draft without publication
  assert.match(create,/assertEventIndependentOwnershipApprover/);
  assert.ok(create.indexOf("assertEventIndependentOwnershipApprover")<create.indexOf("applyAtomicModerationTransition"));
  assert.match(create,/EVENT_CREATED/);assert.match(create,/CREATED_NEW/);
- assert.match(insert,/INSERT INTO managed_events/);assert.match(insert,/'draft'/);assert.match(insert,/NULL,NULL,0,'\{\}'/);
+ assert.match(insert,/INSERT INTO managed_events/);assert.match(insert,/'draft'/);
+ assert.match(insert,/image_url,image_key,cancelled,seo_json/);
+ assert.match(insert,/input\.media\?\.imageUrl\?\?null/);assert.match(insert,/input\.media\?\.imageKey\?\?null/);
+ assert.match(insert,/0,'\{\}'/);
  assert.match(insert,/published_at|published/i); // column exists but value is NULL
+ assert.match(insert,/NULL,\?21,\?21/); // published_at remains NULL even when moderated media is present
  assert.doesNotMatch(insert,/SELECT[^\n]*'published'/i);
 });
 
