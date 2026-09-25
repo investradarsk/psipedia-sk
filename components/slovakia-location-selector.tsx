@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useState } from "react";
 import {
   SLOVAK_REGIONS,
   getSlovakDistricts,
@@ -36,23 +36,29 @@ export function SlovakiaLocationSelector({
   const districtErrorId = `${baseId}-district-error`;
   const cityErrorId = `${baseId}-municipality-error`;
 
-  const [selectedRegion, setSelectedRegion] = useState(value.region);
-  const [selectedDistrict, setSelectedDistrict] = useState(value.district);
-  const [selectedCity, setSelectedCity] = useState(value.city);
-  const [query, setQuery] = useState(value.city);
+  const selectedRegion = value.region;
+  const selectedDistrict = value.district;
+  const selectedCity = value.city;
+  const [inputQuery, setInputQuery] = useState("");
+  const [editingQuery, setEditingQuery] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  const districts = useMemo(() => getSlovakDistricts(selectedRegion), [selectedRegion]);
-  const municipalities = useMemo(
-    () => selectedDistrict ? searchSlovakMunicipalities(selectedDistrict, query, 80) : [],
-    [selectedDistrict, query],
-  );
+  const query = editingQuery ? inputQuery : selectedCity;
+  const districts = getSlovakDistricts(selectedRegion);
+  const municipalities = selectedDistrict ? searchSlovakMunicipalities(selectedDistrict, query, 80) : [];
+
+  function resetMunicipalityQuery() {
+    setInputQuery("");
+    setEditingQuery(false);
+    setOpen(false);
+    setActiveIndex(-1);
+  }
 
   function chooseMunicipality(city: string) {
-    setSelectedCity(city);
     onChange({ region: selectedRegion, district: selectedDistrict, city });
-    setQuery(city);
+    setInputQuery("");
+    setEditingQuery(false);
     setOpen(false);
     setActiveIndex(-1);
   }
@@ -84,8 +90,7 @@ export function SlovakiaLocationSelector({
           data-field-error={errors.region ? "true" : undefined}
           onChange={(event) => {
             const region = event.target.value;
-            setSelectedRegion(region); setSelectedDistrict(""); setSelectedCity("");
-            onChange({ region, district: "", city: "" }); setQuery(""); setOpen(false); setActiveIndex(-1);
+            onChange({ region, district: "", city: "" }); resetMunicipalityQuery();
           }}>
           <option value="">Vyberte kraj</option>
           {SLOVAK_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}
@@ -102,8 +107,7 @@ export function SlovakiaLocationSelector({
           data-field-error={errors.district ? "true" : undefined}
           onChange={(event) => {
             const district = event.target.value;
-            setSelectedDistrict(district); setSelectedCity("");
-            onChange({ region: selectedRegion, district, city: "" }); setQuery(""); setOpen(false); setActiveIndex(-1);
+            onChange({ region: selectedRegion, district, city: "" }); resetMunicipalityQuery();
           }}>
           <option value="">{selectedRegion ? "Vyberte okres" : "Najprv vyberte kraj"}</option>
           {districts.map((district) => <option key={district} value={district}>{district}</option>)}
@@ -123,10 +127,18 @@ export function SlovakiaLocationSelector({
             value={query} required={required} disabled={disabled || !selectedDistrict}
             placeholder={selectedDistrict ? "Začnite písať obec alebo mesto" : "Najprv vyberte okres"}
             onFocus={() => { if (selectedDistrict) setOpen(true); }}
-            onBlur={() => { setOpen(false); setActiveIndex(-1); if (!selectedCity) setQuery(""); }}
+            onBlur={() => {
+              setOpen(false);
+              setActiveIndex(-1);
+              if (!selectedCity) {
+                setInputQuery("");
+                setEditingQuery(false);
+              }
+            }}
             onChange={(event) => {
-              setQuery(event.target.value);
-              if (selectedCity) { setSelectedCity(""); onChange({ region: selectedRegion, district: selectedDistrict, city: "" }); }
+              setInputQuery(event.target.value);
+              setEditingQuery(true);
+              if (selectedCity) onChange({ region: selectedRegion, district: selectedDistrict, city: "" });
               setOpen(true); setActiveIndex(-1);
             }}
             onKeyDown={onMunicipalityKeyDown}

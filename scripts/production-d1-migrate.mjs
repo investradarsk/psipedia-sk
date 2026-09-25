@@ -166,6 +166,7 @@ export const PARTNER_MEDIA_INDEXES = Object.freeze([
 ]);
 
 export const PARTNER_MEDIA_TRIGGERS = Object.freeze([
+  "moderation_partner_media_submitter_guard",
   "moderation_partner_media_attach_guard",
   "moderation_partner_media_attach_state",
 ]);
@@ -801,9 +802,23 @@ function assertPartnerMediaSchema(schema) {
     invariant(names.get(trigger)?.type === "trigger", `Missing Partner Media trigger: ${trigger}`);
   }
 
+  const submitterGuardSql = String(names.get("moderation_partner_media_submitter_guard")?.sql ?? "");
   const guardSql = String(names.get("moderation_partner_media_attach_guard")?.sql ?? "");
   const stateSql = String(names.get("moderation_partner_media_attach_state")?.sql ?? "");
-  invariant(guardSql.includes("PARTNER_ACCOUNT") && guardSql.includes("PENDING") && guardSql.includes("invalid partner media attachment"), "Partner Media attach guard signature is incomplete");
+  invariant(
+    submitterGuardSql.includes("PARTNER_ACCOUNT") && submitterGuardSql.includes("partner media requires Partner submission"),
+    "Partner Media submitter guard signature is incomplete",
+  );
+  invariant(
+    guardSql.includes("PARTNER_ACCOUNT")
+      && guardSql.includes("PENDING")
+      && guardSql.includes("PARTNER_PROFILE_CREATE")
+      && guardSql.includes("PARTNER_PROFILE_UPDATE")
+      && guardSql.includes("PARTNER_EVENT_CREATE")
+      && guardSql.includes("PARTNER_EVENT_UPDATE")
+      && guardSql.includes("invalid partner media attachment"),
+    "Partner Media attach guard signature is incomplete",
+  );
   invariant(stateSql.includes("ATTACHED"), "Partner Media attach-state trigger signature is incomplete");
   const mediaFk = schema.moderationSubmissionForeignKeys.find((fk) =>
     String(fk.from) === "media_asset_id" && String(fk.table) === "media_assets" && String(fk.to) === "id");
