@@ -28,7 +28,6 @@ on:
       - "scripts/check-config-contract.mjs"
       - "scripts/check-migration-safety.mjs"
       - "migration-safety.baseline.json"
-      - "package.json"
       - "package-lock.json"
       - ".github/workflows/notion-article-sync-ci.yml"
 

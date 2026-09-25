@@ -15,9 +15,12 @@ on:
       - "tests/profile-review-read.test.mjs"
       - "tests/e2e/profile-reviews-public.spec.ts"
       - "tests/fixtures/profile-reviews-e2e.sql"
-      - "package.json"
       - ".github/workflows/profile-reviews-public-ci.yml"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

@@ -18,9 +18,12 @@ on:
       - "tests/help-organization-publication.test.mjs"
       - "tests/e2e/admin-operations.spec.ts"
       - "tests/e2e/admin-organization-publication.spec.ts"
-      - "package.json"
       - ".github/workflows/admin-operations-ci.yml"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

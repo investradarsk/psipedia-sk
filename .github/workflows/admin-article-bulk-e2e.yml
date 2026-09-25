@@ -17,8 +17,11 @@ on:
       - "tests/admin-bulk-*.test.mjs"
       - "tests/e2e/admin-article-bulk-execution.spec.ts"
       - "tests/fixtures/article-admin-bulk-e2e.sql"
-      - "package.json"
       - ".github/workflows/admin-article-bulk-e2e.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
