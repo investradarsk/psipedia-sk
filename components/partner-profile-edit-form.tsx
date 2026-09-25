@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { PartnerProfileChangeResourceType, PartnerProfileEditableValue, PartnerProfileFieldDefinition } from "@/lib/partner-profile-changes";
 import { PartnerMediaField } from "@/components/partner-media-field";
+import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 
 type Props = {
   resourceId: string;
@@ -27,12 +28,14 @@ function apiValue(field: PartnerProfileFieldDefinition, value: string | boolean)
   return String(value);
 }
 
-export function PartnerProfileEditForm({ resourceId, fields, values, baseRevision, currentImageUrl }: Props) {
+export function PartnerProfileEditForm({ resourceId, fields, values, baseRevision, resourceType, currentImageUrl }: Props) {
   const initial = useMemo(() => Object.fromEntries(fields.map((field) => [field.key, uiValue(field, values[field.key])])), [fields, values]);
   const [draft, setDraft] = useState<Record<string, string | boolean>>(initial);
   const [state, setState] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [mediaAssetId, setMediaAssetId] = useState<string|null>(null);
+  const useSlovakLocation = resourceType === "DIRECTORY_PROFILE"
+    || (resourceType === "HELP_ORGANIZATION" && String(draft.countryCode ?? "").trim().toUpperCase() === "SK");
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -70,6 +73,23 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
       <div className="partner-profile-edit-grid">
         {fields.map((field) => {
           const value = draft[field.key] ?? "";
+          if ((field.key === "district" || field.key === "region") && useSlovakLocation) return null;
+          if (field.key === "city" && useSlovakLocation) {
+            return (
+              <SlovakiaLocationSelector
+                key="slovakia-location"
+                value={{
+                  region: String(draft.region ?? ""),
+                  district: String(draft.district ?? ""),
+                  city: String(draft.city ?? ""),
+                }}
+                onChange={(location) => setDraft((current) => ({ ...current, ...location }))}
+                required={resourceType === "DIRECTORY_PROFILE"}
+                disabled={state === "success"}
+                idPrefix="partner-edit-location"
+              />
+            );
+          }
           if (field.kind === "boolean") {
             return (
               <label className="partner-profile-check" key={field.key}>

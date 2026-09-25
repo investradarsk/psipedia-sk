@@ -79,6 +79,61 @@ test("Directory self-service categories use current public list and reject legac
   }
 });
 
+
+test("canonical Slovakia dataset drives dependent region, district and municipality choices", async()=>{
+  const locations=await importTs("lib/slovakia-locations.ts");
+  assert.equal(locations.SLOVAK_REGIONS.length,8);
+  assert.equal(Object.keys(locations.SLOVAK_MUNICIPALITIES_BY_DISTRICT).length,79);
+  assert.equal(locations.SLOVAK_MUNICIPALITY_COUNT,2927);
+  assert.deepEqual(
+    locations.getSlovakDistricts("Nitriansky kraj"),
+    ["Komárno","Levice","Nitra","Nové Zámky","Šaľa","Topoľčany","Zlaté Moravce"],
+  );
+  const zlateMoravce=locations.getSlovakMunicipalities("Zlaté Moravce");
+  for(const municipality of ["Zlaté Moravce","Beladice","Neverice","Tesárske Mlyňany"]){
+    assert.ok(zlateMoravce.includes(municipality), municipality);
+  }
+  assert.deepEqual(
+    locations.resolveSlovakLocation({region:"Nitriansky kraj",district:"Zlaté Moravce",city:"Neverice"}),
+    {region:"Nitriansky kraj",district:"Zlaté Moravce",city:"Neverice"},
+  );
+  assert.equal(
+    locations.resolveSlovakLocation({region:"Trnavský kraj",district:"Poprad",city:"Zlaté Moravce"}),
+    null,
+  );
+  assert.ok(locations.searchSlovakMunicipalities("Zlaté Moravce","tesarske").includes("Tesárske Mlyňany"));
+});
+
+test("server rejects inconsistent Slovak new-profile locations", async()=>{
+  const {normalizePartnerNewProfile}=await importTs("lib/partner-new-profile.ts");
+  const base={
+    name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",
+    description:"Toto je dostatočne dlhý verejný popis testovacieho profilu.",
+    services:[],qualifications:[],city:"Zlaté Moravce",district:"Zlaté Moravce",region:"Nitriansky kraj",address:"",
+    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"",facebookUrl:"",instagramUrl:"",
+  };
+  assert.equal(normalizePartnerNewProfile("DIRECTORY_PROFILE",base).values.city,"Zlaté Moravce");
+  assert.throws(
+    ()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,district:"Poprad",region:"Trnavský kraj"}),
+    /platnú obec\/mesto, okres a kraj/,
+  );
+
+  const help={
+    name:"OZ Test",type:"CIVIC_ASSOCIATION",legalName:"",registrationNumber:"",shortDescription:"",description:"",
+    publicEmail:"",publicPhone:"",websiteUrl:"",facebookUrl:"",instagramUrl:"",address:"",
+    city:"Neverice",district:"Zlaté Moravce",region:"Nitriansky kraj",countryCode:"SK",
+  };
+  assert.equal(normalizePartnerNewProfile("HELP_ORGANIZATION",help).values.city,"Neverice");
+  assert.throws(
+    ()=>normalizePartnerNewProfile("HELP_ORGANIZATION",{...help,district:"Poprad"}),
+    /platnú obec\/mesto, okres a kraj/,
+  );
+  assert.equal(
+    normalizePartnerNewProfile("HELP_ORGANIZATION",{...help,countryCode:"CZ",city:"Praha",district:"Praha",region:"Hlavní město Praha"}).values.region,
+    "Hlavní město Praha",
+  );
+});
+
 test("server field allowlist rejects system and unknown fields",async()=>{
   const {normalizePartnerNewProfile}=await importTs("lib/partner-new-profile.ts");
   const base={

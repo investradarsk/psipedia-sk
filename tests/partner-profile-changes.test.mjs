@@ -130,8 +130,14 @@ test("mass assignment, malformed URL, XSS and oversized arrays are rejected serv
     /najviac 20/,
   );
   assert.deepEqual(
-    normalizePartnerProfilePatch("DIRECTORY_PROFILE", { city: " Trnava " }, current),
-    { city: "Trnava" },
+    normalizePartnerProfilePatch("DIRECTORY_PROFILE", {
+      city: " Trnava ", district: "Trnava", region: "Trnavský kraj",
+    }, current),
+    { city: "Trnava", district: "Trnava", region: "Trnavský kraj" },
+  );
+  assert.throws(
+    () => normalizePartnerProfilePatch("DIRECTORY_PROFILE", { city: "Zlaté Moravce" }, current),
+    /platnú obec\/mesto, okres a kraj/,
   );
 });
 
