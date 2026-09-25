@@ -754,8 +754,14 @@ function assertPartnerMultimethodAuthSchema(schema) {
   );
 }
 
+function assertAdminNotificationPrerequisites(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("admin_push_subscriptions")?.type === "table", "Missing admin_push_subscriptions table for universal admin notifications");
+}
+
 function assertAdminUniversalNotificationsSchema(schema) {
   const names = objectMap(schema.objects);
+  assertAdminNotificationPrerequisites(schema);
   for (const table of ADMIN_NOTIFICATION_TABLES) {
     invariant(names.get(table)?.type === "table", `Missing admin notification table: ${table}`);
   }
@@ -1006,7 +1012,10 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 67) assertPartnerEventsSchema(schema);
     if (targetIndex > 68) assertPartnerCommercialSchema(schema);
     if (targetIndex > 69) assertPartnerAuthCompatibilitySchema(schema);
-    if (targetIndex > 70) assertPartnerMultimethodAuthSchema(schema);
+    if (targetIndex > 70) {
+      assertPartnerMultimethodAuthSchema(schema);
+      assertAdminNotificationPrerequisites(schema);
+    }
     if (targetIndex > 71) {
       assertAdminUniversalNotificationsSchema(schema);
       assertPartnerMediaPrerequisites(schema);
