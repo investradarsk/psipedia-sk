@@ -110,7 +110,7 @@ function displayValue(value: unknown) {
   return JSON.stringify(value);
 }
 
-function pickTitle(clusterId: number, evidence: AutomationClusterEvidence[]) {
+function pickTitle(clusterId: number, evidence: EvidenceInternal[]) {
   for (const field of ["title", "name"]) {
     const candidates = evidence
       .filter((item) => item.clusterId === clusterId && item.fieldName === field && item.isCurrent)
@@ -234,7 +234,7 @@ export async function getAutomationClusterDetail(id: number, databaseInput?: Dat
         JOIN automation_cluster_observations co ON co.observation_id=mc.observation_id
         WHERE co.cluster_id=? ORDER BY mc.created_at DESC`).bind(id),
     ];
-    const [sourceRows,evidenceRows,conflictRows,findingRows,matchRows] = await db.batch<Record<string, unknown>>(statements);
+    const [sourceRows,evidenceRows,conflictRows,findingRows,matchRows] = await db.batch(statements);
     const evidence = (evidenceRows.results ?? []).map(mapEvidence);
     const sources = (sourceRows.results ?? []).map((row) => {
       const sourceId = Number(row.source_id);
