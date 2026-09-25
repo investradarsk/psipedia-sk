@@ -257,7 +257,7 @@ test("ZSK observations reuse the existing EVENT clustering contract", () => {
 });
 
 test("ZSK source provisioning stays disabled, pending and authoritative only as evidence", () => {
-  const migration = read("drizzle/0074_automation_zsk_event_source.sql");
+  const migration = read("drizzle/0075_automation_zsk_event_source.sql");
   assert.match(migration, /'zsk-sr-events'/);
   assert.match(migration, /'https:\/\/zsksr\.sk\/kalendar\/'/);
   assert.match(migration, /'EVENT'/);
