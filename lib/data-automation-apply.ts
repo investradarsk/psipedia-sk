@@ -13,6 +13,7 @@ import {
   type AutomationFindingDetail,
 } from "./data-automation-store.ts";
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
+import { getAutomationClusterForFinding, linkAutomationClusterCanonical } from "./data-automation-clustering.ts";
 
 type RuntimeBindings = { DB?: D1Database };
 
@@ -949,9 +950,15 @@ export async function applyAutomationFinding(input: {
   const at = (input.now ?? new Date()).toISOString();
   const notes = input.notes?.trim().slice(0, 2000) || null;
   const config = entityConfigs[finding.entityType];
+  const cluster = await getAutomationClusterForFinding(finding.id, db);
 
   if (finding.findingType === "NEW_ENTITY") {
     if (finding.canonicalEntityId) throw new AutomationApplyConflictError("Finding už má canonical záznam.");
+    if (cluster?.canonicalEntityId) {
+      throw new AutomationApplyConflictError(
+        `Multi-source cluster už je naviazaný na canonical ${cluster.canonicalEntityKey ?? cluster.canonicalEntityId}; druhý draft sa nevytvorí.`,
+      );
+    }
     const unsupported = unsupportedAutomationApplyFields(finding.entityType, finding.diff);
     if (unsupported.length) {
       throw new AutomationApplyUnsupportedError(`Nový koncept obsahuje nepodporované polia: ${unsupported.join(", ")}.`);
@@ -996,10 +1003,46 @@ export async function applyAutomationFinding(input: {
         WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
           finding.id, config.keyPrefix, finding.id, notes, actor, at, finding.id,
         );
-      await db.batch([draft.statement, application, closeFinding]);
+      const clusterClaim = cluster
+        ? db.prepare(`INSERT INTO automation_cluster_canonical_claims (cluster_id,finding_id,canonical_entity_id,claimed_at)
+            VALUES (?,?,NULL,?)`).bind(cluster.id, finding.id, at)
+        : null;
+      const clusterLink = cluster
+        ? db.prepare(`UPDATE automation_entity_clusters SET
+            canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
+            canonical_entity_key=? || ':' || (SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
+            updated_at=?
+          WHERE id=? AND canonical_entity_id IS NULL`).bind(
+            finding.id, config.keyPrefix, finding.id, at, cluster.id,
+          )
+        : null;
+      const clusterClaimComplete = cluster
+        ? db.prepare(`UPDATE automation_cluster_canonical_claims SET
+            canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?)
+          WHERE cluster_id=? AND finding_id=?`).bind(finding.id, cluster.id, finding.id)
+        : null;
+      try {
+        await db.batch([
+          ...(clusterClaim ? [clusterClaim] : []),
+          draft.statement,
+          application,
+          ...(clusterLink ? [clusterLink] : []),
+          ...(clusterClaimComplete ? [clusterClaimComplete] : []),
+          closeFinding,
+        ]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (cluster && /automation_cluster_canonical_claims.*(?:UNIQUE|PRIMARY KEY)|UNIQUE constraint failed: automation_cluster_canonical_claims/i.test(message)) {
+          throw new AutomationApplyConflictError("Tento multi-source cluster už medzitým vytvoril alebo claimol canonical draft.");
+        }
+        throw error;
+      }
     }
   } else {
     if (!finding.canonicalEntityId) throw new AutomationApplyConflictError("Finding nemá jednoznačný canonical záznam.");
+    if (cluster?.canonicalEntityId && cluster.canonicalEntityId !== finding.canonicalEntityId) {
+      throw new AutomationApplyConflictError("Multi-source cluster je naviazaný na iný canonical záznam; automatický apply je blokovaný.");
+    }
     const current = await loadCurrentRow(finding, db);
     if (!current) throw new AutomationApplyConflictError("Canonical záznam už neexistuje.");
     const update = updateExistingStatement(finding, current, actor, at, db);
@@ -1015,6 +1058,15 @@ export async function applyAutomationFinding(input: {
         notes, actor, at, finding.id,
       );
     await db.batch([update.statement, application, closeFinding]);
+    if (cluster && finding.canonicalEntityId) {
+      const linked = await linkAutomationClusterCanonical({
+        clusterId: cluster.id,
+        entityType: finding.entityType,
+        canonicalEntityId: finding.canonicalEntityId,
+        canonicalEntityKey: finding.canonicalEntityKey,
+        at,
+      }, db);
+    }
   }
 
   const application = await existingApplication(finding.id, db);
