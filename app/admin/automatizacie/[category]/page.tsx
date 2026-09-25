@@ -43,7 +43,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
       eyebrow="Automatizácie"
       title={category.title}
       description={category.description}
-      actions={<><Link href="/admin/automatizacie">← Všetky automatizácie</Link><Link href="/admin/operations">Operácie</Link></>}
+      actions={<><Link href="/admin/automatizacie">← Všetky automatizácie</Link><Link href="/admin/automatizacie/zdroje">Zdroje</Link><Link href="/admin/operations">Operácie</Link></>}
     >
       <section className={[styles.statusHero, status === "Problém" ? styles.statusHeroWarning : styles.statusHeroGood].join(" ")}>
         <div><strong>{status}</strong><p>{sources.length ? sources.filter((source) => source.enabled).length + " aktívnych zdrojov" : "Pre túto kategóriu zatiaľ nie je nastavený aktívny zdroj."} · posledná kontrola {formatDate(automationCategoryLastCheck(sources))}</p></div>
