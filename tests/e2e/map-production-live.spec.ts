@@ -10,36 +10,62 @@ type LiveMapBody = {
 };
 
 async function swipe(locator: Locator, deltaY: number) {
-  await locator.scrollIntoViewIfNeeded();
+  await expect(locator).toBeVisible();
+
+  // Use Playwright's actionable hover to bring the real gesture surface into
+  // view. A raw scrollIntoView can place it underneath the fixed site header.
+  await locator.hover();
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  const x = box!.x + Math.min(box!.width / 2, 120);
-  const y = box!.y + Math.min(24, Math.max(8, box!.height / 2));
-  await locator.page().mouse.move(x, y);
-  await locator.page().mouse.down();
-  await locator.page().mouse.move(x, y + deltaY, { steps: 10 });
-  await locator.page().mouse.up();
-  await locator.page().waitForTimeout(320);
-}
 
-async function swipeSheetHandle(handle: Locator, deltaY: number) {
-  await handle.evaluate((element) => {
-    element.scrollIntoView({ block: "center", inline: "nearest" });
-  });
-  await handle.page().waitForTimeout(80);
-
-  const box = await handle.boundingBox();
-  expect(box).not.toBeNull();
-
-  // The visual handle has pointer-events:none, so these coordinates hit its
-  // non-interactive parent header while staying clear of the sticky site header.
-  const page = handle.page();
+  const page = locator.page();
   const x = box!.x + box!.width / 2;
   const y = box!.y + box!.height / 2;
+  const locatorReceivesPointer = await locator.evaluate((element, { x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    return Boolean(target && element.contains(target));
+  }, { x, y });
+  expect(locatorReceivesPointer).toBe(true);
+
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x, y + deltaY, { steps: 10 });
   await page.mouse.up();
+  await page.waitForTimeout(320);
+}
+
+async function swipeSheetHeader(header: Locator, panel: Locator, deltaY: number) {
+  await expect(header).toBeVisible();
+  await expect(panel).toHaveAttribute("data-sheet-dragging", "false");
+
+  // Keep the actual pointer target in the viewport before calculating absolute
+  // mouse coordinates. The page can initially place the peek sheet below the fold.
+  await header.scrollIntoViewIfNeeded();
+  const initialBox = await header.boundingBox();
+  expect(initialBox).not.toBeNull();
+
+  // Start inside the real interactive header and away from its toggle button.
+  // Hover is intentionally actionable: it verifies the point can receive input.
+  const offsetX = Math.min(28, initialBox!.width / 4);
+  const offsetY = Math.min(18, Math.max(12, initialBox!.height / 4));
+  await header.hover({ position: { x: offsetX, y: offsetY } });
+
+  const box = await header.boundingBox();
+  expect(box).not.toBeNull();
+  const page = header.page();
+  const x = box!.x + offsetX;
+  const y = box!.y + offsetY;
+  const headerReceivesPointer = await page.evaluate(({ x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    return Boolean(target?.closest('[data-testid="map-sheet-header"]'));
+  }, { x, y });
+  expect(headerReceivesPointer).toBe(true);
+
+  await page.mouse.down();
+  await page.mouse.move(x, y + deltaY, { steps: 10 });
+  await page.mouse.up();
+
+  await expect(panel).toHaveAttribute("data-sheet-dragging", "false");
   await page.waitForTimeout(320);
 }
 
@@ -140,8 +166,10 @@ test.describe("MAP V1 live production launch audit", () => {
       if (msg.type() === "error" && isRelevantConsoleError(msg.text())) relevantConsoleErrors.push(msg.text());
     });
 
-    await page.addInitScript(() => localStorage.removeItem("psipedia-google-maps-consent"));
+    // Playwright creates a fresh browser context for every test. Do not install a
+    // persistent init script that would delete this key again on /cookies.
     await page.goto("/mapa", { waitUntil: "domcontentloaded" });
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("psipedia-google-maps-consent"))).toBeNull();
     await dismissAnalyticsBanner(page);
     await expect(page.getByRole("heading", { level: 1, name: "Mapa Psipedie" })).toBeVisible();
     await expect(page.getByTestId("map-consent-gate")).toBeVisible();
@@ -154,6 +182,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect(attribution).toContainText("© OpenStreetMap contributors");
 
     await page.getByTestId("map-consent-gate").getByRole("button", { name: "Povoliť Google Maps" }).click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("psipedia-google-maps-consent"))).toBe("granted");
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(1);
     await expect(await mapCanvas(page)).toBeVisible();
@@ -241,13 +270,13 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
 
     const panel = page.getByTestId("map-results-panel");
-    const handle = page.getByTestId("map-sheet-handle");
+    const header = page.getByTestId("map-sheet-header");
     const scroll = page.getByTestId("map-results-scroll");
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
-    await swipeSheetHandle(handle, -130);
+    await swipeSheetHeader(header, panel, -130);
     await expect(panel).toHaveAttribute("data-sheet-state", "expanded");
-    await swipeSheetHandle(handle, 130);
+    await swipeSheetHeader(header, panel, 130);
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
     await page.getByRole("button", { name: "Výsledky" }).click();
@@ -270,6 +299,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
 
     await scroll.evaluate((el) => { el.scrollTop = 0; });
+    await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBe(0);
     await swipe(scroll, 130);
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 

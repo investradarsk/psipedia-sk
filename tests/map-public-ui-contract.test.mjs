@@ -12,6 +12,7 @@ const homePage = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const env = readFileSync(new URL("../config/runtime-env.ts", import.meta.url), "utf8");
 const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
+const liveAudit = readFileSync(new URL("./e2e/map-production-live.spec.ts", import.meta.url), "utf8");
 
 test("canonical /mapa route exists with SSR copy, canonical metadata and no public-nav launch", () => {
   assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), true);
@@ -101,3 +102,21 @@ test("route-scoped CSP allows required Google families without a bare wildcard",
   assert.doesNotMatch(worker, /script-src[^"\n;]*\s\*\s/);
   assert.doesNotMatch(worker, /default-src\s+\*/);
 });
+
+test("live production audit preserves Google Maps consent and uses the interactive sheet header", () => {
+  assert.doesNotMatch(
+    liveAudit,
+    /addInitScript\(\(\) => localStorage\.removeItem\("psipedia-google-maps-consent"\)\)/,
+  );
+  assert.match(
+    liveAudit,
+    /localStorage\.getItem\("psipedia-google-maps-consent"\)\)\)\.toBe\("granted"\)/,
+  );
+  assert.match(liveAudit, /getByTestId\("map-sheet-header"\)/);
+  assert.match(liveAudit, /header\.scrollIntoViewIfNeeded\(\)/);
+  assert.match(liveAudit, /await locator\.hover\(\)/);
+  assert.match(liveAudit, /document\.elementFromPoint\(x, y\)/);
+  assert.match(liveAudit, /element\.contains\(target\)/);
+  assert.doesNotMatch(liveAudit, /getByTestId\("map-sheet-handle"\)/);
+});
+
