@@ -26,15 +26,29 @@ async function swipeSheetHeader(header: Locator, panel: Locator, deltaY: number)
   await expect(header).toBeVisible();
   await expect(panel).toHaveAttribute("data-sheet-dragging", "false");
 
+  // Keep the actual pointer target in the viewport before calculating absolute
+  // mouse coordinates. The page can initially place the peek sheet below the fold.
+  await header.scrollIntoViewIfNeeded();
+  const initialBox = await header.boundingBox();
+  expect(initialBox).not.toBeNull();
+
+  // Start inside the real interactive header and away from its toggle button.
+  // Hover is intentionally actionable: it verifies the point can receive input.
+  const offsetX = Math.min(28, initialBox!.width / 4);
+  const offsetY = Math.min(18, Math.max(12, initialBox!.height / 4));
+  await header.hover({ position: { x: offsetX, y: offsetY } });
+
   const box = await header.boundingBox();
   expect(box).not.toBeNull();
-
-  // Start inside the actual interactive header, away from its toggle button.
-  // The visual handle itself has pointer-events:none and is not a stable hit target.
   const page = header.page();
-  const x = box!.x + Math.min(28, box!.width / 4);
-  const y = box!.y + Math.min(18, Math.max(12, box!.height / 4));
-  await page.mouse.move(x, y);
+  const x = box!.x + offsetX;
+  const y = box!.y + offsetY;
+  const headerReceivesPointer = await page.evaluate(({ x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    return Boolean(target?.closest('[data-testid="map-sheet-header"]'));
+  }, { x, y });
+  expect(headerReceivesPointer).toBe(true);
+
   await page.mouse.down();
   await page.mouse.move(x, y + deltaY, { steps: 10 });
   await page.mouse.up();
