@@ -110,3 +110,69 @@ INSERT INTO partner_resources (id,entity_type,managed_event_id,created_at,update
 INSERT INTO partner_memberships (id,account_id,resource_id,role,created_at,created_by,updated_at) VALUES
   ('partner-membership-e2e-event-owner','partner-e2e-desktop','partner-resource-e2e-event-desktop','OWNER','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z'),
   ('partner-membership-e2e-event-editor','partner-e2e-mobile','partner-resource-e2e-event-mobile','EDITOR','2026-09-21T20:00:00.000Z','ci:partner','2026-09-21T20:00:00.000Z');
+
+-- PARTNER-H5 isolated stale-approval fixtures. These deliberately use separate canonical
+-- resources so stale-rejection tests do not contaminate the normal successful Partner E2E flow.
+INSERT INTO directory_profiles (
+  id,slug,name,category,status,excerpt,description,city,region,created_at,updated_at,published_at,created_by,updated_by
+) VALUES (
+  990005,'partner-h5-stale-profil','Partner H5 Stale Profil','veterinari','published',
+  'Izolovaný H5 profil pre stale approval.',
+  'Izolovaný H5 canonical profil určený iba pre stale approval E2E overenie.',
+  'Nitra','Nitriansky kraj',
+  '2026-09-21T19:00:00.000Z','2026-09-21T19:00:00.000Z','2026-09-21T19:00:00.000Z','ci:h5','ci:h5'
+);
+INSERT INTO partner_resources (id,entity_type,directory_profile_id,created_at,updated_at)
+VALUES ('partner-resource-e2e-h5-stale-profile','DIRECTORY_PROFILE',990005,'2026-09-21T19:00:00.000Z','2026-09-21T19:00:00.000Z');
+
+INSERT INTO moderation_submissions (
+  id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,
+  proposed_patch_json,risk_flags_json,created_at,updated_at
+) VALUES (
+  'partner-e2e-h5-stale-profile-change','DIRECTORY_PROFILE','990005','UPDATE','PENDING_REVIEW',
+  'PARTNER_ACCOUNT','partner-e2e-desktop','{"city":"Trnava"}','[]',
+  '2026-09-21T19:05:00.000Z','2026-09-21T19:05:00.000Z'
+);
+INSERT INTO partner_profile_change_metadata (
+  submission_id,partner_resource_id,partner_account_id,base_updated_at,base_snapshot_json,
+  changed_field_count,dedupe_active,created_at
+) VALUES (
+  'partner-e2e-h5-stale-profile-change','partner-resource-e2e-h5-stale-profile','partner-e2e-desktop',
+  '2026-09-21T19:00:00.000Z',
+  '{"name":"Partner H5 Stale Profil","excerpt":"Izolovaný H5 profil pre stale approval.","description":"Izolovaný H5 canonical profil určený iba pre stale approval E2E overenie.","services":[],"qualifications":[],"city":"Nitra","district":"","region":"Nitriansky kraj","address":"","online":false,"priceNote":"","websiteUrl":"","publicPhone":"","publicEmail":"","facebookUrl":"","instagramUrl":""}',
+  1,1,'2026-09-21T19:05:00.000Z'
+);
+
+INSERT INTO managed_events (
+  id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
+  organizer,description,practical_info,website_url,registration_url,image_url,image_key,cancelled,seo_json,
+  created_at,updated_at,published_at,created_by,updated_by
+) VALUES (
+  990006,'partner-h5-stale-podujatie','Partner H5 Stale Podujatie',
+  'Izolované H5 podujatie pre stale approval.','Seminár','draft','2099-12-20','10:00','2099-12-20','16:00',
+  'Areál H5','Nitra','Nitriansky kraj','Stale 1','Psipedia H5',
+  'Izolovaný H5 canonical event určený iba pre stale approval E2E overenie.','Registrácia vopred.',
+  NULL,NULL,NULL,NULL,0,'{}',
+  '2026-09-21T19:00:00.000Z','2026-09-21T19:00:00.000Z',NULL,'ci:h5','ci:h5'
+);
+INSERT INTO partner_resources (id,entity_type,managed_event_id,created_at,updated_at)
+VALUES ('partner-resource-e2e-h5-stale-event','MANAGED_EVENT',990006,'2026-09-21T19:00:00.000Z','2026-09-21T19:00:00.000Z');
+
+INSERT INTO moderation_submissions (
+  id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,
+  proposed_patch_json,risk_flags_json,created_at,updated_at
+) VALUES (
+  'partner-e2e-h5-stale-event-change','MANAGED_EVENT','990006','UPDATE','PENDING_REVIEW',
+  'PARTNER_ACCOUNT','partner-e2e-desktop','{"venue":"Areál H5 Navrhovaný"}','[]',
+  '2026-09-21T19:05:00.000Z','2026-09-21T19:05:00.000Z'
+);
+INSERT INTO partner_event_submission_metadata (
+  submission_id,partner_account_id,partner_resource_id,operation,display_title,base_updated_at,
+  base_snapshot_json,changed_field_count,dedupe_key,dedupe_active,duplicate_confidence,
+  duplicate_reasons_json,created_at
+) VALUES (
+  'partner-e2e-h5-stale-event-change','partner-e2e-desktop','partner-resource-e2e-h5-stale-event','UPDATE',
+  'Partner H5 Stale Podujatie','2026-09-21T19:00:00.000Z',
+  '{"title":"Partner H5 Stale Podujatie","excerpt":"Izolované H5 podujatie pre stale approval.","eventType":"Seminár","startDate":"2099-12-20","startTime":"10:00","endDate":"2099-12-20","endTime":"16:00","venue":"Areál H5","city":"Nitra","region":"Nitriansky kraj","address":"Stale 1","organizer":"Psipedia H5","description":"Izolovaný H5 canonical event určený iba pre stale approval E2E overenie.","practicalInfo":"Registrácia vopred.","websiteUrl":null,"registrationUrl":null,"cancelled":false}',
+  1,'UPDATE:partner-resource-e2e-h5-stale-event',1,'NONE','[]','2026-09-21T19:05:00.000Z'
+);
