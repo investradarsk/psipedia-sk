@@ -66,7 +66,8 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0071_admin_universal_notifications.sql",
   "0072_partner_media_uploads.sql",
   "0073_automation_multisource_entity_resolution.sql",
-  "0074_automation_zsk_event_source.sql",
+  "0074_directory_service_address.sql",
+  "0075_automation_zsk_event_source.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -571,6 +572,12 @@ function targetSchemaObjects(schema, targetMigration) {
         || AUTOMATION_ENTITY_RESOLUTION_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0074_directory_service_address.sql") {
+    const serviceAddressColumns = new Set(["postal_code", "street", "house_number", "address_format", "service_address_confirmation"]);
+    return {
+      partial: schema.columns.some((column) => serviceAddressColumns.has(String(column.name))),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -883,6 +890,21 @@ function assertAutomationEntityResolutionSchema(schema) {
   invariant(conflictSql.includes("OPEN") && conflictSql.includes("RESOLVED"), "automation_field_conflicts lifecycle signature is incomplete");
 }
 
+function assertDirectoryServiceAddressSchema(schema) {
+  assertRequiredColumns(schema.columns, "directory_profiles", [
+    "postal_code",
+    "street",
+    "house_number",
+    "address_format",
+    "service_address_confirmation",
+  ]);
+  const names = objectMap(schema.objects);
+  const directorySql = String(names.get("directory_profiles")?.sql ?? "");
+  invariant(directorySql.includes("MUNICIPALITY_NUMBER"), "directory_profiles address_format constraint is incomplete");
+  invariant(directorySql.includes("CONFIRMED_SERVICE_LOCATION") && directorySql.includes("LEGACY_UNCONFIRMED"),
+    "directory_profiles service-address confirmation constraint is incomplete");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -896,6 +918,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 71) assertAdminUniversalNotificationsSchema(schema);
   if (migrationIndex(targetMigration) >= 72) assertPartnerMediaSchema(schema);
   if (migrationIndex(targetMigration) >= 73) assertAutomationEntityResolutionSchema(schema);
+  if (migrationIndex(targetMigration) >= 74) assertDirectoryServiceAddressSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
