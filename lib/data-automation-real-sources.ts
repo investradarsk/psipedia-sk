@@ -247,8 +247,217 @@ export const agilitySkEventsAdapter: ControlledHtmlAdapter = ({ html, source }) 
   return records;
 };
 
+
+const ZSK_CALENDAR_CATEGORIES = new Map<string, string>([
+  ["medzinarodne akcie", "Medzinárodné akcie"],
+  ["narodne akcie", "Národné akcie"],
+  ["kvalifikacne preteky", "Kvalifikačné preteky"],
+  ["skusky medzinarodne", "Skúšky medzinárodné"],
+  ["skusky narodne", "Skúšky národné"],
+  ["skusky obedience a rally obedience", "Skúšky obedience a Rally obedience"],
+  ["skusky zachranarske", "Skúšky záchranárske"],
+  ["skusky bvk", "Skúšky BVK"],
+  ["skusky mondioring", "Skúšky Mondioring"],
+  ["skusky wesensbeurteilung", "Skúšky Wesensbeurteilung"],
+  ["sportove kynologicke akcie", "Športové kynologické akcie"],
+]);
+
+function htmlAnchors(html: string, base: string | null) {
+  const links: Array<{ text: string; url: string }> = [];
+  for (const match of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const url = absolutePublicUrl(decodeHtml(match[1]).trim(), base);
+    if (url) links.push({ text: textFromHtml(match[2]), url });
+  }
+  return links;
+}
+
+function latestTrustedZskIframe(html: string, base: string | null) {
+  for (const match of html.matchAll(/<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi)) {
+    const url = absolutePublicUrl(decodeHtml(match[1]).trim(), base);
+    if (!url) continue;
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname === "suchno.sk" && parsed.pathname.startsWith("/app_test/")) return url;
+    } catch {
+      // Invalid URLs are ignored and never fetched.
+    }
+  }
+  return null;
+}
+
+function parseZskSlashDate(value: string) {
+  const match = value.trim().match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/);
+  if (!match) return null;
+  return isoDate(Number(match[3]), Number(match[2]), Number(match[1]));
+}
+
+function parseZskDateRange(value: string) {
+  const normalized = value.replace(/[—–−]/g, "-").replace(/\s+/g, " ").trim();
+  const parts = normalized.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 1 || parts.length > 2) return null;
+  const startDate = parseZskSlashDate(parts[0]);
+  if (!startDate) return null;
+  if (parts.length === 1) return { startDate, endDate: null };
+  const endDate = parseZskSlashDate(parts[1]);
+  if (!endDate || endDate < startDate) return null;
+  return { startDate, endDate };
+}
+
+function conservativeZskCity(value: string) {
+  const city = value.replace(/\s+/g, " ").trim();
+  if (!city || city.length > 80 || /[,/\\\d]/.test(city)) return null;
+  if (/\b(?:kk|mkk|ksk|kškl?|arena|areal|areál|cvicisko|cvičisko|klub|stadion|štadión|hala|obedience|kynolog)/i.test(city)) return null;
+  return city;
+}
+
+function zskEventType(category: string) {
+  const normalized = normalizeAutomationIdentity(category);
+  if (normalized.includes("akcie") || normalized.includes("preteky")) return "Preteky";
+  return "Iné";
+}
+
+function zskStatus(value: string) {
+  const normalized = normalizeAutomationIdentity(value);
+  if (normalized.includes("zrusene") || normalized.includes("zrusena") || normalized.includes("zruseny")) {
+    return { status: "CANCELLED", cancelled: true };
+  }
+  if (normalized.includes("bude sa prekladat") || normalized.includes("prelozene") || normalized.includes("presunute")) {
+    return { status: "POSTPONED", cancelled: false };
+  }
+  if (normalized.includes("zmena terminu")) return { status: "DATE_CHANGED", cancelled: false };
+  if (normalized.includes("zmena miesta")) return { status: "VENUE_CHANGED", cancelled: false };
+  return { status: null, cancelled: false };
+}
+
+function zskIdentityTitle(value: string) {
+  return normalizeAutomationIdentity(value)
+    .replace(/\b(?:zrusene|zrusena|zruseny|zmena terminu|zmena miesta|prelozene|presunute)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function rowLinks(rowHtml: string, base: string | null) {
+  return htmlAnchors(rowHtml, base);
+}
+
+export function parseZskSrCalendarTable(input: {
+  html: string;
+  sourceUrl: string | null;
+  category: string;
+}) {
+  const records: AutomationSourceRecord[] = [];
+  for (const rowMatch of input.html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const rowHtml = rowMatch[1];
+    const cells: string[] = [];
+    for (const cellMatch of rowHtml.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)) {
+      cells.push(textFromHtml(cellMatch[1]));
+    }
+    if (cells.length < 3) continue;
+
+    const dateText = cells[0]?.trim() ?? "";
+    const venue = cells[1]?.trim() ?? "";
+    const rawTitle = cells[2]?.trim() ?? "";
+    const judge = cells[3]?.trim() ?? "";
+    const range = parseZskDateRange(dateText);
+    if (!range || !rawTitle) continue;
+
+    const links = rowLinks(rowHtml, input.sourceUrl);
+    const registration = links.find((link) => /prihl|registr/i.test(normalizeAutomationIdentity(link.text)));
+    const detail = links.find((link) => /propoz|detail|viac info|informac/i.test(normalizeAutomationIdentity(link.text)));
+    const status = zskStatus([rawTitle, ...cells].join(" "));
+    const city = conservativeZskCity(venue);
+    const sourceLink = detail?.url ?? registration?.url ?? input.sourceUrl;
+    const stableLink = detail?.url ?? registration?.url ?? null;
+    const year = range.startDate.slice(0, 4);
+    const sourceRecordId = stableLink
+      ? "url:" + stableLink
+      : "zsk:" + year + ":" + zskIdentityTitle(rawTitle) + ":" + normalizeAutomationIdentity(venue);
+
+    const practicalInfo = [
+      "Kategória ZŠK: " + input.category,
+      judge ? "Rozhodca: " + judge : "",
+      status.status ? "Stav ZŠK: " + status.status : "",
+    ].filter(Boolean).join("\n");
+
+    records.push({
+      sourceRecordId: sourceRecordId.slice(0, 240),
+      sourceUrl: sourceLink,
+      sourceTimestamp: null,
+      rawRecord: {
+        dateText,
+        venue,
+        title: rawTitle,
+        judge: judge || null,
+        category: input.category,
+        status: status.status,
+        links,
+      },
+      proposed: {
+        title: rawTitle,
+        startDate: range.startDate,
+        ...(range.endDate ? { endDate: range.endDate } : {}),
+        ...(venue ? { venue } : {}),
+        ...(city ? { city } : {}),
+        eventType: zskEventType(input.category),
+        websiteUrl: detail?.url ?? input.sourceUrl,
+        ...(registration?.url ? { registrationUrl: registration.url } : {}),
+        practicalInfo,
+        ...(status.cancelled ? { cancelled: true } : {}),
+        ...(status.status ? { status: status.status } : {}),
+      },
+    });
+  }
+  return records;
+}
+
+export const zskSrEventsAdapter: ControlledHtmlAdapter = async ({ html, source, fetchHtml }) => {
+  if (!fetchHtml) throw new Error("zsk_nested_fetch_unavailable");
+
+  const categories = new Map<string, { label: string; url: string }>();
+  for (const link of htmlAnchors(html, source.sourceUrl)) {
+    const normalized = normalizeAutomationIdentity(link.text);
+    const label = ZSK_CALENDAR_CATEGORIES.get(normalized);
+    if (!label || categories.has(link.url)) continue;
+    categories.set(link.url, { label, url: link.url });
+    if (categories.size >= ZSK_CALENDAR_CATEGORIES.size) break;
+  }
+  if (categories.size === 0) throw new Error("zsk_calendar_categories_missing");
+
+  const deduped = new Map<string, AutomationSourceRecord>();
+  for (const category of categories.values()) {
+    const categoryPage = await fetchHtml(category.url);
+    const iframeUrl = latestTrustedZskIframe(categoryPage.html, categoryPage.finalUrl);
+    if (!iframeUrl) continue;
+
+    const tablePage = await fetchHtml(iframeUrl);
+    for (const record of parseZskSrCalendarTable({
+      html: tablePage.html,
+      sourceUrl: tablePage.finalUrl,
+      category: category.label,
+    })) {
+      const existing = deduped.get(record.sourceRecordId);
+      if (!existing) {
+        deduped.set(record.sourceRecordId, record);
+        continue;
+      }
+      existing.proposed = {
+        ...existing.proposed,
+        ...Object.fromEntries(Object.entries(record.proposed).filter(([, value]) => value !== null && value !== undefined && value !== "")),
+      };
+      existing.rawRecord = {
+        primary: existing.rawRecord,
+        duplicateEvidence: record.rawRecord,
+      };
+    }
+  }
+
+  if (deduped.size === 0) throw new Error("zsk_calendar_no_records");
+  return [...deduped.values()];
+};
+
 export const productionAutomationHtmlAdapters: Record<string, ControlledHtmlAdapter> = {
   "skj-exhibition-calendar": skjExhibitionCalendarAdapter,
   "svps-shelters-register": svpsSheltersRegisterAdapter,
   "agility-sk-events": agilitySkEventsAdapter,
+  "zsk-sr-events": zskSrEventsAdapter,
 };

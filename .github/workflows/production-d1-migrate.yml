@@ -22,6 +22,7 @@ on:
           - 0072_partner_media_uploads.sql
           - 0073_automation_multisource_entity_resolution.sql
           - 0074_directory_service_address.sql
+          - 0075_automation_zsk_event_source.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -64,6 +65,7 @@ jobs:
             0072_partner_media_uploads.sql) expected_confirmation="APPLY-0072-psipedia-sk-db" ;;
             0073_automation_multisource_entity_resolution.sql) expected_confirmation="APPLY-0073-psipedia-sk-db" ;;
             0074_directory_service_address.sql) expected_confirmation="APPLY-0074-psipedia-sk-db" ;;
+            0075_automation_zsk_event_source.sql) expected_confirmation="APPLY-0075-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
