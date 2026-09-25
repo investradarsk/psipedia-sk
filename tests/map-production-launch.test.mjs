@@ -48,6 +48,23 @@ test("public launch gate requires flag, browser key and Map ID", () => {
   }), false);
 });
 
+test("renderer launch matrix is fail-closed behind PUBLIC_MAP_ENABLED", () => {
+  const configured = {
+    GOOGLE_MAPS_BROWSER_API_KEY: "browser-key",
+    GOOGLE_MAPS_MAP_ID: "map-id",
+  };
+  assert.equal(publicMapLaunchEnabled({ PUBLIC_MAP_ENABLED: "0", ...configured }), false);
+  assert.equal(publicMapLaunchEnabled({ PUBLIC_MAP_ENABLED: "1", ...configured }), true);
+  assert.equal(publicMapLaunchEnabled({
+    PUBLIC_MAP_ENABLED: "1",
+    GOOGLE_MAPS_BROWSER_API_KEY: "browser-key",
+  }), false);
+  assert.equal(publicMapLaunchEnabled({
+    PUBLIC_MAP_ENABLED: "1",
+    GOOGLE_MAPS_MAP_ID: "map-id",
+  }), false);
+});
+
 test("production config rejects a requested launch without Google renderer config", () => {
   assert.throws(
     () => validateRuntimeEnvironment({
@@ -70,7 +87,7 @@ test("Google Maps consent is explicit and deny-by-default", () => {
   assert.equal(hasGoogleMapsConsent("granted"), true);
 });
 
-test("renderer requires renderer config and consent before Google load", async () => {
+test("renderer requires effective public launch, renderer config and consent before Google load", async () => {
   const renderer = await readFile(path.join(root, "components/map/google-map-renderer.tsx"), "utf8");
   const page = await readFile(path.join(root, "app/mapa/page.tsx"), "utf8");
   const runtimeEnv = await readFile(path.join(root, "config/runtime-env.ts"), "utf8");
@@ -80,9 +97,11 @@ test("renderer requires renderer config and consent before Google load", async (
   assert.match(page, /bindings\.PUBLIC_MAP_ENABLED \?\? process\.env\.PUBLIC_MAP_ENABLED/);
   assert.match(page, /bindings\.GOOGLE_MAPS_BROWSER_API_KEY \?\? process\.env\.GOOGLE_MAPS_BROWSER_API_KEY/);
   assert.match(page, /bindings\.GOOGLE_MAPS_MAP_ID \?\? process\.env\.GOOGLE_MAPS_MAP_ID/);
-  assert.match(page, /googleMapsRendererConfigured\(launchEnv\)/);
-  assert.match(page, /publicMapLaunchEnabled\(launchEnv\)/);
-  assert.match(page, /googleRendererEnabled \? launchEnv\.GOOGLE_MAPS_BROWSER_API_KEY/);
+  assert.match(page, /const publicMapEnabled = publicMapLaunchEnabled\(launchEnv\);/);
+  assert.match(page, /const googleRendererEnabled = publicMapEnabled && googleMapsRendererConfigured\(launchEnv\);/);
+  assert.doesNotMatch(page, /const googleRendererEnabled = googleMapsRendererConfigured\(launchEnv\);/);
+  assert.match(page, /const googleApiKey = googleRendererEnabled \? launchEnv\.GOOGLE_MAPS_BROWSER_API_KEY \?\? "" : "";/);
+  assert.match(page, /const googleMapId = googleRendererEnabled \? launchEnv\.GOOGLE_MAPS_MAP_ID \?\? "" : "";/);
   assert.match(page, /rendererEnabled=\{googleRendererEnabled\}/);
 });
 
@@ -133,7 +152,6 @@ test("map, cookie, privacy and terms surfaces disclose Google Maps", async () =>
   for (const source of sources) assert.match(source, /Google Maps/);
 });
 
-
 test("Geoapify credential is server-secret only", async () => {
   const runtimeEnv = await readFile(path.join(root, "config/runtime-env.ts"), "utf8");
   const example = await readFile(path.join(root, ".env.example"), "utf8");
@@ -146,7 +164,6 @@ test("Geoapify credential is server-secret only", async () => {
   assert.match(geocoder, /cloudflare:workers/);
 });
 
-
 test("readiness audit covers repeated venues and geo attention issues", async () => {
   const script = await readFile(path.join(root, "scripts/map-production-readiness.mjs"), "utf8");
   assert.match(script, /repeated_venue_groups/);
@@ -155,7 +172,6 @@ test("readiness audit covers repeated venues and geo attention issues", async ()
   assert.match(script, /CONFLICTING_PUBLIC_PRIVATE_LOCATION/);
   assert.match(script, /PRIVACY_CLASSIFICATION_MISSING/);
 });
-
 
 test("map route stays noindex until effective public launch", async () => {
   const page = await readFile(path.join(root, "app/mapa/page.tsx"), "utf8");

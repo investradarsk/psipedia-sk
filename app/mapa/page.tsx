@@ -43,8 +43,8 @@ function mapLaunchEnvironment() {
 export default function MapPage() {
   const mapUiTestMode = process.env.MAP_UI_TEST_RENDERER === "1";
   const launchEnv = mapLaunchEnvironment();
-  const googleRendererEnabled = googleMapsRendererConfigured(launchEnv);
   const publicMapEnabled = publicMapLaunchEnabled(launchEnv);
+  const googleRendererEnabled = publicMapEnabled && googleMapsRendererConfigured(launchEnv);
   const googleApiKey = googleRendererEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
   const googleMapId = googleRendererEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
 
