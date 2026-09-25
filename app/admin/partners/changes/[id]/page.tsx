@@ -46,6 +46,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </section>
       </div>
 
+      {change.media?<section className="admin-form-card admin-partner-media-review">
+        <div className="admin-profile-diff-heading"><div><span className="eyebrow">Obrázok</span><h2>CURRENT → PROPOSED</h2></div><p>{change.media.originalMime} · {change.media.width} × {change.media.height}px · {Math.round((change.media.sizeBytes??0)/1024)} kB</p></div>
+        <div className="admin-partner-media-compare">
+          <div><span>Aktuálny obrázok</span>{change.currentImageUrl?<img src={change.currentImageUrl} alt="Aktuálny verejný obrázok"/>:<p>Bez obrázka</p>}</div>
+          <div><span>Navrhovaný obrázok</span><img src={change.media.previewUrl} alt="Navrhovaný Partner obrázok"/></div>
+        </div>
+      </section>:null}
+
       <section className="admin-form-card admin-profile-diff">
         <div className="admin-profile-diff-heading">
           <div><span className="eyebrow">Moderation diff</span><h2>OLD → NEW</h2></div>
