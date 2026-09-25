@@ -214,7 +214,7 @@ test("0071/0072 canonical SQL and production tooling cover notification and Part
   const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
 
   for (const name of ["admin_notification_runtime", "admin_notification_events", "admin_push_event_deliveries"]) {
-    assert.match(migration71, new RegExp(`CREATE TABLE \\\`${name}\\\``));
+    assert.match(migration71, new RegExp("CREATE TABLE `" + name + "`"));
   }
   assert.match(migration71, /rollout_started_at/);
   assert.match(migration71, /admin_notification_events_dedupe_unique/);
@@ -226,6 +226,7 @@ test("0071/0072 canonical SQL and production tooling cover notification and Part
   assert.match(migration72, /moderation_partner_media_attach_guard/);
   assert.match(migration72, /moderation_partner_media_attach_state/);
 
+  assert.match(script, /assertAdminNotificationPrerequisites/);
   assert.match(script, /assertAdminUniversalNotificationsSchema/);
   assert.match(script, /assertPartnerMediaSchema/);
   assert.match(script, /assertPartnerMediaPrerequisites/);
