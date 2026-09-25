@@ -53,7 +53,24 @@ export async function PUT(request: Request, { params }: Props) {
       });
       payload = withVerifiedDirectoryAddress(body, verified);
     } else if (changed) {
-      throw new Error("Zmenu fyzickej adresy potvrď výberom konkrétnej adresy z Geoapify návrhov.");
+      const clearingForOnlineOnly = body.online === true
+        && !body.region?.trim()
+        && !body.district?.trim()
+        && !body.city?.trim();
+      if (!clearingForOnlineOnly) {
+        throw new Error("Zmenu fyzickej adresy potvrď výberom konkrétnej adresy z Geoapify návrhov.");
+      }
+      payload = {
+        ...body,
+        region: "",
+        district: "",
+        city: "",
+        postalCode: "",
+        street: "",
+        houseNumber: "",
+        addressFormat: "",
+        confirmServiceAddress: false,
+      };
     } else {
       payload = preserveDirectoryPhysicalAddress(before, body);
     }
