@@ -225,5 +225,6 @@ test("G1 EVENT regression keeps legacy EVENT matching semantics unchanged", () =
   assert.match(clustering, /exact_normalized_title_start_date_city/);
   assert.match(clustering, /multiple_exact_cluster_candidates_require_review/);
   assert.match(clustering, /HIGH_IMPACT_EVENT_FIELDS/);
-  assert.match(clustering, /createCluster\(input\.source\.entityType, "EVENT"/);
+  assert.match(clustering, /createCluster\(input\.source\.entityType, input\.detectedAt/);
+  assert.doesNotMatch(clustering, /INSERT INTO automation_entity_clusters \\(entity_type,semantic_kind/);
 });
