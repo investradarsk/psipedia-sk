@@ -161,3 +161,32 @@ test("existing breed and organization relations are exposed without synthetic va
   assert.ok(presentation.facts.some((fact) => fact.label === "Organizácia" && fact.value === "Fixture klub"));
   assert.equal(presentation.facts.some((fact) => fact.label === "Zastrešujúca organizácia"), false);
 });
+
+test("confirmed structured service address becomes authoritative while legacy address remains fallback only", () => {
+  const structured = getDirectoryDetailPresentation(profile({
+    address: "LEGACY sídlo 999",
+    city: "Zlaté Moravce",
+    district: "Zlaté Moravce",
+    region: "Nitriansky kraj",
+    postalCode: "953 01",
+    street: "Hviezdoslavova",
+    houseNumber: "88",
+    addressFormat: "STREET",
+    serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
+    formattedServiceAddress: "Hviezdoslavova 88\n953 01 Zlaté Moravce",
+  }));
+  assert.equal(structured.address, "Hviezdoslavova 88, 953 01 Zlaté Moravce");
+  assert.match(structured.navigationUrl, /Hviezdoslavova%2088/);
+  assert.doesNotMatch(structured.navigationUrl, /LEGACY/);
+
+  const legacy = getDirectoryDetailPresentation(profile({
+    address: "Legacy 12",
+    postalCode: "",
+    street: "",
+    houseNumber: "",
+    addressFormat: "",
+    serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
+  }));
+  assert.equal(legacy.address, "Legacy 12");
+  assert.match(legacy.navigationUrl, /Legacy%2012/);
+});
