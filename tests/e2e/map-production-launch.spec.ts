@@ -77,7 +77,7 @@ test.describe("MAP-1E launch navigation", () => {
       localStorage.setItem("psipedia-google-maps-consent", "granted");
     });
 
-    const response = await page.goto("/mapa", { waitUntil: "domcontentloaded" });
+    const response = await page.goto("/mapa?__mapRenderer=real", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: "Mapa Psipedie" })).toBeVisible();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("psipedia-google-maps-consent"))).toBe("granted");
