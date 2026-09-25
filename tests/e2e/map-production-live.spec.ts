@@ -30,6 +30,23 @@ async function swipe(locator: Locator, deltaY: number) {
   await page.waitForTimeout(320);
 }
 
+async function swipeSheetHandle(handle: Locator, deltaY: number) {
+  const box = await handle.boundingBox();
+  expect(box).not.toBeNull();
+
+  // The visual handle has pointer-events:none; its coordinates deliberately
+  // hit the non-interactive parent header without scrolling it under the
+  // sticky global site header.
+  const page = handle.page();
+  const x = box!.x + box!.width / 2;
+  const y = box!.y + box!.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + deltaY, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(320);
+}
+
 async function dismissAnalyticsBanner(page: Page) {
   const decline = page.getByRole("button", { name: "Odmietnuť analytiku" });
   if (await decline.isVisible().catch(() => false)) {
@@ -228,13 +245,13 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect(page.getByTestId("map-renderer-status")).toHaveText(/Mapa pripravená/, { timeout: 30000 });
 
     const panel = page.getByTestId("map-results-panel");
-    const header = page.getByTestId("map-sheet-header");
+    const handle = page.getByTestId("map-sheet-handle");
     const scroll = page.getByTestId("map-results-scroll");
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
-    await swipe(header, -130);
+    await swipeSheetHandle(handle, -130);
     await expect(panel).toHaveAttribute("data-sheet-state", "expanded");
-    await swipe(header, 130);
+    await swipeSheetHandle(handle, 130);
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
     await page.getByRole("button", { name: "Výsledky" }).click();
