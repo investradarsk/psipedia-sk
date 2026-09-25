@@ -21,7 +21,6 @@ on:
       - "tests/review-author-auth.test.mjs"
       - "tests/e2e/review-author-auth.spec.ts"
       - "tests/fixtures/review-author-auth-e2e.sql"
-      - "package.json"
       - ".github/workflows/review-author-auth-ci.yml"
   workflow_dispatch:
 
