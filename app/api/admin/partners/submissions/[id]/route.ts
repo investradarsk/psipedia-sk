@@ -33,6 +33,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         canonicalId,
         adminEmail: auth.user.email,
         requestId: request.headers.get("cf-ray"),
+        applyImage: body.applyImage === true,
       });
       return Response.json({ submission }, { headers: { "Cache-Control": "private, no-store" } });
     }
