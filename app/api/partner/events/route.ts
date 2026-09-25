@@ -7,7 +7,7 @@ export async function POST(request:Request){
     assertPartnerJsonMutation(request);
     const identity=await requirePartnerAccount({cookieHeader:request.headers.get("cookie")});
     const body=await request.json() as Record<string,unknown>;
-    const submission=await submitPartnerEventCreate({accountId:identity.accountId,event:body.event,confirmDuplicate:body.confirmDuplicate===true});
+    const submission=await submitPartnerEventCreate({accountId:identity.accountId,event:body.event,confirmDuplicate:body.confirmDuplicate===true,mediaAssetId:body.mediaAssetId});
     return Response.json({success:true,submission},{status:201,headers:{"Cache-Control":"private, no-store"}});
   }catch(error){
     const status=error instanceof PartnerEventError||error instanceof PartnerSecurityError?error.status:typeof (error as {status?:unknown})?.status==="number"?(error as {status:number}).status:503;
