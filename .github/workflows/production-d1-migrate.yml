@@ -18,6 +18,8 @@ on:
           - 0068_partner_commercial_activation.sql
           - 0069_partner_auth_onboarding_hardening.sql
           - 0070_partner_multimethod_auth.sql
+          - 0071_admin_universal_notifications.sql
+          - 0072_partner_media_uploads.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -56,6 +58,8 @@ jobs:
             0068_partner_commercial_activation.sql) expected_confirmation="APPLY-0068-psipedia-sk-db" ;;
             0069_partner_auth_onboarding_hardening.sql) expected_confirmation="APPLY-0069-psipedia-sk-db" ;;
             0070_partner_multimethod_auth.sql) expected_confirmation="APPLY-0070-psipedia-sk-db" ;;
+            0071_admin_universal_notifications.sql) expected_confirmation="APPLY-0071-psipedia-sk-db" ;;
+            0072_partner_media_uploads.sql) expected_confirmation="APPLY-0072-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
