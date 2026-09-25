@@ -2,12 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  geoAdminOperatorStateLabels,
-  type GeoAdminOperatorRow,
-  type GeoAdminOperatorState,
-  type GeoAdminOperatorSummary,
-} from "@/lib/geo-admin-operator";
+import { type GeoAdminOperatorRow, type GeoAdminOperatorSummary } from "@/lib/geo-admin-operator";
+import { geoAdminOperatorStateLabels, type GeoAdminOperatorState } from "@/lib/geo-admin-operator-state";
 
 const filters: Array<{ value: "ALL" | "ERRORS" | GeoAdminOperatorState; label: string }> = [
   { value: "ALL", label: "Všetky" },
