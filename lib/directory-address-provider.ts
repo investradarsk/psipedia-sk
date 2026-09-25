@@ -148,10 +148,33 @@ export async function verifyDirectoryAddressSelection(input: {
   if (!providerResultId) throw new Error("Vyber konkrétnu adresu z návrhov.");
   const provider = input.provider ?? new GeoapifyGeocoder();
   try {
-    const results = await provider.lookupPlace(providerResultId, input.signal);
-    const verified = verifyDirectoryExactCandidates({ ...input, results });
+    const details = await provider.lookupPlace(providerResultId, input.signal);
+    const selected = details.find((result) => result.providerResultId === providerResultId) ?? null;
+    if (!selected || !selected.housenumber || !selected.postcode) {
+      throw new Error("Vybraný Geoapify výsledok nemá kompletnú adresu domu.");
+    }
+    const query = selected.formatted || [selected.street, selected.housenumber, input.city].filter(Boolean).join(" ");
+    const results = await provider.geocodeExact({
+      query,
+      precision: "EXACT",
+      countryCode: "SK",
+      structuredAddress: {
+        housenumber: selected.housenumber,
+        street: selected.street,
+        postcode: selected.postcode,
+        city: input.city,
+        state: input.region,
+        country: "Slovakia",
+      },
+      signal: input.signal,
+    });
+    const selectedResults = results.filter((result) => result.providerResultId === providerResultId);
+    const verified = verifyDirectoryExactCandidates({
+      ...input,
+      results: selectedResults.length ? selectedResults : results,
+    });
     if (verified.providerResult.providerResultId !== providerResultId) {
-      throw new Error("Vybraný Geoapify výsledok sa nepodarilo jednoznačne potvrdiť.");
+      throw new Error("Vybraný Geoapify výsledok sa pri serverovom overení zmenil. Vyber adresu znovu.");
     }
     return verified;
   } catch (error) {
