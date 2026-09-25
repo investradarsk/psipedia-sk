@@ -12,6 +12,7 @@ export const moderationSubmissions = sqliteTable(
     submitterRef: text("submitter_ref"),
     proposedPatchJson: text("proposed_patch_json").notNull().default("{}"),
     riskFlagsJson: text("risk_flags_json").notNull().default("[]"),
+    mediaAssetId: text("media_asset_id"),
     duplicateResourceType: text("duplicate_resource_type"),
     duplicateSubjectId: text("duplicate_subject_id"),
     reviewedAt: text("reviewed_at"),
@@ -24,6 +25,7 @@ export const moderationSubmissions = sqliteTable(
     index("moderation_submissions_status_created_idx").on(table.status, table.createdAt),
     index("moderation_submissions_resource_subject_idx").on(table.resourceType, table.subjectId, table.createdAt),
     index("moderation_submissions_submitter_idx").on(table.submitterType, table.submitterRef, table.createdAt),
+    uniqueIndex("moderation_submissions_media_asset_unique").on(table.mediaAssetId).where(sql`${table.mediaAssetId} IS NOT NULL`),
   ],
 );
 
