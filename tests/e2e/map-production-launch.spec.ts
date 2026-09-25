@@ -43,6 +43,39 @@ test.describe("MAP-1E launch navigation", () => {
     expect(serious).toEqual([]);
   });
 
+  test("rollback kill-switch blocks Google renderer even with consent and valid config", async ({ page }) => {
+    test.skip(process.env.MAP_E2E_EXPECT_PUBLIC_MAP_DISABLED !== "1", "Rollback-disabled server only");
+
+    const googleRequests: string[] = [];
+    page.on("request", (request) => {
+      const url = request.url();
+      if (url.includes("maps.googleapis.com") || url.includes("maps.gstatic.com")) {
+        googleRequests.push(url);
+      }
+    });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("psipedia-google-maps-consent", "granted");
+    });
+
+    await page.goto("/mapa");
+    await page.waitForLoadState("networkidle");
+
+    expect(googleRequests).toEqual([]);
+    await expect(page.locator('script[data-psipedia-google-maps]')).toHaveCount(0);
+    await expect(page.getByText("Interaktívna mapa ešte nie je verejne spustená", { exact: true })).toBeVisible();
+
+    const html = await page.content();
+    expect(html).not.toContain("ci-browser-key-not-real");
+    expect(html).not.toContain("ci-map-id-not-real");
+
+    const robots = page.locator('meta[name="robots"]');
+    await expect(robots).toHaveAttribute("content", /noindex/i);
+    await expect(robots).toHaveAttribute("content", /nofollow/i);
+
+    await page.goto("/");
+    await expect(page.locator(".desktop-nav").getByRole("link", { name: "Mapa", exact: true })).toHaveCount(0);
+  });
+
   test("cookie settings expose a revocable Google Maps choice", async ({ page }) => {
     await page.goto("/cookies");
     await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
