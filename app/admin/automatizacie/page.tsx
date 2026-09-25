@@ -3,6 +3,7 @@ import { AdminShell } from "@/components/admin-shell";
 import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
+import { listAutomationFindingSummaries } from "@/lib/data-automation-store";
 import {
   automationUxCategories,
   automationSourcesForCategory,
@@ -23,8 +24,9 @@ function formatDate(value: string | null) {
 export default async function AutomationAdminPage() {
   const user = await requireAdminPageUser("/admin/automatizacie");
   let sources = [];
+  let findings = [];
   let unavailable = false;
-  try { sources = await listAutomationSourcesAdmin(undefined, 200); } catch { unavailable = true; }
+  try { [sources, findings] = await Promise.all([listAutomationSourcesAdmin(undefined, 200), listAutomationFindingSummaries(undefined, 500)]); } catch { unavailable = true; }
 
   return (
     <AdminShell
@@ -52,11 +54,11 @@ export default async function AutomationAdminPage() {
           {automationUxCategories.map((category) => {
             const categorySources = automationSourcesForCategory(sources, category.slug);
             const status = automationCategoryStatus(categorySources);
-            const findings = automationCategoryFindingCount(categorySources);
+            const findingCount = automationCategoryFindingCount(findings, categorySources);
             return (
-              <Link className={[styles.hubCard, status === "Problém" || findings > 0 ? styles.hubCardPrimary : ""].filter(Boolean).join(" ")} href={"/admin/automatizacie/" + category.slug} key={category.slug}>
+              <Link className={[styles.hubCard, status === "Problém" || findingCount > 0 ? styles.hubCardPrimary : ""].filter(Boolean).join(" ")} href={"/admin/automatizacie/" + category.slug} key={category.slug}>
                 <span className={styles.hubKicker}>{status}</span>
-                <div className={styles.hubMetric}><strong>{findings}</strong><span>nových nálezov</span></div>
+                <div className={styles.hubMetric}><strong>{findingCount}</strong><span>na kontrolu</span></div>
                 <h2>{category.title}</h2>
                 <p>{categorySources.filter((source) => source.enabled).length} aktívnych zdrojov · posledná kontrola {formatDate(automationCategoryLastCheck(categorySources))}</p>
                 <span className={styles.hubOpen}>Otvoriť automatizáciu →</span>
