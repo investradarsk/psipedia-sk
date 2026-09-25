@@ -235,8 +235,13 @@ export async function getAutomationClusterDetail(id: number, databaseInput?: Dat
         WHERE co.cluster_id=? ORDER BY mc.created_at DESC`).bind(id),
     ];
     const [sourceRows,evidenceRows,conflictRows,findingRows,matchRows] = await db.batch(statements);
-    const evidence = (evidenceRows.results ?? []).map(mapEvidence);
-    const sources = (sourceRows.results ?? []).map((row) => {
+    const sourceResults = (sourceRows.results ?? []) as Record<string, unknown>[];
+    const evidenceResults = (evidenceRows.results ?? []) as Record<string, unknown>[];
+    const conflictResults = (conflictRows.results ?? []) as Record<string, unknown>[];
+    const findingResults = (findingRows.results ?? []) as Record<string, unknown>[];
+    const matchResults = (matchRows.results ?? []) as Record<string, unknown>[];
+    const evidence = evidenceResults.map(mapEvidence);
+    const sources = sourceResults.map((row) => {
       const sourceId = Number(row.source_id);
       return {
         id: sourceId,
@@ -249,7 +254,7 @@ export async function getAutomationClusterDetail(id: number, databaseInput?: Dat
         fields: Array.from(new Set(evidence.filter((item) => item.sourceId === sourceId && item.isCurrent).map((item) => item.fieldName))),
       };
     });
-    const possibleMatches = (matchRows.results ?? []).map((row) => ({
+    const possibleMatches = matchResults.map((row) => ({
       observationId: Number(row.observation_id),
       candidateClusterId: Number(row.candidate_cluster_id),
       matchQuality: String(row.match_quality ?? ""),
@@ -271,7 +276,7 @@ export async function getAutomationClusterDetail(id: number, databaseInput?: Dat
       title: pickTitle(id, summaryEvidence),
       sources,
       evidence: evidence.map(({ clusterId: _clusterId, ...item }) => item),
-      conflicts: (conflictRows.results ?? []).map((row) => ({
+      conflicts: conflictResults.map((row) => ({
         id: Number(row.id),
         fieldName: String(row.field_name ?? ""),
         impact: String(row.impact ?? "NORMAL") as "NORMAL" | "HIGH",
@@ -280,7 +285,7 @@ export async function getAutomationClusterDetail(id: number, databaseInput?: Dat
         detectedAt: String(row.detected_at ?? ""),
         updatedAt: String(row.updated_at ?? ""),
       })),
-      findings: (findingRows.results ?? []).map((row) => ({
+      findings: findingResults.map((row) => ({
         id: Number(row.id),
         findingType: String(row.finding_type ?? ""),
         reviewStatus: String(row.review_status ?? ""),
