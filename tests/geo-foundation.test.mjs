@@ -94,25 +94,17 @@ test("normalization is deterministic, whitespace-safe and preserves Slovak diacr
   assert.notEqual(normalizeGeoText("Košice"), normalizeGeoText("Kosice"));
 });
 
-test("sensitive directory types never auto-escalate to exact", () => {
-  for (const category of ["chovatelske-stanice", "chovatelske-kluby", "treneri", "vencenie", "kynologicke-kluby"]) {
+test("legacy directory addresses never auto-become public geo candidates", () => {
+  for (const category of ["chovatelske-stanice", "chovatelske-kluby", "treneri", "vencenie", "kynologicke-kluby", "veterinari"]) {
     const result = classifyGeoSource({
       targetType: "DIRECTORY_PROFILE", targetId: 1, label: category, category,
       address: "Súkromná 12", city: "Nitra", district: "Nitra", region: "Nitriansky kraj", countryCode: "SK",
     });
-    assert.equal(result.proposedVisibility, "APPROXIMATE_PUBLIC", category);
-    assert.notEqual(result.proposedPrecision, "EXACT", category);
+    assert.equal(result.proposedVisibility, null, category);
+    assert.equal(result.proposedPrecision, null, category);
+    assert.equal(result.requiresReview, true, category);
+    assert.equal(result.reasonCode, "PRIVACY_CLASSIFICATION_MISSING", category);
   }
-});
-
-test("public business exact candidates still require privacy confirmation", () => {
-  const result = classifyGeoSource({
-    targetType: "DIRECTORY_PROFILE", targetId: 1, label: "Veterina", category: "veterinari",
-    address: "Hlavná 1", city: "Nitra", region: "Nitriansky kraj", countryCode: "SK",
-  });
-  assert.equal(result.proposedVisibility, "EXACT_PUBLIC");
-  assert.equal(result.requiresReview, true);
-  assert.equal(result.reasonCode, "PRIVACY_CLASSIFICATION_MISSING");
 });
 
 test("organization role defaults are conservative", () => {
@@ -141,10 +133,10 @@ test("online events are skipped and city-only events stay approximate", () => {
   assert.equal(cityOnly.proposedPrecision, "MUNICIPALITY");
 });
 
-test("directory online sentinels never become geocodable public markers", () => {
+test("directory online-only stays hidden and physical+online still requires a complete service address", () => {
   const onlineOnly = {
     targetType: "DIRECTORY_PROFILE", targetId: 582, label: "Klub", category: "chovatelske-kluby",
-    address: "", city: "Online", region: "Slovensko", countryCode: "SK", online: true,
+    address: "", city: "", district: "", region: "", countryCode: "SK", online: true,
   };
   const hidden = classifyGeoSource(onlineOnly);
   assert.equal(hidden.proposedVisibility, "HIDDEN");
@@ -153,18 +145,12 @@ test("directory online sentinels never become geocodable public markers", () => 
   assert.equal(hidden.reasonCode, "ONLINE_ONLY");
   assert.equal(buildGeoQuery(onlineOnly, hidden.proposedVisibility, hidden.proposedPrecision), null);
 
-  const conflicting = classifyGeoSource({
-    ...onlineOnly, address: "Hlavná 1", city: "Online", online: false,
-  });
-  assert.equal(conflicting.proposedVisibility, null);
-  assert.equal(conflicting.requiresReview, true);
-  assert.equal(conflicting.reasonCode, "CONFLICTING_GEO");
-
   const hybrid = classifyGeoSource({
-    ...onlineOnly, city: "Nitra", region: "Nitriansky kraj", online: true,
+    ...onlineOnly, city: "Nitra", district: "Nitra", region: "Nitriansky kraj", online: true,
   });
-  assert.equal(hybrid.proposedVisibility, "APPROXIMATE_PUBLIC");
-  assert.equal(hybrid.proposedPrecision, "MUNICIPALITY");
+  assert.equal(hybrid.proposedVisibility, null);
+  assert.equal(hybrid.proposedPrecision, null);
+  assert.equal(hybrid.requiresReview, true);
 });
 
 test("safe rollout initialization excludes review-blocked, hidden and non-geocodable candidates", () => {
@@ -229,114 +215,73 @@ test("canary selector never sends review-blocked or hidden candidates and prefer
   assert.equal(selection.selected.some((item) => item.requiresReview), false);
 });
 
-test("approximate queries cannot leak the private street address", () => {
+test("directory geo queries are exact-only and use structured canonical service address", () => {
   const source = {
-    targetType: "DIRECTORY_PROFILE", targetId: 1, label: "Tréner", category: "treneri",
-    address: "TAJNÁ ULICA 999", city: "Nitra", district: "Nitra", region: "Nitriansky kraj", countryCode: "SK",
+    targetType: "DIRECTORY_PROFILE", targetId: 1, label: "Veterina", category: "veterinari",
+    city: "Zlaté Moravce", district: "Zlaté Moravce", region: "Nitriansky kraj",
+    postalCode: "953 01", street: "Hviezdoslavova", houseNumber: "88",
+    addressFormat: "STREET", serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
+    countryCode: "SK",
   };
-  const query = buildGeoQuery(source, "APPROXIMATE_PUBLIC", "MUNICIPALITY");
-  assert.ok(query);
-  assert.doesNotMatch(query, /TAJNÁ|999/i);
-  assert.match(query, /Nitra/);
-  const exact = buildGeoQuery(source, "EXACT_PUBLIC", "EXACT");
-  assert.match(exact, /TAJNÁ ULICA 999/);
-});
-
-test("exact queries remove repeated locality text already embedded in the source address", () => {
-  const fluffy = buildGeoQuery({
-    targetType: "DIRECTORY_PROFILE",
-    targetId: 1196,
-    label: "Fluffy Pet Salon",
-    category: "salony-a-sluzby",
-    address: "Horná 26, 974 01 Banská Bystrica",
-    city: "Banská Bystrica",
-    district: "Banská Bystrica",
-    region: "Banskobystrický kraj",
-    countryCode: "SK",
-  }, "EXACT_PUBLIC", "EXACT");
+  assert.equal(buildGeoQuery(source, "APPROXIMATE_PUBLIC", "MUNICIPALITY"), null);
   assert.equal(
-    fluffy,
-    "Horná 26, 974 01 Banská Bystrica, Banskobystrický kraj, Slovakia",
-  );
-
-  const kosice = buildGeoQuery({
-    targetType: "DIRECTORY_PROFILE",
-    targetId: 360,
-    label: "VET-MANDELÍK",
-    category: "veterinari",
-    address: "Ždiarska 21",
-    city: "Košice – Nad jazerom",
-    district: "Košice IV",
-    region: "Košický kraj",
-    countryCode: "SK",
-  }, "EXACT_PUBLIC", "EXACT");
-  assert.equal(
-    kosice,
-    "Ždiarska 21, Košice – Nad jazerom, Košice IV, Košický kraj, Slovakia",
+    buildGeoQuery(source, "EXACT_PUBLIC", "EXACT"),
+    "Hviezdoslavova 88, 953 01 Zlaté Moravce, Nitriansky kraj, Slovakia",
   );
 });
 
-test("structured exact parsing is conservative and normalizes Slovak business addresses", () => {
+test("structured exact geocoder request uses canonical directory fields and never parses legacy address", () => {
   assert.deepEqual(buildStructuredExactAddress({
     targetType: "DIRECTORY_PROFILE",
-    targetId: 360,
-    label: "VET-MANDELÍK",
+    targetId: 1,
+    label: "Veterina",
     category: "veterinari",
-    address: "Ždiarska 21",
-    city: "Košice – Nad jazerom",
-    district: "Košice IV",
-    region: "Košický kraj",
+    address: "LEGACY 999",
+    city: "Zlaté Moravce",
+    district: "Zlaté Moravce",
+    region: "Nitriansky kraj",
+    postalCode: "953 01",
+    street: "Hviezdoslavova",
+    houseNumber: "88",
+    addressFormat: "STREET",
+    serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
     countryCode: "SK",
   }), {
-    street: "Ždiarska",
-    housenumber: "21",
-    city: "Košice",
-    state: "Košický kraj",
-    country: "Slovakia",
-  });
-
-  assert.deepEqual(buildStructuredExactAddress({
-    targetType: "DIRECTORY_PROFILE",
-    targetId: 1196,
-    label: "Fluffy Pet Salon",
-    category: "salony-a-sluzby",
-    address: "Horná 26, 974 01 Banská Bystrica",
-    city: "Banská Bystrica",
-    district: "Banská Bystrica",
-    region: "Banskobystrický kraj",
-    countryCode: "SK",
-  }), {
-    street: "Horná",
-    housenumber: "26",
-    postcode: "974 01",
-    city: "Banská Bystrica",
-    state: "Banskobystrický kraj",
+    street: "Hviezdoslavova",
+    housenumber: "88",
+    postcode: "953 01",
+    city: "Zlaté Moravce",
+    state: "Nitriansky kraj",
     country: "Slovakia",
   });
 
   assert.equal(buildStructuredExactAddress({
     targetType: "DIRECTORY_PROFILE",
-    targetId: 1,
-    label: "Unparseable",
+    targetId: 2,
+    label: "Legacy",
     category: "veterinari",
-    address: "Námestie bez čísla",
+    address: "Hlavná 1",
     city: "Nitra",
+    district: "Nitra",
+    region: "Nitriansky kraj",
     countryCode: "SK",
   }), null);
 });
 
-test("source fingerprint changes only with location-relevant contract inputs", async () => {
+test("directory exact source fingerprint depends on canonical service-address inputs", async () => {
   const source = {
-    targetType: "DIRECTORY_PROFILE", targetId: 1, label: "Profil", category: "treneri",
-    address: "Ulica 1", city: "Nitra", district: "Nitra", region: "Nitriansky kraj", countryCode: "SK",
+    targetType: "DIRECTORY_PROFILE", targetId: 1, label: "Profil", category: "veterinari",
+    city: "Zlaté Moravce", district: "Zlaté Moravce", region: "Nitriansky kraj",
+    postalCode: "953 01", street: "Hviezdoslavova", houseNumber: "88",
+    addressFormat: "STREET", serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION", countryCode: "SK",
   };
-  const input = geoFingerprintInput(source, "APPROXIMATE_PUBLIC", "MUNICIPALITY");
+  const input = geoFingerprintInput(source, "EXACT_PUBLIC", "EXACT");
   const a = await sourceGeoFingerprint(input);
-  const whitespace = await sourceGeoFingerprint({ ...input, city: "  Nitra   " });
-  const changed = await sourceGeoFingerprint({ ...input, city: "Trnava" });
+  const whitespace = await sourceGeoFingerprint({ ...input, city: "  Zlaté Moravce   " });
+  const changed = await sourceGeoFingerprint({ ...input, sourceAddress: "Hviezdoslavova 89\n953 01 Zlaté Moravce" });
   assert.equal(a, whitespace);
   assert.notEqual(a, changed);
-  assert.equal(input.sourceAddress, null, "approximate source fingerprint must not depend on private street");
+  assert.match(input.sourceAddress, /Hviezdoslavova 88/);
   assert.equal(isGeoRecordStale(changed, a), true);
   assert.equal(isGeoRecordStale(a, a), false);
 });
@@ -638,11 +583,11 @@ test("explicit onboarding contract never silently upgrades or downgrades exact/o
   assert.match(explicitGeoContractBlockReason("MANAGED_EVENT", "APPROXIMATE_PUBLIC", "MUNICIPALITY"), /DIRECTORY_PROFILE/);
 });
 
-test("explicit approximate municipality query is locality-only even when canonical street exists", () => {
+test("legacy explicit approximate directory query is fail-closed after ADDRESS-1", () => {
   const source = {
     targetType: "DIRECTORY_PROFILE",
     targetId: 3,
-    label: "Sensitive fixture",
+    label: "Legacy fixture",
     category: "kynologicke-kluby",
     address: "TAJNÁ ULICA 999",
     city: "Nitra",
@@ -652,8 +597,8 @@ test("explicit approximate municipality query is locality-only even when canonic
     published: true,
   };
   const query = buildGeoQuery(source, "APPROXIMATE_PUBLIC", "MUNICIPALITY");
-  assert.equal(approximateGeoQueryUsesOnlyLocality(source, query), true);
-  assert.doesNotMatch(query, /TAJNÁ|999/i);
+  assert.equal(query, null);
+  assert.equal(approximateGeoQueryUsesOnlyLocality(source, query), false);
 });
 
 test("explicit preview touches only requested IDs and blocks missing/unpublished rows", async () => {
@@ -673,7 +618,8 @@ test("explicit preview touches only requested IDs and blocks missing/unpublished
   });
   assert.deepEqual(report.targetIds, [3, 5, 10]);
   assert.equal(report.items.length, 3);
-  assert.equal(report.items[0].eligibleForInitialization, true);
+  assert.equal(report.items[0].eligibleForInitialization, false);
+  assert.equal(report.items[0].blockReason, "BLOCK_QUERY");
   assert.equal(report.items[1].blockReason, "SKIP_NOT_FOUND");
   assert.equal(report.items[2].blockReason, "SKIP_NOT_PUBLISHED");
   assert.equal(fixture.reads.some(([, id]) => id === 11), false);
@@ -703,7 +649,7 @@ test("explicit preview protects manual override and treats current resolved rows
     targetType: "DIRECTORY_PROFILE", targetIds: [3],
     visibility: "APPROXIMATE_PUBLIC", precision: "MUNICIPALITY", database: manual.db,
   });
-  assert.equal(manualReport.items[0].blockReason, "SKIP_MANUAL");
+  assert.equal(manualReport.items[0].blockReason, "BLOCK_QUERY");
   assert.equal(manual.writes, 0);
 
   const resolved = explicitTestDb({
@@ -722,8 +668,9 @@ test("explicit preview protects manual override and treats current resolved rows
     targetType: "DIRECTORY_PROFILE", targetIds: [3],
     visibility: "APPROXIMATE_PUBLIC", precision: "MUNICIPALITY", database: resolved.db,
   });
-  assert.equal(resolvedReport.items[0].alreadyResolved, true);
+  assert.equal(resolvedReport.items[0].alreadyResolved, false);
   assert.equal(resolvedReport.items[0].eligibleForResolve, false);
+  assert.equal(resolvedReport.items[0].blockReason, "BLOCK_QUERY");
   assert.equal(resolved.writes, 0);
 });
 
@@ -748,8 +695,8 @@ test("explicit execute safely reports provider-missing and partial target blocks
   assert.equal(report.requested, 3);
   assert.equal(report.items.length, 3);
   assert.deepEqual(report.items.map((item) => item.targetId), [3, 5, 10]);
-  assert.equal(report.items[0].outcome, "ERROR");
-  assert.equal(report.items[0].errorCode, "PROVIDER_DISABLED");
+  assert.equal(report.items[0].outcome, "BLOCK_QUERY");
+  assert.equal(report.items[0].errorCode, "BLOCK_QUERY");
   assert.equal(report.items[1].outcome, "SKIP_NOT_FOUND");
   assert.equal(report.items[2].outcome, "SKIP_NOT_PUBLISHED");
   assert.equal(fixture.reads.some(([, id]) => id === 11), false);
