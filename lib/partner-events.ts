@@ -11,6 +11,7 @@ import {
   enforcePartnerEventCreateRateLimit,
   enforcePartnerEventUpdateRateLimit,
 } from "@/lib/partner-security";
+import { normalizePartnerMediaId, terminalPartnerMediaStatement } from "@/lib/partner-media";
 import {
   applyAtomicModerationTransition,
   canTransitionModerationSubmission,
@@ -88,16 +89,16 @@ export function normalizePartnerEventCreate(raw:unknown){
   delete values.cancelled;assertNotPast(values);
   return values;
 }
-export function normalizePartnerEventUpdate(raw:unknown,current:PartnerEventPatch){
+export function normalizePartnerEventUpdate(raw:unknown,current:PartnerEventPatch,allowEmpty=false){
   const source=object(raw);strictKeys(source,UPDATE_KEYS);
-  if(!Object.keys(source).length)throw new PartnerEventError("Nezmenili ste žiadny údaj.");
+  if(!Object.keys(source).length&&!allowEmpty)throw new PartnerEventError("Nezmenili ste žiadny údaj.");
   const normalized=editable(normalizeManagedEventInput(eventInput(source,current)));
   const patch:PartnerEventPatch={};
   for(const key of Object.keys(source)){
     const next=normalized[key],before=current[key];
     if(JSON.stringify(next)!==JSON.stringify(before))patch[key]=next;
   }
-  if(!Object.keys(patch).length)throw new PartnerEventError("Nezmenili ste žiadny údaj.");
+  if(!Object.keys(patch).length&&!allowEmpty)throw new PartnerEventError("Nezmenili ste žiadny údaj.");
   return patch;
 }
 function text(value:unknown){
@@ -153,12 +154,12 @@ export async function scanPartnerEventDuplicates(values:PartnerEventPatch,dbInpu
   return {confidence:(candidates[0]?.confidence??"NONE") as PartnerEventDuplicateConfidence,candidates};
 }
 
-type EventResourceRow={resourceId:string;canonicalId:number;role:PartnerRole;slug:string;status:string;updatedAt:string;title:string;excerpt:string;eventType:string;startDate:string;startTime:string;endDate:string|null;endTime:string|null;venue:string;city:string;region:string;address:string;organizer:string;description:string;practicalInfo:string;websiteUrl:string|null;registrationUrl:string|null;cancelled:number};
+type EventResourceRow={resourceId:string;canonicalId:number;role:PartnerRole;slug:string;status:string;updatedAt:string;title:string;excerpt:string;eventType:string;startDate:string;startTime:string;endDate:string|null;endTime:string|null;venue:string;city:string;region:string;address:string;organizer:string;description:string;practicalInfo:string;websiteUrl:string|null;registrationUrl:string|null;imageUrl:string|null;cancelled:number};
 async function resourceRow(resourceId:string,db:D1Database){
   return db.prepare(`
     SELECT r.id resourceId,e.id canonicalId,m.role,e.slug,e.status,e.updated_at updatedAt,e.title,e.excerpt,e.event_type eventType,
       e.start_date startDate,e.start_time startTime,e.end_date endDate,e.end_time endTime,e.venue,e.city,e.region,e.address,e.organizer,
-      e.description,e.practical_info practicalInfo,e.website_url websiteUrl,e.registration_url registrationUrl,e.cancelled
+      e.description,e.practical_info practicalInfo,e.website_url websiteUrl,e.registration_url registrationUrl,e.image_url imageUrl,e.cancelled
     FROM partner_resources r
     JOIN managed_events e ON e.id=r.managed_event_id
     LEFT JOIN partner_memberships m ON m.resource_id=r.id AND m.revoked_at IS NULL
@@ -196,14 +197,14 @@ export async function getPartnerEventEditor(accountId:string,resourceId:string,d
   const row=await resourceRow(resourceId,db);
   if(!row)throw new PartnerEventError("Podujatie sa nenašlo alebo resource nie je MANAGED_EVENT.",404);
   const values=valuesFromRow(row);
-  return {resource:{resourceId,canonicalId:row.canonicalId,role:membership.role as PartnerRole,title:row.title,status:row.status,slug:row.slug,publicHref:row.status==="published"?`/podujatia/${row.slug}`:null},values,baseUpdatedAt:row.updatedAt,baseRevision:await revision(row.updatedAt,values)};
+  return {resource:{resourceId,canonicalId:row.canonicalId,role:membership.role as PartnerRole,title:row.title,status:row.status,slug:row.slug,publicHref:row.status==="published"?`/podujatia/${row.slug}`:null,imageUrl:row.imageUrl},values,baseUpdatedAt:row.updatedAt,baseRevision:await revision(row.updatedAt,values)};
 }
 
 function hashKey(input?:string){const value=input??(env as unknown as RuntimeBindings).PII_HASH_KEY?.trim();if(!value)throw new PartnerEventError("Bezpečnostná konfigurácia nie je dostupná.",503);return value;}
 function expiry(now:Date){return new Date(now.getTime()+30*24*60*60*1000).toISOString();}
 function duplicateFlags(scan:Awaited<ReturnType<typeof scanPartnerEventDuplicates>>){return scan.confidence==="HIGH"?["LIKELY_DUPLICATE"]:scan.confidence==="MEDIUM"?["POSSIBLE_DUPLICATE"]:[];}
 
-export async function submitPartnerEventCreate(input:{accountId:string;event:unknown;confirmDuplicate?:boolean;database?:D1Database;hashKey?:string;now?:Date}){
+export async function submitPartnerEventCreate(input:{accountId:string;event:unknown;confirmDuplicate?:boolean;mediaAssetId?:unknown;database?:D1Database;hashKey?:string;now?:Date}){
   const db=database(input.database),values=normalizePartnerEventCreate(input.event);
   const fingerprint=await partnerEventIdentityFingerprint(values);
   const scan=await scanPartnerEventDuplicates(values,db);
@@ -213,11 +214,12 @@ export async function submitPartnerEventCreate(input:{accountId:string;event:unk
     WHERE m.partner_account_id=?1 AND m.dedupe_key=?2 AND m.dedupe_active=1 AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') LIMIT 1`).bind(input.accountId,`CREATE:${fingerprint}`).first<{id:string}>();
   if(existing)throw new PartnerEventError("Rovnaký návrh podujatia už čaká na spracovanie.",409);
   const now=input.now??new Date(),nowIso=now.toISOString(),id=crypto.randomUUID(),top=scan.candidates[0]??null;
-  const fields=Object.keys(values).filter(key=>key!=="cancelled");
+  const mediaAssetId=normalizePartnerMediaId(input.mediaAssetId);
+  const fields=[...Object.keys(values).filter(key=>key!=="cancelled"),...(mediaAssetId?["image"]:[])];
   try{
     await db.batch([
-      db.prepare(`INSERT INTO moderation_submissions(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,duplicate_resource_type,duplicate_subject_id,created_at,updated_at)
-        VALUES(?1,'MANAGED_EVENT',NULL,'CREATE','SUBMITTED','PARTNER_ACCOUNT',?2,?3,?4,?5,?6,?7,?7)`).bind(id,input.accountId,JSON.stringify(values),JSON.stringify(duplicateFlags(scan)),top?"MANAGED_EVENT":null,top?String(top.id):null,nowIso),
+      db.prepare(`INSERT INTO moderation_submissions(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,media_asset_id,duplicate_resource_type,duplicate_subject_id,created_at,updated_at)
+        VALUES(?1,'MANAGED_EVENT',NULL,'CREATE','SUBMITTED','PARTNER_ACCOUNT',?2,?3,?4,?5,?6,?7,?8,?8)`).bind(id,input.accountId,JSON.stringify(values),JSON.stringify(duplicateFlags(scan)),mediaAssetId,top?"MANAGED_EVENT":null,top?String(top.id):null,nowIso),
       db.prepare(`INSERT INTO partner_event_submission_metadata(submission_id,partner_account_id,partner_resource_id,operation,display_title,base_updated_at,base_snapshot_json,changed_field_count,dedupe_key,dedupe_active,duplicate_confidence,duplicate_candidate_id,duplicate_reasons_json,created_at)
         VALUES(?1,?2,NULL,'CREATE',?3,NULL,'{}',?4,?5,1,?6,?7,?8,?9)`).bind(id,input.accountId,String(values.title),fields.length,`CREATE:${fingerprint}`,scan.confidence,top?.id??null,JSON.stringify(top?.reasons??[]),nowIso),
       db.prepare(`INSERT INTO moderation_events(id,submission_id,resource_type,subject_id,action,actor_type,actor_ref,from_status,to_status,changed_fields_json,created_at)
@@ -229,6 +231,7 @@ export async function submitPartnerEventCreate(input:{accountId:string;event:unk
     ]);
   }catch(error){
     if(/partner_event_submission_active_dedupe_unique|UNIQUE constraint failed/i.test(String(error)))throw new PartnerEventError("Rovnaký návrh podujatia už čaká na spracovanie.",409);
+    if(/invalid partner media attachment|moderation_submissions_media_asset_unique/i.test(String(error)))throw new PartnerEventError("Priložený obrázok už nie je platný pre túto žiadosť.",409,"INVALID_MEDIA");
     throw error;
   }
   try {
@@ -251,25 +254,26 @@ export async function submitPartnerEventCreate(input:{accountId:string;event:unk
   return {id,operation:"CREATE" as const,status:"SUBMITTED" as const,title:String(values.title),duplicateConfidence:scan.confidence};
 }
 
-export async function submitPartnerEventUpdate(input:{accountId:string;resourceId:string;baseRevision:unknown;patch:unknown;database?:D1Database;hashKey?:string;now?:Date}){
+export async function submitPartnerEventUpdate(input:{accountId:string;resourceId:string;baseRevision:unknown;patch:unknown;mediaAssetId?:unknown;database?:D1Database;hashKey?:string;now?:Date}){
   const db=database(input.database);
   const editor=await getPartnerEventEditor(input.accountId,input.resourceId,db);
   if(typeof input.baseRevision!=="string"||input.baseRevision!==editor.baseRevision)throw new PartnerEventError("Podujatie sa medzitým zmenilo. Obnovte stránku a skontrolujte aktuálne údaje.",409);
-  const patch=normalizePartnerEventUpdate(input.patch,editor.values);
+  const mediaAssetId=normalizePartnerMediaId(input.mediaAssetId);
+  const patch=normalizePartnerEventUpdate(input.patch,editor.values,Boolean(mediaAssetId));
   await enforcePartnerEventUpdateRateLimit({database:db,accountId:input.accountId,resourceId:input.resourceId,hashKey:hashKey(input.hashKey),now:input.now});
   const key=`UPDATE:${input.resourceId}`;
   const existing=await db.prepare(`SELECT m.submission_id id FROM partner_event_submission_metadata m JOIN moderation_submissions s ON s.id=m.submission_id
     WHERE m.partner_account_id=?1 AND m.dedupe_key=?2 AND m.dedupe_active=1 AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED') LIMIT 1`).bind(input.accountId,key).first<{id:string}>();
   if(existing)throw new PartnerEventError("Pre toto podujatie už máte návrh, ktorý čaká na spracovanie.",409);
-  const riskFlags:string[]=[];const changed=Object.keys(patch);
+  const riskFlags:string[]=[];const changed=[...Object.keys(patch),...(mediaAssetId?["image"]:[])];
   if(changed.some(key=>["startDate","startTime","endDate","endTime"].includes(key)))riskFlags.push("DATE_CHANGE");
   if(changed.some(key=>["venue","city","region","address"].includes(key)))riskFlags.push("LOCATION_CHANGE");
   if(changed.includes("cancelled"))riskFlags.push("CANCELLATION_CHANGE");
   const now=input.now??new Date(),nowIso=now.toISOString(),id=crypto.randomUUID();
   try{
     await db.batch([
-      db.prepare(`INSERT INTO moderation_submissions(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,created_at,updated_at)
-        VALUES(?1,'MANAGED_EVENT',?2,'UPDATE','SUBMITTED','PARTNER_ACCOUNT',?3,?4,?5,?6,?6)`).bind(id,String(editor.resource.canonicalId),input.accountId,JSON.stringify(patch),JSON.stringify(riskFlags),nowIso),
+      db.prepare(`INSERT INTO moderation_submissions(id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,proposed_patch_json,risk_flags_json,media_asset_id,created_at,updated_at)
+        VALUES(?1,'MANAGED_EVENT',?2,'UPDATE','SUBMITTED','PARTNER_ACCOUNT',?3,?4,?5,?6,?7,?7)`).bind(id,String(editor.resource.canonicalId),input.accountId,JSON.stringify(patch),JSON.stringify(riskFlags),mediaAssetId,nowIso),
       db.prepare(`INSERT INTO partner_event_submission_metadata(submission_id,partner_account_id,partner_resource_id,operation,display_title,base_updated_at,base_snapshot_json,changed_field_count,dedupe_key,dedupe_active,duplicate_confidence,duplicate_reasons_json,created_at)
         VALUES(?1,?2,?3,'UPDATE',?4,?5,?6,?7,?8,1,'NONE','[]',?9)`).bind(id,input.accountId,input.resourceId,editor.resource.title,editor.baseUpdatedAt,JSON.stringify(editor.values),changed.length,key,nowIso),
       db.prepare(`INSERT INTO moderation_events(id,submission_id,resource_type,subject_id,action,actor_type,actor_ref,from_status,to_status,changed_fields_json,created_at)
@@ -281,6 +285,7 @@ export async function submitPartnerEventUpdate(input:{accountId:string;resourceI
     ]);
   }catch(error){
     if(/partner_event_submission_active_dedupe_unique|UNIQUE constraint failed/i.test(String(error)))throw new PartnerEventError("Pre toto podujatie už máte návrh, ktorý čaká na spracovanie.",409);
+    if(/invalid partner media attachment|moderation_submissions_media_asset_unique/i.test(String(error)))throw new PartnerEventError("Priložený obrázok už nie je platný pre túto žiadosť.",409,"INVALID_MEDIA");
     throw error;
   }
   try {
@@ -326,7 +331,7 @@ export async function withdrawPartnerEventSubmission(input:{accountId:string;id:
   if(!row||row.accountId!==input.accountId)throw new PartnerEventError("Návrh podujatia sa nenašiel.",404);
   if(!isFoundationSubmissionStatus(row.status)||!canTransitionModerationSubmission(row.status,"WITHDRAWN"))throw new PartnerEventError("Tento návrh už nie je možné zrušiť.",409);
   const nowIso=(input.now??new Date()).toISOString(),actorRef=`partner:${input.accountId}`;
-  await applyAtomicModerationTransition(db,{id:input.id,expectedStatus:row.status as FoundationSubmissionStatus,toStatus:"WITHDRAWN",actorType:"PARTNER",actorRef,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["status"]),now:nowIso,extraStatements:[
+  await applyAtomicModerationTransition(db,{id:input.id,expectedStatus:row.status as FoundationSubmissionStatus,toStatus:"WITHDRAWN",actorType:"PARTNER",actorRef,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["status"]),now:nowIso,extraStatements:[terminalPartnerMediaStatement({database:db,submissionId:input.id,state:"ORPHANED",nowIso,actorRef}),
     db.prepare(`UPDATE partner_event_submission_metadata SET dedupe_active=0 WHERE submission_id=?1 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?1 AND status='WITHDRAWN' AND updated_at=?2 AND reviewed_by=?3)`).bind(input.id,nowIso,actorRef),
     db.prepare(`INSERT INTO partner_audit_events(id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at)
       SELECT ?1,'PARTNER',?2,'EVENT_WITHDRAWN','MODERATION_SUBMISSION',?3,'{}',?4 WHERE EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='WITHDRAWN' AND updated_at=?4 AND reviewed_by=?2)`).bind(crypto.randomUUID(),actorRef,input.id,nowIso),

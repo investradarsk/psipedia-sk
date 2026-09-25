@@ -77,7 +77,8 @@ test("plaintext UGC rejects executable HTML and audit payload redacts PII", asyn
 
 test("image pipeline rejects MIME mismatch, strips metadata and only publishes SAFE namespace", async () => {
   const { detectImageMime, ingestPrivateImage, publishSafeImage } = await importTs("lib/private-media.ts");
-  const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe1, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00]);
+  const jpeg = new Uint8Array(24);
+  jpeg.set([0xff,0xd8,0xff,0xc0,0x00,0x11,0x08,0x00,0x64,0x00,0xc8],0);
   assert.equal(detectImageMime(jpeg), "image/jpeg");
   const objects = new Map();
   const transforms = [];

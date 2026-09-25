@@ -87,7 +87,7 @@ test("Partner shell uses the measured sticky header height as shared scroll offs
 test("Partner event copy is external-facing and contains no internal canonical/admin jargon", () => {
   assert.match(
     newEventPage,
-    /Po schválení administrátorom sa podujatie uloží ako koncept\. Obrázok, SEO údaje a zverejnenie následne doplní redakcia Psipedie\./,
+    /Po schválení administrátorom sa podujatie uloží ako koncept\. Priložený obrázok prejde rovnakou moderátorskou kontrolou; SEO údaje a zverejnenie zostávajú redakčným krokom\./,
   );
   assert.doesNotMatch(newEventPage, /canonical|admin flow/i);
   assert.doesNotMatch(editEventPage, /canonical|admin flow|\bslug\b/i);

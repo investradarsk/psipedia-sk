@@ -401,7 +401,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   }
   await page.getByRole("link",{name:"Pridať podujatie"}).first().click();
   await expect(page.getByRole("heading",{name:"Pridať podujatie"})).toBeVisible();
-  await expect(page.getByText("Po schválení administrátorom sa podujatie uloží ako koncept. Obrázok, SEO údaje a zverejnenie následne doplní redakcia Psipedie.")).toBeVisible();
+  await expect(page.getByText("Po schválení administrátorom sa podujatie uloží ako koncept. Priložený obrázok prejde rovnakou moderátorskou kontrolou; SEO údaje a zverejnenie zostávajú redakčným krokom.")).toBeVisible();
   const partnerLayout = await page.evaluate(() => {
     const stickyHeader = document.querySelector<HTMLElement>(".site-header");
     const heading = document.querySelector<HTMLElement>(".partner-page-heading h1");
@@ -597,11 +597,19 @@ test("stale Partner moderation approval is rejected at decision time without ove
 
   await page.goto(eventDetailHref!);
   await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
+  const staleEventResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/admin/partners/events/") &&
+    response.request().method() === "PATCH",
+  );
   page.once("dialog", dialog => void dialog.accept());
   await page.getByRole("button", { name: "Schváliť zmeny" }).click();
-  await expect(page.getByRole("status")).toContainText(
+  const staleEventResponse = await staleEventResponsePromise;
+  expect(staleEventResponse.status()).toBe(409);
+  const staleEventJson = await staleEventResponse.json() as { error?: string };
+  expect(staleEventJson.error).toBe(
     "Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
   );
+  await expect(page.getByRole("status")).toContainText(staleEventJson.error!);
 
   await page.reload();
   await expect(page.getByText(/PENDING_REVIEW/).first()).toBeVisible();

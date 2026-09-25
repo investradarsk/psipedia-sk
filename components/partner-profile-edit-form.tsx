@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { PartnerProfileEditableValue, PartnerProfileFieldDefinition } from "@/lib/partner-profile-changes";
+import type { PartnerProfileChangeResourceType, PartnerProfileEditableValue, PartnerProfileFieldDefinition } from "@/lib/partner-profile-changes";
+import { PartnerMediaField } from "@/components/partner-media-field";
 
 type Props = {
   resourceId: string;
   fields: readonly PartnerProfileFieldDefinition[];
   values: Record<string, PartnerProfileEditableValue>;
   baseRevision: string;
+  resourceType: PartnerProfileChangeResourceType;
+  currentImageUrl?: string | null;
 };
 
 function uiValue(field: PartnerProfileFieldDefinition, value: PartnerProfileEditableValue | undefined) {
@@ -24,11 +27,12 @@ function apiValue(field: PartnerProfileFieldDefinition, value: string | boolean)
   return String(value);
 }
 
-export function PartnerProfileEditForm({ resourceId, fields, values, baseRevision }: Props) {
+export function PartnerProfileEditForm({ resourceId, fields, values, baseRevision, currentImageUrl }: Props) {
   const initial = useMemo(() => Object.fromEntries(fields.map((field) => [field.key, uiValue(field, values[field.key])])), [fields, values]);
   const [draft, setDraft] = useState<Record<string, string | boolean>>(initial);
   const [state, setState] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [mediaAssetId, setMediaAssetId] = useState<string|null>(null);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -38,7 +42,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
       const after = apiValue(field, draft[field.key]);
       if (JSON.stringify(before) !== JSON.stringify(after)) patch[field.key] = after;
     }
-    if (!Object.keys(patch).length) {
+    if (!Object.keys(patch).length && !mediaAssetId) {
       setState("error");
       setMessage("Nezmenili ste žiadny údaj.");
       return;
@@ -49,7 +53,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
       const response = await fetch("/api/partner/profile-changes", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resourceId, baseRevision, patch }),
+        body: JSON.stringify({ resourceId, baseRevision, patch, mediaAssetId }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Návrh sa nepodarilo odoslať.");
@@ -123,6 +127,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
           );
         })}
       </div>
+      <PartnerMediaField label="Navrhnúť zmenu obrázka" intent="PARTNER_PROFILE_UPDATE" currentImageUrl={currentImageUrl} onChange={setMediaAssetId} disabled={state==="success"}/>
       <div className="partner-profile-edit-submit">
         <div>
           <strong>Žiadna zmena sa nezverejní okamžite.</strong>

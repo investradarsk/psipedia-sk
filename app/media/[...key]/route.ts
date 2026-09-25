@@ -11,6 +11,10 @@ export async function GET(_request: Request, { params }: RouteProps) {
     return new Response("Not found", { status: 404 });
   }
 
+  if (segments[0] === "quarantine" || segments[0] === "safe") {
+    return new Response("Not found", { status: 404 });
+  }
+
   const bucket = (env as unknown as MediaBindings).BUCKET;
   if (!bucket) return new Response("Not found", { status: 404 });
   const object = await bucket.get(segments.join("/"));

@@ -16,6 +16,7 @@ import { applyAtomicModerationTransition, ModerationStateConflictError, type Fou
 import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
+import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
 
 type Bindings={DB?:D1Database;PII_ENCRYPTION_KEY?:string;CF_VERSION_METADATA?:{id?:string}};
 type AdminRow={
@@ -25,6 +26,7 @@ type AdminRow={
   duplicateConfidence:string;duplicateCandidateId:number|null;duplicateReasonsJson:string;resolutionType:string|null;resolvedEventId:number|null;
   emailCiphertext:string;currentUpdatedAt:string|null;currentTitle:string|null;currentSlug:string|null;currentStatus:string|null;currentEventType:string|null;currentStartDate:string|null;currentRegion:string|null;
   candidateTitle:string|null;candidateSlug:string|null;candidateStatus:string|null;candidateStartDate:string|null;candidateCity:string|null;
+  mediaAssetId:string|null;mediaMime:string|null;mediaSizeBytes:number|null;mediaWidth:number|null;mediaHeight:number|null;
 };
 function db(input?:D1Database){return getPartnerDatabase(input??(env as unknown as Bindings).DB);}
 function key(value?:string){const k=value??(env as unknown as Bindings).PII_ENCRYPTION_KEY;if(!k)throw new PartnerEventError("PII_ENCRYPTION_KEY nie je nakonfigurovaný.",503);return k;}
@@ -40,6 +42,7 @@ function active(status:string){return ["SUBMITTED","PENDING_REVIEW","QUARANTINED
 function label(status:string){return status==="SUBMITTED"?"Nové":status==="PENDING_REVIEW"?"Čaká na rozhodnutie":status==="QUARANTINED"?"Dodatočná kontrola":status==="APPROVED"?"Schválené":status==="REJECTED"?"Zamietnuté":"Zrušené";}
 const SELECT=`
   SELECT s.id,s.operation,s.status,s.subject_id subjectId,s.proposed_patch_json proposedPatchJson,s.risk_flags_json riskFlagsJson,
+    s.media_asset_id mediaAssetId,ma.original_mime mediaMime,ma.size_bytes mediaSizeBytes,ma.width mediaWidth,ma.height mediaHeight,
     s.rejection_reason_code rejectionReasonCode,s.created_at createdAt,s.updated_at updatedAt,s.reviewed_at reviewedAt,s.reviewed_by reviewedBy,
     m.partner_account_id accountId,m.partner_resource_id resourceId,m.base_updated_at baseUpdatedAt,m.base_snapshot_json baseSnapshotJson,
     m.changed_field_count changedFieldCount,m.duplicate_confidence duplicateConfidence,m.duplicate_candidate_id duplicateCandidateId,
@@ -49,6 +52,7 @@ const SELECT=`
   FROM partner_event_submission_metadata m
   JOIN moderation_submissions s ON s.id=m.submission_id
   JOIN partner_accounts a ON a.id=m.partner_account_id
+  LEFT JOIN media_assets ma ON ma.id=s.media_asset_id
   LEFT JOIN partner_resources r ON r.id=m.partner_resource_id
   LEFT JOIN managed_events e ON e.id=r.managed_event_id
   LEFT JOIN managed_events d ON d.id=m.duplicate_candidate_id
@@ -57,7 +61,7 @@ async function hydrate(row:AdminRow,encryptionKey:string){
   const patch=json<PartnerEventPatch>(row.proposedPatchJson,{});
   const risks=json<string[]>(row.riskFlagsJson,[]).filter(x=>typeof x==="string");
   if(row.operation==="UPDATE"&&active(row.status)&&row.baseUpdatedAt&&row.currentUpdatedAt!==row.baseUpdatedAt&&!risks.includes("STALE_BASE"))risks.push("STALE_BASE");
-  const eventType=typeof patch.eventType==="string"?patch.eventType:row.currentEventType;const startDate=typeof patch.startDate==="string"?patch.startDate:row.currentStartDate;const region=typeof patch.region==="string"?patch.region:row.currentRegion;const needsAttention=risks.length>0||row.duplicateConfidence==="HIGH"||row.status==="QUARANTINED";return {...row,email:await decryptPii(row.emailCiphertext,encryptionKey),proposedPatch:patch,riskFlags:risks,statusLabel:label(row.status),active:active(row.status),duplicateReasons:json<string[]>(row.duplicateReasonsJson,[]),eventType,startDate,region,needsAttention};
+  const eventType=typeof patch.eventType==="string"?patch.eventType:row.currentEventType;const startDate=typeof patch.startDate==="string"?patch.startDate:row.currentStartDate;const region=typeof patch.region==="string"?patch.region:row.currentRegion;const needsAttention=risks.length>0||row.duplicateConfidence==="HIGH"||row.status==="QUARANTINED";return {...row,email:await decryptPii(row.emailCiphertext,encryptionKey),proposedPatch:patch,media:row.mediaAssetId?{id:row.mediaAssetId,originalMime:row.mediaMime,sizeBytes:row.mediaSizeBytes,width:row.mediaWidth,height:row.mediaHeight,previewUrl:`/api/admin/partners/media/${row.mediaAssetId}`}:null,riskFlags:risks,statusLabel:label(row.status),active:active(row.status),duplicateReasons:json<string[]>(row.duplicateReasonsJson,[]),eventType,startDate,region,needsAttention};
 }
 async function raw(id:string,database:D1Database){return database.prepare(SELECT+" WHERE s.id=?1 LIMIT 1").bind(id).first<AdminRow>();}
 export async function listPartnerEventsAdmin(input:{status?:string;operation?:string;eventType?:string;region?:string;dateFrom?:string;dateTo?:string;attention?:string;q?:string;database?:D1Database;encryptionKey?:string}={}){
@@ -76,9 +80,9 @@ export async function listPartnerEventsAdmin(input:{status?:string;operation?:st
   return items;
 }
 
-type CurrentEvent={id:number;slug:string;title:string;excerpt:string;eventType:string;status:string;startDate:string;startTime:string;endDate:string|null;endTime:string|null;venue:string;city:string;region:string;address:string;organizer:string;description:string;practicalInfo:string;websiteUrl:string|null;registrationUrl:string|null;cancelled:number;updatedAt:string};
+type CurrentEvent={id:number;slug:string;title:string;excerpt:string;eventType:string;status:string;startDate:string;startTime:string;endDate:string|null;endTime:string|null;venue:string;city:string;region:string;address:string;organizer:string;description:string;practicalInfo:string;websiteUrl:string|null;registrationUrl:string|null;imageUrl:string|null;imageKey:string|null;cancelled:number;updatedAt:string};
 async function currentEvent(id:number,database:D1Database){
-  return database.prepare(`SELECT id,slug,title,excerpt,event_type eventType,status,start_date startDate,start_time startTime,end_date endDate,end_time endTime,venue,city,region,address,organizer,description,practical_info practicalInfo,website_url websiteUrl,registration_url registrationUrl,cancelled,updated_at updatedAt FROM managed_events WHERE id=?1 LIMIT 1`).bind(id).first<CurrentEvent>();
+  return database.prepare(`SELECT id,slug,title,excerpt,event_type eventType,status,start_date startDate,start_time startTime,end_date endDate,end_time endTime,venue,city,region,address,organizer,description,practical_info practicalInfo,website_url websiteUrl,registration_url registrationUrl,image_url imageUrl,image_key imageKey,cancelled,updated_at updatedAt FROM managed_events WHERE id=?1 LIMIT 1`).bind(id).first<CurrentEvent>();
 }
 function currentValues(e:CurrentEvent):PartnerEventPatch{return {title:e.title,excerpt:e.excerpt,eventType:e.eventType,startDate:e.startDate,startTime:e.startTime,endDate:e.endDate,endTime:e.endTime,venue:e.venue,city:e.city,region:e.region,address:e.address,organizer:e.organizer,description:e.description,practicalInfo:e.practicalInfo,websiteUrl:e.websiteUrl,registrationUrl:e.registrationUrl,cancelled:Boolean(e.cancelled)};}
 function eventSnapshotChanged(base:PartnerEventPatch,current:PartnerEventPatch){
@@ -92,7 +96,7 @@ export async function getPartnerEventAdmin(id:string,input:{database?:D1Database
   if(row.subjectId){const n=Number(row.subjectId);if(Number.isSafeInteger(n)&&n>0)current=await currentEvent(n,database)??null;}
   if(row.operation==="UPDATE"&&current){
     const base=json<PartnerEventPatch>(row.baseSnapshotJson,{});
-    const proposed=normalizePartnerEventUpdate(item.proposedPatch,base);
+    const proposed=normalizePartnerEventUpdate(item.proposedPatch,base,Boolean(row.mediaAssetId));
     const now=currentValues(current);
     diff=Object.keys(proposed).map(field=>({field,baseValue:base[field]??null,currentValue:now[field]??null,proposedValue:proposed[field]??null,currentChangedFromBase:JSON.stringify(base[field]??null)!==JSON.stringify(now[field]??null)}));
   }
@@ -137,12 +141,17 @@ async function uniqueSlug(title:string,database:D1Database,values:PartnerEventPa
   }
   throw new PartnerEventError("Nepodarilo sa vytvoriť jedinečnú adresu podujatia.",409);
 }
-function eventInsert(database:D1Database,input:{id:string;slug:string;values:PartnerEventPatch;actorRef:string;nowIso:string}){
+function eventInsert(database:D1Database,input:{id:string;slug:string;values:PartnerEventPatch;actorRef:string;nowIso:string;media?:{imageUrl:string;imageKey:string}|null}){
   const v=input.values;
   return database.prepare(`INSERT INTO managed_events(slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,organizer,description,practical_info,website_url,registration_url,image_url,image_key,cancelled,seo_json,created_at,updated_at,published_at,created_by,updated_by)
-    SELECT ?1,?2,?3,?4,'draft',?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,NULL,NULL,0,'{}',?18,?18,NULL,?19,?19
-    WHERE EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?20 AND status='APPROVED' AND updated_at=?18 AND reviewed_by=?19)`)
-    .bind(input.slug,v.title,v.excerpt,v.eventType,v.startDate,v.startTime,v.endDate,v.endTime,v.venue,v.city,v.region,v.address,v.organizer,v.description,v.practicalInfo,v.websiteUrl,v.registrationUrl,input.nowIso,input.actorRef,input.id);
+    SELECT ?1,?2,?3,?4,'draft',?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,0,'{}',?20,?20,NULL,?21,?21
+    WHERE EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?22 AND status='APPROVED' AND updated_at=?20 AND reviewed_by=?21)`)
+    .bind(input.slug,v.title,v.excerpt,v.eventType,v.startDate,v.startTime,v.endDate,v.endTime,v.venue,v.city,v.region,v.address,v.organizer,v.description,v.practicalInfo,v.websiteUrl,v.registrationUrl,input.media?.imageUrl??null,input.media?.imageKey??null,input.nowIso,input.actorRef,input.id);
+}
+function eventImageUpdateStatement(database:D1Database,input:{eventId:number;submissionId:string;imageUrl:string;imageKey:string;nowIso:string;actorRef:string}){
+  return database.prepare(`UPDATE managed_events SET image_url=?1,image_key=?2,updated_at=?3,updated_by=?4
+    WHERE id=?5 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?6 AND status='APPROVED' AND updated_at=?3 AND reviewed_by=?4)`)
+    .bind(input.imageUrl,input.imageKey,input.nowIso,input.actorRef,input.eventId,input.submissionId);
 }
 function resourceInsert(database:D1Database,resourceId:string,slug:string,nowIso:string){
   return database.prepare(`INSERT OR IGNORE INTO partner_resources(id,entity_type,managed_event_id,created_at,updated_at) SELECT ?1,'MANAGED_EVENT',id,?3,?3 FROM managed_events WHERE slug=?2`).bind(resourceId,slug,nowIso);
@@ -189,28 +198,35 @@ export async function createPartnerEventAdmin(input:{id:string;adminEmail:string
   await assertEventIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
   const values=normalizePartnerEventCreate(json(row.proposedPatchJson,{}));const scan=await scanPartnerEventDuplicates(values,database);void scan;
+  const media=await publishPartnerSubmissionMedia({submissionId:input.id,database,publicFolder:"events"});
   const slug=await uniqueSlug(String(values.title),database,values),resourceId=crypto.randomUUID(),now=input.now??new Date(),nowIso=now.toISOString();
-  await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(Object.keys(values)),now:nowIso,extraStatements:[
-    eventInsert(database,{id:input.id,slug,values,actorRef,nowIso}),
+  await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify([...Object.keys(values),...(media?["image"]:[])]),now:nowIso,extraStatements:[
+    eventInsert(database,{id:input.id,slug,values,actorRef,nowIso,media}),
     resourceInsert(database,resourceId,slug,nowIso),
     ...membershipStatements(database,{resourceId,accountId:row.accountId,actorRef,nowIso}),
     terminal(database,input.id,"APPROVED",nowIso,actorRef,"CREATED_NEW",`(SELECT id FROM managed_events WHERE slug='${slug.replaceAll("'","''")}' LIMIT 1)`),
     audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_CREATED",nowIso,actorRef,status:"APPROVED",metadata:{resourceId}}),
     notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_CREATED",now,nowIso,actorRef,status:"APPROVED"}),
+    terminalPartnerMediaStatement({database,submissionId:input.id,state:"APPROVED",nowIso,actorRef,publicKey:media?.imageKey??null}),
   ]});
   const event=await database.prepare("SELECT id,slug FROM managed_events WHERE slug=?1 LIMIT 1").bind(slug).first<{id:number;slug:string}>();if(!event)throw new PartnerEventError("Canonical podujatie po schválení chýba.",500);
   await sideEffects({eventId:event.id,slug:event.slug,published:false,locationChanged:true,invalidatePublic:false,publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
   return getPartnerEventAdmin(input.id,{database});
 }
 
-export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date}){
+export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;applyImage?:boolean}){
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);if(row.operation!=="CREATE")throw new PartnerEventError("Prepojenie je iba pre nový návrh.",409);
   const existing=await currentEvent(input.canonicalId,database);if(!existing)throw new PartnerEventError("Existujúce podujatie sa nenašlo.",404);
   const targetResource=await database.prepare("SELECT id FROM partner_resources WHERE managed_event_id=?1 LIMIT 1").bind(input.canonicalId).first<{id:string}>();
   await assertEventIndependentOwnershipApprover({adminEmail:input.adminEmail,accountId:row.accountId,resourceId:targetResource?.id??null,database});
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
+  const stagedMedia=await getPartnerSubmissionMedia(input.id,database);
+  const media=input.applyImage===true&&stagedMedia?await publishPartnerSubmissionMedia({submissionId:input.id,database,publicFolder:"events"}):null;
   const now=input.now??new Date(),nowIso=now.toISOString(),resourceId=crypto.randomUUID();
-  await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:"[]",now:nowIso,extraStatements:[
+  await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["resolution",...(media?["image"]:[])]),now:nowIso,
+    transitionGuard:media?{sql:"EXISTS(SELECT 1 FROM managed_events WHERE id=? AND updated_at=?)",bindings:[input.canonicalId,existing.updatedAt]}:undefined,
+    extraStatements:[
+    ...(media?[eventImageUpdateStatement(database,{eventId:input.canonicalId,submissionId:input.id,imageUrl:media.imageUrl,imageKey:media.imageKey,nowIso,actorRef})]:[]),
     database.prepare(`INSERT OR IGNORE INTO partner_resources(id,entity_type,managed_event_id,created_at,updated_at) VALUES(?1,'MANAGED_EVENT',?2,?3,?3)`).bind(resourceId,input.canonicalId,nowIso),
     database.prepare(`INSERT INTO partner_audit_events(id,actor_type,actor_ref,action,target_type,target_id,metadata_json,created_at)
       SELECT ?1,'ADMIN',?2,'MEMBERSHIP_CREATED','PARTNER_RESOURCE',r.id,?3,?4 FROM partner_resources r
@@ -232,6 +248,7 @@ export async function linkPartnerEventAdmin(input:{id:string;canonicalId:number;
       WHERE submission_id=?2 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?2 AND status='APPROVED' AND updated_at=?3 AND reviewed_by=?4)`).bind(input.canonicalId,input.id,nowIso,actorRef),
     audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_LINKED_EXISTING",nowIso,actorRef,status:"APPROVED",metadata:{eventId:input.canonicalId}}),
     notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_LINKED_EXISTING",now,nowIso,actorRef,status:"APPROVED"}),
+    terminalPartnerMediaStatement({database,submissionId:input.id,state:media?"APPROVED":"ORPHANED",nowIso,actorRef,publicKey:media?.imageKey??null}),
   ]});
   return getPartnerEventAdmin(input.id,{database});
 }
@@ -251,17 +268,21 @@ export async function approvePartnerEventUpdateAdmin(input:{id:string;adminEmail
   if(!row.baseUpdatedAt||current.updatedAt!==row.baseUpdatedAt||eventSnapshotChanged(base,currentValues(current))){
     throw new PartnerEventError("Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
   }
-  const patch=normalizePartnerEventUpdate(json(row.proposedPatchJson,{}),base),changed=Object.keys(patch);
+  const patch=normalizePartnerEventUpdate(json(row.proposedPatchJson,{}),base,Boolean(row.mediaAssetId));
+  const media=await publishPartnerSubmissionMedia({submissionId:input.id,database,publicFolder:"events"});
+  const changed=[...Object.keys(patch),...(media?["image"]:[])];
   const now=input.now??new Date(),nowIso=now.toISOString();
   try{
     await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(changed),now:nowIso,
       transitionGuard:{sql:"EXISTS(SELECT 1 FROM managed_events WHERE id=? AND updated_at=?)",bindings:[eventId,row.baseUpdatedAt]},
       extraStatements:[
-        updateStatement(database,eventId,patch,actorRef,nowIso,input.id),
+        ...(Object.keys(patch).length?[updateStatement(database,eventId,patch,actorRef,nowIso,input.id)]:[]),
+        ...(media?[eventImageUpdateStatement(database,{eventId,submissionId:input.id,imageUrl:media.imageUrl,imageKey:media.imageKey,nowIso,actorRef})]:[]),
         database.prepare(`UPDATE event_notion_sync SET inbound_locked_at=?1,inbound_lock_reason='PARTNER_MODERATION',updated_at=?1
           WHERE event_id=?2 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?3 AND status='APPROVED' AND updated_at=?1 AND reviewed_by=?4)`)
           .bind(nowIso,eventId,input.id,actorRef),
         terminal(database,input.id,"APPROVED",nowIso,actorRef,"UPDATED",String(eventId)),
+        terminalPartnerMediaStatement({database,submissionId:input.id,state:"APPROVED",nowIso,actorRef,publicKey:media?.imageKey??null}),
         audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_CHANGE_APPROVED",nowIso,actorRef,status:"APPROVED",metadata:{eventId,changedFieldCount:changed.length}}),
         notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_CHANGE_APPROVED",now,nowIso,actorRef,status:"APPROVED"}),
       ],
@@ -286,8 +307,9 @@ export async function rejectPartnerEventAdmin(input:{id:string;reasonCode:unknow
   if(typeof input.reasonCode!=="string"||!(partnerEventRejectionReasons as readonly string[]).includes(input.reasonCode))throw new PartnerEventError("Vyberte platný dôvod zamietnutia.");
   const database=db(input.database);let row=await raw(input.id,database);if(!row)throw new PartnerEventError("Návrh sa nenašiel.",404);
   const actorRef=await adminAuditActorRef(input.adminEmail);await pending(input.id,row.status,actorRef,database,input.requestId);row=await raw(input.id,database);if(!row||row.status!=="PENDING_REVIEW")throw new PartnerEventError("Stav návrhu sa zmenil.",409);
-  const now=input.now??new Date(),nowIso=now.toISOString(),changed=Object.keys(json<PartnerEventPatch>(row.proposedPatchJson,{}));
+  const now=input.now??new Date(),nowIso=now.toISOString(),changed=[...Object.keys(json<PartnerEventPatch>(row.proposedPatchJson,{})),...(row.mediaAssetId?["image"]:[])];
   await applyAtomicModerationTransition(database,{id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"REJECTED",actorType:"ADMIN",actorRef,reasonCode:input.reasonCode,requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(changed),now:nowIso,extraStatements:[
+    terminalPartnerMediaStatement({database,submissionId:input.id,state:"REJECTED",nowIso,actorRef}),
     terminal(database,input.id,"REJECTED",nowIso,actorRef,null,null),
     audit(database,{id:input.id,accountId:row.accountId,action:"EVENT_REJECTED",nowIso,actorRef,status:"REJECTED",metadata:{operation:row.operation}}),
     notification(database,{id:input.id,accountId:row.accountId,type:"EVENT_REJECTED",now,nowIso,actorRef,status:"REJECTED"}),

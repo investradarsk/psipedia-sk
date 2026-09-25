@@ -241,10 +241,12 @@ test("notifications and Partner audit cover complete 3B lifecycle",()=>{
   assert.match(email,/profil bol vytvorený ako koncept/i);
 });
 
-test("GEO, legacy and scope invariants stay intact",()=>{
+test("GEO, legacy and commercial invariants stay intact while Partner media remains moderated",()=>{
   const combined=[domain,admin,partnerApi,scanApi,withdrawApi,adminApi].join("\n");
   assert.doesNotMatch(combined,/MANAGED_EVENT|PARTNER_EVENT_REVIEW/);
-  assert.doesNotMatch(combined,/media_assets|upload|R2/i);
+  assert.match(domain,/media_asset_id/);
+  assert.match(admin,/publishPartnerSubmissionMedia/);
+  assert.doesNotMatch(combined,/\/api\/admin\/uploads|x-upload-folder|R2Bucket/i);
   assert.doesNotMatch(combined,/organization_fundraising_methods|bank_account|donation|checkout/i);
   assert.doesNotMatch(combined,/premium_entitlement|sponsored_entitlement|stripe|billing|payments|subscriptions/i);
   assert.doesNotMatch(combined,/latitude|longitude|lat\b|lng\b|geocoder/i);

@@ -7,6 +7,7 @@ import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-so
 import { createProductionOrganizationEnricher } from "../lib/data-automation-organization-enrichment";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runPartnerNotificationSweep } from "../lib/partner-email";
+import { cleanupPartnerMedia } from "../lib/partner-media";
 import { runReviewAuthorNotificationSweep } from "../lib/review-author-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
@@ -216,7 +217,7 @@ const worker = {
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
       return;
     }
-    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery] = await Promise.all([
+    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery, partnerMediaCleanup] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
@@ -254,6 +255,10 @@ const worker = {
         }));
         return { roots: 0, success: 0, partial: 0, failed: 1, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 1, schemaReady: true, runs: [] };
       }),
+      cleanupPartnerMedia({database:env.DB,bucket:env.BUCKET}).catch((error)=>{
+        console.error(JSON.stringify({event:"partner_media_cleanup",result:"failed",error:error instanceof Error?error.message:String(error)}));
+        return {candidates:0,cleaned:0,failed:1};
+      }),
     ]);
     // Run push after the editorial sweep so notifications created during
     // this cron can be delivered in the same scheduled execution.
@@ -271,6 +276,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
     console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
     console.info(JSON.stringify({ event: "data_automation_discovery_sweep", ...sourceDiscovery }));
+    console.info(JSON.stringify({ event: "partner_media_cleanup", ...partnerMediaCleanup }));
     console.info(JSON.stringify({ event: "admin_push_sweep", ...adminPush }));
   },
 };

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { partnerOrganizationTypeLabel, partnerOrganizationTypeOptions } from "@/lib/partner-ui-labels";
+import { PartnerMediaField } from "@/components/partner-media-field";
 
 type ResourceType = "DIRECTORY_PROFILE" | "HELP_ORGANIZATION";
 type Candidate = {
@@ -39,6 +40,7 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
   const [duplicateConfidence, setDuplicateConfidence] = useState<"NONE" | "MEDIUM" | "HIGH">("NONE");
   const [state, setState] = useState<"idle" | "scanning" | "sending" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [mediaAssetId, setMediaAssetId] = useState<string|null>(null);
 
   const profile = resourceType === "DIRECTORY_PROFILE"
     ? {
@@ -69,7 +71,7 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
     const response = await fetch("/api/partner/new-profile", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ resourceType, profile, confirmDuplicate }),
+      body: JSON.stringify({ resourceType, profile, confirmDuplicate, mediaAssetId }),
     });
     const data = await response.json() as { error?: string; code?: string; details?: { candidates?: Candidate[] } };
     if (!response.ok) {
@@ -171,6 +173,8 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
           <label className="partner-field"><span>Kód krajiny</span><input maxLength={2} value={organization.countryCode} onChange={(e)=>setOrganization({...organization,countryCode:e.target.value.toUpperCase()})}/></label>
         </div>
       )}
+
+      <PartnerMediaField label="Logo alebo hlavná fotografia" intent="PARTNER_PROFILE_CREATE" onChange={setMediaAssetId} disabled={state==="success"}/>
 
       {candidates.length ? (
         <section className={`partner-duplicate-panel ${duplicateConfidence === "HIGH" ? "is-high" : ""}`} aria-live="polite">

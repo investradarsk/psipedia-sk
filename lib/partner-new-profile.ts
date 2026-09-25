@@ -5,6 +5,7 @@ import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
 import { getPartnerAccountById, getPartnerDatabase } from "@/lib/partner-auth-store";
 import { normalizePartnerProfilePatch, publicPartnerProfileChangeReason, type PartnerProfilePatch } from "@/lib/partner-profile-changes";
 import { enforcePartnerNewProfileRateLimit } from "@/lib/partner-security";
+import { normalizePartnerMediaId, terminalPartnerMediaStatement } from "@/lib/partner-media";
 import { organizationPublicationTypes } from "@/lib/help-organization-publication";
 import {
   applyAtomicModerationTransition,
@@ -473,6 +474,7 @@ export async function submitPartnerNewProfile(input: {
   resourceType: unknown;
   profile: unknown;
   confirmDuplicate?: boolean;
+  mediaAssetId?: unknown;
   database?: D1Database;
   hashKey?: string;
   now?: Date;
@@ -523,16 +525,17 @@ export async function submitPartnerNewProfile(input: {
   const notificationId = crypto.randomUUID();
   const expiresAt = new Date(now.getTime() + 30*24*60*60*1000).toISOString();
   const patch = result.profile.values;
-  const changedFields = Object.keys(patch);
+  const mediaAssetId = normalizePartnerMediaId(input.mediaAssetId);
+  const changedFields = [...Object.keys(patch), ...(mediaAssetId ? ["image"] : [])];
 
   const statements = [
     db.prepare(`
       INSERT INTO moderation_submissions(
         id,resource_type,subject_id,operation,status,submitter_type,submitter_ref,
-        proposed_patch_json,risk_flags_json,duplicate_resource_type,duplicate_subject_id,created_at,updated_at
-      ) VALUES(?1,?2,NULL,'CREATE','SUBMITTED','PARTNER_ACCOUNT',?3,?4,?5,?6,?7,?8,?8)
+        proposed_patch_json,risk_flags_json,media_asset_id,duplicate_resource_type,duplicate_subject_id,created_at,updated_at
+      ) VALUES(?1,?2,NULL,'CREATE','SUBMITTED','PARTNER_ACCOUNT',?3,?4,?5,?6,?7,?8,?9,?9)
     `).bind(
-      id,result.profile.resourceType,input.accountId,JSON.stringify(patch),JSON.stringify(riskFlags),
+      id,result.profile.resourceType,input.accountId,JSON.stringify(patch),JSON.stringify(riskFlags),mediaAssetId,
       strongest?.resourceType ?? null,strongest ? String(strongest.canonicalId) : null,nowIso,
     ),
     db.prepare(`
@@ -570,6 +573,9 @@ export async function submitPartnerNewProfile(input: {
   } catch (error) {
     if (isDedupeError(error)) {
       throw new PartnerNewProfileError("Rovnaký návrh nového profilu už čaká na spracovanie.",409,"ACTIVE_DUPLICATE_SUBMISSION");
+    }
+    if (/invalid partner media attachment|moderation_submissions_media_asset_unique/i.test(String(error))) {
+      throw new PartnerNewProfileError("Priložený obrázok už nie je platný pre túto žiadosť.",409,"INVALID_MEDIA");
     }
     throw error;
   }
@@ -676,6 +682,7 @@ export async function withdrawPartnerNewProfile(input:{
     changedFieldsJson:JSON.stringify(["status"]),
     now:nowIso,
     extraStatements:[
+    terminalPartnerMediaStatement({database:db,submissionId:input.id,state:"ORPHANED",nowIso,actorRef}),
       db.prepare(`
         UPDATE partner_new_profile_metadata SET dedupe_active=0
         WHERE submission_id=?1 AND EXISTS(

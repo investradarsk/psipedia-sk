@@ -28,6 +28,7 @@ import {
 } from "@/lib/moderation-transition";
 import { transitionModerationSubmission } from "@/lib/moderation-store";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
+import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 type Resolution = "CREATED_NEW" | "LINKED_EXISTING";
@@ -57,6 +58,11 @@ type AdminRow = {
   resolvedResourceId:string|null;
   resolvedCanonicalId:number|null;
   dedupeActive:number;
+  mediaAssetId:string|null;
+  mediaMime:string|null;
+  mediaSizeBytes:number|null;
+  mediaWidth:number|null;
+  mediaHeight:number|null;
 };
 
 function db(input?:D1Database){return getPartnerDatabase(input??(env as unknown as Bindings).DB);}
@@ -93,6 +99,7 @@ function safeCandidates(value:string){
 const BASE=`
   SELECT s.id,s.resource_type resourceType,s.status,s.submitter_ref submitterRef,
     s.proposed_patch_json proposedPatchJson,s.risk_flags_json riskFlagsJson,
+    s.media_asset_id mediaAssetId,ma.original_mime mediaMime,ma.size_bytes mediaSizeBytes,ma.width mediaWidth,ma.height mediaHeight,
     s.duplicate_resource_type duplicateResourceType,s.duplicate_subject_id duplicateSubjectId,
     s.rejection_reason_code rejectionReasonCode,s.created_at createdAt,s.updated_at updatedAt,
     s.reviewed_at reviewedAt,s.reviewed_by reviewedBy,
@@ -104,6 +111,7 @@ const BASE=`
   FROM partner_new_profile_metadata m
   JOIN moderation_submissions s ON s.id=m.submission_id
   JOIN partner_accounts a ON a.id=m.partner_account_id
+  LEFT JOIN media_assets ma ON ma.id=s.media_asset_id
 `;
 
 async function raw(id:string,database:D1Database){
@@ -117,6 +125,10 @@ async function hydrate(row:AdminRow,key:string){
     duplicateCandidates:safeCandidates(row.duplicateCandidatesJson),
     riskFlags:safeJson<string[]>(row.riskFlagsJson,[]).filter((item)=>typeof item==="string"),
     proposedProfile:normalizePartnerNewProfile(row.resourceType,safeJson(row.proposedPatchJson,{})),
+    media:row.mediaAssetId?{
+      id:row.mediaAssetId,originalMime:row.mediaMime,sizeBytes:row.mediaSizeBytes,width:row.mediaWidth,height:row.mediaHeight,
+      previewUrl:`/api/admin/partners/media/${row.mediaAssetId}`,
+    }:null,
     active:active(row.status),
     statusLabel:statusLabel(row.status),
     rejectionReason:publicPartnerProfileChangeReason(row.rejectionReasonCode),
@@ -201,11 +213,11 @@ function resourceSelect(type:PartnerNewProfileResourceType,canonicalId:number){
 async function canonicalExists(type:PartnerNewProfileResourceType,canonicalId:number,database:D1Database){
   if(!Number.isSafeInteger(canonicalId)||canonicalId<=0)return null;
   if(type==="DIRECTORY_PROFILE"){
-    return database.prepare("SELECT id,name,slug,category,status FROM directory_profiles WHERE id=?1 AND status<>'archived' LIMIT 1")
-      .bind(canonicalId).first<{id:number;name:string;slug:string;category:string;status:string}>();
+    return database.prepare("SELECT id,name,slug,category,status,updated_at updatedAt FROM directory_profiles WHERE id=?1 AND status<>'archived' LIMIT 1")
+      .bind(canonicalId).first<{id:number;name:string;slug:string;category:string;status:string;updatedAt:string}>();
   }
-  return database.prepare("SELECT id,name,slug,type,status FROM help_organizations WHERE id=?1 AND status<>'ARCHIVED' LIMIT 1")
-    .bind(canonicalId).first<{id:number;name:string;slug:string;type:string;status:string}>();
+  return database.prepare("SELECT id,name,slug,type,status,updated_at updatedAt FROM help_organizations WHERE id=?1 AND status<>'ARCHIVED' LIMIT 1")
+    .bind(canonicalId).first<{id:number;name:string;slug:string;type:string;status:string;updatedAt:string}>();
 }
 
 function resourceAnchorStatement(database:D1Database,input:{
@@ -333,6 +345,15 @@ function notificationStatement(database:D1Database,input:{
       input.submissionId,input.status,input.actorRef);
 }
 
+function existingProfileImageStatement(database:D1Database,input:{
+  type:PartnerNewProfileResourceType;canonicalId:number;imageUrl:string;imageKey:string;nowIso:string;actorRef:string;submissionId:string;
+}){
+  const table=input.type==="DIRECTORY_PROFILE"?"directory_profiles":"help_organizations";
+  return database.prepare(`UPDATE ${table} SET image_url=?1,image_key=?2,updated_at=?3,updated_by=?4
+    WHERE id=?5 AND EXISTS(SELECT 1 FROM moderation_submissions WHERE id=?6 AND status='APPROVED' AND updated_at=?3 AND reviewed_by=?4)`)
+    .bind(input.imageUrl,input.imageKey,input.nowIso,input.actorRef,input.canonicalId,input.submissionId);
+}
+
 async function currentMembershipAndVerification(input:{
   accountId:string;type:PartnerNewProfileResourceType;canonicalId:number;database:D1Database;
 }){
@@ -367,6 +388,9 @@ export async function createPartnerNewProfileAdmin(input:{
   const account=await database.prepare("SELECT status FROM partner_accounts WHERE id=?1 LIMIT 1").bind(row.accountId).first<{status:string}>();
   if(!account||account.status!=="ACTIVE")throw new PartnerNewProfileError("Partner účet už nie je aktívny.",409);
   const normalized=normalizePartnerNewProfile(row.resourceType,safeJson(row.proposedPatchJson,{}));
+  const media=await publishPartnerSubmissionMedia({
+    submissionId:input.id,database,publicFolder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory",
+  });
   const now=input.now??new Date(),nowIso=now.toISOString();
   const membershipId=crypto.randomUUID(),verificationId=crypto.randomUUID();
   const canonicalStatements:D1PreparedStatement[]=[];
@@ -385,7 +409,7 @@ export async function createPartnerNewProfileAdmin(input:{
       online:Boolean(values.online),priceNote:String(values.priceNote),websiteUrl:String(values.websiteUrl)||null,
       publicPhone:String(values.publicPhone),publicEmail:String(values.publicEmail),
       facebookUrl:String(values.facebookUrl),instagramUrl:String(values.instagramUrl),
-      internalEmail:null,imageUrl:null,imageKey:null,verified:false,featured:false,seo:{},
+      internalEmail:null,imageUrl:media?.imageUrl??null,imageKey:media?.imageKey??null,verified:false,featured:false,seo:{},
     });
     canonicalStatements.push(buildManagedDirectoryProfileCreateStatement(database,canonicalInput,actorRef,nowIso,{submissionId:input.id,actorRef}));
     canonicalSql=`SELECT id FROM directory_profiles WHERE category='${canonicalCategory.replaceAll("'","''")}' AND slug='${slug.replaceAll("'","''")}' LIMIT 1`;
@@ -397,7 +421,7 @@ export async function createPartnerNewProfileAdmin(input:{
       type:String(values.type),shortDescription:String(values.shortDescription),description:String(values.description),
       publicEmail:String(values.publicEmail)||null,publicPhone:String(values.publicPhone)||null,
       websiteUrl:String(values.websiteUrl)||null,facebookUrl:String(values.facebookUrl)||null,instagramUrl:String(values.instagramUrl)||null,
-      imageUrl:null,imageKey:null,sourceUrl:null,
+      imageUrl:media?.imageUrl??null,imageKey:media?.imageKey??null,sourceUrl:null,
     });
     canonicalStatements.push(buildOrganizationCreateStatement(database,organizationInput,actorRef,nowIso,{submissionId:input.id,actorRef}));
     canonicalSql=`SELECT id FROM help_organizations WHERE slug='${slug.replaceAll("'","''")}' LIMIT 1`;
@@ -432,18 +456,19 @@ export async function createPartnerNewProfileAdmin(input:{
     notificationStatement(database,{
       submissionId:input.id,accountId:row.accountId,type:"NEW_PROFILE_CREATED",status:"APPROVED",actorRef,now,nowIso,
     }),
+    terminalPartnerMediaStatement({database,submissionId:input.id,state:"APPROVED",nowIso,actorRef,publicKey:media?.imageKey??null}),
   );
 
   await applyAtomicModerationTransition(database,{
     id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,
-    requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(Object.keys(normalized.values)),
+    requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify([...Object.keys(normalized.values),...(media?["image"]:[])]),
     now:nowIso,extraStatements:canonicalStatements,
   });
   return getPartnerNewProfileAdmin(input.id,{database});
 }
 
 export async function linkPartnerNewProfileAdmin(input:{
-  id:string;canonicalId:number;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;
+  id:string;canonicalId:number;adminEmail:string;requestId?:string|null;database?:D1Database;now?:Date;applyImage?:boolean;
 }){
   const database=db(input.database);
   let row=await raw(input.id,database);
@@ -465,10 +490,17 @@ export async function linkPartnerNewProfileAdmin(input:{
   row=await raw(input.id,database);
   if(!row||row.status!=="PENDING_REVIEW")throw new PartnerNewProfileError("Stav návrhu sa medzičasom zmenil.",409);
 
+  const stagedMedia=await getPartnerSubmissionMedia(input.id,database);
+  const media=input.applyImage===true&&stagedMedia
+    ? await publishPartnerSubmissionMedia({submissionId:input.id,database,publicFolder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory"})
+    : null;
   const now=input.now??new Date(),nowIso=now.toISOString();
-  const spec=resourceSelect(row.resourceType,input.canonicalId);
   const canonicalSql=`SELECT ${input.canonicalId}`;
   const statements:D1PreparedStatement[]=[
+    ...(media?[existingProfileImageStatement(database,{
+      type:row.resourceType,canonicalId:input.canonicalId,imageUrl:media.imageUrl,imageKey:media.imageKey,
+      nowIso,actorRef,submissionId:input.id,
+    })]:[]),
     resourceAnchorStatement(database,{type:row.resourceType,canonicalId:input.canonicalId,nowIso}),
     ...membershipStatements(database,{
       accountId:row.accountId,type:row.resourceType,canonicalSql,membershipId:crypto.randomUUID(),
@@ -489,11 +521,21 @@ export async function linkPartnerNewProfileAdmin(input:{
     notificationStatement(database,{
       submissionId:input.id,accountId:row.accountId,type:"NEW_PROFILE_LINKED_EXISTING",status:"APPROVED",actorRef,now,nowIso,
     }),
+    terminalPartnerMediaStatement({
+      database,submissionId:input.id,state:media?"APPROVED":"ORPHANED",nowIso,actorRef,publicKey:media?.imageKey??null,
+    }),
   ];
   await applyAtomicModerationTransition(database,{
     id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"APPROVED",actorType:"ADMIN",actorRef,
-    requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["resolution"]),
-    now:nowIso,extraStatements:statements,
+    requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["resolution",...(media?["image"]:[])]),
+    now:nowIso,
+    transitionGuard:media?{
+      sql:row.resourceType==="DIRECTORY_PROFILE"
+        ?"EXISTS(SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=?)"
+        :"EXISTS(SELECT 1 FROM help_organizations WHERE id=? AND updated_at=?)",
+      bindings:[input.canonicalId,canonical.updatedAt],
+    }:undefined,
+    extraStatements:statements,
   });
   return getPartnerNewProfileAdmin(input.id,{database});
 }
@@ -516,6 +558,7 @@ export async function rejectPartnerNewProfileAdmin(input:{
     id:input.id,expectedStatus:"PENDING_REVIEW",toStatus:"REJECTED",actorType:"ADMIN",actorRef,reasonCode:reason,
     requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify(["status"]),now:nowIso,
     extraStatements:[
+      terminalPartnerMediaStatement({database,submissionId:input.id,state:"REJECTED",nowIso,actorRef}),
       database.prepare(`UPDATE partner_new_profile_metadata SET dedupe_active=0
         WHERE submission_id=?1 AND EXISTS(
           SELECT 1 FROM moderation_submissions WHERE id=?1 AND status='REJECTED' AND updated_at=?2 AND reviewed_by=?3
