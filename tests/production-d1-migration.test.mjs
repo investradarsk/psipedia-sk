@@ -78,6 +78,7 @@ test("production D1 supported targets are explicit through 0073 automation entit
     "0071_admin_universal_notifications.sql",
     "0072_partner_media_uploads.sql",
     "0073_automation_multisource_entity_resolution.sql",
+    "0074_automation_zsk_event_source.sql",
   ]);
 });
 
