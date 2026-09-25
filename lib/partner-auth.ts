@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
+import { enqueuePartnerAccountRegistrationAdminNotification } from "@/lib/admin-notifications";
 import { clearManagementSessionCookie } from "@/lib/resource-access";
 import { consumeResourceAccessToken } from "@/lib/resource-access-store";
 import { decryptPii, encryptPii, hashPii, normalizeEmail } from "@/lib/pii-crypto";
@@ -201,19 +201,7 @@ export async function requestPartnerMagicLink(input: {
     if (created.created) {
       await appendPartnerAuditEvent({ actorType: "SYSTEM", actorRef: "partner-auth", action: "ACCOUNT_CREATED", targetType: "PARTNER_ACCOUNT", targetId: account.id, database, now });
       try {
-        await enqueueAdminNotificationEvent(database, {
-          eventType: "partner_account_registered",
-          sourceType: "PARTNER_ACCOUNT_REGISTRATION",
-          resourceType: "partner_account",
-          resourceRef: account.id,
-          actorType: "PARTNER",
-          actorRef: `partner:${account.id}`,
-          targetUrl: `/admin/partners/accounts/${account.id}`,
-          title: "Nová registrácia Partnera",
-          body: "Bol vytvorený nový Partner účet.",
-          tag: `partner-account-${account.id}`,
-          dedupeKey: `partner-account-registration/${account.id}`,
-        }, now);
+        await enqueuePartnerAccountRegistrationAdminNotification(database, account.id, now);
       } catch (error) {
         console.error(JSON.stringify({
           event: "partner_registration_admin_push_enqueue",
