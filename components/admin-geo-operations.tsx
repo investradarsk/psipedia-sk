@@ -173,7 +173,7 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
       </p>
       <div className="admin-field-grid">
         <div className="admin-field">
-          <label htmlFor="geo-explicit-target">Target type</label>
+          <label htmlFor="geo-explicit-target">Explicit target type</label>
           <select id="geo-explicit-target" value={explicitTargetType} onChange={(event) => {
             setExplicitTargetType(event.target.value);
             setExplicitPreview(null);
@@ -185,7 +185,7 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
           </select>
         </div>
         <div className="admin-field">
-          <label htmlFor="geo-explicit-visibility">Visibility</label>
+          <label htmlFor="geo-explicit-visibility">Explicit visibility</label>
           <select id="geo-explicit-visibility" value={explicitVisibility} onChange={(event) => {
             setExplicitVisibility(event.target.value);
             setExplicitPreview(null);
@@ -197,7 +197,7 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
           </select>
         </div>
         <div className="admin-field">
-          <label htmlFor="geo-explicit-precision">Precision</label>
+          <label htmlFor="geo-explicit-precision">Explicit precision</label>
           <select id="geo-explicit-precision" value={explicitPrecision} onChange={(event) => {
             setExplicitPrecision(event.target.value);
             setExplicitPreview(null);
