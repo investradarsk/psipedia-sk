@@ -549,7 +549,13 @@ const EVENT_ENTITY_RESOLUTION_STRATEGY: AutomationEntityResolutionStrategy = {
   resolve: resolveEventAutomationEntityCluster,
 };
 
-function foundationOnlyStrategy(entityType: "DIRECTORY" | "ORGANIZATION"): AutomationEntityResolutionStrategy {
+const DIRECTORY_ENTITY_RESOLUTION_STRATEGY: AutomationEntityResolutionStrategy = {
+  entityType: "DIRECTORY",
+  matcherImplemented: true,
+  resolve: resolveDirectoryAutomationEntityCluster,
+};
+
+function foundationOnlyStrategy(entityType: "ORGANIZATION"): AutomationEntityResolutionStrategy {
   return {
     entityType,
     matcherImplemented: false,
@@ -561,7 +567,8 @@ export function automationEntityResolutionStrategyFor(
   entityType: AutomationSource["entityType"],
 ): AutomationEntityResolutionStrategy | null {
   if (entityType === "EVENT") return EVENT_ENTITY_RESOLUTION_STRATEGY;
-  if (entityType === "DIRECTORY" || entityType === "ORGANIZATION") return foundationOnlyStrategy(entityType);
+  if (entityType === "DIRECTORY") return DIRECTORY_ENTITY_RESOLUTION_STRATEGY;
+  if (entityType === "ORGANIZATION") return foundationOnlyStrategy(entityType);
   return null;
 }
 
