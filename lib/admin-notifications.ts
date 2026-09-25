@@ -82,6 +82,26 @@ export async function adminNotificationAdminActorRef(adminEmail: string) {
   return adminAuditActorRef(adminEmail);
 }
 
+export async function enqueuePartnerAccountRegistrationAdminNotification(
+  database: Pick<D1Database, "prepare">,
+  accountId: string,
+  now: Date = new Date(),
+) {
+  return enqueueAdminNotificationEvent(database, {
+    eventType: "partner_account_registered",
+    sourceType: "PARTNER_ACCOUNT_REGISTRATION",
+    resourceType: "partner_account",
+    resourceRef: accountId,
+    actorType: "PARTNER",
+    actorRef: `partner:${accountId}`,
+    targetUrl: `/admin/partners/accounts/${accountId}`,
+    title: "Nová registrácia Partnera",
+    body: "Bol vytvorený nový Partner účet.",
+    tag: `partner-account-${accountId}`,
+    dedupeKey: `partner-account-registration/${accountId}`,
+  }, now);
+}
+
 
 export async function enqueueEditorialReferenceAdminNotification(
   database: Pick<D1Database, "prepare">,
