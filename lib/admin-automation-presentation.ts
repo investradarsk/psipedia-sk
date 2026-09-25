@@ -126,3 +126,18 @@ export function automationReadableError(code: string | null) {
   if (/parse/i.test(code)) return "Údaje zdroja sa nepodarilo správne spracovať.";
   return "Posledná kontrola zdroja skončila chybou.";
 }
+
+
+export function automationSourceRoleLabel(value: string) {
+  const labels: Record<string, string> = {
+    OFFICIAL_ORGANIZER: "Oficiálny zdroj",
+    OFFICIAL_REGISTRY: "Register",
+    OFFICIAL_CLUB_CALENDAR: "Oficiálny klubový kalendár",
+    SECONDARY_DIRECTORY: "Sekundárny zdroj",
+    SEARCH_DISCOVERY: "Discovery zdroj",
+    SOCIAL_LISTING: "Sociálny listing",
+    AGGREGATOR: "Agregátor",
+    UNKNOWN: "Zdroj",
+  };
+  return labels[value] ?? "Zdroj";
+}
