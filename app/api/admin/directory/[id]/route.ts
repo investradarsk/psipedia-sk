@@ -70,6 +70,7 @@ export async function PUT(request: Request, { params }: Props) {
         houseNumber: "",
         addressFormat: "",
         confirmServiceAddress: false,
+        clearServiceAddressConfirmation: true,
       };
     } else {
       payload = preserveDirectoryPhysicalAddress(before, body);
