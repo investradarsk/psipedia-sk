@@ -2,7 +2,7 @@ name: MAP V1 Live Production Audit
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/map-live-audit-consent-gesture-fix"]
     paths:
       - ".github/workflows/map-production-live-audit.yml"
       - "tests/e2e/map-production-live.spec.ts"
