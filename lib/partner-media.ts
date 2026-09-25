@@ -154,14 +154,14 @@ function publicFolderFor(ownerType:string){
   return "directory";
 }
 export async function publishPartnerSubmissionMedia(input:{
-  submissionId:string;database?:D1Database;bucket?:PrivateBucketLike;
+  submissionId:string;database?:D1Database;bucket?:PrivateBucketLike;publicFolder?:"directory"|"help"|"events";
 }) {
   const media=await getPartnerSubmissionMedia(input.submissionId,input.database);
   if(!media)return null;
   if(media.state==="APPROVED"&&media.publicKey)return {assetId:media.id,imageKey:media.publicKey,imageUrl:`/media/${media.publicKey}`,media};
   if(media.state!=="ATTACHED"||!media.safeKey)throw new PartnerMediaError("Priložený obrázok už nie je možné schváliť.",409);
   const year=new Date(media.createdAt).getUTCFullYear();
-  const publicKey=`${publicFolderFor(media.ownerType)}/${year}/partner-${media.id}.webp`;
+  const publicKey=`${input.publicFolder??publicFolderFor(media.ownerType)}/${year}/partner-${media.id}.webp`;
   const store=bucket(input.bucket);
   await publishSafeImage({safeKey:media.safeKey,publicKey,privateBucket:store,publicBucket:store});
   return {assetId:media.id,imageKey:publicKey,imageUrl:`/media/${publicKey}`,media};
