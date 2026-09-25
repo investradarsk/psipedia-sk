@@ -43,7 +43,9 @@ test("scheduled worker runs discovery independently from normal source monitorin
   assert.match(worker, /runDataAutomationSweep/);
   assert.match(worker, /runDataAutomationDiscoverySweep/);
   assert.match(worker, /data_automation_discovery_sweep/);
-  assert.match(wrangler, /"crons": \["0 \* \* \* \*"/);
+  assert.match(wrangler, /"crons": \["\*\/5 \* \* \* \*"\]/);
+  assert.match(worker, /isFullHourlyScheduledSweep/);
+  assert.match(worker, /getUTCMinutes\(\) === 0/);
   assert.match(runner, /DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP = 2/);
   assert.match(runner, /listDueAutomationDiscoveryRoots/);
 });
