@@ -204,7 +204,7 @@ test("ZSK connector nested HTML fetches reuse safe transport and remain bounded"
   const requests = [];
   const responseFor = (rawUrl) => {
     const url = new URL(rawUrl);
-    const cleanPath = url.pathname.replace(/\\\/+$/, "");
+    const cleanPath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
     if (url.hostname === "zsksr.sk" && cleanPath === "/kalendar") return fixture("zsk-sr-calendar-root.html");
     if (url.hostname === "zsksr.sk" && cleanPath.endsWith("/kalendar/narodne-akcie")) return fixture("zsk-sr-category-national.html");
     if (url.hostname === "zsksr.sk" && cleanPath.endsWith("/kalendar/skusky-obedience-a-rally-obedience")) return fixture("zsk-sr-category-obedience.html");
