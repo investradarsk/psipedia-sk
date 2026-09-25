@@ -46,6 +46,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run db:check-migrations
+      - run: npm run lint
       - name: Focused AUTOMATION-1 + AUTOMATION-2 tests
         run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v2.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/data-automation-background-run.test.mjs tests/admin-attention-queue.test.mjs tests/automation-admin-v2-ux.test.mjs
       - run: npm run build
