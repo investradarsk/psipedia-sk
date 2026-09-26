@@ -46,7 +46,8 @@ test("same root/context is idempotent and keeps first_seen while moving last_see
 test("cross-method context is preserved and SEARCH_PROVIDER is query-context ready", () => {
   const runner = read("lib/data-automation-discovery-runner.ts");
   assert.match(runner, /root\.discoveryType === "SEARCH_PROVIDER"/);
-  assert.match(runner, /query:\\$\{query\}/);
+  assert.match(runner, /queryFingerprint/);
+  assert.match(runner, /SEARCH_PROVIDER:\\$\{provider \\?\\? "unknown"\}:\\$\{fingerprint\}/);
   assert.match(runner, /root\.discoveryType === "RSS"/);
   assert.match(runner, /root\.discoveryType === "SITEMAP"/);
   assert.match(runner, /directory:\\$\{discoveredFrom\}/);
