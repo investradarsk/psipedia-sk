@@ -74,13 +74,13 @@ test("autocomplete filters to selected Slovak locality and returns at most five 
   assert.equal(Object.hasOwn(suggestions[0], "longitude"), false);
 });
 
-test("save revalidation verifies selected street, combines it with separately entered house number and stores the exact house result", async () => {
+test("save revalidation re-runs street autocomplete, requires the same provider identity, then verifies the exact house", async () => {
   const calls = [];
   const provider = {
-    lookupPlace: async (providerResultId) => {
-      calls.push(["details", providerResultId]);
+    autocomplete: async (request) => {
+      calls.push(["autocomplete", request.query]);
       return [result({
-        providerResultId,
+        providerResultId: "street-place-1",
         resultType: "street",
         housenumber: "",
         postcode: "",
@@ -95,23 +95,35 @@ test("save revalidation verifies selected street, combines it with separately en
   const verified = await verifyDirectoryAddressSelection({
     ...locality,
     providerResultId: "street-place-1",
+    street: "Župná",
     houseNumber: "1892/74",
     provider,
   });
   assert.equal(verified.providerResult.providerResultId, "house-place-74");
   assert.equal(verified.houseNumber, "1892/74");
   assert.deepEqual(calls, [
-    ["details", "street-place-1"],
+    ["autocomplete", "Župná"],
     ["geocode", "Župná", "1892/74"],
   ]);
 
   const changedProvider = {
-    lookupPlace: provider.lookupPlace,
-    geocodeExact: async () => [result({ providerResultId: "house-place-2", street: "Iná ulica" })],
+    autocomplete: async () => [result({
+      providerResultId: "different-street",
+      resultType: "street",
+      housenumber: "",
+      postcode: "",
+    })],
+    geocodeExact: provider.geocodeExact,
   };
   await assert.rejects(
-    verifyDirectoryAddressSelection({ ...locality, providerResultId: "street-place-1", houseNumber: "12", provider: changedProvider }),
-    /inú ulicu/,
+    verifyDirectoryAddressSelection({
+      ...locality,
+      providerResultId: "street-place-1",
+      street: "Župná",
+      houseNumber: "12",
+      provider: changedProvider,
+    }),
+    /nepodarilo znovu overiť/,
   );
 });
 
@@ -228,6 +240,7 @@ test("ADDRESS-SIMPLE-1A endpoint, editor and save flow preserve server authority
   assert.doesNotMatch(editor, /latitude|longitude/);
 
   assert.match(createRoute, /verifyDirectoryAddressSelection/);
+  assert.match(createRoute, /street: body\.street/);
   assert.match(createRoute, /houseNumber: body\.houseNumber/);
   assert.match(createRoute, /requireDirectoryAddressProviderSchema/);
   assert.match(updateRoute, /directoryPhysicalAddressChanged/);
