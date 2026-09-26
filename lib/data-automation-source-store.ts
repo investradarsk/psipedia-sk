@@ -10,6 +10,7 @@ import {
 } from "./data-automation.ts";
 import type { AutomationSourceAdminInput } from "./data-automation-source-admin.ts";
 import type { AutomationSourceCandidateInput } from "./data-automation-discovery.ts";
+import { selectRelevantExistingSourceForCandidate } from "./data-automation-source-matching.ts";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 
 export type AutomationSourceAdminDatabase = Pick<D1Database, "prepare" | "batch">;
@@ -631,32 +632,6 @@ export async function upsertAutomationSourceCandidateEvidence(
     if (missingCandidateEvidenceSchema(error)) return false;
     throw error;
   }
-}
-
-export function selectRelevantExistingSourceForCandidate(
-  candidate: Pick<AutomationSourceCandidateRow, "entityType" | "canonicalUrl" | "sourceUrl">,
-  sources: AutomationSourceAdminRow[],
-) {
-  const candidateUrl = canonicalizeSourceUrl(candidate.canonicalUrl || candidate.sourceUrl);
-  if (!candidateUrl) return null;
-
-  const hostname = (value: string | null) => {
-    if (!value) return null;
-    try {
-      return new URL(value).hostname.toLowerCase().replace(/^www\./, "");
-    } catch {
-      return null;
-    }
-  };
-
-  const sameEntity = sources.filter((source) => source.entityType === candidate.entityType);
-  const exact = sameEntity.find((source) => canonicalizeSourceUrl(source.sourceUrl) === candidateUrl);
-  if (exact) return exact;
-
-  const candidateHost = hostname(candidateUrl);
-  if (!candidateHost) return null;
-  const sameHost = sameEntity.filter((source) => hostname(source.sourceUrl) === candidateHost);
-  return sameHost.length === 1 ? sameHost[0] : null;
 }
 
 export async function findRelevantAutomationSourceForCandidate(
