@@ -73,6 +73,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0078_automation_possible_match_reviews.sql",
   "0079_automation_agility_event_source.sql",
   "0080_automation_canonical_apply.sql",
+  "0081_automation_mushing_event_source.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -627,6 +628,9 @@ function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0080_automation_canonical_apply.sql") {
     const names = objectMap(schema.objects);
     return { partial: names.has("automation_canonical_apply_operations") || AUTOMATION_CANONICAL_APPLY_INDEXES.some((index) => names.has(index)) };
+  }
+  if (targetMigration === "0081_automation_mushing_event_source.sql") {
+    return { partial: false };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
