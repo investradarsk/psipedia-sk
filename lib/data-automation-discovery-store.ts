@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { AutomationConnectorType, AutomationEntityType } from "./data-automation.ts";
+import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import type { AutomationDiscoveryType } from "./data-automation-discovery.ts";
 import {
   automationSearchBudgetPolicy,
@@ -123,7 +124,26 @@ export async function listDueAutomationDiscoveryRoots(
     ORDER BY COALESCE(next_check_at,'') ASC,id ASC LIMIT ?`)
     .bind(now.toISOString(), Math.max(1, Math.min(8, limit)))
     .all<Record<string, unknown>>();
-  return result.results.map(mapRoot);
+  const roots = result.results.map(mapRoot);
+  const governed: AutomationDiscoveryRoot[] = [];
+  for (const root of roots) {
+    const governance = await getGovernanceState({ type: "DISCOVERY_ROOT", id: root.id }, db);
+    // Legacy transition: already-enabled roots without a registry row continue until explicit governance rollout.
+    if (!governance.schemaAvailable || !governance.state) {
+      governed.push(root);
+      continue;
+    }
+    const storageFields = root.discoveryType === "SEARCH_PROVIDER"
+      ? ["url", "title", "snippet", "metadata"] as const
+      : ["url", "title", "metadata"] as const;
+    const decision = evaluateGovernanceForActivation(governance, {
+      recurring: true,
+      cadenceMinutes: root.cadenceMinutes,
+      storageFields: [...storageFields],
+    }, now);
+    if (decision.allowed) governed.push(root);
+  }
+  return governed;
 }
 
 export async function listAutomationDiscoveryRoots(
