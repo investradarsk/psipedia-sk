@@ -27,11 +27,13 @@ test("multi-root freshness uses any fresh valid path and ignores disabled or rej
   assert.match(store, /evidence\.some\(\(path\) => candidateEvidenceFresh\(path, now\)\) \? "ACTIVE" : "STALE"/);
 });
 
-test("duplicate and provisioned reuse exact persisted source linkage without domain-only collapse", () => {
+test("duplicate and provisioned lifecycle keeps persisted source linkage while approval can conservatively reuse one same-domain source", () => {
   const store = read("lib/data-automation-source-store.ts");
-  assert.match(store, /WHERE source_url=\? AND entity_type=\? LIMIT 1/);
+  const matching = read("lib/data-automation-source-matching.ts");
   assert.match(store, /candidate\.reviewStatus === "APPROVED" \? "PROVISIONED" : "DUPLICATE"/);
-  assert.doesNotMatch(store, /hostname[^\n]+duplicate/i);
+  assert.match(store, /findRelevantAutomationSourceForCandidate/);
+  assert.match(matching, /sameEntity/);
+  assert.match(matching, /sameHost\.length === 1/);
 });
 
 test("rediscovery preserves rejected decisions and only reopens expired timed suppression", () => {
