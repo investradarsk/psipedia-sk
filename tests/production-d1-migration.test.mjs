@@ -103,7 +103,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0084_future_migration.sql",
+    "0085_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -136,6 +136,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0081_automation_mushing_event_source.sql",
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
+    "0084_automation_governance_registry.sql",
   ]);
 });
 
@@ -143,7 +144,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0084_future_migration.sql",
+    "0085_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -162,7 +163,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0081_automation_mushing_event_source.sql",
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
-    "0084_future_migration.sql",
+    "0084_automation_governance_registry.sql",
+    "0085_future_migration.sql",
   ]);
 });
 
