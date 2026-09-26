@@ -517,7 +517,8 @@ function mushingDetailFields(html: string, detailUrl: string) {
   const organizer = fields.get("usporiadatel") ?? fields.get("organizator") ?? null;
   const discipline = fields.get("druh pretekov") ?? null;
   const categories = fields.get("sutazne kategorie") ?? fields.get("kategorie") ?? null;
-  const venue = fields.get("miesto preteku") ?? fields.get("miesto pretekov") ?? null;
+  const rawVenue = fields.get("miesto preteku") ?? fields.get("miesto pretekov") ?? null;
+  const venue = rawVenue?.replace(/\bGPS\s*:\s*-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+.*$/i, "").trim() || null;
   const gpsText = fields.get("gps") ?? textFromHtml(html).match(/\bGPS\s*:\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/i)?.[0] ?? null;
   const gpsMatch = gpsText?.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/) ?? null;
 
