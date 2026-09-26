@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   autocompleteDirectoryAddress,
+  houseNumberMatchesUserInput,
+  parseSlovakHouseNumber,
   verifyDirectoryAddressSelection,
   verifyDirectoryExactCandidates,
 } from "../lib/directory-address-provider.ts";
@@ -42,6 +44,94 @@ function result(patch = {}) {
     ...patch,
   };
 }
+
+
+test("Slovak house-number parser uses explicit conscription/orientation semantics", () => {
+  assert.deepEqual(parseSlovakHouseNumber("1892/74"), {
+    full: "1892/74",
+    conscription: "1892",
+    orientation: "74",
+  });
+  assert.deepEqual(parseSlovakHouseNumber(" 74a "), {
+    full: "74A",
+    conscription: null,
+    orientation: "74A",
+  });
+  assert.equal(parseSlovakHouseNumber("74-75"), null);
+  assert.equal(parseSlovakHouseNumber("x74"), null);
+});
+
+test("STREET house matching accepts exact or explicit orientation part only", () => {
+  const match = (userHouseNumber, providerHouseNumber) => houseNumberMatchesUserInput({
+    userHouseNumber,
+    providerHouseNumber,
+    addressFormat: "STREET",
+  });
+  assert.equal(match("74", "74"), true);
+  assert.equal(match("74", "1892/74"), true);
+  assert.equal(match("1892/74", "1892/74"), true);
+  assert.equal(match("74A", "1892/74A"), true);
+  assert.equal(match("74", "74A"), false);
+  assert.equal(match("74", "174"), false);
+  assert.equal(match("74", "740"), false);
+  assert.equal(match("74", "12/174"), false);
+  assert.equal(match("74", "12/740"), false);
+  assert.equal(match("1892/74", "74"), false);
+});
+
+test("MUNICIPALITY_NUMBER does not apply STREET orientation-part matching", () => {
+  assert.equal(houseNumberMatchesUserInput({
+    userHouseNumber: "123",
+    providerHouseNumber: "123",
+    addressFormat: "MUNICIPALITY_NUMBER",
+  }), true);
+  assert.equal(houseNumberMatchesUserInput({
+    userHouseNumber: "123",
+    providerHouseNumber: "456/123",
+    addressFormat: "MUNICIPALITY_NUMBER",
+  }), false);
+});
+
+test("exact verifier canonicalizes short STREET input to provider full house number", () => {
+  const verified = verifyDirectoryExactCandidates({
+    ...locality,
+    userHouseNumber: "74",
+    expectedAddressFormat: "STREET",
+    results: [result({
+      street: "Hviezdoslavova",
+      housenumber: "1892/74",
+      providerResultId: "hviezdoslavova-1892-74",
+    })],
+  });
+  assert.equal(verified.houseNumber, "1892/74");
+  assert.equal(verified.addressFormat, "STREET");
+  assert.equal(verified.providerResult.providerResultId, "hviezdoslavova-1892-74");
+  assert.equal(verified.providerResult.latitude, 48.385);
+  assert.equal(verified.providerResult.longitude, 18.401);
+});
+
+test("short STREET input still fails closed on confidence, type, ambiguity and locality", () => {
+  const verify = (results) => verifyDirectoryExactCandidates({
+    ...locality,
+    userHouseNumber: "74",
+    expectedAddressFormat: "STREET",
+    results,
+  });
+  for (const candidate of [
+    result({ housenumber: "1892/74", buildingConfidence: 0.90 }),
+    result({ housenumber: "1892/74", resultType: "street" }),
+    result({ housenumber: "1892/74", city: "Nitra" }),
+    result({ housenumber: "74A" }),
+    result({ housenumber: "174" }),
+    result({ housenumber: "740" }),
+  ]) {
+    assert.throws(() => verify([candidate]), /nepodarilo jednoznačne overiť/);
+  }
+  assert.throws(() => verify([
+    result({ housenumber: "1892/74", providerResultId: "one" }),
+    result({ housenumber: "12/74", providerResultId: "two", latitude: 48.39, longitude: 18.41 }),
+  ]), /nejednoznačná/);
+});
 
 
 test("autocomplete requires canonical locality and minimum query length before provider access", async () => {
@@ -96,14 +186,14 @@ test("save revalidation re-runs street autocomplete, requires the same provider 
     ...locality,
     providerResultId: "street-place-1",
     street: "Župná",
-    houseNumber: "1892/74",
+    houseNumber: "74",
     provider,
   });
   assert.equal(verified.providerResult.providerResultId, "house-place-74");
   assert.equal(verified.houseNumber, "1892/74");
   assert.deepEqual(calls, [
     ["autocomplete", "Župná"],
-    ["geocode", "Župná", "1892/74"],
+    ["geocode", "Župná", "74"],
   ]);
 
   const changedProvider = {
@@ -185,7 +275,7 @@ test("strict exact gate rejects street/city results, low confidence, invalid pos
   ]) {
     assert.throws(
       () => verifyDirectoryExactCandidates({ ...locality, results: [candidate] }),
-      /nepotvrdil presnú adresu domu/,
+      /nepodarilo jednoznačne overiť/,
     );
   }
 });

@@ -42,6 +42,53 @@ function requireLocality(region: string, district: string, city: string) {
   return clean;
 }
 
+
+type ParsedHouseNumber = {
+  full: string;
+  conscription: string | null;
+  orientation: string;
+};
+
+function normalizeHouseNumberToken(value: string) {
+  return value.trim().toUpperCase().replace(/\s+/g, "");
+}
+
+export function parseSlovakHouseNumber(value: string): ParsedHouseNumber | null {
+  const normalized = normalizeHouseNumberToken(value);
+  const fullMatch = /^(\d+)\/(\d+[A-Z]?)$/.exec(normalized);
+  if (fullMatch) {
+    return {
+      full: normalized,
+      conscription: fullMatch[1],
+      orientation: fullMatch[2],
+    };
+  }
+  const singleMatch = /^(\d+[A-Z]?)$/.exec(normalized);
+  if (!singleMatch) return null;
+  return {
+    full: normalized,
+    conscription: null,
+    orientation: singleMatch[1],
+  };
+}
+
+export function houseNumberMatchesUserInput(input: {
+  userHouseNumber: string;
+  providerHouseNumber: string;
+  addressFormat: "STREET" | "MUNICIPALITY_NUMBER";
+}) {
+  const user = parseSlovakHouseNumber(input.userHouseNumber);
+  const provider = parseSlovakHouseNumber(input.providerHouseNumber);
+  if (!user || !provider) return false;
+
+  if (user.full === provider.full) return true;
+  if (input.addressFormat !== "STREET") return false;
+
+  return user.conscription === null
+    && provider.conscription !== null
+    && user.orientation === provider.orientation;
+}
+
 function safeStreetSuggestion(result: NormalizedGeocoderResult): DirectoryAddressSuggestion | null {
   const street = (result.street ?? "").trim();
   if (!result.providerResultId || result.countryCode !== "SK" || !street) return null;
@@ -94,6 +141,8 @@ export function verifyDirectoryExactCandidates(input: {
   district: string;
   city: string;
   results: NormalizedGeocoderResult[];
+  userHouseNumber?: string;
+  expectedAddressFormat?: "STREET" | "MUNICIPALITY_NUMBER";
 }): VerifiedDirectoryAddress {
   const locality = requireLocality(input.region, input.district, input.city);
   const candidates = input.results.filter((result) => result.countryCode === "SK");
@@ -112,11 +161,20 @@ export function verifyDirectoryExactCandidates(input: {
     const streetOk = result.street
       ? (result.streetConfidence ?? result.confidence ?? 0) >= 0.95
       : true;
+    const resultAddressFormat = result.street ? "STREET" : "MUNICIPALITY_NUMBER";
+    const formatOk = !input.expectedAddressFormat || input.expectedAddressFormat === resultAddressFormat;
+    const houseNumberOk = !input.userHouseNumber || houseNumberMatchesUserInput({
+      userHouseNumber: input.userHouseNumber,
+      providerHouseNumber: result.housenumber ?? "",
+      addressFormat: input.expectedAddressFormat ?? resultAddressFormat,
+    });
     return buildingType && Boolean(result.housenumber) && validPostcode
-      && cityOk && regionOk && districtOk && confidenceOk && streetOk;
+      && cityOk && regionOk && districtOk && confidenceOk && streetOk && formatOk && houseNumberOk;
   });
 
-  if (!accepted.length) throw new Error("Geoapify nepotvrdil presnú adresu domu s dostatočnou istotou.");
+  if (!accepted.length) {
+    throw new Error("Adresu sa nepodarilo jednoznačne overiť. Skús zadať celé číslo domu (napr. súpisné/orientačné).");
+  }
   if (accepted.length > 1) {
     const first = accepted[0];
     const ambiguous = accepted.slice(1).some((item) =>
@@ -192,7 +250,12 @@ export async function verifyDirectoryAddressSelection(input: {
     },
     signal: input.signal,
   });
-  const verified = verifyDirectoryExactCandidates({ ...locality, results });
+  const verified = verifyDirectoryExactCandidates({
+    ...locality,
+    results,
+    userHouseNumber: houseNumber,
+    expectedAddressFormat: "STREET",
+  });
   if (!localityMatches(selected.street, verified.street)) {
     throw new Error("Geoapify pri overení vrátil inú ulicu. Skontroluj výber ulice a číslo domu.");
   }
