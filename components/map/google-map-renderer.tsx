@@ -8,6 +8,13 @@ import {
   type MapViewport,
   type PublicMapType,
 } from "@/lib/map-public-ui";
+import {
+  beginMapTypeIdleSuppression,
+  cancelMapTypeIdleSuppression,
+  confirmMapTypeChange,
+  consumeMapTypeIdleSuppression,
+  createMapTypeIdleSuppressionState,
+} from "@/lib/map-type-idle-suppression";
 import styles from "./map-public.module.css";
 
 export type MapRendererStatus = "ready" | "loading" | "missing-config" | "load-error";
@@ -216,16 +223,6 @@ function viewportFromMap(map: GoogleMapInstance): MapViewport | null {
   };
 }
 
-function sameViewport(a: MapViewport, b: MapViewport, epsilon = 1e-6) {
-  return a.zoom === b.zoom
-    && Math.abs(a.center.lat - b.center.lat) <= epsilon
-    && Math.abs(a.center.lng - b.center.lng) <= epsilon
-    && Math.abs(a.bbox.north - b.bbox.north) <= epsilon
-    && Math.abs(a.bbox.south - b.bbox.south) <= epsilon
-    && Math.abs(a.bbox.east - b.bbox.east) <= epsilon
-    && Math.abs(a.bbox.west - b.bbox.west) <= epsilon;
-}
-
 function testClusterViewport(cluster: MapCluster, zoom: number): MapViewport {
   const nextZoom = Math.min(20, Math.max(zoom + 2, 9));
   const span = nextZoom >= 12 ? 0.45 : nextZoom >= 10 ? 1.2 : 2.4;
@@ -332,7 +329,7 @@ export function GoogleMapRenderer(props: Props) {
   const markerCtorRef = useRef<GoogleAdvancedMarkerConstructor | null>(null);
   const markersRef = useRef(new Map<string, MarkerRecord>());
   const mapTypeRef = useRef<PublicMapType>(mapType);
-  const mapTypeSwitchViewportRef = useRef<MapViewport | null>(null);
+  const mapTypeIdleSuppressionRef = useRef(createMapTypeIdleSuppressionState());
   const onViewportChangeRef = useRef(onViewportChange);
   const onSelectItemRef = useRef(onSelectItem);
   const onClusterClickRef = useRef(onClusterClick);
@@ -346,8 +343,7 @@ export function GoogleMapRenderer(props: Props) {
   useEffect(() => {
     mapTypeRef.current = mapType;
     if (!testMode && mapRef.current) {
-      const currentViewport = viewportFromMap(mapRef.current);
-      if (currentViewport) mapTypeSwitchViewportRef.current = currentViewport;
+      beginMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
       mapRef.current.setMapTypeId(mapType);
     }
   }, [mapType, testMode]);
@@ -362,6 +358,9 @@ export function GoogleMapRenderer(props: Props) {
     }
     let disposed = false;
     let idleListener: ListenerHandle | null = null;
+    let mapTypeListener: ListenerHandle | null = null;
+    let dragStartListener: ListenerHandle | null = null;
+    let zoomChangedListener: ListenerHandle | null = null;
     const markerRegistry = markersRef.current;
 
     async function initialize() {
@@ -395,16 +394,19 @@ export function GoogleMapRenderer(props: Props) {
         mapRef.current = map;
         markerCtorRef.current = markerLibrary.AdvancedMarkerElement;
         window.__PSIPEDIA_MAP_INIT_COUNT__ = (window.__PSIPEDIA_MAP_INIT_COUNT__ ?? 0) + 1;
+        mapTypeListener = map.addListener("maptypeid_changed", () => {
+          confirmMapTypeChange(mapTypeIdleSuppressionRef.current);
+        });
+        dragStartListener = map.addListener("dragstart", () => {
+          cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
+        });
+        zoomChangedListener = map.addListener("zoom_changed", () => {
+          cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
+        });
         idleListener = map.addListener("idle", () => {
           const next = viewportFromMap(map);
           if (!next) return;
-
-          const mapTypeSwitchViewport = mapTypeSwitchViewportRef.current;
-          if (mapTypeSwitchViewport) {
-            if (sameViewport(mapTypeSwitchViewport, next)) return;
-            mapTypeSwitchViewportRef.current = null;
-          }
-
+          if (consumeMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current)) return;
           onViewportChangeRef.current(next);
         });
         setReady(true);
@@ -421,11 +423,14 @@ export function GoogleMapRenderer(props: Props) {
     return () => {
       disposed = true;
       idleListener?.remove?.();
+      mapTypeListener?.remove?.();
+      dragStartListener?.remove?.();
+      zoomChangedListener?.remove?.();
       for (const record of markerRegistry.values()) detachGoogleMarker(record.marker);
       markerRegistry.clear();
       mapRef.current = null;
       markerCtorRef.current = null;
-      mapTypeSwitchViewportRef.current = null;
+      cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
       setReady(false);
     };
   }, [apiKey, configMissing, consentGranted, rendererEnabled, mapId, onStatusChange, testMode]);
@@ -499,6 +504,7 @@ export function GoogleMapRenderer(props: Props) {
 
   useEffect(() => {
     if (testMode || !command || !mapRef.current) return;
+    cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
     if (command.type === "fit") {
       mapRef.current.fitBounds(command.bounds, command.padding ?? 48);
       if (command.maxZoom) {
