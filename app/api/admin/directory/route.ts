@@ -41,6 +41,7 @@ export async function POST(request: Request) {
         district: body.district ?? "",
         city: body.city ?? "",
         providerResultId: body.addressProviderResultId,
+        street: body.street ?? "",
         houseNumber: body.houseNumber ?? "",
       });
       payload = withVerifiedDirectoryAddress(body, verified);

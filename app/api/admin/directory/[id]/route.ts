@@ -50,6 +50,7 @@ export async function PUT(request: Request, { params }: Props) {
         district: body.district ?? before.district,
         city: body.city ?? before.city,
         providerResultId: body.addressProviderResultId,
+        street: body.street ?? before.street,
         houseNumber: body.houseNumber ?? before.houseNumber,
       });
       payload = withVerifiedDirectoryAddress(body, verified);
