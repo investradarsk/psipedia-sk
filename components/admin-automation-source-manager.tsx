@@ -301,7 +301,7 @@ export function AdminAutomationSourceManager({
               {discoveryRoots.map((root) => (
                 <div className={styles.techRow} key={"root-" + root.id}>
                   <strong>{root.rootKey}</strong>
-                  <span>{root.discoveryType} · {root.entityType} · {root.reviewStatus}</span>
+                  <span>{root.discoveryType} · {root.entityType} · {root.reviewStatus}{root.discoveryType === "SEARCH_PROVIDER" && typeof root.config.provider === "string" ? " · " + root.config.provider : ""}</span>
                   <span>last success {formatDate(root.lastSuccessAt)} · cadence {root.cadenceMinutes} min · error {root.lastErrorCode ?? "—"}</span>
                   {root.searchSafety ? (
                     <span>last query {formatDate(root.searchSafety.lastQueryAt)} · root budget {root.searchSafety.requestsToday}/{root.searchSafety.rootDailyLimit} · plateau {root.searchSafety.plateau ? "yes" : "no"}</span>
