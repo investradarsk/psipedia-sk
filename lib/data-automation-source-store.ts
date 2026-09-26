@@ -650,6 +650,19 @@ export async function findRelevantAutomationSourceForCandidate(
   return selectRelevantExistingSourceForCandidate(candidate, result.results.map(mapSourceAdmin));
 }
 
+function candidateProvisioningConfig(candidate: AutomationSourceCandidateRow): AutomationSourceConfig {
+  const directoryCategory = candidate.entityType === "DIRECTORY" && typeof candidate.metadata.directoryCategory === "string"
+    ? candidate.metadata.directoryCategory.trim()
+    : "";
+  if (!directoryCategory) return {};
+  return {
+    staticFields: {
+      category: directoryCategory,
+      semanticKind: "FACILITY_OR_SERVICE_PROFILE",
+    },
+  };
+}
+
 function candidateSourceKey(candidate: AutomationSourceCandidateRow) {
   const host = (() => {
     try {
@@ -694,10 +707,10 @@ export async function reviewAutomationSourceCandidate(input: {
           source_key,label,entity_type,connector_type,source_url,config_json,enabled,
           cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,
           next_check_at,created_at,updated_at,review_status
-        ) VALUES (?,?,?,?,?,'{}',0,1440,1000,8000,2,1000,100,NULL,?,?,'PENDING')
+        ) VALUES (?,?,?,?,?,?,0,1440,1000,8000,2,1000,100,NULL,?,?,'PENDING')
         RETURNING id`).bind(
           candidateSourceKey(candidate), candidate.label, candidate.entityType,
-          candidate.suggestedConnectorType, sourceUrl, at, at,
+          candidate.suggestedConnectorType, sourceUrl, stableJson(candidateProvisioningConfig(candidate)), at, at,
         ).first<{ id: number }>();
       if (!created) throw new Error("automation_candidate_source_create_failed");
       duplicateSourceId = Number(created.id);
