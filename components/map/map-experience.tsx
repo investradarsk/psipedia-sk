@@ -653,7 +653,6 @@ export function MapExperience({
     traceMapDebug("experience:fetch-effect", {
       apiUrl,
       retryNonce,
-      viewport,
     });
     gate.cancel();
     const scheduled = scheduleMapRequest(async () => {
@@ -661,7 +660,6 @@ export function MapExperience({
       traceMapDebug("experience:fetch-start", {
         apiUrl,
         retryNonce,
-        viewport,
       });
       setLoading(true);
       setError(null);
