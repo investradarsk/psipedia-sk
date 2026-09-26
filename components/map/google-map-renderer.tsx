@@ -8,6 +8,7 @@ import {
   type MapViewport,
   type PublicMapType,
 } from "@/lib/map-public-ui";
+import { traceMapDebug } from "@/lib/map-debug";
 import {
   beginMapTypeIdleSuppression,
   cancelMapTypeIdleSuppression,
@@ -355,11 +356,23 @@ export function GoogleMapRenderer(props: Props) {
     mapTypeRef.current = mapType;
     if (!testMode && mapRef.current) {
       const baseline = mapPresentationBaselineFromMap(mapRef.current);
+      traceMapDebug("renderer:map-type-request", {
+        desiredMapType: mapType,
+        runtimeMapType: mapRef.current.getMapTypeId?.() ?? null,
+        baseline,
+        generation: mapTypeIdleSuppressionRef.current.generation,
+        pending: mapTypeIdleSuppressionRef.current.pending,
+      });
       if (baseline) {
         beginMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current, mapType, baseline);
       } else {
         cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
       }
+      traceMapDebug("renderer:map-type-pending", {
+        desiredMapType: mapTypeIdleSuppressionRef.current.desiredMapType,
+        generation: mapTypeIdleSuppressionRef.current.generation,
+        pending: mapTypeIdleSuppressionRef.current.pending,
+      });
       mapRef.current.setMapTypeId(mapType);
     }
   }, [mapType, testMode]);
@@ -410,18 +423,58 @@ export function GoogleMapRenderer(props: Props) {
         markerCtorRef.current = markerLibrary.AdvancedMarkerElement;
         window.__PSIPEDIA_MAP_INIT_COUNT__ = (window.__PSIPEDIA_MAP_INIT_COUNT__ ?? 0) + 1;
         mapTypeListener = map.addListener("maptypeid_changed", () => {
-          confirmMapTypeChange(mapTypeIdleSuppressionRef.current, map.getMapTypeId?.());
+          const runtimeMapType = map.getMapTypeId?.() ?? null;
+          traceMapDebug("renderer:maptypeid_changed:before", {
+            runtimeMapType,
+            desiredMapType: mapTypeIdleSuppressionRef.current.desiredMapType,
+            generation: mapTypeIdleSuppressionRef.current.generation,
+            pending: mapTypeIdleSuppressionRef.current.pending,
+          });
+          confirmMapTypeChange(mapTypeIdleSuppressionRef.current, runtimeMapType);
+          traceMapDebug("renderer:maptypeid_changed:after", {
+            runtimeMapType,
+            observedRuntimeMapType: mapTypeIdleSuppressionRef.current.observedRuntimeMapType,
+            desiredMapType: mapTypeIdleSuppressionRef.current.desiredMapType,
+            generation: mapTypeIdleSuppressionRef.current.generation,
+            pending: mapTypeIdleSuppressionRef.current.pending,
+          });
         });
         dragStartListener = map.addListener("dragstart", () => {
+          traceMapDebug("renderer:dragstart", {
+            desiredMapType: mapTypeIdleSuppressionRef.current.desiredMapType,
+            generation: mapTypeIdleSuppressionRef.current.generation,
+            pending: mapTypeIdleSuppressionRef.current.pending,
+          });
           cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
         });
         idleListener = map.addListener("idle", () => {
           const next = viewportFromMap(map);
           if (!next) return;
-          if (consumeMapTypeIdleSuppression(
+          const runtimeMapType = map.getMapTypeId?.() ?? null;
+          const before = {
+            desiredMapType: mapTypeIdleSuppressionRef.current.desiredMapType,
+            observedRuntimeMapType: mapTypeIdleSuppressionRef.current.observedRuntimeMapType,
+            generation: mapTypeIdleSuppressionRef.current.generation,
+            pending: mapTypeIdleSuppressionRef.current.pending,
+          };
+          const suppressed = consumeMapTypeIdleSuppression(
             mapTypeIdleSuppressionRef.current,
-            map.getMapTypeId?.(),
-          )) return;
+            runtimeMapType,
+          );
+          traceMapDebug("renderer:idle", {
+            runtimeMapType,
+            next,
+            before,
+            after: {
+              desiredMapType: mapTypeIdleSuppressionRef.current.desiredMapType,
+              observedRuntimeMapType: mapTypeIdleSuppressionRef.current.observedRuntimeMapType,
+              generation: mapTypeIdleSuppressionRef.current.generation,
+              pending: mapTypeIdleSuppressionRef.current.pending,
+            },
+            suppressed,
+          });
+          if (suppressed) return;
+          traceMapDebug("renderer:viewport-propagate", { runtimeMapType, next });
           onViewportChangeRef.current(next);
         });
         setReady(true);
@@ -518,6 +571,12 @@ export function GoogleMapRenderer(props: Props) {
 
   useEffect(() => {
     if (testMode || !command || !mapRef.current) return;
+    traceMapDebug("renderer:command", {
+      commandType: command.type,
+      commandKey: command.key,
+      pending: mapTypeIdleSuppressionRef.current.pending,
+      desiredMapType: mapTypeIdleSuppressionRef.current.desiredMapType,
+    });
     cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
     if (command.type === "fit") {
       mapRef.current.fitBounds(command.bounds, command.padding ?? 48);
@@ -565,9 +624,18 @@ export function GoogleMapRenderer(props: Props) {
         className={styles.googleMapCanvas}
         role="region"
         aria-label={ariaLabel}
-        onPointerDownCapture={() => cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current)}
-        onWheelCapture={() => cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current)}
-        onKeyDownCapture={() => cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current)}
+        onPointerDownCapture={() => {
+          traceMapDebug("renderer:user-pointer", { pending: mapTypeIdleSuppressionRef.current.pending });
+          cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
+        }}
+        onWheelCapture={() => {
+          traceMapDebug("renderer:user-wheel", { pending: mapTypeIdleSuppressionRef.current.pending });
+          cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
+        }}
+        onKeyDownCapture={() => {
+          traceMapDebug("renderer:user-key", { pending: mapTypeIdleSuppressionRef.current.pending });
+          cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
+        }}
       />
       {configMissing || !ready ? (
         <div className={styles.rendererFallback} role="status" aria-live="polite">

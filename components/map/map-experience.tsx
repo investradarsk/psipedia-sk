@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type CSSProperties, type MutableRefObject, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "@/components/icons";
+import { traceMapDebug } from "@/lib/map-debug";
 import { directoryCategories } from "@/lib/directory";
 import { eventTypes, slovakRegions } from "@/lib/events";
 import type { MapCluster, MapItem, MapResponse } from "@/lib/map-contract";
@@ -608,6 +609,17 @@ export function MapExperience({
   const clusters = responseClusters(response);
   const filterCount = activeFilterCount(filters);
 
+  const handleViewportChange = useCallback((next: MapViewport) => {
+    setViewport((current) => {
+      traceMapDebug("experience:viewport-set", {
+        current,
+        next,
+        changed: JSON.stringify(current) !== JSON.stringify(next),
+      });
+      return next;
+    });
+  }, []);
+
   const updateFilters = useCallback((next: MapUiFilters) => {
     setFilters(next);
     setSelectedItemId(null);
@@ -638,15 +650,28 @@ export function MapExperience({
 
   useEffect(() => {
     const gate = requestGateRef.current;
+    traceMapDebug("experience:fetch-effect", {
+      apiUrl,
+      retryNonce,
+    });
     gate.cancel();
     const scheduled = scheduleMapRequest(async () => {
       const request = gate.begin();
+      traceMapDebug("experience:fetch-start", {
+        apiUrl,
+        retryNonce,
+      });
       setLoading(true);
       setError(null);
       try {
         const result = await fetch(apiUrl, {
           signal: request.signal,
           headers: { Accept: "application/json" },
+        });
+        traceMapDebug("experience:fetch-response", {
+          apiUrl,
+          status: result.status,
+          current: request.isCurrent(),
         });
         const payload: unknown = await result.json().catch(() => null);
         if (!request.isCurrent()) return;
@@ -848,7 +873,7 @@ export function MapExperience({
             viewport={viewport}
             mapType={mapType}
             command={rendererCommand}
-            onViewportChange={setViewport}
+            onViewportChange={handleViewportChange}
             onSelectItem={selectItemById}
             onClusterClick={selectCluster}
             onStatusChange={setRendererStatus}
@@ -858,14 +883,20 @@ export function MapExperience({
               <button
                 type="button"
                 aria-pressed={mapType === "roadmap"}
-                onClick={() => setMapType("roadmap")}
+                onClick={() => {
+                  traceMapDebug("experience:map-type-click", { nextMapType: "roadmap", currentMapType: mapType });
+                  setMapType("roadmap");
+                }}
               >
                 Mapa
               </button>
               <button
                 type="button"
                 aria-pressed={mapType === "hybrid"}
-                onClick={() => setMapType("hybrid")}
+                onClick={() => {
+                  traceMapDebug("experience:map-type-click", { nextMapType: "hybrid", currentMapType: mapType });
+                  setMapType("hybrid");
+                }}
               >
                 Satelit
               </button>
