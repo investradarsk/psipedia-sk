@@ -3,6 +3,7 @@ import { adminAuditActorRef } from "@/lib/audit-identity";
 import { BulkPreflightError } from "@/lib/admin-bulk/core";
 import { runBulkExecution } from "@/lib/admin-bulk/execution";
 import { getBulkSelectionDatabase } from "@/lib/admin-bulk/snapshot-store";
+import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +26,23 @@ export async function POST(request: Request) {
 
   try {
     const payload = await request.json();
+    const database = getBulkSelectionDatabase();
     const result = await runBulkExecution(
-      getBulkSelectionDatabase(),
+      database,
       await adminAuditActorRef(user.email),
       user.email,
       payload,
     );
+    if (payload?.module === "directory") {
+      for (const item of result.updated) {
+        await reconcileGeoAfterSourceMutation({
+          targetType: "DIRECTORY_PROFILE",
+          targetId: item.id,
+          actorRef: user.email,
+          actorType: "ADMIN",
+        }, database as unknown as D1Database);
+      }
+    }
     return noStoreJson(result);
   } catch (error) {
     if (error instanceof BulkPreflightError) {
