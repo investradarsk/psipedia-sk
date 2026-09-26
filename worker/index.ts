@@ -258,7 +258,10 @@ const worker = {
         }));
         return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 1, errors: 1, schemaReady: true, runs: [] };
       }),
-      runDataAutomationDiscoverySweep({\n        database: env.DB,\n        searchProvider: new TavilyAutomationSearchProvider({ apiKey: env.TAVILY_API_KEY }),\n      }).catch((error) => {
+      runDataAutomationDiscoverySweep({
+        database: env.DB,
+        searchProvider: new TavilyAutomationSearchProvider({ apiKey: env.TAVILY_API_KEY }),
+      }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_discovery_sweep",
           result: "failed",
