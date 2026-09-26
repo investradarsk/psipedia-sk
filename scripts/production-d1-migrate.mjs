@@ -641,6 +641,12 @@ function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0081_automation_mushing_event_source.sql") {
     return { partial: false };
   }
+  if (targetMigration === "0082_automation_discovery_candidate_evidence.sql") {
+    return {
+      partial: names.has("automation_source_candidate_evidence")
+        || AUTOMATION_DISCOVERY_EVIDENCE_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
