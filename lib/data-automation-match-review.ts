@@ -189,12 +189,23 @@ export async function getAutomationPossibleMatchReviewDetail(observationId:numbe
   const conflicts = sourceEvidence.filter(left => targetEvidence.some(right =>
     right.fieldName===left.fieldName && right.normalizedValue && left.normalizedValue && right.normalizedValue!==left.normalizedValue
   )).map(item=>item.fieldName).filter((value,index,array)=>array.indexOf(value)===index);
+  const decisiveSignals = sourceEvidence.filter(left => targetEvidence.some(right =>
+    right.fieldName===left.fieldName && right.normalizedValue && left.normalizedValue && right.normalizedValue===left.normalizedValue
+  )).map(item=>item.fieldName).filter((value,index,array)=>array.indexOf(value)===index);
+  const sourceFields=new Set(sourceEvidence.map(item=>item.fieldName));
+  const targetFields=new Set(targetEvidence.map(item=>item.fieldName));
+  const missingSignals=[...new Set([
+    ...sourceEvidence.filter(item=>!targetFields.has(item.fieldName)).map(item=>"candidate_missing:"+item.fieldName),
+    ...targetEvidence.filter(item=>!sourceFields.has(item.fieldName)).map(item=>"incoming_missing:"+item.fieldName),
+  ])];
   return {
     ...context,
     evidenceFingerprint:fingerprint,
     sourceEvidence,
     targetEvidence,
     conflicts,
+    decisiveSignals,
+    missingSignals,
     semanticCompatible:semanticCompatible(context.entityType,context.sourceSemanticKind,context.targetSemanticKind),
     currentDecision: current ? {
       id:Number(current.id), decision:String(current.decision) as AutomationMatchReviewDecision,
