@@ -63,7 +63,7 @@ test("autocomplete filters to selected Slovak locality and returns at most five 
     result(),
     result({ providerResultId: "wrong-country", countryCode: "AT" }),
     result({ providerResultId: "wrong-city", city: "Nitra", district: "Nitra" }),
-    ...Array.from({ length: 7 }, (_, index) => result({ providerResultId: `extra-${index}` })),
+    ...Array.from({ length: 7 }, (_, index) => result({ providerResultId: `extra-${index}`, street: `Testovacia ${index}` })),
   ];
   const provider = { autocomplete: async () => candidates };
   const suggestions = await autocompleteDirectoryAddress({ ...locality, query: "Župná", provider });
