@@ -1,5 +1,6 @@
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { parseAutomationSourceAdminInput } from "@/lib/data-automation-source-admin";
+import { parseAutomationGovernanceInput, upsertGovernanceReview } from "@/lib/data-automation-governance";
 import {
   reviewAutomationSource,
   setAutomationSourceEnabled,
@@ -46,10 +47,20 @@ export async function PUT(request: Request, { params }: Props) {
       return source ? Response.json({ source }) : Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
     }
 
+    if (action === "governance") {
+      const review = parseAutomationGovernanceInput(body?.governance);
+      const governance = await upsertGovernanceReview({
+        subject: { type: "AUTOMATION_SOURCE", id },
+        review,
+        actor: auth.user.email,
+      });
+      return Response.json({ governance });
+    }
+
     return Response.json({ error: "Neplatná source akcia." }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zdroj sa nepodarilo upraviť.";
-    const status = /review_required|not_safe/i.test(message) ? 409 : /unique/i.test(message) ? 409 : 500;
+    const status = /review_required|not_safe|governance_blocked|stale_update/i.test(message) ? 409 : /governance_.*invalid|rationale_required|value_too_long|number_invalid/i.test(message) ? 400 : /unique/i.test(message) ? 409 : 500;
     return Response.json({ error: message }, { status });
   }
 }

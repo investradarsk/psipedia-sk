@@ -88,6 +88,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0081_automation_mushing_event_source.sql",
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
+    "0084_automation_governance_registry.sql",
   ]);
 });
 
@@ -102,7 +103,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0084_future_migration.sql",
+    "0085_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -135,6 +136,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0081_automation_mushing_event_source.sql",
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
+    "0084_automation_governance_registry.sql",
   ]);
 });
 
@@ -142,7 +144,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0084_future_migration.sql",
+    "0085_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -161,7 +163,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0081_automation_mushing_event_source.sql",
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
-    "0084_future_migration.sql",
+    "0084_automation_governance_registry.sql",
+    "0085_future_migration.sql",
   ]);
 });
 
@@ -615,4 +618,21 @@ test("0081 Mushing source migration is data-only, disabled and governance-gated"
   assert.match(migration, /'PENDING'/);
   assert.doesNotMatch(migration, /CREATE TABLE|ALTER TABLE|DROP TABLE|DELETE FROM|UPDATE\s+automation_sources/i);
   assert.match(script, /0081_automation_mushing_event_source\.sql/);
+});
+
+test("0084 governance registry migration is additive, auditable and production-guarded", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0084_automation_governance_registry.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-migrate.yml"), "utf8");
+  assert.match(migration, /CREATE TABLE `automation_governance_reviews`/);
+  assert.match(migration, /CREATE TABLE `automation_governance_review_history`/);
+  assert.match(migration, /automation_governance_reviews_history_insert/);
+  assert.match(migration, /automation_governance_reviews_history_update/);
+  assert.match(migration, /automation_governance_review_history_no_update/);
+  assert.match(migration, /automation_governance_review_history_no_delete/);
+  assert.doesNotMatch(migration, /UPDATE\s+automation_|DELETE\s+FROM|DROP\s+TABLE/i);
+  assert.match(script, /0084_automation_governance_registry\.sql/);
+  assert.match(script, /assertAutomationGovernanceSchema/);
+  assert.match(workflow, /0084_automation_governance_registry\.sql/);
+  assert.match(workflow, /APPLY-0084-psipedia-sk-db/);
 });

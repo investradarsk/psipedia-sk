@@ -317,7 +317,7 @@ test.describe("organization location admin CRUD", () => {
     created = page.locator("[data-location-id]").filter({ hasText: `${suffix} upravená` });
     page.once("dialog", (dialog) => dialog.accept());
     await created.getByRole("button", { name: "Odstrániť lokalitu" }).click();
-    await expect(page.getByRole("status")).toContainText("Lokalita bola odstránená");
+    await expect(created).toHaveCount(0);
     await expect(page.locator('[data-location-id="990107"]').getByLabel("Hlavná lokalita")).not.toBeChecked();
 
     const restored = page.locator('[data-location-id="990107"]');

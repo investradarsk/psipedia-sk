@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
+import type { AutomationGovernanceEvaluation, AutomationGovernanceRead } from "@/lib/data-automation-governance";
 import { automationConnectorTypes, automationEntityTypes } from "@/lib/data-automation";
 import styles from "./admin-operations-ux.module.css";
 
@@ -63,7 +64,7 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
-function statusCopy(source: AutomationSourceAdminRow) {
+function statusCopy(source: AutomationSourceAdminRow, governanceEvaluation: AutomationGovernanceEvaluation) {
   if (source.lastRunStatus === "FAILED" || source.lastErrorCode) {
     return { title: "Zdroj hlási problém", text: "Najprv ho otestuj. Ak test zlyhá, technické detaily nájdeš nižšie.", warning: true };
   }
@@ -73,13 +74,26 @@ function statusCopy(source: AutomationSourceAdminRow) {
   if (source.reviewStatus === "REJECTED") {
     return { title: "Zdroj je zamietnutý", text: "Nebude sa automaticky kontrolovať, kým ho znovu neschváliš.", warning: true };
   }
+  if (!source.enabled && !governanceEvaluation.allowed) {
+    return { title: "Zdroj potrebuje governance review", text: "Technické schválenie nestačí. Pred zapnutím treba explicitne schváliť prístup, robots, podmienky, recurring use a retention.", warning: true };
+  }
   if (!source.enabled) {
-    return { title: "Zdroj je schválený, ale vypnutý", text: "Ak ho chceš pravidelne sledovať, stačí ho zapnúť.", warning: true };
+    return { title: "Zdroj je schválený a governance povoľuje aktiváciu", text: "Ak ho chceš pravidelne sledovať, môžeš ho zapnúť.", warning: true };
   }
   return { title: "Zdroj je aktívny", text: "Beží podľa svojho harmonogramu. Manuálny run potrebuješ iba pri kontrole alebo teste.", warning: false };
 }
 
-export function AdminAutomationSourceDetail({ source }: { source: AutomationSourceAdminRow }) {
+export function AdminAutomationSourceDetail({
+  source,
+  governance,
+  governanceEvaluation,
+  governanceHistory,
+}: {
+  source: AutomationSourceAdminRow;
+  governance: AutomationGovernanceRead;
+  governanceEvaluation: AutomationGovernanceEvaluation;
+  governanceHistory: Array<Record<string, unknown>>;
+}) {
   const router = useRouter();
   const [busyAction, setBusyAction] = useState<"action" | "test" | "run" | null>(source.lastRunStatus === "RUNNING" ? "run" : null);
   const busy = busyAction !== null;
@@ -87,6 +101,32 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
   const [preview, setPreview] = useState<Preview | null>(null);
   const [run, setRun] = useState<RunSummary | null>(null);
   const [notes, setNotes] = useState(source.reviewNotes ?? "");
+  const governanceState = governance.state;
+  const [governanceForm, setGovernanceForm] = useState({
+    accessStatus: governanceState?.accessStatus ?? "UNKNOWN",
+    robotsStatus: governanceState?.robotsStatus ?? "UNKNOWN",
+    termsStatus: governanceState?.termsStatus ?? "UNKNOWN",
+    recurringStatus: governanceState?.recurringStatus ?? "UNKNOWN",
+    retentionStatus: governanceState?.retentionStatus ?? "UNKNOWN",
+    retainUrl: governanceState?.retainUrl ?? false,
+    retainTitle: governanceState?.retainTitle ?? false,
+    retainSnippet: governanceState?.retainSnippet ?? false,
+    retainMetadata: governanceState?.retainMetadata ?? false,
+    retentionDays: governanceState?.retentionDays ? String(governanceState.retentionDays) : "",
+    minCadenceMinutes: governanceState?.minCadenceMinutes ? String(governanceState.minCadenceMinutes) : "",
+    maxRequestsPerDay: governanceState?.maxRequestsPerDay ? String(governanceState.maxRequestsPerDay) : "",
+    manualOnly: governanceState?.manualOnly ?? false,
+    pathScope: governanceState?.pathScope ?? "",
+    restrictionsNote: governanceState?.restrictionsNote ?? "",
+    termsUrl: governanceState?.termsUrl ?? "",
+    privacyUrl: governanceState?.privacyUrl ?? "",
+    robotsUrl: governanceState?.robotsUrl ?? "",
+    evidenceUrl: governanceState?.evidenceUrl ?? "",
+    rationale: "",
+    expiresAt: governanceState?.expiresAt ?? "",
+    reviewDueAt: governanceState?.reviewDueAt ?? "",
+    expectedUpdatedAt: governanceState?.updatedAt ?? null,
+  });
   const [form, setForm] = useState<{
     sourceKey: string; label: string; entityType: string; connectorType: string; sourceUrl: string;
     cadenceMinutes: string; throttleMs: string; timeoutMs: string; retryMaxAttempts: string; retryBackoffMs: string;
@@ -106,7 +146,7 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
     config: JSON.stringify(source.config, null, 2),
   });
 
-  const status = statusCopy(source);
+  const status = statusCopy(source, governanceEvaluation);
 
   async function pollRunStatus() {
     let networkFailures = 0;
@@ -254,11 +294,99 @@ export function AdminAutomationSourceDetail({ source }: { source: AutomationSour
         <div className="admin-form-actions">
           <button type="button" disabled={busy} onClick={() => void testSource()}>{busyAction === "test" ? "Testujem zdroj…" : "Otestovať zdroj"}</button>
           {source.reviewStatus !== "APPROVED" && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "approve", notes })}>Schváliť zdroj</button>}
-          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "enable" })}>Zapnúť monitoring</button>}
+          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed} onClick={() => void action({ action: "enable" })}>Zapnúť monitoring</button>}
           {source.enabled && <button className="is-primary" type="button" disabled={busy} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Spustiť kontrolu teraz"}</button>}
           {source.enabled && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Vypnúť monitoring</button>}
           {source.reviewStatus !== "REJECTED" && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "reject", notes })}>Zamietnuť zdroj</button>}
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <div>
+            <h2>Governance</h2>
+            <p>Permission/safety review je oddelený od technického schválenia zdroja. Verejná dostupnosť ani status APPROVED samy osebe nepovoľujú recurring ingestion.</p>
+          </div>
+          <span className={[styles.badge, governanceEvaluation.allowed ? styles.badgeGood : styles.badgeDanger].join(" ")}>
+            {governanceEvaluation.allowed ? "Activation allowed" : "Activation blocked"}
+          </span>
+        </div>
+
+        {!governance.schemaAvailable && <p className="admin-flash">Governance schema ešte nie je dostupná. Aktivácia failne closed.</p>}
+        {!governanceEvaluation.allowed && (
+          <div className={styles.techGrid}>
+            {governanceEvaluation.blockingReasons.map((reason) => (
+              <div className={styles.techRow} key={reason}><strong>{reason}</strong><span>Tento dôvod blokuje recurring activation.</span></div>
+            ))}
+          </div>
+        )}
+
+        <div className="admin-form-grid">
+          <label className="admin-field"><span>Access</span><select value={governanceForm.accessStatus} onChange={(e) => setGovernanceForm((x) => ({ ...x, accessStatus: e.target.value }))}>
+            {["UNKNOWN","ALLOWED","RESTRICTED","BLOCKED"].map((v) => <option key={v}>{v}</option>)}
+          </select></label>
+          <label className="admin-field"><span>Robots</span><select value={governanceForm.robotsStatus} onChange={(e) => setGovernanceForm((x) => ({ ...x, robotsStatus: e.target.value }))}>
+            {["UNKNOWN","ALLOWED","RESTRICTED","DISALLOWED","NOT_APPLICABLE"].map((v) => <option key={v}>{v}</option>)}
+          </select></label>
+          <label className="admin-field"><span>Terms / legal</span><select value={governanceForm.termsStatus} onChange={(e) => setGovernanceForm((x) => ({ ...x, termsStatus: e.target.value }))}>
+            {["UNKNOWN","ALLOWED","REQUIRES_REVIEW","RESTRICTED","BLOCKED"].map((v) => <option key={v}>{v}</option>)}
+          </select></label>
+          <label className="admin-field"><span>Recurring use</span><select value={governanceForm.recurringStatus} onChange={(e) => setGovernanceForm((x) => ({ ...x, recurringStatus: e.target.value }))}>
+            {["UNKNOWN","APPROVED","RESTRICTED","DENIED"].map((v) => <option key={v}>{v}</option>)}
+          </select></label>
+          <label className="admin-field"><span>Evidence retention</span><select value={governanceForm.retentionStatus} onChange={(e) => setGovernanceForm((x) => ({ ...x, retentionStatus: e.target.value }))}>
+            {["UNKNOWN","APPROVED","RESTRICTED","DENIED"].map((v) => <option key={v}>{v}</option>)}
+          </select></label>
+          <label className="admin-field"><span>Retention days</span><input type="number" min={1} max={3650} value={governanceForm.retentionDays} onChange={(e) => setGovernanceForm((x) => ({ ...x, retentionDays: e.target.value }))} /></label>
+          <label className="admin-field"><span>Min cadence (min)</span><input type="number" min={60} max={43200} value={governanceForm.minCadenceMinutes} onChange={(e) => setGovernanceForm((x) => ({ ...x, minCadenceMinutes: e.target.value }))} /></label>
+          <label className="admin-field"><span>Max requests/day</span><input type="number" min={1} max={100000} value={governanceForm.maxRequestsPerDay} onChange={(e) => setGovernanceForm((x) => ({ ...x, maxRequestsPerDay: e.target.value }))} /></label>
+          <label className="admin-field"><span>Expires at</span><input type="datetime-local" value={governanceForm.expiresAt ? governanceForm.expiresAt.slice(0,16) : ""} onChange={(e) => setGovernanceForm((x) => ({ ...x, expiresAt: e.target.value }))} /></label>
+          <label className="admin-field"><span>Review due</span><input type="datetime-local" value={governanceForm.reviewDueAt ? governanceForm.reviewDueAt.slice(0,16) : ""} onChange={(e) => setGovernanceForm((x) => ({ ...x, reviewDueAt: e.target.value }))} /></label>
+        </div>
+
+        <div className="admin-form-grid">
+          <label className="admin-field"><span><input type="checkbox" checked={governanceForm.retainUrl} onChange={(e) => setGovernanceForm((x) => ({ ...x, retainUrl: e.target.checked }))} /> Store URL</span></label>
+          <label className="admin-field"><span><input type="checkbox" checked={governanceForm.retainTitle} onChange={(e) => setGovernanceForm((x) => ({ ...x, retainTitle: e.target.checked }))} /> Store title</span></label>
+          <label className="admin-field"><span><input type="checkbox" checked={governanceForm.retainSnippet} onChange={(e) => setGovernanceForm((x) => ({ ...x, retainSnippet: e.target.checked }))} /> Store snippet</span></label>
+          <label className="admin-field"><span><input type="checkbox" checked={governanceForm.retainMetadata} onChange={(e) => setGovernanceForm((x) => ({ ...x, retainMetadata: e.target.checked }))} /> Store metadata</span></label>
+          <label className="admin-field"><span><input type="checkbox" checked={governanceForm.manualOnly} onChange={(e) => setGovernanceForm((x) => ({ ...x, manualOnly: e.target.checked }))} /> Manual only</span></label>
+        </div>
+
+        <div className="admin-form-grid">
+          <label className="admin-field admin-field-wide"><span>Terms URL</span><input type="url" value={governanceForm.termsUrl} onChange={(e) => setGovernanceForm((x) => ({ ...x, termsUrl: e.target.value }))} /></label>
+          <label className="admin-field admin-field-wide"><span>Robots URL</span><input type="url" value={governanceForm.robotsUrl} onChange={(e) => setGovernanceForm((x) => ({ ...x, robotsUrl: e.target.value }))} /></label>
+          <label className="admin-field admin-field-wide"><span>Evidence URL</span><input type="url" value={governanceForm.evidenceUrl} onChange={(e) => setGovernanceForm((x) => ({ ...x, evidenceUrl: e.target.value }))} /></label>
+          <label className="admin-field admin-field-wide"><span>Privacy URL</span><input type="url" value={governanceForm.privacyUrl} onChange={(e) => setGovernanceForm((x) => ({ ...x, privacyUrl: e.target.value }))} /></label>
+          <label className="admin-field admin-field-wide"><span>Path scope</span><input value={governanceForm.pathScope} onChange={(e) => setGovernanceForm((x) => ({ ...x, pathScope: e.target.value }))} /></label>
+        </div>
+        <label className="admin-field"><span>Restrictions / notes</span><textarea rows={3} value={governanceForm.restrictionsNote} onChange={(e) => setGovernanceForm((x) => ({ ...x, restrictionsNote: e.target.value }))} /></label>
+        <label className="admin-field"><span>Rationale *</span><textarea rows={3} required value={governanceForm.rationale} onChange={(e) => setGovernanceForm((x) => ({ ...x, rationale: e.target.value }))} placeholder="Prečo je toto governance rozhodnutie správne?" /></label>
+        <div className="admin-form-actions">
+          <button className="is-primary" type="button" disabled={busy || !governance.schemaAvailable || !governanceForm.rationale.trim()} onClick={() => void action({
+            action: "governance",
+            governance: {
+              ...governanceForm,
+              retentionDays: governanceForm.retentionDays || null,
+              minCadenceMinutes: governanceForm.minCadenceMinutes || null,
+              maxRequestsPerDay: governanceForm.maxRequestsPerDay || null,
+              expiresAt: governanceForm.expiresAt ? new Date(governanceForm.expiresAt).toISOString() : null,
+              reviewDueAt: governanceForm.reviewDueAt ? new Date(governanceForm.reviewDueAt).toISOString() : null,
+            },
+          })}>Uložiť governance review</button>
+        </div>
+        <p><strong>Last reviewed:</strong> {formatDate(governanceState?.reviewedAt ?? null)} · <strong>Review due:</strong> {formatDate(governanceState?.reviewDueAt ?? null)}</p>
+
+        <details className={styles.advanced}>
+          <summary>Governance history ({governanceHistory.length})</summary>
+          <div className={styles.advancedBody}>
+            {governanceHistory.length ? <div className={styles.techGrid}>{governanceHistory.map((item) => (
+              <div className={styles.techRow} key={String(item.id)}>
+                <strong>{String(item.actor ?? "—")} · {formatDate(item.changed_at ? String(item.changed_at) : null)}</strong>
+                <span>{String(item.rationale ?? "")}</span>
+              </div>
+            ))}</div> : <p>Zatiaľ nie je governance decision history.</p>}
+          </div>
+        </details>
       </section>
 
       <section className={styles.section}>

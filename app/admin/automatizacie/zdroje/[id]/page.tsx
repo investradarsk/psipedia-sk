@@ -6,6 +6,7 @@ import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getAutomationSourceAdmin, listAutomationSourceRuns } from "@/lib/data-automation-source-store";
 import { automationCategoryForSource } from "@/lib/admin-automation-presentation";
+import { evaluateGovernanceForActivation, getGovernanceState, listGovernanceHistory } from "@/lib/data-automation-governance";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -18,12 +19,19 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
   const source = await getAutomationSourceAdmin(id).catch(() => null);
   if (!source) notFound();
   const runs = await listAutomationSourceRuns(id).catch(() => []);
+  const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id }).catch(() => ({ schemaAvailable: false, state: null }));
+  const governanceEvaluation = evaluateGovernanceForActivation(governance, {
+    recurring: true,
+    cadenceMinutes: source.cadenceMinutes,
+    storageFields: ["url", "metadata"],
+  });
+  const governanceHistory = await listGovernanceHistory({ type: "AUTOMATION_SOURCE", id }).catch(() => []);
   const category = automationCategoryForSource(source);
 
   return (
     <AdminShell user={user} eyebrow="Automatizácie" title={source.label} description="Stav, kontrola a správa konkrétneho zdroja. Technické nastavenia sú sekundárne."
       actions={<Link href={category ? "/admin/automatizacie/" + category : "/admin/automatizacie"}>← Späť na automatizácie</Link>}>
-      <AdminAutomationSourceDetail source={source} />
+      <AdminAutomationSourceDetail source={source} governance={governance} governanceEvaluation={governanceEvaluation} governanceHistory={governanceHistory} />
       <details className={styles.advanced}><summary>História behov ({runs.length})</summary><div className={styles.advancedBody}>
         {runs.length ? <div className={styles.techGrid}>{runs.map((run) => (
           <div className={styles.techRow} key={String(run.id)}><strong>Kontrola #{String(run.id)} · {String(run.status)}</strong><span>{String(run.started_at)} → {String(run.completed_at ?? "—")}</span><span>skontrolované {String(run.checked_count)} · nové {String(run.new_finding_count)} · chyby {String(run.error_count)}</span></div>

@@ -207,5 +207,5 @@ export async function deleteOrganizationLocationFromAdmin(
     DELETE FROM organization_locations
     WHERE id = ? AND organization_id = ?
   `).bind(locationId, organizationId).run() as RunResult;
-  return resultChanges(result) === 1;
+  return resultChanges(result) >= 1;
 }

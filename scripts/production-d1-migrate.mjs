@@ -76,6 +76,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0081_automation_mushing_event_source.sql",
   "0082_automation_discovery_candidate_evidence.sql",
   "0083_automation_search_budgets.sql",
+  "0084_automation_governance_registry.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -110,6 +111,12 @@ export const AUTOMATION_SEARCH_USAGE_INDEXES = Object.freeze([
   "automation_search_usage_entity_day_idx",
   "automation_search_usage_root_day_idx",
   "automation_search_usage_fingerprint_idx",
+]);
+
+export const AUTOMATION_GOVERNANCE_INDEXES = Object.freeze([
+  "automation_governance_reviews_subject_unique",
+  "automation_governance_reviews_review_due_idx",
+  "automation_governance_review_history_subject_idx",
 ]);
 
 export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
@@ -1044,6 +1051,26 @@ function assertAutomationSearchUsageSchema(schema) {
   }
 }
 
+function assertAutomationGovernanceSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("automation_governance_reviews")?.type === "table", "Missing automation_governance_reviews table");
+  invariant(names.get("automation_governance_review_history")?.type === "table", "Missing automation_governance_review_history table");
+  for (const index of AUTOMATION_GOVERNANCE_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing governance index: ${index}`);
+  }
+  invariant(names.get("automation_governance_reviews_history_insert")?.type === "trigger", "Missing governance history insert trigger");
+  invariant(names.get("automation_governance_reviews_history_update")?.type === "trigger", "Missing governance history update trigger");
+  invariant(names.get("automation_governance_review_history_no_update")?.type === "trigger", "Missing governance immutable update trigger");
+  invariant(names.get("automation_governance_review_history_no_delete")?.type === "trigger", "Missing governance immutable delete trigger");
+  const reviewSql = String(names.get("automation_governance_reviews")?.sql ?? "");
+  for (const column of [
+    "subject_type","subject_id","access_status","robots_status","terms_status","recurring_status","retention_status",
+    "retain_url","retain_title","retain_snippet","retain_metadata","retention_days","min_cadence_minutes",
+    "max_requests_per_day","manual_only","path_scope","restrictions_note","terms_url","privacy_url","robots_url",
+    "evidence_url","reviewed_at","reviewed_by","rationale","expires_at","review_due_at","created_at","updated_at",
+  ]) invariant(reviewSql.includes(column), `automation_governance_reviews.${column} is missing`);
+}
+
 function assertAutomationDiscoveryEvidenceSchema(schema) {
   const names = objectMap(schema.objects);
   invariant(
@@ -1091,6 +1118,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 80) assertAutomationCanonicalApplySchema(schema);
   if (migrationIndex(targetMigration) >= 82) assertAutomationDiscoveryEvidenceSchema(schema);
   if (migrationIndex(targetMigration) >= 83) assertAutomationSearchUsageSchema(schema);
+  if (migrationIndex(targetMigration) >= 84) assertAutomationGovernanceSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {

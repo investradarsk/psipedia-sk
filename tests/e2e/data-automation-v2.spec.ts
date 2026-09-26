@@ -88,6 +88,45 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   expect(approved.source.reviewStatus).toBe("APPROVED");
   expect(approved.source.enabled).toBe(false);
 
+  const blockedEnableResponse = await request.put(`/api/admin/automation-sources/${id}`, {
+    data: { action: "enable" },
+    headers: mutationHeaders,
+  });
+  expect(blockedEnableResponse.status()).toBe(409);
+
+  const governanceResponse = await request.put(`/api/admin/automation-sources/${id}`, {
+    data: {
+      action: "governance",
+      governance: {
+        accessStatus: "ALLOWED",
+        robotsStatus: "NOT_APPLICABLE",
+        termsStatus: "ALLOWED",
+        recurringStatus: "APPROVED",
+        retentionStatus: "APPROVED",
+        retainUrl: true,
+        retainTitle: false,
+        retainSnippet: false,
+        retainMetadata: true,
+        retentionDays: null,
+        minCadenceMinutes: null,
+        maxRequestsPerDay: null,
+        manualOnly: false,
+        pathScope: "",
+        restrictionsNote: "E2E governance review",
+        termsUrl: "",
+        privacyUrl: "",
+        robotsUrl: "",
+        evidenceUrl: "",
+        rationale: "E2E explicit governance approval",
+        expiresAt: null,
+        reviewDueAt: null,
+        expectedUpdatedAt: null,
+      },
+    },
+    headers: mutationHeaders,
+  });
+  expect(governanceResponse.ok()).toBe(true);
+
   const enableResponse = await request.put(`/api/admin/automation-sources/${id}`, {
     data: { action: "enable" },
     headers: mutationHeaders,
