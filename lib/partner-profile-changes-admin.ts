@@ -358,6 +358,17 @@ export async function approvePartnerProfileChangeAdmin(input:{
       actorRef,
       actorType: "ADMIN",
     }, database);
+  } else if (
+    row.resourceType === "HELP_ORGANIZATION"
+    && canonical.locationId
+    && ["address", "city", "district", "region", "countryCode"].some((key) => Object.hasOwn(patch, key))
+  ) {
+    await reconcileGeoAfterSourceMutation({
+      targetType: "ORGANIZATION_LOCATION",
+      targetId: canonical.locationId,
+      actorRef,
+      actorType: "ADMIN",
+    }, database);
   }
   return getPartnerProfileChangeAdmin(input.id,{database});
 }
