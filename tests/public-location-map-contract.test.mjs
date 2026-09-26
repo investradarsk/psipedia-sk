@@ -42,7 +42,7 @@ test("PUBLIC-MAPS-1 detail map is consent-gated and no Google script is injected
     read("components/map/public-location-map.tsx"),
     read("components/map/google-map-renderer.tsx"),
   ]);
-  assert.match(component, /rendererEnabled && !consentGranted && !testRenderer/);
+  assert.match(component, /\(rendererEnabled \|\| testRenderer\) && !consentGranted/);
   assert.match(component, /Povoliť Google Maps/);
   assert.doesNotMatch(component, /document\.createElement\(["']script["']\)/);
   assert.match(renderer, /!rendererEnabled \|\| !consentGranted \|\| configMissing/);
