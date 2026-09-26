@@ -5,7 +5,7 @@ import {
   htmlLinkDirectoryDiscovery,
   normalizeAutomationSearchRequest,
   requireConfiguredSearchProvider,
-  rssDiscoveryAdapter,
+  rssDiscoveryCandidates,
   parseSitemapDocument,
   structuredDirectoryDiscovery,
   type AutomationSearchProvider,
@@ -649,22 +649,46 @@ async function discoverCandidates(
     return discoverSitemapCandidates(root, options, maxCandidates);
   }
 
+  if (root.discoveryType === "RSS") {
+    const urlAllowed = sitemapHostPolicy(root);
+    const fetched = await fetchWithRetry(
+      root,
+      options.fetchImpl ?? fetch,
+      options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
+      root.sourceUrl,
+      urlAllowed,
+    );
+    const rawMaxAge = Number(root.config.maxEntryAgeDays);
+    const maxEntryAgeDays = Number.isFinite(rawMaxAge) && rawMaxAge > 0
+      ? Math.min(3650, Math.floor(rawMaxAge))
+      : undefined;
+    try {
+      const discovered = rssDiscoveryCandidates({
+        payload: fetched.payload,
+        baseUrl: fetched.finalUrl,
+        entityType: root.entityType,
+        maxEntries: configNumber(root, "maxFeedEntries", 100, 1, 200),
+        maxCandidates,
+        maxEntryAgeDays,
+        now: options.now ?? new Date(),
+        urlAllowed,
+        pathIncludes: configStrings(root, "pathIncludes"),
+        pathExcludes: configStrings(root, "pathExcludes"),
+      });
+      return { candidates: discovered.candidates, warnings: discovered.warnings };
+    } catch (error) {
+      if (error instanceof Error && error.message === "invalid_feed_xml") {
+        throw new DiscoveryFetchError("invalid_feed_xml");
+      }
+      throw error;
+    }
+  }
+
   const fetched = await fetchWithRetry(
     root,
     options.fetchImpl ?? fetch,
     options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
   );
-
-  if (root.discoveryType === "RSS") {
-    return {
-      candidates: rssDiscoveryAdapter({
-        payload: fetched.payload,
-        baseUrl: fetched.finalUrl,
-        entityType: root.entityType,
-      }).slice(0, maxCandidates),
-      warnings: [],
-    };
-  }
 
   if (String(root.config.adapter ?? "") === "HTML_LINK_DIRECTORY") {
     return {
@@ -738,7 +762,11 @@ export function discoveryEvidenceContext(
       ? `provider:${provider}|query:${query ?? ""}|fingerprint:${fingerprint}`
       : `provider:${provider}|root:${root.rootKey}`;
   } else if (root.discoveryType === "RSS") {
-    context = externalId ? `feed:${discoveredFrom}|item:${externalId}` : `feed:${discoveredFrom}`;
+    const entryUrl = evidenceMetadataValue(candidate, ["entryUrl"]) ?? candidate.sourceUrl;
+    const feedType = evidenceMetadataValue(candidate, ["feedType"]) ?? "RSS";
+    context = externalId
+      ? `feed:${discoveredFrom}|type:${feedType}|item:${externalId}|url:${entryUrl}`
+      : `feed:${discoveredFrom}|type:${feedType}|url:${entryUrl}`;
   } else if (root.discoveryType === "SITEMAP") {
     const metadata = candidate.metadata ?? {};
     const rootSitemap = typeof metadata.rootSitemapUrl === "string" ? metadata.rootSitemapUrl : (root.sourceUrl ?? root.rootKey);
