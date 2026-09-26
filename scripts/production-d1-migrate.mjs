@@ -71,6 +71,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0076_automation_non_event_entity_resolution_foundation.sql",
   "0077_directory_geo_provider_result_id.sql",
   "0078_automation_possible_match_reviews.sql",
+  "0079_automation_agility_event_source.sql",
   "0080_automation_canonical_apply.sql",
 ]);
 
@@ -619,6 +620,9 @@ function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0078_automation_possible_match_reviews.sql") {
     const names = objectMap(schema.objects);
     return { partial: names.has("automation_entity_match_decisions") };
+  }
+  if (targetMigration === "0079_automation_agility_event_source.sql") {
+    return { partial: false };
   }
   if (targetMigration === "0080_automation_canonical_apply.sql") {
     const names = objectMap(schema.objects);
