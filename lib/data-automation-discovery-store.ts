@@ -1,6 +1,13 @@
 import { env } from "cloudflare:workers";
 import type { AutomationConnectorType, AutomationEntityType } from "./data-automation.ts";
 import type { AutomationDiscoveryType } from "./data-automation-discovery.ts";
+import {
+  automationSearchBudgetPolicy,
+  automationSearchCooldownUntil,
+  automationSearchPlateauSignal,
+  utcSearchDayBucket,
+  type AutomationSearchUsageStatus,
+} from "./data-automation-search-budget.ts";
 
 export type AutomationDiscoveryDatabase = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -22,6 +29,14 @@ export type AutomationDiscoveryRoot = {
   lastSuccessAt: string | null;
   lastErrorAt: string | null;
   lastErrorCode: string | null;
+  searchSafety?: {
+    requestsToday: number;
+    rootDailyLimit: number;
+    remainingRootRequests: number;
+    lastQueryAt: string | null;
+    cooldownUntil: string | null;
+    plateau: boolean;
+  };
 };
 
 export type AutomationDiscoveryRunSummaryRow = {
@@ -114,12 +129,80 @@ export async function listDueAutomationDiscoveryRoots(
 export async function listAutomationDiscoveryRoots(
   databaseInput?: AutomationDiscoveryDatabase,
   limit = 50,
+  now = new Date(),
 ) {
   const db = database(databaseInput);
   const result = await db.prepare(`SELECT * FROM automation_discovery_roots
     ORDER BY label COLLATE NOCASE ASC,id ASC LIMIT ?`)
     .bind(Math.max(1, Math.min(100, limit))).all<Record<string, unknown>>();
-  return result.results.map(mapRoot);
+  const roots = result.results.map(mapRoot);
+  const searchRoots = roots.filter((root) => root.discoveryType === "SEARCH_PROVIDER");
+  if (!searchRoots.length) return roots;
+
+  try {
+    const ids = searchRoots.map((root) => root.id);
+    const placeholders = ids.map(() => "?").join(",");
+    const dayBucket = utcSearchDayBucket(now);
+    const aggregate = await db.prepare(`SELECT root_id,COALESCE(SUM(request_count),0) AS requests_today,MAX(created_at) AS last_query_at
+      FROM automation_search_usage
+      WHERE root_id IN (${placeholders}) AND day_bucket=?
+      GROUP BY root_id`).bind(...ids, dayBucket).all<Record<string, unknown>>();
+    const recent = await db.prepare(`SELECT root_id,provider_key,query_fingerprint,status,result_count,
+        new_unique_candidate_count,duplicate_candidate_count,created_at
+      FROM automation_search_usage
+      WHERE root_id IN (${placeholders}) AND status<>'RESERVED'
+      ORDER BY created_at DESC,id DESC LIMIT 300`).bind(...ids).all<Record<string, unknown>>();
+
+    const aggregateByRoot = new Map(aggregate.results.map((row) => [numberValue(row.root_id), row]));
+    const recentByRoot = new Map<number, Record<string, unknown>[]>();
+    for (const row of recent.results) {
+      const rootId = numberValue(row.root_id);
+      const rows = recentByRoot.get(rootId) ?? [];
+      rows.push(row);
+      recentByRoot.set(rootId, rows);
+    }
+
+    return roots.map((root) => {
+      if (root.discoveryType !== "SEARCH_PROVIDER") return root;
+      const policy = automationSearchBudgetPolicy(root);
+      const summary = aggregateByRoot.get(root.id);
+      const requestsToday = numberValue(summary?.requests_today);
+      const rows = recentByRoot.get(root.id) ?? [];
+      const last = rows[0];
+      const fingerprint = last?.query_fingerprint ? String(last.query_fingerprint) : null;
+      const fingerprintRows = fingerprint
+        ? rows.filter((row) => String(row.query_fingerprint ?? "") === fingerprint).slice(0, 3)
+        : [];
+      const plateau = automationSearchPlateauSignal(fingerprintRows.map((row) => ({
+        status: String(row.status ?? ""),
+        resultCount: numberValue(row.result_count),
+        newUniqueCandidateCount: numberValue(row.new_unique_candidate_count),
+        duplicateCandidateCount: numberValue(row.duplicate_candidate_count),
+      })));
+      const cooldownUntil = last?.created_at && last?.status
+        ? automationSearchCooldownUntil({
+            at: String(last.created_at),
+            status: String(last.status) as AutomationSearchUsageStatus,
+            baseCooldownMinutes: policy.queryCooldownMinutes,
+            plateau,
+          })
+        : null;
+      return {
+        ...root,
+        searchSafety: {
+          requestsToday,
+          rootDailyLimit: policy.rootDailyRequests,
+          remainingRootRequests: Math.max(0, policy.rootDailyRequests - requestsToday),
+          lastQueryAt: summary?.last_query_at ? String(summary.last_query_at) : (last?.created_at ? String(last.created_at) : null),
+          cooldownUntil,
+          plateau,
+        },
+      };
+    });
+  } catch (error) {
+    if (!/no such table:\s*automation_search_usage/i.test(error instanceof Error ? error.message : String(error))) throw error;
+    return roots;
+  }
 }
 
 export async function listAutomationDiscoveryRuns(
@@ -190,4 +273,167 @@ export async function finishAutomationDiscoveryRun(input: {
       ),
   ]);
   return { nextCheckAt, durationMs };
+}
+
+
+function missingSearchUsageSchema(error: unknown) {
+  return /no such table:\s*automation_search_usage/i.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+export type AutomationSearchBudgetReservationReason =
+  | "RESERVED"
+  | "DUPLICATE_OPERATION"
+  | "GLOBAL_BUDGET_EXHAUSTED"
+  | "CATEGORY_BUDGET_EXHAUSTED"
+  | "ROOT_BUDGET_EXHAUSTED";
+
+export async function reserveAutomationSearchRequest(input: {
+  operationKey: string;
+  discoveryRunId: number;
+  providerKey: string;
+  rootId: number;
+  entityType: AutomationEntityType;
+  queryFingerprint: string;
+  now: Date;
+  globalDailyLimit: number;
+  entityDailyLimit: number;
+  rootDailyLimit: number;
+}, databaseInput?: AutomationDiscoveryDatabase): Promise<{
+  reserved: boolean;
+  reason: AutomationSearchBudgetReservationReason;
+}> {
+  const db = database(databaseInput);
+  const dayBucket = utcSearchDayBucket(input.now);
+  const at = input.now.toISOString();
+  try {
+    const row = await db.prepare(`INSERT INTO automation_search_usage (
+        operation_key,discovery_run_id,provider_key,root_id,entity_type,query_fingerprint,day_bucket,
+        request_count,result_count,new_unique_candidate_count,duplicate_candidate_count,status,created_at,finalized_at
+      )
+      SELECT ?,?,?,?,?,?,?,1,0,0,0,'RESERVED',?,NULL
+      WHERE NOT EXISTS (
+        SELECT 1 FROM automation_search_usage WHERE operation_key=?
+      )
+      AND (
+        SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE day_bucket=?
+      ) < ?
+      AND (
+        SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE entity_type=? AND day_bucket=?
+      ) < ?
+      AND (
+        SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE root_id=? AND day_bucket=?
+      ) < ?
+      RETURNING id`).bind(
+        input.operationKey, input.discoveryRunId, input.providerKey, input.rootId, input.entityType,
+        input.queryFingerprint, dayBucket, at,
+        input.operationKey,
+        dayBucket, input.globalDailyLimit,
+        input.entityType, dayBucket, input.entityDailyLimit,
+        input.rootId, dayBucket, input.rootDailyLimit,
+      ).first<{ id: number }>();
+    if (row) return { reserved: true, reason: "RESERVED" };
+
+    const duplicate = await db.prepare(`SELECT id FROM automation_search_usage WHERE operation_key=? LIMIT 1`)
+      .bind(input.operationKey).first<{ id: number }>();
+    if (duplicate) return { reserved: false, reason: "DUPLICATE_OPERATION" };
+
+    const usage = await db.prepare(`SELECT
+        (SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE day_bucket=?) AS global_used,
+        (SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE entity_type=? AND day_bucket=?) AS entity_used,
+        (SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE root_id=? AND day_bucket=?) AS root_used`)
+      .bind(dayBucket, input.entityType, dayBucket, input.rootId, dayBucket)
+      .first<Record<string, unknown>>();
+    if (numberValue(usage?.global_used) >= input.globalDailyLimit) return { reserved: false, reason: "GLOBAL_BUDGET_EXHAUSTED" };
+    if (numberValue(usage?.entity_used) >= input.entityDailyLimit) return { reserved: false, reason: "CATEGORY_BUDGET_EXHAUSTED" };
+    return { reserved: false, reason: "ROOT_BUDGET_EXHAUSTED" };
+  } catch (error) {
+    if (missingSearchUsageSchema(error)) throw new Error("automation_search_usage_state_unavailable");
+    throw error;
+  }
+}
+
+export async function finalizeAutomationSearchUsage(input: {
+  operationKey: string;
+  status: AutomationSearchUsageStatus;
+  resultCount: number;
+  now: Date;
+}, databaseInput?: AutomationDiscoveryDatabase) {
+  const db = database(databaseInput);
+  try {
+    await db.prepare(`UPDATE automation_search_usage
+      SET status=?,result_count=?,finalized_at=?
+      WHERE operation_key=? AND status='RESERVED'`).bind(
+        input.status,
+        Math.max(0, Math.floor(input.resultCount)),
+        input.now.toISOString(),
+        input.operationKey,
+      ).run();
+  } catch (error) {
+    if (missingSearchUsageSchema(error)) throw new Error("automation_search_usage_state_unavailable");
+    throw error;
+  }
+}
+
+export async function updateAutomationSearchUsageCandidateMetrics(input: {
+  operationKey: string;
+  newUniqueCandidateCount: number;
+  duplicateCandidateCount: number;
+}, databaseInput?: AutomationDiscoveryDatabase) {
+  const db = database(databaseInput);
+  try {
+    await db.prepare(`UPDATE automation_search_usage
+      SET new_unique_candidate_count=?,duplicate_candidate_count=?
+      WHERE operation_key=?`).bind(
+        Math.max(0, Math.floor(input.newUniqueCandidateCount)),
+        Math.max(0, Math.floor(input.duplicateCandidateCount)),
+        input.operationKey,
+      ).run();
+  } catch (error) {
+    if (missingSearchUsageSchema(error)) throw new Error("automation_search_usage_state_unavailable");
+    throw error;
+  }
+}
+
+export async function getAutomationSearchCooldownState(input: {
+  providerKey: string;
+  queryFingerprint: string;
+  baseCooldownMinutes: number;
+  now: Date;
+}, databaseInput?: AutomationDiscoveryDatabase) {
+  const db = database(databaseInput);
+  try {
+    const result = await db.prepare(`SELECT status,result_count,new_unique_candidate_count,
+        duplicate_candidate_count,created_at
+      FROM automation_search_usage
+      WHERE provider_key=? AND query_fingerprint=? AND status<>'RESERVED'
+      ORDER BY created_at DESC,id DESC LIMIT 3`).bind(
+        input.providerKey,
+        input.queryFingerprint,
+      ).all<Record<string, unknown>>();
+    const rows = result.results;
+    if (!rows.length) return { blocked: false, cooldownUntil: null as string | null, plateau: false };
+    const plateau = automationSearchPlateauSignal(rows.map((row) => ({
+      status: String(row.status ?? ""),
+      resultCount: numberValue(row.result_count),
+      newUniqueCandidateCount: numberValue(row.new_unique_candidate_count),
+      duplicateCandidateCount: numberValue(row.duplicate_candidate_count),
+    })));
+    const last = rows[0];
+    const cooldownUntil = automationSearchCooldownUntil({
+      at: String(last.created_at ?? ""),
+      status: String(last.status ?? "PROVIDER_ERROR") as AutomationSearchUsageStatus,
+      baseCooldownMinutes: input.baseCooldownMinutes,
+      plateau,
+    });
+    return {
+      blocked: Boolean(cooldownUntil && new Date(cooldownUntil).getTime() > input.now.getTime()),
+      cooldownUntil,
+      plateau,
+    };
+  } catch (error) {
+    if (missingSearchUsageSchema(error)) throw new Error("automation_search_usage_state_unavailable");
+    throw error;
+  }
 }
