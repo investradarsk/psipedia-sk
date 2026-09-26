@@ -518,57 +518,218 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
   if (!current) return null;
   const source = await getGeoSourceLocation(targetType, targetIdValue, db);
   if (!source) return null;
-  const state = await sourceState(source, current.publicVisibility, current.publicPrecision);
-  if (state.sourceFingerprint === current.sourceFingerprint) return current;
 
-  const now = new Date().toISOString();
   const classification = classifyGeoSource(source);
-  const exactNeedsPrivacyReview = current.publicVisibility === "EXACT_PUBLIC"
-    && !current.manualOverride
-    && classification.requiresReview;
-  if (current.publicVisibility === "HIDDEN") {
+  const desiredVisibility = classification.proposedVisibility;
+  const desiredPrecision = classification.proposedPrecision;
+
+  // Hiding is the existing explicit privacy boundary. It intentionally clears
+  // coordinates (including manual coordinates) because hidden rows cannot
+  // retain publishable coordinates under the geo_points invariants.
+  if (desiredVisibility === "HIDDEN") {
+    const hiddenState = await sourceState(source, "HIDDEN", null);
+    if (
+      current.publicVisibility === "HIDDEN"
+      && current.publicPrecision === null
+      && current.sourceFingerprint === hiddenState.sourceFingerprint
+    ) {
+      return current;
+    }
+    return setGeoVisibility({
+      targetType,
+      targetId: targetIdValue,
+      visibility: "HIDDEN",
+      precision: null,
+      actorRef: "geo-source-sync",
+      actorType: "SYSTEM",
+      reason: classification.reasonCode ?? "PRIVATE_HIDDEN",
+    }, db);
+  }
+
+  const requiresUnclassifiedReview = !desiredVisibility || classification.requiresReview;
+
+  // Manual coordinates remain protected. Any source/classification mutation is
+  // made observable as STALE/MANUAL_REVIEW while retaining the manual point.
+  if (current.manualOverride) {
+    const manualState = await sourceState(source, current.publicVisibility, current.publicPrecision);
+    const classificationChanged = requiresUnclassifiedReview
+      || current.publicVisibility !== desiredVisibility
+      || current.publicPrecision !== desiredPrecision;
+    if (manualState.sourceFingerprint === current.sourceFingerprint && !classificationChanged) return current;
+
+    const now = new Date().toISOString();
     await db.prepare(`
-      UPDATE geo_points SET source_fingerprint=?, normalized_query=NULL, query_fingerprint=NULL,
-        latitude=NULL, longitude=NULL, geocode_status='SKIPPED', resolved_source_fingerprint=NULL,
-        last_error_code='PRIVATE_HIDDEN', last_error_at=?, updated_at=? WHERE id=?
-    `).bind(state.sourceFingerprint, now, now, current.id).run();
-  } else if (exactNeedsPrivacyReview) {
+      UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
+        geocode_status='STALE', last_error_code='MANUAL_REVIEW', last_error_at=?,
+        retry_after_at=NULL, updated_at=? WHERE id=?
+    `).bind(
+      manualState.sourceFingerprint,
+      manualState.query,
+      manualState.queryFingerprint,
+      now,
+      now,
+      current.id,
+    ).run();
+
+    const point = await getGeoPointForTarget(targetType, targetIdValue, db);
+    if (point) {
+      await writeGeoModerationEvent({
+        geoPointId: point.id,
+        action: "GEO_SOURCE_STALE",
+        actorType: "SYSTEM",
+        fromStatus: current.geocodeStatus,
+        toStatus: point.geocodeStatus,
+        reasonCode: "MANUAL_REVIEW",
+        changedFields: ["source_fingerprint", "normalized_query", "query_fingerprint", "geocode_status"],
+      }, db);
+      await enqueueGeoAttentionEvent({
+        database: db,
+        point,
+        label: source.label,
+        actorType: "SYSTEM",
+        actorRef: "geo-source-sync",
+        activationKey: point.sourceFingerprint,
+        now,
+      });
+    }
+    return point;
+  }
+
+  // Entity-specific classifiers remain authoritative. A source that now needs
+  // privacy/product review becomes unclassified rather than inheriting a stale
+  // visibility from its previous domain state.
+  if (requiresUnclassifiedReview) {
     const reviewState = await sourceState(source, null, null);
+    if (
+      current.publicVisibility === null
+      && current.publicPrecision === null
+      && current.sourceFingerprint === reviewState.sourceFingerprint
+      && current.geocodeStatus === "NEEDS_REVIEW"
+      && current.lastErrorCode === (classification.reasonCode ?? "PRIVACY_CLASSIFICATION_MISSING")
+    ) {
+      return current;
+    }
+
+    const now = new Date().toISOString();
+    const reasonCode = classification.reasonCode ?? "PRIVACY_CLASSIFICATION_MISSING";
     await db.prepare(`
       UPDATE geo_points SET public_visibility=NULL, public_precision=NULL,
         latitude=NULL, longitude=NULL, resolution_method=NULL, provider=NULL, provenance=NULL, source_license=NULL,
         normalized_query=NULL, query_fingerprint=NULL, source_fingerprint=?, resolved_source_fingerprint=NULL,
-        geocode_status='NEEDS_REVIEW', last_error_code='PRIVACY_CLASSIFICATION_MISSING',
-        last_error_at=?, retry_after_at=NULL, attempt_count=0, last_geocoded_at=NULL, updated_at=?
+        geocode_status='NEEDS_REVIEW', last_error_code=?, last_error_at=?, retry_after_at=NULL,
+        attempt_count=0, last_geocoded_at=NULL, updated_at=?
       WHERE id=?
-    `).bind(reviewState.sourceFingerprint, now, now, current.id).run();
-  } else {
-    await db.prepare(`
-      UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
-        geocode_status='STALE', last_error_code=?, last_error_at=?, updated_at=? WHERE id=?
-    `).bind(
-      state.sourceFingerprint, state.query, state.queryFingerprint,
-      current.manualOverride ? "MANUAL_REVIEW" : null, current.manualOverride ? now : null, now, current.id,
-    ).run();
+    `).bind(reviewState.sourceFingerprint, reasonCode, now, now, current.id).run();
+
+    const point = await getGeoPointForTarget(targetType, targetIdValue, db);
+    if (point) {
+      await writeGeoModerationEvent({
+        geoPointId: point.id,
+        action: "GEO_SOURCE_STALE",
+        actorType: "SYSTEM",
+        fromStatus: current.geocodeStatus,
+        toStatus: point.geocodeStatus,
+        reasonCode,
+        changedFields: ["public_visibility", "public_precision", "source_fingerprint", "geocode_status"],
+      }, db);
+      await enqueueGeoAttentionEvent({
+        database: db,
+        point,
+        label: source.label,
+        actorType: "SYSTEM",
+        actorRef: "geo-source-sync",
+        activationKey: point.sourceFingerprint,
+        now,
+      });
+    }
+    return point;
   }
+
+  const desiredState = await sourceState(source, desiredVisibility, desiredPrecision);
+  if (
+    current.publicVisibility !== desiredVisibility
+    || current.publicPrecision !== desiredPrecision
+  ) {
+    return setGeoVisibility({
+      targetType,
+      targetId: targetIdValue,
+      visibility: desiredVisibility,
+      precision: desiredPrecision,
+      actorRef: "geo-source-sync",
+      actorType: "SYSTEM",
+      reason: "SOURCE_RECLASSIFIED",
+    }, db);
+  }
+
+  if (desiredState.sourceFingerprint === current.sourceFingerprint) return current;
+
+  const now = new Date().toISOString();
+  await db.prepare(`
+    UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
+      geocode_status='STALE', last_error_code=NULL, last_error_at=NULL, updated_at=? WHERE id=?
+  `).bind(
+    desiredState.sourceFingerprint,
+    desiredState.query,
+    desiredState.queryFingerprint,
+    now,
+    current.id,
+  ).run();
+
   const point = await getGeoPointForTarget(targetType, targetIdValue, db);
   if (point) {
     await writeGeoModerationEvent({
-      geoPointId: point.id, action: "GEO_SOURCE_STALE", actorType: "SYSTEM",
-      fromStatus: current.geocodeStatus, toStatus: point.geocodeStatus,
-      reasonCode: exactNeedsPrivacyReview
-        ? "PRIVACY_CLASSIFICATION_MISSING"
-        : current.manualOverride ? "MANUAL_REVIEW" : null,
-      changedFields: exactNeedsPrivacyReview
-        ? ["public_visibility", "public_precision", "source_fingerprint", "geocode_status"]
-        : ["source_fingerprint", "normalized_query", "query_fingerprint", "geocode_status"],
+      geoPointId: point.id,
+      action: "GEO_SOURCE_STALE",
+      actorType: "SYSTEM",
+      fromStatus: current.geocodeStatus,
+      toStatus: point.geocodeStatus,
+      changedFields: ["source_fingerprint", "normalized_query", "query_fingerprint", "geocode_status"],
     }, db);
     await enqueueGeoAttentionEvent({
-      database: db, point, label: source.label, actorType: "SYSTEM", actorRef: "geo-source-sync",
-      activationKey: point.sourceFingerprint, now,
+      database: db,
+      point,
+      label: source.label,
+      actorType: "SYSTEM",
+      actorRef: "geo-source-sync",
+      activationKey: point.sourceFingerprint,
+      now,
     });
   }
   return point;
+}
+
+export async function reconcileGeoAfterSourceMutation(input: {
+  targetType: GeoTargetType;
+  targetId: number;
+  actorRef?: string;
+  actorType?: "ADMIN" | "SYSTEM";
+}, database?: GeoD1Database) {
+  const db = requireGeoD1(database);
+  const existing = await getGeoPointForTarget(input.targetType, input.targetId, db);
+
+  if (!existing) {
+    const initialized = await initializeGeoPointForTarget(
+      input.targetType,
+      input.targetId,
+      input.actorRef ?? "geo-source-reconcile",
+      db,
+      input.actorType ?? "SYSTEM",
+    );
+    return { point: initialized.point, action: initialized.created ? "INITIALIZED" as const : "NO_OP" as const };
+  }
+
+  const point = await syncGeoPointAfterSourceChange(input.targetType, input.targetId, db);
+  const changed = Boolean(point) && (
+    point!.sourceFingerprint !== existing.sourceFingerprint
+    || point!.publicVisibility !== existing.publicVisibility
+    || point!.publicPrecision !== existing.publicPrecision
+    || point!.geocodeStatus !== existing.geocodeStatus
+    || point!.lastErrorCode !== existing.lastErrorCode
+    || point!.manualOverride !== existing.manualOverride
+    || point!.latitude !== existing.latitude
+    || point!.longitude !== existing.longitude
+  );
+  return { point, action: changed ? "SYNCED" as const : "NO_OP" as const };
 }
 
 export async function applyGeocoderResolution(input: {
