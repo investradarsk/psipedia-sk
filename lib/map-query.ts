@@ -289,6 +289,146 @@ function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) 
   `).bind(...timingBindings, ...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
+
+export type PublicMapEntityTarget =
+  | { entityType: "DIRECTORY_PROFILE"; entityId: number }
+  | { entityType: "ORGANIZATION"; entityId: number }
+  | { entityType: "MANAGED_EVENT"; entityId: number };
+
+export type PublicEntityMapResult = {
+  items: MapItem[];
+  attribution?: Array<{ label: string; url?: string }>;
+};
+
+function scopedDirectoryStatement(entityId: number, db: MapD1Database) {
+  return db.prepare(`
+    SELECT
+      g.id AS geo_point_id, 'service' AS entity_type, d.id AS entity_id,
+      NULL AS organization_location_id, NULL AS linked_directory_profile_id,
+      d.name, d.slug, d.category AS subcategory,
+      g.latitude, g.longitude, g.public_precision AS precision,
+      g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      d.city, d.district, d.region, d.address,
+      (d.name || ' ' || d.excerpt || ' ' || d.description || ' ' || d.services_json || ' ' ||
+        d.city || ' ' || d.district || ' ' || d.region) AS search_text,
+      d.verified, d.featured, NULL AS location_role,
+      NULL AS event_start_date, NULL AS event_start_time, NULL AS event_end_date, NULL AS event_end_time,
+      d.status AS canonical_status, d.archived_at, 0 AS cancelled, d.online,
+      g.provider
+    FROM geo_points g
+    JOIN directory_profiles d ON d.id = g.directory_profile_id
+    WHERE g.target_type = 'DIRECTORY_PROFILE'
+      AND d.id = ?
+      AND ${GEO_PUBLIC_WHERE}
+      AND g.public_visibility = 'EXACT_PUBLIC'
+      AND g.public_precision = 'EXACT'
+      AND d.status = 'published'
+      AND d.archived_at IS NULL
+    ORDER BY g.id ASC
+    LIMIT 2
+  `).bind(entityId);
+}
+
+function scopedOrganizationStatement(entityId: number, db: MapD1Database) {
+  return db.prepare(`
+    SELECT
+      g.id AS geo_point_id, 'organization' AS entity_type, o.id AS entity_id,
+      l.id AS organization_location_id, o.directory_profile_id AS linked_directory_profile_id,
+      o.name, o.slug, o.type AS subcategory,
+      g.latitude, g.longitude, g.public_precision AS precision,
+      g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      l.city, l.district, l.region, l.address,
+      (o.name || ' ' || o.short_description || ' ' || o.description || ' ' ||
+        l.label || ' ' || l.city || ' ' || l.district || ' ' || l.region) AS search_text,
+      0 AS verified, 0 AS featured, l.role AS location_role,
+      NULL AS event_start_date, NULL AS event_start_time, NULL AS event_end_date, NULL AS event_end_time,
+      o.status AS canonical_status, o.archived_at, 0 AS cancelled, 0 AS online,
+      g.provider
+    FROM geo_points g
+    JOIN organization_locations l ON l.id = g.organization_location_id
+    JOIN help_organizations o ON o.id = l.organization_id
+    WHERE g.target_type = 'ORGANIZATION_LOCATION'
+      AND o.id = ?
+      AND ${GEO_PUBLIC_WHERE}
+      AND o.status = 'PUBLISHED'
+      AND o.archived_at IS NULL
+    ORDER BY g.id ASC
+    LIMIT 100
+  `).bind(entityId);
+}
+
+function scopedEventStatement(entityId: number, db: MapD1Database) {
+  return db.prepare(`
+    SELECT
+      g.id AS geo_point_id, 'event' AS entity_type, e.id AS entity_id,
+      NULL AS organization_location_id, NULL AS linked_directory_profile_id,
+      e.title AS name, e.slug, e.event_type AS subcategory,
+      g.latitude, g.longitude, g.public_precision AS precision,
+      g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      e.city, '' AS district, e.region, e.address,
+      (e.title || ' ' || e.excerpt || ' ' || e.organizer || ' ' || e.venue || ' ' ||
+        e.event_type || ' ' || e.city || ' ' || e.region) AS search_text,
+      0 AS verified, 0 AS featured, NULL AS location_role,
+      e.start_date AS event_start_date, e.start_time AS event_start_time,
+      e.end_date AS event_end_date, e.end_time AS event_end_time,
+      e.status AS canonical_status, NULL AS archived_at, e.cancelled, 0 AS online,
+      g.provider
+    FROM geo_points g
+    JOIN managed_events e ON e.id = g.managed_event_id
+    WHERE g.target_type = 'MANAGED_EVENT'
+      AND e.id = ?
+      AND ${GEO_PUBLIC_WHERE}
+      AND e.status = 'published'
+      AND e.cancelled = 0
+      AND e.region <> 'Online'
+    ORDER BY g.id ASC
+    LIMIT 2
+  `).bind(entityId);
+}
+
+function publicMapAttribution(candidates: MapCandidate[]) {
+  return candidates.some((candidate) => candidate.provider?.toLowerCase() === "geoapify")
+    ? [
+        { label: "Powered by Geoapify", url: "https://www.geoapify.com/" },
+        { label: "© OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
+      ]
+    : undefined;
+}
+
+export async function getPublicMapItemsForEntity(
+  target: PublicMapEntityTarget,
+  database?: MapD1Database,
+  now = new Date(),
+): Promise<PublicEntityMapResult> {
+  if (!Number.isInteger(target.entityId) || target.entityId <= 0) return { items: [] };
+  const db = getMapDb(database);
+  if (!db) throw new MapGeoUnavailableError("Map database is unavailable.");
+
+  let schemaReady = false;
+  try {
+    schemaReady = await isGeoSchemaAvailable(db as D1Database);
+  } catch {
+    schemaReady = false;
+  }
+  if (!schemaReady) throw new MapGeoUnavailableError("Geo foundation is unavailable.");
+
+  const statement = target.entityType === "DIRECTORY_PROFILE"
+    ? scopedDirectoryStatement(target.entityId, db)
+    : target.entityType === "ORGANIZATION"
+      ? scopedOrganizationStatement(target.entityId, db)
+      : scopedEventStatement(target.entityId, db);
+  const result = await statement.all<CandidateRow>();
+  const today = bratislavaDateKey(now);
+  const eligible = result.results
+    .map(rowToCandidate)
+    .filter((candidate) => isPublicMapCandidate(candidate, today));
+
+  return {
+    items: eligible.map(mapCandidateToItem),
+    attribution: publicMapAttribution(eligible),
+  };
+}
+
 export function isPublicMapCandidate(candidate: MapCandidate, today = bratislavaDateKey()) {
   if (candidate.publicVisibility !== "EXACT_PUBLIC" && candidate.publicVisibility !== "APPROXIMATE_PUBLIC") return false;
   if (candidate.geocodeStatus !== "RESOLVED") return false;
@@ -513,11 +653,7 @@ export async function queryPublicMap(
   const filtered = deduped.filter((candidate) => candidateMatchesQuery(candidate, query, today));
   const matched = filtered.length;
   const items = filtered.map(mapCandidateToItem);
-  const hasGeoapify = filtered.some((candidate) => candidate.provider?.toLowerCase() === "geoapify");
-  const attribution = hasGeoapify ? [
-    { label: "Powered by Geoapify", url: "https://www.geoapify.com/" },
-    { label: "© OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
-  ] : undefined;
+  const attribution = publicMapAttribution(filtered);
   const mode = mapResponseMode(query);
 
   if (mode === "clusters") {
