@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PawMark } from "./icons";
 import { CookieSettingsButton } from "./cookie-consent";
 import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
+import { SOCIAL_PROFILES } from "@/lib/seo";
 
 export function SiteFooter() {
   return (
@@ -36,6 +37,8 @@ export function SiteFooter() {
             <Link href="/oblubene">Obľúbené</Link>
             <Link href="/o-nas">O nás</Link>
             <Link href="/zasady-obsahu">Zásady obsahu</Link>
+            <a href={SOCIAL_PROFILES.facebook} rel="me">Facebook</a>
+            <a href={SOCIAL_PROFILES.instagram} rel="me">Instagram</a>
           </div>
           <div>
             <strong>Právne a kontakt</strong>

@@ -15,7 +15,7 @@ import { getHighlightedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
 import { AD_PLACEMENTS } from "@/lib/monetization";
-import { buildPageMetadata, ORGANIZATION_ID, serializeJsonLd, SITE_NAME, SITE_URL, WEBSITE_ID } from "@/lib/seo";
+import { buildPageMetadata, buildSiteIdentityJsonLd, serializeJsonLd, SITE_DESCRIPTION } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import styles from "./home-v2.module.css";
@@ -23,7 +23,7 @@ import styles from "./home-v2.module.css";
 export const metadata: Metadata = {
   ...buildPageMetadata({
     title: "Psipedia.sk – rozumej svojmu psovi",
-    description: "Praktické a zrozumiteľné články o výcviku, zdraví, výžive, plemenách a živote so psom.",
+    description: SITE_DESCRIPTION,
     path: "/",
     image: "/images/hero-labrador.webp",
     imageAlt: "Čierny labrador na lúke",
@@ -59,41 +59,7 @@ export default async function Home() {
     "dalsie-sluzby": "/images/hero-labrador.webp",
   };
 
-  const schema = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "Organization",
-        "@id": ORGANIZATION_ID,
-        name: SITE_NAME,
-        url: SITE_URL,
-        logo: {
-          "@type": "ImageObject",
-          url: `${SITE_URL}/favicon.svg`,
-          width: 64,
-          height: 64,
-        },
-        description: "Slovenský obsahový portál o psoch.",
-      },
-      {
-        "@type": "WebSite",
-        "@id": WEBSITE_ID,
-        name: SITE_NAME,
-        url: SITE_URL,
-        description: "Slovenský obsahový portál o psoch.",
-        publisher: { "@id": ORGANIZATION_ID },
-        inLanguage: "sk-SK",
-        potentialAction: {
-          "@type": "SearchAction",
-          target: {
-            "@type": "EntryPoint",
-            urlTemplate: `${SITE_URL}/hladat?q={search_term_string}`,
-          },
-          "query-input": "required name=search_term_string",
-        },
-      },
-    ],
-  };
+  const schema = buildSiteIdentityJsonLd();
 
   return (
     <main id="obsah" className={styles.homeV2}>
