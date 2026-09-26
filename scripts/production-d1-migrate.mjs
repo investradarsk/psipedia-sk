@@ -95,6 +95,14 @@ export const AUTOMATION_CANONICAL_APPLY_INDEXES = Object.freeze([
   "automation_canonical_apply_operations_review_idx",
 ]);
 
+export const AUTOMATION_DISCOVERY_EVIDENCE_INDEXES = Object.freeze([
+  "automation_source_candidate_evidence_identity_unique",
+  "automation_source_candidate_evidence_candidate_idx",
+  "automation_source_candidate_evidence_root_idx",
+  "automation_source_candidate_evidence_run_idx",
+  "automation_source_candidate_evidence_last_seen_idx",
+]);
+
 export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
   "automation_entity_candidate_keys",
 ]);
@@ -999,6 +1007,33 @@ function assertAutomationCanonicalApplySchema(schema) {
   invariant(sql.includes("SUCCESS") && sql.includes("FAILED"), "G5 apply status audit signature is incomplete");
 }
 
+function assertAutomationDiscoveryEvidenceSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(
+    names.get("automation_source_candidate_evidence")?.type === "table",
+    "Missing automation_source_candidate_evidence table",
+  );
+  for (const index of AUTOMATION_DISCOVERY_EVIDENCE_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing discovery evidence index: ${index}`);
+  }
+  const tableSql = String(names.get("automation_source_candidate_evidence")?.sql ?? "");
+  for (const column of [
+    "candidate_id", "root_id", "discovery_run_id", "discovery_type", "discovery_context",
+    "discovery_context_key", "result_rank", "title", "snippet", "external_id", "metadata_json",
+    "first_seen_at", "last_seen_at", "created_at", "updated_at",
+  ]) {
+    invariant(tableSql.includes(column), `automation_source_candidate_evidence.${column} is missing`);
+  }
+  const uniqueSql = String(names.get("automation_source_candidate_evidence_identity_unique")?.sql ?? "");
+  invariant(
+    /CREATE\s+UNIQUE\s+INDEX/i.test(uniqueSql)
+      && uniqueSql.includes("candidate_id")
+      && uniqueSql.includes("root_id")
+      && uniqueSql.includes("discovery_context_key"),
+    "Discovery evidence identity contract is incomplete",
+  );
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1017,6 +1052,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 77) assertDirectoryGeoProviderResultIdSchema(schema);
   if (migrationIndex(targetMigration) >= 78) assertAutomationPossibleMatchReviewsSchema(schema);
   if (migrationIndex(targetMigration) >= 80) assertAutomationCanonicalApplySchema(schema);
+  if (migrationIndex(targetMigration) >= 82) assertAutomationDiscoveryEvidenceSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
