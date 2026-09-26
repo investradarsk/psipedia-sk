@@ -75,10 +75,10 @@ function statusCopy(source: AutomationSourceAdminRow, governanceEvaluation: Auto
     return { title: "Zdroj je zamietnutý", text: "Nebude sa automaticky kontrolovať, kým ho znovu neschváliš.", warning: true };
   }
   if (!source.enabled && !governanceEvaluation.allowed) {
-    return { title: "Zdroj potrebuje governance review", text: "Technické schválenie nestačí. Pred zapnutím treba explicitne schváliť prístup, robots, podmienky, recurring use a retention.", warning: true };
+    return { title: "Zdroj potrebuje schválenie pravidelného sledovania", text: "Monitoring zostane vypnutý, kým nie sú pravidlá sledovania bezpečne schválené. Pokročilé nastavenia sú nižšie.", warning: true };
   }
   if (!source.enabled) {
-    return { title: "Zdroj je schválený a governance povoľuje aktiváciu", text: "Ak ho chceš pravidelne sledovať, môžeš ho zapnúť.", warning: true };
+    return { title: "Zdroj je pripravený na monitoring", text: "Ak ho chceš pravidelne sledovať, môžeš ho zapnúť.", warning: true };
   }
   return { title: "Zdroj je aktívny", text: "Beží podľa svojho harmonogramu. Manuálny run potrebuješ iba pri kontrole alebo teste.", warning: false };
 }
@@ -301,6 +301,9 @@ export function AdminAutomationSourceDetail({
         </div>
       </section>
 
+      <details className={styles.advanced}>
+        <summary>Pokročilé — governance a pravidlá sledovania</summary>
+        <div className={styles.advancedBody}>
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div>
@@ -388,6 +391,8 @@ export function AdminAutomationSourceDetail({
           </div>
         </details>
       </section>
+        </div>
+      </details>
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
