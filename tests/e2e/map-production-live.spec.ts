@@ -198,6 +198,20 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
     expect(googleJsRequests.length).toBeGreaterThanOrEqual(1);
 
+    // Google emits one authoritative initial idle after the renderer becomes ready.
+    // Let that viewport synchronization finish before taking the map-type baseline,
+    // otherwise its legitimate /api/map request is misattributed to the presentation switch.
+    await expect.poll(() => page.evaluate(() => {
+      const debugWindow = window as Window & {
+        __PSIPEDIA_MAP_DEBUG__?: Array<{ event?: string }>;
+      };
+      return (debugWindow.__PSIPEDIA_MAP_DEBUG__ ?? [])
+        .some((entry) => entry.event === "renderer:viewport-propagate");
+    }), { timeout: 10000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() =>
+      performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length,
+    ), { timeout: 10000 }).toBeGreaterThanOrEqual(2);
+
     // Presentation-only map type switching must reuse the same Google Map object
     // and must not generate a new authoritative /api/map request.
     const mapRequestsBeforeTypeSwitch = await page.locator("body").evaluate(() =>
