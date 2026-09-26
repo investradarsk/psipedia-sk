@@ -64,7 +64,7 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("production D1 supported targets are explicit through 0076 non-event foundation", () => {
+test("production D1 supported targets are explicit through 0078 POSSIBLE review decisions", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
@@ -82,6 +82,7 @@ test("production D1 supported targets are explicit through 0076 non-event founda
     "0075_automation_zsk_event_source.sql",
     "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_directory_geo_provider_result_id.sql",
+    "0078_automation_possible_match_reviews.sql",
   ]);
 });
 
@@ -96,7 +97,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0078_future_migration.sql",
+    "0079_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -123,6 +124,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0075_automation_zsk_event_source.sql",
     "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_directory_geo_provider_result_id.sql",
+    "0078_automation_possible_match_reviews.sql",
   ]);
 });
 
@@ -143,7 +145,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0075_automation_zsk_event_source.sql",
     "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_directory_geo_provider_result_id.sql",
-    "0078_future_migration.sql",
+    "0078_automation_possible_match_reviews.sql",
+    "0079_future_migration.sql",
   ]);
 });
 
@@ -388,6 +391,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.match(workflow, /APPLY-0076-psipedia-sk-db/);
   assert.match(workflow, /0077_directory_geo_provider_result_id\.sql/);
   assert.match(workflow, /APPLY-0077-psipedia-sk-db/);
+  assert.match(workflow, /0078_automation_possible_match_reviews\.sql/);
+  assert.match(workflow, /APPLY-0078-psipedia-sk-db/);
   assert.match(workflow, /git fetch --no-tags origin main/);
   assert.match(workflow, /partner\/prihlasenie/);
   assert.match(workflow, /partner\/registracia/);
@@ -544,4 +549,18 @@ test("0077 directory geo provider result identity is additive and guarded", asyn
   assert.match(script, /0077_directory_geo_provider_result_id\.sql/);
   assert.match(script, /assertDirectoryGeoProviderResultIdSchema/);
   assert.match(script, /PRAGMA table_info\('geo_points'\)/);
+});
+
+
+test("0078 POSSIBLE review decisions migration is additive and guarded", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0078_automation_possible_match_reviews.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.match(migration, /CREATE TABLE automation_entity_match_decisions/);
+  assert.match(migration, /SAME_ENTITY/);
+  assert.match(migration, /DIFFERENT_ENTITY/);
+  assert.match(migration, /RELATIONSHIP_ONLY/);
+  assert.match(migration, /DEFER/);
+  assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM|UPDATE\s+(directory_profiles|help_organizations)/i);
+  assert.match(script, /0078_automation_possible_match_reviews\.sql/);
+  assert.match(script, /assertAutomationPossibleMatchReviewsSchema/);
 });
