@@ -98,8 +98,8 @@ export function PublicLocationMap({
   const directionsUrl = selected && !isApproximateMapItem(selected)
     ? buildGoogleMapsDirectionsUrl(selected.latitude, selected.longitude)
     : null;
-  const showRenderer = testRenderer || rendererEnabled;
-  const showMapControls = testRenderer || (rendererEnabled && consentGranted);
+  const showRenderer = consentGranted && (testRenderer || rendererEnabled);
+  const showMapControls = consentGranted && (testRenderer || rendererEnabled);
 
   function focusItem(item: MapItem) {
     setSelectedItemId(item.id);
@@ -158,7 +158,7 @@ export function PublicLocationMap({
             </div>
           ) : null}
 
-          {rendererEnabled && !consentGranted && !testRenderer ? (
+          {(rendererEnabled || testRenderer) && !consentGranted ? (
             <div className={styles.consent} data-testid="detail-map-consent-gate">
               <strong>Načítať interaktívnu Google mapu?</strong>
               <span>Google Maps sa načíta až po tvojom výslovnom povolení. Detail stránky funguje aj bez nej.</span>
