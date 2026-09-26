@@ -24,6 +24,14 @@ function countryName(country: string | undefined) {
   return mapping[country.trim().toUpperCase()];
 }
 
+function tavilyLanguage(locale: string | undefined) {
+  if (!locale) return undefined;
+  const normalized = locale.trim().toLowerCase().replace(/_/g, "-");
+  const match = /^([a-z]{2})(?:-[a-z0-9]{2,8})*$/.exec(normalized);
+  if (!match) throw new AutomationSearchProviderError("CONFIG_MISSING");
+  return match[1];
+}
+
 function tavilyFreshness(freshness: string | undefined) {
   if (!freshness) return undefined;
   const normalized = freshness.trim().toLowerCase();
@@ -84,12 +92,14 @@ export class TavilyAutomationSearchProvider implements AutomationSearchProvider 
     if (!this.credentialConfigured) throw new AutomationSearchProviderError("CONFIG_MISSING");
 
     const country = countryName(request.country);
+    const language = tavilyLanguage(request.locale);
     const timeRange = tavilyFreshness(request.freshness);
     const body = {
       query: request.query,
       max_results: safeMaxResults(request.maxResults),
       search_depth: "basic",
       ...(country ? { country } : {}),
+      ...(language ? { language } : {}),
       ...(timeRange ? { time_range: timeRange } : {}),
       ...(request.allowDomains?.length ? { include_domains: request.allowDomains } : {}),
       ...(request.blockDomains?.length ? { exclude_domains: request.blockDomains } : {}),
