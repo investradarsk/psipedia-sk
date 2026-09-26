@@ -2,6 +2,9 @@ import { EventMarkdown } from "@/components/event-markdown";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
+import { PublicLocationMap } from "@/components/map/public-location-map";
+import type { PublicEntityMapResult } from "@/lib/map-query";
+import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PublicActionLink, PublicFoundation } from "@/components/public-visual-system";
 import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, type DogEvent } from "@/lib/events";
@@ -21,7 +24,15 @@ function eventLocationLines(event: DogEvent) {
   return [...new Set(raw.map((value) => value.trim()).filter(Boolean))];
 }
 
-export function EventDetail({ event, related = [] }: { event: DogEvent; related?: DogEvent[] }) {
+export function EventDetail({
+  event,
+  related = [],
+  publicMap,
+}: {
+  event: DogEvent;
+  related?: DogEvent[];
+  publicMap?: PublicEntityMapResult & PublicMapRuntime;
+}) {
   const dateStatus = eventDateStatus(event);
   const timeLabel = eventTimeLabel(event);
   const locationLines = eventLocationLines(event);
@@ -92,6 +103,21 @@ export function EventDetail({ event, related = [] }: { event: DogEvent; related?
           </div>
         </PageContainer>
       </header>
+
+      {publicMap?.items.length ? (
+        <PageContainer>
+          <PublicLocationMap
+            eyebrow="Miesto"
+            title="Miesto podujatia"
+            items={publicMap.items}
+            attribution={publicMap.attribution}
+            googleApiKey={publicMap.googleApiKey}
+            googleMapId={publicMap.googleMapId}
+            rendererEnabled={publicMap.rendererEnabled}
+            testRendererEnvironment={publicMap.testRendererEnvironment}
+          />
+        </PageContainer>
+      ) : null}
 
       {(event.description || event.practicalInfo) && (
         <PageContainer className={styles.detailBody}>
