@@ -7,6 +7,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { adminEventCounts, defaultEventFilters, filterAdminEvents, validateBulkEvents, bulkEventUpdateSql } from '../lib/admin-events.ts';
 import { EventMarkdown } from '../components/event-markdown.tsx';
 import { safeEventLink } from '../lib/event-markdown.ts';
+const eventStoreSource = readFileSync(new URL('../lib/event-store.ts', import.meta.url), 'utf8');
+const eventRouteSource = readFileSync(new URL('../app/api/admin/events/[id]/route.ts', import.meta.url), 'utf8');
+const importRouteSource = readFileSync(new URL('../app/api/admin/import/route.ts', import.meta.url), 'utf8');
 const today = '2026-09-12';
 const event = (id, overrides = {}) => ({ id, slug: `test-${id}`, title: `Podujatie ${id}`, city: 'Nitra', venue: 'Výstavný areál', organizer: 'Športový klub', region: 'Nitriansky kraj', eventType: 'Výstava', status: id <= 4 ? 'published' : 'draft', startDate: '2026-10-01', endDate: null, startTime: '', endTime: null, cancelled: false, imageUrl: null, createdAt: '2026-09-01T12:00:00.000Z', updatedAt: '2026-09-12T12:00:00.000Z', ...overrides });
 const events = Array.from({ length: 175 }, (_, i) => event(i + 1));
@@ -122,4 +125,23 @@ test('bulk SQL atomically updates only the requested shared field and protects c
  assert.equal(after[0].status,'published');
  assert.equal(after[0].published_at,'now');
  db.close();
+});
+
+
+test('MAP-AUTO-1D centralizes managed event GEO lifecycle without route duplication', () => {
+  assert.match(eventStoreSource, /reconcileGeoAfterSourceMutation/);
+  assert.match(eventStoreSource, /await reconcileManagedEventGeo\(event\.id, editorEmail, database\)/);
+  assert.match(eventStoreSource, /managedEventGeoSourceChanged\(existing, event\).*existing\.status !== "published".*event\.status === "published"/s);
+  assert.match(eventStoreSource, /field === "status" && value === "published"/);
+  assert.doesNotMatch(eventRouteSource, /syncGeoPointAfterSourceChange|Event geo stale sync failed/);
+  const quick = eventStoreSource.split('export async function quickEditManagedEvent')[1];
+  assert.doesNotMatch(quick, /reconcileManagedEventGeo/);
+});
+
+test('legacy admin event import reconciles every non-skipped canonical event', () => {
+  assert.match(importRouteSource, /changedEventSlugs/);
+  assert.match(importRouteSource, /plan\.actions\.events\[index\] !== "skipped"/);
+  assert.match(importRouteSource, /SELECT id FROM managed_events WHERE slug IN/);
+  assert.match(importRouteSource, /reconcileGeoAfterSourceMutation/);
+  assert.match(importRouteSource, /targetType: "MANAGED_EVENT"/);
 });
