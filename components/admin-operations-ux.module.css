@@ -404,6 +404,131 @@
   background: #1f684b;
 }
 
+.hubCardTop {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sectionNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.sectionNav a {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid #d8e2db;
+  border-radius: 999px;
+  color: #29483e;
+  background: #fffdf9;
+  font-size: .74rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.sectionNav a:hover {
+  border-color: rgba(31, 104, 75, .35);
+  background: #f1f7f2;
+}
+
+.sectionNav a:focus-visible {
+  outline: 3px solid rgba(31, 104, 75, .24);
+  outline-offset: 2px;
+}
+
+.sectionAttention {
+  border-color: rgba(217, 88, 62, .2);
+  background: linear-gradient(145deg, #fffdf9, #fff8f3);
+}
+
+.itemActionPrimary {
+  border-color: #1f684b;
+  color: #fff;
+  background: #1f684b;
+}
+
+.advancedSection {
+  padding: 18px 0 4px;
+}
+
+.advancedSection + .advancedSection {
+  margin-top: 12px;
+  border-top: 1px solid #e6ece8;
+}
+
+.advancedSection h2 {
+  margin: 0;
+  color: #17352b;
+  font-size: 1rem;
+}
+
+.reviewSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.reviewSummary > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 13px;
+  border: 1px solid #e1e8e3;
+  border-radius: 12px;
+  background: #fafbf9;
+}
+
+.reviewSummary span,
+.reviewReason > span {
+  color: #60756c;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.reviewSummary strong {
+  overflow-wrap: anywhere;
+  color: #29483e;
+  font-size: .82rem;
+}
+
+.reviewReason {
+  margin: 0 0 16px;
+  padding: 15px;
+  border-left: 3px solid #c7d4cc;
+  border-radius: 0 10px 10px 0;
+  background: #f8faf7;
+}
+
+.reviewReason p {
+  margin: 5px 0 0;
+  color: #29483e;
+  font-size: .82rem;
+  line-height: 1.55;
+}
+
+.codeBlock {
+  max-width: 100%;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f4f6f4;
+  font-size: .7rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+
 @media (max-width: 860px) {
   .hubGrid {
     grid-template-columns: 1fr;
@@ -437,6 +562,10 @@
     grid-template-columns: 1fr;
     gap: 4px;
   }
+
+  .reviewSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -461,6 +590,25 @@
 
   .quickActions a {
     width: 100%;
+  }
+
+  .hubCardTop {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sectionNav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sectionNav a {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .reviewSummary {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -1,5 +1,6 @@
 import type { AutomationEntityType } from "./data-automation";
-import type { AutomationSourceAdminRow } from "./data-automation-source-store";
+import type { AutomationSourceAdminRow, AutomationSourceCandidateRow } from "./data-automation-source-store";
+import type { AutomationDiscoveryRoot } from "./data-automation-discovery-store";
 import type { AutomationFindingSummary } from "./data-automation-store";
 
 export type AutomationUxCategory = {
@@ -21,12 +22,32 @@ export const automationUxCategories: AutomationUxCategory[] = [
 
 const directoryVeterinaryHint = /veterin|vet\b|klinika|ambulancia/i;
 
-export function automationCategoryForSource(source: Pick<AutomationSourceAdminRow, "entityType" | "sourceKey" | "label" | "sourceUrl">) {
-  if (source.entityType === "DIRECTORY") {
-    const searchable = [source.sourceKey, source.label, source.sourceUrl ?? ""].join(" ");
+function automationCategoryForEntity(entityType: AutomationEntityType, searchable: string) {
+  if (entityType === "DIRECTORY") {
     return directoryVeterinaryHint.test(searchable) ? "veterinari" : "psie-sluzby";
   }
-  return automationUxCategories.find((category) => category.entityTypes.includes(source.entityType))?.slug ?? null;
+  return automationUxCategories.find((category) => category.entityTypes.includes(entityType))?.slug ?? null;
+}
+
+export function automationCategoryForSource(source: Pick<AutomationSourceAdminRow, "entityType" | "sourceKey" | "label" | "sourceUrl">) {
+  return automationCategoryForEntity(
+    source.entityType,
+    [source.sourceKey, source.label, source.sourceUrl ?? ""].join(" "),
+  );
+}
+
+export function automationCategoryForCandidate(candidate: Pick<AutomationSourceCandidateRow, "entityType" | "label" | "sourceUrl" | "reason">) {
+  return automationCategoryForEntity(
+    candidate.entityType,
+    [candidate.label, candidate.sourceUrl, candidate.reason].join(" "),
+  );
+}
+
+export function automationCategoryForDiscoveryRoot(root: Pick<AutomationDiscoveryRoot, "entityType" | "rootKey" | "label" | "sourceUrl">) {
+  return automationCategoryForEntity(
+    root.entityType,
+    [root.rootKey, root.label, root.sourceUrl ?? ""].join(" "),
+  );
 }
 
 export function automationCategoryBySlug(slug: string) {
@@ -35,6 +56,26 @@ export function automationCategoryBySlug(slug: string) {
 
 export function automationSourcesForCategory(sources: AutomationSourceAdminRow[], slug: string) {
   return sources.filter((source) => automationCategoryForSource(source) === slug);
+}
+
+export function automationCandidatesForCategory(candidates: AutomationSourceCandidateRow[], slug: string) {
+  return candidates.filter((candidate) => automationCategoryForCandidate(candidate) === slug);
+}
+
+export function automationDiscoveryRootsForCategory(roots: AutomationDiscoveryRoot[], slug: string) {
+  return roots.filter((root) => automationCategoryForDiscoveryRoot(root) === slug);
+}
+
+export function automationCandidateAttentionCount(candidates: AutomationSourceCandidateRow[]) {
+  return candidates.filter((candidate) => candidate.reviewStatus === "NEW" && candidate.lifecycle === "ACTIVE").length;
+}
+
+export function automationSourceAttentionCount(sources: AutomationSourceAdminRow[]) {
+  return sources.filter((source) =>
+    source.reviewStatus === "PENDING"
+    || source.lastRunStatus === "FAILED"
+    || Boolean(source.lastErrorCode)
+  ).length;
 }
 
 export function automationCategoryStatus(sources: AutomationSourceAdminRow[]) {

@@ -27,9 +27,9 @@ export default async function AutomationSourcesPage() {
     <AdminShell
       user={user}
       eyebrow="Automatizácie"
-      title="Zdroje a discovery"
-      description="Správa reálnych zdrojov, návrhov a discovery. Bežný prehľad automatizácií zostáva zoradený podľa toho, čo systém sleduje."
-      actions={<><Link href="/admin/automatizacie">Prehľad automatizácií</Link><Link href="/admin/operations">Operácie</Link></>}
+      title="Pokročilé — všetky zdroje a discovery"
+      description="Globálny technický pohľad na zdroje, candidates a discovery roots. Bežná denná kontrola patrí do konkrétnych kategórií automatizácií."
+      actions={<><Link href="/admin/automatizacie">← Späť na automatizácie</Link><Link href="/admin/operations">Operácie</Link></>}
     >
       {unavailable ? (
         <section className="admin-panel">

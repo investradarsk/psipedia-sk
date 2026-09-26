@@ -24,8 +24,8 @@ test("automation source management is responsive and axe-clean on admin desktop/
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
 
-  await expect(page.getByRole("heading", { name: "Zdroje a discovery", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Prehľad automatizácií", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pokročilé — všetky zdroje a discovery", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "← Späť na automatizácie", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Čaká na tvoje rozhodnutie", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Monitorované zdroje", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Automatické hľadanie nových zdrojov", exact: true })).toBeVisible();
@@ -234,7 +234,7 @@ test("automation category cluster-first view is responsive and axe-clean", async
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: "Podujatia", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nálezy", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Koncepty a nálezy", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
