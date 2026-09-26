@@ -13,6 +13,7 @@ import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
+import { legacyChatgptSiteRedirectUrl } from "../lib/legacy-chatgpt-site";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -135,6 +136,11 @@ async function runScheduledAdminPush(env: Env) {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    const legacyChatgptRedirect = legacyChatgptSiteRedirectUrl(url);
+    if (legacyChatgptRedirect) {
+      return Response.redirect(legacyChatgptRedirect, 301);
+    }
 
     const canonicalBreedPath = LEGACY_BREED_REDIRECTS[url.pathname];
     if (canonicalBreedPath) {
