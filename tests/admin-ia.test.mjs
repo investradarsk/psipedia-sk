@@ -81,12 +81,14 @@ test("maps keep the existing GEO route and advanced tools while exposing geo ale
 test("automation and partner review deep links remain on the existing review systems", () => {
   const concept = read("app/admin/automatizacie/[category]/cluster/[id]/page.tsx");
   const attention = read("lib/admin-attention-queue.ts");
+  const partnerAttention = read("lib/partner-attention.ts");
   assert.match(concept, /\/admin\/operations\/automation\//);
   assert.equal(existsSync(new URL("../app/admin/operations/automation/[id]/page.tsx", import.meta.url)), true);
-  assert.match(attention, /\/admin\/partners\/claims\//);
-  assert.match(attention, /\/admin\/partners\/verifications\//);
-  assert.match(attention, /\/admin\/partners\/commercial\//);
-  assert.match(attention, /\/admin\/partners\/events\//);
+  assert.match(attention, /partnerAttentionHref/);
+  assert.match(partnerAttention, /href:"\/admin\/partners\/claims"/);
+  assert.match(partnerAttention, /href:"\/admin\/partners\/verifications"/);
+  assert.match(partnerAttention, /href:"\/admin\/partners\/commercial"/);
+  assert.match(partnerAttention, /href:"\/admin\/partners\/events"/);
 });
 
 test("mobile navigation and focused cards keep existing no-overflow contracts", () => {
