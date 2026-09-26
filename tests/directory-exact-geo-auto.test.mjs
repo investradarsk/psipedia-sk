@@ -190,7 +190,7 @@ test("A2 exact explicit IDs are deterministic, unique and bounded to ten", () =>
 
 test("A2 runner reuses shared ADDRESS-SIMPLE verifier and never embeds a second exact algorithm", () => {
   assert.match(runnerSource, /verifyDirectoryCanonicalAddress/);
-  assert.match(runnerSource, /revalidateStreet: addressFormat\(source\) === "STREET"/);
+  assert.match(runnerSource, /revalidateStreet: directoryExactAddressFormat\(source\) === "STREET"/);
   assert.doesNotMatch(runnerSource, /chooseGeocoderResult/);
   assert.doesNotMatch(runnerSource, /houseNumberMatchesUserInput|parseSlovakHouseNumber/);
   assert.doesNotMatch(runnerSource, /\.geocodeExact\(|\.geocodeApproximate\(/);

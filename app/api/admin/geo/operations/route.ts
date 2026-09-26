@@ -7,6 +7,11 @@ import {
   validateDirectoryExactGeoTargetIds,
 } from "@/lib/directory-exact-geo-auto";
 import {
+  previewDirectoryGeoMigration,
+  runDirectoryGeoMigrationCanary,
+  validateDirectoryGeoMigrationTargetIds,
+} from "@/lib/directory-exact-geo-migration";
+import {
   initializeGeoCandidates,
   previewExplicitGeoOnboarding,
   previewGeoCandidates,
@@ -79,6 +84,32 @@ export async function POST(request: Request) {
   const directoryCategory = typeof body.directoryCategory === "string" ? body.directoryCategory : null;
 
   try {
+    if (action === "a2-migration-preview") {
+      const report = await previewDirectoryGeoMigration({
+        limit: Math.max(1, Math.min(200, Math.trunc(Number(body.limit) || 200))),
+      });
+      return Response.json({ report, persisted: false, providerCalled: false });
+    }
+
+    if (action === "a2-migration-canary") {
+      if (body.confirm !== "A2-MIGRATION-CANARY") {
+        return Response.json({ error: "Chýba explicitné A2-MIGRATION-CANARY potvrdenie." }, { status: 400 });
+      }
+      const targetIds = validateDirectoryGeoMigrationTargetIds(body.targetIds);
+      const preview = await previewDirectoryGeoMigration({ targetIds });
+      const invalid = preview.items.filter((item) => item.action !== "PROCESS");
+      if (invalid.length) {
+        return Response.json({
+          error: `A2 migration canary odmietnutý. ID mimo eligible historical cohortu: ${invalid.map((item) => `${item.targetId}:${item.reason}`).join(", ")}`,
+        }, { status: 409 });
+      }
+      const report = await runDirectoryGeoMigrationCanary({
+        targetIds,
+        actorRef: user.email,
+      });
+      return Response.json({ report, persisted: true, fullBackfillEnabled: false });
+    }
+
     if (action === "a2-preview") {
       const targetIds = body.targetIds === undefined
         ? undefined

@@ -89,6 +89,28 @@ type A2PreviewReport = {
   items: A2PreviewItem[];
 };
 
+type A2MigrationPreviewItem = {
+  targetId: number;
+  label: string;
+  historicalStatus: string | null;
+  historicalVisibility: string | null;
+  historicalPrecision: string | null;
+  canonicalAddressEligibility: string;
+  action: string;
+  reason: string;
+  intendedAction: string;
+};
+
+type A2MigrationPreviewReport = {
+  totalMigrationCohortCount: number;
+  eligibleCount: number;
+  blockedReviewCount: number;
+  skippedCount: number;
+  outOfCohortCount: number;
+  selectedTargetIds: number[];
+  items: A2MigrationPreviewItem[];
+};
+
 export function AdminGeoOperations({ initialItems, providerConfigured }: {
   initialItems: GeoDryRunItem[];
   providerConfigured: boolean;
@@ -116,6 +138,10 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
   const [a2IdsText, setA2IdsText] = useState("");
   const [a2CanaryReport, setA2CanaryReport] = useState<unknown>(null);
   const [a2Confirmed, setA2Confirmed] = useState(false);
+  const [a2MigrationPreview, setA2MigrationPreview] = useState<A2MigrationPreviewReport | null>(null);
+  const [a2MigrationIdsText, setA2MigrationIdsText] = useState("");
+  const [a2MigrationCanaryReport, setA2MigrationCanaryReport] = useState<unknown>(null);
+  const [a2MigrationConfirmed, setA2MigrationConfirmed] = useState(false);
 
   function parsedExplicitIds() {
     const raw = explicitIdsText.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
@@ -136,6 +162,18 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
       throw new Error("A2 ID musia byť kladné celé čísla.");
     }
     if (new Set(ids).size !== ids.length) throw new Error("A2 ID musia byť unique.");
+    return ids;
+  }
+
+  function parsedA2MigrationIds() {
+    const raw = a2MigrationIdsText.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
+    if (!raw.length) throw new Error("Zadaj aspoň jedno historical DIRECTORY_PROFILE ID.");
+    if (raw.length > 5) throw new Error("A2 migration canary povoľuje najviac 5 ID.");
+    const ids = raw.map((value) => Number(value));
+    if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+      throw new Error("A2 migration ID musia byť kladné celé čísla.");
+    }
+    if (new Set(ids).size !== ids.length) throw new Error("A2 migration ID musia byť unique.");
     return ids;
   }
 
@@ -284,6 +322,100 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
       </div>
 
       {a2CanaryReport ? <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(a2CanaryReport, null, 2)}</pre> : null}
+    </section>
+
+    <section className="admin-form-card" data-admin-a2-migration>
+      <h2>A2 Migration — Historical directory GEO</h2>
+      <p className="admin-message admin-message--error">
+        <strong>Historical approximate cohort only.</strong> Toto nie je A2-AUTO ani generic backfill.
+        Exact GEO vznikne iba po fresh provider verification current canonical adresy.
+      </p>
+      <p className="admin-help">
+        Migration preview je read-only: žiadne provider calls, žiadne writes, žiadna status mutation.
+      </p>
+      <div className="admin-editor-actions">
+        <button type="button" disabled={busy} onClick={async () => {
+          setError(""); setMessage(""); setA2MigrationCanaryReport(null);
+          const report = await action({ action: "a2-migration-preview" });
+          if (report) {
+            setA2MigrationPreview(report as A2MigrationPreviewReport);
+            setMessage("A2 migration preview obnovený. Bez writes a bez Geoapify callov.");
+          }
+        }}>Obnoviť migration preview</button>
+      </div>
+
+      {a2MigrationPreview ? <>
+        <p className="admin-help">
+          Cohort <strong>{a2MigrationPreview.totalMigrationCohortCount}</strong>
+          {" · "}eligible <strong>{a2MigrationPreview.eligibleCount}</strong>
+          {" · "}review/blocked <strong>{a2MigrationPreview.blockedReviewCount}</strong>
+          {" · "}skipped <strong>{a2MigrationPreview.skippedCount}</strong>
+        </p>
+        <p className="admin-help" style={{ overflowWrap: "anywhere" }}>
+          <strong>Selected historical IDs:</strong> {a2MigrationPreview.selectedTargetIds.length ? a2MigrationPreview.selectedTargetIds.join(", ") : "—"}
+        </p>
+        <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+          <table className="admin-table">
+            <thead><tr><th>ID</th><th>Historical GEO</th><th>Canonical address</th><th>Action</th><th>Reason</th><th>Intended action</th></tr></thead>
+            <tbody>{a2MigrationPreview.items.map((item) => <tr key={item.targetId}>
+              <td>{item.targetId}</td>
+              <td>{item.historicalStatus ?? "—"} · {item.historicalVisibility ?? "—"} · {item.historicalPrecision ?? "—"}</td>
+              <td>{item.canonicalAddressEligibility}</td>
+              <td>{item.action}</td>
+              <td>{item.reason}</td>
+              <td>{item.intendedAction}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </> : null}
+
+      <div className="admin-field" style={{ marginTop: 16 }}>
+        <label htmlFor="geo-a2-migration-canary-ids">Migration canary — explicit historical DIRECTORY_PROFILE IDs</label>
+        <textarea
+          id="geo-a2-migration-canary-ids"
+          rows={3}
+          value={a2MigrationIdsText}
+          onChange={(event) => {
+            setA2MigrationIdsText(event.target.value);
+            setA2MigrationConfirmed(false);
+            setA2MigrationCanaryReport(null);
+          }}
+          placeholder="max. 5 ID z migration preview"
+          style={{ width: "100%", maxWidth: "100%" }}
+        />
+        <p className="admin-help">
+          Iba explicitné ID z eligible historical cohortu. Backend odmietne out-of-cohort ID.
+          Neexistuje process-all production akcia.
+        </p>
+      </div>
+
+      <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12 }}>
+        <input type="checkbox" checked={a2MigrationConfirmed} onChange={(event) => setA2MigrationConfirmed(event.target.checked)} />
+        <span>Rozumiem, že migration canary môže volať Geoapify a zapisovať GEO iba pre zadané historical ID.</span>
+      </label>
+      <div className="admin-editor-actions">
+        <button type="button" disabled={busy || !providerConfigured || !a2MigrationConfirmed || !a2MigrationIdsText.trim()} onClick={async () => {
+          let ids: number[];
+          try { ids = parsedA2MigrationIds(); }
+          catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Neplatné migration ID.");
+            return;
+          }
+          if (!window.confirm("Spustiť A2 historical migration canary iba pre DIRECTORY_PROFILE ID: " + ids.join(", ") + "? Exact sa uloží len po fresh provider verification.")) return;
+          const report = await action({
+            action: "a2-migration-canary",
+            targetIds: ids,
+            confirm: "A2-MIGRATION-CANARY",
+          });
+          if (report) {
+            setA2MigrationCanaryReport(report);
+            setMessage("A2 migration canary skončil. Skontroluj per-item report pred ďalším krokom.");
+            setA2MigrationConfirmed(false);
+          }
+        }}>Spustiť migration canary</button>
+      </div>
+
+      {a2MigrationCanaryReport ? <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(a2MigrationCanaryReport, null, 2)}</pre> : null}
     </section>
 
     <section className="admin-form-card" data-admin-explicit-geo-onboarding>
