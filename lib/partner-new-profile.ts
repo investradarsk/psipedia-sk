@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import { directoryCategories } from "@/lib/directory";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import { verifyExternalDirectoryAddressBestEffort } from "@/lib/directory-address-provider";
 import { getPartnerAccountById, getPartnerDatabase } from "@/lib/partner-auth-store";
 import { normalizePartnerProfilePatch, publicPartnerProfileChangeReason, type PartnerProfilePatch } from "@/lib/partner-profile-changes";
 import { enforcePartnerNewProfileRateLimit } from "@/lib/partner-security";
@@ -545,12 +546,34 @@ export async function submitPartnerNewProfile(input: {
   const nowIso = now.toISOString();
   const id = crypto.randomUUID();
   const strongest = result.scan.strongest;
-  const riskFlags = result.scan.confidence === "HIGH"
-    ? ["LIKELY_DUPLICATE"]
-    : result.scan.confidence === "MEDIUM" ? ["POSSIBLE_DUPLICATE"] : [];
+  let addressVerification: "VERIFIED_EXACT" | "NEEDS_REVIEW" | "NOT_APPLICABLE" = "NOT_APPLICABLE";
+  let patch: PartnerProfilePatch = { ...result.profile.values };
+  if (result.profile.resourceType === "DIRECTORY_PROFILE") {
+    const addressResult = await verifyExternalDirectoryAddressBestEffort({
+      region: String(result.profile.values.region ?? ""),
+      district: String(result.profile.values.district ?? ""),
+      city: String(result.profile.values.city ?? ""),
+      address: String(result.profile.values.address ?? ""),
+    });
+    addressVerification = addressResult.status;
+    if (addressResult.verified) {
+      const verified = addressResult.verified;
+      patch = {
+        ...patch,
+        address: verified.addressFormat === "STREET"
+          ? `${verified.street} ${verified.houseNumber}`
+          : `${verified.city} ${verified.houseNumber}`,
+      };
+    }
+  }
+  const riskFlags = [
+    ...(result.scan.confidence === "HIGH"
+      ? ["LIKELY_DUPLICATE"]
+      : result.scan.confidence === "MEDIUM" ? ["POSSIBLE_DUPLICATE"] : []),
+    ...(addressVerification === "NEEDS_REVIEW" ? ["ADDRESS_NEEDS_REVIEW"] : []),
+  ];
   const notificationId = crypto.randomUUID();
   const expiresAt = new Date(now.getTime() + 30*24*60*60*1000).toISOString();
-  const patch = result.profile.values;
   const mediaAssetId = normalizePartnerMediaId(input.mediaAssetId);
   const changedFields = [...Object.keys(patch), ...(mediaAssetId ? ["image"] : [])];
 
@@ -584,7 +607,7 @@ export async function submitPartnerNewProfile(input: {
       VALUES(?1,'PARTNER',?2,'NEW_PROFILE_SUBMITTED','MODERATION_SUBMISSION',?3,?4,?5)
     `).bind(
       crypto.randomUUID(),`partner:${input.accountId}`,id,
-      JSON.stringify({resourceType:result.profile.resourceType,duplicateConfidence:result.scan.confidence}),
+      JSON.stringify({resourceType:result.profile.resourceType,duplicateConfidence:result.scan.confidence,addressVerification}),
       nowIso,
     ),
     db.prepare(`
@@ -630,6 +653,7 @@ export async function submitPartnerNewProfile(input: {
     status: "SUBMITTED" as const,
     displayName: result.profile.displayName,
     duplicateConfidence: result.scan.confidence,
+    addressVerification,
     createdAt: nowIso,
   };
 }
