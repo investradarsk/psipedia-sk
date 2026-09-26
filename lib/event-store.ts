@@ -190,7 +190,9 @@ function managedEventGeoSourceChanged(before: DogEvent, after: DogEvent) {
   return before.venue !== after.venue
     || before.address !== after.address
     || before.city !== after.city
-    || before.region !== after.region;
+    || before.region !== after.region
+    || before.status !== after.status
+    || before.cancelled !== after.cancelled;
 }
 
 function managedEventGeoActorType(editorEmail: string): "ADMIN" | "SYSTEM" {
@@ -352,7 +354,7 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
   ).first<EventRow>();
   if (!row) return null;
   const event = rowToEvent(row);
-  if (managedEventGeoSourceChanged(existing, event) || (existing.status !== "published" && event.status === "published")) {
+  if (managedEventGeoSourceChanged(existing, event)) {
     await reconcileManagedEventGeo(event.id, editorEmail, database);
   }
   return event;
@@ -387,7 +389,7 @@ export async function bulkUpdateEventStatus(input: unknown, editorEmail: string)
       events.length,
     ).all<{ id: number }>();
   if (result.results.length !== events.length) throw new Error("Výber sa medzičasom zmenil alebo bol odstránený. Žiadne podujatie nebolo zmenené; obnov zoznam a potvrď nový výber.");
-  if (field === "status" && value === "published") {
+  if (field === "status" || field === "cancelled") {
     const database = requireD1Binding();
     for (const event of events) await reconcileManagedEventGeo(event.id, editorEmail, database);
   }
@@ -420,5 +422,6 @@ export async function quickEditManagedEvent(id: number, payload: ManagedEventQui
       city, venue, region, organizer, cancelled, image_url, created_at, updated_at
   `).bind(eventType, cancelled ? 1 : 0, now, editorEmail, id, updatedAt).first<EventSummaryRow>();
   if (!row) throw new Error("Podujatie sa medzičasom zmenilo alebo bolo odstránené. Obnov zoznam a skús úpravu znova.");
+  await reconcileManagedEventGeo(id, editorEmail, requireD1Binding());
   return rowToEventSummary(row);
 }

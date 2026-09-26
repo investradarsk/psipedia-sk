@@ -297,7 +297,7 @@ export async function approvePartnerEventUpdateAdmin(input:{id:string;adminEmail
     }
     throw error;
   }
-  const locationChanged=changed.some(field=>["venue","city","region","address"].includes(field));
+  const locationChanged=changed.some(field=>["venue","city","region","address","cancelled"].includes(field));
   await sideEffects({eventId,slug:current.slug,published:current.status==="published",locationChanged,invalidatePublic:true,database,actorRef,eventTypes:[current.eventType,typeof patch.eventType==="string"?patch.eventType:current.eventType],publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
   return getPartnerEventAdmin(input.id,{database});
 }

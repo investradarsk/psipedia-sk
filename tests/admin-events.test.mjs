@@ -130,14 +130,16 @@ test('bulk SQL atomically updates only the requested shared field and protects c
 });
 
 
-test('MAP-AUTO-1D centralizes managed event GEO lifecycle without route duplication', () => {
+test('MAP-AUTO centralizes managed event GEO lifecycle without route duplication', () => {
   assert.match(eventStoreSource, /reconcileGeoAfterSourceMutation/);
   assert.match(eventStoreSource, /await reconcileManagedEventGeo\(event\.id, editorEmail, database\)/);
-  assert.match(eventStoreSource, /managedEventGeoSourceChanged\(existing, event\).*existing\.status !== "published".*event\.status === "published"/s);
-  assert.match(eventStoreSource, /field === "status" && value === "published"/);
+  assert.match(eventStoreSource, /before\.status !== after\.status/);
+  assert.match(eventStoreSource, /before\.cancelled !== after\.cancelled/);
+  assert.match(eventStoreSource, /if \(managedEventGeoSourceChanged\(existing, event\)\)/);
+  assert.match(eventStoreSource, /field === "status" \|\| field === "cancelled"/);
   assert.doesNotMatch(eventRouteSource, /syncGeoPointAfterSourceChange|Event geo stale sync failed/);
   const quick = eventStoreSource.split('export async function quickEditManagedEvent')[1];
-  assert.doesNotMatch(quick, /reconcileManagedEventGeo/);
+  assert.match(quick, /await reconcileManagedEventGeo\(id, editorEmail, requireD1Binding\(\)\)/);
 });
 
 test('legacy admin event import reconciles every non-skipped canonical event', () => {

@@ -473,6 +473,18 @@ export async function createPartnerNewProfileAdmin(input:{
       actorRef,
       actorType: "ADMIN",
     }, database);
+  } else if (row.resourceType === "HELP_ORGANIZATION" && resolved?.resolvedCanonicalId) {
+    const locations = await database.prepare(
+      "SELECT id FROM organization_locations WHERE organization_id = ? ORDER BY sort_order ASC, id ASC",
+    ).bind(resolved.resolvedCanonicalId).all<{ id: number }>();
+    for (const location of locations.results) {
+      await reconcileGeoAfterSourceMutation({
+        targetType: "ORGANIZATION_LOCATION",
+        targetId: Number(location.id),
+        actorRef,
+        actorType: "ADMIN",
+      }, database);
+    }
   }
   return resolved;
 }
