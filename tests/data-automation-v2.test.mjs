@@ -636,3 +636,26 @@ test("source management UI exposes required controls and NO AUTO-PUBLISH contrac
   assert.match(manager, /Čaká na tvoje rozhodnutie/);
   assert.match(manager, /Pridať medzi zdroje/);
 });
+
+test("Agility source provisioning stays disabled, pending, bounded and authoritative only as evidence", () => {
+  const migration = read("drizzle/0079_automation_agility_event_source.sql");
+  assert.match(migration, /INSERT OR IGNORE INTO automation_sources/);
+  assert.match(migration, /'agility-sk-events'/);
+  assert.match(migration, /'ASKA – kalendár agility pretekov'/);
+  assert.match(migration, /'EVENT'/);
+  assert.match(migration, /'CONTROLLED_HTML'/);
+  assert.match(migration, /'https:\/\/www\.agility\.sk\/preteky'/);
+  assert.match(migration, /"htmlAdapterKey":"agility-sk-events"/);
+  assert.match(migration, /"expectedMinRecords":1/);
+  assert.match(migration, /0,360,1500,10000,2,1500,100/);
+  assert.match(migration, /'PENDING'/);
+  assert.match(migration, /INSERT OR IGNORE INTO automation_source_authority/);
+  assert.match(migration, /'OFFICIAL_CLUB_CALENDAR',90/);
+  assert.match(migration, /Official ASKA agility calendar/);
+  assert.match(migration, /evidence signal/);
+  assert.match(migration, /disabled\/PENDING/);
+  assert.doesNotMatch(migration, /INSERT INTO (managed_events|help_organizations|directory_profiles|adoption_dogs|lost_found_dog_reports|help_cases)/i);
+  assert.doesNotMatch(migration, /UPDATE\s+automation_sources/i);
+  const adapters = read("lib/data-automation-real-sources.ts");
+  assert.match(adapters, /"agility-sk-events": agilitySkEventsAdapter/);
+});

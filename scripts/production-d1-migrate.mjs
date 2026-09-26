@@ -71,6 +71,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0076_automation_non_event_entity_resolution_foundation.sql",
   "0077_directory_geo_provider_result_id.sql",
   "0078_automation_possible_match_reviews.sql",
+  "0079_automation_agility_event_source.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
