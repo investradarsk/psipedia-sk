@@ -74,6 +74,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0079_automation_agility_event_source.sql",
   "0080_automation_canonical_apply.sql",
   "0081_automation_mushing_event_source.sql",
+  "0082_automation_discovery_candidate_evidence.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
