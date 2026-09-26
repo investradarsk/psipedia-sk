@@ -528,7 +528,7 @@ function assertFoundationSchema(schema) {
 }
 
 
-function targetSchemaObjects(schema, targetMigration) {
+export function targetSchemaObjects(schema, targetMigration) {
   const names = objectMap(schema.objects);
   const outboxSql = String(names.get("partner_notification_outbox")?.sql ?? "");
   const auditSql = String(names.get("partner_audit_events")?.sql ?? "");
@@ -669,6 +669,22 @@ function targetSchemaObjects(schema, targetMigration) {
       partial: names.has("automation_search_usage")
         || AUTOMATION_SEARCH_USAGE_INDEXES.some((index) => names.has(index)),
     };
+  }
+  if (targetMigration === "0084_automation_governance_registry.sql") {
+    return {
+      partial: names.has("automation_governance_reviews")
+        || names.has("automation_governance_review_history")
+        || AUTOMATION_GOVERNANCE_INDEXES.some((index) => names.has(index))
+        || [
+          "automation_governance_reviews_history_insert",
+          "automation_governance_reviews_history_update",
+          "automation_governance_review_history_no_update",
+          "automation_governance_review_history_no_delete",
+        ].some((trigger) => names.has(trigger)),
+    };
+  }
+  if (targetMigration === "0085_automation_tavily_discovery_root.sql") {
+    return { partial: false };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -1052,7 +1068,7 @@ function assertAutomationSearchUsageSchema(schema) {
   }
 }
 
-function assertAutomationGovernanceSchema(schema) {
+export function assertAutomationGovernanceSchema(schema) {
   const names = objectMap(schema.objects);
   invariant(names.get("automation_governance_reviews")?.type === "table", "Missing automation_governance_reviews table");
   invariant(names.get("automation_governance_review_history")?.type === "table", "Missing automation_governance_review_history table");
