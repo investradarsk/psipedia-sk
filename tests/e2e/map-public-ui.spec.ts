@@ -464,7 +464,9 @@ test.describe("MAP-1D mobile", () => {
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
 
     const map = page.getByTestId("map-test-renderer");
-    await swipePointer(map, -90);
+    // MAP-UX-1 adds the Mapa | Satelit control in the top-left corner.
+    // Start the pan lower on the canvas so the gesture targets the map itself.
+    await swipePointer(map, -90, 120);
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
 
     await page.getByRole("button", { name: "Výsledky" }).click();
