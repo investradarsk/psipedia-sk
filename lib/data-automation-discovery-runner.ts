@@ -6,7 +6,7 @@ import {
   normalizeAutomationSearchRequest,
   requireConfiguredSearchProvider,
   rssDiscoveryAdapter,
-  sitemapDiscoveryAdapter,
+  parseSitemapDocument,
   structuredDirectoryDiscovery,
   type AutomationSearchProvider,
   type AutomationSourceCandidateInput,
@@ -35,6 +35,10 @@ import {
 export const DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP = 2;
 const MAX_DISCOVERY_BYTES = 1_000_000;
 const MAX_REDIRECT_HOPS = 3;
+const SITEMAP_MAX_DEPTH = 2;
+const SITEMAP_MAX_CHILDREN_PER_INDEX = 50;
+const SITEMAP_MAX_DOCUMENTS = 50;
+const SITEMAP_HARD_MAX_URLS = 2000;
 const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 export type AutomationDiscoveryFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -45,6 +49,11 @@ export type DataAutomationDiscoverySweepOptions = {
   fetchImpl?: AutomationDiscoveryFetch;
   searchProvider?: AutomationSearchProvider;
   sleep?: (ms: number) => Promise<void>;
+};
+
+type DiscoveryCandidatesResult = {
+  candidates: AutomationSourceCandidateInput[];
+  warnings: string[];
 };
 
 type DiscoveryRunSummary = {
@@ -59,9 +68,14 @@ type DiscoveryRunSummary = {
 };
 
 class DiscoveryFetchError extends Error {
-  constructor(public readonly code: string, public readonly retryable = false) {
+  readonly code: string;
+  readonly retryable: boolean;
+
+  constructor(code: string, retryable = false) {
     super(code);
     this.name = "DiscoveryFetchError";
+    this.code = code;
+    this.retryable = retryable;
   }
 }
 
@@ -139,12 +153,14 @@ function validateContentType(root: AutomationDiscoveryRoot, contentType: string 
 async function fetchDiscoveryPayload(
   root: AutomationDiscoveryRoot,
   fetchImpl: AutomationDiscoveryFetch,
+  sourceUrl = root.sourceUrl,
+  urlAllowed?: (url: string) => boolean,
 ) {
-  if (!root.sourceUrl || !isSafeAutomationSourceUrl(root.sourceUrl)) {
+  if (!sourceUrl || !isSafeAutomationSourceUrl(sourceUrl) || (urlAllowed && !urlAllowed(sourceUrl))) {
     throw new DiscoveryFetchError("discovery_unsafe_or_missing_url");
   }
 
-  let currentUrl = root.sourceUrl;
+  let currentUrl = sourceUrl;
   const seen = new Set<string>();
   let redirects = 0;
   const timeoutMs = configNumber(root, "timeoutMs", 8000, 1000, 30_000);
@@ -182,7 +198,9 @@ async function fetchDiscoveryPayload(
       } catch {
         throw new DiscoveryFetchError("discovery_redirect_invalid");
       }
-      if (!isSafeAutomationSourceUrl(target.toString())) throw new DiscoveryFetchError("discovery_redirect_blocked");
+      if (!isSafeAutomationSourceUrl(target.toString()) || (urlAllowed && !urlAllowed(target.toString()))) {
+        throw new DiscoveryFetchError("discovery_redirect_blocked");
+      }
       await response.body?.cancel().catch(() => undefined);
       currentUrl = target.toString();
       redirects += 1;
@@ -200,12 +218,14 @@ async function fetchWithRetry(
   root: AutomationDiscoveryRoot,
   fetchImpl: AutomationDiscoveryFetch,
   sleep: (ms: number) => Promise<void>,
+  sourceUrl = root.sourceUrl,
+  urlAllowed?: (url: string) => boolean,
 ) {
   const retries = configNumber(root, "retryMaxAttempts", 1, 0, 3);
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      return await fetchDiscoveryPayload(root, fetchImpl);
+      return await fetchDiscoveryPayload(root, fetchImpl, sourceUrl, urlAllowed);
     } catch (error) {
       lastError = error;
       if (!(error instanceof DiscoveryFetchError) || !error.retryable || attempt >= retries) throw error;
@@ -213,6 +233,266 @@ async function fetchWithRetry(
     }
   }
   throw lastError;
+}
+
+
+function normalizedDiscoveryHost(value: string) {
+  try {
+    return new URL(value).hostname.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
+  } catch {
+    return "";
+  }
+}
+
+function normalizedConfiguredHosts(root: AutomationDiscoveryRoot) {
+  return new Set(configStrings(root, "allowedHosts")
+    .map((value) => value.trim().toLowerCase().replace(/^www\./, "").replace(/\.$/, ""))
+    .filter((value) => value && /^[a-z0-9.-]+$/.test(value) && !value.includes("..")));
+}
+
+function sitemapHostPolicy(root: AutomationDiscoveryRoot) {
+  const rootHost = root.sourceUrl ? normalizedDiscoveryHost(root.sourceUrl) : "";
+  const allowed = normalizedConfiguredHosts(root);
+  return (url: string) => {
+    const host = normalizedDiscoveryHost(url);
+    return Boolean(host && (host === rootHost || allowed.has(host)));
+  };
+}
+
+function pathMatchesSitemapFilters(root: AutomationDiscoveryRoot, url: string) {
+  let path: string;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  const includes = configStrings(root, "pathIncludes").filter((value) => value.startsWith("/"));
+  const excludes = configStrings(root, "pathExcludes").filter((value) => value.startsWith("/"));
+  if (includes.length && !includes.some((prefix) => path.startsWith(prefix))) return false;
+  if (excludes.some((prefix) => path.startsWith(prefix))) return false;
+  return true;
+}
+
+type RobotsPolicy = {
+  state: "MISSING" | "AVAILABLE" | "FETCH_FAILED" | "MALFORMED";
+  disallow: string[];
+  sitemapUrls: string[];
+};
+
+function parseRobotsPolicy(payload: string, baseUrl: string): RobotsPolicy {
+  const disallow: string[] = [];
+  const sitemapUrls: string[] = [];
+  let applies = false;
+  let sawDirective = false;
+  for (const rawLine of payload.split(/\r?\n/)) {
+    const line = rawLine.replace(/#.*$/, "").trim();
+    if (!line) continue;
+    const separator = line.indexOf(":");
+    if (separator < 1) continue;
+    const key = line.slice(0, separator).trim().toLowerCase();
+    const value = line.slice(separator + 1).trim();
+    if (key === "user-agent") {
+      sawDirective = true;
+      applies = value === "*";
+      continue;
+    }
+    if (key === "disallow" && applies) {
+      sawDirective = true;
+      if (value.startsWith("/")) disallow.push(value);
+      continue;
+    }
+    if (key === "allow" && applies) {
+      sawDirective = true;
+      continue;
+    }
+    if (key === "sitemap") {
+      sawDirective = true;
+      try {
+        sitemapUrls.push(new URL(value, baseUrl).toString());
+      } catch {
+        // Ignore malformed Sitemap directives.
+      }
+    }
+  }
+  return {
+    state: sawDirective || payload.trim() === "" ? "AVAILABLE" : "MALFORMED",
+    disallow: [...new Set(disallow)],
+    sitemapUrls: [...new Set(sitemapUrls)],
+  };
+}
+
+function robotsAllows(policy: RobotsPolicy, url: string) {
+  if (policy.state !== "AVAILABLE") return true;
+  let path: string;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  return !policy.disallow.some((prefix) => prefix === "/" || path.startsWith(prefix));
+}
+
+async function fetchRobotsPolicy(
+  root: AutomationDiscoveryRoot,
+  fetchImpl: AutomationDiscoveryFetch,
+  sleep: (ms: number) => Promise<void>,
+  urlAllowed: (url: string) => boolean,
+): Promise<RobotsPolicy> {
+  if (!root.sourceUrl) return { state: "MISSING", disallow: [], sitemapUrls: [] };
+  const source = new URL(root.sourceUrl);
+  const robotsUrl = `${source.protocol}//${source.host}/robots.txt`;
+  try {
+    const fetched = await fetchWithRetry(root, fetchImpl, sleep, robotsUrl, urlAllowed);
+    return parseRobotsPolicy(fetched.payload, fetched.finalUrl);
+  } catch (error) {
+    if (error instanceof DiscoveryFetchError && error.code === "discovery_http_404") {
+      return { state: "MISSING", disallow: [], sitemapUrls: [] };
+    }
+    if (error instanceof DiscoveryFetchError && (
+      error.code === "discovery_request_failed"
+      || error.code === "discovery_timeout"
+      || error.retryable
+    )) {
+      return { state: "FETCH_FAILED", disallow: [], sitemapUrls: [] };
+    }
+    return { state: "MALFORMED", disallow: [], sitemapUrls: [] };
+  }
+}
+
+export async function discoverSitemapCandidates(
+  root: AutomationDiscoveryRoot,
+  options: DataAutomationDiscoverySweepOptions,
+  maxCandidates: number,
+): Promise<DiscoveryCandidatesResult> {
+  if (!root.sourceUrl) throw new DiscoveryFetchError("discovery_unsafe_or_missing_url");
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const sleep = options.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const urlAllowed = sitemapHostPolicy(root);
+  const maxDepth = configNumber(root, "maxDepth", SITEMAP_MAX_DEPTH, 0, SITEMAP_MAX_DEPTH);
+  const maxDocuments = configNumber(root, "maxSitemapDocuments", SITEMAP_MAX_DOCUMENTS, 1, SITEMAP_MAX_DOCUMENTS);
+  const maxChildren = configNumber(root, "maxChildSitemaps", SITEMAP_MAX_CHILDREN_PER_INDEX, 1, SITEMAP_MAX_CHILDREN_PER_INDEX);
+  const configuredUrlLimit = configNumber(root, "maxSitemapUrls", 500, 1, SITEMAP_HARD_MAX_URLS);
+  const maxUrls = Math.min(configuredUrlLimit, maxCandidates);
+  const robots = await fetchRobotsPolicy(root, fetchImpl, sleep, urlAllowed);
+  if (robots.state === "FETCH_FAILED") throw new DiscoveryFetchError("robots_fetch_failed", true);
+  if (!robotsAllows(robots, root.sourceUrl)) throw new DiscoveryFetchError("robots_disallowed");
+
+  const queue: Array<{ url: string; depth: number; parentUrl: string | null }> = [
+    { url: root.sourceUrl, depth: 0, parentUrl: null },
+  ];
+  for (const directive of robots.sitemapUrls) {
+    const canonical = canonicalizeSourceUrl(directive);
+    if (canonical && urlAllowed(canonical) && canonical !== canonicalizeSourceUrl(root.sourceUrl)) {
+      queue.push({ url: canonical, depth: 0, parentUrl: null });
+    }
+  }
+
+  const visited = new Set<string>();
+  const candidateMap = new Map<string, AutomationSourceCandidateInput>();
+  const warnings: string[] = [];
+  let fetchedDocuments = 0;
+
+  while (queue.length && candidateMap.size < maxUrls) {
+    if (fetchedDocuments >= maxDocuments) {
+      warnings.push("sitemap_doc_limit");
+      break;
+    }
+    const current = queue.shift()!;
+    const canonicalSitemap = canonicalizeSourceUrl(current.url);
+    if (!canonicalSitemap || visited.has(canonicalSitemap)) continue;
+    if (!urlAllowed(canonicalSitemap)) {
+      warnings.push("sitemap_host_blocked");
+      continue;
+    }
+    if (current.depth > maxDepth) {
+      warnings.push("sitemap_depth_limit");
+      continue;
+    }
+    if (!robotsAllows(robots, canonicalSitemap)) {
+      warnings.push("robots_disallowed");
+      continue;
+    }
+
+    visited.add(canonicalSitemap);
+    let fetched;
+    try {
+      fetched = await fetchWithRetry(root, fetchImpl, sleep, canonicalSitemap, urlAllowed);
+      fetchedDocuments += 1;
+    } catch (error) {
+      if (current.depth === 0 && candidateMap.size === 0) throw error;
+      warnings.push(safeErrorCode(error));
+      continue;
+    }
+
+    let parsed;
+    try {
+      parsed = parseSitemapDocument(fetched.payload, fetched.finalUrl);
+    } catch {
+      if (current.depth === 0 && candidateMap.size === 0) {
+        throw new DiscoveryFetchError("invalid_sitemap_xml");
+      }
+      warnings.push("invalid_sitemap_xml");
+      continue;
+    }
+
+    if (parsed.type === "sitemapindex") {
+      if (current.depth >= maxDepth) {
+        if (parsed.entries.length) warnings.push("sitemap_depth_limit");
+        continue;
+      }
+      const children = parsed.entries.slice(0, maxChildren);
+      if (parsed.entries.length > maxChildren) warnings.push("sitemap_child_limit");
+      for (const entry of children) {
+        if (!urlAllowed(entry.loc)) {
+          warnings.push("sitemap_host_blocked");
+          continue;
+        }
+        queue.push({ url: entry.loc, depth: current.depth + 1, parentUrl: fetched.finalUrl });
+      }
+      continue;
+    }
+
+    for (const entry of parsed.entries) {
+      if (candidateMap.size >= maxUrls) {
+        warnings.push("sitemap_url_limit");
+        break;
+      }
+      if (!urlAllowed(entry.loc) || !pathMatchesSitemapFilters(root, entry.loc)) continue;
+      const existing = candidateMap.get(entry.loc);
+      const pathMetadata = {
+        rootId: root.id,
+        rootSitemapUrl: root.sourceUrl,
+        sitemapUrl: fetched.finalUrl,
+        childSitemapUrl: current.parentUrl ? fetched.finalUrl : null,
+        nestingDepth: current.depth,
+        leafUrl: entry.loc,
+        ...(entry.lastmod ? { lastmod: entry.lastmod } : {}),
+        robotsState: robots.state,
+      };
+      if (existing) {
+        const paths = Array.isArray(existing.metadata?.discoveryPaths)
+          ? existing.metadata!.discoveryPaths as unknown[]
+          : [existing.metadata];
+        existing.metadata = { ...existing.metadata, discoveryPaths: [...paths, pathMetadata].slice(0, 20) };
+        continue;
+      }
+      candidateMap.set(entry.loc, {
+        candidateType: "SOURCE_CANDIDATE",
+        discoveryType: "SITEMAP",
+        sourceUrl: entry.loc,
+        label: new URL(entry.loc).hostname,
+        entityType: root.entityType,
+        suggestedConnectorType: root.suggestedConnectorType ?? "CONTROLLED_HTML",
+        reason: "URL bol explicitne uvedený v bounded sitemape schváleného discovery rootu.",
+        metadata: {
+          discoveredFrom: fetched.finalUrl,
+          ...pathMetadata,
+        },
+      });
+    }
+  }
+
+  return { candidates: [...candidateMap.values()], warnings: [...new Set(warnings)] };
 }
 
 function searchProviderError(error: unknown) {
@@ -251,7 +531,7 @@ async function discoverCandidates(
   root: AutomationDiscoveryRoot,
   options: DataAutomationDiscoverySweepOptions,
   runId: number,
-): Promise<AutomationSourceCandidateInput[]> {
+): Promise<DiscoveryCandidatesResult> {
   const maxCandidates = configNumber(root, "maxCandidates", 150, 1, 500);
 
   if (root.discoveryType === "SEARCH_PROVIDER") {
@@ -362,7 +642,11 @@ async function discoverCandidates(
       }
     }
 
-    return candidates.slice(0, maxCandidates);
+    return { candidates: candidates.slice(0, maxCandidates), warnings: [] };
+  }
+
+  if (root.discoveryType === "SITEMAP") {
+    return discoverSitemapCandidates(root, options, maxCandidates);
   }
 
   const fetched = await fetchWithRetry(
@@ -371,32 +655,30 @@ async function discoverCandidates(
     options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
   );
 
-  if (root.discoveryType === "SITEMAP") {
-    return sitemapDiscoveryAdapter({
-      payload: fetched.payload,
-      baseUrl: fetched.finalUrl,
-      entityType: root.entityType,
-    }).slice(0, maxCandidates);
-  }
-
   if (root.discoveryType === "RSS") {
-    return rssDiscoveryAdapter({
-      payload: fetched.payload,
-      baseUrl: fetched.finalUrl,
-      entityType: root.entityType,
-    }).slice(0, maxCandidates);
+    return {
+      candidates: rssDiscoveryAdapter({
+        payload: fetched.payload,
+        baseUrl: fetched.finalUrl,
+        entityType: root.entityType,
+      }).slice(0, maxCandidates),
+      warnings: [],
+    };
   }
 
   if (String(root.config.adapter ?? "") === "HTML_LINK_DIRECTORY") {
-    return htmlLinkDirectoryDiscovery({
-      payload: fetched.payload,
-      baseUrl: fetched.finalUrl,
-      entityType: root.entityType,
-      suggestedConnectorType: root.suggestedConnectorType,
-      externalOnly: configBoolean(root, "externalOnly", true),
-      excludeHosts: configStrings(root, "excludeHosts"),
-      maxCandidates,
-    });
+    return {
+      candidates: htmlLinkDirectoryDiscovery({
+        payload: fetched.payload,
+        baseUrl: fetched.finalUrl,
+        entityType: root.entityType,
+        suggestedConnectorType: root.suggestedConnectorType,
+        externalOnly: configBoolean(root, "externalOnly", true),
+        excludeHosts: configStrings(root, "excludeHosts"),
+        maxCandidates,
+      }),
+      warnings: [],
+    };
   }
 
   let parsed: unknown;
@@ -405,15 +687,18 @@ async function discoverCandidates(
   } catch {
     throw new DiscoveryFetchError("discovery_structured_json_invalid");
   }
-  return structuredDirectoryDiscovery({
-    payload: parsed,
-    baseUrl: fetched.finalUrl,
-    entityType: root.entityType,
-    recordsPath: typeof root.config.recordsPath === "string" ? root.config.recordsPath : undefined,
-    urlField: typeof root.config.urlField === "string" ? root.config.urlField : undefined,
-    labelField: typeof root.config.labelField === "string" ? root.config.labelField : undefined,
-    suggestedConnectorType: root.suggestedConnectorType,
-  }).slice(0, maxCandidates);
+  return {
+    candidates: structuredDirectoryDiscovery({
+      payload: parsed,
+      baseUrl: fetched.finalUrl,
+      entityType: root.entityType,
+      recordsPath: typeof root.config.recordsPath === "string" ? root.config.recordsPath : undefined,
+      urlField: typeof root.config.urlField === "string" ? root.config.urlField : undefined,
+      labelField: typeof root.config.labelField === "string" ? root.config.labelField : undefined,
+      suggestedConnectorType: root.suggestedConnectorType,
+    }).slice(0, maxCandidates),
+    warnings: [],
+  };
 }
 
 
@@ -455,7 +740,12 @@ export function discoveryEvidenceContext(
   } else if (root.discoveryType === "RSS") {
     context = externalId ? `feed:${discoveredFrom}|item:${externalId}` : `feed:${discoveredFrom}`;
   } else if (root.discoveryType === "SITEMAP") {
-    context = `sitemap:${discoveredFrom}`;
+    const metadata = candidate.metadata ?? {};
+    const rootSitemap = typeof metadata.rootSitemapUrl === "string" ? metadata.rootSitemapUrl : (root.sourceUrl ?? root.rootKey);
+    const sitemapUrl = typeof metadata.sitemapUrl === "string" ? metadata.sitemapUrl : discoveredFrom;
+    const depth = Number.isInteger(metadata.nestingDepth) ? Number(metadata.nestingDepth) : 0;
+    const leafUrl = typeof metadata.leafUrl === "string" ? metadata.leafUrl : candidate.sourceUrl;
+    context = `root:${rootSitemap}|sitemap:${sitemapUrl}|depth:${depth}|leaf:${leafUrl}`;
   } else {
     context = externalId ? `directory:${discoveredFrom}|record:${externalId}` : `directory:${discoveredFrom}`;
   }
@@ -495,8 +785,14 @@ async function runDiscoveryRoot(
   const searchMetrics = new Map<string, { newUnique: number; duplicates: number }>();
 
   try {
-    const candidates = await discoverCandidates(root, options, runId);
+    const discovery = await discoverCandidates(root, options, runId);
+    const candidates = discovery.candidates;
     candidateCount = candidates.length;
+    if (discovery.warnings.length) {
+      errors += discovery.warnings.length;
+      status = candidates.length ? "PARTIAL" : "FAILED";
+      errorSummary = discovery.warnings[0] ?? null;
+    }
     for (const candidate of candidates) {
       try {
         const stored = await upsertAutomationSourceCandidate({
@@ -504,15 +800,23 @@ async function runDiscoveryRoot(
           discoveredFromSourceId: null,
           detectedAt: startedAt,
         }, options.database);
-        const evidence = discoveryEvidenceContext(root, candidate);
-        await upsertAutomationSourceCandidateEvidence({
-          candidateId: stored.id,
-          rootId: root.id,
-          discoveryRunId: runId,
-          discoveryType: root.discoveryType,
-          ...evidence,
-          seenAt: startedAt,
-        }, options.database);
+        const paths = root.discoveryType === "SITEMAP" && Array.isArray(candidate.metadata?.discoveryPaths)
+          ? candidate.metadata!.discoveryPaths.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+          : [];
+        const evidenceCandidates = paths.length
+          ? paths.map((path) => ({ ...candidate, metadata: { ...candidate.metadata, ...path } }))
+          : [candidate];
+        for (const evidenceCandidate of evidenceCandidates) {
+          const evidence = discoveryEvidenceContext(root, evidenceCandidate);
+          await upsertAutomationSourceCandidateEvidence({
+            candidateId: stored.id,
+            rootId: root.id,
+            discoveryRunId: runId,
+            discoveryType: root.discoveryType,
+            ...evidence,
+            seenAt: startedAt,
+          }, options.database);
+        }
         const operationKey = typeof candidate.metadata?.searchOperationKey === "string"
           ? candidate.metadata.searchOperationKey
           : null;
