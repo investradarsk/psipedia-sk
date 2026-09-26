@@ -1,4 +1,4 @@
-import { shouldSuppressAutomationPossibleCandidate } from "./data-automation-match-review.ts";
+import { shouldSuppressAutomationPossibleCandidate } from "./data-automation-match-memory.ts";
 import {
   canonicalizeSourceUrl,
   normalizeAutomationIdentity,
