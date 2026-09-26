@@ -42,8 +42,6 @@ export function AdminCanonicalApplyReview({preview}:{preview:CanonicalApplyPrevi
     if(!window.confirm(`Aplikovať ${applyCount} vybraných polí do canonical záznamu #${preview.canonicalEntityId}? Táto akcia nemení publish/status a nevytvára nový záznam.`)) return;
     setBusy(true);setMessage("");
     try{
-      const response=await fetch(`/api/admin/automation-match-reviews/${preview.sourceClusterId ? "" : ""}`,{method:"GET"});
-      void response;
       const applyResponse=await fetch(window.location.pathname.replace("/admin/operations/possible-matches/","/api/admin/automation-match-reviews/")+"/apply",{
         method:"POST",
         headers:{"content-type":"application/json"},
