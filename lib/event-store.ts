@@ -14,6 +14,7 @@ import {
 import { getPortalSubpage } from "@/lib/portal";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
+import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 
 export type ManagedEventInput = {
   slug?: string;
@@ -303,7 +304,9 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
     input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<EventRow>();
   if (!row) throw new Error("Podujatie sa nepodarilo vytvoriť.");
-  return rowToEvent(row);
+  const event = rowToEvent(row);
+  await reconcileManagedEventGeo(event.id, editorEmail, database);
+  return event;
 }
 
 export async function updateManagedEvent(id: number, payload: ManagedEventInput, editorEmail: string, existingEvent?: DogEvent) {
@@ -327,7 +330,12 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     input.description, input.practicalInfo, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
     input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id,
   ).first<EventRow>();
-  return row ? rowToEvent(row) : null;
+  if (!row) return null;
+  const event = rowToEvent(row);
+  if (managedEventGeoSourceChanged(existing, event) || (existing.status !== "published" && event.status === "published")) {
+    await reconcileManagedEventGeo(event.id, editorEmail, database);
+  }
+  return event;
 }
 
 export async function deleteManagedEvent(id: number) {
@@ -359,6 +367,10 @@ export async function bulkUpdateEventStatus(input: unknown, editorEmail: string)
       events.length,
     ).all<{ id: number }>();
   if (result.results.length !== events.length) throw new Error("Výber sa medzičasom zmenil alebo bol odstránený. Žiadne podujatie nebolo zmenené; obnov zoznam a potvrď nový výber.");
+  if (field === "status" && value === "published") {
+    const database = requireD1Binding();
+    for (const event of events) await reconcileManagedEventGeo(event.id, editorEmail, database);
+  }
   return {
     changed: result.results.length,
     field,
