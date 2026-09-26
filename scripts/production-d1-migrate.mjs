@@ -80,6 +80,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0085_automation_tavily_discovery_root.sql",
   "0086_automation_tavily_event_cadence.sql",
   "0087_automation_tavily_help_roots.sql",
+  "0088_automation_tavily_organization_root.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -736,6 +737,9 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: false };
   }
   if (targetMigration === "0087_automation_tavily_help_roots.sql") {
+    return { partial: false };
+  }
+  if (targetMigration === "0088_automation_tavily_organization_root.sql") {
     return { partial: false };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);

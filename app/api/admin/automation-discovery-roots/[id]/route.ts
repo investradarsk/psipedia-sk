@@ -9,8 +9,8 @@ import { runAutomationDiscoveryRootCanary } from "@/lib/data-automation-discover
 import { getGovernanceState, upsertGovernanceReview } from "@/lib/data-automation-governance";
 import { TavilyAutomationSearchProvider } from "@/lib/data-automation-search-tavily";
 import {
-  TAVILY_EVENT_GOVERNANCE_PRESET,
-  TAVILY_EVENT_ROOT_KEY,
+  TAVILY_SEARCH_GOVERNANCE_PRESET,
+  isTavilySearchDiscoveryRoot,
   tavilyCanaryReadiness,
 } from "@/lib/tavily-canary-control";
 
@@ -32,7 +32,7 @@ function responseStatus(message: string) {
 
 async function requireTavilyRoot(id: number) {
   const root = await getAutomationDiscoveryRoot(id);
-  if (!root || root.rootKey !== TAVILY_EVENT_ROOT_KEY || root.discoveryType !== "SEARCH_PROVIDER" || root.entityType !== "EVENT") {
+  if (!root || !isTavilySearchDiscoveryRoot(root)) {
     throw new Error("automation_discovery_root_not_found");
   }
   return root;
@@ -55,7 +55,7 @@ export async function PUT(request: Request, { params }: Props) {
       const governance = await upsertGovernanceReview({
         subject: { type: "DISCOVERY_ROOT", id },
         review: {
-          ...TAVILY_EVENT_GOVERNANCE_PRESET,
+          ...TAVILY_SEARCH_GOVERNANCE_PRESET,
           expectedUpdatedAt: governanceRead.state?.updatedAt ?? null,
         },
         actor: auth.user.email,
@@ -68,7 +68,7 @@ export async function PUT(request: Request, { params }: Props) {
         id,
         action: "approve",
         reviewerEmail: auth.user.email,
-        notes: "TAVILY-CANARY-1 technical operator approval.",
+        notes: "Tavily discovery root technical operator approval.",
       });
       return Response.json({ root: updated });
     }
