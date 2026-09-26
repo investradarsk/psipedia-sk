@@ -526,7 +526,7 @@ test("discovery emits deduplicated SOURCE_CANDIDATE records only", () => {
 test("discovery foundation has no Google/Bing scraper, browser automation, or TinyFish dependency", () => {
   const discovery = read("lib/data-automation-discovery.ts");
   assert.match(discovery, /AutomationSearchProvider/);
-  assert.match(discovery, /automation_search_provider_not_configured/);
+  assert.match(discovery, /automation_search_provider_config_missing/);
   assert.doesNotMatch(discovery, /tinyfish|google\.com\/search|bing\.com\/search|playwright|puppeteer/i);
 });
 
