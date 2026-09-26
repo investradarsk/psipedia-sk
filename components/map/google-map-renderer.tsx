@@ -375,8 +375,6 @@ export function GoogleMapRenderer(props: Props) {
     let disposed = false;
     let idleListener: ListenerHandle | null = null;
     let mapTypeListener: ListenerHandle | null = null;
-    let dragStartListener: ListenerHandle | null = null;
-    let zoomChangedListener: ListenerHandle | null = null;
     const markerRegistry = markersRef.current;
 
     async function initialize() {
@@ -413,12 +411,6 @@ export function GoogleMapRenderer(props: Props) {
         mapTypeListener = map.addListener("maptypeid_changed", () => {
           confirmMapTypeChange(mapTypeIdleSuppressionRef.current, map.getMapTypeId?.());
         });
-        dragStartListener = map.addListener("dragstart", () => {
-          cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
-        });
-        zoomChangedListener = map.addListener("zoom_changed", () => {
-          cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
-        });
         idleListener = map.addListener("idle", () => {
           const next = viewportFromMap(map);
           if (!next) return;
@@ -444,8 +436,6 @@ export function GoogleMapRenderer(props: Props) {
       disposed = true;
       idleListener?.remove?.();
       mapTypeListener?.remove?.();
-      dragStartListener?.remove?.();
-      zoomChangedListener?.remove?.();
       for (const record of markerRegistry.values()) detachGoogleMarker(record.marker);
       markerRegistry.clear();
       mapRef.current = null;

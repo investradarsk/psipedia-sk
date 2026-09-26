@@ -37,15 +37,15 @@ test("PUBLIC-MAPS-1 reusable detail map reuses renderer, consent and MAP-UX coor
   assert.match(consent, /psipedia-google-maps-consent/);
 });
 
-test("MAP-UX-1C map type switching coalesces latest desired type without masking movement", async () => {
+test("MAP-UX-1D map type switching defers movement authority to idle viewport comparison", async () => {
   const renderer = await read("components/map/google-map-renderer.tsx");
   assert.match(renderer, /mapPresentationBaselineFromMap\(mapRef\.current\)/);
   assert.match(renderer, /beginMapTypeIdleSuppression\(mapTypeIdleSuppressionRef\.current, mapType, baseline\)/);
   assert.match(renderer, /mapRef\.current\.setMapTypeId\(mapType\)/);
   assert.match(renderer, /map\.addListener\("maptypeid_changed"/);
   assert.match(renderer, /confirmMapTypeChange\(mapTypeIdleSuppressionRef\.current, map\.getMapTypeId\?\.\(\)\)/);
-  assert.match(renderer, /map\.addListener\("dragstart"/);
-  assert.match(renderer, /map\.addListener\("zoom_changed"/);
+  assert.doesNotMatch(renderer, /map\.addListener\("dragstart"/);
+  assert.doesNotMatch(renderer, /map\.addListener\("zoom_changed"/);
   assert.match(renderer, /cancelMapTypeIdleSuppression\(mapTypeIdleSuppressionRef\.current\)/);
   assert.match(renderer, /\{ center: next\.center, zoom: next\.zoom \}/);
   assert.match(renderer, /map\.getMapTypeId\?\.\(\)/);
