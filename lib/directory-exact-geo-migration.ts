@@ -245,7 +245,7 @@ export async function runDirectoryGeoMigrationCanary(input: {
 
   for (const targetId of ids) {
     let point = await getGeoPointForTarget("DIRECTORY_PROFILE", targetId, database);
-    let source = await getGeoSourceLocation("DIRECTORY_PROFILE", targetId, database);
+    const source = await getGeoSourceLocation("DIRECTORY_PROFILE", targetId, database);
     const beforeStatus = point?.geocodeStatus ?? null;
     const beforeVisibility = point?.publicVisibility ?? null;
     const beforePrecision = point?.publicPrecision ?? null;
