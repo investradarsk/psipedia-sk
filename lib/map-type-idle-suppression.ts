@@ -1,29 +1,85 @@
+export type MapTypePresentationBaseline = {
+  center: { lat: number; lng: number };
+  zoom: number;
+};
+
 export type MapTypeIdleSuppressionState = {
-  phase: "clear" | "awaiting-map-type-change" | "awaiting-idle";
   generation: number;
+  pending: boolean;
+  desiredMapType: string | null;
+  baseline: MapTypePresentationBaseline | null;
+  observedRuntimeMapType: string | null;
 };
 
 export function createMapTypeIdleSuppressionState(): MapTypeIdleSuppressionState {
-  return { phase: "clear", generation: 0 };
+  return {
+    generation: 0,
+    pending: false,
+    desiredMapType: null,
+    baseline: null,
+    observedRuntimeMapType: null,
+  };
 }
 
-export function beginMapTypeIdleSuppression(state: MapTypeIdleSuppressionState) {
+export function beginMapTypeIdleSuppression(
+  state: MapTypeIdleSuppressionState,
+  desiredMapType: string,
+  baseline: MapTypePresentationBaseline,
+) {
   state.generation += 1;
-  state.phase = "awaiting-map-type-change";
+  state.pending = true;
+  state.desiredMapType = desiredMapType;
+  state.baseline = baseline;
+  state.observedRuntimeMapType = null;
+  return state.generation;
 }
 
-export function confirmMapTypeChange(state: MapTypeIdleSuppressionState) {
-  if (state.phase === "awaiting-map-type-change") {
-    state.phase = "awaiting-idle";
+export function confirmMapTypeChange(
+  state: MapTypeIdleSuppressionState,
+  runtimeMapType?: string | null,
+) {
+  if (!state.pending) return;
+  state.observedRuntimeMapType = runtimeMapType ?? state.observedRuntimeMapType;
+}
+
+function samePresentationViewport(
+  baseline: MapTypePresentationBaseline,
+  current: MapTypePresentationBaseline,
+) {
+  return baseline.zoom === current.zoom
+    && baseline.center.lat === current.center.lat
+    && baseline.center.lng === current.center.lng;
+}
+
+export function consumeMapTypeIdleSuppression(
+  state: MapTypeIdleSuppressionState,
+  current: MapTypePresentationBaseline,
+  runtimeMapType?: string | null,
+) {
+  if (!state.pending || !state.baseline) return false;
+
+  if (!samePresentationViewport(state.baseline, current)) {
+    cancelMapTypeIdleSuppression(state);
+    return false;
   }
-}
 
-export function consumeMapTypeIdleSuppression(state: MapTypeIdleSuppressionState) {
-  if (state.phase !== "awaiting-idle") return false;
-  state.phase = "clear";
+  const runtime = runtimeMapType ?? state.observedRuntimeMapType;
+  const settledLatest = runtime != null
+    && state.desiredMapType != null
+    && runtime === state.desiredMapType;
+
+  if (settledLatest) {
+    cancelMapTypeIdleSuppression(state);
+  } else if (runtime != null) {
+    state.observedRuntimeMapType = runtime;
+  }
+
   return true;
 }
 
 export function cancelMapTypeIdleSuppression(state: MapTypeIdleSuppressionState) {
-  state.phase = "clear";
+  state.pending = false;
+  state.desiredMapType = null;
+  state.baseline = null;
+  state.observedRuntimeMapType = null;
 }
