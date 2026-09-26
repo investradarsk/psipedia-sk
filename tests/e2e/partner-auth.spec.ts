@@ -350,7 +350,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     const newDirectoryAccessibility = await new AxeBuilder({ page }).analyze();
     expect(newDirectoryAccessibility.violations).toEqual([]);
     await page.getByRole("button", { name: "Skontrolovať a odoslať" }).click();
-    await expect(page.getByRole("status")).toContainText("Návrh nového profilu sme prijali a čaká na kontrolu.");
+    await expect(page.getByRole("status")).toContainText("Adresu sa nepodarilo jednoznačne overiť. Profil môžete odoslať; adresu skontroluje redakcia.");
 
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();

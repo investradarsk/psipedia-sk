@@ -7,6 +7,7 @@ import {
   parseSlovakHouseNumber,
   verifyDirectoryAddressSelection,
   verifyDirectoryExactCandidates,
+  verifyExternalDirectoryAddressBestEffort,
 } from "../lib/directory-address-provider.ts";
 import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 
@@ -215,6 +216,162 @@ test("save revalidation re-runs street autocomplete, requires the same provider 
     }),
     /nepodarilo znovu overiť/,
   );
+});
+
+
+
+test("short house discovery falls back to bounded free-form lookup and persists provider canonical number", async () => {
+  const calls = [];
+  const provider = {
+    autocomplete: async () => [result({
+      providerResultId: "street-place-hv",
+      resultType: "street",
+      street: "Hviezdoslavova",
+      housenumber: "",
+      postcode: "",
+      buildingConfidence: null,
+    })],
+    geocodeExact: async (request) => {
+      calls.push(["primary", request.structuredAddress?.housenumber]);
+      return [result({ street: "Hviezdoslavova", resultType: "street", housenumber: "", postcode: "" })];
+    },
+    geocodeApproximate: async (request) => {
+      calls.push(["secondary", request.query]);
+      return [result({
+        street: "Hviezdoslavova",
+        housenumber: "1892/74",
+        providerResultId: "hv-1892-74",
+      })];
+    },
+  };
+
+  const verified = await verifyDirectoryAddressSelection({
+    ...locality,
+    providerResultId: "street-place-hv",
+    street: "Hviezdoslavova",
+    houseNumber: "74",
+    provider,
+  });
+
+  assert.equal(verified.houseNumber, "1892/74");
+  assert.equal(verified.providerResult.providerResultId, "hv-1892-74");
+  assert.deepEqual(calls.map((item) => item[0]), ["primary", "secondary"]);
+});
+
+test("verified primary house result does not call secondary discovery", async () => {
+  let secondaryCalls = 0;
+  const provider = {
+    autocomplete: async () => [result({
+      providerResultId: "street-place-hv",
+      resultType: "street",
+      street: "Hviezdoslavova",
+      housenumber: "",
+      postcode: "",
+      buildingConfidence: null,
+    })],
+    geocodeExact: async () => [result({
+      street: "Hviezdoslavova",
+      housenumber: "1892/74",
+      providerResultId: "hv-1892-74",
+    })],
+    geocodeApproximate: async () => {
+      secondaryCalls += 1;
+      return [];
+    },
+  };
+  const verified = await verifyDirectoryAddressSelection({
+    ...locality,
+    providerResultId: "street-place-hv",
+    street: "Hviezdoslavova",
+    houseNumber: "74",
+    provider,
+  });
+  assert.equal(verified.houseNumber, "1892/74");
+  assert.equal(secondaryCalls, 0);
+});
+
+test("secondary discovery remains fail-closed for wrong street, ambiguity and unsafe house matches", async () => {
+  const makeProvider = (secondary) => ({
+    autocomplete: async () => [result({
+      providerResultId: "street-place-hv",
+      resultType: "street",
+      street: "Hviezdoslavova",
+      housenumber: "",
+      postcode: "",
+      buildingConfidence: null,
+    })],
+    geocodeExact: async () => [],
+    geocodeApproximate: async () => secondary,
+  });
+
+  for (const secondary of [
+    [result({ street: "Iná", housenumber: "1892/74" })],
+    [result({ street: "Hviezdoslavova", housenumber: "174" })],
+    [result({ street: "Hviezdoslavova", housenumber: "740" })],
+    [result({ street: "Hviezdoslavova", housenumber: "74A" })],
+    [result({ street: "Hviezdoslavova", housenumber: "1892/74", buildingConfidence: 0.9 })],
+    [
+      result({ street: "Hviezdoslavova", housenumber: "1892/74", providerResultId: "one" }),
+      result({ street: "Hviezdoslavova", housenumber: "12/74", providerResultId: "two", latitude: 48.39, longitude: 18.41 }),
+    ],
+  ]) {
+    await assert.rejects(
+      verifyDirectoryAddressSelection({
+        ...locality,
+        providerResultId: "street-place-hv",
+        street: "Hviezdoslavova",
+        houseNumber: "74",
+        provider: makeProvider(secondary),
+      }),
+      /nepodarilo jednoznačne overiť|nejednoznačná/,
+    );
+  }
+});
+
+test("external directory address verification is best-effort and preserves municipality-number semantics", async () => {
+  const streetProvider = {
+    geocodeExact: async () => [],
+    geocodeApproximate: async () => [result({
+      street: "Hviezdoslavova",
+      housenumber: "1892/74",
+      providerResultId: "hv-1892-74",
+    })],
+  };
+  const street = await verifyExternalDirectoryAddressBestEffort({
+    ...locality,
+    address: "Hviezdoslavova 74",
+    provider: streetProvider,
+  });
+  assert.equal(street.status, "VERIFIED_EXACT");
+  assert.equal(street.verified?.houseNumber, "1892/74");
+
+  const municipalityProvider = {
+    geocodeExact: async () => [result({
+      city: "Mankovce",
+      district: "Zlaté Moravce",
+      street: "",
+      housenumber: "123",
+      providerResultId: "mankovce-123",
+      streetConfidence: null,
+    })],
+  };
+  const municipality = await verifyExternalDirectoryAddressBestEffort({
+    region: "Nitriansky kraj",
+    district: "Zlaté Moravce",
+    city: "Mankovce",
+    address: "Mankovce 123",
+    provider: municipalityProvider,
+  });
+  assert.equal(municipality.status, "VERIFIED_EXACT");
+  assert.equal(municipality.verified?.addressFormat, "MUNICIPALITY_NUMBER");
+
+  const failed = await verifyExternalDirectoryAddressBestEffort({
+    ...locality,
+    address: "neúplná adresa",
+    provider: streetProvider,
+  });
+  assert.equal(failed.status, "NEEDS_REVIEW");
+  assert.equal(failed.verified, null);
 });
 
 test("Geoapify place-details parser accepts GeoJSON features and preserves the requested place id", async () => {

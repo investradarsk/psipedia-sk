@@ -414,6 +414,19 @@ test("notifications and Partner audit cover complete 3B lifecycle",()=>{
   assert.match(email,/profil bol vytvorený ako koncept/i);
 });
 
+
+
+test("external directory submission keeps address verification non-blocking and routes unresolved addresses to review",()=> {
+  assert.match(domain,/verifyExternalDirectoryAddressBestEffort/);
+  assert.match(domain,/ADDRESS_NEEDS_REVIEW/);
+  assert.match(domain,/addressVerification/);
+  assert.match(domain,/patch:\s*PartnerProfilePatch|let patch: PartnerProfilePatch/);
+  assert.match(domain,/status:\s*"SUBMITTED"/);
+  assert.match(domain,/PARTNER_NEW_PROFILE_REVIEW/);
+  assert.match(newForm,/Adresu sa nepodarilo jednoznačne overiť\. Profil môžete odoslať; adresu skontroluje redakcia\./);
+  assert.doesNotMatch(domain,/EXACT_PUBLIC/);
+});
+
 test("GEO, legacy and commercial invariants stay intact while Partner media remains moderated",()=>{
   const combined=[domain,admin,partnerApi,scanApi,withdrawApi,adminApi].join("\n");
   assert.doesNotMatch(combined,/MANAGED_EVENT|PARTNER_EVENT_REVIEW/);
@@ -430,5 +443,6 @@ test("GEO, legacy and commercial invariants stay intact while Partner media rema
 test("Partner new-profile schema does not expose system publication/media fields",()=>{
   assert.doesNotMatch(domain,/partnerNewProfile.*slug/i);
   const submit=domain.slice(domain.indexOf("export async function submitPartnerNewProfile"),domain.indexOf("function statusLabel"));
-  assert.doesNotMatch(submit,/published_at|archived_at|verified|featured|image_url|image_key|seo_json|search_text/i);
+  assert.doesNotMatch(submit,/published_at|archived_at|featured|image_url|image_key|seo_json|search_text/i);
+  assert.doesNotMatch(submit,/(?:^|[,{]\s*)verified\s*:/im);
 });

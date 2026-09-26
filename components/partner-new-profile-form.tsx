@@ -224,7 +224,12 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ resourceType, profile, confirmDuplicate, mediaAssetId }),
     });
-    const data = await response.json() as { error?: string; code?: string; details?: { candidates?: Candidate[] } };
+    const data = await response.json() as {
+      error?: string;
+      code?: string;
+      details?: { candidates?: Candidate[] };
+      submission?: { addressVerification?: "VERIFIED_EXACT" | "NEEDS_REVIEW" | "NOT_APPLICABLE" };
+    };
     if (!response.ok) {
       if (data.code === "DUPLICATE_CONFIRMATION_REQUIRED") {
         setCandidates(data.details?.candidates ?? []);
@@ -237,7 +242,11 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
     }
     setState("success");
     setFieldErrors({});
-    setMessage("Návrh nového profilu sme prijali a čaká na kontrolu.");
+    setMessage(
+      data.submission?.addressVerification === "NEEDS_REVIEW"
+        ? "Adresu sa nepodarilo jednoznačne overiť. Profil môžete odoslať; adresu skontroluje redakcia."
+        : "Návrh nového profilu sme prijali a čaká na kontrolu.",
+    );
   }
 
   async function onSubmit(event: React.FormEvent) {
