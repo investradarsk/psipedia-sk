@@ -673,10 +673,10 @@ test("Mushing SZPZ adapter parses one real-world event, explicit GPS and cancell
     }),
     fetchHtml: async (url) => {
       calls.push(url);
-      if (url === "https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026/") {
+      if (url === "https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026") {
         return { html: fixture("mushing-szpz-detail.html"), finalUrl: url };
       }
-      if (url === "https://mushing.sk/pretek/mosovce-2026/") {
+      if (url === "https://mushing.sk/pretek/mosovce-2026") {
         return { html: "<html><body><h1>Mošovce</h1></body></html>", finalUrl: url };
       }
       throw new Error("unexpected mushing detail " + url);
@@ -684,7 +684,7 @@ test("Mushing SZPZ adapter parses one real-world event, explicit GPS and cancell
   });
 
   assert.equal(rows.length, 4);
-  assert.equal(rows[0].sourceRecordId, "url:https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026/");
+  assert.equal(rows[0].sourceRecordId, "url:https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026");
   assert.equal(rows[0].proposed.title, "Bosorkin canicross");
   assert.equal(rows[0].proposed.startDate, "2026-09-26");
   assert.equal(rows[0].proposed.endDate, "2026-09-27");
@@ -701,8 +701,8 @@ test("Mushing SZPZ adapter parses one real-world event, explicit GPS and cancell
   assert.equal(rows[3].proposed.district, undefined);
   assert.equal(rows[3].proposed.address, undefined);
   assert.deepEqual(calls, [
-    "https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026/",
-    "https://mushing.sk/pretek/mosovce-2026/",
+    "https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026",
+    "https://mushing.sk/pretek/mosovce-2026",
   ]);
 });
 
