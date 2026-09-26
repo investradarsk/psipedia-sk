@@ -81,6 +81,7 @@ test("production D1 supported targets are explicit through 0076 non-event founda
     "0074_directory_service_address.sql",
     "0075_automation_zsk_event_source.sql",
     "0076_automation_non_event_entity_resolution_foundation.sql",
+    "0077_directory_geo_provider_result_id.sql",
   ]);
 });
 
@@ -95,7 +96,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0077_future_migration.sql",
+    "0078_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -121,6 +122,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0074_directory_service_address.sql",
     "0075_automation_zsk_event_source.sql",
     "0076_automation_non_event_entity_resolution_foundation.sql",
+    "0077_directory_geo_provider_result_id.sql",
   ]);
 });
 
@@ -128,7 +130,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0077_future_migration.sql",
+    "0078_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -140,7 +142,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0074_directory_service_address.sql",
     "0075_automation_zsk_event_source.sql",
     "0076_automation_non_event_entity_resolution_foundation.sql",
-    "0077_future_migration.sql",
+    "0077_directory_geo_provider_result_id.sql",
+    "0078_future_migration.sql",
   ]);
 });
 
@@ -383,6 +386,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.match(workflow, /APPLY-0075-psipedia-sk-db/);
   assert.match(workflow, /0076_automation_non_event_entity_resolution_foundation\.sql/);
   assert.match(workflow, /APPLY-0076-psipedia-sk-db/);
+  assert.match(workflow, /0077_directory_geo_provider_result_id\.sql/);
+  assert.match(workflow, /APPLY-0077-psipedia-sk-db/);
   assert.match(workflow, /git fetch --no-tags origin main/);
   assert.match(workflow, /partner\/prihlasenie/);
   assert.match(workflow, /partner\/registracia/);
@@ -528,4 +533,15 @@ test("0076 non-event entity-resolution foundation is additive and guarded", asyn
   assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM|UPDATE\s+(directory_profiles|help_organizations|automation_entity_clusters)/i);
   assert.match(script, /0076_automation_non_event_entity_resolution_foundation\.sql/);
   assert.match(script, /assertAutomationNonEventFoundationSchema/);
+});
+
+
+test("0077 directory geo provider result identity is additive and guarded", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0077_directory_geo_provider_result_id.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.match(migration, /ALTER TABLE geo_points ADD COLUMN provider_result_id TEXT/);
+  assert.doesNotMatch(migration, /UPDATE\s+geo_points|DELETE\s+FROM\s+geo_points|DROP\s+TABLE/i);
+  assert.match(script, /0077_directory_geo_provider_result_id\.sql/);
+  assert.match(script, /assertDirectoryGeoProviderResultIdSchema/);
+  assert.match(script, /PRAGMA table_info\('geo_points'\)/);
 });

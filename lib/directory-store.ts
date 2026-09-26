@@ -46,6 +46,8 @@ export type ManagedDirectoryProfileInput = {
   houseNumber?: string;
   addressFormat?: string;
   confirmServiceAddress?: boolean;
+  clearServiceAddressConfirmation?: boolean;
+  addressProviderResultId?: string;
   online?: boolean;
   priceNote?: string;
   websiteUrl?: string | null;
@@ -668,7 +670,9 @@ export function normalizeManagedDirectoryProfileInput(
   const houseNumber = payload.houseNumber?.trim() ?? "";
   const serviceAddressConfirmation: DirectoryServiceAddressConfirmation = payload.confirmServiceAddress === true
     ? "CONFIRMED_SERVICE_LOCATION"
-    : options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED";
+    : payload.clearServiceAddressConfirmation === true
+      ? "LEGACY_UNCONFIRMED"
+      : options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED";
   const legacyAddress = payload.address === undefined ? options.legacyAddress ?? "" : payload.address.trim();
 
   const serviceAddress = evaluateDirectoryServiceAddress({

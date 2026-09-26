@@ -155,6 +155,16 @@ export async function isGeoSchemaAvailable(database?: GeoD1Database) {
   }
 }
 
+export async function isGeoProviderResultIdSchemaAvailable(database?: GeoD1Database) {
+  const db = requireGeoD1(database);
+  try {
+    const result = await db.prepare("PRAGMA table_info('geo_points')").all<{ name: string }>();
+    return result.results.some((column) => column.name === "provider_result_id");
+  } catch {
+    return false;
+  }
+}
+
 function targetId(row: GeoPointRow) {
   return Number(row.directory_profile_id ?? row.organization_location_id ?? row.managed_event_id);
 }
@@ -505,7 +515,10 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
   if (state.sourceFingerprint === current.sourceFingerprint) return current;
 
   const now = new Date().toISOString();
-  const exactNeedsPrivacyReview = current.publicVisibility === "EXACT_PUBLIC" && !current.manualOverride;
+  const classification = classifyGeoSource(source);
+  const exactNeedsPrivacyReview = current.publicVisibility === "EXACT_PUBLIC"
+    && !current.manualOverride
+    && classification.requiresReview;
   if (current.publicVisibility === "HIDDEN") {
     await db.prepare(`
       UPDATE geo_points SET source_fingerprint=?, normalized_query=NULL, query_fingerprint=NULL,
@@ -565,15 +578,27 @@ export async function applyGeocoderResolution(input: {
     throw new Error("Geo point nemá verejnú klasifikáciu vhodnú na geocoding.");
   }
   const now = new Date().toISOString();
-  await db.prepare(`
-    UPDATE geo_points SET latitude=?, longitude=?, resolution_method=?, provider=?, provenance=?, source_license=?,
-      resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
-      last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
-      last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
-  `).bind(
-    input.result.latitude, input.result.longitude, input.method, input.result.provider,
-    input.result.provenance, input.result.sourceLicense, now, now, current.id,
-  ).run();
+  const providerResultIdSchema = await isGeoProviderResultIdSchemaAvailable(db);
+  const statement = providerResultIdSchema
+    ? db.prepare(`
+        UPDATE geo_points SET latitude=?, longitude=?, resolution_method=?, provider=?, provenance=?, source_license=?, provider_result_id=?,
+          resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
+          last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
+          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
+      `).bind(
+        input.result.latitude, input.result.longitude, input.method, input.result.provider,
+        input.result.provenance, input.result.sourceLicense, input.result.providerResultId, now, now, current.id,
+      )
+    : db.prepare(`
+        UPDATE geo_points SET latitude=?, longitude=?, resolution_method=?, provider=?, provenance=?, source_license=?,
+          resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
+          last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
+          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
+      `).bind(
+        input.result.latitude, input.result.longitude, input.method, input.result.provider,
+        input.result.provenance, input.result.sourceLicense, now, now, current.id,
+      );
+  await statement.run();
   return getGeoPointForTarget(input.targetType, input.targetId, db);
 }
 

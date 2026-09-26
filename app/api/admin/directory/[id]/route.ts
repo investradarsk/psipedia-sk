@@ -2,6 +2,14 @@ import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
+import { verifyDirectoryAddressSelection } from "@/lib/directory-address-provider";
+import {
+  applyVerifiedDirectoryAddressGeo,
+  directoryPhysicalAddressChanged,
+  preserveDirectoryPhysicalAddress,
+  requireDirectoryAddressProviderSchema,
+  withVerifiedDirectoryAddress,
+} from "@/lib/directory-address-save";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -31,15 +39,55 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getManagedDirectoryProfileById(id);
     if (!before) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    const profile = await updateManagedDirectoryProfile(id, await request.json() as ManagedDirectoryProfileInput, user.email, before);
+    const body = await request.json() as ManagedDirectoryProfileInput;
+    const changed = directoryPhysicalAddressChanged(before, body);
+    let verified = null;
+    let payload = body;
+    if (body.addressProviderResultId?.trim()) {
+      await requireDirectoryAddressProviderSchema();
+      verified = await verifyDirectoryAddressSelection({
+        region: body.region ?? before.region,
+        district: body.district ?? before.district,
+        city: body.city ?? before.city,
+        providerResultId: body.addressProviderResultId,
+      });
+      payload = withVerifiedDirectoryAddress(body, verified);
+    } else if (changed) {
+      const clearingForOnlineOnly = body.online === true
+        && !body.region?.trim()
+        && !body.district?.trim()
+        && !body.city?.trim();
+      if (!clearingForOnlineOnly) {
+        throw new Error("Zmenu fyzickej adresy potvrď výberom konkrétnej adresy z Geoapify návrhov.");
+      }
+      payload = {
+        ...body,
+        region: "",
+        district: "",
+        city: "",
+        postalCode: "",
+        street: "",
+        houseNumber: "",
+        addressFormat: "",
+        confirmServiceAddress: false,
+        clearServiceAddressConfirmation: true,
+      };
+    } else {
+      payload = preserveDirectoryPhysicalAddress(before, body);
+    }
+    const profile = await updateManagedDirectoryProfile(id, payload, user.email, before);
     if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== profile.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
     }
-    await syncGeoPointAfterSourceChange("DIRECTORY_PROFILE", id).catch((error) => {
-      console.warn("Directory geo stale sync failed", { id, error: error instanceof Error ? error.message : String(error) });
-    });
+    if (verified) {
+      await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
+    } else {
+      await syncGeoPointAfterSourceChange("DIRECTORY_PROFILE", id).catch((error) => {
+        console.warn("Directory geo stale sync failed", { id, error: error instanceof Error ? error.message : String(error) });
+      });
+    }
     return Response.json({ profile });
   } catch (error) { return errorResponse(error); }
 }

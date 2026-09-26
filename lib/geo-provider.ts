@@ -18,6 +18,12 @@ export type NormalizedGeocoderResult = {
   provenance: string;
   sourceLicense: string;
   providerResultId: string | null;
+  street?: string;
+  housenumber?: string;
+  postcode?: string;
+  formatted?: string;
+  addressLine1?: string;
+  addressLine2?: string;
 };
 
 export type StructuredGeocodeAddress = {

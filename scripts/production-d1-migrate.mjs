@@ -69,6 +69,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0074_directory_service_address.sql",
   "0075_automation_zsk_event_source.sql",
   "0076_automation_non_event_entity_resolution_foundation.sql",
+  "0077_directory_geo_provider_result_id.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -439,6 +440,7 @@ function schemaState(databaseName, configPath) {
   const partnerPasswordCredentialColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_password_credentials')");
   const partnerAuthIdentityColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_auth_identities')");
   const moderationSubmissionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('moderation_submissions')");
+  const geoPointColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('geo_points')");
   const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
   const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const moderationSubmissionForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('moderation_submissions')");
@@ -456,6 +458,7 @@ function schemaState(databaseName, configPath) {
     partnerPasswordCredentialColumns,
     partnerAuthIdentityColumns,
     moderationSubmissionColumns,
+    geoPointColumns,
     partnerPasswordCredentialForeignKeys,
     partnerAuthIdentityForeignKeys,
     moderationSubmissionForeignKeys,
@@ -598,6 +601,11 @@ function targetSchemaObjects(schema, targetMigration) {
       partial: clusterSql.includes("semantic_kind")
         || AUTOMATION_NON_EVENT_FOUNDATION_TABLES.some((table) => names.has(table))
         || AUTOMATION_NON_EVENT_FOUNDATION_INDEXES.some((index) => names.has(index)),
+    };
+  }
+  if (targetMigration === "0077_directory_geo_provider_result_id.sql") {
+    return {
+      partial: schema.geoPointColumns.some((column) => String(column.name) === "provider_result_id"),
     };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
@@ -943,6 +951,10 @@ function assertDirectoryServiceAddressSchema(schema) {
     "directory_profiles service-address confirmation constraint is incomplete");
 }
 
+function assertDirectoryGeoProviderResultIdSchema(schema) {
+  assertRequiredColumns(schema.geoPointColumns, "geo_points", ["provider_result_id"]);
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -958,6 +970,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 73) assertAutomationEntityResolutionSchema(schema);
   if (migrationIndex(targetMigration) >= 74) assertDirectoryServiceAddressSchema(schema);
   if (migrationIndex(targetMigration) >= 76) assertAutomationNonEventFoundationSchema(schema);
+  if (migrationIndex(targetMigration) >= 77) assertDirectoryGeoProviderResultIdSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
