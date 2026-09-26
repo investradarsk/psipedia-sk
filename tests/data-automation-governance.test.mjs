@@ -124,7 +124,7 @@ test("0084 is additive, shared-subject, immutable-history and has no implicit ap
 test("new source activation is governance-gated without changing candidate provisioning semantics", async () => {
   const store = await readFile(path.join(repoRoot, "lib/data-automation-source-store.ts"), "utf8");
   assert.match(store, /existing\.reviewStatus !== "APPROVED"/);
-  assert.match(store, /getGovernanceState\(\{ type: "AUTOMATION_SOURCE", id \}/);
+  assert.match(store, /getGovernanceState\(\{ type: "AUTOMATION_SOURCE", id: input\.id \}/);
   assert.match(store, /evaluateGovernanceForActivation/);
   assert.match(store, /automation_source_governance_blocked/);
   assert.match(store, /VALUES \(\?,\?,\?,\?,\?,\?,0,/);
