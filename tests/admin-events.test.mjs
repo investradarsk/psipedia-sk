@@ -10,6 +10,8 @@ import { safeEventLink } from '../lib/event-markdown.ts';
 const eventStoreSource = readFileSync(new URL('../lib/event-store.ts', import.meta.url), 'utf8');
 const eventRouteSource = readFileSync(new URL('../app/api/admin/events/[id]/route.ts', import.meta.url), 'utf8');
 const importRouteSource = readFileSync(new URL('../app/api/admin/import/route.ts', import.meta.url), 'utf8');
+const partnerEventAdminSource = readFileSync(new URL('../lib/partner-events-admin.ts', import.meta.url), 'utf8');
+const automationApplySource = readFileSync(new URL('../lib/data-automation-apply.ts', import.meta.url), 'utf8');
 const today = '2026-09-12';
 const event = (id, overrides = {}) => ({ id, slug: `test-${id}`, title: `Podujatie ${id}`, city: 'Nitra', venue: 'Výstavný areál', organizer: 'Športový klub', region: 'Nitriansky kraj', eventType: 'Výstava', status: id <= 4 ? 'published' : 'draft', startDate: '2026-10-01', endDate: null, startTime: '', endTime: null, cancelled: false, imageUrl: null, createdAt: '2026-09-01T12:00:00.000Z', updatedAt: '2026-09-12T12:00:00.000Z', ...overrides });
 const events = Array.from({ length: 175 }, (_, i) => event(i + 1));
@@ -144,4 +146,10 @@ test('legacy admin event import reconciles every non-skipped canonical event', (
   assert.match(importRouteSource, /SELECT id FROM managed_events WHERE slug IN/);
   assert.match(importRouteSource, /reconcileGeoAfterSourceMutation/);
   assert.match(importRouteSource, /targetType: "MANAGED_EVENT"/);
+});
+
+
+test('MAP-AUTO-1D write hooks never call a geocoder/provider directly', () => {
+  const integrationSources = [eventStoreSource, eventRouteSource, importRouteSource, partnerEventAdminSource, automationApplySource].join('\n');
+  assert.doesNotMatch(integrationSources, /applyGeocoderResolution|geocodeWith|geoapify|fetch\([^)]*geocod/i);
 });
