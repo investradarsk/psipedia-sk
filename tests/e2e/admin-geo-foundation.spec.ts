@@ -64,8 +64,16 @@ test.describe("MAP-1B admin geo foundation", () => {
     await expect(page.getByRole("button", { name: "Canary max. 5" })).toBeVisible();
     await expect(page.getByRole("button", { name: /geocode všetko/i })).toHaveCount(0);
 
+    const a2 = page.locator("[data-admin-a2-exact-automation]");
+    await expect(a2.getByRole("heading", { name: "A2 — Exact directory automation" })).toBeVisible();
+    await expect(a2.getByText(/Read-only preview — nič nemení a nevolá Geoapify/)).toBeVisible();
+    await expect(a2.getByRole("button", { name: "Obnoviť A2 preview" })).toBeVisible();
+    await expect(a2.getByLabel("A2 canary — DIRECTORY_PROFILE IDs")).toBeVisible();
+    await expect(a2.getByRole("button", { name: "Spustiť A2 canary" })).toBeDisabled();
+
     const explicit = page.locator("[data-admin-explicit-geo-onboarding]");
-    await expect(explicit.getByRole("heading", { name: "Explicitný onboarding" })).toBeVisible();
+    await expect(explicit.getByRole("heading", { name: "Legacy explicit approximate onboarding" })).toBeVisible();
+    await expect(explicit.getByText(/Legacy approximate onboarding — nepoužíva sa pre A2 exact rollout/)).toBeVisible();
     await expect(explicit.getByLabel("Explicit target type")).toHaveValue("DIRECTORY_PROFILE");
     await expect(explicit.getByLabel("Explicit visibility")).toHaveValue("APPROXIMATE_PUBLIC");
     await expect(explicit.getByLabel("Explicit precision")).toHaveValue("MUNICIPALITY");
