@@ -235,7 +235,9 @@ function searchRequestInputs(root: AutomationDiscoveryRoot) {
     allowDomains: root.config.allowDomains,
     blockDomains: root.config.blockDomains,
   };
-  const configured = Array.isArray(root.config.queries) ? root.config.queries : [root.config.query];
+  const configured = Array.isArray(root.config.queries) && root.config.queries.length
+    ? root.config.queries
+    : [root.config.query];
   return configured.map((item) => {
     if (typeof item === "string") return { ...common, query: item };
     if (item && typeof item === "object" && !Array.isArray(item)) {
@@ -321,6 +323,7 @@ async function discoverCandidates(
         providerRequests += 1;
         try {
           const results = await provider.search(request);
+          if (!Array.isArray(results)) throw new AutomationSearchProviderError("INVALID_RESPONSE");
           const status: AutomationSearchUsageStatus = results.length ? "SUCCESS" : "EMPTY";
           await finalizeAutomationSearchUsage({
             operationKey,
@@ -515,8 +518,9 @@ async function runDiscoveryRoot(
           : null;
         if (operationKey) {
           const metrics = searchMetrics.get(operationKey) ?? { newUnique: 0, duplicates: 0 };
-          if (stored.firstDetectedAt === startedAt.toISOString()) metrics.newUnique += 1;
-          if (stored.duplicateSourceId) metrics.duplicates += 1;
+          const newlyCreated = stored.firstDetectedAt === startedAt.toISOString();
+          if (newlyCreated) metrics.newUnique += 1;
+          else metrics.duplicates += 1;
           searchMetrics.set(operationKey, metrics);
         }
         if (stored.duplicateSourceId) duplicateCandidateCount += 1;
