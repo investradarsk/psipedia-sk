@@ -1058,6 +1058,8 @@ function assertAutomationGovernanceSchema(schema) {
   for (const index of AUTOMATION_GOVERNANCE_INDEXES) {
     invariant(names.get(index)?.type === "index", `Missing governance index: ${index}`);
   }
+  invariant(names.get("automation_governance_reviews_history_insert")?.type === "trigger", "Missing governance history insert trigger");
+  invariant(names.get("automation_governance_reviews_history_update")?.type === "trigger", "Missing governance history update trigger");
   invariant(names.get("automation_governance_review_history_no_update")?.type === "trigger", "Missing governance immutable update trigger");
   invariant(names.get("automation_governance_review_history_no_delete")?.type === "trigger", "Missing governance immutable delete trigger");
   const reviewSql = String(names.get("automation_governance_reviews")?.sql ?? "");
