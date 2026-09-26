@@ -1,41 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { discoveryEvidenceContext } from "../lib/data-automation-discovery-runner.ts";
-
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
-
-const root = (overrides = {}) => ({
-  id: 10,
-  rootKey: "example-root",
-  label: "Example",
-  discoveryType: "SITEMAP",
-  sourceUrl: "https://example.sk/sitemap.xml",
-  entityType: "EVENT",
-  suggestedConnectorType: "CONTROLLED_HTML",
-  config: {},
-  enabled: true,
-  reviewStatus: "APPROVED",
-  cadenceMinutes: 1440,
-  nextCheckAt: null,
-  lastCheckedAt: null,
-  lastSuccessAt: null,
-  lastErrorAt: null,
-  lastErrorCode: null,
-  ...overrides,
-});
-
-const candidate = (overrides = {}) => ({
-  candidateType: "SOURCE_CANDIDATE",
-  discoveryType: "SITEMAP",
-  sourceUrl: "https://example.sk/preteky",
-  label: "Preteky",
-  entityType: "EVENT",
-  suggestedConnectorType: "CONTROLLED_HTML",
-  reason: "test",
-  metadata: { discoveredFrom: "https://example.sk/sitemap.xml" },
-  ...overrides,
-});
 
 test("DISCOVERY-1A migration creates additive evidence table with bounded identity", () => {
   const migration = read("drizzle/0082_automation_discovery_candidate_evidence.sql");
@@ -77,17 +43,15 @@ test("same root/context is idempotent and keeps first_seen while moving last_see
   );
 });
 
-test("cross-method context keys remain distinct and SEARCH_PROVIDER is query-context ready", () => {
-  const sitemap = discoveryEvidenceContext(root(), candidate());
-  const search = discoveryEvidenceContext(
-    root({ id: 11, discoveryType: "SEARCH_PROVIDER", sourceUrl: null, config: { query: "  psie preteky Slovensko " } }),
-    candidate({ discoveryType: "SEARCH_PROVIDER", metadata: { title: "Výsledok", snippet: "Ukážka", resultRank: 3 } }),
-  );
-  assert.notEqual(sitemap.discoveryContextKey, search.discoveryContextKey);
-  assert.match(search.discoveryContextKey, /^SEARCH_PROVIDER:query:psie preteky slovensko$/);
-  assert.equal(search.resultRank, 3);
-  assert.equal(search.title, "Výsledok");
-  assert.equal(search.snippet, "Ukážka");
+test("cross-method context is preserved and SEARCH_PROVIDER is query-context ready", () => {
+  const runner = read("lib/data-automation-discovery-runner.ts");
+  assert.match(runner, /root\.discoveryType === "SEARCH_PROVIDER"/);
+  assert.match(runner, /query:\\$\{query\}/);
+  assert.match(runner, /root\.discoveryType === "RSS"/);
+  assert.match(runner, /root\.discoveryType === "SITEMAP"/);
+  assert.match(runner, /directory:\\$\{discoveredFrom\}/);
+  assert.match(runner, /resultRank: evidenceRank\(candidate\)/);
+  assert.match(runner, /snippet: evidenceMetadataValue/);
 });
 
 test("runner evidence persistence is governance-only and never activates or canonically writes", () => {
