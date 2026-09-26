@@ -633,6 +633,48 @@ export async function upsertAutomationSourceCandidateEvidence(
   }
 }
 
+export function selectRelevantExistingSourceForCandidate(
+  candidate: Pick<AutomationSourceCandidateRow, "entityType" | "canonicalUrl" | "sourceUrl">,
+  sources: AutomationSourceAdminRow[],
+) {
+  const candidateUrl = canonicalizeSourceUrl(candidate.canonicalUrl || candidate.sourceUrl);
+  if (!candidateUrl) return null;
+
+  const hostname = (value: string | null) => {
+    if (!value) return null;
+    try {
+      return new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+    } catch {
+      return null;
+    }
+  };
+
+  const sameEntity = sources.filter((source) => source.entityType === candidate.entityType);
+  const exact = sameEntity.find((source) => canonicalizeSourceUrl(source.sourceUrl) === candidateUrl);
+  if (exact) return exact;
+
+  const candidateHost = hostname(candidateUrl);
+  if (!candidateHost) return null;
+  const sameHost = sameEntity.filter((source) => hostname(source.sourceUrl) === candidateHost);
+  return sameHost.length === 1 ? sameHost[0] : null;
+}
+
+export async function findRelevantAutomationSourceForCandidate(
+  candidate: AutomationSourceCandidateRow,
+  databaseInput?: AutomationSourceAdminDatabase,
+) {
+  const db = database(databaseInput);
+  if (candidate.duplicateSourceId) {
+    const linked = await getAutomationSourceAdmin(candidate.duplicateSourceId, db);
+    if (linked) return linked;
+  }
+
+  const result = await db.prepare(`${SOURCE_ADMIN_SELECT}
+    WHERE s.entity_type=? AND s.source_url IS NOT NULL
+    ORDER BY s.id ASC`).bind(candidate.entityType).all<Record<string, unknown>>();
+  return selectRelevantExistingSourceForCandidate(candidate, result.results.map(mapSourceAdmin));
+}
+
 function candidateSourceKey(candidate: AutomationSourceCandidateRow) {
   const host = (() => {
     try {
@@ -663,19 +705,28 @@ export async function reviewAutomationSourceCandidate(input: {
 
   let duplicateSourceId = candidate.duplicateSourceId;
   if (input.action === "approve" && !duplicateSourceId) {
-    const sourceUrl = canonicalizeSourceUrl(candidate.canonicalUrl);
-    if (!sourceUrl || !isSafeAutomationSourceUrl(sourceUrl)) throw new Error("automation_candidate_url_not_safe");
-    const created = await db.prepare(`INSERT INTO automation_sources (
-        source_key,label,entity_type,connector_type,source_url,config_json,enabled,
-        cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,
-        next_check_at,created_at,updated_at,review_status
-      ) VALUES (?,?,?,?,?,'{}',0,1440,1000,8000,2,1000,100,NULL,?,?,'PENDING')
-      RETURNING id`).bind(
-        candidateSourceKey(candidate), candidate.label, candidate.entityType,
-        candidate.suggestedConnectorType, sourceUrl, at, at,
-      ).first<{ id: number }>();
-    if (!created) throw new Error("automation_candidate_source_create_failed");
-    duplicateSourceId = Number(created.id);
+    const relevantSource = await findRelevantAutomationSourceForCandidate(candidate, db);
+    if (relevantSource) {
+      // Reuse the complete existing source, including a known adapter/config.
+      // A discovery homepage such as https://mushing.sk must not provision a
+      // second generic source when the canonical EVENT source already points
+      // at https://mushing.sk/preteky/.
+      duplicateSourceId = relevantSource.id;
+    } else {
+      const sourceUrl = canonicalizeSourceUrl(candidate.canonicalUrl);
+      if (!sourceUrl || !isSafeAutomationSourceUrl(sourceUrl)) throw new Error("automation_candidate_url_not_safe");
+      const created = await db.prepare(`INSERT INTO automation_sources (
+          source_key,label,entity_type,connector_type,source_url,config_json,enabled,
+          cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,
+          next_check_at,created_at,updated_at,review_status
+        ) VALUES (?,?,?,?,?,'{}',0,1440,1000,8000,2,1000,100,NULL,?,?,'PENDING')
+        RETURNING id`).bind(
+          candidateSourceKey(candidate), candidate.label, candidate.entityType,
+          candidate.suggestedConnectorType, sourceUrl, at, at,
+        ).first<{ id: number }>();
+      if (!created) throw new Error("automation_candidate_source_create_failed");
+      duplicateSourceId = Number(created.id);
+    }
   }
 
   const reviewStatus: AutomationCandidateReviewStatus =
