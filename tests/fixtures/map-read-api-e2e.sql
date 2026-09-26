@@ -1,5 +1,11 @@
 -- MAP-1C isolated local D1 fixture. Synthetic data only.
 
+-- Keep the public events section enabled in the isolated E2E database. Some historical
+-- clean-schema snapshots may preserve an older hidden state even though the route is
+-- part of the current public navigation.
+UPDATE portal_section_settings SET visible=1 WHERE slug='podujatia';
+
+
 INSERT INTO directory_profiles (
   id, slug, name, category, status, excerpt, description, services_json, qualifications_json,
   city, district, region, address, online, search_text, verified, featured,
