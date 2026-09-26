@@ -624,6 +624,8 @@ test("0084 governance registry migration is additive, auditable and production-g
   const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-migrate.yml"), "utf8");
   assert.match(migration, /CREATE TABLE `automation_governance_reviews`/);
   assert.match(migration, /CREATE TABLE `automation_governance_review_history`/);
+  assert.match(migration, /automation_governance_reviews_history_insert/);
+  assert.match(migration, /automation_governance_reviews_history_update/);
   assert.match(migration, /automation_governance_review_history_no_update/);
   assert.match(migration, /automation_governance_review_history_no_delete/);
   assert.doesNotMatch(migration, /UPDATE\s+automation_|DELETE\s+FROM|DROP\s+TABLE/i);
