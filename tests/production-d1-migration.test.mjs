@@ -88,6 +88,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0081_automation_mushing_event_source.sql",
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
+    "0084_automation_governance_registry.sql",
   ]);
 });
 
@@ -615,4 +616,19 @@ test("0081 Mushing source migration is data-only, disabled and governance-gated"
   assert.match(migration, /'PENDING'/);
   assert.doesNotMatch(migration, /CREATE TABLE|ALTER TABLE|DROP TABLE|DELETE FROM|UPDATE\s+automation_sources/i);
   assert.match(script, /0081_automation_mushing_event_source\.sql/);
+});
+
+test("0084 governance registry migration is additive, auditable and production-guarded", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0084_automation_governance_registry.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-migrate.yml"), "utf8");
+  assert.match(migration, /CREATE TABLE `automation_governance_reviews`/);
+  assert.match(migration, /CREATE TABLE `automation_governance_review_history`/);
+  assert.match(migration, /automation_governance_review_history_no_update/);
+  assert.match(migration, /automation_governance_review_history_no_delete/);
+  assert.doesNotMatch(migration, /UPDATE\s+automation_|DELETE\s+FROM|DROP\s+TABLE/i);
+  assert.match(script, /0084_automation_governance_registry\.sql/);
+  assert.match(script, /assertAutomationGovernanceSchema/);
+  assert.match(workflow, /0084_automation_governance_registry\.sql/);
+  assert.match(workflow, /APPLY-0084-psipedia-sk-db/);
 });
