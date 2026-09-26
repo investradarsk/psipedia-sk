@@ -14,6 +14,7 @@ import {
 import { listOrganizationLocationsAdmin } from "../lib/organization-location-admin-store.ts";
 
 const migration = readFileSync(new URL("../drizzle/0040_organization_locations_foundation.sql", import.meta.url), "utf8");
+const geoMigration = readFileSync(new URL("../drizzle/0064_geo_foundation.sql", import.meta.url), "utf8");
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 class SqliteD1Statement {
@@ -49,6 +50,14 @@ function makeDatabase() {
     updated_at TEXT NOT NULL DEFAULT '2026-09-18T06:00:00.000Z'
   );`);
   sqlite.exec(migration);
+  sqlite.exec(`CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY);
+    CREATE TABLE managed_events (id INTEGER PRIMARY KEY);`);
+  sqlite.exec(geoMigration);
+  sqlite.exec(`CREATE TABLE moderation_events (
+    id TEXT PRIMARY KEY, submission_id TEXT, resource_type TEXT, subject_id TEXT, action TEXT,
+    actor_type TEXT, actor_ref TEXT, from_status TEXT, to_status TEXT, reason_code TEXT,
+    changed_fields_json TEXT, request_id TEXT, created_at TEXT
+  );`);
   sqlite.exec(`INSERT INTO help_organizations (id, name, slug, status, address, city, district, region, country_code, published_at, archived_at) VALUES
     (1, 'Prvá organizácia', 'prva', 'PUBLISHED', 'Legacy 1', 'Legacy mesto', 'Legacy okres', 'Legacy kraj', 'SK', '2026-09-01T00:00:00.000Z', NULL),
     (2, 'Druhá organizácia', 'druha', 'DRAFT', '', '', '', '', 'SK', NULL, NULL),
@@ -105,6 +114,7 @@ test("deleting a primary is a hard delete without invented auto-promotion; publi
     const primary = await createOrganizationLocationFromAdmin(1, locationPayload({ city: "Primárne", isPrimary: true, sortOrder: 0 }), db);
     const remaining = await createOrganizationLocationFromAdmin(1, locationPayload({ city: "Zostáva", isPrimary: false, sortOrder: 5 }), db);
     assert.ok(primary && remaining); assert.equal(await deleteOrganizationLocationFromAdmin(1, primary.id, db), true);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM geo_points WHERE organization_location_id = ?").get(primary.id).count, 0);
     const items = await listOrganizationLocationsAdmin(1, db); assert.deepEqual(items.map((item) => [item.id, item.isPrimary]), [[remaining.id, false]]);
     const publicOrganization = await getPublicOrganizationBySlug("prva", db);
     assert.equal(publicOrganization?.city, "Zostáva"); assert.equal(publicOrganization?.locations[0].id, remaining.id);
@@ -163,4 +173,98 @@ test("organization location admin gates editable controls until hydration", () =
   assert.match(editor, /const editingDisabled = !hydrated \|\| parentArchived/);
   assert.match(editor, /LocationFields draft=\{createDraft\} disabled=\{editingDisabled \|\| busyId !== null\}/);
   assert.match(editor, /disabled=\{!hydrated \|\| busyId !== null\}/);
+});
+
+
+test("MAP-AUTO-1C create initializes GEO with classifier-owned SITE review semantics", async () => {
+  const { sqlite, db } = makeDatabase();
+  try {
+    const item = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "SITE" }), db);
+    assert.ok(item);
+    const geo = sqlite.prepare(`SELECT public_visibility, public_precision, geocode_status, last_error_code
+      FROM geo_points WHERE organization_location_id = ?`).get(item.id);
+    assert.equal(geo.public_visibility, null);
+    assert.equal(geo.public_precision, null);
+    assert.equal(geo.geocode_status, "NEEDS_REVIEW");
+    assert.equal(geo.last_error_code, "PRIVACY_CLASSIFICATION_MISSING");
+  } finally { sqlite.close(); }
+});
+
+test("MAP-AUTO-1C SERVICE_AREA remains approximate while LEGAL_SEAT and UNSPECIFIED require review", async () => {
+  const { sqlite, db } = makeDatabase();
+  try {
+    const service = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "SERVICE_AREA", city: "Nitra" }), db);
+    const legal = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "LEGAL_SEAT", city: "Nitra" }), db);
+    const unspecified = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "UNSPECIFIED", city: "Nitra" }), db);
+    for (const item of [service, legal, unspecified]) assert.ok(item);
+    const serviceGeo = sqlite.prepare("SELECT public_visibility, public_precision, geocode_status FROM geo_points WHERE organization_location_id = ?").get(service.id);
+    assert.equal(serviceGeo.public_visibility, "APPROXIMATE_PUBLIC");
+    assert.equal(serviceGeo.public_precision, "SERVICE_AREA");
+    assert.equal(serviceGeo.geocode_status, "PENDING");
+    for (const id of [legal.id, unspecified.id]) {
+      const geo = sqlite.prepare("SELECT public_visibility, public_precision, geocode_status, last_error_code FROM geo_points WHERE organization_location_id = ?").get(id);
+      assert.equal(geo.public_visibility, null);
+      assert.equal(geo.public_precision, null);
+      assert.equal(geo.geocode_status, "NEEDS_REVIEW");
+      assert.equal(geo.last_error_code, "PRIVACY_CLASSIFICATION_MISSING");
+    }
+  } finally { sqlite.close(); }
+});
+
+test("MAP-AUTO-1C update uses centralized reconcile and repeated identical source update is idempotent", async () => {
+  const { sqlite, db } = makeDatabase();
+  try {
+    const item = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "SERVICE_AREA", city: "Nitra" }), db);
+    assert.ok(item);
+    const afterCreate = sqlite.prepare("SELECT COUNT(*) AS count FROM moderation_events").get().count;
+    await updateOrganizationLocationFromAdmin(1, item.id, locationPayload({ role: "SERVICE_AREA", city: "Levice" }), db);
+    const changed = sqlite.prepare("SELECT geocode_status, source_fingerprint FROM geo_points WHERE organization_location_id = ?").get(item.id);
+    assert.equal(changed.geocode_status, "STALE");
+    const afterChange = sqlite.prepare("SELECT COUNT(*) AS count FROM moderation_events").get().count;
+    assert.ok(afterChange > afterCreate);
+    await updateOrganizationLocationFromAdmin(1, item.id, locationPayload({ role: "SERVICE_AREA", city: "Levice" }), db);
+    const same = sqlite.prepare("SELECT geocode_status, source_fingerprint FROM geo_points WHERE organization_location_id = ?").get(item.id);
+    const afterSame = sqlite.prepare("SELECT COUNT(*) AS count FROM moderation_events").get().count;
+    assert.equal(same.source_fingerprint, changed.source_fingerprint);
+    assert.equal(afterSame, afterChange);
+  } finally { sqlite.close(); }
+});
+
+test("MAP-AUTO-1C protects manual coordinates and marks changed source for manual review", async () => {
+  const { sqlite, db } = makeDatabase();
+  try {
+    const item = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "SERVICE_AREA", city: "Nitra" }), db);
+    assert.ok(item);
+    sqlite.prepare(`UPDATE geo_points SET latitude = 48.3, longitude = 18.1, resolution_method = 'MANUAL',
+      geocode_status = 'RESOLVED', manual_override = 1, manual_updated_at = '2026-09-26T18:00:00.000Z',
+      manual_updated_by = 'admin', resolved_source_fingerprint = source_fingerprint
+      WHERE organization_location_id = ?`).run(item.id);
+    await updateOrganizationLocationFromAdmin(1, item.id, locationPayload({ role: "SERVICE_AREA", city: "Levice" }), db);
+    const geo = sqlite.prepare(`SELECT latitude, longitude, manual_override, geocode_status, last_error_code
+      FROM geo_points WHERE organization_location_id = ?`).get(item.id);
+    assert.equal(geo.latitude, 48.3);
+    assert.equal(geo.longitude, 18.1);
+    assert.equal(geo.manual_override, 1);
+    assert.equal(geo.geocode_status, "STALE");
+    assert.equal(geo.last_error_code, "MANUAL_REVIEW");
+  } finally { sqlite.close(); }
+});
+
+test("MAP-AUTO-1C integration has one canonical lifecycle entrypoint and no provider call", () => {
+  const write = read("../lib/organization-location-admin-write.ts");
+  const route = read("../app/api/admin/organizations/[id]/locations/[locationId]/route.ts");
+  const geo = read("../lib/geo-store.ts");
+  const map = read("../lib/map-query.ts");
+  const publication = read("../lib/help-organization-admin-write.ts");
+  const bulk = read("../app/api/admin/organizations/bulk/route.ts");
+
+  assert.match(write, /reconcileGeoAfterSourceMutation/);
+  assert.equal((write.match(/reconcileGeoAfterSourceMutation\(/g) ?? []).length, 2);
+  assert.doesNotMatch(route, /syncGeoPointAfterSourceChange|reconcileGeoAfterSourceMutation/);
+  assert.doesNotMatch(write, /Geoapify|applyGeocoderResolution|geocodeOrganization|geo-provider/);
+  assert.match(geo, /locationRole: String\(row\.role \?\? "UNSPECIFIED"\)/);
+  assert.match(map, /o\.status = 'PUBLISHED'/);
+  assert.match(map, /o\.archived_at IS NULL/);
+  assert.doesNotMatch(publication, /DELETE FROM geo_points|UPDATE geo_points/);
+  assert.match(bulk, /changeOrganizationPublicationFromAdmin/);
 });
