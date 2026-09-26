@@ -83,6 +83,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_directory_geo_provider_result_id.sql",
     "0078_automation_possible_match_reviews.sql",
+    "0079_automation_agility_event_source.sql",
     "0080_automation_canonical_apply.sql",
   ]);
 });
@@ -98,7 +99,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0079_future_migration.sql",
+    "0081_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -126,6 +127,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_directory_geo_provider_result_id.sql",
     "0078_automation_possible_match_reviews.sql",
+    "0079_automation_agility_event_source.sql",
     "0080_automation_canonical_apply.sql",
   ]);
 });
@@ -134,7 +136,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0079_future_migration.sql",
+    "0081_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -148,8 +150,9 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_directory_geo_provider_result_id.sql",
     "0078_automation_possible_match_reviews.sql",
-    "0079_future_migration.sql",
+    "0079_automation_agility_event_source.sql",
     "0080_automation_canonical_apply.sql",
+    "0081_future_migration.sql",
   ]);
 });
 
@@ -396,6 +399,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.match(workflow, /APPLY-0077-psipedia-sk-db/);
   assert.match(workflow, /0078_automation_possible_match_reviews\.sql/);
   assert.match(workflow, /APPLY-0078-psipedia-sk-db/);
+  assert.match(workflow, /0079_automation_agility_event_source\.sql/);
+  assert.match(workflow, /APPLY-0079-psipedia-sk-db/);
   assert.match(workflow, /0080_automation_canonical_apply\.sql/);
   assert.match(workflow, /APPLY-0080-psipedia-sk-db/);
   assert.match(workflow, /git fetch --no-tags origin main/);
