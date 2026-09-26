@@ -36,7 +36,8 @@ INSERT INTO managed_events (
 ) VALUES
 (991200,'map-e2e-upcoming-event','MAP E2E Budúca výstava','Budúce mapové podujatie.','Výstava','published','2030-10-01','09:00','2030-10-01','16:00','Výstavisko','Nitra','Nitriansky kraj','Výstavná 1','MAP E2E','Syntetické budúce podujatie.','',0,'2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','map-e2e','map-e2e'),
 (991201,'map-e2e-past-event','MAP E2E Minulé podujatie','Historický event.','Výstava','published','2020-01-01','09:00','2020-01-01','16:00','Staré miesto','Nitra','Nitriansky kraj','Stará event 1','MAP E2E','Syntetické minulé podujatie.','',0,'2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','map-e2e','map-e2e'),
-(991202,'map-e2e-cancelled-event','MAP E2E Zrušené podujatie','Zrušený event.','Preteky','published','2030-11-01','09:00','2030-11-01','16:00','Výstavisko','Nitra','Nitriansky kraj','Výstavná 2','MAP E2E','Syntetické zrušené podujatie.','',1,'2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','map-e2e','map-e2e');
+(991202,'map-e2e-cancelled-event','MAP E2E Zrušené podujatie','Zrušený event.','Preteky','published','2030-11-01','09:00','2030-11-01','16:00','Výstavisko','Nitra','Nitriansky kraj','Výstavná 2','MAP E2E','Syntetické zrušené podujatie.','',1,'2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','map-e2e','map-e2e'),
+(991203,'map-e2e-online-event','MAP E2E Online podujatie','Online event bez fyzickej mapy.','Seminár','published','2030-12-01','18:00','2030-12-01','20:00','Online','Online','Online','','MAP E2E','Syntetické online podujatie.','',0,'2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','map-e2e','map-e2e');
 
 INSERT INTO geo_points (
   target_type, directory_profile_id, organization_location_id, managed_event_id,
