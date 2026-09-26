@@ -89,6 +89,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
     "0084_automation_governance_registry.sql",
+    "0085_automation_tavily_discovery_root.sql",
   ]);
 });
 
@@ -103,7 +104,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0085_future_migration.sql",
+    "0086_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -137,6 +138,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
     "0084_automation_governance_registry.sql",
+    "0085_automation_tavily_discovery_root.sql",
   ]);
 });
 
@@ -144,7 +146,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0085_future_migration.sql",
+    "0086_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -164,7 +166,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0082_automation_discovery_candidate_evidence.sql",
     "0083_automation_search_budgets.sql",
     "0084_automation_governance_registry.sql",
-    "0085_future_migration.sql",
+    "0085_automation_tavily_discovery_root.sql",
+    "0086_future_migration.sql",
   ]);
 });
 
@@ -635,4 +638,19 @@ test("0084 governance registry migration is additive, auditable and production-g
   assert.match(script, /assertAutomationGovernanceSchema/);
   assert.match(workflow, /0084_automation_governance_registry\.sql/);
   assert.match(workflow, /APPLY-0084-psipedia-sk-db/);
+});
+
+test("0085 Tavily discovery root migration is data-only, disabled and pending", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0085_automation_tavily_discovery_root.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-migrate.yml"), "utf8");
+  assert.match(migration, /INSERT OR IGNORE INTO automation_discovery_roots/);
+  assert.match(migration, /'tavily-sk-dog-events'/);
+  assert.match(migration, /'SEARCH_PROVIDER'/);
+  assert.match(migration, /'EVENT'/);
+  assert.match(migration, /\n  0,\n  'PENDING',\n  1440,/);
+  assert.doesNotMatch(migration, /CREATE TABLE|ALTER TABLE|DROP TABLE|DELETE FROM|UPDATE\s+/i);
+  assert.match(script, /0085_automation_tavily_discovery_root\.sql/);
+  assert.match(workflow, /0085_automation_tavily_discovery_root\.sql/);
+  assert.match(workflow, /APPLY-0085-psipedia-sk-db/);
 });
