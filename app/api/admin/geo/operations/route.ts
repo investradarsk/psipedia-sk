@@ -2,6 +2,11 @@ import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { isGeoPublicPrecision, isGeoPublicVisibility, isGeoTargetType, type GeoTargetType } from "@/lib/geo";
 import { geoapifyApiKey } from "@/lib/geoapify-geocoder";
 import {
+  previewDirectoryExactGeoBacklog,
+  runDirectoryExactGeoBacklog,
+  validateDirectoryExactGeoTargetIds,
+} from "@/lib/directory-exact-geo-auto";
+import {
   initializeGeoCandidates,
   previewExplicitGeoOnboarding,
   previewGeoCandidates,
@@ -74,6 +79,29 @@ export async function POST(request: Request) {
   const directoryCategory = typeof body.directoryCategory === "string" ? body.directoryCategory : null;
 
   try {
+    if (action === "a2-preview") {
+      const targetIds = body.targetIds === undefined
+        ? undefined
+        : validateDirectoryExactGeoTargetIds(body.targetIds);
+      const report = await previewDirectoryExactGeoBacklog({
+        limit: Math.max(1, Math.min(10, Math.trunc(Number(body.limit) || 10))),
+        targetIds,
+      });
+      return Response.json({ report, persisted: false, providerCalled: false });
+    }
+
+    if (action === "a2-canary") {
+      if (body.confirm !== "A2-CANARY") {
+        return Response.json({ error: "Chýba explicitné A2-CANARY potvrdenie." }, { status: 400 });
+      }
+      const targetIds = validateDirectoryExactGeoTargetIds(body.targetIds);
+      const report = await runDirectoryExactGeoBacklog({
+        targetIds,
+        actorRef: user.email,
+      });
+      return Response.json({ report, persisted: true, fullBackfillEnabled: false });
+    }
+
     if (action === "explicit-preview" || action === "explicit-onboard") {
       if (!targetType) return Response.json({ error: "Explicitný onboarding vyžaduje explicitný targetType." }, { status: 400 });
       let targetIds: number[];

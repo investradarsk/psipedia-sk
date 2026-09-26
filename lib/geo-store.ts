@@ -308,7 +308,13 @@ export async function writeGeoModerationEvent(input: {
   return id;
 }
 
-export async function initializeGeoPointForTarget(targetType: GeoTargetType, id: number, actorRef: string, database?: GeoD1Database) {
+export async function initializeGeoPointForTarget(
+  targetType: GeoTargetType,
+  id: number,
+  actorRef: string,
+  database?: GeoD1Database,
+  actorType: "ADMIN" | "SYSTEM" = "ADMIN",
+) {
   const db = requireGeoD1(database);
   const existing = await getGeoPointForTarget(targetType, id, db);
   if (existing) return { point: existing, created: false };
@@ -360,11 +366,11 @@ export async function initializeGeoPointForTarget(targetType: GeoTargetType, id:
   const point = await getGeoPointForTarget(targetType, id, db);
   if (!point) throw new Error("Geo point sa po vytvorení nepodarilo načítať.");
   await writeGeoModerationEvent({
-    geoPointId: point.id, action: "GEO_INITIALIZED", actorType: "ADMIN", actorRef,
+    geoPointId: point.id, action: "GEO_INITIALIZED", actorType, actorRef,
     toStatus: point.geocodeStatus, reasonCode: point.lastErrorCode, changedFields: ["target", "public_visibility", "public_precision", "source_fingerprint"],
   }, db);
   await enqueueGeoAttentionEvent({
-    database: db, point, label: source.label, actorType: "ADMIN", actorRef,
+    database: db, point, label: source.label, actorType, actorRef,
     activationKey: point.sourceFingerprint, now,
   });
   return { point, created: true };
@@ -384,6 +390,7 @@ export async function setGeoVisibility(input: {
   visibility: GeoPublicVisibility;
   precision: GeoPublicPrecision | null;
   actorRef: string;
+  actorType?: "ADMIN" | "SYSTEM";
   reason?: string;
 }, database?: GeoD1Database) {
   const db = requireGeoD1(database);
@@ -427,7 +434,7 @@ export async function setGeoVisibility(input: {
   const point = await getGeoPointForTarget(input.targetType, input.targetId, db);
   if (!point) throw new Error("Geo point sa po klasifikácii nepodarilo načítať.");
   await writeGeoModerationEvent({
-    geoPointId: point.id, action: "GEO_VISIBILITY_CHANGED", actorType: "ADMIN", actorRef: input.actorRef,
+    geoPointId: point.id, action: "GEO_VISIBILITY_CHANGED", actorType: input.actorType ?? "ADMIN", actorRef: input.actorRef,
     fromStatus: current.geocodeStatus, toStatus: point.geocodeStatus, reasonCode: input.reason ?? null,
     changedFields: ["public_visibility", "public_precision", "source_fingerprint", "geocode_status"],
   }, db);

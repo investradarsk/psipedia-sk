@@ -201,6 +201,118 @@ export function verifyDirectoryExactCandidates(input: {
   };
 }
 
+export async function revalidateDirectoryStreet(input: {
+  region: string;
+  district: string;
+  city: string;
+  street: string;
+  providerResultId?: string;
+  provider?: GeoapifyGeocoder;
+  signal?: AbortSignal;
+}) {
+  const locality = requireLocality(input.region, input.district, input.city);
+  const street = input.street.trim();
+  if (street.length < 3) throw new Error("Vybraný názov ulice je neplatný.");
+
+  const provider = input.provider ?? new GeoapifyGeocoder();
+  const candidates = await provider.autocomplete({
+    ...locality,
+    query: street,
+    signal: input.signal,
+  });
+  const localityCandidates = candidates.filter((result) => {
+    const cityOk = localityMatches(locality.city, result.city || result.district);
+    const regionOk = !result.region || localityMatches(locality.region, result.region);
+    const districtOk = !result.district || localityMatches(locality.district, result.district);
+    return result.countryCode === "SK" && Boolean(result.street) && cityOk && regionOk && districtOk;
+  });
+
+  if (input.providerResultId) {
+    const selected = localityCandidates.find((result) => result.providerResultId === input.providerResultId) ?? null;
+    if (!selected?.street || !localityMatches(street, selected.street)) {
+      throw new Error("Vybranú ulicu sa nepodarilo znovu overiť.");
+    }
+    return selected.street.trim();
+  }
+
+  const normalizedStreet = normalizeGeoText(street);
+  const selected = localityCandidates.find((result) => normalizeGeoText(result.street) === normalizedStreet) ?? null;
+  if (!selected?.street) throw new Error("Vybranú ulicu sa nepodarilo znovu overiť.");
+  return selected.street.trim();
+}
+
+export async function verifyDirectoryCanonicalAddress(input: {
+  region: string;
+  district: string;
+  city: string;
+  street: string;
+  houseNumber: string;
+  addressFormat: "STREET" | "MUNICIPALITY_NUMBER";
+  revalidateStreet?: boolean;
+  streetProviderResultId?: string;
+  provider?: GeoapifyGeocoder;
+  signal?: AbortSignal;
+}) {
+  const locality = requireLocality(input.region, input.district, input.city);
+  const requestedStreet = input.street.trim();
+  const houseNumber = input.houseNumber.trim();
+  if (!houseNumber) throw new Error("Doplň číslo domu.");
+  if (houseNumber.length > 40) throw new Error("Číslo domu je príliš dlhé.");
+  if (input.addressFormat === "STREET" && requestedStreet.length < 3) {
+    throw new Error("Vybraný názov ulice je neplatný.");
+  }
+
+  const provider = input.provider ?? new GeoapifyGeocoder();
+  const street = input.addressFormat === "STREET" && input.revalidateStreet
+    ? await revalidateDirectoryStreet({
+        ...locality,
+        street: requestedStreet,
+        providerResultId: input.streetProviderResultId,
+        provider,
+        signal: input.signal,
+      })
+    : requestedStreet;
+  const locationOrStreet = input.addressFormat === "STREET" ? street : locality.city;
+  const query = [locationOrStreet, houseNumber, locality.city, locality.district, locality.region, "Slovensko"]
+    .filter(Boolean).join(", ");
+  const verifyResults = (results: NormalizedGeocoderResult[]) => verifyDirectoryExactCandidates({
+    ...locality,
+    results,
+    userHouseNumber: houseNumber,
+    expectedAddressFormat: input.addressFormat,
+    expectedStreet: input.addressFormat === "STREET" ? street : undefined,
+  });
+
+  const primaryResults = await provider.geocodeExact({
+    query,
+    precision: "EXACT",
+    countryCode: "SK",
+    structuredAddress: input.addressFormat === "STREET"
+      ? {
+          housenumber: houseNumber,
+          street,
+          city: locality.city,
+          state: locality.region,
+          country: "Slovakia",
+        }
+      : undefined,
+    signal: input.signal,
+  });
+
+  try {
+    return verifyResults(primaryResults);
+  } catch (primaryVerificationError) {
+    if (input.addressFormat !== "STREET") throw primaryVerificationError;
+    const secondaryResults = await provider.geocodeApproximate({
+      query,
+      precision: "EXACT",
+      countryCode: "SK",
+      signal: input.signal,
+    });
+    return verifyResults(secondaryResults);
+  }
+}
+
 export async function verifyDirectoryAddressSelection(input: {
   region: string;
   district: string;
@@ -211,68 +323,21 @@ export async function verifyDirectoryAddressSelection(input: {
   provider?: GeoapifyGeocoder;
   signal?: AbortSignal;
 }) {
-  const locality = requireLocality(input.region, input.district, input.city);
   const providerResultId = input.providerResultId.trim();
-  const street = input.street.trim();
-  const houseNumber = input.houseNumber.trim();
   if (!providerResultId) throw new Error("Vyber ulicu z Geoapify návrhov.");
-  if (street.length < 3) throw new Error("Vybraný názov ulice je neplatný.");
-  if (!houseNumber) throw new Error("Doplň číslo domu.");
-  if (houseNumber.length > 40) throw new Error("Číslo domu je príliš dlhé.");
 
-  const provider = input.provider ?? new GeoapifyGeocoder();
-  const streetCandidates = await provider.autocomplete({
-    ...locality,
-    query: street,
+  return verifyDirectoryCanonicalAddress({
+    region: input.region,
+    district: input.district,
+    city: input.city,
+    street: input.street,
+    houseNumber: input.houseNumber,
+    addressFormat: "STREET",
+    revalidateStreet: true,
+    streetProviderResultId: providerResultId,
+    provider: input.provider,
     signal: input.signal,
   });
-  const selected = streetCandidates.find((result) => result.providerResultId === providerResultId) ?? null;
-  if (!selected?.street || !localityMatches(street, selected.street)) {
-    throw new Error("Vybranú ulicu sa nepodarilo znovu overiť.");
-  }
-
-  const cityOk = localityMatches(locality.city, selected.city || selected.district);
-  const regionOk = !selected.region || localityMatches(locality.region, selected.region);
-  const districtOk = !selected.district || localityMatches(locality.district, selected.district);
-  if (selected.countryCode !== "SK" || !cityOk || !regionOk || !districtOk) {
-    throw new Error("Vybraná ulica nepatrí do zvolenej lokality.");
-  }
-
-  const query = [selected.street, houseNumber, locality.city, locality.district, locality.region, "Slovensko"]
-    .filter(Boolean).join(", ");
-  const verifyStreetResults = (results: NormalizedGeocoderResult[]) => verifyDirectoryExactCandidates({
-    ...locality,
-    results,
-    userHouseNumber: houseNumber,
-    expectedAddressFormat: "STREET",
-    expectedStreet: selected.street,
-  });
-
-  const primaryResults = await provider.geocodeExact({
-    query,
-    precision: "EXACT",
-    countryCode: "SK",
-    structuredAddress: {
-      housenumber: houseNumber,
-      street: selected.street,
-      city: locality.city,
-      state: locality.region,
-      country: "Slovakia",
-    },
-    signal: input.signal,
-  });
-
-  try {
-    return verifyStreetResults(primaryResults);
-  } catch {
-    const secondaryResults = await provider.geocodeApproximate({
-      query,
-      precision: "EXACT",
-      countryCode: "SK",
-      signal: input.signal,
-    });
-    return verifyStreetResults(secondaryResults);
-  }
 }
 
 export type ExternalDirectoryAddressVerification = {
@@ -302,65 +367,15 @@ export async function verifyExternalDirectoryAddressBestEffort(input: {
     const parsed = splitExternalAddress(input.address, locality.city);
     if (!parsed) return { status: "NEEDS_REVIEW", verified: null };
 
-    const provider = input.provider ?? new GeoapifyGeocoder();
-    const query = [
-      parsed.locationOrStreet,
-      parsed.houseNumber,
-      locality.city,
-      locality.district,
-      locality.region,
-      "Slovensko",
-    ].filter(Boolean).join(", ");
-
-    if (parsed.municipalityNumber) {
-      const results = await provider.geocodeExact({
-        query,
-        precision: "EXACT",
-        countryCode: "SK",
-        signal: input.signal,
-      });
-      const verified = verifyDirectoryExactCandidates({
-        ...locality,
-        results,
-        userHouseNumber: parsed.houseNumber,
-        expectedAddressFormat: "MUNICIPALITY_NUMBER",
-      });
-      return { status: "VERIFIED_EXACT", verified };
-    }
-
-    const verifyStreetResults = (results: NormalizedGeocoderResult[]) => verifyDirectoryExactCandidates({
+    const verified = await verifyDirectoryCanonicalAddress({
       ...locality,
-      results,
-      userHouseNumber: parsed.houseNumber,
-      expectedAddressFormat: "STREET",
-      expectedStreet: parsed.locationOrStreet,
-    });
-
-    const primaryResults = await provider.geocodeExact({
-      query,
-      precision: "EXACT",
-      countryCode: "SK",
-      structuredAddress: {
-        housenumber: parsed.houseNumber,
-        street: parsed.locationOrStreet,
-        city: locality.city,
-        state: locality.region,
-        country: "Slovakia",
-      },
+      street: parsed.municipalityNumber ? "" : parsed.locationOrStreet,
+      houseNumber: parsed.houseNumber,
+      addressFormat: parsed.municipalityNumber ? "MUNICIPALITY_NUMBER" : "STREET",
+      provider: input.provider,
       signal: input.signal,
     });
-
-    try {
-      return { status: "VERIFIED_EXACT", verified: verifyStreetResults(primaryResults) };
-    } catch {
-      const secondaryResults = await provider.geocodeApproximate({
-        query,
-        precision: "EXACT",
-        countryCode: "SK",
-        signal: input.signal,
-      });
-      return { status: "VERIFIED_EXACT", verified: verifyStreetResults(secondaryResults) };
-    }
+    return { status: "VERIFIED_EXACT", verified };
   } catch {
     return { status: "NEEDS_REVIEW", verified: null };
   }

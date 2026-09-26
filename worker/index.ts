@@ -1,5 +1,6 @@
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
+import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
 import { runAdminPushSweep } from "../lib/admin-push";
 import { runDataAutomationSweep } from "../lib/data-automation-runner";
 import { runDataAutomationDiscoverySweep } from "../lib/data-automation-discovery-runner";
@@ -225,7 +226,7 @@ const worker = {
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
       return;
     }
-    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery, partnerMediaCleanup] = await Promise.all([
+    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
@@ -267,6 +268,26 @@ const worker = {
         console.error(JSON.stringify({event:"partner_media_cleanup",result:"failed",error:error instanceof Error?error.message:String(error)}));
         return {candidates:0,cleaned:0,failed:1};
       }),
+      runDirectoryExactGeoBacklog({ database: env.DB }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "geo_a2_auto_run",
+          result: "systemic_failure",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return {
+          event: "geo_a2_auto_run",
+          runId: null,
+          selected: 0,
+          processed: 0,
+          resolved: 0,
+          skipped: 0,
+          review: 0,
+          failed: 1,
+          rateLimited: 0,
+          durationMs: 0,
+          systemicFailure: true,
+        };
+      }),
     ]);
     // Run push after the editorial sweep so notifications created during
     // this cron can be delivered in the same scheduled execution.
@@ -285,6 +306,7 @@ const worker = {
     console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
     console.info(JSON.stringify({ event: "data_automation_discovery_sweep", ...sourceDiscovery }));
     console.info(JSON.stringify({ event: "partner_media_cleanup", ...partnerMediaCleanup }));
+    console.info(JSON.stringify({ event: "geo_a2_auto_sweep", ...directoryExactGeo }));
     console.info(JSON.stringify({ event: "admin_push_sweep", ...adminPush }));
   },
 };
