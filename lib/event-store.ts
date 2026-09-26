@@ -186,6 +186,26 @@ function validTime(value: string) {
   return !value || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
+function managedEventGeoSourceChanged(before: DogEvent, after: DogEvent) {
+  return before.venue !== after.venue
+    || before.address !== after.address
+    || before.city !== after.city
+    || before.region !== after.region;
+}
+
+function managedEventGeoActorType(editorEmail: string): "ADMIN" | "SYSTEM" {
+  return editorEmail === "notion-event-sync@psipedia.sk" ? "SYSTEM" : "ADMIN";
+}
+
+async function reconcileManagedEventGeo(eventId: number, editorEmail: string, database: D1Database) {
+  return reconcileGeoAfterSourceMutation({
+    targetType: "MANAGED_EVENT",
+    targetId: eventId,
+    actorRef: editorEmail,
+    actorType: managedEventGeoActorType(editorEmail),
+  }, database);
+}
+
 export function normalizeManagedEventInput(payload: ManagedEventInput) {
   const title = payload.title?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || title);
