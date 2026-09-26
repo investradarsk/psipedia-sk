@@ -5,6 +5,7 @@ type PublicMapRuntimeBindings = {
   PUBLIC_MAP_ENABLED?: string;
   GOOGLE_MAPS_BROWSER_API_KEY?: string;
   GOOGLE_MAPS_MAP_ID?: string;
+  MAP_UI_TEST_RENDERER?: string;
 };
 
 export type PublicMapRuntime = {
@@ -26,6 +27,6 @@ export function getPublicMapRuntime(): PublicMapRuntime {
     rendererEnabled,
     googleApiKey: rendererEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "",
     googleMapId: rendererEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "",
-    testRendererEnvironment: process.env.MAP_UI_TEST_RENDERER === "1",
+    testRendererEnvironment: (bindings.MAP_UI_TEST_RENDERER ?? process.env.MAP_UI_TEST_RENDERER) === "1",
   };
 }
