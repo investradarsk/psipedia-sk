@@ -29,6 +29,7 @@ on:
       - "tests/g4-possible-review-decisions.test.mjs"
       - "tests/g5-canonical-apply.test.mjs"
       - "tests/automation-cluster-admin-integration.test.mjs"
+      - "tests/admin-auto-ux-2.test.mjs"
       - "tests/fixtures/data-automation/**"
       - "tests/e2e/data-automation-v2.spec.ts"
       - ".github/workflows/data-automation-v2-ci.yml"

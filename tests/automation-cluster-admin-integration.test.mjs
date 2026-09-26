@@ -36,11 +36,13 @@ test("preferred evidence and supporting sources are visible", () => {
   assert.match(page, /confidence/);
 });
 
-test("canonical cluster linkage renders an admin destination without auto publish", () => {
+test("canonical cluster linkage renders an admin destination and routes publishing through manual review", () => {
   const page = read("app/admin/automatizacie/[category]/cluster/[id]/page.tsx");
   assert.match(page, /automationCanonicalAdminHref/);
-  assert.match(page, /Canonical záznam ešte neexistuje/);
-  assert.doesNotMatch(page, /publish|zverejni/i);
+  assert.match(page, /Záznam je prepojený s Psipediou/);
+  assert.match(page, /\/admin\/operations\/automation\//);
+  assert.match(page, /public publication zostáva manuálna/);
+  assert.doesNotMatch(page, /setAutomationSourceEnabled|publishAutomation|auto.?publish/i);
 });
 
 test("finding with cluster gets context link and finding without cluster stays valid", () => {
@@ -76,6 +78,8 @@ test("read model uses bounded aggregate and batch loading instead of per-row N+1
 test("cluster detail has responsive evidence layout and technical data remains collapsed", () => {
   const page = read("app/admin/automatizacie/[category]/cluster/[id]/page.tsx");
   const css = read("components/admin-operations-ux.module.css");
-  assert.match(page, /<details className=\{styles\.advanced\}><summary>Technické údaje<\/summary>/);
+  assert.match(page, /<details className=\{styles\.advanced\}>[\s\S]*<summary>Pokročilé<\/summary>/);
+  assert.match(page, /<strong>Observations<\/strong>/);
+  assert.ok(page.indexOf("<summary>Pokročilé</summary>") < page.indexOf("<strong>Observations</strong>"));
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.evidenceRow[\s\S]*grid-template-columns: 1fr/);
 });

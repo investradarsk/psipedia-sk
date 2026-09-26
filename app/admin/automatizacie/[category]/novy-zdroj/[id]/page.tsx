@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminAutomationCandidateReview } from "@/components/admin-automation-candidate-review";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { getAutomationSourceCandidate } from "@/lib/data-automation-source-store";
+import {
+  findRelevantAutomationSourceForCandidate,
+  getAutomationSourceCandidate,
+} from "@/lib/data-automation-source-store";
 import {
   automationCategoryBySlug,
   automationCategoryForCandidate,
@@ -23,6 +26,7 @@ export default async function AutomationCandidateReviewPage({ params }: Props) {
 
   const candidate = await getAutomationSourceCandidate(id).catch(() => null);
   if (!candidate || automationCategoryForCandidate(candidate) !== slug) notFound();
+  const existingSource = await findRelevantAutomationSourceForCandidate(candidate).catch(() => null);
 
   return (
     <AdminShell
@@ -32,7 +36,7 @@ export default async function AutomationCandidateReviewPage({ params }: Props) {
       description="Skontroluj návrh zdroja a rozhodni, či ho zaradiť medzi zdroje Psipedie."
       actions={<Link href={"/admin/automatizacie/" + slug + "#nove-zdroje"}>← Späť na nové zdroje</Link>}
     >
-      <AdminAutomationCandidateReview candidate={candidate} categorySlug={slug} />
+      <AdminAutomationCandidateReview candidate={candidate} categorySlug={slug} existingSource={existingSource} />
     </AdminShell>
   );
 }
