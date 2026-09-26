@@ -212,6 +212,9 @@
 .filterButton:focus-visible,
 .resultSelect:focus-visible,
 .resultLink:focus-visible,
+.externalMapLink:focus-visible,
+.navigationLink:focus-visible,
+.mapTypeControl button:focus-visible,
 .sheetToggle:focus-visible,
 .statusAction:focus-visible,
 .clusterAction:focus-visible {
@@ -392,12 +395,16 @@
 
 .cardFooter {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
+  gap: 7px;
   padding: 0 15px 13px;
 }
 
-.resultLink {
+.resultLink,
+.externalMapLink,
+.navigationLink {
   display: inline-flex;
   min-height: 38px;
   align-items: center;
@@ -407,7 +414,18 @@
   background: #f2f5ee;
   font-size: .72rem;
   font-weight: 850;
+  line-height: 1.25;
   text-decoration: none;
+}
+
+.externalMapLink {
+  border: 1px solid rgba(23, 75, 56, .16);
+  background: rgba(255, 255, 255, .9);
+}
+
+.navigationLink {
+  color: white;
+  background: var(--forest, #174b38);
 }
 
 .stateCard {
@@ -645,6 +663,38 @@
   outline-offset: 2px;
 }
 
+.mapTypeControl {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(23, 53, 43, .14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 5px 18px rgba(23, 53, 43, .08);
+}
+
+.mapTypeControl button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--forest, #174b38);
+  background: transparent;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.mapTypeControl button[aria-pressed="true"] {
+  color: white;
+  background: var(--forest, #174b38);
+}
+
 .mapStatusPill {
   position: absolute;
   z-index: 4;
@@ -855,9 +905,29 @@
     min-height: 44px;
   }
 
+  .mapTypeControl {
+    top: 10px;
+    left: 10px;
+  }
+
+  .mapTypeControl button {
+    min-height: 40px;
+    padding-inline: 11px;
+  }
+
   .mapStatusPill {
     right: 10px;
     top: 10px;
+  }
+
+  .cardFooter {
+    justify-content: flex-start;
+  }
+
+  .resultLink,
+  .externalMapLink,
+  .navigationLink {
+    min-height: 42px;
   }
 
   .mobileBackdrop {
