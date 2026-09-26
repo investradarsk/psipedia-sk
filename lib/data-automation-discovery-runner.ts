@@ -2,12 +2,13 @@ import {
   automationSearchQueryFingerprint,
   automationSearchResultsToCandidates,
   AutomationSearchProviderError,
-  htmlLinkDirectoryDiscovery,
   normalizeAutomationSearchRequest,
+  parseStructuredDirectoryConfig,
   requireConfiguredSearchProvider,
   rssDiscoveryCandidates,
   parseSitemapDocument,
   structuredDirectoryDiscovery,
+  structuredDirectoryNextPageUrl,
   type AutomationSearchProvider,
   type AutomationSourceCandidateInput,
 } from "./data-automation-discovery.ts";
@@ -139,13 +140,15 @@ function validateContentType(root: AutomationDiscoveryRoot, contentType: string 
     return;
   }
   if (root.discoveryType === "STRUCTURED_DIRECTORY") {
-    const adapter = String(root.config.adapter ?? "");
-    if (adapter === "HTML_LINK_DIRECTORY") {
+    const format = String(root.config.format ?? "");
+    if (format === "HTML") {
       if (!value.includes("text/html") && !value.includes("application/xhtml+xml")) {
-        throw new DiscoveryFetchError("discovery_invalid_content_type");
+        throw new DiscoveryFetchError("invalid_directory_response");
       }
-    } else if (!value.includes("application/json") && !value.includes("+json")) {
-      throw new DiscoveryFetchError("discovery_invalid_content_type");
+    } else if (format === "JSON") {
+      if (!value.includes("application/json") && !value.includes("+json")) {
+        throw new DiscoveryFetchError("invalid_directory_response");
+      }
     }
   }
 }
@@ -176,7 +179,7 @@ async function fetchDiscoveryPayload(
         redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
         headers: {
-          accept: root.discoveryType === "STRUCTURED_DIRECTORY" && String(root.config.adapter ?? "") !== "HTML_LINK_DIRECTORY"
+          accept: root.discoveryType === "STRUCTURED_DIRECTORY" && String(root.config.format ?? "") === "JSON"
             ? "application/json"
             : "text/html,application/xhtml+xml,application/xml,text/xml,text/plain",
           "user-agent": "PsipediaSourceDiscovery/1.0 (+https://psipedia.sk)",
@@ -684,44 +687,121 @@ async function discoverCandidates(
     }
   }
 
-  const fetched = await fetchWithRetry(
-    root,
-    options.fetchImpl ?? fetch,
-    options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
-  );
-
-  if (String(root.config.adapter ?? "") === "HTML_LINK_DIRECTORY") {
-    return {
-      candidates: htmlLinkDirectoryDiscovery({
-        payload: fetched.payload,
-        baseUrl: fetched.finalUrl,
-        entityType: root.entityType,
-        suggestedConnectorType: root.suggestedConnectorType,
-        externalOnly: configBoolean(root, "externalOnly", true),
-        excludeHosts: configStrings(root, "excludeHosts"),
-        maxCandidates,
-      }),
-      warnings: [],
-    };
+  if (root.discoveryType !== "STRUCTURED_DIRECTORY") {
+    throw new DiscoveryFetchError("automation_discovery_unknown_type");
   }
 
-  let parsed: unknown;
+  let directoryConfig;
   try {
-    parsed = JSON.parse(fetched.payload);
+    directoryConfig = parseStructuredDirectoryConfig(root.config);
   } catch {
-    throw new DiscoveryFetchError("discovery_structured_json_invalid");
+    throw new DiscoveryFetchError("invalid_directory_config");
   }
-  return {
-    candidates: structuredDirectoryDiscovery({
-      payload: parsed,
+
+  // Detail-page N+1 fetching is deliberately not part of DISCOVERY-4A. The
+  // config surface is reserved and bounded, but enabling it fails closed until
+  // a dedicated extraction contract exists for detail pages.
+  if (directoryConfig.detailFetch) {
+    throw new DiscoveryFetchError("directory_detail_fetch_not_supported");
+  }
+
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const sleep = options.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const urlAllowed = sitemapHostPolicy(root);
+  const maxPages = Math.min(directoryConfig.pagination?.maxPages ?? 1, 10);
+  const visited = new Set<string>();
+  const candidatesByUrl = new Map<string, AutomationSourceCandidateInput>();
+  const warnings = new Set<string>();
+  let nextUrl = root.sourceUrl;
+  let rowsSeen = 0;
+
+  for (let pageIndex = 0; pageIndex < maxPages && nextUrl && candidatesByUrl.size < maxCandidates; pageIndex += 1) {
+    const canonicalPage = canonicalizeSourceUrl(nextUrl);
+    if (!canonicalPage || visited.has(canonicalPage)) {
+      warnings.add("directory_pagination_loop");
+      break;
+    }
+    if (!urlAllowed(canonicalPage)) {
+      warnings.add("directory_host_blocked");
+      break;
+    }
+    visited.add(canonicalPage);
+
+    const fetched = await fetchWithRetry(root, fetchImpl, sleep, canonicalPage, urlAllowed);
+    let payload: unknown = fetched.payload;
+    if (directoryConfig.format === "JSON") {
+      try {
+        payload = JSON.parse(fetched.payload);
+      } catch {
+        throw new DiscoveryFetchError("invalid_directory_response");
+      }
+    }
+
+    const remainingRows = Math.max(0, directoryConfig.maxRows - rowsSeen);
+    if (remainingRows <= 0) {
+      warnings.add("directory_row_limit");
+      break;
+    }
+    const parsed = structuredDirectoryDiscovery({
+      payload,
       baseUrl: fetched.finalUrl,
       entityType: root.entityType,
-      recordsPath: typeof root.config.recordsPath === "string" ? root.config.recordsPath : undefined,
-      urlField: typeof root.config.urlField === "string" ? root.config.urlField : undefined,
-      labelField: typeof root.config.labelField === "string" ? root.config.labelField : undefined,
+      config: { ...directoryConfig, maxRows: remainingRows },
+      pageIndex,
+      maxCandidates: Math.max(1, maxCandidates - candidatesByUrl.size),
+      urlAllowed,
       suggestedConnectorType: root.suggestedConnectorType,
-    }).slice(0, maxCandidates),
-    warnings: [],
+    });
+    rowsSeen += parsed.stats.rowsParsed;
+    parsed.warnings.forEach((warning) => warnings.add(warning));
+
+    for (const candidate of parsed.candidates) {
+      const existing = candidatesByUrl.get(candidate.sourceUrl);
+      if (!existing) {
+        candidatesByUrl.set(candidate.sourceUrl, candidate);
+        continue;
+      }
+      const paths = Array.isArray(existing.metadata?.discoveryPaths)
+        ? existing.metadata!.discoveryPaths.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+        : [existing.metadata ?? {}];
+      const candidatePath = candidate.metadata ?? {};
+      const pathKey = JSON.stringify([
+        candidatePath.directoryPageUrl ?? "",
+        candidatePath.rowIdentity ?? candidate.sourceUrl,
+      ]);
+      const hasPath = paths.some((path) => JSON.stringify([
+        path.directoryPageUrl ?? "",
+        path.rowIdentity ?? existing.sourceUrl,
+      ]) === pathKey);
+      existing.metadata = {
+        ...(existing.metadata ?? {}),
+        discoveryPaths: hasPath ? paths : [...paths, candidatePath].slice(0, 20),
+      };
+    }
+
+    if (rowsSeen >= directoryConfig.maxRows) {
+      warnings.add("directory_row_limit");
+      break;
+    }
+
+    const proposedNext = structuredDirectoryNextPageUrl({
+      payload: fetched.payload,
+      currentUrl: fetched.finalUrl,
+      config: directoryConfig,
+      nextPageNumber: pageIndex + 1,
+    });
+    if (!proposedNext) break;
+    if (!urlAllowed(proposedNext)) {
+      warnings.add("directory_host_blocked");
+      break;
+    }
+    nextUrl = proposedNext;
+    if (pageIndex + 1 >= maxPages) warnings.add("directory_page_limit");
+  }
+
+  return {
+    candidates: [...candidatesByUrl.values()].slice(0, maxCandidates),
+    warnings: [...warnings],
   };
 }
 
@@ -775,7 +855,12 @@ export function discoveryEvidenceContext(
     const leafUrl = typeof metadata.leafUrl === "string" ? metadata.leafUrl : candidate.sourceUrl;
     context = `root:${rootSitemap}|sitemap:${sitemapUrl}|depth:${depth}|leaf:${leafUrl}`;
   } else {
-    context = externalId ? `directory:${discoveredFrom}|record:${externalId}` : `directory:${discoveredFrom}`;
+    const metadata = candidate.metadata ?? {};
+    const pageUrl = typeof metadata.directoryPageUrl === "string" ? metadata.directoryPageUrl : discoveredFrom;
+    const rowIdentity = typeof metadata.rowIdentity === "string" && metadata.rowIdentity
+      ? metadata.rowIdentity
+      : candidate.sourceUrl;
+    context = `root:${root.rootKey}|page:${pageUrl}|row:${rowIdentity}`;
   }
 
   const fingerprint = root.discoveryType === "SEARCH_PROVIDER"
@@ -828,7 +913,7 @@ async function runDiscoveryRoot(
           discoveredFromSourceId: null,
           detectedAt: startedAt,
         }, options.database);
-        const paths = root.discoveryType === "SITEMAP" && Array.isArray(candidate.metadata?.discoveryPaths)
+        const paths = Array.isArray(candidate.metadata?.discoveryPaths)
           ? candidate.metadata!.discoveryPaths.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
           : [];
         const evidenceCandidates = paths.length
