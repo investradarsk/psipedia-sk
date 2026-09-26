@@ -37,15 +37,18 @@ test("PUBLIC-MAPS-1 reusable detail map reuses renderer, consent and MAP-UX coor
   assert.match(consent, /psipedia-google-maps-consent/);
 });
 
-test("MAP-UX-1 map type switching suppresses only presentation-only idle events", async () => {
+test("MAP-UX-1B map type switching uses bounded lifecycle suppression without masking movement", async () => {
   const renderer = await read("components/map/google-map-renderer.tsx");
-  assert.match(renderer, /const mapTypeSwitchViewportRef = useRef<MapViewport \| null>\(null\)/);
-  assert.match(renderer, /const currentViewport = viewportFromMap\(mapRef\.current\)/);
-  assert.match(renderer, /mapTypeSwitchViewportRef\.current = currentViewport/);
+  assert.match(renderer, /beginMapTypeIdleSuppression\(mapTypeIdleSuppressionRef\.current\)/);
   assert.match(renderer, /mapRef\.current\.setMapTypeId\(mapType\)/);
-  assert.match(renderer, /if \(sameViewport\(mapTypeSwitchViewport, next\)\) return/);
-  assert.match(renderer, /mapTypeSwitchViewportRef\.current = null/);
+  assert.match(renderer, /map\.addListener\("maptypeid_changed"/);
+  assert.match(renderer, /confirmMapTypeChange\(mapTypeIdleSuppressionRef\.current\)/);
+  assert.match(renderer, /map\.addListener\("dragstart"/);
+  assert.match(renderer, /map\.addListener\("zoom_changed"/);
+  assert.match(renderer, /cancelMapTypeIdleSuppression\(mapTypeIdleSuppressionRef\.current\)/);
+  assert.match(renderer, /consumeMapTypeIdleSuppression\(mapTypeIdleSuppressionRef\.current\)/);
   assert.match(renderer, /onViewportChangeRef\.current\(next\)/);
+  assert.doesNotMatch(renderer, /sameViewport|mapTypeSwitchViewportRef/);
   assert.doesNotMatch(renderer, /setTimeout\([^)]*setMapTypeId|debounce/i);
 });
 
