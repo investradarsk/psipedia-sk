@@ -156,7 +156,15 @@ export function PublicLocationMap({
             <div className={styles.consent} data-testid="detail-map-consent-gate">
               <strong>Načítať interaktívnu Google mapu?</strong>
               <span>Google Maps sa načíta až po tvojom výslovnom povolení. Detail stránky funguje aj bez nej.</span>
-              <button type="button" onClick={() => setGoogleMapsConsent(true)}>Povoliť Google Maps</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGoogleMapsConsent(true);
+                  setConsentGranted(true);
+                }}
+              >
+                Povoliť Google Maps
+              </button>
             </div>
           ) : null}
         </div>
