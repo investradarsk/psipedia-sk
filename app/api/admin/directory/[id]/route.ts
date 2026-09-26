@@ -50,6 +50,7 @@ export async function PUT(request: Request, { params }: Props) {
         district: body.district ?? before.district,
         city: body.city ?? before.city,
         providerResultId: body.addressProviderResultId,
+        houseNumber: body.houseNumber ?? before.houseNumber,
       });
       payload = withVerifiedDirectoryAddress(body, verified);
     } else if (changed) {
@@ -58,7 +59,7 @@ export async function PUT(request: Request, { params }: Props) {
         && !body.district?.trim()
         && !body.city?.trim();
       if (!clearingForOnlineOnly) {
-        throw new Error("Zmenu fyzickej adresy potvrď výberom konkrétnej adresy z Geoapify návrhov.");
+        throw new Error("Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov a doplnením čísla domu.");
       }
       payload = {
         ...body,
