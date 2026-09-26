@@ -145,21 +145,30 @@ export async function verifyDirectoryAddressSelection(input: {
   district: string;
   city: string;
   providerResultId: string;
+  street: string;
   houseNumber: string;
   provider?: GeoapifyGeocoder;
   signal?: AbortSignal;
 }) {
   const locality = requireLocality(input.region, input.district, input.city);
   const providerResultId = input.providerResultId.trim();
+  const street = input.street.trim();
   const houseNumber = input.houseNumber.trim();
   if (!providerResultId) throw new Error("Vyber ulicu z Geoapify návrhov.");
+  if (street.length < 3) throw new Error("Vybraný názov ulice je neplatný.");
   if (!houseNumber) throw new Error("Doplň číslo domu.");
   if (houseNumber.length > 40) throw new Error("Číslo domu je príliš dlhé.");
 
   const provider = input.provider ?? new GeoapifyGeocoder();
-  const details = await provider.lookupPlace(providerResultId, input.signal);
-  const selected = details.find((result) => result.providerResultId === providerResultId) ?? null;
-  if (!selected?.street) throw new Error("Vybranú ulicu sa nepodarilo znovu overiť.");
+  const streetCandidates = await provider.autocomplete({
+    ...locality,
+    query: street,
+    signal: input.signal,
+  });
+  const selected = streetCandidates.find((result) => result.providerResultId === providerResultId) ?? null;
+  if (!selected?.street || !localityMatches(street, selected.street)) {
+    throw new Error("Vybranú ulicu sa nepodarilo znovu overiť.");
+  }
 
   const cityOk = localityMatches(locality.city, selected.city || selected.district);
   const regionOk = !selected.region || localityMatches(locality.region, selected.region);
