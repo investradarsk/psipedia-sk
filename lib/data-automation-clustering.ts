@@ -17,6 +17,7 @@ import {
   type AutomationCandidateKey,
   type AutomationSemanticKind,
 } from "./data-automation-identity.ts";
+import { resolveDirectoryAutomationEntityCluster } from "./data-automation-directory-clustering.ts";
 
 export const automationClusterMatchQualities = ["EXACT", "STRONG", "POSSIBLE", "NONE"] as const;
 export type AutomationClusterMatchQuality = (typeof automationClusterMatchQualities)[number];
@@ -982,20 +983,18 @@ const ORGANIZATION_ENTITY_RESOLUTION_STRATEGY: AutomationEntityResolutionStrateg
   resolve: resolveOrganizationAutomationEntityCluster,
 };
 
-function foundationOnlyStrategy(entityType: "DIRECTORY"): AutomationEntityResolutionStrategy {
-  return {
-    entityType,
-    matcherImplemented: false,
-    resolve: async () => null,
-  };
-}
+const DIRECTORY_ENTITY_RESOLUTION_STRATEGY: AutomationEntityResolutionStrategy = {
+  entityType: "DIRECTORY",
+  matcherImplemented: true,
+  resolve: resolveDirectoryAutomationEntityCluster,
+};
 
 export function automationEntityResolutionStrategyFor(
   entityType: AutomationSource["entityType"],
 ): AutomationEntityResolutionStrategy | null {
   if (entityType === "EVENT") return EVENT_ENTITY_RESOLUTION_STRATEGY;
   if (entityType === "ORGANIZATION") return ORGANIZATION_ENTITY_RESOLUTION_STRATEGY;
-  if (entityType === "DIRECTORY") return foundationOnlyStrategy(entityType);
+  if (entityType === "DIRECTORY") return DIRECTORY_ENTITY_RESOLUTION_STRATEGY;
   return null;
 }
 

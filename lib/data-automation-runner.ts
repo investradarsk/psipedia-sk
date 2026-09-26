@@ -30,6 +30,7 @@ import {
   linkAutomationFindingToCluster,
   resolveAutomationEntityCluster,
 } from "./data-automation-clustering.ts";
+import { isDirectoryFacilityObservation } from "./data-automation-directory-matching.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 
@@ -246,7 +247,9 @@ async function processRecord(
     return { finding: findingType, ...result };
   }
 
-  let match = await matchAutomationCanonical(source, record, database);
+  let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
+    ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
+    : await matchAutomationCanonical(source, record, database);
 
   if (clusterResolution?.canonicalEntityId && !match.entityId) {
     match = {
