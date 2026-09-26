@@ -4,6 +4,7 @@ import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
 import { runAdminPushSweep } from "../lib/admin-push";
 import { runDataAutomationSweep } from "../lib/data-automation-runner";
 import { runDataAutomationDiscoverySweep } from "../lib/data-automation-discovery-runner";
+import { TavilyAutomationSearchProvider } from "../lib/data-automation-search-tavily";
 import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
 import { createProductionOrganizationEnricher } from "../lib/data-automation-organization-enrichment";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
@@ -44,6 +45,7 @@ interface Env {
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
+  TAVILY_API_KEY?: string;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   IMAGES: {
     input(stream: ReadableStream): {
@@ -256,7 +258,10 @@ const worker = {
         }));
         return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 1, errors: 1, schemaReady: true, runs: [] };
       }),
-      runDataAutomationDiscoverySweep({ database: env.DB }).catch((error) => {
+      runDataAutomationDiscoverySweep({
+        database: env.DB,
+        searchProvider: new TavilyAutomationSearchProvider({ apiKey: env.TAVILY_API_KEY }),
+      }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_discovery_sweep",
           result: "failed",
