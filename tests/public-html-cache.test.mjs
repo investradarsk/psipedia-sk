@@ -6,10 +6,35 @@ import {
   invalidateVersionedPublicHtmlCacheUrl,
   versionedPublicHtmlCacheUrl,
 } from "../lib/public-html-cache.ts";
+import {
+  LEGACY_CHATGPT_SITE_HOST,
+  legacyChatgptSiteRedirectUrl,
+} from "../lib/legacy-chatgpt-site.ts";
 
 const workerSource = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const smokeSource = readFileSync(new URL("./e2e/psipedia.spec.ts", import.meta.url), "utf8");
 const wrangler = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+
+test("legacy ChatGPT Site hostname permanently maps to the canonical Psipedia host", () => {
+  const source = new URL(`https://${LEGACY_CHATGPT_SITE_HOST}/aktivity/nosework?q=pes`);
+  const redirect = legacyChatgptSiteRedirectUrl(source);
+
+  assert.ok(redirect);
+  assert.equal(redirect.toString(), "https://psipedia.sk/aktivity/nosework?q=pes");
+  assert.equal(legacyChatgptSiteRedirectUrl(new URL("https://psipedia.sk/aktivity/nosework")), null);
+  assert.equal(legacyChatgptSiteRedirectUrl(new URL("https://www.psipedia.sk/aktivity/nosework")), null);
+});
+
+test("worker checks the legacy ChatGPT hostname before cache and application routing", () => {
+  const redirectIndex = workerSource.indexOf("legacyChatgptSiteRedirectUrl(url)");
+  const cacheIndex = workerSource.indexOf("const cache = publicHtmlCache");
+  const handlerIndex = workerSource.indexOf("handler.fetch");
+
+  assert.ok(redirectIndex >= 0);
+  assert.ok(cacheIndex > redirectIndex);
+  assert.ok(handlerIndex > redirectIndex);
+  assert.match(workerSource, /Response\.redirect\(legacyChatgptRedirect, 301\)/);
+});
 
 test("public HTML cache keys are isolated by immutable Worker version", () => {
   const publicUrl = new URL("https://psipedia.sk/plemena/labradorsky-retriever");
