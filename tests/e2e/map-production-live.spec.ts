@@ -126,7 +126,15 @@ test.describe("MAP V1 live production launch audit", () => {
     }
   });
   test.beforeEach(async ({ page, isMobile }) => {
-    await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+    await page.addInitScript(() => {
+      localStorage.setItem("psipedia-cookie-consent", "necessary");
+      const debugWindow = window as Window & {
+        __PSIPEDIA_MAP_DEBUG_ENABLED__?: boolean;
+        __PSIPEDIA_MAP_DEBUG__?: unknown[];
+      };
+      debugWindow.__PSIPEDIA_MAP_DEBUG_ENABLED__ = true;
+      debugWindow.__PSIPEDIA_MAP_DEBUG__ = [];
+    });
     if (isMobile) await page.setViewportSize({ width: 390, height: 844 });
   });
 
@@ -208,6 +216,21 @@ test.describe("MAP V1 live production launch audit", () => {
     const mapRequestsAfterTypeSwitch = await page.locator("body").evaluate(() =>
       performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length,
     );
+    const mapTypeDebugTrace = await page.evaluate(() => {
+      const debugWindow = window as Window & { __PSIPEDIA_MAP_DEBUG__?: unknown[] };
+      return debugWindow.__PSIPEDIA_MAP_DEBUG__ ?? [];
+    });
+    const mapTypeResourceTrace = await page.evaluate(() =>
+      performance.getEntriesByType("resource")
+        .filter((entry) => entry.name.includes("/api/map?"))
+        .map((entry) => ({
+          name: entry.name,
+          startTime: Number(entry.startTime.toFixed(3)),
+          duration: Number(entry.duration.toFixed(3)),
+        })),
+    );
+    console.log("MAP_TYPE_DEBUG_TRACE", JSON.stringify(mapTypeDebugTrace));
+    console.log("MAP_TYPE_RESOURCE_TRACE", JSON.stringify(mapTypeResourceTrace));
     expect(mapRequestsAfterTypeSwitch).toBe(mapRequestsBeforeTypeSwitch);
 
     await expect.poll(() => page.locator("gmp-advanced-marker").count(), { timeout: 20000 }).toBeGreaterThan(0);
