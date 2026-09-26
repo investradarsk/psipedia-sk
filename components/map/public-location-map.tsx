@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MapItem } from "@/lib/map-contract";
 import {
   buildGoogleMapsDirectionsUrl,
@@ -54,6 +54,7 @@ export function PublicLocationMap({
   testRendererEnvironment = false,
 }: Props) {
   const testRenderer = testRendererEnvironment || process.env.NODE_ENV === "test";
+  const sectionRef = useRef<HTMLElement>(null);
   const [selectedItemId, setSelectedItemId] = useState(items[0]?.id ?? null);
   const [mapType, setMapType] = useState<PublicMapType>("roadmap");
   const [consentGranted, setConsentGranted] = useState(false);
@@ -62,6 +63,7 @@ export function PublicLocationMap({
   const selected = items.find((item) => item.id === selectedItemId) ?? items[0] ?? null;
 
   useEffect(() => {
+    if (sectionRef.current) sectionRef.current.dataset.hydrated = "true";
     const read = () => setConsentGranted(
       hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY)),
     );
@@ -108,7 +110,7 @@ export function PublicLocationMap({
   }
 
   return (
-    <section className={styles.section} aria-labelledby="public-location-map-title" data-testid="public-location-map">
+    <section ref={sectionRef} className={styles.section} aria-labelledby="public-location-map-title" data-testid="public-location-map">
       <div className={styles.heading}>
         <span className="eyebrow">{eyebrow}</span>
         <h2 id="public-location-map-title">{title}</h2>
