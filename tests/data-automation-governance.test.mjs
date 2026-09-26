@@ -114,6 +114,8 @@ test("0084 is additive, shared-subject, immutable-history and has no implicit ap
   assert.match(sql, /recurring_status/);
   assert.match(sql, /retention_status/);
   assert.match(sql, /DEFAULT 'UNKNOWN'/);
+  assert.match(sql, /automation_governance_reviews_history_insert/);
+  assert.match(sql, /automation_governance_reviews_history_update/);
   assert.match(sql, /automation_governance_review_history_no_update/);
   assert.match(sql, /automation_governance_review_history_no_delete/);
   assert.doesNotMatch(sql, /INSERT INTO automation_governance_reviews|UPDATE automation_sources|UPDATE automation_discovery_roots|DELETE FROM|DROP TABLE/i);
@@ -128,11 +130,15 @@ test("new source activation is governance-gated without changing candidate provi
   assert.match(store, /VALUES \(\?,\?,\?,\?,\?,\?,0,/);
 });
 
-test("governance updates are optimistic-concurrency protected and history records actor/rationale", async () => {
+test("governance updates are optimistic-concurrency protected and audit history is DB-enforced", async () => {
   const governance = await readFile(path.join(repoRoot, "lib/data-automation-governance.ts"), "utf8");
+  const sql = await readFile(path.join(repoRoot, "drizzle/0084_automation_governance_registry.sql"), "utf8");
   assert.match(governance, /expectedUpdatedAt/);
   assert.match(governance, /automation_governance_stale_update/);
-  assert.match(governance, /before_json,after_json,actor,rationale,changed_at/);
+  assert.match(sql, /before_json/);
+  assert.match(sql, /after_json/);
+  assert.match(sql, /NEW\.reviewed_by/);
+  assert.match(sql, /NEW\.rationale/);
 });
 
 test("admin makes dimensions and blocking reasons visible", async () => {
@@ -142,4 +148,15 @@ test("admin makes dimensions and blocking reasons visible", async () => {
   }
   assert.match(ui, /governanceEvaluation\.blockingReasons/);
   assert.match(ui, /Governance history/);
+});
+
+
+test("runtime enforces explicit governance decisions while preserving legacy enabled rows without a registry record", async () => {
+  const sourceStore = await readFile(path.join(repoRoot, "lib/data-automation-store.ts"), "utf8");
+  const discoveryStore = await readFile(path.join(repoRoot, "lib/data-automation-discovery-store.ts"), "utf8");
+  assert.match(sourceStore, /Legacy transition: pre-4B enabled sources without a registry row continue/);
+  assert.match(sourceStore, /evaluateGovernanceForActivation/);
+  assert.match(discoveryStore, /Legacy transition: already-enabled roots without a registry row continue/);
+  assert.match(discoveryStore, /root\.discoveryType === "SEARCH_PROVIDER"/);
+  assert.match(discoveryStore, /"snippet"/);
 });
