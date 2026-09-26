@@ -428,7 +428,7 @@ test("manual override is guarded against automatic overwrite and source changes 
 });
 
 test("exact source changes revoke exact visibility until privacy is reviewed again", () => {
-  assert.match(geoStore, /exactNeedsPrivacyReview = current\.publicVisibility === "EXACT_PUBLIC" && !current\.manualOverride/);
+  assert.match(geoStore, /exactNeedsPrivacyReview = current\.publicVisibility === "EXACT_PUBLIC"[\s\S]*&& !current\.manualOverride[\s\S]*&& classification\.requiresReview/);
   assert.match(geoStore, /public_visibility=NULL, public_precision=NULL/);
   assert.match(geoStore, /geocode_status='NEEDS_REVIEW', last_error_code='PRIVACY_CLASSIFICATION_MISSING'/);
   assert.match(geoStore, /reasonCode: exactNeedsPrivacyReview/);
