@@ -42,26 +42,11 @@ export function confirmMapTypeChange(
   state.observedRuntimeMapType = runtimeMapType ?? state.observedRuntimeMapType;
 }
 
-function samePresentationViewport(
-  baseline: MapTypePresentationBaseline,
-  current: MapTypePresentationBaseline,
-) {
-  return baseline.zoom === current.zoom
-    && baseline.center.lat === current.center.lat
-    && baseline.center.lng === current.center.lng;
-}
-
 export function consumeMapTypeIdleSuppression(
   state: MapTypeIdleSuppressionState,
-  current: MapTypePresentationBaseline,
   runtimeMapType?: string | null,
 ) {
-  if (!state.pending || !state.baseline) return false;
-
-  if (!samePresentationViewport(state.baseline, current)) {
-    cancelMapTypeIdleSuppression(state);
-    return false;
-  }
+  if (!state.pending) return false;
 
   const runtime = runtimeMapType ?? state.observedRuntimeMapType;
   const settledLatest = runtime != null
