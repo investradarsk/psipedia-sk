@@ -176,7 +176,7 @@ test("ADDRESS-SIMPLE-1A endpoint, editor and save flow preserve server authority
   assert.match(provider, /url\.searchParams\.set\("limit", "5"\)/);
   assert.match(provider, /providerResultId: result\.place_id/);
 
-  assert.match(autocomplete, /query\.trim\(\)\.length < 3/);
+  assert.match(autocomplete, /query\.trim\(\)\.length >= 3/);
   assert.match(autocomplete, /window\.setTimeout[\s\S]*325/);
   assert.match(autocomplete, /AbortController/);
   assert.match(autocomplete, /slice\(0, 5\)/);
