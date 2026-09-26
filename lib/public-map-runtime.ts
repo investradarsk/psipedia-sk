@@ -23,10 +23,14 @@ export function getPublicMapRuntime(): PublicMapRuntime {
     GOOGLE_MAPS_MAP_ID: bindings.GOOGLE_MAPS_MAP_ID ?? process.env.GOOGLE_MAPS_MAP_ID,
   };
   const rendererEnabled = publicMapLaunchEnabled(launchEnv) && googleMapsRendererConfigured(launchEnv);
+  const googleApiKey = rendererEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "";
+  const googleMapId = rendererEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "";
+  const testRendererEnvironment = (bindings.MAP_UI_TEST_RENDERER ?? process.env.MAP_UI_TEST_RENDERER) === "1"
+    || googleApiKey === "ci-browser-key-not-real";
   return {
     rendererEnabled,
-    googleApiKey: rendererEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "",
-    googleMapId: rendererEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "",
-    testRendererEnvironment: (bindings.MAP_UI_TEST_RENDERER ?? process.env.MAP_UI_TEST_RENDERER) === "1",
+    googleApiKey,
+    googleMapId,
+    testRendererEnvironment,
   };
 }
