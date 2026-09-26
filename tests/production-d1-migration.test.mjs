@@ -9,10 +9,12 @@ import {
   PARTNER_MULTIMETHOD_AUTH_INDEXES,
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
+  assertAutomationGovernanceSchema,
   assertPartnerAuthPreserved,
   assertPendingTargetSchemaClean,
   buildScopedWranglerConfig,
   selectMigrationsThrough,
+  targetSchemaObjects,
   validateProductionTargetHistory,
 } from "../scripts/production-d1-migrate.mjs";
 
@@ -653,4 +655,95 @@ test("0085 Tavily discovery root migration is data-only, disabled and pending", 
   assert.match(script, /0085_automation_tavily_discovery_root\.sql/);
   assert.match(workflow, /0085_automation_tavily_discovery_root\.sql/);
   assert.match(workflow, /APPLY-0085-psipedia-sk-db/);
+});
+
+
+test("0084/0085 production preflight target schema detection is deterministic and fail-closed", async () => {
+  const cleanSchema = { objects: [] };
+  assert.deepEqual(
+    targetSchemaObjects(cleanSchema, "0084_automation_governance_registry.sql"),
+    { partial: false },
+  );
+
+  for (const object of [
+    { name: "automation_governance_reviews", type: "table" },
+    { name: "automation_governance_review_history", type: "table" },
+    { name: "automation_governance_reviews_subject_unique", type: "index" },
+    { name: "automation_governance_reviews_review_due_idx", type: "index" },
+    { name: "automation_governance_review_history_subject_idx", type: "index" },
+    { name: "automation_governance_reviews_history_insert", type: "trigger" },
+    { name: "automation_governance_reviews_history_update", type: "trigger" },
+    { name: "automation_governance_review_history_no_update", type: "trigger" },
+    { name: "automation_governance_review_history_no_delete", type: "trigger" },
+  ]) {
+    const detected = targetSchemaObjects({ objects: [object] }, "0084_automation_governance_registry.sql");
+    assert.equal(detected.partial, true, `0084 partial detection missed ${object.name}`);
+    assert.throws(
+      () => assertPendingTargetSchemaClean("0084_automation_governance_registry.sql", detected),
+      /target schema objects already exist; possible partial\/manual drift/,
+    );
+  }
+
+  assert.deepEqual(
+    targetSchemaObjects(cleanSchema, "0085_automation_tavily_discovery_root.sql"),
+    { partial: false },
+  );
+
+  assert.deepEqual(
+    targetSchemaObjects(cleanSchema, "0083_automation_search_budgets.sql"),
+    { partial: false },
+  );
+  assert.equal(
+    targetSchemaObjects(
+      { objects: [{ name: "automation_search_usage", type: "table" }] },
+      "0083_automation_search_budgets.sql",
+    ).partial,
+    true,
+  );
+
+  const migration84 = await readFile(
+    path.join(repoRoot, "drizzle/0084_automation_governance_registry.sql"),
+    "utf8",
+  );
+  const applied84Schema = {
+    objects: [
+      { name: "automation_governance_reviews", type: "table", sql: migration84 },
+      { name: "automation_governance_review_history", type: "table", sql: migration84 },
+      { name: "automation_governance_reviews_subject_unique", type: "index", sql: migration84 },
+      { name: "automation_governance_reviews_review_due_idx", type: "index", sql: migration84 },
+      { name: "automation_governance_review_history_subject_idx", type: "index", sql: migration84 },
+      { name: "automation_governance_reviews_history_insert", type: "trigger", sql: migration84 },
+      { name: "automation_governance_reviews_history_update", type: "trigger", sql: migration84 },
+      { name: "automation_governance_review_history_no_update", type: "trigger", sql: migration84 },
+      { name: "automation_governance_review_history_no_delete", type: "trigger", sql: migration84 },
+    ],
+  };
+  assert.doesNotThrow(() => assertAutomationGovernanceSchema(applied84Schema));
+});
+
+test("0085 production history guard requires 0084 before Tavily root provisioning", () => {
+  const prefix = Array.from(
+    { length: 62 },
+    (_, index) => `${String(index).padStart(4, "0")}_migration.sql`,
+  );
+  const expected = [...prefix, ...supportedTargetsThrough(85)];
+  const through84 = expected.slice(0, -1);
+  assert.deepEqual(
+    validateProductionTargetHistory(
+      through84,
+      expected,
+      "0085_automation_tavily_discovery_root.sql",
+    ),
+    { latestIndex: 84, targetApplied: false },
+  );
+
+  const through83 = through84.slice(0, -1);
+  assert.throws(
+    () => validateProductionTargetHistory(
+      through83,
+      expected,
+      "0085_automation_tavily_discovery_root.sql",
+    ),
+    /expected exactly 0084/,
+  );
 });
