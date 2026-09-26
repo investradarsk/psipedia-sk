@@ -75,6 +75,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0080_automation_canonical_apply.sql",
   "0081_automation_mushing_event_source.sql",
   "0082_automation_discovery_candidate_evidence.sql",
+  "0083_automation_search_budgets.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -101,6 +102,14 @@ export const AUTOMATION_DISCOVERY_EVIDENCE_INDEXES = Object.freeze([
   "automation_source_candidate_evidence_root_idx",
   "automation_source_candidate_evidence_run_idx",
   "automation_source_candidate_evidence_last_seen_idx",
+]);
+
+export const AUTOMATION_SEARCH_USAGE_INDEXES = Object.freeze([
+  "automation_search_usage_operation_unique",
+  "automation_search_usage_day_idx",
+  "automation_search_usage_entity_day_idx",
+  "automation_search_usage_root_day_idx",
+  "automation_search_usage_fingerprint_idx",
 ]);
 
 export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
@@ -647,6 +656,12 @@ function targetSchemaObjects(schema, targetMigration) {
         || AUTOMATION_DISCOVERY_EVIDENCE_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0083_automation_search_budgets.sql") {
+    return {
+      partial: names.has("automation_search_usage")
+        || AUTOMATION_SEARCH_USAGE_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1013,6 +1028,22 @@ function assertAutomationCanonicalApplySchema(schema) {
   invariant(sql.includes("SUCCESS") && sql.includes("FAILED"), "G5 apply status audit signature is incomplete");
 }
 
+function assertAutomationSearchUsageSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("automation_search_usage")?.type === "table", "Missing automation_search_usage table");
+  for (const index of AUTOMATION_SEARCH_USAGE_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing search usage index: ${index}`);
+  }
+  const sql = String(names.get("automation_search_usage")?.sql ?? "");
+  for (const column of [
+    "operation_key", "discovery_run_id", "provider_key", "root_id", "entity_type",
+    "query_fingerprint", "day_bucket", "request_count", "result_count",
+    "new_unique_candidate_count", "duplicate_candidate_count", "status", "created_at", "finalized_at",
+  ]) {
+    invariant(sql.includes(column), `automation_search_usage.${column} is missing`);
+  }
+}
+
 function assertAutomationDiscoveryEvidenceSchema(schema) {
   const names = objectMap(schema.objects);
   invariant(
@@ -1059,6 +1090,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 78) assertAutomationPossibleMatchReviewsSchema(schema);
   if (migrationIndex(targetMigration) >= 80) assertAutomationCanonicalApplySchema(schema);
   if (migrationIndex(targetMigration) >= 82) assertAutomationDiscoveryEvidenceSchema(schema);
+  if (migrationIndex(targetMigration) >= 83) assertAutomationSearchUsageSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
