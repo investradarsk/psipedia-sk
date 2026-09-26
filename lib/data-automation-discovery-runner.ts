@@ -9,6 +9,7 @@ import {
   parseSitemapDocument,
   structuredDirectoryDiscovery,
   structuredDirectoryNextPageUrl,
+  type StructuredDirectoryConfig,
   type AutomationSearchProvider,
   type AutomationSourceCandidateInput,
 } from "./data-automation-discovery.ts";
@@ -90,11 +91,6 @@ function safeErrorCode(error: unknown) {
 function configNumber(root: AutomationDiscoveryRoot, key: string, fallback: number, min: number, max: number) {
   const value = Number(root.config[key]);
   return Number.isFinite(value) ? Math.max(min, Math.min(max, Math.floor(value))) : fallback;
-}
-
-function configBoolean(root: AutomationDiscoveryRoot, key: string, fallback = false) {
-  const value = root.config[key];
-  return typeof value === "boolean" ? value : fallback;
 }
 
 function configStrings(root: AutomationDiscoveryRoot, key: string) {
@@ -691,7 +687,7 @@ async function discoverCandidates(
     throw new DiscoveryFetchError("automation_discovery_unknown_type");
   }
 
-  let directoryConfig;
+  let directoryConfig: StructuredDirectoryConfig;
   try {
     directoryConfig = parseStructuredDirectoryConfig(root.config);
   } catch {
