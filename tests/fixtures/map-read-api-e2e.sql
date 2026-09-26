@@ -1,9 +1,20 @@
 -- MAP-1C isolated local D1 fixture. Synthetic data only.
 
--- Keep the public events section enabled in the isolated E2E database. Some historical
--- clean-schema snapshots may preserve an older hidden state even though the route is
--- part of the current public navigation.
-UPDATE portal_section_settings SET visible=1 WHERE slug='podujatia';
+-- Keep the public events section deterministic in the isolated E2E database.
+INSERT OR REPLACE INTO portal_section_settings (
+  slug, label, eyebrow, description, intro, subpages_json, position, visible, updated_at, updated_by
+) VALUES (
+  'podujatia',
+  'Podujatia',
+  'Čo sa deje',
+  'Kalendár výstav, pretekov, seminárov, tréningov a stretnutí.',
+  'Podujatia budú zoradené podľa dátumu, kraja a typu, aby si rýchlo našiel program vo svojom okolí.',
+  '[{"slug":"kalendar","label":"Kalendár podujatí","description":"Všetky termíny na jednom mieste s praktickými filtrami."},{"slug":"vystavy","label":"Výstavy","description":"Národné, medzinárodné a klubové výstavy psov."},{"slug":"preteky","label":"Preteky","description":"Športové súťaže a skúšky podľa disciplíny."},{"slug":"seminare","label":"Semináre a tréningy","description":"Vzdelávanie, workshopy a otvorené skupinové tréningy."},{"slug":"pridat-podujatie","label":"Pridať podujatie","description":"Priestor pre organizátorov po redakčnom overení."}]',
+  6,
+  1,
+  '2026-09-22T10:00:00Z',
+  'map-e2e'
+);
 
 
 INSERT INTO directory_profiles (
