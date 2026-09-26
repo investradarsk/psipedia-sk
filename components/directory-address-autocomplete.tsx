@@ -43,10 +43,6 @@ export function DirectoryAddressAutocomplete({
   const canSearch = !selectedProviderResultId && !disabled && localityReady && query.trim().length >= 3;
 
   useEffect(() => {
-    if (!selectedProviderResultId) setQuery(selectedStreet);
-  }, [selectedProviderResultId, selectedStreet]);
-
-  useEffect(() => {
     if (!canSearch) {
       abortRef.current?.abort();
       return;
