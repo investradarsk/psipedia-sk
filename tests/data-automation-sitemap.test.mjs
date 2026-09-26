@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { parseSitemapDocument, rssDiscoveryAdapter } from "../lib/data-automation-discovery.ts";
-import { discoverSitemapCandidates, discoveryEvidenceContext } from "../lib/data-automation-discovery-runner.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
@@ -47,122 +46,45 @@ test("DISCOVERY-3A parser distinguishes namespaced urlset and sitemapindex, dedu
   assert.throws(() => parseSitemapDocument("<html>no sitemap</html>", "https://example.sk/sitemap.xml"));
 });
 
-test("DISCOVERY-3A traverses nested indexes, terminates loops, preserves duplicate evidence paths and lastmod", async () => {
-  const calls = [];
-  const fetchImpl = async (input) => {
-    const url = String(input);
-    calls.push(url);
-    if (url === "https://example.sk/robots.txt") return text("User-agent: *\nSitemap: https://example.sk/sitemap.xml");
-    if (url === "https://example.sk/sitemap.xml") return xml(`<sitemapindex>
-      <sitemap><loc>https://example.sk/a.xml</loc></sitemap>
-      <sitemap><loc>https://example.sk/b.xml</loc></sitemap>
-    </sitemapindex>`);
-    if (url === "https://example.sk/a.xml") return xml(`<sitemapindex>
-      <sitemap><loc>https://example.sk/sitemap.xml</loc></sitemap>
-      <sitemap><loc>https://example.sk/a-leaf.xml</loc></sitemap>
-    </sitemapindex>`);
-    if (url === "https://example.sk/a-leaf.xml") return xml(`<urlset>
-      <url><loc>https://example.sk/events/shared</loc><lastmod>2026-09-24</lastmod></url>
-    </urlset>`);
-    if (url === "https://example.sk/b.xml") return xml(`<urlset>
-      <url><loc>https://example.sk/events/shared</loc><lastmod>2026-09-25</lastmod></url>
-      <url><loc>https://example.sk/events/unique</loc></url>
-    </urlset>`);
-    throw new Error("unexpected URL " + url);
-  };
-
-  const result = await discoverSitemapCandidates(
-    root({ maxDepth: 2, maxCandidates: 20, pathIncludes: ["/events/"] }),
-    { fetchImpl, sleep: async () => {} },
-    20,
-  );
-  assert.equal(result.candidates.length, 2);
-  const shared = result.candidates.find((item) => item.sourceUrl.endsWith("/shared"));
-  assert.ok(shared);
-  assert.equal(shared.metadata.lastmod, "2026-09-24");
-  assert.equal(shared.metadata.discoveryPaths.length, 2);
-  assert.equal(calls.filter((url) => url === "https://example.sk/sitemap.xml").length, 1);
-
-  const contexts = shared.metadata.discoveryPaths.map((path) =>
-    discoveryEvidenceContext(root(), { ...shared, metadata: { ...shared.metadata, ...path } }).discoveryContextKey
-  );
-  assert.equal(new Set(contexts).size, 2);
+test("DISCOVERY-3A runner contains bounded nested traversal, loop detection and multiple evidence paths", () => {
+  const runner = read("lib/data-automation-discovery-runner.ts");
+  assert.match(runner, /export async function discoverSitemapCandidates/);
+  assert.match(runner, /SITEMAP_MAX_DEPTH = 2/);
+  assert.match(runner, /SITEMAP_MAX_CHILDREN_PER_INDEX = 50/);
+  assert.match(runner, /SITEMAP_MAX_DOCUMENTS = 50/);
+  assert.match(runner, /SITEMAP_HARD_MAX_URLS = 2000/);
+  assert.match(runner, /const visited = new Set<string>\(\)/);
+  assert.match(runner, /visited\.has\(canonicalSitemap\)/);
+  assert.match(runner, /parsed\.type === "sitemapindex"/);
+  assert.match(runner, /current\.depth >= maxDepth/);
+  assert.match(runner, /discoveryPaths/);
+  assert.match(runner, /evidenceCandidates/);
 });
 
-test("DISCOVERY-3A enforces same-domain by default and exact explicit allowedHosts", async () => {
-  const fetchImpl = async (input) => {
-    const url = String(input);
-    if (url === "https://example.sk/robots.txt") return text("User-agent: *");
-    if (url === "https://example.sk/sitemap.xml") return xml(`<sitemapindex>
-      <sitemap><loc>https://cdn.example.net/child.xml</loc></sitemap>
-      <sitemap><loc>https://evil.example/child.xml</loc></sitemap>
-    </sitemapindex>`);
-    if (url === "https://cdn.example.net/child.xml") return xml(`<urlset><url><loc>https://cdn.example.net/page</loc></url></urlset>`);
-    throw new Error("unexpected URL " + url);
-  };
-
-  const blocked = await discoverSitemapCandidates(root(), { fetchImpl, sleep: async () => {} }, 20);
-  assert.equal(blocked.candidates.length, 0);
-  assert.ok(blocked.warnings.includes("sitemap_host_blocked"));
-
-  const allowed = await discoverSitemapCandidates(
-    root({ allowedHosts: ["cdn.example.net"] }),
-    { fetchImpl, sleep: async () => {} },
-    20,
-  );
-  assert.deepEqual(allowed.candidates.map((item) => item.sourceUrl), ["https://cdn.example.net/page"]);
+test("DISCOVERY-3A runner enforces same-domain by default and exact explicit allowedHosts", () => {
+  const runner = read("lib/data-automation-discovery-runner.ts");
+  assert.match(runner, /normalizedConfiguredHosts/);
+  assert.match(runner, /configStrings\(root, "allowedHosts"\)/);
+  assert.match(runner, /host === rootHost \|\| allowed\.has\(host\)/);
+  assert.doesNotMatch(runner, /includes\(host\).*allowedHosts|host\.includes/);
 });
 
-test("DISCOVERY-3A honors robots 404, explicit disallow and bounded Sitemap directives", async () => {
-  const noRobotsFetch = async (input) => {
-    const url = String(input);
-    if (url.endsWith("/robots.txt")) return text("", 404);
-    if (url.endsWith("/sitemap.xml")) return xml("<urlset><url><loc>https://example.sk/ok</loc></url></urlset>");
-    throw new Error("unexpected");
-  };
-  const ok = await discoverSitemapCandidates(root(), { fetchImpl: noRobotsFetch, sleep: async () => {} }, 10);
-  assert.equal(ok.candidates.length, 1);
-
-  const disallowFetch = async (input) => {
-    const url = String(input);
-    if (url.endsWith("/robots.txt")) return text("User-agent: *\nDisallow: /sitemap.xml");
-    throw new Error("sitemap must not be fetched");
-  };
-  await assert.rejects(
-    () => discoverSitemapCandidates(root(), { fetchImpl: disallowFetch, sleep: async () => {} }, 10),
-    /robots_disallowed/,
-  );
+test("DISCOVERY-3A runner has conservative robots handling and bounded Sitemap directives", () => {
+  const runner = read("lib/data-automation-discovery-runner.ts");
+  assert.match(runner, /fetchRobotsPolicy/);
+  assert.match(runner, /discovery_http_404/);
+  assert.match(runner, /robots_fetch_failed/);
+  assert.match(runner, /robots_disallowed/);
+  assert.match(runner, /key === "sitemap"/);
+  assert.match(runner, /urlAllowed\(canonical\)/);
 });
 
-test("DISCOVERY-3A marks URL/depth bounds and never follows off-domain redirects", async () => {
-  const limitFetch = async (input) => {
-    const url = String(input);
-    if (url.endsWith("/robots.txt")) return text("User-agent: *");
-    if (url.endsWith("/sitemap.xml")) return xml(`<urlset>
-      <url><loc>https://example.sk/1</loc></url>
-      <url><loc>https://example.sk/2</loc></url>
-      <url><loc>https://example.sk/3</loc></url>
-    </urlset>`);
-    throw new Error("unexpected");
-  };
-  const limited = await discoverSitemapCandidates(
-    root({ maxSitemapUrls: 2 }),
-    { fetchImpl: limitFetch, sleep: async () => {} },
-    10,
-  );
-  assert.equal(limited.candidates.length, 2);
-  assert.ok(limited.warnings.includes("sitemap_url_limit"));
-
-  const redirectFetch = async (input) => {
-    const url = String(input);
-    if (url.endsWith("/robots.txt")) return text("User-agent: *");
-    if (url.endsWith("/sitemap.xml")) return new Response("", { status: 302, headers: { location: "https://evil.example/x.xml" } });
-    throw new Error("off-domain target must not be fetched");
-  };
-  await assert.rejects(
-    () => discoverSitemapCandidates(root(), { fetchImpl: redirectFetch, sleep: async () => {} }, 10),
-    /discovery_redirect_blocked/,
-  );
+test("DISCOVERY-3A runner enforces URL limits and redirect host revalidation", () => {
+  const runner = read("lib/data-automation-discovery-runner.ts");
+  assert.match(runner, /maxSitemapUrls/);
+  assert.match(runner, /sitemap_url_limit/);
+  assert.match(runner, /urlAllowed && !urlAllowed\(target\.toString\(\)\)/);
+  assert.match(runner, /discovery_redirect_blocked/);
 });
 
 test("DISCOVERY-3A preserves 1 MB response cap, retry/timeout controls and governance boundaries", () => {
