@@ -13,7 +13,7 @@ import {
 } from "@/lib/partner-events";
 import { normalizeManagedEventInput } from "@/lib/event-store";
 import { applyAtomicModerationTransition, ModerationStateConflictError, type FoundationSubmissionStatus } from "@/lib/moderation-transition";
-import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
+import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
@@ -181,8 +181,8 @@ function publicEventTypePaths(eventTypes:string[]){
   }
   return [...paths];
 }
-async function sideEffects(input:{eventId:number;slug:string;published:boolean;locationChanged:boolean;invalidatePublic:boolean;eventTypes?:string[];publicOrigin?:string;workerVersionId?:string}){
-  if(input.locationChanged)await syncGeoPointAfterSourceChange("MANAGED_EVENT",input.eventId).catch(error=>console.warn("Partner event GEO sync failed",{eventId:input.eventId,error:String(error)}));
+async function sideEffects(input:{eventId:number;slug:string;published:boolean;locationChanged:boolean;invalidatePublic:boolean;database:D1Database;actorRef:string;eventTypes?:string[];publicOrigin?:string;workerVersionId?:string}){
+  if(input.locationChanged)await reconcileGeoAfterSourceMutation({targetType:"MANAGED_EVENT",targetId:input.eventId,actorRef:input.actorRef,actorType:"ADMIN"},input.database);
   if(input.published&&input.invalidatePublic&&input.publicOrigin){
     const version=input.workerVersionId??(env as unknown as Bindings).CF_VERSION_METADATA?.id;
     const paths=[`/podujatia/${input.slug}`,"/podujatia","/podujatia/kalendar","/",...publicEventTypePaths(input.eventTypes??[])];
@@ -210,7 +210,7 @@ export async function createPartnerEventAdmin(input:{id:string;adminEmail:string
     terminalPartnerMediaStatement({database,submissionId:input.id,state:"APPROVED",nowIso,actorRef,publicKey:media?.imageKey??null}),
   ]});
   const event=await database.prepare("SELECT id,slug FROM managed_events WHERE slug=?1 LIMIT 1").bind(slug).first<{id:number;slug:string}>();if(!event)throw new PartnerEventError("Canonical podujatie po schválení chýba.",500);
-  await sideEffects({eventId:event.id,slug:event.slug,published:false,locationChanged:true,invalidatePublic:false,publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
+  await sideEffects({eventId:event.id,slug:event.slug,published:false,locationChanged:true,invalidatePublic:false,database,actorRef,publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
   return getPartnerEventAdmin(input.id,{database});
 }
 
@@ -298,7 +298,7 @@ export async function approvePartnerEventUpdateAdmin(input:{id:string;adminEmail
     throw error;
   }
   const locationChanged=changed.some(field=>["venue","city","region","address"].includes(field));
-  await sideEffects({eventId,slug:current.slug,published:current.status==="published",locationChanged,invalidatePublic:true,eventTypes:[current.eventType,typeof patch.eventType==="string"?patch.eventType:current.eventType],publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
+  await sideEffects({eventId,slug:current.slug,published:current.status==="published",locationChanged,invalidatePublic:true,database,actorRef,eventTypes:[current.eventType,typeof patch.eventType==="string"?patch.eventType:current.eventType],publicOrigin:input.publicOrigin,workerVersionId:input.workerVersionId});
   return getPartnerEventAdmin(input.id,{database});
 }
 
