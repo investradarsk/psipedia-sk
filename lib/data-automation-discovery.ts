@@ -220,9 +220,12 @@ export const automationSearchProviderErrorCodes = [
 export type AutomationSearchProviderErrorCode = (typeof automationSearchProviderErrorCodes)[number];
 
 export class AutomationSearchProviderError extends Error {
-  constructor(public readonly code: AutomationSearchProviderErrorCode) {
+  readonly code: AutomationSearchProviderErrorCode;
+
+  constructor(code: AutomationSearchProviderErrorCode) {
     super(`automation_search_provider_${code.toLowerCase()}`);
     this.name = "AutomationSearchProviderError";
+    this.code = code;
   }
 }
 
