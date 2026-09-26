@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const GOOGLE_CONSENT = "psipedia-google-maps-consent";
+const COOKIE_CONSENT = "psipedia-cookie-consent";
 
 async function setViewport(page: Page, projectName: string) {
   await page.setViewportSize(
@@ -28,6 +29,10 @@ async function expectNoSeriousAxe(page: Page) {
   const serious = result.violations.filter((item) => item.impact === "serious" || item.impact === "critical");
   expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
 }
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((key) => localStorage.setItem(key, "necessary"), COOKIE_CONSENT);
+});
 
 test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
   test("Directory exact GEO is consent-gated, coordinate-only and uses one embedded map instance", async ({ page }, testInfo) => {
