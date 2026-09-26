@@ -28,6 +28,7 @@ on:
           - 0078_automation_possible_match_reviews.sql
           - 0079_automation_agility_event_source.sql
           - 0080_automation_canonical_apply.sql
+          - 0081_automation_mushing_event_source.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -76,6 +77,7 @@ jobs:
             0078_automation_possible_match_reviews.sql) expected_confirmation="APPLY-0078-psipedia-sk-db" ;;
             0079_automation_agility_event_source.sql) expected_confirmation="APPLY-0079-psipedia-sk-db" ;;
             0080_automation_canonical_apply.sql) expected_confirmation="APPLY-0080-psipedia-sk-db" ;;
+            0081_automation_mushing_event_source.sql) expected_confirmation="APPLY-0081-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
