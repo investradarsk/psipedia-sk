@@ -45,6 +45,10 @@ function hostname(value: string) {
 
 function decodeText(value: string) {
   return value
+    .replace(/<!\[CDATA\[/gi, "")
+    .replace(/\]\]>/g, "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, '"')
@@ -143,28 +147,269 @@ export const sitemapDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, b
   }));
 };
 
-export const rssDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseUrl, entityType }) => {
-  const items: AutomationSourceCandidateInput[] = [];
-  const hrefs = [
-    ...[...payload.matchAll(/<link\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/gi)].map((match) => match[1]),
-    ...[...payload.matchAll(/<link\b[^>]*>([^<]+)<\/link>/gi)].map((match) => match[1]),
-  ];
-  for (const href of hrefs) {
-    const sourceUrl = safeCandidate(href.trim(), baseUrl);
-    if (!sourceUrl) continue;
-    items.push({
+export type ParsedFeedEntry = {
+  sourceUrl: string;
+  externalId?: string;
+  title?: string;
+  description?: string;
+  publishedAt?: string;
+  updatedAt?: string;
+  author?: string;
+  categories: string[];
+  index: number;
+  suspiciousFutureTimestamp?: boolean;
+};
+
+export type ParsedFeedDocument = {
+  feedType: "RSS" | "ATOM";
+  entries: ParsedFeedEntry[];
+  totalEntries: number;
+  invalidEntries: number;
+};
+
+function feedRootType(payload: string): ParsedFeedDocument["feedType"] | null {
+  const normalized = payload.replace(/^\uFEFF/, "").trim();
+  if (!normalized.startsWith("<")) return null;
+  if (/<(?:[A-Za-z_][\w.-]*:)?rss\b/i.test(normalized)) return "RSS";
+  if (/<(?:[A-Za-z_][\w.-]*:)?feed\b/i.test(normalized)) return "ATOM";
+  return null;
+}
+
+function feedBlocks(payload: string, tag: "item" | "entry") {
+  const pattern = new RegExp(
+    `<(?:[A-Za-z_][\\w.-]*:)?${tag}\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?${tag}\\s*>`,
+    "gi",
+  );
+  return [...payload.matchAll(pattern)].map((match) => match[1]);
+}
+
+function feedElement(block: string, tag: string) {
+  const escaped = tag.replace(/[.*+?^${\}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `<(?:[A-Za-z_][\\w.-]*:)?${escaped}\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?${escaped}\\s*>`,
+    "i",
+  );
+  return block.match(pattern)?.[1] ?? "";
+}
+
+function feedElements(block: string, tag: string) {
+  const escaped = tag.replace(/[.*+?^${\}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `<(?:[A-Za-z_][\\w.-]*:)?${escaped}\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?${escaped}\\s*>`,
+    "gi",
+  );
+  return [...block.matchAll(pattern)].map((match) => decodeText(match[1]));
+}
+
+function normalizedFeedTimestamp(value: string) {
+  const normalized = decodeText(value).trim();
+  if (!normalized || normalized.length > 128) return undefined;
+  const timestamp = Date.parse(normalized);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : undefined;
+}
+
+function absoluteHttpIdentifier(value: string) {
+  const normalized = decodeText(value).trim();
+  if (!/^https?:\/\//i.test(normalized)) return null;
+  return safeCandidate(normalized, normalized);
+}
+
+function boundedFeedText(value: string, maxLength: number) {
+  const normalized = decodeText(value);
+  return normalized ? normalized.slice(0, maxLength) : undefined;
+}
+
+function rssGuid(block: string) {
+  const match = block.match(/<(?:[A-Za-z_][\w.-]*:)?guid\b([^>]*)>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?guid\s*>/i);
+  if (!match) return { value: undefined, permalink: false };
+  const value = boundedFeedText(match[2], 300);
+  const explicitFalse = /\bisPermaLink\s*=\s*["']false["']/i.test(match[1]);
+  return { value, permalink: !explicitFalse && Boolean(value && absoluteHttpIdentifier(value)) };
+}
+
+function atomLinks(block: string) {
+  return [...block.matchAll(/<(?:[A-Za-z_][\w.-]*:)?link\b([^>]*)\/?\s*>/gi)].map((match) => {
+    const attrs = match[1];
+    const href = attrs.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1] ?? "";
+    const rel = attrs.match(/\brel\s*=\s*["']([^"']+)["']/i)?.[1]?.trim().toLowerCase() ?? "";
+    return { href, rel };
+  });
+}
+
+export function parseFeedDocument(payload: string, baseUrl: string): ParsedFeedDocument {
+  const feedType = feedRootType(payload);
+  if (!feedType) throw new Error("invalid_feed_xml");
+  const blocks = feedBlocks(payload, feedType === "RSS" ? "item" : "entry");
+  const entries: ParsedFeedEntry[] = [];
+  let invalidEntries = 0;
+
+  blocks.forEach((block, index) => {
+    let sourceUrl: string | null = null;
+    let externalId: string | undefined;
+    let title: string | undefined;
+    let description: string | undefined;
+    let publishedAt: string | undefined;
+    let updatedAt: string | undefined;
+    let author: string | undefined;
+    let categories: string[] = [];
+
+    if (feedType === "RSS") {
+      const link = boundedFeedText(feedElement(block, "link"), 2000);
+      sourceUrl = link ? safeCandidate(link, baseUrl) : null;
+      const guid = rssGuid(block);
+      externalId = guid.value;
+      if (!sourceUrl && guid.permalink && guid.value) sourceUrl = absoluteHttpIdentifier(guid.value);
+      title = boundedFeedText(feedElement(block, "title"), 160);
+      description = boundedFeedText(feedElement(block, "description"), 1000);
+      publishedAt = normalizedFeedTimestamp(feedElement(block, "pubDate"));
+      author = boundedFeedText(feedElement(block, "author") || feedElement(block, "creator"), 160);
+      categories = feedElements(block, "category").filter(Boolean).slice(0, 10).map((value) => value.slice(0, 80));
+    } else {
+      const links = atomLinks(block);
+      const alternate = links.find((link) => link.rel === "alternate" && safeCandidate(link.href, baseUrl));
+      const usable = alternate ?? links.find((link) => safeCandidate(link.href, baseUrl));
+      sourceUrl = usable ? safeCandidate(usable.href, baseUrl) : null;
+      const id = boundedFeedText(feedElement(block, "id"), 300);
+      externalId = id;
+      if (!sourceUrl && id) sourceUrl = absoluteHttpIdentifier(id);
+      title = boundedFeedText(feedElement(block, "title"), 160);
+      const summary = feedElement(block, "summary");
+      const content = feedElement(block, "content");
+      description = boundedFeedText(summary || content, 1000);
+      publishedAt = normalizedFeedTimestamp(feedElement(block, "published"));
+      updatedAt = normalizedFeedTimestamp(feedElement(block, "updated"));
+      author = boundedFeedText(feedElement(feedElement(block, "author"), "name") || feedElement(block, "author"), 160);
+      categories = [...block.matchAll(/<(?:[A-Za-z_][\w.-]*:)?category\b([^>]*)\/?\s*>/gi)]
+        .map((match) => match[1].match(/\bterm\s*=\s*["']([^"']+)["']/i)?.[1] ?? "")
+        .map((value) => boundedFeedText(value, 80))
+        .filter((value): value is string => Boolean(value))
+        .slice(0, 10);
+    }
+
+    if (!sourceUrl) {
+      invalidEntries += 1;
+      return;
+    }
+    entries.push({
+      sourceUrl,
+      ...(externalId ? { externalId } : {}),
+      ...(title ? { title } : {}),
+      ...(description ? { description } : {}),
+      ...(publishedAt ? { publishedAt } : {}),
+      ...(updatedAt ? { updatedAt } : {}),
+      ...(author ? { author } : {}),
+      categories,
+      index,
+    });
+  });
+
+  return { feedType, entries, totalEntries: blocks.length, invalidEntries };
+}
+
+function pathAllowed(url: string, includes: string[], excludes: string[]) {
+  let path: string;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  const validIncludes = includes.filter((value) => value.startsWith("/"));
+  const validExcludes = excludes.filter((value) => value.startsWith("/"));
+  if (validIncludes.length && !validIncludes.some((prefix) => path.startsWith(prefix))) return false;
+  if (validExcludes.some((prefix) => path.startsWith(prefix))) return false;
+  return true;
+}
+
+export function rssDiscoveryCandidates(input: {
+  payload: string;
+  baseUrl: string;
+  entityType: AutomationEntityType;
+  maxEntries?: number;
+  maxCandidates?: number;
+  maxEntryAgeDays?: number;
+  now?: Date;
+  urlAllowed?: (url: string) => boolean;
+  pathIncludes?: string[];
+  pathExcludes?: string[];
+}) {
+  const parsed = parseFeedDocument(input.payload, input.baseUrl);
+  const maxEntries = Math.max(1, Math.min(200, Math.floor(input.maxEntries ?? 100)));
+  const maxCandidates = Math.max(1, Math.min(500, Math.floor(input.maxCandidates ?? 150)));
+  const now = input.now ?? new Date();
+  const maxAgeMs = Number.isFinite(input.maxEntryAgeDays)
+    ? Math.max(1, Math.floor(input.maxEntryAgeDays!)) * 86_400_000
+    : null;
+  const futureToleranceMs = 48 * 60 * 60 * 1000;
+  const warnings: string[] = [];
+  if (parsed.totalEntries > maxEntries) warnings.push("feed_entry_limit");
+  const candidates: AutomationSourceCandidateInput[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of parsed.entries.filter((entry) => entry.index < maxEntries)) {
+    if (candidates.length >= maxCandidates) break;
+    const canonical = canonicalizeSourceUrl(entry.sourceUrl);
+    if (!canonical || seen.has(canonical)) continue;
+    if (!isSafeAutomationSourceUrl(canonical) || (input.urlAllowed && !input.urlAllowed(canonical))) {
+      warnings.push("feed_url_blocked");
+      continue;
+    }
+    if (!pathAllowed(canonical, input.pathIncludes ?? [], input.pathExcludes ?? [])) continue;
+
+    const freshnessTimestamp = entry.updatedAt ?? entry.publishedAt;
+    let suspiciousFutureTimestamp = false;
+    if (freshnessTimestamp) {
+      const timestamp = Date.parse(freshnessTimestamp);
+      suspiciousFutureTimestamp = timestamp > now.getTime() + futureToleranceMs;
+      if (maxAgeMs !== null && !suspiciousFutureTimestamp && now.getTime() - timestamp > maxAgeMs) continue;
+    }
+
+    seen.add(canonical);
+    const host = new URL(canonical).hostname;
+    candidates.push({
       candidateType: "SOURCE_CANDIDATE",
       discoveryType: "RSS",
-      sourceUrl,
-      label: new URL(sourceUrl).hostname,
-      entityType,
+      sourceUrl: canonical,
+      label: entry.title ?? host,
+      entityType: input.entityType,
       suggestedConnectorType: "CONTROLLED_HTML",
-      reason: "URL bol uvedený v RSS/Atom feede kontrolovaného verejného zdroja.",
-      metadata: { discoveredFrom: baseUrl },
+      reason: "URL bol explicitne uvedený v bounded RSS/Atom feede schváleného discovery rootu.",
+      metadata: {
+        discoveredFrom: input.baseUrl,
+        feedUrl: input.baseUrl,
+        entryUrl: canonical,
+        feedType: parsed.feedType,
+        entryIndex: entry.index,
+        resultRank: entry.index,
+        ...(entry.externalId ? { externalId: entry.externalId } : {}),
+        ...(entry.title ? { title: entry.title } : {}),
+        ...(entry.description ? { description: entry.description } : {}),
+        ...(entry.publishedAt ? { publishedAt: entry.publishedAt } : {}),
+        ...(entry.updatedAt ? { updatedAt: entry.updatedAt } : {}),
+        ...(entry.author ? { author: entry.author } : {}),
+        ...(entry.categories.length ? { categories: entry.categories } : {}),
+        ...(suspiciousFutureTimestamp ? { suspiciousFutureTimestamp: true } : {}),
+      },
     });
   }
-  return uniqueCandidates(items);
-};
+
+  if (parsed.invalidEntries > 0) warnings.push("feed_invalid_entries");
+  if (parsed.totalEntries > 0 && candidates.length === 0 && parsed.invalidEntries === parsed.totalEntries) {
+    warnings.push("feed_no_usable_links");
+  }
+  return {
+    candidates,
+    warnings: [...new Set(warnings)],
+    stats: {
+      feedType: parsed.feedType,
+      entriesParsed: Math.min(parsed.totalEntries, maxEntries),
+      usableUrls: candidates.length,
+      invalidEntries: parsed.invalidEntries,
+    },
+  };
+}
+
+export const rssDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseUrl, entityType }) =>
+  rssDiscoveryCandidates({ payload, baseUrl, entityType, maxEntries: 100, maxCandidates: 100 }).candidates;
 
 export function htmlLinkDirectoryDiscovery(input: {
   payload: string;
