@@ -280,7 +280,7 @@ export async function previewDirectoryExactGeoBacklog(input: {
   };
 }
 
-function verificationErrorCode(error: unknown): GeoErrorCode {
+export function directoryExactVerificationErrorCode(error: unknown): GeoErrorCode {
   if (error instanceof GeocoderProviderError) return error.code;
   const message = error instanceof Error ? error.message.toLocaleLowerCase("sk") : "";
   if (message.includes("nejednoznačná")) return "AMBIGUOUS";
@@ -291,12 +291,12 @@ function verificationErrorCode(error: unknown): GeoErrorCode {
   return "PROVIDER_ERROR";
 }
 
-function failureStatus(code: GeoErrorCode, attempt: number): GeoStatus {
+export function directoryExactFailureStatus(code: GeoErrorCode, attempt: number): GeoStatus {
   if (SEMANTIC_REVIEW_REASONS.has(code)) return "NEEDS_REVIEW";
   return safeGeoErrorStatus(code, attempt);
 }
 
-function retryAfter(code: GeoErrorCode, attempt: number, nowMs: number) {
+export function directoryExactRetryAfter(code: GeoErrorCode, attempt: number, nowMs: number) {
   if (code === "RATE_LIMITED") {
     return new Date(nowMs + Math.min(60, 5 * attempt) * 60_000).toISOString();
   }
@@ -311,7 +311,7 @@ function isSystemicFailure(error: unknown) {
   return /D1_ERROR|SQLITE|no such table|no such column|schema|constraint failed|database is not available/i.test(message);
 }
 
-function addressFormat(source: GeoSourceLocation) {
+export function directoryExactAddressFormat(source: GeoSourceLocation) {
   return source.addressFormat === "MUNICIPALITY_NUMBER" ? "MUNICIPALITY_NUMBER" as const : "STREET" as const;
 }
 
@@ -496,8 +496,8 @@ export async function runDirectoryExactGeoBacklog(input: {
           city: source.city ?? "",
           street: source.street ?? "",
           houseNumber: source.houseNumber ?? "",
-          addressFormat: addressFormat(source),
-          revalidateStreet: addressFormat(source) === "STREET",
+          addressFormat: directoryExactAddressFormat(source),
+          revalidateStreet: directoryExactAddressFormat(source) === "STREET",
           provider,
         });
 
@@ -567,10 +567,10 @@ export async function runDirectoryExactGeoBacklog(input: {
       } catch (error) {
         if (isSystemicFailure(error)) throw error;
 
-        const errorCode = verificationErrorCode(error);
+        const errorCode = directoryExactVerificationErrorCode(error);
         const attempt = point.attemptCount + 1;
-        const status = failureStatus(errorCode, attempt);
-        const retryAfterAt = retryAfter(errorCode, attempt, now.getTime());
+        const status = directoryExactFailureStatus(errorCode, attempt);
+        const retryAfterAt = directoryExactRetryAfter(errorCode, attempt, now.getTime());
         const failedPoint = await recordGeocoderFailure({
           targetType: "DIRECTORY_PROFILE",
           targetId,
