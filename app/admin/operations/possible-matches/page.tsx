@@ -5,11 +5,13 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listAutomationPossibleMatchReviews } from "@/lib/data-automation-match-review";
 export const dynamic="force-dynamic";
 type SearchParams=Record<string,string|string[]|undefined>;
+type ReviewStatus="unresolved"|"deferred"|"resolved"|"all";
 const first=(v:string|string[]|undefined)=>Array.isArray(v)?v[0]??"":v??"";
+const isReviewStatus=(value:string):value is ReviewStatus=>["unresolved","deferred","resolved","all"].includes(value);
 export default async function PossibleMatchesPage({searchParams}:{searchParams:Promise<SearchParams>}){
   const user=await requireAdminPageUser("/admin/operations/possible-matches");
   const raw=await searchParams; const status=first(raw.status); const entity=first(raw.entity); const source=first(raw.source); const age=first(raw.age); const authority=first(raw.authority);
-  const statusFilter=(["unresolved","deferred","resolved","all"] as const).includes(status as any)?status as "unresolved"|"deferred"|"resolved"|"all":"unresolved";
+  const statusFilter:ReviewStatus=isReviewStatus(status)?status:"unresolved";
   const entityType=entity==="DIRECTORY"||entity==="ORGANIZATION"?entity:undefined;
   const sourceId=/^\d+$/.test(source)?Number(source):undefined; const maxAgeDays=/^\d+$/.test(age)?Number(age):undefined; const minAuthority=/^\d+$/.test(authority)?Number(authority):undefined;
   const items=await listAutomationPossibleMatchReviews({status:statusFilter,entityType,sourceId,maxAgeDays,minAuthority,limit:200});
