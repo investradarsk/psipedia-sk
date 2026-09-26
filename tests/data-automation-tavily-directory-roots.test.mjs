@@ -191,7 +191,7 @@ test("DISCOVERY-CAT-1C source reuse is entity- and category-aware", () => {
     ...candidate,
     canonicalUrl: "https://multi.example.sk/grooming",
     sourceUrl: "https://multi.example.sk/grooming",
-  }, sources)?.id, 2);
+  }, sources), null);
 
   const ambiguous = [
     ...sources,
