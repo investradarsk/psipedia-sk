@@ -155,8 +155,10 @@ test("DISCOVERY-3B evidence context includes feed type, entry identity and URL",
   assert.match(runner, /item:\$\{externalId\}/);
   assert.match(runner, /url:\$\{entryUrl\}/);
   assert.match(runner, /entryUrl/);
-  assert.match(runner, /publishedAt/);
-  assert.match(read("lib/data-automation-discovery.ts"), /entryIndex/);
+  const discovery = read("lib/data-automation-discovery.ts");
+  assert.match(discovery, /publishedAt/);
+  assert.match(discovery, /updatedAt/);
+  assert.match(discovery, /entryIndex/);
 });
 
 test("DISCOVERY-3B preserves fetch bounds, redirect validation, lifecycle and governance", () => {
