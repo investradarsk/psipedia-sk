@@ -43,7 +43,8 @@ test("MAP-UX-1E map type switching separates presentation idle from user intent"
   assert.match(renderer, /beginMapTypeIdleSuppression\(mapTypeIdleSuppressionRef\.current, mapType, baseline\)/);
   assert.match(renderer, /mapRef\.current\.setMapTypeId\(mapType\)/);
   assert.match(renderer, /map\.addListener\("maptypeid_changed"/);
-  assert.match(renderer, /confirmMapTypeChange\(mapTypeIdleSuppressionRef\.current, map\.getMapTypeId\?\.\(\)\)/);
+  assert.match(renderer, /const runtimeMapType = map\.getMapTypeId\?\.\(\) \?\? null/);
+  assert.match(renderer, /confirmMapTypeChange\(mapTypeIdleSuppressionRef\.current, runtimeMapType\)/);
   assert.match(renderer, /map\.addListener\("dragstart"/);
   assert.doesNotMatch(renderer, /map\.addListener\("zoom_changed"/);
   assert.match(renderer, /onPointerDownCapture=\{\(\) => cancelMapTypeIdleSuppression/);
