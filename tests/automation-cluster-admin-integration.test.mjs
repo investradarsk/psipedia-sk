@@ -36,11 +36,13 @@ test("preferred evidence and supporting sources are visible", () => {
   assert.match(page, /confidence/);
 });
 
-test("canonical cluster linkage renders an admin destination without auto publish", () => {
+test("canonical cluster linkage renders an admin destination and routes publishing through manual review", () => {
   const page = read("app/admin/automatizacie/[category]/cluster/[id]/page.tsx");
   assert.match(page, /automationCanonicalAdminHref/);
-  assert.match(page, /Canonical záznam ešte neexistuje/);
-  assert.doesNotMatch(page, /publish|zverejni/i);
+  assert.match(page, /Záznam je prepojený s Psipediou/);
+  assert.match(page, /\/admin\/operations\/automation\//);
+  assert.match(page, /public publication zostáva manuálna/);
+  assert.doesNotMatch(page, /setAutomationSourceEnabled|publishAutomation|auto.?publish/i);
 });
 
 test("finding with cluster gets context link and finding without cluster stays valid", () => {
