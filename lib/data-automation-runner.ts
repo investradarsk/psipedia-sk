@@ -247,7 +247,9 @@ async function processRecord(
     return { finding: findingType, ...result };
   }
 
-  let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)\n    ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }\n    : await matchAutomationCanonical(source, record, database);
+  let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
+    ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
+    : await matchAutomationCanonical(source, record, database);
 
   if (clusterResolution?.canonicalEntityId && !match.entityId) {
     match = {
