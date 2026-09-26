@@ -1,5 +1,9 @@
 import {
+  automationSearchQueryFingerprint,
+  automationSearchResultsToCandidates,
+  AutomationSearchProviderError,
   htmlLinkDirectoryDiscovery,
+  normalizeAutomationSearchRequest,
   requireConfiguredSearchProvider,
   rssDiscoveryAdapter,
   sitemapDiscoveryAdapter,
@@ -55,6 +59,7 @@ class DiscoveryFetchError extends Error {
 
 function safeErrorCode(error: unknown) {
   if (error instanceof DiscoveryFetchError) return error.code;
+  if (error instanceof AutomationSearchProviderError) return error.message;
   const message = error instanceof Error ? error.message : String(error);
   return message.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 180) || "automation_discovery_unknown_error";
 }
@@ -209,11 +214,38 @@ async function discoverCandidates(
   const maxCandidates = configNumber(root, "maxCandidates", 150, 1, 500);
 
   if (root.discoveryType === "SEARCH_PROVIDER") {
-    const provider = requireConfiguredSearchProvider(options.searchProvider);
-    const query = String(root.config.query ?? "").trim();
-    if (!query) throw new Error("automation_discovery_query_missing");
-    const candidates = await provider.discover({ query, entityType: root.entityType, limit: maxCandidates });
-    return candidates.slice(0, maxCandidates);
+    const providerKey = typeof root.config.provider === "string" ? root.config.provider.trim() : "";
+    if (!providerKey) throw new AutomationSearchProviderError("CONFIG_MISSING");
+    const provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
+    const request = normalizeAutomationSearchRequest({
+      query: root.config.query,
+      maxResults: root.config.maxResults,
+      locale: root.config.locale,
+      country: root.config.country,
+      freshness: root.config.freshness,
+      allowDomains: root.config.allowDomains,
+      blockDomains: root.config.blockDomains,
+    });
+    const fingerprint = await automationSearchQueryFingerprint(provider.key, request);
+
+    let results;
+    try {
+      results = await provider.search(request);
+    } catch (error) {
+      if (error instanceof AutomationSearchProviderError) throw error;
+      const name = error instanceof Error ? error.name : "";
+      if (name === "TimeoutError" || name === "AbortError") throw new AutomationSearchProviderError("TIMEOUT");
+      throw new AutomationSearchProviderError("PROVIDER_ERROR");
+    }
+
+    return automationSearchResultsToCandidates({
+      providerKey: provider.key,
+      request,
+      fingerprint,
+      results,
+      entityType: root.entityType,
+      suggestedConnectorType: root.suggestedConnectorType,
+    });
   }
 
   const fetched = await fetchWithRetry(
@@ -297,8 +329,12 @@ export function discoveryEvidenceContext(
   let context: string;
 
   if (root.discoveryType === "SEARCH_PROVIDER") {
-    const query = String(root.config.query ?? "").trim().replace(/\s+/g, " ").toLowerCase();
-    context = query ? `query:${query}` : `root:${root.rootKey}`;
+    const provider = evidenceMetadataValue(candidate, ["searchProvider"]) ?? "unconfigured";
+    const query = evidenceMetadataValue(candidate, ["normalizedQuery"]);
+    const fingerprint = evidenceMetadataValue(candidate, ["queryFingerprint"]);
+    context = fingerprint
+      ? `provider:${provider}|query:${query ?? ""}|fingerprint:${fingerprint}`
+      : `provider:${provider}|root:${root.rootKey}`;
   } else if (root.discoveryType === "RSS") {
     context = externalId ? `feed:${discoveredFrom}|item:${externalId}` : `feed:${discoveredFrom}`;
   } else if (root.discoveryType === "SITEMAP") {
@@ -307,9 +343,18 @@ export function discoveryEvidenceContext(
     context = externalId ? `directory:${discoveredFrom}|record:${externalId}` : `directory:${discoveredFrom}`;
   }
 
+  const fingerprint = root.discoveryType === "SEARCH_PROVIDER"
+    ? evidenceMetadataValue(candidate, ["queryFingerprint"])
+    : null;
+  const provider = root.discoveryType === "SEARCH_PROVIDER"
+    ? evidenceMetadataValue(candidate, ["searchProvider"])
+    : null;
+
   return {
     discoveryContext: context.slice(0, 1000),
-    discoveryContextKey: `${root.discoveryType}:${context}`.slice(0, 500),
+    discoveryContextKey: root.discoveryType === "SEARCH_PROVIDER" && fingerprint
+      ? `SEARCH_PROVIDER:${provider ?? "unknown"}:${fingerprint}`.slice(0, 500)
+      : `${root.discoveryType}:${context}`.slice(0, 500),
     resultRank: evidenceRank(candidate),
     title: evidenceMetadataValue(candidate, ["title"]) ?? candidate.label,
     snippet: evidenceMetadataValue(candidate, ["snippet", "description"]),
