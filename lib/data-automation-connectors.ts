@@ -149,6 +149,7 @@ function expectedMinimumRecords(source: AutomationSource) {
   if (source.config.htmlAdapterKey === "skj-exhibition-calendar") return 1;
   if (source.config.htmlAdapterKey === "agility-sk-events") return 1;
   if (source.config.htmlAdapterKey === "zsk-sr-events") return 1;
+  if (source.config.htmlAdapterKey === "szpz-mushing-events") return 1;
   return 0;
 }
 

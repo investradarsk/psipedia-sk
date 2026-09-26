@@ -455,9 +455,198 @@ export const zskSrEventsAdapter: ControlledHtmlAdapter = async ({ html, source, 
   return [...deduped.values()];
 };
 
+
+const MUSHING_MASTER_MAX = 40;
+const MUSHING_DETAIL_MAX = 30;
+
+function mushingAllowedDetailUrl(value: string | null, sourceUrl: string | null) {
+  const url = absolutePublicUrl(value, sourceUrl);
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== "mushing.sk") return null;
+    if (!/^\/pretek\/[^/]+\/?$/.test(parsed.pathname)) return null;
+    parsed.hash = "";
+    parsed.search = "";
+    return canonicalizeSourceUrl(parsed.toString());
+  } catch {
+    return null;
+  }
+}
+
+function mushingSimpleMunicipality(value: string) {
+  const city = value.replace(/\s+/g, " ").trim();
+  if (!city || city.length > 80) return null;
+  if (/[,/\\]|\d/.test(city)) return null;
+  if (/\s[-–—]\s/.test(city)) return null;
+  return city;
+}
+
+function mushingStatus(value: string) {
+  const normalized = normalizeAutomationIdentity(value);
+  if (normalized.includes("zrusene") || normalized.includes("zrusena") || normalized.includes("zruseny")) {
+    return { status: "CANCELLED", cancelled: true };
+  }
+  if (normalized.includes("presunute") || normalized.includes("prelozene")) {
+    return { status: "POSTPONED", cancelled: false };
+  }
+  if (normalized.includes("zmena datumu") || normalized.includes("zmena terminu")) {
+    return { status: "DATE_CHANGED", cancelled: false };
+  }
+  return { status: null, cancelled: false };
+}
+
+function mushingCleanTitle(value: string) {
+  return value
+    .replace(/\bZRUŠEN[ÉÁÝ]\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function mushingDetailFields(html: string, detailUrl: string) {
+  const fields = new Map<string, string>();
+  for (const cells of htmlRows(html)) {
+    if (cells.length < 2) continue;
+    const label = normalizeAutomationIdentity(cells[0]?.text ?? "");
+    const value = cells.slice(1).map((cell) => cell.text).join(" ").replace(/\s+/g, " ").trim();
+    if (label && value && !fields.has(label)) fields.set(label, value);
+  }
+
+  const links = htmlAnchors(html, detailUrl);
+  const byText = (pattern: RegExp) => links.find((link) => pattern.test(normalizeAutomationIdentity(link.text)))?.url ?? null;
+  const organizer = fields.get("usporiadatel") ?? fields.get("organizator") ?? null;
+  const discipline = fields.get("druh pretekov") ?? null;
+  const categories = fields.get("sutazne kategorie") ?? fields.get("kategorie") ?? null;
+  const rawVenue = fields.get("miesto preteku") ?? fields.get("miesto pretekov") ?? null;
+  const venue = rawVenue?.replace(/\bGPS\s*:\s*-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+.*$/i, "").trim() || null;
+  const gpsText = fields.get("gps") ?? textFromHtml(html).match(/\bGPS\s*:\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/i)?.[0] ?? null;
+  const gpsMatch = gpsText?.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/) ?? null;
+
+  const practical = [
+    discipline ? "Druh pretekov: " + discipline : "",
+    categories ? "Kategórie: " + categories : "",
+  ].filter(Boolean).join("\n");
+
+  return {
+    organizer,
+    discipline,
+    categories,
+    venue,
+    registrationUrl: byText(/prihl|registracny formular|registration/),
+    propositionsUrl: byText(/propoz/),
+    resultsUrl: byText(/vysled/),
+    practicalInfo: practical || null,
+    latitude: gpsMatch ? Number(gpsMatch[1]) : null,
+    longitude: gpsMatch ? Number(gpsMatch[2]) : null,
+  };
+}
+
+export const szpzMushingEventsAdapter: ControlledHtmlAdapter = async ({ html, source, fetchHtml }) => {
+  const parsedRows: Array<{
+    dateText: string;
+    rawTitle: string;
+    venue: string;
+    links: Array<{ text: string; url: string }>;
+    detailUrl: string | null;
+  }> = [];
+
+  for (const rowMatch of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    if (parsedRows.length >= MUSHING_MASTER_MAX) break;
+    const rowHtml = rowMatch[1];
+    const cells: string[] = [];
+    for (const cellMatch of rowHtml.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)) {
+      cells.push(textFromHtml(cellMatch[1]));
+    }
+    if (cells.length < 3) continue;
+    const dateText = cells[0]?.trim() ?? "";
+    const rawTitle = cells[1]?.trim() ?? "";
+    const venue = cells[2]?.trim() ?? "";
+    const range = parseSlovakDateRange(dateText);
+    if (!range || !rawTitle) continue;
+
+    const links = rowLinks(rowHtml, source.sourceUrl);
+    const detailUrl = links
+      .map((link) => mushingAllowedDetailUrl(link.url, source.sourceUrl))
+      .find((url): url is string => Boolean(url)) ?? null;
+    parsedRows.push({ dateText, rawTitle, venue, links, detailUrl });
+  }
+
+  const records: AutomationSourceRecord[] = [];
+  let detailFetches = 0;
+
+  for (const row of parsedRows) {
+    const range = parseSlovakDateRange(row.dateText);
+    if (!range) continue;
+    const status = mushingStatus(row.rawTitle + " " + row.venue);
+    const title = mushingCleanTitle(row.rawTitle);
+    if (!title) continue;
+
+    let detail: ReturnType<typeof mushingDetailFields> | null = null;
+    if (row.detailUrl && fetchHtml && detailFetches < MUSHING_DETAIL_MAX) {
+      detailFetches += 1;
+      const fetched = await fetchHtml(row.detailUrl);
+      const finalUrl = mushingAllowedDetailUrl(fetched.finalUrl, source.sourceUrl);
+      if (finalUrl !== row.detailUrl) throw new Error("mushing_detail_redirect_not_allowed");
+      detail = mushingDetailFields(fetched.html, finalUrl);
+    }
+
+    const city = mushingSimpleMunicipality(row.venue);
+    const sourceRecordId = row.detailUrl
+      ? "url:" + row.detailUrl
+      : [
+          "mushing",
+          normalizeAutomationIdentity(title),
+          range.startDate,
+          normalizeAutomationIdentity(row.venue),
+        ].join(":");
+
+    const practicalInfo = [
+      detail?.practicalInfo ?? "",
+      status.status ? "Stav SZPZ: " + status.status : "",
+    ].filter(Boolean).join("\n");
+
+    records.push({
+      sourceRecordId: sourceRecordId.slice(0, 240),
+      sourceUrl: row.detailUrl ?? source.sourceUrl,
+      sourceTimestamp: null,
+      rawRecord: {
+        dateText: row.dateText,
+        title: row.rawTitle,
+        venue: row.venue,
+        detailUrl: row.detailUrl,
+        links: row.links,
+        discipline: detail?.discipline ?? null,
+        categories: detail?.categories ?? null,
+      },
+      proposed: {
+        title,
+        startDate: range.startDate,
+        endDate: range.endDate,
+        ...(detail?.venue || row.venue ? { venue: detail?.venue ?? row.venue } : {}),
+        ...(city ? { city } : {}),
+        ...(detail?.organizer ? { organizer: detail.organizer } : {}),
+        eventType: "Preteky",
+        websiteUrl: row.detailUrl ?? source.sourceUrl,
+        ...(detail?.registrationUrl ? { registrationUrl: detail.registrationUrl } : {}),
+        ...(detail?.propositionsUrl ? { propositionsUrl: detail.propositionsUrl } : {}),
+        ...(detail?.resultsUrl ? { resultsUrl: detail.resultsUrl } : {}),
+        ...(detail?.latitude !== null && detail?.latitude !== undefined ? { latitude: detail.latitude } : {}),
+        ...(detail?.longitude !== null && detail?.longitude !== undefined ? { longitude: detail.longitude } : {}),
+        ...(practicalInfo ? { practicalInfo } : {}),
+        ...(status.cancelled ? { cancelled: true } : {}),
+        ...(status.status ? { status: status.status } : {}),
+      },
+    });
+  }
+
+  if (records.length === 0) throw new Error("mushing_calendar_no_records");
+  return records;
+};
+
 export const productionAutomationHtmlAdapters: Record<string, ControlledHtmlAdapter> = {
   "skj-exhibition-calendar": skjExhibitionCalendarAdapter,
   "svps-shelters-register": svpsSheltersRegisterAdapter,
   "agility-sk-events": agilitySkEventsAdapter,
   "zsk-sr-events": zskSrEventsAdapter,
+  "szpz-mushing-events": szpzMushingEventsAdapter,
 };
