@@ -1,3 +1,4 @@
+import { shouldSuppressAutomationPossibleCandidate } from "./data-automation-match-memory.ts";
 import {
   canonicalizeSourceUrl,
   normalizeAutomationIdentity,
@@ -332,12 +333,17 @@ async function createCluster(entityType: AutomationSource["entityType"], at: str
 
 async function recordClusterMatchCandidates(input: {
   observationId: number;
+  sourceClusterId?: number;
+  entityType?: AutomationSource["entityType"];
   candidateIds: number[];
   quality: Exclude<AutomationClusterMatchQuality, "NONE">;
   reason: string;
   at: string;
 }, database: AutomationClusterDatabase) {
   for (const candidateId of [...new Set(input.candidateIds)]) {
+    if (input.sourceClusterId && (input.entityType === "DIRECTORY" || input.entityType === "ORGANIZATION")) {
+      if (await shouldSuppressAutomationPossibleCandidate({ observationId: input.observationId, sourceClusterId: input.sourceClusterId, candidateClusterId: candidateId, matchReason: input.reason }, database)) continue;
+    }
     await database.prepare(`INSERT INTO automation_cluster_match_candidates
       (observation_id,candidate_cluster_id,match_quality,match_reason,created_at)
       VALUES (?,?,?,?,?)
@@ -845,6 +851,8 @@ async function resolveOrganizationAutomationEntityCluster(
           if (decision.quality === "POSSIBLE" && decision.possibleCandidateIds.length) {
             await recordClusterMatchCandidates({
               observationId: input.observationId,
+              sourceClusterId: clusterId,
+              entityType: "ORGANIZATION",
               candidateIds: decision.possibleCandidateIds,
               quality: "POSSIBLE",
               reason: decision.reason,
