@@ -9,6 +9,7 @@ import {
 } from "../lib/data-automation-discovery.ts";
 import {
   agilitySkEventsAdapter,
+  szpzMushingEventsAdapter,
   parseZskSrCalendarTable,
   skjExhibitionCalendarAdapter,
   svpsSheltersRegisterAdapter,
@@ -658,4 +659,84 @@ test("Agility source provisioning stays disabled, pending, bounded and authorita
   assert.doesNotMatch(migration, /UPDATE\s+automation_sources/i);
   const adapters = read("lib/data-automation-real-sources.ts");
   assert.match(adapters, /"agility-sk-events": agilitySkEventsAdapter/);
+});
+
+
+test("Mushing SZPZ adapter parses one real-world event, explicit GPS and cancellation conservatively", async () => {
+  const calls = [];
+  const rows = await szpzMushingEventsAdapter({
+    html: fixture("mushing-szpz-events.html"),
+    source: source({
+      sourceKey: "szpz-mushing-events",
+      sourceUrl: "https://mushing.sk/preteky/",
+      maxRecordsPerRun: 40,
+    }),
+    fetchHtml: async (url) => {
+      calls.push(url);
+      if (url === "https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026/") {
+        return { html: fixture("mushing-szpz-detail.html"), finalUrl: url };
+      }
+      if (url === "https://mushing.sk/pretek/mosovce-2026/") {
+        return { html: "<html><body><h1>Mošovce</h1></body></html>", finalUrl: url };
+      }
+      throw new Error("unexpected mushing detail " + url);
+    },
+  });
+
+  assert.equal(rows.length, 4);
+  assert.equal(rows[0].sourceRecordId, "url:https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026/");
+  assert.equal(rows[0].proposed.title, "Bosorkin canicross");
+  assert.equal(rows[0].proposed.startDate, "2026-09-26");
+  assert.equal(rows[0].proposed.endDate, "2026-09-27");
+  assert.equal(rows[0].proposed.city, "Košice");
+  assert.equal(rows[0].proposed.organizer, "SHT Haniska");
+  assert.equal(rows[0].proposed.latitude, 48.7401319);
+  assert.equal(rows[0].proposed.longitude, 21.2913762);
+  assert.match(String(rows[0].proposed.practicalInfo), /Canicross, Bikejöring, Scooter/);
+  assert.match(String(rows[0].proposed.practicalInfo), /CC muži/);
+  assert.equal(rows[1].proposed.cancelled, true);
+  assert.equal(rows[1].proposed.status, "CANCELLED");
+  assert.equal(rows[3].proposed.city, undefined);
+  assert.equal(rows[3].proposed.region, undefined);
+  assert.equal(rows[3].proposed.district, undefined);
+  assert.equal(rows[3].proposed.address, undefined);
+  assert.deepEqual(calls, [
+    "https://mushing.sk/pretek/bosorkin-canicross-2-jarne-kolo-2026/",
+    "https://mushing.sk/pretek/mosovce-2026/",
+  ]);
+});
+
+test("Mushing SZPZ adapter rejects off-domain/non-detail links and uses deterministic source-local fallback", async () => {
+  const html = `
+    <table>
+      <tr><td>5.–6.12.2026</td><td>Láb dog race</td><td>Láb</td>
+      <td><a href="https://evil.example/pretek/x/">Propozície</a></td></tr>
+    </table>`;
+  const rows = await szpzMushingEventsAdapter({
+    html,
+    source: source({ sourceKey: "szpz-mushing-events", sourceUrl: "https://mushing.sk/preteky/" }),
+    fetchHtml: async () => { throw new Error("must not fetch"); },
+  });
+  assert.equal(rows.length, 1);
+  assert.match(rows[0].sourceRecordId, /^mushing:lab dog race:2026-12-05:lab$/);
+  assert.equal(rows[0].sourceUrl, "https://mushing.sk/preteky/");
+});
+
+test("Mushing SZPZ provisioning is disabled, PENDING, bounded and non-publishing", () => {
+  const migration = read("drizzle/0081_automation_mushing_event_source.sql");
+  assert.match(migration, /'szpz-mushing-events'/);
+  assert.match(migration, /'CONTROLLED_HTML'/);
+  assert.match(migration, /https:\/\/mushing\.sk\/preteky\//);
+  assert.match(migration, /"htmlAdapterKey":"szpz-mushing-events"/);
+  assert.match(migration, /0,360,1500,10000,2,1500,40/);
+  assert.match(migration, /'PENDING'/);
+  assert.match(migration, /'OFFICIAL_CLUB_CALENDAR',90/);
+  assert.match(migration, /recurring automation requires separate governance approval/i);
+  assert.doesNotMatch(migration, /INSERT INTO (managed_events|help_organizations|directory_profiles|adoption_dogs|lost_found_dog_reports|help_cases)/i);
+  assert.doesNotMatch(migration, /UPDATE\s+automation_sources/i);
+  const adapters = read("lib/data-automation-real-sources.ts");
+  assert.match(adapters, /"szpz-mushing-events": szpzMushingEventsAdapter/);
+  assert.match(adapters, /MUSHING_MASTER_MAX = 40/);
+  assert.match(adapters, /MUSHING_DETAIL_MAX = 30/);
+  assert.doesNotMatch(adapters, /UPDATE\s+managed_events/i);
 });
