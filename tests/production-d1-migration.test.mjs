@@ -237,6 +237,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0084_automation_governance_registry.sql",
     "0085_automation_tavily_discovery_root.sql",
     "0086_automation_tavily_event_cadence.sql",
+    "0087_automation_tavily_help_roots.sql",
+    "0088_automation_tavily_organization_root.sql",
     "0089_future_migration.sql",
   ]);
 });
