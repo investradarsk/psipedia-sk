@@ -852,11 +852,15 @@ export function discoveryEvidenceContext(
     context = `root:${rootSitemap}|sitemap:${sitemapUrl}|depth:${depth}|leaf:${leafUrl}`;
   } else {
     const metadata = candidate.metadata ?? {};
-    const pageUrl = typeof metadata.directoryPageUrl === "string" ? metadata.directoryPageUrl : discoveredFrom;
-    const rowIdentity = typeof metadata.rowIdentity === "string" && metadata.rowIdentity
-      ? metadata.rowIdentity
-      : candidate.sourceUrl;
-    context = `root:${root.rootKey}|page:${pageUrl}|row:${rowIdentity}`;
+    if (metadata.schemaVersion === 2) {
+      const pageUrl = typeof metadata.directoryPageUrl === "string" ? metadata.directoryPageUrl : discoveredFrom;
+      const rowIdentity = typeof metadata.rowIdentity === "string" && metadata.rowIdentity
+        ? metadata.rowIdentity
+        : candidate.sourceUrl;
+      context = `root:${root.rootKey}|page:${pageUrl}|row:${rowIdentity}`;
+    } else {
+      context = externalId ? `directory:${discoveredFrom}|record:${externalId}` : `directory:${discoveredFrom}`;
+    }
   }
 
   const fingerprint = root.discoveryType === "SEARCH_PROVIDER"
