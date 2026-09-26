@@ -226,6 +226,117 @@ export async function listAutomationDiscoveryRoots(
   }
 }
 
+export async function getAutomationDiscoveryRoot(
+  id: number,
+  databaseInput?: AutomationDiscoveryDatabase,
+) {
+  const db = database(databaseInput);
+  const row = await db.prepare("SELECT * FROM automation_discovery_roots WHERE id=? LIMIT 1")
+    .bind(id).first<Record<string, unknown>>();
+  return row ? mapRoot(row) : null;
+}
+
+export async function getDueAutomationDiscoveryRoot(
+  id: number,
+  databaseInput?: AutomationDiscoveryDatabase,
+  now = new Date(),
+) {
+  const db = database(databaseInput);
+  const row = await db.prepare(`SELECT * FROM automation_discovery_roots
+    WHERE id=? AND enabled=1 AND review_status='APPROVED'
+      AND (next_check_at IS NULL OR next_check_at<=?)
+    LIMIT 1`).bind(id, now.toISOString()).first<Record<string, unknown>>();
+  if (!row) return null;
+  const root = mapRoot(row);
+  const governance = await getGovernanceState({ type: "DISCOVERY_ROOT", id: root.id }, db);
+  if ((!governance.schemaAvailable || !governance.state) && root.discoveryType === "SEARCH_PROVIDER") return null;
+  if (!governance.schemaAvailable || !governance.state) return root;
+  const decision = evaluateGovernanceForActivation(governance, discoveryGovernanceUsage(root), now);
+  return decision.allowed ? root : null;
+}
+
+function discoveryGovernanceUsage(root: AutomationDiscoveryRoot) {
+  return {
+    recurring: true,
+    cadenceMinutes: root.cadenceMinutes,
+    storageFields: root.discoveryType === "SEARCH_PROVIDER"
+      ? ["url", "title", "snippet", "metadata"] as Array<"url" | "title" | "snippet" | "metadata">
+      : ["url", "title", "metadata"] as Array<"url" | "title" | "snippet" | "metadata">,
+  };
+}
+
+async function assertDiscoveryRootGovernance(root: AutomationDiscoveryRoot, db: AutomationDiscoveryDatabase, now = new Date()) {
+  const governance = await getGovernanceState({ type: "DISCOVERY_ROOT", id: root.id }, db);
+  const decision = evaluateGovernanceForActivation(governance, discoveryGovernanceUsage(root), now);
+  if (!decision.allowed) {
+    throw new Error("automation_discovery_governance_blocked:" + decision.blockingReasons.join(","));
+  }
+  return decision;
+}
+
+export async function reviewAutomationDiscoveryRoot(input: {
+  id: number;
+  action: "approve" | "reject";
+  reviewerEmail: string;
+  notes?: string | null;
+  now?: Date;
+}, databaseInput?: AutomationDiscoveryDatabase) {
+  const db = database(databaseInput);
+  const root = await getAutomationDiscoveryRoot(input.id, db);
+  if (!root) return null;
+  if (input.action === "approve") await assertDiscoveryRootGovernance(root, db, input.now ?? new Date());
+  const at = (input.now ?? new Date()).toISOString();
+  await db.prepare(`UPDATE automation_discovery_roots
+    SET review_status=?,reviewed_at=?,reviewed_by=?,review_notes=?,updated_at=?
+    WHERE id=?`).bind(
+      input.action === "approve" ? "APPROVED" : "REJECTED",
+      at,
+      input.reviewerEmail.trim().toLowerCase().slice(0, 320),
+      input.notes?.trim().slice(0, 2000) || null,
+      at,
+      input.id,
+    ).run();
+  return getAutomationDiscoveryRoot(input.id, db);
+}
+
+export async function setAutomationDiscoveryRootEnabled(input: {
+  id: number;
+  enabled: boolean;
+  now?: Date;
+}, databaseInput?: AutomationDiscoveryDatabase) {
+  const db = database(databaseInput);
+  const root = await getAutomationDiscoveryRoot(input.id, db);
+  if (!root) return null;
+  if (input.enabled) {
+    if (root.reviewStatus !== "APPROVED") throw new Error("automation_discovery_review_required");
+    await assertDiscoveryRootGovernance(root, db, input.now ?? new Date());
+  }
+  const at = (input.now ?? new Date()).toISOString();
+  await db.prepare("UPDATE automation_discovery_roots SET enabled=?,updated_at=? WHERE id=?")
+    .bind(input.enabled ? 1 : 0, at, input.id).run();
+  return getAutomationDiscoveryRoot(input.id, db);
+}
+
+export async function getAutomationDiscoveryRunSearchMetrics(
+  runId: number,
+  databaseInput?: AutomationDiscoveryDatabase,
+) {
+  const db = database(databaseInput);
+  try {
+    const row = await db.prepare(`SELECT COALESCE(SUM(request_count),0) AS request_count,
+      COALESCE(SUM(result_count),0) AS result_count
+      FROM automation_search_usage WHERE discovery_run_id=?`)
+      .bind(runId).first<Record<string, unknown>>();
+    return {
+      requestCount: numberValue(row?.request_count),
+      resultCount: numberValue(row?.result_count),
+    };
+  } catch (error) {
+    if (missingSearchUsageSchema(error)) return { requestCount: 0, resultCount: 0 };
+    throw error;
+  }
+}
+
 export async function listAutomationDiscoveryRuns(
   rootId: number,
   databaseInput?: AutomationDiscoveryDatabase,
