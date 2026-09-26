@@ -10,6 +10,7 @@ import {
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
   assertAutomationGovernanceSchema,
+  assertTavilyEventCadenceState,
   assertPartnerAuthPreserved,
   assertPendingTargetSchemaClean,
   buildScopedWranglerConfig,
@@ -92,7 +93,61 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0083_automation_search_budgets.sql",
     "0084_automation_governance_registry.sql",
     "0085_automation_tavily_discovery_root.sql",
+    "0086_automation_tavily_event_cadence.sql",
   ]);
+});
+
+test("DISCOVERY-2C-E 0086 is a data-only production target with no schema drift surface", () => {
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0086_automation_tavily_event_cadence.sql"),
+    { partial: false },
+  );
+});
+
+test("DISCOVERY-2C-E production verifier pins disabled/PENDING Tavily invariants", () => {
+  assert.equal(assertTavilyEventCadenceState({
+    root_key: "tavily-sk-dog-events",
+    discovery_type: "SEARCH_PROVIDER",
+    entity_type: "EVENT",
+    enabled: 0,
+    review_status: "PENDING",
+    cadence_minutes: 2880,
+    next_check_at: null,
+    provider: "tavily",
+    country: "SK",
+    locale: "sk-SK",
+    max_results: 5,
+    max_candidates: 15,
+    queries_per_run: 3,
+    provider_requests_per_run: 3,
+    root_daily_requests: 3,
+    query_cooldown_minutes: 2880,
+    query_0: "kynologický kalendár podujatí Slovensko",
+    query_1: "agility preteky kalendár Slovensko",
+    query_2: "mushing preteky kalendár Slovensko",
+  }), true);
+
+  assert.throws(() => assertTavilyEventCadenceState({
+    root_key: "tavily-sk-dog-events",
+    discovery_type: "SEARCH_PROVIDER",
+    entity_type: "EVENT",
+    enabled: 1,
+    review_status: "PENDING",
+    cadence_minutes: 2880,
+    next_check_at: null,
+    provider: "tavily",
+    country: "SK",
+    locale: "sk-SK",
+    max_results: 5,
+    max_candidates: 15,
+    queries_per_run: 3,
+    provider_requests_per_run: 3,
+    root_daily_requests: 3,
+    query_cooldown_minutes: 2880,
+    query_0: "kynologický kalendár podujatí Slovensko",
+    query_1: "agility preteky kalendár Slovensko",
+    query_2: "mushing preteky kalendár Slovensko",
+  }), /must remain disabled/);
 });
 
 test("production D1 target allowlist tracks every canonical migration from 0062 onward", async () => {
@@ -106,7 +161,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0086_future_migration.sql",
+    "0087_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -141,6 +196,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0083_automation_search_budgets.sql",
     "0084_automation_governance_registry.sql",
     "0085_automation_tavily_discovery_root.sql",
+    "0086_automation_tavily_event_cadence.sql",
   ]);
 });
 
@@ -148,7 +204,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0086_future_migration.sql",
+    "0087_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -169,7 +225,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0083_automation_search_budgets.sql",
     "0084_automation_governance_registry.sql",
     "0085_automation_tavily_discovery_root.sql",
-    "0086_future_migration.sql",
+    "0086_automation_tavily_event_cadence.sql",
+    "0087_future_migration.sql",
   ]);
 });
 

@@ -33,6 +33,7 @@ on:
           - 0083_automation_search_budgets.sql
           - 0084_automation_governance_registry.sql
           - 0085_automation_tavily_discovery_root.sql
+          - 0086_automation_tavily_event_cadence.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -86,6 +87,7 @@ jobs:
             0083_automation_search_budgets.sql) expected_confirmation="APPLY-0083-psipedia-sk-db" ;;
             0084_automation_governance_registry.sql) expected_confirmation="APPLY-0084-psipedia-sk-db" ;;
             0085_automation_tavily_discovery_root.sql) expected_confirmation="APPLY-0085-psipedia-sk-db" ;;
+            0086_automation_tavily_event_cadence.sql) expected_confirmation="APPLY-0086-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"

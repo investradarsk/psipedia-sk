@@ -128,9 +128,10 @@ export async function listDueAutomationDiscoveryRoots(
   const governed: AutomationDiscoveryRoot[] = [];
   for (const root of roots) {
     const governance = await getGovernanceState({ type: "DISCOVERY_ROOT", id: root.id }, db);
-    // Legacy transition: already-enabled roots without a registry row continue until explicit governance rollout.
+    // Legacy transition remains for non-search roots only. SEARCH_PROVIDER roots fail closed
+    // unless the governance schema and an explicit governance record are both available.
     if (!governance.schemaAvailable || !governance.state) {
-      governed.push(root);
+      if (root.discoveryType !== "SEARCH_PROVIDER") governed.push(root);
       continue;
     }
     const storageFields = root.discoveryType === "SEARCH_PROVIDER"
