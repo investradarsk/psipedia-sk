@@ -279,6 +279,14 @@ export function AdminAutomationSourceManager({
                     </span>
                   </div>
                   <p>Posledná kontrola: {formatDate(root.lastCheckedAt)} · ďalšia: {formatDate(root.nextCheckAt)}</p>
+                  {root.searchSafety ? (
+                    <p>
+                      Search requests dnes: {root.searchSafety.requestsToday}/{root.searchSafety.rootDailyLimit}
+                      {" · "}zostáva {root.searchSafety.remainingRootRequests}
+                      {" · "}cooldown do {formatDate(root.searchSafety.cooldownUntil)}
+                      {root.searchSafety.plateau ? " · plateau" : ""}
+                    </p>
+                  ) : null}
                 </div>
                 {root.sourceUrl ? <a className={styles.itemAction} href={root.sourceUrl} target="_blank" rel="noreferrer">Otvoriť zoznam ↗</a> : null}
               </div>
@@ -295,6 +303,9 @@ export function AdminAutomationSourceManager({
                   <strong>{root.rootKey}</strong>
                   <span>{root.discoveryType} · {root.entityType} · {root.reviewStatus}</span>
                   <span>last success {formatDate(root.lastSuccessAt)} · cadence {root.cadenceMinutes} min · error {root.lastErrorCode ?? "—"}</span>
+                  {root.searchSafety ? (
+                    <span>last query {formatDate(root.searchSafety.lastQueryAt)} · root budget {root.searchSafety.requestsToday}/{root.searchSafety.rootDailyLimit} · plateau {root.searchSafety.plateau ? "yes" : "no"}</span>
+                  ) : null}
                 </div>
               ))}
             </div>

@@ -13,11 +13,19 @@ import {
 } from "./data-automation-discovery.ts";
 import {
   beginAutomationDiscoveryRun,
+  finalizeAutomationSearchUsage,
   finishAutomationDiscoveryRun,
+  getAutomationSearchCooldownState,
   listDueAutomationDiscoveryRoots,
+  reserveAutomationSearchRequest,
+  updateAutomationSearchUsageCandidateMetrics,
   type AutomationDiscoveryDatabase,
   type AutomationDiscoveryRoot,
 } from "./data-automation-discovery-store.ts";
+import {
+  automationSearchBudgetPolicy,
+  type AutomationSearchUsageStatus,
+} from "./data-automation-search-budget.ts";
 import { canonicalizeSourceUrl, isSafeAutomationSourceUrl } from "./data-automation.ts";
 import {
   upsertAutomationSourceCandidate,
@@ -207,9 +215,42 @@ async function fetchWithRetry(
   throw lastError;
 }
 
+function searchProviderError(error: unknown) {
+  if (error instanceof AutomationSearchProviderError) return error;
+  const name = error instanceof Error ? error.name : "";
+  if (name === "TimeoutError" || name === "AbortError") return new AutomationSearchProviderError("TIMEOUT");
+  return new AutomationSearchProviderError("PROVIDER_ERROR");
+}
+
+function searchUsageStatus(error: AutomationSearchProviderError): AutomationSearchUsageStatus {
+  return error.code;
+}
+
+function searchRequestInputs(root: AutomationDiscoveryRoot) {
+  const common = {
+    maxResults: root.config.maxResults,
+    locale: root.config.locale,
+    country: root.config.country,
+    freshness: root.config.freshness,
+    allowDomains: root.config.allowDomains,
+    blockDomains: root.config.blockDomains,
+  };
+  const configured = Array.isArray(root.config.queries) && root.config.queries.length
+    ? root.config.queries
+    : [root.config.query];
+  return configured.map((item) => {
+    if (typeof item === "string") return { ...common, query: item };
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      return { ...common, ...(item as Record<string, unknown>) };
+    }
+    return { ...common, query: item };
+  });
+}
+
 async function discoverCandidates(
   root: AutomationDiscoveryRoot,
   options: DataAutomationDiscoverySweepOptions,
+  runId: number,
 ): Promise<AutomationSourceCandidateInput[]> {
   const maxCandidates = configNumber(root, "maxCandidates", 150, 1, 500);
 
@@ -217,35 +258,111 @@ async function discoverCandidates(
     const providerKey = typeof root.config.provider === "string" ? root.config.provider.trim() : "";
     if (!providerKey) throw new AutomationSearchProviderError("CONFIG_MISSING");
     const provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
-    const request = normalizeAutomationSearchRequest({
-      query: root.config.query,
-      maxResults: root.config.maxResults,
-      locale: root.config.locale,
-      country: root.config.country,
-      freshness: root.config.freshness,
-      allowDomains: root.config.allowDomains,
-      blockDomains: root.config.blockDomains,
-    });
-    const fingerprint = await automationSearchQueryFingerprint(provider.key, request);
+    const policy = automationSearchBudgetPolicy(root);
+    const requests = searchRequestInputs(root).slice(0, policy.queriesPerRun);
+    const fingerprints = new Set<string>();
+    const candidates: AutomationSourceCandidateInput[] = [];
+    let providerRequests = 0;
+    let budgetBlocked = false;
 
-    let results;
-    try {
-      results = await provider.search(request);
-    } catch (error) {
-      if (error instanceof AutomationSearchProviderError) throw error;
-      const name = error instanceof Error ? error.name : "";
-      if (name === "TimeoutError" || name === "AbortError") throw new AutomationSearchProviderError("TIMEOUT");
-      throw new AutomationSearchProviderError("PROVIDER_ERROR");
+    for (const requestInput of requests) {
+      if (budgetBlocked || providerRequests >= policy.providerRequestsPerRun || candidates.length >= maxCandidates) break;
+      const request = normalizeAutomationSearchRequest(requestInput);
+      const fingerprint = await automationSearchQueryFingerprint(provider.key, request);
+      if (fingerprints.has(fingerprint)) continue;
+      fingerprints.add(fingerprint);
+
+      const cooldown = await getAutomationSearchCooldownState({
+        providerKey: provider.key,
+        queryFingerprint: fingerprint,
+        baseCooldownMinutes: policy.queryCooldownMinutes,
+        now: options.now ?? new Date(),
+      }, options.database as AutomationDiscoveryDatabase);
+      if (cooldown.blocked) {
+        console.info(JSON.stringify({
+          event: "data_automation_search_skip",
+          rootKey: root.rootKey,
+          provider: provider.key,
+          fingerprint,
+          status: cooldown.plateau ? "PLATEAU_COOLDOWN" : "QUERY_COOLDOWN",
+          cooldownUntil: cooldown.cooldownUntil,
+        }));
+        continue;
+      }
+
+      const retries = configNumber(root, "retryMaxAttempts", 1, 0, 2);
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        if (providerRequests >= policy.providerRequestsPerRun) break;
+        const now = options.now ? new Date(options.now) : new Date();
+        const operationKey = `${runId}:${fingerprint}:${attempt + 1}`;
+        const reservation = await reserveAutomationSearchRequest({
+          operationKey,
+          discoveryRunId: runId,
+          providerKey: provider.key,
+          rootId: root.id,
+          entityType: root.entityType,
+          queryFingerprint: fingerprint,
+          now,
+          globalDailyLimit: policy.globalDailyRequests,
+          entityDailyLimit: policy.entityDailyRequests,
+          rootDailyLimit: policy.rootDailyRequests,
+        }, options.database as AutomationDiscoveryDatabase);
+
+        if (!reservation.reserved) {
+          console.info(JSON.stringify({
+            event: "data_automation_search_skip",
+            rootKey: root.rootKey,
+            provider: provider.key,
+            fingerprint,
+            status: reservation.reason,
+          }));
+          budgetBlocked = reservation.reason !== "DUPLICATE_OPERATION";
+          break;
+        }
+
+        providerRequests += 1;
+        try {
+          const results = await provider.search(request);
+          if (!Array.isArray(results)) throw new AutomationSearchProviderError("INVALID_RESPONSE");
+          const status: AutomationSearchUsageStatus = results.length ? "SUCCESS" : "EMPTY";
+          await finalizeAutomationSearchUsage({
+            operationKey,
+            status,
+            resultCount: results.length,
+            now: options.now ? new Date(options.now) : new Date(),
+          }, options.database as AutomationDiscoveryDatabase);
+          const mapped = automationSearchResultsToCandidates({
+            providerKey: provider.key,
+            request,
+            fingerprint,
+            results,
+            entityType: root.entityType,
+            suggestedConnectorType: root.suggestedConnectorType,
+          }).map((candidate) => ({
+            ...candidate,
+            metadata: {
+              ...(candidate.metadata ?? {}),
+              searchOperationKey: operationKey,
+            },
+          }));
+          candidates.push(...mapped);
+          break;
+        } catch (rawError) {
+          const error = searchProviderError(rawError);
+          await finalizeAutomationSearchUsage({
+            operationKey,
+            status: searchUsageStatus(error),
+            resultCount: 0,
+            now: options.now ? new Date(options.now) : new Date(),
+          }, options.database as AutomationDiscoveryDatabase);
+          const retryable = error.code === "TIMEOUT" || error.code === "PROVIDER_ERROR";
+          if (!retryable || attempt >= retries) throw error;
+          await (options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))))(500 * (attempt + 1));
+        }
+      }
     }
 
-    return automationSearchResultsToCandidates({
-      providerKey: provider.key,
-      request,
-      fingerprint,
-      results,
-      entityType: root.entityType,
-      suggestedConnectorType: root.suggestedConnectorType,
-    });
+    return candidates.slice(0, maxCandidates);
   }
 
   const fetched = await fetchWithRetry(
@@ -375,9 +492,10 @@ async function runDiscoveryRoot(
   let errors = 0;
   let status: DiscoveryRunSummary["status"] = "SUCCESS";
   let errorSummary: string | null = null;
+  const searchMetrics = new Map<string, { newUnique: number; duplicates: number }>();
 
   try {
-    const candidates = await discoverCandidates(root, options);
+    const candidates = await discoverCandidates(root, options, runId);
     candidateCount = candidates.length;
     for (const candidate of candidates) {
       try {
@@ -395,6 +513,16 @@ async function runDiscoveryRoot(
           ...evidence,
           seenAt: startedAt,
         }, options.database);
+        const operationKey = typeof candidate.metadata?.searchOperationKey === "string"
+          ? candidate.metadata.searchOperationKey
+          : null;
+        if (operationKey) {
+          const metrics = searchMetrics.get(operationKey) ?? { newUnique: 0, duplicates: 0 };
+          const newlyCreated = stored.firstDetectedAt === startedAt.toISOString();
+          if (newlyCreated) metrics.newUnique += 1;
+          else metrics.duplicates += 1;
+          searchMetrics.set(operationKey, metrics);
+        }
         if (stored.duplicateSourceId) duplicateCandidateCount += 1;
         else if (stored.reviewStatus === "NEW") reviewableCandidateCount += 1;
       } catch (error) {
@@ -407,6 +535,20 @@ async function runDiscoveryRoot(
     errors += 1;
     status = "FAILED";
     errorSummary = safeErrorCode(error);
+  }
+
+  for (const [operationKey, metrics] of searchMetrics) {
+    try {
+      await updateAutomationSearchUsageCandidateMetrics({
+        operationKey,
+        newUniqueCandidateCount: metrics.newUnique,
+        duplicateCandidateCount: metrics.duplicates,
+      }, options.database as AutomationDiscoveryDatabase);
+    } catch (error) {
+      errors += 1;
+      status = status === "FAILED" ? status : "PARTIAL";
+      errorSummary ??= safeErrorCode(error);
+    }
   }
 
   const completedAt = options.now ? new Date(options.now) : new Date();
