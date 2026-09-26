@@ -13,6 +13,7 @@ import {
 import { loadAdminAttentionQueue } from "@/lib/admin-attention-queue-store";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
+import { listAutomationPossibleMatchReviews } from "@/lib/data-automation-match-review";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +39,14 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
   let newCandidates = 0;
   let sourceIssues = 0;
   let automationAvailable = true;
+  let possibleMatches = 0;
   try {
-    const [candidates, sources] = await Promise.all([
+    const [candidates, sources, possible] = await Promise.all([
       listAutomationSourceCandidates(undefined, 200),
       listAutomationSourcesAdmin(undefined, 200),
+      listAutomationPossibleMatchReviews({ status: "unresolved", limit: 200 }),
     ]);
+    possibleMatches = possible.length;
     newCandidates = candidates.filter((candidate) => candidate.reviewStatus === "NEW").length;
     sourceIssues = sources.filter((item) =>
       item.reviewStatus === "PENDING"
@@ -85,6 +89,13 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
           <h2>Automatizácie</h2>
           <p>{sourceIssues > 0 ? "Niektorý zdroj čaká na schválenie alebo hlási problém." : "Zdroje nehlásia problém, ktorý by od teba vyžadoval zásah."}</p>
           <span className={styles.hubOpen}>Otvoriť automatizácie →</span>
+        </Link>
+        <Link className={`${styles.hubCard} ${possibleMatches > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/operations/possible-matches">
+          <span className={styles.hubKicker}>Identity review</span>
+          <div className={styles.hubMetric}><strong>{automationAvailable ? possibleMatches : "—"}</strong><span>POSSIBLE matches</span></div>
+          <h2>Neisté zhody entít</h2>
+          <p>DIRECTORY a ORGANIZATION zhody, pri ktorých musí človek rozhodnúť SAME / DIFFERENT / RELATIONSHIP / DEFER.</p>
+          <span className={styles.hubOpen}>Otvoriť review →</span>
         </Link>
         <Link className={styles.hubCard} href="/admin/operations/geo">
           <span className={styles.hubKicker}>Geo foundation</span>
