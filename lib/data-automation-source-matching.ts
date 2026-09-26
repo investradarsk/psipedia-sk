@@ -57,13 +57,13 @@ export function selectRelevantExistingSourceForCandidate<T extends AutomationExi
   const candidateUrl = canonicalizeSourceUrl(candidate.canonicalUrl || candidate.sourceUrl);
   if (!candidateUrl) return null;
 
-  const sameEntity = sources.filter((source) =>
-    source.entityType === candidate.entityType
-    && directoryCategoryCompatible(candidate, source)
-  );
-  const exact = sameEntity.find((source) => canonicalizeSourceUrl(source.sourceUrl) === candidateUrl);
-  if (exact) return exact;
+  const sameEntityType = sources.filter((source) => source.entityType === candidate.entityType);
+  const exactSameEntity = sameEntityType.find((source) => canonicalizeSourceUrl(source.sourceUrl) === candidateUrl);
+  if (exactSameEntity) {
+    return directoryCategoryCompatible(candidate, exactSameEntity) ? exactSameEntity : null;
+  }
 
+  const sameEntity = sameEntityType.filter((source) => directoryCategoryCompatible(candidate, source));
   const candidateHost = sourceHostname(candidateUrl);
   if (!candidateHost) return null;
   const sameHost = sameEntity.filter((source) => sourceHostname(source.sourceUrl) === candidateHost);
