@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { sha256Hex, stableJson } from "./data-automation";
 import { getAutomationPossibleMatchReviewDetail } from "./data-automation-match-review";
 import { mergeDirectoryPublicContactData, readDirectoryPublicContacts } from "./directory-profile-metadata";
@@ -580,8 +581,15 @@ export async function applyAutomationCanonicalReview(input:{
   });
   const existing=await existingOperation(fingerprint,db);
   if(existing&&String(existing.status)==="SUCCESS"){
+    const canonicalEntityId=Number(existing.canonical_entity_id);
+    if(target.entityType==="DIRECTORY"){
+      await reconcileGeoAfterSourceMutation({
+        targetType:"DIRECTORY_PROFILE",targetId:canonicalEntityId,
+        actorRef:input.reviewerEmail.trim().toLowerCase(),actorType:"ADMIN",
+      },db);
+    }
     return {operationId:Number(existing.id),applyFingerprint:fingerprint,idempotent:true,
-      canonicalEntityId:Number(existing.canonical_entity_id),
+      canonicalEntityId,
       appliedFields:(JSON.parse(String(existing.selected_fields_json||"[]")) as Array<{fieldName?:string;action?:string}>)
         .filter(item=>item.action==="APPLY_INCOMING").map(item=>String(item.fieldName??"")).filter(Boolean)};
   }
@@ -625,14 +633,27 @@ export async function applyAutomationCanonicalReview(input:{
     const message=error instanceof Error?error.message:String(error);
     if(/automation_canonical_apply_operations.*apply_fingerprint|UNIQUE constraint failed: automation_canonical_apply_operations\.apply_fingerprint/i.test(message)){
       const raced=await existingOperation(fingerprint,db);
-      if(raced&&String(raced.status)==="SUCCESS") return {operationId:Number(raced.id),applyFingerprint:fingerprint,idempotent:true,
-        canonicalEntityId:Number(raced.canonical_entity_id),appliedFields:mutation.appliedFields};
+      if(raced&&String(raced.status)==="SUCCESS"){
+        const canonicalEntityId=Number(raced.canonical_entity_id);
+        if(target.entityType==="DIRECTORY"){
+          await reconcileGeoAfterSourceMutation({
+            targetType:"DIRECTORY_PROFILE",targetId:canonicalEntityId,actorRef:actor,actorType:"ADMIN",
+          },db);
+        }
+        return {operationId:Number(raced.id),applyFingerprint:fingerprint,idempotent:true,
+          canonicalEntityId,appliedFields:mutation.appliedFields};
+      }
     }
     throw error;
   }
 
   const stored=await existingOperation(fingerprint,db);
   if(!stored) throw new Error("canonical_apply_audit_missing");
+  if(preview.entityType==="DIRECTORY"){
+    await reconcileGeoAfterSourceMutation({
+      targetType:"DIRECTORY_PROFILE",targetId:preview.canonicalEntityId,actorRef:actor,actorType:"ADMIN",
+    },db);
+  }
   return {
     operationId:Number(stored.id),applyFingerprint:fingerprint,idempotent:false,
     canonicalEntityId:preview.canonicalEntityId,appliedFields:mutation.appliedFields,
