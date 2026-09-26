@@ -16,6 +16,8 @@ import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { getPublicPartnerProfileManagementState } from "@/lib/partner-public-profile";
 import { getPublicProfileReviewData } from "@/lib/profile-review-read";
 import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreements";
+import { getPublicMapItemsForEntity } from "@/lib/map-query";
+import { getPublicMapRuntime } from "@/lib/public-map-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +79,23 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
       });
       return { data: null, readError: true };
     });
-  const [partnerState, reviewResult, commercial] = await Promise.all([partnerStatePromise, reviewsPromise, commercialPromise]);
+  const publicMapPromise = getPublicMapItemsForEntity(
+    { entityType: "ORGANIZATION", entityId: composition.organization.id },
+    database,
+  ).catch((error) => {
+    console.error("Public organization map read failed", {
+      organizationId: composition.organization.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { items: [] };
+  });
+  const [partnerState, reviewResult, commercial, publicMap] = await Promise.all([
+    partnerStatePromise,
+    reviewsPromise,
+    commercialPromise,
+    publicMapPromise,
+  ]);
+  const publicMapPresentation = { ...publicMap, ...getPublicMapRuntime() };
 
   return (
     <>
@@ -85,7 +103,7 @@ export default async function OrganizationProfilePage({ params, searchParams }: 
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
-      <OrganizationProfileDetail composition={composition} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} />
+      <OrganizationProfileDetail composition={composition} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} publicMap={publicMapPresentation} />
       <PartnerPublicOwnership state={partnerState} correctionHref="/opravy-a-podnety" />
     </>
   );
