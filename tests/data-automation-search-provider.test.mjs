@@ -147,7 +147,7 @@ function tavilyMockResponse(status, body) {
   });
 }
 
-test("DISCOVERY-2C-B Tavily maps bounded request contract without undocumented locale params", async () => {
+test("DISCOVERY-2C-E Tavily maps generic locale to Tavily language without strict filtering", async () => {
   const calls = [];
   const provider = new TavilyAutomationSearchProvider({
     apiKey: "test-tavily-key",
@@ -182,12 +182,14 @@ test("DISCOVERY-2C-B Tavily maps bounded request contract without undocumented l
     max_results: 5,
     search_depth: "basic",
     country: "Slovakia",
+    language: "sk",
     time_range: "week",
     include_domains: ["example.sk"],
     exclude_domains: ["blocked.sk"],
   });
   assert.equal("locale" in body, false);
-  assert.equal("language" in body, false);
+  assert.equal(body.language, "sk");
+  assert.equal("filter_by_language" in body, false);
   assert.deepEqual(results, [{
     url: "https://example.sk/event",
     title: "Dog event",
@@ -197,6 +199,28 @@ test("DISCOVERY-2C-B Tavily maps bounded request contract without undocumented l
     metadata: { score: 0.91 },
   }]);
   assert.equal(tavilySearchProviderContract.timeoutMs, 8000);
+});
+
+test("DISCOVERY-2C-E Tavily locale mapping is deterministic and invalid locale fails closed", async () => {
+  const bodies = [];
+  const provider = new TavilyAutomationSearchProvider({
+    apiKey: "test-tavily-key",
+    async fetchImpl(_input, init) {
+      bodies.push(JSON.parse(init?.body));
+      return tavilyMockResponse(200, { results: [] });
+    },
+  });
+
+  await provider.search({ query: "dogs", maxResults: 5, locale: "sk-SK" });
+  await provider.search({ query: "dogs", maxResults: 5, locale: "SK_sk" });
+  assert.deepEqual(bodies.map((body) => body.language), ["sk", "sk"]);
+  assert.ok(bodies.every((body) => !("filter_by_language" in body)));
+
+  await assert.rejects(
+    () => provider.search({ query: "dogs", maxResults: 5, locale: "not-a-locale" }),
+    (error) => error instanceof AutomationSearchProviderError && error.code === "CONFIG_MISSING",
+  );
+  assert.equal(bodies.length, 2);
 });
 
 test("DISCOVERY-2C-B Tavily enforces max-results hard cap and deterministic mappings", async () => {
@@ -259,7 +283,14 @@ test("DISCOVERY-2C-B Tavily skips malformed rows but rejects malformed response 
 });
 
 test("DISCOVERY-2C-B Tavily maps provider errors and never exposes the secret", async () => {
-  const noSecret = new TavilyAutomationSearchProvider({ apiKey: "" });
+  let noSecretNetworkCall = false;
+  const noSecret = new TavilyAutomationSearchProvider({
+    apiKey: "",
+    async fetchImpl() {
+      noSecretNetworkCall = true;
+      return tavilyMockResponse(200, { results: [] });
+    },
+  });
   assert.equal(noSecret.credentialConfigured, false);
   await assert.rejects(
     () => noSecret.search({ query: "dogs", maxResults: 5 }),
@@ -267,6 +298,7 @@ test("DISCOVERY-2C-B Tavily maps provider errors and never exposes the secret", 
       && error.code === "CONFIG_MISSING"
       && !error.message.includes("test-tavily-key"),
   );
+  assert.equal(noSecretNetworkCall, false);
 
   for (const [status, code] of [[401, "AUTH_FAILED"], [403, "AUTH_FAILED"], [429, "RATE_LIMITED"], [500, "PROVIDER_ERROR"]]) {
     const provider = new TavilyAutomationSearchProvider({

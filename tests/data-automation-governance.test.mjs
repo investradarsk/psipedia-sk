@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { evaluateGovernanceForActivation } from "../lib/data-automation-governance.ts";
+import { listDueAutomationDiscoveryRoots } from "../lib/data-automation-discovery-store.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -151,12 +152,116 @@ test("admin makes dimensions and blocking reasons visible", async () => {
 });
 
 
+function governanceRow() {
+  return {
+    id: 9,
+    subject_type: "DISCOVERY_ROOT",
+    subject_id: 1,
+    access_status: "ALLOWED",
+    robots_status: "NOT_APPLICABLE",
+    terms_status: "ALLOWED",
+    recurring_status: "APPROVED",
+    retention_status: "APPROVED",
+    retain_url: 1,
+    retain_title: 1,
+    retain_snippet: 1,
+    retain_metadata: 1,
+    retention_days: null,
+    min_cadence_minutes: null,
+    max_requests_per_day: null,
+    manual_only: 0,
+    path_scope: null,
+    restrictions_note: null,
+    terms_url: null,
+    privacy_url: null,
+    robots_url: null,
+    evidence_url: null,
+    reviewed_at: "2026-09-26T18:00:00.000Z",
+    reviewed_by: "operator@example.com",
+    rationale: "manual review",
+    expires_at: null,
+    review_due_at: null,
+    created_at: "2026-09-26T18:00:00.000Z",
+    updated_at: "2026-09-26T18:00:00.000Z",
+  };
+}
+
+function discoveryGovernanceDb({ discoveryType, governance }) {
+  const root = {
+    id: 1,
+    root_key: "test-root",
+    label: "Test root",
+    discovery_type: discoveryType,
+    source_url: discoveryType === "SEARCH_PROVIDER" ? null : "https://example.sk/feed.xml",
+    entity_type: "EVENT",
+    suggested_connector_type: "CONTROLLED_HTML",
+    config_json: "{}",
+    enabled: 1,
+    review_status: "APPROVED",
+    cadence_minutes: 2880,
+    next_check_at: null,
+    last_checked_at: null,
+    last_success_at: null,
+    last_error_at: null,
+    last_error_code: null,
+  };
+  return {
+    prepare(sql) {
+      return {
+        bind() {
+          return {
+            async all() {
+              if (sql.includes("FROM automation_discovery_roots")) return { results: [root] };
+              throw new Error("unexpected all query");
+            },
+            async first() {
+              if (!sql.includes("automation_governance_reviews")) throw new Error("unexpected first query");
+              if (governance === "schema-unavailable") throw new Error("no such table: automation_governance_reviews");
+              if (governance === "missing") return null;
+              return governanceRow();
+            },
+          };
+        },
+      };
+    },
+    async batch() { return []; },
+  };
+}
+
+test("DISCOVERY-2C-E SEARCH_PROVIDER runtime fails closed when governance is missing or unavailable", async () => {
+  for (const governance of ["missing", "schema-unavailable"]) {
+    const roots = await listDueAutomationDiscoveryRoots(discoveryGovernanceDb({
+      discoveryType: "SEARCH_PROVIDER",
+      governance,
+    }), new Date("2026-09-26T20:00:00.000Z"));
+    assert.deepEqual(roots, []);
+  }
+});
+
+test("DISCOVERY-2C-E SEARCH_PROVIDER with valid governance remains eligible for normal evaluator", async () => {
+  const roots = await listDueAutomationDiscoveryRoots(discoveryGovernanceDb({
+    discoveryType: "SEARCH_PROVIDER",
+    governance: "valid",
+  }), new Date("2026-09-26T20:00:00.000Z"));
+  assert.equal(roots.length, 1);
+  assert.equal(roots[0].discoveryType, "SEARCH_PROVIDER");
+});
+
+test("DISCOVERY-2C-E legacy non-SEARCH_PROVIDER transition remains compatible", async () => {
+  const roots = await listDueAutomationDiscoveryRoots(discoveryGovernanceDb({
+    discoveryType: "RSS",
+    governance: "missing",
+  }), new Date("2026-09-26T20:00:00.000Z"));
+  assert.equal(roots.length, 1);
+  assert.equal(roots[0].discoveryType, "RSS");
+});
+
 test("runtime enforces explicit governance decisions while preserving legacy enabled rows without a registry record", async () => {
   const sourceStore = await readFile(path.join(repoRoot, "lib/data-automation-store.ts"), "utf8");
   const discoveryStore = await readFile(path.join(repoRoot, "lib/data-automation-discovery-store.ts"), "utf8");
   assert.match(sourceStore, /Legacy transition: pre-4B enabled sources without a registry row continue/);
   assert.match(sourceStore, /evaluateGovernanceForActivation/);
-  assert.match(discoveryStore, /Legacy transition: already-enabled roots without a registry row continue/);
+  assert.match(discoveryStore, /Legacy transition remains for non-search roots only/);
   assert.match(discoveryStore, /root\.discoveryType === "SEARCH_PROVIDER"/);
   assert.match(discoveryStore, /"snippet"/);
 });

@@ -38,6 +38,20 @@ test("DISCOVERY-2C-C migration provisions one bounded disabled/PENDING Tavily EV
   assert.doesNotMatch(migration, /CREATE TABLE|ALTER TABLE|DROP TABLE|DELETE FROM|UPDATE\s+/i);
 });
 
+test("DISCOVERY-2C-E 0086 updates only Tavily EVENT cadence and cooldown", () => {
+  const migration = read("drizzle/0086_automation_tavily_event_cadence.sql");
+  assert.match(migration, /UPDATE automation_discovery_roots/);
+  assert.match(migration, /root_key = 'tavily-sk-dog-events'/);
+  assert.match(migration, /cadence_minutes = 2880/);
+  assert.match(migration, /json_set\(config_json, '\$\.searchBudget\.queryCooldownMinutes', 2880\)/);
+  assert.doesNotMatch(migration, /enabled\s*=|review_status\s*=|next_check_at\s*=/i);
+  assert.doesNotMatch(migration, /INSERT|DELETE|CREATE|ALTER|DROP/i);
+  for (const query of queries) assert.equal(migration.includes(query), false);
+  for (const key of ["provider", "maxResults", "maxCandidates", "queriesPerRun", "providerRequestsPerRun", "rootDailyRequests"]) {
+    assert.equal(migration.includes(key), false, key);
+  }
+});
+
 test("DISCOVERY-2C-C search contract accepts exact query set with five-result bounds", () => {
   for (const query of queries) {
     const request = normalizeAutomationSearchRequest({
@@ -55,23 +69,23 @@ test("DISCOVERY-2C-C search contract accepts exact query set with five-result bo
   }
 });
 
-test("DISCOVERY-2C-C root-local budget is 3 queries, 3 provider requests/day, one page and 24h cooldown", () => {
+test("DISCOVERY-2C-E root-local budget keeps limits but uses 48h cadence/cooldown", () => {
   const policy = automationSearchBudgetPolicy({
     entityType: "EVENT",
-    cadenceMinutes: 1440,
+    cadenceMinutes: 2880,
     config: {
       searchBudget: {
         queriesPerRun: 3,
         providerRequestsPerRun: 3,
         rootDailyRequests: 3,
-        queryCooldownMinutes: 1440,
+        queryCooldownMinutes: 2880,
       },
     },
   });
   assert.equal(policy.queriesPerRun, 3);
   assert.equal(policy.providerRequestsPerRun, 3);
   assert.equal(policy.rootDailyRequests, 3);
-  assert.equal(policy.queryCooldownMinutes, 1440);
+  assert.equal(policy.queryCooldownMinutes, 2880);
   assert.equal(policy.maxPagesPerQuery, 1);
 });
 
