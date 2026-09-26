@@ -226,7 +226,7 @@ async function discoverCandidates(
       allowDomains: root.config.allowDomains,
       blockDomains: root.config.blockDomains,
     });
-    const fingerprint = automationSearchQueryFingerprint(provider.key, request);
+    const fingerprint = await automationSearchQueryFingerprint(provider.key, request);
 
     let results;
     try {
