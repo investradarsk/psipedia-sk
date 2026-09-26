@@ -10,6 +10,7 @@ import {
 } from "./data-automation.ts";
 import type { AutomationSourceAdminInput } from "./data-automation-source-admin.ts";
 import type { AutomationSourceCandidateInput } from "./data-automation-discovery.ts";
+import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 
 export type AutomationSourceAdminDatabase = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -282,6 +283,15 @@ export async function setAutomationSourceEnabled(input: {
     if (existing.reviewStatus !== "APPROVED") throw new Error("automation_source_review_required");
     if (existing.connectorType !== "MANUAL_IMPORT" && (!existing.sourceUrl || !isSafeAutomationSourceUrl(existing.sourceUrl))) {
       throw new Error("automation_source_url_not_safe");
+    }
+    const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id }, db);
+    const decision = evaluateGovernanceForActivation(governance, {
+      recurring: true,
+      cadenceMinutes: existing.cadenceMinutes,
+      storageFields: ["url", "metadata"],
+    });
+    if (!decision.allowed) {
+      throw new Error("automation_source_governance_blocked:" + decision.blockingReasons.join(","));
     }
   }
   const at = (input.now ?? new Date()).toISOString();
