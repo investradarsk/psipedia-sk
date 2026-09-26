@@ -1,6 +1,5 @@
 import { articleBulkAdapter } from "./article-adapter.ts";
 import { directoryBulkAdapter } from "./directory-adapter.ts";
-import { reconcileGeoAfterSourceMutation } from "../geo-store.ts";
 import {
   BulkPreflightError,
   parseBulkExecutionRequest,
@@ -133,14 +132,6 @@ export async function runBulkExecution(
     try {
       const result = await mutationStatement(database, request.module, request.action, item, editorEmail, timestamp).run();
       if (changedRows(result) === 1) {
-        if (request.module === "directory") {
-          await reconcileGeoAfterSourceMutation({
-            targetType: "DIRECTORY_PROFILE",
-            targetId: id,
-            actorRef: editorEmail,
-            actorType: "ADMIN",
-          }, database as unknown as D1Database);
-        }
         updated.push({ id });
       } else {
         skipped.push({ id, reason: "record-changed-since-snapshot" });
