@@ -34,13 +34,14 @@ export async function POST(request: Request) {
     if (physicalLocality) {
       await requireDirectoryAddressProviderSchema();
       if (!body.addressProviderResultId?.trim()) {
-        throw new Error("Vyber konkrétnu adresu z Geoapify návrhov.");
+        throw new Error("Vyber ulicu z Geoapify návrhov.");
       }
       verified = await verifyDirectoryAddressSelection({
         region: body.region ?? "",
         district: body.district ?? "",
         city: body.city ?? "",
         providerResultId: body.addressProviderResultId,
+        houseNumber: body.houseNumber ?? "",
       });
       payload = withVerifiedDirectoryAddress(body, verified);
     } else {
