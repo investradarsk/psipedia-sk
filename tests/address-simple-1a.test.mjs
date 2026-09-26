@@ -6,6 +6,7 @@ import {
   houseNumberMatchesUserInput,
   parseSlovakHouseNumber,
   verifyDirectoryAddressSelection,
+  verifyDirectoryCanonicalAddress,
   verifyDirectoryExactCandidates,
   verifyExternalDirectoryAddressBestEffort,
 } from "../lib/directory-address-provider.ts";
@@ -256,6 +257,48 @@ test("short house discovery falls back to bounded free-form lookup and persists 
   assert.equal(verified.houseNumber, "1892/74");
   assert.equal(verified.providerResult.providerResultId, "hv-1892-74");
   assert.deepEqual(calls.map((item) => item[0]), ["primary", "secondary"]);
+});
+
+test("shared canonical verifier exposes the same short-house primary and secondary flow to A2", async () => {
+  const calls = [];
+  const provider = {
+    autocomplete: async (request) => {
+      calls.push(["street", request.query]);
+      return [result({
+        providerResultId: "street-shared-hv",
+        resultType: "street",
+        street: "Hviezdoslavova",
+        housenumber: "",
+        postcode: "",
+        buildingConfidence: null,
+      })];
+    },
+    geocodeExact: async (request) => {
+      calls.push(["primary", request.structuredAddress?.housenumber]);
+      return [result({ street: "Hviezdoslavova", resultType: "street", housenumber: "", postcode: "" })];
+    },
+    geocodeApproximate: async (request) => {
+      calls.push(["secondary", request.query]);
+      return [result({
+        street: "Hviezdoslavova",
+        housenumber: "1892/74",
+        providerResultId: "hv-shared-1892-74",
+      })];
+    },
+  };
+
+  const verified = await verifyDirectoryCanonicalAddress({
+    ...locality,
+    street: "Hviezdoslavova",
+    houseNumber: "74",
+    addressFormat: "STREET",
+    revalidateStreet: true,
+    provider,
+  });
+
+  assert.equal(verified.houseNumber, "1892/74");
+  assert.equal(verified.providerResult.providerResultId, "hv-shared-1892-74");
+  assert.deepEqual(calls.map((item) => item[0]), ["street", "primary", "secondary"]);
 });
 
 test("verified primary house result does not call secondary discovery", async () => {
