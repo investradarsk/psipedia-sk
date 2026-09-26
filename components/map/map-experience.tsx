@@ -14,6 +14,8 @@ import {
   MAP_DEFAULT_ZOOM,
   MAP_FETCH_DEBOUNCE_MS,
   MapRequestGate,
+  buildGoogleMapsDirectionsUrl,
+  buildGoogleMapsPlaceUrl,
   buildMapApiUrl,
   isApproximateMapItem,
   mapFiltersForCategory,
@@ -28,6 +30,7 @@ import {
   serializeMapUiFilters,
   type MapUiFilters,
   type MapViewport,
+  type PublicMapType,
 } from "@/lib/map-public-ui";
 import {
   GOOGLE_MAPS_CONSENT_EVENT,
@@ -228,6 +231,8 @@ function MapResultCard({
   const approximate = isApproximateMapItem(item);
   const eventDate = item.entityType === "event" ? formatEventDate(item.eventStart) : "";
   const linkLabel = item.entityType === "event" ? "Detail podujatia" : "Zobraziť profil";
+  const googleMapsUrl = buildGoogleMapsPlaceUrl(item.latitude, item.longitude);
+  const directionsUrl = approximate ? null : buildGoogleMapsDirectionsUrl(item.latitude, item.longitude);
 
   return (
     <article
@@ -254,6 +259,26 @@ function MapResultCard({
       </button>
       <div className={styles.cardFooter}>
         <Link className={styles.resultLink} href={item.href}>{linkLabel}</Link>
+        {googleMapsUrl ? (
+          <a
+            className={styles.externalMapLink}
+            href={googleMapsUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {approximate ? "Otvoriť približnú polohu v Google Maps" : "Otvoriť v Google Maps"}
+          </a>
+        ) : null}
+        {directionsUrl ? (
+          <a
+            className={styles.navigationLink}
+            href={directionsUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Navigovať
+          </a>
+        ) : null}
       </div>
     </article>
   );
@@ -572,6 +597,7 @@ export function MapExperience({
   const [sheetState, setSheetState] = useState<"peek" | "expanded">("peek");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [googleMapsConsent, setGoogleMapsConsentState] = useState(false);
+  const [mapType, setMapType] = useState<PublicMapType>("roadmap");
   const requestGateRef = useRef(new MapRequestGate());
   const cardRefs = useRef(new Map<string, HTMLElement>());
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
@@ -820,12 +846,31 @@ export function MapExperience({
             clusters={clusters}
             selectedItemId={selectedItemId}
             viewport={viewport}
+            mapType={mapType}
             command={rendererCommand}
             onViewportChange={setViewport}
             onSelectItem={selectItemById}
             onClusterClick={selectCluster}
             onStatusChange={setRendererStatus}
           />
+          {(testRenderer || (effectiveRendererEnabled && googleMapsConsent)) ? (
+            <div className={styles.mapTypeControl} role="group" aria-label="Typ mapového podkladu">
+              <button
+                type="button"
+                aria-pressed={mapType === "roadmap"}
+                onClick={() => setMapType("roadmap")}
+              >
+                Mapa
+              </button>
+              <button
+                type="button"
+                aria-pressed={mapType === "hybrid"}
+                onClick={() => setMapType("hybrid")}
+              >
+                Satelit
+              </button>
+            </div>
+          ) : null}
           {effectiveRendererEnabled && !googleMapsConsent && !testRenderer ? (
             <div className={styles.mapConsentGate} data-testid="map-consent-gate">
               <strong>Načítať interaktívnu Google mapu?</strong>
