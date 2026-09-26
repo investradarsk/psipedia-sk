@@ -63,7 +63,7 @@
     "test:map-read-api": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/map-read-api.test.mjs tests/map-read-api-contract.test.mjs tests/map-read-api-benchmark.test.mjs",
     "test:partner-profile-changes": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-profile-changes.test.mjs",
     "test:reviews-public-read": "node --experimental-strip-types --test tests/profile-review-read.test.mjs",
-    "test:map-public-ui": "node --experimental-strip-types --test tests/map-public-ui.test.mjs tests/map-public-ui-contract.test.mjs",
+    "test:map-public-ui": "node --experimental-strip-types --test tests/map-public-ui.test.mjs tests/map-public-ui-contract.test.mjs tests/public-location-map-contract.test.mjs",
     "test:partner-new-profile": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-new-profile.test.mjs",
     "test:map-production-launch": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/map-production-launch.test.mjs",
     "test:review-author-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/review-author-auth.test.mjs",
