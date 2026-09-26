@@ -4,7 +4,13 @@ import { SITE_URL } from "../config/public-site.ts";
 export { SITE_URL } from "../config/public-site.ts";
 export const SITE_NAME = "Psipedia.sk";
 export const SITE_DESCRIPTION =
-  "Praktické a zrozumiteľné články o výcviku, zdraví, výžive a živote so psom.";
+  "Slovenský portál pre psí život. Overené informácie, služby, podujatia a pomoc pre každodenný život so psom.";
+export const SITE_ALTERNATE_NAMES = ["Psipedia", "Psipedia SK"] as const;
+export const SOCIAL_PROFILES = {
+  facebook: "https://www.facebook.com/p/Psipediask-61593052546349/",
+  instagram: "https://www.instagram.com/psipedia.sk/",
+} as const;
+export const SOCIAL_PROFILE_URLS = Object.values(SOCIAL_PROFILES);
 export const SOCIAL_LOCALE = "sk_SK";
 export const SOCIAL_FALLBACK_IMAGE = {
   path: "/images/hero-labrador.webp",
@@ -15,6 +21,48 @@ export const SOCIAL_FALLBACK_IMAGE = {
 
 export const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 export const WEBSITE_ID = `${SITE_URL}/#website`;
+
+export function buildSiteIdentityJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": ORGANIZATION_ID,
+        name: SITE_NAME,
+        alternateName: [...SITE_ALTERNATE_NAMES],
+        url: SITE_URL,
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/pwa/icon-512.png`,
+          width: 512,
+          height: 512,
+        },
+        image: `${SITE_URL}/images/hero-labrador.webp`,
+        description: SITE_DESCRIPTION,
+        sameAs: [...SOCIAL_PROFILE_URLS],
+      },
+      {
+        "@type": "WebSite",
+        "@id": WEBSITE_ID,
+        name: SITE_NAME,
+        alternateName: [...SITE_ALTERNATE_NAMES],
+        url: SITE_URL,
+        description: SITE_DESCRIPTION,
+        publisher: { "@id": ORGANIZATION_ID },
+        inLanguage: "sk-SK",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: `${SITE_URL}/hladat?q={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
+        },
+      },
+    ],
+  };
+}
 
 export const INDEXABLE_ROBOTS: Metadata["robots"] = {
   index: true,
