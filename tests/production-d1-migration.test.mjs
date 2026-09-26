@@ -157,6 +157,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0079_automation_agility_event_source.sql",
     "0080_automation_canonical_apply.sql",
     "0081_automation_mushing_event_source.sql",
+    "0082_automation_discovery_candidate_evidence.sql",
     "0083_future_migration.sql",
   ]);
 });
