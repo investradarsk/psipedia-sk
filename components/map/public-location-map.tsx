@@ -187,9 +187,9 @@ export function PublicLocationMap({
               );
             })}
           </div>
-        ) : selected && isApproximateMapItem(selected) ? (
+        ) : selected && (selected.displayLocation || isApproximateMapItem(selected)) ? (
           <div className={styles.locations}>
-            <span className={styles.approximate}>Približná poloha</span>
+            {isApproximateMapItem(selected) ? <span className={styles.approximate}>Približná poloha</span> : null}
             {selected.displayLocation ? <span className={styles.locationMeta}>{selected.displayLocation}</span> : null}
           </div>
         ) : null}
