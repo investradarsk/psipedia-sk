@@ -1,4 +1,4 @@
-import { shouldSuppressAutomationPossibleCandidate } from "./data-automation-match-review.ts";
+import { shouldSuppressAutomationPossibleCandidate } from "./data-automation-match-memory.ts";
 import { sha256Hex, stableJson, type AutomationSource, type AutomationSourceRecord } from "./data-automation.ts";
 import {
   DIRECTORY_SEMANTIC_KIND,
