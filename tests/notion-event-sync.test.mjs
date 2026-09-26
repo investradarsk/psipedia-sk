@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const syncSource = await readFile(new URL("../lib/notion-event-sync.ts", import.meta.url), "utf8");
+const eventStoreSource = await readFile(new URL("../lib/event-store.ts", import.meta.url), "utf8");
 const sharedSource = await readFile(new URL("../lib/notion-sync-shared.ts", import.meta.url), "utf8");
 const routeSource = await readFile(new URL("../app/api/admin/notion-events-sync/route.ts", import.meta.url), "utf8");
 const eventRouteSource = await readFile(new URL("../app/api/admin/events/[id]/route.ts", import.meta.url), "utf8");
@@ -97,4 +98,13 @@ test("Partner-approved event edits lock inbound Notion sync without deleting the
   assert.match(syncSource, /mapping\.inbound_locked_at/);
   assert.match(syncSource, /Partner moderation owns inbound priority/);
   assert.match(syncSource, /return "unchanged"/);
+});
+
+
+test("Notion event create and location update inherit canonical GEO lifecycle", () => {
+  assert.match(syncSource, /createManagedEvent\(payload, SYNC_ACTOR\)/);
+  assert.match(syncSource, /updateManagedEvent\(existing\.id, payload, SYNC_ACTOR, existing\)/);
+  assert.match(eventStoreSource, /reconcileGeoAfterSourceMutation/);
+  assert.match(eventStoreSource, /managedEventGeoActorType/);
+  assert.match(eventStoreSource, /notion-event-sync@psipedia\.sk/);
 });

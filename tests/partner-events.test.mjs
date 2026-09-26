@@ -160,13 +160,13 @@ test("Partner UX exposes dashboard, create, edit, history and withdraw",()=>{
 });
 
 test("approved published UPDATE uses post-commit GEO and relevant public cache invalidation without Notion publish writeback",()=>{
- assert.match(admin,/syncGeoPointAfterSourceChange\("MANAGED_EVENT",input\.eventId\)/);
+ assert.match(admin,/reconcileGeoAfterSourceMutation\(\{targetType:"MANAGED_EVENT",targetId:input\.eventId,actorRef:input\.actorRef,actorType:"ADMIN"\},input\.database\)/);
  assert.match(admin,/\/podujatia\/kalendar/);
  assert.match(admin,/\/podujatia\/vystavy/);
  assert.match(admin,/\/podujatia\/preteky/);
  assert.match(admin,/\/podujatia\/seminare/);
  assert.match(admin,/input\.published&&input\.invalidatePublic/);
- assert.match(admin,/Partner event GEO sync failed/);
+ assert.doesNotMatch(admin,/Partner event GEO sync failed|syncGeoPointAfterSourceChange/);
  assert.match(admin,/Partner event public cache invalidation failed/);
  assert.doesNotMatch(admin,/writeBackPublishedEventToNotion|notion-event-sync|publish writeback/i);
 });

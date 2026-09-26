@@ -57,6 +57,25 @@ export class AutomationApplyUnsupportedError extends Error {
   }
 }
 
+const EVENT_GEO_SOURCE_FIELDS = new Set(["venue", "city", "region", "address"]);
+
+async function reconcileAutomationEventGeo(input: {
+  entityType: AutomationEntityType;
+  canonicalEntityId: number;
+  applicationType: "CREATE_DRAFT" | "UPDATE_EXISTING";
+  appliedFields: string[];
+  actorRef: string;
+}, db: AutomationD1Database) {
+  if (input.entityType !== "EVENT") return;
+  if (input.applicationType !== "CREATE_DRAFT" && !input.appliedFields.some((field) => EVENT_GEO_SOURCE_FIELDS.has(field))) return;
+  await reconcileGeoAfterSourceMutation({
+    targetType: "MANAGED_EVENT",
+    targetId: input.canonicalEntityId,
+    actorRef: input.actorRef,
+    actorType: "ADMIN",
+  }, db);
+}
+
 const bool = (column: string, canonicalKey?: string): FieldSpec => ({ column, kind: "boolean", canonicalKey });
 const jsonField = (column: string, canonicalKey?: string): FieldSpec => ({ column, kind: "json", canonicalKey });
 const field = (column: string, canonicalKey?: string): FieldSpec => ({ column, kind: "text", canonicalKey });
@@ -934,6 +953,13 @@ export async function applyAutomationFinding(input: {
     if (!refreshed) return null;
     let appliedFields: string[] = [];
     try { appliedFields = JSON.parse(already.applied_fields_json) as string[]; } catch {}
+    await reconcileAutomationEventGeo({
+      entityType: finding.entityType,
+      canonicalEntityId: Number(already.canonical_entity_id),
+      applicationType: already.application_type,
+      appliedFields,
+      actorRef: input.reviewerEmail.trim().toLowerCase(),
+    }, db);
     return {
       finding: refreshed,
       application: {
@@ -1092,6 +1118,13 @@ export async function applyAutomationFinding(input: {
   }
   let appliedFields: string[] = [];
   try { appliedFields = JSON.parse(application.applied_fields_json) as string[]; } catch {}
+  await reconcileAutomationEventGeo({
+    entityType: finding.entityType,
+    canonicalEntityId: Number(application.canonical_entity_id),
+    applicationType: application.application_type,
+    appliedFields,
+    actorRef: actor,
+  }, db);
   return {
     finding: refreshed,
     application: {
