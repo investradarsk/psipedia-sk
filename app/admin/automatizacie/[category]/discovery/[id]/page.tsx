@@ -10,7 +10,7 @@ import {
   listAutomationDiscoveryRuns,
 } from "@/lib/data-automation-discovery-store";
 import { getGovernanceState } from "@/lib/data-automation-governance";
-import { TAVILY_EVENT_ROOT_KEY, tavilyCanaryReadiness } from "@/lib/tavily-canary-control";
+import { isTavilySearchDiscoveryRoot, tavilyCanaryReadiness } from "@/lib/tavily-canary-control";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string; id: string }> };
@@ -30,10 +30,8 @@ export default async function TavilyDiscoveryRootPage({ params }: Props) {
   const root = await getAutomationDiscoveryRoot(id).catch(() => null);
   if (
     !root
-    || root.rootKey !== TAVILY_EVENT_ROOT_KEY
-    || root.entityType !== "EVENT"
-    || root.discoveryType !== "SEARCH_PROVIDER"
-    || !category.entityTypes.includes("EVENT")
+    || !isTavilySearchDiscoveryRoot(root)
+    || !category.entityTypes.includes(root.entityType)
   ) notFound();
 
   const [governance, runs] = await Promise.all([
@@ -47,10 +45,10 @@ export default async function TavilyDiscoveryRootPage({ params }: Props) {
   return (
     <AdminShell
       user={user}
-      eyebrow="Automatizácie · Podujatia · Discovery"
+      eyebrow={"Automatizácie · " + category.title + " · Discovery"}
       title={root.label}
       description="Governance review, technické schválenie, zapnutie a prvý kontrolovaný Tavily canary run."
-      actions={<><Link href={"/admin/automatizacie/" + resolved.category}>← Podujatia</Link><Link href="/admin/automatizacie/zdroje#kandidati">Source candidates</Link></>}
+      actions={<><Link href={"/admin/automatizacie/" + resolved.category}>← {category.title}</Link><Link href="/admin/automatizacie/zdroje#kandidati">Source candidates</Link></>}
     >
       <AdminTavilyRootDetail
         root={root}
