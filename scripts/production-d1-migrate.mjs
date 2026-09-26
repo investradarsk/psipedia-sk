@@ -78,6 +78,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0083_automation_search_budgets.sql",
   "0084_automation_governance_registry.sql",
   "0085_automation_tavily_discovery_root.sql",
+  "0086_automation_tavily_event_cadence.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -467,6 +468,50 @@ function scalarCount(databaseName, configPath, sql) {
   return Number(rows[0]?.count ?? 0);
 }
 
+function tavilyEventRootState(databaseName, configPath) {
+  const rows = d1Execute(databaseName, configPath, `
+    SELECT root_key,discovery_type,entity_type,enabled,review_status,cadence_minutes,next_check_at,
+      json_extract(config_json,'$.provider') AS provider,
+      json_extract(config_json,'$.country') AS country,
+      json_extract(config_json,'$.locale') AS locale,
+      json_extract(config_json,'$.maxResults') AS max_results,
+      json_extract(config_json,'$.maxCandidates') AS max_candidates,
+      json_extract(config_json,'$.searchBudget.queriesPerRun') AS queries_per_run,
+      json_extract(config_json,'$.searchBudget.providerRequestsPerRun') AS provider_requests_per_run,
+      json_extract(config_json,'$.searchBudget.rootDailyRequests') AS root_daily_requests,
+      json_extract(config_json,'$.searchBudget.queryCooldownMinutes') AS query_cooldown_minutes,
+      json_extract(config_json,'$.queries[0]') AS query_0,
+      json_extract(config_json,'$.queries[1]') AS query_1,
+      json_extract(config_json,'$.queries[2]') AS query_2
+    FROM automation_discovery_roots
+    WHERE root_key='tavily-sk-dog-events'
+  `);
+  invariant(rows.length === 1, `Expected exactly one tavily-sk-dog-events root, found ${rows.length}`);
+  return rows[0];
+}
+
+export function assertTavilyEventCadenceState(row) {
+  invariant(String(row.root_key) === "tavily-sk-dog-events", "Tavily EVENT root key changed unexpectedly");
+  invariant(String(row.discovery_type) === "SEARCH_PROVIDER", "Tavily EVENT discovery type changed unexpectedly");
+  invariant(String(row.entity_type) === "EVENT", "Tavily EVENT entity type changed unexpectedly");
+  invariant(Number(row.enabled) === 0, "Tavily EVENT root must remain disabled");
+  invariant(String(row.review_status) === "PENDING", "Tavily EVENT root must remain PENDING");
+  invariant(Number(row.cadence_minutes) === 2880, "Tavily EVENT cadence must be 2880 minutes");
+  invariant(String(row.provider) === "tavily", "Tavily EVENT provider changed unexpectedly");
+  invariant(String(row.country) === "SK", "Tavily EVENT country changed unexpectedly");
+  invariant(String(row.locale) === "sk-SK", "Tavily EVENT locale changed unexpectedly");
+  invariant(Number(row.max_results) === 5, "Tavily EVENT maxResults changed unexpectedly");
+  invariant(Number(row.max_candidates) === 15, "Tavily EVENT maxCandidates changed unexpectedly");
+  invariant(Number(row.queries_per_run) === 3, "Tavily EVENT queriesPerRun changed unexpectedly");
+  invariant(Number(row.provider_requests_per_run) === 3, "Tavily EVENT providerRequestsPerRun changed unexpectedly");
+  invariant(Number(row.root_daily_requests) === 3, "Tavily EVENT rootDailyRequests changed unexpectedly");
+  invariant(Number(row.query_cooldown_minutes) === 2880, "Tavily EVENT query cooldown must be 2880 minutes");
+  invariant(String(row.query_0) === "kynologický kalendár podujatí Slovensko", "Tavily EVENT query 1 changed unexpectedly");
+  invariant(String(row.query_1) === "agility preteky kalendár Slovensko", "Tavily EVENT query 2 changed unexpectedly");
+  invariant(String(row.query_2) === "mushing preteky kalendár Slovensko", "Tavily EVENT query 3 changed unexpectedly");
+  return true;
+}
+
 function schemaState(databaseName, configPath) {
   const columns = d1Execute(databaseName, configPath, "PRAGMA table_info('directory_profiles')");
   const eventNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('event_notion_sync')");
@@ -684,6 +729,9 @@ export function targetSchemaObjects(schema, targetMigration) {
     };
   }
   if (targetMigration === "0085_automation_tavily_discovery_root.sql") {
+    return { partial: false };
+  }
+  if (targetMigration === "0086_automation_tavily_event_cadence.sql") {
     return { partial: false };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
@@ -1584,6 +1632,12 @@ async function verify(targetMigration) {
     assertPartnerH3Integrity(partnerH3Integrity);
   }
 
+  let tavilyEventRoot = null;
+  if (targetIndex >= 86) {
+    tavilyEventRoot = tavilyEventRootState(databaseName, prepared.configPath);
+    assertTavilyEventCadenceState(tavilyEventRoot);
+  }
+
   let partnerContactProfileCount = null;
   if (targetIndex >= 69) {
     partnerContactProfileCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM partner_account_profiles");
@@ -1653,6 +1707,14 @@ async function verify(targetMigration) {
       integrity: partnerH3Integrity,
     } : null,
     historyVerifiedThrough: targetMigration,
+    tavilyEventRoot: targetIndex >= 86 ? {
+      rootKey: "tavily-sk-dog-events",
+      enabled: false,
+      reviewStatus: "PENDING",
+      cadenceMinutes: 2880,
+      queryCooldownMinutes: 2880,
+      invariantsVerified: true,
+    } : null,
     geoFoundation,
     counts: safeCounts(after),
     dataIntegrity: "PASS",
