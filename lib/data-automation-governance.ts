@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { canonicalizeSourceUrl, isSafeAutomationSourceUrl, stableJson } from "./data-automation";
+import { canonicalizeSourceUrl, isSafeAutomationSourceUrl } from "./data-automation";
 
 export type AutomationGovernanceDatabase = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -267,9 +267,6 @@ export function parseAutomationGovernanceInput(value: unknown): AutomationGovern
   };
 }
 
-function snapshot(state: AutomationGovernanceState | null) {
-  return state ? stableJson(state) : null;
-}
 
 export async function upsertGovernanceReview(input: {
   subject: AutomationGovernanceSubject;
@@ -323,11 +320,6 @@ export async function upsertGovernanceReview(input: {
 
   const after = (await getGovernanceState(input.subject, db)).state;
   if (!after) throw new Error("automation_governance_write_failed");
-  await db.prepare(`INSERT INTO automation_governance_review_history
-    (review_id,subject_type,subject_id,before_json,after_json,actor,rationale,changed_at)
-    VALUES (?,?,?,?,?,?,?,?)`).bind(
-      after.id,input.subject.type,input.subject.id,snapshot(before),snapshot(after),actor,r.rationale,at,
-    ).run();
   return after;
 }
 
