@@ -6,6 +6,7 @@ import {
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
   type MapViewport,
+  type PublicMapType,
 } from "@/lib/map-public-ui";
 import styles from "./map-public.module.css";
 
@@ -25,6 +26,7 @@ type Props = {
   clusters: MapCluster[];
   selectedItemId: string | null;
   viewport: MapViewport;
+  mapType: PublicMapType;
   command: MapRendererCommand | null;
   onViewportChange: (viewport: MapViewport) => void;
   onSelectItem: (id: string) => void;
@@ -53,6 +55,7 @@ type GoogleMapInstance = {
   getCenter(): LatLngValue | undefined;
   panTo(position: LatLngLiteral): void;
   setZoom(zoom: number): void;
+  setMapTypeId(mapTypeId: PublicMapType): void;
 };
 
 type GoogleMapConstructor = new (
@@ -229,6 +232,7 @@ function TestMapRenderer({
   items,
   clusters,
   selectedItemId,
+  mapType,
   command,
   onViewportChange,
   onSelectItem,
@@ -256,7 +260,7 @@ function TestMapRenderer({
   }, [command, onViewportChange]);
 
   return (
-    <div className={styles.testMap} data-testid="map-test-renderer" data-map-init-count="1">
+    <div className={styles.testMap} data-testid="map-test-renderer" data-map-init-count="1" data-map-type={mapType}>
       <div className={styles.testMapLabel}>Testovací renderer mapy</div>
       <div className={styles.testMarkerLayer}>
         {clusters.map((cluster) => (
@@ -302,6 +306,7 @@ export function GoogleMapRenderer(props: Props) {
     clusters,
     selectedItemId,
     viewport,
+    mapType,
     command,
     onViewportChange,
     onSelectItem,
@@ -312,6 +317,7 @@ export function GoogleMapRenderer(props: Props) {
   const mapRef = useRef<GoogleMapInstance | null>(null);
   const markerCtorRef = useRef<GoogleAdvancedMarkerConstructor | null>(null);
   const markersRef = useRef(new Map<string, MarkerRecord>());
+  const mapTypeRef = useRef<PublicMapType>(mapType);
   const onViewportChangeRef = useRef(onViewportChange);
   const onSelectItemRef = useRef(onSelectItem);
   const onClusterClickRef = useRef(onClusterClick);
@@ -321,6 +327,11 @@ export function GoogleMapRenderer(props: Props) {
   useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
   useEffect(() => { onSelectItemRef.current = onSelectItem; }, [onSelectItem]);
   useEffect(() => { onClusterClickRef.current = onClusterClick; }, [onClusterClick]);
+
+  useEffect(() => {
+    mapTypeRef.current = mapType;
+    if (!testMode && mapRef.current) mapRef.current.setMapTypeId(mapType);
+  }, [mapType, testMode]);
 
   const configMissing = !apiKey.trim() || !mapId.trim();
 
@@ -353,6 +364,7 @@ export function GoogleMapRenderer(props: Props) {
           center: MAP_DEFAULT_CENTER,
           zoom: MAP_DEFAULT_ZOOM,
           mapId,
+          mapTypeId: mapTypeRef.current,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
@@ -478,6 +490,7 @@ export function GoogleMapRenderer(props: Props) {
         clusters={clusters}
         selectedItemId={selectedItemId}
         viewport={viewport}
+        mapType={mapType}
         command={command}
         onViewportChange={onViewportChange}
         onSelectItem={onSelectItem}

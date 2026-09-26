@@ -141,6 +141,36 @@ export function buildMapApiUrl(viewport: Pick<MapViewport, "bbox" | "zoom">, fil
   return `/api/map?${params.toString()}`;
 }
 
+export type PublicMapType = "roadmap" | "hybrid";
+
+function validGoogleMapsCoordinate(latitude: number, longitude: number) {
+  return Number.isFinite(latitude)
+    && Number.isFinite(longitude)
+    && latitude >= -90
+    && latitude <= 90
+    && longitude >= -180
+    && longitude <= 180;
+}
+
+function googleMapsCoordinateQuery(latitude: number, longitude: number) {
+  if (!validGoogleMapsCoordinate(latitude, longitude)) return null;
+  return `${latitude},${longitude}`;
+}
+
+export function buildGoogleMapsPlaceUrl(latitude: number, longitude: number) {
+  const query = googleMapsCoordinateQuery(latitude, longitude);
+  if (!query) return null;
+  const params = new URLSearchParams({ api: "1", query });
+  return `https://www.google.com/maps/search/?${params.toString()}`;
+}
+
+export function buildGoogleMapsDirectionsUrl(latitude: number, longitude: number) {
+  const destination = googleMapsCoordinateQuery(latitude, longitude);
+  if (!destination) return null;
+  const params = new URLSearchParams({ api: "1", destination });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
 export function isApproximateMapItem(item: Pick<MapItem, "precision">) {
   return item.precision !== "EXACT";
 }
