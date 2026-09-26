@@ -62,6 +62,7 @@ type GoogleMapInstance = {
   getBounds(): LatLngBoundsValue | undefined;
   getZoom(): number | undefined;
   getCenter(): LatLngValue | undefined;
+  getMapTypeId?(): string | undefined;
   panTo(position: LatLngLiteral): void;
   setZoom(zoom: number): void;
   setMapTypeId(mapTypeId: PublicMapType): void;
@@ -204,6 +205,16 @@ function moveGoogleMarker(
   marker.position = position;
 }
 
+function mapPresentationBaselineFromMap(map: GoogleMapInstance) {
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+  if (!center || !Number.isFinite(zoom)) return null;
+  return {
+    center: { lat: center.lat(), lng: center.lng() },
+    zoom: Math.round(zoom!),
+  };
+}
+
 function viewportFromMap(map: GoogleMapInstance): MapViewport | null {
   const bounds = map.getBounds();
   const center = map.getCenter();
@@ -343,7 +354,12 @@ export function GoogleMapRenderer(props: Props) {
   useEffect(() => {
     mapTypeRef.current = mapType;
     if (!testMode && mapRef.current) {
-      beginMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
+      const baseline = mapPresentationBaselineFromMap(mapRef.current);
+      if (baseline) {
+        beginMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current, mapType, baseline);
+      } else {
+        cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
+      }
       mapRef.current.setMapTypeId(mapType);
     }
   }, [mapType, testMode]);
@@ -395,7 +411,7 @@ export function GoogleMapRenderer(props: Props) {
         markerCtorRef.current = markerLibrary.AdvancedMarkerElement;
         window.__PSIPEDIA_MAP_INIT_COUNT__ = (window.__PSIPEDIA_MAP_INIT_COUNT__ ?? 0) + 1;
         mapTypeListener = map.addListener("maptypeid_changed", () => {
-          confirmMapTypeChange(mapTypeIdleSuppressionRef.current);
+          confirmMapTypeChange(mapTypeIdleSuppressionRef.current, map.getMapTypeId?.());
         });
         dragStartListener = map.addListener("dragstart", () => {
           cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
@@ -406,7 +422,11 @@ export function GoogleMapRenderer(props: Props) {
         idleListener = map.addListener("idle", () => {
           const next = viewportFromMap(map);
           if (!next) return;
-          if (consumeMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current)) return;
+          if (consumeMapTypeIdleSuppression(
+            mapTypeIdleSuppressionRef.current,
+            { center: next.center, zoom: next.zoom },
+            map.getMapTypeId?.(),
+          )) return;
           onViewportChangeRef.current(next);
         });
         setReady(true);
