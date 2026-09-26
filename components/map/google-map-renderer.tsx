@@ -216,6 +216,16 @@ function viewportFromMap(map: GoogleMapInstance): MapViewport | null {
   };
 }
 
+function sameViewport(a: MapViewport, b: MapViewport, epsilon = 1e-6) {
+  return a.zoom === b.zoom
+    && Math.abs(a.center.lat - b.center.lat) <= epsilon
+    && Math.abs(a.center.lng - b.center.lng) <= epsilon
+    && Math.abs(a.bbox.north - b.bbox.north) <= epsilon
+    && Math.abs(a.bbox.south - b.bbox.south) <= epsilon
+    && Math.abs(a.bbox.east - b.bbox.east) <= epsilon
+    && Math.abs(a.bbox.west - b.bbox.west) <= epsilon;
+}
+
 function testClusterViewport(cluster: MapCluster, zoom: number): MapViewport {
   const nextZoom = Math.min(20, Math.max(zoom + 2, 9));
   const span = nextZoom >= 12 ? 0.45 : nextZoom >= 10 ? 1.2 : 2.4;
@@ -322,6 +332,7 @@ export function GoogleMapRenderer(props: Props) {
   const markerCtorRef = useRef<GoogleAdvancedMarkerConstructor | null>(null);
   const markersRef = useRef(new Map<string, MarkerRecord>());
   const mapTypeRef = useRef<PublicMapType>(mapType);
+  const mapTypeSwitchViewportRef = useRef<MapViewport | null>(null);
   const onViewportChangeRef = useRef(onViewportChange);
   const onSelectItemRef = useRef(onSelectItem);
   const onClusterClickRef = useRef(onClusterClick);
@@ -334,7 +345,11 @@ export function GoogleMapRenderer(props: Props) {
 
   useEffect(() => {
     mapTypeRef.current = mapType;
-    if (!testMode && mapRef.current) mapRef.current.setMapTypeId(mapType);
+    if (!testMode && mapRef.current) {
+      const currentViewport = viewportFromMap(mapRef.current);
+      if (currentViewport) mapTypeSwitchViewportRef.current = currentViewport;
+      mapRef.current.setMapTypeId(mapType);
+    }
   }, [mapType, testMode]);
 
   const configMissing = !apiKey.trim() || !mapId.trim();
@@ -382,7 +397,15 @@ export function GoogleMapRenderer(props: Props) {
         window.__PSIPEDIA_MAP_INIT_COUNT__ = (window.__PSIPEDIA_MAP_INIT_COUNT__ ?? 0) + 1;
         idleListener = map.addListener("idle", () => {
           const next = viewportFromMap(map);
-          if (next) onViewportChangeRef.current(next);
+          if (!next) return;
+
+          const mapTypeSwitchViewport = mapTypeSwitchViewportRef.current;
+          if (mapTypeSwitchViewport) {
+            if (sameViewport(mapTypeSwitchViewport, next)) return;
+            mapTypeSwitchViewportRef.current = null;
+          }
+
+          onViewportChangeRef.current(next);
         });
         setReady(true);
         onStatusChange("ready");
@@ -402,6 +425,7 @@ export function GoogleMapRenderer(props: Props) {
       markerRegistry.clear();
       mapRef.current = null;
       markerCtorRef.current = null;
+      mapTypeSwitchViewportRef.current = null;
       setReady(false);
     };
   }, [apiKey, configMissing, consentGranted, rendererEnabled, mapId, onStatusChange, testMode]);
