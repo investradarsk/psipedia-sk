@@ -51,7 +51,7 @@ test("cross-method context is preserved and SEARCH_PROVIDER is query-context rea
   assert.match(runner, /SEARCH_PROVIDER:/);
   assert.match(runner, /root\.discoveryType === "RSS"/);
   assert.match(runner, /root\.discoveryType === "SITEMAP"/);
-  assert.match(runner, /directory:\\$\{discoveredFrom\}/);
+  assert.match(runner, /directory:\$\{discoveredFrom\}/);
   assert.match(runner, /resultRank: evidenceRank\(candidate\)/);
   assert.match(runner, /snippet: evidenceMetadataValue/);
 });
