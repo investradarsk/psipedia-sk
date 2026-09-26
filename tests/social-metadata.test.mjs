@@ -3,10 +3,13 @@ import fs from "node:fs";
 import test from "node:test";
 import {
   buildPageMetadata,
+  buildSiteIdentityJsonLd,
+  SITE_ALTERNATE_NAMES,
   SITE_NAME,
   SITE_URL,
   SOCIAL_FALLBACK_IMAGE,
   SOCIAL_LOCALE,
+  SOCIAL_PROFILES,
 } from "../lib/seo.ts";
 
 function openGraphImage(metadata) {
@@ -56,6 +59,28 @@ function buildRepresentativeMetadata({
     type,
   });
 }
+
+test("site identity JSON-LD binds the canonical brand to official profiles", () => {
+  const graph = buildSiteIdentityJsonLd()["@graph"];
+  const organization = graph.find((item) => item["@type"] === "Organization");
+  const website = graph.find((item) => item["@type"] === "WebSite");
+
+  assert.ok(organization);
+  assert.equal(organization["@id"], `${SITE_URL}/#organization`);
+  assert.equal(organization.name, SITE_NAME);
+  assert.deepEqual(organization.alternateName, [...SITE_ALTERNATE_NAMES]);
+  assert.deepEqual(organization.sameAs, [SOCIAL_PROFILES.facebook, SOCIAL_PROFILES.instagram]);
+  assert.equal(organization.logo.url, `${SITE_URL}/pwa/icon-512.png`);
+  assert.equal(organization.logo.width, 512);
+  assert.equal(organization.logo.height, 512);
+
+  assert.ok(website);
+  assert.equal(website["@id"], `${SITE_URL}/#website`);
+  assert.equal(website.name, SITE_NAME);
+  assert.deepEqual(website.alternateName, [...SITE_ALTERNATE_NAMES]);
+  assert.deepEqual(website.publisher, { "@id": `${SITE_URL}/#organization` });
+  assert.equal(website.potentialAction.target.urlTemplate, `${SITE_URL}/hladat?q={search_term_string}`);
+});
 
 test("article social metadata keeps one canonical OG/Twitter contract", () => {
   const metadata = buildRepresentativeMetadata({

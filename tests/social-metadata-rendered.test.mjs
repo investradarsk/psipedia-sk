@@ -33,7 +33,7 @@ test("rendered homepage emits one absolute canonical OG/Twitter contract", async
   assert.equal(response.status, 200);
   const html = await response.text();
   const title = "Psipedia.sk – rozumej svojmu psovi";
-  const description = "Praktické a zrozumiteľné články o výcviku, zdraví, výžive, plemenách a živote so psom.";
+  const description = "Slovenský portál pre psí život. Overené informácie, služby, podujatia a pomoc pre každodenný život so psom.";
   const canonical = "https://psipedia.sk/";
   const image = "https://psipedia.sk/images/hero-labrador.webp";
 
@@ -49,4 +49,10 @@ test("rendered homepage emits one absolute canonical OG/Twitter contract", async
   assertTagAttributes(html, "meta", { name: "twitter:title", content: title });
   assertTagAttributes(html, "meta", { name: "twitter:description", content: description });
   assertTagAttributes(html, "meta", { name: "twitter:image", content: image });
+  assert.ok(html.includes('"@id":"https://psipedia.sk/#organization"'));
+  assert.ok(html.includes('"name":"Psipedia.sk"'));
+  assert.ok(html.includes('"alternateName":["Psipedia","Psipedia SK"]'));
+  assert.ok(html.includes("https://www.facebook.com/p/Psipediask-61593052546349/"));
+  assert.ok(html.includes("https://www.instagram.com/psipedia.sk/"));
+  assert.ok(html.includes("https://psipedia.sk/pwa/icon-512.png"));
 });
