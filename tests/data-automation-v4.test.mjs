@@ -59,7 +59,8 @@ test("discovery can only create candidates, never active sources or canonical co
 
   const sourceStore = read("lib/data-automation-source-store.ts");
   assert.match(sourceStore, /enabled,\s*cadence_minutes/);
-  assert.match(sourceStore, /VALUES \(\?,\?,\?,\?,\?,'\{\}',0,1440/);
+  assert.match(sourceStore, /VALUES \(\?,\?,\?,\?,\?,\?,0,1440/);
+  assert.match(sourceStore, /candidateProvisioningConfig/);
   assert.match(sourceStore, /'PENDING'/);
 });
 
