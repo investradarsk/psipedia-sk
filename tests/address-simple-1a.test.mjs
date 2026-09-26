@@ -6,6 +6,7 @@ import {
   verifyDirectoryAddressSelection,
   verifyDirectoryExactCandidates,
 } from "../lib/directory-address-provider.ts";
+import { GeoapifyGeocoder } from "../lib/geoapify-geocoder.ts";
 
 const locality = {
   region: "Nitriansky kraj",
@@ -62,7 +63,7 @@ test("autocomplete filters to selected Slovak locality and returns at most five 
     result(),
     result({ providerResultId: "wrong-country", countryCode: "AT" }),
     result({ providerResultId: "wrong-city", city: "Nitra", district: "Nitra" }),
-    ...Array.from({ length: 7 }, (_, index) => result({ providerResultId: `extra-${index}` })),
+    ...Array.from({ length: 7 }, (_, index) => result({ providerResultId: `extra-${index}`, street: `Testovacia ${index}` })),
   ];
   const provider = { autocomplete: async () => candidates };
   const suggestions = await autocompleteDirectoryAddress({ ...locality, query: "Župná", provider });
@@ -73,37 +74,70 @@ test("autocomplete filters to selected Slovak locality and returns at most five 
   assert.equal(Object.hasOwn(suggestions[0], "longitude"), false);
 });
 
-test("save revalidation resolves provider identity again and requires the same ranked house result", async () => {
+test("save revalidation verifies selected street, combines it with separately entered house number and stores the exact house result", async () => {
   const calls = [];
   const provider = {
     lookupPlace: async (providerResultId) => {
       calls.push(["details", providerResultId]);
-      return [result({ providerResultId })];
+      return [result({
+        providerResultId,
+        resultType: "street",
+        housenumber: "",
+        postcode: "",
+        buildingConfidence: null,
+      })];
     },
     geocodeExact: async (request) => {
-      calls.push(["geocode", request.structuredAddress?.housenumber, request.structuredAddress?.postcode]);
-      return [result()];
+      calls.push(["geocode", request.structuredAddress?.street, request.structuredAddress?.housenumber]);
+      return [result({ providerResultId: "house-place-74", housenumber: "1892/74" })];
     },
   };
   const verified = await verifyDirectoryAddressSelection({
     ...locality,
-    providerResultId: "place-1",
+    providerResultId: "street-place-1",
+    houseNumber: "1892/74",
     provider,
   });
-  assert.equal(verified.providerResult.providerResultId, "place-1");
+  assert.equal(verified.providerResult.providerResultId, "house-place-74");
+  assert.equal(verified.houseNumber, "1892/74");
   assert.deepEqual(calls, [
-    ["details", "place-1"],
-    ["geocode", "12", "95301"],
+    ["details", "street-place-1"],
+    ["geocode", "Župná", "1892/74"],
   ]);
 
   const changedProvider = {
     lookupPlace: provider.lookupPlace,
-    geocodeExact: async () => [result({ providerResultId: "different-place" })],
+    geocodeExact: async () => [result({ providerResultId: "house-place-2", street: "Iná ulica" })],
   };
   await assert.rejects(
-    verifyDirectoryAddressSelection({ ...locality, providerResultId: "place-1", provider: changedProvider }),
-    /serverovom overení zmenil/,
+    verifyDirectoryAddressSelection({ ...locality, providerResultId: "street-place-1", houseNumber: "12", provider: changedProvider }),
+    /inú ulicu/,
   );
+});
+
+test("Geoapify place-details parser accepts GeoJSON features and preserves the requested place id", async () => {
+  const provider = new GeoapifyGeocoder({
+    apiKey: "test-key",
+    fetchImpl: async () => Response.json({
+      features: [{
+        properties: {
+          lat: 48.385,
+          lon: 18.401,
+          country: "Slovakia",
+          country_code: "sk",
+          state: "Nitriansky kraj",
+          county: "Zlaté Moravce",
+          city: "Zlaté Moravce",
+          street: "Hviezdoslavova",
+          result_type: "street",
+        },
+      }],
+    }),
+  });
+  const results = await provider.lookupPlace("street-place-1");
+  assert.equal(results.length, 1);
+  assert.equal(results[0].street, "Hviezdoslavova");
+  assert.equal(results[0].providerResultId, "street-place-1");
 });
 
 test("strict exact gate accepts a high-confidence STREET building and normalizes postcode", () => {
@@ -173,6 +207,8 @@ test("ADDRESS-SIMPLE-1A endpoint, editor and save flow preserve server authority
   assert.match(provider, /GEOAPIFY_API_KEY/);
   assert.match(provider, /\/v1\/geocode\/autocomplete/);
   assert.match(provider, /countrycode:sk/);
+  assert.match(provider, /url\.searchParams\.set\("type", "street"\)/);
+  assert.match(provider, /body\.features\?\.map/);
   assert.match(provider, /url\.searchParams\.set\("limit", "5"\)/);
   assert.match(provider, /providerResultId: result\.place_id/);
 
@@ -180,15 +216,19 @@ test("ADDRESS-SIMPLE-1A endpoint, editor and save flow preserve server authority
   assert.match(autocomplete, /window\.setTimeout[\s\S]*325/);
   assert.match(autocomplete, /AbortController/);
   assert.match(autocomplete, /slice\(0, 5\)/);
-  assert.match(autocomplete, /Vyhľadávam adresy/);
-  assert.match(autocomplete, /nenašla zodpovedajúca presná adresa/);
+  assert.match(autocomplete, /Vyhľadávam ulice/);
+  assert.match(autocomplete, /nenašla zodpovedajúca ulica/);
+  assert.match(autocomplete, /selectedStreet/);
   assert.match(editor, /addressProviderResultId/);
   assert.match(editor, /confirmServiceAddress: false/);
   assert.match(editor, /readOnly/);
   assert.doesNotMatch(editor, /setStreet\(event\.target\.value\)/);
+  assert.match(editor, /setHouseNumber\(event\.target\.value\)/);
+  assert.match(editor, /selectedStreet=\{street\}/);
   assert.doesNotMatch(editor, /latitude|longitude/);
 
   assert.match(createRoute, /verifyDirectoryAddressSelection/);
+  assert.match(createRoute, /houseNumber: body\.houseNumber/);
   assert.match(createRoute, /requireDirectoryAddressProviderSchema/);
   assert.match(updateRoute, /directoryPhysicalAddressChanged/);
   assert.match(updateRoute, /Zmenu fyzickej adresy potvrď výberom/);

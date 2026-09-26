@@ -180,6 +180,7 @@ export class GeoapifyGeocoder implements GeocoderProvider {
     url.searchParams.set("lang", "sk");
     url.searchParams.set("limit", "5");
     url.searchParams.set("filter", "countrycode:sk");
+    url.searchParams.set("type", "street");
     url.searchParams.set("apiKey", this.apiKey);
     return this.fetchResults(url, input.signal);
   }
@@ -193,7 +194,8 @@ export class GeoapifyGeocoder implements GeocoderProvider {
     url.searchParams.set("features", "details");
     url.searchParams.set("lang", "sk");
     url.searchParams.set("apiKey", this.apiKey);
-    return this.fetchResults(url, signal);
+    const results = await this.fetchResults(url, signal);
+    return results.map((result) => result.providerResultId ? result : { ...result, providerResultId: id });
   }
 
   private async fetchResults(url: URL, signal?: AbortSignal) {
@@ -213,7 +215,8 @@ export class GeoapifyGeocoder implements GeocoderProvider {
       if (response.status >= 500) throw new GeocoderProviderError("PROVIDER_ERROR", "Geoapify is temporarily unavailable.", { retryable: true, httpStatus: response.status });
       if (!response.ok) throw new GeocoderProviderError("INVALID_INPUT", `Geoapify rejected the request with HTTP ${response.status}.`, { httpStatus: response.status });
       const body = await response.json() as GeoapifyResponse;
-      return (body.results ?? []).map(normalizeResult).filter((item): item is NormalizedGeocoderResult => item !== null);
+      const rawResults = body.results ?? body.features?.map((feature) => feature.properties ?? {}) ?? [];
+      return rawResults.map(normalizeResult).filter((item): item is NormalizedGeocoderResult => item !== null);
     } finally {
       clearTimeout(timeout);
       signal?.removeEventListener("abort", relayAbort);
