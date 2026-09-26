@@ -15,7 +15,10 @@ import {
   type AutomationDiscoveryRoot,
 } from "./data-automation-discovery-store.ts";
 import { canonicalizeSourceUrl, isSafeAutomationSourceUrl } from "./data-automation.ts";
-import { upsertAutomationSourceCandidate } from "./data-automation-source-store.ts";
+import {
+  upsertAutomationSourceCandidate,
+  upsertAutomationSourceCandidateEvidence,
+} from "./data-automation-source-store.ts";
 
 export const DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP = 2;
 const MAX_DISCOVERY_BYTES = 1_000_000;
@@ -264,6 +267,57 @@ async function discoverCandidates(
   }).slice(0, maxCandidates);
 }
 
+
+function evidenceMetadataValue(candidate: AutomationSourceCandidateInput, keys: string[]) {
+  const metadata = candidate.metadata ?? {};
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function evidenceRank(candidate: AutomationSourceCandidateInput) {
+  const metadata = candidate.metadata ?? {};
+  for (const key of ["resultRank", "rank"]) {
+    const value = Number(metadata[key]);
+    if (Number.isFinite(value) && value >= 0) return Math.floor(value);
+  }
+  return null;
+}
+
+export function discoveryEvidenceContext(
+  root: AutomationDiscoveryRoot,
+  candidate: AutomationSourceCandidateInput,
+) {
+  const discoveredFrom = evidenceMetadataValue(candidate, ["discoveredFrom", "feedUrl", "sitemapUrl", "directoryUrl"])
+    ?? root.sourceUrl
+    ?? root.rootKey;
+  const externalId = evidenceMetadataValue(candidate, ["externalId", "guid", "id"]);
+  let context: string;
+
+  if (root.discoveryType === "SEARCH_PROVIDER") {
+    const query = String(root.config.query ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    context = query ? `query:${query}` : `root:${root.rootKey}`;
+  } else if (root.discoveryType === "RSS") {
+    context = externalId ? `feed:${discoveredFrom}|item:${externalId}` : `feed:${discoveredFrom}`;
+  } else if (root.discoveryType === "SITEMAP") {
+    context = `sitemap:${discoveredFrom}`;
+  } else {
+    context = externalId ? `directory:${discoveredFrom}|record:${externalId}` : `directory:${discoveredFrom}`;
+  }
+
+  return {
+    discoveryContext: context.slice(0, 1000),
+    discoveryContextKey: `${root.discoveryType}:${context}`.slice(0, 500),
+    resultRank: evidenceRank(candidate),
+    title: evidenceMetadataValue(candidate, ["title"]) ?? candidate.label,
+    snippet: evidenceMetadataValue(candidate, ["snippet", "description"]),
+    externalId,
+    metadata: candidate.metadata ?? {},
+  };
+}
+
 async function runDiscoveryRoot(
   root: AutomationDiscoveryRoot,
   options: DataAutomationDiscoverySweepOptions,
@@ -286,6 +340,15 @@ async function runDiscoveryRoot(
           candidate,
           discoveredFromSourceId: null,
           detectedAt: startedAt,
+        }, options.database);
+        const evidence = discoveryEvidenceContext(root, candidate);
+        await upsertAutomationSourceCandidateEvidence({
+          candidateId: stored.id,
+          rootId: root.id,
+          discoveryRunId: runId,
+          discoveryType: root.discoveryType,
+          ...evidence,
+          seenAt: startedAt,
         }, options.database);
         if (stored.duplicateSourceId) duplicateCandidateCount += 1;
         else if (stored.reviewStatus === "NEW") reviewableCandidateCount += 1;
