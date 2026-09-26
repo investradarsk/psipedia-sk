@@ -4,6 +4,7 @@ import { parseOrganizationAdminInput, type OrganizationAdminInput } from "./help
 import { getOrganizationPublicationAdminById } from "./help-organization-admin-store.ts";
 import type { OrganizationPublicationPreflight } from "./help-organization-publication.ts";
 import { ensureResourceForHelpOrganization } from "./canonical-resource.ts";
+import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 
 type RuntimeBindings = { DB?: AdoptionD1Database };
 type RunResult = { meta?: { changes?: number; last_row_id?: number }; changes?: number };
@@ -63,6 +64,24 @@ export function isOrganizationAdminWriteConflict(error: unknown) {
   return error instanceof OrganizationConcurrentEditError
     || error instanceof OrganizationSlugConflictError
     || error instanceof OrganizationPublicationTransitionError;
+}
+
+async function reconcileOrganizationLocationsGeo(
+  organizationId: number,
+  actorRef: string,
+  database: AdoptionD1Database,
+) {
+  const rows = await database.prepare(
+    "SELECT id FROM organization_locations WHERE organization_id = ? ORDER BY sort_order ASC, id ASC",
+  ).bind(organizationId).all<{ id: number }>();
+  for (const row of rows.results) {
+    await reconcileGeoAfterSourceMutation({
+      targetType: "ORGANIZATION_LOCATION",
+      targetId: Number(row.id),
+      actorRef,
+      actorType: "ADMIN",
+    }, database);
+  }
 }
 
 export function buildOrganizationCreateStatement(
@@ -224,5 +243,6 @@ export async function changeOrganizationPublicationFromAdmin(
 
   const changes = Number(result.meta?.changes ?? result.changes ?? 0);
   if (changes !== 1) throw new OrganizationConcurrentEditError();
+  await reconcileOrganizationLocationsGeo(id, editorEmail, db);
   return getOrganizationPublicationAdminById(id, db);
 }
