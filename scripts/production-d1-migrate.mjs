@@ -70,6 +70,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0075_automation_zsk_event_source.sql",
   "0076_automation_non_event_entity_resolution_foundation.sql",
   "0077_directory_geo_provider_result_id.sql",
+  "0078_automation_possible_match_reviews.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -608,6 +609,10 @@ function targetSchemaObjects(schema, targetMigration) {
       partial: schema.geoPointColumns.some((column) => String(column.name) === "provider_result_id"),
     };
   }
+  if (targetMigration === "0078_automation_possible_match_reviews.sql") {
+    const names = objectMap(schema.objects);
+    return { partial: names.has("automation_entity_match_decisions") };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -955,6 +960,13 @@ function assertDirectoryGeoProviderResultIdSchema(schema) {
   assertRequiredColumns(schema.geoPointColumns, "geo_points", ["provider_result_id"]);
 }
 
+function assertAutomationPossibleMatchReviewsSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("automation_entity_match_decisions")?.type === "table", "Missing automation POSSIBLE review decision table");
+  invariant(names.get("automation_entity_match_decisions_active_pair_unique")?.type === "index", "Missing active POSSIBLE review decision uniqueness guard");
+  invariant(names.get("automation_entity_match_decisions_pair_history_idx")?.type === "index", "Missing POSSIBLE review history index");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -971,6 +983,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 74) assertDirectoryServiceAddressSchema(schema);
   if (migrationIndex(targetMigration) >= 76) assertAutomationNonEventFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 77) assertDirectoryGeoProviderResultIdSchema(schema);
+  if (migrationIndex(targetMigration) >= 78) assertAutomationPossibleMatchReviewsSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
