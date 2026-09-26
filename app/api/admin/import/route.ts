@@ -5,6 +5,7 @@ import { buildGeneralImportPlan } from "@/lib/admin-import-plan";
 import { normalizeDirectoryRegion, normalizeDirectorySearchText } from "@/lib/directory-store";
 import { importFciBreeds, previewFciBreedImport } from "@/lib/breed-import";
 import { ensureReviewableResourceAnchors } from "@/lib/canonical-resource";
+import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 
 export const dynamic = "force-dynamic";
 
@@ -282,6 +283,23 @@ export async function POST(request: Request) {
     }
 
     await runBatches(database, statements);
+    const changedEventSlugs = events
+      .filter((_row, index) => plan.actions.events[index] !== "skipped")
+      .map((row) => required(row.slug, "adresa podujatia"));
+    if (changedEventSlugs.length > 0) {
+      const placeholders = changedEventSlugs.map(() => "?").join(",");
+      const changedEvents = await database.prepare(
+        `SELECT id FROM managed_events WHERE slug IN (${placeholders}) ORDER BY id ASC`,
+      ).bind(...changedEventSlugs).all<{ id: number }>();
+      for (const event of changedEvents.results) {
+        await reconcileGeoAfterSourceMutation({
+          targetType: "MANAGED_EVENT",
+          targetId: Number(event.id),
+          actorRef: user.email,
+          actorType: "ADMIN",
+        }, database);
+      }
+    }
     if (profiles.length > 0) await ensureReviewableResourceAnchors(database);
     return Response.json({
       success: true,
