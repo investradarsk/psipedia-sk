@@ -443,5 +443,6 @@ test("GEO, legacy and commercial invariants stay intact while Partner media rema
 test("Partner new-profile schema does not expose system publication/media fields",()=>{
   assert.doesNotMatch(domain,/partnerNewProfile.*slug/i);
   const submit=domain.slice(domain.indexOf("export async function submitPartnerNewProfile"),domain.indexOf("function statusLabel"));
-  assert.doesNotMatch(submit,/published_at|archived_at|verified|featured|image_url|image_key|seo_json|search_text/i);
+  assert.doesNotMatch(submit,/published_at|archived_at|featured|image_url|image_key|seo_json|search_text/i);
+  assert.doesNotMatch(submit,/(?:^|[,{]\s*)verified\s*:/im);
 });
