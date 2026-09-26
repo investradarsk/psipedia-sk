@@ -49,10 +49,10 @@ test("rendered homepage emits one absolute canonical OG/Twitter contract", async
   assertTagAttributes(html, "meta", { name: "twitter:title", content: title });
   assertTagAttributes(html, "meta", { name: "twitter:description", content: description });
   assertTagAttributes(html, "meta", { name: "twitter:image", content: image });
-  assert.match(html, /"@id":"https:\\/\\/psipedia\\.sk\\\/#organization"/);
-  assert.match(html, /"name":"Psipedia\\.sk"/);
-  assert.match(html, /"alternateName":\["Psipedia","Psipedia SK"\]/);
-  assert.match(html, /https:\\/\\/www\\.facebook\\.com\\/p\\/Psipediask-61593052546349\\//);
-  assert.match(html, /https:\\/\\/www\\.instagram\\.com\\/psipedia\\.sk\\//);
-  assert.match(html, /https:\\/\\/psipedia\\.sk\\/pwa\\/icon-512\\.png/);
+  assert.ok(html.includes('"@id":"https://psipedia.sk/#organization"'));
+  assert.ok(html.includes('"name":"Psipedia.sk"'));
+  assert.ok(html.includes('"alternateName":["Psipedia","Psipedia SK"]'));
+  assert.ok(html.includes("https://www.facebook.com/p/Psipediask-61593052546349/"));
+  assert.ok(html.includes("https://www.instagram.com/psipedia.sk/"));
+  assert.ok(html.includes("https://psipedia.sk/pwa/icon-512.png"));
 });
