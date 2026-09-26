@@ -11,6 +11,7 @@ export type PublicMapRuntime = {
   rendererEnabled: boolean;
   googleApiKey: string;
   googleMapId: string;
+  testRendererEnvironment: boolean;
 };
 
 export function getPublicMapRuntime(): PublicMapRuntime {
@@ -25,5 +26,6 @@ export function getPublicMapRuntime(): PublicMapRuntime {
     rendererEnabled,
     googleApiKey: rendererEnabled ? launchEnv.GOOGLE_MAPS_BROWSER_API_KEY ?? "" : "",
     googleMapId: rendererEnabled ? launchEnv.GOOGLE_MAPS_MAP_ID ?? "" : "",
+    testRendererEnvironment: process.env.MAP_UI_TEST_RENDERER === "1",
   };
 }
