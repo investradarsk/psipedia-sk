@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance";
 import {
   automationDraftSlug,
   automationFindingPriority,
@@ -145,7 +146,23 @@ export async function listDueAutomationSources(
     WHERE enabled = 1 AND review_status = 'APPROVED' AND (next_check_at IS NULL OR next_check_at <= ?)
     ORDER BY COALESCE(next_check_at, created_at) ASC, id ASC
     LIMIT ?`).bind(now.toISOString(), Math.max(1, Math.min(20, limit))).all<SourceRow>();
-  return result.results.map(mapSource);
+  const sources = result.results.map(mapSource);
+  const governed: AutomationSource[] = [];
+  for (const source of sources) {
+    const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: source.id }, db);
+    // Legacy transition: pre-4B enabled sources without a registry row continue until explicit governance rollout.
+    if (!governance.schemaAvailable || !governance.state) {
+      governed.push(source);
+      continue;
+    }
+    const decision = evaluateGovernanceForActivation(governance, {
+      recurring: true,
+      cadenceMinutes: source.cadenceMinutes,
+      storageFields: ["url", "metadata"],
+    }, now);
+    if (decision.allowed) governed.push(source);
+  }
+  return governed;
 }
 
 export async function getAutomationSource(id: number, database?: AutomationD1Database) {
