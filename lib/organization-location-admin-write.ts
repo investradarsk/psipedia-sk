@@ -1,4 +1,5 @@
 import type { AdoptionD1Database, AdoptionD1Statement } from "./adoption-store.ts";
+import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import {
   normalizeOrganizationLocationAdminInput,
   type OrganizationLocationAdminInput,
@@ -99,6 +100,12 @@ export async function createOrganizationLocationFromAdmin(
   if (!Number.isSafeInteger(insertedId) || insertedId <= 0) {
     throw new Error("Lokalita sa zapísala, ale databáza nevrátila platné ID.");
   }
+  await reconcileGeoAfterSourceMutation({
+    targetType: "ORGANIZATION_LOCATION",
+    targetId: insertedId,
+    actorRef: "organization-location-admin",
+    actorType: "SYSTEM",
+  }, db);
   return getOrganizationLocationAdmin(organizationId, insertedId, db);
 }
 
@@ -174,6 +181,12 @@ export async function updateOrganizationLocationFromAdmin(
   }
 
   if (resultChanges(result) < 1) return null;
+  await reconcileGeoAfterSourceMutation({
+    targetType: "ORGANIZATION_LOCATION",
+    targetId: locationId,
+    actorRef: "organization-location-admin",
+    actorType: "SYSTEM",
+  }, db);
   return getOrganizationLocationAdmin(organizationId, locationId, db);
 }
 
