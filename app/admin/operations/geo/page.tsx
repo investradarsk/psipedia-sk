@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminGeoOperatorDashboard } from "@/components/admin-geo-operator-dashboard";
 import { AdminGeoOperations } from "@/components/admin-geo-operations";
 import { AdminShell } from "@/components/admin-shell";
@@ -24,9 +25,10 @@ export default async function AdminGeoOperationsPage() {
 
   return <AdminShell
     user={user}
-    eyebrow="Admin Operations · GEO"
-    title="Mapa — profily"
-    description="Operator-first prehľad canonical adries a mapových stavov. Technické geo nástroje zostávajú dostupné v pokročilej sekcii."
+    eyebrow="Admin · Mapy"
+    title="Mapy — profily"
+    description="Operator-first prehľad canonical adries a mapových stavov. Technické geo nástroje zostávajú dostupné v pokročilej sekcii tejto mapovej oblasti."
+    actions={<Link href="/admin/operations?source=GEO_LOCATION_ISSUE">Geo upozornenia</Link>}
   >
     {unavailable || !operatorData
       ? <section className="admin-form-card"><p className="admin-message admin-message--error">{unavailable || "Geo operator view sa nepodarilo načítať."}</p></section>

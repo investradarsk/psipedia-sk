@@ -63,20 +63,20 @@ export function AdminAttentionQueue({
 
   return (
     <div className={styles.workspace} data-testid="admin-attention-queue">
-      <section className="admin-stats" aria-label="Súhrn centra pozornosti">
+      <section className="admin-stats" aria-label="Súhrn upozornení">
         <div><span>Aktívne</span><strong>{summary.active}</strong></div>
         <div><span>Nové</span><strong>{summary.byState.NEW}</strong></div>
         <div><span>Rieši sa</span><strong>{summary.byState.IN_PROGRESS}</strong></div>
         <div><span>História</span><strong>{summary.history}</strong></div>
       </section>
 
-      <ul className={styles.sourceCounts} aria-label="Aktívne počty podľa zdroja">
+      <ul className={styles.sourceCounts} aria-label="Aktívne upozornenia podľa zdroja">
         {adminAttentionSourceTypes.map((sourceType) => (
           <li key={sourceType}><span>{adminAttentionSourceLabels[sourceType]}</span><strong>{sourceCounts[sourceType]}</strong></li>
         ))}
       </ul>
 
-      <form className={styles.filters} method="get" aria-label="Filtrovať attention queue">
+      <form className={styles.filters} method="get" aria-label="Filtrovať upozornenia">
         <label>
           <span>Zobrazenie</span>
           <select name="view" defaultValue={filters.view ?? "active"}>
@@ -103,7 +103,7 @@ export function AdminAttentionQueue({
       </form>
 
       {items.length ? (
-        <section className={styles.list} aria-label="Položky centra pozornosti">
+        <section className={styles.list} aria-label="Položky upozornení">
           {items.map((item) => (
             <article
               className={`${styles.card} ${isAdminAttentionActive(item) ? "" : styles.historyCard}`}
@@ -136,8 +136,8 @@ export function AdminAttentionQueue({
         </section>
       ) : (
         <div className={styles.empty}>
-          <h2>{filters.view === "history" ? "História je pre zvolený filter prázdna" : "Žiadne aktívne položky pre zvolený filter"}</h2>
-          <p>Centrum pozornosti používa lifecycle pôvodných workflowov; vyriešené a ignorované položky sa do aktívneho badge nepočítajú.</p>
+          <h2>{filters.view === "history" ? "História je pre zvolený filter prázdna" : "Žiadne aktívne upozornenia pre zvolený filter"}</h2>
+          <p>Upozornenia používajú lifecycle pôvodných workflowov; vyriešené a ignorované položky sa do aktívneho badge nepočítajú.</p>
         </div>
       )}
     </div>

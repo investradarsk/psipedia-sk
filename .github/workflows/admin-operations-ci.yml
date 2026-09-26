@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "app/admin/operations/**"
+      - "app/admin/nastroje/**"
+      - "app/admin/automatizacie/page.tsx"
       - "app/admin/organizacie/**"
       - "app/api/admin/organizations/**"
       - "components/admin-attention-queue*"
@@ -15,6 +17,7 @@ on:
       - "lib/help-organization-admin-write.ts"
       - "lib/help-organization-publication.ts"
       - "tests/admin-attention-queue.test.mjs"
+      - "tests/admin-ia.test.mjs"
       - "tests/help-organization-publication.test.mjs"
       - "tests/e2e/admin-operations.spec.ts"
       - "tests/e2e/admin-organization-publication.spec.ts"
@@ -50,6 +53,8 @@ jobs:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
+      - name: Admin IA and attention queue contract tests
+        run: node --experimental-strip-types --test tests/admin-attention-queue.test.mjs tests/admin-ia.test.mjs
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - name: Configure CI-only local PII keys
