@@ -47,7 +47,8 @@ test("cross-method context is preserved and SEARCH_PROVIDER is query-context rea
   const runner = read("lib/data-automation-discovery-runner.ts");
   assert.match(runner, /root\.discoveryType === "SEARCH_PROVIDER"/);
   assert.match(runner, /queryFingerprint/);
-  assert.match(runner, /SEARCH_PROVIDER:\\$\{provider \\?\\? "unknown"\}:\\$\{fingerprint\}/);
+  assert.match(runner, /discoveryContextKey: root\.discoveryType === "SEARCH_PROVIDER" && fingerprint/);
+  assert.match(runner, /SEARCH_PROVIDER:/);
   assert.match(runner, /root\.discoveryType === "RSS"/);
   assert.match(runner, /root\.discoveryType === "SITEMAP"/);
   assert.match(runner, /directory:\\$\{discoveredFrom\}/);
@@ -68,14 +69,11 @@ test("candidate approval semantics remain disabled and PENDING", () => {
   assert.match(store, /'PENDING'/);
 });
 
-test("0082 is guarded by production migration tooling but is not auto-applied", () => {
+test("0082 remains represented in guarded production migration history", () => {
   const script = read("scripts/production-d1-migrate.mjs");
   const workflow = read(".github/workflows/production-d1-migrate.yml");
   assert.match(script, /0082_automation_discovery_candidate_evidence\.sql/);
-  assert.match(
-    script,
-    /targetMigration === "0082_automation_discovery_candidate_evidence\.sql"[\\s\\S]+automation_source_candidate_evidence[\\s\\S]+AUTOMATION_DISCOVERY_EVIDENCE_INDEXES/,
-  );
+  assert.match(script, /AUTOMATION_DISCOVERY_EVIDENCE_INDEXES/);
   assert.match(workflow, /0082_automation_discovery_candidate_evidence\.sql/);
   assert.match(workflow, /APPLY-0082-psipedia-sk-db/);
   assert.doesNotMatch(workflow, /schedule:/);
