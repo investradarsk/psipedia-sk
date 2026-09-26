@@ -411,6 +411,483 @@ export function rssDiscoveryCandidates(input: {
 export const rssDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseUrl, entityType }) =>
   rssDiscoveryCandidates({ payload, baseUrl, entityType, maxEntries: 100, maxCandidates: 100 }).candidates;
 
+
+export const STRUCTURED_DIRECTORY_DEFAULT_MAX_ROWS = 100;
+export const STRUCTURED_DIRECTORY_HARD_MAX_ROWS = 500;
+export const STRUCTURED_DIRECTORY_DEFAULT_MAX_PAGES = 1;
+export const STRUCTURED_DIRECTORY_HARD_MAX_PAGES = 10;
+export const STRUCTURED_DIRECTORY_HARD_MAX_DETAIL_FETCHES = 50;
+
+export type StructuredDirectoryFormat = "HTML" | "JSON";
+type StructuredDirectoryFieldSpec =
+  | string
+  | { path?: string; selector?: string; attribute?: string };
+
+export type StructuredDirectoryConfig = {
+  format: StructuredDirectoryFormat;
+  collectionPath?: string;
+  rowSelector?: string;
+  fields: Record<string, StructuredDirectoryFieldSpec>;
+  detailLinkField?: string;
+  externalIdField?: string;
+  compositeKeyFields?: string[];
+  allowedHosts?: string[];
+  pathIncludes?: string[];
+  pathExcludes?: string[];
+  maxRows: number;
+  detailFetch: boolean;
+  maxDetailFetches: number;
+  pagination?: {
+    nextLinkSelector?: string;
+    pageParamTemplate?: string;
+    maxPages: number;
+  };
+};
+
+export type StructuredDirectoryParseResult = {
+  candidates: AutomationSourceCandidateInput[];
+  warnings: string[];
+  stats: {
+    parserFormat: StructuredDirectoryFormat;
+    rowsParsed: number;
+    rowsSkipped: number;
+    rowsTruncated: number;
+  };
+};
+
+const DIRECTORY_FIELD_LIMITS: Record<string, number> = {
+  name: 160,
+  title: 160,
+  description: 1000,
+  address: 500,
+  city: 160,
+  phone: 120,
+  email: 254,
+  website: 2000,
+  category: 240,
+  service: 240,
+  externalId: 300,
+  detailUrl: 2000,
+  url: 2000,
+};
+
+function directoryBoundedText(value: unknown, key: string) {
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  const normalized = decodeText(String(value)).normalize("NFC").replace(/\s+/g, " ").trim();
+  if (!normalized) return undefined;
+  return normalized.slice(0, DIRECTORY_FIELD_LIMITS[key] ?? 500);
+}
+
+function validDotPath(value: unknown) {
+  return typeof value === "string"
+    && value.length <= 240
+    && /^(?:[A-Za-z0-9_-]+)(?:\.[A-Za-z0-9_-]+)*$/.test(value);
+}
+
+function directoryPathValue(value: unknown, path: string | undefined) {
+  if (!path) return value;
+  return path.split(".").reduce<unknown>((current, key) => {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return undefined;
+    return (current as Record<string, unknown>)[key];
+  }, value);
+}
+
+function validSimpleSelector(value: unknown) {
+  return typeof value === "string"
+    && value.length <= 160
+    && /^(?:[A-Za-z][A-Za-z0-9-]*)?(?:[.#][A-Za-z_][A-Za-z0-9_-]*)?$/.test(value)
+    && /[A-Za-z.#]/.test(value);
+}
+
+function parseHtmlAttributes(value: string) {
+  const attributes: Record<string, string> = {};
+  for (const match of value.matchAll(/([A-Za-z_:][A-Za-z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>\x60]+))/g)) {
+    attributes[match[1].toLowerCase()] = decodeText(match[2] ?? match[3] ?? match[4] ?? "");
+  }
+  return attributes;
+}
+
+type DirectoryHtmlNode = {
+  tag: string;
+  attrs: Record<string, string>;
+  inner: string;
+  outer: string;
+};
+
+function selectorParts(selector: string) {
+  const match = selector.match(/^([A-Za-z][A-Za-z0-9-]*)?([.#])?([A-Za-z_][A-Za-z0-9_-]*)?$/);
+  if (!match) return null;
+  return { tag: match[1]?.toLowerCase() ?? null, kind: match[2] ?? null, value: match[3] ?? null };
+}
+
+function nodeMatchesSelector(node: DirectoryHtmlNode, selector: string) {
+  const parsed = selectorParts(selector);
+  if (!parsed) return false;
+  if (parsed.tag && node.tag !== parsed.tag) return false;
+  if (parsed.kind === "#") return node.attrs.id === parsed.value;
+  if (parsed.kind === ".") {
+    return String(node.attrs.class ?? "").split(/\s+/).filter(Boolean).includes(parsed.value ?? "");
+  }
+  return true;
+}
+
+function htmlNodes(payload: string, selector: string) {
+  const parsed = selectorParts(selector);
+  if (!parsed) return [] as DirectoryHtmlNode[];
+  const tagPattern = parsed.tag ? parsed.tag.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&") : "[A-Za-z][A-Za-z0-9-]*";
+  const pattern = new RegExp(
+    "<(" + tagPattern + ")\\b([^>]*)>([\\s\\S]*?)<\\/\\1\\s*>",
+    "gi",
+  );
+  const nodes: DirectoryHtmlNode[] = [];
+  for (const match of payload.matchAll(pattern)) {
+    const node = {
+      tag: match[1].toLowerCase(),
+      attrs: parseHtmlAttributes(match[2] ?? ""),
+      inner: match[3] ?? "",
+      outer: match[0],
+    };
+    if (nodeMatchesSelector(node, selector)) nodes.push(node);
+  }
+  return nodes;
+}
+
+function htmlFieldValue(row: DirectoryHtmlNode, spec: StructuredDirectoryFieldSpec) {
+  if (typeof spec === "string") {
+    const nodes = htmlNodes(row.inner, spec);
+    return nodes.length ? decodeText(nodes[0].inner) : undefined;
+  }
+  const target = spec.selector ? htmlNodes(row.inner, spec.selector)[0] : row;
+  if (!target) return undefined;
+  if (spec.attribute) return target.attrs[spec.attribute.toLowerCase()];
+  return decodeText(target.inner);
+}
+
+function validatedDirectoryFields(value: unknown, format: StructuredDirectoryFormat) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_directory_config");
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (!entries.length || entries.length > 24) throw new Error("invalid_directory_config");
+  const fields: Record<string, StructuredDirectoryFieldSpec> = {};
+  for (const [key, raw] of entries) {
+    if (!/^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(key)) throw new Error("invalid_directory_config");
+    if (typeof raw === "string") {
+      if (format === "JSON" ? !validDotPath(raw) : !validSimpleSelector(raw)) throw new Error("invalid_directory_config");
+      fields[key] = raw;
+      continue;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("invalid_directory_config");
+    const spec = raw as Record<string, unknown>;
+    const path = typeof spec.path === "string" ? spec.path : undefined;
+    const selector = typeof spec.selector === "string" ? spec.selector : undefined;
+    const attribute = typeof spec.attribute === "string" ? spec.attribute.trim().toLowerCase() : undefined;
+    if (format === "JSON") {
+      if (!path || !validDotPath(path) || selector || attribute) throw new Error("invalid_directory_config");
+      fields[key] = { path };
+    } else {
+      if (path || (selector && !validSimpleSelector(selector)) || (attribute && !/^[a-z_:][a-z0-9_:.-]{0,79}$/i.test(attribute))) {
+        throw new Error("invalid_directory_config");
+      }
+      fields[key] = { ...(selector ? { selector } : {}), ...(attribute ? { attribute } : {}) };
+    }
+  }
+  return fields;
+}
+
+function boundedHostList(value: unknown) {
+  if (value === undefined) return [] as string[];
+  if (!Array.isArray(value) || value.length > 20) throw new Error("invalid_directory_config");
+  return value.map((item) => {
+    if (typeof item !== "string") throw new Error("invalid_directory_config");
+    const host = item.trim().toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
+    if (!host || host.length > 253 || !/^[a-z0-9.-]+$/.test(host) || host.includes("..")) throw new Error("invalid_directory_config");
+    return host;
+  });
+}
+
+function boundedPathFilters(value: unknown) {
+  if (value === undefined) return [] as string[];
+  if (!Array.isArray(value) || value.length > 50) throw new Error("invalid_directory_config");
+  return value.map((item) => {
+    if (typeof item !== "string" || !item.startsWith("/") || item.length > 500) throw new Error("invalid_directory_config");
+    return item;
+  });
+}
+
+export function parseStructuredDirectoryConfig(raw: Record<string, unknown>): StructuredDirectoryConfig {
+  const format = raw.format;
+  if (format !== "HTML" && format !== "JSON") throw new Error("invalid_directory_config");
+  const fields = validatedDirectoryFields(raw.fields, format);
+  const collectionPath = raw.collectionPath === undefined ? undefined : String(raw.collectionPath);
+  const rowSelector = raw.rowSelector === undefined ? undefined : String(raw.rowSelector);
+  if (format === "JSON" && collectionPath !== undefined && collectionPath !== "" && !validDotPath(collectionPath)) {
+    throw new Error("invalid_directory_config");
+  }
+  if (format === "HTML" && (!rowSelector || !validSimpleSelector(rowSelector))) throw new Error("invalid_directory_config");
+  if (format === "JSON" && rowSelector !== undefined) throw new Error("invalid_directory_config");
+  const detailLinkField = typeof raw.detailLinkField === "string" ? raw.detailLinkField : "detailUrl";
+  const externalIdField = typeof raw.externalIdField === "string" ? raw.externalIdField : "externalId";
+  if (!(detailLinkField in fields) && !("url" in fields)) throw new Error("invalid_directory_config");
+  if (!/^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(detailLinkField)) throw new Error("invalid_directory_config");
+  if (!/^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(externalIdField)) throw new Error("invalid_directory_config");
+
+  const maxRowsRaw = Number(raw.maxRows ?? STRUCTURED_DIRECTORY_DEFAULT_MAX_ROWS);
+  if (!Number.isInteger(maxRowsRaw) || maxRowsRaw < 1) throw new Error("invalid_directory_config");
+  const maxRows = Math.min(STRUCTURED_DIRECTORY_HARD_MAX_ROWS, maxRowsRaw);
+
+  const detailFetch = raw.detailFetch === true;
+  const maxDetailFetchesRaw = Number(raw.maxDetailFetches ?? STRUCTURED_DIRECTORY_HARD_MAX_DETAIL_FETCHES);
+  if (!Number.isInteger(maxDetailFetchesRaw) || maxDetailFetchesRaw < 0) throw new Error("invalid_directory_config");
+  const maxDetailFetches = Math.min(STRUCTURED_DIRECTORY_HARD_MAX_DETAIL_FETCHES, maxDetailFetchesRaw);
+
+  let compositeKeyFields: string[] | undefined;
+  if (raw.compositeKeyFields !== undefined) {
+    if (!Array.isArray(raw.compositeKeyFields) || raw.compositeKeyFields.length < 1 || raw.compositeKeyFields.length > 6) {
+      throw new Error("invalid_directory_config");
+    }
+    compositeKeyFields = raw.compositeKeyFields.map((item) => {
+      if (typeof item !== "string" || !(item in fields)) throw new Error("invalid_directory_config");
+      return item;
+    });
+  }
+
+  let pagination: StructuredDirectoryConfig["pagination"];
+  if (raw.pagination !== undefined) {
+    if (!raw.pagination || typeof raw.pagination !== "object" || Array.isArray(raw.pagination)) throw new Error("invalid_directory_config");
+    const source = raw.pagination as Record<string, unknown>;
+    const nextLinkSelector = source.nextLinkSelector === undefined ? undefined : String(source.nextLinkSelector);
+    const pageParamTemplate = source.pageParamTemplate === undefined ? undefined : String(source.pageParamTemplate);
+    if (nextLinkSelector && (format !== "HTML" || !validSimpleSelector(nextLinkSelector))) throw new Error("invalid_directory_config");
+    if (pageParamTemplate && (!pageParamTemplate.includes("{page}") || pageParamTemplate.length > 1000)) throw new Error("invalid_directory_config");
+    if (nextLinkSelector && pageParamTemplate) throw new Error("invalid_directory_config");
+    const maxPagesRaw = Number(source.maxPages ?? STRUCTURED_DIRECTORY_DEFAULT_MAX_PAGES);
+    if (!Number.isInteger(maxPagesRaw) || maxPagesRaw < 1) throw new Error("invalid_directory_config");
+    pagination = {
+      ...(nextLinkSelector ? { nextLinkSelector } : {}),
+      ...(pageParamTemplate ? { pageParamTemplate } : {}),
+      maxPages: Math.min(STRUCTURED_DIRECTORY_HARD_MAX_PAGES, maxPagesRaw),
+    };
+  }
+
+  return {
+    format,
+    ...(collectionPath ? { collectionPath } : {}),
+    ...(rowSelector ? { rowSelector } : {}),
+    fields,
+    detailLinkField,
+    externalIdField,
+    ...(compositeKeyFields ? { compositeKeyFields } : {}),
+    allowedHosts: boundedHostList(raw.allowedHosts),
+    pathIncludes: boundedPathFilters(raw.pathIncludes),
+    pathExcludes: boundedPathFilters(raw.pathExcludes),
+    maxRows,
+    detailFetch,
+    maxDetailFetches,
+    ...(pagination ? { pagination } : {}),
+  };
+}
+
+function normalizedRowIdentityPart(value: unknown) {
+  return String(value ?? "").normalize("NFC").toLocaleLowerCase("sk-SK").replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
+function directoryRowIdentity(
+  fields: Record<string, string>,
+  config: StructuredDirectoryConfig,
+  candidateUrl: string,
+) {
+  const externalId = fields[config.externalIdField ?? "externalId"];
+  if (externalId) return { kind: "EXTERNAL_ID", value: externalId };
+  if (candidateUrl) return { kind: "DETAIL_URL", value: candidateUrl };
+  if (config.compositeKeyFields?.length) {
+    const parts = config.compositeKeyFields.map((key) => normalizedRowIdentityPart(fields[key]));
+    if (parts.every(Boolean)) return { kind: "COMPOSITE", value: parts.join("|").slice(0, 1000) };
+  }
+  return { kind: "WEAK", value: "" };
+}
+
+function structuredDirectoryMetadata(
+  fields: Record<string, string>,
+  input: {
+    baseUrl: string;
+    pageIndex: number;
+    rowIndex: number;
+    parserFormat: StructuredDirectoryFormat;
+    rowIdentity: { kind: string; value: string };
+    config: StructuredDirectoryConfig;
+  },
+) {
+  const metadata: Record<string, unknown> = {
+    discoveredFrom: input.baseUrl,
+    directoryUrl: input.baseUrl,
+    directoryPageUrl: input.baseUrl,
+    pageIndex: input.pageIndex,
+    rowIndex: input.rowIndex,
+    parserFormat: input.parserFormat,
+    schemaVersion: 2,
+    rowIdentityKind: input.rowIdentity.kind,
+    ...(input.rowIdentity.value ? { rowIdentity: input.rowIdentity.value } : {}),
+  };
+  for (const [key, value] of Object.entries(fields)) {
+    if (!value) continue;
+    metadata[key] = value;
+  }
+  const externalId = fields[input.config.externalIdField ?? "externalId"];
+  if (externalId) metadata.externalId = externalId;
+  const detailUrl = fields[input.config.detailLinkField ?? "detailUrl"];
+  if (detailUrl) metadata.detailUrl = detailUrl;
+  return metadata;
+}
+
+function candidatePathAllowed(url: string, config: StructuredDirectoryConfig) {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  if (config.pathIncludes?.length && !config.pathIncludes.some((prefix) => pathname.startsWith(prefix))) return false;
+  if (config.pathExcludes?.some((prefix) => pathname.startsWith(prefix))) return false;
+  return true;
+}
+
+function mappedJsonFields(row: unknown, config: StructuredDirectoryConfig) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+  const output: Record<string, string> = {};
+  for (const [key, spec] of Object.entries(config.fields)) {
+    const path = typeof spec === "string" ? spec : spec.path;
+    const bounded = directoryBoundedText(directoryPathValue(row, path), key);
+    if (bounded) output[key] = bounded;
+  }
+  return output;
+}
+
+function mappedHtmlFields(row: DirectoryHtmlNode, config: StructuredDirectoryConfig) {
+  const output: Record<string, string> = {};
+  for (const [key, spec] of Object.entries(config.fields)) {
+    const bounded = directoryBoundedText(htmlFieldValue(row, spec), key);
+    if (bounded) output[key] = bounded;
+  }
+  return output;
+}
+
+export function structuredDirectoryDiscovery(input: {
+  payload: unknown;
+  baseUrl: string;
+  entityType: AutomationEntityType;
+  config: StructuredDirectoryConfig;
+  pageIndex?: number;
+  maxCandidates?: number;
+  urlAllowed?: (url: string) => boolean;
+  suggestedConnectorType?: AutomationConnectorType;
+}): StructuredDirectoryParseResult {
+  const pageIndex = Math.max(0, Math.floor(input.pageIndex ?? 0));
+  const genericMax = Math.max(1, Math.min(500, Math.floor(input.maxCandidates ?? 150)));
+  const rowLimit = Math.min(input.config.maxRows, genericMax, STRUCTURED_DIRECTORY_HARD_MAX_ROWS);
+  let rawRows: unknown[] | DirectoryHtmlNode[];
+  if (input.config.format === "JSON") {
+    const collection = directoryPathValue(input.payload, input.config.collectionPath);
+    if (!Array.isArray(collection)) throw new Error("invalid_directory_response");
+    rawRows = collection;
+  } else {
+    if (typeof input.payload !== "string") throw new Error("invalid_directory_response");
+    rawRows = htmlNodes(input.payload, input.config.rowSelector!);
+  }
+
+  const candidates: AutomationSourceCandidateInput[] = [];
+  const warnings: string[] = [];
+  let rowsSkipped = 0;
+  const seen = new Set<string>();
+  const considered = rawRows.slice(0, rowLimit);
+  if (rawRows.length > rowLimit) warnings.push("directory_row_limit");
+
+  considered.forEach((rawRow, rowIndex) => {
+    const fields = input.config.format === "JSON"
+      ? mappedJsonFields(rawRow, input.config)
+      : mappedHtmlFields(rawRow as DirectoryHtmlNode, input.config);
+    if (!fields) {
+      rowsSkipped += 1;
+      return;
+    }
+    if (fields.website) {
+      const website = canonicalizeSourceUrl(fields.website);
+      if (website && isSafeAutomationSourceUrl(website)) fields.website = website;
+      else delete fields.website;
+    }
+    const rawCandidateUrl = fields[input.config.detailLinkField ?? "detailUrl"] ?? fields.url;
+    if (!rawCandidateUrl) {
+      rowsSkipped += 1;
+      return;
+    }
+    const sourceUrl = safeCandidate(rawCandidateUrl, input.baseUrl);
+    if (!sourceUrl || !candidatePathAllowed(sourceUrl, input.config) || (input.urlAllowed && !input.urlAllowed(sourceUrl))) {
+      rowsSkipped += 1;
+      warnings.push("directory_host_blocked");
+      return;
+    }
+    if (seen.has(sourceUrl)) return;
+    seen.add(sourceUrl);
+    const rowIdentity = directoryRowIdentity(fields, input.config, sourceUrl);
+    const label = fields.name ?? fields.title ?? new URL(sourceUrl).hostname;
+    const detailUrl = fields[input.config.detailLinkField ?? "detailUrl"];
+    candidates.push({
+      candidateType: "SOURCE_CANDIDATE",
+      discoveryType: "STRUCTURED_DIRECTORY",
+      sourceUrl,
+      label: directoryBoundedText(label, "name") ?? new URL(sourceUrl).hostname,
+      entityType: input.entityType,
+      suggestedConnectorType: input.suggestedConnectorType ?? "CONTROLLED_HTML",
+      reason: "URL bol deterministicky extrahovaný z explicitne nakonfigurovaného structured directory rootu.",
+      metadata: {
+        ...structuredDirectoryMetadata(fields, {
+          baseUrl: input.baseUrl,
+          pageIndex,
+          rowIndex,
+          parserFormat: input.config.format,
+          rowIdentity,
+          config: input.config,
+        }),
+        ...(detailUrl ? { detailUrl: sourceUrl } : {}),
+      },
+    });
+  });
+
+  if (rowsSkipped > 0) warnings.push("directory_rows_skipped");
+  if (rawRows.length > 0 && candidates.length === 0) warnings.push("directory_no_usable_rows");
+  return {
+    candidates,
+    warnings: [...new Set(warnings)],
+    stats: {
+      parserFormat: input.config.format,
+      rowsParsed: considered.length,
+      rowsSkipped,
+      rowsTruncated: Math.max(0, rawRows.length - considered.length),
+    },
+  };
+}
+
+export function structuredDirectoryNextPageUrl(input: {
+  payload: string;
+  currentUrl: string;
+  config: StructuredDirectoryConfig;
+  nextPageNumber: number;
+}) {
+  const pagination = input.config.pagination;
+  if (!pagination || input.nextPageNumber >= pagination.maxPages) return null;
+  if (pagination.pageParamTemplate) {
+    try {
+      return safeCandidate(pagination.pageParamTemplate.replaceAll("{page}", String(input.nextPageNumber + 1)), input.currentUrl);
+    } catch {
+      return null;
+    }
+  }
+  if (pagination.nextLinkSelector && input.config.format === "HTML") {
+    const node = htmlNodes(input.payload, pagination.nextLinkSelector)[0];
+    const href = node?.attrs.href;
+    return href ? safeCandidate(href, input.currentUrl) : null;
+  }
+  return null;
+}
+
 export function htmlLinkDirectoryDiscovery(input: {
   payload: string;
   baseUrl: string;
@@ -420,18 +897,19 @@ export function htmlLinkDirectoryDiscovery(input: {
   excludeHosts?: string[];
   maxCandidates?: number;
 }) {
+  // Legacy helper remains export-compatible for callers/tests, but DISCOVERY-4A
+  // runner no longer uses generic anchor scraping. New roots must provide the
+  // explicit Structured Directory v2 extraction contract.
   const baseHost = hostname(input.baseUrl);
   const excluded = new Set((input.excludeHosts ?? []).map((value) => value.toLowerCase().replace(/^www\./, "")));
   const limit = Math.max(1, Math.min(500, Math.floor(input.maxCandidates ?? 150)));
   const items: AutomationSourceCandidateInput[] = [];
-
   for (const match of input.payload.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const sourceUrl = safeCandidate(match[1].trim(), input.baseUrl);
     if (!sourceUrl) continue;
     const candidateHost = hostname(sourceUrl);
     if (!candidateHost || excluded.has(candidateHost)) continue;
     if (input.externalOnly && candidateHost === baseHost) continue;
-
     const label = decodeText(match[2]) || candidateHost;
     if (!label || label.length < 2) continue;
     items.push({
@@ -441,51 +919,10 @@ export function htmlLinkDirectoryDiscovery(input: {
       label: label.slice(0, 160),
       entityType: input.entityType,
       suggestedConnectorType: input.suggestedConnectorType ?? "CONTROLLED_HTML",
-      reason: "URL bol uvedený v explicitnom verejnom adresári kontrolovaného dôveryhodného zdroja.",
-      metadata: {
-        discoveredFrom: input.baseUrl,
-        directoryHost: baseHost,
-      },
+      reason: "Legacy explicit link-directory helper.",
+      metadata: { discoveredFrom: input.baseUrl, directoryHost: baseHost },
     });
     if (items.length >= limit) break;
-  }
-  return uniqueCandidates(items);
-}
-
-export function structuredDirectoryDiscovery(input: {
-  payload: unknown;
-  baseUrl: string;
-  entityType: AutomationEntityType;
-  recordsPath?: string;
-  urlField?: string;
-  labelField?: string;
-  suggestedConnectorType?: AutomationConnectorType;
-}) {
-  const pathValue = (value: unknown, path: string | undefined) =>
-    (path ?? "").split(".").filter(Boolean).reduce<unknown>((current, key) => {
-      if (!current || typeof current !== "object") return undefined;
-      return (current as Record<string, unknown>)[key];
-    }, value);
-  const rows = pathValue(input.payload, input.recordsPath) ?? input.payload;
-  if (!Array.isArray(rows)) return [];
-
-  const items: AutomationSourceCandidateInput[] = [];
-  for (const row of rows) {
-    const rawUrl = pathValue(row, input.urlField ?? "url");
-    if (typeof rawUrl !== "string") continue;
-    const sourceUrl = safeCandidate(rawUrl, input.baseUrl);
-    if (!sourceUrl) continue;
-    const rawLabel = pathValue(row, input.labelField ?? "name");
-    items.push({
-      candidateType: "SOURCE_CANDIDATE",
-      discoveryType: "STRUCTURED_DIRECTORY",
-      sourceUrl,
-      label: String(rawLabel ?? new URL(sourceUrl).hostname).trim().slice(0, 160),
-      entityType: input.entityType,
-      suggestedConnectorType: input.suggestedConnectorType ?? "CONTROLLED_HTML",
-      reason: "URL bol uvedený v explicitnom structured directory/API zdroji.",
-      metadata: { discoveredFrom: input.baseUrl },
-    });
   }
   return uniqueCandidates(items);
 }
