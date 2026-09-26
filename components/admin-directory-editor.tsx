@@ -220,6 +220,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
               }}
             />
             <DirectoryAddressAutocomplete
+              key={`${region}|${district}|${city}|${street}`}
               region={region}
               district={district}
               city={city}
