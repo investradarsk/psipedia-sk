@@ -64,7 +64,7 @@ test("MAP-1E scopes production geo rollout through 0064 and excludes 0065/0066",
   ]);
 });
 
-test("production D1 supported targets are explicit through 0078 POSSIBLE review decisions", () => {
+test("production D1 supported targets include G5 0080 canonical apply", () => {
   assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, [
     "0062_profile_reviews_foundation.sql",
     "0063_partner_claims_verification.sql",
@@ -83,6 +83,7 @@ test("production D1 supported targets are explicit through 0078 POSSIBLE review 
     "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_directory_geo_provider_result_id.sql",
     "0078_automation_possible_match_reviews.sql",
+    "0080_automation_canonical_apply.sql",
   ]);
 });
 
@@ -125,6 +126,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0076_automation_non_event_entity_resolution_foundation.sql",
     "0077_directory_geo_provider_result_id.sql",
     "0078_automation_possible_match_reviews.sql",
+    "0080_automation_canonical_apply.sql",
   ]);
 });
 
@@ -147,6 +149,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0077_directory_geo_provider_result_id.sql",
     "0078_automation_possible_match_reviews.sql",
     "0079_future_migration.sql",
+    "0080_automation_canonical_apply.sql",
   ]);
 });
 
@@ -393,6 +396,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.match(workflow, /APPLY-0077-psipedia-sk-db/);
   assert.match(workflow, /0078_automation_possible_match_reviews\.sql/);
   assert.match(workflow, /APPLY-0078-psipedia-sk-db/);
+  assert.match(workflow, /0080_automation_canonical_apply\.sql/);
+  assert.match(workflow, /APPLY-0080-psipedia-sk-db/);
   assert.match(workflow, /git fetch --no-tags origin main/);
   assert.match(workflow, /partner\/prihlasenie/);
   assert.match(workflow, /partner\/registracia/);
@@ -563,4 +568,22 @@ test("0078 POSSIBLE review decisions migration is additive and guarded", async (
   assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM|UPDATE\s+(directory_profiles|help_organizations)/i);
   assert.match(script, /0078_automation_possible_match_reviews\.sql/);
   assert.match(script, /assertAutomationPossibleMatchReviewsSchema/);
+});
+
+
+test("0080 G5 canonical apply migration is additive, auditable and guarded", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0080_automation_canonical_apply.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.match(migration, /CREATE TABLE automation_canonical_apply_operations/);
+  assert.match(migration, /apply_fingerprint/);
+  assert.match(migration, /review_decision_id/);
+  assert.match(migration, /evidence_fingerprint/);
+  assert.match(migration, /before_json/);
+  assert.match(migration, /after_json/);
+  assert.match(migration, /provenance_json/);
+  assert.match(migration, /SUCCESS/);
+  assert.match(migration, /FAILED/);
+  assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM|UPDATE\s+(directory_profiles|help_organizations|automation_)/i);
+  assert.match(script, /0080_automation_canonical_apply\.sql/);
+  assert.match(script, /assertAutomationCanonicalApplySchema/);
 });
