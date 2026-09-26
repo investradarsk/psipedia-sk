@@ -18,6 +18,7 @@ on:
       - "drizzle/0073_automation_multisource_entity_resolution.sql"
       - "drizzle/0075_automation_zsk_event_source.sql"
       - "drizzle/0076_automation_non_event_entity_resolution_foundation.sql"
+      - "drizzle/0079_automation_agility_event_source.sql"
       - "tests/data-automation*.test.mjs"
       - "tests/automation-admin-v2-ux.test.mjs"
       - "tests/g4-possible-review-decisions.test.mjs"
