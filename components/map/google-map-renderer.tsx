@@ -375,6 +375,7 @@ export function GoogleMapRenderer(props: Props) {
     let disposed = false;
     let idleListener: ListenerHandle | null = null;
     let mapTypeListener: ListenerHandle | null = null;
+    let dragStartListener: ListenerHandle | null = null;
     const markerRegistry = markersRef.current;
 
     async function initialize() {
@@ -411,12 +412,14 @@ export function GoogleMapRenderer(props: Props) {
         mapTypeListener = map.addListener("maptypeid_changed", () => {
           confirmMapTypeChange(mapTypeIdleSuppressionRef.current, map.getMapTypeId?.());
         });
+        dragStartListener = map.addListener("dragstart", () => {
+          cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
+        });
         idleListener = map.addListener("idle", () => {
           const next = viewportFromMap(map);
           if (!next) return;
           if (consumeMapTypeIdleSuppression(
             mapTypeIdleSuppressionRef.current,
-            { center: next.center, zoom: next.zoom },
             map.getMapTypeId?.(),
           )) return;
           onViewportChangeRef.current(next);
@@ -436,6 +439,7 @@ export function GoogleMapRenderer(props: Props) {
       disposed = true;
       idleListener?.remove?.();
       mapTypeListener?.remove?.();
+      dragStartListener?.remove?.();
       for (const record of markerRegistry.values()) detachGoogleMarker(record.marker);
       markerRegistry.clear();
       mapRef.current = null;
@@ -556,7 +560,15 @@ export function GoogleMapRenderer(props: Props) {
 
   return (
     <div className={styles.rendererShell} data-testid="google-map-renderer">
-      <div ref={containerRef} className={styles.googleMapCanvas} role="region" aria-label={ariaLabel} />
+      <div
+        ref={containerRef}
+        className={styles.googleMapCanvas}
+        role="region"
+        aria-label={ariaLabel}
+        onPointerDownCapture={() => cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current)}
+        onWheelCapture={() => cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current)}
+        onKeyDownCapture={() => cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current)}
+      />
       {configMissing || !ready ? (
         <div className={styles.rendererFallback} role="status" aria-live="polite">
           <strong>{fallbackText}</strong>
