@@ -302,7 +302,7 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByTestId("map-card-event:3")).toHaveCount(0);
 
     await page.getByLabel("Typ služby").selectOption("veterinari");
-    await page.getByLabel("Kraj").selectOption("Nitriansky kraj");
+    await page.getByLabel("Kraj").first().selectOption("Nitriansky kraj");
     await page.getByLabel("Okres").fill("Nitra");
     await page.getByLabel("Mesto / obec").fill("Nitra");
     await expect(page).toHaveURL(/subcategory=veterinari/);
