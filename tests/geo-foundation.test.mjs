@@ -421,17 +421,17 @@ test("Geoapify adapter is server-only, bounded and normalizes provider failures"
 
 test("manual override is guarded against automatic overwrite and source changes preserve it", () => {
   assert.match(geoStore, /Automatic geocoder nesmie prepísať manual override/);
-  assert.match(geoStore, /current\.manualOverride \? "MANUAL_REVIEW" : null/);
+  assert.match(geoStore, /if \(current\.manualOverride\)[\s\S]*last_error_code='MANUAL_REVIEW'/);
   assert.match(geoStore, /resolution_method='MANUAL'/);
   assert.match(geoStore, /manual_override=1/);
   assert.match(geoStore, /GEO_MANUAL_RESET/);
 });
 
 test("exact source changes revoke exact visibility until privacy is reviewed again", () => {
-  assert.match(geoStore, /exactNeedsPrivacyReview = current\.publicVisibility === "EXACT_PUBLIC"[\s\S]*&& !current\.manualOverride[\s\S]*&& classification\.requiresReview/);
+  assert.match(geoStore, /const requiresUnclassifiedReview = !desiredVisibility \|\| classification\.requiresReview/);
   assert.match(geoStore, /public_visibility=NULL, public_precision=NULL/);
   assert.match(geoStore, /geocode_status='NEEDS_REVIEW', last_error_code='PRIVACY_CLASSIFICATION_MISSING'/);
-  assert.match(geoStore, /reasonCode: exactNeedsPrivacyReview/);
+  assert.match(geoStore, /reasonCode,\n\s*changedFields: \["public_visibility", "public_precision", "source_fingerprint", "geocode_status"\]/);
 });
 
 test("pre-migration deployment remains fail-safe when geo_points is not yet applied", () => {
