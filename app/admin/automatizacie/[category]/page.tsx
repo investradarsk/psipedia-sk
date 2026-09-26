@@ -317,6 +317,9 @@ export default async function AutomationCategoryPage({ params }: Props) {
                     <strong>{root.label}</strong>
                     <span>{root.enabled ? "Aktívne" : "Vypnuté"} · {cadenceLabel(root.cadenceMinutes)} · posledné hľadanie {formatDate(root.lastCheckedAt)}</span>
                     <span>{root.lastErrorCode ? "Chyba: " + automationReadableError(root.lastErrorCode) : "Bez evidovanej chyby"}</span>
+                    {root.rootKey === "tavily-sk-dog-events" && root.discoveryType === "SEARCH_PROVIDER" ? (
+                      <Link href={"/admin/automatizacie/" + slug + "/discovery/" + root.id}>Otvoriť Tavily root →</Link>
+                    ) : null}
                   </div>
                 ))}
               </div>
