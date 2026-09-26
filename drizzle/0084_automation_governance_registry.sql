@@ -48,6 +48,55 @@ CREATE TABLE `automation_governance_review_history` (
 CREATE INDEX `automation_governance_review_history_subject_idx`
   ON `automation_governance_review_history` (`subject_type`,`subject_id`,`changed_at`);
 
+CREATE TRIGGER `automation_governance_reviews_history_insert`
+AFTER INSERT ON `automation_governance_reviews`
+BEGIN
+  INSERT INTO `automation_governance_review_history`
+    (`review_id`,`subject_type`,`subject_id`,`before_json`,`after_json`,`actor`,`rationale`,`changed_at`)
+  VALUES (
+    NEW.id,NEW.subject_type,NEW.subject_id,NULL,
+    json_object(
+      'access_status',NEW.access_status,'robots_status',NEW.robots_status,'terms_status',NEW.terms_status,
+      'recurring_status',NEW.recurring_status,'retention_status',NEW.retention_status,
+      'retain_url',NEW.retain_url,'retain_title',NEW.retain_title,'retain_snippet',NEW.retain_snippet,'retain_metadata',NEW.retain_metadata,
+      'retention_days',NEW.retention_days,'min_cadence_minutes',NEW.min_cadence_minutes,'max_requests_per_day',NEW.max_requests_per_day,
+      'manual_only',NEW.manual_only,'path_scope',NEW.path_scope,'restrictions_note',NEW.restrictions_note,
+      'terms_url',NEW.terms_url,'privacy_url',NEW.privacy_url,'robots_url',NEW.robots_url,'evidence_url',NEW.evidence_url,
+      'expires_at',NEW.expires_at,'review_due_at',NEW.review_due_at
+    ),
+    NEW.reviewed_by,NEW.rationale,NEW.updated_at
+  );
+END;
+
+CREATE TRIGGER `automation_governance_reviews_history_update`
+AFTER UPDATE ON `automation_governance_reviews`
+BEGIN
+  INSERT INTO `automation_governance_review_history`
+    (`review_id`,`subject_type`,`subject_id`,`before_json`,`after_json`,`actor`,`rationale`,`changed_at`)
+  VALUES (
+    NEW.id,NEW.subject_type,NEW.subject_id,
+    json_object(
+      'access_status',OLD.access_status,'robots_status',OLD.robots_status,'terms_status',OLD.terms_status,
+      'recurring_status',OLD.recurring_status,'retention_status',OLD.retention_status,
+      'retain_url',OLD.retain_url,'retain_title',OLD.retain_title,'retain_snippet',OLD.retain_snippet,'retain_metadata',OLD.retain_metadata,
+      'retention_days',OLD.retention_days,'min_cadence_minutes',OLD.min_cadence_minutes,'max_requests_per_day',OLD.max_requests_per_day,
+      'manual_only',OLD.manual_only,'path_scope',OLD.path_scope,'restrictions_note',OLD.restrictions_note,
+      'terms_url',OLD.terms_url,'privacy_url',OLD.privacy_url,'robots_url',OLD.robots_url,'evidence_url',OLD.evidence_url,
+      'expires_at',OLD.expires_at,'review_due_at',OLD.review_due_at
+    ),
+    json_object(
+      'access_status',NEW.access_status,'robots_status',NEW.robots_status,'terms_status',NEW.terms_status,
+      'recurring_status',NEW.recurring_status,'retention_status',NEW.retention_status,
+      'retain_url',NEW.retain_url,'retain_title',NEW.retain_title,'retain_snippet',NEW.retain_snippet,'retain_metadata',NEW.retain_metadata,
+      'retention_days',NEW.retention_days,'min_cadence_minutes',NEW.min_cadence_minutes,'max_requests_per_day',NEW.max_requests_per_day,
+      'manual_only',NEW.manual_only,'path_scope',NEW.path_scope,'restrictions_note',NEW.restrictions_note,
+      'terms_url',NEW.terms_url,'privacy_url',NEW.privacy_url,'robots_url',NEW.robots_url,'evidence_url',NEW.evidence_url,
+      'expires_at',NEW.expires_at,'review_due_at',NEW.review_due_at
+    ),
+    NEW.reviewed_by,NEW.rationale,NEW.updated_at
+  );
+END;
+
 CREATE TRIGGER `automation_governance_review_history_no_update`
 BEFORE UPDATE ON `automation_governance_review_history`
 BEGIN SELECT RAISE(ABORT, 'automation governance history is immutable'); END;
