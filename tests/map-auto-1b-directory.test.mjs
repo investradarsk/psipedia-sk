@@ -18,6 +18,7 @@ const directoryStore = source("lib/directory-store.ts");
 const adminDirectoryRoute = source("app/api/admin/directory/[id]/route.ts");
 const adminImport = source("app/api/admin/import/route.ts");
 const bulkExecution = source("lib/admin-bulk/execution.ts");
+const bulkRoute = source("app/api/admin/bulk/execute/route.ts");
 const automationApply = source("lib/data-automation-apply.ts");
 const canonicalAutomationApply = source("lib/data-automation-canonical-apply.ts");
 const partnerNewAdmin = source("lib/partner-new-profile-admin.ts");
@@ -110,10 +111,12 @@ test("restore reconciles retained GEO lifecycle", () => {
   assert.match(restoreDirectory, /reconcileGeoAfterSourceMutation\(\{/);
 });
 
-test("bulk publish and move-to-draft reconcile each successful DIRECTORY mutation", () => {
-  assert.match(bulkExecution, /if \(request\.module === "directory"\)/);
-  assert.match(bulkExecution, /reconcileGeoAfterSourceMutation\(\{/);
-  assert.match(bulkExecution, /targetType: "DIRECTORY_PROFILE"/);
+test("bulk publish and move-to-draft reconcile each successful DIRECTORY mutation at the API boundary", () => {
+  assert.doesNotMatch(bulkExecution, /reconcileGeoAfterSourceMutation/);
+  assert.match(bulkRoute, /payload\?\.module === "directory"/);
+  assert.match(bulkRoute, /for \(const item of result\.updated\)/);
+  assert.match(bulkRoute, /reconcileGeoAfterSourceMutation\(\{/);
+  assert.match(bulkRoute, /targetType: "DIRECTORY_PROFILE"/);
 });
 
 test("admin import reconciles every canonical DIRECTORY upsert after the batch", () => {
@@ -160,23 +163,23 @@ test("partner canonical profile-change approval reconciles DIRECTORY after atomi
 test("manual override protection remains centralized and is not disabled by write-path integration", () => {
   assert.match(sync, /if \(current\.manualOverride\)/);
   assert.match(sync, /last_error_code='MANUAL_REVIEW'/);
-  const integrations = [directoryStore, adminImport, bulkExecution, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin].join("\n");
+  const integrations = [directoryStore, adminImport, bulkRoute, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin].join("\n");
   assert.doesNotMatch(integrations, /manual_override\s*=\s*0/);
 });
 
 test("MAP-AUTO integration does not call a geocoder or provider directly", () => {
-  const integrations = [directoryStore, adminImport, bulkExecution, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin].join("\n");
+  const integrations = [directoryStore, adminImport, bulkRoute, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin].join("\n");
   assert.doesNotMatch(integrations, /Geoapify|geoapify|applyGeocoderResolution|verifyDirectoryAddressSelection|geo-provider/);
 });
 
 test("Attention side effects remain owned by GEO core", () => {
-  const integrations = [directoryStore, adminImport, bulkExecution, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin].join("\n");
+  const integrations = [directoryStore, adminImport, bulkRoute, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin].join("\n");
   assert.doesNotMatch(integrations, /enqueueGeoAttentionEvent|GEO_LOCATION_ISSUE/);
   assert.match(sync, /enqueueGeoAttentionEvent/);
 });
 
 test("historical A2 migration is not invoked by any MAP-AUTO write-path integration", () => {
-  const integrations = [directoryStore, adminImport, bulkExecution, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin].join("\n");
+  const integrations = [directoryStore, adminImport, bulkRoute, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin].join("\n");
   assert.doesNotMatch(integrations, /directory-exact-geo-migration|runDirectoryExactGeoMigration|A2-MIGRATE/);
 });
 
@@ -184,7 +187,7 @@ test("reconcile failures are not silently swallowed by admin, import, automation
   for (const text of [directoryStore, adminImport, automationApply, canonicalAutomationApply, partnerNewAdmin, partnerChangesAdmin]) {
     assert.doesNotMatch(text, /reconcileGeoAfterSourceMutation[\s\S]{0,180}\.catch\(/);
   }
-  assert.match(bulkExecution, /await reconcileGeoAfterSourceMutation/);
+  assert.match(bulkRoute, /await reconcileGeoAfterSourceMutation/);
   assert.match(bulkExecution, /failed\.push\(\{ id, reason: "mutation-failed" \}\)/);
 });
 
