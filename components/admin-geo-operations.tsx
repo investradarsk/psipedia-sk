@@ -72,6 +72,23 @@ type BackfillChunkReport = {
   items?: Array<{ targetType: string; targetId: number; status: string; errorCode: string | null }>;
 };
 
+type A2PreviewItem = {
+  targetId: number;
+  label: string;
+  action: string;
+  reason: string;
+  currentStatus: string | null;
+  currentVisibility: string | null;
+  currentPrecision: string | null;
+  intendedAction: string;
+};
+
+type A2PreviewReport = {
+  eligibleCount: number;
+  selectedCandidateIds: number[];
+  items: A2PreviewItem[];
+};
+
 export function AdminGeoOperations({ initialItems, providerConfigured }: {
   initialItems: GeoDryRunItem[];
   providerConfigured: boolean;
@@ -95,6 +112,11 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
   const [explicitReport, setExplicitReport] = useState<unknown>(null);
   const [explicitConfirmed, setExplicitConfirmed] = useState(false);
 
+  const [a2Preview, setA2Preview] = useState<A2PreviewReport | null>(null);
+  const [a2IdsText, setA2IdsText] = useState("");
+  const [a2CanaryReport, setA2CanaryReport] = useState<unknown>(null);
+  const [a2Confirmed, setA2Confirmed] = useState(false);
+
   function parsedExplicitIds() {
     const raw = explicitIdsText.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
     if (!raw.length) throw new Error("Zadaj 1 až 20 ID.");
@@ -102,6 +124,18 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
     const ids = raw.map((value) => Number(value));
     if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) throw new Error("ID musia byť kladné celé čísla.");
     if (new Set(ids).size !== ids.length) throw new Error("ID musia byť unique.");
+    return ids;
+  }
+
+  function parsedA2Ids() {
+    const raw = a2IdsText.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
+    if (!raw.length) throw new Error("Zadaj aspoň jedno DIRECTORY_PROFILE ID.");
+    if (raw.length > 10) throw new Error("A2 canary povoľuje najviac 10 ID.");
+    const ids = raw.map((value) => Number(value));
+    if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+      throw new Error("A2 ID musia byť kladné celé čísla.");
+    }
+    if (new Set(ids).size !== ids.length) throw new Error("A2 ID musia byť unique.");
     return ids;
   }
 
@@ -165,8 +199,98 @@ export function AdminGeoOperations({ initialItems, providerConfigured }: {
       <p className="admin-message admin-message--error"><strong>Full production backfill je hard-disabled.</strong> Táto stránka nemá akciu „geocode všetko“.</p>
     </section>
 
+    <section className="admin-form-card" data-admin-a2-exact-automation>
+      <h2>A2 — Exact directory automation</h2>
+      <p className="admin-help">
+        Bounded rollout pre canonical DIRECTORY_PROFILE exact GEO. <strong>Read-only preview — nič nemení a nevolá Geoapify.</strong>
+      </p>
+      <div className="admin-editor-actions">
+        <button type="button" disabled={busy} onClick={async () => {
+          setError(""); setMessage(""); setA2CanaryReport(null);
+          const report = await action({ action: "a2-preview" });
+          if (report) {
+            setA2Preview(report as A2PreviewReport);
+            setMessage("A2 preview obnovený. Bez writes a bez Geoapify callov.");
+          }
+        }}>Obnoviť A2 preview</button>
+      </div>
+
+      {a2Preview ? <>
+        <p className="admin-help">
+          Eligible <strong>{a2Preview.eligibleCount}</strong>
+          {" · "}selected <strong>{a2Preview.selectedCandidateIds.length}</strong>
+        </p>
+        <p className="admin-help" style={{ overflowWrap: "anywhere" }}>
+          <strong>Selected target IDs:</strong> {a2Preview.selectedCandidateIds.length ? a2Preview.selectedCandidateIds.join(", ") : "—"}
+        </p>
+        <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+          <table className="admin-table">
+            <thead><tr><th>ID</th><th>Current status</th><th>Eligibility</th><th>Reason</th><th>Intended action</th></tr></thead>
+            <tbody>{a2Preview.items.map((item) => <tr key={item.targetId}>
+              <td>{item.targetId}</td>
+              <td>{item.currentStatus ?? "—"}</td>
+              <td>{item.action}</td>
+              <td>{item.reason}</td>
+              <td>{item.intendedAction}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </> : null}
+
+      <div className="admin-field" style={{ marginTop: 16 }}>
+        <label htmlFor="geo-a2-canary-ids">A2 canary — DIRECTORY_PROFILE IDs</label>
+        <textarea
+          id="geo-a2-canary-ids"
+          rows={3}
+          value={a2IdsText}
+          onChange={(event) => {
+            setA2IdsText(event.target.value);
+            setA2Confirmed(false);
+            setA2CanaryReport(null);
+          }}
+          placeholder="napr. 12, 18, 27 alebo jedno ID na riadok"
+          style={{ width: "100%", maxWidth: "100%" }}
+        />
+        <p className="admin-help">
+          Max. 10 positive integer IDs. <strong>Canary môže volať Geoapify a zapisovať reálne GEO výsledky.</strong>
+          Neexistuje tu process-all akcia.
+        </p>
+      </div>
+
+      <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12 }}>
+        <input type="checkbox" checked={a2Confirmed} onChange={(event) => setA2Confirmed(event.target.checked)} />
+        <span>Rozumiem, že A2 canary môže vykonať provider calls a GEO writes iba pre zadané ID.</span>
+      </label>
+      <div className="admin-editor-actions">
+        <button type="button" disabled={busy || !providerConfigured || !a2Confirmed || !a2IdsText.trim()} onClick={async () => {
+          let ids: number[];
+          try { ids = parsedA2Ids(); }
+          catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Neplatné A2 ID.");
+            return;
+          }
+          if (!window.confirm("Spustiť A2 exact canary iba pre DIRECTORY_PROFILE ID: " + ids.join(", ") + "? Operácia môže volať Geoapify a zapisovať GEO výsledky.")) return;
+          const report = await action({
+            action: "a2-canary",
+            targetIds: ids,
+            confirm: "A2-CANARY",
+          });
+          if (report) {
+            setA2CanaryReport(report);
+            setMessage("A2 canary skončil. Skontroluj per-item report pred ďalším rolloutom.");
+            setA2Confirmed(false);
+          }
+        }}>Spustiť A2 canary</button>
+      </div>
+
+      {a2CanaryReport ? <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(a2CanaryReport, null, 2)}</pre> : null}
+    </section>
+
     <section className="admin-form-card" data-admin-explicit-geo-onboarding>
-      <h2>Explicitný onboarding</h2>
+      <h2>Legacy explicit approximate onboarding</h2>
+      <p className="admin-message admin-message--error">
+        <strong>Legacy approximate onboarding — nepoužíva sa pre A2 exact rollout.</strong>
+      </p>
       <p className="admin-help">
         Spracuje iba presne zadané ID (max. 20). Preview nerobí writes ani provider calls.
         Prvý production contract je striktne DIRECTORY_PROFILE + APPROXIMATE_PUBLIC + MUNICIPALITY.
