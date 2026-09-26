@@ -190,6 +190,26 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
     expect(googleJsRequests.length).toBeGreaterThanOrEqual(1);
 
+    // Presentation-only map type switching must reuse the same Google Map object
+    // and must not generate a new authoritative /api/map request.
+    const mapRequestsBeforeTypeSwitch = await page.locator("body").evaluate(() =>
+      performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length,
+    );
+    const mapTypeControl = page.getByRole("group", { name: "Typ mapového podkladu" });
+    const roadmapButton = mapTypeControl.getByRole("button", { name: "Mapa" });
+    const hybridButton = mapTypeControl.getByRole("button", { name: "Satelit" });
+    await expect(roadmapButton).toHaveAttribute("aria-pressed", "true");
+    await hybridButton.click();
+    await expect(hybridButton).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => page.evaluate(() => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__)).toBe(1);
+    await roadmapButton.click();
+    await expect(roadmapButton).toHaveAttribute("aria-pressed", "true");
+    await page.waitForTimeout(300);
+    const mapRequestsAfterTypeSwitch = await page.locator("body").evaluate(() =>
+      performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length,
+    );
+    expect(mapRequestsAfterTypeSwitch).toBe(mapRequestsBeforeTypeSwitch);
+
     await expect.poll(() => page.locator("gmp-advanced-marker").count(), { timeout: 20000 }).toBeGreaterThan(0);
 
     // Exact-name search should collapse the live dataset to a singleton result.

@@ -120,3 +120,35 @@ test("live production audit preserves Google Maps consent and uses the interacti
   assert.doesNotMatch(liveAudit, /getByTestId\("map-sheet-handle"\)/);
 });
 
+
+
+test("MAP-UX-1 map type control is presentation-only and switches the existing map instance", () => {
+  assert.match(experience, /useState<PublicMapType>\("roadmap"\)/);
+  assert.match(experience, /aria-label="Typ mapového podkladu"/);
+  assert.match(experience, /aria-pressed=\{mapType === "roadmap"\}/);
+  assert.match(experience, /aria-pressed=\{mapType === "hybrid"\}/);
+  assert.match(renderer, /mapTypeId:\s*mapTypeRef\.current/);
+  assert.match(renderer, /mapRef\.current\.setMapTypeId\(mapType\)/);
+  assert.match(renderer, /if \(!containerRef\.current \|\| mapRef\.current\) return/);
+  assert.doesNotMatch(experience, /params\.set\(["']mapType["']/);
+  assert.doesNotMatch(experience, /buildMapApiUrl\([^)]*mapType/);
+});
+
+test("MAP-UX-1 external actions use coordinate helpers and keep approximate navigation safe", () => {
+  assert.match(experience, /buildGoogleMapsPlaceUrl\(item\.latitude, item\.longitude\)/);
+  assert.match(experience, /approximate \? null : buildGoogleMapsDirectionsUrl\(item\.latitude, item\.longitude\)/);
+  assert.match(experience, /Otvoriť približnú polohu v Google Maps/);
+  assert.match(experience, />\s*Navigovať\s*</);
+  assert.doesNotMatch(experience, /buildGoogleMaps(?:Place|Directions)Url\([^)]*(?:displayLocation|address|city|region)/);
+  assert.doesNotMatch(experience, /navigator\.geolocation|geo:\/\//i);
+  assert.match(experience, /target="_blank"/);
+  assert.match(experience, /rel="noreferrer"/);
+});
+
+test("MAP-UX-1 controls keep mobile touch targets and Google attribution unobstructed", () => {
+  assert.match(css, /\.mapTypeControl\s*\{/);
+  assert.match(css, /\.mapTypeControl button[\s\S]*min-height:\s*36px/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.mapTypeControl button[\s\S]*min-height:\s*40px/);
+  assert.match(css, /\.cardFooter[\s\S]*flex-wrap:\s*wrap/);
+  assert.doesNotMatch(css, /\.mapTypeControl[\s\S]{0,240}bottom:/);
+});

@@ -5,6 +5,8 @@ import {
   MAP_DEFAULT_BBOX,
   MAP_FETCH_DEBOUNCE_MS,
   MapRequestGate,
+  buildGoogleMapsDirectionsUrl,
+  buildGoogleMapsPlaceUrl,
   buildMapApiUrl,
   isApproximateMapItem,
   mapClusterTarget,
@@ -153,4 +155,30 @@ test("approximate labeling and cluster zoom target are deterministic", () => {
     zoom: 9,
   });
   assert.equal(mapClusterTarget({ latitude: 48.3, longitude: 18.1 }, 19).zoom, 20);
+});
+
+
+test("Google Maps public links are coordinate-only, deterministic HTTPS URLs", () => {
+  const place = buildGoogleMapsPlaceUrl(48.3069, 18.0864);
+  const directions = buildGoogleMapsDirectionsUrl(48.3069, 18.0864);
+  assert.equal(place, "https://www.google.com/maps/search/?api=1&query=48.3069%2C18.0864");
+  assert.equal(directions, "https://www.google.com/maps/dir/?api=1&destination=48.3069%2C18.0864");
+  assert.equal(new URL(place).protocol, "https:");
+  assert.equal(new URL(directions).protocol, "https:");
+  assert.equal(new URL(place).searchParams.get("query"), "48.3069,18.0864");
+  assert.equal(new URL(directions).searchParams.get("destination"), "48.3069,18.0864");
+});
+
+test("Google Maps public links fail closed for invalid coordinates", () => {
+  for (const [latitude, longitude] of [
+    [Number.NaN, 18],
+    [48, Number.POSITIVE_INFINITY],
+    [91, 18],
+    [-91, 18],
+    [48, 181],
+    [48, -181],
+  ]) {
+    assert.equal(buildGoogleMapsPlaceUrl(latitude, longitude), null);
+    assert.equal(buildGoogleMapsDirectionsUrl(latitude, longitude), null);
+  }
 });
