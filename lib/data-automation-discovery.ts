@@ -1,6 +1,7 @@
 import {
   canonicalizeSourceUrl,
   isSafeAutomationSourceUrl,
+  sha256Hex,
   type AutomationConnectorType,
   type AutomationEntityType,
 } from "./data-automation.ts";
@@ -289,19 +290,10 @@ export function normalizeAutomationSearchRequest(input: {
   };
 }
 
-function fingerprintHash(value: string) {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0");
-}
-
-export function automationSearchQueryFingerprint(providerKey: string, request: AutomationSearchRequest) {
+export async function automationSearchQueryFingerprint(providerKey: string, request: AutomationSearchRequest) {
   const normalizedProvider = providerKey.trim().toLowerCase();
   if (!normalizedProvider) throw new AutomationSearchProviderError("CONFIG_MISSING");
-  const stable = JSON.stringify({
+  const stable = {
     provider: normalizedProvider,
     query: request.query,
     locale: request.locale ?? null,
@@ -309,8 +301,8 @@ export function automationSearchQueryFingerprint(providerKey: string, request: A
     freshness: request.freshness ?? null,
     allowDomains: [...(request.allowDomains ?? [])].sort(),
     blockDomains: [...(request.blockDomains ?? [])].sort(),
-  });
-  return `sp1-${fingerprintHash(stable)}`;
+  };
+  return `sp1-${(await sha256Hex(stable)).slice(0, 24)}`;
 }
 
 export function requireConfiguredSearchProvider(
