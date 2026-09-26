@@ -72,6 +72,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0077_directory_geo_provider_result_id.sql",
   "0078_automation_possible_match_reviews.sql",
   "0079_automation_agility_event_source.sql",
+  "0080_automation_canonical_apply.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -84,6 +85,12 @@ export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
   "automation_field_conflicts",
   "automation_cluster_findings",
   "automation_cluster_canonical_claims",
+]);
+
+export const AUTOMATION_CANONICAL_APPLY_INDEXES = Object.freeze([
+  "automation_canonical_apply_operations_fingerprint_unique",
+  "automation_canonical_apply_operations_entity_idx",
+  "automation_canonical_apply_operations_review_idx",
 ]);
 
 export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
@@ -614,6 +621,13 @@ function targetSchemaObjects(schema, targetMigration) {
     const names = objectMap(schema.objects);
     return { partial: names.has("automation_entity_match_decisions") };
   }
+  if (targetMigration === "0079_automation_agility_event_source.sql") {
+    return { partial: false };
+  }
+  if (targetMigration === "0080_automation_canonical_apply.sql") {
+    const names = objectMap(schema.objects);
+    return { partial: names.has("automation_canonical_apply_operations") || AUTOMATION_CANONICAL_APPLY_INDEXES.some((index) => names.has(index)) };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -968,6 +982,18 @@ function assertAutomationPossibleMatchReviewsSchema(schema) {
   invariant(names.get("automation_entity_match_decisions_pair_history_idx")?.type === "index", "Missing POSSIBLE review history index");
 }
 
+function assertAutomationCanonicalApplySchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("automation_canonical_apply_operations")?.type === "table", "Missing G5 canonical apply audit table");
+  for (const index of AUTOMATION_CANONICAL_APPLY_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing G5 canonical apply index: ${index}`);
+  }
+  const sql = String(names.get("automation_canonical_apply_operations")?.sql ?? "");
+  invariant(sql.includes("review_decision_id") && sql.includes("evidence_fingerprint"), "G5 decision/evidence linkage is incomplete");
+  invariant(sql.includes("before_json") && sql.includes("after_json") && sql.includes("provenance_json"), "G5 audit snapshots/provenance are incomplete");
+  invariant(sql.includes("SUCCESS") && sql.includes("FAILED"), "G5 apply status audit signature is incomplete");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -985,6 +1011,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 76) assertAutomationNonEventFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 77) assertDirectoryGeoProviderResultIdSchema(schema);
   if (migrationIndex(targetMigration) >= 78) assertAutomationPossibleMatchReviewsSchema(schema);
+  if (migrationIndex(targetMigration) >= 80) assertAutomationCanonicalApplySchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {

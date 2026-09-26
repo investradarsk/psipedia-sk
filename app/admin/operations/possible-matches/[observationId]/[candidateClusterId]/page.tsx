@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminPossibleMatchReviewActions } from "@/components/admin-possible-match-review-actions";
+import { AdminCanonicalApplyReview } from "@/components/admin-canonical-apply-review";
 import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getAutomationPossibleMatchReviewDetail } from "@/lib/data-automation-match-review";
+import { getAutomationCanonicalApplyPreview } from "@/lib/data-automation-canonical-apply";
 export const dynamic="force-dynamic";
 type Props={params:Promise<{observationId:string;candidateClusterId:string}>};
 function value(v:unknown){return v==null||v===""?"—":typeof v==="object"?JSON.stringify(v):String(v);}
@@ -18,6 +20,9 @@ export default async function PossibleMatchDetail({params}:Props){
   const observationId=Number.parseInt(raw.observationId,10),candidateClusterId=Number.parseInt(raw.candidateClusterId,10);
   if(!Number.isSafeInteger(observationId)||!Number.isSafeInteger(candidateClusterId)) notFound();
   const review=await getAutomationPossibleMatchReviewDetail(observationId,candidateClusterId); if(!review) notFound();
+  const applyPreview=review.currentDecision?.decision==="SAME_ENTITY"
+    ? await getAutomationCanonicalApplyPreview({observationId,candidateClusterId})
+    : null;
   const left=side(review.sourceEvidence),right=side(review.targetEvidence),fields=Array.from(new Set([...left.keys(),...right.keys()])).sort();
   return <AdminShell user={await requireAdminPageUser("/admin/operations/possible-matches")} eyebrow="POSSIBLE match" title={review.entityType+" identity review"}
     description={review.matchReason} actions={<Link href="/admin/operations/possible-matches">← POSSIBLE queue</Link>}>
@@ -33,6 +38,7 @@ export default async function PossibleMatchDetail({params}:Props){
     </section>
     <AdminPossibleMatchReviewActions observationId={review.observationId} candidateClusterId={review.candidateClusterId}
       evidenceFingerprint={review.evidenceFingerprint} currentDecisionId={review.currentDecision?.id??null} semanticCompatible={review.semanticCompatible}/>
+    {applyPreview&&<AdminCanonicalApplyReview preview={applyPreview}/>} 
     <section className={styles.section}><h2>Audit history</h2>{review.history.length?review.history.map(item=><p key={item.id}><strong>{item.decision}</strong> · {item.reviewer} · v{item.version} · {item.createdAt}{item.note?" · "+item.note:""}</p>):<p>Zatiaľ bez rozhodnutia.</p>}</section>
   </AdminShell>;
 }
