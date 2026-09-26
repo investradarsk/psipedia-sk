@@ -5,6 +5,7 @@ export const SECRET_ENV_NAMES = [
   "PII_HASH_KEY",
   "NOTION_API_TOKEN",
   "GEOAPIFY_API_KEY",
+  "TAVILY_API_KEY",
 ] as const;
 
 export const OPTIONAL_ENV_NAMES = [

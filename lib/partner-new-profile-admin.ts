@@ -29,6 +29,7 @@ import {
 import { transitionModerationSubmission } from "@/lib/moderation-store";
 import { assertIndependentOwnershipApprover, PartnerOwnershipApprovalGuardError } from "@/lib/partner-ownership-approval";
 import { getPartnerSubmissionMedia, publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
+import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 type Resolution = "CREATED_NEW" | "LINKED_EXISTING";
@@ -464,7 +465,16 @@ export async function createPartnerNewProfileAdmin(input:{
     requestId:input.requestId??null,eventId:crypto.randomUUID(),changedFieldsJson:JSON.stringify([...Object.keys(normalized.values),...(media?["image"]:[])]),
     now:nowIso,extraStatements:canonicalStatements,
   });
-  return getPartnerNewProfileAdmin(input.id,{database});
+  const resolved = await getPartnerNewProfileAdmin(input.id,{database});
+  if (row.resourceType === "DIRECTORY_PROFILE" && resolved?.resolvedCanonicalId) {
+    await reconcileGeoAfterSourceMutation({
+      targetType: "DIRECTORY_PROFILE",
+      targetId: resolved.resolvedCanonicalId,
+      actorRef,
+      actorType: "ADMIN",
+    }, database);
+  }
+  return resolved;
 }
 
 export async function linkPartnerNewProfileAdmin(input:{

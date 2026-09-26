@@ -941,6 +941,14 @@ export async function applyAutomationFinding(input: {
   const already = await existingApplication(finding.id, db);
   if (already) {
     await ensureAutomationResourceAnchor(finding.entityType, Number(already.canonical_entity_id), db, input.now ?? new Date());
+    if (finding.entityType === "DIRECTORY") {
+      await reconcileGeoAfterSourceMutation({
+        targetType: "DIRECTORY_PROFILE",
+        targetId: Number(already.canonical_entity_id),
+        actorRef: input.reviewerEmail.trim().toLowerCase(),
+        actorType: "ADMIN",
+      }, db);
+    }
     const refreshed = await getAutomationFindingDetail(finding.id, db);
     if (!refreshed) return null;
     let appliedFields: string[] = [];
@@ -1100,6 +1108,14 @@ export async function applyAutomationFinding(input: {
   const refreshed = await getAutomationFindingDetail(finding.id, db);
   if (!application || !refreshed) throw new Error("automation_apply_result_missing");
   await ensureAutomationResourceAnchor(finding.entityType, Number(application.canonical_entity_id), db, input.now ?? new Date());
+  if (finding.entityType === "DIRECTORY") {
+    await reconcileGeoAfterSourceMutation({
+      targetType: "DIRECTORY_PROFILE",
+      targetId: Number(application.canonical_entity_id),
+      actorRef: actor,
+      actorType: "ADMIN",
+    }, db);
+  }
   let appliedFields: string[] = [];
   try { appliedFields = JSON.parse(application.applied_fields_json) as string[]; } catch {}
   await reconcileAutomationEventGeo({

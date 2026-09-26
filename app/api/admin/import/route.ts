@@ -109,6 +109,7 @@ export async function POST(request: Request) {
     }
 
     const statements: D1PreparedStatement[] = [];
+    const directoryProfilesToReconcile: Array<{ importKey: string | null; category: string; slug: string }> = [];
 
     for (const [index, row] of articles.entries()) {
       if (plan.actions.articles[index] === "skipped") continue;
@@ -164,6 +165,7 @@ export async function POST(request: Request) {
       const rawSourceData = sourceData(row);
       const searchText = normalizeDirectorySearchText([name, excerpt, description, services.join(" "), qualifications.join(" "), city, district, region, address].join(" "));
       const conflictTarget = importKey ? "import_key" : "category, slug";
+      directoryProfilesToReconcile.push({ importKey, category, slug });
       statements.push(database.prepare(`
         INSERT INTO directory_profiles (
           slug, name, category, status, excerpt, description, services_json, qualifications_json,
@@ -301,6 +303,18 @@ export async function POST(request: Request) {
       }
     }
     if (profiles.length > 0) await ensureReviewableResourceAnchors(database);
+    for (const target of directoryProfilesToReconcile) {
+      const row = target.importKey
+        ? await database.prepare("SELECT id FROM directory_profiles WHERE import_key = ? LIMIT 1").bind(target.importKey).first<{ id: number }>()
+        : await database.prepare("SELECT id FROM directory_profiles WHERE category = ? AND slug = ? LIMIT 1").bind(target.category, target.slug).first<{ id: number }>();
+      if (!row) throw new Error(`Importovaný profil ${target.category}/${target.slug} sa po zápise nenašiel.`);
+      await reconcileGeoAfterSourceMutation({
+        targetType: "DIRECTORY_PROFILE",
+        targetId: Number(row.id),
+        actorRef: user.email,
+        actorType: "ADMIN",
+      }, database);
+    }
     return Response.json({
       success: true,
       imported: { articles: articles.length, profiles: profiles.length, events: events.length, help: helpItems.length, inquiries: inquiries.length, legal: legal ? 1 : 0 },
