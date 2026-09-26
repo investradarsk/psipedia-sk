@@ -17,6 +17,9 @@ import {
   beginAutomationDiscoveryRun,
   finalizeAutomationSearchUsage,
   finishAutomationDiscoveryRun,
+  getAutomationDiscoveryRoot,
+  getAutomationDiscoveryRunSearchMetrics,
+  getDueAutomationDiscoveryRoot,
   getAutomationSearchCooldownState,
   listDueAutomationDiscoveryRoots,
   reserveAutomationSearchRequest,
@@ -58,14 +61,18 @@ type DiscoveryCandidatesResult = {
   warnings: string[];
 };
 
-type DiscoveryRunSummary = {
+export type DiscoveryRunSummary = {
+  runId: number;
   rootId: number;
   rootKey: string;
   status: "SUCCESS" | "PARTIAL" | "FAILED";
   candidates: number;
   reviewableCandidates: number;
   duplicateCandidates: number;
+  requestCount: number;
+  resultCount: number;
   errors: number;
+  errorSummary: string | null;
   nextCheckAt: string | null;
 };
 
@@ -982,14 +989,22 @@ async function runDiscoveryRoot(
     completedAt,
   }, options.database as AutomationDiscoveryDatabase);
 
+  const searchMetricsSummary = await getAutomationDiscoveryRunSearchMetrics(
+    runId,
+    options.database as AutomationDiscoveryDatabase,
+  );
   const summary = {
+    runId,
     rootId: root.id,
     rootKey: root.rootKey,
     status,
     candidates: candidateCount,
     reviewableCandidates: reviewableCandidateCount,
     duplicateCandidates: duplicateCandidateCount,
+    requestCount: searchMetricsSummary.requestCount,
+    resultCount: searchMetricsSummary.resultCount,
     errors,
+    errorSummary,
     nextCheckAt: health.nextCheckAt,
   };
   console.info(JSON.stringify({ event: "data_automation_discovery_root", ...summary }));
@@ -999,6 +1014,28 @@ async function runDiscoveryRoot(
 function missingDiscoverySchema(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return /no such table:\s*automation_discovery_roots/i.test(message);
+}
+
+export async function runAutomationDiscoveryRootCanary(input: {
+  rootId: number;
+  options: DataAutomationDiscoverySweepOptions;
+}) {
+  const root = await getAutomationDiscoveryRoot(
+    input.rootId,
+    input.options.database as AutomationDiscoveryDatabase,
+  );
+  if (!root) throw new Error("automation_discovery_root_not_found");
+  if (!root.enabled) throw new Error("automation_discovery_root_disabled");
+  if (root.reviewStatus !== "APPROVED") throw new Error("automation_discovery_review_required");
+
+  const dueRoot = await getDueAutomationDiscoveryRoot(
+    root.id,
+    input.options.database as AutomationDiscoveryDatabase,
+    input.options.now ?? new Date(),
+  );
+  if (!dueRoot) throw new Error("automation_discovery_root_not_due_or_governance_blocked");
+
+  return runDiscoveryRoot(dueRoot, input.options);
 }
 
 export async function runDataAutomationDiscoverySweep(options: DataAutomationDiscoverySweepOptions) {
@@ -1028,13 +1065,17 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
         error: safeErrorCode(error),
       }));
       runs.push({
+        runId: 0,
         rootId: root.id,
         rootKey: root.rootKey,
         status: "FAILED",
         candidates: 0,
         reviewableCandidates: 0,
         duplicateCandidates: 0,
+        requestCount: 0,
+        resultCount: 0,
         errors: 1,
+        errorSummary: safeErrorCode(error),
         nextCheckAt: root.nextCheckAt,
       });
     }
