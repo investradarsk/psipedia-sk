@@ -171,7 +171,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
     street,
     houseNumber,
     addressFormat,
-    serviceAddressConfirmation: (addressProviderResultId || profile?.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION")
+    serviceAddressConfirmation: (!addressProviderResultId && profile?.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION")
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
     online,
@@ -220,10 +220,12 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
               }}
             />
             <DirectoryAddressAutocomplete
+              key={`${region}|${district}|${city}|${street}`}
               region={region}
               district={district}
               city={city}
               selectedProviderResultId={addressProviderResultId}
+              selectedStreet={street}
               disabled={online && !region && !district && !city}
               onClearSelection={() => {
                 setAddressProviderResultId("");
@@ -234,21 +236,33 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
               }}
               onSelect={(suggestion) => {
                 setAddressProviderResultId(suggestion.providerResultId);
-                setPostalCode(suggestion.postalCode);
+                setPostalCode("");
                 setStreet(suggestion.street);
-                setHouseNumber(suggestion.houseNumber);
-                setAddressFormat(suggestion.street ? "STREET" : "MUNICIPALITY_NUMBER");
+                setHouseNumber("");
+                setAddressFormat("STREET");
               }}
             />
-            {(street || houseNumber || postalCode || addressFormat) ? (
-              <div className="admin-field-grid" aria-label="Adresa overená poskytovateľom">
+            {street ? (
+              <div className="admin-field-grid" aria-label="Adresa prevádzky">
                 <div className="admin-field">
-                  <label>Typ adresy</label>
-                  <input value={addressFormat === "MUNICIPALITY_NUMBER" ? "Obec + číslo (bez ulice)" : addressFormat === "STREET" ? "Ulica + číslo" : ""} readOnly />
+                  <label>Ulica</label>
+                  <input value={street} readOnly />
                 </div>
-                {addressFormat === "STREET" ? <div className="admin-field"><label>Ulica</label><input value={street} readOnly /></div> : null}
-                <div className="admin-field"><label>Číslo domu</label><input value={houseNumber} readOnly /></div>
-                <div className="admin-field"><label>PSČ</label><input value={postalCode} readOnly /></div>
+                <div className="admin-field">
+                  <label htmlFor="directory-house-number">Číslo domu</label>
+                  <input
+                    id="directory-house-number"
+                    value={houseNumber}
+                    onChange={(event) => {
+                      setHouseNumber(event.target.value);
+                      setPostalCode("");
+                    }}
+                    placeholder="Napríklad 1892/74 alebo 74"
+                    required={!online}
+                  />
+                  <small>Po uložení server overí presnú kombináciu ulice a čísla domu cez Geoapify.</small>
+                </div>
+                {postalCode ? <div className="admin-field"><label>PSČ</label><input value={postalCode} readOnly /></div> : null}
               </div>
             ) : null}
             <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Ak má profil aj fyzickú prevádzku, vyplň adresu vyššie. Online-only profil môže zostať bez fyzickej adresy a nebude mapovým kandidátom.</small></span></label>
