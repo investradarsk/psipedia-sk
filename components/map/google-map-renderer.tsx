@@ -286,7 +286,7 @@ function TestMapRenderer({
             className={markerClass(item, selectedItemId === item.id)}
             key={item.id}
             data-testid={`marker-${item.id}`}
-            aria-label={item.name}
+            aria-label={item.displayLocation ? `${item.name} – ${item.displayLocation}` : item.name}
             aria-pressed={selectedItemId === item.id}
             onClick={() => onSelectItem(item.id)}
           >
@@ -427,7 +427,7 @@ export function GoogleMapRenderer(props: Props) {
         const marker = new AdvancedMarkerElement({
           map,
           position: { lat: item.latitude, lng: item.longitude },
-          title: item.name,
+          title: item.displayLocation ? `${item.name} – ${item.displayLocation}` : item.name,
           gmpClickable: true,
         });
         marker.append(element);
