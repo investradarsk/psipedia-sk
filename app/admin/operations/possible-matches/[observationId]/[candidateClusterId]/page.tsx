@@ -27,6 +27,8 @@ export default async function PossibleMatchDetail({params}:Props){
         {fields.map(field=><div role="row" key={field}><strong>{field}{review.conflicts.includes(field)?" ⚠":""}</strong><span>{value(left.get(field)?.rawValue)}</span><span>{value(right.get(field)?.rawValue)}</span></div>)}
       </div>
       <p><strong>Semantic kinds:</strong> {review.sourceSemanticKind} ↔ {review.targetSemanticKind} · <strong>source authority:</strong> {review.sourceRole} / {review.sourceAuthority}</p>
+      <p><strong>Decisive signals:</strong> {review.decisiveSignals.join(", ")||"žiadne zhodné identity polia"}</p>
+      <p><strong>Missing signals:</strong> {review.missingSignals.join(", ")||"žiadne explicitne chýbajúce porovnateľné polia"}</p>
       <p><strong>Conflicts:</strong> {review.conflicts.join(", ")||"žiadne explicitné field conflicts"} · <strong>Evidence fingerprint:</strong> <code>{review.evidenceFingerprint}</code></p>
     </section>
     <AdminPossibleMatchReviewActions observationId={review.observationId} candidateClusterId={review.candidateClusterId}
