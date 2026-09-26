@@ -457,6 +457,54 @@ export async function listAutomationSourceCandidates(
   });
 }
 
+
+export async function getAutomationSourceCandidate(
+  id: number,
+  databaseInput?: AutomationSourceAdminDatabase,
+  now = new Date(),
+) {
+  const db = database(databaseInput);
+  const row = await db.prepare(`SELECT * FROM automation_source_candidates WHERE id=? LIMIT 1`)
+    .bind(id).first<Record<string, unknown>>();
+  if (!row) return null;
+
+  const candidate = mapCandidate(row);
+  let evidenceRows: AutomationCandidateEvidenceLifecycleRow[] = [];
+  try {
+    const evidence = await db.prepare(`
+      SELECT e.candidate_id,e.last_seen_at,
+        r.enabled AS root_enabled,r.review_status AS root_review_status,r.cadence_minutes AS root_cadence_minutes,
+        (
+          SELECT COUNT(*) FROM automation_discovery_runs dr
+          WHERE dr.root_id=e.root_id
+            AND dr.status IN ('SUCCESS','PARTIAL')
+            AND dr.started_at>e.last_seen_at
+        ) AS later_successful_runs
+      FROM automation_source_candidate_evidence e
+      JOIN automation_discovery_roots r ON r.id=e.root_id
+      WHERE e.candidate_id=?
+      ORDER BY e.last_seen_at DESC`)
+      .bind(id).all<Record<string, unknown>>();
+    evidenceRows = evidence.results.map(mapCandidateEvidenceLifecycle);
+  } catch (error) {
+    if (!missingCandidateEvidenceSchema(error)) throw error;
+  }
+
+  const freshPaths = evidenceRows.filter((path) => candidateEvidenceFresh(path, now));
+  const evidenceLastSeen = evidenceRows
+    .map((path) => path.lastSeenAt)
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a))[0] ?? candidate.lastDetectedAt;
+
+  return {
+    ...candidate,
+    lifecycle: computeAutomationCandidateLifecycle(candidate, evidenceRows, now),
+    evidencePathCount: evidenceRows.length,
+    freshEvidencePathCount: freshPaths.length,
+    lastSeenAt: evidenceLastSeen,
+  };
+}
+
 export async function upsertAutomationSourceCandidate(input: {
   candidate: AutomationSourceCandidateInput;
   discoveredFromSourceId?: number | null;
