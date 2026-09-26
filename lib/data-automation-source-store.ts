@@ -71,6 +71,21 @@ export type AutomationSourceCandidateRow = {
   lastDetectedAt: string;
 };
 
+export type AutomationSourceCandidateEvidenceInput = {
+  candidateId: number;
+  rootId: number;
+  discoveryRunId?: number | null;
+  discoveryType: string;
+  discoveryContext?: string | null;
+  discoveryContextKey: string;
+  resultRank?: number | null;
+  title?: string | null;
+  snippet?: string | null;
+  externalId?: string | null;
+  metadata?: Record<string, unknown>;
+  seenAt?: Date;
+};
+
 function database(input?: AutomationSourceAdminDatabase) {
   if (input?.prepare) return input;
   const bound = (env as unknown as RuntimeBindings).DB;
@@ -344,7 +359,6 @@ export async function upsertAutomationSourceCandidate(input: {
     ) VALUES (?,?,?,?,?,?,?,?,?,?, 'NEW',?,?)
     ON CONFLICT(canonical_url,entity_type) DO UPDATE SET
       label=excluded.label,suggested_connector_type=excluded.suggested_connector_type,
-      discovered_from_source_id=excluded.discovered_from_source_id,reason=excluded.reason,metadata_json=excluded.metadata_json,
       duplicate_source_id=excluded.duplicate_source_id,last_detected_at=excluded.last_detected_at,
       review_status=CASE
         WHEN automation_source_candidates.review_status='SUPPRESSED'
@@ -383,6 +397,73 @@ export async function upsertAutomationSourceCandidate(input: {
     .bind(canonicalUrl, input.candidate.entityType).first<Record<string, unknown>>();
   if (!row) throw new Error("automation_candidate_upsert_failed");
   return mapCandidate(row);
+}
+
+
+function missingCandidateEvidenceSchema(error: unknown) {
+  return /no such table:\s*automation_source_candidate_evidence/i.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+function boundedEvidenceText(value: string | null | undefined, limit: number) {
+  const normalized = value?.trim();
+  return normalized ? normalized.slice(0, limit) : null;
+}
+
+export async function upsertAutomationSourceCandidateEvidence(
+  input: AutomationSourceCandidateEvidenceInput,
+  databaseInput?: AutomationSourceAdminDatabase,
+) {
+  const db = database(databaseInput);
+  const contextKey = input.discoveryContextKey.trim().slice(0, 500);
+  if (!contextKey) throw new Error("automation_candidate_evidence_context_key_required");
+  const at = (input.seenAt ?? new Date()).toISOString();
+  const serializedMetadata = stableJson(input.metadata ?? {});
+  const metadataJson = serializedMetadata.length <= 8000
+    ? serializedMetadata
+    : stableJson({ truncated: true, reason: "metadata_too_large" });
+
+  try {
+    await db.prepare(`INSERT INTO automation_source_candidate_evidence (
+        candidate_id,root_id,discovery_run_id,discovery_type,discovery_context,discovery_context_key,
+        result_rank,title,snippet,external_id,metadata_json,first_seen_at,last_seen_at,created_at,updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(candidate_id,root_id,discovery_context_key) DO UPDATE SET
+        discovery_run_id=excluded.discovery_run_id,
+        discovery_type=excluded.discovery_type,
+        discovery_context=excluded.discovery_context,
+        result_rank=excluded.result_rank,
+        title=excluded.title,
+        snippet=excluded.snippet,
+        external_id=excluded.external_id,
+        metadata_json=excluded.metadata_json,
+        last_seen_at=excluded.last_seen_at,
+        updated_at=excluded.updated_at`).bind(
+        input.candidateId,
+        input.rootId,
+        input.discoveryRunId ?? null,
+        input.discoveryType,
+        boundedEvidenceText(input.discoveryContext, 1000),
+        contextKey,
+        Number.isFinite(input.resultRank) ? Math.max(0, Math.floor(Number(input.resultRank))) : null,
+        boundedEvidenceText(input.title, 300),
+        boundedEvidenceText(input.snippet, 2000),
+        boundedEvidenceText(input.externalId, 500),
+        metadataJson,
+        at,
+        at,
+        at,
+        at,
+      ).run();
+    return true;
+  } catch (error) {
+    // Code may deploy before the additive schema migration is applied. Discovery
+    // remains candidate-only and safe; evidence starts persisting immediately
+    // after 0082 exists.
+    if (missingCandidateEvidenceSchema(error)) return false;
+    throw error;
+  }
 }
 
 function candidateSourceKey(candidate: AutomationSourceCandidateRow) {
