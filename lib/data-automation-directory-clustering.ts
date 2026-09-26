@@ -1,3 +1,4 @@
+import { shouldSuppressAutomationPossibleCandidate } from "./data-automation-match-review.ts";
 import { sha256Hex, stableJson, type AutomationSource, type AutomationSourceRecord } from "./data-automation.ts";
 import {
   DIRECTORY_SEMANTIC_KIND,
@@ -214,11 +215,13 @@ async function attachObservation(input: {
 
 async function recordPossibleCandidates(input: {
   observationId: number;
+  sourceClusterId: number;
   candidateIds: number[];
   reason: string;
   at: string;
 }, database: Database) {
   for (const candidateId of [...new Set(input.candidateIds)]) {
+    if (await shouldSuppressAutomationPossibleCandidate({ observationId: input.observationId, sourceClusterId: input.sourceClusterId, candidateClusterId: candidateId, matchReason: input.reason }, database)) continue;
     await database.prepare(`INSERT INTO automation_cluster_match_candidates
       (observation_id,candidate_cluster_id,match_quality,match_reason,created_at)
       VALUES (?,?,'POSSIBLE',?,?)
@@ -385,6 +388,7 @@ export async function resolveDirectoryAutomationEntityCluster(input: {
         if (decision.quality === "POSSIBLE" && decision.possibleCandidateIds.length) {
           await recordPossibleCandidates({
             observationId: input.observationId,
+            sourceClusterId: clusterId,
             candidateIds: decision.possibleCandidateIds,
             reason: decision.reason,
             at: input.detectedAt,
