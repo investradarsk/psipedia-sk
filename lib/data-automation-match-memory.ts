@@ -1,6 +1,4 @@
 import { sha256Hex } from "./data-automation.ts";
-import type { AutomationSemanticKind } from "./data-automation-identity.ts";
-
 type Database = Pick<D1Database, "prepare">;
 
 function missingSchema(error: unknown) {
