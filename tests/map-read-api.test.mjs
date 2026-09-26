@@ -12,6 +12,7 @@ import {
   MapGeoUnavailableError,
   clusterMapItems,
   deduplicateLinkedOrganizationDirectory,
+  getPublicMapItemsForEntity,
   isPublicMapCandidate,
   mapCandidateToItem,
   publicDisplayLocation,
@@ -354,5 +355,160 @@ test("geo schema absence is an explicit 503-level service error contract", async
   await assert.rejects(
     () => queryPublicMap(parseMapQuery(params()), fakeDb({}, false), NOW),
     (error) => error instanceof MapGeoUnavailableError && error.code === "MAP_GEO_UNAVAILABLE",
+  );
+});
+
+
+test("PUBLIC-MAPS-1 scoped DIRECTORY read preserves exact-only public eligibility", async () => {
+  const exact = row({ entity_id: 501, geo_point_id: 501 });
+  const exactResult = await getPublicMapItemsForEntity(
+    { entityType: "DIRECTORY_PROFILE", entityId: 501 },
+    fakeDb({ services: [exact] }),
+    NOW,
+  );
+  assert.equal(exactResult.items.length, 1);
+  assert.equal(exactResult.items[0].id, "service:501");
+
+  const cases = [
+    ["stale fingerprint", { source_fingerprint: "new", resolved_source_fingerprint: "old" }],
+    ["approximate", { public_visibility: "APPROXIMATE_PUBLIC", precision: "MUNICIPALITY" }],
+    ["legacy/unconfirmed", { public_visibility: null, geocode_status: "PENDING", resolved_source_fingerprint: null }],
+    ["unpublished", { canonical_status: "draft" }],
+    ["archived", { archived_at: "2026-09-20T00:00:00Z" }],
+  ];
+  for (const [label, patch] of cases) {
+    const result = await getPublicMapItemsForEntity(
+      { entityType: "DIRECTORY_PROFILE", entityId: 501 },
+      fakeDb({ services: [row({ entity_id: 501, ...patch })] }),
+      NOW,
+    );
+    assert.deepEqual(result.items, [], label);
+  }
+});
+
+test("PUBLIC-MAPS-1 scoped ORGANIZATION read supports safe exact and approximate multi-location markers", async () => {
+  const site = row({
+    geo_point_id: 601,
+    entity_type: "organization",
+    entity_id: 600,
+    organization_location_id: 601,
+    name: "Safe Org",
+    slug: "safe-org",
+    subcategory: "RESCUE_ORGANIZATION",
+    canonical_status: "PUBLISHED",
+    location_role: "SITE",
+    verified: 0,
+    featured: 0,
+  });
+  const area = row({
+    ...site,
+    geo_point_id: 602,
+    organization_location_id: 602,
+    latitude: 48.15,
+    longitude: 17.88,
+    precision: "SERVICE_AREA",
+    public_visibility: "APPROXIMATE_PUBLIC",
+    location_role: "SERVICE_AREA",
+    address: "Neverejná service area 8",
+    city: "Šaľa",
+    district: "Šaľa",
+  });
+  const result = await getPublicMapItemsForEntity(
+    { entityType: "ORGANIZATION", entityId: 600 },
+    fakeDb({ organizations: [site, area] }),
+    NOW,
+  );
+  assert.equal(result.items.length, 2);
+  assert.equal(result.items[0].locationRole, "SITE");
+  assert.equal(result.items[1].locationRole, "SERVICE_AREA");
+  assert.equal(result.items[1].precision, "SERVICE_AREA");
+  assert.doesNotMatch(result.items[1].displayLocation ?? "", /Neverejná/);
+
+  const unsafeCases = [
+    ["LEGAL_SEAT unsafe", { ...site, location_role: "LEGAL_SEAT", public_visibility: "HIDDEN", geocode_status: "SKIPPED" }],
+    ["stale/review", { ...site, geocode_status: "NEEDS_REVIEW", resolved_source_fingerprint: null }],
+    ["unpublished organization", { ...site, canonical_status: "DRAFT" }],
+    ["archived organization", { ...site, archived_at: "2026-09-20T00:00:00Z" }],
+  ];
+  for (const [label, candidate] of unsafeCases) {
+    const unsafe = await getPublicMapItemsForEntity(
+      { entityType: "ORGANIZATION", entityId: 600 },
+      fakeDb({ organizations: [candidate] }),
+      NOW,
+    );
+    assert.deepEqual(unsafe.items, [], label);
+  }
+});
+
+test("PUBLIC-MAPS-1 scoped EVENT read preserves published physical safe lifecycle", async () => {
+  const event = row({
+    geo_point_id: 701,
+    entity_type: "event",
+    entity_id: 700,
+    name: "Safe event",
+    slug: "safe-event",
+    subcategory: "Výstava",
+    canonical_status: "published",
+    event_start_date: "2030-10-01",
+    event_start_time: "09:00",
+    event_end_date: "2030-10-01",
+    event_end_time: "16:00",
+    verified: 0,
+    featured: 0,
+  });
+  const safe = await getPublicMapItemsForEntity(
+    { entityType: "MANAGED_EVENT", entityId: 700 },
+    fakeDb({ events: [event] }),
+    NOW,
+  );
+  assert.equal(safe.items.length, 1);
+  assert.equal(safe.items[0].id, "event:700");
+
+  const cases = [
+    ["online", { region: "Online" }],
+    ["cancelled", { cancelled: 1 }],
+    ["stale GEO", { source_fingerprint: "new", resolved_source_fingerprint: "old" }],
+    ["unsafe/incomplete", { public_visibility: null, resolved_source_fingerprint: null }],
+  ];
+  for (const [label, patch] of cases) {
+    const result = await getPublicMapItemsForEntity(
+      { entityType: "MANAGED_EVENT", entityId: 700 },
+      fakeDb({ events: [{ ...event, ...patch }] }),
+      NOW,
+    );
+    assert.deepEqual(result.items, [], label);
+  }
+});
+
+test("PUBLIC-MAPS-1 scoped read is entity-bound, provider-attributed and fails closed without GEO schema", async () => {
+  const calls = [];
+  const base = fakeDb({
+    services: [row({ entity_id: 801, provider: "geoapify" })],
+  });
+  const database = {
+    prepare(sql) {
+      calls.push(sql);
+      return base.prepare(sql);
+    },
+  };
+  const result = await getPublicMapItemsForEntity(
+    { entityType: "DIRECTORY_PROFILE", entityId: 801 },
+    database,
+    NOW,
+  );
+  assert.equal(result.items.length, 1);
+  assert.match(calls.find((sql) => sql.includes("JOIN directory_profiles")) ?? "", /d\.id = \?/);
+  assert.deepEqual(result.attribution?.map((item) => item.label), [
+    "Powered by Geoapify",
+    "© OpenStreetMap contributors",
+  ]);
+
+  await assert.rejects(
+    () => getPublicMapItemsForEntity(
+      { entityType: "DIRECTORY_PROFILE", entityId: 801 },
+      fakeDb({}, false),
+      NOW,
+    ),
+    (error) => error instanceof MapGeoUnavailableError,
   );
 });
