@@ -774,12 +774,60 @@ export function structuredDirectoryDiscovery(input: {
   payload: unknown;
   baseUrl: string;
   entityType: AutomationEntityType;
+  recordsPath?: string;
+  urlField?: string;
+  labelField?: string;
+  suggestedConnectorType?: AutomationConnectorType;
+}): AutomationSourceCandidateInput[];
+export function structuredDirectoryDiscovery(input: {
+  payload: unknown;
+  baseUrl: string;
+  entityType: AutomationEntityType;
   config: StructuredDirectoryConfig;
   pageIndex?: number;
   maxCandidates?: number;
   urlAllowed?: (url: string) => boolean;
   suggestedConnectorType?: AutomationConnectorType;
-}): StructuredDirectoryParseResult {
+}): StructuredDirectoryParseResult;
+export function structuredDirectoryDiscovery(input: {
+  payload: unknown;
+  baseUrl: string;
+  entityType: AutomationEntityType;
+  config?: StructuredDirectoryConfig;
+  pageIndex?: number;
+  maxCandidates?: number;
+  urlAllowed?: (url: string) => boolean;
+  suggestedConnectorType?: AutomationConnectorType;
+  recordsPath?: string;
+  urlField?: string;
+  labelField?: string;
+}): StructuredDirectoryParseResult | AutomationSourceCandidateInput[] {
+  // Compatibility surface for pre-v2 callers/tests. The production runner
+  // always supplies validated config and never reaches this legacy branch.
+  if (!input.config) {
+    const rows = directoryPathValue(input.payload, input.recordsPath);
+    if (!Array.isArray(rows)) return [];
+    const items: AutomationSourceCandidateInput[] = [];
+    for (const row of rows) {
+      const rawUrl = directoryPathValue(row, input.urlField ?? "url");
+      if (typeof rawUrl !== "string") continue;
+      const sourceUrl = safeCandidate(rawUrl, input.baseUrl);
+      if (!sourceUrl) continue;
+      const rawLabel = directoryPathValue(row, input.labelField ?? "name");
+      items.push({
+        candidateType: "SOURCE_CANDIDATE",
+        discoveryType: "STRUCTURED_DIRECTORY",
+        sourceUrl,
+        label: String(rawLabel ?? new URL(sourceUrl).hostname).trim().slice(0, 160),
+        entityType: input.entityType,
+        suggestedConnectorType: input.suggestedConnectorType ?? "CONTROLLED_HTML",
+        reason: "URL bol uvedený v explicitnom structured directory/API zdroji.",
+        metadata: { discoveredFrom: input.baseUrl },
+      });
+    }
+    return uniqueCandidates(items);
+  }
+
   const pageIndex = Math.max(0, Math.floor(input.pageIndex ?? 0));
   const genericMax = Math.max(1, Math.min(500, Math.floor(input.maxCandidates ?? 150)));
   const rowLimit = Math.min(input.config.maxRows, genericMax, STRUCTURED_DIRECTORY_HARD_MAX_ROWS);
