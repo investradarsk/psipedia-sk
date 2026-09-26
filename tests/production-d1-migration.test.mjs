@@ -85,6 +85,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0078_automation_possible_match_reviews.sql",
     "0079_automation_agility_event_source.sql",
     "0080_automation_canonical_apply.sql",
+    "0081_automation_mushing_event_source.sql",
   ]);
 });
 
@@ -99,7 +100,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0081_future_migration.sql",
+    "0082_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -129,6 +130,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0078_automation_possible_match_reviews.sql",
     "0079_automation_agility_event_source.sql",
     "0080_automation_canonical_apply.sql",
+    "0081_automation_mushing_event_source.sql",
   ]);
 });
 
@@ -136,7 +138,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0081_future_migration.sql",
+    "0082_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -152,7 +154,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0078_automation_possible_match_reviews.sql",
     "0079_automation_agility_event_source.sql",
     "0080_automation_canonical_apply.sql",
-    "0081_future_migration.sql",
+    "0081_automation_mushing_event_source.sql",
+    "0082_future_migration.sql",
   ]);
 });
 
@@ -403,6 +406,8 @@ test("production D1 workflow is manual-only, protected and deploy-free", async (
   assert.match(workflow, /APPLY-0079-psipedia-sk-db/);
   assert.match(workflow, /0080_automation_canonical_apply\.sql/);
   assert.match(workflow, /APPLY-0080-psipedia-sk-db/);
+  assert.match(workflow, /0081_automation_mushing_event_source\.sql/);
+  assert.match(workflow, /APPLY-0081-psipedia-sk-db/);
   assert.match(workflow, /git fetch --no-tags origin main/);
   assert.match(workflow, /partner\/prihlasenie/);
   assert.match(workflow, /partner\/registracia/);
@@ -591,4 +596,17 @@ test("0080 G5 canonical apply migration is additive, auditable and guarded", asy
   assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM|UPDATE\s+(directory_profiles|help_organizations|automation_)/i);
   assert.match(script, /0080_automation_canonical_apply\.sql/);
   assert.match(script, /assertAutomationCanonicalApplySchema/);
+});
+
+
+test("0081 Mushing source migration is data-only, disabled and governance-gated", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0081_automation_mushing_event_source.sql"), "utf8");
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.match(migration, /INSERT OR IGNORE INTO automation_sources/);
+  assert.match(migration, /INSERT OR IGNORE INTO automation_source_authority/);
+  assert.match(migration, /'szpz-mushing-events'/);
+  assert.match(migration, /0,360,1500,10000,2,1500,40/);
+  assert.match(migration, /'PENDING'/);
+  assert.doesNotMatch(migration, /CREATE TABLE|ALTER TABLE|DROP TABLE|DELETE FROM|UPDATE\s+automation_sources/i);
+  assert.match(script, /0081_automation_mushing_event_source\.sql/);
 });
