@@ -48,6 +48,7 @@ type CanonicalTarget = {
   entityType: EntityType;
   sourceSemanticKind: string;
   targetSemanticKind: string;
+  sourceCanonicalEntityId: number | null;
 };
 
 type ApplyField = {
@@ -179,11 +180,9 @@ async function targetContext(
     entityType:String(row.entity_type) as EntityType,
     sourceSemanticKind:String(row.source_semantic_kind ?? "UNKNOWN"),
     targetSemanticKind:String(row.target_semantic_kind ?? "UNKNOWN"),
+    sourceCanonicalEntityId:row.source_canonical_entity_id==null?null:Number(row.source_canonical_entity_id),
   };
   const sourceCanonical = row.source_canonical_entity_id == null ? null : Number(row.source_canonical_entity_id);
-  if (sourceCanonical != null && sourceCanonical !== canonicalEntityId) {
-    throw new CanonicalApplyBlockedError("Incoming cluster je už naviazaný na iný canonical záznam; destructive merge nie je v G5 povolený.");
-  }
   return {
     sourceClusterId:Number(row.source_cluster_id),
     targetClusterId:Number(row.target_cluster_id),
@@ -192,6 +191,7 @@ async function targetContext(
     entityType:String(row.entity_type) as EntityType,
     sourceSemanticKind:String(row.source_semantic_kind ?? "UNKNOWN"),
     targetSemanticKind:String(row.target_semantic_kind ?? "UNKNOWN"),
+    sourceCanonicalEntityId:sourceCanonical,
   };
 }
 
@@ -212,6 +212,13 @@ async function openConflicts(clusterId: number, db: Database) {
     WHERE cluster_id=? AND status='OPEN'
     ORDER BY field_name`).bind(clusterId).all<ConflictRow>();
   return new Map(rows.results.map(row => [String(row.field_name), row]));
+}
+
+async function canonicalApplySchemaAvailable(db:Database){
+  try{
+    await db.prepare("SELECT id FROM automation_canonical_apply_operations LIMIT 1").first();
+    return true;
+  }catch{return false;}
 }
 
 async function canonicalRow(target: CanonicalTarget, db: Database) {
@@ -328,6 +335,8 @@ export async function getAutomationCanonicalApplyPreview(input:{
     if(review.currentDecision.evidenceFingerprint!==review.evidenceFingerprint) blockers.push("STALE_REVIEW_DECISION");
   }
   if(target.canonicalEntityId<1) blockers.push("CANONICAL_TARGET_MISSING");
+  if(target.sourceCanonicalEntityId!=null&&target.sourceCanonicalEntityId!==target.canonicalEntityId) blockers.push("SOURCE_CLUSTER_CANONICAL_CONFLICT");
+  if(!(await canonicalApplySchemaAvailable(db))) blockers.push("APPLY_SCHEMA_NOT_READY");
 
   const row=target.canonicalEntityId>0?await canonicalRow(target,db):null;
   if(target.canonicalEntityId>0&&!row) blockers.push("CANONICAL_TARGET_NOT_FOUND");
@@ -557,6 +566,8 @@ export async function applyAutomationCanonicalReview(input:{
   const db=database(dbInput);
   const target=await targetContext(input.observationId,input.candidateClusterId,db);
   if(!target||target.canonicalEntityId<1) throw new CanonicalApplyBlockedError("Canonical target nie je jednoznačne naviazaný.");
+  if(target.sourceCanonicalEntityId!=null&&target.sourceCanonicalEntityId!==target.canonicalEntityId)
+    throw new CanonicalApplyBlockedError("Incoming cluster je už naviazaný na iný canonical záznam; destructive merge nie je v G5 povolený.");
   const selections=normalizedSelections(input.selections);
   for(const item of selections){
     if(!canonicalFieldApplyActions.includes(item.action)) throw new CanonicalApplyUnsupportedError("Neplatná field apply akcia.");
@@ -571,7 +582,8 @@ export async function applyAutomationCanonicalReview(input:{
   if(existing&&String(existing.status)==="SUCCESS"){
     return {operationId:Number(existing.id),applyFingerprint:fingerprint,idempotent:true,
       canonicalEntityId:Number(existing.canonical_entity_id),
-      appliedFields:JSON.parse(String(existing.selected_fields_json||"[]")) as unknown};
+      appliedFields:(JSON.parse(String(existing.selected_fields_json||"[]")) as Array<{fieldName?:string;action?:string}>)
+        .filter(item=>item.action==="APPLY_INCOMING").map(item=>String(item.fieldName??"")).filter(Boolean)};
   }
 
   const preview=await getAutomationCanonicalApplyPreview({
