@@ -20,6 +20,7 @@ import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { mergeDirectoryPublicContactData } from "@/lib/directory-profile-metadata";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
+import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import {
   directoryAddressFormats,
   evaluateDirectoryServiceAddress,
@@ -1027,6 +1028,9 @@ export async function createManagedDirectoryProfile(payload: ManagedDirectoryPro
   const row = await buildManagedDirectoryProfileCreateStatement(database, input, editorEmail, now).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
   await ensureResourceForDirectoryProfile(row.id, database, new Date(now));
+  await reconcileGeoAfterSourceMutation({
+    targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
+  }, database);
   return rowToManagedProfile(row);
 }
 
@@ -1057,7 +1061,11 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
   ).first<DirectoryProfileRow>();
-  return row ? rowToManagedProfile(row) : null;
+  if (!row) return null;
+  await reconcileGeoAfterSourceMutation({
+    targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
+  }, database);
+  return rowToManagedProfile(row);
 }
 
 export async function archiveManagedDirectoryProfile(id: number, editorEmail: string, now = new Date()) {
@@ -1075,6 +1083,9 @@ export async function archiveManagedDirectoryProfile(id: number, editorEmail: st
     RETURNING *
   `).bind(timestamp, timestamp, editorEmail, id).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo archivovať.");
+  await reconcileGeoAfterSourceMutation({
+    targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
+  }, database);
   return rowToManagedProfile(row);
 }
 
@@ -1093,6 +1104,9 @@ export async function restoreManagedDirectoryProfile(id: number, editorEmail: st
     RETURNING *
   `).bind(timestamp, editorEmail, id).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo obnoviť.");
+  await reconcileGeoAfterSourceMutation({
+    targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
+  }, database);
   return rowToManagedProfile(row);
 }
 

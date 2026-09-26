@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
-import { syncGeoPointAfterSourceChange } from "@/lib/geo-store";
 import { verifyDirectoryAddressSelection } from "@/lib/directory-address-provider";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -85,10 +84,6 @@ export async function PUT(request: Request, { params }: Props) {
     }
     if (verified) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
-    } else {
-      await syncGeoPointAfterSourceChange("DIRECTORY_PROFILE", id).catch((error) => {
-        console.warn("Directory geo stale sync failed", { id, error: error instanceof Error ? error.message : String(error) });
-      });
     }
     return Response.json({ profile });
   } catch (error) { return errorResponse(error); }

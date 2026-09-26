@@ -70,3 +70,12 @@ test("apply is idempotent per finding and keeps an application audit record", ()
   assert.match(migration, /after_json/);
   assert.match(migration, /applied_by/);
 });
+
+
+test("EVENT automation apply cannot bypass centralized GEO lifecycle", () => {
+  assert.match(applySource, /reconcileGeoAfterSourceMutation/);
+  assert.match(applySource, /targetType: "MANAGED_EVENT"/);
+  assert.match(applySource, /EVENT_GEO_SOURCE_FIELDS = new Set\(\["venue", "city", "region", "address"\]\)/);
+  assert.match(applySource, /applicationType !== "CREATE_DRAFT"/);
+  assert.match(applySource, /await reconcileAutomationEventGeo/);
+});

@@ -27,6 +27,7 @@ import {
 } from "@/lib/moderation-transition";
 import { transitionModerationSubmission } from "@/lib/moderation-store";
 import { publishPartnerSubmissionMedia, terminalPartnerMediaStatement } from "@/lib/partner-media";
+import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 
 type Bindings = { DB?: D1Database; PII_ENCRYPTION_KEY?: string };
 
@@ -349,6 +350,14 @@ export async function approvePartnerProfileChangeAdmin(input:{
       throw new PartnerProfileChangeError("Stav žiadosti sa medzičasom zmenil. Obnovte stránku a skúste rozhodnutie znova.",409);
     }
     throw error;
+  }
+  if (row.resourceType === "DIRECTORY_PROFILE") {
+    await reconcileGeoAfterSourceMutation({
+      targetType: "DIRECTORY_PROFILE",
+      targetId: canonical.canonicalId,
+      actorRef,
+      actorType: "ADMIN",
+    }, database);
   }
   return getPartnerProfileChangeAdmin(input.id,{database});
 }

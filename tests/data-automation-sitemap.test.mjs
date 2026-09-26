@@ -100,12 +100,13 @@ test("DISCOVERY-3A preserves 1 MB response cap, retry/timeout controls and gover
   assert.doesNotMatch(runner, /INSERT INTO (managed_events|directory_profiles|help_organizations|adoption_dogs|lost_found_dog_reports)/i);
 });
 
-test("DISCOVERY-3A does not change RSS behavior", () => {
+test("DISCOVERY-3A sitemap hardening remains compatible with item-level RSS discovery", () => {
   const items = rssDiscoveryAdapter({
-    payload: "<rss><channel><link>https://example.sk/feed-item</link></channel></rss>",
+    payload: "<rss><channel><item><link>https://example.sk/feed-item</link></item></channel></rss>",
     baseUrl: "https://example.sk/feed.xml",
     entityType: "EVENT",
   });
   assert.equal(items.length, 1);
+  assert.equal(items[0].sourceUrl, "https://example.sk/feed-item");
   assert.equal(items[0].discoveryType, "RSS");
 });
