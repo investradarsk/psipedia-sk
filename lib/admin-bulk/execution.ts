@@ -139,7 +139,7 @@ export async function runBulkExecution(
             targetId: id,
             actorRef: editorEmail,
             actorType: "ADMIN",
-          }, database);
+          }, database as unknown as D1Database);
         }
         updated.push({ id });
       } else {
