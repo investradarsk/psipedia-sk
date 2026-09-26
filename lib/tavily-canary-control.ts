@@ -4,7 +4,11 @@ import { evaluateGovernanceForActivation } from "./data-automation-governance.ts
 
 export const TAVILY_EVENT_ROOT_KEY = "tavily-sk-dog-events";
 
-export const TAVILY_EVENT_GOVERNANCE_PRESET = Object.freeze({
+export function isTavilySearchDiscoveryRoot(root: AutomationDiscoveryRoot) {
+  return root.discoveryType === "SEARCH_PROVIDER" && String(root.config.provider ?? "").toLowerCase() === "tavily";
+}
+
+export const TAVILY_SEARCH_GOVERNANCE_PRESET = Object.freeze({
   accessStatus: "ALLOWED" as const,
   robotsStatus: "NOT_APPLICABLE" as const,
   termsStatus: "ALLOWED" as const,
@@ -28,6 +32,8 @@ export const TAVILY_EVENT_GOVERNANCE_PRESET = Object.freeze({
   expiresAt: null,
   reviewDueAt: null,
 });
+
+export const TAVILY_EVENT_GOVERNANCE_PRESET = TAVILY_SEARCH_GOVERNANCE_PRESET;
 
 export function tavilyRootGovernanceEvaluation(
   root: AutomationDiscoveryRoot,

@@ -97,7 +97,7 @@ export function AdminTavilyRootDetail({
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div>
-            <h2>Tavily EVENT discovery root</h2>
+            <h2>Tavily {root.entityType} discovery root</h2>
             <p>Prvý live beh je oddelený od governance, technického schválenia a zapnutia rootu.</p>
           </div>
         </div>
