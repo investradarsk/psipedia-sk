@@ -103,6 +103,14 @@ const MAP_PAGE_CSP = [
   "worker-src 'self' blob:",
 ].join("; ");
 
+export function isGoogleMapsPublicRoute(pathname: string) {
+  if (pathname === "/mapa") return true;
+  if (/^\/adresar\/[^/]+\/[^/]+\/?$/.test(pathname)) return true;
+  if (/^\/organizacie\/[^/]+\/?$/.test(pathname)) return true;
+  if (/^\/podujatia\/[^/]+\/?$/.test(pathname)) return true;
+  return false;
+}
+
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
   passThroughOnException(): void;
@@ -197,7 +205,7 @@ const worker = {
     }
 
     let response = await handler.fetch(appRequest, env, ctx);
-    if (url.pathname === "/mapa") {
+    if (isGoogleMapsPublicRoute(url.pathname)) {
       response = responseWithHeaders(response, {
         "Content-Security-Policy": MAP_PAGE_CSP,
         "Referrer-Policy": "strict-origin-when-cross-origin",

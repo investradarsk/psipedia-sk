@@ -175,6 +175,35 @@ export function isApproximateMapItem(item: Pick<MapItem, "precision">) {
   return item.precision !== "EXACT";
 }
 
+export function detailMapCommandForItems(items: Pick<MapItem, "id" | "latitude" | "longitude">[], key: number) {
+  if (!items.length) return null;
+  if (items.length === 1) {
+    const item = items[0];
+    return {
+      key,
+      type: "item" as const,
+      id: item.id,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      zoom: 15,
+    };
+  }
+  const latitudes = items.map((item) => item.latitude);
+  const longitudes = items.map((item) => item.longitude);
+  return {
+    key,
+    type: "fit" as const,
+    bounds: {
+      north: Math.max(...latitudes),
+      south: Math.min(...latitudes),
+      east: Math.max(...longitudes),
+      west: Math.min(...longitudes),
+    },
+    padding: 48,
+    maxZoom: 15,
+  };
+}
+
 export function mapItemTypeLabel(item: Pick<MapItem, "entityType" | "subcategory">) {
   if (item.entityType === "event") return item.subcategory || "Podujatie";
   if (item.entityType === "organization") return "Organizácia";

@@ -8,6 +8,7 @@ import {
   buildGoogleMapsDirectionsUrl,
   buildGoogleMapsPlaceUrl,
   buildMapApiUrl,
+  detailMapCommandForItems,
   isApproximateMapItem,
   mapClusterTarget,
   mapFiltersForCategory,
@@ -181,4 +182,31 @@ test("Google Maps public links fail closed for invalid coordinates", () => {
     assert.equal(buildGoogleMapsPlaceUrl(latitude, longitude), null);
     assert.equal(buildGoogleMapsDirectionsUrl(latitude, longitude), null);
   }
+});
+
+
+test("PUBLIC-MAPS-1 detail viewport helper centers one marker and fits multiple markers", () => {
+  const one = detailMapCommandForItems([
+    { id: "service:1", latitude: 48.306, longitude: 18.086 },
+  ], 1);
+  assert.deepEqual(one, {
+    key: 1,
+    type: "item",
+    id: "service:1",
+    latitude: 48.306,
+    longitude: 18.086,
+    zoom: 15,
+  });
+
+  const many = detailMapCommandForItems([
+    { id: "organization:1:location:1", latitude: 48.3, longitude: 18.1 },
+    { id: "organization:1:location:2", latitude: 48.1, longitude: 17.8 },
+  ], 2);
+  assert.deepEqual(many, {
+    key: 2,
+    type: "fit",
+    bounds: { north: 48.3, south: 48.1, east: 18.1, west: 17.8 },
+    padding: 48,
+    maxZoom: 15,
+  });
 });

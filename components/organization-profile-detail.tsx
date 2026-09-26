@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import { ProfileReviewSection } from "@/components/profile-review-section";
+import { PublicLocationMap } from "@/components/map/public-location-map";
+import type { PublicEntityMapResult } from "@/lib/map-query";
+import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import { LocationIcon } from "@/components/help-public-icons";
 import {
   DetailActions,
@@ -72,11 +75,13 @@ export function OrganizationProfileDetail({
   reviews,
   reviewReadError = false,
   commercial,
+  publicMap,
 }: {
   composition: PublicOrganizationComposition;
   reviews: PublicProfileReviewData | null;
   reviewReadError?: boolean;
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
+  publicMap?: PublicEntityMapResult & PublicMapRuntime;
 }) {
   const { organization, adoptions, fundraisingMethods } = composition;
   const presentation = buildOrganizationProfilePresentation(organization);
@@ -160,6 +165,18 @@ export function OrganizationProfileDetail({
                 ))}
               </ul>
             </DetailSection>
+          ) : null}
+
+          {publicMap?.items.length ? (
+            <PublicLocationMap
+              title="Verejné lokality organizácie"
+              items={publicMap.items}
+              attribution={publicMap.attribution}
+              googleApiKey={publicMap.googleApiKey}
+              googleMapId={publicMap.googleMapId}
+              rendererEnabled={publicMap.rendererEnabled}
+              testRendererEnvironment={publicMap.testRendererEnvironment}
+            />
           ) : null}
 
           {presentation.description ? (

@@ -5,11 +5,22 @@ on:
     branches: [main]
     paths:
       - "app/api/map/**"
+      - "app/adresar/**"
+      - "app/organizacie/**"
+      - "app/[section]/**"
+      - "components/map/**"
+      - "components/directory-profile-detail.tsx"
+      - "components/organization-profile-detail.tsx"
+      - "components/event-detail.tsx"
       - "lib/map-*.ts"
+      - "lib/public-map-runtime.ts"
+      - "worker/index.ts"
       - "lib/directory-store.ts"
       - "tests/map-read-api*.test.mjs"
       - "tests/e2e/map-read-api.spec.ts"
+      - "tests/e2e/public-detail-maps.spec.ts"
       - "tests/fixtures/map-read-api-e2e.sql"
+      - "tests/public-location-map-contract.test.mjs"
       - "docs/map-read-api.md"
       - "package.json"
       - ".github/workflows/map-read-api-ci.yml"
@@ -26,6 +37,10 @@ jobs:
     env:
       E2E_BASE_URL: http://localhost:5173
       PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+      MAP_UI_TEST_RENDERER: "1"
+      PUBLIC_MAP_ENABLED: "1"
+      GOOGLE_MAPS_BROWSER_API_KEY: "ci-browser-key-not-real"
+      GOOGLE_MAPS_MAP_ID: "ci-map-id-not-real"
     steps:
       - uses: actions/checkout@v4
       - name: Log revision evidence
@@ -58,6 +73,10 @@ jobs:
           {
             printf 'PII_ENCRYPTION_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
             printf 'PII_HASH_KEY=%s\n' "$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+            printf 'PUBLIC_MAP_ENABLED=1\n'
+            printf 'GOOGLE_MAPS_BROWSER_API_KEY=ci-browser-key-not-real\n'
+            printf 'GOOGLE_MAPS_MAP_ID=ci-map-id-not-real\n'
+            printf 'MAP_UI_TEST_RENDERER=1\n'
           } > .dev.vars
       - name: Apply non-adoption migrations to isolated local D1
         run: |
@@ -86,6 +105,17 @@ jobs:
           fi
       - name: MAP-1C public API Playwright
         run: npx playwright test tests/e2e/map-read-api.spec.ts --workers=1 --retries=0
+      - name: PUBLIC-MAPS-1 route-scoped CSP smoke
+        run: |
+          for path in /mapa /adresar/veterinari/map-e2e-vet-a /organizacie/map-e2e-multi-site-org /podujatia/map-e2e-upcoming-event; do
+            headers="$(curl --silent --dump-header - --output /dev/null "http://localhost:5173$path")"
+            echo "== $path =="
+            echo "$headers"
+            echo "$headers" | grep -qi '^content-security-policy:'
+            echo "$headers" | grep -qi 'maps.googleapis.com'
+          done
+      - name: PUBLIC-MAPS-1 desktop/mobile detail E2E
+        run: npx playwright test tests/e2e/public-detail-maps.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=1 --retries=0
       - name: Stop isolated local app
         if: always()
         run: |

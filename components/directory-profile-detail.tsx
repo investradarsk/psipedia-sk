@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { ProfileReviewSection } from "@/components/profile-review-section";
+import { PublicLocationMap } from "@/components/map/public-location-map";
+import type { PublicEntityMapResult } from "@/lib/map-query";
+import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import {
   DetailContactsCard,
   DetailFactsCard,
@@ -19,13 +22,16 @@ export function DirectoryProfileDetail({
   reviews,
   reviewReadError = false,
   commercial,
+  publicMap,
 }: {
   presentation: DirectoryDetailPresentation;
   reviews: PublicProfileReviewData | null;
   reviewReadError?: boolean;
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
+  publicMap?: PublicEntityMapResult & PublicMapRuntime;
 }) {
   const category = getDirectoryCategory(presentation.category);
+  const hasEmbeddedMap = Boolean(publicMap?.items.length);
   const hasHeroLocation = Boolean(
     presentation.city || presentation.district || presentation.region || presentation.online,
   );
@@ -113,7 +119,7 @@ export function DirectoryProfileDetail({
                 <a className={styles.primaryAction} href="#kontakt">Poslať dopyt</a>
                 {presentation.phone && <a className={styles.secondaryAction} href={presentation.phone.href}>Zavolať</a>}
                 {presentation.websiteUrl && <a className={styles.secondaryAction} href={presentation.websiteUrl} target="_blank" rel="noreferrer">Web ↗</a>}
-                {presentation.navigationUrl && <a className={styles.secondaryAction} href={presentation.navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}
+                {!hasEmbeddedMap && presentation.navigationUrl && <a className={styles.secondaryAction} href={presentation.navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}
               </div>
             </div>
 
@@ -157,6 +163,18 @@ export function DirectoryProfileDetail({
               </ul>
             </DetailSection>
           )}
+
+          {hasEmbeddedMap && publicMap ? (
+            <PublicLocationMap
+              title="Kde nás nájdete"
+              items={publicMap.items}
+              attribution={publicMap.attribution}
+              googleApiKey={publicMap.googleApiKey}
+              googleMapId={publicMap.googleMapId}
+              rendererEnabled={publicMap.rendererEnabled}
+              testRendererEnvironment={publicMap.testRendererEnvironment}
+            />
+          ) : null}
 
           <ProfileReviewSection
             data={reviews}

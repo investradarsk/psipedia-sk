@@ -15,6 +15,8 @@ import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { getPublicPartnerProfileManagementState } from "@/lib/partner-public-profile";
 import { getPublicProfileReviewData, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
 import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreements";
+import { getPublicMapItemsForEntity } from "@/lib/map-query";
+import { getPublicMapRuntime } from "@/lib/public-map-runtime";
 
 export const dynamic = "force-dynamic";
 type Search = Record<string, string | string[] | undefined>;
@@ -76,7 +78,8 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
     canonicalId: profile.id,
   });
   const commercialPromise = getPublicPartnerCommercialFlags("DIRECTORY_PROFILE", profile.id);
-  const reviewsPromise = getPublicProfileReviewData(reviewDatabase(), {
+  const database = reviewDatabase();
+  const reviewsPromise = getPublicProfileReviewData(database, {
     entityType: "DIRECTORY_PROFILE",
     canonicalId: profile.id,
     category: profile.category,
@@ -89,7 +92,23 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       });
       return { data: null, readError: true };
     });
-  const [partnerState, reviewResult, commercial] = await Promise.all([partnerStatePromise, reviewsPromise, commercialPromise]);
+  const publicMapPromise = getPublicMapItemsForEntity(
+    { entityType: "DIRECTORY_PROFILE", entityId: profile.id },
+    database,
+  ).catch((error) => {
+    console.error("Public directory map read failed", {
+      profileId: profile.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { items: [] };
+  });
+  const [partnerState, reviewResult, commercial, publicMap] = await Promise.all([
+    partnerStatePromise,
+    reviewsPromise,
+    commercialPromise,
+    publicMapPromise,
+  ]);
+  const publicMapPresentation = { ...publicMap, ...getPublicMapRuntime() };
   const schemaType = profile.category === "veterinari" ? "VeterinaryCare" : ["kynologicke-kluby","chovatelske-kluby"].includes(profile.category) ? "Organization" : "LocalBusiness";
   const sameAs = [presentation.websiteUrl, presentation.facebookUrl, presentation.instagramUrl].filter((value): value is string => Boolean(value));
   const schema = { "@context":"https://schema.org", "@graph":[
@@ -104,5 +123,5 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       {"@type":"ListItem",position:3,name:getDirectoryCategory(profile.category)?.label,item:`${SITE_URL}/adresar/${profile.category}`}, {"@type":"ListItem",position:4,name:profile.name,item:canonical}]}
   ]};
   const correctionHref = `/adresar/${profile.category}/${profile.slug}/upravit`;
-  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} /><PartnerPublicOwnership state={partnerState} correctionHref={correctionHref} /></>;
+  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} publicMap={publicMapPresentation} /><PartnerPublicOwnership state={partnerState} correctionHref={correctionHref} /></>;
 }

@@ -94,7 +94,11 @@ test("map config is documented without committing a real browser key", () => {
 });
 
 test("route-scoped CSP allows required Google families without a bare wildcard", () => {
-  assert.match(worker, /url\.pathname === "\/mapa"/);
+  assert.match(worker, /isGoogleMapsPublicRoute/);
+  assert.match(worker, /pathname === "\/mapa"/);
+  assert.match(worker, /adresar/);
+  assert.match(worker, /organizacie/);
+  assert.match(worker, /podujatia/);
   assert.match(worker, /Content-Security-Policy/);
   assert.match(worker, /https:\/\/maps\.googleapis\.com/);
   assert.match(worker, /https:\/\/maps\.gstatic\.com/);

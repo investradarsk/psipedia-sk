@@ -14,7 +14,8 @@ export type MapRendererStatus = "ready" | "loading" | "missing-config" | "load-e
 
 export type MapRendererCommand =
   | { key: number; type: "item"; id: string; latitude: number; longitude: number; zoom?: number }
-  | { key: number; type: "cluster"; id: string; latitude: number; longitude: number; zoom: number };
+  | { key: number; type: "cluster"; id: string; latitude: number; longitude: number; zoom: number }
+  | { key: number; type: "fit"; bounds: { north: number; south: number; east: number; west: number }; padding?: number; maxZoom?: number };
 
 type Props = {
   apiKey: string;
@@ -32,6 +33,7 @@ type Props = {
   onSelectItem: (id: string) => void;
   onClusterClick: (cluster: MapCluster) => void;
   onStatusChange: (status: MapRendererStatus) => void;
+  ariaLabel?: string;
 };
 
 type LatLngLiteral = { lat: number; lng: number };
@@ -56,6 +58,7 @@ type GoogleMapInstance = {
   panTo(position: LatLngLiteral): void;
   setZoom(zoom: number): void;
   setMapTypeId(mapTypeId: PublicMapType): void;
+  fitBounds(bounds: { north: number; south: number; east: number; west: number }, padding?: number): void;
 };
 
 type GoogleMapConstructor = new (
@@ -283,7 +286,7 @@ function TestMapRenderer({
             className={markerClass(item, selectedItemId === item.id)}
             key={item.id}
             data-testid={`marker-${item.id}`}
-            aria-label={item.name}
+            aria-label={item.displayLocation ? `${item.name} – ${item.displayLocation}` : item.name}
             aria-pressed={selectedItemId === item.id}
             onClick={() => onSelectItem(item.id)}
           >
@@ -312,6 +315,7 @@ export function GoogleMapRenderer(props: Props) {
     onSelectItem,
     onClusterClick,
     onStatusChange,
+    ariaLabel = "Interaktívna mapa Psipedie",
   } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMapInstance | null>(null);
@@ -423,7 +427,7 @@ export function GoogleMapRenderer(props: Props) {
         const marker = new AdvancedMarkerElement({
           map,
           position: { lat: item.latitude, lng: item.longitude },
-          title: item.name,
+          title: item.displayLocation ? `${item.name} – ${item.displayLocation}` : item.name,
           gmpClickable: true,
         });
         marker.append(element);
@@ -471,9 +475,19 @@ export function GoogleMapRenderer(props: Props) {
 
   useEffect(() => {
     if (testMode || !command || !mapRef.current) return;
+    if (command.type === "fit") {
+      mapRef.current.fitBounds(command.bounds, command.padding ?? 48);
+      if (command.maxZoom) {
+        window.setTimeout(() => {
+          const zoom = mapRef.current?.getZoom();
+          if (zoom && zoom > command.maxZoom!) mapRef.current?.setZoom(command.maxZoom!);
+        }, 0);
+      }
+      return;
+    }
     mapRef.current.panTo({ lat: command.latitude, lng: command.longitude });
     if (command.zoom) mapRef.current.setZoom(command.zoom);
-  }, [command, testMode]);
+  }, [command, ready, testMode]);
 
   const fallbackText = useMemo(() => {
     if (!rendererEnabled) return "Interaktívna mapa ešte nie je verejne spustená";
@@ -502,7 +516,7 @@ export function GoogleMapRenderer(props: Props) {
 
   return (
     <div className={styles.rendererShell} data-testid="google-map-renderer">
-      <div ref={containerRef} className={styles.googleMapCanvas} aria-label="Interaktívna mapa Psipedie" />
+      <div ref={containerRef} className={styles.googleMapCanvas} role="region" aria-label={ariaLabel} />
       {configMissing || !ready ? (
         <div className={styles.rendererFallback} role="status" aria-live="polite">
           <strong>{fallbackText}</strong>
