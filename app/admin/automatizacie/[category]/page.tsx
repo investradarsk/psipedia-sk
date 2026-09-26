@@ -216,7 +216,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
         <div className={styles.sectionHeader}>
           <div>
             <h2>Koncepty a nálezy</h2>
-            <p>Backend ešte nemá jednotný concept model. Tu preto zostávajú reálne clustre a otvorené nálezy, z ktorých sa pripravujú ďalšie admin rozhodnutia.</p>
+            <p>Backend ešte nemá jednotný concept model. Tu preto zostávajú reálne clustre a otvorené nálezy; viac pozorovaní sa spája do logických entít, z ktorých sa pripravujú ďalšie admin rozhodnutia.</p>
           </div>
           <span className={styles.sectionCount}>{clusters.length || findingCount}</span>
         </div>
