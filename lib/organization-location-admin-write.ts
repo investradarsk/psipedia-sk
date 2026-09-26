@@ -105,7 +105,7 @@ export async function createOrganizationLocationFromAdmin(
     targetId: insertedId,
     actorRef: "organization-location-admin",
     actorType: "SYSTEM",
-  }, db);
+  }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
   return getOrganizationLocationAdmin(organizationId, insertedId, db);
 }
 
@@ -186,7 +186,7 @@ export async function updateOrganizationLocationFromAdmin(
     targetId: locationId,
     actorRef: "organization-location-admin",
     actorType: "SYSTEM",
-  }, db);
+  }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
   return getOrganizationLocationAdmin(organizationId, locationId, db);
 }
 
