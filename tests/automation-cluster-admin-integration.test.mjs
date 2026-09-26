@@ -76,6 +76,8 @@ test("read model uses bounded aggregate and batch loading instead of per-row N+1
 test("cluster detail has responsive evidence layout and technical data remains collapsed", () => {
   const page = read("app/admin/automatizacie/[category]/cluster/[id]/page.tsx");
   const css = read("components/admin-operations-ux.module.css");
-  assert.match(page, /<details className=\{styles\.advanced\}><summary>Technické údaje<\/summary>/);
+  assert.match(page, /<details className=\{styles\.advanced\}>[\s\S]*<summary>Pokročilé<\/summary>/);
+  assert.match(page, /<strong>Observations<\/strong>/);
+  assert.ok(page.indexOf("<summary>Pokročilé</summary>") < page.indexOf("<strong>Observations</strong>"));
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.evidenceRow[\s\S]*grid-template-columns: 1fr/);
 });
