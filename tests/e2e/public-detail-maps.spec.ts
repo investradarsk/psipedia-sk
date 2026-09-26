@@ -48,6 +48,7 @@ test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
     await expect(map.getByRole("heading", { name: "Kde nás nájdete" })).toBeVisible();
     await expect(page.getByTestId("detail-map-consent-gate")).toBeVisible();
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
+    await expect(map).toHaveAttribute("data-hydrated", "true");
 
     await page.getByRole("button", { name: "Povoliť Google Maps" }).click();
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
