@@ -66,23 +66,81 @@ function uniqueCandidates(items: AutomationSourceCandidateInput[]) {
   });
 }
 
-export const sitemapDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseUrl, entityType }) => {
-  const items: AutomationSourceCandidateInput[] = [];
-  for (const match of payload.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/gi)) {
-    const sourceUrl = safeCandidate(decodeText(match[1]), baseUrl);
-    if (!sourceUrl) continue;
-    items.push({
-      candidateType: "SOURCE_CANDIDATE",
-      discoveryType: "SITEMAP",
-      sourceUrl,
-      label: new URL(sourceUrl).hostname,
-      entityType,
-      suggestedConnectorType: "CONTROLLED_HTML",
-      reason: "URL bol explicitne uvedený v sitemape kontrolovaného verejného zdroja.",
-      metadata: { discoveredFrom: baseUrl },
-    });
+export type ParsedSitemapEntry = {
+  loc: string;
+  lastmod?: string;
+};
+
+export type ParsedSitemapDocument =
+  | { type: "urlset"; entries: ParsedSitemapEntry[] }
+  | { type: "sitemapindex"; entries: ParsedSitemapEntry[] };
+
+function sitemapRootType(payload: string): ParsedSitemapDocument["type"] | null {
+  const normalized = payload.replace(/^\uFEFF/, "").trim();
+  if (!normalized.startsWith("<")) return null;
+  if (/<(?:[A-Za-z_][\w.-]*:)?urlset\b/i.test(normalized)) return "urlset";
+  if (/<(?:[A-Za-z_][\w.-]*:)?sitemapindex\b/i.test(normalized)) return "sitemapindex";
+  return null;
+}
+
+function sitemapBlocks(payload: string, tag: "url" | "sitemap") {
+  const pattern = new RegExp(
+    `<(?:[A-Za-z_][\\w.-]*:)?${tag}\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?${tag}\\s*>`,
+    "gi",
+  );
+  return [...payload.matchAll(pattern)].map((match) => match[1]);
+}
+
+function sitemapElementText(block: string, tag: "loc" | "lastmod") {
+  const pattern = new RegExp(
+    `<(?:[A-Za-z_][\\w.-]*:)?${tag}\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?${tag}\\s*>`,
+    "i",
+  );
+  const match = block.match(pattern);
+  return match ? decodeText(match[1]) : "";
+}
+
+function validSitemapLastmod(value: string) {
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 64) return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}(?:[Tt][^\s]+)?$/.test(normalized)) return undefined;
+  const timestamp = Date.parse(normalized);
+  return Number.isFinite(timestamp) ? normalized : undefined;
+}
+
+export function parseSitemapDocument(payload: string, baseUrl: string): ParsedSitemapDocument {
+  const type = sitemapRootType(payload);
+  if (!type) throw new Error("automation_discovery_invalid_sitemap_xml");
+  const tag = type === "urlset" ? "url" : "sitemap";
+  const entries: ParsedSitemapEntry[] = [];
+  const seen = new Set<string>();
+  for (const block of sitemapBlocks(payload, tag)) {
+    const loc = safeCandidate(sitemapElementText(block, "loc"), baseUrl);
+    if (!loc || seen.has(loc)) continue;
+    seen.add(loc);
+    const lastmod = validSitemapLastmod(sitemapElementText(block, "lastmod"));
+    entries.push({ loc, ...(lastmod ? { lastmod } : {}) });
   }
-  return uniqueCandidates(items);
+  return { type, entries };
+}
+
+export const sitemapDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseUrl, entityType }) => {
+  const parsed = parseSitemapDocument(payload, baseUrl);
+  if (parsed.type !== "urlset") return [];
+  return parsed.entries.map((entry) => ({
+    candidateType: "SOURCE_CANDIDATE",
+    discoveryType: "SITEMAP",
+    sourceUrl: entry.loc,
+    label: new URL(entry.loc).hostname,
+    entityType,
+    suggestedConnectorType: "CONTROLLED_HTML",
+    reason: "URL bol explicitne uvedený v sitemape kontrolovaného verejného zdroja.",
+    metadata: {
+      discoveredFrom: baseUrl,
+      sitemapUrl: baseUrl,
+      ...(entry.lastmod ? { lastmod: entry.lastmod } : {}),
+    },
+  }));
 };
 
 export const rssDiscoveryAdapter: AutomationDiscoveryAdapter = ({ payload, baseUrl, entityType }) => {
