@@ -32,6 +32,13 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
+function candidateLifecycleLabel(candidate: AutomationSourceCandidateRow) {
+  if (candidate.lifecycle === "PROVISIONED") return { label: "Already provisioned", className: styles.badgeGood };
+  if (candidate.lifecycle === "DUPLICATE") return { label: "Duplicate", className: styles.badgeWarning };
+  if (candidate.lifecycle === "STALE") return { label: "Stale", className: styles.badgeWarning };
+  return { label: "Active", className: styles.badgeGood };
+}
+
 function sourceState(source: AutomationSourceAdminRow) {
   if (source.lastRunStatus === "FAILED" || source.lastErrorCode) return { label: "Problém", className: styles.badgeDanger };
   if (source.reviewStatus === "PENDING") return { label: "Čaká na schválenie", className: styles.badgeWarning };
@@ -52,6 +59,7 @@ export function AdminAutomationSourceManager({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [candidateLifecycleFilter, setCandidateLifecycleFilter] = useState<"ALL" | AutomationSourceCandidateRow["lifecycle"]>("ALL");
   const [form, setForm] = useState({
     sourceKey: "",
     label: "",
@@ -67,8 +75,11 @@ export function AdminAutomationSourceManager({
     config: defaultConfig,
   });
 
-  const newCandidates = candidates.filter((candidate) => candidate.reviewStatus === "NEW");
-  const reviewedCandidates = candidates.filter((candidate) => candidate.reviewStatus !== "NEW");
+  const visibleCandidates = candidates.filter((candidate) =>
+    candidateLifecycleFilter === "ALL" || candidate.lifecycle === candidateLifecycleFilter
+  );
+  const newCandidates = visibleCandidates.filter((candidate) => candidate.reviewStatus === "NEW");
+  const reviewedCandidates = visibleCandidates.filter((candidate) => candidate.reviewStatus !== "NEW");
   const attentionSources = sources.filter((source) =>
     source.reviewStatus === "PENDING"
     || source.lastRunStatus === "FAILED"
@@ -127,16 +138,31 @@ export function AdminAutomationSourceManager({
           <span className={styles.sectionCount}>{newCandidates.length}</span>
         </div>
 
+        <label className="admin-field" style={{ maxWidth: 280 }}>
+          <span>Lifecycle filter</span>
+          <select value={candidateLifecycleFilter} onChange={(event) => setCandidateLifecycleFilter(event.target.value as typeof candidateLifecycleFilter)}>
+            <option value="ALL">Všetky</option>
+            <option value="ACTIVE">Active</option>
+            <option value="STALE">Stale</option>
+            <option value="DUPLICATE">Duplicate</option>
+            <option value="PROVISIONED">Provisioned</option>
+          </select>
+        </label>
+
         {newCandidates.length ? (
           <div className={styles.itemList}>
-            {newCandidates.map((candidate) => (
+            {newCandidates.map((candidate) => {
+              const lifecycle = candidateLifecycleLabel(candidate);
+              return (
               <div className={styles.itemCard} key={candidate.id}>
                 <div className={styles.itemMain}>
                   <div className={styles.itemTitle}>
                     <strong>{candidate.label}</strong>
                     <span className={[styles.badge, styles.badgeWarning].join(" ")}>Nový návrh</span>
+                    <span className={[styles.badge, lifecycle.className].join(" ")}>{lifecycle.label}</span>
                   </div>
                   <p>{candidate.reason}</p>
+                  <p>Found by {candidate.evidencePathCount} paths · fresh {candidate.freshEvidencePathCount} · last seen {formatDate(candidate.lastSeenAt)}</p>
                   <p><a href={candidate.sourceUrl} target="_blank" rel="noreferrer">Otvoriť nájdený web ↗</a></p>
                 </div>
                 <div className={styles.actionStack}>
@@ -145,7 +171,8 @@ export function AdminAutomationSourceManager({
                   <button type="button" disabled={busy} onClick={() => void candidateAction(candidate.id, "suppress")}>Odložiť 30 dní</button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className={styles.empty}>Momentálne tu nie je žiadny nový zdroj, ktorý by od teba vyžadoval rozhodnutie.</div>
@@ -156,13 +183,16 @@ export function AdminAutomationSourceManager({
             <summary>Vybavené návrhy ({reviewedCandidates.length})</summary>
             <div className={styles.advancedBody}>
               <div className={styles.techGrid}>
-                {reviewedCandidates.map((candidate) => (
-                  <div className={styles.techRow} key={candidate.id}>
-                    <strong>{candidate.label}</strong>
-                    <span>{candidate.reviewStatus}</span>
-                    <span>{formatDate(candidate.lastDetectedAt)}</span>
-                  </div>
-                ))}
+                {reviewedCandidates.map((candidate) => {
+                  const lifecycle = candidateLifecycleLabel(candidate);
+                  return (
+                    <div className={styles.techRow} key={candidate.id}>
+                      <strong>{candidate.label}</strong>
+                      <span>{candidate.reviewStatus} · {lifecycle.label}</span>
+                      <span>paths {candidate.evidencePathCount} · fresh {candidate.freshEvidencePathCount} · last seen {formatDate(candidate.lastSeenAt)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </details>

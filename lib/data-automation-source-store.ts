@@ -16,6 +16,7 @@ type RuntimeBindings = { DB?: D1Database };
 
 export type AutomationSourceReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type AutomationCandidateReviewStatus = "NEW" | "APPROVED" | "REJECTED" | "SUPPRESSED";
+export type AutomationCandidateLifecycle = "ACTIVE" | "STALE" | "DUPLICATE" | "PROVISIONED";
 
 export type AutomationSourceAdminRow = {
   id: number;
@@ -69,6 +70,10 @@ export type AutomationSourceCandidateRow = {
   suppressedUntil: string | null;
   firstDetectedAt: string;
   lastDetectedAt: string;
+  lifecycle: AutomationCandidateLifecycle;
+  evidencePathCount: number;
+  freshEvidencePathCount: number;
+  lastSeenAt: string;
 };
 
 export type AutomationSourceCandidateEvidenceInput = {
@@ -324,18 +329,122 @@ function mapCandidate(row: Record<string, unknown>): AutomationSourceCandidateRo
     suppressedUntil: row.suppressed_until ? String(row.suppressed_until) : null,
     firstDetectedAt: String(row.first_detected_at ?? ""),
     lastDetectedAt: String(row.last_detected_at ?? ""),
+    lifecycle: "ACTIVE",
+    evidencePathCount: 0,
+    freshEvidencePathCount: 0,
+    lastSeenAt: String(row.last_detected_at ?? ""),
   };
+}
+
+type AutomationCandidateEvidenceLifecycleRow = {
+  candidateId: number;
+  lastSeenAt: string;
+  rootEnabled: boolean;
+  rootReviewStatus: "PENDING" | "APPROVED" | "REJECTED";
+  rootCadenceMinutes: number;
+  laterSuccessfulRuns: number;
+};
+
+export const AUTOMATION_CANDIDATE_MIN_STALE_WINDOW_MINUTES = 72 * 60;
+export const AUTOMATION_CANDIDATE_REQUIRED_MISSED_RUNS = 3;
+
+function mapCandidateEvidenceLifecycle(row: Record<string, unknown>): AutomationCandidateEvidenceLifecycleRow {
+  return {
+    candidateId: numberValue(row.candidate_id),
+    lastSeenAt: String(row.last_seen_at ?? ""),
+    rootEnabled: Boolean(row.root_enabled),
+    rootReviewStatus: String(row.root_review_status ?? "PENDING") as AutomationCandidateEvidenceLifecycleRow["rootReviewStatus"],
+    rootCadenceMinutes: Math.max(60, numberValue(row.root_cadence_minutes)),
+    laterSuccessfulRuns: numberValue(row.later_successful_runs),
+  };
+}
+
+function candidateEvidenceFresh(path: AutomationCandidateEvidenceLifecycleRow, now: Date) {
+  if (!path.rootEnabled || path.rootReviewStatus !== "APPROVED") return false;
+  const lastSeen = new Date(path.lastSeenAt).getTime();
+  if (!Number.isFinite(lastSeen)) return false;
+  const staleWindowMinutes = Math.max(
+    AUTOMATION_CANDIDATE_MIN_STALE_WINDOW_MINUTES,
+    AUTOMATION_CANDIDATE_REQUIRED_MISSED_RUNS * path.rootCadenceMinutes,
+  );
+  const oldEnough = now.getTime() - lastSeen > staleWindowMinutes * 60_000;
+  return !oldEnough || path.laterSuccessfulRuns < AUTOMATION_CANDIDATE_REQUIRED_MISSED_RUNS;
+}
+
+export function computeAutomationCandidateLifecycle(
+  candidate: Pick<AutomationSourceCandidateRow, "reviewStatus" | "duplicateSourceId">,
+  evidence: AutomationCandidateEvidenceLifecycleRow[],
+  now = new Date(),
+) {
+  if (candidate.duplicateSourceId) {
+    return candidate.reviewStatus === "APPROVED" ? "PROVISIONED" : "DUPLICATE";
+  }
+  // Candidates that predate DISCOVERY-1A may not have evidence rows yet. Keep
+  // them active until a discovery path establishes evidence rather than
+  // declaring historical data stale from an incomplete provenance record.
+  if (!evidence.length) return "ACTIVE";
+  return evidence.some((path) => candidateEvidenceFresh(path, now)) ? "ACTIVE" : "STALE";
 }
 
 export async function listAutomationSourceCandidates(
   databaseInput?: AutomationSourceAdminDatabase,
   limit = 100,
+  now = new Date(),
 ) {
   const db = database(databaseInput);
+  const boundedLimit = Math.max(1, Math.min(200, limit));
   const result = await db.prepare(`SELECT * FROM automation_source_candidates
     ORDER BY CASE review_status WHEN 'NEW' THEN 0 ELSE 1 END,last_detected_at DESC,id DESC LIMIT ?`)
-    .bind(Math.max(1, Math.min(200, limit))).all<Record<string, unknown>>();
-  return result.results.map(mapCandidate);
+    .bind(boundedLimit).all<Record<string, unknown>>();
+  const candidates = result.results.map(mapCandidate);
+  if (!candidates.length) return candidates;
+
+  let evidenceRows: AutomationCandidateEvidenceLifecycleRow[] = [];
+  try {
+    const evidence = await db.prepare(`
+      SELECT e.candidate_id,e.last_seen_at,
+        r.enabled AS root_enabled,r.review_status AS root_review_status,r.cadence_minutes AS root_cadence_minutes,
+        (
+          SELECT COUNT(*) FROM automation_discovery_runs dr
+          WHERE dr.root_id=e.root_id
+            AND dr.status IN ('SUCCESS','PARTIAL')
+            AND dr.started_at>e.last_seen_at
+        ) AS later_successful_runs
+      FROM automation_source_candidate_evidence e
+      JOIN automation_discovery_roots r ON r.id=e.root_id
+      JOIN (
+        SELECT id FROM automation_source_candidates
+        ORDER BY CASE review_status WHEN 'NEW' THEN 0 ELSE 1 END,last_detected_at DESC,id DESC LIMIT ?
+      ) bounded ON bounded.id=e.candidate_id
+      ORDER BY e.candidate_id ASC,e.last_seen_at DESC`)
+      .bind(boundedLimit).all<Record<string, unknown>>();
+    evidenceRows = evidence.results.map(mapCandidateEvidenceLifecycle);
+  } catch (error) {
+    if (!missingCandidateEvidenceSchema(error)) throw error;
+  }
+
+  const evidenceByCandidate = new Map<number, AutomationCandidateEvidenceLifecycleRow[]>();
+  for (const evidence of evidenceRows) {
+    const rows = evidenceByCandidate.get(evidence.candidateId) ?? [];
+    rows.push(evidence);
+    evidenceByCandidate.set(evidence.candidateId, rows);
+  }
+
+  return candidates.map((candidate) => {
+    const paths = evidenceByCandidate.get(candidate.id) ?? [];
+    const freshPaths = paths.filter((path) => candidateEvidenceFresh(path, now));
+    const evidenceLastSeen = paths
+      .map((path) => path.lastSeenAt)
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a))[0] ?? candidate.lastDetectedAt;
+    return {
+      ...candidate,
+      lifecycle: computeAutomationCandidateLifecycle(candidate, paths, now),
+      evidencePathCount: paths.length,
+      freshEvidencePathCount: freshPaths.length,
+      lastSeenAt: evidenceLastSeen,
+    };
+  });
 }
 
 export async function upsertAutomationSourceCandidate(input: {
