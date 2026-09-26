@@ -70,12 +70,6 @@ export function PublicLocationMap({
     return () => window.removeEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
   }, []);
 
-  useEffect(() => {
-    if (!items.some((item) => item.id === selectedItemId)) {
-      setSelectedItemId(items[0]?.id ?? null);
-    }
-  }, [items, selectedItemId]);
-
   const viewport = useMemo(() => {
     const item = selected ?? items[0];
     const lat = item?.latitude ?? 48.669;
@@ -131,7 +125,7 @@ export function PublicLocationMap({
               consentGranted={consentGranted || testRenderer}
               items={items}
               clusters={[]}
-              selectedItemId={selectedItemId}
+              selectedItemId={selected?.id ?? null}
               viewport={viewport}
               mapType={mapType}
               command={command}
