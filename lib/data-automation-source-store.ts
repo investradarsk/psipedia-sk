@@ -284,7 +284,7 @@ export async function setAutomationSourceEnabled(input: {
     if (existing.connectorType !== "MANUAL_IMPORT" && (!existing.sourceUrl || !isSafeAutomationSourceUrl(existing.sourceUrl))) {
       throw new Error("automation_source_url_not_safe");
     }
-    const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id }, db);
+    const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: input.id }, db);
     const decision = evaluateGovernanceForActivation(governance, {
       recurring: true,
       cadenceMinutes: existing.cadenceMinutes,
