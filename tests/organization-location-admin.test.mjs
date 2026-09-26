@@ -183,12 +183,10 @@ test("MAP-AUTO-1C create initializes GEO with classifier-owned SITE review seman
     assert.ok(item);
     const geo = sqlite.prepare(`SELECT public_visibility, public_precision, geocode_status, last_error_code
       FROM geo_points WHERE organization_location_id = ?`).get(item.id);
-    assert.deepEqual(geo, {
-      public_visibility: null,
-      public_precision: null,
-      geocode_status: "NEEDS_REVIEW",
-      last_error_code: "PRIVACY_CLASSIFICATION_MISSING",
-    });
+    assert.equal(geo.public_visibility, null);
+    assert.equal(geo.public_precision, null);
+    assert.equal(geo.geocode_status, "NEEDS_REVIEW");
+    assert.equal(geo.last_error_code, "PRIVACY_CLASSIFICATION_MISSING");
   } finally { sqlite.close(); }
 });
 
