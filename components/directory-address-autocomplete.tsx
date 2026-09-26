@@ -39,13 +39,11 @@ export function DirectoryAddressAutocomplete({
   const [empty, setEmpty] = useState(false);
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
+  const localityReady = Boolean(region && district && city);
+  const canSearch = !selectedProviderResultId && !disabled && localityReady && query.trim().length >= 3;
 
   useEffect(() => {
-    if (selectedProviderResultId || disabled || !region || !district || !city || query.trim().length < 3) {
-      setSuggestions([]);
-      setLoading(false);
-      setEmpty(false);
-      setError("");
+    if (!canSearch) {
       abortRef.current?.abort();
       return;
     }
@@ -81,7 +79,7 @@ export function DirectoryAddressAutocomplete({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [city, disabled, district, query, region, selectedProviderResultId]);
+  }, [canSearch, city, district, query, region]);
 
   function choose(item: Suggestion) {
     setQuery(item.addressLine1 || item.formatted);
@@ -91,7 +89,10 @@ export function DirectoryAddressAutocomplete({
     onSelect(item);
   }
 
-  const localityReady = Boolean(region && district && city);
+  const visibleSuggestions = canSearch ? suggestions : [];
+  const visibleLoading = canSearch && loading;
+  const visibleEmpty = canSearch && empty;
+  const visibleError = canSearch ? error : "";
 
   return (
     <div className="admin-field" data-directory-address-autocomplete>
@@ -103,7 +104,7 @@ export function DirectoryAddressAutocomplete({
           role="combobox"
           autoComplete="off"
           aria-autocomplete="list"
-          aria-expanded={suggestions.length > 0}
+          aria-expanded={visibleSuggestions.length > 0}
           aria-controls="directory-address-suggestions"
           value={query}
           disabled={disabled || !localityReady}
@@ -113,9 +114,9 @@ export function DirectoryAddressAutocomplete({
             setQuery(event.target.value);
           }}
         />
-        {suggestions.length > 0 ? (
+        {visibleSuggestions.length > 0 ? (
           <ul id="directory-address-suggestions" role="listbox" className="partner-location-options">
-            {suggestions.map((item) => (
+            {visibleSuggestions.map((item) => (
               <li key={item.providerResultId} role="option" aria-selected={false}>
                 <button
                   type="button"
@@ -133,9 +134,9 @@ export function DirectoryAddressAutocomplete({
       </div>
       <small>Napíš aspoň 3 znaky a vyber konkrétnu adresu z návrhov Geoapify.</small>
       <span aria-live="polite">
-        {loading ? "Vyhľadávam adresy…" : ""}
-        {!loading && empty ? "Pre túto lokalitu sa nenašla zodpovedajúca presná adresa." : ""}
-        {error ? error : ""}
+        {visibleLoading ? "Vyhľadávam adresy…" : ""}
+        {!visibleLoading && visibleEmpty ? "Pre túto lokalitu sa nenašla zodpovedajúca presná adresa." : ""}
+        {visibleError ? visibleError : ""}
         {selectedProviderResultId ? "Adresa je vybraná. Pri uložení ju server znovu overí." : ""}
       </span>
     </div>
