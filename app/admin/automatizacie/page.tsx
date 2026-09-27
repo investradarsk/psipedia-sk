@@ -51,7 +51,7 @@ export default async function AutomationAdminPage() {
       eyebrow="Admin"
       title="Automatizácie"
       description="Čo máš teraz skontrolovať? Otvor kategóriu a vybav nové zdroje, nálezy alebo problémové zdroje bez práce s technickými objektmi."
-      actions={<><Link href="/admin/operations">Operácie</Link><Link href="/admin/automatizacie/zdroje">Pokročilé: všetky zdroje</Link></>}
+      actions={<><Link href="/admin/operations">Upozornenia</Link><Link href="/admin/automatizacie/zdroje">Pokročilé: všetky zdroje</Link></>}
     >
       {unavailable ? (
         <section className="admin-panel">

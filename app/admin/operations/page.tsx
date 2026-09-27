@@ -60,49 +60,42 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
   return (
     <AdminShell
       user={user}
-      eyebrow="Admin Operations"
-      title="Operácie"
-      description="Jedno miesto pre veci, ktoré treba skontrolovať alebo rozhodnúť. Najprv rieš položky čakajúce na teba; technické nastavenia sú až v detailoch."
+      eyebrow="Admin"
+      title="Upozornenia"
+      description="Veci, pri ktorých treba niečo skontrolovať, schváliť, zamietnuť alebo vyriešiť. Technické nástroje a mapové operácie sú oddelené v hlavnej navigácii."
       attentionCount={summary.active}
-      actions={<><Link href="/admin/operations/geo">Geo foundation</Link><Link href="/admin/operations/outreach">Profilový outreach</Link></>}
     >
-      <section className={styles.hubGrid} aria-label="Rýchly prehľad operácií">
+      <section className={styles.hubGrid} aria-label="Rýchly prehľad upozornení">
         <a className={`${styles.hubCard} ${summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="#centrum-pozornosti">
           <span className={styles.hubKicker}>Čaká na teba</span>
           <div className={styles.hubMetric}><strong>{summary.active}</strong><span>aktívnych úloh</span></div>
-          <h2>Centrum pozornosti</h2>
-          <p>Podnety z automatizácií, dopytov a ďalších workflowov, ktoré vyžadujú rozhodnutie.</p>
-          <span className={styles.hubOpen}>Prejsť na úlohy ↓</span>
+          <h2>Aktívne upozornenia</h2>
+          <p>Podnety z automatizácií, dopytov, moderácie a ďalších workflowov, ktoré vyžadujú ľudské rozhodnutie.</p>
+          <span className={styles.hubOpen}>Prejsť na upozornenia ↓</span>
         </a>
 
         <Link className={`${styles.hubCard} ${newCandidates > 0 ? styles.hubCardPrimary : ""}`} href="/admin/automatizacie/zdroje#kandidati">
           <span className={styles.hubKicker}>Nové zdroje</span>
           <div className={styles.hubMetric}><strong>{automationAvailable ? newCandidates : "—"}</strong><span>na posúdenie</span></div>
           <h2>Automatizačné zdroje</h2>
-          <p>Nastavenie a stav zdrojov patria do samostatnej sekcie Automatizácie; tu zostáva iba ľudské rozhodovanie.</p>
-          <span className={styles.hubOpen}>Otvoriť automatizácie →</span>
+          <p>Nové zdroje čakajúce na ľudské schválenie sa riešia v existujúcom automation review flow.</p>
+          <span className={styles.hubOpen}>Otvoriť review →</span>
         </Link>
 
         <Link className={`${styles.hubCard} ${sourceIssues > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/automatizacie">
           <span className={styles.hubKicker}>Automatizácia</span>
           <div className={styles.hubMetric}><strong>{automationAvailable ? sourceIssues : "—"}</strong><span>vyžaduje kontrolu</span></div>
-          <h2>Automatizácie</h2>
-          <p>{sourceIssues > 0 ? "Niektorý zdroj čaká na schválenie alebo hlási problém." : "Zdroje nehlásia problém, ktorý by od teba vyžadoval zásah."}</p>
+          <h2>Automatizácie na kontrolu</h2>
+          <p>{sourceIssues > 0 ? "Niektorý zdroj čaká na schválenie alebo hlási problém, ktorý vyžaduje zásah." : "Zdroje nehlásia problém, ktorý by od teba vyžadoval zásah."}</p>
           <span className={styles.hubOpen}>Otvoriť automatizácie →</span>
         </Link>
+
         <Link className={`${styles.hubCard} ${possibleMatches > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/operations/possible-matches">
           <span className={styles.hubKicker}>Identity review</span>
           <div className={styles.hubMetric}><strong>{automationAvailable ? possibleMatches : "—"}</strong><span>POSSIBLE matches</span></div>
           <h2>Neisté zhody entít</h2>
           <p>DIRECTORY a ORGANIZATION zhody, pri ktorých musí človek rozhodnúť SAME / DIFFERENT / RELATIONSHIP / DEFER.</p>
           <span className={styles.hubOpen}>Otvoriť review →</span>
-        </Link>
-        <Link className={styles.hubCard} href="/admin/operations/geo">
-          <span className={styles.hubKicker}>Geo foundation</span>
-          <div className={styles.hubMetric}><strong>OFF</strong><span>full backfill</span></div>
-          <h2>Lokality pre budúcu mapu</h2>
-          <p>Dry-run klasifikácia, explicitná inicializácia a kontrolovaný Geoapify canary. Verejná mapa ešte nie je zapnutá.</p>
-          <span className={styles.hubOpen}>Otvoriť geo operations →</span>
         </Link>
       </section>
 

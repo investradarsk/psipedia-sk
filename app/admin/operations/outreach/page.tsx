@@ -15,10 +15,10 @@ export default async function AdminOutreachPage() {
   return (
     <AdminShell
       user={user}
-      eyebrow="Admin Operations"
+      eyebrow="Admin · Technické nástroje"
       title="Profilový outreach"
       description="Kontrolované oslovenia na overenie verejných profilov. Dry run je povinný, send je bounded a návrhy recipientov nikdy automaticky neprepisujú canonical dáta."
-      actions={<><Link href="/admin/operations">Centrum pozornosti</Link><Link href="/admin/operations/automation">Automatický research</Link></>}
+      actions={<><Link href="/admin/nastroje">Technické nástroje</Link><Link href="/admin/operations">Upozornenia</Link></>}
     >
       <AdminOutreachDashboard initialCampaigns={data.campaigns as never[]} provider={data.provider} />
     </AdminShell>
