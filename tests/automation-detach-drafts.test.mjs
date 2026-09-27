@@ -5,7 +5,7 @@ import test from "node:test";
 const scriptPath = new URL("../scripts/automation-detach-drafts.mjs", import.meta.url);
 const source = await fs.readFile(scriptPath, "utf8");
 const workflow = await fs.readFile(new URL("../.github/workflows/automation-detach-drafts.yml", import.meta.url), "utf8");
-const migration = await fs.readFile(new URL("../drizzle/0090_automation_detach_drafts.sql", import.meta.url), "utf8");
+const migration = await fs.readFile(new URL("../drizzle/0091_automation_detach_drafts.sql", import.meta.url), "utf8");
 
 test("detach defaults to read-only preview and apply is explicit", () => {
   assert.match(source, /process\.argv\.includes\("--apply"\)/);
