@@ -526,7 +526,6 @@ export function GoogleMapRenderer(props: Props) {
           title: item.displayLocation ? `${item.name} – ${item.displayLocation}` : item.name,
           gmpClickable: true,
         });
-        marker.dataset.mapMarkerId = item.id;
         marker.append(element);
         marker.addEventListener("gmp-click", () => onSelectItemRef.current(item.id));
         record = { marker, element, signature };
