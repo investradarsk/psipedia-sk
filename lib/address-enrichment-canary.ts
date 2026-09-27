@@ -102,23 +102,61 @@ function target(row: Row): DirectoryEnrichmentTarget {
     phone: contacts.phone, email: contacts.email, updatedAt: s(row.updated_at),
   };
 }
-async function targets(limit: number, database: DB, ids?: number[]) {
+type DirectorySearchRoot = { id: number; rootKey: string; cadenceMinutes: number; config: Record<string, unknown> };
+
+async function directorySearchRoots(database: DB): Promise<DirectorySearchRoot[]> {
+  const rows = await database.prepare(`SELECT id,root_key,cadence_minutes,config_json FROM automation_discovery_roots
+    WHERE discovery_type='SEARCH_PROVIDER' AND entity_type='DIRECTORY' ORDER BY id`).all<Row>();
+  const roots: DirectorySearchRoot[] = [];
+  for (const row of rows.results) {
+    let config: Record<string, unknown> = {};
+    try { config = JSON.parse(s(row.config_json)) as Record<string, unknown>; } catch {}
+    if (!normalizedDirectoryCategory(config.directoryCategory)) continue;
+    roots.push({ id: Number(row.id), rootKey: s(row.root_key), cadenceMinutes: Number(row.cadence_minutes), config });
+  }
+  return roots;
+}
+
+async function supportedDirectorySearchCategories(database: DB) {
+  const roots = await directorySearchRoots(database);
+  return [...new Set(roots.map((root) => normalizedDirectoryCategory(root.config.directoryCategory)).filter(Boolean))];
+}
+
+export async function selectAddressEnrichmentTargets(limit: number, database: DB, ids?: number[]) {
   if (ids?.length) {
     const use = ids.slice(0, ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS);
     const q = use.map(() => "?").join(",");
     const rows = await database.prepare(`SELECT * FROM directory_profiles WHERE id IN (${q}) AND status<>'archived'`).bind(...use).all<Row>();
     const map = new Map(rows.results.map((r) => [Number(r.id), r]));
-    return use.map((id) => map.get(id)).filter(Boolean).map((r) => target(r!));
+    return {
+      items: use.map((id) => map.get(id)).filter(Boolean).map((r) => target(r!)),
+      mode: "EXPLICIT" as const,
+      rootEligibleCategories: [] as string[],
+      diagnostic: null as null | "NO_ROOT_ELIGIBLE_TARGETS",
+    };
   }
+
+  const rootEligibleCategories = await supportedDirectorySearchCategories(database);
+  if (!rootEligibleCategories.length) {
+    return { items: [] as DirectoryEnrichmentTarget[], mode: "ROOT_AWARE_AUTOMATIC" as const, rootEligibleCategories, diagnostic: "NO_ROOT_ELIGIBLE_TARGETS" as const };
+  }
+  const q = rootEligibleCategories.map(() => "?").join(",");
   const rows = await database.prepare(`SELECT * FROM directory_profiles
     WHERE status<>'archived' AND online=0
+      AND LOWER(TRIM(category)) IN (${q})
       AND (service_address_confirmation='LEGACY_UNCONFIRMED' OR TRIM(region)='' OR TRIM(district)='' OR TRIM(city)=''
         OR TRIM(postal_code)='' OR TRIM(house_number)='' OR address_format NOT IN ('STREET','MUNICIPALITY_NUMBER')
         OR (address_format='STREET' AND TRIM(street)=''))
     ORDER BY CASE WHEN status='published' THEN 0 ELSE 1 END,
       CASE WHEN website_url IS NOT NULL AND TRIM(website_url)<>'' THEN 0 ELSE 1 END, updated_at DESC,id DESC LIMIT ?`)
-    .bind(limit).all<Row>();
-  return rows.results.map(target);
+    .bind(...rootEligibleCategories, limit).all<Row>();
+  const items = rows.results.map(target);
+  return {
+    items,
+    mode: "ROOT_AWARE_AUTOMATIC" as const,
+    rootEligibleCategories,
+    diagnostic: items.length ? null : "NO_ROOT_ELIGIBLE_TARGETS" as const,
+  };
 }
 function text(html: string) {
   return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi," ").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi," ")
@@ -253,16 +291,8 @@ export function searchReservationDiagnostic(reason: string): AddressSearchDiagno
 }
 
 async function directorySearchRoot(t:DirectoryEnrichmentTarget,database:DB){
-  const rows=await database.prepare(`SELECT id,root_key,cadence_minutes,config_json FROM automation_discovery_roots
-    WHERE discovery_type='SEARCH_PROVIDER' AND entity_type='DIRECTORY' ORDER BY id`).all<Row>();
-  for(const row of rows.results){
-    let config:Record<string,unknown>={};
-    try{config=JSON.parse(s(row.config_json)) as Record<string,unknown>;}catch{}
-    if(directoryCategoryMatches(config.directoryCategory,t.category)){
-      return{id:Number(row.id),rootKey:s(row.root_key),cadenceMinutes:Number(row.cadence_minutes),config};
-    }
-  }
-  return null;
+  const roots=await directorySearchRoots(database);
+  return roots.find((root)=>directoryCategoryMatches(root.config.directoryCategory,t.category))??null;
 }
 
 async function tavilyUrl(t:DirectoryEnrichmentTarget,p:TavilyAutomationSearchProvider,database:DB,now=new Date()){
@@ -300,7 +330,7 @@ async function tavilyUrl(t:DirectoryEnrichmentTarget,p:TavilyAutomationSearchPro
   }
 }
 export async function previewLiveDirectoryAddressCanary(input:{limit?:unknown;targetIds?:number[];database?:DB;fetchImpl?:typeof fetch;geoProvider?:GeoapifyGeocoder;searchProvider?:TavilyAutomationSearchProvider}={}){
-  const database=db(input.database),limit=boundedCanarySize(input.limit), list=await targets(limit,database,input.targetIds);
+  const database=db(input.database),limit=boundedCanarySize(input.limit), selection=await selectAddressEnrichmentTargets(limit,database,input.targetIds), list=selection.items;
   const runtime=env as unknown as Bindings, fetchImpl=input.fetchImpl??fetch, geo=input.geoProvider??new GeoapifyGeocoder({bindings:runtime}), search=input.searchProvider??new TavilyAutomationSearchProvider({apiKey:runtime.TAVILY_API_KEY});
   let searchCalls=0,searchAttempts=0,searchBlocked=0,providerCalls=0,pageFetches=0,stoppedByRateLimit:null|"TAVILY"|"GEOAPIFY"=null;
   const items:CanaryItem[]=[];
@@ -412,6 +442,7 @@ export async function previewLiveDirectoryAddressCanary(input:{limit?:unknown;ta
   }
   return {mode:"LIVE_CANARY_PREVIEW" as const,scanned:items.length,candidatesFound:items.filter((x)=>x.candidate).length,autoApplyCandidates:items.filter((x)=>x.assessment?.decision==="AUTO_APPLY").length,
     reviewCandidates:items.filter((x)=>x.assessment?.decision==="REVIEW").length,noMatch:items.filter((x)=>!x.candidate||x.assessment?.decision==="NO_MATCH").length,searchCalls,searchAttempts,searchBlocked,providerCalls,pageFetches,productionWrites:0 as const,stoppedByRateLimit,
+    targetSelection:{mode:selection.mode,rootEligibleCategories:selection.rootEligibleCategories,diagnostic:selection.diagnostic},
     limits:{entitiesPerRun:limit,searchCallsPerRun:ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS,providerCallsPerRun:ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS,pageFetchesPerRun:MAX_PAGE_FETCHES_PER_RUN},items};
 }
 export function validateAddressCanarySelection(value:unknown){

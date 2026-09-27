@@ -17,6 +17,7 @@ import {
   directoryCategoryMatches,
   extractOfficialAddress,
   searchReservationDiagnostic,
+  selectAddressEnrichmentTargets,
   validateAddressCanarySelection,
 } from "../lib/address-enrichment-canary.ts";
 
@@ -314,4 +315,157 @@ test("ADDRESS-ENRICH-2A UI exposes first-party and Tavily discovery diagnostics"
   assert.match(ui, /Tavily:/);
   assert.match(ui, /searchAttempts/);
   assert.match(ui, /searchBlocked/);
+});
+
+
+function directoryProfileRow(overrides = {}) {
+  return {
+    id: 1,
+    name: "Profil",
+    category: "veterinari",
+    status: "published",
+    region: "",
+    district: "",
+    city: "Nitra",
+    postal_code: "",
+    street: "",
+    house_number: "",
+    address_format: "",
+    service_address_confirmation: "LEGACY_UNCONFIRMED",
+    online: 0,
+    address: "",
+    website_url: "https://example.sk",
+    source_data_json: "{}",
+    updated_at: "2026-09-20T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function rootAwareSelectionDb(profiles, categories) {
+  return {
+    prepare(sql) {
+      if (sql.includes("FROM automation_discovery_roots")) {
+        return {
+          async all() {
+            return {
+              results: categories.map((category, index) => ({
+                id: index + 1,
+                root_key: "root-" + category,
+                cadence_minutes: 10080,
+                config_json: JSON.stringify({ provider: "tavily", directoryCategory: category }),
+              })),
+            };
+          },
+        };
+      }
+      if (sql.includes("FROM directory_profiles")) {
+        return {
+          bind(...binds) {
+            return {
+              async all() {
+                if (sql.includes("id IN")) {
+                  const ids = new Set(binds.map(Number));
+                  return { results: profiles.filter((row) => ids.has(Number(row.id))) };
+                }
+                const limit = Number(binds.at(-1));
+                const supported = new Set(binds.slice(0, -1).map((value) => String(value).trim().toLowerCase()));
+                const results = profiles
+                  .filter((row) => row.status !== "archived" && !row.online && supported.has(String(row.category).trim().toLowerCase()))
+                  .sort((a, b) => {
+                    const published = Number(a.status !== "published") - Number(b.status !== "published");
+                    if (published) return published;
+                    const website = Number(!String(a.website_url || "").trim()) - Number(!String(b.website_url || "").trim());
+                    if (website) return website;
+                    const updated = String(b.updated_at).localeCompare(String(a.updated_at));
+                    return updated || Number(b.id) - Number(a.id);
+                  })
+                  .slice(0, limit);
+                return { results };
+              },
+            };
+          },
+        };
+      }
+      throw new Error("Unexpected SQL: " + sql);
+    },
+  };
+}
+
+test("ADDRESS-ENRICH-2B automatic selection chooses only root-supported categories", async () => {
+  const db = rootAwareSelectionDb([
+    directoryProfileRow({ id: 1808, category: "drevovyroba", updated_at: "2026-09-27T10:00:00.000Z" }),
+    directoryProfileRow({ id: 1807, category: "eshopy", updated_at: "2026-09-27T09:00:00.000Z" }),
+    directoryProfileRow({ id: 1805, category: "fotografi", updated_at: "2026-09-27T08:00:00.000Z" }),
+    directoryProfileRow({ id: 1700, category: "veterinari", updated_at: "2026-09-20T00:00:00.000Z" }),
+  ], ["veterinari"]);
+  const selection = await selectAddressEnrichmentTargets(3, db);
+  assert.deepEqual(selection.items.map((item) => item.id), [1700]);
+  assert.equal(selection.mode, "ROOT_AWARE_AUTOMATIC");
+  assert.deepEqual(selection.rootEligibleCategories, ["veterinari"]);
+  assert.equal(selection.diagnostic, null);
+});
+
+test("ADDRESS-ENRICH-2B preserves deterministic ordering across supported categories", async () => {
+  const db = rootAwareSelectionDb([
+    directoryProfileRow({ id: 10, category: "treneri", status: "draft", updated_at: "2026-09-27T12:00:00.000Z" }),
+    directoryProfileRow({ id: 11, category: "veterinari", status: "published", website_url: "", updated_at: "2026-09-27T11:00:00.000Z" }),
+    directoryProfileRow({ id: 12, category: "fyzioterapia", status: "published", website_url: "https://rehab.example", updated_at: "2026-09-20T00:00:00.000Z" }),
+  ], ["veterinari", "treneri", "fyzioterapia"]);
+  const selection = await selectAddressEnrichmentTargets(3, db);
+  assert.deepEqual(selection.items.map((item) => item.id), [12, 11, 10]);
+});
+
+test("ADDRESS-ENRICH-2B unsupported newer target never displaces an older supported target", async () => {
+  const db = rootAwareSelectionDb([
+    directoryProfileRow({ id: 20, category: "misc", updated_at: "2026-09-27T12:00:00.000Z" }),
+    directoryProfileRow({ id: 21, category: "salony-a-sluzby", updated_at: "2026-09-01T00:00:00.000Z" }),
+  ], ["salony-a-sluzby"]);
+  const selection = await selectAddressEnrichmentTargets(1, db);
+  assert.deepEqual(selection.items.map((item) => item.id), [21]);
+});
+
+test("ADDRESS-ENRICH-2B explicit targetIds remain allowed outside root-supported categories", async () => {
+  const db = rootAwareSelectionDb([
+    directoryProfileRow({ id: 30, category: "fotografi" }),
+  ], ["veterinari"]);
+  const selection = await selectAddressEnrichmentTargets(3, db, [30]);
+  assert.deepEqual(selection.items.map((item) => item.id), [30]);
+  assert.equal(selection.mode, "EXPLICIT");
+  assert.deepEqual(selection.rootEligibleCategories, []);
+});
+
+test("ADDRESS-ENRICH-2B automatic selection never fills remaining slots from unsupported categories", async () => {
+  const db = rootAwareSelectionDb([
+    directoryProfileRow({ id: 40, category: "veterinari" }),
+    directoryProfileRow({ id: 41, category: "misc" }),
+    directoryProfileRow({ id: 42, category: "eshopy" }),
+  ], ["veterinari"]);
+  const selection = await selectAddressEnrichmentTargets(3, db);
+  assert.deepEqual(selection.items.map((item) => item.id), [40]);
+});
+
+test("ADDRESS-ENRICH-2B empty root-aware sample reports NO_ROOT_ELIGIBLE_TARGETS", async () => {
+  const db = rootAwareSelectionDb([
+    directoryProfileRow({ id: 50, category: "misc" }),
+  ], ["veterinari"]);
+  const selection = await selectAddressEnrichmentTargets(3, db);
+  assert.equal(selection.items.length, 0);
+  assert.equal(selection.diagnostic, "NO_ROOT_ELIGIBLE_TARGETS");
+});
+
+test("ADDRESS-ENRICH-2B uses discovery-root config as category source of truth and preserves canary invariants", () => {
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  assert.match(source, /FROM automation_discovery_roots/);
+  assert.match(source, /discovery_type='SEARCH_PROVIDER' AND entity_type='DIRECTORY'/);
+  assert.match(source, /LOWER\(TRIM\(category\)\) IN/);
+  assert.doesNotMatch(source, /\["veterinari",\s*"salony-a-sluzby"/);
+  assert.match(source, /ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS/);
+  assert.match(source, /ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS/);
+  assert.match(source, /productionWrites:0 as const/);
+});
+
+test("ADDRESS-ENRICH-2B UI explains root-aware automatic selection and empty-sample diagnostic", () => {
+  const ui = readRepo("components/admin-address-enrichment-canary.tsx");
+  assert.match(ui, /Automatický výber používa iba kategórie s nakonfigurovaným Tavily search rootom/);
+  assert.match(ui, /NO_ROOT_ELIGIBLE_TARGETS/);
 });
