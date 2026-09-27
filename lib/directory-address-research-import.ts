@@ -1,4 +1,5 @@
 import { isDirectoryCategory, type ManagedDirectoryProfile } from "@/lib/directory";
+export { ADDRESS_RESEARCH_IMPORT_PREVIEW_BATCH_SIZE } from "@/lib/address-research-preview-batches";
 import {
   directoryCanonicalAddressSemanticallyEqual,
   directoryAddressTextSemanticallyEqual,
@@ -23,7 +24,6 @@ import {
 export const ADDRESS_RESEARCH_IMPORT_CONFIRMATION = "ADDRESS-RESEARCH-IMPORT";
 export const ADDRESS_RESEARCH_IMPORT_SCHEMA_VERSION = 1;
 export const ADDRESS_RESEARCH_IMPORT_APPLY_BATCH_SIZE = 20;
-export const ADDRESS_RESEARCH_IMPORT_PREVIEW_BATCH_SIZE = 20;
 export const ADDRESS_RESEARCH_IMPORT_PROVIDER_CONCURRENCY = 4;
 
 export const addressResearchActions = [
