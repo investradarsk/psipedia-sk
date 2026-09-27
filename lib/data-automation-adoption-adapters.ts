@@ -116,15 +116,12 @@ export const trnavaAdoptionDetailAdapter: ControlledHtmlAdapter = ({ html, sourc
     city: "Trnava",
     district: "Trnava",
     region: "Trnavský kraj",
-    status: adopted ? "ADOPTED" : "ACTIVE",
     externalSourceUrl: detailUrl,
   };
   if (sex) proposed.sex = sex;
-  if (ageText) proposed.ageNote = ageText;
   if (ageMonths !== null) proposed.approximateAgeMonths = ageMonths;
   if (breed) proposed.breedName = breed;
-  if (sizeText) proposed.sizeNote = sizeText;
-  if (weight !== null) proposed.weightKg = weight;
+  if (weight !== null) proposed.weight = weight;
   if (color) proposed.color = color;
 
   return [{
