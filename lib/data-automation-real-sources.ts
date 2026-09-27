@@ -878,6 +878,7 @@ export const genericDirectoryProfileAdapter: ControlledHtmlAdapter = ({ html, so
   const proposed: Record<string, unknown> = {
     name,
     category,
+    semanticKind: "FACILITY_OR_SERVICE_PROFILE",
     websiteUrl: explicitUrl ?? sourceUrl,
     ...address,
   };
