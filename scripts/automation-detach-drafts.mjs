@@ -69,7 +69,12 @@ async function loadProductionTarget() {
   invariant(binding, "generated Wrangler config missing canonical D1 binding");
   invariant(binding.database_name === resources.d1.database_name, "generated D1 name mismatch");
   invariant(binding.database_id === resources.d1.database_id, "generated D1 id mismatch");
-  return { databaseName: resources.d1.database_name, configPath: path.join(repoRoot, "dist/server/wrangler.json") };
+  return {
+    accountId: resources.account_id,
+    databaseId: resources.d1.database_id,
+    databaseName: resources.d1.database_name,
+    configPath: path.join(repoRoot, "dist/server/wrangler.json"),
+  };
 }
 
 function execute(target, sql) {
@@ -80,6 +85,34 @@ function execute(target, sql) {
     "--command", sql,
     "--json",
   ], { capture: true }));
+}
+
+async function executeAtomicBatch(target, statements, fetchImpl = fetch) {
+  invariant(Array.isArray(statements) && statements.length > 0, "atomic D1 batch requires at least one statement");
+  const response = await fetchImpl(
+    `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(target.accountId)}/d1/database/${encodeURIComponent(target.databaseId)}/query`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        batch: statements.map((sql) => ({ sql })),
+      }),
+    },
+  );
+  const payload = await response.json();
+  const failures = [
+    ...(Array.isArray(payload?.errors) ? payload.errors : []),
+    ...(Array.isArray(payload?.result) ? payload.result.filter((item) => item?.success === false) : []),
+  ];
+  if (!response.ok || payload?.success !== true || failures.length > 0) {
+    throw new Error(`atomic D1 batch failed: ${JSON.stringify(payload)}`);
+  }
+  invariant(Array.isArray(payload.result) && payload.result.length === statements.length,
+    "atomic D1 batch returned an unexpected statement result count");
+  return payload.result;
 }
 
 function scalar(target, sql) {
@@ -281,21 +314,21 @@ function preview(target, now = new Date()) {
   };
 }
 
-function recoverStaleRuns(target, previewReport, now) {
+function detachStatements(target, previewReport, now) {
+  const statements = [];
   const stale = previewReport.runningRuns.filter((run) => run.staleByPolicy);
+
   for (const run of stale) {
-    execute(target, `UPDATE automation_runs SET
-        status='FAILED',
-        completed_at=${quote(now.toISOString())},
-        error_count=CASE WHEN error_count < 1 THEN 1 ELSE error_count END,
-        error_summary=COALESCE(error_summary,'stale_run_recovered')
+    statements.push(`UPDATE automation_runs SET
+      status='FAILED',
+      completed_at=${quote(now.toISOString())},
+      error_count=CASE WHEN error_count < 1 THEN 1 ELSE error_count END,
+      error_summary=COALESCE(error_summary,'stale_run_recovered')
       WHERE id=${Number(run.id)} AND status='RUNNING'`);
   }
-  return stale.map((run) => Number(run.id));
-}
 
-function detachSql(target, applicationRows, linkedClusters) {
-  const statements = ["BEGIN TRANSACTION"];
+  const applicationRows = previewReport.applications;
+  const linkedClusters = previewReport.linkedClusters;
 
   for (const row of applicationRows) {
     const sourceRecordId = String(row.source_record_id ?? "").trim();
@@ -348,11 +381,11 @@ function detachSql(target, applicationRows, linkedClusters) {
       WHERE id=${Number(cluster.id)}`);
   }
 
-  statements.push("COMMIT");
-  return statements.join(";\n") + ";";
+  return statements;
 }
 
-function apply(target, before, now = new Date()) {
+async function apply(target, before, now = new Date(), fetchImpl = fetch) {
+  invariant(before.blockers.nonStaleRunningRuns === 0, "a non-stale automation run is still active; destructive detach stopped");
   invariant(before.blockers.missingReceiptIdentity === 0, "automation application receipt identity is incomplete");
   invariant(before.blockers.canonicalMissingForApplication === 0, "automation application canonical row is missing");
   invariant(before.blockers.conflictingExistingReceipt === 0, "existing ingestion receipt conflicts with historical application type");
@@ -360,15 +393,15 @@ function apply(target, before, now = new Date()) {
 
   const canonicalBefore = canonicalSnapshot(target);
   const canonicalRowsBefore = canonicalApplicationRowsSnapshot(target, before.applications);
-  const recoveredStaleRunIds = recoverStaleRuns(target, before, now);
-  const remainingRunning = scalar(target, "SELECT COUNT(*) AS count FROM automation_runs WHERE status='RUNNING'");
-  invariant(remainingRunning === 0, "a non-stale automation run is still active; destructive detach stopped");
-
+  const recoveredStaleRunIds = before.runningRuns.filter((run) => run.staleByPolicy).map((run) => Number(run.id));
   const createRows = before.applications.filter((row) => row.application_type === "CREATE_DRAFT");
   const updateRows = before.applications.filter((row) => row.application_type === "UPDATE_EXISTING");
   const detachedClusterIds = before.linkedClusters.map((cluster) => Number(cluster.id));
-  execute(target, detachSql(target, before.applications, before.linkedClusters));
+  const statements = detachStatements(target, before, now);
+  await executeAtomicBatch(target, statements, fetchImpl);
 
+  invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_runs WHERE status='RUNNING'") === 0,
+    "a RUNNING automation run remains after detach");
   invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_applications") === 0,
     "automation applications remain after detach");
   invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_cluster_canonical_claims") === 0,
@@ -405,12 +438,12 @@ async function main() {
   const before = preview(target);
   console.log(JSON.stringify(before, null, 2));
   if (!applyRequested) return;
-  const result = apply(target, before);
+  const result = await apply(target, before);
   console.log(JSON.stringify(result, null, 2));
   console.log(JSON.stringify(preview(target), null, 2));
 }
 
-export { preview, apply, possibleDuplicateCandidateIds };
+export { preview, apply, possibleDuplicateCandidateIds, detachStatements, executeAtomicBatch };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
