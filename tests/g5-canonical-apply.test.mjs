@@ -85,12 +85,14 @@ test("G5 idempotency and immutable audit carry provenance and rollback snapshots
   assert.match(apply,/newValue/);
 });
 
-test("G5 API is admin-only and preview is read-only",()=>{
+test("G5 preview stays read-only and legacy POST canonical apply is hard-disabled",()=>{
   assert.match(api,/getAdminApiUser/);
   assert.match(api,/requireAdminMutation/);
   assert.match(api,/export async function GET/);
   assert.match(api,/getAutomationCanonicalApplyPreview/);
   assert.match(api,/export async function POST/);
+  assert.match(api,/status:410/);
+  assert.doesNotMatch(api,/applyAutomationCanonicalReview/);
   const previewBody=apply.slice(apply.indexOf("export async function getAutomationCanonicalApplyPreview"),apply.indexOf("function normalizedSelections"));
   assert.doesNotMatch(previewBody,/UPDATE directory_profiles|UPDATE help_organizations|INSERT INTO automation_canonical_apply_operations/i);
 });
