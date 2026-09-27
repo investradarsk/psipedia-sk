@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+
 export type CanonicalDraftEntityType =
   | "EVENT"
   | "ORGANIZATION"
@@ -24,6 +26,14 @@ export type CanonicalDraftFlag = {
 };
 
 export type CanonicalDraftFlagDatabase = Pick<D1Database, "prepare">;
+type RuntimeBindings = { DB?: D1Database };
+
+function database(input?: CanonicalDraftFlagDatabase) {
+  if (input?.prepare) return input;
+  const bound = (env as unknown as RuntimeBindings).DB;
+  if (bound?.prepare) return bound;
+  throw new Error("Canonical draft flags nemajú pripojenú databázu.");
+}
 
 function parseDetails(value: unknown): CanonicalDraftPossibleDuplicateDetails {
   try {
@@ -51,9 +61,10 @@ export async function getCanonicalDraftFlag(
   entityType: CanonicalDraftEntityType,
   canonicalEntityId: number,
   flagType: CanonicalDraftFlagType,
-  database: CanonicalDraftFlagDatabase,
+  databaseInput?: CanonicalDraftFlagDatabase,
 ): Promise<CanonicalDraftFlag | null> {
-  const row = await database.prepare(`SELECT id,entity_type,canonical_entity_id,flag_type,details_json,created_at
+  const db = database(databaseInput);
+  const row = await db.prepare(`SELECT id,entity_type,canonical_entity_id,flag_type,details_json,created_at
     FROM canonical_draft_flags
     WHERE entity_type=? AND canonical_entity_id=? AND flag_type=?
     LIMIT 1`).bind(entityType, canonicalEntityId, flagType).first<{
@@ -83,13 +94,14 @@ export async function upsertCanonicalPossibleDuplicateFlag(
     sourceUrl?: string | null;
     createdAt: string;
   },
-  database: CanonicalDraftFlagDatabase,
+  databaseInput?: CanonicalDraftFlagDatabase,
 ) {
+  const db = database(databaseInput);
   const details: CanonicalDraftPossibleDuplicateDetails = {
     candidateIds: [...new Set(input.candidateIds.filter((id) => Number.isSafeInteger(id) && id > 0 && id !== input.canonicalEntityId))],
     sourceUrl: input.sourceUrl?.trim() || null,
   };
-  await database.prepare(`INSERT INTO canonical_draft_flags
+  await db.prepare(`INSERT INTO canonical_draft_flags
     (entity_type,canonical_entity_id,flag_type,details_json,created_at)
     VALUES (?,?,'POSSIBLE_DUPLICATE',?,?)
     ON CONFLICT(entity_type,canonical_entity_id,flag_type)
@@ -99,7 +111,7 @@ export async function upsertCanonicalPossibleDuplicateFlag(
       JSON.stringify(details),
       input.createdAt,
     ).run();
-  return getCanonicalDraftFlag(input.entityType, input.canonicalEntityId, "POSSIBLE_DUPLICATE", database);
+  return getCanonicalDraftFlag(input.entityType, input.canonicalEntityId, "POSSIBLE_DUPLICATE", db);
 }
 
 export type CanonicalDraftDuplicateWarning = {
@@ -111,9 +123,9 @@ export type CanonicalDraftDuplicateWarning = {
 export async function getCanonicalDraftDuplicateWarning(
   entityType: CanonicalDraftEntityType,
   canonicalEntityId: number,
-  database: CanonicalDraftFlagDatabase,
+  databaseInput?: CanonicalDraftFlagDatabase,
 ): Promise<CanonicalDraftDuplicateWarning | null> {
-  const flag = await getCanonicalDraftFlag(entityType, canonicalEntityId, "POSSIBLE_DUPLICATE", database);
+  const flag = await getCanonicalDraftFlag(entityType, canonicalEntityId, "POSSIBLE_DUPLICATE", databaseInput);
   if (!flag) return null;
   return {
     reason: "Koncept je označený na kontrolu možnej duplicity.",
