@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
 import type { AutomationGovernanceEvaluation, AutomationGovernanceRead } from "@/lib/data-automation-governance";
 import { automationConnectorTypes, automationEntityTypes } from "@/lib/data-automation";
+import { automationReadableError } from "@/lib/admin-automation-presentation";
 import {
   automationHelpSourceReadiness,
   type AutomationHelpSourceReadiness,
@@ -467,6 +468,7 @@ export function AdminAutomationSourceDetail({
           <div><span>Ďalšia kontrola</span><strong style={{ fontSize: "1rem", lineHeight: 1.3 }}>{formatDate(source.nextCheckAt)}</strong></div>
         </div>
         <p><strong>Posledná kontrola:</strong> {formatDate(source.lastCheckedAt)} · <strong>Posledná úspešná:</strong> {formatDate(source.lastSuccessAt)}</p>
+        {source.lastErrorCode && <p><strong>Posledná chyba:</strong> {automationReadableError(source.lastErrorCode)}</p>}
       </section>
 
       {preview && (
