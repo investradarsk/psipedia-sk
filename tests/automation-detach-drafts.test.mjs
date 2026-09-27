@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
+import { executeAtomicBatch } from "../scripts/automation-detach-drafts.mjs";
 
 const scriptPath = new URL("../scripts/automation-detach-drafts.mjs", import.meta.url);
 const source = await fs.readFile(scriptPath, "utf8");
@@ -70,8 +71,61 @@ test("detach apply preserves canonical rows exactly, including historical organi
 });
 
 
-test("destructive detach linkage changes are committed atomically", () => {
-  assert.match(source, /BEGIN TRANSACTION/);
-  assert.match(source, /COMMIT/);
-  assert.match(source, /detachSql\(target, before\.applications, before\.linkedClusters\)/);
+test("production detach mutations use one supported atomic D1 batch without explicit transaction SQL", () => {
+  assert.doesNotMatch(source, /BEGIN\s+TRANSACTION/i);
+  assert.doesNotMatch(source, /\bCOMMIT\b/i);
+  assert.doesNotMatch(source, /\bSAVEPOINT\b/i);
+  assert.match(source, /batch: statements\.map\(\(sql\) => \(\{ sql \}\)\)/);
+  assert.match(source, /await executeAtomicBatch\(target, statements, fetchImpl\)/);
+});
+
+test("stale run recovery is part of the same atomic detach statement batch", () => {
+  const detachStart = source.indexOf("function detachStatements");
+  const applyStart = source.indexOf("async function apply");
+  const detachBody = source.slice(detachStart, applyStart);
+  assert.match(detachBody, /UPDATE automation_runs SET/);
+  assert.match(detachBody, /stale_run_recovered/);
+  assert.match(detachBody, /INSERT INTO automation_ingestion_receipts/);
+  assert.match(detachBody, /DELETE FROM automation_applications/);
+  assert.doesNotMatch(source, /function recoverStaleRuns/);
+});
+
+test("simulated middle-statement failure rejects the single atomic batch without per-statement fallback", async () => {
+  let calls = 0;
+  let requestBody = null;
+  const fetchImpl = async (_url, init) => {
+    calls += 1;
+    requestBody = JSON.parse(init.body);
+    return {
+      ok: true,
+      async json() {
+        return {
+          success: true,
+          errors: [],
+          result: [
+            { success: true },
+            { success: false, error: "simulated middle failure" },
+            { success: false, error: "rolled back" },
+          ],
+        };
+      },
+    };
+  };
+
+  await assert.rejects(
+    executeAtomicBatch(
+      { accountId: "account", databaseId: "database" },
+      ["UPDATE a SET x=1", "DELETE FROM b", "UPDATE c SET y=2"],
+      fetchImpl,
+    ),
+    /atomic D1 batch failed/,
+  );
+  assert.equal(calls, 1);
+  assert.deepEqual(requestBody, {
+    batch: [
+      { sql: "UPDATE a SET x=1" },
+      { sql: "DELETE FROM b" },
+      { sql: "UPDATE c SET y=2" },
+    ],
+  });
 });
