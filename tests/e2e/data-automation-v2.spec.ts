@@ -204,7 +204,7 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   await expect(page.getByRole("heading", { name: editedLabel, exact: true })).toBeVisible();
   await expect(page.getByText("Schválený", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Vypnutý", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("SUCCESS", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Bez chyby", { exact: true }).first()).toBeVisible();
 
   const testSourceButton = page.getByRole("button", { name: "Overiť zdroj", exact: true });
   await expect(testSourceButton).toBeVisible();
