@@ -1020,6 +1020,16 @@ export async function getManagedDirectoryProfileById(id: number) {
   return row ? rowToManagedProfile(row) : null;
 }
 
+export async function getManagedDirectoryProfileByCategorySlug(category: string, slug: string) {
+  if (!isDirectoryCategory(category) || !slug.trim()) return null;
+  const database = requireD1Binding();
+  await ensureDirectoryStore(database);
+  const row = await database.prepare("SELECT * FROM directory_profiles WHERE category = ? AND slug = ? LIMIT 1")
+    .bind(category, slug.trim())
+    .first<DirectoryProfileRow>();
+  return row ? rowToManagedProfile(row) : null;
+}
+
 export async function createManagedDirectoryProfile(payload: ManagedDirectoryProfileInput, editorEmail: string) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
