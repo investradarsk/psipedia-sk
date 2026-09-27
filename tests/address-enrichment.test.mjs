@@ -12,6 +12,7 @@ import {
   sourceTier,
 } from "../lib/address-enrichment.ts";
 import {
+  canonicalAddressShape,
   extractOfficialAddress,
   validateAddressCanarySelection,
 } from "../lib/address-enrichment-canary.ts";
@@ -210,4 +211,16 @@ test("explicit canary selection is bounded, unique and fingerprinted", () => {
       candidateFingerprint: fp,
     })),
   ), /1 až 5/);
+});
+
+
+test("canonical shape distinguishes STREET from MUNICIPALITY_NUMBER", () => {
+  assert.deepEqual(canonicalAddressShape("Hlavná", "Zlaté Moravce"), {
+    street: "Hlavná",
+    addressFormat: "STREET",
+  });
+  assert.deepEqual(canonicalAddressShape("Zlaté Moravce", "Zlaté Moravce"), {
+    street: "",
+    addressFormat: "MUNICIPALITY_NUMBER",
+  });
 });
