@@ -61,6 +61,13 @@ test("manual match memory, canonical provenance and automation applications bloc
   assert.match(source, /cleanup blocked/);
 });
 
+test("cleanup fail-closes canonical-linked draft findings and legacy applications", () => {
+  assert.match(source, /linkedNewDuplicateFindings/);
+  assert.match(source, /automationApplications/);
+  assert.match(source, /updateExistingApplications/);
+  assert.match(source, /applyAllowed: Object\.values\(blockers\)\.every/);
+});
+
 test("apply uses one explicit transaction for the hardcoded cleanup list", () => {
   assert.match(source, /BEGIN TRANSACTION/);
   assert.match(source, /COMMIT/);
@@ -78,4 +85,11 @@ test("cleanup preserves detached receipts and canonical-local draft flags", () =
   assert.ok(mod.CANONICAL_TABLES.includes("canonical_draft_flags"));
   assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_ingestion_receipts"), false);
   assert.equal(mod.DELETE_TABLE_ORDER.includes("canonical_draft_flags"), false);
+});
+
+test("cleanup preserves canonical publication lifecycle and final automation invariants", () => {
+  assert.match(source, /canonicalLifecycleSnapshot/);
+  assert.match(source, /canonical publication\/lifecycle state changed/);
+  assert.match(source, /automation_applications remain after cleanup/);
+  assert.match(source, /automation_cluster_canonical_claims remain after cleanup/);
 });
