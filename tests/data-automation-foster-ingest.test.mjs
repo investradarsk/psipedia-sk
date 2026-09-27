@@ -169,9 +169,9 @@ test("explicit age is proposed only when the source actually contains it", () =>
 });
 
 test("existing FOSTER CREATE_DRAFT contract remains draft-only and category-safe", () => {
-  const applySource = readFileSync(new URL("../lib/data-automation-apply.ts", import.meta.url), "utf8");
-  assert.match(applySource, /const isFoster = finding\.entityType === "FOSTER"/);
-  assert.match(applySource, /const category = isFoster \? "docasna-opatera"/);
-  assert.match(applySource, /status: "draft"/);
-  assert.match(applySource, /published_at: null/);
+  const draftService = readFileSync(new URL("../lib/canonical-draft-service.ts", import.meta.url), "utf8");
+  assert.match(draftService, /const isFoster = input\.entityType === "FOSTER"/);
+  assert.match(draftService, /const category = isFoster \? "docasna-opatera"/);
+  assert.match(draftService, /status: "draft"/);
+  assert.match(draftService, /published_at: null/);
 });
