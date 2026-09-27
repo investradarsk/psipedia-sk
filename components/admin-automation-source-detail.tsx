@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
 import type { AutomationGovernanceEvaluation, AutomationGovernanceRead } from "@/lib/data-automation-governance";
 import { automationConnectorTypes, automationEntityTypes } from "@/lib/data-automation";
+import {
+  automationHelpSourceReadiness,
+  type AutomationHelpSourceReadiness,
+} from "@/lib/data-automation-help-source-readiness";
 import styles from "./admin-operations-ux.module.css";
 
 type Preview = {
@@ -64,7 +68,18 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
-function statusCopy(source: AutomationSourceAdminRow, governanceEvaluation: AutomationGovernanceEvaluation) {
+function statusCopy(
+  source: AutomationSourceAdminRow,
+  governanceEvaluation: AutomationGovernanceEvaluation,
+  helpReadiness: AutomationHelpSourceReadiness,
+) {
+  if (helpReadiness.applicable && !helpReadiness.ready) {
+    return {
+      title: "Zdroj zatiaľ nie je pripravený na automatické spracovanie",
+      text: "Pred testom alebo zapnutím monitoringu potrebuje podporovaný HELP adapter a jednoznačný typ zdroja.",
+      warning: true,
+    };
+  }
   if (source.lastRunStatus === "FAILED" || source.lastErrorCode) {
     return { title: "Zdroj hlási problém", text: "Najprv ho otestuj. Ak test zlyhá, technické detaily nájdeš nižšie.", warning: true };
   }
@@ -146,7 +161,8 @@ export function AdminAutomationSourceDetail({
     config: JSON.stringify(source.config, null, 2),
   });
 
-  const status = statusCopy(source, governanceEvaluation);
+  const helpReadiness = automationHelpSourceReadiness(source);
+  const status = statusCopy(source, governanceEvaluation, helpReadiness);
 
   async function pollRunStatus() {
     let networkFailures = 0;
@@ -276,6 +292,32 @@ export function AdminAutomationSourceDetail({
         </div>
       </section>
 
+      {helpReadiness.applicable && (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Pripravenosť HELP zdroja</h2>
+              <p>{helpReadiness.ready
+                ? "Zdroj má podporovaný adapter a source shape zodpovedá jeho contractu."
+                : "Zdroj zatiaľ nie je pripravený na automatické spracovanie."}</p>
+            </div>
+          </div>
+          <div className={styles.reviewSummary}>
+            <div><span>Typ zdroja</span><strong>{helpReadiness.sourceShape === "SINGLE_ITEM" ? "Detail jednej položky" : helpReadiness.sourceShape === "MULTI_ITEM_LIST" ? "Zoznam položiek" : "Neurčené"}</strong></div>
+            <div><span>Technická pripravenosť</span><strong>{helpReadiness.ready ? "Pripravený" : "Potrebuje podporovaný adapter"}</strong></div>
+            <div><span>Adapter</span><strong>{helpReadiness.adapterLabel ?? "Nie je priradený"}</strong></div>
+          </div>
+          {!helpReadiness.ready && <p>Test, monitoring aj manuálny run zostávajú zablokované, kým nebude source shape a adapter explicitne podporovaný.</p>}
+          <details className={styles.advanced}>
+            <summary>Pokročilé — readiness detail</summary>
+            <div className={styles.advancedBody}>
+              <p><strong>Dôvod:</strong> {helpReadiness.reason}</p>
+              <p><strong>Adapter key:</strong> {helpReadiness.adapterKey ?? "—"}</p>
+            </div>
+          </details>
+        </section>
+      )}
+
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div>
@@ -292,10 +334,10 @@ export function AdminAutomationSourceDetail({
         )}
 
         <div className="admin-form-actions">
-          <button type="button" disabled={busy} onClick={() => void testSource()}>{busyAction === "test" ? "Testujem zdroj…" : "Otestovať zdroj"}</button>
+          <button type="button" disabled={busy || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void testSource()}>{busyAction === "test" ? "Testujem zdroj…" : "Otestovať zdroj"}</button>
           {source.reviewStatus !== "APPROVED" && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "approve", notes })}>Schváliť zdroj</button>}
-          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed} onClick={() => void action({ action: "enable" })}>Zapnúť monitoring</button>}
-          {source.enabled && <button className="is-primary" type="button" disabled={busy} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Spustiť kontrolu teraz"}</button>}
+          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void action({ action: "enable" })}>Zapnúť monitoring</button>}
+          {source.enabled && <button className="is-primary" type="button" disabled={busy || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Spustiť kontrolu teraz"}</button>}
           {source.enabled && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Vypnúť monitoring</button>}
           {source.reviewStatus !== "REJECTED" && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "reject", notes })}>Zamietnuť zdroj</button>}
         </div>

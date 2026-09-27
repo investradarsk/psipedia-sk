@@ -8,6 +8,12 @@ import type {
   AutomationSourceCandidateRow,
 } from "@/lib/data-automation-source-store";
 import { automationSourceDomain } from "@/lib/admin-automation-presentation";
+import { candidateProvisioningConfigFor } from "@/lib/data-automation-source-provisioning";
+import {
+  automationHelpSourceReadiness,
+  isAutomationHelpEntityType,
+  type AutomationHelpSourceReadiness,
+} from "@/lib/data-automation-help-source-readiness";
 import styles from "./admin-operations-ux.module.css";
 
 function formatDate(value: string | null) {
@@ -26,6 +32,18 @@ function reviewLabel(status: AutomationSourceCandidateRow["reviewStatus"]) {
   if (status === "REJECTED") return "Zamietnutý";
   if (status === "SUPPRESSED") return "Odložený";
   return "Čaká na rozhodnutie";
+}
+
+function helpShapeLabel(readiness: AutomationHelpSourceReadiness) {
+  if (readiness.sourceShape === "SINGLE_ITEM") return "Detail jednej položky";
+  if (readiness.sourceShape === "MULTI_ITEM_LIST") return "Zoznam položiek";
+  return "Neurčené";
+}
+
+function helpReadinessLabel(readiness: AutomationHelpSourceReadiness) {
+  if (readiness.ready) return "Pripravený";
+  if (readiness.reason === "UNSUPPORTED_SOURCE") return "Nepodporovaný typ zdroja";
+  return "Potrebuje podporovaný adapter";
 }
 
 type CandidateApprovalPreview = {
@@ -85,6 +103,17 @@ export function AdminAutomationCandidateReview({
     preview: CandidateApprovalPreview | null;
   } | null>(null);
   const [organizationConcept, setOrganizationConcept] = useState<OrganizationConceptResult | null>(null);
+  const helpReadiness = isAutomationHelpEntityType(candidate.entityType)
+    ? automationHelpSourceReadiness(existingSource ?? {
+      entityType: candidate.entityType,
+      connectorType: candidate.suggestedConnectorType,
+      config: candidateProvisioningConfigFor({
+        entityType: candidate.entityType,
+        canonicalUrl: candidate.canonicalUrl,
+        metadata: candidate.metadata,
+      }),
+    })
+    : null;
 
   async function review(action: "approve" | "reject" | "suppress") {
     setBusy(true);
@@ -203,6 +232,32 @@ export function AdminAutomationCandidateReview({
           </div>
         )}
       </section>
+
+      {helpReadiness && (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Pripravenosť HELP zdroja</h2>
+              <p>Schválenie discovery kandidáta samo osebe neznamená, že zdroj je technicky pripravený na automatické spracovanie.</p>
+            </div>
+          </div>
+          <div className={styles.reviewSummary}>
+            <div><span>Typ zdroja</span><strong>{helpShapeLabel(helpReadiness)}</strong></div>
+            <div><span>Technická pripravenosť</span><strong>{helpReadinessLabel(helpReadiness)}</strong></div>
+            <div><span>Adapter</span><strong>{helpReadiness.adapterLabel ?? "Nie je priradený"}</strong></div>
+          </div>
+          {!helpReadiness.ready && (
+            <p><strong>Zdroj zostane vypnutý.</strong> Na preview a monitoring potrebuje explicitne podporovaný adapter pre tento HELP typ a source shape.</p>
+          )}
+          <details className={styles.advanced}>
+            <summary>Pokročilé — readiness detail</summary>
+            <div className={styles.advancedBody}>
+              <p><strong>Dôvod:</strong> {helpReadiness.reason}</p>
+              <p><strong>Adapter key:</strong> {helpReadiness.adapterKey ?? "—"}</p>
+            </div>
+          </details>
+        </section>
+      )}
 
       {candidate.entityType === "ORGANIZATION" && candidate.discoveryType === "SEARCH_PROVIDER" && (
         <section className={styles.section}>

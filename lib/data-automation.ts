@@ -45,7 +45,10 @@ export type AutomationMatchQuality = (typeof automationMatchQualities)[number];
 export const automationPriorities = ["HIGH", "MEDIUM", "LOW"] as const;
 export type AutomationPriority = (typeof automationPriorities)[number];
 
+export type AutomationHelpSourceShape = "SINGLE_ITEM" | "MULTI_ITEM_LIST";
+
 export type AutomationSourceConfig = {
+  sourceShape?: AutomationHelpSourceShape;
   recordsPath?: string;
   idField?: string;
   urlField?: string;

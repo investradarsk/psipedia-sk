@@ -8,6 +8,7 @@ import {
   type AutomationSourceRecord,
 } from "./data-automation.ts";
 import { organizationHtmlAdapterKeyForSourceUrl } from "./data-automation-source-provisioning.ts";
+import { automationHelpRecordShapeError } from "./data-automation-help-source-readiness.ts";
 
 export class AutomationConnectorError extends Error {
   readonly code: string;
@@ -343,6 +344,8 @@ export async function fetchAutomationSourceRecords(
       throw new AutomationConnectorError("adapter_parse_failed");
     }
     const records = boundedAutomationRecords(parsed, source.maxRecordsPerRun);
+    const helpShapeError = automationHelpRecordShapeError(source, records.length);
+    if (helpShapeError) throw new AutomationConnectorError(helpShapeError);
     validateRecordCount(source, records);
     return records;
   }, sleep);
