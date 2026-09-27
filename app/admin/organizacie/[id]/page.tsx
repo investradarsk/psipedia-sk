@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminOrganizationEditor } from "@/components/admin-organization-editor";
-import { AdminAutomationDraftWarning } from "@/components/admin-automation-draft-warning";
+import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
 import { AdminOrganizationLocations } from "@/components/admin-organization-locations";
 import { AdminShell } from "@/components/admin-shell";
@@ -8,7 +8,7 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getOrganizationPublicationAdminById } from "@/lib/help-organization-admin-store";
 import { listOrganizationFundraisingMethodsAdmin } from "@/lib/organization-fundraising-admin-store";
 import { listOrganizationLocationsAdmin } from "@/lib/organization-location-admin-store";
-import { getAutomationDraftDuplicateWarning } from "@/lib/data-automation-store";
+import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -24,7 +24,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     listOrganizationFundraisingMethodsAdmin(organizationId),
   ]);
   if (!organization) notFound();
-  const duplicateWarning = await getAutomationDraftDuplicateWarning("ORGANIZATION", organization.id).catch(() => null);
+  const duplicateWarning = await getCanonicalDraftDuplicateWarning("ORGANIZATION", organization.id).catch(() => null);
 
   return <AdminShell
     user={user}
@@ -32,7 +32,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     title={organization.name}
     description="Canonical údaje, lokality a fundraising na jednom admin detaile. Publication lifecycle zostáva explicitná samostatná akcia."
   >
-    <AdminAutomationDraftWarning warning={duplicateWarning} />
+    <AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminOrganizationEditor organization={organization} />
     <div id="locations"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
     <div id="fundraising"><AdminOrganizationFundraising organization={organization} initialMethods={methods} /></div>

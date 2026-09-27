@@ -134,13 +134,14 @@ test("enrichment stays review-gated and organization image is an applyable canon
   const runner = read("lib/data-automation-runner.ts");
   const worker = read("worker/index.ts");
   const apply = read("lib/data-automation-apply.ts");
+  const canonicalDraftService = read("lib/canonical-draft-service.ts");
   const store = read("lib/data-automation-store.ts");
 
   assert.match(runner, /organizationEnricher/);
   assert.match(runner, /processRecord\(source, runId, candidateRecord/);
   assert.match(worker, /createProductionOrganizationEnricher/);
   assert.match(apply, /imageUrl: field\("image_url"\)/);
-  assert.match(apply, /image_url: after\.imageUrl/);
+  assert.match(canonicalDraftService, /image_url: after\.imageUrl/);
   assert.match(store, /imageUrl: row\.image_url/);
   assert.doesNotMatch(runner, /UPDATE\s+help_organizations/i);
 });

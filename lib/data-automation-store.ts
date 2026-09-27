@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance";
 import {
-  automationCanonicalAdminHref,
   automationDraftSlug,
   automationFindingPriority,
   automationReviewEffect,
@@ -18,6 +17,7 @@ import {
   type AutomationSourceRecord,
 } from "./data-automation.ts";
 import { selectSafeAutomationMatch, type AutomationMatchCandidate } from "./data-automation-matching.ts";
+import { getCanonicalDraftFlag } from "./canonical-draft-flags.ts";
 
 export type AutomationD1Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -73,6 +73,7 @@ export type AutomationFindingDetail = {
   id: number;
   sourceId: number;
   observationId: number | null;
+  sourceRecordId: string | null;
   sourceKey: string;
   sourceLabel: string;
   entityType: AutomationSource["entityType"];
@@ -572,12 +573,14 @@ export async function listAutomationFindingSummaries(
 
 export async function getAutomationFindingDetail(id: number, database?: AutomationD1Database): Promise<AutomationFindingDetail | null> {
   const db = getDatabase(database);
-  const row = await db.prepare(`SELECT f.*,s.source_key,s.label AS source_label
-    FROM automation_findings f JOIN automation_sources s ON s.id=f.source_id
-    WHERE f.id=? LIMIT 1`).bind(id).first<FindingRow & { source_key: string; source_label: string }>();
+  const row = await db.prepare(`SELECT f.*,s.source_key,s.label AS source_label,o.source_record_id AS observation_source_record_id
+    FROM automation_findings f
+    JOIN automation_sources s ON s.id=f.source_id
+    LEFT JOIN automation_observations o ON o.id=f.observation_id
+    WHERE f.id=? LIMIT 1`).bind(id).first<FindingRow & { source_key: string; source_label: string; observation_source_record_id: string | null }>();
   if (!row) return null;
   return {
-    id: Number(row.id), sourceId: Number(row.source_id), observationId: row.observation_id, sourceKey: row.source_key, sourceLabel: row.source_label,
+    id: Number(row.id), sourceId: Number(row.source_id), observationId: row.observation_id, sourceRecordId: row.observation_source_record_id ?? null, sourceKey: row.source_key, sourceLabel: row.source_label,
     entityType: row.entity_type, findingType: row.finding_type, canonicalEntityId: row.canonical_entity_id,
     canonicalEntityKey: row.canonical_entity_key, matchQuality: row.match_quality, sourceUrl: row.source_url,
     sourceTimestamp: row.source_timestamp, reason: row.reason, before: parseJson(row.before_json, {}),
@@ -592,7 +595,7 @@ export async function getAutomationFindingDetail(id: number, database?: Automati
 export type AutomationDraftDuplicateWarning = {
   reason: string;
   sourceUrl: string | null;
-  candidates: Array<{ id: number; href: string | null }>;
+  candidates: Array<{ id: number; href: null }>;
 };
 
 export async function getAutomationDraftDuplicateWarning(
@@ -601,33 +604,12 @@ export async function getAutomationDraftDuplicateWarning(
   database?: AutomationD1Database,
 ): Promise<AutomationDraftDuplicateWarning | null> {
   const db = getDatabase(database);
-  const row = await db.prepare(`SELECT reason,source_url FROM automation_findings
-    WHERE entity_type=? AND finding_type='DUPLICATE_CANDIDATE' AND canonical_entity_id=?
-    ORDER BY id DESC LIMIT 1`).bind(entityType, canonicalEntityId).first<{ reason: string; source_url: string | null }>();
-  if (!row) return null;
-
-  const ids = new Set<number>();
-  for (const match of String(row.reason ?? "").matchAll(/(?:event|organization|directory|adoption|lost-found|help):(\d+)/gi)) {
-    const id = Number(match[1]);
-    if (Number.isSafeInteger(id) && id > 0 && id !== canonicalEntityId) ids.add(id);
-  }
-
-  const clusterMatch = String(row.reason ?? "").match(/kandidátne clustre:\s*([0-9,\s]+)/i);
-  if (clusterMatch) {
-    for (const raw of clusterMatch[1].split(",")) {
-      const clusterId = Number(raw.trim());
-      if (!Number.isSafeInteger(clusterId) || clusterId < 1) continue;
-      const cluster = await db.prepare(`SELECT canonical_entity_id FROM automation_entity_clusters WHERE id=? LIMIT 1`)
-        .bind(clusterId).first<{ canonical_entity_id: number | null }>();
-      const id = Number(cluster?.canonical_entity_id ?? 0);
-      if (Number.isSafeInteger(id) && id > 0 && id !== canonicalEntityId) ids.add(id);
-    }
-  }
-
+  const flag = await getCanonicalDraftFlag(entityType, canonicalEntityId, "POSSIBLE_DUPLICATE", db);
+  if (!flag) return null;
   return {
-    reason: String(row.reason ?? ""),
-    sourceUrl: row.source_url ? String(row.source_url) : null,
-    candidates: [...ids].map((id) => ({ id, href: automationCanonicalAdminHref(entityType, id) })),
+    reason: "Koncept je označený na kontrolu možnej duplicity.",
+    sourceUrl: flag.details.sourceUrl,
+    candidates: flag.details.candidateIds.map((id) => ({ id, href: null })),
   };
 }
 

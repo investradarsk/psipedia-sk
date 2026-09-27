@@ -31,6 +31,7 @@ test("critical persistent state is preserved", () => {
     "automation_governance_review_history",
     "automation_entity_match_decisions",
     "automation_canonical_apply_operations",
+    "automation_ingestion_receipts",
   ]) assert.ok(mod.KEEP_TABLES.includes(table), table);
 });
 
@@ -43,17 +44,20 @@ test("FK-safe child-first cleanup order is explicit", () => {
   assert.ok(idx("automation_source_candidates") < idx("automation_entity_clusters"));
 });
 
-test("cluster canonical claims are explicitly uncertain and never deleted", () => {
-  assert.deepEqual(mod.UNCERTAIN_TABLES, ["automation_cluster_canonical_claims"]);
+test("canonical claims and automation applications are explicitly uncertain and never deleted blindly", () => {
+  assert.deepEqual(mod.UNCERTAIN_TABLES, ["automation_cluster_canonical_claims", "automation_applications"]);
   assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_cluster_canonical_claims"), false);
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_applications"), false);
 });
 
-test("manual match memory, canonical provenance and duplicate warnings block destructive apply", () => {
+test("manual match memory, canonical provenance and automation applications block destructive apply", () => {
   assert.match(source, /manualMatchDecisions/);
   assert.match(source, /canonicalApplyOperations/);
   assert.match(source, /canonicalClusterClaims/);
   assert.match(source, /canonicalLinkedClusters/);
-  assert.match(source, /duplicateDraftWarnings/);
+  assert.match(source, /automationApplications/);
+  assert.match(source, /createDraftApplications/);
+  assert.match(source, /updateExistingApplications/);
   assert.match(source, /cleanup blocked/);
 });
 
@@ -66,4 +70,12 @@ test("apply uses one explicit transaction for the hardcoded cleanup list", () =>
 test("no wildcard or dynamic discovered-table delete exists", () => {
   assert.doesNotMatch(source, /DELETE FROM\s+<|DELETE FROM\s+automation_%|sqlite_master[\s\S]{0,300}DELETE FROM/i);
   assert.match(source, /DELETE FROM editorial_notifications WHERE resource_type='automation_finding'/);
+});
+
+
+test("cleanup preserves detached receipts and canonical-local draft flags", () => {
+  assert.ok(mod.KEEP_TABLES.includes("automation_ingestion_receipts"));
+  assert.ok(mod.CANONICAL_TABLES.includes("canonical_draft_flags"));
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_ingestion_receipts"), false);
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("canonical_draft_flags"), false);
 });

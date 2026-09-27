@@ -83,6 +83,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0088_automation_tavily_organization_root.sql",
   "0089_automation_tavily_directory_roots.sql",
   "0090_geo_google_place_identity.sql",
+  "0091_automation_detach_drafts.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -752,6 +753,12 @@ export function targetSchemaObjects(schema, targetMigration) {
     const googlePlaceColumns = new Set(["google_place_id", "google_place_source_fingerprint", "google_place_matched_at"]);
     return {
       partial: schema.geoPointColumns.some((column) => googlePlaceColumns.has(String(column.name))),
+    };
+  }
+  if (targetMigration === "0091_automation_detach_drafts.sql") {
+    const names = objectMap(schema.objects);
+    return {
+      partial: names.has("automation_ingestion_receipts") || names.has("canonical_draft_flags"),
     };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
