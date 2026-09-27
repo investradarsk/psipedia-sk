@@ -27,6 +27,10 @@ export const KEEP_TABLES = Object.freeze([
   "automation_canonical_apply_operations",
 ]);
 
+export const UNCERTAIN_TABLES = Object.freeze([
+  "automation_cluster_canonical_claims",
+]);
+
 export const DELETE_TABLE_ORDER = Object.freeze([
   "automation_source_candidate_evidence",
   "automation_cluster_findings",
@@ -44,10 +48,7 @@ export const DELETE_TABLE_ORDER = Object.freeze([
   "automation_entity_clusters",
 ]);
 
-export const RESET_ONLY_FIELDS = Object.freeze([
-  "automation_discovery_roots.last_error_code",
-  "automation_discovery_roots.last_error_at",
-]);
+export const RESET_ONLY_FIELDS = Object.freeze([]);
 
 export const BLOCKER_QUERIES = Object.freeze({
   runningAutomationRuns: "SELECT COUNT(*) AS count FROM automation_runs WHERE status='RUNNING'",
@@ -147,9 +148,11 @@ function requiredCount(target, table) {
 export function assertStaticSafety() {
   const canonical = new Set(CANONICAL_TABLES);
   const keep = new Set(KEEP_TABLES);
+  const uncertain = new Set(UNCERTAIN_TABLES);
   for (const table of DELETE_TABLE_ORDER) {
     invariant(!canonical.has(table), `canonical table in delete allowlist: ${table}`);
     invariant(!keep.has(table), `KEEP table in delete allowlist: ${table}`);
+    invariant(!uncertain.has(table), `UNCERTAIN table in delete allowlist: ${table}`);
   }
   invariant(!DELETE_TABLE_ORDER.some((table) => table === "automation_sources"), "automation_sources must never be deleted");
   invariant(!DELETE_TABLE_ORDER.some((table) => table === "automation_discovery_roots"), "discovery roots must never be deleted");
@@ -162,11 +165,13 @@ function preview(target) {
 
   const deleteCounts = countsFor(target, DELETE_TABLE_ORDER);
   const keepCounts = countsFor(target, KEEP_TABLES);
+  const uncertainCounts = countsFor(target, UNCERTAIN_TABLES);
   const canonical = canonicalSnapshot(target);
 
   const blockers = {};
   for (const [key, sql] of Object.entries(BLOCKER_QUERIES)) {
-    blockers[key] = execute(target, sql)[0]?.count == null ? 0 : Number(execute(target, sql)[0].count);
+    const rows = execute(target, sql);
+    blockers[key] = rows[0]?.count == null ? 0 : Number(rows[0].count);
   }
 
   const attention = {
@@ -179,6 +184,8 @@ function preview(target) {
     mode: "preview",
     deleteCounts,
     keepCounts,
+    uncertainCounts,
+    resetOnlyFields: RESET_ONLY_FIELDS,
     canonical,
     blockers,
     attention,
