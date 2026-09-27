@@ -73,5 +73,5 @@ test("detach apply preserves canonical rows exactly, including historical organi
 test("destructive detach linkage changes are committed atomically", () => {
   assert.match(source, /BEGIN TRANSACTION/);
   assert.match(source, /COMMIT/);
-  assert.match(source, /detachSql\(target, createRows, before\.linkedClusters\)/);
+  assert.match(source, /detachSql\(target, before\.applications, before\.linkedClusters\)/);
 });
