@@ -11,6 +11,39 @@ import {
 
 export const ORGANIZATION_OFFICIAL_SITE_ADAPTER = "organization-official-site";
 export const ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER = "psiadusa-organization-directory";
+export const GENERIC_DIRECTORY_PROFILE_ADAPTER = "generic-directory-profile";
+export const GENERIC_HELP_ITEM_PAGE_ADAPTER = "generic-help-item-page";
+
+const DIRECTORY_CATEGORIES = new Set([
+  "veterinari",
+  "treneri",
+  "kynologicke-kluby",
+  "chovatelske-kluby",
+  "chovatelske-stanice",
+  "salony-a-sluzby",
+  "hotely-a-opatrovanie",
+  "vencenie",
+  "fyzioterapia",
+  "dalsie-sluzby",
+]);
+
+const CLUB_DIRECTORY_CATEGORIES = new Set(["kynologicke-kluby", "chovatelske-kluby"]);
+const HELP_ITEM_CATEGORIES = new Set(["zbierky", "dobrovolnictvo"]);
+
+export function qualifiedDirectoryCategory(metadata: Record<string, unknown>) {
+  const value = typeof metadata.directoryCategory === "string" ? metadata.directoryCategory.trim() : "";
+  return DIRECTORY_CATEGORIES.has(value) ? value : null;
+}
+
+export function qualifiedClubDirectoryCategory(metadata: Record<string, unknown>) {
+  const value = qualifiedDirectoryCategory(metadata);
+  return value && CLUB_DIRECTORY_CATEGORIES.has(value) ? value : null;
+}
+
+export function qualifiedHelpItemCategory(metadata: Record<string, unknown>) {
+  const value = typeof metadata.helpCategory === "string" ? metadata.helpCategory.trim() : "";
+  return HELP_ITEM_CATEGORIES.has(value) ? value : null;
+}
 
 export function isPsiaDusaOrganizationDirectoryUrl(value: unknown) {
   const canonical = canonicalizeSourceUrl(value);
@@ -57,11 +90,26 @@ export function candidateProvisioningConfigFor(input: {
     });
   }
 
-  const directoryCategory = input.entityType === "DIRECTORY" && typeof input.metadata.directoryCategory === "string"
-    ? input.metadata.directoryCategory.trim()
-    : "";
+  if (input.entityType === "HELP_ITEM") {
+    const helpCategory = qualifiedHelpItemCategory(input.metadata);
+    if (!helpCategory) return {};
+    return {
+      sourceShape: "SINGLE_ITEM",
+      htmlAdapterKey: GENERIC_HELP_ITEM_PAGE_ADAPTER,
+      expectedMinRecords: 1,
+      staticFields: {
+        category: helpCategory,
+      },
+    };
+  }
+
+  if (input.entityType !== "DIRECTORY") return {};
+  const directoryCategory = qualifiedDirectoryCategory(input.metadata);
   if (!directoryCategory) return {};
   return {
+    sourceShape: "SINGLE_ITEM",
+    htmlAdapterKey: GENERIC_DIRECTORY_PROFILE_ADAPTER,
+    expectedMinRecords: 1,
     staticFields: {
       category: directoryCategory,
       semanticKind: "FACILITY_OR_SERVICE_PROFILE",

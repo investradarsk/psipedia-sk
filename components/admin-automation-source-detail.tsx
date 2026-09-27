@@ -7,9 +7,9 @@ import type { AutomationGovernanceEvaluation, AutomationGovernanceRead } from "@
 import { automationConnectorTypes, automationEntityTypes } from "@/lib/data-automation";
 import { automationReadableError } from "@/lib/admin-automation-presentation";
 import {
-  automationHelpSourceReadiness,
-  type AutomationHelpSourceReadiness,
-} from "@/lib/data-automation-help-source-readiness";
+  automationSourceReadiness,
+  type AutomationSourceReadiness,
+} from "@/lib/data-automation-capability-registry";
 import styles from "./admin-operations-ux.module.css";
 
 type Preview = {
@@ -72,9 +72,9 @@ function formatDate(value: string | null) {
 function statusCopy(
   source: AutomationSourceAdminRow,
   governanceEvaluation: AutomationGovernanceEvaluation,
-  helpReadiness: AutomationHelpSourceReadiness,
+  readiness: AutomationSourceReadiness,
 ) {
-  if (helpReadiness.applicable && !helpReadiness.ready) {
+  if (readiness.applicable && !readiness.ready) {
     return {
       title: "Zdroj potrebuje technické nastavenie",
       text: "Sledovanie zostáva vypnuté, kým Psipedia nevie tento typ zdroja bezpečne spracovať.",
@@ -162,8 +162,8 @@ export function AdminAutomationSourceDetail({
     config: JSON.stringify(source.config, null, 2),
   });
 
-  const helpReadiness = automationHelpSourceReadiness(source);
-  const status = statusCopy(source, governanceEvaluation, helpReadiness);
+  const readiness = automationSourceReadiness(source);
+  const status = statusCopy(source, governanceEvaluation, readiness);
 
   async function pollRunStatus() {
     let networkFailures = 0;
@@ -295,28 +295,28 @@ export function AdminAutomationSourceDetail({
         </div>
       </section>
 
-      {helpReadiness.applicable && (
+      {readiness.applicable && (
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <div>
               <h2>Technická pripravenosť</h2>
-              <p>{helpReadiness.ready
+              <p>{readiness.ready
                 ? "Psipedia tento typ zdroja pozná a vie ho bezpečne spracovať."
                 : "Zdroj potrebuje technické nastavenie. Bežné sledovanie zostáva zablokované."}</p>
             </div>
-            <span className={[styles.badge, helpReadiness.ready ? styles.badgeGood : styles.badgeWarning].join(" ")}>
-              {helpReadiness.ready ? "V poriadku" : "Vyžaduje technickú kontrolu"}
+            <span className={[styles.badge, readiness.ready ? styles.badgeGood : styles.badgeWarning].join(" ")}>
+              {readiness.ready ? "V poriadku" : "Vyžaduje technickú kontrolu"}
             </span>
           </div>
           <details className={styles.advanced}>
             <summary>Pokročilé — readiness detail</summary>
             <div className={styles.advancedBody}>
               <div className={styles.reviewSummary}>
-                <div><span>Typ zdroja</span><strong>{helpReadiness.sourceShape === "SINGLE_ITEM" ? "Detail jednej položky" : helpReadiness.sourceShape === "MULTI_ITEM_LIST" ? "Zoznam položiek" : "Neurčené"}</strong></div>
-                <div><span>Adapter</span><strong>{helpReadiness.adapterLabel ?? "Nie je priradený"}</strong></div>
+                <div><span>Typ zdroja</span><strong>{readiness.sourceShape === "SINGLE_ITEM" ? "Detail jednej položky" : readiness.sourceShape === "MULTI_ITEM_LIST" ? "Zoznam položiek" : "Neurčené"}</strong></div>
+                <div><span>Adapter</span><strong>{readiness.adapterLabel ?? "Nie je priradený"}</strong></div>
               </div>
-              <p><strong>Dôvod:</strong> {helpReadiness.reason}</p>
-              <p><strong>Adapter key:</strong> {helpReadiness.adapterKey ?? "—"}</p>
+              <p><strong>Dôvod:</strong> {readiness.reason}</p>
+              <p><strong>Adapter key:</strong> {readiness.adapterKey ?? "—"}</p>
             </div>
           </details>
         </section>
@@ -352,10 +352,10 @@ export function AdminAutomationSourceDetail({
         )}
 
         <div className="admin-form-actions">
-          <button type="button" disabled={busy || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void testSource()}>{busyAction === "test" ? "Overujem zdroj…" : "Overiť zdroj"}</button>
+          <button type="button" disabled={busy || (readiness.applicable && !readiness.ready)} onClick={() => void testSource()}>{busyAction === "test" ? "Overujem zdroj…" : "Overiť zdroj"}</button>
           {source.reviewStatus !== "APPROVED" && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "approve", notes })}>Schváliť zdroj</button>}
-          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void action({ action: "enable" })}>Zapnúť sledovanie</button>}
-          {source.enabled && <button className="is-primary" type="button" disabled={busy || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Skontrolovať teraz"}</button>}
+          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed || (readiness.applicable && !readiness.ready)} onClick={() => void action({ action: "enable" })}>Zapnúť sledovanie</button>}
+          {source.enabled && <button className="is-primary" type="button" disabled={busy || (readiness.applicable && !readiness.ready)} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Skontrolovať teraz"}</button>}
           {source.enabled && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Pozastaviť sledovanie</button>}
           {source.reviewStatus !== "REJECTED" && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "reject", notes })}>Zamietnuť zdroj</button>}
         </div>

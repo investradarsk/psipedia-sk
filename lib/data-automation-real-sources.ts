@@ -3,9 +3,19 @@ import {
   TRNAVA_ADOPTION_DETAIL_ADAPTER,
   trnavaAdoptionDetailAdapter,
 } from "./data-automation-adoption-adapters.ts";
+import {
+  ZATULANE_PSIKY_SALA_FOSTER_DETAIL_ADAPTER,
+  zatulanePsikySalaFosterDetailAdapter,
+} from "./data-automation-foster-adapters.ts";
+import {
+  KOSICE_FOUND_DOG_DETAIL_ADAPTER,
+  kosiceFoundDogDetailAdapter,
+} from "./data-automation-lost-found-adapters.ts";
 import { canonicalizeSourceUrl, normalizeAutomationIdentity, type AutomationSourceRecord } from "./data-automation.ts";
 import { parseOrganizationDirectory } from "./data-automation-organization-enrichment.ts";
 import {
+  GENERIC_DIRECTORY_PROFILE_ADAPTER,
+  GENERIC_HELP_ITEM_PAGE_ADAPTER,
   ORGANIZATION_OFFICIAL_SITE_ADAPTER,
   ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER,
 } from "./data-automation-source-provisioning.ts";
@@ -758,8 +768,191 @@ export const psiadusaOrganizationDirectoryAdapter: ControlledHtmlAdapter = ({ ht
   }).filter((record) => Boolean(record.sourceRecordId && String(record.proposed.name ?? "").trim()));
 };
 
+
+type JsonLdNode = Record<string, unknown>;
+
+function jsonLdNodes(html: string) {
+  const nodes: JsonLdNode[] = [];
+  for (const match of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(decodeHtml(match[1]).trim());
+    } catch {
+      continue;
+    }
+    const push = (value: unknown) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      const node = value as JsonLdNode;
+      nodes.push(node);
+      if (Array.isArray(node["@graph"])) node["@graph"].forEach(push);
+    };
+    if (Array.isArray(parsed)) parsed.forEach(push);
+    else push(parsed);
+    if (nodes.length >= 40) break;
+  }
+  return nodes.slice(0, 40);
+}
+
+function schemaTypes(node: JsonLdNode) {
+  const raw = node["@type"];
+  return (Array.isArray(raw) ? raw : [raw])
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim());
+}
+
+const DIRECTORY_SCHEMA_TYPES = new Set([
+  "Organization",
+  "LocalBusiness",
+  "VeterinaryCare",
+  "ProfessionalService",
+  "AnimalShelter",
+  "PetStore",
+]);
+
+function explicitSchemaUrl(value: unknown, base: string | null) {
+  if (typeof value !== "string" || !value.trim() || !base) return null;
+  return absolutePublicUrl(value.trim(), base);
+}
+
+function explicitPostalAddress(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const address = value as Record<string, unknown>;
+  const text = (key: string) => typeof address[key] === "string" ? address[key].trim() : "";
+  const street = text("streetAddress");
+  const locality = text("addressLocality");
+  const region = text("addressRegion");
+  const postalCode = text("postalCode");
+  const country = typeof address.addressCountry === "string"
+    ? address.addressCountry.trim()
+    : address.addressCountry && typeof address.addressCountry === "object" && !Array.isArray(address.addressCountry)
+      ? String((address.addressCountry as Record<string, unknown>).name ?? "").trim()
+      : "";
+  const formatted = [street, postalCode && locality ? `${postalCode} ${locality}` : locality, region, country]
+    .filter(Boolean).join(", ");
+  return {
+    ...(locality ? { city: locality } : {}),
+    ...(region ? { region } : {}),
+    ...(formatted ? { address: formatted } : {}),
+  };
+}
+
+function explicitDirectoryNode(html: string, sourceUrl: string) {
+  const candidates = jsonLdNodes(html).filter((node) =>
+    schemaTypes(node).some((type) => DIRECTORY_SCHEMA_TYPES.has(type))
+    && typeof node.name === "string"
+    && node.name.trim().length >= 2
+    && node.name.trim().length <= 160,
+  );
+  if (candidates.length === 0) return null;
+  const canonicalSource = canonicalizeSourceUrl(sourceUrl);
+  const exact = candidates.filter((node) => {
+    const urls = [node.url, node["@id"]]
+      .map((value) => explicitSchemaUrl(value, sourceUrl))
+      .filter(Boolean);
+    return Boolean(canonicalSource && urls.includes(canonicalSource));
+  });
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1 || candidates.length !== 1) return null;
+  return candidates[0];
+}
+
+export const genericDirectoryProfileAdapter: ControlledHtmlAdapter = ({ html, source }) => {
+  const category = typeof source.config.staticFields?.category === "string"
+    ? source.config.staticFields.category.trim()
+    : "";
+  const sourceUrl = canonicalizeSourceUrl(source.sourceUrl);
+  if (!category || !sourceUrl || !html.trim()) return [];
+
+  const node = explicitDirectoryNode(html, sourceUrl);
+  if (!node) return [];
+  const name = String(node.name ?? "").trim();
+  if (!name) return [];
+
+  const description = typeof node.description === "string"
+    ? textFromHtml(node.description).slice(0, 5000)
+    : "";
+  const explicitUrl = explicitSchemaUrl(node.url, sourceUrl);
+  const address = explicitPostalAddress(node.address);
+  const sourceRecordUrl = explicitSchemaUrl(node["@id"], sourceUrl) ?? explicitUrl ?? sourceUrl;
+
+  const proposed: Record<string, unknown> = {
+    name,
+    category,
+    semanticKind: "FACILITY_OR_SERVICE_PROFILE",
+    websiteUrl: explicitUrl ?? sourceUrl,
+    ...address,
+  };
+  if (description) proposed.description = description;
+
+  return [{
+    sourceRecordId: ("url:" + sourceRecordUrl).slice(0, 240),
+    sourceUrl: sourceRecordUrl,
+    sourceTimestamp: null,
+    rawRecord: {
+      schemaType: schemaTypes(node),
+      name,
+      description: description || null,
+      address: node.address ?? null,
+      url: explicitUrl,
+      schemaId: explicitSchemaUrl(node["@id"], sourceUrl),
+    },
+    proposed,
+  } satisfies AutomationSourceRecord];
+};
+
+function firstMetaDescription(html: string) {
+  for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = match[0];
+    const key = (htmlAttribute(tag, "name") || htmlAttribute(tag, "property")).toLowerCase();
+    if (key !== "description" && key !== "og:description") continue;
+    const value = htmlAttribute(tag, "content");
+    if (value) return textFromHtml(value).slice(0, 5000);
+  }
+  return "";
+}
+
+export const genericHelpItemPageAdapter: ControlledHtmlAdapter = ({ html, source }) => {
+  const category = typeof source.config.staticFields?.category === "string"
+    ? source.config.staticFields.category.trim()
+    : "";
+  const sourceUrl = canonicalizeSourceUrl(source.sourceUrl);
+  if (!sourceUrl || !["zbierky", "dobrovolnictvo"].includes(category)) return [];
+
+  const title = organizationHeading(html);
+  const description = firstMetaDescription(html);
+  if (!title || title.length > 180 || !description) return [];
+
+  const explicitText = normalizeAutomationIdentity(title + " " + description);
+  const categorySignal = category === "zbierky"
+    ? /\b(zbierk|dar|prispe|financn|transparentn|ucet)\w*/.test(explicitText)
+    : /\b(dobrovol|vencen|prevoz|materialn)\w*/.test(explicitText);
+  if (!categorySignal) return [];
+
+  return [{
+    sourceRecordId: ("url:" + sourceUrl).slice(0, 240),
+    sourceUrl,
+    sourceTimestamp: null,
+    rawRecord: {
+      title,
+      description,
+      category,
+      sourceUrl,
+    },
+    proposed: {
+      title,
+      category,
+      description,
+      actionUrl: sourceUrl,
+    },
+  } satisfies AutomationSourceRecord];
+};
+
 export const productionAutomationHtmlAdapters: Record<string, ControlledHtmlAdapter> = {
   [TRNAVA_ADOPTION_DETAIL_ADAPTER]: trnavaAdoptionDetailAdapter,
+  [ZATULANE_PSIKY_SALA_FOSTER_DETAIL_ADAPTER]: zatulanePsikySalaFosterDetailAdapter,
+  [KOSICE_FOUND_DOG_DETAIL_ADAPTER]: kosiceFoundDogDetailAdapter,
+  [GENERIC_DIRECTORY_PROFILE_ADAPTER]: genericDirectoryProfileAdapter,
+  [GENERIC_HELP_ITEM_PAGE_ADAPTER]: genericHelpItemPageAdapter,
   [ORGANIZATION_OFFICIAL_SITE_ADAPTER]: organizationOfficialSiteAdapter,
   [ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER]: psiadusaOrganizationDirectoryAdapter,
   "skj-exhibition-calendar": skjExhibitionCalendarAdapter,

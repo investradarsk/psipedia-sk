@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { previewAutomationSource } from "@/lib/data-automation-preview";
-import { automationHelpSourceReadiness } from "@/lib/data-automation-help-source-readiness";
+import { automationSourceReadiness } from "@/lib/data-automation-capability-registry";
 import {
   getAutomationSourceAdmin,
   sourceAdminRowToRuntimeSource,
@@ -20,8 +20,8 @@ export async function POST(request: Request, { params }: Props) {
 
   const source = await getAutomationSourceAdmin(id);
   if (!source) return Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
-  const readiness = automationHelpSourceReadiness(source);
-  if (readiness.applicable && !readiness.ready) {
+  const readiness = automationSourceReadiness(source);
+  if (!readiness.ready) {
     return Response.json({
       error: "Zdroj zatiaľ nie je pripravený na automatické spracovanie.",
       readiness,

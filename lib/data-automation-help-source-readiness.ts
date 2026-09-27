@@ -26,6 +26,16 @@ export const productionAutomationHelpAdapterRegistry: AutomationHelpAdapterRegis
     sourceShape: "SINGLE_ITEM",
     label: "Útulok Trnava — detail psa na adopciu",
   },
+  "zatulane-psiky-sala-foster-detail": {
+    entityType: "FOSTER",
+    sourceShape: "SINGLE_ITEM",
+    label: "Zatúlané psíky Šaľa — detail dočasnej opatery",
+  },
+  "kosice-found-dog-detail": {
+    entityType: "LOST_FOUND",
+    sourceShape: "SINGLE_ITEM",
+    label: "Mesto Košice — detail nájdeného psa",
+  },
 });
 
 export type AutomationHelpSourceReadinessReason =
@@ -156,14 +166,32 @@ export type AutomationHelpProvisioningRule = {
  * Host/path provisioning is intentionally allow-listed and must be backed by
  * a production adapter with matching entity/shape metadata.
  */
-export const productionAutomationHelpProvisioningRules: readonly AutomationHelpProvisioningRule[] = [{
-  entityType: "ADOPTION",
-  hostname: "trnava.utulok.sk",
-  pathPattern: /^\/psy\/[^/]+\/?$/,
-  sourceShape: "SINGLE_ITEM",
-  adapterKey: "trnava-adoption-detail",
-  expectedMinRecords: 1,
-}];
+export const productionAutomationHelpProvisioningRules: readonly AutomationHelpProvisioningRule[] = [
+  {
+    entityType: "ADOPTION",
+    hostname: "trnava.utulok.sk",
+    pathPattern: /^\/psy\/[^/]+\/?$/,
+    sourceShape: "SINGLE_ITEM",
+    adapterKey: "trnava-adoption-detail",
+    expectedMinRecords: 1,
+  },
+  {
+    entityType: "FOSTER",
+    hostname: "zatulanepsikysala.sk",
+    pathPattern: /^\/pomoc\/[^/]+\/?$/,
+    sourceShape: "SINGLE_ITEM",
+    adapterKey: "zatulane-psiky-sala-foster-detail",
+    expectedMinRecords: 1,
+  },
+  {
+    entityType: "LOST_FOUND",
+    hostname: "kosice.sk",
+    pathPattern: /^\/clanok\/(?:najden[yae]|opusten[yae])-[a-z0-9-]+\/?$/i,
+    sourceShape: "SINGLE_ITEM",
+    adapterKey: "kosice-found-dog-detail",
+    expectedMinRecords: 1,
+  },
+];
 
 export function helpCandidateProvisioningConfigFor(input: {
   entityType: AutomationEntityType;
