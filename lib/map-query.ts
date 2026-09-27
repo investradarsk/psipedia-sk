@@ -39,6 +39,8 @@ export type MapCandidate = {
   geocodeStatus: string;
   sourceFingerprint: string;
   resolvedSourceFingerprint: string | null;
+  googlePlaceId: string | null;
+  googlePlaceSourceFingerprint: string | null;
   city: string;
   district: string;
   region: string;
@@ -74,6 +76,8 @@ type CandidateRow = {
   geocode_status: string;
   source_fingerprint: string;
   resolved_source_fingerprint: string | null;
+  google_place_id: string | null;
+  google_place_source_fingerprint: string | null;
   city: string;
   district: string;
   region: string;
@@ -116,6 +120,8 @@ function rowToCandidate(row: CandidateRow): MapCandidate {
     geocodeStatus: row.geocode_status,
     sourceFingerprint: row.source_fingerprint,
     resolvedSourceFingerprint: row.resolved_source_fingerprint,
+    googlePlaceId: row.google_place_id,
+    googlePlaceSourceFingerprint: row.google_place_source_fingerprint,
     city: row.city,
     district: row.district,
     region: row.region,
@@ -202,6 +208,7 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
       d.name, d.slug, d.category AS subcategory,
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      g.google_place_id, g.google_place_source_fingerprint,
       d.city, d.district, d.region, d.address,
       (coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
         coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
@@ -238,6 +245,7 @@ function organizationStatement(query: MapQueryInput, db: MapD1Database) {
       o.name, o.slug, o.type AS subcategory,
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      g.google_place_id, g.google_place_source_fingerprint,
       l.city, l.district, l.region, l.address,
       (coalesce(o.name, '') || ' ' || coalesce(o.short_description, '') || ' ' || coalesce(o.description, '') || ' ' ||
         coalesce(l.label, '') || ' ' || coalesce(l.city, '') || ' ' || coalesce(l.district, '') || ' ' ||
@@ -280,6 +288,7 @@ function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) 
       e.title AS name, e.slug, e.event_type AS subcategory,
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      g.google_place_id, g.google_place_source_fingerprint,
       e.city, '' AS district, e.region, e.address,
       (coalesce(e.title, '') || ' ' || coalesce(e.excerpt, '') || ' ' || coalesce(e.organizer, '') || ' ' ||
         coalesce(e.venue, '') || ' ' || coalesce(e.event_type, '') || ' ' || coalesce(e.city, '') || ' ' ||
@@ -323,6 +332,7 @@ function scopedDirectoryStatement(entityId: number, db: MapD1Database) {
       d.name, d.slug, d.category AS subcategory,
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      g.google_place_id, g.google_place_source_fingerprint,
       d.city, d.district, d.region, d.address,
       (coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
         coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
@@ -353,6 +363,7 @@ function scopedOrganizationStatement(entityId: number, db: MapD1Database) {
       o.name, o.slug, o.type AS subcategory,
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      g.google_place_id, g.google_place_source_fingerprint,
       l.city, l.district, l.region, l.address,
       (coalesce(o.name, '') || ' ' || coalesce(o.short_description, '') || ' ' || coalesce(o.description, '') || ' ' ||
         coalesce(l.label, '') || ' ' || coalesce(l.city, '') || ' ' || coalesce(l.district, '') || ' ' ||
@@ -382,6 +393,7 @@ function scopedEventStatement(entityId: number, db: MapD1Database) {
       e.title AS name, e.slug, e.event_type AS subcategory,
       g.latitude, g.longitude, g.public_precision AS precision,
       g.public_visibility, g.geocode_status, g.source_fingerprint, g.resolved_source_fingerprint,
+      g.google_place_id, g.google_place_source_fingerprint,
       e.city, '' AS district, e.region, e.address,
       (coalesce(e.title, '') || ' ' || coalesce(e.excerpt, '') || ' ' || coalesce(e.organizer, '') || ' ' ||
         coalesce(e.venue, '') || ' ' || coalesce(e.event_type, '') || ' ' || coalesce(e.city, '') || ' ' ||
@@ -567,6 +579,14 @@ export function mapCandidateToItem(candidate: MapCandidate): MapItem {
     district: candidate.district || undefined,
     region: candidate.region || undefined,
   };
+
+  if (
+    candidate.googlePlaceId
+    && candidate.googlePlaceSourceFingerprint
+    && candidate.googlePlaceSourceFingerprint === candidate.sourceFingerprint
+  ) {
+    item.googlePlaceId = candidate.googlePlaceId;
+  }
 
   if (candidate.entityType === "service") {
     item.verified = candidate.verified;
