@@ -371,6 +371,7 @@ test("9g. organization semantic mismatch fails closed even with similar identity
       id: 58,
       key: "organization:58",
       before: { name: "Útulok Pomoc psom" },
+      slug: "oz-pomoc-psom",
       websiteUrl: "https://pomoc.example/",
       name: "OZ Pomoc psom",
       city: "Nitra",
