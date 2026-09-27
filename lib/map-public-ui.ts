@@ -157,17 +157,21 @@ function googleMapsCoordinateQuery(latitude: number, longitude: number) {
   return `${latitude},${longitude}`;
 }
 
-export function buildGoogleMapsPlaceUrl(latitude: number, longitude: number) {
+export function buildGoogleMapsPlaceUrl(latitude: number, longitude: number, googlePlaceId?: string) {
   const query = googleMapsCoordinateQuery(latitude, longitude);
   if (!query) return null;
   const params = new URLSearchParams({ api: "1", query });
+  const placeId = googlePlaceId?.trim();
+  if (placeId) params.set("query_place_id", placeId);
   return `https://www.google.com/maps/search/?${params.toString()}`;
 }
 
-export function buildGoogleMapsDirectionsUrl(latitude: number, longitude: number) {
+export function buildGoogleMapsDirectionsUrl(latitude: number, longitude: number, googlePlaceId?: string) {
   const destination = googleMapsCoordinateQuery(latitude, longitude);
   if (!destination) return null;
   const params = new URLSearchParams({ api: "1", destination });
+  const placeId = googlePlaceId?.trim();
+  if (placeId) params.set("destination_place_id", placeId);
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
