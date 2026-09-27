@@ -72,6 +72,7 @@ test("DISCOVERY-CAT-1A uses canonical HELP entity types and existing category-fi
   const automationTypes = read("lib/data-automation.ts");
   const presentation = read("lib/admin-automation-presentation.ts");
   const categoryPage = read("app/admin/automatizacie/[category]/page.tsx");
+  const categorySources = read("components/admin-automation-category-sources.tsx");
 
   for (const entity of ["ADOPTION", "FOSTER", "LOST_FOUND"]) assert.ok(automationTypes.includes('"' + entity + '"'));
   assert.match(presentation, /slug: "adopcie".*entityTypes: \["ADOPTION"\]/);
@@ -79,7 +80,7 @@ test("DISCOVERY-CAT-1A uses canonical HELP entity types and existing category-fi
   assert.match(presentation, /slug: "stratene-najdene".*entityTypes: \["LOST_FOUND"\]/);
   assert.match(presentation, /automationDiscoveryRootsForCategory/);
   assert.match(categoryPage, /automationDiscoveryRootsForCategory\(allRoots, slug\)/);
-  assert.match(categoryPage, /Automatické hľadanie zdrojov/);
+  assert.match(categorySources, /Automaticky hľadať nové zdroje/);
 });
 
 test("DISCOVERY-CAT-1A remains compatible with generic governance fail-closed scheduling", () => {

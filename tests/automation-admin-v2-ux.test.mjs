@@ -9,17 +9,16 @@ test("admin navigation exposes Automations as a top-level admin destination", ()
   assert.match(shell, /href="\/admin\/automatizacie">Automatizácie/);
 });
 
-test("automation overview is category-first and attention-first", () => {
+test("automation overview is category-first and source-only", () => {
   const presentation = read("lib/admin-automation-presentation.ts");
   const page = read("app/admin/automatizacie/page.tsx");
   for (const label of ["Podujatia", "Veterinári", "Útulky a organizácie", "Psie služby", "Adopcie", "Dočasná opatera", "Stratené / nájdené"]) {
     assert.ok(presentation.includes(label), label);
   }
   assert.match(page, /automationUxCategories\.map/);
-  assert.match(page, /na rozhodnutie/);
-  assert.match(page, /automationCandidateAttentionCount/);
-  assert.match(page, /automationSourceAttentionCount/);
-  assert.match(page, /nové zdroje/);
+  assert.match(page, /newCount/);
+  assert.match(page, /approvedCount/);
+  assert.match(page, /rejectedCount/);
   assert.doesNotMatch(page, /Pripravené návrhy|Koncepty a nálezy/);
 });
 
@@ -32,17 +31,14 @@ test("existing technical entity types are hidden behind UX category mapping", ()
   assert.match(presentation, /automationCategoryForDiscoveryRoot/);
 });
 
-test("category detail follows final product order and keeps technical information secondary", () => {
-  const page = read("app/admin/automatizacie/[category]/page.tsx");
-  const newSources = page.indexOf("<h2>Našli sa nové zdroje</h2>");
-  const sources = page.indexOf("<h2>Zdroje</h2>");
-  const history = page.indexOf("<h2>História</h2>");
-  const advanced = page.indexOf("<summary>Pokročilé</summary>");
-  assert.ok(newSources >= 0 && sources > newSources && history > sources && advanced > history);
-  assert.doesNotMatch(page, /Pripravené návrhy|Koncepty a nálezy/);
-  assert.match(page, /Automatické hľadanie zdrojov/);
-  assert.match(page, /technickú správu zdrojov a automatického hľadania/);
-  assert.doesNotMatch(page, /<h2>Hotové koncepty<\/h2>/);
+test("category detail follows source discovery then new approved rejected order", () => {
+  const component = read("components/admin-automation-category-sources.tsx");
+  const discovery = component.indexOf("<h2>Hľadať nové zdroje</h2>");
+  const fresh = component.indexOf("<h2>Nové zdroje</h2>");
+  const approved = component.indexOf("<h2>Schválené zdroje</h2>");
+  const rejected = component.indexOf("<h2>Zamietnuté zdroje</h2>");
+  assert.ok(discovery >= 0 && fresh > discovery && approved > fresh && rejected > approved);
+  assert.doesNotMatch(component, /História|Pokročilé|Pripravené návrhy|Koncepty a nálezy/);
 });
 
 test("category page filters candidates and sources locally", () => {
@@ -50,29 +46,24 @@ test("category page filters candidates and sources locally", () => {
   assert.match(page, /automationCandidatesForCategory\(allCandidates, slug\)/);
   assert.match(page, /automationSourcesForCategory\(allSources, slug\)/);
   assert.match(page, /automationDiscoveryRootsForCategory\(allRoots, slug\)/);
-  assert.match(page, /candidate\.reviewStatus === "NEW" && candidate\.lifecycle === "ACTIVE"/);
+  const component = read("components/admin-automation-category-sources.tsx");
+  assert.match(component, /candidate\.reviewStatus === "NEW" && candidate\.lifecycle === "ACTIVE"/);
 });
 
-test("new source list has one review CTA and detail reuses existing candidate API semantics", () => {
-  const category = read("app/admin/automatizacie/[category]/page.tsx");
-  const detail = read("components/admin-automation-candidate-review.tsx");
+test("new source list exposes only approve and reject", () => {
+  const category = read("components/admin-automation-category-sources.tsx");
   const route = read("app/api/admin/automation-source-candidates/[id]/route.ts");
-  assert.match(category, />Skontrolovať<\/Link>/);
-  assert.match(category, /\/novy-zdroj\//);
-  assert.match(detail, />ÁNO — používať<\/button>/);
-  assert.match(detail, />NIE — nepoužívať<\/button>/);
-  assert.match(detail, />Odložiť 30 dní<\/button>/);
-  assert.match(detail, /\/api\/admin\/automation-source-candidates\//);
+  assert.match(category, /"Schváliť"/);
+  assert.match(category, /"Zamietnuť"/);
+  assert.doesNotMatch(category, /Odložiť|Skontrolovať|novy-zdroj/);
+  assert.match(category, /\/api\/admin\/automation-source-candidates\//);
   assert.match(route, /\["approve", "reject", "suppress"\]/);
 });
 
-test("candidate detail is guarded by category mapping and uses a read-only selector", () => {
+test("legacy candidate detail redirects into the category source list", () => {
   const detailPage = read("app/admin/automatizacie/[category]/novy-zdroj/[id]/page.tsx");
-  const store = read("lib/data-automation-source-store.ts");
-  assert.match(detailPage, /getAutomationSourceCandidate/);
-  assert.match(detailPage, /automationCategoryForCandidate\(candidate\) !== slug/);
-  assert.match(store, /export async function getAutomationSourceCandidate/);
-  assert.match(store, /SELECT \* FROM automation_source_candidates WHERE id=\? LIMIT 1/);
+  assert.match(detailPage, /automationCategoryBySlug/);
+  assert.match(detailPage, /redirect\("\/admin\/automatizacie\/" \+ category \+ "#nove-zdroje"\)/);
 });
 
 test("global source manager remains available but is explicitly advanced", () => {
@@ -84,7 +75,7 @@ test("global source manager remains available but is explicitly advanced", () =>
 test("automation unavailable schema has safe fallback and old overview redirects", () => {
   const overview = read("app/admin/automatizacie/page.tsx");
   const legacy = read("app/admin/operations/automation/page.tsx");
-  assert.match(overview, /catch \{\s+unavailable = true;\s+\}/);
+  assert.match(overview, /\.catch\(\(\) => \[\]\)/);
   assert.match(legacy, /redirect\("\/admin\/automatizacie"\)/);
 });
 
@@ -96,11 +87,11 @@ test("finding presentation translates known technical fields", () => {
   assert.match(finding, /automationFieldLabel\(field\)/);
 });
 
-test("automation shell includes responsive and accessible navigation states", () => {
+test("automation shell includes responsive layouts and labelled category list", () => {
   const css = read("components/admin-operations-ux.module.css");
-  const category = read("app/admin/automatizacie/[category]/page.tsx");
+  const overview = read("app/admin/automatizacie/page.tsx");
   assert.match(css, /@media \(max-width: 860px\)/);
   assert.match(css, /@media \(max-width: 640px\)/);
   assert.match(css, /overflow-wrap: anywhere/);
-  assert.match(category, /aria-label="Sekcie automatizácie"/);
+  assert.match(overview, /aria-label="Kategórie automatizácií"/);
 });

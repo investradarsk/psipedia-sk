@@ -312,8 +312,31 @@ export async function setAutomationDiscoveryRootEnabled(input: {
     await assertDiscoveryRootGovernance(root, db, input.now ?? new Date());
   }
   const at = (input.now ?? new Date()).toISOString();
-  await db.prepare("UPDATE automation_discovery_roots SET enabled=?,updated_at=? WHERE id=?")
-    .bind(input.enabled ? 1 : 0, at, input.id).run();
+  await db.prepare("UPDATE automation_discovery_roots SET enabled=?,next_check_at=?,updated_at=? WHERE id=?")
+    .bind(input.enabled ? 1 : 0, input.enabled ? at : null, at, input.id).run();
+  return getAutomationDiscoveryRoot(input.id, db);
+}
+
+export async function setAutomationDiscoveryRootCadence(input: {
+  id: number;
+  cadenceMinutes: number;
+  now?: Date;
+}, databaseInput?: AutomationDiscoveryDatabase) {
+  const db = database(databaseInput);
+  const root = await getAutomationDiscoveryRoot(input.id, db);
+  if (!root) return null;
+  const cadenceMinutes = Math.floor(input.cadenceMinutes);
+  if (!Number.isSafeInteger(cadenceMinutes) || cadenceMinutes < 60 || cadenceMinutes > 43_200) {
+    throw new Error("automation_discovery_cadence_invalid");
+  }
+  const now = input.now ?? new Date();
+  const at = now.toISOString();
+  const nextCheckAt = root.enabled
+    ? new Date(now.getTime() + cadenceMinutes * 60_000).toISOString()
+    : null;
+  await db.prepare(`UPDATE automation_discovery_roots
+    SET cadence_minutes=?,next_check_at=?,updated_at=? WHERE id=?`)
+    .bind(cadenceMinutes, nextCheckAt, at, input.id).run();
   return getAutomationDiscoveryRoot(input.id, db);
 }
 

@@ -8,17 +8,38 @@ export type AutomationUxCategory = {
   title: string;
   description: string;
   entityTypes: AutomationEntityType[];
+  draftsHref: string;
 };
 
 export const automationUxCategories: AutomationUxCategory[] = [
-  { slug: "podujatia", title: "Podujatia", description: "Kalendáre, preteky, výstavy a ďalšie psie podujatia.", entityTypes: ["EVENT"] },
-  { slug: "veterinari", title: "Veterinári", description: "Veterinárne ambulancie, kliniky a pracoviská.", entityTypes: ["DIRECTORY"] },
-  { slug: "utulky-organizacie", title: "Útulky a organizácie", description: "Útulky, karanténne stanice a organizácie pomáhajúce psom.", entityTypes: ["ORGANIZATION"] },
-  { slug: "psie-sluzby", title: "Psie služby", description: "Hotely, tréneri, salóny, škôlky a ďalšie služby.", entityTypes: ["DIRECTORY"] },
-  { slug: "adopcie", title: "Adopcie", description: "Psy a ponuky určené na adopciu.", entityTypes: ["ADOPTION"] },
-  { slug: "docasna-opatera", title: "Dočasná opatera", description: "Výzvy a ponuky dočasnej opatery.", entityTypes: ["FOSTER"] },
-  { slug: "stratene-najdene", title: "Stratené / nájdené", description: "Hlásenia o stratených a nájdených psoch.", entityTypes: ["LOST_FOUND"] },
+  { slug: "podujatia", title: "Podujatia", description: "Kalendáre, preteky, výstavy a ďalšie psie podujatia.", entityTypes: ["EVENT"], draftsHref: "/admin/podujatia" },
+  { slug: "veterinari", title: "Veterinári", description: "Veterinárne ambulancie, kliniky a pracoviská.", entityTypes: ["DIRECTORY"], draftsHref: "/admin/adresar?category=veterinari&status=DRAFT" },
+  { slug: "utulky-organizacie", title: "Útulky a organizácie", description: "Útulky, karanténne stanice a organizácie pomáhajúce psom.", entityTypes: ["ORGANIZATION"], draftsHref: "/admin/organizacie" },
+  { slug: "psie-sluzby", title: "Psie služby", description: "Hotely, tréneri, salóny, škôlky a ďalšie služby.", entityTypes: ["DIRECTORY"], draftsHref: "/admin/adresar?status=DRAFT" },
+  { slug: "adopcie", title: "Adopcie", description: "Psy a ponuky určené na adopciu.", entityTypes: ["ADOPTION"], draftsHref: "/admin/adopcie?status=DRAFT" },
+  { slug: "docasna-opatera", title: "Dočasná opatera", description: "Výzvy a ponuky dočasnej opatery.", entityTypes: ["FOSTER"], draftsHref: "/admin/pomoc?category=docasna-opatera&status=DRAFT" },
+  { slug: "stratene-najdene", title: "Stratené / nájdené", description: "Hlásenia o stratených a nájdených psoch.", entityTypes: ["LOST_FOUND"], draftsHref: "/admin/stratene-najdene?status=DRAFT" },
 ];
+
+export const automationCadenceOptions = Object.freeze([
+  { minutes: 360, label: "Každých 6 hodín" },
+  { minutes: 720, label: "Každých 12 hodín" },
+  { minutes: 1440, label: "Každý deň" },
+  { minutes: 2880, label: "Každé 2 dni" },
+  { minutes: 10080, label: "Každý týždeň" },
+  { minutes: 20160, label: "Každé 2 týždne" },
+  { minutes: 43200, label: "Každý mesiac" },
+]);
+
+export function isAutomationCadenceOption(value: number) {
+  return automationCadenceOptions.some((option) => option.minutes === value);
+}
+
+export function automationDiscoveryMinimumCadenceMinutes(slug: string) {
+  if (slug === "podujatia") return 2880;
+  if (["adopcie", "docasna-opatera", "stratene-najdene"].includes(slug)) return 1440;
+  return 10080;
+}
 
 const directoryVeterinaryHint = /veterin|vet\b|klinika|ambulancia/i;
 

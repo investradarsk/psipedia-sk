@@ -7,7 +7,7 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 test("cluster internals are not rendered in the primary source-management category", () => {
   const page = read("app/admin/automatizacie/[category]/page.tsx");
   assert.doesNotMatch(page, /listAutomationClusterSummaries|cluster\.sourceCount|Staršie nálezy bez cluster linkage/);
-  assert.match(page, /<summary>Pokročilé<\/summary>/);
+  assert.doesNotMatch(page, /Pokročilé|cluster\//);
 });
 
 test("cluster technical detail route remains available for debugging", () => {
