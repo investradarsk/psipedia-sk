@@ -6,7 +6,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedDirectoryProfileById } from "@/lib/directory-store";
 import { geoSensitiveDirectoryCategory } from "@/lib/geo";
-import { getAutomationDraftDuplicateWarning } from "@/lib/data-automation-store";
+import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -18,6 +18,6 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
   if (!Number.isSafeInteger(id) || id < 1) notFound();
   const profile = await getManagedDirectoryProfileById(id);
   if (!profile) notFound();
-  const duplicateWarning = await getAutomationDraftDuplicateWarning("DIRECTORY", profile.id).catch(() => null);
+  const duplicateWarning = await getCanonicalDraftDuplicateWarning("DIRECTORY", profile.id).catch(() => null);
   return <AdminShell user={user} eyebrow={profile.status === "published" ? "Publikovaný profil" : profile.status === "archived" ? "Archivovaný profil" : "Koncept profilu"} title={profile.status === "archived" ? "Archivovaný profil" : "Upraviť profil"} description={profile.status === "archived" ? "Archivovaný profil je mimo verejného webu. Obnov ho do konceptu, ak ho chceš znovu upravovať." : "Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."}><AdminAutomationDraftWarning warning={duplicateWarning} /><AdminDirectoryEditor profile={profile} /><AdminGeoLocation targetType="DIRECTORY_PROFILE" targetId={profile.id} sensitive={geoSensitiveDirectoryCategory(profile.category)} /></AdminShell>;
 }
