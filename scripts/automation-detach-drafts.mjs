@@ -116,6 +116,18 @@ function canonicalStatus(target, entityType, canonicalEntityId) {
   };
 }
 
+function canonicalApplicationRowsSnapshot(target, applications) {
+  const snapshot = {};
+  for (const row of applications) {
+    const table = CANONICAL_TABLE_BY_TYPE[row.entity_type];
+    invariant(table, `unknown canonical entity type ${row.entity_type}`);
+    const rows = execute(target, `SELECT * FROM "${table}" WHERE id=${Number(row.canonical_entity_id)} LIMIT 1`);
+    invariant(rows.length === 1, `application ${row.id} canonical row is missing`);
+    snapshot[`${row.entity_type}:${Number(row.canonical_entity_id)}`] = rows[0];
+  }
+  return snapshot;
+}
+
 function possibleDuplicateCandidateIds(target, reason, createdCanonicalId) {
   const ids = new Set();
   for (const match of String(reason ?? "").matchAll(/(?:event|organization|directory|adoption|lost-found|help):(\d+)/gi)) {
@@ -141,7 +153,10 @@ function applicationAudit(target) {
       f.source_id,f.observation_id,f.finding_type,f.reason,f.source_url AS finding_source_url,f.payload_hash,
       f.canonical_entity_id AS finding_canonical_entity_id,f.canonical_entity_key AS finding_canonical_entity_key,
       o.source_record_id,o.source_url AS observation_source_url,
-      s.source_key
+      s.source_key,
+      (SELECT r.result FROM automation_ingestion_receipts r
+        WHERE r.source_id=f.source_id AND r.entity_type=a.entity_type AND r.source_record_id=o.source_record_id
+        LIMIT 1) AS receipt_result
     FROM automation_applications a
     JOIN automation_findings f ON f.id=a.finding_id
     JOIN automation_sources s ON s.id=f.source_id
@@ -235,11 +250,14 @@ function preview(target, now = new Date()) {
 
   const blockers = {
     nonStaleRunningRuns: runningRuns.filter((run) => !run.staleByPolicy).length,
-    updateExistingApplications: applicationsByType.UPDATE_EXISTING,
     missingReceiptIdentity: applications.filter((row) =>
-      row.application_type === "CREATE_DRAFT" && !String(row.source_record_id ?? "").trim()).length,
-    canonicalMissingForCreateDraft: applications.filter((row) =>
-      row.application_type === "CREATE_DRAFT" && row.canonicalStatus?.exists !== true).length,
+      !String(row.source_record_id ?? "").trim()).length,
+    canonicalMissingForApplication: applications.filter((row) =>
+      row.canonicalStatus?.exists !== true).length,
+    conflictingExistingReceipt: applications.filter((row) => {
+      const expected = row.application_type === "UPDATE_EXISTING" ? "SKIPPED_DUPLICATE" : "DRAFT_CREATED";
+      return row.receipt_result != null && row.receipt_result !== expected;
+    }).length,
     persistentMatchMemoryClusters: linkedClusters.filter((cluster) =>
       cluster.classification === "B_PREEXISTING_CANONICAL_MATCH_KEEP").length,
   };
@@ -276,13 +294,14 @@ function recoverStaleRuns(target, previewReport, now) {
   return stale.map((run) => Number(run.id));
 }
 
-function detachSql(target, createRows, linkedClusters) {
+function detachSql(target, applicationRows, linkedClusters) {
   const statements = ["BEGIN TRANSACTION"];
 
-  for (const row of createRows) {
+  for (const row of applicationRows) {
     const sourceRecordId = String(row.source_record_id ?? "").trim();
-    invariant(sourceRecordId, `CREATE_DRAFT application ${row.id} has no stable source_record_id`);
-    invariant(row.canonicalStatus?.exists === true, `CREATE_DRAFT application ${row.id} canonical row is missing`);
+    invariant(sourceRecordId, `automation application ${row.id} has no stable source_record_id`);
+    invariant(row.canonicalStatus?.exists === true, `automation application ${row.id} canonical row is missing`);
+    const receiptResult = row.application_type === "UPDATE_EXISTING" ? "SKIPPED_DUPLICATE" : "DRAFT_CREATED";
 
     statements.push(`INSERT INTO automation_ingestion_receipts
       (source_id,entity_type,source_record_id,source_url,payload_hash,result,first_processed_at)
@@ -292,12 +311,12 @@ function detachSql(target, createRows, linkedClusters) {
         ${quote(sourceRecordId)},
         ${quote(row.observation_source_url ?? row.finding_source_url ?? null)},
         ${quote(row.payload_hash ?? null)},
-        'DRAFT_CREATED',
+        ${quote(receiptResult)},
         ${quote(row.applied_at)}
       )
       ON CONFLICT(source_id,entity_type,source_record_id) DO NOTHING`);
 
-    if (row.finding_type === "DUPLICATE_CANDIDATE") {
+    if (row.application_type === "CREATE_DRAFT" && row.finding_type === "DUPLICATE_CANDIDATE") {
       const details = JSON.stringify({
         candidateIds: possibleDuplicateCandidateIds(target, row.reason, row.canonical_entity_id),
         sourceUrl: row.observation_source_url ?? row.finding_source_url ?? null,
@@ -318,8 +337,7 @@ function detachSql(target, createRows, linkedClusters) {
     statements.push(`DELETE FROM automation_cluster_canonical_claims WHERE finding_id=${Number(row.finding_id)}`);
     statements.push(`UPDATE automation_findings SET canonical_entity_id=NULL,canonical_entity_key=NULL
       WHERE id=${Number(row.finding_id)}`);
-    statements.push(`DELETE FROM automation_applications
-      WHERE id=${Number(row.id)} AND application_type='CREATE_DRAFT'`);
+    statements.push(`DELETE FROM automation_applications WHERE id=${Number(row.id)}`);
   }
 
   for (const cluster of linkedClusters) {
@@ -335,23 +353,24 @@ function detachSql(target, createRows, linkedClusters) {
 }
 
 function apply(target, before, now = new Date()) {
-  invariant(before.blockers.updateExistingApplications === 0,
-    "UPDATE_EXISTING automation_applications exist; detach apply is intentionally blocked");
-  invariant(before.blockers.missingReceiptIdentity === 0, "CREATE_DRAFT receipt identity is incomplete");
-  invariant(before.blockers.canonicalMissingForCreateDraft === 0, "CREATE_DRAFT canonical row is missing");
+  invariant(before.blockers.missingReceiptIdentity === 0, "automation application receipt identity is incomplete");
+  invariant(before.blockers.canonicalMissingForApplication === 0, "automation application canonical row is missing");
+  invariant(before.blockers.conflictingExistingReceipt === 0, "existing ingestion receipt conflicts with historical application type");
   invariant(before.blockers.persistentMatchMemoryClusters === 0, "persistent cluster match memory requires manual review");
 
   const canonicalBefore = canonicalSnapshot(target);
+  const canonicalRowsBefore = canonicalApplicationRowsSnapshot(target, before.applications);
   const recoveredStaleRunIds = recoverStaleRuns(target, before, now);
   const remainingRunning = scalar(target, "SELECT COUNT(*) AS count FROM automation_runs WHERE status='RUNNING'");
   invariant(remainingRunning === 0, "a non-stale automation run is still active; destructive detach stopped");
 
   const createRows = before.applications.filter((row) => row.application_type === "CREATE_DRAFT");
+  const updateRows = before.applications.filter((row) => row.application_type === "UPDATE_EXISTING");
   const detachedClusterIds = before.linkedClusters.map((cluster) => Number(cluster.id));
-  execute(target, detachSql(target, createRows, before.linkedClusters));
+  execute(target, detachSql(target, before.applications, before.linkedClusters));
 
-  invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_applications WHERE application_type='CREATE_DRAFT'") === 0,
-    "CREATE_DRAFT automation applications remain after detach");
+  invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_applications") === 0,
+    "automation applications remain after detach");
   invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_cluster_canonical_claims") === 0,
     "cluster canonical claims remain after detach");
   invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_entity_clusters WHERE canonical_entity_id IS NOT NULL OR canonical_entity_key IS NOT NULL") === 0,
@@ -360,15 +379,19 @@ function apply(target, before, now = new Date()) {
     "draft findings retain canonical linkage after detach");
 
   const canonicalAfter = canonicalSnapshot(target);
+  const canonicalRowsAfter = canonicalApplicationRowsSnapshot(target, before.applications);
   invariant(JSON.stringify(canonicalAfter) === JSON.stringify(canonicalBefore), "canonical content row counts changed during detach");
+  invariant(JSON.stringify(canonicalRowsAfter) === JSON.stringify(canonicalRowsBefore), "canonical application rows changed during detach");
 
   return {
     mode: "apply",
     recoveredStaleRunIds,
     detachedCreateDraftApplicationIds: createRows.map((row) => Number(row.id)),
+    detachedUpdateExistingApplicationIds: updateRows.map((row) => Number(row.id)),
     detachedClusterIds,
     canonicalBefore,
     canonicalAfter,
+    canonicalRowsUntouched: true,
     receiptCountAfter: scalar(target, "SELECT COUNT(*) AS count FROM automation_ingestion_receipts"),
     canonicalDraftFlagCountAfter: scalar(target, "SELECT COUNT(*) AS count FROM canonical_draft_flags"),
   };
