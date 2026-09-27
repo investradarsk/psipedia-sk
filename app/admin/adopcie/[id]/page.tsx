@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminAdoptionEditor } from "@/components/admin-adoption-editor";
-import { AdminAutomationDraftWarning } from "@/components/admin-automation-draft-warning";
+import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { adoptionStatusLabels, type AdoptionStatus } from "@/lib/adoption";
@@ -23,5 +23,5 @@ export default async function EditAdoptionPage({ params }: Props) {
   ]);
   if (!item) notFound();
   const duplicateWarning = await getCanonicalDraftDuplicateWarning("ADOPTION", item.id).catch(() => null);
-  return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby."><AdminAutomationDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations}/></AdminShell>;
+  return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby."><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations}/></AdminShell>;
 }
