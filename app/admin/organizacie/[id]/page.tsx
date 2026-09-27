@@ -8,7 +8,7 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getOrganizationPublicationAdminById } from "@/lib/help-organization-admin-store";
 import { listOrganizationFundraisingMethodsAdmin } from "@/lib/organization-fundraising-admin-store";
 import { listOrganizationLocationsAdmin } from "@/lib/organization-location-admin-store";
-import { getAutomationDraftDuplicateWarning } from "@/lib/data-automation-store";
+import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -24,7 +24,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     listOrganizationFundraisingMethodsAdmin(organizationId),
   ]);
   if (!organization) notFound();
-  const duplicateWarning = await getAutomationDraftDuplicateWarning("ORGANIZATION", organization.id).catch(() => null);
+  const duplicateWarning = await getCanonicalDraftDuplicateWarning("ORGANIZATION", organization.id).catch(() => null);
 
   return <AdminShell
     user={user}
