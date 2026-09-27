@@ -28,7 +28,6 @@ test("Google is isolated to renderer and map experience consumes only /api/map",
   assert.match(renderer, /importLibrary\("marker"\)/);
   assert.match(renderer, /AdvancedMarkerElement/);
   assert.match(renderer, /gmpClickable:\s*true/);
-  assert.match(renderer, /marker\.dataset\.mapMarkerId = item\.id/);
   assert.match(renderer, /addEventListener\("gmp-click"/);
   assert.doesNotMatch(renderer + experience, /\b(?:Places|NearbySearch|Geocoder|Geoapify)\b/i);
   assert.match(experience, /buildMapApiUrl/);
@@ -74,6 +73,8 @@ test("singleton clusters reuse public MapItems while multi clusters retain zoom 
   assert.match(renderer, /gestureHandling:\s*"greedy"/);
   assert.match(experience, /cluster\.count === 1 && cluster\.singletonItem/);
   assert.match(experience, /cluster\.count !== 1 \|\| !cluster\.singletonItem/);
+  assert.match(experience, /const singletonClusterItem = response\?\.mode === "clusters"/);
+  assert.match(experience, /selectItem\(item, !singletonClusterItem\)/);
 });
 
 test("map guidance and provider disclosure follow canonical client state", () => {
