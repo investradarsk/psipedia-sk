@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   TAVILY_EVENT_GOVERNANCE_PRESET,
   tavilyCanaryReadiness,
+  tavilySearchGovernancePresetForRoot,
 } from "../lib/tavily-canary-control.ts";
 import { automationSearchBudgetPolicy } from "../lib/data-automation-search-budget.ts";
 
@@ -80,7 +81,33 @@ function governance(overrides = {}) {
   };
 }
 
-test("TAVILY-CANARY-1 governance preset is explicit and bounded", () => {
+const cadenceCases = [
+  ["EVENT", "tavily-sk-dog-events", 2880],
+  ["ADOPTION", "tavily-sk-dog-adoptions", 1440],
+  ["FOSTER", "tavily-sk-dog-foster", 1440],
+  ["LOST_FOUND", "tavily-sk-dog-lost-found", 1440],
+  ["ORGANIZATION", "tavily-sk-dog-organizations", 10080],
+  ["DIRECTORY", "tavily-sk-dog-veterinarians", 10080],
+  ["DIRECTORY", "tavily-sk-dog-grooming", 10080],
+  ["DIRECTORY", "tavily-sk-dog-hotels-daycare", 10080],
+  ["DIRECTORY", "tavily-sk-dog-trainers", 10080],
+  ["DIRECTORY", "tavily-sk-dog-rehabilitation", 10080],
+];
+
+test("TAVILY-GOV-1 governance cadence policy is explicit per approved Tavily root", () => {
+  for (const [entityType, rootKey, minCadenceMinutes] of cadenceCases) {
+    const preset = tavilySearchGovernancePresetForRoot(root({
+      entityType,
+      rootKey,
+      cadenceMinutes: minCadenceMinutes,
+    }));
+    assert.equal(preset.minCadenceMinutes, minCadenceMinutes, rootKey);
+    assert.equal(preset.maxRequestsPerDay, 3, rootKey);
+    assert.equal(preset.recurringStatus, "APPROVED", rootKey);
+  }
+});
+
+test("TAVILY-CANARY-1 EVENT preset remains explicit and bounded", () => {
   assert.equal(TAVILY_EVENT_GOVERNANCE_PRESET.accessStatus, "ALLOWED");
   assert.equal(TAVILY_EVENT_GOVERNANCE_PRESET.robotsStatus, "NOT_APPLICABLE");
   assert.equal(TAVILY_EVENT_GOVERNANCE_PRESET.termsStatus, "ALLOWED");
@@ -89,6 +116,53 @@ test("TAVILY-CANARY-1 governance preset is explicit and bounded", () => {
   assert.equal(TAVILY_EVENT_GOVERNANCE_PRESET.minCadenceMinutes, 2880);
   assert.equal(TAVILY_EVENT_GOVERNANCE_PRESET.maxRequestsPerDay, 3);
   assert.equal(TAVILY_EVENT_GOVERNANCE_PRESET.manualOnly, false);
+});
+
+test("TAVILY-GOV-1 ADOPTION governance at 1440 removes cadence blocker but preserves operator gates", () => {
+  const adoption = root({
+    rootKey: "tavily-sk-dog-adoptions",
+    entityType: "ADOPTION",
+    cadenceMinutes: 1440,
+    reviewStatus: "PENDING",
+    enabled: false,
+  });
+  const readiness = tavilyCanaryReadiness({
+    root: adoption,
+    governance: governance({ minCadenceMinutes: 1440 }),
+    secretConfigured: true,
+  });
+  assert.equal(readiness.blockers.includes("CADENCE_TOO_FREQUENT"), false);
+  assert.deepEqual(readiness.blockers, ["ROOT_NOT_APPROVED", "ROOT_DISABLED"]);
+});
+
+test("TAVILY-GOV-1 product policy does not trust a too-frequent current DB cadence", () => {
+  const adoption = root({
+    rootKey: "tavily-sk-dog-adoptions",
+    entityType: "ADOPTION",
+    cadenceMinutes: 60,
+  });
+  const preset = tavilySearchGovernancePresetForRoot(adoption);
+  assert.equal(preset.minCadenceMinutes, 1440);
+  const readiness = tavilyCanaryReadiness({
+    root: adoption,
+    governance: governance({ minCadenceMinutes: preset.minCadenceMinutes }),
+    secretConfigured: true,
+  });
+  assert.ok(readiness.blockers.includes("CADENCE_TOO_FREQUENT"));
+});
+
+test("TAVILY-GOV-1 unknown or mismatched Tavily roots fail closed", () => {
+  assert.throws(
+    () => tavilySearchGovernancePresetForRoot(root({ rootKey: "tavily-sk-dog-unknown" })),
+    /GOVERNANCE_POLICY_UNSUPPORTED/,
+  );
+  assert.throws(
+    () => tavilySearchGovernancePresetForRoot(root({
+      rootKey: "tavily-sk-dog-adoptions",
+      entityType: "EVENT",
+    })),
+    /GOVERNANCE_POLICY_UNSUPPORTED/,
+  );
 });
 
 test("TAVILY-CANARY-1 canary fails closed without secret, approval, enable or governance", () => {
@@ -106,6 +180,21 @@ test("TAVILY-CANARY-1 single canary inherits 3-query / 3-request / maxResults=5 
   assert.equal(policy.providerRequestsPerRun, 3);
   assert.equal(policy.rootDailyRequests, 3);
   assert.equal(r.config.maxResults, 5);
+});
+
+test("TAVILY-GOV-1 approval route derives policy from root and keeps optimistic concurrency", () => {
+  const route = read("app/api/admin/automation-discovery-roots/[id]/route.ts");
+  assert.match(route, /tavilySearchGovernancePresetForRoot\(root\)/);
+  assert.match(route, /expectedUpdatedAt:\s*governanceRead\.state\?\.updatedAt \?\? null/);
+  assert.doesNotMatch(route, /\.\.\.TAVILY_SEARCH_GOVERNANCE_PRESET/);
+});
+
+test("TAVILY-GOV-1 blocked saved ADOPTION governance remains re-approvable in the UI", () => {
+  const ui = read("components/admin-tavily-root-detail.tsx");
+  assert.match(
+    ui,
+    /disabled=\{Boolean\(busy\) \|\| governanceAllowed\}[\s\S]*1\. Schváliť governance/,
+  );
 });
 
 test("TAVILY-CANARY-1 operator actions are explicit and secret value is never rendered", () => {
