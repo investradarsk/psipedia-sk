@@ -19,6 +19,7 @@ import { GeocoderProviderError } from "./geo-provider";
 import { GeoapifyGeocoder } from "./geoapify-geocoder";
 import { syncGeoPointAfterSourceChange } from "./geo-store";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata";
+import { existingDirectoryAddressEvidenceCandidate } from "./address-enrichment-store";
 
 type DB = Pick<D1Database, "prepare">;
 type Bindings = { DB?: D1Database; TAVILY_API_KEY?: string; GEOAPIFY_API_KEY?: string };
@@ -36,6 +37,7 @@ export type CanaryItem = {
 
 const PAGE_BYTES = 500_000;
 const PAGE_TIMEOUT = 8_000;
+const MAX_PAGE_FETCHES_PER_RUN = 10;
 
 function db(input?: DB) {
   const bound = input ?? (env as unknown as Bindings).DB;
@@ -150,6 +152,20 @@ async function fingerprint(t:DirectoryEnrichmentTarget,c:AddressCandidate){
   const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify({id:t.id,updatedAt:t.updatedAt,source:c.evidence.sourceUrl,raw:c.rawAddressText,region:c.region,district:c.district,city:c.city,postal:c.postalCode,street:c.street,house:c.houseNumber,format:c.addressFormat,provider:c.providerVerification})));
   return [...new Uint8Array(bytes)].map((b)=>b.toString(16).padStart(2,"0")).join("");
 }
+function officialPageUrls(value: string) {
+  if (!value || !isSafeAutomationSourceUrl(value)) return [];
+  try {
+    const root = new URL(value);
+    const urls = [root.toString()];
+    if (root.pathname === "/" || !root.pathname) {
+      urls.push(new URL("/kontakt", root).toString());
+      urls.push(new URL("/contact", root).toString());
+    }
+    return [...new Set(urls)];
+  } catch {
+    return [];
+  }
+}
 async function tavilyUrl(t:DirectoryEnrichmentTarget,p:TavilyAutomationSearchProvider){
   const results=await p.search({query:`${t.name} ${t.city} Slovensko oficiálna stránka kontakt adresa`,country:"SK",locale:"sk-SK",maxResults:5});
   const n=normalizeAutomationExactText(t.name),c=normalizeAutomationExactText(t.city);
@@ -163,21 +179,56 @@ export async function previewLiveDirectoryAddressCanary(input:{limit?:unknown;ta
   for(const t of list){
     if(stoppedByRateLimit){items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:null,candidateFingerprint:null,reason:`run_stopped_${stoppedByRateLimit}`});continue;}
     if(isProtectedCanonical(t)){items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:null,candidateFingerprint:null,reason:"protected_complete_canonical"});continue;}
-    let source=t.websiteUrl||null, html="", x:ReturnType<typeof extractOfficialAddress>=null;
-    if(source){try{pageFetches++;const r=await page(source,fetchImpl);source=r.url;html=r.html;x=extractOfficialAddress(html);}catch{}}
-    if(!x&&searchCalls<ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS&&search.credentialConfigured){
-      try{searchCalls++;const u=await tavilyUrl(t,search);if(u){pageFetches++;const r=await page(u,fetchImpl);source=r.url;html=r.html;x=extractOfficialAddress(html);}}
-      catch(e){if(e instanceof AutomationSearchProviderError&&e.message==="RATE_LIMITED")stoppedByRateLimit="TAVILY";}
+    let source: string | null = null;
+    let extractionMethod: string | null = null;
+    let c = await existingDirectoryAddressEvidenceCandidate(t, database);
+    if (c) {
+      source = c.evidence.sourceUrl ?? null;
+      extractionMethod = "EXISTING_AUTOMATION_EVIDENCE";
     }
-    if(!x||!source){items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:source,candidateFingerprint:null,reason:stoppedByRateLimit?"search_rate_limited":"no_usable_address"});continue;}
-    let c=candidate(t,source,html);
+
+    if (!c && t.websiteUrl) {
+      for (const url of officialPageUrls(t.websiteUrl)) {
+        if (pageFetches >= MAX_PAGE_FETCHES_PER_RUN) break;
+        try {
+          pageFetches += 1;
+          const r = await page(url, fetchImpl);
+          const extracted = extractOfficialAddress(r.html);
+          if (!extracted) continue;
+          source = r.url;
+          c = candidate(t, source, r.html, extracted);
+          extractionMethod = extracted.method;
+          break;
+        } catch {}
+      }
+    }
+
+    if(!c&&searchCalls<ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS&&search.credentialConfigured){
+      try{
+        searchCalls++;
+        const u=await tavilyUrl(t,search);
+        if(u&&pageFetches<MAX_PAGE_FETCHES_PER_RUN){
+          pageFetches++;
+          const r=await page(u,fetchImpl);
+          const extracted=extractOfficialAddress(r.html);
+          if(extracted){
+            source=r.url;
+            c=candidate(t,source,r.html,extracted);
+            extractionMethod=extracted.method;
+          }
+        }
+      } catch(e){
+        if(e instanceof AutomationSearchProviderError&&e.message==="RATE_LIMITED")stoppedByRateLimit="TAVILY";
+      }
+    }
+    if(!c){items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:source,candidateFingerprint:null,reason:stoppedByRateLimit?"search_rate_limited":"no_usable_address"});continue;}
     try{providerCalls++;c=await verify(c,geo);}catch(e){if(e instanceof GeocoderProviderError&&e.code==="RATE_LIMITED")stoppedByRateLimit="GEOAPIFY";}
     const assessment=assessDirectoryAddressCandidate(t,c), fp=await fingerprint(t,c);
-    items.push({target:t,candidate:c,assessment,extractionMethod:x.method,sourceUrl:source,candidateFingerprint:fp,reason:assessment.reason});
+    items.push({target:t,candidate:c,assessment,extractionMethod,sourceUrl:source,candidateFingerprint:fp,reason:assessment.reason});
   }
   return {mode:"LIVE_CANARY_PREVIEW" as const,scanned:items.length,candidatesFound:items.filter((x)=>x.candidate).length,autoApplyCandidates:items.filter((x)=>x.assessment?.decision==="AUTO_APPLY").length,
     reviewCandidates:items.filter((x)=>x.assessment?.decision==="REVIEW").length,noMatch:items.filter((x)=>!x.candidate||x.assessment?.decision==="NO_MATCH").length,searchCalls,providerCalls,pageFetches,productionWrites:0 as const,stoppedByRateLimit,
-    limits:{entitiesPerRun:limit,searchCallsPerRun:ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS,providerCallsPerRun:ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS},items};
+    limits:{entitiesPerRun:limit,searchCallsPerRun:ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS,providerCallsPerRun:ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS,pageFetchesPerRun:MAX_PAGE_FETCHES_PER_RUN},items};
 }
 export function validateAddressCanarySelection(value:unknown){
   if(!Array.isArray(value)||value.length<1||value.length>ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS)throw new Error("Address canary apply vyžaduje 1 až 5 kandidátov.");
