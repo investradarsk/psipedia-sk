@@ -96,6 +96,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0086_automation_tavily_event_cadence.sql",
     "0087_automation_tavily_help_roots.sql",
     "0088_automation_tavily_organization_root.sql",
+    "0089_automation_tavily_directory_roots.sql",
   ]);
 });
 
@@ -109,6 +110,13 @@ test("DISCOVERY-2C-E 0086 is a data-only production target with no schema drift 
 test("DISCOVERY-CAT-1B 0088 is a data-only production target with no schema drift surface", () => {
   assert.deepEqual(
     targetSchemaObjects({ objects: [] }, "0088_automation_tavily_organization_root.sql"),
+    { partial: false },
+  );
+});
+
+test("DISCOVERY-CAT-1C 0089 is a data-only production target with no schema drift surface", () => {
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0089_automation_tavily_directory_roots.sql"),
     { partial: false },
   );
 });
@@ -170,7 +178,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0089_future_migration.sql",
+    "0090_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -208,6 +216,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0086_automation_tavily_event_cadence.sql",
     "0087_automation_tavily_help_roots.sql",
     "0088_automation_tavily_organization_root.sql",
+    "0089_automation_tavily_directory_roots.sql",
   ]);
 });
 
@@ -215,7 +224,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0089_future_migration.sql",
+    "0090_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -239,7 +248,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0086_automation_tavily_event_cadence.sql",
     "0087_automation_tavily_help_roots.sql",
     "0088_automation_tavily_organization_root.sql",
-    "0089_future_migration.sql",
+    "0089_automation_tavily_directory_roots.sql",
+    "0090_future_migration.sql",
   ]);
 });
 

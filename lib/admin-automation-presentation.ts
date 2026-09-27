@@ -22,31 +22,37 @@ export const automationUxCategories: AutomationUxCategory[] = [
 
 const directoryVeterinaryHint = /veterin|vet\b|klinika|ambulancia/i;
 
-function automationCategoryForEntity(entityType: AutomationEntityType, searchable: string) {
+function automationCategoryForEntity(entityType: AutomationEntityType, searchable: string, directoryCategory?: unknown) {
   if (entityType === "DIRECTORY") {
+    const canonicalCategory = typeof directoryCategory === "string" ? directoryCategory.trim().toLowerCase() : "";
+    if (canonicalCategory === "veterinari") return "veterinari";
+    if (canonicalCategory) return "psie-sluzby";
     return directoryVeterinaryHint.test(searchable) ? "veterinari" : "psie-sluzby";
   }
   return automationUxCategories.find((category) => category.entityTypes.includes(entityType))?.slug ?? null;
 }
 
-export function automationCategoryForSource(source: Pick<AutomationSourceAdminRow, "entityType" | "sourceKey" | "label" | "sourceUrl">) {
+export function automationCategoryForSource(source: Pick<AutomationSourceAdminRow, "entityType" | "sourceKey" | "label" | "sourceUrl" | "config">) {
   return automationCategoryForEntity(
     source.entityType,
     [source.sourceKey, source.label, source.sourceUrl ?? ""].join(" "),
+    source.config?.staticFields?.category,
   );
 }
 
-export function automationCategoryForCandidate(candidate: Pick<AutomationSourceCandidateRow, "entityType" | "label" | "sourceUrl" | "reason">) {
+export function automationCategoryForCandidate(candidate: Pick<AutomationSourceCandidateRow, "entityType" | "label" | "sourceUrl" | "reason" | "metadata">) {
   return automationCategoryForEntity(
     candidate.entityType,
     [candidate.label, candidate.sourceUrl, candidate.reason].join(" "),
+    candidate.metadata?.directoryCategory ?? candidate.metadata?.category,
   );
 }
 
-export function automationCategoryForDiscoveryRoot(root: Pick<AutomationDiscoveryRoot, "entityType" | "rootKey" | "label" | "sourceUrl">) {
+export function automationCategoryForDiscoveryRoot(root: Pick<AutomationDiscoveryRoot, "entityType" | "rootKey" | "label" | "sourceUrl" | "config">) {
   return automationCategoryForEntity(
     root.entityType,
     [root.rootKey, root.label, root.sourceUrl ?? ""].join(" "),
+    root.config?.directoryCategory,
   );
 }
 

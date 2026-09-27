@@ -65,7 +65,8 @@ test("runner evidence persistence is governance-only and never activates or cano
 
 test("candidate approval semantics remain disabled and PENDING", () => {
   const store = read("lib/data-automation-source-store.ts");
-  assert.match(store, /VALUES \(\?,\?,\?,\?,\?,'\{\}',0,1440/);
+  assert.match(store, /VALUES \(\?,\?,\?,\?,\?,\?,0,1440/);
+  assert.match(store, /candidateProvisioningConfig/);
   assert.match(store, /'PENDING'/);
 });
 
