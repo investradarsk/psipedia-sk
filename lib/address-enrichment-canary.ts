@@ -20,6 +20,7 @@ import { GeoapifyGeocoder } from "./geoapify-geocoder";
 import { syncGeoPointAfterSourceChange } from "./geo-store";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata";
 import { existingDirectoryAddressEvidenceCandidate } from "./address-enrichment-store";
+import { SLOVAK_REGIONS, getSlovakDistricts, getSlovakMunicipalities } from "./slovakia-locations";
 
 type DB = Pick<D1Database, "prepare">;
 type Bindings = { DB?: D1Database; TAVILY_API_KEY?: string; GEOAPIFY_API_KEY?: string };
@@ -82,6 +83,18 @@ function text(html: string) {
   return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi," ").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi," ")
     .replace(/<[^>]+>/g," ").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/\s+/g," ").trim();
 }
+function inferredLocality(city: string, regionHint: string, districtHint: string) {
+  if (!city) return null;
+  const regions = regionHint ? SLOVAK_REGIONS.filter((region) => region === regionHint) : [...SLOVAK_REGIONS];
+  const matches: Array<{ region: string; district: string; city: string }> = [];
+  for (const region of regions) {
+    for (const district of getSlovakDistricts(region)) {
+      if (districtHint && district !== districtHint) continue;
+      if (getSlovakMunicipalities(district).includes(city)) matches.push({ region, district, city });
+    }
+  }
+  return matches.length === 1 ? matches[0] : null;
+}
 async function page(url: string, fetchImpl: typeof fetch) {
   if (!isSafeAutomationSourceUrl(url)) throw new Error("address_canary_unsafe_url");
   const expected = h(url);
@@ -110,7 +123,7 @@ export function extractOfficialAddress(html: string) {
         if(/PostalAddress/i.test(typ)){
           const line=s(o.streetAddress), city=s(o.addressLocality), pc=normalizeSlovakPostalCode(s(o.postalCode));
           const mm=line.match(/^(.+?)\s+(\d+(?:\/\d+[A-Za-z]?)?[A-Za-z]?)$/u);
-          if(mm&&city&&pc) return {raw:`${line}, ${pc} ${city}`,street:mm[1].trim(),house:mm[2],postal:pc,city,method:"JSON_LD_POSTAL_ADDRESS",confidence:.99};
+          if(mm&&city&&pc) return {raw:`${line}, ${pc} ${city}`,street:mm[1].trim(),house:mm[2],postal:pc,city,method:"JSON_LD_POSTAL_ADDRESS",confidence:.99,multiple:(html.match(/PostalAddress/gi)?.length ?? 0)>1,legalSeatOnly:false};
         }
         stack.push(...Object.values(o).filter((v)=>v&&typeof v==="object"));
       }
@@ -118,7 +131,7 @@ export function extractOfficialAddress(html: string) {
   }
   const t=text(html);
   const m=t.match(/(?:adresa|kontakt|prevádzka|ambulancia|klinika|salón|škola|hotel|centrum)\s*:?\s*([A-ZÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ][\p{L} .'-]{1,80})\s+(\d+(?:\/\d+[A-Za-z]?)?[A-Za-z]?)\s*,?\s*(\d{3}\s?\d{2})\s+([A-ZÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ][\p{L} .'-]{1,60})/iu);
-  return m ? {raw:`${m[1]} ${m[2]}, ${normalizeSlovakPostalCode(m[3])} ${m[4]}`,street:m[1].trim(),house:m[2],postal:normalizeSlovakPostalCode(m[3]),city:m[4].trim(),method:"LABELED_CONTACT_ADDRESS",confidence:.97} : null;
+  return m ? {raw:`${m[1]} ${m[2]}, ${normalizeSlovakPostalCode(m[3])} ${m[4]}`,street:m[1].trim(),house:m[2],postal:normalizeSlovakPostalCode(m[3]),city:m[4].trim(),method:"LABELED_CONTACT_ADDRESS",confidence:.97,multiple:(t.match(/(?:adresa|kontakt|prevádzka|ambulancia|klinika|salón|škola|hotel|centrum)\s*:?/giu)?.length ?? 0)>1,legalSeatOnly:/\b(sídlo|fakturačn)/iu.test(t.slice(Math.max(0,(m.index ?? 0)-120),(m.index ?? 0)+220))} : null;
 }
 function identity(t: DirectoryEnrichmentTarget, sourceUrl: string, html: string) {
   const a=normalizeDirectoryIdentityHints({name:t.name,domain:t.websiteUrl,phone:t.phone,email:t.email,city:t.city});
@@ -133,9 +146,12 @@ function identity(t: DirectoryEnrichmentTarget, sourceUrl: string, html: string)
 }
 function candidate(t: DirectoryEnrichmentTarget, sourceUrl:string, html:string, x:NonNullable<ReturnType<typeof extractOfficialAddress>>):AddressCandidate{
   const id=identity(t,sourceUrl,html);
+  const city=x.city||t.city;
+  const locality=inferredLocality(city,t.region,t.district);
   return {targetType:"DIRECTORY_PROFILE",targetId:t.id,evidence:{sourceUrl,sourceLabel:h(sourceUrl),sourceRole:"OFFICIAL_WEBSITE",authorityScore:t.websiteUrl&&h(t.websiteUrl)===h(sourceUrl)?100:90},
-    rawAddressText:x.raw,region:t.region,district:t.district,city:x.city||t.city,postalCode:x.postal,street:x.street,houseNumber:x.house,addressFormat:x.street?"STREET":"MUNICIPALITY_NUMBER",
-    entityMatchConfidence:id.confidence,entityMatchSignals:id.signals,addressExtractionConfidence:x.confidence,serviceLocationConfidence:x.confidence,providerVerification:"NOT_RUN"};
+    rawAddressText:x.raw,region:locality?.region??t.region,district:locality?.district??t.district,city:locality?.city??city,postalCode:x.postal,street:x.street,houseNumber:x.house,addressFormat:x.street?"STREET":"MUNICIPALITY_NUMBER",
+    entityMatchConfidence:id.confidence,entityMatchSignals:id.signals,addressExtractionConfidence:x.confidence,serviceLocationConfidence:x.legalSeatOnly?0.5:x.confidence,providerVerification:"NOT_RUN",
+    multipleCompetingAddresses:Boolean(x.multiple),legalSeatOnly:Boolean(x.legalSeatOnly)};
 }
 async function verify(c:AddressCandidate,p:GeoapifyGeocoder){
   try{
@@ -249,6 +265,19 @@ export async function applyDirectoryAddressCanary(input:{selections:Array<{targe
     const result=await database.prepare(`UPDATE directory_profiles SET region=?,district=?,city=?,postal_code=?,street=?,house_number=?,address_format=?,service_address_confirmation='CONFIRMED_SERVICE_LOCATION',updated_at=? WHERE id=? AND updated_at=? AND status<>'archived'`)
       .bind(c.region,c.district,c.city,c.postalCode,c.street,c.houseNumber,c.addressFormat,now,item.target.id,item.target.updatedAt).run();
     const changes=Number((result as {meta?:{changes?:number}}).meta?.changes??0);if(changes!==1){blocked.push({targetId:sel.targetId,reason:"STALE_OPTIMISTIC_LOCK"});continue;}
+    await database.prepare(`INSERT INTO moderation_events (
+      id,submission_id,resource_type,subject_id,action,actor_type,actor_ref,from_status,to_status,
+      reason_code,changed_fields_json,request_id,created_at
+    ) VALUES (?,NULL,'DIRECTORY_PROFILE',?,'ADDRESS_ENRICHMENT_CANARY_APPLY','ADMIN',?,NULL,NULL,?,?,?,?)`)
+      .bind(
+        crypto.randomUUID(),
+        String(item.target.id),
+        input.actorRef,
+        item.assessment.reason,
+        JSON.stringify(["region","district","city","postal_code","street","house_number","address_format","service_address_confirmation"]),
+        item.candidateFingerprint,
+        now,
+      ).run();
     let geoReconciled=false;try{await syncGeoPointAfterSourceChange("DIRECTORY_PROFILE",item.target.id,database as D1Database);geoReconciled=true;}catch{}
     const after={region:c.region,district:c.district,city:c.city,postalCode:c.postalCode,street:c.street,houseNumber:c.houseNumber,addressFormat:c.addressFormat,serviceAddressConfirmation:"CONFIRMED_SERVICE_LOCATION"};
     console.info(JSON.stringify({event:"address_enrichment_canary_applied",actorRef:input.actorRef,targetId:item.target.id,before,after,sourceUrl:item.sourceUrl,extractionMethod:item.extractionMethod,entityMatchSignals:c.entityMatchSignals,providerResult:c.providerVerification,decision:item.assessment.decision,candidateFingerprint:item.candidateFingerprint,timestamp:now,geoReconciled}));
