@@ -5,6 +5,7 @@ import { runAutomationSourceNow } from "@/lib/data-automation-runner";
 import { productionAutomationHtmlAdapters } from "@/lib/data-automation-real-sources";
 import { createProductionOrganizationEnricher } from "@/lib/data-automation-organization-enrichment";
 import { getAutomationSourceAdmin } from "@/lib/data-automation-source-store";
+import { automationHelpSourceReadiness } from "@/lib/data-automation-help-source-readiness";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -53,6 +54,13 @@ export async function POST(request: Request, { params }: Props) {
   if (!source) return Response.json({ error: "Zdroj neexistuje." }, { status: 404 });
   if (!source.enabled) return Response.json({ error: "automation_source_disabled" }, { status: 409 });
   if (source.reviewStatus !== "APPROVED") return Response.json({ error: "automation_source_review_required" }, { status: 409 });
+  const readiness = automationHelpSourceReadiness(source);
+  if (readiness.applicable && !readiness.ready) {
+    return Response.json({
+      error: "Zdroj zatiaľ nie je pripravený na automatické spracovanie.",
+      readiness,
+    }, { status: 409, headers: { "cache-control": "no-store" } });
+  }
 
   if (source.lastRunStatus === "RUNNING") {
     return Response.json({
