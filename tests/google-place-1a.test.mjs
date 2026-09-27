@@ -10,7 +10,7 @@ const read = (file) => readFile(path.join(root, file), "utf8");
 test("GOOGLE-PLACE-1A stores independent location-level Google identity", async () => {
   const [schema, migration, migrator] = await Promise.all([
     read("db/geo-schema.ts"),
-    read("migrations/0090_geo_google_place_identity.sql"),
+    read("drizzle/0090_geo_google_place_identity.sql"),
     read("scripts/production-d1-migrate.mjs"),
   ]);
   assert.match(schema, /googlePlaceId: text\("google_place_id"\)/);
