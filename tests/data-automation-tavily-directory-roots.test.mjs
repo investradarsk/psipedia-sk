@@ -118,11 +118,12 @@ test("DISCOVERY-CAT-1C weekly Tavily budget remains bounded", () => {
 test("DISCOVERY-CAT-1C remains candidate-only and preserves category into pending source provisioning", () => {
   const runner = read("lib/data-automation-discovery-runner.ts");
   const sourceStore = read("lib/data-automation-source-store.ts");
+  const provisioning = read("lib/data-automation-source-provisioning.ts");
   assert.match(runner, /upsertAutomationSourceCandidate/);
   assert.match(runner, /directoryCategory/);
   assert.doesNotMatch(runner, /INSERT INTO directory_profiles|UPDATE directory_profiles|DELETE FROM directory_profiles/i);
   assert.match(sourceStore, /candidateProvisioningConfig/);
-  assert.match(sourceStore, /semanticKind: "FACILITY_OR_SERVICE_PROFILE"/);
+  assert.match(provisioning, /semanticKind: "FACILITY_OR_SERVICE_PROFILE"/);
   assert.match(sourceStore, /stableJson\(candidateProvisioningConfig\(candidate\)\)/);
   assert.doesNotMatch(migration, /INSERT(?: OR IGNORE)? INTO automation_sources/i);
   assert.doesNotMatch(migration, /INSERT(?: OR IGNORE)? INTO directory_profiles/i);
