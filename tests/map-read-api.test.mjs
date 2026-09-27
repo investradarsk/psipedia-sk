@@ -273,6 +273,43 @@ test("seeded query layer combines filters, privacy, publication, event lifecycle
   assert.deepEqual(filtered.items.map((item) => item.name), ["Veterina Nitra"]);
 });
 
+test("map search projections coalesce nullable searchable fields before application filtering", async () => {
+  const statements = [];
+  const base = fakeDb();
+  const db = {
+    prepare(sql) {
+      statements.push(sql);
+      return base.prepare(sql);
+    },
+  };
+
+  await queryPublicMap(
+    parseMapQuery(params({ search: "AIDA" })),
+    db,
+    NOW,
+  );
+
+  const serviceSql = statements.find((sql) => sql.includes("JOIN directory_profiles"));
+  const organizationSql = statements.find((sql) => sql.includes("JOIN organization_locations"));
+  const eventSql = statements.find((sql) => sql.includes("JOIN managed_events"));
+
+  assert.match(serviceSql ?? "", /coalesce\(d\.name, ''\)[\s\S]+coalesce\(d\.description, ''\)[\s\S]+AS search_text/);
+  assert.match(organizationSql ?? "", /coalesce\(o\.name, ''\)[\s\S]+coalesce\(o\.description, ''\)[\s\S]+AS search_text/);
+  assert.match(eventSql ?? "", /coalesce\(e\.title, ''\)[\s\S]+coalesce\(e\.organizer, ''\)[\s\S]+AS search_text/);
+});
+
+test("unexpected null search_text fails closed instead of crashing map search", async () => {
+  const result = await queryPublicMap(
+    parseMapQuery(params({ search: "AIDA" })),
+    fakeDb({ services: [row({ name: "AIDA – salón pre psov", search_text: null })] }),
+    NOW,
+  );
+
+  assert.equal(result.mode, "items");
+  assert.equal(result.meta.matched, 0);
+  assert.deepEqual(result.items, []);
+});
+
 test("long map search stays within the D1 LIKE pattern limit and still matches the full normalized query", async () => {
   const name = "Špeciálna výstava švajčiarskych salašníckych psov";
   const event = row({
