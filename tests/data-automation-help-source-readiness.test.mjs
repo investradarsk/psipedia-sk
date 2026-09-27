@@ -244,7 +244,7 @@ test("candidate and source UI expose HELP readiness without asking for a technic
   const sourceDetail = read("components/admin-automation-source-detail.tsx");
 
   for (const ui of [candidate, sourceDetail]) {
-    assert.match(ui, /Pripravenosť HELP zdroja/);
+    assert.match(ui, /Technická pripravenosť/);
     assert.match(ui, /Typ zdroja/);
     assert.match(ui, /Technická pripravenosť/);
     assert.match(ui, /Potrebuje podporovaný adapter/);
