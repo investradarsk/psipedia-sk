@@ -162,11 +162,11 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   const run = await runResponse.json() as {
     accepted: boolean;
     run: { status: string };
-    safety: { canonicalWrite: boolean; publication: boolean };
+    safety: { canonicalDraftWrite: boolean; publication: boolean };
   };
   expect(run.accepted).toBe(true);
   expect(run.run.status).toBe("RUNNING");
-  expect(run.safety).toEqual({ canonicalWrite: false, publication: false });
+  expect(run.safety).toEqual({ canonicalDraftWrite: true, publication: false });
 
   let completedRun: { status: string | null; checked: number; newFindings: number; updatedFindings: number; errors: number } | null = null;
   await expect.poll(async () => {
@@ -206,7 +206,7 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   await expect(page.getByText("Vypnutý", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("SUCCESS", { exact: true }).first()).toBeVisible();
 
-  const testSourceButton = page.getByRole("button", { name: "Otestovať zdroj", exact: true });
+  const testSourceButton = page.getByRole("button", { name: "Overiť zdroj", exact: true });
   await expect(testSourceButton).toBeVisible();
   const buttonStyle = await testSourceButton.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -229,12 +229,13 @@ test("manual source lifecycle covers create edit review enable test run-now and 
 });
 
 
-test("automation category cluster-first view is responsive and axe-clean", async ({ page }) => {
+test("automation category source-first view is responsive and axe-clean", async ({ page }) => {
   const response = await page.goto("/admin/automatizacie/podujatia", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: "Podujatia", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Koncepty a nálezy", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zdroje", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "História", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
