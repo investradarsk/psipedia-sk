@@ -232,8 +232,8 @@ function MapResultCard({
   const approximate = isApproximateMapItem(item);
   const eventDate = item.entityType === "event" ? formatEventDate(item.eventStart) : "";
   const linkLabel = item.entityType === "event" ? "Detail podujatia" : "Zobraziť profil";
-  const googleMapsUrl = buildGoogleMapsPlaceUrl(item.latitude, item.longitude);
-  const directionsUrl = approximate ? null : buildGoogleMapsDirectionsUrl(item.latitude, item.longitude);
+  const googleMapsUrl = buildGoogleMapsPlaceUrl(item.latitude, item.longitude, item.googlePlaceId);
+  const directionsUrl = approximate ? null : buildGoogleMapsDirectionsUrl(item.latitude, item.longitude, item.googlePlaceId);
 
   return (
     <article

@@ -90,9 +90,9 @@ export function PublicLocationMap({
 
   if (!items.length) return null;
 
-  const placeUrl = selected ? buildGoogleMapsPlaceUrl(selected.latitude, selected.longitude) : null;
+  const placeUrl = selected ? buildGoogleMapsPlaceUrl(selected.latitude, selected.longitude, selected.googlePlaceId) : null;
   const directionsUrl = selected && !isApproximateMapItem(selected)
-    ? buildGoogleMapsDirectionsUrl(selected.latitude, selected.longitude)
+    ? buildGoogleMapsDirectionsUrl(selected.latitude, selected.longitude, selected.googlePlaceId)
     : null;
   const showRenderer = consentGranted && (testRenderer || rendererEnabled);
   const showMapControls = consentGranted && (testRenderer || rendererEnabled);

@@ -82,6 +82,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0087_automation_tavily_help_roots.sql",
   "0088_automation_tavily_organization_root.sql",
   "0089_automation_tavily_directory_roots.sql",
+  "0090_geo_google_place_identity.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -747,6 +748,12 @@ export function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0089_automation_tavily_directory_roots.sql") {
     return { partial: false };
   }
+  if (targetMigration === "0090_geo_google_place_identity.sql") {
+    const googlePlaceColumns = new Set(["google_place_id", "google_place_source_fingerprint", "google_place_matched_at"]);
+    return {
+      partial: schema.geoPointColumns.some((column) => googlePlaceColumns.has(String(column.name))),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1094,6 +1101,14 @@ function assertDirectoryGeoProviderResultIdSchema(schema) {
   assertRequiredColumns(schema.geoPointColumns, "geo_points", ["provider_result_id"]);
 }
 
+function assertGeoGooglePlaceIdentitySchema(schema) {
+  assertRequiredColumns(schema.geoPointColumns, "geo_points", [
+    "google_place_id",
+    "google_place_source_fingerprint",
+    "google_place_matched_at",
+  ]);
+}
+
 function assertAutomationPossibleMatchReviewsSchema(schema) {
   const names = objectMap(schema.objects);
   invariant(names.get("automation_entity_match_decisions")?.type === "table", "Missing automation POSSIBLE review decision table");
@@ -1197,6 +1212,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 82) assertAutomationDiscoveryEvidenceSchema(schema);
   if (migrationIndex(targetMigration) >= 83) assertAutomationSearchUsageSchema(schema);
   if (migrationIndex(targetMigration) >= 84) assertAutomationGovernanceSchema(schema);
+  if (migrationIndex(targetMigration) >= 90) assertGeoGooglePlaceIdentitySchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {

@@ -20,8 +20,8 @@ test("PUBLIC-MAPS-1 reusable detail map reuses renderer, consent and MAP-UX coor
   assert.match(component, /setGoogleMapsConsent/);
   assert.match(component, /Mapa/);
   assert.match(component, /Satelit/);
-  assert.match(component, /buildGoogleMapsPlaceUrl\(selected\.latitude, selected\.longitude\)/);
-  assert.match(component, /buildGoogleMapsDirectionsUrl\(selected\.latitude, selected\.longitude\)/);
+  assert.match(component, /buildGoogleMapsPlaceUrl\(selected\.latitude, selected\.longitude, selected\.googlePlaceId\)/);
+  assert.match(component, /buildGoogleMapsDirectionsUrl\(selected\.latitude, selected\.longitude, selected\.googlePlaceId\)/);
   assert.match(component, /!isApproximateMapItem\(selected\)/);
   assert.match(component, /Približná poloha/);
   assert.match(component, />Navigovať</);
