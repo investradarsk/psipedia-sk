@@ -79,6 +79,23 @@ export type AutomationSourceCandidateRow = {
   lastSeenAt: string;
 };
 
+export type AutomationSourceCandidateEvidenceRow = {
+  id: number;
+  candidateId: number;
+  rootId: number;
+  discoveryRunId: number | null;
+  discoveryType: string;
+  discoveryContext: string | null;
+  discoveryContextKey: string;
+  resultRank: number | null;
+  title: string | null;
+  snippet: string | null;
+  externalId: string | null;
+  metadata: Record<string, unknown>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
 export type AutomationSourceCandidateEvidenceInput = {
   candidateId: number;
   rootId: number;
@@ -578,6 +595,41 @@ function missingCandidateEvidenceSchema(error: unknown) {
 function boundedEvidenceText(value: string | null | undefined, limit: number) {
   const normalized = value?.trim();
   return normalized ? normalized.slice(0, limit) : null;
+}
+
+export async function listAutomationSourceCandidateEvidence(
+  candidateId: number,
+  databaseInput?: AutomationSourceAdminDatabase,
+) {
+  const db = database(databaseInput);
+  try {
+    const result = await db.prepare(`SELECT id,candidate_id,root_id,discovery_run_id,discovery_type,
+        discovery_context,discovery_context_key,result_rank,title,snippet,external_id,metadata_json,
+        first_seen_at,last_seen_at
+      FROM automation_source_candidate_evidence
+      WHERE candidate_id=?
+      ORDER BY CASE WHEN result_rank IS NULL THEN 1 ELSE 0 END,result_rank ASC,last_seen_at DESC,id ASC`)
+      .bind(candidateId).all<Record<string, unknown>>();
+    return result.results.map((row): AutomationSourceCandidateEvidenceRow => ({
+      id: numberValue(row.id),
+      candidateId: numberValue(row.candidate_id),
+      rootId: numberValue(row.root_id),
+      discoveryRunId: row.discovery_run_id == null ? null : numberValue(row.discovery_run_id),
+      discoveryType: String(row.discovery_type ?? ""),
+      discoveryContext: row.discovery_context ? String(row.discovery_context) : null,
+      discoveryContextKey: String(row.discovery_context_key ?? ""),
+      resultRank: row.result_rank == null ? null : numberValue(row.result_rank),
+      title: row.title ? String(row.title) : null,
+      snippet: row.snippet ? String(row.snippet) : null,
+      externalId: row.external_id ? String(row.external_id) : null,
+      metadata: json<Record<string, unknown>>(row.metadata_json, {}),
+      firstSeenAt: String(row.first_seen_at ?? ""),
+      lastSeenAt: String(row.last_seen_at ?? ""),
+    }));
+  } catch (error) {
+    if (missingCandidateEvidenceSchema(error)) return [];
+    throw error;
+  }
 }
 
 export async function upsertAutomationSourceCandidateEvidence(

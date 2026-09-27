@@ -79,3 +79,79 @@ test("0082 remains represented in guarded production migration history", () => {
   assert.match(workflow, /APPLY-0082-psipedia-sk-db/);
   assert.doesNotMatch(workflow, /schedule:/);
 });
+
+
+test("ORGANIZATION-DISCOVERY-1 direct candidate concepts reuse generic automation review without source activation", () => {
+  const concept = read("lib/data-automation-organization-discovery-concept.ts");
+  const runner = read("lib/data-automation-runner.ts");
+  const route = read("app/api/admin/automation-source-candidates/[id]/route.ts");
+  const ui = read("components/admin-automation-candidate-review.tsx");
+
+  assert.match(concept, /buildOrganizationConceptFromDiscoveryCandidate/);
+  assert.match(concept, /candidate\.entityType !== "ORGANIZATION" \|\| candidate\.discoveryType !== "SEARCH_PROVIDER"/);
+  assert.match(concept, /createProductionOrganizationEnricher/);
+  assert.match(concept, /listAutomationSourceCandidateEvidence/);
+  assert.match(concept, /matchAutomationCanonical/);
+  assert.match(concept, /processAutomationRecordForReview/);
+  assert.match(runner, /processRecord\(input\.source, null, record/);
+  assert.match(route, /prepare_organization_concept/);
+  assert.match(ui, /Pripraviť návrh organizácie/);
+
+  assert.doesNotMatch(concept, /UPDATE\s+automation_sources|enabled\s*=|cadence_minutes\s*=/i);
+  assert.doesNotMatch(concept, /INSERT\s+INTO\s+help_organizations|UPDATE\s+help_organizations|PUBLISHED/i);
+  assert.doesNotMatch(concept, /hostname\s*===|hostname\s*==|switch\s*\([^)]*hostname/i);
+});
+
+test("ORGANIZATION-DISCOVERY-1 keeps identity and type inference conservative and provenance explicit", () => {
+  const concept = read("lib/data-automation-organization-discovery-concept.ts");
+
+  for (const outcome of [
+    "NEW_ORGANIZATION",
+    "EXISTING_ORGANIZATION",
+    "POSSIBLE_MATCH",
+    "INSUFFICIENT_EVIDENCE",
+  ]) assert.ok(concept.includes(outcome));
+
+  for (const type of [
+    "SHELTER",
+    "CIVIC_ASSOCIATION",
+    "RESCUE_ORGANIZATION",
+    "MUNICIPAL_ORGANIZATION",
+    "NONPROFIT",
+  ]) assert.ok(concept.includes(type));
+
+  assert.match(concept, /if \(!input\.semanticKind \|\| !input\.name\) return "INSUFFICIENT_EVIDENCE"/);
+  assert.match(concept, /evidenceKind: "TAVILY"/);
+  assert.match(concept, /evidenceKind: "OFFICIAL_SITE"/);
+  assert.match(concept, /evidenceId/);
+  assert.match(concept, /sourceUrl/);
+  assert.match(concept, /confidence/);
+  assert.match(concept, /reason/);
+  assert.doesNotMatch(concept, /proposed\.address\s*=/);
+  assert.doesNotMatch(concept, /organization_locations|LEGAL_SEAT|SERVICE_AREA/);
+});
+
+test("ORGANIZATION-DISCOVERY-1 canonical lookup includes the discovered official website", () => {
+  const store = read("lib/data-automation-store.ts");
+  const organizationBranch = store.split('if (source.entityType === "ORGANIZATION")')[1].split('if (source.entityType === "DIRECTORY")')[0];
+  assert.match(organizationBranch, /website_url=\?/);
+  assert.match(organizationBranch, /sourceUrl: String\(row\.website_url \?\? row\.source_url/);
+});
+
+test("ORGANIZATION-DISCOVERY-1 direct review path has no migration and preserves publication safeguards", () => {
+  const treeFiles = [
+    "lib/data-automation-organization-discovery-concept.ts",
+    "lib/data-automation-runner.ts",
+    "lib/data-automation-source-store.ts",
+    "lib/data-automation-store.ts",
+    "app/api/admin/automation-source-candidates/[id]/route.ts",
+    "components/admin-automation-candidate-review.tsx",
+  ];
+  assert.equal(treeFiles.some((path) => path.startsWith("drizzle/")), false);
+
+  const apply = read("lib/data-automation-apply.ts");
+  const publication = read("lib/help-organization-publication.ts");
+  assert.match(apply, /CREATE_DRAFT/);
+  assert.match(publication, /buildOrganizationPublicationPreflight/);
+  assert.match(publication, /ready: blockers\.length === 0/);
+});

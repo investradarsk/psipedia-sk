@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { previewAutomationSource } from "@/lib/data-automation-preview";
+import { buildOrganizationConceptFromDiscoveryCandidate } from "@/lib/data-automation-organization-discovery-concept";
 import {
   getAutomationSourceAdmin,
   reviewAutomationSourceCandidate,
@@ -31,11 +32,21 @@ export async function PUT(request: Request, { params }: Props) {
   if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Neplatné ID kandidáta." }, { status: 400 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const action = String(body?.action ?? "");
-  if (!["approve", "reject", "suppress"].includes(action)) {
-    return Response.json({ error: "Neplatná candidate akcia." }, { status: 400 });
-  }
 
   try {
+    if (action === "prepare_organization_concept") {
+      const db = (env as unknown as RuntimeBindings).DB;
+      if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      const concept = await buildOrganizationConceptFromDiscoveryCandidate({
+        candidateId: id,
+        database: db,
+      });
+      return Response.json({ concept }, { headers: { "cache-control": "no-store" } });
+    }
+    if (!["approve", "reject", "suppress"].includes(action)) {
+      return Response.json({ error: "Neplatná candidate akcia." }, { status: 400 });
+    }
+
     const candidate = await reviewAutomationSourceCandidate({
       id,
       action: action as "approve" | "reject" | "suppress",
