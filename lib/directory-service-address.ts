@@ -51,6 +51,60 @@ function clean(value: string | null | undefined) {
   return value?.trim() ?? "";
 }
 
+function normalizeSemanticText(value: string | null | undefined) {
+  return clean(value).replace(/\s+/g, " ").toLocaleLowerCase("sk-SK");
+}
+
+export function directoryAddressTextSemanticallyEqual(
+  left: string | null | undefined,
+  right: string | null | undefined,
+) {
+  return normalizeSemanticText(left) === normalizeSemanticText(right);
+}
+
+type DirectoryCanonicalAddressFields = Pick<
+  DirectoryServiceAddress,
+  "region" | "district" | "city" | "postalCode" | "street" | "houseNumber" | "addressFormat"
+>;
+
+export function directoryCanonicalAddressSemanticallyEqual(
+  current: DirectoryCanonicalAddressFields,
+  persisted: DirectoryCanonicalAddressFields,
+) {
+  return directoryAddressTextSemanticallyEqual(current.region, persisted.region)
+    && directoryAddressTextSemanticallyEqual(current.district, persisted.district)
+    && directoryAddressTextSemanticallyEqual(current.city, persisted.city)
+    && normalizeSlovakPostalCode(current.postalCode) === normalizeSlovakPostalCode(persisted.postalCode)
+    && directoryAddressTextSemanticallyEqual(current.street, persisted.street)
+    && directoryAddressTextSemanticallyEqual(current.houseNumber, persisted.houseNumber)
+    && current.addressFormat === persisted.addressFormat;
+}
+
+export function applyDirectoryStreetSelection(
+  current: DirectoryCanonicalAddressFields,
+  suggestion: {
+    providerResultId: string;
+    street: string;
+    city: string;
+    district: string;
+    region: string;
+  },
+) {
+  const sameLocality = directoryAddressTextSemanticallyEqual(current.region, suggestion.region || current.region)
+    && directoryAddressTextSemanticallyEqual(current.district, suggestion.district || current.district)
+    && directoryAddressTextSemanticallyEqual(current.city, suggestion.city || current.city);
+  const sameStreet = sameLocality && directoryAddressTextSemanticallyEqual(current.street, suggestion.street);
+
+  return {
+    addressProviderResultId: suggestion.providerResultId,
+    postalCode: sameStreet ? current.postalCode : "",
+    street: suggestion.street.trim(),
+    houseNumber: sameStreet ? current.houseNumber : "",
+    addressFormat: sameStreet ? current.addressFormat : "STREET" as const,
+    sameStreet,
+  };
+}
+
 function isOnlineSentinel(value: string | null | undefined) {
   return ONLINE_SENTINEL.test(clean(value));
 }
