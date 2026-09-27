@@ -89,12 +89,16 @@ async function clickRenderedMarker(page: Page, selector: string) {
   await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
 }
 
-async function currentViewportItemName(page: Page) {
+async function currentViewportItem(page: Page) {
   const cards = page.locator('[data-testid^="map-card-"]');
   for (let attempt = 0; attempt < 5; attempt++) {
     if (await cards.count() > 0) {
-      const name = (await cards.first().locator("strong").first().textContent())?.trim();
-      if (name) return name;
+      const card = cards.first();
+      const name = (await card.locator("strong").first().textContent())?.trim();
+      const testId = await card.getAttribute("data-testid");
+      if (name && testId?.startsWith("map-card-")) {
+        return { id: testId.slice("map-card-".length), name };
+      }
     }
 
     const clusters = page.locator('[data-map-cluster="true"]').filter({ visible: true });
@@ -266,13 +270,26 @@ test.describe("MAP V1 live production launch audit", () => {
     // Exact-name search should collapse the live dataset to a singleton result.
     // Pick the target from the current authoritative Google viewport rather than
     // from the earlier static API contract bbox, which can differ on desktop/mobile.
-    const singletonTargetName = await currentViewportItemName(page);
-    await page.getByLabel("Vyhľadávanie v mape").fill(singletonTargetName);
-    await expect(page.getByText(singletonTargetName, { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    const singletonTarget = await currentViewportItem(page);
+    const singletonSearchResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === "/api/map"
+        && url.searchParams.get("search") === singletonTarget.name
+        && response.status() === 200;
+    }, { timeout: 15000 });
+    await page.getByLabel("Vyhľadávanie v mape").fill(singletonTarget.name);
+    await singletonSearchResponse;
+
+    const singletonCard = page.getByTestId(`map-card-${singletonTarget.id}`);
+    await expect(singletonCard).toBeVisible({ timeout: 15000 });
+    await expect(singletonCard).toContainText(singletonTarget.name);
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
+
+    const singletonMarkerSelector = `[data-map-marker-id="${singletonTarget.id}"]`;
+    await expect(page.locator(singletonMarkerSelector)).toBeVisible({ timeout: 15000 });
     const requestsBeforeSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
-    await clickRenderedMarker(page, "[data-map-marker]");
-    await expect(page.locator('[data-selected="true"]')).toContainText(singletonTargetName);
+    await clickRenderedMarker(page, singletonMarkerSelector);
+    await expect(singletonCard).toHaveAttribute("data-selected", "true");
     await page.waitForTimeout(500);
     const requestsAfterSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
     expect(requestsAfterSingletonClick).toBe(requestsBeforeSingletonClick);
