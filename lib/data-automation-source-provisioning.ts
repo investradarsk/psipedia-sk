@@ -4,6 +4,10 @@ import {
   type AutomationEntityType,
   type AutomationSourceConfig,
 } from "./data-automation.ts";
+import {
+  helpCandidateProvisioningConfigFor,
+  isAutomationHelpEntityType,
+} from "./data-automation-help-source-readiness.ts";
 
 export const ORGANIZATION_OFFICIAL_SITE_ADAPTER = "organization-official-site";
 export const ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER = "psiadusa-organization-directory";
@@ -44,6 +48,13 @@ export function candidateProvisioningConfigFor(input: {
   if (input.entityType === "ORGANIZATION") {
     const htmlAdapterKey = organizationHtmlAdapterKeyForSourceUrl(input.canonicalUrl);
     return htmlAdapterKey ? { htmlAdapterKey } : {};
+  }
+
+  if (isAutomationHelpEntityType(input.entityType)) {
+    return helpCandidateProvisioningConfigFor({
+      entityType: input.entityType,
+      canonicalUrl: input.canonicalUrl,
+    });
   }
 
   const directoryCategory = input.entityType === "DIRECTORY" && typeof input.metadata.directoryCategory === "string"

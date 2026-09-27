@@ -60,7 +60,7 @@ export async function PUT(request: Request, { params }: Props) {
     return Response.json({ error: "Neplatná source akcia." }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zdroj sa nepodarilo upraviť.";
-    const status = /review_required|not_safe|governance_blocked|stale_update/i.test(message) ? 409 : /governance_.*invalid|rationale_required|value_too_long|number_invalid/i.test(message) ? 400 : /unique/i.test(message) ? 409 : 500;
+    const status = /review_required|not_safe|not_ready|governance_blocked|stale_update/i.test(message) ? 409 : /governance_.*invalid|rationale_required|value_too_long|number_invalid/i.test(message) ? 400 : /unique/i.test(message) ? 409 : 500;
     return Response.json({ error: message }, { status });
   }
 }
