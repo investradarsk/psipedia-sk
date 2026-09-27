@@ -186,7 +186,7 @@ async function safelyCreateSourceErrorFinding(
 
 async function processRecord(
   source: AutomationSource,
-  runId: number,
+  runId: number | null,
   record: AutomationSourceRecord,
   detectedAt: string,
   database: D1Database,
@@ -335,6 +335,21 @@ async function processRecord(
     new Date(detectedAt),
   );
   return { finding: classified.findingType, ...result };
+}
+
+export async function processAutomationRecordForReview(input: {
+  source: AutomationSource;
+  record: AutomationSourceRecord;
+  database: D1Database;
+  now?: Date;
+  organizationEnricher?: OrganizationRecordEnricher;
+}) {
+  const detectedAt = (input.now ?? new Date()).toISOString();
+  let record = input.record;
+  if (input.source.entityType === "ORGANIZATION" && input.organizationEnricher) {
+    record = await input.organizationEnricher(record, { detectedAt });
+  }
+  return processRecord(input.source, null, record, detectedAt, input.database);
 }
 
 async function runSource(
