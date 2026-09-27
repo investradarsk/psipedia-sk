@@ -144,11 +144,11 @@ test("governance updates are optimistic-concurrency protected and audit history 
 
 test("admin makes dimensions and blocking reasons visible", async () => {
   const ui = await readFile(path.join(repoRoot, "components/admin-automation-source-detail.tsx"), "utf8");
-  for (const label of ["Access", "Robots", "Terms / legal", "Recurring use", "Evidence retention", "Last reviewed", "Review due"]) {
+  for (const label of ["Access", "Robots", "Terms / legal", "Recurring use", "Evidence retention", "Posledná kontrola", "Ďalšia kontrola"]) {
     assert.ok(ui.includes(label), label);
   }
   assert.match(ui, /governanceEvaluation\.blockingReasons/);
-  assert.match(ui, /Governance history/);
+  assert.match(ui, /História bezpečnostných pravidiel/);
 });
 
 
