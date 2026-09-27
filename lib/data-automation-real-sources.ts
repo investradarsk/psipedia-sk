@@ -1,5 +1,10 @@
 import type { ControlledHtmlAdapter } from "./data-automation-connectors.ts";
 import { canonicalizeSourceUrl, normalizeAutomationIdentity, type AutomationSourceRecord } from "./data-automation.ts";
+import { parseOrganizationDirectory } from "./data-automation-organization-enrichment.ts";
+import {
+  ORGANIZATION_OFFICIAL_SITE_ADAPTER,
+  ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER,
+} from "./data-automation-source-provisioning.ts";
 
 function decodeHtml(value: string) {
   return value
@@ -643,7 +648,115 @@ export const szpzMushingEventsAdapter: ControlledHtmlAdapter = async ({ html, so
   return records;
 };
 
+
+function htmlAttribute(tag: string, name: string) {
+  const match = tag.match(new RegExp("\\b" + name + "\\s*=\\s*[\"']([^\"']+)[\"']", "i"));
+  return match ? decodeHtml(match[1]).replace(/\s+/g, " ").trim() : "";
+}
+
+function organizationMetaContent(html: string, names: string[]) {
+  for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = match[0];
+    const key = (htmlAttribute(tag, "property") || htmlAttribute(tag, "name")).toLowerCase();
+    if (!names.includes(key)) continue;
+    const value = htmlAttribute(tag, "content");
+    if (value) return textFromHtml(value);
+  }
+  return "";
+}
+
+function organizationHeading(html: string) {
+  const match = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+  return match ? textFromHtml(match[1]) : "";
+}
+
+function organizationTitle(html: string) {
+  const match = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  return match ? textFromHtml(match[1]) : "";
+}
+
+function conservativeOrganizationName(html: string) {
+  const context = normalizeAutomationIdentity(textFromHtml(html).slice(0, 80_000));
+  const hasOrganizationContext = /\b(utulok|azyl|obcianske zdruzenie|neziskov|organizac|zachran|pomoc psom|adopci|opustenym psom|zvierat)\b/.test(context);
+  if (!hasOrganizationContext) return null;
+
+  const candidates = [
+    organizationMetaContent(html, ["og:site_name"]),
+    organizationHeading(html),
+    organizationMetaContent(html, ["og:title"]),
+    organizationTitle(html),
+  ].map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean);
+
+  for (const value of candidates) {
+    if (value.length < 3 || value.length > 160) continue;
+    const normalized = normalizeAutomationIdentity(value);
+    if (!normalized) continue;
+    if (/^(domov|home|uvod|vitajte|welcome)$/.test(normalized)) continue;
+    if (/\b(zoznam|adresar|register|directory|list)\b/.test(normalized)) continue;
+    if (/\b(utulkov a organizacii|utulky a organizacie)\b/.test(normalized)) continue;
+    return value;
+  }
+  return null;
+}
+
+export const organizationOfficialSiteAdapter: ControlledHtmlAdapter = ({ html, source }) => {
+  const name = conservativeOrganizationName(html);
+  if (!name || !source.sourceUrl) return [];
+
+  const websiteUrl = canonicalizeSourceUrl(source.sourceUrl);
+  if (!websiteUrl) return [];
+  return [{
+    sourceRecordId: ("site:" + websiteUrl).slice(0, 240),
+    sourceUrl: websiteUrl,
+    sourceTimestamp: null,
+    rawRecord: {
+      sourceUrl: websiteUrl,
+      identitySource: "page_metadata",
+      extractedName: name,
+    },
+    proposed: {
+      name,
+      websiteUrl,
+      sourceUrl: websiteUrl,
+    },
+  }];
+};
+
+export const psiadusaOrganizationDirectoryAdapter: ControlledHtmlAdapter = ({ html, source }) => {
+  if (!source.sourceUrl) return [];
+  return parseOrganizationDirectory(html, source.sourceUrl).map((entry) => {
+    const identity = [
+      normalizeAutomationIdentity(entry.name),
+      normalizeAutomationIdentity(entry.city),
+    ].filter(Boolean).join(":");
+    return {
+      sourceRecordId: ("psiadusa:" + identity).slice(0, 240),
+      sourceUrl: entry.sourceUrl,
+      sourceTimestamp: null,
+      rawRecord: {
+        name: entry.name,
+        city: entry.city,
+        region: entry.region,
+        form: entry.form,
+        websiteUrl: entry.websiteUrl,
+        facebookUrl: entry.facebookUrl,
+        sourceUrl: entry.sourceUrl,
+      },
+      proposed: {
+        name: entry.name,
+        ...(entry.city ? { city: entry.city } : {}),
+        ...(entry.region ? { region: entry.region } : {}),
+        ...(entry.websiteUrl ? { websiteUrl: entry.websiteUrl } : {}),
+        ...(entry.facebookUrl ? { facebookUrl: entry.facebookUrl } : {}),
+        sourceUrl: entry.sourceUrl,
+      },
+    } satisfies AutomationSourceRecord;
+  }).filter((record) => Boolean(record.sourceRecordId && String(record.proposed.name ?? "").trim()));
+};
+
 export const productionAutomationHtmlAdapters: Record<string, ControlledHtmlAdapter> = {
+  [ORGANIZATION_OFFICIAL_SITE_ADAPTER]: organizationOfficialSiteAdapter,
+  [ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER]: psiadusaOrganizationDirectoryAdapter,
   "skj-exhibition-calendar": skjExhibitionCalendarAdapter,
   "svps-shelters-register": svpsSheltersRegisterAdapter,
   "agility-sk-events": agilitySkEventsAdapter,
