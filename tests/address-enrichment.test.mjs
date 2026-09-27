@@ -150,7 +150,7 @@ test("identity hints normalize domain, phone, email, name and city", () => {
   });
   assert.equal(hints.name, "vet centrum");
   assert.equal(hints.domain, "vet.example.sk");
-  assert.equal(hints.phone, "421905123456");
+  assert.equal(hints.phone, "+421905123456");
   assert.equal(hints.email, "info@vet.example.sk");
   assert.equal(hints.city, "zlaté moravce");
 });
