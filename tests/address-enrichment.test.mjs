@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   ADDRESS_ENRICHMENT_DEFAULT_BATCH,
   ADDRESS_ENRICHMENT_MAX_BATCH,
@@ -13,7 +14,9 @@ import {
 } from "../lib/address-enrichment.ts";
 import {
   canonicalAddressShape,
+  directoryCategoryMatches,
   extractOfficialAddress,
+  searchReservationDiagnostic,
   validateAddressCanarySelection,
 } from "../lib/address-enrichment-canary.ts";
 
@@ -223,4 +226,92 @@ test("canonical shape distinguishes STREET from MUNICIPALITY_NUMBER", () => {
     street: "",
     addressFormat: "MUNICIPALITY_NUMBER",
   });
+});
+
+
+const readRepo = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+
+test("ADDRESS-ENRICH-2A deterministic DIRECTORY root matching covers production Tavily categories", () => {
+  const migration = readRepo("drizzle/0089_automation_tavily_directory_roots.sql");
+  const categories = ["veterinari", "salony-a-sluzby", "hotely-a-opatrovanie", "treneri", "fyzioterapia"];
+  for (const category of categories) {
+    assert.ok(migration.includes(`"directoryCategory":"${category}"`), category);
+    assert.equal(directoryCategoryMatches(category, category), true);
+    assert.equal(directoryCategoryMatches("  " + category.toUpperCase() + "  ", category), true);
+  }
+  assert.equal(directoryCategoryMatches("salony-a-sluzby", "veterinari"), false);
+  assert.equal(directoryCategoryMatches("", "veterinari"), false);
+  assert.equal(directoryCategoryMatches("veterinari", "eshopy"), false);
+});
+
+test("ADDRESS-ENRICH-2A maps reservation blockers without bypassing governance budgets", () => {
+  assert.equal(searchReservationDiagnostic("DUPLICATE_OPERATION"), "SEARCH_DEDUP_BLOCKED");
+  assert.equal(searchReservationDiagnostic("GLOBAL_BUDGET_EXHAUSTED"), "SEARCH_BUDGET_BLOCKED");
+  assert.equal(searchReservationDiagnostic("CATEGORY_BUDGET_EXHAUSTED"), "SEARCH_BUDGET_BLOCKED");
+  assert.equal(searchReservationDiagnostic("ROOT_BUDGET_EXHAUSTED"), "SEARCH_BUDGET_BLOCKED");
+  assert.equal(searchReservationDiagnostic("unexpected"), "SEARCH_OTHER_BLOCKED");
+});
+
+test("ADDRESS-ENRICH-2A exposes the full required search diagnostic state vocabulary", () => {
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  for (const state of [
+    "TAVILY_NOT_CONFIGURED",
+    "NO_SEARCH_ROOT",
+    "SEARCH_COOLDOWN",
+    "SEARCH_BUDGET_BLOCKED",
+    "SEARCH_DEDUP_BLOCKED",
+    "SEARCH_OTHER_BLOCKED",
+    "SEARCH_CALLED_EMPTY",
+    "SEARCH_CALLED_NO_IDENTITY_MATCH",
+    "SEARCH_CALLED_MATCHED_URL",
+    "SEARCH_SOURCE_FETCH_FAILED",
+    "SEARCH_SOURCE_NO_ADDRESS",
+    "SEARCH_RATE_LIMITED",
+    "SEARCH_PROVIDER_ERROR",
+    "FIRST_PARTY_NO_ADDRESS",
+    "EXISTING_EVIDENCE_USED",
+  ]) assert.ok(source.includes(state), state);
+});
+
+test("ADDRESS-ENRICH-2A keeps searchCalls as real provider calls and adds attempts/blocked separately", () => {
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  assert.match(source, /if\(found\.called\)searchCalls\+\+/);
+  assert.match(source, /searchAttempts\+=1/);
+  assert.match(source, /searchBlocked\+=1/);
+  assert.match(source, /searchCalls,searchAttempts,searchBlocked,providerCalls/);
+});
+
+test("ADDRESS-ENRICH-2A eligible first-party failure reaches Tavily search and distinguishes result outcomes", () => {
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  assert.match(source, /if\(!c\)\{\s*searchAttempts\+=1/);
+  assert.match(source, /const found=await tavilyUrl\(t,search,database\)/);
+  assert.match(source, /const results=await p\.search\(request\)/);
+  assert.match(source, /SEARCH_CALLED_EMPTY/);
+  assert.match(source, /SEARCH_CALLED_NO_IDENTITY_MATCH/);
+  assert.match(source, /SEARCH_CALLED_MATCHED_URL/);
+});
+
+test("ADDRESS-ENRICH-2A source fetch failures and no-address extraction remain diagnostic, not generic-only", () => {
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  assert.match(source, /SEARCH_SOURCE_FETCH_FAILED/);
+  assert.match(source, /SEARCH_SOURCE_NO_ADDRESS/);
+  assert.match(source, /reason:stoppedByRateLimit\?"search_rate_limited":"no_usable_address"/);
+});
+
+test("ADDRESS-ENRICH-2A preview remains canonical/GEO write-free", () => {
+  const route = readRepo("app/api/admin/address-enrichment/live-preview/route.ts");
+  assert.match(route, /readOnly: true/);
+  assert.match(route, /productionWrites: 0/);
+  assert.match(route, /canonicalWrites: 0/);
+  assert.match(route, /geoWrites: 0/);
+  assert.doesNotMatch(route, /UPDATE\s+directory_profiles|INSERT\s+INTO\s+geo_points/i);
+});
+
+test("ADDRESS-ENRICH-2A UI exposes first-party and Tavily discovery diagnostics", () => {
+  const ui = readRepo("components/admin-address-enrichment-canary.tsx");
+  assert.match(ui, /Discovery \/ Search/);
+  assert.match(ui, /First-party:/);
+  assert.match(ui, /Tavily:/);
+  assert.match(ui, /searchAttempts/);
+  assert.match(ui, /searchBlocked/);
 });
