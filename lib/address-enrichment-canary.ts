@@ -211,7 +211,7 @@ async function tavilyUrl(t:DirectoryEnrichmentTarget,p:TavilyAutomationSearchPro
   const bucket=Math.floor(now.getTime()/Math.max(60_000,policy.queryCooldownMinutes*60_000));
   const operationKey=`address-enrich-canary:${root.id}:${t.id}:${queryFingerprint}:${bucket}`;
   const reservation=await reserveAutomationSearchRequest({
-    operationKey,discoveryRunId:null,providerKey:p.key,rootId:root.id,entityType:"DIRECTORY",queryFingerprint,now,
+    operationKey,discoveryRunId:null as unknown as number,providerKey:p.key,rootId:root.id,entityType:"DIRECTORY",queryFingerprint,now,
     globalDailyLimit:policy.globalDailyRequests,entityDailyLimit:policy.entityDailyRequests,rootDailyLimit:policy.rootDailyRequests,
   },database);
   if(!reservation.reserved)return{url:null,called:false,blocked:reservation.reason};
