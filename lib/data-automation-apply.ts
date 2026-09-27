@@ -1062,55 +1062,96 @@ export async function applyAutomationFinding(input: {
         reclassified: "EXISTING_ORGANIZATION",
       };
     } else {
-      const draft = createDraftStatement(finding, actor, at, db);
-      const appliedFields = Object.keys(finding.diff);
-      const application = db.prepare(`INSERT INTO automation_applications (
-          finding_id,entity_type,canonical_entity_id,application_type,applied_fields_json,before_json,after_json,applied_by,applied_at
-        ) VALUES (?,?,last_insert_rowid(),'CREATE_DRAFT',?,?,?,?,?)`).bind(
-          finding.id, finding.entityType, JSON.stringify(appliedFields), JSON.stringify(finding.before),
-          JSON.stringify(draft.after), actor, at,
-        );
-      const closeFinding = db.prepare(`UPDATE automation_findings SET
-          canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
-          canonical_entity_key=? || ':' || (SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
-          review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
-        WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
-          finding.id, config.keyPrefix, finding.id, notes, actor, at, finding.id,
-        );
-      const clusterClaim = cluster && finding.findingType === "NEW_ENTITY"
-        ? db.prepare(`INSERT INTO automation_cluster_canonical_claims (cluster_id,finding_id,canonical_entity_id,claimed_at)
-            VALUES (?,?,NULL,?)`).bind(cluster.id, finding.id, at)
-        : null;
-      const clusterLink = cluster && finding.findingType === "NEW_ENTITY"
-        ? db.prepare(`UPDATE automation_entity_clusters SET
-            canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
-            canonical_entity_key=? || ':' || (SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
-            updated_at=?
-          WHERE id=? AND canonical_entity_id IS NULL`).bind(
-            finding.id, config.keyPrefix, finding.id, at, cluster.id,
-          )
-        : null;
-      const clusterClaimComplete = cluster && finding.findingType === "NEW_ENTITY"
-        ? db.prepare(`UPDATE automation_cluster_canonical_claims SET
-            canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?)
-          WHERE cluster_id=? AND finding_id=?`).bind(finding.id, cluster.id, finding.id)
-        : null;
+      if (!finding.sourceRecordId) {
+        throw new AutomationApplyConflictError("Finding nemá stabilnú source-record identitu pre ingestion receipt.");
+      }
+
+      const priorReceipt = await getAutomationIngestionReceipt({
+        sourceId: finding.sourceId,
+        entityType: finding.entityType,
+        sourceRecordId: finding.sourceRecordId,
+      }, db);
+      if (priorReceipt) {
+        await db.prepare(`UPDATE automation_findings SET
+            canonical_entity_id=NULL,canonical_entity_key=NULL,
+            review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
+          WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
+            notes, actor, at, finding.id,
+          ).run();
+        const refreshed = await getAutomationFindingDetail(finding.id, db);
+        if (!refreshed) throw new Error("automation_receipt_resolution_missing");
+        return { finding: refreshed, application: null };
+      }
+
+      let created: Awaited<ReturnType<typeof createCanonicalDraft>>;
       try {
-        await db.batch([
-          ...(clusterClaim ? [clusterClaim] : []),
-          draft.statement,
-          application,
-          ...(clusterLink ? [clusterLink] : []),
-          ...(clusterClaimComplete ? [clusterClaimComplete] : []),
-          closeFinding,
-        ]);
+        created = await createCanonicalDraft(
+          mapAutomationFindingToDraftInput(finding, at),
+          { actor, createdAt: at },
+          db,
+        );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (cluster && /automation_cluster_canonical_claims.*(?:UNIQUE|PRIMARY KEY)|UNIQUE constraint failed: automation_cluster_canonical_claims/i.test(message)) {
-          throw new AutomationApplyConflictError("Tento multi-source cluster už medzitým vytvoril alebo claimol canonical draft.");
+        if (error instanceof CanonicalDraftValidationError) {
+          throw new AutomationApplyUnsupportedError(error.message);
         }
         throw error;
       }
+
+      if (finding.findingType === "DUPLICATE_CANDIDATE") {
+        await upsertCanonicalPossibleDuplicateFlag({
+          entityType: finding.entityType,
+          canonicalEntityId: created.canonicalEntityId,
+          candidateIds: await possibleDuplicateCandidateIds(finding, db),
+          sourceUrl: finding.sourceUrl,
+          createdAt: at,
+        }, db);
+      }
+
+      const receipt = await createAutomationIngestionReceipt({
+        sourceId: finding.sourceId,
+        entityType: finding.entityType,
+        sourceRecordId: finding.sourceRecordId,
+        sourceUrl: finding.sourceUrl,
+        payloadHash: finding.payloadHash,
+        result: "DRAFT_CREATED",
+        firstProcessedAt: at,
+      }, db);
+      if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+
+      await db.prepare(`UPDATE automation_findings SET
+          canonical_entity_id=NULL,canonical_entity_key=NULL,
+          review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
+        WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
+          notes, actor, at, finding.id,
+        ).run();
+
+      await ensureAutomationResourceAnchor(finding.entityType, created.canonicalEntityId, db, input.now ?? new Date());
+      if (finding.entityType === "DIRECTORY") {
+        await reconcileGeoAfterSourceMutation({
+          targetType: "DIRECTORY_PROFILE",
+          targetId: created.canonicalEntityId,
+          actorRef: actor,
+          actorType: "ADMIN",
+        }, db);
+      }
+      const appliedFields = Object.keys(finding.diff);
+      await reconcileAutomationEventGeo({
+        entityType: finding.entityType,
+        canonicalEntityId: created.canonicalEntityId,
+        applicationType: "CREATE_DRAFT",
+        appliedFields,
+        actorRef: actor,
+      }, db);
+      const refreshed = await getAutomationFindingDetail(finding.id, db);
+      if (!refreshed) throw new Error("automation_create_draft_result_missing");
+      return {
+        finding: refreshed,
+        application: {
+          canonicalEntityId: created.canonicalEntityId,
+          applicationType: "CREATE_DRAFT",
+          appliedFields,
+        },
+      };
     }
   } else {
     if (!finding.canonicalEntityId) throw new AutomationApplyConflictError("Finding nemá jednoznačný canonical záznam.");
