@@ -10,6 +10,11 @@ type Item = {
   extractionMethod: string | null;
   candidateFingerprint: string | null;
   reason: string;
+  firstPartyDiagnostic: { attempted: boolean; fetchCount: number; pagesTried: string[]; addressFound: boolean };
+  searchDiagnostic: {
+    attempted: boolean; called: boolean; status: string; blockedReason: string | null;
+    rootId: number | null; rootKey: string | null; query: string | null; resultCount: number | null; matchedResultUrl: string | null;
+  };
 };
 type Preview = {
   scanned: number;
@@ -18,6 +23,8 @@ type Preview = {
   reviewCandidates: number;
   noMatch: number;
   searchCalls: number;
+  searchAttempts: number;
+  searchBlocked: number;
   providerCalls: number;
   pageFetches: number;
   productionWrites: 0;
@@ -115,6 +122,8 @@ export function AdminAddressEnrichmentCanary() {
         {" · "}REVIEW <strong>{preview.reviewCandidates}</strong>
         {" · "}NO_MATCH <strong>{preview.noMatch}</strong>
         {" · "}search <strong>{preview.searchCalls}</strong>
+        {" · "}attempts <strong>{preview.searchAttempts}</strong>
+        {" · "}blocked <strong>{preview.searchBlocked}</strong>
         {" · "}provider <strong>{preview.providerCalls}</strong>
         {" · "}fetch <strong>{preview.pageFetches}</strong>
         {" · "}writes <strong>{preview.productionWrites}</strong>
@@ -129,7 +138,7 @@ export function AdminAddressEnrichmentCanary() {
       <div style={{ overflowX: "auto" }}>
         <table className="admin-table">
           <thead><tr>
-            <th>Apply</th><th>Profil</th><th>Teraz</th><th>Nájdené</th><th>Zdroj</th><th>Identity</th><th>Provider</th><th>Výsledok</th>
+            <th>Apply</th><th>Profil</th><th>Teraz</th><th>Nájdené</th><th>Zdroj</th><th>Discovery / Search</th><th>Identity</th><th>Provider</th><th>Výsledok</th>
           </tr></thead>
           <tbody>{preview.items.map((item) => {
             const auto = item.assessment?.decision === "AUTO_APPLY" && Boolean(item.candidateFingerprint);
@@ -151,6 +160,21 @@ export function AdminAddressEnrichmentCanary() {
               <td style={{ maxWidth: 280, overflowWrap: "anywhere" }}>
                 {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.sourceUrl}</a> : "—"}
                 {item.extractionMethod && <><br /><small>{item.extractionMethod}</small></>}
+              </td>
+              <td style={{ minWidth: 220 }}>
+                <strong>First-party:</strong>{" "}
+                {item.firstPartyDiagnostic.attempted
+                  ? `${item.firstPartyDiagnostic.fetchCount} fetch(es) · ${item.firstPartyDiagnostic.addressFound ? "address found" : "no address"}`
+                  : "not needed"}
+                <br />
+                <strong>Tavily:</strong>{" "}
+                {item.searchDiagnostic.called
+                  ? `CALLED · ${item.searchDiagnostic.resultCount ?? 0} result(s) · ${item.searchDiagnostic.status}`
+                  : item.searchDiagnostic.status}
+                {item.searchDiagnostic.matchedResultUrl && <><br /><small style={{ overflowWrap: "anywhere" }}>{item.searchDiagnostic.matchedResultUrl}</small></>}
+                {item.searchDiagnostic.blockedReason && item.searchDiagnostic.blockedReason !== item.searchDiagnostic.status
+                  ? <><br /><small>{item.searchDiagnostic.blockedReason}</small></> : null}
+                {item.searchDiagnostic.rootKey ? <><br /><small>{item.searchDiagnostic.rootKey}</small></> : null}
               </td>
               <td>{item.candidate?.entityMatchConfidence ?? "—"}</td>
               <td>{item.candidate?.providerVerification ?? "NOT_RUN"}</td>
