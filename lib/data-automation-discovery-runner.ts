@@ -546,6 +546,9 @@ async function discoverCandidates(
     const directoryCategory = root.entityType === "DIRECTORY" && typeof root.config.directoryCategory === "string"
       ? root.config.directoryCategory.trim()
       : "";
+    const helpCategory = root.entityType === "HELP_ITEM" && typeof root.config.helpCategory === "string"
+      ? root.config.helpCategory.trim()
+      : "";
     const provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
     const policy = automationSearchBudgetPolicy(root);
     const requests = searchRequestInputs(root).slice(0, policy.queriesPerRun);
@@ -632,6 +635,7 @@ async function discoverCandidates(
             metadata: {
               ...(candidate.metadata ?? {}),
               ...(directoryCategory ? { directoryCategory } : {}),
+              ...(helpCategory ? { helpCategory } : {}),
               searchOperationKey: operationKey,
             },
           }));
