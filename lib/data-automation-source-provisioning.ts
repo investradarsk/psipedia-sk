@@ -7,7 +7,6 @@ import {
 
 export const ORGANIZATION_OFFICIAL_SITE_ADAPTER = "organization-official-site";
 export const ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER = "psiadusa-organization-directory";
-export const ORGANIZATION_GENERIC_APPROVED_ADAPTER = "organization-approved-source";
 
 export function isPsiaDusaOrganizationDirectoryUrl(value: unknown) {
   const canonical = canonicalizeSourceUrl(value);
