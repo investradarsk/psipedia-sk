@@ -106,7 +106,8 @@ test("GOOGLE-PLACE-1B preview does not write and apply writes only Place identit
 
   const update = source.match(/UPDATE geo_points[\s\S]*?WHERE target_type = 'DIRECTORY_PROFILE'/)?.[0] ?? "";
   assert.match(update, /SET google_place_id = \?, google_place_source_fingerprint = \?, google_place_matched_at = \?/);
-  assert.doesNotMatch(update, /latitude\s*=|longitude\s*=|provider\s*=|resolution_method\s*=|source_fingerprint\s*=/);
+  assert.doesNotMatch(update, /latitude\s*=|longitude\s*=|provider\s*=|resolution_method\s*=/);
+  assert.doesNotMatch(update, /(?:^|\n)\s*source_fingerprint\s*=/);
 });
 
 test("GOOGLE-PLACE-1B apply re-reads/reruns, blocks stale preview, and supports NO_OP", async () => {
