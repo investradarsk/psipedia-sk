@@ -207,8 +207,12 @@ test("ORGANIZATION-INGEST-1 preview remains read-only and provisioning uses the 
   const store = read("lib/data-automation-source-store.ts");
   assert.match(preview, /writes:\s*\{ observations: 0, findings: 0, canonical: 0, publications: 0 \}/);
   const matchingStore = read("lib/data-automation-store.ts");
-  assert.match(matchingStore, /website_url=\?/);
-  assert.doesNotMatch(matchingStore, /source_url=\?[\s\S]*help_organizations/);
+  const organizationCandidateQuery = matchingStore.slice(
+    matchingStore.indexOf('if (source.entityType === "ORGANIZATION")'),
+    matchingStore.indexOf('if (source.entityType === "DIRECTORY")'),
+  );
+  assert.match(organizationCandidateQuery, /website_url=\?/);
+  assert.doesNotMatch(organizationCandidateQuery, /source_url=\?/);
   assert.match(store, /candidateProvisioningConfigFor\(/);
   assert.doesNotMatch(store, /UPDATE automation_sources SET enabled=1[\s\S]*reviewAutomationSourceCandidate/);
 });
