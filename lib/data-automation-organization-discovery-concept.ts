@@ -1,4 +1,5 @@
 import { createProductionOrganizationEnricher } from "./data-automation-organization-enrichment.ts";
+import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
 import type { AutomationFetch } from "./data-automation-connectors.ts";
 import { matchAutomationCanonical } from "./data-automation-store.ts";
 import { processAutomationRecordForReview } from "./data-automation-runner.ts";
@@ -322,9 +323,11 @@ export async function buildOrganizationConceptFromDiscoveryCandidate(
     : match.quality;
 
   if (outcome !== "INSUFFICIENT_EVIDENCE") {
+    const findingProposal = organizationActionableProposal(enriched.proposed, match.before);
     const processed = await processAutomationRecordForReview({
       source,
       record: enriched,
+      findingProposal,
       database: options.database,
       now: options.now,
     });
