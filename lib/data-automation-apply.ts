@@ -802,6 +802,29 @@ function createDraftStatement(
   };
 }
 
+async function possibleDuplicateCandidateIds(
+  finding: AutomationFindingDetail,
+  db: AutomationD1Database,
+) {
+  const ids = new Set<number>();
+  for (const match of String(finding.reason ?? "").matchAll(/(?:event|organization|directory|adoption|lost-found|help):(\\d+)/gi)) {
+    const id = Number(match[1]);
+    if (Number.isSafeInteger(id) && id > 0) ids.add(id);
+  }
+  const clusterMatch = String(finding.reason ?? "").match(/kandidátne clustre:\\s*([0-9,\\s]+)/i);
+  if (clusterMatch) {
+    for (const raw of clusterMatch[1].split(",")) {
+      const clusterId = Number(raw.trim());
+      if (!Number.isSafeInteger(clusterId) || clusterId < 1) continue;
+      const cluster = await db.prepare(`SELECT canonical_entity_id FROM automation_entity_clusters WHERE id=? LIMIT 1`)
+        .bind(clusterId).first<{ canonical_entity_id: number | null }>();
+      const canonicalId = Number(cluster?.canonical_entity_id ?? 0);
+      if (Number.isSafeInteger(canonicalId) && canonicalId > 0) ids.add(canonicalId);
+    }
+  }
+  return [...ids];
+}
+
 function allowedReviewStatus(status: string) {
   return ["NEW", "IN_REVIEW", "SUPPRESSED", "APPROVED"].includes(status);
 }
