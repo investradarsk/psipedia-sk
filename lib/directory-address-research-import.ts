@@ -205,6 +205,11 @@ export function validateAddressResearchDataset(input: unknown): AddressResearchD
       seenUrls.add(normalizedUrl);
     }
   }
+  raw.profiles.forEach((item, index) => {
+    const parsed = parseAddressResearchRecord(item);
+    if (!parsed.record) throw new Error(`Neplatný record na indexe ${index}: ${parsed.reason}`);
+  });
+
   const dataset = raw.dataset && typeof raw.dataset === "object" && !Array.isArray(raw.dataset)
     ? raw.dataset as Record<string, unknown>
     : undefined;
