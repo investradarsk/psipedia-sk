@@ -105,6 +105,9 @@ test("ORGANIZATION-INGEST-1 known Psia duša directory emits one record per orga
   assert.deepEqual(records.map((record) => record.proposed.name), ["OZ Labka", "Pomoc psíkom"]);
   assert.equal(records[0].proposed.city, "Nitra");
   assert.equal(records[0].proposed.websiteUrl, "https://labka.example/");
+  assert.equal(records[0].sourceUrl, "https://www.psiadusa.sk/zoznam-utulkov/");
+  assert.equal(records[0].proposed.sourceUrl, "https://www.psiadusa.sk/zoznam-utulkov/");
+  assert.notEqual(records[0].proposed.websiteUrl, records[0].sourceUrl);
   assert.notEqual(records[0].proposed.name, "Zoznam útulkov a organizácií");
 });
 
@@ -203,6 +206,9 @@ test("ORGANIZATION-INGEST-1 preview remains read-only and provisioning uses the 
   const preview = read("lib/data-automation-preview.ts");
   const store = read("lib/data-automation-source-store.ts");
   assert.match(preview, /writes:\s*\{ observations: 0, findings: 0, canonical: 0, publications: 0 \}/);
+  const matchingStore = read("lib/data-automation-store.ts");
+  assert.match(matchingStore, /website_url=\?/);
+  assert.doesNotMatch(matchingStore, /source_url=\?[\s\S]*help_organizations/);
   assert.match(store, /candidateProvisioningConfigFor\(/);
   assert.doesNotMatch(store, /UPDATE automation_sources SET enabled=1[\s\S]*reviewAutomationSourceCandidate/);
 });
