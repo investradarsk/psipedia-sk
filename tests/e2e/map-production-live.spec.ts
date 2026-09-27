@@ -285,7 +285,7 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect(singletonCard).toContainText(singletonTarget.name);
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
 
-    const singletonMarkerSelector = `[data-map-marker-id="${singletonTarget.id}"]`;
+    const singletonMarkerSelector = `gmp-advanced-marker[data-map-marker-id="${singletonTarget.id}"]`;
     await expect(page.locator(singletonMarkerSelector)).toBeVisible({ timeout: 15000 });
     const requestsBeforeSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
     await clickRenderedMarker(page, singletonMarkerSelector);
