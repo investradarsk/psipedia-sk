@@ -19,7 +19,7 @@ import { automationSearchBudgetPolicy, type AutomationSearchUsageStatus } from "
 import { finalizeAutomationSearchUsage, getAutomationSearchCooldownState, reserveAutomationSearchRequest } from "./data-automation-discovery-store";
 import { GeocoderProviderError } from "./geo-provider";
 import { GeoapifyGeocoder } from "./geoapify-geocoder";
-import { syncGeoPointAfterSourceChange } from "./geo-store";
+import { reconcileGeoAfterSourceMutation } from "./geo-store";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata";
 import { existingDirectoryAddressEvidenceCandidate } from "./address-enrichment-store";
 import { SLOVAK_REGIONS, getSlovakDistricts, getSlovakMunicipalities } from "./slovakia-locations";
@@ -477,10 +477,29 @@ export async function applyDirectoryAddressCanary(input:{selections:Array<{targe
         item.candidateFingerprint,
         now,
       ).run();
-    let geoReconciled=false;try{await syncGeoPointAfterSourceChange("DIRECTORY_PROFILE",item.target.id,database as D1Database);geoReconciled=true;}catch{}
+    let geoReconciled=false;
+    let geoAction:"INITIALIZED"|"SYNCED"|"NO_OP"|null=null;
+    let geoStatus:string|null=null;
+    let geoPointCreated=false;
+    let geoError:string|null=null;
+    try{
+      const geo=await reconcileGeoAfterSourceMutation({
+        targetType:"DIRECTORY_PROFILE",
+        targetId:item.target.id,
+        actorType:"SYSTEM",
+        actorRef:"address-enrichment-canary",
+      },database as D1Database);
+      geoAction=geo.action;
+      geoStatus=geo.point?.geocodeStatus??null;
+      geoPointCreated=geo.action==="INITIALIZED";
+      geoReconciled=Boolean(geo.point);
+      if(!geo.point)geoError="geo_point_missing_after_reconcile";
+    }catch(error){
+      geoError=error instanceof Error?error.message:"geo_reconcile_failed";
+    }
     const after={region:c.region,district:c.district,city:c.city,postalCode:c.postalCode,street:c.street,houseNumber:c.houseNumber,addressFormat:c.addressFormat,serviceAddressConfirmation:"CONFIRMED_SERVICE_LOCATION"};
-    console.info(JSON.stringify({event:"address_enrichment_canary_applied",actorRef:input.actorRef,targetId:item.target.id,before,after,sourceUrl:item.sourceUrl,extractionMethod:item.extractionMethod,entityMatchSignals:c.entityMatchSignals,providerResult:c.providerVerification,decision:item.assessment.decision,candidateFingerprint:item.candidateFingerprint,timestamp:now,geoReconciled}));
-    applied.push({targetId:item.target.id,before,after,geoReconciled});
+    console.info(JSON.stringify({event:"address_enrichment_canary_applied",actorRef:input.actorRef,targetId:item.target.id,before,after,sourceUrl:item.sourceUrl,extractionMethod:item.extractionMethod,entityMatchSignals:c.entityMatchSignals,providerResult:c.providerVerification,decision:item.assessment.decision,candidateFingerprint:item.candidateFingerprint,timestamp:now,geoReconciled,geoAction,geoStatus,geoPointCreated,geoError}));
+    applied.push({targetId:item.target.id,before,after,geoReconciled,geoAction,geoStatus,geoPointCreated,geoError});
   }
   return {requested:selections.length,applied:applied.length,blocked:blocked.length,canonicalWrites:applied.length,directGeoWrites:0,appliedItems:applied,blockedItems:blocked,providerCalls:preview.providerCalls,searchCalls:preview.searchCalls};
 }
