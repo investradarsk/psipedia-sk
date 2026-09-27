@@ -9,9 +9,9 @@ import { runAutomationDiscoveryRootCanary } from "@/lib/data-automation-discover
 import { getGovernanceState, upsertGovernanceReview } from "@/lib/data-automation-governance";
 import { TavilyAutomationSearchProvider } from "@/lib/data-automation-search-tavily";
 import {
-  TAVILY_SEARCH_GOVERNANCE_PRESET,
   isTavilySearchDiscoveryRoot,
   tavilyCanaryReadiness,
+  tavilySearchGovernancePresetForRoot,
 } from "@/lib/tavily-canary-control";
 
 export const dynamic = "force-dynamic";
@@ -52,10 +52,11 @@ export async function PUT(request: Request, { params }: Props) {
 
     if (action === "governance-approve") {
       const governanceRead = await getGovernanceState({ type: "DISCOVERY_ROOT", id });
+      const governancePreset = tavilySearchGovernancePresetForRoot(root);
       const governance = await upsertGovernanceReview({
         subject: { type: "DISCOVERY_ROOT", id },
         review: {
-          ...TAVILY_SEARCH_GOVERNANCE_PRESET,
+          ...governancePreset,
           expectedUpdatedAt: governanceRead.state?.updatedAt ?? null,
         },
         actor: auth.user.email,
