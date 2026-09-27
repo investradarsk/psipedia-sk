@@ -150,8 +150,10 @@ function candidate(t: DirectoryEnrichmentTarget, sourceUrl:string, html:string, 
   const id=identity(t,sourceUrl,html);
   const city=x.city||t.city;
   const locality=inferredLocality(city,t.region,t.district);
+  const municipalityNumber=Boolean(x.street&&normalizeAutomationExactText(x.street)===normalizeAutomationExactText(city));
+  const street=municipalityNumber?"":x.street;
   return {targetType:"DIRECTORY_PROFILE",targetId:t.id,evidence:{sourceUrl,sourceLabel:h(sourceUrl),sourceRole:"OFFICIAL_WEBSITE",authorityScore:t.websiteUrl&&h(t.websiteUrl)===h(sourceUrl)?100:90},
-    rawAddressText:x.raw,region:locality?.region??t.region,district:locality?.district??t.district,city:locality?.city??city,postalCode:x.postal,street:x.street,houseNumber:x.house,addressFormat:x.street?"STREET":"MUNICIPALITY_NUMBER",
+    rawAddressText:x.raw,region:locality?.region??t.region,district:locality?.district??t.district,city:locality?.city??city,postalCode:x.postal,street,houseNumber:x.house,addressFormat:municipalityNumber?"MUNICIPALITY_NUMBER":"STREET",
     entityMatchConfidence:id.confidence,entityMatchSignals:id.signals,addressExtractionConfidence:x.confidence,serviceLocationConfidence:x.legalSeatOnly?0.5:x.confidence,providerVerification:"NOT_RUN",
     multipleCompetingAddresses:Boolean(x.multiple),legalSeatOnly:Boolean(x.legalSeatOnly)};
 }
