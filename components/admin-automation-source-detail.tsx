@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
 import type { AutomationGovernanceEvaluation, AutomationGovernanceRead } from "@/lib/data-automation-governance";
 import { automationConnectorTypes, automationEntityTypes } from "@/lib/data-automation";
+import { automationReadableError } from "@/lib/admin-automation-presentation";
 import {
   automationHelpSourceReadiness,
   type AutomationHelpSourceReadiness,
@@ -75,27 +76,27 @@ function statusCopy(
 ) {
   if (helpReadiness.applicable && !helpReadiness.ready) {
     return {
-      title: "Zdroj zatiaľ nie je pripravený na automatické spracovanie",
-      text: "Pred testom alebo zapnutím monitoringu potrebuje podporovaný HELP adapter a jednoznačný typ zdroja.",
+      title: "Zdroj potrebuje technické nastavenie",
+      text: "Sledovanie zostáva vypnuté, kým Psipedia nevie tento typ zdroja bezpečne spracovať.",
       warning: true,
     };
   }
   if (source.lastRunStatus === "FAILED" || source.lastErrorCode) {
-    return { title: "Zdroj hlási problém", text: "Najprv ho otestuj. Ak test zlyhá, technické detaily nájdeš nižšie.", warning: true };
+    return { title: "Zdroj hlási problém", text: "Skontroluj zdroj. Technické detaily chyby sú dostupné pod Pokročilé.", warning: true };
   }
   if (source.reviewStatus === "PENDING") {
-    return { title: "Zdroj čaká na tvoje schválenie", text: "Najprv ho otestuj. Ak výsledok vyzerá správne, schváľ ho a potom zapni.", warning: true };
+    return { title: "Zdroj je pripravený na kontrolu", text: "Over zdroj a rozhodni, či ho Psipedia môže používať.", warning: true };
   }
   if (source.reviewStatus === "REJECTED") {
     return { title: "Zdroj je zamietnutý", text: "Nebude sa automaticky kontrolovať, kým ho znovu neschváliš.", warning: true };
   }
   if (!source.enabled && !governanceEvaluation.allowed) {
-    return { title: "Zdroj potrebuje schválenie pravidelného sledovania", text: "Monitoring zostane vypnutý, kým nie sú pravidlá sledovania bezpečne schválené. Pokročilé nastavenia sú nižšie.", warning: true };
+    return { title: "Zdroj potrebuje technickú kontrolu", text: "Sledovanie zostane vypnuté, kým bezpečnostné pravidlá nepovolia pravidelnú kontrolu.", warning: true };
   }
   if (!source.enabled) {
-    return { title: "Zdroj je pripravený na monitoring", text: "Ak ho chceš pravidelne sledovať, môžeš ho zapnúť.", warning: true };
+    return { title: "Zdroj je pripravený na sledovanie", text: "Bezpečnostná kontrola je v poriadku. Zdroj môžeš zapnúť.", warning: true };
   }
-  return { title: "Zdroj je aktívny", text: "Beží podľa svojho harmonogramu. Manuálny run potrebuješ iba pri kontrole alebo teste.", warning: false };
+  return { title: "Zdroj je aktívny", text: "Psipedia ho kontroluje podľa nastaveného harmonogramu.", warning: false };
 }
 
 export function AdminAutomationSourceDetail({
@@ -180,7 +181,7 @@ export function AdminAutomationSourceDetail({
         if (payload.run.status && payload.run.status !== "RUNNING") {
           setMessage(
             payload.run.status === "SUCCESS"
-              ? "Kontrola skončila úspešne. Nové zistenia čakajú na manuálne posúdenie."
+              ? "Kontrola skončila úspešne. Nový obsah sa spracuje do konceptov v príslušných admin sekciách."
               : "Kontrola skončila so stavom " + payload.run.status + ". Pozri výsledok nižšie.",
           );
           setBusyAction(null);
@@ -275,7 +276,7 @@ export function AdminAutomationSourceDetail({
             <strong>{busyAction === "test" ? "Testujem zdroj…" : "Kontrolujem zdroj…"}</strong>
             <p>{busyAction === "test"
               ? "Overujem dostupnosť a spracovanie dát. Tento test nič nezapisuje."
-              : "Kontrola beží na pozadí. Načítavam zdroj, porovnávam záznamy a pripravujem nové zistenia na review. Túto stránku môžeš pokojne opustiť."}</p>
+              : "Kontrola beží na pozadí. Načítavam zdroj a bezpečne pripravujem nájdený obsah do konceptov. Túto stránku môžeš pokojne opustiť."}</p>
           </div>
         </div>
       )}
@@ -288,7 +289,9 @@ export function AdminAutomationSourceDetail({
         <div className={styles.badges}>
           <span className={[styles.badge, source.reviewStatus === "APPROVED" ? styles.badgeGood : styles.badgeWarning].join(" ")}>{source.reviewStatus === "APPROVED" ? "Schválený" : source.reviewStatus === "REJECTED" ? "Zamietnutý" : "Čaká na schválenie"}</span>
           <span className={[styles.badge, source.enabled ? styles.badgeGood : styles.badgeWarning].join(" ")}>{source.enabled ? "Aktívny" : "Vypnutý"}</span>
-          {source.lastRunStatus && <span className={[styles.badge, source.lastRunStatus === "FAILED" ? styles.badgeDanger : styles.badgeGood].join(" ")}>{source.lastRunStatus}</span>}
+          {source.lastRunStatus && <span className={[styles.badge, source.lastRunStatus === "FAILED" ? styles.badgeDanger : styles.badgeGood].join(" ")}>
+            {source.lastRunStatus === "FAILED" ? "Posledná kontrola zlyhala" : source.lastRunStatus === "RUNNING" ? "Kontrola prebieha" : "Posledná kontrola bez chyby"}
+          </span>}
         </div>
       </section>
 
@@ -296,21 +299,22 @@ export function AdminAutomationSourceDetail({
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <div>
-              <h2>Pripravenosť HELP zdroja</h2>
+              <h2>Technická pripravenosť</h2>
               <p>{helpReadiness.ready
-                ? "Zdroj má podporovaný adapter a source shape zodpovedá jeho contractu."
-                : "Zdroj zatiaľ nie je pripravený na automatické spracovanie."}</p>
+                ? "Psipedia tento typ zdroja pozná a vie ho bezpečne spracovať."
+                : "Zdroj potrebuje technické nastavenie. Bežné sledovanie zostáva zablokované."}</p>
             </div>
+            <span className={[styles.badge, helpReadiness.ready ? styles.badgeGood : styles.badgeWarning].join(" ")}>
+              {helpReadiness.ready ? "V poriadku" : "Vyžaduje technickú kontrolu"}
+            </span>
           </div>
-          <div className={styles.reviewSummary}>
-            <div><span>Typ zdroja</span><strong>{helpReadiness.sourceShape === "SINGLE_ITEM" ? "Detail jednej položky" : helpReadiness.sourceShape === "MULTI_ITEM_LIST" ? "Zoznam položiek" : "Neurčené"}</strong></div>
-            <div><span>Technická pripravenosť</span><strong>{helpReadiness.ready ? "Pripravený" : "Potrebuje podporovaný adapter"}</strong></div>
-            <div><span>Adapter</span><strong>{helpReadiness.adapterLabel ?? "Nie je priradený"}</strong></div>
-          </div>
-          {!helpReadiness.ready && <p>Test, monitoring aj manuálny run zostávajú zablokované, kým nebude source shape a adapter explicitne podporovaný.</p>}
           <details className={styles.advanced}>
             <summary>Pokročilé — readiness detail</summary>
             <div className={styles.advancedBody}>
+              <div className={styles.reviewSummary}>
+                <div><span>Typ zdroja</span><strong>{helpReadiness.sourceShape === "SINGLE_ITEM" ? "Detail jednej položky" : helpReadiness.sourceShape === "MULTI_ITEM_LIST" ? "Zoznam položiek" : "Neurčené"}</strong></div>
+                <div><span>Adapter</span><strong>{helpReadiness.adapterLabel ?? "Nie je priradený"}</strong></div>
+              </div>
               <p><strong>Dôvod:</strong> {helpReadiness.reason}</p>
               <p><strong>Adapter key:</strong> {helpReadiness.adapterKey ?? "—"}</p>
             </div>
@@ -321,8 +325,22 @@ export function AdminAutomationSourceDetail({
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div>
+            <h2>Bezpečnostná kontrola</h2>
+            <p>{governanceEvaluation.allowed
+              ? "Pravidlá sledovania sú v poriadku."
+              : "Zdroj vyžaduje technickú kontrolu bezpečnostných pravidiel. Sledovanie zostáva zablokované."}</p>
+          </div>
+          <span className={[styles.badge, governanceEvaluation.allowed ? styles.badgeGood : styles.badgeWarning].join(" ")}>
+            {governanceEvaluation.allowed ? "V poriadku" : "Vyžaduje technickú kontrolu"}
+          </span>
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <div>
             <h2>Čo chceš spraviť?</h2>
-            <p>Bezpečný postup je otestovať zdroj, schváliť ho a až potom ho zapnúť. Manuálny run môže vytvoriť iba položky na review; nič sa automaticky nezverejní.</p>
+            <p>Psipedia pripraví technické kroky, ale rozhodnutie zostáva na tebe. Bezpečnostné kontroly sa nedajú obísť.</p>
           </div>
         </div>
 
@@ -334,34 +352,34 @@ export function AdminAutomationSourceDetail({
         )}
 
         <div className="admin-form-actions">
-          <button type="button" disabled={busy || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void testSource()}>{busyAction === "test" ? "Testujem zdroj…" : "Otestovať zdroj"}</button>
+          <button type="button" disabled={busy || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void testSource()}>{busyAction === "test" ? "Overujem zdroj…" : "Overiť zdroj"}</button>
           {source.reviewStatus !== "APPROVED" && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "approve", notes })}>Schváliť zdroj</button>}
-          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void action({ action: "enable" })}>Zapnúť monitoring</button>}
-          {source.enabled && <button className="is-primary" type="button" disabled={busy || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Spustiť kontrolu teraz"}</button>}
-          {source.enabled && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Vypnúť monitoring</button>}
+          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void action({ action: "enable" })}>Zapnúť sledovanie</button>}
+          {source.enabled && <button className="is-primary" type="button" disabled={busy || (helpReadiness.applicable && !helpReadiness.ready)} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Skontrolovať teraz"}</button>}
+          {source.enabled && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Pozastaviť sledovanie</button>}
           {source.reviewStatus !== "REJECTED" && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "reject", notes })}>Zamietnuť zdroj</button>}
         </div>
       </section>
 
       <details className={styles.advanced}>
-        <summary>Pokročilé — governance a pravidlá sledovania</summary>
+        <summary>Pokročilé — bezpečnostné pravidlá</summary>
         <div className={styles.advancedBody}>
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div>
-            <h2>Governance</h2>
-            <p>Permission/safety review je oddelený od technického schválenia zdroja. Verejná dostupnosť ani status APPROVED samy osebe nepovoľujú recurring ingestion.</p>
+            <h2>Bezpečnostné pravidlá</h2>
+            <p>Technické pravidlá prístupu, frekvencie a uchovávania dát. Tieto nastavenia zostávajú oddelené od bežného používateľského rozhodnutia.</p>
           </div>
           <span className={[styles.badge, governanceEvaluation.allowed ? styles.badgeGood : styles.badgeDanger].join(" ")}>
-            {governanceEvaluation.allowed ? "Activation allowed" : "Activation blocked"}
+            {governanceEvaluation.allowed ? "Povolené" : "Blokované"}
           </span>
         </div>
 
-        {!governance.schemaAvailable && <p className="admin-flash">Governance schema ešte nie je dostupná. Aktivácia failne closed.</p>}
+        {!governance.schemaAvailable && <p className="admin-flash">Bezpečnostné pravidlá nie sú dostupné. Sledovanie zostáva bezpečne zablokované.</p>}
         {!governanceEvaluation.allowed && (
           <div className={styles.techGrid}>
             {governanceEvaluation.blockingReasons.map((reason) => (
-              <div className={styles.techRow} key={reason}><strong>{reason}</strong><span>Tento dôvod blokuje recurring activation.</span></div>
+              <div className={styles.techRow} key={reason}><strong>{reason}</strong><span>Tento dôvod blokuje pravidelné sledovanie.</span></div>
             ))}
           </div>
         )}
@@ -417,19 +435,19 @@ export function AdminAutomationSourceDetail({
               expiresAt: governanceForm.expiresAt ? new Date(governanceForm.expiresAt).toISOString() : null,
               reviewDueAt: governanceForm.reviewDueAt ? new Date(governanceForm.reviewDueAt).toISOString() : null,
             },
-          })}>Uložiť governance review</button>
+          })}>Uložiť bezpečnostnú kontrolu</button>
         </div>
-        <p><strong>Last reviewed:</strong> {formatDate(governanceState?.reviewedAt ?? null)} · <strong>Review due:</strong> {formatDate(governanceState?.reviewDueAt ?? null)}</p>
+        <p><strong>Posledná kontrola:</strong> {formatDate(governanceState?.reviewedAt ?? null)} · <strong>Ďalšia kontrola:</strong> {formatDate(governanceState?.reviewDueAt ?? null)}</p>
 
         <details className={styles.advanced}>
-          <summary>Governance history ({governanceHistory.length})</summary>
+          <summary>História bezpečnostných pravidiel ({governanceHistory.length})</summary>
           <div className={styles.advancedBody}>
             {governanceHistory.length ? <div className={styles.techGrid}>{governanceHistory.map((item) => (
               <div className={styles.techRow} key={String(item.id)}>
                 <strong>{String(item.actor ?? "—")} · {formatDate(item.changed_at ? String(item.changed_at) : null)}</strong>
                 <span>{String(item.rationale ?? "")}</span>
               </div>
-            ))}</div> : <p>Zatiaľ nie je governance decision history.</p>}
+            ))}</div> : <p>Zatiaľ nie je história bezpečnostných rozhodnutí.</p>}
           </div>
         </details>
       </section>
@@ -444,13 +462,13 @@ export function AdminAutomationSourceDetail({
           </div>
         </div>
         <div className="admin-stats" aria-label="Source observability">
-          <div><span>Posledný run</span><strong>{source.lastRunStatus ?? "—"}</strong></div>
-          <div><span>Nové položky</span><strong>{source.newFindingCount}</strong></div>
+          <div><span>Posledný výsledok</span><strong>{source.lastRunStatus === "FAILED" ? "Problém" : source.lastRunStatus === "RUNNING" ? "Prebieha" : source.lastRunStatus ? "Bez chyby" : "—"}</strong></div>
+          <div><span>Nové koncepty / zistenia</span><strong>{source.newFindingCount}</strong></div>
           <div><span>Chyby</span><strong>{source.errorCount}</strong></div>
           <div><span>Ďalšia kontrola</span><strong style={{ fontSize: "1rem", lineHeight: 1.3 }}>{formatDate(source.nextCheckAt)}</strong></div>
         </div>
-        <p><strong>Posledná kontrola:</strong> {formatDate(source.lastCheckedAt)} · <strong>posledný úspech:</strong> {formatDate(source.lastSuccessAt)}</p>
-        {source.lastErrorCode && <p><strong>Posledná chyba:</strong> {source.lastErrorCode}</p>}
+        <p><strong>Posledná kontrola:</strong> {formatDate(source.lastCheckedAt)} · <strong>Posledná úspešná:</strong> {formatDate(source.lastSuccessAt)}</p>
+        {source.lastErrorCode && <p><strong>Posledná chyba:</strong> {automationReadableError(source.lastErrorCode)}</p>}
       </section>
 
       {preview && (
@@ -459,9 +477,9 @@ export function AdminAutomationSourceDetail({
             <div><h2>Výsledok testu</h2><p>Test je read-only a nič nemení v canonical dátach.</p></div>
           </div>
           <div className="admin-stats">
-            <div><span>HTTP</span><strong>{preview.httpStatus ?? "—"}</strong></div>
+            <div><span>Výsledok</span><strong>{preview.ok ? "V poriadku" : "Problém"}</strong></div>
             <div><span>Nájdené záznamy</span><strong>{preview.recordsFound}</strong></div>
-            <div><span>Nové kandidáty</span><strong>{preview.newCandidates}</strong></div>
+            <div><span>Nové návrhy</span><strong>{preview.newCandidates}</strong></div>
             <div><span>Možné zmeny</span><strong>{preview.possibleUpdates}</strong></div>
           </div>
           {preview.errorDetails.length > 0 && (

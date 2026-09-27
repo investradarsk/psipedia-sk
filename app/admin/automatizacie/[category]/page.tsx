@@ -5,18 +5,12 @@ import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
 import { listAutomationDiscoveryRoots } from "@/lib/data-automation-discovery-store";
-import { listAutomationFindingSummaries } from "@/lib/data-automation-store";
-import { listAutomationClusterFindingIds, listAutomationClusterSummaries } from "@/lib/data-automation-cluster-admin";
 import {
   automationCategoryBySlug,
   automationSourcesForCategory,
   automationCandidatesForCategory,
   automationDiscoveryRootsForCategory,
   automationCandidateAttentionCount,
-  automationCategoryFindingCount,
-  automationFindingsForSources,
-  automationFindingLabel,
-  automationSourceFindingCount,
   automationCategoryLastCheck,
   automationCategoryStatus,
   automationReadableError,
@@ -71,15 +65,13 @@ export default async function AutomationCategoryPage({ params }: Props) {
   let allSources = [];
   let allCandidates = [];
   let allRoots = [];
-  let allFindings = [];
   let unavailable = false;
 
   try {
-    [allSources, allCandidates, allRoots, allFindings] = await Promise.all([
+    [allSources, allCandidates, allRoots] = await Promise.all([
       listAutomationSourcesAdmin(undefined, 200),
       listAutomationSourceCandidates(undefined, 200),
       listAutomationDiscoveryRoots(undefined, 100),
-      listAutomationFindingSummaries(undefined, 500),
     ]);
   } catch {
     unavailable = true;
@@ -89,27 +81,9 @@ export default async function AutomationCategoryPage({ params }: Props) {
   const candidates = automationCandidatesForCategory(allCandidates, slug);
   const newCandidates = candidates.filter((candidate) => candidate.reviewStatus === "NEW" && candidate.lifecycle === "ACTIVE");
   const discoveryRoots = automationDiscoveryRootsForCategory(allRoots, slug);
-  const categoryFindings = automationFindingsForSources(allFindings, sources);
-
-  let clusters = [];
-  let linkedFindingIds: number[] = [];
-  try {
-    clusters = await listAutomationClusterSummaries({
-      sourceIds: sources.map((source) => source.id),
-      entityTypes: category.entityTypes,
-      limit: 50,
-    });
-    linkedFindingIds = await listAutomationClusterFindingIds(clusters.map((cluster) => cluster.id));
-  } catch {
-    // Graceful legacy fallback: source/findings UI stays available without cluster schema.
-  }
-
-  const linkedSet = new Set(linkedFindingIds);
-  const legacyFindings = categoryFindings.filter((finding) => !linkedSet.has(finding.id));
-  const findingCount = automationCategoryFindingCount(allFindings, sources);
   const sourceAttentionCount = automationSourceAttentionCount(sources);
   const candidateCount = automationCandidateAttentionCount(candidates);
-  const attentionCount = candidateCount + findingCount + sourceAttentionCount;
+  const attentionCount = candidateCount + sourceAttentionCount;
   const status = unavailable ? "Čaká na dáta" : automationCategoryStatus(sources);
 
   return (
@@ -139,7 +113,6 @@ export default async function AutomationCategoryPage({ params }: Props) {
       <nav className={styles.sectionNav} aria-label="Sekcie automatizácie">
         <a href="#nove-zdroje">Nové zdroje {candidateCount > 0 ? `(${candidateCount})` : ""}</a>
         <a href="#zdroje">Zdroje</a>
-        <a href="#nalezy">Koncepty a nálezy</a>
         <a href="#historia">História</a>
         <a href="#pokrocile">Pokročilé</a>
       </nav>
@@ -162,8 +135,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
                     <strong>{candidate.label || automationSourceDomain(candidate.sourceUrl)}</strong>
                     <span className={[styles.badge, styles.badgeWarning].join(" ")}>Nový zdroj</span>
                   </div>
-                  <p>{automationSourceDomain(candidate.sourceUrl)} · {candidate.reason}</p>
-                  <p>Nájdené {formatDate(candidate.firstDetectedAt)} · naposledy potvrdené {formatDate(candidate.lastSeenAt)}</p>
+                  <p>Psipedia našla nový zdroj pre kategóriu {category.title.toLowerCase()}. Zdroj je pripravený na kontrolu.</p>
                 </div>
                 <Link className={[styles.itemAction, styles.itemActionPrimary].join(" ")} href={"/admin/automatizacie/" + slug + "/novy-zdroj/" + candidate.id}>Skontrolovať</Link>
               </article>
@@ -178,7 +150,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
         <div className={styles.sectionHeader}>
           <div>
             <h2>Zdroje</h2>
-            <p>Schválené alebo provisionované zdroje pre túto kategóriu. Technické parametre zostávajú v pokročilých údajoch.</p>
+            <p>Schválené zdroje, ktoré Psipedia používa. Nájdený obsah sa vytvára ako koncept v príslušnej admin sekcii; technické parametre zostávajú pod Pokročilé.</p>
           </div>
           <span className={styles.sectionCount}>{sources.length}</span>
         </div>
@@ -194,12 +166,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
                       <strong>{source.label}</strong>
                       <span className={[styles.badge, state.className].join(" ")}>{state.label}</span>
                     </div>
-                    <p>{automationSourceDomain(source.sourceUrl)}</p>
-                    <p>
-                      Posledná kontrola {formatDate(source.lastCheckedAt)}
-                      {" · "}ďalšia {formatDate(source.nextCheckAt)}
-                      {" · "}na kontrolu {automationSourceFindingCount(allFindings, source.id)}
-                    </p>
+                    <p>{state.label} · kontrola {cadenceLabel(source.cadenceMinutes)}</p>
                     {source.lastErrorCode && <p><strong>Problém:</strong> {automationReadableError(source.lastErrorCode)}</p>}
                   </div>
                   <Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link>
@@ -212,78 +179,11 @@ export default async function AutomationCategoryPage({ params }: Props) {
         )}
       </section>
 
-      <section className={styles.section} id="nalezy">
-        <div className={styles.sectionHeader}>
-          <div>
-            <h2>Koncepty a nálezy</h2>
-            <p>Backend ešte nemá jednotný concept model. Tu preto zostávajú reálne clustre a otvorené nálezy; viac pozorovaní sa spája do logických entít, z ktorých sa pripravujú ďalšie admin rozhodnutia.</p>
-          </div>
-          <span className={styles.sectionCount}>{clusters.length || findingCount}</span>
-        </div>
-
-        {clusters.length ? (
-          <div className={styles.itemList}>
-            {clusters.map((cluster) => (
-              <article className={styles.itemCard} key={cluster.id}>
-                <div className={styles.itemMain}>
-                  <div className={styles.itemTitle}>
-                    <strong>{cluster.title}</strong>
-                    {cluster.sourceCount > 1 && <span className={styles.badgeGood}>{cluster.sourceCount} zdroje</span>}
-                    {cluster.sourceCount === 1 && <span className={styles.badge}>1 zdroj</span>}
-                    {cluster.openConflictCount > 0 && <span className={styles.badgeDanger}>{cluster.openConflictCount} konflikt</span>}
-                    {cluster.possibleMatchCount > 0 && <span className={styles.badgeWarning}>Možná zhoda</span>}
-                  </div>
-                  <p>{cluster.openFindingCount} otvorených zmien · posledná zmena {formatDate(cluster.updatedAt)}</p>
-                </div>
-                <Link className={styles.itemAction} href={"/admin/automatizacie/" + slug + "/cluster/" + cluster.id}>Skontrolovať</Link>
-              </article>
-            ))}
-          </div>
-        ) : categoryFindings.length ? (
-          <div className={styles.itemList}>
-            {categoryFindings.slice(0, 20).map((finding) => (
-              <article className={styles.itemCard} key={finding.id}>
-                <div className={styles.itemMain}>
-                  <div className={styles.itemTitle}>
-                    <strong>{automationFindingLabel(finding.findingType)}</strong>
-                    <span className={styles.badge}>{finding.sourceLabel}</span>
-                  </div>
-                  <p>{finding.reason}</p>
-                  <p>Nájdené {formatDate(finding.lastDetectedAt)}</p>
-                </div>
-                <Link className={styles.itemAction} href={"/admin/operations/automation/" + finding.id}>Skontrolovať</Link>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className={styles.empty}>Žiadne otvorené nálezy ani návrhy na kontrolu.</div>
-        )}
-
-        {clusters.length > 0 && legacyFindings.length > 0 && (
-          <details className={styles.advanced}>
-            <summary>Staršie nálezy bez cluster linkage ({legacyFindings.length})</summary>
-            <div className={styles.advancedBody}>
-              <div className={styles.itemList}>
-                {legacyFindings.slice(0, 20).map((finding) => (
-                  <div className={styles.itemCard} key={finding.id}>
-                    <div className={styles.itemMain}>
-                      <strong>{automationFindingLabel(finding.findingType)}</strong>
-                      <p>{finding.reason}</p>
-                    </div>
-                    <Link className={styles.itemAction} href={"/admin/operations/automation/" + finding.id}>Skontrolovať</Link>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </details>
-        )}
-      </section>
-
       <section className={styles.section} id="historia">
         <div className={styles.sectionHeader}>
           <div>
             <h2>História</h2>
-            <p>Posledná aktivita zdrojov v tejto kategórii.</p>
+            <p>Posledná aktivita zdrojov. Obsahové koncepty sa spravujú v existujúcich sekciách Podujatia, Adopcie, Organizácie, Adresár alebo Pomoc psom.</p>
           </div>
         </div>
         {sources.length ? (
@@ -306,7 +206,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
             <div className={styles.sectionHeader}>
               <div>
                 <h2>Automatické hľadanie zdrojov</h2>
-                <p>Discovery roots sú technický motor hľadania. Bežný admin potrebuje vidieť iba ich stav, frekvenciu a posledné hľadanie.</p>
+                <p>Psipedia môže automaticky hľadať nové zdroje. Tu vidíš iba stav, frekvenciu a výsledok poslednej kontroly.</p>
               </div>
               <span className={styles.sectionCount}>{discoveryRoots.length}</span>
             </div>
@@ -318,7 +218,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
                     <span>{root.enabled ? "Aktívne" : "Vypnuté"} · {cadenceLabel(root.cadenceMinutes)} · posledné hľadanie {formatDate(root.lastCheckedAt)}</span>
                     <span>{root.lastErrorCode ? "Chyba: " + automationReadableError(root.lastErrorCode) : "Bez evidovanej chyby"}</span>
                     {root.discoveryType === "SEARCH_PROVIDER" && String(root.config.provider ?? "").toLowerCase() === "tavily" ? (
-                      <Link href={"/admin/automatizacie/" + slug + "/discovery/" + root.id}>Otvoriť Tavily root →</Link>
+                      <Link href={"/admin/automatizacie/" + slug + "/discovery/" + root.id}>Otvoriť technické nastavenia →</Link>
                     ) : null}
                   </div>
                 ))}
@@ -341,7 +241,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
             ) : <p>Bez technických údajov zdrojov.</p>}
           </section>
 
-          <p><Link href="/admin/automatizacie/zdroje">Otvoriť globálnu správu všetkých zdrojov a discovery →</Link></p>
+          <p><Link href="/admin/automatizacie/zdroje">Otvoriť technickú správu zdrojov a automatického hľadania →</Link></p>
         </div>
       </details>
     </AdminShell>

@@ -32,10 +32,10 @@ test("only one RUNNING job per source is allowed and stale jobs recover", () => 
   assert.match(store, /20 \* 60_000/);
 });
 
-test("background route remains review gated and non-publishing", () => {
+test("background route remains source-review gated, may create drafts, and never auto-publishes", () => {
   const route = read("app/api/admin/automation-sources/[id]/run/route.ts");
   assert.match(route, /source\.reviewStatus !== "APPROVED"/);
   assert.match(route, /source\.enabled/);
-  assert.match(route, /canonicalWrite: false, publication: false/);
-  assert.doesNotMatch(route, /INSERT INTO (help_organizations|managed_events|directory_profiles|adoption_dogs)/i);
+  assert.match(route, /canonicalDraftWrite: true, publication: false/);
+  assert.match(route, /runAutomationSourceNow/);
 });

@@ -16,11 +16,11 @@ test("automation overview is category-first and attention-first", () => {
     assert.ok(presentation.includes(label), label);
   }
   assert.match(page, /automationUxCategories\.map/);
-  assert.match(page, /na kontrolu/);
+  assert.match(page, /na rozhodnutie/);
   assert.match(page, /automationCandidateAttentionCount/);
   assert.match(page, /automationSourceAttentionCount/);
-  assert.match(page, /aktívnych zdrojov/);
-  assert.match(page, /posledná kontrola/);
+  assert.match(page, /nové zdroje/);
+  assert.doesNotMatch(page, /Pripravené návrhy|Koncepty a nálezy/);
 });
 
 test("existing technical entity types are hidden behind UX category mapping", () => {
@@ -36,12 +36,12 @@ test("category detail follows final product order and keeps technical informatio
   const page = read("app/admin/automatizacie/[category]/page.tsx");
   const newSources = page.indexOf("<h2>Našli sa nové zdroje</h2>");
   const sources = page.indexOf("<h2>Zdroje</h2>");
-  const findings = page.indexOf("<h2>Koncepty a nálezy</h2>");
   const history = page.indexOf("<h2>História</h2>");
   const advanced = page.indexOf("<summary>Pokročilé</summary>");
-  assert.ok(newSources >= 0 && sources > newSources && findings > sources && history > findings && advanced > history);
+  assert.ok(newSources >= 0 && sources > newSources && history > sources && advanced > history);
+  assert.doesNotMatch(page, /Pripravené návrhy|Koncepty a nálezy/);
   assert.match(page, /Automatické hľadanie zdrojov/);
-  assert.match(page, /globálnu správu všetkých zdrojov a discovery/);
+  assert.match(page, /technickú správu zdrojov a automatického hľadania/);
   assert.doesNotMatch(page, /<h2>Hotové koncepty<\/h2>/);
 });
 
@@ -59,8 +59,8 @@ test("new source list has one review CTA and detail reuses existing candidate AP
   const route = read("app/api/admin/automation-source-candidates/[id]/route.ts");
   assert.match(category, />Skontrolovať<\/Link>/);
   assert.match(category, /\/novy-zdroj\//);
-  assert.match(detail, />Schváliť<\/button>/);
-  assert.match(detail, />Zamietnuť<\/button>/);
+  assert.match(detail, />ÁNO — používať<\/button>/);
+  assert.match(detail, />NIE — nepoužívať<\/button>/);
   assert.match(detail, />Odložiť 30 dní<\/button>/);
   assert.match(detail, /\/api\/admin\/automation-source-candidates\//);
   assert.match(route, /\["approve", "reject", "suppress"\]/);

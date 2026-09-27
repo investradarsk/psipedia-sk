@@ -85,10 +85,10 @@ export function automationSourceAttentionCount(sources: AutomationSourceAdminRow
 }
 
 export function automationCategoryStatus(sources: AutomationSourceAdminRow[]) {
-  if (sources.length === 0) return "Čaká na nastavenie";
   if (sources.some((source) => source.lastRunStatus === "FAILED" || Boolean(source.lastErrorCode))) return "Problém";
-  if (sources.some((source) => source.enabled)) return "Aktívna";
-  return "Vypnutá";
+  if (sources.some((source) => source.reviewStatus === "PENDING")) return "Vyžaduje kontrolu";
+  if (sources.some((source) => source.enabled)) return "V poriadku";
+  return "Vypnuté";
 }
 
 export function automationCategoryLastCheck(sources: AutomationSourceAdminRow[]) {
@@ -148,12 +148,12 @@ export function automationFieldLabel(field: string) {
 
 export function automationFindingLabel(value: string) {
   const labels: Record<string, string> = {
-    NEW_ENTITY: "Nový záznam",
+    NEW_ENTITY: "Nový návrh",
     POSSIBLE_UPDATE: "Navrhovaná zmena",
     POSSIBLE_INACTIVE: "Možná neaktivita",
     POSSIBLE_CANCELLED: "Možné zrušenie",
     DUPLICATE_CANDIDATE: "Možná duplicita",
-    SOURCE_ERROR: "Chyba zdroja",
+    SOURCE_ERROR: "Problém so zdrojom",
   };
   return labels[value] ?? value;
 }

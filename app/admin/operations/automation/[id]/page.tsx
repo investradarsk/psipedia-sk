@@ -81,8 +81,8 @@ export default async function AutomationFindingPage({ params }: Props) {
     >
       <section className={styles.statusHero}>
         <div>
-          <strong>{finding.reason}</strong>
-          <p>Nájdené {formatDate(finding.lastDetectedAt)} zo zdroja {finding.sourceLabel}.</p>
+          <strong>{automationFindingLabel(finding.findingType)}</strong>
+          <p>{finding.sourceLabel} · pripravené {formatDate(finding.lastDetectedAt)}</p>
         </div>
         <div className={styles.badges}>
           <span className={[styles.badge, finding.priority === "HIGH" ? styles.badgeDanger : finding.priority === "MEDIUM" ? styles.badgeWarning : ""].filter(Boolean).join(" ")}>{finding.priority}</span>
@@ -114,7 +114,7 @@ export default async function AutomationFindingPage({ params }: Props) {
 
         <div className={styles.quickActions} style={{ marginTop: 16 }}>
           {safeSourceHref && <a href={safeSourceHref} target="_blank" rel="noreferrer">Otvoriť pôvodný zdroj ↗</a>}
-          {clusterId && categorySlug && <Link href={"/admin/automatizacie/" + categorySlug + "/cluster/" + clusterId}>Zobraziť kontext logickej entity</Link>}
+          {clusterId && categorySlug && <Link href={"/admin/automatizacie/" + categorySlug + "/cluster/" + clusterId}>Pokročilé: technický kontext</Link>}
           {canonicalHref && <Link href={canonicalHref}>Otvoriť záznam v Psipedii</Link>}
           {newCanonicalHref && <Link href={newCanonicalHref}>Otvoriť nový koncept</Link>}
         </div>
@@ -123,7 +123,7 @@ export default async function AutomationFindingPage({ params }: Props) {
       <AdminAutomationFindingReview finding={finding} />
 
       <details className={styles.advanced}>
-        <summary>Technické údaje a provenance</summary>
+        <summary>Pokročilé — technické údaje a pôvod dát</summary>
         <div className={styles.advancedBody}>
           <dl>
             <div><dt>Zdroj</dt><dd>{finding.sourceLabel} <small>({finding.sourceKey})</small></dd></div>

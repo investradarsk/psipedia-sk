@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance";
 import {
+  automationCanonicalAdminHref,
   automationDraftSlug,
   automationFindingPriority,
   automationReviewEffect,
@@ -585,6 +586,48 @@ export async function getAutomationFindingDetail(id: number, database?: Automati
     reviewerDecision: row.reviewer_decision, reviewerNotes: row.reviewer_notes, reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at, suppressedUntil: row.suppressed_until, firstDetectedAt: row.first_detected_at,
     lastDetectedAt: row.last_detected_at,
+  };
+}
+
+export type AutomationDraftDuplicateWarning = {
+  reason: string;
+  sourceUrl: string | null;
+  candidates: Array<{ id: number; href: string | null }>;
+};
+
+export async function getAutomationDraftDuplicateWarning(
+  entityType: AutomationSource["entityType"],
+  canonicalEntityId: number,
+  database?: AutomationD1Database,
+): Promise<AutomationDraftDuplicateWarning | null> {
+  const db = getDatabase(database);
+  const row = await db.prepare(`SELECT reason,source_url FROM automation_findings
+    WHERE entity_type=? AND finding_type='DUPLICATE_CANDIDATE' AND canonical_entity_id=?
+    ORDER BY id DESC LIMIT 1`).bind(entityType, canonicalEntityId).first<{ reason: string; source_url: string | null }>();
+  if (!row) return null;
+
+  const ids = new Set<number>();
+  for (const match of String(row.reason ?? "").matchAll(/(?:event|organization|directory|adoption|lost-found|help):(\d+)/gi)) {
+    const id = Number(match[1]);
+    if (Number.isSafeInteger(id) && id > 0 && id !== canonicalEntityId) ids.add(id);
+  }
+
+  const clusterMatch = String(row.reason ?? "").match(/kandidátne clustre:\s*([0-9,\s]+)/i);
+  if (clusterMatch) {
+    for (const raw of clusterMatch[1].split(",")) {
+      const clusterId = Number(raw.trim());
+      if (!Number.isSafeInteger(clusterId) || clusterId < 1) continue;
+      const cluster = await db.prepare(`SELECT canonical_entity_id FROM automation_entity_clusters WHERE id=? LIMIT 1`)
+        .bind(clusterId).first<{ canonical_entity_id: number | null }>();
+      const id = Number(cluster?.canonical_entity_id ?? 0);
+      if (Number.isSafeInteger(id) && id > 0 && id !== canonicalEntityId) ids.add(id);
+    }
+  }
+
+  return {
+    reason: String(row.reason ?? ""),
+    sourceUrl: row.source_url ? String(row.source_url) : null,
+    candidates: [...ids].map((id) => ({ id, href: automationCanonicalAdminHref(entityType, id) })),
   };
 }
 

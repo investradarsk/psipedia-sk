@@ -561,7 +561,7 @@ test("run now reuses production runner and blocks disabled or unapproved sources
   assert.match(runner, /source\.reviewStatus !== "APPROVED"/);
   assert.match(runner, /return runSource\(source, options\)/);
   assert.match(route, /productionAutomationHtmlAdapters/);
-  assert.match(route, /canonicalWrite:\s*false,\s*publication:\s*false/);
+  assert.match(route, /canonicalDraftWrite:\s*true,\s*publication:\s*false/);
 });
 
 test("scheduler still respects enabled state and next-check cadence", () => {
@@ -632,9 +632,9 @@ test("source management UI exposes required controls and NO AUTO-PUBLISH contrac
     "Entity type", "Connector", "Source URL", "Cadence (min)", "Timeout (ms)",
     "Throttle (ms)", "Max records/run", "Mapping / config JSON",
   ]) assert.ok((manager + detail).includes(phrase), phrase);
-  assert.match(detail, /Otestovať zdroj/);
-  assert.match(detail, /Spustiť kontrolu teraz/);
-  assert.match(detail, /nič sa automaticky nezverejní/);
+  assert.match(detail, /Overiť zdroj/);
+  assert.match(detail, /Skontrolovať teraz/);
+  assert.match(read("app/api/admin/automation-sources/[id]/run/route.ts"), /publication:\s*false/);
   assert.match(manager, /Čaká na tvoje rozhodnutie/);
   assert.match(manager, /Pridať medzi zdroje/);
 });

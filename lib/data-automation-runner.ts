@@ -31,8 +31,27 @@ import {
   resolveAutomationEntityCluster,
 } from "./data-automation-clustering.ts";
 import { isDirectoryFacilityObservation } from "./data-automation-directory-matching.ts";
+import { applyAutomationFinding } from "./data-automation-apply.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
+const AUTOMATION_DRAFT_ACTOR = "automation@psipedia.sk";
+
+async function createCanonicalDraftForFinding(
+  findingId: number,
+  findingType: AutomationFindingType,
+  database: D1Database,
+  detectedAt: string,
+) {
+  if (findingType !== "NEW_ENTITY" && findingType !== "DUPLICATE_CANDIDATE") return null;
+  return applyAutomationFinding({
+    id: findingId,
+    reviewerEmail: AUTOMATION_DRAFT_ACTOR,
+    notes: findingType === "DUPLICATE_CANDIDATE"
+      ? "Automaticky vytvorený koncept. ⚠️ Možná duplicita — skontrolovať pred publikovaním."
+      : "Automaticky vytvorený koncept zo schváleného zdroja.",
+    now: new Date(detectedAt),
+  }, database);
+}
 
 export type DataAutomationSweepOptions = {
   database: D1Database;
@@ -83,15 +102,15 @@ function requiredIdentity(source: AutomationSource, record: AutomationSourceReco
 }
 
 function findingReason(type: AutomationFindingType, record: AutomationSourceRecord, candidates: Array<{ id: number; key: string }> = []) {
-  if (type === "NEW_ENTITY") return "Zdrojový záznam nemá bezpečný canonical match. Vytvoriť možno až po ručnom overení.";
+  if (type === "NEW_ENTITY") return "Zdrojový záznam nemá bezpečný canonical match. Automatizácia z neho vytvorí koncept na ďalšiu úpravu alebo publikovanie.";
   if (type === "POSSIBLE_UPDATE") return "Deterministický canonical match existuje, ale zdroj navrhuje zmenu polí. Canonical záznam nebol prepísaný.";
   if (type === "POSSIBLE_INACTIVE") return "Zdroj signalizuje možnú neaktivitu alebo ukončenie. Vyžaduje ručné potvrdenie.";
   if (type === "POSSIBLE_CANCELLED") return "Zdroj signalizuje možné zrušenie podujatia. Verejný canonical záznam zostal bez zmeny.";
   if (type === "DUPLICATE_CANDIDATE") {
     const ids = candidates.map((candidate) => candidate.key || String(candidate.id)).join(", ");
     return ids
-      ? `Match nie je jednoznačný; kandidáti: ${ids}. Automatický update je blokovaný.`
-      : "Match nie je dostatočne bezpečný. Automatický update je blokovaný.";
+      ? `Match nie je jednoznačný; kandidáti: ${ids}. Vytvorí sa samostatný koncept označený ako možná duplicita.`
+      : "Match nie je dostatočne bezpečný. Vytvorí sa samostatný koncept označený ako možná duplicita.";
   }
   return `Zdroj sa nepodarilo spracovať bezpečne (${record.sourceRecordId}).`;
 }
@@ -104,6 +123,7 @@ async function maybeQueueHighPriorityNotification(
   now: Date,
 ) {
   if (!createdOrReopened) return;
+  if (type === "NEW_ENTITY" || type === "DUPLICATE_CANDIDATE") return;
   try {
     await enqueueAutomationFindingAdminNotification(database, findingId, now);
   } catch (error) {
@@ -246,7 +266,8 @@ async function processRecord(
       database,
       new Date(detectedAt),
     );
-    return { finding: findingType, ...result };
+    const draft = await createCanonicalDraftForFinding(result.id, findingType, database, detectedAt);
+    return { finding: findingType, draft, ...result };
   }
 
   let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
@@ -300,6 +321,18 @@ async function processRecord(
   const classified = classifyAutomationFinding({ match, proposed: proposedForFinding });
   if (!classified) return { finding: null, created: false, reopened: false };
 
+  const duplicateCandidates = classified.findingType === "DUPLICATE_CANDIDATE"
+    ? [
+        ...(match.candidates ?? []),
+        ...(match.entityId ? [{
+          id: match.entityId,
+          key: match.entityKey ?? `${source.entityType.toLowerCase()}:${match.entityId}`,
+        }] : []),
+      ].filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index)
+    : (match.candidates ?? []);
+  const findingCanonicalEntityId = classified.findingType === "DUPLICATE_CANDIDATE" ? null : match.entityId;
+  const findingCanonicalEntityKey = classified.findingType === "DUPLICATE_CANDIDATE" ? null : match.entityKey;
+
   const fingerprint = automationFindingFingerprint({
     sourceKey: source.sourceKey,
     sourceRecordId: record.sourceRecordId,
@@ -314,15 +347,15 @@ async function processRecord(
     sourceUrl: record.sourceUrl,
     sourceTimestamp: record.sourceTimestamp,
     findingType: classified.findingType,
-    canonicalEntityId: match.entityId,
-    canonicalEntityKey: match.entityKey,
+    canonicalEntityId: findingCanonicalEntityId,
+    canonicalEntityKey: findingCanonicalEntityKey,
     matchQuality: match.quality,
     before: match.before,
     proposed: proposedForFinding,
     diff: classified.diff,
     payloadHash: proposalHash,
     fingerprint,
-    reason: findingReason(classified.findingType, record, match.candidates ?? []),
+    reason: findingReason(classified.findingType, record, duplicateCandidates),
     detectedAt,
   }, database);
   if (clusterResolution) {
@@ -336,7 +369,8 @@ async function processRecord(
     database,
     new Date(detectedAt),
   );
-  return { finding: classified.findingType, ...result };
+  const draft = await createCanonicalDraftForFinding(result.id, classified.findingType, database, detectedAt);
+  return { finding: classified.findingType, draft, ...result };
 }
 
 export async function processAutomationRecordForReview(input: {

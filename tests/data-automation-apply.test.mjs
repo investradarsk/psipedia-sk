@@ -14,7 +14,7 @@ test("AUTOMATION-3 requires explicit authenticated approve-apply", () => {
   assert.match(reviewApi, /if \(!user\) return unauthorizedAdminResponse\(\)/);
   assert.match(reviewApi, /body\.action === "approve-apply"/);
   assert.match(reviewApi, /applyAutomationFinding/);
-  assert.match(reviewUi, /Schváliť a aplikovať/);
+  assert.match(reviewUi, /Prijať zmenu/);
   assert.match(reviewUi, /window\.confirm/);
 });
 
@@ -58,7 +58,7 @@ test("stale NEW organization findings are safely reclassified before any canonic
   assert.match(applySource, /finding_type='POSSIBLE_UPDATE'/);
   assert.match(applySource, /review_status='IN_REVIEW'/);
   assert.match(applySource, /reclassified: "EXISTING_ORGANIZATION"/);
-  assert.match(reviewUi, /Nález som prepojil s existujúcim profilom/);
+  assert.match(reviewUi, /Návrh som prepojil s existujúcim profilom/);
   assert.match(reviewApi, /help_organizations\\.slug/);
   assert.match(reviewApi, /namiesto vytvorenia duplicity/);
 });

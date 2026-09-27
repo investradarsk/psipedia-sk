@@ -67,7 +67,7 @@ export async function POST(request: Request, { params }: Props) {
       accepted: true,
       alreadyRunning: true,
       run: runPayload(source),
-      safety: { canonicalWrite: false, publication: false },
+      safety: { canonicalDraftWrite: true, publication: false },
     }, { status: 202, headers: { "cache-control": "no-store" } });
   }
 
@@ -89,6 +89,6 @@ export async function POST(request: Request, { params }: Props) {
     accepted: true,
     alreadyRunning: false,
     run: { sourceId: id, status: "RUNNING" },
-    safety: { canonicalWrite: false, publication: false },
+    safety: { canonicalDraftWrite: true, publication: false },
   }, { status: 202, headers: { "cache-control": "no-store" } });
 }

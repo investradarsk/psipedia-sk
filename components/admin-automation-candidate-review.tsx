@@ -53,38 +53,6 @@ type CandidateApprovalPreview = {
   writes: { observations: number; findings: number; canonical: number; publications: number };
 };
 
-type OrganizationConceptResult = {
-  candidateId: number;
-  outcome: "NEW_ORGANIZATION" | "EXISTING_ORGANIZATION" | "POSSIBLE_MATCH" | "INSUFFICIENT_EVIDENCE";
-  proposed: Record<string, unknown>;
-  provenance: Array<{
-    field: string;
-    sourceUrl: string;
-    evidenceId: number | null;
-    evidenceKind: "TAVILY" | "OFFICIAL_SITE";
-    confidence: "HIGH" | "MEDIUM";
-    reason: string;
-  }>;
-  canonicalEntityId: number | null;
-  canonicalEntityKey: string | null;
-  matchQuality: string;
-  matchReason: string;
-  findingId: number | null;
-  sourceId: number;
-  sourceStatus: {
-    enabled: boolean;
-    reviewStatus: string;
-    connectorType: string;
-  };
-};
-
-function conceptOutcomeLabel(value: OrganizationConceptResult["outcome"]) {
-  if (value === "NEW_ORGANIZATION") return "Nová organizácia";
-  if (value === "EXISTING_ORGANIZATION") return "Navrhovaná zmena existujúcej organizácie";
-  if (value === "POSSIBLE_MATCH") return "Možná zhoda — vyžaduje rozhodnutie identity";
-  return "Nedostatok dôkazov";
-}
-
 export function AdminAutomationCandidateReview({
   candidate,
   categorySlug,
@@ -101,8 +69,8 @@ export function AdminAutomationCandidateReview({
   const [approvalResult, setApprovalResult] = useState<{
     source: AutomationSourceAdminRow | null;
     preview: CandidateApprovalPreview | null;
+    activation: { enabled: boolean; blockedReason: string | null } | null;
   } | null>(null);
-  const [organizationConcept, setOrganizationConcept] = useState<OrganizationConceptResult | null>(null);
   const helpReadiness = isAutomationHelpEntityType(candidate.entityType)
     ? automationHelpSourceReadiness(existingSource ?? {
       entityType: candidate.entityType,
@@ -131,19 +99,26 @@ export function AdminAutomationCandidateReview({
       const payload = await response.json().catch(() => ({})) as {
         source?: AutomationSourceAdminRow | null;
         preview?: CandidateApprovalPreview | null;
+        activation?: { enabled: boolean; blockedReason: string | null } | null;
         error?: string;
       };
       if (!response.ok) throw new Error(payload.error || "Rozhodnutie sa nepodarilo uložiť.");
 
       if (action === "approve") {
-        const result = { source: payload.source ?? null, preview: payload.preview ?? null };
+        const result = {
+          source: payload.source ?? null,
+          preview: payload.preview ?? null,
+          activation: payload.activation ?? null,
+        };
         setApprovalResult(result);
         const reuseCopy = existingSource && result.source?.id === existingSource.id
           ? "Tento web už máme ako zdroj: " + existingSource.label + ". "
           : "";
-        const testCopy = result.preview?.ok
-          ? "Zdroj funguje — našlo sa " + result.preview.recordsFound + " položiek."
-          : "Zdroj potrebuje technické nastavenie pred zapnutím monitoringu.";
+        const testCopy = result.activation?.enabled
+          ? "Zdroj je schválený a Psipedia ho bude kontrolovať automaticky."
+          : result.preview?.ok
+            ? "Zdroj je schválený. Sledovanie je bezpečne pozastavené, kým technická bezpečnostná kontrola nepovolí aktiváciu."
+            : "Zdroj je schválený, ale potrebuje technické nastavenie. Sledovanie zostáva bezpečne pozastavené.";
         setMessage(reuseCopy + testCopy);
       } else {
         setMessage(action === "reject"
@@ -158,33 +133,7 @@ export function AdminAutomationCandidateReview({
     }
   }
 
-  async function prepareOrganizationConcept() {
-    setBusy(true);
-    setMessage("");
-    try {
-      const response = await fetch("/api/admin/automation-source-candidates/" + candidate.id, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "prepare_organization_concept" }),
-      });
-      const payload = await response.json().catch(() => ({})) as {
-        concept?: OrganizationConceptResult;
-        error?: string;
-      };
-      if (!response.ok || !payload.concept) {
-        throw new Error(payload.error || "Návrh organizácie sa nepodarilo pripraviť.");
-      }
-      setOrganizationConcept(payload.concept);
-      setMessage(payload.concept.outcome === "INSUFFICIENT_EVIDENCE"
-        ? "Kandidát nemá dosť bezpečných identity dôkazov. Nič nebolo publikované."
-        : "Návrh organizácie je pripravený na ľudské review. Nič nebolo publikované.");
-      router.refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Návrh organizácie sa nepodarilo pripraviť.");
-    } finally {
-      setBusy(false);
-    }
-  }
+
 
   return (
     <>
@@ -217,11 +166,6 @@ export function AdminAutomationCandidateReview({
           <div><span>Naposledy potvrdené</span><strong>{formatDate(candidate.lastSeenAt)}</strong></div>
         </div>
 
-        <div className={styles.reviewReason}>
-          <span>Prečo bol zdroj navrhnutý</span>
-          <p>{candidate.reason || "Bez doplňujúceho vysvetlenia."}</p>
-        </div>
-
         <p><a href={candidate.sourceUrl} target="_blank" rel="noreferrer">Otvoriť nájdený web ↗</a></p>
 
         {existingSource && (
@@ -237,21 +181,24 @@ export function AdminAutomationCandidateReview({
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <div>
-              <h2>Pripravenosť HELP zdroja</h2>
-              <p>Schválenie discovery kandidáta samo osebe neznamená, že zdroj je technicky pripravený na automatické spracovanie.</p>
+              <h2>Bezpečnostná kontrola</h2>
+              <p>{helpReadiness.ready
+                ? "Psipedia tento typ zdroja pozná a vie ho bezpečne otestovať."
+                : "Zdroj potrebuje technické nastavenie. Kým nebude pripravený, zostane vypnutý."}</p>
             </div>
+            <span className={[styles.badge, helpReadiness.ready ? styles.badgeGood : styles.badgeWarning].join(" ")}>
+              {helpReadiness.ready ? "V poriadku" : "Vyžaduje technickú kontrolu"}
+            </span>
           </div>
-          <div className={styles.reviewSummary}>
-            <div><span>Typ zdroja</span><strong>{helpShapeLabel(helpReadiness)}</strong></div>
-            <div><span>Technická pripravenosť</span><strong>{helpReadinessLabel(helpReadiness)}</strong></div>
-            <div><span>Adapter</span><strong>{helpReadiness.adapterLabel ?? "Nie je priradený"}</strong></div>
-          </div>
-          {!helpReadiness.ready && (
-            <p><strong>Zdroj zostane vypnutý.</strong> Na preview a monitoring potrebuje explicitne podporovaný adapter pre tento HELP typ a source shape.</p>
-          )}
+          {!helpReadiness.ready && <p><strong>Monitoring nie je možné zapnúť.</strong> Bezpečnostné guardy zostávajú autoritatívne.</p>}
           <details className={styles.advanced}>
-            <summary>Pokročilé — readiness detail</summary>
+            <summary>Pokročilé — technická pripravenosť</summary>
             <div className={styles.advancedBody}>
+              <div className={styles.reviewSummary}>
+                <div><span>Typ zdroja</span><strong>{helpShapeLabel(helpReadiness)}</strong></div>
+                <div><span>Pripravenosť</span><strong>{helpReadinessLabel(helpReadiness)}</strong></div>
+                <div><span>Adapter</span><strong>{helpReadiness.adapterLabel ?? "Nie je priradený"}</strong></div>
+              </div>
               <p><strong>Dôvod:</strong> {helpReadiness.reason}</p>
               <p><strong>Adapter key:</strong> {helpReadiness.adapterKey ?? "—"}</p>
             </div>
@@ -259,70 +206,15 @@ export function AdminAutomationCandidateReview({
         </section>
       )}
 
-      {candidate.entityType === "ORGANIZATION" && candidate.discoveryType === "SEARCH_PROVIDER" && (
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <h2>Organizácia z discovery leadu</h2>
-              <p>Pripraví entity návrh z Tavily evidence a generic official-site enrichmentu. Monitoring zdroja sa nezapne a publikovanie sa nevykoná automaticky.</p>
-            </div>
-          </div>
 
-          {candidate.reviewStatus === "APPROVED" ? (
-            <div className="admin-form-actions">
-              <button className="is-primary" type="button" disabled={busy} onClick={() => void prepareOrganizationConcept()}>
-                Pripraviť návrh organizácie
-              </button>
-            </div>
-          ) : (
-            <p>Najprv schváľ discovery candidate. Schválenie pripraví alebo reuse-ne vypnutý zdroj; nie je to aktivácia monitoringu.</p>
-          )}
-
-          {organizationConcept && (
-            <div className={styles.advancedBody} style={{ marginTop: 16 }}>
-              <h3>{conceptOutcomeLabel(organizationConcept.outcome)}</h3>
-              <div className={styles.reviewSummary}>
-                <div><span>Názov</span><strong>{String(organizationConcept.proposed.name ?? "—")}</strong></div>
-                <div><span>Web</span><strong>{String(organizationConcept.proposed.websiteUrl ?? "—")}</strong></div>
-                <div><span>Typ</span><strong>{String(organizationConcept.proposed.type ?? "—")}</strong></div>
-                <div><span>Mesto</span><strong>{String(organizationConcept.proposed.city ?? "—")}</strong></div>
-                <div><span>Telefón</span><strong>{String(organizationConcept.proposed.publicPhone ?? "—")}</strong></div>
-                <div><span>E-mail</span><strong>{String(organizationConcept.proposed.publicEmail ?? "—")}</strong></div>
-              </div>
-              <p><strong>Match:</strong> {organizationConcept.matchQuality} · {organizationConcept.matchReason}</p>
-              {organizationConcept.canonicalEntityId && (
-                <p><strong>Canonical organizácia:</strong> #{organizationConcept.canonicalEntityId}</p>
-              )}
-              {organizationConcept.findingId && (
-                <p><Link href={"/admin/operations/automation/" + organizationConcept.findingId}>
-                  Otvoriť review návrhu →
-                </Link></p>
-              )}
-              <details className={styles.advanced}>
-                <summary>Dôkazy / provenance</summary>
-                <div className={styles.advancedBody}>
-                  {organizationConcept.provenance.map((item, index) => (
-                    <p key={item.field + ":" + index}>
-                      <strong>{item.field}</strong> · {item.evidenceKind} · {item.confidence}
-                      {item.evidenceId ? " · evidence #" + item.evidenceId : ""}<br />
-                      {item.reason}
-                    </p>
-                  ))}
-                </div>
-              </details>
-              <p><small>Source #{organizationConcept.sourceId}: {organizationConcept.sourceStatus.connectorType} · {organizationConcept.sourceStatus.enabled ? "enabled" : "disabled"} · {organizationConcept.sourceStatus.reviewStatus}</small></p>
-            </div>
-          )}
-        </section>
-      )}
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div>
             <h2>Rozhodnutie</h2>
             <p>{existingSource
-              ? "Schválenie použije existujúci zdroj a bezpečne ho otestuje. Monitoring sa tým automaticky nezapne."
-              : "Schválenie pripraví vypnutý zdroj. Ak ešte nemá bezpečné technické nastavenie, zostane čakať na konfiguráciu."}</p>
+              ? "ÁNO znamená, že Psipedia má tento zdroj používať. Existujúci zdroj sa znovu využije."
+              : "ÁNO znamená, že Psipedia má tento zdroj používať. Technické bezpečnostné kontroly zostávajú pod kapotou."}</p>
           </div>
         </div>
 
@@ -339,9 +231,9 @@ export function AdminAutomationCandidateReview({
 
         {candidate.reviewStatus === "NEW" ? (
           <div className="admin-form-actions">
-            <button className="is-primary" type="button" disabled={busy} onClick={() => void review("approve")}>Schváliť</button>
-            <button className="is-danger" type="button" disabled={busy} onClick={() => void review("reject")}>Zamietnuť</button>
-            <button type="button" disabled={busy} onClick={() => void review("suppress")}>Odložiť 30 dní</button>
+            <button className="is-primary" type="button" disabled={busy} onClick={() => void review("approve")}>ÁNO — používať</button>
+            <button className="is-danger" type="button" disabled={busy} onClick={() => void review("reject")}>NIE — nepoužívať</button>
+            <details className={styles.advanced}><summary>Ďalšie možnosti</summary><div className={styles.advancedBody}><button type="button" disabled={busy} onClick={() => void review("suppress")}>Odložiť 30 dní</button></div></details>
           </div>
         ) : (
           <p>Tento návrh už bol vybavený. <Link href={"/admin/automatizacie/" + categorySlug}>Späť na kategóriu →</Link></p>
@@ -352,14 +244,14 @@ export function AdminAutomationCandidateReview({
         <section className={styles.section} aria-live="polite">
           <div className={styles.sectionHeader}>
             <div>
-              <h2>{approvalResult.preview?.ok ? "Zdroj funguje" : "Zdroj potrebuje technické nastavenie"}</h2>
-              <p>{approvalResult.preview?.ok
-                ? "Read-only test prešiel a nič sa nezapísalo ani nezverejnilo."
-                : "Zdroj zostáva vypnutý. Technický detail je dostupný pod Pokročilé."}</p>
+              <h2>{approvalResult.activation?.enabled ? "Zdroj sa používa" : "Zdroj je schválený"}</h2>
+              <p>{approvalResult.activation?.enabled
+                ? "Psipedia ho bude kontrolovať automaticky. Nájdený obsah sa vytvorí ako koncept v príslušnej admin sekcii."
+                : "Sledovanie zatiaľ zostáva bezpečne pozastavené. Bežný používateľ nemusí skladať technické kroky."}</p>
             </div>
           </div>
           {approvalResult.preview?.ok && <p><strong>Našlo sa {approvalResult.preview.recordsFound} položiek.</strong></p>}
-          {approvalResult.source && <p><Link href={"/admin/automatizacie/zdroje/" + approvalResult.source.id}>Otvoriť zdroj a pokračovať →</Link></p>}
+          {approvalResult.source && !approvalResult.activation?.enabled && <p><Link href={"/admin/automatizacie/zdroje/" + approvalResult.source.id}>Pokročilé: technický stav zdroja →</Link></p>}
           {approvalResult.preview && approvalResult.preview.errorDetails.length > 0 && (
             <details className={styles.advanced}>
               <summary>Pokročilé — technický výsledok testu</summary>
@@ -379,6 +271,7 @@ export function AdminAutomationCandidateReview({
             <div className={styles.techRow}><strong>Candidate</strong><span>#{candidate.id} · {candidate.entityType}</span><span>{candidate.discoveryType}</span></div>
             <div className={styles.techRow}><strong>Suggested connector</strong><span>{candidate.suggestedConnectorType}</span><span>{candidate.evidencePathCount} discovery paths · {candidate.freshEvidencePathCount} fresh</span></div>
             <div className={styles.techRow}><strong>Canonical URL</strong><span>{candidate.canonicalUrl}</span><span>duplicate source {candidate.duplicateSourceId ?? "—"}</span></div>
+            <div className={styles.techRow}><strong>Discovery reason</strong><span>{candidate.reason || "—"}</span><span>candidate lifecycle {candidate.lifecycle}</span></div>
           </div>
           <details className={styles.advanced}>
             <summary>Metadata JSON</summary>

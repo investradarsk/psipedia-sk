@@ -23,14 +23,14 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
   async function review(action: FindingAction, suppressedDays?: number) {
     if (action === "approve-apply") {
       const warning = isNewEntity
-        ? "Schváliť finding a vytvoriť canonical koncept? Nový záznam zostane DRAFT a nebude automaticky publikovaný."
-        : "Schváliť a aplikovať navrhované polia do canonical záznamu? Publication stav sa nezmení. Ak je záznam už publikovaný, schválené údaje sa po aplikovaní prejavia aj verejne.";
+        ? "Vytvoriť koncept z tohto návrhu? Koncept zostane rozpracovaný a nebude automaticky publikovaný."
+        : "Prijať navrhovanú zmenu do záznamu? Stav publikovania sa nezmení. Ak je záznam už publikovaný, prijaté údaje sa prejavia aj verejne.";
       if (!window.confirm(warning)) return;
     }
     if (action === "approve" && !window.confirm(
-      "Schváliť iba finding bez aplikovania? Canonical záznam sa týmto krokom nezmení.",
+      "Označiť návrh ako schválený bez zmeny záznamu?",
     )) return;
-    if (action === "reject" && !window.confirm("Zamietnuť tento finding? Rovnaký nezmenený payload sa nebude znovu otvárať.")) return;
+    if (action === "reject" && !window.confirm("Zamietnuť tento návrh? Rovnaká nezmenená verzia sa nebude znovu otvárať.")) return;
 
     setBusy(true);
     setMessage("");
@@ -48,7 +48,7 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
       };
       if (!response.ok || !payload.finding) throw new Error(payload.error || "Finding sa nepodarilo spracovať.");
       if (payload.reclassified === "EXISTING_ORGANIZATION") {
-        setMessage("Organizácia už existuje. Nález som prepojil s existujúcim profilom. Skontroluj zmeny a potom použi „Schváliť a aplikovať“.");
+        setMessage("Organizácia už existuje. Návrh som prepojil s existujúcim profilom. Skontroluj zmeny a potom použi „Prijať zmenu“.");
         router.refresh();
         return;
       }
@@ -102,7 +102,7 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
       <div className="admin-form-actions">
         {canApply && (
           <button className="is-primary" type="button" disabled={busy} onClick={() => void review("approve-apply")}>
-            {isNewEntity ? "Schváliť a vytvoriť koncept" : "Schváliť a aplikovať"}
+            {isNewEntity ? "Vytvoriť koncept" : "Prijať zmenu"}
           </button>
         )}
         {finding.reviewStatus !== "APPROVED" && (
@@ -123,12 +123,12 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
             {finding.reviewStatus !== "APPROVED" && (
               <>
                 <button type="button" disabled={busy} onClick={() => void review("ignore")}>Ignorovať</button>
-                <button type="button" disabled={busy} onClick={() => void review("approve")}>Schváliť iba finding</button>
+                <button type="button" disabled={busy} onClick={() => void review("approve")}>Schváliť bez zmeny záznamu</button>
               </>
             )}
           </div>
           {!canApply && finding.findingType === "POSSIBLE_INACTIVE" && (
-            <p>Možná neaktivita sa musí potvrdiť priamo v canonical profile. Automatické odpublikovanie alebo archivácia nie sú súčasťou bezpečného apply.</p>
+            <p>Možná neaktivita sa musí potvrdiť priamo v profile. Automatické odpublikovanie ani archivácia nie sú súčasťou bezpečného prijatia zmeny.</p>
           )}
         </div>
       </details>
