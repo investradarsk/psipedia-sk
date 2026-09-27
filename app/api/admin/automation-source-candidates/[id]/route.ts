@@ -32,9 +32,6 @@ export async function PUT(request: Request, { params }: Props) {
   if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Neplatné ID kandidáta." }, { status: 400 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const action = String(body?.action ?? "");
-  if (!["approve", "reject", "suppress", "prepare_organization_concept"].includes(action)) {
-    return Response.json({ error: "Neplatná candidate akcia." }, { status: 400 });
-  }
 
   try {
     if (action === "prepare_organization_concept") {
@@ -46,6 +43,10 @@ export async function PUT(request: Request, { params }: Props) {
       });
       return Response.json({ concept }, { headers: { "cache-control": "no-store" } });
     }
+    if (!["approve", "reject", "suppress"].includes(action)) {
+      return Response.json({ error: "Neplatná candidate akcia." }, { status: 400 });
+    }
+
     const candidate = await reviewAutomationSourceCandidate({
       id,
       action: action as "approve" | "reject" | "suppress",
