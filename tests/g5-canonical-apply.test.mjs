@@ -61,13 +61,14 @@ test("G5 ORGANIZATION allowlist blocks facility evidence at organization root",(
   assert.match(clustering,/FACILITY/);
 });
 
-test("G5 stale and concurrency protection covers decision, evidence and canonical version",()=>{
+test("G5 legacy mutation implementation retains stale guards but public POST is permanently disabled",()=>{
   assert.match(apply,/expectedDecisionId/);
   assert.match(apply,/expectedDecisionVersion/);
   assert.match(apply,/expectedEvidenceFingerprint/);
   assert.match(apply,/expectedCanonicalUpdatedAt/);
   assert.match(apply,/WHERE id=\? AND updated_at=\? AND archived_at IS NULL/);
-  assert.match(api,/status:409/);
+  assert.match(api,/status:410/);
+  assert.doesNotMatch(api,/applyAutomationCanonicalReview/);
 });
 
 test("G5 idempotency and immutable audit carry provenance and rollback snapshots",()=>{
