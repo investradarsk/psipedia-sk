@@ -18,7 +18,6 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
   const [message, setMessage] = useState("");
 
   const canApply = applyFindingTypes.has(finding.findingType);
-  const createsDraft = finding.findingType === "NEW_ENTITY" || finding.findingType === "DUPLICATE_CANDIDATE";
 
   async function review(action: FindingAction, suppressedDays?: number) {
     if (action === "approve-apply") {
