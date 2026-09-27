@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminHelpEditor } from "@/components/admin-help-editor";
-import { AdminAutomationDraftWarning } from "@/components/admin-automation-draft-warning";
+import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedHelpCaseById } from "@/lib/help-store";
@@ -22,7 +22,7 @@ export default async function EditHelpCasePage({ params }: Props) {
     title="Upraviť Help prípad"
     description="Uprav iba canonical generic Help záznam. Publikačný stav, urgentnosť a vyriešenie zostávajú vedomé redakčné rozhodnutia."
   >
-    <AdminAutomationDraftWarning warning={duplicateWarning} />
+    <AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminHelpEditor item={item} />
   </AdminShell>;
 }
