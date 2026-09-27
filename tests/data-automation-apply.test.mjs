@@ -48,13 +48,13 @@ test("CREATE_DRAFT remains receipt-based and detached", () => {
   assert.match(applySource, /canonical_entity_id=NULL,canonical_entity_key=NULL/);
 });
 
-test("current SVPS source metadata survives apply and future diff comparison", () => {
+test("current SVPS source metadata remains available for matching but cannot overwrite canonical metadata", () => {
   assert.match(findingStore, /importKey: row\.import_key/);
   assert.match(findingStore, /operatorName: sourceData\.operatorName/);
   assert.match(findingStore, /sourceApprovalNumber: sourceData\.sourceApprovalNumber/);
   assert.match(findingStore, /sourceActivity: sourceData\.sourceActivity/);
   assert.match(applySource, /metadataFields: \["operatorName", "sourceApprovalNumber", "sourceActivity"\]/);
-  assert.match(applySource, /source_data_json=\?/);
+  assert.doesNotMatch(applySource, /source_data_json=\?/);
 });
 
 test("existing organization collision is processed as SKIPPED_DUPLICATE without canonical update", () => {
