@@ -5,6 +5,8 @@ import fs from "node:fs/promises";
 const scriptPath = new URL("../scripts/automation-cleanup-legacy.mjs", import.meta.url);
 const mod = await import(scriptPath);
 const source = await fs.readFile(scriptPath, "utf8");
+const workflow = await fs.readFile(new URL("../.github/workflows/automation-finalize-v1.yml", import.meta.url), "utf8");
+const { executeAtomicBatch } = await import(new URL("../scripts/automation-detach-drafts.mjs", import.meta.url));
 
 test("preview is the default and apply requires an explicit flag", () => {
   assert.match(source, /process\.argv\.includes\("--apply"\)/);
@@ -68,10 +70,63 @@ test("cleanup fail-closes canonical-linked draft findings and legacy application
   assert.match(source, /applyAllowed: Object\.values\(blockers\)\.every/);
 });
 
-test("apply uses one explicit transaction for the hardcoded cleanup list", () => {
-  assert.match(source, /BEGIN TRANSACTION/);
-  assert.match(source, /COMMIT/);
-  assert.match(source, /cleanupSql\(existingDeleteTables/);
+test("cleanup apply uses one supported atomic D1 batch without explicit transaction SQL", () => {
+  assert.doesNotMatch(source, /BEGIN\s+TRANSACTION/i);
+  assert.doesNotMatch(source, /\bCOMMIT\b/i);
+  assert.doesNotMatch(source, /\bSAVEPOINT\b/i);
+  assert.match(source, /executeAtomicBatch/);
+  assert.match(source, /await executeAtomicBatch\(target, statements, fetchImpl\)/);
+  assert.match(source, /cleanupStatements\(existingDeleteTables/);
+  assert.match(source, /import \{ executeAtomicBatch \} from "\.\/automation-detach-drafts\.mjs"/);
+});
+
+test("cleanup mutation order remains editorial notification then FK-safe DELETE_TABLE_ORDER", () => {
+  const statements = mod.cleanupStatements(["child_table", "parent_table"], true);
+  assert.deepEqual(statements, [
+    "DELETE FROM editorial_notifications WHERE resource_type='automation_finding'",
+    'DELETE FROM "child_table"',
+    'DELETE FROM "parent_table"',
+  ]);
+});
+
+test("simulated middle-statement batch failure has no per-statement fallback", async () => {
+  let calls = 0;
+  let body = null;
+  const fetchImpl = async (_url, init) => {
+    calls += 1;
+    body = JSON.parse(init.body);
+    return {
+      ok: true,
+      async json() {
+        return {
+          success: true,
+          errors: [],
+          result: [
+            { success: true },
+            { success: false, error: "simulated cleanup failure" },
+            { success: false, error: "rolled back" },
+          ],
+        };
+      },
+    };
+  };
+
+  await assert.rejects(
+    executeAtomicBatch(
+      { accountId: "account", databaseId: "database" },
+      ["DELETE FROM a", "DELETE FROM b", "DELETE FROM c"],
+      fetchImpl,
+    ),
+    /atomic D1 batch failed/,
+  );
+  assert.equal(calls, 1);
+  assert.deepEqual(body, {
+    batch: [
+      { sql: "DELETE FROM a" },
+      { sql: "DELETE FROM b" },
+      { sql: "DELETE FROM c" },
+    ],
+  });
 });
 
 test("no wildcard or dynamic discovered-table delete exists", () => {
@@ -92,4 +147,29 @@ test("cleanup preserves canonical publication lifecycle and final automation inv
   assert.match(source, /canonical publication\/lifecycle state changed/);
   assert.match(source, /automation_applications remain after cleanup/);
   assert.match(source, /automation_cluster_canonical_claims remain after cleanup/);
+});
+
+test("Automation V1 Finalize workflow contract remains unchanged", () => {
+  assert.match(workflow, /name: Automation V1 Finalize/);
+  assert.match(workflow, /FINALIZE-AUTOMATION-V1-psipedia-sk-db/);
+  assert.match(workflow, /DETACH preview/);
+  assert.match(workflow, /DETACH apply/);
+  assert.match(workflow, /LEGACY CLEANUP preview/);
+  assert.match(workflow, /LEGACY CLEANUP apply/);
+  assert.match(workflow, /Final postconditions/);
+  assert.ok(workflow.indexOf("DETACH apply") < workflow.indexOf("LEGACY CLEANUP preview"));
+  assert.ok(workflow.indexOf("LEGACY CLEANUP preview") < workflow.indexOf("LEGACY CLEANUP apply"));
+});
+
+test("KEEP tables and canonical lifecycle protections remain unchanged", () => {
+  for (const table of [
+    "automation_sources",
+    "automation_discovery_roots",
+    "automation_search_usage",
+    "automation_governance_reviews",
+    "automation_governance_review_history",
+    "automation_ingestion_receipts",
+  ]) assert.ok(mod.KEEP_TABLES.includes(table), table);
+  assert.match(source, /canonicalLifecycleSnapshot/);
+  assert.match(source, /canonical publication\/lifecycle state changed/);
 });
