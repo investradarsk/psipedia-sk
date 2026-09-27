@@ -17,11 +17,16 @@ export type AutomationHelpAdapterDefinition = {
 export type AutomationHelpAdapterRegistry = Readonly<Record<string, AutomationHelpAdapterDefinition>>;
 
 /**
- * HELP-INGEST-1A intentionally registers no production HELP adapters.
- * Entity-specific adapters are added by HELP-INGEST-1B/1C/1D together with
- * their registry metadata so readiness can never get ahead of parser support.
+ * Production HELP adapters are registered only together with their concrete
+ * parser support so readiness can never get ahead of ingestion capability.
  */
-export const productionAutomationHelpAdapterRegistry: AutomationHelpAdapterRegistry = Object.freeze({});
+export const productionAutomationHelpAdapterRegistry: AutomationHelpAdapterRegistry = Object.freeze({
+  "trnava-adoption-detail": {
+    entityType: "ADOPTION",
+    sourceShape: "SINGLE_ITEM",
+    label: "Útulok Trnava — detail psa na adopciu",
+  },
+});
 
 export type AutomationHelpSourceReadinessReason =
   | "NOT_HELP_SOURCE"
@@ -148,10 +153,17 @@ export type AutomationHelpProvisioningRule = {
 };
 
 /**
- * Empty in 1A by design. 1B-1D add only host/path rules backed by a real
- * production adapter and matching registry definition.
+ * Host/path provisioning is intentionally allow-listed and must be backed by
+ * a production adapter with matching entity/shape metadata.
  */
-export const productionAutomationHelpProvisioningRules: readonly AutomationHelpProvisioningRule[] = [];
+export const productionAutomationHelpProvisioningRules: readonly AutomationHelpProvisioningRule[] = [{
+  entityType: "ADOPTION",
+  hostname: "trnava.utulok.sk",
+  pathPattern: /^\/psy\/[^/]+\/?$/,
+  sourceShape: "SINGLE_ITEM",
+  adapterKey: "trnava-adoption-detail",
+  expectedMinRecords: 1,
+}];
 
 export function helpCandidateProvisioningConfigFor(input: {
   entityType: AutomationEntityType;
