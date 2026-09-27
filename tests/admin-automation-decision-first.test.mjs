@@ -50,11 +50,15 @@ test("new and possible-duplicate content is converted to canonical draft", async
   assert.match(apply, /CREATE_DRAFT/);
 });
 
-test("possible duplicate drafts use a distinct slug and remain unpublished", async () => {
-  const apply = await read("lib/data-automation-apply.ts");
-  assert.match(apply, /"-koncept-" \+ finding\.id/);
-  assert.match(apply, /published_at: null/);
-  assert.match(apply, /status: "DRAFT"|status: "draft"/);
+test("possible duplicate drafts use a detached slug suffix and remain unpublished", async () => {
+  const [mapper, service] = await Promise.all([
+    read("lib/data-automation-draft-mapper.ts"),
+    read("lib/canonical-draft-service.ts"),
+  ]);
+  assert.match(mapper, /duplicateSlugSuffix/);
+  assert.doesNotMatch(mapper, /finding\.id/);
+  assert.match(service, /published_at: null/);
+  assert.match(service, /status: "DRAFT"|status: "draft"/);
 });
 
 test("uncertain canonical match becomes warning provenance, not the duplicate draft target", async () => {
@@ -65,17 +69,22 @@ test("uncertain canonical match becomes warning provenance, not the duplicate dr
   assert.match(runner, /type === "NEW_ENTITY" \|\| type === "DUPLICATE_CANDIDATE"\) return/);
 });
 
-test("automation only fills parsed fields while draft constructors keep missing optional fields empty", async () => {
-  const apply = await read("lib/data-automation-apply.ts");
-  assert.match(apply, /textValue\(p\.description\)/);
-  assert.match(apply, /nullableText\(p\.websiteUrl/);
-  assert.match(apply, /textValue\(p\.city\)/);
+test("automation only maps structured payload while canonical draft service owns field defaults", async () => {
+  const [mapper, service] = await Promise.all([
+    read("lib/data-automation-draft-mapper.ts"),
+    read("lib/canonical-draft-service.ts"),
+  ]);
+  assert.match(mapper, /data: finding\.proposed/);
+  assert.doesNotMatch(mapper, /Admin|React|route|page|className/);
+  assert.match(service, /textValue\(p\.description\)/);
+  assert.match(service, /nullableText\(p\.websiteUrl/);
+  assert.match(service, /textValue\(p\.city\)/);
 });
 
-test("possible duplicate warning is shown in normal entity editors", async () => {
-  const warning = await read("components/admin-automation-draft-warning.tsx");
+test("possible duplicate warning is shown in normal entity editors from canonical-local metadata", async () => {
+  const warning = await read("components/admin-canonical-draft-warning.tsx");
   assert.match(warning, /⚠️ Možná duplicita/);
-  assert.match(warning, /Zobraziť podobný záznam/);
+  assert.doesNotMatch(warning, /data-automation|automation_findings|automation_entity_clusters/);
 
   for (const path of [
     "app/admin/podujatia/[id]/page.tsx",
@@ -86,16 +95,17 @@ test("possible duplicate warning is shown in normal entity editors", async () =>
     "app/admin/pomoc/[id]/page.tsx",
   ]) {
     const page = await read(path);
-    assert.match(page, /AdminAutomationDraftWarning/);
+    assert.match(page, /AdminCanonicalDraftWarning/);
+    assert.match(page, /getCanonicalDraftDuplicateWarning/);
+    assert.doesNotMatch(page, /getAutomationDraftDuplicateWarning/);
   }
 });
 
-test("duplicate warning links are derived from existing automation provenance", async () => {
-  const store = await read("lib/data-automation-store.ts");
-  assert.match(store, /getAutomationDraftDuplicateWarning/);
-  assert.match(store, /finding_type='DUPLICATE_CANDIDATE'/);
-  assert.match(store, /automationCanonicalAdminHref/);
-  assert.match(store, /automation_entity_clusters/);
+test("duplicate warning is canonical-local and independent of automation provenance", async () => {
+  const flags = await read("lib/canonical-draft-flags.ts");
+  assert.match(flags, /canonical_draft_flags/);
+  assert.match(flags, /POSSIBLE_DUPLICATE/);
+  assert.doesNotMatch(flags, /automation_findings|automation_entity_clusters|finding_id|cluster_id|source_id|observation_id/);
 });
 
 test("publication remains an explicit entity-editor decision", async () => {
