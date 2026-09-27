@@ -1,0 +1,38 @@
+name: Address research audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/api/admin/address-research-import/audit/**"
+      - "app/admin/nastroje/address-research-import/**"
+      - "components/admin-address-research-audit.tsx"
+      - "lib/directory-address-research-audit.ts"
+      - "lib/directory-store.ts"
+      - "tests/address-research-audit.test.mjs"
+      - ".github/workflows/address-research-audit-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: address-research-audit-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run db:check-migrations
+      - run: npm run lint
+      - name: ADDRESS-RESEARCH-AUDIT-1 focused tests
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/address-research-audit.test.mjs
+      - run: npm run build
