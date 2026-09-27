@@ -7,6 +7,7 @@ import {
   type AutomationSource,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
+import { organizationHtmlAdapterKeyForSourceUrl } from "./data-automation-source-provisioning.ts";
 
 export class AutomationConnectorError extends Error {
   readonly code: string;
@@ -310,7 +311,11 @@ export async function fetchAutomationSourceRecords(
       return sourceRecordsFromPayload(payload, effectiveSource);
     }
 
-    const adapterKey = source.config.htmlAdapterKey?.trim();
+    const configuredAdapterKey = source.config.htmlAdapterKey?.trim();
+    const adapterKey = configuredAdapterKey
+      || (source.entityType === "ORGANIZATION"
+        ? organizationHtmlAdapterKeyForSourceUrl(effectiveSource.sourceUrl)
+        : null);
     const adapter = adapterKey ? context.htmlAdapters?.[adapterKey] : undefined;
     if (!adapter) throw new AutomationConnectorError("controlled_html_adapter_not_configured");
     const html = await responseText(response);
