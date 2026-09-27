@@ -42,6 +42,13 @@ export default async function AdminTechnicalToolsPage() {
           <span className={styles.hubOpen}>Otvoriť address canary →</span>
         </Link>
 
+        <Link className={styles.hubCard} href="/admin/nastroje/address-research-import">
+          <span className={styles.hubKicker}>DIRECTORY</span>
+          <h2>Import research adries</h2>
+          <p>Kontrolovaný JSON preview a apply overených canonical SERVICE adries z jednorazového research datasetu.</p>
+          <span className={styles.hubOpen}>Otvoriť research import →</span>
+        </Link>
+
         <Link className={styles.hubCard} href="/admin/operations/outreach">
           <span className={styles.hubKicker}>Operator utility</span>
           <h2>Profilový outreach</h2>
