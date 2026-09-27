@@ -13,6 +13,7 @@ export type AutomationMatchCandidate = {
   before: Record<string, unknown>;
   sourceId?: string | null;
   sourceUrl?: string | null;
+  websiteUrl?: string | null;
   importKey?: string | null;
   slug?: string | null;
   name?: string | null;
@@ -43,6 +44,49 @@ function sameIdentity(left: unknown, right: unknown) {
   return Boolean(a && b && a === b);
 }
 
+function normalizeOrganizationName(value: unknown) {
+  const normalized = normalizeAutomationIdentity(value);
+  if (!normalized) return "";
+  return normalized
+    .replace(/^(?:obcianske zdruzenie|oz|o z)\s+/, "")
+    .replace(/\s+(?:o z|oz)$/, "")
+    .replace(/^(?:neziskova organizacia|n o)\s+/, "")
+    .replace(/\s+(?:n o)$/, "")
+    .trim();
+}
+
+function sameOrganizationName(left: unknown, right: unknown) {
+  const a = normalizeOrganizationName(left);
+  const b = normalizeOrganizationName(right);
+  return Boolean(a && b && a === b);
+}
+
+function normalizeRegistration(value: unknown) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return digits.length === 8 ? digits : null;
+}
+
+function organizationSemanticClass(value: unknown) {
+  switch (clean(value)) {
+    case "CIVIC_ASSOCIATION":
+    case "NONPROFIT":
+      return "LEGAL_ORGANIZATION";
+    case "MUNICIPAL_ORGANIZATION":
+      return "PUBLIC_ORGANIZATION";
+    case "SHELTER":
+    case "RESCUE_ORGANIZATION":
+      return "RESCUE_GROUP";
+    default:
+      return null;
+  }
+}
+
+function organizationSemanticsCompatible(proposedType: unknown, candidateType: unknown) {
+  const left = organizationSemanticClass(proposedType);
+  const right = organizationSemanticClass(candidateType);
+  return !left || !right || left === right;
+}
+
 function candidateMatch(
   entityType: AutomationEntityType,
   record: AutomationSourceRecord,
@@ -52,7 +96,7 @@ function candidateMatch(
   const sourceId = clean(record.sourceRecordId);
   if (sourceId && clean(candidate.sourceId) === sourceId) return "EXACT_SOURCE_ID" as const;
 
-  if (record.sourceUrl && sameUrl(record.sourceUrl, candidate.sourceUrl)) {
+  if (entityType !== "ORGANIZATION" && record.sourceUrl && sameUrl(record.sourceUrl, candidate.sourceUrl)) {
     return "EXACT_CANONICAL_KEY" as const;
   }
 
@@ -70,10 +114,20 @@ function candidateMatch(
   }
 
   if (entityType === "ORGANIZATION") {
-    const registration = clean(proposed.registrationNumber ?? proposed.registration_number);
-    if (registration && clean(candidate.registrationNumber) === registration) return "EXACT_CANONICAL_KEY" as const;
+    const semanticsCompatible = organizationSemanticsCompatible(proposed.type, candidate.type);
+    if (!semanticsCompatible) return null;
+
+    if (proposed.websiteUrl && sameUrl(proposed.websiteUrl, candidate.websiteUrl)) {
+      return "EXACT_CANONICAL_KEY" as const;
+    }
+
+    const registration = normalizeRegistration(proposed.registrationNumber ?? proposed.registration_number);
+    if (registration && normalizeRegistration(candidate.registrationNumber) === registration) {
+      return "EXACT_CANONICAL_KEY" as const;
+    }
+
     if (
-      sameIdentity(proposed.name, candidate.name)
+      sameOrganizationName(proposed.name, candidate.name)
       && sameIdentity(proposed.city, candidate.city)
       && sameIdentity(proposed.region, candidate.region)
     ) return "STRONG_IDENTITY" as const;
