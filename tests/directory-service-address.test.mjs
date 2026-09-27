@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  applyDirectoryStreetSelection,
+  directoryAddressTextSemanticallyEqual,
+  directoryCanonicalAddressSemanticallyEqual,
   directoryExactGeoCandidate,
   evaluateDirectoryServiceAddress,
   formatDirectoryServiceAddress,
@@ -19,6 +23,139 @@ const streetAddress = {
   serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
   online: false,
 };
+
+const directoryEditorSource = readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
+const directoryAutocompleteSource = readFileSync(new URL("../components/directory-address-autocomplete.tsx", import.meta.url), "utf8");
+const directoryPutSource = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
+
+test("ADDRESS-UX-1 semantic text comparison ignores case and surrounding whitespace without fuzzy matching", () => {
+  assert.equal(directoryAddressTextSemanticallyEqual("Železničná", "  železničná  "), true);
+  assert.equal(directoryAddressTextSemanticallyEqual("Železničná", "Železničná cesta"), false);
+});
+
+test("ADDRESS-UX-1 confirmed canonical address remains semantically equal across formatting-only differences", () => {
+  assert.equal(directoryCanonicalAddressSemanticallyEqual(
+    {
+      region: "Banskobystrický kraj",
+      district: "Žiar nad Hronom",
+      city: "Hliník nad Hronom",
+      postalCode: "96601",
+      street: " Železničná ",
+      houseNumber: "2/75",
+      addressFormat: "STREET",
+    },
+    {
+      region: "banskobystrický kraj",
+      district: "Žiar nad Hronom",
+      city: "Hliník nad Hronom",
+      postalCode: "966 01",
+      street: "železničná",
+      houseNumber: "2/75",
+      addressFormat: "STREET",
+    },
+  ), true);
+});
+
+test("ADDRESS-UX-1 production #1690 same-street selection preserves house number, postcode and format", () => {
+  const next = applyDirectoryStreetSelection(
+    {
+      region: "Banskobystrický kraj",
+      district: "Žiar nad Hronom",
+      city: "Hliník nad Hronom",
+      postalCode: "966 01",
+      street: "Železničná",
+      houseNumber: "2/75",
+      addressFormat: "STREET",
+    },
+    {
+      providerResultId: "geoapify-same-street",
+      region: "Banskobystrický kraj",
+      district: "Žiar nad Hronom",
+      city: "Hliník nad Hronom",
+      street: " železničná ",
+    },
+  );
+  assert.equal(next.sameStreet, true);
+  assert.equal(next.houseNumber, "2/75");
+  assert.equal(next.postalCode, "966 01");
+  assert.equal(next.addressFormat, "STREET");
+  assert.equal(next.street, "železničná");
+});
+
+test("ADDRESS-UX-1 different street remains destructive and unconfirmed until verification", () => {
+  const next = applyDirectoryStreetSelection(
+    {
+      region: "Banskobystrický kraj",
+      district: "Žiar nad Hronom",
+      city: "Hliník nad Hronom",
+      postalCode: "966 01",
+      street: "Železničná",
+      houseNumber: "2/75",
+      addressFormat: "STREET",
+    },
+    {
+      providerResultId: "geoapify-hlavna",
+      region: "Banskobystrický kraj",
+      district: "Žiar nad Hronom",
+      city: "Hliník nad Hronom",
+      street: "Hlavná",
+    },
+  );
+  assert.equal(next.sameStreet, false);
+  assert.equal(next.street, "Hlavná");
+  assert.equal(next.houseNumber, "");
+  assert.equal(next.postalCode, "");
+  assert.equal(next.addressFormat, "STREET");
+});
+
+test("ADDRESS-UX-1 same street in another locality is not treated as unchanged", () => {
+  const next = applyDirectoryStreetSelection(
+    {
+      region: "Banskobystrický kraj",
+      district: "Žiar nad Hronom",
+      city: "Hliník nad Hronom",
+      postalCode: "966 01",
+      street: "Železničná",
+      houseNumber: "2/75",
+      addressFormat: "STREET",
+    },
+    {
+      providerResultId: "geoapify-other-city",
+      region: "Banskobystrický kraj",
+      district: "Žiar nad Hronom",
+      city: "Žiar nad Hronom",
+      street: "Železničná",
+    },
+  );
+  assert.equal(next.sameStreet, false);
+  assert.equal(next.houseNumber, "");
+  assert.equal(next.postalCode, "");
+});
+
+test("ADDRESS-UX-1 editor keeps confirmed preview based on canonical equality, not provider id", () => {
+  assert.match(directoryEditorSource, /directoryCanonicalAddressSemanticallyEqual/);
+  assert.match(directoryEditorSource, /addressMatchesPersistedConfirmed/);
+  assert.doesNotMatch(directoryEditorSource, /!addressProviderResultId\s*&&\s*profile\?\.serviceAddressConfirmation/);
+  assert.match(directoryEditorSource, /setAddressProviderResultId\(""\);\s*setPostalCode\(""\);\s*setStreet\(""\);\s*setHouseNumber\(""\);\s*setAddressFormat\(""\);/s);
+});
+
+test("ADDRESS-UX-1 autocomplete waits for intentional editing and preserves combobox accessibility", () => {
+  assert.match(directoryAutocompleteSource, /searchActivated/);
+  assert.match(directoryAutocompleteSource, /useState\(!selectedStreet\)/);
+  assert.match(directoryAutocompleteSource, /setSearchActivated\(true\)/);
+  assert.match(directoryAutocompleteSource, /role="combobox"/);
+  assert.match(directoryAutocompleteSource, /aria-autocomplete="list"/);
+  assert.match(directoryAutocompleteSource, /aria-expanded=/);
+  assert.match(directoryAutocompleteSource, /role="listbox"/);
+});
+
+test("ADDRESS-UX-1 server safety still requires verification for changed physical addresses", () => {
+  assert.match(directoryPutSource, /if \(body\.addressProviderResultId\?\.trim\(\)\)/);
+  assert.match(directoryPutSource, /verifyDirectoryAddressSelection/);
+  assert.match(directoryPutSource, /else if \(changed\)/);
+  assert.match(directoryPutSource, /Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov/);
+  assert.match(directoryPutSource, /preserveDirectoryPhysicalAddress\(before, body\)/);
+});
 
 test("valid STREET service address is COMPLETE", () => {
   const result = evaluateDirectoryServiceAddress(streetAddress);

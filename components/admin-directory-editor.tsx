@@ -13,7 +13,12 @@ import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 import { DirectoryAddressAutocomplete } from "@/components/directory-address-autocomplete";
-import { evaluateDirectoryServiceAddress, type DirectoryAddressFormat } from "@/lib/directory-service-address";
+import {
+  applyDirectoryStreetSelection,
+  directoryCanonicalAddressSemanticallyEqual,
+  evaluateDirectoryServiceAddress,
+  type DirectoryAddressFormat,
+} from "@/lib/directory-service-address";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { directorySeoFallback } from "@/lib/content-seo";
 import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
@@ -163,6 +168,22 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
     );
   }
 
+  const addressMatchesPersistedConfirmed = Boolean(
+    profile?.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION"
+    && directoryCanonicalAddressSemanticallyEqual(
+      { region, district, city, postalCode, street, houseNumber, addressFormat },
+      {
+        region: profile.region,
+        district: profile.district,
+        city: profile.city,
+        postalCode: profile.postalCode,
+        street: profile.street,
+        houseNumber: profile.houseNumber,
+        addressFormat: profile.addressFormat,
+      },
+    ),
+  );
+
   const addressEvaluation = evaluateDirectoryServiceAddress({
     region,
     district,
@@ -171,7 +192,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
     street,
     houseNumber,
     addressFormat,
-    serviceAddressConfirmation: (!addressProviderResultId && profile?.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION")
+    serviceAddressConfirmation: addressMatchesPersistedConfirmed
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
     online,
@@ -229,17 +250,17 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
               disabled={online && !region && !district && !city}
               onClearSelection={() => {
                 setAddressProviderResultId("");
-                setPostalCode("");
-                setStreet("");
-                setHouseNumber("");
-                setAddressFormat("");
               }}
               onSelect={(suggestion) => {
-                setAddressProviderResultId(suggestion.providerResultId);
-                setPostalCode("");
-                setStreet(suggestion.street);
-                setHouseNumber("");
-                setAddressFormat("STREET");
+                const next = applyDirectoryStreetSelection(
+                  { region, district, city, postalCode, street, houseNumber, addressFormat },
+                  suggestion,
+                );
+                setAddressProviderResultId(next.addressProviderResultId);
+                setPostalCode(next.postalCode);
+                setStreet(next.street);
+                setHouseNumber(next.houseNumber);
+                setAddressFormat(next.addressFormat);
               }}
             />
             {street ? (

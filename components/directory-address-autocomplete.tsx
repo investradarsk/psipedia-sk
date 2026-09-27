@@ -34,13 +34,14 @@ export function DirectoryAddressAutocomplete({
   onClearSelection: () => void;
 }) {
   const [query, setQuery] = useState(selectedStreet);
+  const [searchActivated, setSearchActivated] = useState(!selectedStreet);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [empty, setEmpty] = useState(false);
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const localityReady = Boolean(region && district && city);
-  const canSearch = !selectedProviderResultId && !disabled && localityReady && query.trim().length >= 3;
+  const canSearch = searchActivated && !selectedProviderResultId && !disabled && localityReady && query.trim().length >= 3;
 
   useEffect(() => {
     if (!canSearch) {
@@ -110,6 +111,7 @@ export function DirectoryAddressAutocomplete({
           disabled={disabled || !localityReady}
           placeholder={localityReady ? "Začni písať názov ulice, napr. hvi" : "Najprv vyber obec / mesto"}
           onChange={(event) => {
+            setSearchActivated(true);
             if (selectedProviderResultId) onClearSelection();
             setQuery(event.target.value);
           }}
