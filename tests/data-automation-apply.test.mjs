@@ -20,7 +20,7 @@ test("AUTOMATION-3 requires explicit authenticated approve-apply", () => {
   assert.match(reviewApi, /if \(!user\) return unauthorizedAdminResponse\(\)/);
   assert.match(reviewApi, /body\.action === "approve-apply"/);
   assert.match(reviewApi, /applyAutomationFinding/);
-  assert.match(reviewUi, /Prijať zmenu/);
+  assert.doesNotMatch(reviewUi, /Prijať zmenu/);
   assert.match(reviewUi, /window\.confirm/);
 });
 
@@ -34,42 +34,35 @@ test("new automation entities are created through the canonical draft service an
   assert.doesNotMatch(applySource, /function createDraftStatement/);
 });
 
-test("existing canonical updates cannot change lifecycle status through generic field mapping", () => {
-  assert.doesNotMatch(applySource, /status:\s*field\(/);
-  assert.match(applySource, /POSSIBLE_INACTIVE/);
-  assert.match(applySource, /automatické odpublikovanie alebo archivácia nie sú súčasťou bezpečného apply/);
+test("automation runtime has no UPDATE_EXISTING canonical mutation path", () => {
+  assert.doesNotMatch(applySource, /function updateExistingStatement/);
+  assert.doesNotMatch(applySource, /INSERT INTO automation_applications[\s\S]*UPDATE_EXISTING/);
+  assert.doesNotMatch(applySource, /UPDATE \$\{config\.table\}/);
+  assert.match(applySource, /Automation canonical update je zakázaný/);
+  assert.match(migration, /CREATE TABLE `automation_applications`/);
 });
 
-test("UPDATE_EXISTING stays concurrency guarded and auditable while CREATE_DRAFT detaches", () => {
-  assert.match(applySource, /assertNoConcurrentChanges/);
-  assert.match(applySource, /stableJson\(currentValue\)/);
-  assert.match(applySource, /AutomationApplyConflictError/);
-  assert.match(migration, /CREATE TABLE `automation_applications`/);
-  assert.match(applySource, /'UPDATE_EXISTING'/);
+test("CREATE_DRAFT remains receipt-based and detached", () => {
   assert.doesNotMatch(applySource, /VALUES \(\?,\?,last_insert_rowid\(\),'CREATE_DRAFT'/);
   assert.match(applySource, /createAutomationIngestionReceipt/);
   assert.match(applySource, /canonical_entity_id=NULL,canonical_entity_key=NULL/);
 });
 
-test("current SVPS source metadata survives apply and future diff comparison", () => {
+test("current SVPS source metadata remains available for matching but cannot overwrite canonical metadata", () => {
   assert.match(findingStore, /importKey: row\.import_key/);
   assert.match(findingStore, /operatorName: sourceData\.operatorName/);
   assert.match(findingStore, /sourceApprovalNumber: sourceData\.sourceApprovalNumber/);
   assert.match(findingStore, /sourceActivity: sourceData\.sourceActivity/);
   assert.match(applySource, /metadataFields: \["operatorName", "sourceApprovalNumber", "sourceActivity"\]/);
-  assert.match(applySource, /source_data_json=\?/);
+  assert.doesNotMatch(applySource, /source_data_json=\?/);
 });
 
-test("stale NEW organization findings are safely reclassified before any canonical update", () => {
+test("existing organization collision is processed as SKIPPED_DUPLICATE without canonical update", () => {
   assert.match(applySource, /findNewOrganizationCollision/);
-  assert.match(applySource, /WHERE slug=\? LIMIT 1/);
-  assert.match(applySource, /buildAutomationDiff\(before, finding\.proposed\)/);
-  assert.match(applySource, /finding_type='POSSIBLE_UPDATE'/);
-  assert.match(applySource, /review_status='IN_REVIEW'/);
-  assert.match(applySource, /reclassified: "EXISTING_ORGANIZATION"/);
-  assert.match(reviewUi, /Návrh som prepojil s existujúcim profilom/);
-  assert.match(reviewApi, /help_organizations\\.slug/);
-  assert.match(reviewApi, /namiesto vytvorenia duplicity/);
+  assert.match(applySource, /SELECT id FROM help_organizations WHERE slug=\? LIMIT 1/);
+  assert.match(applySource, /result: "SKIPPED_DUPLICATE"/);
+  assert.doesNotMatch(applySource, /finding_type='POSSIBLE_UPDATE'/);
+  assert.doesNotMatch(reviewUi, /Návrh som prepojil s existujúcim profilom/);
 });
 
 test("CREATE_DRAFT idempotency is receipt-based without canonical linkage", () => {
@@ -88,12 +81,11 @@ test("CREATE_DRAFT idempotency is receipt-based without canonical linkage", () =
 });
 
 
-test("EVENT automation apply cannot bypass centralized GEO lifecycle", () => {
+test("EVENT automation GEO reconciliation is draft-only", () => {
   assert.match(applySource, /reconcileGeoAfterSourceMutation/);
   assert.match(applySource, /targetType: "MANAGED_EVENT"/);
-  assert.match(applySource, /EVENT_GEO_SOURCE_FIELDS = new Set\(\["venue", "city", "region", "address"\]\)/);
-  assert.match(applySource, /applicationType !== "CREATE_DRAFT"/);
-  assert.match(applySource, /await reconcileAutomationEventGeo/);
+  assert.match(applySource, /applicationType: "CREATE_DRAFT"/);
+  assert.doesNotMatch(applySource, /EVENT_GEO_SOURCE_FIELDS/);
 });
 
 
@@ -254,11 +246,18 @@ test("possible duplicate warning is canonical-local and has no automation proven
 });
 
 test("CREATE_DRAFT leaves no persistent automation-to-draft link", () => {
-  const createBranch = applySource.match(/if \(finding\.findingType === "NEW_ENTITY"[\s\S]*?\n\s*\} else \{\n\s*if \(!finding\.canonicalEntityId\)/);
+  const createBranch = applySource.match(/if \(finding\.findingType === "NEW_ENTITY" \|\| finding\.findingType === "DUPLICATE_CANDIDATE"\)[\s\S]*?Automation canonical update je zakázaný/);
   assert.ok(createBranch, "CREATE_DRAFT branch should be present");
   const source = createBranch[0];
   assert.doesNotMatch(source, /INSERT INTO automation_applications[\s\S]*CREATE_DRAFT/);
   assert.doesNotMatch(source, /automation_cluster_canonical_claims/);
   assert.doesNotMatch(source, /canonical_entity_key=.*created\.canonicalEntityId/);
   assert.match(source, /canonical_entity_id=NULL,canonical_entity_key=NULL/);
+});
+
+test("exact existing match ends in SKIPPED_DUPLICATE receipt before finding classification", () => {
+  assert.match(runnerSource, /match\.entityId && match\.quality !== "UNCERTAIN" && match\.quality !== "NONE"/);
+  assert.match(runnerSource, /createAutomationIngestionReceipt/);
+  assert.match(runnerSource, /result: "SKIPPED_DUPLICATE"/);
+  assert.doesNotMatch(runnerSource, /linkAutomationClusterCanonical/);
 });

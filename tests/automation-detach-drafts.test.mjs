@@ -29,16 +29,19 @@ test("stale run recovery reuses the established failed stale-run semantics", () 
   assert.match(source, /non-stale automation run is still active/);
 });
 
-test("UPDATE_EXISTING application rows are never detached blindly", () => {
-  assert.match(source, /UPDATE_EXISTING automation_applications exist; detach apply is intentionally blocked/);
-  assert.doesNotMatch(source, /DELETE FROM automation_applications[^\n]*UPDATE_EXISTING/);
+test("historical UPDATE_EXISTING applications detach to receipts without canonical mutation", () => {
+  assert.match(source, /row\.application_type === "UPDATE_EXISTING" \? "SKIPPED_DUPLICATE" : "DRAFT_CREATED"/);
+  assert.match(source, /canonicalApplicationRowsSnapshot/);
+  assert.match(source, /canonical application rows changed during detach/);
+  assert.match(source, /DELETE FROM automation_applications WHERE id=/);
+  assert.doesNotMatch(source, /UPDATE help_organizations SET|UPDATE managed_events SET|UPDATE directory_profiles SET|UPDATE adoption_dogs SET|UPDATE help_cases SET|UPDATE lost_found_dog_reports SET/);
 });
 
 test("historical CREATE_DRAFT detach backfills receipt before removing provenance", () => {
   assert.match(source, /INSERT INTO automation_ingestion_receipts/);
   assert.match(source, /DELETE FROM automation_cluster_canonical_claims/);
   assert.match(source, /UPDATE automation_findings SET canonical_entity_id=NULL,canonical_entity_key=NULL/);
-  assert.match(source, /DELETE FROM automation_applications[\s\S]*application_type='CREATE_DRAFT'/);
+  assert.match(source, /DELETE FROM automation_applications WHERE id=/);
 });
 
 test("possible duplicate history moves to canonical-local flags", () => {
@@ -57,15 +60,18 @@ test("receipt table contains no canonical or transient automation linkage", () =
   assert.match(receipt[1], /source_record_id/);
 });
 
-test("detach apply preserves canonical content row counts", () => {
+test("detach apply preserves canonical rows exactly, including historical organization #108", () => {
   assert.match(source, /canonicalBefore = canonicalSnapshot/);
   assert.match(source, /canonicalAfter = canonicalSnapshot/);
+  assert.match(source, /canonicalRowsBefore = canonicalApplicationRowsSnapshot/);
+  assert.match(source, /canonicalRowsAfter = canonicalApplicationRowsSnapshot/);
   assert.match(source, /canonical content row counts changed during detach/);
+  assert.match(source, /canonical application rows changed during detach/);
 });
 
 
 test("destructive detach linkage changes are committed atomically", () => {
   assert.match(source, /BEGIN TRANSACTION/);
   assert.match(source, /COMMIT/);
-  assert.match(source, /detachSql\(target, createRows, before\.linkedClusters\)/);
+  assert.match(source, /detachSql\(target, before\.applications, before\.linkedClusters\)/);
 });

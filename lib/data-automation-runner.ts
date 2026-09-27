@@ -26,13 +26,12 @@ import {
 import { enqueueEditorialNotification } from "./editorial-notifications";
 import { enqueueAutomationFindingAdminNotification } from "./admin-notifications";
 import {
-  linkAutomationClusterCanonical,
   linkAutomationFindingToCluster,
   resolveAutomationEntityCluster,
 } from "./data-automation-clustering.ts";
 import { isDirectoryFacilityObservation } from "./data-automation-directory-matching.ts";
 import { applyAutomationFinding } from "./data-automation-apply.ts";
-import { getAutomationIngestionReceipt } from "./data-automation-ingestion-receipts.ts";
+import { createAutomationIngestionReceipt, getAutomationIngestionReceipt } from "./data-automation-ingestion-receipts.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 const AUTOMATION_DRAFT_ACTOR = "automation@psipedia.sk";
@@ -223,8 +222,27 @@ async function processRecord(
     return { finding: null, created: false, reopened: false, processed: true };
   }
   const proposedForFinding = findingProposal ?? record.proposed;
-  const observationHash = await sha256Hex(record.rawRecord);
   const proposalHash = await sha256Hex(proposedForFinding);
+
+  let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
+    ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
+    : await matchAutomationCanonical(source, record, database);
+
+  if (match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
+    const receipt = await createAutomationIngestionReceipt({
+      sourceId: source.id,
+      entityType: source.entityType,
+      sourceRecordId: record.sourceRecordId,
+      sourceUrl: record.sourceUrl,
+      payloadHash: proposalHash,
+      result: "SKIPPED_DUPLICATE",
+      firstProcessedAt: detectedAt,
+    }, database);
+    if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+    return { finding: null, created: false, reopened: false, processed: true, receipt };
+  }
+
+  const observationHash = await sha256Hex(record.rawRecord);
   const observationId = await recordAutomationObservation({
     sourceId: source.id,
     runId,
@@ -279,10 +297,6 @@ async function processRecord(
     return { finding: findingType, draft, ...result };
   }
 
-  let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
-    ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
-    : await matchAutomationCanonical(source, record, database);
-
   if (clusterResolution?.canonicalEntityId && !match.entityId) {
     match = {
       entityType: source.entityType,
@@ -297,36 +311,6 @@ async function processRecord(
     };
   }
 
-  if (clusterResolution && match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
-    const linked = await linkAutomationClusterCanonical({
-      clusterId: clusterResolution.clusterId,
-      entityType: source.entityType,
-      canonicalEntityId: match.entityId,
-      canonicalEntityKey: match.entityKey,
-      at: detectedAt,
-    }, database);
-    if (linked.conflictCanonicalEntityId && linked.conflictCanonicalEntityId !== match.entityId) {
-      const conflictingEntityId = match.entityId;
-      const conflictingEntityKey = match.entityKey;
-      match = {
-        entityType: source.entityType,
-        entityId: null,
-        entityKey: null,
-        quality: "UNCERTAIN",
-        before: null,
-        candidates: [
-          {
-            id: linked.conflictCanonicalEntityId,
-            key: clusterResolution.canonicalEntityKey ?? `${source.entityType.toLowerCase()}:${linked.conflictCanonicalEntityId}`,
-          },
-          {
-            id: conflictingEntityId,
-            key: conflictingEntityKey ?? `${source.entityType.toLowerCase()}:${conflictingEntityId}`,
-          },
-        ],
-      };
-    }
-  }
   const classified = classifyAutomationFinding({ match, proposed: proposedForFinding });
   if (!classified) return { finding: null, created: false, reopened: false };
 

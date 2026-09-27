@@ -63,6 +63,7 @@ export const BLOCKER_QUERIES = Object.freeze({
   automationApplications: "SELECT COUNT(*) AS count FROM automation_applications",
   createDraftApplications: "SELECT COUNT(*) AS count FROM automation_applications WHERE application_type='CREATE_DRAFT'",
   updateExistingApplications: "SELECT COUNT(*) AS count FROM automation_applications WHERE application_type='UPDATE_EXISTING'",
+  linkedNewDuplicateFindings: "SELECT COUNT(*) AS count FROM automation_findings WHERE finding_type IN ('NEW_ENTITY','DUPLICATE_CANDIDATE') AND (canonical_entity_id IS NOT NULL OR canonical_entity_key IS NOT NULL)",
 });
 
 function invariant(condition, message) {
@@ -142,6 +143,22 @@ function canonicalSnapshot(target) {
   return Object.fromEntries(CANONICAL_TABLES.map((table) => [table, countTable(target, table)]));
 }
 
+function canonicalLifecycleSnapshot(target) {
+  const snapshot = {};
+  for (const table of CANONICAL_TABLES) {
+    if (!tableExists(target, table)) {
+      snapshot[table] = null;
+      continue;
+    }
+    const columns = new Set(execute(target, `PRAGMA table_info("${table}")`).map((row) => String(row.name)));
+    const selected = ["id", "status", "published_at", "archived_at"].filter((column) => columns.has(column));
+    snapshot[table] = selected.length
+      ? execute(target, `SELECT ${selected.map((column) => `"${column}"`).join(",")} FROM "${table}" ORDER BY id`)
+      : [];
+  }
+  return snapshot;
+}
+
 function countsFor(target, tables) {
   return Object.fromEntries(tables.map((table) => [table, countTable(target, table)]));
 }
@@ -218,6 +235,7 @@ function apply(target, before) {
 
   const keepBefore = before.keepCounts;
   const canonicalBefore = before.canonical;
+  const lifecycleBefore = canonicalLifecycleSnapshot(target);
 
   const existingDeleteTables = DELETE_TABLE_ORDER.filter((table) => tableExists(target, table));
   const deleted = Object.fromEntries(DELETE_TABLE_ORDER.map((table) => [table, before.deleteCounts[table] ?? 0]));
@@ -225,8 +243,10 @@ function apply(target, before) {
 
   const keepAfter = countsFor(target, KEEP_TABLES);
   const canonicalAfter = canonicalSnapshot(target);
+  const lifecycleAfter = canonicalLifecycleSnapshot(target);
 
   invariant(JSON.stringify(canonicalAfter) === JSON.stringify(canonicalBefore), "canonical row counts changed");
+  invariant(JSON.stringify(lifecycleAfter) === JSON.stringify(lifecycleBefore), "canonical publication/lifecycle state changed");
   invariant(keepAfter.automation_sources === keepBefore.automation_sources, "automation_sources count changed");
   invariant(keepAfter.automation_discovery_roots === keepBefore.automation_discovery_roots, "discovery roots count changed");
   invariant(keepAfter.automation_search_usage === keepBefore.automation_search_usage, "Tavily/search usage count changed");
@@ -239,12 +259,15 @@ function apply(target, before) {
   for (const table of DELETE_TABLE_ORDER) {
     if (tableExists(target, table)) invariant(requiredCount(target, table) === 0, `${table} is not empty after cleanup`);
   }
+  invariant(requiredCount(target, "automation_applications") === 0, "automation_applications remain after cleanup");
+  invariant(requiredCount(target, "automation_cluster_canonical_claims") === 0, "automation_cluster_canonical_claims remain after cleanup");
 
   return {
     mode: "apply",
     deleted,
     canonicalBefore,
     canonicalAfter,
+    lifecycleUnchanged: true,
     keepBefore,
     keepAfter,
   };
