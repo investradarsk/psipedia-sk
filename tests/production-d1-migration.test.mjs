@@ -215,6 +215,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0088_automation_tavily_organization_root.sql",
     "0089_automation_tavily_directory_roots.sql",
     "0090_geo_google_place_identity.sql",
+    "0091_automation_detach_drafts.sql",
   ]);
 });
 
@@ -248,6 +249,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0088_automation_tavily_organization_root.sql",
     "0089_automation_tavily_directory_roots.sql",
     "0090_geo_google_place_identity.sql",
+    "0091_automation_detach_drafts.sql",
     "0092_future_migration.sql",
   ]);
 });
