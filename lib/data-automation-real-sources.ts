@@ -922,6 +922,12 @@ export const genericHelpItemPageAdapter: ControlledHtmlAdapter = ({ html, source
   const description = firstMetaDescription(html);
   if (!title || title.length > 180 || !description) return [];
 
+  const explicitText = normalizeAutomationIdentity(title + " " + description);
+  const categorySignal = category === "zbierky"
+    ? /\b(zbierk|dar|prispe|financn|transparentn|ucet)\w*/.test(explicitText)
+    : /\b(dobrovol|vencen|prevoz|materialn)\w*/.test(explicitText);
+  if (!categorySignal) return [];
+
   return [{
     sourceRecordId: ("url:" + sourceUrl).slice(0, 240),
     sourceUrl,
