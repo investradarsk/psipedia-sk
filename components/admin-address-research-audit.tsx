@@ -32,6 +32,12 @@ type AuditItem = {
   updatedAt: string | null;
 };
 
+type AuditDataset = {
+  schemaVersion: 1;
+  dataset?: { label?: string };
+  profiles: unknown[];
+};
+
 type AuditOutput = {
   schemaVersion: 1;
   summary: Record<string, number>;
@@ -65,7 +71,7 @@ function summarize(items: AuditItem[]) {
 }
 
 export default function AdminAddressResearchAudit() {
-  const [dataset, setDataset] = useState<any>(null);
+  const [dataset, setDataset] = useState<AuditDataset | null>(null);
   const [fileName, setFileName] = useState("");
   const [items, setItems] = useState<AuditItem[]>([]);
   const [processed, setProcessed] = useState(0);
@@ -82,9 +88,11 @@ export default function AdminAddressResearchAudit() {
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) return setError("JSON je väčší ako povolených 20 MB.");
     try {
-      const parsed = JSON.parse(await file.text());
-      if (parsed?.schemaVersion !== 1 || !Array.isArray(parsed?.profiles)) throw new Error();
-      setDataset(parsed);
+      const parsed = JSON.parse(await file.text()) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
+      const candidate = parsed as { schemaVersion?: unknown; dataset?: { label?: string }; profiles?: unknown };
+      if (candidate.schemaVersion !== 1 || !Array.isArray(candidate.profiles)) throw new Error();
+      setDataset({ schemaVersion: 1, dataset: candidate.dataset, profiles: candidate.profiles });
     } catch {
       setError("Súbor nie je platný audit JSON schemaVersion 1.");
     }
