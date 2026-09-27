@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { executeAtomicBatch } from "./automation-detach-drafts.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -112,7 +113,12 @@ async function loadProductionTarget() {
   invariant(binding, "generated Wrangler config missing canonical D1 binding");
   invariant(binding.database_name === resources.d1.database_name, "generated D1 name mismatch");
   invariant(binding.database_id === resources.d1.database_id, "generated D1 id mismatch");
-  return { databaseName: resources.d1.database_name, configPath: path.join(repoRoot, "dist/server/wrangler.json") };
+  return {
+    accountId: resources.account_id,
+    databaseId: resources.d1.database_id,
+    databaseName: resources.d1.database_name,
+    configPath: path.join(repoRoot, "dist/server/wrangler.json"),
+  };
 }
 
 function execute(target, sql) {
@@ -220,17 +226,16 @@ function preview(target) {
   return report;
 }
 
-function cleanupSql(existingDeleteTables, clearEditorialNotifications) {
-  const statements = ["BEGIN TRANSACTION"];
+function cleanupStatements(existingDeleteTables, clearEditorialNotifications) {
+  const statements = [];
   if (clearEditorialNotifications) {
     statements.push("DELETE FROM editorial_notifications WHERE resource_type='automation_finding'");
   }
   for (const table of existingDeleteTables) statements.push(`DELETE FROM "${table}"`);
-  statements.push("COMMIT");
-  return statements.join(";\n") + ";";
+  return statements;
 }
 
-function apply(target, before) {
+async function apply(target, before, fetchImpl = fetch) {
   invariant(before.applyAllowed, `cleanup blocked: ${JSON.stringify(before.blockers)}`);
 
   const keepBefore = before.keepCounts;
@@ -239,7 +244,8 @@ function apply(target, before) {
 
   const existingDeleteTables = DELETE_TABLE_ORDER.filter((table) => tableExists(target, table));
   const deleted = Object.fromEntries(DELETE_TABLE_ORDER.map((table) => [table, before.deleteCounts[table] ?? 0]));
-  execute(target, cleanupSql(existingDeleteTables, tableExists(target, "editorial_notifications")));
+  const statements = cleanupStatements(existingDeleteTables, tableExists(target, "editorial_notifications"));
+  await executeAtomicBatch(target, statements, fetchImpl);
 
   const keepAfter = countsFor(target, KEEP_TABLES);
   const canonicalAfter = canonicalSnapshot(target);
@@ -281,7 +287,7 @@ async function main() {
   const before = preview(target);
   console.log(JSON.stringify(before, null, 2));
   if (!applyRequested) return;
-  const result = apply(target, before);
+  const result = await apply(target, before);
   console.log(JSON.stringify(result, null, 2));
 }
 
@@ -291,3 +297,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     process.exitCode = 1;
   });
 }
+
+export { preview, apply, cleanupStatements };
