@@ -8,6 +8,12 @@ const reviewUi = readFileSync(new URL("../components/admin-automation-finding-re
 const reviewApi = readFileSync(new URL("../app/api/admin/automation-findings/[id]/route.ts", import.meta.url), "utf8");
 const findingStore = readFileSync(new URL("../lib/data-automation-store.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0055_data_automation_apply.sql", import.meta.url), "utf8");
+const detachMigration = readFileSync(new URL("../drizzle/0090_automation_detach_drafts.sql", import.meta.url), "utf8");
+const draftService = readFileSync(new URL("../lib/canonical-draft-service.ts", import.meta.url), "utf8");
+const draftMapper = readFileSync(new URL("../lib/data-automation-draft-mapper.ts", import.meta.url), "utf8");
+const receipts = readFileSync(new URL("../lib/data-automation-ingestion-receipts.ts", import.meta.url), "utf8");
+const flags = readFileSync(new URL("../lib/canonical-draft-flags.ts", import.meta.url), "utf8");
+const runnerSource = readFileSync(new URL("../lib/data-automation-runner.ts", import.meta.url), "utf8");
 
 test("AUTOMATION-3 requires explicit authenticated approve-apply", () => {
   assert.match(reviewApi, /getAdminApiUser\(\)/);
@@ -18,12 +24,14 @@ test("AUTOMATION-3 requires explicit authenticated approve-apply", () => {
   assert.match(reviewUi, /window\.confirm/);
 });
 
-test("new automation entities are created as drafts and never auto-published", () => {
-  assert.ok((applySource.match(/status: "DRAFT"/g) ?? []).length >= 3);
-  assert.ok((applySource.match(/status: "draft"/g) ?? []).length >= 3);
-  assert.doesNotMatch(applySource, /status:\s*["'](?:published|PUBLISHED|ACTIVE)["']/);
-  assert.ok((applySource.match(/published_at: null/g) ?? []).length >= 6);
-  assert.match(reviewUi, /Nový záznam sa vždy vytvorí ako koncept/);
+test("new automation entities are created through the canonical draft service and never auto-published", () => {
+  assert.ok((draftService.match(/status: "DRAFT"/g) ?? []).length >= 3);
+  assert.ok((draftService.match(/status: "draft"/g) ?? []).length >= 3);
+  assert.ok((draftService.match(/published_at: null/g) ?? []).length >= 6);
+  assert.doesNotMatch(draftService, /status:\s*["'](?:published|PUBLISHED|ACTIVE)["']/);
+  assert.match(applySource, /createCanonicalDraft\(/);
+  assert.match(applySource, /mapAutomationFindingToDraftInput/);
+  assert.doesNotMatch(applySource, /function createDraftStatement/);
 });
 
 test("existing canonical updates cannot change lifecycle status through generic field mapping", () => {
@@ -32,14 +40,15 @@ test("existing canonical updates cannot change lifecycle status through generic 
   assert.match(applySource, /automatické odpublikovanie alebo archivácia nie sú súčasťou bezpečného apply/);
 });
 
-test("apply is concurrency guarded and auditable", () => {
+test("UPDATE_EXISTING stays concurrency guarded and auditable while CREATE_DRAFT detaches", () => {
   assert.match(applySource, /assertNoConcurrentChanges/);
   assert.match(applySource, /stableJson\(currentValue\)/);
   assert.match(applySource, /AutomationApplyConflictError/);
   assert.match(migration, /CREATE TABLE `automation_applications`/);
-  assert.match(migration, /CREATE UNIQUE INDEX `automation_applications_finding_unique`/);
-  assert.match(applySource, /INSERT INTO automation_applications/);
-  assert.match(applySource, /reviewer_decision='APPROVE_APPLY'/);
+  assert.match(applySource, /'UPDATE_EXISTING'/);
+  assert.doesNotMatch(applySource, /VALUES \(\?,\?,last_insert_rowid\(\),'CREATE_DRAFT'/);
+  assert.match(applySource, /createAutomationIngestionReceipt/);
+  assert.match(applySource, /canonical_entity_id=NULL,canonical_entity_key=NULL/);
 });
 
 test("current SVPS source metadata survives apply and future diff comparison", () => {
@@ -63,13 +72,16 @@ test("stale NEW organization findings are safely reclassified before any canonic
   assert.match(reviewApi, /namiesto vytvorenia duplicity/);
 });
 
-test("apply is idempotent per finding and keeps an application audit record", () => {
-  assert.match(applySource, /existingApplication\(finding\.id/);
-  assert.match(migration, /finding_id.*NOT NULL REFERENCES `automation_findings`/);
-  assert.match(migration, /application_type.*CREATE_DRAFT.*UPDATE_EXISTING/);
-  assert.match(migration, /before_json/);
-  assert.match(migration, /after_json/);
-  assert.match(migration, /applied_by/);
+test("CREATE_DRAFT idempotency is receipt-based without canonical linkage", () => {
+  assert.match(detachMigration, /CREATE TABLE `automation_ingestion_receipts`/);
+  assert.match(detachMigration, /UNIQUE INDEX `automation_ingestion_receipts_identity_unique`/);
+  assert.match(detachMigration, /source_id.*entity_type.*source_record_id/s);
+  assert.doesNotMatch(detachMigration, /automation_ingestion_receipts[\s\S]*canonical_entity_id/);
+  assert.doesNotMatch(detachMigration, /automation_ingestion_receipts[\s\S]*finding_id/);
+  assert.match(runnerSource, /getAutomationIngestionReceipt/);
+  assert.match(runnerSource, /processedReceipt/);
+  assert.match(applySource, /getAutomationIngestionReceipt/);
+  assert.match(receipts, /ON CONFLICT\(source_id,entity_type,source_record_id\) DO NOTHING/);
 });
 
 
@@ -202,44 +214,48 @@ test("ORGANIZATION-DISCOVERY-1A direct discovery excludes unsupported internal f
 });
 
 
-test("HELP-INGEST-1D LOST_FOUND type is canonical-safe while validation stays fail-closed", () => {
-  const configMatch = applySource.match(/LOST_FOUND:\s*\{[\s\S]*?table:\s*"lost_found_dog_reports"[\s\S]*?fields:\s*\{([\s\S]*?)\n\s*\},\n\s*\},/);
-  assert.ok(configMatch, "LOST_FOUND entity config must exist");
-  const fields = configMatch[1];
-
-  for (const [key, column] of [
-    ["type", "type"],
-    ["description", "description"],
-    ["eventDate", "event_date"],
-    ["city", "city"],
-    ["locationDescription", "location_description"],
-    ["source", "source"],
-    ["sourceUrl", "source_url"],
-  ]) {
-    assert.match(fields, new RegExp(`\\b${key}: field\\("${column}"`));
-  }
-
-  assert.match(applySource, /return Object\.keys\(diff\)\.filter\(\(key\) => !config\.fields\[key\] && !metadata\.has\(key\)\)/);
-  assert.doesNotMatch(fields, /unknownField:\s*field\(/);
-
-  const validatorMatch = applySource.match(/function validLostFoundType\(value: unknown\) \{([\s\S]*?)\n\}/);
-  assert.ok(validatorMatch, "LOST_FOUND type validator must exist");
-  assert.match(validatorMatch[1], /textValue\(value\)\.toUpperCase\(\)/);
-  assert.match(validatorMatch[1], /type !== "LOST" && type !== "FOUND"/);
-  assert.match(validatorMatch[1], /throw new AutomationApplyUnsupportedError/);
-  assert.match(validatorMatch[1], /return type/);
+test("HELP-INGEST-1D LOST_FOUND type is canonical-safe in the canonical draft service", () => {
+  assert.match(draftService, /input\.entityType === "LOST_FOUND"/);
+  assert.match(draftService, /function validLostFoundType/);
+  assert.match(draftService, /type !== "LOST" && type !== "FOUND"/);
+  assert.match(draftService, /CanonicalDraftValidationError/);
+  assert.match(draftService, /source_url: after\.sourceUrl/);
 });
 
 test("HELP-INGEST-1D LOST_FOUND CREATE_DRAFT keeps semantic type separate from lifecycle", () => {
-  const createMatch = applySource.match(/if \(finding\.entityType === "LOST_FOUND"\) \{([\s\S]*?)\n\s*\}\n\n\s*const isFoster/);
-  assert.ok(createMatch, "LOST_FOUND CREATE_DRAFT branch must exist");
+  const createMatch = draftService.match(/if \(input\.entityType === "LOST_FOUND"\) \{([\s\S]*?)\n\s*\}\n\n\s*const isFoster/);
+  assert.ok(createMatch, "LOST_FOUND canonical draft branch must exist");
   const createDraft = createMatch[1];
-
   assert.match(createDraft, /const type = validLostFoundType\(p\.type\)/);
-  assert.match(createDraft, /type,/);
   assert.match(createDraft, /status: "DRAFT"/);
   assert.match(createDraft, /type: after\.type/);
-  assert.match(createDraft, /status: "DRAFT"/);
   assert.match(createDraft, /published_at: null/);
   assert.doesNotMatch(createDraft, /status:\s*(?:after\.)?type/);
+});
+
+
+test("AUTOMATION-DETACH-1 enforces the UI-independent draft boundary", () => {
+  assert.doesNotMatch(draftService, /admin-|components\/|app\/admin|next\/|React|className|route\.ts|page\.tsx/);
+  assert.match(draftMapper, /CanonicalDraftInput/);
+  assert.match(draftMapper, /finding\.proposed/);
+  assert.match(draftMapper, /externalSourceUrl: finding\.sourceUrl/);
+  assert.doesNotMatch(draftMapper, /canonicalEntityId|canonical_entity_id/);
+});
+
+test("possible duplicate warning is canonical-local and has no automation provenance foreign keys", () => {
+  assert.match(detachMigration, /CREATE TABLE `canonical_draft_flags`/);
+  assert.match(detachMigration, /POSSIBLE_DUPLICATE/);
+  assert.doesNotMatch(detachMigration, /canonical_draft_flags[\s\S]*(finding_id|cluster_id|source_id|observation_id)/);
+  assert.match(flags, /getCanonicalDraftFlag/);
+  assert.match(applySource, /upsertCanonicalPossibleDuplicateFlag/);
+});
+
+test("CREATE_DRAFT leaves no persistent automation-to-draft link", () => {
+  const createBranch = applySource.match(/if \(finding\.findingType === "NEW_ENTITY"[\s\S]*?\n\s*\} else \{\n\s*if \(!finding\.canonicalEntityId\)/);
+  assert.ok(createBranch, "CREATE_DRAFT branch should be present");
+  const source = createBranch[0];
+  assert.doesNotMatch(source, /INSERT INTO automation_applications[\s\S]*CREATE_DRAFT/);
+  assert.doesNotMatch(source, /automation_cluster_canonical_claims/);
+  assert.doesNotMatch(source, /canonical_entity_key=.*created\.canonicalEntityId/);
+  assert.match(source, /canonical_entity_id=NULL,canonical_entity_key=NULL/);
 });
