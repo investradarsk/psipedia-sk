@@ -52,8 +52,15 @@ test("manual match memory, canonical provenance and duplicate warnings block des
   assert.match(source, /manualMatchDecisions/);
   assert.match(source, /canonicalApplyOperations/);
   assert.match(source, /canonicalClusterClaims/);
+  assert.match(source, /canonicalLinkedClusters/);
   assert.match(source, /duplicateDraftWarnings/);
   assert.match(source, /cleanup blocked/);
+});
+
+test("apply uses one explicit transaction for the hardcoded cleanup list", () => {
+  assert.match(source, /BEGIN TRANSACTION/);
+  assert.match(source, /COMMIT/);
+  assert.match(source, /cleanupSql\(existingDeleteTables/);
 });
 
 test("no wildcard or dynamic discovered-table delete exists", () => {
