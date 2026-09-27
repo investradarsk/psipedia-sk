@@ -101,3 +101,23 @@ export async function upsertCanonicalPossibleDuplicateFlag(
     ).run();
   return getCanonicalDraftFlag(input.entityType, input.canonicalEntityId, "POSSIBLE_DUPLICATE", database);
 }
+
+export type CanonicalDraftDuplicateWarning = {
+  reason: string;
+  sourceUrl: string | null;
+  candidates: Array<{ id: number; href: null }>;
+};
+
+export async function getCanonicalDraftDuplicateWarning(
+  entityType: CanonicalDraftEntityType,
+  canonicalEntityId: number,
+  database: CanonicalDraftFlagDatabase,
+): Promise<CanonicalDraftDuplicateWarning | null> {
+  const flag = await getCanonicalDraftFlag(entityType, canonicalEntityId, "POSSIBLE_DUPLICATE", database);
+  if (!flag) return null;
+  return {
+    reason: "Koncept je označený na kontrolu možnej duplicity.",
+    sourceUrl: flag.details.sourceUrl,
+    candidates: flag.details.candidateIds.map((id) => ({ id, href: null })),
+  };
+}
