@@ -229,6 +229,15 @@ function candidateForTarget(target: DirectoryEnrichmentTarget, rows: EvidenceRow
   };
 }
 
+export async function existingDirectoryAddressEvidenceCandidate(
+  target: DirectoryEnrichmentTarget,
+  dbInput?: Database,
+) {
+  const db = database(dbInput);
+  const evidence = await loadEvidence([target.id], db);
+  return candidateForTarget(target, evidence);
+}
+
 export async function previewDirectoryAddressEnrichment(input: {
   limit?: unknown;
   database?: Database;
