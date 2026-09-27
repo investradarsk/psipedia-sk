@@ -32,6 +32,7 @@ import {
 } from "./data-automation-clustering.ts";
 import { isDirectoryFacilityObservation } from "./data-automation-directory-matching.ts";
 import { applyAutomationFinding } from "./data-automation-apply.ts";
+import { getAutomationIngestionReceipt } from "./data-automation-ingestion-receipts.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 const AUTOMATION_DRAFT_ACTOR = "automation@psipedia.sk";
@@ -213,6 +214,14 @@ async function processRecord(
   findingProposal?: Record<string, unknown>,
 ) {
   requiredIdentity(source, record);
+  const processedReceipt = await getAutomationIngestionReceipt({
+    sourceId: source.id,
+    entityType: source.entityType,
+    sourceRecordId: record.sourceRecordId,
+  }, database);
+  if (processedReceipt) {
+    return { finding: null, created: false, reopened: false, processed: true };
+  }
   const proposedForFinding = findingProposal ?? record.proposed;
   const observationHash = await sha256Hex(record.rawRecord);
   const proposalHash = await sha256Hex(proposedForFinding);
