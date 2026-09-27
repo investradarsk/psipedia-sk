@@ -57,8 +57,6 @@ export class AutomationApplyUnsupportedError extends Error {
   }
 }
 
-const EVENT_GEO_SOURCE_FIELDS = new Set(["venue", "city", "region", "address"]);
-
 async function reconcileAutomationEventGeo(input: {
   entityType: AutomationEntityType;
   canonicalEntityId: number;
@@ -67,7 +65,6 @@ async function reconcileAutomationEventGeo(input: {
   actorRef: string;
 }, db: AutomationD1Database) {
   if (input.entityType !== "EVENT") return;
-  if (input.applicationType !== "CREATE_DRAFT" && !input.appliedFields.some((field) => EVENT_GEO_SOURCE_FIELDS.has(field))) return;
   await reconcileGeoAfterSourceMutation({
     targetType: "MANAGED_EVENT",
     targetId: input.canonicalEntityId,
