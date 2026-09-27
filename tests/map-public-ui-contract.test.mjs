@@ -141,8 +141,8 @@ test("MAP-UX-1 map type control is presentation-only and switches the existing m
 });
 
 test("MAP-UX-1 external actions use coordinate helpers and keep approximate navigation safe", () => {
-  assert.match(experience, /buildGoogleMapsPlaceUrl\(item\.latitude, item\.longitude\)/);
-  assert.match(experience, /approximate \? null : buildGoogleMapsDirectionsUrl\(item\.latitude, item\.longitude\)/);
+  assert.match(experience, /buildGoogleMapsPlaceUrl\(item\.latitude, item\.longitude, item\.googlePlaceId\)/);
+  assert.match(experience, /approximate \? null : buildGoogleMapsDirectionsUrl\(item\.latitude, item\.longitude, item\.googlePlaceId\)/);
   assert.match(experience, /Otvoriť približnú polohu v Google Maps/);
   assert.match(experience, />\s*Navigovať\s*</);
   assert.doesNotMatch(experience, /buildGoogleMaps(?:Place|Directions)Url\([^)]*(?:displayLocation|address|city|region)/);
