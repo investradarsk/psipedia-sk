@@ -45,7 +45,7 @@ test.describe("MAP-1B admin geo foundation", () => {
 
   test("geo operations is operator-first and advanced safety gates remain available", async ({ page }) => {
     await page.goto("/admin/operations/geo", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 1, name: "Mapa — profily" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Mapy — profily" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Stav verejných profilov" })).toBeVisible();
     await expect(page.getByPlaceholder("Hľadať názov, obec, okres alebo kategóriu")).toBeVisible();
     await expect(page.getByRole("button", { name: "Na mape" })).toBeVisible();
