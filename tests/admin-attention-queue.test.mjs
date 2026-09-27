@@ -227,6 +227,9 @@ test("geo Attention uses one source with privacy-aware severity and direct deep 
   assert.equal(sensitive.targetHref, "/admin/adresar/44#geo");
   assert.equal(providerFailure.priority, "LOW");
   assert.equal(providerFailure.targetHref, "/admin/podujatia/55#geo");
+
+  const unknown = mapGeoLocationAttention({ ...providerFailure, id: 93, targetType: "UNKNOWN", targetId: 0 }, NOW);
+  assert.equal(unknown.targetHref, "/admin/mapy");
 });
 
 test("active items sort before history and active priority ordering remains deterministic", () => {
@@ -322,7 +325,7 @@ test("target hrefs point to existing admin route patterns", () => {
     "../app/admin/partners/verifications/[id]/page.tsx",
     "../app/admin/partners/commercial/[id]/page.tsx",
     "../app/admin/partners/events/[id]/page.tsx",
-    "../app/admin/operations/geo/page.tsx",
+    "../app/admin/mapy/page.tsx",
     "../app/admin/recenzie-profilov/[id]/page.tsx",
   ];
   for (const route of routes) assert.equal(existsSync(new URL(route, import.meta.url)), true, route);
