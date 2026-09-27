@@ -1,4 +1,5 @@
 import { isDirectoryCategory, type ManagedDirectoryProfile } from "@/lib/directory";
+export { ADDRESS_RESEARCH_IMPORT_PREVIEW_BATCH_SIZE } from "@/lib/address-research-preview-batches";
 import {
   directoryCanonicalAddressSemanticallyEqual,
   directoryAddressTextSemanticallyEqual,
@@ -14,6 +15,7 @@ import {
   withVerifiedDirectoryAddress,
 } from "@/lib/directory-address-save";
 import {
+  getManagedDirectoryProfileByCategorySlug,
   getManagedDirectoryProfileById,
   updateManagedDirectoryProfile,
   type ManagedDirectoryProfileInput,
@@ -44,7 +46,8 @@ export type AddressResearchCanonical = {
 };
 
 export type AddressResearchRecord = {
-  profileId: number;
+  profileId?: number;
+  psipediaUrl?: string;
   category: string;
   name: string;
   action: AddressResearchAction;
@@ -100,6 +103,7 @@ export type AddressResearchPreviewItem = {
 
 type Dependencies = {
   getProfile: typeof getManagedDirectoryProfileById;
+  getProfileByCategorySlug: typeof getManagedDirectoryProfileByCategorySlug;
   verifyAddress: typeof verifyDirectoryCanonicalAddress;
   updateProfile: typeof updateManagedDirectoryProfile;
   applyGeo: typeof applyVerifiedDirectoryAddressGeo;
@@ -108,6 +112,7 @@ type Dependencies = {
 
 const defaultDependencies: Dependencies = {
   getProfile: getManagedDirectoryProfileById,
+  getProfileByCategorySlug: getManagedDirectoryProfileByCategorySlug,
   verifyAddress: verifyDirectoryCanonicalAddress,
   updateProfile: updateManagedDirectoryProfile,
   applyGeo: applyVerifiedDirectoryAddressGeo,
@@ -129,6 +134,31 @@ function validHttpUrl(value: string) {
     return parsed.protocol === "http:" || parsed.protocol === "https:";
   } catch {
     return false;
+  }
+}
+
+export function parseExactPsipediaDirectoryUrl(value: string) {
+  if (!value || value.length > 2048) return null;
+  try {
+    const parsed = new URL(value);
+    if (
+      parsed.protocol !== "https:"
+      || parsed.hostname !== "psipedia.sk"
+      || parsed.port
+      || parsed.username
+      || parsed.password
+      || parsed.search
+      || parsed.hash
+    ) return null;
+    const match = parsed.pathname.match(/^\/adresar\/([^/]+)\/([^/]+)$/);
+    if (!match) return null;
+    const category = decodeURIComponent(match[1]);
+    const slug = decodeURIComponent(match[2]);
+    if (!isDirectoryCategory(category)) return null;
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+    return { category, slug };
+  } catch {
+    return null;
   }
 }
 
@@ -156,15 +186,30 @@ export function validateAddressResearchDataset(input: unknown): AddressResearchD
   const raw = input as Record<string, unknown>;
   if (raw.schemaVersion !== ADDRESS_RESEARCH_IMPORT_SCHEMA_VERSION) throw new Error("Nepodporovaný schemaVersion. Očakáva sa schemaVersion 1.");
   if (!Array.isArray(raw.profiles)) throw new Error("profiles musí byť array.");
-  const seen = new Set<number>();
+  const seenIds = new Set<number>();
+  const seenUrls = new Set<string>();
   for (const item of raw.profiles) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const id = (item as Record<string, unknown>).profileId;
+    const record = item as Record<string, unknown>;
+    const id = record.profileId;
     if (Number.isSafeInteger(id) && Number(id) > 0) {
-      if (seen.has(Number(id))) throw new Error(`Duplicitný profileId v datasete: ${id}`);
-      seen.add(Number(id));
+      if (seenIds.has(Number(id))) throw new Error(`Duplicitný profileId v datasete: ${id}`);
+      seenIds.add(Number(id));
+    }
+    const psipediaUrl = cleanString(record.psipediaUrl, 2048);
+    if (psipediaUrl) {
+      const exact = parseExactPsipediaDirectoryUrl(psipediaUrl);
+      if (!exact) throw new Error(`Neplatný psipediaUrl v datasete: ${psipediaUrl}`);
+      const normalizedUrl = `https://psipedia.sk/adresar/${exact.category}/${exact.slug}`;
+      if (seenUrls.has(normalizedUrl)) throw new Error(`Duplicitný psipediaUrl v datasete: ${normalizedUrl}`);
+      seenUrls.add(normalizedUrl);
     }
   }
+  raw.profiles.forEach((item, index) => {
+    const parsed = parseAddressResearchRecord(item);
+    if (!parsed.record) throw new Error(`Neplatný record na indexe ${index}: ${parsed.reason}`);
+  });
+
   const dataset = raw.dataset && typeof raw.dataset === "object" && !Array.isArray(raw.dataset)
     ? raw.dataset as Record<string, unknown>
     : undefined;
@@ -181,8 +226,14 @@ export function validateAddressResearchDataset(input: unknown): AddressResearchD
 export function parseAddressResearchRecord(input: unknown): { record: AddressResearchRecord | null; reason: string } {
   if (!input || typeof input !== "object" || Array.isArray(input)) return { record: null, reason: "Record musí byť object." };
   const raw = input as Record<string, unknown>;
-  const profileId = Number(raw.profileId);
-  if (!Number.isSafeInteger(profileId) || profileId < 1) return { record: null, reason: "profileId musí byť safe integer > 0." };
+  const rawProfileId = raw.profileId;
+  const hasProfileId = rawProfileId !== undefined && rawProfileId !== null && rawProfileId !== "";
+  const profileId = hasProfileId ? Number(rawProfileId) : undefined;
+  if (hasProfileId && (!Number.isSafeInteger(profileId) || Number(profileId) < 1)) return { record: null, reason: "profileId musí byť safe integer > 0." };
+  const psipediaUrl = cleanString(raw.psipediaUrl, 2048);
+  const parsedPsipediaUrl = psipediaUrl ? parseExactPsipediaDirectoryUrl(psipediaUrl) : null;
+  if (!profileId && !psipediaUrl) return { record: null, reason: "Chýba profileId aj psipediaUrl." };
+  if (psipediaUrl && !parsedPsipediaUrl) return { record: null, reason: "psipediaUrl musí byť exact https://psipedia.sk/adresar/<category>/<slug>." };
   const category = cleanString(raw.category, 100);
   const name = cleanString(raw.name, 240);
   const action = cleanString(raw.action, 60);
@@ -218,7 +269,8 @@ export function parseAddressResearchRecord(input: unknown): { record: AddressRes
 
   return {
     record: {
-      profileId,
+      ...(profileId ? { profileId } : {}),
+      ...(psipediaUrl ? { psipediaUrl } : {}),
       category,
       name,
       action: action as AddressResearchAction,
@@ -343,11 +395,31 @@ async function previewOne(index: number, raw: unknown, dependencies: Dependencie
   const base = basePreview(index, raw);
   const parsed = parseAddressResearchRecord(raw);
   if (!parsed.record) return { ...base, decision: "INVALID", reason: parsed.reason };
-  const record = parsed.record;
+  const inputRecord = parsed.record;
+  const parsedUrl = inputRecord.psipediaUrl ? parseExactPsipediaDirectoryUrl(inputRecord.psipediaUrl) : null;
+
+  const byId = inputRecord.profileId ? await dependencies.getProfile(inputRecord.profileId) : null;
+  const byUrl = parsedUrl ? await dependencies.getProfileByCategorySlug(parsedUrl.category, parsedUrl.slug) : null;
+
+  if (inputRecord.profileId && !byId) {
+    return { ...base, profileId: inputRecord.profileId, name: inputRecord.name, category: inputRecord.category, action: inputRecord.action, confidence: inputRecord.confidence, sourceUrl: inputRecord.sourceUrl, decision: "IDENTITY_MISMATCH", reason: "Profil s profileId neexistuje." };
+  }
+  if (!inputRecord.profileId && !byUrl) {
+    return { ...base, name: inputRecord.name, category: inputRecord.category, action: inputRecord.action, confidence: inputRecord.confidence, sourceUrl: inputRecord.sourceUrl, decision: "IDENTITY_MISMATCH", reason: "Exact psipediaUrl sa nepodarilo resolve-nuť." };
+  }
+  if (inputRecord.profileId && inputRecord.psipediaUrl && (!byUrl || byId?.id !== byUrl.id)) {
+    return { ...base, profileId: inputRecord.profileId, name: inputRecord.name, category: inputRecord.category, action: inputRecord.action, confidence: inputRecord.confidence, sourceUrl: inputRecord.sourceUrl, decision: "IDENTITY_MISMATCH", reason: "profileId a psipediaUrl ukazujú na rozdielne profily." };
+  }
+
+  const profile = byId ?? byUrl;
+  if (!profile) return { ...base, decision: "IDENTITY_MISMATCH", reason: "Profil sa nepodarilo resolve-nuť." };
+  if (parsedUrl && (parsedUrl.category !== inputRecord.category || profile.category !== parsedUrl.category || profile.slug !== parsedUrl.slug)) {
+    return { ...base, profileId: profile.id, name: inputRecord.name, category: inputRecord.category, action: inputRecord.action, confidence: inputRecord.confidence, sourceUrl: inputRecord.sourceUrl, decision: "IDENTITY_MISMATCH", reason: "URL category/slug nesedí s import recordom alebo resolved profilom." };
+  }
+
+  const record: AddressResearchRecord = { ...inputRecord, profileId: profile.id };
   const proposed = proposedCanonical(record);
-  const populated = { ...base, profileId: record.profileId, name: record.name, category: record.category, action: record.action, confidence: record.confidence, sourceUrl: record.sourceUrl, proposedAddress: proposed, record };
-  const profile = await dependencies.getProfile(record.profileId);
-  if (!profile) return { ...populated, decision: "IDENTITY_MISMATCH", reason: "Profil s profileId neexistuje." };
+  const populated = { ...base, profileId: profile.id, name: record.name, category: record.category, action: record.action, confidence: record.confidence, sourceUrl: record.sourceUrl, proposedAddress: proposed, record };
   const current = currentCanonicalAddress(profile);
   const matched = { ...populated, currentAddress: current };
   if (profile.status === "archived") return { ...matched, decision: "ARCHIVED", reason: "Archivovaný profil sa automaticky neupravuje." };
@@ -407,10 +479,15 @@ async function boundedMap<T, R>(items: T[], concurrency: number, mapper: (item: 
   return output;
 }
 
-export async function previewAddressResearchDataset(input: unknown, dependencies: Partial<Dependencies> = {}) {
+export async function previewAddressResearchDataset(
+  input: unknown,
+  dependencies: Partial<Dependencies> = {},
+  options: { baseIndex?: number } = {},
+) {
   const dataset = validateAddressResearchDataset(input);
   const deps = { ...defaultDependencies, ...dependencies };
-  const items = await boundedMap(dataset.profiles, ADDRESS_RESEARCH_IMPORT_PROVIDER_CONCURRENCY, (record, index) => previewOne(index, record, deps));
+  const baseIndex = Number.isSafeInteger(options.baseIndex) && Number(options.baseIndex) >= 0 ? Number(options.baseIndex) : 0;
+  const items = await boundedMap(dataset.profiles, ADDRESS_RESEARCH_IMPORT_PROVIDER_CONCURRENCY, (record, index) => previewOne(baseIndex + index, record, deps));
   const counters: Record<string, number> = { TOTAL: items.length, MATCHED: 0 };
   for (const item of items) {
     counters[item.decision] = (counters[item.decision] ?? 0) + 1;
@@ -481,6 +558,10 @@ export async function applyAddressResearchBatch(input: {
       continue;
     }
     const record = parsed.record;
+    if (!record.profileId) {
+      results.push({ profileId: 0, name: record.name, result: "IDENTITY_MISMATCH", reason: "Apply vyžaduje resolved numeric profileId.", verifiedAddress: null, geo: null });
+      continue;
+    }
     let profile = await deps.getProfile(record.profileId);
     if (!profile) {
       results.push({ profileId: record.profileId, name: record.name, result: "IDENTITY_MISMATCH", reason: "Profil neexistuje.", verifiedAddress: null, geo: null });

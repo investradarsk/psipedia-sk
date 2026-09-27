@@ -4,12 +4,15 @@ import { readFileSync } from "node:fs";
 import {
   ADDRESS_RESEARCH_IMPORT_APPLY_BATCH_SIZE,
   ADDRESS_RESEARCH_IMPORT_CONFIRMATION,
+  ADDRESS_RESEARCH_IMPORT_PREVIEW_BATCH_SIZE,
   ADDRESS_RESEARCH_IMPORT_PROVIDER_CONCURRENCY,
   applyAddressResearchBatch,
   parseAddressResearchRecord,
+  parseExactPsipediaDirectoryUrl,
   previewAddressResearchDataset,
   validateAddressResearchDataset,
 } from "../lib/directory-address-research-import.ts";
+import { buildAddressResearchPreviewBatches } from "../lib/address-research-preview-batches.ts";
 
 const baseProfile = {
   id: 123,
@@ -104,6 +107,9 @@ function dataset(record = baseRecord) {
 function deps(profile = baseProfile, extra = {}) {
   return {
     getProfile: async () => profile,
+    getProfileByCategorySlug: async (category, slug) => (
+      profile.category === category && profile.slug === slug ? profile : null
+    ),
     verifyAddress: async () => verified,
     updateProfile: async (_id, payload) => ({
       ...profile,
@@ -165,6 +171,77 @@ test("invalid locality is invalid", () => {
   const parsed = parseAddressResearchRecord({ ...baseRecord, proposedAddress: { ...proposed, city: "Neexistujúca Obec XYZ" } });
   assert.equal(parsed.record, null);
   assert.match(parsed.reason, /LOCALITY_INVALID/);
+});
+
+
+test("numeric profileId resolve still works", async () => {
+  const result = await previewAddressResearchDataset(dataset(), deps());
+  assert.equal(result.items[0].profileId, 123);
+});
+
+test("missing profileId + exact Psipedia URL resolves exact category+slug and populates numeric profileId", async () => {
+  const record = { ...baseRecord, profileId: undefined, psipediaUrl: "https://psipedia.sk/adresar/veterinari/abc-vet" };
+  const result = await previewAddressResearchDataset(dataset(record), deps());
+  assert.equal(result.items[0].profileId, 123);
+  assert.equal(result.items[0].record.profileId, 123);
+  assert.equal(result.items[0].decision, "READY_UPDATE");
+});
+
+test("profileId + URL resolving to different profiles is IDENTITY_MISMATCH", async () => {
+  const other = { ...baseProfile, id: 999, slug: "other-vet" };
+  const record = { ...baseRecord, psipediaUrl: "https://psipedia.sk/adresar/veterinari/other-vet" };
+  const result = await previewAddressResearchDataset(dataset(record), deps(baseProfile, {
+    getProfileByCategorySlug: async () => other,
+  }));
+  assert.equal(result.items[0].decision, "IDENTITY_MISMATCH");
+});
+
+test("wrong category in Psipedia URL is rejected", async () => {
+  const record = { ...baseRecord, profileId: undefined, psipediaUrl: "https://psipedia.sk/adresar/treneri/abc-vet" };
+  const result = await previewAddressResearchDataset(dataset(record), deps());
+  assert.equal(result.items[0].decision, "IDENTITY_MISMATCH");
+});
+
+test("external Psipedia fallback hostname is rejected", () => {
+  const parsed = parseAddressResearchRecord({ ...baseRecord, profileId: undefined, psipediaUrl: "https://example.sk/adresar/veterinari/abc-vet" });
+  assert.equal(parsed.record, null);
+});
+
+test("malformed Psipedia fallback URL is rejected", () => {
+  const parsed = parseAddressResearchRecord({ ...baseRecord, profileId: undefined, psipediaUrl: "not-a-url" });
+  assert.equal(parsed.record, null);
+});
+
+test("URL resolver uses exact category+slug and has no fuzzy/name fallback", async () => {
+  let lookup = null;
+  const record = { ...baseRecord, profileId: undefined, psipediaUrl: "https://psipedia.sk/adresar/veterinari/abc-vet-extra" };
+  const result = await previewAddressResearchDataset(dataset(record), deps(baseProfile, {
+    getProfileByCategorySlug: async (category, slug) => {
+      lookup = { category, slug };
+      return null;
+    },
+  }));
+  assert.deepEqual(lookup, { category: "veterinari", slug: "abc-vet-extra" });
+  assert.equal(result.items[0].decision, "IDENTITY_MISMATCH");
+  assert.equal(parseExactPsipediaDirectoryUrl("https://psipedia.sk/adresar/veterinari/abc-vet?x=1"), null);
+});
+
+test("duplicate psipediaUrl anywhere in dataset is rejected", () => {
+  const a = { ...baseRecord, profileId: undefined, psipediaUrl: "https://psipedia.sk/adresar/veterinari/abc-vet" };
+  const b = { ...baseRecord, profileId: undefined, name: "Other Vet", psipediaUrl: "https://psipedia.sk/adresar/veterinari/abc-vet" };
+  assert.throws(() => validateAddressResearchDataset({ schemaVersion: 1, profiles: [a, b] }), /Duplicitný psipediaUrl/);
+});
+
+test("45 preview records split into 20 + 20 + 5", () => {
+  const batches = buildAddressResearchPreviewBatches(Array.from({ length: 45 }, (_, index) => index));
+  assert.equal(ADDRESS_RESEARCH_IMPORT_PREVIEW_BATCH_SIZE, 20);
+  assert.deepEqual(batches.map((batch) => batch.profiles.length), [20, 20, 5]);
+  assert.deepEqual(batches.map((batch) => batch.baseIndex), [0, 20, 40]);
+});
+
+test("global preview index is preserved with baseIndex", async () => {
+  const result = await previewAddressResearchDataset(dataset(), deps(), { baseIndex: 20 });
+  assert.equal(result.items[0].index, 20);
 });
 
 test("HIGH FILL_MISSING exact provider becomes READY_FILL_MISSING", async () => {
@@ -267,8 +344,9 @@ test("apply requires exact confirmation token", async () => {
   );
 });
 
-test("apply batch is bounded", () => {
+test("apply and preview batching are bounded while provider concurrency stays 4", () => {
   assert.equal(ADDRESS_RESEARCH_IMPORT_APPLY_BATCH_SIZE, 20);
+  assert.equal(ADDRESS_RESEARCH_IMPORT_PREVIEW_BATCH_SIZE, 20);
   assert.equal(ADDRESS_RESEARCH_IMPORT_PROVIDER_CONCURRENCY, 4);
 });
 
@@ -346,6 +424,25 @@ test("UI accepts JSON and requires exact token", () => {
   assert.match(ui, /READY_UPDATE/);
   assert.match(ui, /READY_FILL_MISSING/);
   assert.match(ui, /Progress:/);
+  assert.match(ui, /buildAddressResearchPreviewBatches/);
+  assert.match(ui, /previewComplete/);
+  assert.match(ui, /previewProcessed !== previewTotal/);
+  assert.match(ui, /INCOMPLETE/);
+});
+
+test("preview route enforces validation-only first phase and max batch 20", () => {
+  const route = readFileSync(new URL("../app/api/admin/address-research-import/preview/route.ts", import.meta.url), "utf8");
+  assert.match(route, /validateOnly/);
+  assert.match(route, /ADDRESS_RESEARCH_IMPORT_PREVIEW_BATCH_SIZE/);
+  assert.match(route, /baseIndex/);
+});
+
+test("failed middle preview batch cannot proceed to later batches and apply stays disabled", () => {
+  const ui = readFileSync(new URL("../components/admin-address-research-import.tsx", import.meta.url), "utf8");
+  assert.match(ui, /if \(!response\.ok\) throw new Error/);
+  assert.match(ui, /for \(const batch of buildAddressResearchPreviewBatches/);
+  assert.match(ui, /setPreviewComplete\(false\)/);
+  assert.match(ui, /!previewComplete \|\| previewProcessed !== previewTotal/);
 });
 
 test("no migration and no direct Google Places/Tavily integration were added", () => {
