@@ -153,8 +153,8 @@ function parseRecord(input: unknown): { record: AddressResearchAuditRecord | nul
   if (!isDirectoryCategory(category)) return { record: null, reason: "Nepodporovaná DIRECTORY category." };
   if (!name) return { record: null, reason: "name je povinné." };
   const urlIdentity = parseExactPsipediaUrl(psipediaUrl);
-  if (!urlIdentity) return { record: null, reason: "psipediaUrl musí byť exact https://psipedia.sk/adresar/<category>/<slug>." };
-  if (urlIdentity.category !== category) return { record: null, reason: "URL category nesedí s category v recorde." };
+  if (!urlIdentity) return { record: null, reason: "IDENTITY: psipediaUrl musí byť exact https://psipedia.sk/adresar/<category>/<slug>." };
+  if (urlIdentity.category !== category) return { record: null, reason: "IDENTITY: URL category nesedí s category v recorde." };
 
   const researchedAddress = parseAddress(raw.researchedAddress);
   if (!researchedAddress) return { record: null, reason: "researchedAddress má neplatný canonical formát." };
@@ -272,7 +272,14 @@ function identityMatches(profile: ManagedDirectoryProfile, record: AddressResear
 async function auditOne(index: number, raw: unknown, deps: Dependencies): Promise<AddressResearchAuditItem> {
   const base = baseItem(index, raw);
   const parsed = parseRecord(raw);
-  if (!parsed.record) return { ...base, decision: "INVALID_RESEARCH", differenceReason: parsed.reason };
+  if (!parsed.record) {
+    const identityError = parsed.reason.startsWith("IDENTITY:");
+    return {
+      ...base,
+      decision: identityError ? "IDENTITY_MISMATCH" : "INVALID_RESEARCH",
+      differenceReason: identityError ? parsed.reason.replace(/^IDENTITY:\\s*/, "") : parsed.reason,
+    };
+  }
   const record = parsed.record;
   const seeded = {
     ...base,
