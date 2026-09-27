@@ -121,35 +121,13 @@ test("DISCOVERY-CAT-1C 0089 is a data-only production target with no schema drif
   );
 });
 
-test("DISCOVERY-2C-E production verifier pins disabled/PENDING Tavily invariants", () => {
-  assert.equal(assertTavilyEventCadenceState({
-    root_key: "tavily-sk-dog-events",
-    discovery_type: "SEARCH_PROVIDER",
-    entity_type: "EVENT",
-    enabled: 0,
-    review_status: "PENDING",
-    cadence_minutes: 2880,
-    next_check_at: null,
-    provider: "tavily",
-    country: "SK",
-    locale: "sk-SK",
-    max_results: 5,
-    max_candidates: 15,
-    queries_per_run: 3,
-    provider_requests_per_run: 3,
-    root_daily_requests: 3,
-    query_cooldown_minutes: 2880,
-    query_0: "kynologický kalendár podujatí Slovensko",
-    query_1: "agility preteky kalendár Slovensko",
-    query_2: "mushing preteky kalendár Slovensko",
-  }), true);
-
-  assert.throws(() => assertTavilyEventCadenceState({
+test("DISCOVERY-2C-E production verifier preserves operator Tavily lifecycle while pinning immutable config", () => {
+  const approvedEnabled = {
     root_key: "tavily-sk-dog-events",
     discovery_type: "SEARCH_PROVIDER",
     entity_type: "EVENT",
     enabled: 1,
-    review_status: "PENDING",
+    review_status: "APPROVED",
     cadence_minutes: 2880,
     next_check_at: null,
     provider: "tavily",
@@ -164,7 +142,26 @@ test("DISCOVERY-2C-E production verifier pins disabled/PENDING Tavily invariants
     query_0: "kynologický kalendár podujatí Slovensko",
     query_1: "agility preteky kalendár Slovensko",
     query_2: "mushing preteky kalendár Slovensko",
-  }), /must remain disabled/);
+  };
+
+  assert.equal(assertTavilyEventCadenceState(approvedEnabled), true);
+  assert.equal(assertTavilyEventCadenceState(approvedEnabled, {
+    enabled: 1,
+    review_status: "APPROVED",
+  }), true);
+
+  assert.throws(
+    () => assertTavilyEventCadenceState(approvedEnabled, {
+      enabled: 0,
+      review_status: "PENDING",
+    }),
+    /enabled state changed during migration/,
+  );
+
+  assert.throws(
+    () => assertTavilyEventCadenceState({ ...approvedEnabled, cadence_minutes: 1440 }),
+    /cadence must be 2880/,
+  );
 });
 
 test("production D1 target allowlist tracks every canonical migration from 0062 onward", async () => {
