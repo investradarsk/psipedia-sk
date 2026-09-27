@@ -13,7 +13,7 @@ import type { AutomationSourceCandidateInput } from "./data-automation-discovery
 import { selectRelevantExistingSourceForCandidate } from "./data-automation-source-matching.ts";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
-import { automationHelpSourceReadiness } from "./data-automation-help-source-readiness.ts";
+import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
 
 export type AutomationSourceAdminDatabase = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -301,9 +301,11 @@ export async function setAutomationSourceEnabled(input: {
   if (!existing) return null;
   if (input.enabled) {
     if (existing.reviewStatus !== "APPROVED") throw new Error("automation_source_review_required");
-    const helpReadiness = automationHelpSourceReadiness(existing);
-    if (helpReadiness.applicable && !helpReadiness.ready) {
-      throw new Error("automation_help_source_not_ready:" + helpReadiness.reason);
+    if (existing.connectorType === "CONTROLLED_HTML") {
+      const readiness = automationSourceReadiness(existing);
+      if (!readiness.ready) {
+        throw new Error("automation_source_not_ready:" + readiness.reason);
+      }
     }
     if (existing.connectorType !== "MANUAL_IMPORT" && (!existing.sourceUrl || !isSafeAutomationSourceUrl(existing.sourceUrl))) {
       throw new Error("automation_source_url_not_safe");
