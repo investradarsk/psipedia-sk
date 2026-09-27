@@ -157,6 +157,7 @@ const entityConfigs: Record<AutomationEntityType, EntityConfig> = {
     table: "directory_profiles",
     keyPrefix: "directory",
     updatedBy: true,
+    metadataFields: ["category", "semanticKind", "semantic_kind"],
     fields: {
       name: field("name"),
       excerpt: field("excerpt"),
@@ -248,6 +249,7 @@ const entityConfigs: Record<AutomationEntityType, EntityConfig> = {
     table: "help_cases",
     keyPrefix: "help",
     updatedBy: true,
+    metadataFields: ["category"],
     fields: {
       title: field("title"),
       excerpt: field("excerpt"),
