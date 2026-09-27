@@ -276,60 +276,62 @@ function recoverStaleRuns(target, previewReport, now) {
   return stale.map((run) => Number(run.id));
 }
 
-function backfillCreateDraft(target, row) {
-  const sourceRecordId = String(row.source_record_id ?? "").trim();
-  invariant(sourceRecordId, `CREATE_DRAFT application ${row.id} has no stable source_record_id`);
-  invariant(row.canonicalStatus?.exists === true, `CREATE_DRAFT application ${row.id} canonical row is missing`);
+function detachSql(target, createRows, linkedClusters) {
+  const statements = ["BEGIN TRANSACTION"];
 
-  execute(target, `INSERT INTO automation_ingestion_receipts
+  for (const row of createRows) {
+    const sourceRecordId = String(row.source_record_id ?? "").trim();
+    invariant(sourceRecordId, `CREATE_DRAFT application ${row.id} has no stable source_record_id`);
+    invariant(row.canonicalStatus?.exists === true, `CREATE_DRAFT application ${row.id} canonical row is missing`);
+
+    statements.push(`INSERT INTO automation_ingestion_receipts
       (source_id,entity_type,source_record_id,source_url,payload_hash,result,first_processed_at)
-    VALUES (
-      ${Number(row.source_id)},
-      ${quote(row.entity_type)},
-      ${quote(sourceRecordId)},
-      ${quote(row.observation_source_url ?? row.finding_source_url ?? null)},
-      ${quote(row.payload_hash ?? null)},
-      'DRAFT_CREATED',
-      ${quote(row.applied_at)}
-    )
-    ON CONFLICT(source_id,entity_type,source_record_id) DO NOTHING`);
-
-  if (row.finding_type === "DUPLICATE_CANDIDATE") {
-    const details = JSON.stringify({
-      candidateIds: possibleDuplicateCandidateIds(target, row.reason, row.canonical_entity_id),
-      sourceUrl: row.observation_source_url ?? row.finding_source_url ?? null,
-    });
-    execute(target, `INSERT INTO canonical_draft_flags
-        (entity_type,canonical_entity_id,flag_type,details_json,created_at)
       VALUES (
+        ${Number(row.source_id)},
         ${quote(row.entity_type)},
-        ${Number(row.canonical_entity_id)},
-        'POSSIBLE_DUPLICATE',
-        ${quote(details)},
+        ${quote(sourceRecordId)},
+        ${quote(row.observation_source_url ?? row.finding_source_url ?? null)},
+        ${quote(row.payload_hash ?? null)},
+        'DRAFT_CREATED',
         ${quote(row.applied_at)}
       )
-      ON CONFLICT(entity_type,canonical_entity_id,flag_type)
-      DO UPDATE SET details_json=excluded.details_json`);
+      ON CONFLICT(source_id,entity_type,source_record_id) DO NOTHING`);
+
+    if (row.finding_type === "DUPLICATE_CANDIDATE") {
+      const details = JSON.stringify({
+        candidateIds: possibleDuplicateCandidateIds(target, row.reason, row.canonical_entity_id),
+        sourceUrl: row.observation_source_url ?? row.finding_source_url ?? null,
+      });
+      statements.push(`INSERT INTO canonical_draft_flags
+        (entity_type,canonical_entity_id,flag_type,details_json,created_at)
+        VALUES (
+          ${quote(row.entity_type)},
+          ${Number(row.canonical_entity_id)},
+          'POSSIBLE_DUPLICATE',
+          ${quote(details)},
+          ${quote(row.applied_at)}
+        )
+        ON CONFLICT(entity_type,canonical_entity_id,flag_type)
+        DO UPDATE SET details_json=excluded.details_json`);
+    }
+
+    statements.push(`DELETE FROM automation_cluster_canonical_claims WHERE finding_id=${Number(row.finding_id)}`);
+    statements.push(`UPDATE automation_findings SET canonical_entity_id=NULL,canonical_entity_key=NULL
+      WHERE id=${Number(row.finding_id)}`);
+    statements.push(`DELETE FROM automation_applications
+      WHERE id=${Number(row.id)} AND application_type='CREATE_DRAFT'`);
   }
 
-  execute(target, `DELETE FROM automation_cluster_canonical_claims WHERE finding_id=${Number(row.finding_id)}`);
-  execute(target, `UPDATE automation_findings SET canonical_entity_id=NULL,canonical_entity_key=NULL
-    WHERE id=${Number(row.finding_id)}`);
-  execute(target, `DELETE FROM automation_applications
-    WHERE id=${Number(row.id)} AND application_type='CREATE_DRAFT'`);
-}
-
-function detachClusterLinks(target, linkedClusters) {
-  const detached = [];
   for (const cluster of linkedClusters) {
     invariant(cluster.classification !== "B_PREEXISTING_CANONICAL_MATCH_KEEP",
       `cluster ${cluster.id} has persistent manual match memory`);
-    execute(target, `UPDATE automation_entity_clusters
+    statements.push(`UPDATE automation_entity_clusters
       SET canonical_entity_id=NULL,canonical_entity_key=NULL
       WHERE id=${Number(cluster.id)}`);
-    detached.push(Number(cluster.id));
   }
-  return detached;
+
+  statements.push("COMMIT");
+  return statements.join(";\n") + ";";
 }
 
 function apply(target, before, now = new Date()) {
@@ -345,8 +347,8 @@ function apply(target, before, now = new Date()) {
   invariant(remainingRunning === 0, "a non-stale automation run is still active; destructive detach stopped");
 
   const createRows = before.applications.filter((row) => row.application_type === "CREATE_DRAFT");
-  for (const row of createRows) backfillCreateDraft(target, row);
-  const detachedClusterIds = detachClusterLinks(target, before.linkedClusters);
+  const detachedClusterIds = before.linkedClusters.map((cluster) => Number(cluster.id));
+  execute(target, detachSql(target, createRows, before.linkedClusters));
 
   invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_applications WHERE application_type='CREATE_DRAFT'") === 0,
     "CREATE_DRAFT automation applications remain after detach");
