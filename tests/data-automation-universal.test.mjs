@@ -17,6 +17,7 @@ import {
   qualifiedClubDirectoryCategory,
 } from "../lib/data-automation-source-provisioning.ts";
 import { universalAutomationDiscoveryRootPresets } from "../lib/data-automation-source-presets.ts";
+import { unsupportedAutomationApplyFields } from "../lib/data-automation-apply.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
@@ -135,6 +136,8 @@ test("DIRECTORY category is explicit and survives into generic parser output", (
     assert.equal(records[0].proposed.name, "Explicitná služba");
     assert.equal(records[0].proposed.city, "Nitra");
     assert.equal(records[0].proposed.region, "Nitriansky kraj");
+    const diff = Object.fromEntries(Object.entries(records[0].proposed).map(([key, value]) => [key, { before: null, after: value }]));
+    assert.deepEqual(unsupportedAutomationApplyFields("DIRECTORY", diff), [], category);
   }
 });
 
@@ -202,6 +205,8 @@ test("HELP_ITEM Zbierky and Ako pomôcť use explicit canonical category metadat
       description: "Explicitný popis verejnej výzvy na pomoc psom.",
       actionUrl: "https://example.sk/pomoc",
     });
+    const diff = Object.fromEntries(Object.entries(records[0].proposed).map(([key, value]) => [key, { before: null, after: value }]));
+    assert.deepEqual(unsupportedAutomationApplyFields("HELP_ITEM", diff), [], category);
   }
   assert.deepEqual(candidateProvisioningConfigFor({
     entityType: "HELP_ITEM",
