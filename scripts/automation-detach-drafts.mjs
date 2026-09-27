@@ -115,6 +115,12 @@ async function executeAtomicBatch(target, statements, fetchImpl = fetch) {
   return payload.result;
 }
 
+async function executeDetachMutationBatch(target, statements, fetchImpl = fetch) {
+  if (statements.length === 0) return { noOp: true, batchExecuted: false };
+  await executeAtomicBatch(target, statements, fetchImpl);
+  return { noOp: false, batchExecuted: true };
+}
+
 function scalar(target, sql) {
   const rows = execute(target, sql);
   return Number(rows[0]?.count ?? 0);
@@ -398,7 +404,7 @@ async function apply(target, before, now = new Date(), fetchImpl = fetch) {
   const updateRows = before.applications.filter((row) => row.application_type === "UPDATE_EXISTING");
   const detachedClusterIds = before.linkedClusters.map((cluster) => Number(cluster.id));
   const statements = detachStatements(target, before, now);
-  await executeAtomicBatch(target, statements, fetchImpl);
+  const mutation = await executeDetachMutationBatch(target, statements, fetchImpl);
 
   invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_runs WHERE status='RUNNING'") === 0,
     "a RUNNING automation run remains after detach");
@@ -418,6 +424,8 @@ async function apply(target, before, now = new Date(), fetchImpl = fetch) {
 
   return {
     mode: "apply",
+    noOp: mutation.noOp,
+    batchExecuted: mutation.batchExecuted,
     recoveredStaleRunIds,
     detachedCreateDraftApplicationIds: createRows.map((row) => Number(row.id)),
     detachedUpdateExistingApplicationIds: updateRows.map((row) => Number(row.id)),
@@ -443,7 +451,7 @@ async function main() {
   console.log(JSON.stringify(preview(target), null, 2));
 }
 
-export { preview, apply, possibleDuplicateCandidateIds, detachStatements, executeAtomicBatch };
+export { preview, apply, possibleDuplicateCandidateIds, detachStatements, executeAtomicBatch, executeDetachMutationBatch };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {

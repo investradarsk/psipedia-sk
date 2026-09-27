@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
-import { executeAtomicBatch } from "../scripts/automation-detach-drafts.mjs";
+import { executeAtomicBatch, executeDetachMutationBatch } from "../scripts/automation-detach-drafts.mjs";
 
 const scriptPath = new URL("../scripts/automation-detach-drafts.mjs", import.meta.url);
 const source = await fs.readFile(scriptPath, "utf8");
@@ -128,4 +128,60 @@ test("simulated middle-statement failure rejects the single atomic batch without
       { sql: "UPDATE c SET y=2" },
     ],
   });
+});
+
+test("zero pending detach statements succeed as a no-op without calling atomic batch", async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    throw new Error("fetch must not be called for empty detach");
+  };
+  const result = await executeDetachMutationBatch(
+    { accountId: "account", databaseId: "database" },
+    [],
+    fetchImpl,
+  );
+  assert.deepEqual(result, { noOp: true, batchExecuted: false });
+  assert.equal(calls, 0);
+});
+
+test("non-empty detach still executes exactly one atomic D1 batch", async () => {
+  let calls = 0;
+  const fetchImpl = async (_url, init) => {
+    calls += 1;
+    const body = JSON.parse(init.body);
+    assert.deepEqual(body, { batch: [{ sql: "DELETE FROM automation_applications" }] });
+    return {
+      ok: true,
+      async json() {
+        return { success: true, errors: [], result: [{ success: true }] };
+      },
+    };
+  };
+  const result = await executeDetachMutationBatch(
+    { accountId: "account", databaseId: "database" },
+    ["DELETE FROM automation_applications"],
+    fetchImpl,
+  );
+  assert.deepEqual(result, { noOp: false, batchExecuted: true });
+  assert.equal(calls, 1);
+});
+
+test("no-op branch still reaches detach postconditions and preserves snapshots and receipts", () => {
+  const helperCall = source.indexOf("const mutation = await executeDetachMutationBatch");
+  const applicationsPostcondition = source.indexOf("automation applications remain after detach");
+  const canonicalAfter = source.indexOf("const canonicalAfter = canonicalSnapshot");
+  const receiptCountAfter = source.indexOf("receiptCountAfter:");
+  assert.ok(helperCall >= 0);
+  assert.ok(applicationsPostcondition > helperCall);
+  assert.ok(canonicalAfter > applicationsPostcondition);
+  assert.ok(receiptCountAfter > canonicalAfter);
+  assert.match(source, /canonical content row counts changed during detach/);
+  assert.match(source, /canonical application rows changed during detach/);
+  assert.match(source, /noOp: mutation\.noOp/);
+});
+
+test("Automation V1 Finalize can rerun after detach is already complete", () => {
+  assert.match(source, /if \(statements\.length === 0\) return \{ noOp: true, batchExecuted: false \}/);
+  assert.match(source, /const mutation = await executeDetachMutationBatch\(target, statements, fetchImpl\)/);
 });
