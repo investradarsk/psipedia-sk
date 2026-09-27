@@ -44,8 +44,14 @@ test("HELP-INGEST-1A recognizes only the three shared HELP entity types", () => 
   assert.equal(isAutomationHelpEntityType("DIRECTORY"), false);
 });
 
-test("HELP-INGEST-1A keeps production HELP adapter registry empty until entity parsers exist", () => {
-  assert.deepEqual(productionAutomationHelpAdapterRegistry, {});
+test("HELP-INGEST-1B registers only the supported production ADOPTION adapter", () => {
+  assert.deepEqual(productionAutomationHelpAdapterRegistry, {
+    "trnava-adoption-detail": {
+      entityType: "ADOPTION",
+      sourceShape: "SINGLE_ITEM",
+      label: "Útulok Trnava — detail psa na adopciu",
+    },
+  });
 });
 
 test("HELP source without sourceShape or adapter fails closed", () => {
@@ -111,7 +117,24 @@ test("SINGLE_ITEM rejects multiple records and MULTI_ITEM_LIST accepts N records
   }, 0), "help_multi_item_no_records");
 });
 
-test("production candidate provisioning leaves arbitrary HELP pages unsupported", () => {
+test("production candidate provisioning supports only allow-listed HELP detail pages", () => {
+  assert.deepEqual(candidateProvisioningConfigFor({
+    entityType: "ADOPTION",
+    canonicalUrl: "https://www.trnava.utulok.sk/psy/didy",
+    metadata: { title: "Didy" },
+  }), {
+    sourceShape: "SINGLE_ITEM",
+    htmlAdapterKey: "trnava-adoption-detail",
+    expectedMinRecords: 1,
+  });
+
+  assert.deepEqual(candidateProvisioningConfigFor({
+    entityType: "ADOPTION",
+    canonicalUrl: "https://trnava.utulok.sk/psy/",
+    metadata: { title: "Psy na adopciu" },
+  }), {});
+
+
   for (const entityType of ["ADOPTION", "FOSTER", "LOST_FOUND"]) {
     assert.deepEqual(candidateProvisioningConfigFor({
       entityType,
