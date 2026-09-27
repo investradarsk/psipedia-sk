@@ -123,6 +123,7 @@ async function maybeQueueHighPriorityNotification(
   now: Date,
 ) {
   if (!createdOrReopened) return;
+  if (type === "NEW_ENTITY" || type === "DUPLICATE_CANDIDATE") return;
   try {
     await enqueueAutomationFindingAdminNotification(database, findingId, now);
   } catch (error) {
