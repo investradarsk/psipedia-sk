@@ -36,12 +36,13 @@ function reviewLabel(status: AutomationSourceCandidateRow["reviewStatus"]) {
 function sourceShapeLabel(readiness: AutomationSourceReadiness) {
   if (readiness.sourceShape === "SINGLE_ITEM") return "Detail jednej položky";
   if (readiness.sourceShape === "MULTI_ITEM_LIST") return "Zoznam položiek";
+  if (readiness.sourceShape === "SOURCE_DEFINED") return "Štruktúrovaný zdroj";
   return "Neurčené";
 }
 
 function readinessLabel(readiness: AutomationSourceReadiness) {
   if (readiness.ready) return "Pripravený";
-  if (readiness.reason === "UNSUPPORTED_SOURCE") return "Nepodporovaný typ zdroja";
+  if (readiness.reason === "UNSUPPORTED_CONNECTOR") return "Nepodporovaný typ zdroja";
   return "Potrebuje podporovaný adapter";
 }
 
