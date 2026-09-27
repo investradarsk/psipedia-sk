@@ -497,8 +497,9 @@ export function assertTavilyEventCadenceState(row) {
   invariant(String(row.root_key) === "tavily-sk-dog-events", "Tavily EVENT root key changed unexpectedly");
   invariant(String(row.discovery_type) === "SEARCH_PROVIDER", "Tavily EVENT discovery type changed unexpectedly");
   invariant(String(row.entity_type) === "EVENT", "Tavily EVENT entity type changed unexpectedly");
-  invariant(Number(row.enabled) === 0, "Tavily EVENT root must remain disabled");
-  invariant(String(row.review_status) === "PENDING", "Tavily EVENT root must remain PENDING");
+  // enabled/review_status are operator-controlled lifecycle state after provisioning.
+  // Production migration verification must pin immutable discovery configuration,
+  // not require the root to remain in its original disabled/PENDING state.
   invariant(Number(row.cadence_minutes) === 2880, "Tavily EVENT cadence must be 2880 minutes");
   invariant(String(row.provider) === "tavily", "Tavily EVENT provider changed unexpectedly");
   invariant(String(row.country) === "SK", "Tavily EVENT country changed unexpectedly");
