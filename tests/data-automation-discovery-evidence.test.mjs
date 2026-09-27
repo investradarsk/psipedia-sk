@@ -135,7 +135,9 @@ test("ORGANIZATION-DISCOVERY-1 canonical lookup includes the discovered official
   const store = read("lib/data-automation-store.ts");
   const organizationBranch = store.split('if (source.entityType === "ORGANIZATION")')[1].split('if (source.entityType === "DIRECTORY")')[0];
   assert.match(organizationBranch, /website_url=\?/);
-  assert.match(organizationBranch, /sourceUrl: String\(row\.website_url \?\? row\.source_url/);
+  assert.match(organizationBranch, /websiteUrl: String\(row\.website_url/);
+  assert.match(organizationBranch, /sourceUrl: String\(row\.source_url/);
+  assert.doesNotMatch(organizationBranch, /sourceUrl: String\(row\.website_url/);
 });
 
 test("ORGANIZATION-DISCOVERY-1 direct review path has no migration and preserves publication safeguards", () => {

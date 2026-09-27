@@ -287,7 +287,8 @@ function commonCandidate(row: Record<string, unknown>, key: string): AutomationM
     key,
     before: row,
     sourceId: sourceIdFromJson(sourceData),
-    sourceUrl: String(row.source_url ?? row.external_source_url ?? row.action_url ?? row.website_url ?? "") || null,
+    sourceUrl: String(row.source_url ?? row.external_source_url ?? row.action_url ?? "") || null,
+    websiteUrl: String(row.website_url ?? "") || null,
     importKey: String(row.import_key ?? "") || null,
     slug: String(row.slug ?? "") || null,
     name: String(row.name ?? row.title ?? row.dog_name ?? "") || null,
@@ -395,12 +396,18 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
     const organizationSlug = slug || automationDraftSlug(null, name);
     const importKey = String(proposed.importKey ?? proposed.import_key ?? "");
     const registration = String(proposed.registrationNumber ?? proposed.registration_number ?? "");
+    const websiteUrl = String(proposed.websiteUrl ?? proposed.website_url ?? "");
     result = await db.prepare(`SELECT * FROM help_organizations
-      WHERE slug=? OR import_key=? OR registration_number=? OR source_url=? OR website_url=? OR name=? COLLATE NOCASE
-      ORDER BY id ASC LIMIT 50`).bind(organizationSlug, importKey, registration, sourceUrl, sourceUrl, name).all<Record<string, unknown>>();
+      WHERE slug=? OR import_key=? OR registration_number=? OR website_url=? OR name=? COLLATE NOCASE
+        OR (?<>'' AND city=? COLLATE NOCASE)
+      ORDER BY id ASC LIMIT 50`).bind(
+        organizationSlug, importKey, registration, websiteUrl, name,
+        city, city,
+      ).all<Record<string, unknown>>();
     return result.results.map((row) => ({
       ...commonCandidate(row, `organization:${row.id}`),
-      sourceUrl: String(row.website_url ?? row.source_url ?? "") || null,
+      sourceUrl: String(row.source_url ?? "") || null,
+      websiteUrl: String(row.website_url ?? "") || null,
       before: organizationBefore(row),
     }));
   }

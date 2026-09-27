@@ -216,6 +216,186 @@ test("9b. organization matching infers the same slug used by draft creation", ()
   assert.match(store, /const organizationSlug = slug \|\| automationDraftSlug\(null, name\)/);
 });
 
+
+test("9c. organization exact official website matches while directory provenance does not", () => {
+  const base = record({
+    sourceRecordId: "psiadusa:labka:nitra",
+    sourceUrl: "https://www.psiadusa.sk/zoznam-utulkov/",
+    proposed: {
+      name: "OZ Labka",
+      city: "Nitra",
+      region: "Nitriansky kraj",
+      type: "CIVIC_ASSOCIATION",
+      websiteUrl: "https://www.labka.example/?utm_source=directory",
+      sourceUrl: "https://www.psiadusa.sk/zoznam-utulkov/",
+    },
+  });
+  const match = selectSafeAutomationMatch({
+    entityType: "ORGANIZATION",
+    record: base,
+    candidates: [{
+      id: 51,
+      key: "organization:51",
+      before: { name: "OZ Labka" },
+      sourceUrl: "https://register.example/organizations",
+      websiteUrl: "https://labka.example/",
+      name: "Iný display názov",
+      city: "Bratislava",
+      region: "Bratislavský kraj",
+      type: "CIVIC_ASSOCIATION",
+    }],
+  });
+  assert.equal(match.entityId, 51);
+  assert.equal(match.quality, "EXACT_CANONICAL_KEY");
+
+  const provenanceOnly = selectSafeAutomationMatch({
+    entityType: "ORGANIZATION",
+    record: base,
+    candidates: [{
+      id: 52,
+      key: "organization:52",
+      before: { name: "Iná organizácia" },
+      sourceUrl: "https://www.psiadusa.sk/zoznam-utulkov/",
+      websiteUrl: "https://other.example/",
+      name: "Iná organizácia",
+      city: "Košice",
+      region: "Košický kraj",
+      type: "CIVIC_ASSOCIATION",
+    }],
+  });
+  assert.equal(provenanceOnly.quality, "NONE");
+});
+
+test("9d. organization registration number normalizes formatting", () => {
+  const match = selectSafeAutomationMatch({
+    entityType: "ORGANIZATION",
+    record: record({
+      sourceRecordId: "org-reg",
+      sourceUrl: null,
+      proposed: { name: "Pomoc psom", registrationNumber: "12 345 678", type: "CIVIC_ASSOCIATION" },
+    }),
+    candidates: [{
+      id: 53,
+      key: "organization:53",
+      before: { name: "Pomoc psom" },
+      registrationNumber: "12345678",
+      name: "Pomoc psom",
+      type: "CIVIC_ASSOCIATION",
+    }],
+  });
+  assert.equal(match.entityId, 53);
+  assert.equal(match.quality, "EXACT_CANONICAL_KEY");
+});
+
+test("9e. organization legal-form normalization requires same city and region", () => {
+  const proposed = {
+    name: "Občianske združenie Pomoc psom",
+    city: "Nitra",
+    region: "Nitriansky kraj",
+    type: "CIVIC_ASSOCIATION",
+  };
+  const samePlace = selectSafeAutomationMatch({
+    entityType: "ORGANIZATION",
+    record: record({ sourceRecordId: "org-name", sourceUrl: null, proposed }),
+    candidates: [{
+      id: 54,
+      key: "organization:54",
+      before: { name: "OZ Pomoc psom" },
+      name: "OZ Pomoc psom",
+      city: "Nitra",
+      region: "Nitriansky kraj",
+      type: "CIVIC_ASSOCIATION",
+    }],
+  });
+  assert.equal(samePlace.entityId, 54);
+  assert.equal(samePlace.quality, "STRONG_IDENTITY");
+
+  const otherCity = selectSafeAutomationMatch({
+    entityType: "ORGANIZATION",
+    record: record({ sourceRecordId: "org-name", sourceUrl: null, proposed }),
+    candidates: [{
+      id: 55,
+      key: "organization:55",
+      before: { name: "OZ Pomoc psom" },
+      name: "OZ Pomoc psom",
+      city: "Trnava",
+      region: "Trnavský kraj",
+      type: "CIVIC_ASSOCIATION",
+    }],
+  });
+  assert.equal(otherCity.quality, "NONE");
+});
+
+test("9f. ambiguous shared official website remains human review", () => {
+  const input = record({
+    sourceRecordId: "org-domain",
+    sourceUrl: null,
+    proposed: {
+      name: "Pomoc zvieratám",
+      websiteUrl: "https://shared.example/",
+      type: "CIVIC_ASSOCIATION",
+    },
+  });
+  const match = selectSafeAutomationMatch({
+    entityType: "ORGANIZATION",
+    record: input,
+    candidates: [56, 57].map((id) => ({
+      id,
+      key: `organization:${id}`,
+      before: { name: "Pomoc zvieratám " + id },
+      websiteUrl: "https://shared.example/",
+      name: "Pomoc zvieratám " + id,
+      type: "CIVIC_ASSOCIATION",
+    })),
+  });
+  assert.equal(match.quality, "UNCERTAIN");
+  assert.equal(match.entityId, null);
+  assert.equal(match.candidates?.length, 2);
+});
+
+test("9g. organization semantic mismatch fails closed even with similar identity", () => {
+  const match = selectSafeAutomationMatch({
+    entityType: "ORGANIZATION",
+    record: record({
+      sourceRecordId: "org-semantic",
+      sourceUrl: null,
+      proposed: {
+        name: "OZ Pomoc psom",
+        city: "Nitra",
+        region: "Nitriansky kraj",
+        type: "CIVIC_ASSOCIATION",
+        websiteUrl: "https://pomoc.example/",
+      },
+    }),
+    candidates: [{
+      id: 58,
+      key: "organization:58",
+      before: { name: "Útulok Pomoc psom" },
+      slug: "oz-pomoc-psom",
+      websiteUrl: "https://pomoc.example/",
+      name: "OZ Pomoc psom",
+      city: "Nitra",
+      region: "Nitriansky kraj",
+      type: "SHELTER",
+    }],
+  });
+  assert.equal(match.quality, "NONE");
+});
+
+test("9h. organization candidate retrieval is bounded and municipality-scoped", () => {
+  const store = readFileSync(new URL("../lib/data-automation-store.ts", import.meta.url), "utf8");
+  assert.match(store, /website_url=\?/);
+  assert.match(store, /\(\?<>'' AND city=\? COLLATE NOCASE\)/);
+  assert.match(store, /ORDER BY id ASC LIMIT 50/);
+  assert.doesNotMatch(store, /SELECT \* FROM help_organizations\s+ORDER BY/i);
+});
+
+test("9i. direct organization discovery reuses the shared canonical matcher", () => {
+  const direct = readFileSync(new URL("../lib/data-automation-organization-discovery-concept.ts", import.meta.url), "utf8");
+  assert.match(direct, /matchAutomationCanonical\(source, enriched, options\.database\)/);
+  assert.doesNotMatch(direct, /selectSafeAutomationMatch\(/);
+});
+
 test("10. equally strong candidates remain human review", () => {
   const inputRecord = record();
   const match = selectSafeAutomationMatch({
