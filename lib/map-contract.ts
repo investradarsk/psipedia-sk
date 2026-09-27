@@ -29,6 +29,7 @@ export type MapItem = {
   href: string;
   latitude: number;
   longitude: number;
+  googlePlaceId?: string;
   precision: "EXACT" | "NEIGHBORHOOD" | "MUNICIPALITY" | "SERVICE_AREA" | "APPROXIMATE";
   displayLocation?: string;
   city?: string;
