@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { applyDirectoryAddressCanary, validateAddressCanarySelection } from "@/lib/address-enrichment-canary";
+import { adminAuditActorRef } from "@/lib/audit-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,10 @@ export async function POST(request: Request) {
 
   try {
     const selections = validateAddressCanarySelection(body.selections);
+    const actorRef = await adminAuditActorRef(auth.user.email);
     const report = await applyDirectoryAddressCanary({
       selections,
-      actorRef: auth.user.email,
+      actorRef,
       database: bindings.DB,
     });
     return Response.json({
