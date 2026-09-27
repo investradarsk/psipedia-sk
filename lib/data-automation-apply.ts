@@ -1,8 +1,6 @@
 import { env } from "cloudflare:workers";
 import {
   automationDraftSlug,
-  buildAutomationDiff,
-  stableJson,
   type AutomationEntityType,
   type AutomationFindingType,
 } from "./data-automation.ts";
@@ -12,7 +10,6 @@ import {
   type AutomationFindingDetail,
 } from "./data-automation-store.ts";
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
-import { getAutomationClusterForFinding, linkAutomationClusterCanonical } from "./data-automation-clustering.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { createCanonicalDraft, CanonicalDraftValidationError } from "./canonical-draft-service.ts";
 import { mapAutomationFindingToDraftInput } from "./data-automation-draft-mapper.ts";
@@ -40,7 +37,7 @@ export type AutomationApplicationResult = {
   finding: AutomationFindingDetail;
   application: {
     canonicalEntityId: number;
-    applicationType: "CREATE_DRAFT" | "UPDATE_EXISTING";
+    applicationType: "CREATE_DRAFT";
     appliedFields: string[];
   } | null;
   reclassified?: "EXISTING_ORGANIZATION";
@@ -65,7 +62,7 @@ const EVENT_GEO_SOURCE_FIELDS = new Set(["venue", "city", "region", "address"]);
 async function reconcileAutomationEventGeo(input: {
   entityType: AutomationEntityType;
   canonicalEntityId: number;
-  applicationType: "CREATE_DRAFT" | "UPDATE_EXISTING";
+  applicationType: "CREATE_DRAFT";
   appliedFields: string[];
   actorRef: string;
 }, db: AutomationD1Database) {
@@ -317,8 +314,6 @@ const entityConfigs: Record<AutomationEntityType, EntityConfig> = {
 const applicableFindingTypes = new Set<AutomationFindingType>([
   "NEW_ENTITY",
   "DUPLICATE_CANDIDATE",
-  "POSSIBLE_UPDATE",
-  "POSSIBLE_CANCELLED",
 ]);
 
 function database(input?: AutomationD1Database) {
@@ -433,27 +428,6 @@ async function existingApplication(findingId: number, db: AutomationD1Database) 
     .first<{ canonical_entity_id: number; application_type: "CREATE_DRAFT" | "UPDATE_EXISTING"; applied_fields_json: string }>();
 }
 
-async function loadCurrentRow(finding: AutomationFindingDetail, db: AutomationD1Database) {
-  const config = entityConfigs[finding.entityType];
-  if (!finding.canonicalEntityId) return null;
-  return db.prepare(`SELECT * FROM ${config.table} WHERE id=? LIMIT 1`).bind(finding.canonicalEntityId).first<Record<string, unknown>>();
-}
-
-function canonicalBeforeFromCurrent(entityType: AutomationEntityType, current: Record<string, unknown>) {
-  const config = entityConfigs[entityType];
-  const before: Record<string, unknown> = {};
-  for (const [key, spec] of Object.entries(config.fields)) {
-    const value = decodeValue(spec, current[spec.column]);
-    before[key] = value;
-    before[spec.canonicalKey ?? key] = value;
-  }
-  const sourceData = parseObject(current.source_data_json);
-  for (const key of config.metadataFields ?? []) {
-    before[key] = sourceData[key] ?? null;
-  }
-  return before;
-}
-
 async function findNewOrganizationCollision(
   finding: AutomationFindingDetail,
   db: AutomationD1Database,
@@ -462,94 +436,12 @@ async function findNewOrganizationCollision(
   const name = textValue(finding.proposed.name);
   if (!name) return null;
   const slug = slugifyDraft(finding.proposed.slug, name);
-  const row = await db.prepare(`SELECT * FROM help_organizations WHERE slug=? LIMIT 1`)
+  const row = await db.prepare(`SELECT id FROM help_organizations WHERE slug=? LIMIT 1`)
     .bind(slug)
-    .first<Record<string, unknown>>();
-  if (!row) return null;
-  const id = Number(row.id);
+    .first<{ id: number }>();
+  const id = Number(row?.id ?? 0);
   if (!Number.isInteger(id) || id <= 0) return null;
-  return { id, row, slug };
-}
-
-function assertNoConcurrentChanges(
-  finding: AutomationFindingDetail,
-  current: Record<string, unknown>,
-) {
-  const config = entityConfigs[finding.entityType];
-  const metadata = parseObject(current.source_data_json);
-  for (const key of Object.keys(finding.diff)) {
-    if (!own(finding.before, key)) continue;
-    const spec = config.fields[key];
-    const currentValue = spec
-      ? decodeValue(spec, current[spec.column])
-      : (config.metadataFields ?? []).includes(key)
-        ? (metadata[key] ?? null)
-        : undefined;
-    if (stableJson(currentValue) !== stableJson(finding.before[key] ?? null)) {
-      throw new AutomationApplyConflictError();
-    }
-  }
-}
-
-function updateExistingStatement(
-  finding: AutomationFindingDetail,
-  current: Record<string, unknown>,
-  actor: string,
-  at: string,
-  db: AutomationD1Database,
-) {
-  const config = entityConfigs[finding.entityType];
-  const unsupported = unsupportedAutomationApplyFields(finding.entityType, finding.diff);
-  if (unsupported.length) {
-    throw new AutomationApplyUnsupportedError(`Automatické aplikovanie zatiaľ nepodporuje polia: ${unsupported.join(", ")}.`);
-  }
-  assertNoConcurrentChanges(finding, current);
-
-  const assignments: string[] = [];
-  const args: unknown[] = [];
-  const appliedFields: string[] = [];
-  const after: Record<string, unknown> = { ...finding.before };
-  const sourceData = parseObject(current.source_data_json);
-  let sourceDataChanged = false;
-  const metadata = new Set(config.metadataFields ?? []);
-
-  for (const key of Object.keys(finding.diff)) {
-    const spec = config.fields[key];
-    if (spec) {
-      assignments.push(`${spec.column}=?`);
-      args.push(encodeValue(spec, finding.proposed[key]));
-      const canonicalKey = spec.canonicalKey ?? key;
-      after[canonicalKey] = finding.proposed[key] ?? null;
-      appliedFields.push(key);
-      continue;
-    }
-    if (metadata.has(key)) {
-      sourceData[key] = finding.proposed[key] ?? null;
-      sourceDataChanged = true;
-      after[key] = finding.proposed[key] ?? null;
-      appliedFields.push(key);
-    }
-  }
-
-  if (sourceDataChanged) {
-    assignments.push("source_data_json=?");
-    args.push(JSON.stringify(sourceData));
-  }
-  if (!assignments.length) throw new AutomationApplyUnsupportedError("Finding neobsahuje žiadne bezpečne aplikovateľné pole.");
-
-  assignments.push("updated_at=?");
-  args.push(at);
-  if (config.updatedBy) {
-    assignments.push("updated_by=?");
-    args.push(actor);
-  }
-  args.push(finding.canonicalEntityId);
-
-  return {
-    statement: db.prepare(`UPDATE ${config.table} SET ${assignments.join(",")} WHERE id=?`).bind(...args),
-    appliedFields,
-    after,
-  };
+  return { id, slug };
 }
 
 export async function applyAutomationFinding(input: {
@@ -564,34 +456,9 @@ export async function applyAutomationFinding(input: {
 
   const already = await existingApplication(finding.id, db);
   if (already) {
-    await ensureAutomationResourceAnchor(finding.entityType, Number(already.canonical_entity_id), db, input.now ?? new Date());
-    if (finding.entityType === "DIRECTORY") {
-      await reconcileGeoAfterSourceMutation({
-        targetType: "DIRECTORY_PROFILE",
-        targetId: Number(already.canonical_entity_id),
-        actorRef: input.reviewerEmail.trim().toLowerCase(),
-        actorType: "ADMIN",
-      }, db);
-    }
-    const refreshed = await getAutomationFindingDetail(finding.id, db);
-    if (!refreshed) return null;
-    let appliedFields: string[] = [];
-    try { appliedFields = JSON.parse(already.applied_fields_json) as string[]; } catch {}
-    await reconcileAutomationEventGeo({
-      entityType: finding.entityType,
-      canonicalEntityId: Number(already.canonical_entity_id),
-      applicationType: already.application_type,
-      appliedFields,
-      actorRef: input.reviewerEmail.trim().toLowerCase(),
-    }, db);
-    return {
-      finding: refreshed,
-      application: {
-        canonicalEntityId: Number(already.canonical_entity_id),
-        applicationType: already.application_type,
-        appliedFields,
-      },
-    };
+    throw new AutomationApplyUnsupportedError(
+      "Legacy automation application je iba historická provenance a už sa nesmie znovu aplikovať do canonical záznamu.",
+    );
   }
 
   if (!allowedReviewStatus(finding.reviewStatus)) {
@@ -608,15 +475,8 @@ export async function applyAutomationFinding(input: {
   const actor = input.reviewerEmail.trim().toLowerCase();
   const at = (input.now ?? new Date()).toISOString();
   const notes = input.notes?.trim().slice(0, 2000) || null;
-  const cluster = await getAutomationClusterForFinding(finding.id, db);
-
   if (finding.findingType === "NEW_ENTITY" || finding.findingType === "DUPLICATE_CANDIDATE") {
-    if (finding.canonicalEntityId) throw new AutomationApplyConflictError("Finding už má canonical záznam.");
-    if (finding.findingType === "NEW_ENTITY" && cluster?.canonicalEntityId) {
-      throw new AutomationApplyConflictError(
-        `Multi-source cluster už je naviazaný na canonical ${cluster.canonicalEntityKey ?? cluster.canonicalEntityId}; druhý draft sa nevytvorí.`,
-      );
-    }
+    if (finding.canonicalEntityId) throw new AutomationApplyConflictError("Finding nesmie držať persistent canonical väzbu.");
     const unsupported = unsupportedAutomationApplyFields(finding.entityType, finding.diff);
     if (unsupported.length) {
       throw new AutomationApplyUnsupportedError(`Nový koncept obsahuje nepodporované polia: ${unsupported.join(", ")}.`);
@@ -624,28 +484,28 @@ export async function applyAutomationFinding(input: {
 
     const organizationCollision = await findNewOrganizationCollision(finding, db);
     if (organizationCollision) {
-      const before = canonicalBeforeFromCurrent("ORGANIZATION", organizationCollision.row);
-      const diff = buildAutomationDiff(before, finding.proposed);
+      if (!finding.sourceRecordId) {
+        throw new AutomationApplyConflictError("Finding nemá stabilnú source-record identitu pre ingestion receipt.");
+      }
+      const receipt = await createAutomationIngestionReceipt({
+        sourceId: finding.sourceId,
+        entityType: finding.entityType,
+        sourceRecordId: finding.sourceRecordId,
+        sourceUrl: finding.sourceUrl,
+        payloadHash: finding.payloadHash,
+        result: "SKIPPED_DUPLICATE",
+        firstProcessedAt: at,
+      }, db);
+      if (!receipt) throw new Error("automation_ingestion_receipt_missing");
       await db.prepare(`UPDATE automation_findings SET
-          finding_type='POSSIBLE_UPDATE',canonical_entity_id=?,canonical_entity_key=?,match_quality='EXACT_CANONICAL_KEY',
-          before_json=?,diff_json=?,reason=?,review_status='IN_REVIEW',reviewer_decision=NULL,reviewed_by=NULL,reviewed_at=NULL,
-          suppressed_until=NULL
+          canonical_entity_id=NULL,canonical_entity_key=NULL,
+          review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
         WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
-          organizationCollision.id,
-          `organization:${organizationCollision.id}`,
-          JSON.stringify(before),
-          JSON.stringify(diff),
-          `Existujúca organizácia bola rozpoznaná podľa canonical slugu ${organizationCollision.slug}.`,
-          finding.id,
+          notes, actor, at, finding.id,
         ).run();
       const refreshed = await getAutomationFindingDetail(finding.id, db);
-      if (!refreshed) throw new Error("automation_reclassified_finding_missing");
-      return {
-        finding: refreshed,
-        application: null,
-        reclassified: "EXISTING_ORGANIZATION",
-      };
-    } else {
+      if (!refreshed) throw new Error("automation_duplicate_resolution_missing");
+      return { finding: refreshed, application: null };
       if (!finding.sourceRecordId) {
         throw new AutomationApplyConflictError("Finding nemá stabilnú source-record identitu pre ingestion receipt.");
       }
@@ -737,64 +597,7 @@ export async function applyAutomationFinding(input: {
         },
       };
     }
-  } else {
-    if (!finding.canonicalEntityId) throw new AutomationApplyConflictError("Finding nemá jednoznačný canonical záznam.");
-    if (cluster?.canonicalEntityId && cluster.canonicalEntityId !== finding.canonicalEntityId) {
-      throw new AutomationApplyConflictError("Multi-source cluster je naviazaný na iný canonical záznam; automatický apply je blokovaný.");
-    }
-    const current = await loadCurrentRow(finding, db);
-    if (!current) throw new AutomationApplyConflictError("Canonical záznam už neexistuje.");
-    const update = updateExistingStatement(finding, current, actor, at, db);
-    const application = db.prepare(`INSERT INTO automation_applications (
-        finding_id,entity_type,canonical_entity_id,application_type,applied_fields_json,before_json,after_json,applied_by,applied_at
-      ) VALUES (?,?,?,'UPDATE_EXISTING',?,?,?,?,?)`).bind(
-        finding.id, finding.entityType, finding.canonicalEntityId, JSON.stringify(update.appliedFields),
-        JSON.stringify(finding.before), JSON.stringify(update.after), actor, at,
-      );
-    const closeFinding = db.prepare(`UPDATE automation_findings SET
-        review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
-      WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
-        notes, actor, at, finding.id,
-      );
-    await db.batch([update.statement, application, closeFinding]);
-    if (cluster && finding.canonicalEntityId) {
-      const linked = await linkAutomationClusterCanonical({
-        clusterId: cluster.id,
-        entityType: finding.entityType,
-        canonicalEntityId: finding.canonicalEntityId,
-        canonicalEntityKey: finding.canonicalEntityKey,
-        at,
-      }, db);
-    }
   }
 
-  const application = await existingApplication(finding.id, db);
-  const refreshed = await getAutomationFindingDetail(finding.id, db);
-  if (!application || !refreshed) throw new Error("automation_apply_result_missing");
-  await ensureAutomationResourceAnchor(finding.entityType, Number(application.canonical_entity_id), db, input.now ?? new Date());
-  if (finding.entityType === "DIRECTORY") {
-    await reconcileGeoAfterSourceMutation({
-      targetType: "DIRECTORY_PROFILE",
-      targetId: Number(application.canonical_entity_id),
-      actorRef: actor,
-      actorType: "ADMIN",
-    }, db);
-  }
-  let appliedFields: string[] = [];
-  try { appliedFields = JSON.parse(application.applied_fields_json) as string[]; } catch {}
-  await reconcileAutomationEventGeo({
-    entityType: finding.entityType,
-    canonicalEntityId: Number(application.canonical_entity_id),
-    applicationType: application.application_type,
-    appliedFields,
-    actorRef: actor,
-  }, db);
-  return {
-    finding: refreshed,
-    application: {
-      canonicalEntityId: Number(application.canonical_entity_id),
-      applicationType: application.application_type,
-      appliedFields,
-    },
-  };
+  throw new AutomationApplyUnsupportedError("Automation canonical update je zakázaný; existujúci canonical záznam sa nemení.");
 }
