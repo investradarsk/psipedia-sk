@@ -352,12 +352,12 @@ async function previewOne(index: number, raw: unknown, dependencies: Dependencie
   const matched = { ...populated, currentAddress: current };
   if (profile.status === "archived") return { ...matched, decision: "ARCHIVED", reason: "Archivovaný profil sa automaticky neupravuje." };
   if (!identityMatches(profile, record)) return { ...matched, decision: "IDENTITY_MISMATCH", reason: "category alebo name nesedia s aktuálnym profilom." };
-  if (!expectedCurrentMatches(profile, record.expectedCurrent)) return { ...matched, decision: "STALE_DATASET", reason: "expectedCurrent sa nezhoduje s aktuálnou canonical adresou." };
 
   const readOnly = readOnlyDecision(record);
   if (readOnly) return { ...matched, decision: readOnly, reason: readOnly === "SKIPPED_CONFIDENCE" ? "Auto-apply povoľuje iba HIGH confidence." : "Action je read-only/skipped." };
   if (!proposed) return { ...matched, decision: "INVALID", reason: "Chýba proposedAddress." };
   if (canonicalSemanticallyEqual(current, proposed)) return { ...matched, decision: "NO_CHANGE", reason: "Proposed canonical adresa je už uložená." };
+  if (!expectedCurrentMatches(profile, record.expectedCurrent)) return { ...matched, decision: "STALE_DATASET", reason: "expectedCurrent sa nezhoduje s aktuálnou canonical adresou." };
   if (record.action === "FILL_MISSING" && isCompleteConfirmed(profile)) {
     return { ...matched, decision: "ACTION_CONFLICT", reason: "FILL_MISSING nesmie prepísať inú COMPLETE + CONFIRMED_SERVICE_LOCATION adresu." };
   }
@@ -481,10 +481,6 @@ export async function applyAddressResearchBatch(input: {
       results.push({ profileId: record.profileId, name: record.name, result: "IDENTITY_MISMATCH", reason: "category/name mismatch.", verifiedAddress: null, geo: null });
       continue;
     }
-    if (!expectedCurrentMatches(profile, record.expectedCurrent)) {
-      results.push({ profileId: record.profileId, name: record.name, result: "STALE_PREVIEW", reason: "expectedCurrent už nesedí.", verifiedAddress: null, geo: null });
-      continue;
-    }
     const proposed = proposedCanonical(record);
     if (!proposed || record.confidence !== "HIGH" || (record.action !== "UPDATE" && record.action !== "FILL_MISSING")) {
       results.push({ profileId: record.profileId, name: record.name, result: "SKIPPED", reason: "Record už nie je apply-eligible.", verifiedAddress: null, geo: null });
@@ -492,6 +488,10 @@ export async function applyAddressResearchBatch(input: {
     }
     if (canonicalSemanticallyEqual(currentCanonicalAddress(profile), proposed)) {
       results.push({ profileId: record.profileId, name: record.name, result: "NO_CHANGE", reason: "Canonical adresa je už rovnaká.", verifiedAddress: proposed, geo: null });
+      continue;
+    }
+    if (!expectedCurrentMatches(profile, record.expectedCurrent)) {
+      results.push({ profileId: record.profileId, name: record.name, result: "STALE_PREVIEW", reason: "expectedCurrent už nesedí.", verifiedAddress: null, geo: null });
       continue;
     }
     if (record.action === "FILL_MISSING" && isCompleteConfirmed(profile)) {
