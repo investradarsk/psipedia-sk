@@ -134,13 +134,13 @@ test("missing profileId resolves only by exact category+slug", async () => {
   assert.equal(out.items[0].decision, "ALREADY_COMPLETE_SAME");
 });
 
-test("URL category mismatch -> INVALID_RESEARCH without fallback", async () => {
+test("URL category mismatch -> IDENTITY_MISMATCH without fallback", async () => {
   let reads = 0;
   const out = await auditAddressResearchBatch(dataset({ ...record, psipediaUrl: "https://psipedia.sk/adresar/treneri/abc-vet" }), deps(baseProfile, {
     getById: async () => { reads++; return baseProfile; },
   }));
   assert.equal(reads, 0);
-  assert.equal(out.items[0].decision, "INVALID_RESEARCH");
+  assert.equal(out.items[0].decision, "IDENTITY_MISMATCH");
 });
 
 test("fuzzy name must not resolve another profile", async () => {
