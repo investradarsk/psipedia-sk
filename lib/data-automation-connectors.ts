@@ -146,6 +146,8 @@ function expectedMinimumRecords(source: AutomationSource) {
   if (Number.isFinite(configured) && configured > 0) {
     return Math.min(source.maxRecordsPerRun, Math.max(1, Math.floor(configured)));
   }
+  if (source.config.htmlAdapterKey === "organization-official-site") return 1;
+  if (source.config.htmlAdapterKey === "psiadusa-organization-directory") return 1;
   if (source.config.htmlAdapterKey === "svps-shelters-register") return 10;
   if (source.config.htmlAdapterKey === "skj-exhibition-calendar") return 1;
   if (source.config.htmlAdapterKey === "agility-sk-events") return 1;
