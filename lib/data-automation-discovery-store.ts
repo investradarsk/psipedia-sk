@@ -423,7 +423,7 @@ export type AutomationSearchBudgetReservationReason =
 
 export async function reserveAutomationSearchRequest(input: {
   operationKey: string;
-  discoveryRunId: number;
+  discoveryRunId: number | null;
   providerKey: string;
   rootId: number;
   entityType: AutomationEntityType;
