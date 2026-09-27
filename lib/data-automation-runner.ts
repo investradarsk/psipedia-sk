@@ -190,10 +190,12 @@ async function processRecord(
   record: AutomationSourceRecord,
   detectedAt: string,
   database: D1Database,
+  findingProposal?: Record<string, unknown>,
 ) {
   requiredIdentity(source, record);
+  const proposedForFinding = findingProposal ?? record.proposed;
   const observationHash = await sha256Hex(record.rawRecord);
-  const proposalHash = await sha256Hex(record.proposed);
+  const proposalHash = await sha256Hex(proposedForFinding);
   const observationId = await recordAutomationObservation({
     sourceId: source.id,
     runId,
@@ -229,8 +231,8 @@ async function processRecord(
       canonicalEntityKey: null,
       matchQuality: "UNCERTAIN",
       before: null,
-      proposed: record.proposed,
-      diff: buildAutomationDiff(null, record.proposed),
+      proposed: proposedForFinding,
+      diff: buildAutomationDiff(null, proposedForFinding),
       payloadHash: proposalHash,
       fingerprint,
       reason: `Multi-source cluster match vyžaduje review; kandidátne clustre: ${clusterResolution.possibleCandidateIds.join(", ") || "bez jednoznačného kandidáta"}.`,
@@ -295,7 +297,7 @@ async function processRecord(
       };
     }
   }
-  const classified = classifyAutomationFinding({ match, proposed: record.proposed });
+  const classified = classifyAutomationFinding({ match, proposed: proposedForFinding });
   if (!classified) return { finding: null, created: false, reopened: false };
 
   const fingerprint = automationFindingFingerprint({
@@ -316,7 +318,7 @@ async function processRecord(
     canonicalEntityKey: match.entityKey,
     matchQuality: match.quality,
     before: match.before,
-    proposed: record.proposed,
+    proposed: proposedForFinding,
     diff: classified.diff,
     payloadHash: proposalHash,
     fingerprint,
@@ -343,13 +345,14 @@ export async function processAutomationRecordForReview(input: {
   database: D1Database;
   now?: Date;
   organizationEnricher?: OrganizationRecordEnricher;
+  findingProposal?: Record<string, unknown>;
 }) {
   const detectedAt = (input.now ?? new Date()).toISOString();
   let record = input.record;
   if (input.source.entityType === "ORGANIZATION" && input.organizationEnricher) {
     record = await input.organizationEnricher(record, { detectedAt });
   }
-  return processRecord(input.source, null, record, detectedAt, input.database);
+  return processRecord(input.source, null, record, detectedAt, input.database, input.findingProposal);
 }
 
 async function runSource(
