@@ -87,23 +87,38 @@ export type AutomationSourceReadinessReason =
   | "ADAPTER_SHAPE_MISMATCH"
   | "MISSING_PARSER";
 
+export type AutomationSourceReadiness = {
+  applicable: boolean;
+  ready: boolean;
+  reason: AutomationSourceReadinessReason;
+  adapterKey: string | null;
+  adapterLabel: string | null;
+  sourceShape: AutomationCapabilitySourceShape | null;
+};
+
 export function automationSourceReadiness(
   source: Pick<AutomationSource, "entityType" | "connectorType" | "config" | "sourceUrl">,
   registry = productionAutomationCapabilityRegistry,
-): { ready: boolean; reason: AutomationSourceReadinessReason; adapterKey: string | null } {
+): AutomationSourceReadiness {
+  if (source.connectorType === "MANUAL_IMPORT") {
+    return { applicable: false, ready: true, reason: "READY", adapterKey: null, adapterLabel: null, sourceShape: null };
+  }
+  if (source.connectorType === "STRUCTURED_JSON") {
+    return { applicable: true, ready: true, reason: "READY", adapterKey: null, adapterLabel: "Structured JSON mapping", sourceShape: "SOURCE_DEFINED" };
+  }
   if (source.connectorType !== "CONTROLLED_HTML") {
-    return { ready: source.connectorType === "STRUCTURED_JSON", reason: source.connectorType === "STRUCTURED_JSON" ? "READY" : "UNSUPPORTED_CONNECTOR", adapterKey: null };
+    return { applicable: true, ready: false, reason: "UNSUPPORTED_CONNECTOR", adapterKey: null, adapterLabel: null, sourceShape: null };
   }
   const adapterKey = source.config.htmlAdapterKey?.trim()
     || (source.entityType === "ORGANIZATION" ? organizationHtmlAdapterKeyForSourceUrl(source.sourceUrl) : null);
-  if (!adapterKey) return { ready: false, reason: "MISSING_ADAPTER", adapterKey: null };
+  if (!adapterKey) return { applicable: true, ready: false, reason: "MISSING_ADAPTER", adapterKey: null, adapterLabel: null, sourceShape: source.config.sourceShape ?? null };
   const capability = registry[adapterKey];
-  if (!capability) return { ready: false, reason: "UNSUPPORTED_ADAPTER", adapterKey };
-  if (capability.entityType !== source.entityType) return { ready: false, reason: "ADAPTER_ENTITY_MISMATCH", adapterKey };
+  if (!capability) return { applicable: true, ready: false, reason: "UNSUPPORTED_ADAPTER", adapterKey, adapterLabel: null, sourceShape: source.config.sourceShape ?? null };
+  if (capability.entityType !== source.entityType) return { applicable: true, ready: false, reason: "ADAPTER_ENTITY_MISMATCH", adapterKey, adapterLabel: capability.label, sourceShape: capability.sourceShape };
   const configuredShape = source.config.sourceShape;
   if (configuredShape && capability.sourceShape !== "SOURCE_DEFINED" && configuredShape !== capability.sourceShape) {
-    return { ready: false, reason: "ADAPTER_SHAPE_MISMATCH", adapterKey };
+    return { applicable: true, ready: false, reason: "ADAPTER_SHAPE_MISMATCH", adapterKey, adapterLabel: capability.label, sourceShape: capability.sourceShape };
   }
-  if (typeof capability.parser !== "function") return { ready: false, reason: "MISSING_PARSER", adapterKey };
-  return { ready: true, reason: "READY", adapterKey };
+  if (typeof capability.parser !== "function") return { applicable: true, ready: false, reason: "MISSING_PARSER", adapterKey, adapterLabel: capability.label, sourceShape: capability.sourceShape };
+  return { applicable: true, ready: true, reason: "READY", adapterKey, adapterLabel: capability.label, sourceShape: capability.sourceShape };
 }
