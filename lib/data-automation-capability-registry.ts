@@ -5,6 +5,7 @@ import {
   GENERIC_HELP_ITEM_PAGE_ADAPTER,
   ORGANIZATION_OFFICIAL_SITE_ADAPTER,
   ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER,
+  organizationHtmlAdapterKeyForSourceUrl,
 } from "./data-automation-source-provisioning.ts";
 import { TRNAVA_ADOPTION_DETAIL_ADAPTER } from "./data-automation-adoption-adapters.ts";
 import { ZATULANE_PSIKY_SALA_FOSTER_DETAIL_ADAPTER } from "./data-automation-foster-adapters.ts";
@@ -63,11 +64,12 @@ export const productionAutomationCapabilityRegistry = buildAutomationCapabilityR
 );
 
 export function resolveAutomationCapability(
-  source: Pick<AutomationSource, "entityType" | "connectorType" | "config">,
+  source: Pick<AutomationSource, "entityType" | "connectorType" | "config" | "sourceUrl">,
   registry = productionAutomationCapabilityRegistry,
 ) {
   if (source.connectorType !== "CONTROLLED_HTML") return null;
-  const adapterKey = source.config.htmlAdapterKey?.trim();
+  const adapterKey = source.config.htmlAdapterKey?.trim()
+    || (source.entityType === "ORGANIZATION" ? organizationHtmlAdapterKeyForSourceUrl(source.sourceUrl) : null);
   if (!adapterKey) return null;
   const capability = registry[adapterKey];
   if (!capability || capability.entityType !== source.entityType) return null;
@@ -86,13 +88,14 @@ export type AutomationSourceReadinessReason =
   | "MISSING_PARSER";
 
 export function automationSourceReadiness(
-  source: Pick<AutomationSource, "entityType" | "connectorType" | "config">,
+  source: Pick<AutomationSource, "entityType" | "connectorType" | "config" | "sourceUrl">,
   registry = productionAutomationCapabilityRegistry,
 ): { ready: boolean; reason: AutomationSourceReadinessReason; adapterKey: string | null } {
   if (source.connectorType !== "CONTROLLED_HTML") {
     return { ready: source.connectorType === "STRUCTURED_JSON", reason: source.connectorType === "STRUCTURED_JSON" ? "READY" : "UNSUPPORTED_CONNECTOR", adapterKey: null };
   }
-  const adapterKey = source.config.htmlAdapterKey?.trim() || null;
+  const adapterKey = source.config.htmlAdapterKey?.trim()
+    || (source.entityType === "ORGANIZATION" ? organizationHtmlAdapterKeyForSourceUrl(source.sourceUrl) : null);
   if (!adapterKey) return { ready: false, reason: "MISSING_ADAPTER", adapterKey: null };
   const capability = registry[adapterKey];
   if (!capability) return { ready: false, reason: "UNSUPPORTED_ADAPTER", adapterKey };
