@@ -81,7 +81,7 @@ test("0082 remains represented in guarded production migration history", () => {
 });
 
 
-test("ORGANIZATION-DISCOVERY-1 direct candidate concepts reuse generic automation review without source activation", () => {
+test("ORGANIZATION-DISCOVERY-1 keeps legacy technical concept helper but normal source UI uses automatic drafts", () => {
   const concept = read("lib/data-automation-organization-discovery-concept.ts");
   const runner = read("lib/data-automation-runner.ts");
   const route = read("app/api/admin/automation-source-candidates/[id]/route.ts");
@@ -95,7 +95,9 @@ test("ORGANIZATION-DISCOVERY-1 direct candidate concepts reuse generic automatio
   assert.match(concept, /processAutomationRecordForReview/);
   assert.match(runner, /processRecord\(input\.source, null, record/);
   assert.match(route, /prepare_organization_concept/);
-  assert.match(ui, /Pripraviť návrh organizácie/);
+  assert.doesNotMatch(ui, /Pripraviť návrh organizácie/);
+  assert.match(runner, /createCanonicalDraftForFinding/);
+  assert.match(runner, /applyAutomationFinding/);
 
   assert.doesNotMatch(concept, /UPDATE\s+automation_sources|enabled\s*=|cadence_minutes\s*=/i);
   assert.doesNotMatch(concept, /INSERT\s+INTO\s+help_organizations|UPDATE\s+help_organizations|PUBLISHED/i);
