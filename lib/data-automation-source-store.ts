@@ -12,6 +12,7 @@ import type { AutomationSourceAdminInput } from "./data-automation-source-admin.
 import type { AutomationSourceCandidateInput } from "./data-automation-discovery.ts";
 import { selectRelevantExistingSourceForCandidate } from "./data-automation-source-matching.ts";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
+import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 
 export type AutomationSourceAdminDatabase = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -703,16 +704,11 @@ export async function findRelevantAutomationSourceForCandidate(
 }
 
 function candidateProvisioningConfig(candidate: AutomationSourceCandidateRow): AutomationSourceConfig {
-  const directoryCategory = candidate.entityType === "DIRECTORY" && typeof candidate.metadata.directoryCategory === "string"
-    ? candidate.metadata.directoryCategory.trim()
-    : "";
-  if (!directoryCategory) return {};
-  return {
-    staticFields: {
-      category: directoryCategory,
-      semanticKind: "FACILITY_OR_SERVICE_PROFILE",
-    },
-  };
+  return candidateProvisioningConfigFor({
+    entityType: candidate.entityType,
+    canonicalUrl: candidate.canonicalUrl,
+    metadata: candidate.metadata,
+  });
 }
 
 function candidateSourceKey(candidate: AutomationSourceCandidateRow) {

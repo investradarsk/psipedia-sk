@@ -6,6 +6,8 @@ export const ADDRESS_ENRICHMENT_MAX_BATCH = 25;
 export const ADDRESS_ENRICHMENT_DEFAULT_BATCH = 10;
 export const ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS = 3;
 export const ADDRESS_ENRICHMENT_MAX_VERIFICATION_CALLS = 25;
+export const ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS = 5;
+export const ADDRESS_ENRICHMENT_CANARY_DEFAULT_TARGETS = 3;
 
 export type AddressEnrichmentDecision = "AUTO_APPLY" | "REVIEW" | "NO_MATCH";
 export type AddressSourceTier = 1 | 2 | 3 | 4;
@@ -231,6 +233,12 @@ export function boundedBatchSize(value: unknown) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return ADDRESS_ENRICHMENT_DEFAULT_BATCH;
   return Math.min(ADDRESS_ENRICHMENT_MAX_BATCH, Math.max(1, Math.trunc(parsed)));
+}
+
+export function boundedCanarySize(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return ADDRESS_ENRICHMENT_CANARY_DEFAULT_TARGETS;
+  return Math.min(ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS, Math.max(1, Math.trunc(parsed)));
 }
 
 export function summarizeAddressEnrichmentPreview(items: AddressEnrichmentPreviewItem[], limit: number): AddressEnrichmentPreview {

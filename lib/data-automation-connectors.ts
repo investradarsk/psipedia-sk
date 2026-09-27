@@ -7,6 +7,7 @@ import {
   type AutomationSource,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
+import { organizationHtmlAdapterKeyForSourceUrl } from "./data-automation-source-provisioning.ts";
 
 export class AutomationConnectorError extends Error {
   readonly code: string;
@@ -145,6 +146,8 @@ function expectedMinimumRecords(source: AutomationSource) {
   if (Number.isFinite(configured) && configured > 0) {
     return Math.min(source.maxRecordsPerRun, Math.max(1, Math.floor(configured)));
   }
+  if (source.config.htmlAdapterKey === "organization-official-site") return 1;
+  if (source.config.htmlAdapterKey === "psiadusa-organization-directory") return 1;
   if (source.config.htmlAdapterKey === "svps-shelters-register") return 10;
   if (source.config.htmlAdapterKey === "skj-exhibition-calendar") return 1;
   if (source.config.htmlAdapterKey === "agility-sk-events") return 1;
@@ -310,7 +313,11 @@ export async function fetchAutomationSourceRecords(
       return sourceRecordsFromPayload(payload, effectiveSource);
     }
 
-    const adapterKey = source.config.htmlAdapterKey?.trim();
+    const configuredAdapterKey = source.config.htmlAdapterKey?.trim();
+    const adapterKey = configuredAdapterKey
+      || (source.entityType === "ORGANIZATION"
+        ? organizationHtmlAdapterKeyForSourceUrl(effectiveSource.sourceUrl)
+        : null);
     const adapter = adapterKey ? context.htmlAdapters?.[adapterKey] : undefined;
     if (!adapter) throw new AutomationConnectorError("controlled_html_adapter_not_configured");
     const html = await responseText(response);

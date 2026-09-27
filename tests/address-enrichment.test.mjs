@@ -3,11 +3,19 @@ import assert from "node:assert/strict";
 import {
   ADDRESS_ENRICHMENT_DEFAULT_BATCH,
   ADDRESS_ENRICHMENT_MAX_BATCH,
+  ADDRESS_ENRICHMENT_CANARY_DEFAULT_TARGETS,
+  ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS,
   assessDirectoryAddressCandidate,
   boundedBatchSize,
+  boundedCanarySize,
   normalizeDirectoryIdentityHints,
   sourceTier,
 } from "../lib/address-enrichment.ts";
+import {
+  canonicalAddressShape,
+  extractOfficialAddress,
+  validateAddressCanarySelection,
+} from "../lib/address-enrichment-canary.ts";
 
 const baseTarget = {
   id: 1,
@@ -153,4 +161,66 @@ test("identity hints normalize domain, phone, email, name and city", () => {
   assert.equal(hints.phone, "+421905123456");
   assert.equal(hints.email, "info@vet.example.sk");
   assert.equal(hints.city, "zlaté moravce");
+});
+
+
+test("live canary uses a separate hard max of five targets", () => {
+  assert.equal(ADDRESS_ENRICHMENT_CANARY_DEFAULT_TARGETS, 3);
+  assert.equal(ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS, 5);
+  assert.equal(boundedCanarySize(undefined), 3);
+  assert.equal(boundedCanarySize(0), 1);
+  assert.equal(boundedCanarySize(999), 5);
+});
+
+test("official-site extraction prefers JSON-LD PostalAddress", () => {
+  const html = `<html><head><script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"VeterinaryCare","address":{"@type":"PostalAddress","streetAddress":"Hlavná 1892/74","postalCode":"95301","addressLocality":"Zlaté Moravce"}}
+  </script></head><body>Kontakt</body></html>`;
+  const found = extractOfficialAddress(html);
+  assert.equal(found?.method, "JSON_LD_POSTAL_ADDRESS");
+  assert.equal(found?.street, "Hlavná");
+  assert.equal(found?.house, "1892/74");
+  assert.equal(found?.postal, "953 01");
+  assert.equal(found?.city, "Zlaté Moravce");
+});
+
+test("official-site extraction accepts a clearly labelled public contact address", () => {
+  const html = "<html><body><h1>Vet Centrum</h1><p>Adresa: Hlavná 74, 953 01 Zlaté Moravce</p></body></html>";
+  const found = extractOfficialAddress(html);
+  assert.equal(found?.method, "LABELED_CONTACT_ADDRESS");
+  assert.equal(found?.street, "Hlavná");
+  assert.equal(found?.house, "74");
+  assert.equal(found?.postal, "953 01");
+});
+
+test("explicit canary selection is bounded, unique and fingerprinted", () => {
+  const fp = "a".repeat(64);
+  assert.deepEqual(validateAddressCanarySelection([
+    { targetId: 11, updatedAt: "2026-09-27T09:00:00.000Z", candidateFingerprint: fp },
+  ]), [
+    { targetId: 11, updatedAt: "2026-09-27T09:00:00.000Z", candidateFingerprint: fp },
+  ]);
+  assert.throws(() => validateAddressCanarySelection([
+    { targetId: 11, updatedAt: "2026-09-27T09:00:00.000Z", candidateFingerprint: fp },
+    { targetId: 11, updatedAt: "2026-09-27T09:00:00.000Z", candidateFingerprint: fp },
+  ]), /Neplatný canary selection/);
+  assert.throws(() => validateAddressCanarySelection(
+    Array.from({ length: 6 }, (_, index) => ({
+      targetId: index + 1,
+      updatedAt: "2026-09-27T09:00:00.000Z",
+      candidateFingerprint: fp,
+    })),
+  ), /1 až 5/);
+});
+
+
+test("canonical shape distinguishes STREET from MUNICIPALITY_NUMBER", () => {
+  assert.deepEqual(canonicalAddressShape("Hlavná", "Zlaté Moravce"), {
+    street: "Hlavná",
+    addressFormat: "STREET",
+  });
+  assert.deepEqual(canonicalAddressShape("Zlaté Moravce", "Zlaté Moravce"), {
+    street: "",
+    addressFormat: "MUNICIPALITY_NUMBER",
+  });
 });
