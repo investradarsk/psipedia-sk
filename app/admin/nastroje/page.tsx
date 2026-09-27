@@ -28,6 +28,13 @@ export default async function AdminTechnicalToolsPage() {
           <span className={styles.hubOpen}>Otvoriť GEO nástroje →</span>
         </Link>
 
+        <Link className={styles.hubCard} href="/admin/nastroje/address-enrichment">
+          <span className={styles.hubKicker}>DIRECTORY</span>
+          <h2>Doplnenie adries</h2>
+          <p>Kontrolovaný live canary pre discovery, exact provider verification a explicitný canonical apply.</p>
+          <span className={styles.hubOpen}>Otvoriť address canary →</span>
+        </Link>
+
         <Link className={styles.hubCard} href="/admin/operations/outreach">
           <span className={styles.hubKicker}>Operator utility</span>
           <h2>Profilový outreach</h2>
