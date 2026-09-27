@@ -467,7 +467,20 @@ export async function applyAddressResearchBatch(input: {
   await deps.requireProviderSchema();
   const results = [];
   for (const item of input.records) {
-    const record = item.record;
+    const parsed = parseAddressResearchRecord(item.record);
+    if (!parsed.record) {
+      const unsafe = item.record as Partial<AddressResearchRecord> | null | undefined;
+      results.push({
+        profileId: Number.isSafeInteger(Number(unsafe?.profileId)) ? Number(unsafe?.profileId) : 0,
+        name: typeof unsafe?.name === "string" ? unsafe.name : "",
+        result: "SKIPPED",
+        reason: `INVALID: ${parsed.reason}`,
+        verifiedAddress: null,
+        geo: null,
+      });
+      continue;
+    }
+    const record = parsed.record;
     let profile = await deps.getProfile(record.profileId);
     if (!profile) {
       results.push({ profileId: record.profileId, name: record.name, result: "IDENTITY_MISMATCH", reason: "Profil neexistuje.", verifiedAddress: null, geo: null });
