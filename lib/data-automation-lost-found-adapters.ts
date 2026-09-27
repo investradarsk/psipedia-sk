@@ -87,7 +87,7 @@ function publicLocationDescription(sentence: string) {
 
 function resolutionSignal(pageText: string) {
   const publicPart = pageText.split(/\bÚnia vzájomnej pomoci\b/i)[0] ?? pageText;
-  return /\bmajiteľ\b[^.!?]{0,80}\b(?:zisten|dohľadan|prevzal|prevzala|vráten|vraten)/i.test(publicPart);
+  return /majiteľ[^.!?]{0,80}(?:zisten|dohľadan|prevzal|prevzala|vráten|vraten)/i.test(publicPart);
 }
 
 export const kosiceFoundDogDetailAdapter: ControlledHtmlAdapter = ({ html, source }) => {
