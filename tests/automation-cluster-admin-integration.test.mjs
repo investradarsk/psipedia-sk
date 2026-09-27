@@ -4,18 +4,15 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("cluster list renders one logical entity with source count and legacy fallback", () => {
+test("cluster internals are not rendered in the primary source-management category", () => {
   const page = read("app/admin/automatizacie/[category]/page.tsx");
-  assert.match(page, /listAutomationClusterSummaries/);
-  assert.match(page, /cluster\.sourceCount/);
-  assert.match(page, /logických entít/);
-  assert.match(page, /Staršie nálezy bez cluster linkage/);
+  assert.doesNotMatch(page, /listAutomationClusterSummaries|cluster\.sourceCount|Staršie nálezy bez cluster linkage/);
+  assert.match(page, /<summary>Pokročilé<\/summary>/);
 });
 
-test("single-source clusters remain normal logical entities", () => {
-  const page = read("app/admin/automatizacie/[category]/page.tsx");
-  assert.match(page, /cluster\.sourceCount === 1/);
-  assert.match(page, />1 zdroj</);
+test("cluster technical detail route remains available for debugging", () => {
+  const page = read("app/admin/automatizacie/[category]/cluster/[id]/page.tsx");
+  assert.match(page, /sourceCount|Zdroj/);
 });
 
 test("cluster detail exposes conflicts and high-impact emphasis", () => {
@@ -48,7 +45,7 @@ test("canonical cluster linkage renders an admin destination and routes publishi
 test("finding with cluster gets context link and finding without cluster stays valid", () => {
   const page = read("app/admin/operations/automation/[id]/page.tsx");
   assert.match(page, /getAutomationClusterIdForFinding/);
-  assert.match(page, /Zobraziť kontext logickej entity/);
+  assert.match(page, /Pokročilé: technický kontext/);
   assert.match(page, /clusterId && categorySlug/);
 });
 
