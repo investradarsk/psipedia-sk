@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminOrganizationEditor } from "@/components/admin-organization-editor";
-import { AdminAutomationDraftWarning } from "@/components/admin-automation-draft-warning";
+import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
 import { AdminOrganizationLocations } from "@/components/admin-organization-locations";
 import { AdminShell } from "@/components/admin-shell";
@@ -32,7 +32,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     title={organization.name}
     description="Canonical údaje, lokality a fundraising na jednom admin detaile. Publication lifecycle zostáva explicitná samostatná akcia."
   >
-    <AdminAutomationDraftWarning warning={duplicateWarning} />
+    <AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminOrganizationEditor organization={organization} />
     <div id="locations"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
     <div id="fundraising"><AdminOrganizationFundraising organization={organization} initialMethods={methods} /></div>
