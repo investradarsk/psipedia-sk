@@ -56,6 +56,7 @@ export const BLOCKER_QUERIES = Object.freeze({
   manualMatchDecisions: "SELECT COUNT(*) AS count FROM automation_entity_match_decisions",
   canonicalApplyOperations: "SELECT COUNT(*) AS count FROM automation_canonical_apply_operations",
   canonicalClusterClaims: "SELECT COUNT(*) AS count FROM automation_cluster_canonical_claims",
+  canonicalLinkedClusters: "SELECT COUNT(*) AS count FROM automation_entity_clusters WHERE canonical_entity_id IS NOT NULL OR canonical_entity_key IS NOT NULL",
   duplicateDraftWarnings: "SELECT COUNT(*) AS count FROM automation_findings WHERE finding_type='DUPLICATE_CANDIDATE' AND canonical_entity_id IS NOT NULL",
 });
 
@@ -194,13 +195,14 @@ function preview(target) {
   return report;
 }
 
-function deleteIfExists(target, table) {
-  if (!tableExists(target, table)) return 0;
-  const before = requiredCount(target, table);
-  execute(target, `DELETE FROM "${table}"`);
-  const after = requiredCount(target, table);
-  invariant(after === 0, `${table} cleanup incomplete`);
-  return before;
+function cleanupSql(existingDeleteTables, clearEditorialNotifications) {
+  const statements = ["BEGIN TRANSACTION"];
+  if (clearEditorialNotifications) {
+    statements.push("DELETE FROM editorial_notifications WHERE resource_type='automation_finding'");
+  }
+  for (const table of existingDeleteTables) statements.push(`DELETE FROM "${table}"`);
+  statements.push("COMMIT");
+  return statements.join(";\n") + ";";
 }
 
 function apply(target, before) {
@@ -209,12 +211,9 @@ function apply(target, before) {
   const keepBefore = before.keepCounts;
   const canonicalBefore = before.canonical;
 
-  if (tableExists(target, "editorial_notifications")) {
-    execute(target, "DELETE FROM editorial_notifications WHERE resource_type='automation_finding'");
-  }
-
-  const deleted = {};
-  for (const table of DELETE_TABLE_ORDER) deleted[table] = deleteIfExists(target, table);
+  const existingDeleteTables = DELETE_TABLE_ORDER.filter((table) => tableExists(target, table));
+  const deleted = Object.fromEntries(DELETE_TABLE_ORDER.map((table) => [table, before.deleteCounts[table] ?? 0]));
+  execute(target, cleanupSql(existingDeleteTables, tableExists(target, "editorial_notifications")));
 
   const keepAfter = countsFor(target, KEEP_TABLES);
   const canonicalAfter = canonicalSnapshot(target);
