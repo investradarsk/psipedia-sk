@@ -124,15 +124,15 @@ test("high-impact conflicts do not silently overwrite canonical data", () => {
   assert.match(runner, /DUPLICATE_CANDIDATE/);
 });
 
-test("NEW_ENTITY apply has a cluster-level unique canonical creation claim", () => {
-  const migration = readFileSync(new URL("../drizzle/0073_automation_multisource_entity_resolution.sql", import.meta.url), "utf8");
+test("NEW_ENTITY draft creation ends with an ingestion receipt and no persistent cluster canonical claim", () => {
+  const legacyMigration = readFileSync(new URL("../drizzle/0073_automation_multisource_entity_resolution.sql", import.meta.url), "utf8");
+  const detachMigration = readFileSync(new URL("../drizzle/0091_automation_detach_drafts.sql", import.meta.url), "utf8");
   const apply = readFileSync(new URL("../lib/data-automation-apply.ts", import.meta.url), "utf8");
-  assert.match(migration, /automation_cluster_canonical_claims/);
-  assert.match(migration, /cluster_id.*PRIMARY KEY/);
-  assert.match(apply, /automation_cluster_canonical_claims/);
-  assert.match(apply, /cluster\.canonicalEntityId/);
-  assert.match(apply, /cluster\.canonicalEntityId !== finding\.canonicalEntityId/);
-  assert.match(apply, /AutomationApplyConflictError/);
+  assert.match(legacyMigration, /automation_cluster_canonical_claims/);
+  assert.match(detachMigration, /automation_ingestion_receipts/);
+  assert.match(apply, /createAutomationIngestionReceipt/);
+  assert.doesNotMatch(apply, /INSERT INTO automation_cluster_canonical_claims/);
+  assert.doesNotMatch(apply, /UPDATE automation_entity_clusters SET canonical_entity_id/);
 });
 
 test("foundation remains additive and can fail open before migration deployment", () => {
