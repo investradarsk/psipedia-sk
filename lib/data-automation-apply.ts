@@ -2,7 +2,6 @@ import { env } from "cloudflare:workers";
 import {
   automationDraftSlug,
   buildAutomationDiff,
-  normalizeAutomationIdentity,
   stableJson,
   type AutomationEntityType,
   type AutomationFindingType,
@@ -15,6 +14,10 @@ import {
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 import { getAutomationClusterForFinding, linkAutomationClusterCanonical } from "./data-automation-clustering.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
+import { createCanonicalDraft, CanonicalDraftValidationError } from "./canonical-draft-service.ts";
+import { mapAutomationFindingToDraftInput } from "./data-automation-draft-mapper.ts";
+import { createAutomationIngestionReceipt, getAutomationIngestionReceipt } from "./data-automation-ingestion-receipts.ts";
+import { upsertCanonicalPossibleDuplicateFlag } from "./canonical-draft-flags.ts";
 
 type RuntimeBindings = { DB?: D1Database };
 
