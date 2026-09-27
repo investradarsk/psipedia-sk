@@ -29,6 +29,11 @@ type Preview = {
   pageFetches: number;
   productionWrites: 0;
   stoppedByRateLimit: string | null;
+  targetSelection: {
+    mode: "EXPLICIT" | "ROOT_AWARE_AUTOMATIC";
+    rootEligibleCategories: string[];
+    diagnostic: "NO_ROOT_ELIGIBLE_TARGETS" | null;
+  };
   items: Item[];
 };
 
@@ -127,6 +132,15 @@ export function AdminAddressEnrichmentCanary() {
         {" · "}provider <strong>{preview.providerCalls}</strong>
         {" · "}fetch <strong>{preview.pageFetches}</strong>
         {" · "}writes <strong>{preview.productionWrites}</strong>
+      </p>}
+      {preview?.targetSelection.mode === "ROOT_AWARE_AUTOMATIC" && <p className="admin-help">
+        Automatický výber používa iba kategórie s nakonfigurovaným Tavily search rootom.
+        {preview.targetSelection.rootEligibleCategories.length
+          ? <> Kategórie: <strong>{preview.targetSelection.rootEligibleCategories.join(", ")}</strong>.</>
+          : null}
+      </p>}
+      {preview?.targetSelection.diagnostic === "NO_ROOT_ELIGIBLE_TARGETS" && <p className="admin-message admin-message--error">
+        NO_ROOT_ELIGIBLE_TARGETS — nenašiel sa žiadny incomplete/legacy DIRECTORY profil v kategórii s Tavily search rootom.
       </p>}
       {preview?.stoppedByRateLimit && <p className="admin-message admin-message--error">
         Run bol zastavený po rate limite: {preview.stoppedByRateLimit}.
