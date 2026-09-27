@@ -469,3 +469,94 @@ test("ADDRESS-ENRICH-2B UI explains root-aware automatic selection and empty-sam
   assert.match(ui, /Automatický výber používa iba kategórie s nakonfigurovaným Tavily search rootom/);
   assert.match(ui, /NO_ROOT_ELIGIBLE_TARGETS/);
 });
+
+
+test("ADDRESS-ENRICH-2C #1690 regression keeps verified Crystal Pets address AUTO_APPLY and hands GEO to unified reconcile", () => {
+  const crystalTarget = {
+    ...baseTarget,
+    id: 1690,
+    name: "Crystal Pets – rehabilitácia a fyzioterapia",
+    category: "fyzioterapia",
+    region: "Banskobystrický kraj",
+    district: "Žiar nad Hronom",
+    city: "Hliník nad Hronom",
+    postalCode: "",
+    street: "",
+    houseNumber: "",
+    addressFormat: "",
+    serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
+  };
+  const crystalCandidate = {
+    ...baseCandidate,
+    targetId: 1690,
+    rawAddressText: "Železničná 2/75, 966 01 Hliník nad Hronom",
+    region: "Banskobystrický kraj",
+    district: "Žiar nad Hronom",
+    city: "Hliník nad Hronom",
+    postalCode: "966 01",
+    street: "Železničná",
+    houseNumber: "2/75",
+    addressFormat: "STREET",
+    providerVerification: "VERIFIED_EXACT",
+  };
+  assert.equal(assessDirectoryAddressCandidate(crystalTarget, crystalCandidate).decision, "AUTO_APPLY");
+
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  assert.match(source, /reconcileGeoAfterSourceMutation\(\{/);
+  assert.match(source, /targetType:"DIRECTORY_PROFILE"/);
+  assert.match(source, /actorType:"SYSTEM"/);
+  assert.doesNotMatch(source, /await syncGeoPointAfterSourceChange\("DIRECTORY_PROFILE",item\.target\.id/);
+});
+
+test("ADDRESS-ENRICH-2C truthful apply report exposes INITIALIZED SYNCED NO_OP status creation and errors", () => {
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  for (const field of ["geoAction", "geoStatus", "geoPointCreated", "geoError", "geoReconciled"]) {
+    assert.match(source, new RegExp(field));
+  }
+  assert.match(source, /geoPointCreated=geo\.action==="INITIALIZED"/);
+  assert.match(source, /geoReconciled=Boolean\(geo\.point\)/);
+  assert.match(source, /geoError=error instanceof Error\?error\.message:"geo_reconcile_failed"/);
+  assert.doesNotMatch(source, /geoReconciled=true;\}catch\{\}/);
+});
+
+test("ADDRESS-ENRICH-2C shared reconcile initializes missing points and preserves existing lifecycle semantics", () => {
+  const geo = readRepo("lib/geo-store.ts");
+  assert.match(geo, /if \(!existing\) \{[\s\S]*initializeGeoPointForTarget/);
+  assert.match(geo, /action: initialized\.created \? "INITIALIZED" as const : "NO_OP" as const/);
+  assert.match(geo, /const point = await syncGeoPointAfterSourceChange/);
+  assert.match(geo, /return \{ point, action: changed \? "SYNCED" as const : "NO_OP" as const \}/);
+});
+
+test("ADDRESS-ENRICH-2C initialization remains exact-only PENDING for classified exact DIRECTORY sources", () => {
+  const geo = readRepo("lib/geo-store.ts");
+  assert.match(geo, /let visibility: GeoPublicVisibility \| null = classification\.proposedVisibility/);
+  assert.match(geo, /let precision: GeoPublicPrecision \| null = classification\.proposedPrecision/);
+  assert.match(geo, /let status: GeoStatus = "PENDING"/);
+  assert.match(geo, /INSERT INTO geo_points/);
+  assert.match(geo, /latitude, longitude, resolution_method/);
+});
+
+test("ADDRESS-ENRICH-2C preserves manual override and privacy branches and never directly writes GEO coordinates", () => {
+  const geo = readRepo("lib/geo-store.ts");
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  assert.match(geo, /if \(current\.manualOverride\)/);
+  assert.match(geo, /geocode_status='STALE', last_error_code='MANUAL_REVIEW'/);
+  assert.match(geo, /classification\.proposedVisibility === "HIDDEN"/);
+  assert.doesNotMatch(source, /UPDATE\s+geo_points\s+SET\s+(?:latitude|longitude)/i);
+  assert.match(source, /directGeoWrites:0/);
+});
+
+test("ADDRESS-ENRICH-2C newly initialized exact PENDING point remains eligible for existing A2 automation", () => {
+  const a2 = readRepo("lib/directory-exact-geo-auto.ts");
+  assert.match(a2, /if \(point\.geocodeStatus === "PENDING"\) return \{ action: "PROCESS", reason: "PENDING" \}/);
+  assert.match(a2, /gp\.geocode_status IN \('PENDING','STALE'\)/);
+  assert.doesNotMatch(readRepo("lib/address-enrichment-canary.ts"), /applyGeocoderResolution|runDirectoryExactGeoBacklog/);
+});
+
+test("ADDRESS-ENRICH-2C canonical write stays single and GEO reconcile failure is visible without rollback", () => {
+  const source = readRepo("lib/address-enrichment-canary.ts");
+  assert.equal((source.match(/UPDATE directory_profiles SET region=\?,district=\?,city=\?,postal_code=\?,street=\?,house_number=\?,address_format=\?,service_address_confirmation='CONFIRMED_SERVICE_LOCATION'/g) || []).length, 1);
+  assert.match(source, /canonicalWrites:applied\.length/);
+  assert.match(source, /catch\(error\)\{\s*geoError=/);
+  assert.match(source, /applied\.push\(\{targetId:item\.target\.id,before,after,geoReconciled,geoAction,geoStatus,geoPointCreated,geoError\}\)/);
+});
