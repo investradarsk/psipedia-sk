@@ -35,6 +35,38 @@ type CandidateApprovalPreview = {
   writes: { observations: number; findings: number; canonical: number; publications: number };
 };
 
+type OrganizationConceptResult = {
+  candidateId: number;
+  outcome: "NEW_ORGANIZATION" | "EXISTING_ORGANIZATION" | "POSSIBLE_MATCH" | "INSUFFICIENT_EVIDENCE";
+  proposed: Record<string, unknown>;
+  provenance: Array<{
+    field: string;
+    sourceUrl: string;
+    evidenceId: number | null;
+    evidenceKind: "TAVILY" | "OFFICIAL_SITE";
+    confidence: "HIGH" | "MEDIUM";
+    reason: string;
+  }>;
+  canonicalEntityId: number | null;
+  canonicalEntityKey: string | null;
+  matchQuality: string;
+  matchReason: string;
+  findingId: number | null;
+  sourceId: number;
+  sourceStatus: {
+    enabled: boolean;
+    reviewStatus: string;
+    connectorType: string;
+  };
+};
+
+function conceptOutcomeLabel(value: OrganizationConceptResult["outcome"]) {
+  if (value === "NEW_ORGANIZATION") return "Nová organizácia";
+  if (value === "EXISTING_ORGANIZATION") return "Navrhovaná zmena existujúcej organizácie";
+  if (value === "POSSIBLE_MATCH") return "Možná zhoda — vyžaduje rozhodnutie identity";
+  return "Nedostatok dôkazov";
+}
+
 export function AdminAutomationCandidateReview({
   candidate,
   categorySlug,
@@ -52,6 +84,7 @@ export function AdminAutomationCandidateReview({
     source: AutomationSourceAdminRow | null;
     preview: CandidateApprovalPreview | null;
   } | null>(null);
+  const [organizationConcept, setOrganizationConcept] = useState<OrganizationConceptResult | null>(null);
 
   async function review(action: "approve" | "reject" | "suppress") {
     setBusy(true);
@@ -91,6 +124,34 @@ export function AdminAutomationCandidateReview({
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Rozhodnutie sa nepodarilo uložiť.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareOrganizationConcept() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/automation-source-candidates/" + candidate.id, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "prepare_organization_concept" }),
+      });
+      const payload = await response.json().catch(() => ({})) as {
+        concept?: OrganizationConceptResult;
+        error?: string;
+      };
+      if (!response.ok || !payload.concept) {
+        throw new Error(payload.error || "Návrh organizácie sa nepodarilo pripraviť.");
+      }
+      setOrganizationConcept(payload.concept);
+      setMessage(payload.concept.outcome === "INSUFFICIENT_EVIDENCE"
+        ? "Kandidát nemá dosť bezpečných identity dôkazov. Nič nebolo publikované."
+        : "Návrh organizácie je pripravený na ľudské review. Nič nebolo publikované.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Návrh organizácie sa nepodarilo pripraviť.");
     } finally {
       setBusy(false);
     }
@@ -142,6 +203,63 @@ export function AdminAutomationCandidateReview({
           </div>
         )}
       </section>
+
+      {candidate.entityType === "ORGANIZATION" && candidate.discoveryType === "SEARCH_PROVIDER" && (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Organizácia z discovery leadu</h2>
+              <p>Pripraví entity návrh z Tavily evidence a generic official-site enrichmentu. Monitoring zdroja sa nezapne a publikovanie sa nevykoná automaticky.</p>
+            </div>
+          </div>
+
+          {candidate.reviewStatus === "APPROVED" ? (
+            <div className="admin-form-actions">
+              <button className="is-primary" type="button" disabled={busy} onClick={() => void prepareOrganizationConcept()}>
+                Pripraviť návrh organizácie
+              </button>
+            </div>
+          ) : (
+            <p>Najprv schváľ discovery candidate. Schválenie pripraví alebo reuse-ne vypnutý zdroj; nie je to aktivácia monitoringu.</p>
+          )}
+
+          {organizationConcept && (
+            <div className={styles.advancedBody} style={{ marginTop: 16 }}>
+              <h3>{conceptOutcomeLabel(organizationConcept.outcome)}</h3>
+              <div className={styles.reviewSummary}>
+                <div><span>Názov</span><strong>{String(organizationConcept.proposed.name ?? "—")}</strong></div>
+                <div><span>Web</span><strong>{String(organizationConcept.proposed.websiteUrl ?? "—")}</strong></div>
+                <div><span>Typ</span><strong>{String(organizationConcept.proposed.type ?? "—")}</strong></div>
+                <div><span>Mesto</span><strong>{String(organizationConcept.proposed.city ?? "—")}</strong></div>
+                <div><span>Telefón</span><strong>{String(organizationConcept.proposed.publicPhone ?? "—")}</strong></div>
+                <div><span>E-mail</span><strong>{String(organizationConcept.proposed.publicEmail ?? "—")}</strong></div>
+              </div>
+              <p><strong>Match:</strong> {organizationConcept.matchQuality} · {organizationConcept.matchReason}</p>
+              {organizationConcept.canonicalEntityId && (
+                <p><strong>Canonical organizácia:</strong> #{organizationConcept.canonicalEntityId}</p>
+              )}
+              {organizationConcept.findingId && (
+                <p><Link href={"/admin/operations/automation/" + organizationConcept.findingId}>
+                  Otvoriť review návrhu →
+                </Link></p>
+              )}
+              <details className={styles.advanced}>
+                <summary>Dôkazy / provenance</summary>
+                <div className={styles.advancedBody}>
+                  {organizationConcept.provenance.map((item, index) => (
+                    <p key={item.field + ":" + index}>
+                      <strong>{item.field}</strong> · {item.evidenceKind} · {item.confidence}
+                      {item.evidenceId ? " · evidence #" + item.evidenceId : ""}<br />
+                      {item.reason}
+                    </p>
+                  ))}
+                </div>
+              </details>
+              <p><small>Source #{organizationConcept.sourceId}: {organizationConcept.sourceStatus.connectorType} · {organizationConcept.sourceStatus.enabled ? "enabled" : "disabled"} · {organizationConcept.sourceStatus.reviewStatus}</small></p>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
