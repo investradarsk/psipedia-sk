@@ -608,7 +608,6 @@ export async function applyAutomationFinding(input: {
   const actor = input.reviewerEmail.trim().toLowerCase();
   const at = (input.now ?? new Date()).toISOString();
   const notes = input.notes?.trim().slice(0, 2000) || null;
-  const config = entityConfigs[finding.entityType];
   const cluster = await getAutomationClusterForFinding(finding.id, db);
 
   if (finding.findingType === "NEW_ENTITY" || finding.findingType === "DUPLICATE_CANDIDATE") {
