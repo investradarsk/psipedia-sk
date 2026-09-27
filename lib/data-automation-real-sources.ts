@@ -1,4 +1,8 @@
 import type { ControlledHtmlAdapter } from "./data-automation-connectors.ts";
+import {
+  TRNAVA_ADOPTION_DETAIL_ADAPTER,
+  trnavaAdoptionDetailAdapter,
+} from "./data-automation-adoption-adapters.ts";
 import { canonicalizeSourceUrl, normalizeAutomationIdentity, type AutomationSourceRecord } from "./data-automation.ts";
 import { parseOrganizationDirectory } from "./data-automation-organization-enrichment.ts";
 import {
@@ -755,6 +759,7 @@ export const psiadusaOrganizationDirectoryAdapter: ControlledHtmlAdapter = ({ ht
 };
 
 export const productionAutomationHtmlAdapters: Record<string, ControlledHtmlAdapter> = {
+  [TRNAVA_ADOPTION_DETAIL_ADAPTER]: trnavaAdoptionDetailAdapter,
   [ORGANIZATION_OFFICIAL_SITE_ADAPTER]: organizationOfficialSiteAdapter,
   [ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER]: psiadusaOrganizationDirectoryAdapter,
   "skj-exhibition-calendar": skjExhibitionCalendarAdapter,
