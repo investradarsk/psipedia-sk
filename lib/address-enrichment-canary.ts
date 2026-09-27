@@ -28,6 +28,43 @@ type DB = Pick<D1Database, "prepare">;
 type Bindings = { DB?: D1Database; TAVILY_API_KEY?: string; GEOAPIFY_API_KEY?: string };
 type Row = Record<string, unknown>;
 
+export type AddressSearchDiagnosticStatus =
+  | "TAVILY_NOT_CONFIGURED"
+  | "NO_SEARCH_ROOT"
+  | "SEARCH_COOLDOWN"
+  | "SEARCH_BUDGET_BLOCKED"
+  | "SEARCH_DEDUP_BLOCKED"
+  | "SEARCH_OTHER_BLOCKED"
+  | "SEARCH_CALLED_EMPTY"
+  | "SEARCH_CALLED_NO_IDENTITY_MATCH"
+  | "SEARCH_CALLED_MATCHED_URL"
+  | "SEARCH_SOURCE_FETCH_FAILED"
+  | "SEARCH_SOURCE_NO_ADDRESS"
+  | "SEARCH_RATE_LIMITED"
+  | "SEARCH_PROVIDER_ERROR"
+  | "FIRST_PARTY_NO_ADDRESS"
+  | "EXISTING_EVIDENCE_USED"
+  | "NOT_NEEDED";
+
+export type SearchDiagnostic = {
+  attempted: boolean;
+  called: boolean;
+  status: AddressSearchDiagnosticStatus;
+  blockedReason: string | null;
+  rootId: number | null;
+  rootKey: string | null;
+  query: string | null;
+  resultCount: number | null;
+  matchedResultUrl: string | null;
+};
+
+export type FirstPartyDiagnostic = {
+  attempted: boolean;
+  fetchCount: number;
+  pagesTried: string[];
+  addressFound: boolean;
+};
+
 export type CanaryItem = {
   target: DirectoryEnrichmentTarget;
   candidate: AddressCandidate | null;
@@ -36,6 +73,8 @@ export type CanaryItem = {
   sourceUrl: string | null;
   candidateFingerprint: string | null;
   reason: string;
+  firstPartyDiagnostic: FirstPartyDiagnostic;
+  searchDiagnostic: SearchDiagnostic;
 };
 
 const PAGE_BYTES = 500_000;
@@ -195,61 +234,102 @@ function searchStatus(error: unknown): AutomationSearchUsageStatus {
     ? error.message as AutomationSearchUsageStatus
     : "PROVIDER_ERROR";
 }
+function normalizedDirectoryCategory(value: unknown) {
+  return s(value).toLowerCase();
+}
+
+export function directoryCategoryMatches(rootCategory: unknown, targetCategory: unknown) {
+  const root = normalizedDirectoryCategory(rootCategory);
+  const target = normalizedDirectoryCategory(targetCategory);
+  return Boolean(root && target && root === target);
+}
+
+export function searchReservationDiagnostic(reason: string): AddressSearchDiagnosticStatus {
+  if (reason === "DUPLICATE_OPERATION") return "SEARCH_DEDUP_BLOCKED";
+  if (reason === "GLOBAL_BUDGET_EXHAUSTED" || reason === "CATEGORY_BUDGET_EXHAUSTED" || reason === "ROOT_BUDGET_EXHAUSTED") {
+    return "SEARCH_BUDGET_BLOCKED";
+  }
+  return "SEARCH_OTHER_BLOCKED";
+}
+
 async function directorySearchRoot(t:DirectoryEnrichmentTarget,database:DB){
-  const rows=await database.prepare(`SELECT id,cadence_minutes,config_json FROM automation_discovery_roots
+  const rows=await database.prepare(`SELECT id,root_key,cadence_minutes,config_json FROM automation_discovery_roots
     WHERE discovery_type='SEARCH_PROVIDER' AND entity_type='DIRECTORY' ORDER BY id`).all<Row>();
   for(const row of rows.results){
     let config:Record<string,unknown>={};
     try{config=JSON.parse(s(row.config_json)) as Record<string,unknown>;}catch{}
-    if(s(config.directoryCategory)===t.category)return{id:Number(row.id),cadenceMinutes:Number(row.cadence_minutes),config};
+    if(directoryCategoryMatches(config.directoryCategory,t.category)){
+      return{id:Number(row.id),rootKey:s(row.root_key),cadenceMinutes:Number(row.cadence_minutes),config};
+    }
   }
   return null;
 }
+
 async function tavilyUrl(t:DirectoryEnrichmentTarget,p:TavilyAutomationSearchProvider,database:DB,now=new Date()){
   const root=await directorySearchRoot(t,database);
-  if(!root)return{url:null,called:false,blocked:"NO_SEARCH_ROOT" as string|null};
+  if(!root)return{
+    url:null,called:false,status:"NO_SEARCH_ROOT" as AddressSearchDiagnosticStatus,blocked:"NO_SEARCH_ROOT",
+    rootId:null,rootKey:null,query:null,resultCount:null,
+  };
   const policy=automationSearchBudgetPolicy({entityType:"DIRECTORY",cadenceMinutes:root.cadenceMinutes,config:root.config});
   const request=normalizeAutomationSearchRequest({query:`${t.name} ${t.city} Slovensko oficiálna stránka kontakt adresa`,country:"SK",locale:"sk-SK",maxResults:5});
   const queryFingerprint=await automationSearchQueryFingerprint(p.key,request);
+  const base={rootId:root.id,rootKey:root.rootKey,query:request.query};
   const cooldown=await getAutomationSearchCooldownState({providerKey:p.key,queryFingerprint,baseCooldownMinutes:policy.queryCooldownMinutes,now},database);
-  if(cooldown.blocked)return{url:null,called:false,blocked:"SEARCH_COOLDOWN" as string|null};
+  if(cooldown.blocked)return{url:null,called:false,status:"SEARCH_COOLDOWN" as AddressSearchDiagnosticStatus,blocked:"SEARCH_COOLDOWN",resultCount:null,...base};
   const bucket=Math.floor(now.getTime()/Math.max(60_000,policy.queryCooldownMinutes*60_000));
   const operationKey=`address-enrich-canary:${root.id}:${t.id}:${queryFingerprint}:${bucket}`;
   const reservation=await reserveAutomationSearchRequest({
     operationKey,discoveryRunId:null as unknown as number,providerKey:p.key,rootId:root.id,entityType:"DIRECTORY",queryFingerprint,now,
     globalDailyLimit:policy.globalDailyRequests,entityDailyLimit:policy.entityDailyRequests,rootDailyLimit:policy.rootDailyRequests,
   },database);
-  if(!reservation.reserved)return{url:null,called:false,blocked:reservation.reason};
+  if(!reservation.reserved)return{
+    url:null,called:false,status:searchReservationDiagnostic(reservation.reason),blocked:reservation.reason,resultCount:null,...base,
+  };
   try{
     const results=await p.search(request);
     await finalizeAutomationSearchUsage({operationKey,status:results.length?"SUCCESS":"EMPTY",resultCount:results.length,now:new Date()},database);
+    if(!results.length)return{url:null,called:true,status:"SEARCH_CALLED_EMPTY" as AddressSearchDiagnosticStatus,blocked:null,resultCount:0,...base};
     const n=normalizeAutomationExactText(t.name),city=normalizeAutomationExactText(t.city);
-    const url=results.find((r)=>{const x=normalizeAutomationExactText(`${r.title} ${r.snippet??""}`);return n&&x.includes(n)&&(!city||x.includes(city));})?.url??null;
-    return{url,called:true,blocked:null};
+    const match=results.find((r)=>{const x=normalizeAutomationExactText(`${r.title} ${r.snippet??""}`);return n&&x.includes(n)&&(!city||x.includes(city));})??null;
+    if(!match)return{url:null,called:true,status:"SEARCH_CALLED_NO_IDENTITY_MATCH" as AddressSearchDiagnosticStatus,blocked:null,resultCount:results.length,...base};
+    return{url:match.url,called:true,status:"SEARCH_CALLED_MATCHED_URL" as AddressSearchDiagnosticStatus,blocked:null,resultCount:results.length,...base};
   }catch(error){
     await finalizeAutomationSearchUsage({operationKey,status:searchStatus(error),resultCount:0,now:new Date()},database);
-    throw error;
+    throw Object.assign(error instanceof Error?error:new Error("SEARCH_PROVIDER_ERROR"),{addressSearchContext:base});
   }
 }
 export async function previewLiveDirectoryAddressCanary(input:{limit?:unknown;targetIds?:number[];database?:DB;fetchImpl?:typeof fetch;geoProvider?:GeoapifyGeocoder;searchProvider?:TavilyAutomationSearchProvider}={}){
   const database=db(input.database),limit=boundedCanarySize(input.limit), list=await targets(limit,database,input.targetIds);
   const runtime=env as unknown as Bindings, fetchImpl=input.fetchImpl??fetch, geo=input.geoProvider??new GeoapifyGeocoder({bindings:runtime}), search=input.searchProvider??new TavilyAutomationSearchProvider({apiKey:runtime.TAVILY_API_KEY});
-  let searchCalls=0,providerCalls=0,pageFetches=0,stoppedByRateLimit:null|"TAVILY"|"GEOAPIFY"=null;
+  let searchCalls=0,searchAttempts=0,searchBlocked=0,providerCalls=0,pageFetches=0,stoppedByRateLimit:null|"TAVILY"|"GEOAPIFY"=null;
   const items:CanaryItem[]=[];
   for(const t of list){
-    if(stoppedByRateLimit){items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:null,candidateFingerprint:null,reason:`run_stopped_${stoppedByRateLimit}`});continue;}
-    if(isProtectedCanonical(t)){items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:null,candidateFingerprint:null,reason:"protected_complete_canonical"});continue;}
+    const firstPartyDiagnostic:FirstPartyDiagnostic={attempted:false,fetchCount:0,pagesTried:[],addressFound:false};
+    let searchDiagnostic:SearchDiagnostic={attempted:false,called:false,status:"NOT_NEEDED",blockedReason:null,rootId:null,rootKey:null,query:null,resultCount:null,matchedResultUrl:null};
+    if(stoppedByRateLimit){
+      items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:null,candidateFingerprint:null,reason:`run_stopped_${stoppedByRateLimit}`,firstPartyDiagnostic,searchDiagnostic});
+      continue;
+    }
+    if(isProtectedCanonical(t)){
+      items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:null,candidateFingerprint:null,reason:"protected_complete_canonical",firstPartyDiagnostic,searchDiagnostic});
+      continue;
+    }
     let source: string | null = null;
     let extractionMethod: string | null = null;
     let c = await existingDirectoryAddressEvidenceCandidate(t, database);
     if (c) {
       source = c.evidence.sourceUrl ?? null;
       extractionMethod = "EXISTING_AUTOMATION_EVIDENCE";
+      searchDiagnostic={...searchDiagnostic,status:"EXISTING_EVIDENCE_USED"};
     }
 
     if (!c && t.websiteUrl) {
+      firstPartyDiagnostic.attempted=true;
       for (const url of officialPageUrls(t.websiteUrl)) {
         if (pageFetches >= MAX_PAGE_FETCHES_PER_RUN) break;
+        firstPartyDiagnostic.pagesTried.push(url);
+        firstPartyDiagnostic.fetchCount+=1;
         try {
           pageFetches += 1;
           const r = await page(url, fetchImpl);
@@ -258,36 +338,80 @@ export async function previewLiveDirectoryAddressCanary(input:{limit?:unknown;ta
           source = r.url;
           c = candidate(t, source, r.html, extracted);
           extractionMethod = extracted.method;
+          firstPartyDiagnostic.addressFound=true;
           break;
         } catch {}
       }
+      if(!c)searchDiagnostic={...searchDiagnostic,status:"FIRST_PARTY_NO_ADDRESS"};
     }
 
-    if(!c&&searchCalls<ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS&&search.credentialConfigured){
-      try{
-        const found=await tavilyUrl(t,search,database);
-        if(found.called)searchCalls++;
-        if(found.url&&pageFetches<MAX_PAGE_FETCHES_PER_RUN){
-          pageFetches++;
-          const r=await page(found.url,fetchImpl);
-          const extracted=extractOfficialAddress(r.html);
-          if(extracted){
-            source=r.url;
-            c=candidate(t,source,r.html,extracted);
-            extractionMethod=extracted.method;
+    if(!c){
+      searchAttempts+=1;
+      searchDiagnostic={...searchDiagnostic,attempted:true};
+      if(!search.credentialConfigured){
+        searchBlocked+=1;
+        searchDiagnostic={...searchDiagnostic,status:"TAVILY_NOT_CONFIGURED",blockedReason:"TAVILY_NOT_CONFIGURED"};
+      }else if(searchCalls>=ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS){
+        searchBlocked+=1;
+        searchDiagnostic={...searchDiagnostic,status:"SEARCH_BUDGET_BLOCKED",blockedReason:"RUN_SEARCH_LIMIT_EXHAUSTED"};
+      }else{
+        try{
+          const found=await tavilyUrl(t,search,database);
+          if(found.called)searchCalls++; else searchBlocked++;
+          searchDiagnostic={
+            attempted:true,
+            called:found.called,
+            status:found.status,
+            blockedReason:found.blocked,
+            rootId:found.rootId,
+            rootKey:found.rootKey,
+            query:found.query,
+            resultCount:found.resultCount,
+            matchedResultUrl:found.url,
+          };
+          if(found.url){
+            if(pageFetches>=MAX_PAGE_FETCHES_PER_RUN){
+              searchDiagnostic={...searchDiagnostic,status:"SEARCH_SOURCE_FETCH_FAILED",blockedReason:"PAGE_FETCH_LIMIT_EXHAUSTED"};
+            }else{
+              pageFetches++;
+              try{
+                const r=await page(found.url,fetchImpl);
+                const extracted=extractOfficialAddress(r.html);
+                if(extracted){
+                  source=r.url;
+                  c=candidate(t,source,r.html,extracted);
+                  extractionMethod=extracted.method;
+                }else{
+                  searchDiagnostic={...searchDiagnostic,status:"SEARCH_SOURCE_NO_ADDRESS"};
+                }
+              }catch{
+                searchDiagnostic={...searchDiagnostic,status:"SEARCH_SOURCE_FETCH_FAILED"};
+              }
+            }
+          }
+        } catch(e){
+          const context=(e as Error & {addressSearchContext?:{rootId:number;rootKey:string;query:string}}).addressSearchContext;
+          if(e instanceof AutomationSearchProviderError&&e.message==="RATE_LIMITED"){
+            stoppedByRateLimit="TAVILY";
+            searchDiagnostic={attempted:true,called:true,status:"SEARCH_RATE_LIMITED",blockedReason:"RATE_LIMITED",rootId:context?.rootId??null,rootKey:context?.rootKey??null,query:context?.query??null,resultCount:0,matchedResultUrl:null};
+            searchCalls++;
+          }else{
+            searchDiagnostic={attempted:true,called:true,status:"SEARCH_PROVIDER_ERROR",blockedReason:e instanceof Error?e.message:"PROVIDER_ERROR",rootId:context?.rootId??null,rootKey:context?.rootKey??null,query:context?.query??null,resultCount:0,matchedResultUrl:null};
+            searchCalls++;
           }
         }
-      } catch(e){
-        if(e instanceof AutomationSearchProviderError&&e.message==="RATE_LIMITED")stoppedByRateLimit="TAVILY";
       }
     }
-    if(!c){items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:source,candidateFingerprint:null,reason:stoppedByRateLimit?"search_rate_limited":"no_usable_address"});continue;}
+    if(!c){
+      items.push({target:t,candidate:null,assessment:null,extractionMethod:null,sourceUrl:source,candidateFingerprint:null,reason:stoppedByRateLimit?"search_rate_limited":"no_usable_address",firstPartyDiagnostic,searchDiagnostic});
+      continue;
+    }
     try{providerCalls++;c=await verify(c,geo);}catch(e){if(e instanceof GeocoderProviderError&&e.code==="RATE_LIMITED")stoppedByRateLimit="GEOAPIFY";}
     const assessment=assessDirectoryAddressCandidate(t,c), fp=await fingerprint(t,c);
-    items.push({target:t,candidate:c,assessment,extractionMethod,sourceUrl:source,candidateFingerprint:fp,reason:assessment.reason});
+    items.push({target:t,candidate:c,assessment,extractionMethod,sourceUrl:source,candidateFingerprint:fp,reason:assessment.reason,firstPartyDiagnostic,searchDiagnostic});
   }
   return {mode:"LIVE_CANARY_PREVIEW" as const,scanned:items.length,candidatesFound:items.filter((x)=>x.candidate).length,autoApplyCandidates:items.filter((x)=>x.assessment?.decision==="AUTO_APPLY").length,
-    reviewCandidates:items.filter((x)=>x.assessment?.decision==="REVIEW").length,noMatch:items.filter((x)=>!x.candidate||x.assessment?.decision==="NO_MATCH").length,searchCalls,providerCalls,pageFetches,productionWrites:0 as const,stoppedByRateLimit,
+    reviewCandidates:items.filter((x)=>x.assessment?.decision==="REVIEW").length,noMatch:items.filter((x)=>!x.candidate||x.assessment?.decision==="NO_MATCH").length,searchCalls,searchAttempts,searchBlocked,providerCalls,pageFetches,productionWrites:0 as const,stoppedByRateLimit,
     limits:{entitiesPerRun:limit,searchCallsPerRun:ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS,providerCallsPerRun:ADDRESS_ENRICHMENT_CANARY_MAX_TARGETS,pageFetchesPerRun:MAX_PAGE_FETCHES_PER_RUN},items};
 }
 export function validateAddressCanarySelection(value:unknown){
