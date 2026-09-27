@@ -520,6 +520,7 @@ export function GoogleMapRenderer(props: Props) {
         element.textContent = markerSymbol(item);
         element.className = markerClass(item, selectedItemId === item.id);
         element.dataset.mapMarker = item.entityType;
+        element.dataset.mapMarkerId = item.id;
         const marker = new AdvancedMarkerElement({
           map,
           position: { lat: item.latitude, lng: item.longitude },
