@@ -12,9 +12,11 @@ import {
 import { verifyDirectoryCanonicalAddress } from "./directory-address-provider";
 import { normalizeSlovakPostalCode } from "./directory-service-address";
 import { normalizeAutomationExactText } from "./data-automation-identity";
-import { AutomationSearchProviderError } from "./data-automation-discovery";
+import { AutomationSearchProviderError, automationSearchQueryFingerprint, normalizeAutomationSearchRequest } from "./data-automation-discovery";
 import { isSafeAutomationSourceUrl } from "./data-automation";
 import { TavilyAutomationSearchProvider } from "./data-automation-search-tavily";
+import { automationSearchBudgetPolicy, type AutomationSearchUsageStatus } from "./data-automation-search-budget";
+import { finalizeAutomationSearchUsage, getAutomationSearchCooldownState, reserveAutomationSearchRequest } from "./data-automation-discovery-store";
 import { GeocoderProviderError } from "./geo-provider";
 import { GeoapifyGeocoder } from "./geoapify-geocoder";
 import { syncGeoPointAfterSourceChange } from "./geo-store";
@@ -182,10 +184,47 @@ function officialPageUrls(value: string) {
     return [];
   }
 }
-async function tavilyUrl(t:DirectoryEnrichmentTarget,p:TavilyAutomationSearchProvider){
-  const results=await p.search({query:`${t.name} ${t.city} Slovensko oficiálna stránka kontakt adresa`,country:"SK",locale:"sk-SK",maxResults:5});
-  const n=normalizeAutomationExactText(t.name),c=normalizeAutomationExactText(t.city);
-  return results.find((r)=>{const x=normalizeAutomationExactText(`${r.title} ${r.snippet??""}`);return n&&x.includes(n)&&(!c||x.includes(c));})?.url??null;
+function searchStatus(error: unknown): AutomationSearchUsageStatus {
+  if (!(error instanceof AutomationSearchProviderError)) return "PROVIDER_ERROR";
+  return ["RATE_LIMITED","AUTH_FAILED","CONFIG_MISSING","TIMEOUT","PROVIDER_ERROR","INVALID_RESPONSE"].includes(error.message)
+    ? error.message as AutomationSearchUsageStatus
+    : "PROVIDER_ERROR";
+}
+async function directorySearchRoot(t:DirectoryEnrichmentTarget,database:DB){
+  const rows=await database.prepare(`SELECT id,cadence_minutes,config_json FROM automation_discovery_roots
+    WHERE discovery_type='SEARCH_PROVIDER' AND entity_type='DIRECTORY' ORDER BY id`).all<Row>();
+  for(const row of rows.results){
+    let config:Record<string,unknown>={};
+    try{config=JSON.parse(s(row.config_json)) as Record<string,unknown>;}catch{}
+    if(s(config.directoryCategory)===t.category)return{id:Number(row.id),cadenceMinutes:Number(row.cadence_minutes),config};
+  }
+  return null;
+}
+async function tavilyUrl(t:DirectoryEnrichmentTarget,p:TavilyAutomationSearchProvider,database:DB,now=new Date()){
+  const root=await directorySearchRoot(t,database);
+  if(!root)return{url:null,called:false,blocked:"NO_SEARCH_ROOT" as string|null};
+  const policy=automationSearchBudgetPolicy({entityType:"DIRECTORY",cadenceMinutes:root.cadenceMinutes,config:root.config});
+  const request=normalizeAutomationSearchRequest({query:`${t.name} ${t.city} Slovensko oficiálna stránka kontakt adresa`,country:"SK",locale:"sk-SK",maxResults:5});
+  const queryFingerprint=await automationSearchQueryFingerprint(p.key,request);
+  const cooldown=await getAutomationSearchCooldownState({providerKey:p.key,queryFingerprint,baseCooldownMinutes:policy.queryCooldownMinutes,now},database);
+  if(cooldown.blocked)return{url:null,called:false,blocked:"SEARCH_COOLDOWN" as string|null};
+  const bucket=Math.floor(now.getTime()/Math.max(60_000,policy.queryCooldownMinutes*60_000));
+  const operationKey=`address-enrich-canary:${root.id}:${t.id}:${queryFingerprint}:${bucket}`;
+  const reservation=await reserveAutomationSearchRequest({
+    operationKey,discoveryRunId:null,providerKey:p.key,rootId:root.id,entityType:"DIRECTORY",queryFingerprint,now,
+    globalDailyLimit:policy.globalDailyRequests,entityDailyLimit:policy.entityDailyRequests,rootDailyLimit:policy.rootDailyRequests,
+  },database);
+  if(!reservation.reserved)return{url:null,called:false,blocked:reservation.reason};
+  try{
+    const results=await p.search(request);
+    await finalizeAutomationSearchUsage({operationKey,status:results.length?"SUCCESS":"EMPTY",resultCount:results.length,now:new Date()},database);
+    const n=normalizeAutomationExactText(t.name),city=normalizeAutomationExactText(t.city);
+    const url=results.find((r)=>{const x=normalizeAutomationExactText(`${r.title} ${r.snippet??""}`);return n&&x.includes(n)&&(!city||x.includes(city));})?.url??null;
+    return{url,called:true,blocked:null};
+  }catch(error){
+    await finalizeAutomationSearchUsage({operationKey,status:searchStatus(error),resultCount:0,now:new Date()},database);
+    throw error;
+  }
 }
 export async function previewLiveDirectoryAddressCanary(input:{limit?:unknown;targetIds?:number[];database?:DB;fetchImpl?:typeof fetch;geoProvider?:GeoapifyGeocoder;searchProvider?:TavilyAutomationSearchProvider}={}){
   const database=db(input.database),limit=boundedCanarySize(input.limit), list=await targets(limit,database,input.targetIds);
@@ -221,11 +260,11 @@ export async function previewLiveDirectoryAddressCanary(input:{limit?:unknown;ta
 
     if(!c&&searchCalls<ADDRESS_ENRICHMENT_MAX_SEARCH_CALLS&&search.credentialConfigured){
       try{
-        searchCalls++;
-        const u=await tavilyUrl(t,search);
-        if(u&&pageFetches<MAX_PAGE_FETCHES_PER_RUN){
+        const found=await tavilyUrl(t,search,database);
+        if(found.called)searchCalls++;
+        if(found.url&&pageFetches<MAX_PAGE_FETCHES_PER_RUN){
           pageFetches++;
-          const r=await page(u,fetchImpl);
+          const r=await page(found.url,fetchImpl);
           const extracted=extractOfficialAddress(r.html);
           if(extracted){
             source=r.url;
