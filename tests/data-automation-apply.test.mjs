@@ -75,9 +75,12 @@ test("stale NEW organization findings are safely reclassified before any canonic
 test("CREATE_DRAFT idempotency is receipt-based without canonical linkage", () => {
   assert.match(detachMigration, /CREATE TABLE `automation_ingestion_receipts`/);
   assert.match(detachMigration, /UNIQUE INDEX `automation_ingestion_receipts_identity_unique`/);
-  assert.match(detachMigration, /source_id.*entity_type.*source_record_id/s);
-  assert.doesNotMatch(detachMigration, /automation_ingestion_receipts[\s\S]*canonical_entity_id/);
-  assert.doesNotMatch(detachMigration, /automation_ingestion_receipts[\s\S]*finding_id/);
+  const receiptTable = detachMigration.match(/CREATE TABLE `automation_ingestion_receipts` \(([\s\S]*?)\n\);/);
+  assert.ok(receiptTable);
+  assert.match(receiptTable[1], /source_id/);
+  assert.match(receiptTable[1], /entity_type/);
+  assert.match(receiptTable[1], /source_record_id/);
+  assert.doesNotMatch(receiptTable[1], /canonical_entity|draft_id|finding_id|cluster_id|observation_id/);
   assert.match(runnerSource, /getAutomationIngestionReceipt/);
   assert.match(runnerSource, /processedReceipt/);
   assert.match(applySource, /getAutomationIngestionReceipt/);
