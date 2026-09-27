@@ -62,3 +62,10 @@ test("detach apply preserves canonical content row counts", () => {
   assert.match(source, /canonicalAfter = canonicalSnapshot/);
   assert.match(source, /canonical content row counts changed during detach/);
 });
+
+
+test("destructive detach linkage changes are committed atomically", () => {
+  assert.match(source, /BEGIN TRANSACTION/);
+  assert.match(source, /COMMIT/);
+  assert.match(source, /detachSql\(target, createRows, before\.linkedClusters\)/);
+});
