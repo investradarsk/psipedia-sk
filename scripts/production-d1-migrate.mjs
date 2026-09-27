@@ -493,12 +493,10 @@ function tavilyEventRootState(databaseName, configPath) {
   return rows[0];
 }
 
-export function assertTavilyEventCadenceState(row) {
+export function assertTavilyEventCadenceState(row, expectedLifecycle = null) {
   invariant(String(row.root_key) === "tavily-sk-dog-events", "Tavily EVENT root key changed unexpectedly");
   invariant(String(row.discovery_type) === "SEARCH_PROVIDER", "Tavily EVENT discovery type changed unexpectedly");
   invariant(String(row.entity_type) === "EVENT", "Tavily EVENT entity type changed unexpectedly");
-  invariant(Number(row.enabled) === 0, "Tavily EVENT root must remain disabled");
-  invariant(String(row.review_status) === "PENDING", "Tavily EVENT root must remain PENDING");
   invariant(Number(row.cadence_minutes) === 2880, "Tavily EVENT cadence must be 2880 minutes");
   invariant(String(row.provider) === "tavily", "Tavily EVENT provider changed unexpectedly");
   invariant(String(row.country) === "SK", "Tavily EVENT country changed unexpectedly");
@@ -512,6 +510,18 @@ export function assertTavilyEventCadenceState(row) {
   invariant(String(row.query_0) === "kynologický kalendár podujatí Slovensko", "Tavily EVENT query 1 changed unexpectedly");
   invariant(String(row.query_1) === "agility preteky kalendár Slovensko", "Tavily EVENT query 2 changed unexpectedly");
   invariant(String(row.query_2) === "mushing preteky kalendár Slovensko", "Tavily EVENT query 3 changed unexpectedly");
+
+  if (expectedLifecycle) {
+    invariant(
+      Number(row.enabled) === Number(expectedLifecycle.enabled),
+      `Tavily EVENT enabled state changed during migration: before=${expectedLifecycle.enabled}, after=${row.enabled}`,
+    );
+    invariant(
+      String(row.review_status) === String(expectedLifecycle.review_status),
+      `Tavily EVENT review status changed during migration: before=${expectedLifecycle.review_status}, after=${row.review_status}`,
+    );
+  }
+
   return true;
 }
 
@@ -1468,6 +1478,10 @@ async function preflight(targetMigration) {
   const partnerAuthBefore = targetIndex >= 70
     ? partnerAuthPreservationSnapshot(databaseName, prepared.configPath)
     : null;
+  const tavilyEventRootBefore = targetIndex >= 86
+    ? tavilyEventRootState(databaseName, prepared.configPath)
+    : null;
+  if (tavilyEventRootBefore) assertTavilyEventCadenceState(tavilyEventRootBefore);
 
   invariant(snapshot.duplicateDirectoryAnchors === 0, "Duplicate directory canonical resources detected");
   invariant(snapshot.duplicateOrganizationAnchors === 0, "Duplicate organization canonical resources detected");
@@ -1496,6 +1510,7 @@ async function preflight(targetMigration) {
     partnerRebuildBefore,
     geoCountBefore,
     partnerAuthBefore,
+    tavilyEventRootBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -1516,6 +1531,7 @@ async function preflight(targetMigration) {
     partnerRebuildBefore,
     geoCountBefore,
     partnerAuthBefore,
+    tavilyEventRootBefore,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -1647,7 +1663,7 @@ async function verify(targetMigration) {
   let tavilyEventRoot = null;
   if (targetIndex >= 86) {
     tavilyEventRoot = tavilyEventRootState(databaseName, prepared.configPath);
-    assertTavilyEventCadenceState(tavilyEventRoot);
+    assertTavilyEventCadenceState(tavilyEventRoot, internal.tavilyEventRootBefore);
   }
 
   let partnerContactProfileCount = null;
@@ -1721,10 +1737,14 @@ async function verify(targetMigration) {
     historyVerifiedThrough: targetMigration,
     tavilyEventRoot: targetIndex >= 86 ? {
       rootKey: "tavily-sk-dog-events",
-      enabled: false,
-      reviewStatus: "PENDING",
-      cadenceMinutes: 2880,
-      queryCooldownMinutes: 2880,
+      enabled: Boolean(Number(tavilyEventRoot.enabled)),
+      reviewStatus: String(tavilyEventRoot.review_status),
+      cadenceMinutes: Number(tavilyEventRoot.cadence_minutes),
+      queryCooldownMinutes: Number(tavilyEventRoot.query_cooldown_minutes),
+      lifecyclePreservedFromPreflight: internal.tavilyEventRootBefore
+        ? Number(tavilyEventRoot.enabled) === Number(internal.tavilyEventRootBefore.enabled)
+          && String(tavilyEventRoot.review_status) === String(internal.tavilyEventRootBefore.review_status)
+        : null,
       invariantsVerified: true,
     } : null,
     geoFoundation,
