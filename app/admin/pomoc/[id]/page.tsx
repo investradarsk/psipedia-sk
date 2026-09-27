@@ -4,7 +4,7 @@ import { AdminAutomationDraftWarning } from "@/components/admin-automation-draft
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedHelpCaseById } from "@/lib/help-store";
-import { getAutomationDraftDuplicateWarning } from "@/lib/data-automation-store";
+import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -14,8 +14,8 @@ export default async function EditHelpCasePage({ params }: Props) {
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
   const user = await requireAdminPageUser(`/admin/pomoc/${id}`);
   const item = await getManagedHelpCaseById(numericId); if (!item) notFound();
-  const duplicateWarning = await getAutomationDraftDuplicateWarning("FOSTER", item.id).catch(() => null)
-    ?? await getAutomationDraftDuplicateWarning("HELP_ITEM", item.id).catch(() => null);
+  const duplicateWarning = await getCanonicalDraftDuplicateWarning("FOSTER", item.id).catch(() => null)
+    ?? await getCanonicalDraftDuplicateWarning("HELP_ITEM", item.id).catch(() => null);
   return <AdminShell
     user={user}
     eyebrow={item.status === "published" ? "Publikovaný Help záznam" : "Rozpracovaný Help koncept"}
