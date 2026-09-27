@@ -14,6 +14,7 @@ export const CANONICAL_TABLES = Object.freeze([
   "lost_found_dog_reports",
   "articles",
   "geo_points",
+  "canonical_draft_flags",
 ]);
 
 export const KEEP_TABLES = Object.freeze([
@@ -25,10 +26,12 @@ export const KEEP_TABLES = Object.freeze([
   "automation_governance_review_history",
   "automation_entity_match_decisions",
   "automation_canonical_apply_operations",
+  "automation_ingestion_receipts",
 ]);
 
 export const UNCERTAIN_TABLES = Object.freeze([
   "automation_cluster_canonical_claims",
+  "automation_applications",
 ]);
 
 export const DELETE_TABLE_ORDER = Object.freeze([
@@ -57,7 +60,9 @@ export const BLOCKER_QUERIES = Object.freeze({
   canonicalApplyOperations: "SELECT COUNT(*) AS count FROM automation_canonical_apply_operations",
   canonicalClusterClaims: "SELECT COUNT(*) AS count FROM automation_cluster_canonical_claims",
   canonicalLinkedClusters: "SELECT COUNT(*) AS count FROM automation_entity_clusters WHERE canonical_entity_id IS NOT NULL OR canonical_entity_key IS NOT NULL",
-  duplicateDraftWarnings: "SELECT COUNT(*) AS count FROM automation_findings WHERE finding_type='DUPLICATE_CANDIDATE' AND canonical_entity_id IS NOT NULL",
+  automationApplications: "SELECT COUNT(*) AS count FROM automation_applications",
+  createDraftApplications: "SELECT COUNT(*) AS count FROM automation_applications WHERE application_type='CREATE_DRAFT'",
+  updateExistingApplications: "SELECT COUNT(*) AS count FROM automation_applications WHERE application_type='UPDATE_EXISTING'",
 });
 
 function invariant(condition, message) {
@@ -179,6 +184,9 @@ function preview(target) {
     editorialAutomationFinding: tableExists(target, "editorial_notifications")
       ? scalar(target, "SELECT COUNT(*) AS count FROM editorial_notifications WHERE resource_type='automation_finding'")
       : 0,
+    canonicalDraftFlags: tableExists(target, "canonical_draft_flags")
+      ? scalar(target, "SELECT COUNT(*) AS count FROM canonical_draft_flags")
+      : 0,
   };
 
   const report = {
@@ -226,6 +234,7 @@ function apply(target, before) {
   invariant(keepAfter.automation_governance_review_history === keepBefore.automation_governance_review_history, "governance history count changed");
   invariant(keepAfter.automation_entity_match_decisions === keepBefore.automation_entity_match_decisions, "manual match-memory count changed");
   invariant(keepAfter.automation_canonical_apply_operations === keepBefore.automation_canonical_apply_operations, "canonical apply provenance count changed");
+  invariant(keepAfter.automation_ingestion_receipts === keepBefore.automation_ingestion_receipts, "ingestion receipt count changed");
 
   for (const table of DELETE_TABLE_ORDER) {
     if (tableExists(target, table)) invariant(requiredCount(target, table) === 0, `${table} is not empty after cleanup`);
