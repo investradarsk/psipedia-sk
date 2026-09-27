@@ -28,6 +28,13 @@ export default async function AdminTechnicalToolsPage() {
           <span className={styles.hubOpen}>Otvoriť GEO nástroje →</span>
         </Link>
 
+        <Link className={styles.hubCard} href="/admin/nastroje/google-places">
+          <span className={styles.hubKicker}>GOOGLE PLACES</span>
+          <h2>Place ID canary</h2>
+          <p>Bounded preview a explicitný apply Google Place identity pre exact DIRECTORY profily.</p>
+          <span className={styles.hubOpen}>Otvoriť Place ID canary →</span>
+        </Link>
+
         <Link className={styles.hubCard} href="/admin/nastroje/address-enrichment">
           <span className={styles.hubKicker}>DIRECTORY</span>
           <h2>Doplnenie adries</h2>
