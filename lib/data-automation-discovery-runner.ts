@@ -543,6 +543,9 @@ async function discoverCandidates(
   if (root.discoveryType === "SEARCH_PROVIDER") {
     const providerKey = typeof root.config.provider === "string" ? root.config.provider.trim() : "";
     if (!providerKey) throw new AutomationSearchProviderError("CONFIG_MISSING");
+    const directoryCategory = root.entityType === "DIRECTORY" && typeof root.config.directoryCategory === "string"
+      ? root.config.directoryCategory.trim()
+      : "";
     const provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
     const policy = automationSearchBudgetPolicy(root);
     const requests = searchRequestInputs(root).slice(0, policy.queriesPerRun);
@@ -628,6 +631,7 @@ async function discoverCandidates(
             ...candidate,
             metadata: {
               ...(candidate.metadata ?? {}),
+              ...(directoryCategory ? { directoryCategory } : {}),
               searchOperationKey: operationKey,
             },
           }));
