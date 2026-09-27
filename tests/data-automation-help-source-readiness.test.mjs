@@ -239,18 +239,21 @@ test("candidate preview, source test, enable and manual run share fail-closed HE
   assert.doesNotMatch(store, /UPDATE automation_sources SET enabled=1[\s\S]*reviewAutomationSourceCandidate/);
 });
 
-test("candidate and source UI expose HELP readiness without asking for a technical adapter key", () => {
+test("candidate and source UI expose universal readiness without asking for a technical adapter key", () => {
   const candidate = read("components/admin-automation-candidate-review.tsx");
   const sourceDetail = read("components/admin-automation-source-detail.tsx");
 
-  for (const ui of [candidate, sourceDetail]) {
-    assert.match(ui, /Technická pripravenosť/);
-    assert.match(ui, /Typ zdroja/);
-    assert.match(ui, /Technická pripravenosť/);
-    assert.match(ui, /Potrebuje podporovaný adapter/);
-    assert.match(ui, /Pokročilé — readiness detail/);
-  }
+  assert.match(candidate, /Bezpečnostná kontrola/);
+  assert.match(candidate, /Typ zdroja/);
+  assert.match(candidate, /Potrebuje podporovaný adapter/);
+  assert.match(candidate, /Pokročilé — technická pripravenosť/);
+
+  assert.match(sourceDetail, /Technická pripravenosť/);
+  assert.match(sourceDetail, /Typ zdroja/);
+  assert.match(sourceDetail, /Pokročilé — readiness detail/);
+
   assert.doesNotMatch(candidate, /input[^>]+htmlAdapterKey/i);
+  assert.doesNotMatch(sourceDetail, /input[^>]+htmlAdapterKey/i);
 });
 
 test("preview remains read-only and matching/canonical stores are untouched by HELP readiness", () => {
