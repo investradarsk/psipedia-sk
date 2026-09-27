@@ -310,6 +310,70 @@ test("unexpected null search_text fails closed instead of crashing map search", 
   assert.deepEqual(result.items, []);
 });
 
+test("map search SQL prefilter is punctuation-safe while application matching stays exact", async () => {
+  const name = "Športové skúšky IGP – KK Dolná Mariková";
+  const event = row({
+    geo_point_id: 39,
+    entity_type: "event",
+    entity_id: 239,
+    name,
+    slug: "sportove-skusky-igp-kk-dolna-marikova",
+    subcategory: "Skúšky",
+    latitude: 49.15,
+    longitude: 18.32,
+    canonical_status: "published",
+    event_start_date: "2030-09-27",
+    event_start_time: "09:00",
+    event_end_date: "2030-09-27",
+    event_end_time: "16:00",
+    verified: 0,
+    featured: 0,
+    online: 0,
+  });
+  const likeBindings = [];
+  const base = fakeDb({ events: [event] });
+  const guardedDb = {
+    prepare(sql) {
+      const statement = base.prepare(sql);
+      const originalBind = statement.bind.bind(statement);
+      statement.bind = (...bindings) => {
+        if (sql.includes("JOIN managed_events")) {
+          likeBindings.push(...bindings.filter((binding) =>
+            typeof binding === "string" && binding.startsWith("%") && binding.endsWith("%")
+          ));
+        }
+        return originalBind(...bindings);
+      };
+      return statement;
+    },
+  };
+
+  const result = await queryPublicMap(
+    parseMapQuery(params({ zoom: "7", category: "events", search: name })),
+    guardedDb,
+    NOW,
+  );
+
+  assert.deepEqual(likeBindings, [
+    "%sportove%",
+    "%skusky%",
+    "%igp%",
+    "%kk%",
+    "%dolna%",
+    "%marikova%",
+  ]);
+  assert.equal(result.mode, "clusters");
+  assert.equal(result.meta.matched, 1);
+  assert.equal(result.clusters[0].singletonItem?.name, name);
+
+  const falsePositive = await queryPublicMap(
+    parseMapQuery(params({ zoom: "7", category: "events", search: "IGP Dolná Nitra" })),
+    fakeDb({ events: [event] }),
+    NOW,
+  );
+  assert.equal(falsePositive.meta.matched, 0);
+});
+
 test("long map search stays within the D1 LIKE pattern limit and still matches the full normalized query", async () => {
   const name = "Špeciálna výstava švajčiarskych salašníckych psov";
   const event = row({

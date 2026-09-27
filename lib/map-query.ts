@@ -165,14 +165,26 @@ const D1_LIKE_WILDCARD_BYTES = 2;
 function parameterizedSearch(query: MapQueryInput, expression: string) {
   if (!query.search) return { sql: "", bindings: [] as unknown[] };
   const normalized = normalizeDirectorySearchText(query.search);
-  // normalizeDirectorySearchText() is ASCII-only. D1 caps LIKE/GLOB patterns at
-  // 50 bytes, so reserve two bytes for the surrounding % wildcards. The SQL
-  // predicate remains only a safe prefilter; candidateMatchesQuery() below
-  // validates the complete normalized search string in application code.
-  const sqlNeedle = normalized.slice(0, D1_LIKE_PATTERN_MAX_BYTES - D1_LIKE_WILDCARD_BYTES);
+  // SQL normalization intentionally handles diacritics but not every punctuation
+  // character. A full-phrase LIKE can therefore create false negatives for names
+  // such as "IGP – KK". Use normalized alphanumeric tokens as a conservative
+  // prefilter and leave exact normalized phrase validation to candidateMatchesQuery().
+  //
+  // D1 caps LIKE/GLOB patterns at 50 bytes. normalizeDirectorySearchText() emits
+  // ASCII-only tokens, so reserving two bytes for % wildcards is sufficient.
+  const maxNeedleLength = D1_LIKE_PATTERN_MAX_BYTES - D1_LIKE_WILDCARD_BYTES;
+  const tokens = [...new Set(
+    normalized
+      .split(" ")
+      .filter(Boolean)
+      .map((token) => token.slice(0, maxNeedleLength)),
+  )];
+  if (!tokens.length) return { sql: "", bindings: [] as unknown[] };
+
+  const normalizedExpression = sqlNormalizedExpression(expression);
   return {
-    sql: ` AND ${sqlNormalizedExpression(expression)} LIKE ?`,
-    bindings: [`%${sqlNeedle}%`] as unknown[],
+    sql: tokens.map(() => ` AND ${normalizedExpression} LIKE ?`).join(""),
+    bindings: tokens.map((token) => `%${token}%`) as unknown[],
   };
 }
 
