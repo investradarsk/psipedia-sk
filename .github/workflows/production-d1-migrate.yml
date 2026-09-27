@@ -37,6 +37,7 @@ on:
           - 0087_automation_tavily_help_roots.sql
           - 0088_automation_tavily_organization_root.sql
           - 0089_automation_tavily_directory_roots.sql
+          - 0090_geo_google_place_identity.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -94,6 +95,7 @@ jobs:
             0087_automation_tavily_help_roots.sql) expected_confirmation="APPLY-0087-psipedia-sk-db" ;;
             0088_automation_tavily_organization_root.sql) expected_confirmation="APPLY-0088-psipedia-sk-db" ;;
             0089_automation_tavily_directory_roots.sql) expected_confirmation="APPLY-0089-psipedia-sk-db" ;;
+            0090_geo_google_place_identity.sql) expected_confirmation="APPLY-0090-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
