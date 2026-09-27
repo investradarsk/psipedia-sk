@@ -200,3 +200,46 @@ test("ORGANIZATION-DISCOVERY-1A direct discovery excludes unsupported internal f
   assert.equal(projected.publicPhone, "0900123456");
   assert.doesNotMatch(applySource, /semanticKind:\s*field\(/);
 });
+
+
+test("HELP-INGEST-1D LOST_FOUND type is canonical-safe while validation stays fail-closed", () => {
+  const configMatch = applySource.match(/LOST_FOUND:\s*\{[\s\S]*?table:\s*"lost_found_dog_reports"[\s\S]*?fields:\s*\{([\s\S]*?)\n\s*\},\n\s*\},/);
+  assert.ok(configMatch, "LOST_FOUND entity config must exist");
+  const fields = configMatch[1];
+
+  for (const [key, column] of [
+    ["type", "type"],
+    ["description", "description"],
+    ["eventDate", "event_date"],
+    ["city", "city"],
+    ["locationDescription", "location_description"],
+    ["source", "source"],
+    ["sourceUrl", "source_url"],
+  ]) {
+    assert.match(fields, new RegExp(`\\b${key}: field\\("${column}"`));
+  }
+
+  assert.match(applySource, /return Object\.keys\(diff\)\.filter\(\(key\) => !config\.fields\[key\] && !metadata\.has\(key\)\)/);
+  assert.doesNotMatch(fields, /unknownField:\s*field\(/);
+
+  const validatorMatch = applySource.match(/function validLostFoundType\(value: unknown\) \{([\s\S]*?)\n\}/);
+  assert.ok(validatorMatch, "LOST_FOUND type validator must exist");
+  assert.match(validatorMatch[1], /textValue\(value\)\.toUpperCase\(\)/);
+  assert.match(validatorMatch[1], /type !== "LOST" && type !== "FOUND"/);
+  assert.match(validatorMatch[1], /throw new AutomationApplyUnsupportedError/);
+  assert.match(validatorMatch[1], /return type/);
+});
+
+test("HELP-INGEST-1D LOST_FOUND CREATE_DRAFT keeps semantic type separate from lifecycle", () => {
+  const createMatch = applySource.match(/if \(finding\.entityType === "LOST_FOUND"\) \{([\s\S]*?)\n\s*\}\n\n\s*const isFoster/);
+  assert.ok(createMatch, "LOST_FOUND CREATE_DRAFT branch must exist");
+  const createDraft = createMatch[1];
+
+  assert.match(createDraft, /const type = validLostFoundType\(p\.type\)/);
+  assert.match(createDraft, /type,/);
+  assert.match(createDraft, /status: "DRAFT"/);
+  assert.match(createDraft, /type: after\.type/);
+  assert.match(createDraft, /status: "DRAFT"/);
+  assert.match(createDraft, /published_at: null/);
+  assert.doesNotMatch(createDraft, /status:\s*(?:after\.)?type/);
+});

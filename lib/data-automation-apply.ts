@@ -287,6 +287,7 @@ const entityConfigs: Record<AutomationEntityType, EntityConfig> = {
     keyPrefix: "lost-found",
     updatedBy: false,
     fields: {
+      type: field("type"),
       dogName: field("dog_name"),
       dog_name: field("dog_name", "dogName"),
       sex: field("sex"),
