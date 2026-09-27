@@ -57,6 +57,14 @@ test("possible duplicate drafts use a distinct slug and remain unpublished", asy
   assert.match(apply, /status: "DRAFT"|status: "draft"/);
 });
 
+test("uncertain canonical match becomes warning provenance, not the duplicate draft target", async () => {
+  const runner = await read("lib/data-automation-runner.ts");
+  assert.match(runner, /findingCanonicalEntityId = classified\.findingType === "DUPLICATE_CANDIDATE" \? null : match\.entityId/);
+  assert.match(runner, /duplicateCandidates/);
+  assert.match(runner, /match\.entityKey/);
+  assert.match(runner, /type === "NEW_ENTITY" \|\| type === "DUPLICATE_CANDIDATE"\) return/);
+});
+
 test("automation only fills parsed fields while draft constructors keep missing optional fields empty", async () => {
   const apply = await read("lib/data-automation-apply.ts");
   assert.match(apply, /textValue\(p\.description\)/);
