@@ -285,14 +285,19 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect(singletonCard).toContainText(singletonTarget.name);
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
 
-    const singletonMarkerSelector = `gmp-advanced-marker[data-map-marker-id="${singletonTarget.id}"]`;
-    await expect(page.locator(singletonMarkerSelector)).toBeVisible({ timeout: 15000 });
-    const requestsBeforeSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
-    await clickRenderedMarker(page, singletonMarkerSelector);
+    // Exercise the stable public selection control rather than Google Maps'
+    // internal AdvancedMarkerElement DOM/event implementation. Marker/cluster
+    // lifecycle is covered separately by the dedicated real-cluster live audit.
+    const mapInitCountBeforeSelection = await page.evaluate(
+      () => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__ ?? 0,
+    );
+    await singletonCard.getByRole("button", { name: `Zobraziť ${singletonTarget.name} na mape` }).click();
     await expect(singletonCard).toHaveAttribute("data-selected", "true");
-    await page.waitForTimeout(500);
-    const requestsAfterSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
-    expect(requestsAfterSingletonClick).toBe(requestsBeforeSingletonClick);
+    await expect.poll(
+      () => page.evaluate(
+        () => (window as Window & { __PSIPEDIA_MAP_INIT_COUNT__?: number }).__PSIPEDIA_MAP_INIT_COUNT__ ?? 0,
+      ),
+    ).toBe(mapInitCountBeforeSelection);
     expect(new URL(page.url()).pathname).toBe("/mapa");
 
     // Filter/search must not recreate the Google map.
