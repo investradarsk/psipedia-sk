@@ -222,8 +222,27 @@ async function processRecord(
     return { finding: null, created: false, reopened: false, processed: true };
   }
   const proposedForFinding = findingProposal ?? record.proposed;
-  const observationHash = await sha256Hex(record.rawRecord);
   const proposalHash = await sha256Hex(proposedForFinding);
+
+  let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
+    ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
+    : await matchAutomationCanonical(source, record, database);
+
+  if (match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
+    const receipt = await createAutomationIngestionReceipt({
+      sourceId: source.id,
+      entityType: source.entityType,
+      sourceRecordId: record.sourceRecordId,
+      sourceUrl: record.sourceUrl,
+      payloadHash: proposalHash,
+      result: "SKIPPED_DUPLICATE",
+      firstProcessedAt: detectedAt,
+    }, database);
+    if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+    return { finding: null, created: false, reopened: false, processed: true, receipt };
+  }
+
+  const observationHash = await sha256Hex(record.rawRecord);
   const observationId = await recordAutomationObservation({
     sourceId: source.id,
     runId,
@@ -278,10 +297,6 @@ async function processRecord(
     return { finding: findingType, draft, ...result };
   }
 
-  let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
-    ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
-    : await matchAutomationCanonical(source, record, database);
-
   if (clusterResolution?.canonicalEntityId && !match.entityId) {
     match = {
       entityType: source.entityType,
@@ -294,20 +309,6 @@ async function processRecord(
         key: clusterResolution.canonicalEntityKey ?? `${source.entityType.toLowerCase()}:${clusterResolution.canonicalEntityId}`,
       }],
     };
-  }
-
-  if (match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
-    const receipt = await createAutomationIngestionReceipt({
-      sourceId: source.id,
-      entityType: source.entityType,
-      sourceRecordId: record.sourceRecordId,
-      sourceUrl: record.sourceUrl,
-      payloadHash: proposalHash,
-      result: "SKIPPED_DUPLICATE",
-      firstProcessedAt: detectedAt,
-    }, database);
-    if (!receipt) throw new Error("automation_ingestion_receipt_missing");
-    return { finding: null, created: false, reopened: false, processed: true, receipt };
   }
 
   const classified = classifyAutomationFinding({ match, proposed: proposedForFinding });
