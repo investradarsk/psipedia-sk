@@ -397,7 +397,6 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
     const importKey = String(proposed.importKey ?? proposed.import_key ?? "");
     const registration = String(proposed.registrationNumber ?? proposed.registration_number ?? "");
     const websiteUrl = String(proposed.websiteUrl ?? proposed.website_url ?? "");
-    const region = String(proposed.region ?? "");
     result = await db.prepare(`SELECT * FROM help_organizations
       WHERE slug=? OR import_key=? OR registration_number=? OR website_url=? OR name=? COLLATE NOCASE
         OR (?<>'' AND city=? COLLATE NOCASE)
@@ -410,7 +409,6 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
       sourceUrl: String(row.source_url ?? "") || null,
       websiteUrl: String(row.website_url ?? "") || null,
       before: organizationBefore(row),
-      region: String(row.region ?? region) || null,
     }));
   }
 
