@@ -333,44 +333,6 @@ async function ensureAutomationResourceAnchor(
   }
 }
 
-function own(value: Record<string, unknown>, key: string) {
-  return Object.prototype.hasOwnProperty.call(value, key);
-}
-
-function parseObject(value: unknown): Record<string, unknown> {
-  if (typeof value !== "string" || !value) return {};
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
-}
-
-function encodeValue(spec: FieldSpec, value: unknown) {
-  if (value === undefined) return null;
-  if (spec.kind === "boolean") return value === null ? null : (Boolean(value) ? 1 : 0);
-  if (spec.kind === "json") return JSON.stringify(value ?? []);
-  if (spec.kind === "number") {
-    if (value === null || value === "") return null;
-    const number = Number(value);
-    if (!Number.isFinite(number)) throw new AutomationApplyUnsupportedError(`Hodnota pre ${spec.canonicalKey ?? spec.column} nie je platné číslo.`);
-    return number;
-  }
-  if (value === null) return null;
-  return String(value).trim();
-}
-
-function decodeValue(spec: FieldSpec, value: unknown) {
-  if (spec.kind === "boolean") return value === null || value === undefined ? null : Boolean(value);
-  if (spec.kind === "json") {
-    if (typeof value !== "string") return [];
-    try { return JSON.parse(value); } catch { return []; }
-  }
-  if (spec.kind === "number") return value === null || value === undefined ? null : Number(value);
-  return value ?? null;
-}
-
 function textValue(value: unknown) {
   return typeof value === "string" ? value.trim() : value === null || value === undefined ? "" : String(value).trim();
 }
