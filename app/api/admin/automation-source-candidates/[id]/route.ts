@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { previewAutomationSource } from "@/lib/data-automation-preview";
 import { buildOrganizationConceptFromDiscoveryCandidate } from "@/lib/data-automation-organization-discovery-concept";
-import { automationHelpSourceReadiness } from "@/lib/data-automation-help-source-readiness";
+import { automationSourceReadiness } from "@/lib/data-automation-capability-registry";
 import {
   getAutomationSourceAdmin,
   reviewAutomationSource,
@@ -17,16 +17,8 @@ type Props = { params: Promise<{ id: string }> };
 type RuntimeBindings = { DB?: D1Database };
 
 function sourceReadyForSafeTest(source: AutomationSourceAdminRow) {
-  const helpReadiness = automationHelpSourceReadiness(source);
-  if (helpReadiness.applicable) return helpReadiness.ready;
   if (!source.sourceUrl || source.connectorType === "MANUAL_IMPORT") return false;
-  if (source.connectorType === "CONTROLLED_HTML") {
-    return Boolean(source.config.htmlAdapterKey?.trim());
-  }
-  if (source.connectorType === "STRUCTURED_JSON") {
-    return Boolean(source.config.fields && Object.keys(source.config.fields).length);
-  }
-  return true;
+  return automationSourceReadiness(source).ready;
 }
 
 export async function PUT(request: Request, { params }: Props) {
