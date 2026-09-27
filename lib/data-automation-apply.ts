@@ -506,7 +506,9 @@ export async function applyAutomationFinding(input: {
       const refreshed = await getAutomationFindingDetail(finding.id, db);
       if (!refreshed) throw new Error("automation_duplicate_resolution_missing");
       return { finding: refreshed, application: null };
-      if (!finding.sourceRecordId) {
+    }
+
+    if (!finding.sourceRecordId) {
         throw new AutomationApplyConflictError("Finding nemá stabilnú source-record identitu pre ingestion receipt.");
       }
 
