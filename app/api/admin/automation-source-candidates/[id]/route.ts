@@ -5,7 +5,9 @@ import { buildOrganizationConceptFromDiscoveryCandidate } from "@/lib/data-autom
 import { automationHelpSourceReadiness } from "@/lib/data-automation-help-source-readiness";
 import {
   getAutomationSourceAdmin,
+  reviewAutomationSource,
   reviewAutomationSourceCandidate,
+  setAutomationSourceEnabled,
   sourceAdminRowToRuntimeSource,
   type AutomationSourceAdminRow,
 } from "@/lib/data-automation-source-store";
@@ -61,19 +63,46 @@ export async function PUT(request: Request, { params }: Props) {
 
     let source: AutomationSourceAdminRow | null = null;
     let preview: Awaited<ReturnType<typeof previewAutomationSource>> | null = null;
+    let activation: { enabled: boolean; blockedReason: string | null } | null = null;
     if (action === "approve" && candidate.duplicateSourceId) {
-      source = await getAutomationSourceAdmin(candidate.duplicateSourceId);
       const db = (env as unknown as RuntimeBindings).DB;
-      if (source && db && sourceReadyForSafeTest(source)) {
-        // Read-only preview: observations/findings/canonical/publication writes stay zero.
-        preview = await previewAutomationSource({
-          source: sourceAdminRowToRuntimeSource(source),
-          database: db,
-        });
+      source = await getAutomationSourceAdmin(candidate.duplicateSourceId, db);
+      if (source && db) {
+        if (source.reviewStatus !== "APPROVED") {
+          source = await reviewAutomationSource({
+            id: source.id,
+            action: "approve",
+            reviewerEmail: auth.user.email,
+            notes: typeof body?.notes === "string" ? body.notes : null,
+          }, db);
+        }
+        if (source && sourceReadyForSafeTest(source)) {
+          // Read-only preview happens before activation. Canonical/publication writes stay zero.
+          preview = await previewAutomationSource({
+            source: sourceAdminRowToRuntimeSource(source),
+            database: db,
+          });
+        }
+        if (source && preview?.ok) {
+          try {
+            source = await setAutomationSourceEnabled({ id: source.id, enabled: true }, db);
+            activation = { enabled: Boolean(source?.enabled), blockedReason: null };
+          } catch (error) {
+            activation = {
+              enabled: false,
+              blockedReason: error instanceof Error ? error.message : "automation_source_activation_blocked",
+            };
+          }
+        } else if (source) {
+          activation = {
+            enabled: false,
+            blockedReason: "automation_source_not_ready_for_safe_activation",
+          };
+        }
       }
     }
 
-    return Response.json({ candidate, source, preview }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ candidate, source, preview, activation }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Kandidáta sa nepodarilo spracovať." }, { status: 409 });
   }

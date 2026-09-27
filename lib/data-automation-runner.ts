@@ -31,8 +31,27 @@ import {
   resolveAutomationEntityCluster,
 } from "./data-automation-clustering.ts";
 import { isDirectoryFacilityObservation } from "./data-automation-directory-matching.ts";
+import { applyAutomationFinding } from "./data-automation-apply.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
+const AUTOMATION_DRAFT_ACTOR = "automation@psipedia.sk";
+
+async function createCanonicalDraftForFinding(
+  findingId: number,
+  findingType: AutomationFindingType,
+  database: D1Database,
+  detectedAt: string,
+) {
+  if (findingType !== "NEW_ENTITY" && findingType !== "DUPLICATE_CANDIDATE") return null;
+  return applyAutomationFinding({
+    id: findingId,
+    reviewerEmail: AUTOMATION_DRAFT_ACTOR,
+    notes: findingType === "DUPLICATE_CANDIDATE"
+      ? "Automaticky vytvorený koncept. ⚠️ Možná duplicita — skontrolovať pred publikovaním."
+      : "Automaticky vytvorený koncept zo schváleného zdroja.",
+    now: new Date(detectedAt),
+  }, database);
+}
 
 export type DataAutomationSweepOptions = {
   database: D1Database;
@@ -246,7 +265,8 @@ async function processRecord(
       database,
       new Date(detectedAt),
     );
-    return { finding: findingType, ...result };
+    const draft = await createCanonicalDraftForFinding(result.id, findingType, database, detectedAt);
+    return { finding: findingType, draft, ...result };
   }
 
   let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
@@ -336,7 +356,8 @@ async function processRecord(
     database,
     new Date(detectedAt),
   );
-  return { finding: classified.findingType, ...result };
+  const draft = await createCanonicalDraftForFinding(result.id, classified.findingType, database, detectedAt);
+  return { finding: classified.findingType, draft, ...result };
 }
 
 export async function processAutomationRecordForReview(input: {

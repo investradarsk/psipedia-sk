@@ -3,7 +3,6 @@ import { ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {
   ADMIN_ATTENTION_SOURCE_LIMIT,
   mapAdoptionStaleAttention,
-  mapAutomationFindingAttention,
   mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
@@ -20,7 +19,6 @@ import {
   mapPartnerCommercialAgreementAttention,
   sortAdminAttentionItems,
   type AdoptionStaleAttentionRow,
-  type AutomationFindingAttentionRow,
   type ArticleFeedbackAttentionRow,
   type DirectoryChangeRequestAttentionRow,
   type DirectoryInquiryAttentionRow,
@@ -322,22 +320,7 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     LIMIT ?
   `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<GeoLocationAttentionRow>();
 
-  const automationPromise = db.prepare(`
-    SELECT f.id, f.entity_type AS entityType, f.finding_type AS findingType, f.priority,
-      f.review_status AS reviewStatus, s.label AS sourceLabel, f.source_url AS sourceUrl,
-      f.first_detected_at AS firstDetectedAt, f.last_detected_at AS lastDetectedAt
-    FROM automation_findings f
-    JOIN automation_sources s ON s.id = f.source_id
-    ORDER BY
-      CASE WHEN f.review_status IN ('NEW','IN_REVIEW') THEN 0 ELSE 1 END,
-      CASE f.priority WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
-      CASE WHEN f.review_status IN ('NEW','IN_REVIEW') THEN f.first_detected_at END ASC,
-      CASE WHEN f.review_status NOT IN ('NEW','IN_REVIEW') THEN f.last_detected_at END DESC,
-      f.id ASC
-    LIMIT ?
-  `).bind(ADMIN_ATTENTION_SOURCE_LIMIT).all<AutomationFindingAttentionRow>();
-
-  const [moderation, profileReviews, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, newProfiles, partnerEvents, verifications, commercial, commercialAgreements, geo, automation] = await Promise.all([
+  const [moderation, profileReviews, newsTips, changeRequests, inquiries, feedback, adoptions, claims, profileChanges, newProfiles, partnerEvents, verifications, commercial, commercialAgreements, geo] = await Promise.all([
     safeSourceResults("moderation", moderationPromise),
     safeSourceResults("profile_reviews", profileReviewsPromise),
     safeSourceResults("news_tips", newsTipsPromise),
@@ -353,7 +336,6 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     safeSourceResults("partner_commercial_interests", commercialPromise),
     safeSourceResults("partner_commercial_agreements", commercialAgreementsPromise),
     safeSourceResults("geo_points", geoPromise),
-    safeSourceResults("automation_findings", automationPromise),
   ]);
 
   return sortAdminAttentionItems([
@@ -372,7 +354,6 @@ export async function loadAdminAttentionQueue(database?: AdminAttentionD1Databas
     ...commercial.map((row) => mapPartnerCommercialAttention(row, now)),
     ...commercialAgreements.map((row) => mapPartnerCommercialAgreementAttention(row, now)),
     ...geo.map((row) => mapGeoLocationAttention(row, now)),
-    ...automation.map((row) => mapAutomationFindingAttention(row, now)),
   ]);
 }
 
@@ -388,7 +369,6 @@ export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1
     ["DIRECTORY_INQUIRY",`SELECT COUNT(*) count FROM directory_inquiries WHERE status IN ('new','read')`,[]],
     ["ARTICLE_FEEDBACK",`SELECT COUNT(*) count FROM article_feedback WHERE helpful=0 AND status IN ('new','reviewing')`,[]],
     ["ADOPTION_STALE",`SELECT COUNT(*) count FROM adoption_dogs WHERE status IN ('ACTIVE','RESERVED') AND (last_verified_at IS NULL OR last_verified_at<?)`,[staleThreshold]],
-    ["AUTOMATION_FINDING",`SELECT COUNT(*) count FROM automation_findings WHERE review_status IN ('NEW','IN_REVIEW')`,[]],
     ["PARTNER_CLAIM_REVIEW",`SELECT COUNT(*) count FROM partner_claims WHERE status='PENDING'`,[]],
     ["PARTNER_PROFILE_CHANGE_REVIEW",`SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_profile_change_metadata m ON m.submission_id=s.id WHERE s.resource_type IN ('DIRECTORY_PROFILE','HELP_ORGANIZATION') AND s.submitter_type='PARTNER_ACCOUNT' AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],
     ["PARTNER_NEW_PROFILE_REVIEW",`SELECT COUNT(*) count FROM moderation_submissions s JOIN partner_new_profile_metadata m ON m.submission_id=s.id WHERE s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')`,[]],

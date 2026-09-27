@@ -313,6 +313,7 @@ const entityConfigs: Record<AutomationEntityType, EntityConfig> = {
 
 const applicableFindingTypes = new Set<AutomationFindingType>([
   "NEW_ENTITY",
+  "DUPLICATE_CANDIDATE",
   "POSSIBLE_UPDATE",
   "POSSIBLE_CANCELLED",
 ]);
@@ -388,6 +389,17 @@ function slugifyDraft(value: unknown, fallback: string) {
   return automationDraftSlug(value, fallback);
 }
 
+function automationDraftSlugForFinding(
+  finding: Pick<AutomationFindingDetail, "id" | "findingType">,
+  value: unknown,
+  fallback: string,
+) {
+  const base = slugifyDraft(value, fallback);
+  return finding.findingType === "DUPLICATE_CANDIDATE"
+    ? automationDraftSlug(base + "-koncept-" + finding.id, fallback + "-koncept-" + finding.id)
+    : base;
+}
+
 function validOrganizationType(value: unknown) {
   const type = textValue(value);
   return ["SHELTER","CIVIC_ASSOCIATION","RESCUE_ORGANIZATION","MUNICIPAL_ORGANIZATION","NONPROFIT","OTHER"].includes(type)
@@ -440,10 +452,10 @@ function createDraftStatement(
     const city = textValue(p.city);
     const organizer = textValue(p.organizer);
     const after = {
-      slug: slugifyDraft(p.slug, title + "-" + startDate),
+      slug: automationDraftSlugForFinding(finding, p.slug, title + "-" + startDate),
       title,
       excerpt: textValue(p.excerpt),
-      eventType: textValue(p.eventType ?? p.event_type) || "Iné",
+      eventType: textValue(p.eventType ?? p.event_type),
       status: "draft",
       startDate,
       startTime: textValue(p.startTime ?? p.start_time),
@@ -453,7 +465,7 @@ function createDraftStatement(
       city,
       region: textValue(p.region),
       address: textValue(p.address),
-      organizer: organizer || finding.sourceLabel,
+      organizer,
       description: textValue(p.description),
       practicalInfo: textValue(p.practicalInfo),
       websiteUrl: nullableText(p.websiteUrl ?? p.website_url ?? finding.sourceUrl),
@@ -499,7 +511,7 @@ function createDraftStatement(
     const metadata = sourceMetadata("ORGANIZATION", p);
     const after = {
       name,
-      slug: slugifyDraft(p.slug, name),
+      slug: automationDraftSlugForFinding(finding, p.slug, name),
       legalName: textValue(p.legalName ?? p.legal_name),
       registrationNumber: nullableText(p.registrationNumber ?? p.registration_number),
       type: validOrganizationType(p.type),
@@ -516,7 +528,7 @@ function createDraftStatement(
       city: textValue(p.city),
       district: textValue(p.district),
       region: textValue(p.region),
-      countryCode: textValue(p.countryCode ?? p.country_code) || "SK",
+      countryCode: textValue(p.countryCode ?? p.country_code),
       importKey: nullableText(p.importKey ?? p.import_key),
       sourceUrl: nullableText(p.sourceUrl ?? p.source_url ?? finding.sourceUrl),
       sourceData: metadata,
@@ -564,7 +576,7 @@ function createDraftStatement(
     const category = textValue(p.category);
     if (!name || !category) throw new AutomationApplyUnsupportedError("Nový koncept adresára potrebuje názov a kategóriu.");
     const after = {
-      slug: slugifyDraft(p.slug, name),
+      slug: automationDraftSlugForFinding(finding, p.slug, name),
       name,
       category,
       status: "draft",
@@ -619,7 +631,7 @@ function createDraftStatement(
     if (!name) throw new AutomationApplyUnsupportedError("Nový koncept adopcie potrebuje meno psa.");
     const after = {
       name,
-      slug: slugifyDraft(p.slug, name),
+      slug: automationDraftSlugForFinding(finding, p.slug, name),
       status: "DRAFT",
       sex: textValue(p.sex) || "UNKNOWN",
       birthDate: nullableText(p.birthDate ?? p.birth_date),
@@ -679,7 +691,7 @@ function createDraftStatement(
     const after = {
       type,
       status: "DRAFT",
-      slug: slugifyDraft(p.slug, fallbackSlug),
+      slug: automationDraftSlugForFinding(finding, p.slug, fallbackSlug),
       dogName,
       sex: textValue(p.sex) || "UNKNOWN",
       breed: textValue(p.breed),
@@ -692,7 +704,7 @@ function createDraftStatement(
       district: textValue(p.district),
       city,
       locationDescription: textValue(p.locationDescription ?? p.location_description),
-      source: textValue(p.source) || finding.sourceLabel,
+      source: textValue(p.source),
       sourceUrl: nullableText(p.sourceUrl ?? p.source_url ?? finding.sourceUrl),
     };
     return {
@@ -728,7 +740,7 @@ function createDraftStatement(
   const category = isFoster ? "docasna-opatera" : textValue(p.category);
   if (!title || !category) throw new AutomationApplyUnsupportedError("Nový koncept Pomoc psom potrebuje názov a kategóriu.");
   const after = {
-    slug: slugifyDraft(p.slug, title),
+    slug: automationDraftSlugForFinding(finding, p.slug, title),
     title,
     category,
     status: "draft",
@@ -743,7 +755,7 @@ function createDraftStatement(
     locationNote: textValue(p.locationNote ?? p.location_note),
     reportedDate: nullableText(p.reportedDate ?? p.reported_date),
     deadlineDate: nullableText(p.deadlineDate ?? p.deadline_date),
-    actionLabel: textValue(p.actionLabel) || (isFoster ? "Ponúknuť dočasnú opateru" : "Otvoriť zdroj"),
+    actionLabel: textValue(p.actionLabel),
     actionUrl: nullableText(p.actionUrl ?? p.action_url ?? finding.sourceUrl),
     contactNote: textValue(p.contactNote ?? p.contact_note),
     goalAmount: p.goalAmount ?? p.goal_amount ?? null,
@@ -988,9 +1000,9 @@ export async function applyAutomationFinding(input: {
   const config = entityConfigs[finding.entityType];
   const cluster = await getAutomationClusterForFinding(finding.id, db);
 
-  if (finding.findingType === "NEW_ENTITY") {
+  if (finding.findingType === "NEW_ENTITY" || finding.findingType === "DUPLICATE_CANDIDATE") {
     if (finding.canonicalEntityId) throw new AutomationApplyConflictError("Finding už má canonical záznam.");
-    if (cluster?.canonicalEntityId) {
+    if (finding.findingType === "NEW_ENTITY" && cluster?.canonicalEntityId) {
       throw new AutomationApplyConflictError(
         `Multi-source cluster už je naviazaný na canonical ${cluster.canonicalEntityKey ?? cluster.canonicalEntityId}; druhý draft sa nevytvorí.`,
       );
@@ -1039,11 +1051,11 @@ export async function applyAutomationFinding(input: {
         WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
           finding.id, config.keyPrefix, finding.id, notes, actor, at, finding.id,
         );
-      const clusterClaim = cluster
+      const clusterClaim = cluster && finding.findingType === "NEW_ENTITY"
         ? db.prepare(`INSERT INTO automation_cluster_canonical_claims (cluster_id,finding_id,canonical_entity_id,claimed_at)
             VALUES (?,?,NULL,?)`).bind(cluster.id, finding.id, at)
         : null;
-      const clusterLink = cluster
+      const clusterLink = cluster && finding.findingType === "NEW_ENTITY"
         ? db.prepare(`UPDATE automation_entity_clusters SET
             canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
             canonical_entity_key=? || ':' || (SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?),
@@ -1052,7 +1064,7 @@ export async function applyAutomationFinding(input: {
             finding.id, config.keyPrefix, finding.id, at, cluster.id,
           )
         : null;
-      const clusterClaimComplete = cluster
+      const clusterClaimComplete = cluster && finding.findingType === "NEW_ENTITY"
         ? db.prepare(`UPDATE automation_cluster_canonical_claims SET
             canonical_entity_id=(SELECT canonical_entity_id FROM automation_applications WHERE finding_id=?)
           WHERE cluster_id=? AND finding_id=?`).bind(finding.id, cluster.id, finding.id)

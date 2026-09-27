@@ -3,43 +3,27 @@ import { AdminShell } from "@/components/admin-shell";
 import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
-import { listAutomationFindingSummaries } from "@/lib/data-automation-store";
 import {
   automationUxCategories,
   automationSourcesForCategory,
   automationCandidatesForCategory,
   automationCandidateAttentionCount,
-  automationCategoryFindingCount,
-  automationCategoryLastCheck,
   automationCategoryStatus,
   automationSourceAttentionCount,
 } from "@/lib/admin-automation-presentation";
 
 export const dynamic = "force-dynamic";
 
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("sk-SK", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "Europe/Bratislava",
-  }).format(date);
-}
-
 export default async function AutomationAdminPage() {
   const user = await requireAdminPageUser("/admin/automatizacie");
   let sources = [];
   let candidates = [];
-  let findings = [];
   let unavailable = false;
 
   try {
-    [sources, candidates, findings] = await Promise.all([
+    [sources, candidates] = await Promise.all([
       listAutomationSourcesAdmin(undefined, 200),
       listAutomationSourceCandidates(undefined, 200),
-      listAutomationFindingSummaries(undefined, 500),
     ]);
   } catch {
     unavailable = true;
@@ -75,10 +59,8 @@ export default async function AutomationAdminPage() {
             const categoryCandidates = automationCandidatesForCategory(candidates, category.slug);
             const status = automationCategoryStatus(categorySources);
             const candidateCount = automationCandidateAttentionCount(categoryCandidates);
-            const findingCount = automationCategoryFindingCount(findings, categorySources);
             const sourceAttentionCount = automationSourceAttentionCount(categorySources);
-            const attentionCount = candidateCount + findingCount + sourceAttentionCount;
-            const activeSources = categorySources.filter((source) => source.enabled).length;
+            const attentionCount = candidateCount + sourceAttentionCount;
 
             return (
               <Link
@@ -90,16 +72,21 @@ export default async function AutomationAdminPage() {
                 key={category.slug}
               >
                 <div className={styles.hubCardTop}>
-                  <span className={styles.hubKicker}>{status}</span>
-                  {candidateCount > 0 && <span className={[styles.badge, styles.badgeWarning].join(" ")}>nové zdroje {candidateCount}</span>}
+                  <span className={styles.hubKicker}>{attentionCount > 0 ? "Vyžaduje kontrolu" : status}</span>
+                  {candidateCount > 0 && <span className={[styles.badge, styles.badgeWarning].join(" ")}>{candidateCount} nové zdroje</span>}
                 </div>
-                <div className={styles.hubMetric}>
-                  <strong>{attentionCount}</strong>
-                  <span>na kontrolu</span>
-                </div>
+                {attentionCount > 0 && (
+                  <div className={styles.hubMetric}>
+                    <strong>{attentionCount}</strong>
+                    <span>na rozhodnutie</span>
+                  </div>
+                )}
                 <h2>{category.title}</h2>
-                <p>{activeSources} aktívnych zdrojov · posledná kontrola {formatDate(automationCategoryLastCheck(categorySources))}</p>
-                <span className={styles.hubOpen}>Skontrolovať kategóriu →</span>
+                <p>{category.description}</p>
+                <p>{attentionCount > 0
+                  ? [candidateCount ? candidateCount + " nové zdroje" : null, sourceAttentionCount ? sourceAttentionCount + " problémy zdrojov" : null].filter(Boolean).join(" · ")
+                  : "Momentálne tu nie je nič, čo vyžaduje rozhodnutie."}</p>
+                <span className={styles.hubOpen}>{attentionCount > 0 ? "Skontrolovať →" : "Otvoriť →"}</span>
               </Link>
             );
           })}
