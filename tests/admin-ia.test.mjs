@@ -9,8 +9,8 @@ test("primary admin navigation is alerts-first and separates maps and technical 
   const navigation = shell.slice(shell.indexOf("function AdminNavigation"), shell.indexOf("function BellIcon"));
   assert.match(navigation, /href="\/admin\/automatizacie">Automatizácie<\/Link>/);
   assert.match(navigation, /href="\/admin\/operations">Upozornenia<\/Link>/);
-  assert.match(navigation, /href="\/admin\/operations\/geo">Mapy<\/Link>/);
-  assert.match(navigation, /href="\/admin\/nastroje">Technické nástroje<\/Link>/);
+  assert.match(navigation, /href="\/admin\/mapy">Mapy<\/Link>/);
+  assert.match(navigation, /href="\/admin\/nastroje">Nástroje<\/Link>/);
   assert.match(navigation, /href="\/admin\/partners">Partneri<\/Link>/);
   assert.doesNotMatch(navigation, />Operácie<\/Link>/);
   assert.doesNotMatch(navigation, /href="\/admin\/import"/);
@@ -61,21 +61,25 @@ test("technical utilities are absent from alerts landing and have their own thin
   const alerts = read("app/admin/operations/page.tsx");
   const tools = read("app/admin/nastroje/page.tsx");
   assert.doesNotMatch(alerts, /Geo foundation|Lokality pre budúcu mapu|Profilový outreach/);
-  assert.match(tools, /title="Technické nástroje"/);
+  assert.match(tools, /title="Nástroje"/);
   assert.match(tools, /href="\/admin\/import"/);
   assert.match(tools, /href="\/admin\/operations\/outreach"/);
   assert.doesNotMatch(tools, /fetch\(|method=["'](?:post|put|patch|delete)["']/i);
   assert.equal(existsSync(new URL("../app/api/admin/nastroje", import.meta.url)), false);
 });
 
-test("maps keep the existing GEO route and advanced tools while exposing geo alerts separately", () => {
-  const geo = read("app/admin/operations/geo/page.tsx");
-  assert.match(geo, /requireAdminPageUser\("\/admin\/operations\/geo"\)/);
-  assert.match(geo, /title="Mapy — profily"/);
-  assert.match(geo, /href="\/admin\/operations\?source=GEO_LOCATION_ISSUE"/);
-  assert.match(geo, /AdminGeoOperatorDashboard/);
-  assert.match(geo, /AdminGeoOperations/);
-  assert.match(geo, /Pokročilé nástroje/);
+test("maps are canonical top-level UI while legacy GEO route redirects and technical tools live under Nástroje", () => {
+  const maps = read("app/admin/mapy/page.tsx");
+  const legacyGeo = read("app/admin/operations/geo/page.tsx");
+  const geoTools = read("app/admin/nastroje/geo/page.tsx");
+  assert.match(maps, /requireAdminPageUser\("\/admin\/mapy"\)/);
+  assert.match(maps, /title="Mapy"/);
+  assert.match(maps, /href="\/admin\/operations\?source=GEO_LOCATION_ISSUE"/);
+  assert.match(maps, /AdminGeoOperatorDashboard/);
+  assert.doesNotMatch(maps, /AdminGeoOperations/);
+  assert.match(legacyGeo, /redirect\("\/admin\/mapy"\)/);
+  assert.match(geoTools, /requireAdminPageUser\("\/admin\/nastroje\/geo"\)/);
+  assert.match(geoTools, /AdminGeoOperations/);
 });
 
 test("automation and partner review deep links remain on the existing review systems", () => {

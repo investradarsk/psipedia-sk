@@ -762,7 +762,7 @@ function geoAttentionHref(row: GeoLocationAttentionRow) {
   if (row.targetType === "DIRECTORY_PROFILE") return `/admin/adresar/${row.targetId}#geo`;
   if (row.targetType === "MANAGED_EVENT") return `/admin/podujatia/${row.targetId}#geo`;
   if (row.targetType === "ORGANIZATION_LOCATION" && row.organizationId) return `/admin/organizacie/${row.organizationId}#locations`;
-  return "/admin/operations/geo";
+  return "/admin/mapy";
 }
 
 function geoAttentionReason(row: GeoLocationAttentionRow) {

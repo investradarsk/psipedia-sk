@@ -41,8 +41,8 @@ test("alerts center, shared bell and active/history controls are accessible and 
   await expect(filter.getByLabel("Priorita")).toHaveValue("all");
 
   await expect(page.getByRole("link", { name: "Upozornenia", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Mapy", exact: true })).toHaveAttribute("href", "/admin/operations/geo");
-  await expect(page.getByRole("link", { name: "Technické nástroje", exact: true })).toHaveAttribute("href", "/admin/nastroje");
+  await expect(page.getByRole("link", { name: "Mapy", exact: true })).toHaveAttribute("href", "/admin/mapy");
+  await expect(page.getByRole("link", { name: "Nástroje", exact: true })).toHaveAttribute("href", "/admin/nastroje");
   await expect(page.getByRole("link", { name: "Operácie", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Lokality pre budúcu mapu", exact: true })).toHaveCount(0);
 
@@ -54,16 +54,21 @@ test("technical tools and maps have separate working admin entries without horiz
   let response = await page.goto("/admin/nastroje", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: "Technické nástroje", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nástroje", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Import dát", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Profilový outreach", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 
+  response = await page.goto("/admin/mapy", { waitUntil: "domcontentloaded" });
+  expect(response).not.toBeNull();
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("heading", { name: "Mapy", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Geo lokality na kontrolu", exact: true })).toHaveAttribute("href", "/admin/operations?source=GEO_LOCATION_ISSUE");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
   response = await page.goto("/admin/operations/geo", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: "Mapy — profily", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Geo upozornenia", exact: true })).toHaveAttribute("href", "/admin/operations?source=GEO_LOCATION_ISSUE");
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(page).toHaveURL(/\/admin\/mapy$/);
 });
