@@ -37,6 +37,12 @@ type PreviewResponse = {
   items: PreviewItem[];
 };
 
+type DatasetInput = {
+  schemaVersion: unknown;
+  dataset?: unknown;
+  profiles: unknown[];
+};
+
 type ApplyResult = {
   profileId: number;
   name: string;
@@ -47,6 +53,7 @@ type ApplyResult = {
 };
 
 const APPLY_BATCH_SIZE = 20;
+const PREVIEW_BATCH_SIZE = 20;
 const TOKEN = "ADDRESS-RESEARCH-IMPORT";
 
 function formatAddress(value: CanonicalAddress | null) {
@@ -81,14 +88,19 @@ export default function AdminAddressResearchImport() {
   const [applyResults, setApplyResults] = useState<ApplyResult[]>([]);
   const [processed, setProcessed] = useState(0);
   const [applyTotal, setApplyTotal] = useState(0);
+  const [previewProcessed, setPreviewProcessed] = useState(0);
+  const [previewTotal, setPreviewTotal] = useState(0);
+  const [previewComplete, setPreviewComplete] = useState(false);
 
   const visibleItems = useMemo(
     () => (preview?.items ?? []).filter((item) => filterMatches(item, filter)),
     [preview, filter],
   );
   const readyItems = useMemo(
-    () => (preview?.items ?? []).filter((item) => isReady(item) && item.previewFingerprint && item.record),
-    [preview],
+    () => previewComplete
+      ? (preview?.items ?? []).filter((item) => isReady(item) && item.previewFingerprint && item.record)
+      : [],
+    [preview, previewComplete],
   );
 
   async function onFile(file: File | null) {
@@ -97,6 +109,9 @@ export default function AdminAddressResearchImport() {
     setApplyResults([]);
     setProcessed(0);
     setApplyTotal(0);
+    setPreviewProcessed(0);
+    setPreviewTotal(0);
+    setPreviewComplete(false);
     setDataset(null);
     setFileName(file?.name ?? "");
     if (!file) return;
@@ -117,18 +132,59 @@ export default function AdminAddressResearchImport() {
     setBusy(true);
     setError("");
     setPreview(null);
+    setPreviewProcessed(0);
+    setPreviewTotal(0);
+    setPreviewComplete(false);
     setApplyResults([]);
     try {
-      const response = await fetch("/api/admin/address-research-import/preview", {
+      const validationResponse = await fetch("/api/admin/address-research-import/preview?validateOnly=1", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(dataset),
         cache: "no-store",
       });
-      const body = await response.json() as PreviewResponse & { error?: string };
-      if (!response.ok) throw new Error(body.error || "Preview zlyhalo.");
-      setPreview(body);
+      const validation = await validationResponse.json() as { total?: number; error?: string };
+      if (!validationResponse.ok) throw new Error(validation.error || "Validácia datasetu zlyhala.");
+
+      const raw = dataset as DatasetInput;
+      if (!Array.isArray(raw.profiles)) throw new Error("profiles musí byť array.");
+      const total = Number(validation.total ?? raw.profiles.length);
+      setPreviewTotal(total);
+
+      const accumulatedItems: PreviewItem[] = [];
+      const accumulatedCounters: Record<string, number> = {};
+      let datasetMeta: PreviewResponse["dataset"] | undefined;
+
+      for (let offset = 0; offset < raw.profiles.length; offset += PREVIEW_BATCH_SIZE) {
+        const chunk = raw.profiles.slice(offset, offset + PREVIEW_BATCH_SIZE);
+        const batchDataset = { ...raw, profiles: chunk };
+        const response = await fetch(`/api/admin/address-research-import/preview?baseIndex=${offset}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(batchDataset),
+          cache: "no-store",
+        });
+        const body = await response.json() as PreviewResponse & { error?: string };
+        if (!response.ok) throw new Error(body.error || `Preview batch ${Math.floor(offset / PREVIEW_BATCH_SIZE) + 1} zlyhal.`);
+
+        datasetMeta = body.dataset ?? datasetMeta;
+        accumulatedItems.push(...body.items);
+        for (const [key, value] of Object.entries(body.counters)) {
+          accumulatedCounters[key] = (accumulatedCounters[key] ?? 0) + value;
+        }
+        const currentProcessed = Math.min(offset + chunk.length, total);
+        setPreviewProcessed(currentProcessed);
+        setPreview({
+          schemaVersion: 1,
+          dataset: datasetMeta,
+          counters: { ...accumulatedCounters },
+          items: [...accumulatedItems],
+        });
+      }
+
+      setPreviewComplete(accumulatedItems.length === total);
     } catch (cause) {
+      setPreviewComplete(false);
       setError(cause instanceof Error ? cause.message : "Preview zlyhalo.");
     } finally {
       setBusy(false);
@@ -136,7 +192,7 @@ export default function AdminAddressResearchImport() {
   }
 
   async function runApply() {
-    if (token !== TOKEN || readyItems.length === 0) return;
+    if (!previewComplete || previewProcessed !== previewTotal || token !== TOKEN || readyItems.length === 0) return;
     setBusy(true);
     setError("");
     setApplyResults([]);
@@ -197,6 +253,7 @@ export default function AdminAddressResearchImport() {
         <button type="button" onClick={runPreview} disabled={!dataset || busy} style={{ padding: "10px 16px", fontWeight: 700 }}>
           {busy && !preview ? "Kontrolujem…" : "Skontrolovať a zobraziť Preview"}
         </button>
+        {previewTotal > 0 ? <p><strong>Preview:</strong> {previewProcessed} / {previewTotal}{!previewComplete && !busy ? " · INCOMPLETE" : ""}</p> : null}
         {error ? <p role="alert" style={{ color: "#a40000", fontWeight: 700 }}>{error}</p> : null}
       </section>
 
@@ -277,7 +334,7 @@ export default function AdminAddressResearchImport() {
               style={{ width: "min(520px, 100%)", padding: 9, marginRight: 8 }}
               disabled={busy}
             />
-            <button type="button" onClick={runApply} disabled={busy || token !== TOKEN || readyItems.length === 0} style={{ padding: "10px 16px", fontWeight: 700 }}>
+            <button type="button" onClick={runApply} disabled={busy || !previewComplete || previewProcessed !== previewTotal || token !== TOKEN || readyItems.length === 0} style={{ padding: "10px 16px", fontWeight: 700 }}>
               Aplikovať bezpečné adresy
             </button>
             {applyTotal > 0 ? <p><strong>Progress:</strong> {processed} / {applyTotal} spracovaných</p> : null}
