@@ -89,6 +89,22 @@ async function clickRenderedMarker(page: Page, selector: string) {
   await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
 }
 
+async function currentViewportItemName(page: Page) {
+  const cards = page.locator('[data-testid^="map-card-"]');
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (await cards.count() > 0) {
+      const name = (await cards.first().locator("strong").first().textContent())?.trim();
+      if (name) return name;
+    }
+
+    const clusters = page.locator('[data-map-cluster="true"]').filter({ visible: true });
+    if (await clusters.count() === 0) break;
+    await clickRenderedMarker(page, '[data-map-cluster="true"]');
+    await page.waitForTimeout(900);
+  }
+  throw new Error("Live map did not expose an item in the current authoritative viewport.");
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const m = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -163,8 +179,6 @@ test.describe("MAP V1 live production launch audit", () => {
       ? apiBody.items ?? []
       : (apiBody.clusters ?? []).flatMap((c) => c.singletonItem ? [c.singletonItem] : []);
     expect(itemResponse.length).toBeGreaterThan(0);
-    const singletonTarget = itemResponse[0];
-
     const googleJsRequests: string[] = [];
     const relevantConsoleErrors: string[] = [];
     page.on("request", (req) => {
@@ -250,12 +264,15 @@ test.describe("MAP V1 live production launch audit", () => {
     await expect.poll(() => page.locator("gmp-advanced-marker").count(), { timeout: 20000 }).toBeGreaterThan(0);
 
     // Exact-name search should collapse the live dataset to a singleton result.
-    await page.getByLabel("Vyhľadávanie v mape").fill(singletonTarget.name);
-    await expect(page.getByText(singletonTarget.name, { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    // Pick the target from the current authoritative Google viewport rather than
+    // from the earlier static API contract bbox, which can differ on desktop/mobile.
+    const singletonTargetName = await currentViewportItemName(page);
+    await page.getByLabel("Vyhľadávanie v mape").fill(singletonTargetName);
+    await expect(page.getByText(singletonTargetName, { exact: true }).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
     const requestsBeforeSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
     await clickRenderedMarker(page, "[data-map-marker]");
-    await expect(page.locator('[data-selected="true"]')).toContainText(singletonTarget.name);
+    await expect(page.locator('[data-selected="true"]')).toContainText(singletonTargetName);
     await page.waitForTimeout(500);
     const requestsAfterSingletonClick = await page.locator("body").evaluate(() => performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length);
     expect(requestsAfterSingletonClick).toBe(requestsBeforeSingletonClick);
