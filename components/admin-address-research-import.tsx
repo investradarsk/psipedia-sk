@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { buildAddressResearchPreviewBatches } from "@/lib/address-research-preview-batches";
 
 type CanonicalAddress = {
   region: string;
@@ -53,7 +54,6 @@ type ApplyResult = {
 };
 
 const APPLY_BATCH_SIZE = 20;
-const PREVIEW_BATCH_SIZE = 20;
 const TOKEN = "ADDRESS-RESEARCH-IMPORT";
 
 function formatAddress(value: CanonicalAddress | null) {
@@ -155,8 +155,9 @@ export default function AdminAddressResearchImport() {
       const accumulatedCounters: Record<string, number> = {};
       let datasetMeta: PreviewResponse["dataset"] | undefined;
 
-      for (let offset = 0; offset < raw.profiles.length; offset += PREVIEW_BATCH_SIZE) {
-        const chunk = raw.profiles.slice(offset, offset + PREVIEW_BATCH_SIZE);
+      for (const batch of buildAddressResearchPreviewBatches(raw.profiles)) {
+        const chunk = batch.profiles;
+        const offset = batch.baseIndex;
         const batchDataset = { ...raw, profiles: chunk };
         const response = await fetch(`/api/admin/address-research-import/preview?baseIndex=${offset}`, {
           method: "POST",
@@ -165,7 +166,7 @@ export default function AdminAddressResearchImport() {
           cache: "no-store",
         });
         const body = await response.json() as PreviewResponse & { error?: string };
-        if (!response.ok) throw new Error(body.error || `Preview batch ${Math.floor(offset / PREVIEW_BATCH_SIZE) + 1} zlyhal.`);
+        if (!response.ok) throw new Error(body.error || `Preview batch ${Math.floor(offset / 20) + 1} zlyhal.`);
 
         datasetMeta = body.dataset ?? datasetMeta;
         accumulatedItems.push(...body.items);
