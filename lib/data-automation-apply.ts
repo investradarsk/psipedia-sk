@@ -595,7 +595,6 @@ export async function applyAutomationFinding(input: {
           appliedFields,
         },
       };
-    }
   }
 
   throw new AutomationApplyUnsupportedError("Automation canonical update je zakázaný; existujúci canonical záznam sa nemení.");
