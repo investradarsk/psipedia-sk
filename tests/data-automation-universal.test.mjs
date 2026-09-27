@@ -194,20 +194,32 @@ test("HELP_ITEM Zbierky and Ako pomôcť use explicit canonical category metadat
       metadata: { helpCategory: category },
     });
     assert.equal(config.htmlAdapterKey, "generic-help-item-page");
+    const description = category === "zbierky"
+      ? "Transparentná zbierka na veterinárnu pomoc psom."
+      : "Hľadáme dobrovoľníkov na venčenie a prevoz psov.";
     const records = genericHelpItemPageAdapter({
       source: source("HELP_ITEM", config, "https://example.sk/pomoc"),
-      html: '<html><head><meta name="description" content="Explicitný popis verejnej výzvy na pomoc psom."></head><body><h1>Pomôžte nám</h1></body></html>',
+      html: `<html><head><meta name="description" content="${description}"></head><body><h1>Pomôžte nám</h1></body></html>`,
     });
     assert.equal(records.length, 1);
     assert.deepEqual(records[0].proposed, {
       title: "Pomôžte nám",
       category,
-      description: "Explicitný popis verejnej výzvy na pomoc psom.",
+      description,
       actionUrl: "https://example.sk/pomoc",
     });
     const diff = Object.fromEntries(Object.entries(records[0].proposed).map(([key, value]) => [key, { before: null, after: value }]));
     assert.deepEqual(unsupportedAutomationApplyFields("HELP_ITEM", diff), [], category);
   }
+  assert.deepEqual(genericHelpItemPageAdapter({
+    source: source("HELP_ITEM", {
+      sourceShape: "SINGLE_ITEM",
+      htmlAdapterKey: "generic-help-item-page",
+      staticFields: { category: "zbierky" },
+    }, "https://example.sk/pomoc"),
+    html: '<html><head><meta name="description" content="Všeobecné informácie o organizácii."></head><body><h1>O nás</h1></body></html>',
+  }), []);
+
   assert.deepEqual(candidateProvisioningConfigFor({
     entityType: "HELP_ITEM",
     canonicalUrl: "https://example.sk/pomoc",
