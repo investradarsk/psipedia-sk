@@ -146,14 +146,17 @@ function identity(t: DirectoryEnrichmentTarget, sourceUrl: string, html: string)
   if(a.email&&body.includes(a.email))signals.push("email");
   return {confidence:(signals.includes("official_domain")||signals.includes("phone")||signals.includes("email")||(signals.includes("name")&&signals.includes("city")))?"HIGH" as const:signals.length?"MEDIUM" as const:"LOW" as const,signals};
 }
+export function canonicalAddressShape(streetValue:string,city:string){
+  const municipalityNumber=Boolean(streetValue&&normalizeAutomationExactText(streetValue)===normalizeAutomationExactText(city));
+  return {street:municipalityNumber?"":streetValue,addressFormat:municipalityNumber?"MUNICIPALITY_NUMBER" as const:"STREET" as const};
+}
 function candidate(t: DirectoryEnrichmentTarget, sourceUrl:string, html:string, x:NonNullable<ReturnType<typeof extractOfficialAddress>>):AddressCandidate{
   const id=identity(t,sourceUrl,html);
   const city=x.city||t.city;
   const locality=inferredLocality(city,t.region,t.district);
-  const municipalityNumber=Boolean(x.street&&normalizeAutomationExactText(x.street)===normalizeAutomationExactText(city));
-  const street=municipalityNumber?"":x.street;
+  const shape=canonicalAddressShape(x.street,city);
   return {targetType:"DIRECTORY_PROFILE",targetId:t.id,evidence:{sourceUrl,sourceLabel:h(sourceUrl),sourceRole:"OFFICIAL_WEBSITE",authorityScore:t.websiteUrl&&h(t.websiteUrl)===h(sourceUrl)?100:90},
-    rawAddressText:x.raw,region:locality?.region??t.region,district:locality?.district??t.district,city:locality?.city??city,postalCode:x.postal,street,houseNumber:x.house,addressFormat:municipalityNumber?"MUNICIPALITY_NUMBER":"STREET",
+    rawAddressText:x.raw,region:locality?.region??t.region,district:locality?.district??t.district,city:locality?.city??city,postalCode:x.postal,street:shape.street,houseNumber:x.house,addressFormat:shape.addressFormat,
     entityMatchConfidence:id.confidence,entityMatchSignals:id.signals,addressExtractionConfidence:x.confidence,serviceLocationConfidence:x.legalSeatOnly?0.5:x.confidence,providerVerification:"NOT_RUN",
     multipleCompetingAddresses:Boolean(x.multiple),legalSeatOnly:Boolean(x.legalSeatOnly)};
 }
