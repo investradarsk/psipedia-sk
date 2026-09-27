@@ -244,7 +244,7 @@ export async function finishAutomationRun(input: {
 
 export async function recordAutomationObservation(input: {
   sourceId: number;
-  runId: number;
+  runId: number | null;
   record: AutomationSourceRecord;
   payloadHash: string;
   detectedAt: string;
