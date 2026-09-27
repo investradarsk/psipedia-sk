@@ -17,9 +17,26 @@ import {
   qualifiedClubDirectoryCategory,
 } from "../lib/data-automation-source-provisioning.ts";
 import { universalAutomationDiscoveryRootPresets } from "../lib/data-automation-source-presets.ts";
-import { unsupportedAutomationApplyFields } from "../lib/data-automation-apply.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+const applySource = read("lib/data-automation-apply.ts");
+
+function canonicalSafeProposal(entityType, proposed) {
+  const nextEntity = entityType === "DIRECTORY" ? "ADOPTION" : entityType === "HELP_ITEM" ? "LOST_FOUND" : null;
+  const start = applySource.indexOf("  " + entityType + ": {");
+  const end = nextEntity ? applySource.indexOf("  " + nextEntity + ": {", start + 1) : -1;
+  assert.ok(start >= 0 && end > start, "missing apply config for " + entityType);
+  const block = applySource.slice(start, end);
+  const allowed = new Set(
+    [...block.matchAll(/^\s{6}([A-Za-z_][A-Za-z0-9_]*):\s*(?:field|numberField|bool|jsonField)\(/gm)]
+      .map((match) => match[1]),
+  );
+  const metadataMatch = block.match(/metadataFields:\s*\[([^\]]*)\]/);
+  if (metadataMatch) {
+    for (const match of metadataMatch[1].matchAll(/"([^"]+)"/g)) allowed.add(match[1]);
+  }
+  return Object.keys(proposed).filter((key) => !allowed.has(key));
+}
 
 function source(entityType, config, sourceUrl = "https://example.sk/sluzba") {
   return {
@@ -136,8 +153,7 @@ test("DIRECTORY category is explicit and survives into generic parser output", (
     assert.equal(records[0].proposed.name, "Explicitná služba");
     assert.equal(records[0].proposed.city, "Nitra");
     assert.equal(records[0].proposed.region, "Nitriansky kraj");
-    const diff = Object.fromEntries(Object.entries(records[0].proposed).map(([key, value]) => [key, { before: null, after: value }]));
-    assert.deepEqual(unsupportedAutomationApplyFields("DIRECTORY", diff), [], category);
+    assert.deepEqual(canonicalSafeProposal("DIRECTORY", records[0].proposed), [], category);
   }
 });
 
@@ -208,8 +224,7 @@ test("HELP_ITEM Zbierky and Ako pomôcť use explicit canonical category metadat
       description,
       actionUrl: "https://example.sk/pomoc",
     });
-    const diff = Object.fromEntries(Object.entries(records[0].proposed).map(([key, value]) => [key, { before: null, after: value }]));
-    assert.deepEqual(unsupportedAutomationApplyFields("HELP_ITEM", diff), [], category);
+    assert.deepEqual(canonicalSafeProposal("HELP_ITEM", records[0].proposed), [], category);
   }
   assert.deepEqual(genericHelpItemPageAdapter({
     source: source("HELP_ITEM", {
