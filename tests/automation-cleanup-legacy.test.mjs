@@ -13,9 +13,13 @@ test("preview is the default and apply requires an explicit flag", () => {
 
 test("canonical and KEEP tables never enter the delete allowlist", () => {
   mod.assertStaticSafety();
-  for (const table of [...mod.CANONICAL_TABLES, ...mod.KEEP_TABLES]) {
+  for (const table of [...mod.CANONICAL_TABLES, ...mod.KEEP_TABLES, ...mod.UNCERTAIN_TABLES]) {
     assert.equal(mod.DELETE_TABLE_ORDER.includes(table), false, table);
   }
+});
+
+test("no discovery runtime state is reset implicitly", () => {
+  assert.deepEqual(mod.RESET_ONLY_FIELDS, []);
 });
 
 test("critical persistent state is preserved", () => {
@@ -37,6 +41,11 @@ test("FK-safe child-first cleanup order is explicit", () => {
   assert.ok(idx("automation_cluster_observations") < idx("automation_observations"));
   assert.ok(idx("automation_observations") < idx("automation_runs"));
   assert.ok(idx("automation_source_candidates") < idx("automation_entity_clusters"));
+});
+
+test("cluster canonical claims are explicitly uncertain and never deleted", () => {
+  assert.deepEqual(mod.UNCERTAIN_TABLES, ["automation_cluster_canonical_claims"]);
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_cluster_canonical_claims"), false);
 });
 
 test("manual match memory, canonical provenance and duplicate warnings block destructive apply", () => {
