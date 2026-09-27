@@ -10,10 +10,9 @@ import type {
 import { automationSourceDomain } from "@/lib/admin-automation-presentation";
 import { candidateProvisioningConfigFor } from "@/lib/data-automation-source-provisioning";
 import {
-  automationHelpSourceReadiness,
-  isAutomationHelpEntityType,
-  type AutomationHelpSourceReadiness,
-} from "@/lib/data-automation-help-source-readiness";
+  automationSourceReadiness,
+  type AutomationSourceReadiness,
+} from "@/lib/data-automation-capability-registry";
 import styles from "./admin-operations-ux.module.css";
 
 function formatDate(value: string | null) {
@@ -34,13 +33,13 @@ function reviewLabel(status: AutomationSourceCandidateRow["reviewStatus"]) {
   return "Čaká na rozhodnutie";
 }
 
-function helpShapeLabel(readiness: AutomationHelpSourceReadiness) {
+function sourceShapeLabel(readiness: AutomationSourceReadiness) {
   if (readiness.sourceShape === "SINGLE_ITEM") return "Detail jednej položky";
   if (readiness.sourceShape === "MULTI_ITEM_LIST") return "Zoznam položiek";
   return "Neurčené";
 }
 
-function helpReadinessLabel(readiness: AutomationHelpSourceReadiness) {
+function readinessLabel(readiness: AutomationSourceReadiness) {
   if (readiness.ready) return "Pripravený";
   if (readiness.reason === "UNSUPPORTED_SOURCE") return "Nepodporovaný typ zdroja";
   return "Potrebuje podporovaný adapter";
@@ -71,17 +70,16 @@ export function AdminAutomationCandidateReview({
     preview: CandidateApprovalPreview | null;
     activation: { enabled: boolean; blockedReason: string | null } | null;
   } | null>(null);
-  const helpReadiness = isAutomationHelpEntityType(candidate.entityType)
-    ? automationHelpSourceReadiness(existingSource ?? {
+  const readiness = automationSourceReadiness(existingSource ?? {
+    entityType: candidate.entityType,
+    connectorType: candidate.suggestedConnectorType,
+    sourceUrl: candidate.canonicalUrl,
+    config: candidateProvisioningConfigFor({
       entityType: candidate.entityType,
-      connectorType: candidate.suggestedConnectorType,
-      config: candidateProvisioningConfigFor({
-        entityType: candidate.entityType,
-        canonicalUrl: candidate.canonicalUrl,
-        metadata: candidate.metadata,
-      }),
-    })
-    : null;
+      canonicalUrl: candidate.canonicalUrl,
+      metadata: candidate.metadata,
+    }),
+  });
 
   async function review(action: "approve" | "reject" | "suppress") {
     setBusy(true);
@@ -177,30 +175,30 @@ export function AdminAutomationCandidateReview({
         )}
       </section>
 
-      {helpReadiness && (
+      {readiness.applicable && (
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <div>
               <h2>Bezpečnostná kontrola</h2>
-              <p>{helpReadiness.ready
+              <p>{readiness.ready
                 ? "Psipedia tento typ zdroja pozná a vie ho bezpečne otestovať."
                 : "Zdroj potrebuje technické nastavenie. Kým nebude pripravený, zostane vypnutý."}</p>
             </div>
-            <span className={[styles.badge, helpReadiness.ready ? styles.badgeGood : styles.badgeWarning].join(" ")}>
-              {helpReadiness.ready ? "V poriadku" : "Vyžaduje technickú kontrolu"}
+            <span className={[styles.badge, readiness.ready ? styles.badgeGood : styles.badgeWarning].join(" ")}>
+              {readiness.ready ? "V poriadku" : "Vyžaduje technickú kontrolu"}
             </span>
           </div>
-          {!helpReadiness.ready && <p><strong>Monitoring nie je možné zapnúť.</strong> Bezpečnostné guardy zostávajú autoritatívne.</p>}
+          {!readiness.ready && <p><strong>Monitoring nie je možné zapnúť.</strong> Bezpečnostné guardy zostávajú autoritatívne.</p>}
           <details className={styles.advanced}>
             <summary>Pokročilé — technická pripravenosť</summary>
             <div className={styles.advancedBody}>
               <div className={styles.reviewSummary}>
-                <div><span>Typ zdroja</span><strong>{helpShapeLabel(helpReadiness)}</strong></div>
-                <div><span>Pripravenosť</span><strong>{helpReadinessLabel(helpReadiness)}</strong></div>
-                <div><span>Adapter</span><strong>{helpReadiness.adapterLabel ?? "Nie je priradený"}</strong></div>
+                <div><span>Typ zdroja</span><strong>{sourceShapeLabel(readiness)}</strong></div>
+                <div><span>Pripravenosť</span><strong>{readinessLabel(readiness)}</strong></div>
+                <div><span>Adapter</span><strong>{readiness.adapterLabel ?? "Nie je priradený"}</strong></div>
               </div>
-              <p><strong>Dôvod:</strong> {helpReadiness.reason}</p>
-              <p><strong>Adapter key:</strong> {helpReadiness.adapterKey ?? "—"}</p>
+              <p><strong>Dôvod:</strong> {readiness.reason}</p>
+              <p><strong>Adapter key:</strong> {readiness.adapterKey ?? "—"}</p>
             </div>
           </details>
         </section>
