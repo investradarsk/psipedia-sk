@@ -110,6 +110,7 @@ function candidateMatch(
   if (slug && clean(candidate.slug) === slug) {
     if (entityType === "DIRECTORY" && category && clean(candidate.category) !== category) return null;
     if (entityType === "LOST_FOUND" && type && clean(candidate.type) !== type) return null;
+    if (entityType === "ORGANIZATION" && !organizationSemanticsCompatible(type, candidate.type)) return null;
     return "EXACT_CANONICAL_KEY" as const;
   }
 
