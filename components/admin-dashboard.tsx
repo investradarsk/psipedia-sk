@@ -12,6 +12,13 @@ import {
   articleAdminBulkFingerprint,
   normalizeArticleAdminBulkFilter,
 } from "@/lib/article-admin-bulk-filter";
+import {
+  articleAdminDirections,
+  articleAdminListHref,
+  articleAdminSorts,
+  articleAdminStatuses,
+  type ArticleAdminListFilters,
+} from "@/lib/article-admin-query";
 import type { ManagedArticleSummary, ManagedArticleSummaryPage } from "@/lib/article-store";
 import type { AdminModuleCounts } from "@/lib/admin-dashboard-store";
 import { getNewsCategory } from "@/lib/news";
@@ -19,8 +26,6 @@ import { articleHref, portalSectionLabel } from "@/lib/portal";
 import { AdminPagination } from "./admin-pagination";
 import { SearchIcon } from "./icons";
 import styles from "./admin-article-dashboard.module.css";
-
-type StatusFilter = "all" | "published" | "scheduled" | "draft";
 
 function formattedDate(value: string) {
   const date = new Date(value);
@@ -43,44 +48,55 @@ const moduleOverview: Array<{ key: keyof AdminModuleCounts; label: string; href:
   { key: "help", label: "Pomoc", href: "/admin/pomoc" },
 ];
 
-export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, pagination, fixedPortalSection }: {
+const statusLabels = {
+  all: "Všetky",
+  published: "Publikované",
+  scheduled: "Naplánované",
+  draft: "Koncepty",
+} as const;
+
+const sortLabels = { updated: "Posledná úprava", title: "Názov" } as const;
+const directionLabels = { desc: "Zostupne", asc: "Vzostupne" } as const;
+
+export function AdminDashboard({
+  initialArticles,
+  initialCounts,
+  initialResultCount,
+  moduleCounts,
+  pagination,
+  filters,
+  fixedPortalSection,
+}: {
   initialArticles: ManagedArticleSummary[];
   initialCounts: ManagedArticleSummaryPage["counts"];
+  initialResultCount: number;
   moduleCounts?: AdminModuleCounts;
   pagination: ManagedArticleSummaryPage["pagination"];
+  filters: ArticleAdminListFilters;
   fixedPortalSection?: ManagedArticleSummary["portalSection"];
 }) {
   const [articles, setArticles] = useState(initialArticles);
   const [counts, setCounts] = useState(initialCounts);
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("all");
+  const [resultCount, setResultCount] = useState(initialResultCount);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
 
-  const visibleArticles = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase("sk");
-    return articles.filter((article) => {
-      if (fixedPortalSection && article.portalSection !== fixedPortalSection) return false;
-      const statusMatches = status === "all" || article.status === status;
-      const queryMatches = !needle || `${article.title} ${article.category} ${portalSectionLabel(article.portalSection)} ${getNewsCategory(article.newsCategory)?.label ?? ""} ${article.slug}`.toLocaleLowerCase("sk").includes(needle);
-      return statusMatches && queryMatches;
-    });
-  }, [articles, fixedPortalSection, query, status]);
-
   const membershipFilter = useMemo(() => normalizeArticleAdminBulkFilter({
     portalSection: fixedPortalSection ?? "",
-    status,
-    q: query,
-  }), [fixedPortalSection, query, status]);
+    status: filters.status,
+    q: filters.query,
+  }), [fixedPortalSection, filters.query, filters.status]);
   const membershipFingerprint = articleAdminBulkFingerprint(membershipFilter);
-  const pageIds = visibleArticles.map((article) => article.id);
+  const pageIds = articles.map((article) => article.id);
   const bulkSelection = useAdminBulkSelection({
     module: "articles",
     membershipFingerprint,
     pageIds,
-    resultCount: visibleArticles.length,
+    resultCount,
     supportsAllMatching: false,
   });
+  const routePath = fixedPortalSection ? "/admin/steniatka" : "/admin";
+  const paginationBase = articleAdminListHref(routePath, { ...filters, page: 1 });
 
   async function removeArticle(article: ManagedArticleSummary) {
     const confirmed = window.confirm(`Naozaj chceš natrvalo odstrániť ${article.portalSection === "novinky" ? "novinku" : "článok"} „${article.title}“?`);
@@ -98,6 +114,7 @@ export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, p
         total: Math.max(0, current.total - 1),
         [article.status]: Math.max(0, current[article.status] - 1),
       }));
+      setResultCount((current) => Math.max(0, current - 1));
       bulkSelection.clear();
       setMessage("Článok bol odstránený.");
     } catch (error) {
@@ -134,41 +151,47 @@ export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, p
       </section>
 
       <section className="admin-panel">
-        <div className="admin-toolbar">
+        <form className="admin-toolbar" method="get" action={routePath} role="search">
           <label className="admin-search">
             <SearchIcon size={19} />
             <span className="sr-only">Hľadať článok</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať podľa názvu alebo témy" />
+            <input name="query" defaultValue={filters.query} maxLength={120} placeholder="Názov, slug, perex alebo téma" />
           </label>
-          <div className="admin-status-filter" aria-label="Filtrovať podľa stavu">
-            {([
-              ["all", "Všetky"],
-              ["published", "Publikované"],
-              ["scheduled", "Naplánované"],
-              ["draft", "Koncepty"],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={status === value ? "is-active" : ""}
-                aria-pressed={status === value}
-                onClick={() => setStatus(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+          <label className="admin-select-filter">
+            <span>Stav</span>
+            <select name="status" defaultValue={filters.status}>
+              {articleAdminStatuses.map((value) => <option key={value} value={value}>{statusLabels[value]}</option>)}
+            </select>
+          </label>
+          <label className="admin-select-filter">
+            <span>Zoradiť</span>
+            <select name="sort" defaultValue={filters.sort}>
+              {articleAdminSorts.map((value) => <option key={value} value={value}>{sortLabels[value]}</option>)}
+            </select>
+          </label>
+          <label className="admin-select-filter">
+            <span>Smer</span>
+            <select name="direction" defaultValue={filters.direction}>
+              {articleAdminDirections.map((value) => <option key={value} value={value}>{directionLabels[value]}</option>)}
+            </select>
+          </label>
+          <button type="submit">Filtrovať</button>
+          {(filters.query || filters.status !== "all" || filters.sort !== "updated" || filters.direction !== "desc")
+            && <Link href={routePath}>Vyčistiť filtre</Link>}
+        </form>
 
+        <p className="admin-event-result-count" role="status">
+          Nájdené: {resultCount} · Zobrazené: {articles.length}
+        </p>
         {message && <p className="admin-flash" role="status">{message}</p>}
 
-        {visibleArticles.length ? (
+        {articles.length ? (
           <>
             <AdminBulkSelectionControls
               module="articles"
               membershipFilter={membershipFilter}
               membershipFingerprint={membershipFingerprint}
-              resultCount={visibleArticles.length}
+              resultCount={resultCount}
               pageIds={pageIds}
               selection={bulkSelection.selection}
               selectionReady={bulkSelection.ready}
@@ -182,7 +205,7 @@ export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, p
               supportsAllMatching={false}
             />
             <div className="admin-article-list">
-              {visibleArticles.map((article) => (
+              {articles.map((article) => (
                 <article className={`admin-article-row ${styles.row}`} key={article.id}>
                   <BulkSelectionCheckbox
                     checked={bulkSelection.isSelected(article.id)}
@@ -220,11 +243,11 @@ export function AdminDashboard({ initialArticles, initialCounts, moduleCounts, p
         ) : (
           <div className="admin-empty">
             <span>🐾</span>
-            <h2>Nenašli sa žiadne články</h2>
-            <p>Skús zmeniť filter alebo vyhľadávanie.</p>
+            <h2>{counts.total === 0 ? "Zatiaľ tu nie sú žiadne články" : "Pre zvolené filtre sa nič nenašlo"}</h2>
+            <p>{counts.total === 0 ? "Vytvor prvý obsah." : "Vyčisti filtre alebo uprav vyhľadávanie."}</p>
           </div>
         )}
-        <AdminPagination pagination={pagination} basePath={fixedPortalSection ? "/admin/steniatka" : "/admin"} />
+        <AdminPagination pagination={pagination} basePath={paginationBase} />
       </section>
     </>
   );
