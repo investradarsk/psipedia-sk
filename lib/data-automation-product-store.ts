@@ -371,7 +371,13 @@ export async function loadAutomationDiscoveryExclusions(input: {
     directoryCategory,
     knownUrls,
     knownDomains,
-    blockDomains: boundedUnique([...knownDomains], 20),
+    // A DIRECTORY domain can legitimately host several branches/profiles.
+    // Exact URL filtering stays local/authoritative; provider domain blocking is
+    // reserved for feed sources and organizations where the domain itself is a
+    // useful source identity.
+    blockDomains: input.directEntity && input.entityType === "DIRECTORY"
+      ? []
+      : boundedUnique([...knownDomains], 20),
     exclusionCount: knownUrls.size,
   };
 }
