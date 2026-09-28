@@ -788,6 +788,19 @@ function directoryRootForRefreshCandidate(
   ) ?? null;
 }
 
+function enrichmentRootForRefreshCandidate(
+  roots: AutomationDiscoveryRoot[],
+  candidate: Awaited<ReturnType<typeof listDirectRefreshCandidates>>[number],
+) {
+  if (candidate.entityType === "DIRECTORY") return directoryRootForRefreshCandidate(roots, candidate);
+  if (candidate.entityType !== "ORGANIZATION") return null;
+  return roots.find((root) =>
+    root.discoveryType === "SEARCH_PROVIDER"
+    && root.reviewStatus === "APPROVED"
+    && root.entityType === "ORGANIZATION"
+  ) ?? null;
+}
+
 function searchRequestInputs(
   root: AutomationDiscoveryRoot,
   exclusions?: AutomationDiscoveryExclusionContext,
@@ -1277,6 +1290,7 @@ async function runDiscoveryRoot(
         directEntity: true,
       }, options.database);
       exclusionCount = Math.max(exclusionCount, exclusions.exclusionCount);
+      const enrichmentSearch = await entityEnrichmentSearchForRoot(root, options, runId);
 
       for (const candidate of candidates) {
         try {
@@ -1304,6 +1318,7 @@ async function runDiscoveryRoot(
             now: startedAt,
             provenanceType: "DIRECT_ENTITY_DISCOVERY",
             addressSearch,
+            enrichmentSearch,
             addressEvidenceText: typeof candidate.metadata?.snippet === "string"
               ? candidate.metadata.snippet
               : null,
@@ -1483,9 +1498,12 @@ async function runDirectEntityRefresh(
   const batchSize = 20;
   const now = options.now ? new Date(options.now) : new Date();
   const candidates = await listDirectRefreshCandidates(setting, options.database, batchSize);
-  const refreshSearchRoots = setting.categorySlug !== "utulky-organizacie"
-    ? await listAutomationDiscoveryRoots(options.database as AutomationDiscoveryDatabase, 100, now)
-    : [];
+  const refreshSearchRoots = await listAutomationDiscoveryRoots(
+    options.database as AutomationDiscoveryDatabase,
+    100,
+    now,
+  );
+  const refreshEnrichmentSearches = new Map<number, EntityEnrichmentSearch | undefined>();
   let checked = 0;
   let canonicalDuplicates = 0;
   let updateSuggestions = 0;
@@ -1498,10 +1516,20 @@ async function runDirectEntityRefresh(
     checked += 1;
     lastEntityId = candidate.id;
     try {
-      const searchRoot = directoryRootForRefreshCandidate(refreshSearchRoots, candidate);
-      const addressSearch = searchRoot
+      const searchRoot = enrichmentRootForRefreshCandidate(refreshSearchRoots, candidate);
+      const addressSearch = searchRoot && candidate.entityType === "DIRECTORY"
         ? await addressEnrichmentSearchForRoot(searchRoot, options, null)
         : undefined;
+      let enrichmentSearch: EntityEnrichmentSearch | undefined;
+      if (searchRoot) {
+        if (!refreshEnrichmentSearches.has(searchRoot.id)) {
+          refreshEnrichmentSearches.set(
+            searchRoot.id,
+            await entityEnrichmentSearchForRoot(searchRoot, options, null),
+          );
+        }
+        enrichmentSearch = refreshEnrichmentSearches.get(searchRoot.id);
+      }
       const refreshed = await ingestDirectEntityUrl({
         entityType: candidate.entityType,
         sourceUrl: candidate.sourceUrl,
@@ -1513,6 +1541,7 @@ async function runDirectEntityRefresh(
         provenanceType: "DIRECT_ENTITY_REFRESH",
         expectedCanonicalEntityId: candidate.id,
         addressSearch,
+        enrichmentSearch,
       });
       canonicalDuplicates += refreshed.canonicalDuplicates;
       updateSuggestions += refreshed.updateSuggestions;
