@@ -38,6 +38,19 @@ import {
   upsertAutomationSourceCandidate,
   upsertAutomationSourceCandidateEvidence,
 } from "./data-automation-source-store.ts";
+import {
+  automationDiscoveryCandidateExcluded,
+  finishDirectEntityRefreshSetting,
+  listDirectRefreshCandidates,
+  listDueDirectEntityRefreshSettings,
+  loadAutomationDiscoveryExclusions,
+  type AutomationDiscoveryExclusionContext,
+} from "./data-automation-product-store.ts";
+import {
+  automationProductCategoryForRoot,
+  automationProductModeForRoot,
+} from "./data-automation-product-model.ts";
+import { ingestDirectEntityUrl } from "./data-automation-direct-entity.ts";
 
 export const DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP = 2;
 const MAX_DISCOVERY_BYTES = 1_000_000;
