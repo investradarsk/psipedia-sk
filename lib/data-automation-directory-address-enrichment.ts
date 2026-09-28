@@ -1,6 +1,9 @@
 import type { AutomationSearchResult } from "./data-automation-discovery.ts";
 import {
   verifyExternalDirectoryAddressEvidenceBestEffort,
+  type DirectoryAddressReviewCandidate,
+  type DirectoryAddressReviewReason,
+  type ExternalDirectoryAddressVerification,
   type VerifiedDirectoryAddress,
 } from "./directory-address-provider.ts";
 import { GeoapifyGeocoder } from "./geoapify-geocoder.ts";
@@ -9,10 +12,17 @@ import { normalizeSlovakPostalCode } from "./directory-service-address.ts";
 
 export type DirectoryAddressSearch = (query: string) => Promise<AutomationSearchResult[]>;
 
+export type DirectoryAddressReviewProposal = {
+  reason: DirectoryAddressReviewReason;
+  evidence: string;
+  candidates: DirectoryAddressReviewCandidate[];
+};
+
 export type DirectoryExactAddressEnrichment = {
   proposed: Record<string, unknown>;
   verified: VerifiedDirectoryAddress | null;
   usedAddressSearch: boolean;
+  review: DirectoryAddressReviewProposal | null;
 };
 
 function text(value: unknown) {
@@ -129,17 +139,30 @@ async function verifyEvidence(input: {
   proposed: Record<string, unknown>;
   provider: GeocoderProvider;
   maxAttempts: number;
-}) {
+}): Promise<{
+  verified: VerifiedDirectoryAddress | null;
+  review: DirectoryAddressReviewProposal | null;
+}> {
   const expected = expectedFields(input.proposed);
+  let review: DirectoryAddressReviewProposal | null = null;
   for (const evidence of input.candidates.slice(0, input.maxAttempts)) {
-    const result = await verifyExternalDirectoryAddressEvidenceBestEffort({
+    const result: ExternalDirectoryAddressVerification = await verifyExternalDirectoryAddressEvidenceBestEffort({
       evidence,
       ...expected,
       provider: input.provider,
     });
-    if (result.status === "VERIFIED_EXACT" && result.verified) return result.verified;
+    if (result.status === "VERIFIED_EXACT" && result.verified) {
+      return { verified: result.verified, review: null };
+    }
+    if (!review && result.reviewReason && result.reviewCandidates.length >= 2) {
+      review = {
+        reason: result.reviewReason,
+        evidence,
+        candidates: result.reviewCandidates.slice(0, 5),
+      };
+    }
   }
-  return null;
+  return { verified: null, review };
 }
 
 function addressSearchQuery(input: {
@@ -233,7 +256,7 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
 }): Promise<DirectoryExactAddressEnrichment> {
   const provider = input.geocoder ?? new GeoapifyGeocoder();
   if (!provider.isConfigured()) {
-    return { proposed: input.proposed, verified: null, usedAddressSearch: false };
+    return { proposed: input.proposed, verified: null, usedAddressSearch: false, review: null };
   }
 
   const evidence = proposalEvidence(input.proposed, input.extraEvidenceText);
@@ -243,16 +266,17 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
     provider,
     maxAttempts: 2,
   });
-  if (direct) {
+  if (direct.verified) {
     return {
-      proposed: applyVerifiedAddress(input.proposed, direct),
-      verified: direct,
+      proposed: applyVerifiedAddress(input.proposed, direct.verified),
+      verified: direct.verified,
       usedAddressSearch: false,
+      review: null,
     };
   }
 
   if (!input.addressSearch) {
-    return { proposed: input.proposed, verified: null, usedAddressSearch: false };
+    return { proposed: input.proposed, verified: null, usedAddressSearch: false, review: direct.review };
   }
 
   const query = addressSearchQuery({
@@ -260,13 +284,13 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
     sourceUrl: input.sourceUrl,
     evidence,
   });
-  if (!query) return { proposed: input.proposed, verified: null, usedAddressSearch: false };
+  if (!query) return { proposed: input.proposed, verified: null, usedAddressSearch: false, review: direct.review };
 
   let results: AutomationSearchResult[];
   try {
     results = await input.addressSearch(query);
   } catch {
-    return { proposed: input.proposed, verified: null, usedAddressSearch: true };
+    return { proposed: input.proposed, verified: null, usedAddressSearch: true, review: direct.review };
   }
   const searchedEvidence = searchResultEvidence(results, input.name, input.sourceUrl);
   const searched = await verifyEvidence({
@@ -275,12 +299,18 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
     provider,
     maxAttempts: 2,
   });
-  if (!searched) {
-    return { proposed: input.proposed, verified: null, usedAddressSearch: true };
+  if (!searched.verified) {
+    return {
+      proposed: input.proposed,
+      verified: null,
+      usedAddressSearch: true,
+      review: searched.review ?? direct.review,
+    };
   }
   return {
-    proposed: applyVerifiedAddress(input.proposed, searched),
-    verified: searched,
+    proposed: applyVerifiedAddress(input.proposed, searched.verified),
+    verified: searched.verified,
     usedAddressSearch: true,
+    review: null,
   };
 }
