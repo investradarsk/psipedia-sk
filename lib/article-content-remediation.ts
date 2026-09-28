@@ -1,5 +1,6 @@
 import type { ArticleBlock } from "@/lib/article-blocks";
 import type { ArticleSection } from "@/lib/content";
+import { legacyRichTextToDocument } from "@/lib/editorial-content";
 
 export const DENTAL_ARTICLE_SLUG = "ako-cistit-psovi-zuby";
 
@@ -74,7 +75,7 @@ export function buildDentalArticleRemediation(input: {
     if (block.type === "text" || block.type === "tip" || block.type === "warning" || block.type === "quote") {
       const result = removeKnownEditorialLines(block.content);
       removedEditorialNotes.push(...result.removed);
-      return result.value ? [{ ...block, content: result.value }] : [];
+      return result.value ? [{ ...block, content: result.value, richText: legacyRichTextToDocument(result.value) }] : [];
     }
     if (block.type === "h2" || block.type === "h3") {
       const result = removeKnownEditorialLines(block.text);
