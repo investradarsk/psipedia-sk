@@ -3,17 +3,22 @@ import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminPuppyAreaEditor } from "@/components/admin-puppy-area-editor";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { parseArticleAdminListFilters } from "@/lib/article-admin-query";
 import { listManagedArticleSummaries } from "@/lib/article-store";
 import { listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPuppiesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default async function AdminPuppiesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireAdminPageUser("/admin/steniatka");
-  const { page: rawPage } = await searchParams;
-  const page = Math.max(1, Number.parseInt(rawPage ?? "1", 10) || 1);
+  const params = await searchParams;
+  const filters = parseArticleAdminListFilters({
+    get: (key) => typeof params[key] === "string" ? params[key] as string : null,
+  });
   const [result, sections] = await Promise.all([
-    listManagedArticleSummaries({ page, portalSection: "steniatka" }),
+    listManagedArticleSummaries({ ...filters, portalSection: "steniatka" }),
     listManagedPortalSections(),
   ]);
   return (
@@ -25,7 +30,15 @@ export default async function AdminPuppiesPage({ searchParams }: { searchParams:
       actions={<><Link className="admin-primary-action" href="/admin/steniatka/pokrytie">Pokrytie tém</Link><Link className="admin-primary-action" href="/admin/novy?sekcia=steniatka">+ Nový článok o šteniatkach</Link></>}
     >
       <AdminPuppyAreaEditor initialSections={sections} />
-      <AdminDashboard initialArticles={result.articles} initialCounts={result.counts} pagination={result.pagination} fixedPortalSection="steniatka" />
+      <AdminDashboard
+        key={JSON.stringify(filters)}
+        initialArticles={result.articles}
+        initialCounts={result.counts}
+        initialResultCount={result.resultCount}
+        pagination={result.pagination}
+        filters={filters}
+        fixedPortalSection="steniatka"
+      />
     </AdminShell>
   );
 }
