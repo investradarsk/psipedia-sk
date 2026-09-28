@@ -166,25 +166,25 @@ const AUTOMATION_ACTION_SELECT = `
       AND e.created_at>=runtime.rollout_started_at
       AND (
         (e.resource_type='automation_draft_veterinari' AND EXISTS (
-          SELECT 1 FROM directory_profiles d WHERE d.id=CAST(e.resource_ref AS INTEGER) AND d.status='DRAFT'
+          SELECT 1 FROM directory_profiles d WHERE d.id=CAST(e.resource_ref AS INTEGER) AND LOWER(d.status)='draft'
         ))
         OR (e.resource_type='automation_draft_psie-sluzby' AND EXISTS (
-          SELECT 1 FROM directory_profiles d WHERE d.id=CAST(e.resource_ref AS INTEGER) AND d.status='DRAFT'
+          SELECT 1 FROM directory_profiles d WHERE d.id=CAST(e.resource_ref AS INTEGER) AND LOWER(d.status)='draft'
         ))
         OR (e.resource_type='automation_draft_utulky-organizacie' AND EXISTS (
-          SELECT 1 FROM help_organizations o WHERE o.id=CAST(e.resource_ref AS INTEGER) AND o.status='DRAFT'
+          SELECT 1 FROM help_organizations o WHERE o.id=CAST(e.resource_ref AS INTEGER) AND LOWER(o.status)='draft'
         ))
         OR (e.resource_type='automation_draft_podujatia' AND EXISTS (
-          SELECT 1 FROM managed_events m WHERE m.id=CAST(e.resource_ref AS INTEGER) AND m.status='DRAFT'
+          SELECT 1 FROM managed_events m WHERE m.id=CAST(e.resource_ref AS INTEGER) AND LOWER(m.status)='draft'
         ))
         OR (e.resource_type='automation_draft_adopcie' AND EXISTS (
-          SELECT 1 FROM adoption_dogs a WHERE a.id=CAST(e.resource_ref AS INTEGER) AND a.status='DRAFT'
+          SELECT 1 FROM adoption_dogs a WHERE a.id=CAST(e.resource_ref AS INTEGER) AND LOWER(a.status)='draft'
         ))
         OR (e.resource_type='automation_draft_docasna-opatera' AND EXISTS (
-          SELECT 1 FROM help_cases h WHERE h.id=CAST(e.resource_ref AS INTEGER) AND h.status='DRAFT'
+          SELECT 1 FROM help_cases h WHERE h.id=CAST(e.resource_ref AS INTEGER) AND LOWER(h.status)='draft'
         ))
         OR (e.resource_type='automation_draft_stratene-najdene' AND EXISTS (
-          SELECT 1 FROM lost_found_dog_reports l WHERE l.id=CAST(e.resource_ref AS INTEGER) AND l.status='DRAFT'
+          SELECT 1 FROM lost_found_dog_reports l WHERE l.id=CAST(e.resource_ref AS INTEGER) AND LOWER(l.status)='draft'
         ))
       )
   ),
