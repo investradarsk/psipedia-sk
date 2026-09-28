@@ -739,6 +739,7 @@ export type AutomationActionAttentionRow = {
   relevantAt: string;
   targetHref: string;
   sourceLabel: string | null;
+  priority?: AdminAttentionPriority;
 };
 
 const automationCategoryLabels: Record<string, string> = {
@@ -803,7 +804,7 @@ function automationActionPresentation(row: AutomationActionAttentionRow) {
       targetHref: row.targetHref,
       actionLabel: row.count === 1 ? "Skontrolovať zmenu" : "Skontrolovať zmeny",
       contextLabel: categoryLabel,
-      priority: "MEDIUM" as const,
+      priority: row.priority ?? "MEDIUM",
     };
   }
   if (row.actionType === "ADDRESS_REVIEW") {
