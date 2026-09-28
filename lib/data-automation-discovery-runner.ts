@@ -17,6 +17,7 @@ import {
 } from "./data-automation-discovery.ts";
 import {
   beginAutomationDiscoveryRun,
+  claimDueAutomationDiscoveryRoot,
   finalizeAutomationSearchUsage,
   finishAutomationDiscoveryRun,
   getAutomationDiscoveryRoot,
@@ -42,6 +43,7 @@ import {
 } from "./data-automation-source-store.ts";
 import {
   automationDiscoveryCandidateExcluded,
+  claimDueDirectEntityRefreshSetting,
   finishDirectEntityRefreshSetting,
   listDirectRefreshCandidates,
   listDueDirectEntityRefreshSettings,
@@ -1329,14 +1331,21 @@ export async function runAutomationDiscoveryRootCanary(input: {
   if (!root.enabled) throw new Error("automation_discovery_root_disabled");
   if (root.reviewStatus !== "APPROVED") throw new Error("automation_discovery_review_required");
 
+  const now = input.options.now ?? new Date();
   const dueRoot = await getDueAutomationDiscoveryRoot(
     root.id,
     input.options.database as AutomationDiscoveryDatabase,
-    input.options.now ?? new Date(),
+    now,
   );
   if (!dueRoot) throw new Error("automation_discovery_root_not_due_or_governance_blocked");
+  const claimedRoot = await claimDueAutomationDiscoveryRoot(
+    dueRoot,
+    input.options.database as AutomationDiscoveryDatabase,
+    now,
+  );
+  if (!claimedRoot) throw new Error("automation_discovery_root_already_claimed");
 
-  return runDiscoveryRoot(dueRoot, input.options);
+  return runDiscoveryRoot(claimedRoot, input.options);
 }
 
 type DirectRefreshRunSummary = {
@@ -1443,7 +1452,13 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
   const runs: DiscoveryRunSummary[] = [];
   for (const root of roots) {
     try {
-      runs.push(await runDiscoveryRoot(root, options));
+      const claimedRoot = await claimDueAutomationDiscoveryRoot(
+        root,
+        options.database as AutomationDiscoveryDatabase,
+        options.now ?? new Date(),
+      );
+      if (!claimedRoot) continue;
+      runs.push(await runDiscoveryRoot(claimedRoot, options));
     } catch (error) {
       console.error(JSON.stringify({
         event: "data_automation_discovery_root",
@@ -1484,7 +1499,13 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
       1,
     );
     for (const setting of refreshSettings) {
-      directRefreshRuns.push(await runDirectEntityRefresh(setting, options));
+      const claimedSetting = await claimDueDirectEntityRefreshSetting(
+        setting,
+        options.database,
+        options.now ?? new Date(),
+      );
+      if (!claimedSetting) continue;
+      directRefreshRuns.push(await runDirectEntityRefresh(claimedSetting, options));
     }
   } catch (error) {
     if (!missingProductModelSchema(error)) throw error;
