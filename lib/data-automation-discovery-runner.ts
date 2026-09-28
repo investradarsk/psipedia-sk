@@ -1208,6 +1208,84 @@ export async function runAutomationDiscoveryRootCanary(input: {
   return runDiscoveryRoot(dueRoot, input.options);
 }
 
+type DirectRefreshRunSummary = {
+  category: string;
+  checked: number;
+  canonicalDuplicates: number;
+  updateSuggestions: number;
+  errors: number;
+  status: "SUCCESS" | "PARTIAL" | "FAILED";
+  cursorEntityId: number;
+};
+
+function missingProductModelSchema(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such table:\s*automation_direct_refresh_settings/i.test(message)
+    || /no such table:\s*canonical_external_provenance/i.test(message)
+    || /no such table:\s*automation_update_suggestions/i.test(message);
+}
+
+async function runDirectEntityRefresh(
+  setting: Awaited<ReturnType<typeof listDueDirectEntityRefreshSettings>>[number],
+  options: DataAutomationDiscoverySweepOptions,
+): Promise<DirectRefreshRunSummary> {
+  const batchSize = 20;
+  const now = options.now ? new Date(options.now) : new Date();
+  const candidates = await listDirectRefreshCandidates(setting, options.database, batchSize);
+  let checked = 0;
+  let canonicalDuplicates = 0;
+  let updateSuggestions = 0;
+  let errors = 0;
+  let status: DirectRefreshRunSummary["status"] = "SUCCESS";
+  let errorCode: string | null = null;
+  let lastEntityId = setting.cursorEntityId;
+
+  for (const candidate of candidates) {
+    checked += 1;
+    lastEntityId = candidate.id;
+    try {
+      const refreshed = await ingestDirectEntityUrl({
+        entityType: candidate.entityType,
+        sourceUrl: candidate.sourceUrl,
+        label: `refresh:${candidate.id}`,
+        directoryCategory: candidate.category,
+        database: options.database,
+        fetchImpl: options.fetchImpl,
+        now,
+        provenanceType: "DIRECT_ENTITY_REFRESH",
+        expectedCanonicalEntityId: candidate.id,
+      });
+      canonicalDuplicates += refreshed.canonicalDuplicates;
+      updateSuggestions += refreshed.updateSuggestions;
+    } catch (error) {
+      errors += 1;
+      status = "PARTIAL";
+      errorCode ??= safeErrorCode(error);
+    }
+  }
+
+  await finishDirectEntityRefreshSetting({
+    setting,
+    lastEntityId,
+    batchWasFull: candidates.length >= batchSize,
+    status,
+    errorCode,
+    now,
+  }, options.database);
+
+  const summary = {
+    category: setting.categorySlug,
+    checked,
+    canonicalDuplicates,
+    updateSuggestions,
+    errors,
+    status,
+    cursorEntityId: candidates.length >= batchSize ? lastEntityId : 0,
+  };
+  console.info(JSON.stringify({ event: "data_automation_direct_refresh", ...summary }));
+  return summary;
+}
+
 export async function runDataAutomationDiscoverySweep(options: DataAutomationDiscoverySweepOptions) {
   let roots: AutomationDiscoveryRoot[];
   try {
@@ -1244,11 +1322,33 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
         duplicateCandidates: 0,
         requestCount: 0,
         resultCount: 0,
+        providerResultCount: 0,
+        localPrefilterCount: 0,
+        exclusionCount: 0,
+        canonicalDuplicateCount: 0,
+        newEntityCount: 0,
+        updateSuggestionCount: 0,
+        category: automationProductCategoryForRoot(root),
+        discoveryMode: automationProductModeForRoot(root),
         errors: 1,
         errorSummary: safeErrorCode(error),
         nextCheckAt: root.nextCheckAt,
       });
     }
+  }
+
+  let directRefreshRuns: DirectRefreshRunSummary[] = [];
+  try {
+    const refreshSettings = await listDueDirectEntityRefreshSettings(
+      options.database,
+      options.now ?? new Date(),
+      1,
+    );
+    for (const setting of refreshSettings) {
+      directRefreshRuns.push(await runDirectEntityRefresh(setting, options));
+    }
+  } catch (error) {
+    if (!missingProductModelSchema(error)) throw error;
   }
 
   return {
@@ -1262,5 +1362,6 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
     errors: runs.reduce((sum, run) => sum + run.errors, 0),
     schemaReady: true,
     runs,
+    directRefreshRuns,
   };
 }
