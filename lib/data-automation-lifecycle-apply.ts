@@ -55,13 +55,27 @@ function stale(message = "Návrh zmeny stavu už nezodpovedá aktuálnemu zázna
   return new AutomationLifecycleConflictError(message);
 }
 
+function lifecycleAuditNote(
+  suggestion: AutomationLifecycleSuggestion,
+  action: "accept" | "reject" | "already_satisfied",
+  previousState: string,
+) {
+  return [
+    "lifecycleVersion=1",
+    `action=${action}`,
+    `signal=${suggestion.signalType}`,
+    `previous=${previousState}`,
+    `target=${suggestion.targetState}`,
+  ].join("; ");
+}
+
 async function applyEvent(suggestion: AutomationLifecycleSuggestion, reviewerEmail: string, db: D1Database) {
   if (suggestion.signalType !== "EVENT_CANCELLED" || suggestion.targetState !== "CANCELLED") {
     throw new AutomationLifecycleUnsupportedError("Tento lifecycle signál podujatia nie je podporovaný.");
   }
   const current = await currentEvent(suggestion.canonicalEntityId, db);
   if (!current) throw stale("Podujatie už neexistuje.");
-  if (Boolean(current.cancelled)) return { satisfied: true, currentState: "CANCELLED" };
+  if (Boolean(current.cancelled)) return { satisfied: true, currentState: "CANCELLED", previousState: "CANCELLED" };
   try {
     const updated = await transitionManagedEventCancellation(
       suggestion.canonicalEntityId,
@@ -75,7 +89,7 @@ async function applyEvent(suggestion: AutomationLifecycleSuggestion, reviewerEma
     if (error instanceof Error && error.message === "event_lifecycle_stale") throw stale();
     throw error;
   }
-  return { satisfied: false, currentState: "CANCELLED" };
+  return { satisfied: false, currentState: "CANCELLED", previousState: "ACTIVE" };
 }
 
 async function applyAdoption(suggestion: AutomationLifecycleSuggestion, reviewerEmail: string, db: D1Database) {
@@ -85,7 +99,7 @@ async function applyAdoption(suggestion: AutomationLifecycleSuggestion, reviewer
   const current = await getAdoptionById(suggestion.canonicalEntityId, db as unknown as AdoptionD1Database);
   if (!current) throw stale("Adopčný profil už neexistuje.");
   const target = suggestion.targetState as AdoptionStatus;
-  if (current.status === target) return { satisfied: true, currentState: target };
+  if (current.status === target) return { satisfied: true, currentState: target, previousState: current.status };
   if (!canTransitionAdoptionStatus(current.status, target)) {
     throw stale(`Aktuálny stav adopcie nepovoľuje prechod ${current.status} → ${target}. Zmenu treba vyriešiť manuálne v profile.`);
   }
@@ -100,7 +114,7 @@ async function applyAdoption(suggestion: AutomationLifecycleSuggestion, reviewer
     if (error instanceof Error && /Nepovolený prechod|neexistuje|conflict/i.test(error.message)) throw stale();
     throw error;
   }
-  return { satisfied: false, currentState: target };
+  return { satisfied: false, currentState: target, previousState: current.status };
 }
 
 async function applyFoster(suggestion: AutomationLifecycleSuggestion, reviewerEmail: string, db: D1Database) {
@@ -109,7 +123,7 @@ async function applyFoster(suggestion: AutomationLifecycleSuggestion, reviewerEm
   }
   const current = await currentFoster(suggestion.canonicalEntityId, db);
   if (!current) throw stale("Prípad dočasnej opatery už neexistuje.");
-  if (Boolean(current.resolved)) return { satisfied: true, currentState: "RESOLVED" };
+  if (Boolean(current.resolved)) return { satisfied: true, currentState: "RESOLVED", previousState: "RESOLVED" };
   try {
     const updated = await transitionManagedHelpCaseResolved(
       suggestion.canonicalEntityId,
@@ -123,7 +137,7 @@ async function applyFoster(suggestion: AutomationLifecycleSuggestion, reviewerEm
     if (error instanceof Error && error.message === "help_lifecycle_stale") throw stale();
     throw error;
   }
-  return { satisfied: false, currentState: "RESOLVED" };
+  return { satisfied: false, currentState: "RESOLVED", previousState: "OPEN" };
 }
 
 async function applyLostFound(suggestion: AutomationLifecycleSuggestion, reviewerEmail: string, db: D1Database) {
@@ -132,7 +146,7 @@ async function applyLostFound(suggestion: AutomationLifecycleSuggestion, reviewe
   }
   const current = await currentLostFound(suggestion.canonicalEntityId, db);
   if (!current) throw stale("Hlásenie už neexistuje.");
-  if (current.status === "RESOLVED") return { satisfied: true, currentState: "RESOLVED" };
+  if (current.status === "RESOLVED") return { satisfied: true, currentState: "RESOLVED", previousState: "RESOLVED" };
   if (!canTransitionLostFoundStatus(current.status, "RESOLVED")) {
     throw stale(`Aktuálny stav hlásenia ${current.status} nepovoľuje priamy prechod na RESOLVED. Zmenu treba vyriešiť manuálne.`);
   }
@@ -148,7 +162,7 @@ async function applyLostFound(suggestion: AutomationLifecycleSuggestion, reviewe
     if (error instanceof Error && (error.message === "lost_found_lifecycle_stale" || /Nepovolený prechod/i.test(error.message))) throw stale();
     throw error;
   }
-  return { satisfied: false, currentState: "RESOLVED" };
+  return { satisfied: false, currentState: "RESOLVED", previousState: current.status };
 }
 
 export async function applyAutomationLifecycleSuggestion(input: {
@@ -172,6 +186,7 @@ export async function applyAutomationLifecycleSuggestion(input: {
       id: suggestion.id,
       expectedFingerprint: suggestion.fingerprint,
       reviewerEmail: input.reviewerEmail,
+      reviewerNotes: lifecycleAuditNote(suggestion, "reject", suggestion.currentState),
       at: (input.now ?? new Date()).toISOString(),
     }, db);
     return rejected ? { suggestion: rejected, applied: false, rejected: true, satisfied: false } : null;
@@ -201,12 +216,14 @@ export async function applyAutomationLifecycleSuggestion(input: {
     ? await resolveAutomationLifecycleSuggestionSatisfied({
         id: suggestion.id,
         expectedFingerprint: suggestion.fingerprint,
+        reviewerNotes: lifecycleAuditNote(suggestion, "already_satisfied", result.previousState),
         at: decidedAt,
       }, db)
     : await acceptAutomationLifecycleSuggestionDecision({
         id: suggestion.id,
         expectedFingerprint: suggestion.fingerprint,
         reviewerEmail: input.reviewerEmail,
+        reviewerNotes: lifecycleAuditNote(suggestion, "accept", result.previousState),
         at: decidedAt,
       }, db);
 

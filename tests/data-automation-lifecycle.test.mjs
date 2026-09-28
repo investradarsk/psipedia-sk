@@ -171,6 +171,8 @@ test("API is same-origin admin-only and stored suggestion is target authority", 
   assert.doesNotMatch(route, /body\.(?:targetState|targetStatus)/);
   assert.doesNotMatch(apply, /input\.(?:targetState|targetStatus)/);
   assert.match(apply, /hasNewerAutomationLifecycleEvidence/);
+  assert.match(apply, /lifecycleAuditNote/);
+  assert.match(apply, /previousState/);
 });
 
 test("legacy explicit lifecycle rows are normalized, but generic update UX excludes lifecycle rows", async () => {

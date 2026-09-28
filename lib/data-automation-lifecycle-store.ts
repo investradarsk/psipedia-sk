@@ -410,6 +410,7 @@ async function setLifecycleDecision(input: {
   reviewStatus: "REJECTED" | "RESOLVED";
   reviewerDecision: "LIFECYCLE_REJECTED" | "LIFECYCLE_ACCEPTED" | "LIFECYCLE_ALREADY_SATISFIED";
   reviewerEmail?: string | null;
+  reviewerNotes?: string | null;
   at: string;
 }, databaseInput?: Database) {
   const db = database(databaseInput);
@@ -428,10 +429,11 @@ async function setLifecycleDecision(input: {
     throw new Error("automation_lifecycle_already_decided");
   }
   await db.prepare(`UPDATE automation_findings SET review_status=?,reviewer_decision=?,
-      reviewed_by=?,reviewed_at=?,suppressed_until=NULL
+      reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
     WHERE id=? AND fingerprint=?`).bind(
       input.reviewStatus,
       input.reviewerDecision,
+      input.reviewerNotes?.trim().slice(0, 1000) || null,
       input.reviewerEmail?.trim().toLowerCase() || null,
       input.at,
       input.id,
@@ -444,6 +446,7 @@ export async function rejectAutomationLifecycleSuggestion(input: {
   id: number;
   expectedFingerprint: string;
   reviewerEmail: string;
+  reviewerNotes?: string | null;
   at?: string;
 }, databaseInput?: Database) {
   return setLifecycleDecision({
@@ -458,6 +461,7 @@ export async function acceptAutomationLifecycleSuggestionDecision(input: {
   id: number;
   expectedFingerprint: string;
   reviewerEmail: string;
+  reviewerNotes?: string | null;
   at?: string;
 }, databaseInput?: Database) {
   return setLifecycleDecision({
@@ -471,6 +475,7 @@ export async function acceptAutomationLifecycleSuggestionDecision(input: {
 export async function resolveAutomationLifecycleSuggestionSatisfied(input: {
   id: number;
   expectedFingerprint: string;
+  reviewerNotes?: string | null;
   at?: string;
 }, databaseInput?: Database) {
   return setLifecycleDecision({

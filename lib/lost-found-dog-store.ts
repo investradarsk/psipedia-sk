@@ -426,7 +426,7 @@ export async function transitionAdminDogReportStatus(
     resolvedAt: row.resolved_at,
     archivedAt: row.archived_at,
   }, row.expires_at, now);
-  const result = await database.prepare(`UPDATE lost_found_dog_reports
+  const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports
     SET status=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=?
     WHERE id=? AND updated_at=?`).bind(
       nextStatus,
@@ -437,11 +437,13 @@ export async function transitionAdminDogReportStatus(
       lifecycle.archivedAt,
       id,
       expectedUpdatedAt,
-    ).run();
+    );
+  const privateTouch = database.prepare(
+    "UPDATE lost_found_dog_private_details SET updated_by=?,updated_at=? WHERE report_id=?",
+  ).bind(actor, now, id);
+  const [result] = await database.batch([publicUpdate, privateTouch]);
   const changes = Number(result.meta?.changes ?? 0);
   if (changes !== 1) throw new Error("lost_found_lifecycle_stale");
-  await database.prepare("UPDATE lost_found_dog_private_details SET updated_by=?,updated_at=? WHERE report_id=?")
-    .bind(actor, now, id).run();
   return { id: Number(row.id), status: nextStatus, updatedAt: now };
 }
 
