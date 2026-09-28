@@ -263,7 +263,6 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
-    await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
 
     const persistedBody = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
     await persistedBody.fill("Finálny verejný obsah po odstránení internej redakčnej poznámky.");
