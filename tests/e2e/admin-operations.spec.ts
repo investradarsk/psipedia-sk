@@ -59,7 +59,13 @@ test("Attention pagination reaches items beyond the former source cap and distin
   await expect(filter.getByLabel("Zdroj")).toHaveValue("NEWS_TIP");
   const firstPageCards = page.locator('[data-source="NEWS_TIP"]');
   await expect(firstPageCards).toHaveCount(24);
-  await expect(page.getByRole("status").filter({ hasText: "Nájdené" })).toContainText("61");
+  const resultStatus = page.getByRole("status").filter({ hasText: "Nájdené" });
+  const initialResultText = await resultStatus.textContent();
+  const initialResultCount = Number(initialResultText?.match(/Nájdené:\s*(\d+)/)?.[1] ?? 0);
+  expect(initialResultCount).toBeGreaterThan(50);
+  const initialBellLabel = await page.getByTestId("admin-notification-bell").getAttribute("aria-label");
+  const initialBellCount = Number(initialBellLabel?.match(/(\d+)/)?.[1] ?? 0);
+  expect(initialBellCount).toBeGreaterThanOrEqual(initialResultCount);
 
   const firstTitles = await firstPageCards.locator("h2").allTextContents();
   const next = page.getByRole("link", { name: "Ďalšia strana →" });
@@ -80,6 +86,24 @@ test("Attention pagination reaches items beyond the former source cap and distin
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("alert").filter({ hasText: "Odkaz na stránku už nie je platný" })).toBeVisible();
   await expect(page.locator('[data-source="NEWS_TIP"]')).toHaveCount(24);
+
+  const canonicalLink = page.locator('[data-source="NEWS_TIP"]').first().getByRole("link", { name: "Otvoriť" });
+  await canonicalLink.click();
+  await expect(page).toHaveURL(/\/admin\/tipy#tip-\d+$/);
+  const tipHash = new URL(page.url()).hash;
+  const canonicalTip = page.locator(tipHash);
+  await canonicalTip.scrollIntoViewIfNeeded();
+  await canonicalTip.getByRole("button", { name: "Spracovaný", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Tip je označený" })).toContainText("Spracovaný");
+
+  response = await page.goto("/admin/operations?source=NEWS_TIP", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBeLessThan(400);
+  const resolvedResultText = await page.getByRole("status").filter({ hasText: "Nájdené" }).textContent();
+  const resolvedResultCount = Number(resolvedResultText?.match(/Nájdené:\s*(\d+)/)?.[1] ?? -1);
+  expect(resolvedResultCount).toBe(initialResultCount - 1);
+  const resolvedBellLabel = await page.getByTestId("admin-notification-bell").getAttribute("aria-label");
+  const resolvedBellCount = Number(resolvedBellLabel?.match(/(\d+)/)?.[1] ?? -1);
+  expect(resolvedBellCount).toBe(initialBellCount - 1);
 
   response = await page.goto("/admin/operations?source=PROFILE_REVIEW_MODERATION", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
