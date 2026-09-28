@@ -59,7 +59,6 @@ export default async function SearchPage({ searchParams }: Props) {
               maxLength={SEARCH_MAX_QUERY_LENGTH}
               placeholder="Skús „veterinár v Trnave“, „labrador“…"
               autoComplete="off"
-              autoFocus
             />
             <button type="submit">Hľadať</button>
           </form>
