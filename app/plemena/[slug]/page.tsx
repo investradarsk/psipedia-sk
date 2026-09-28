@@ -58,8 +58,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         image: breed.image,
         imageAlt: `${breed.name} – profil plemena`,
         type: "article",
-        publishedTime: "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : "2026-08-17",
-        modifiedTime: "updatedAt" in breed && typeof breed.updatedAt === "string" ? breed.updatedAt : "2026-08-17",
+        publishedTime: "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : undefined,
+        modifiedTime: "updatedAt" in breed && typeof breed.updatedAt === "string" ? breed.updatedAt : undefined,
         section: "Plemená psov",
         tags: [breed.name, `FCI skupina ${breed.fciGroup}`, breed.origin],
       })
@@ -108,8 +108,8 @@ export default async function BreedDetailPage({ params }: Props) {
   });
 
   const canonical = resolvedCanonical(breed.seo, `/plemena/${breed.slug}`);
-  const publishedAt = "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : "2026-08-17";
-  const updatedAt = "updatedAt" in breed && typeof breed.updatedAt === "string" ? breed.updatedAt : "2026-08-17";
+  const publishedAt = "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : undefined;
+  const updatedAt = "updatedAt" in breed && typeof breed.updatedAt === "string" ? breed.updatedAt : undefined;
   const schema = {
     "@context": "https://schema.org",
     "@graph": [

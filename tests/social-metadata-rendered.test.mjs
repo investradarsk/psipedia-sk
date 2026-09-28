@@ -33,7 +33,7 @@ test("rendered homepage emits one absolute canonical OG/Twitter contract", async
   assert.equal(response.status, 200);
   const html = await response.text();
   const title = "Psipedia.sk – rozumej svojmu psovi";
-  const description = "Slovenský portál pre psí život. Overené informácie, služby, podujatia a pomoc pre každodenný život so psom.";
+  const description = "Slovenský portál pre psí život. Informácie, služby, podujatia a pomoc pre každodenný život so psom.";
   const canonical = "https://psipedia.sk/";
   const image = "https://psipedia.sk/images/hero-labrador.webp";
 

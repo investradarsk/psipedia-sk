@@ -38,8 +38,7 @@ export function buildOrganizationJsonLd(organization: PublicHelpOrganization) {
       .map((contact) => contact.href),
   )];
 
-  return {
-    "@context": "https://schema.org",
+  const organizationEntity = {
     "@type": "Organization",
     "@id": `${canonicalUrl}#organization`,
     name: organization.name,
@@ -49,5 +48,21 @@ export function buildOrganizationJsonLd(organization: PublicHelpOrganization) {
     ...(email ? { email: email.value } : {}),
     ...(telephone ? { telephone: telephone.value } : {}),
     ...(sameAs.length ? { sameAs } : {}),
+  };
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      organizationEntity,
+      {
+        "@type": "BreadcrumbList",
+        "@id": `${canonicalUrl}#breadcrumb`,
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Domov", item: absoluteUrl("/") },
+          { "@type": "ListItem", position: 2, name: "Pomoc psom", item: absoluteUrl("/pomoc-psom") },
+          { "@type": "ListItem", position: 3, name: organization.name, item: canonicalUrl },
+        ],
+      },
+    ],
   };
 }

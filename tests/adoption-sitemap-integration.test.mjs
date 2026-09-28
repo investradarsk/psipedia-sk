@@ -91,11 +91,12 @@ test("sitemap source contains the catalog and indexable new details without dupl
   assert.match(sitemap, /listIndexableAdoptionsForSitemap/);
   assert.match(sitemap, /sitemapEntry\("\/pomoc-psom\/adopcia"/);
   assert.match(sitemap, /adoptionDetailPath\(item\.slug\)/);
-  assert.match(sitemap, /getPublishedHelpCases\(\)/);
-  assert.equal((sitemap.match(/getPublishedHelpCases\(\)/g) ?? []).length, 1);
-  assert.match(sitemap, /item\.category !== "adopcia"/);
-  assert.match(sitemap, /item\.category !== "utulky"/);
-  assert.match(sitemap, /new Map\(entries\.map\(\(entry\) => \[entry\.url, entry\]\)\)/);
+  assert.match(sitemap, /getPublishedHelpSitemapRecords\(\)/);
+  assert.equal((sitemap.match(/getPublishedHelpSitemapRecords\(\)/g) ?? []).length, 1);
+  assert.doesNotMatch(sitemap, /getPublishedHelpCases\(\)/);
+  assert.match(sitemap, /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky"/);
+  assert.match(sitemap, /exclusionReason: representedElsewhere/);
+  assert.match(sitemap, /return assertValidSitemap\(entries\)/);
 });
 
 test("public help, homepage and portal search no longer source legacy adoption rows", () => {
@@ -108,7 +109,8 @@ test("public help, homepage and portal search no longer source legacy adoption r
   assert.match(helpRoot, /getPublicAdoptions\(\{ page: 1 \}\)/);
   assert.match(helpRoot, /adopcia: adoptions\.pagination\.total/);
   assert.match(helpRoot, /adoptions\.items\.slice\(0, 6\)\.map\(adoptionPreview\)/);
-  assert.match(helpRoot, /return <HelpOverview sections=\{sections\} totalActive=\{totalActive\} \/>/);
+  assert.match(helpRoot, /<StructuredData value=\{schema\}/);
+  assert.match(helpRoot, /<HelpOverview sections=\{sections\} totalActive=\{totalActive\}/);
   assert.match(portalSearch, /listAllPublicAdoptions\(\)/);
   assert.match(portalSearch, /adoptionDetailPath\(dog\.slug\)/);
 });

@@ -102,7 +102,7 @@ test("organization sitemap query reuses the fail-closed public lifecycle contrac
   );
 });
 
-test("organization sitemap includes canonical published slugs, deterministic persisted dates and no duplicates", () => {
+test("organization sitemap keeps duplicate source rows visible for the parity guard", () => {
   const items = [
     { slug: "psia-nadej", publishedAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-11T10:00:00.000Z" },
     { slug: "psia-nadej", publishedAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-11T10:00:00.000Z" },
@@ -112,21 +112,24 @@ test("organization sitemap includes canonical published slugs, deterministic per
 
   assert.deepEqual(entries.map((entry) => entry.url), [
     "https://psipedia.sk/organizacie/psia-nadej",
+    "https://psipedia.sk/organizacie/psia-nadej",
     "https://psipedia.sk/organizacie/druha-organizacia",
   ]);
   assert.equal(entries[0].lastModified?.toISOString(), "2026-09-11T10:00:00.000Z");
-  assert.equal(entries[1].lastModified?.toISOString(), "2026-09-12T10:00:00.000Z");
+  assert.equal(entries[2].lastModified?.toISOString(), "2026-09-12T10:00:00.000Z");
 });
 
-test("invalid or noncanonical organization slugs and invalid persisted dates are excluded", () => {
+test("invalid organization slugs are excluded but unknown dates only omit lastModified", () => {
   for (const slug of ["", " Psia-nadej", "Psia-nadej", "psia--nadej", "psia_nadej", "psia/nadej", "život-je-pes"]) {
     assert.equal(isCanonicalOrganizationSlug(slug), false, slug);
   }
   assert.equal(isCanonicalOrganizationSlug("zivot-je-pes"), true);
-  assert.deepEqual(buildOrganizationSitemapEntries([
+  const entries = buildOrganizationSitemapEntries([
     { slug: "bad slug", publishedAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-11T10:00:00.000Z" },
     { slug: "valid-slug", publishedAt: "not-a-date", updatedAt: "also-bad" },
-  ]), []);
+  ]);
+  assert.deepEqual(entries.map((entry) => entry.url), ["https://psipedia.sk/organizacie/valid-slug"]);
+  assert.equal("lastModified" in entries[0], false);
 });
 
 test("zero-adoption published organization remains a valid public composition", async () => {
