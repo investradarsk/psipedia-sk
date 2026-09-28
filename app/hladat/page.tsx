@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
 import { portalSearchFallbacks, searchPortal } from "@/lib/portal-search";
 import { SEARCH_MAX_QUERY_LENGTH } from "@/lib/portal-search-query";
+import styles from "./search.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -80,23 +81,23 @@ export default async function SearchPage({ searchParams }: Props) {
               <h2>„{query}“</h2>
               <strong>{resultCountLabel(result.total)}</strong>
             </div>
-            <div className="portal-search-list" aria-label="Výsledky vyhľadávania">
+            <div className={styles.resultList} aria-label="Výsledky vyhľadávania">
               {result.items.map((item) => (
-                <Link href={item.href} key={item.href} className="portal-search-result">
-                  <span className="portal-search-result-copy">
-                    <small className="portal-search-result-type">{item.type}</small>
+                <Link href={item.href} key={item.href} className={styles.result}>
+                  <span className={styles.copy}>
+                    <small className={styles.type}>{item.type}</small>
                     <strong>{item.title}</strong>
-                    {item.description ? <span className="portal-search-result-description">{item.description}</span> : null}
+                    {item.description ? <span className={styles.description}>{item.description}</span> : null}
                   </span>
                   <ArrowIcon size={20} />
                 </Link>
               ))}
             </div>
 
-            {result.capped ? <p className="portal-search-limit-note">Pri veľmi širokom dotaze zobrazujeme najrelevantnejších 480 výsledkov. Pre úplný zoznam použi príslušnú sekciu alebo adresár.</p> : null}
+            {result.capped ? <p className={styles.limitNote}>Pri veľmi širokom dotaze zobrazujeme najrelevantnejších 480 výsledkov. Pre úplný zoznam použi príslušnú sekciu alebo adresár.</p> : null}
 
             {result.totalPages > 1 ? (
-              <nav className="portal-search-pagination" aria-label="Stránkovanie výsledkov">
+              <nav className={styles.pagination} aria-label="Stránkovanie výsledkov">
                 {result.page > 1 ? <Link href={searchHref(query, section, result.page - 1)} rel="prev">← Predchádzajúca</Link> : <span />}
                 <span>Strana {result.page} z {result.totalPages}</span>
                 {result.page < result.totalPages ? <Link href={searchHref(query, section, result.page + 1)} rel="next">Ďalšia →</Link> : <span />}
