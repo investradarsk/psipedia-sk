@@ -142,7 +142,7 @@ const RISK_FLAG_SQL = `json_array_length(CASE WHEN json_valid(COALESCE(s.risk_fl
 const PROFILE_RISK_FLAG_SQL = `json_array_length(CASE WHEN json_valid(COALESCE(review.risk_flags_json, '[]')) THEN COALESCE(review.risk_flags_json, '[]') ELSE '[]' END)`;
 
 
-const AUTOMATION_ACTION_SELECT = \`
+const AUTOMATION_ACTION_SELECT = `
   WITH
   draft_events AS (
     SELECT
@@ -345,7 +345,7 @@ const AUTOMATION_ACTION_SELECT = \`
       'count',1,'relevantAt',relevantAt,
       'targetHref','/admin/automatizacie/zdroje/' || id,'sourceLabel',label)
   FROM failing_sources
-\`;
+`;
 
 const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = {
   MODERATION_SUBMISSION: `
