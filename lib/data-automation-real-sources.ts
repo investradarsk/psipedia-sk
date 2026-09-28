@@ -814,11 +814,94 @@ function explicitSchemaUrl(value: unknown, base: string | null) {
   return absolutePublicUrl(value.trim(), base);
 }
 
+function explicitSchemaStrings(value: unknown, maxLength = 500) {
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => textFromHtml(item).replace(/\s+/g, " ").trim())
+    .filter((item) => item.length > 0 && item.length <= maxLength);
+}
+
+function singleExplicitValue(
+  values: string[],
+  identity: (value: string) => string = (value) => value,
+) {
+  const unique = new Map<string, string>();
+  for (const value of values) {
+    const key = identity(value);
+    if (key && !unique.has(key)) unique.set(key, value);
+  }
+  return unique.size === 1 ? [...unique.values()][0] : null;
+}
+
+function normalizePublicPhone(value: unknown) {
+  if (typeof value !== "string") return null;
+  let clean = decodeHtml(value).trim().replace(/^tel:/i, "").trim();
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {
+    return null;
+  }
+  clean = clean.replace(/\s+/g, " ");
+  return clean.length >= 5 && clean.length <= 50 && /^[+0-9() .\/-]+$/.test(clean) ? clean : null;
+}
+
+function phoneIdentity(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function normalizePublicEmail(value: unknown) {
+  if (typeof value !== "string") return null;
+  let clean = decodeHtml(value).trim().replace(/^mailto:/i, "").split("?")[0]?.trim() ?? "";
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {
+    return null;
+  }
+  clean = clean.toLowerCase();
+  return clean.length <= 180 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean) ? clean : null;
+}
+
+function socialUrl(value: unknown, base: string | null, network: "facebook" | "instagram") {
+  const url = explicitSchemaUrl(value, base);
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const allowed = network === "facebook"
+      ? new Set(["facebook.com", "www.facebook.com", "m.facebook.com"])
+      : new Set(["instagram.com", "www.instagram.com"]);
+    if (!allowed.has(host)) return null;
+    if (network === "facebook" && /^\/(?:sharer|share\.php|dialog)(?:\/|$)/i.test(parsed.pathname)) return null;
+    if (network === "instagram" && /^\/(?:accounts|developer)(?:\/|$)/i.test(parsed.pathname)) return null;
+    return canonicalizeSourceUrl(parsed.toString());
+  } catch {
+    return null;
+  }
+}
+
+function explicitSocialFromValues(value: unknown, base: string | null, network: "facebook" | "instagram") {
+  const values = Array.isArray(value) ? value : [value];
+  return singleExplicitValue(
+    values.map((item) => socialUrl(item, base, network)).filter((item): item is string => Boolean(item)),
+  );
+}
+
+function splitExplicitStreetAddress(value: string) {
+  const clean = value.replace(/\s+/g, " ").trim();
+  const match = clean.match(/^(.+?\D)\s+(\d+[A-Za-z]?(?:\/\d+[A-Za-z]?)?)$/u);
+  if (!match) return null;
+  const street = match[1].trim();
+  const houseNumber = match[2].trim();
+  if (street.length < 2 || street.length > 160 || houseNumber.length > 40) return null;
+  return { street, houseNumber, addressFormat: "STREET" as const };
+}
+
 function explicitPostalAddress(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const address = value as Record<string, unknown>;
   const text = (key: string) => typeof address[key] === "string" ? address[key].trim() : "";
-  const street = text("streetAddress");
+  const streetAddress = text("streetAddress");
   const locality = text("addressLocality");
   const region = text("addressRegion");
   const postalCode = text("postalCode");
@@ -827,13 +910,174 @@ function explicitPostalAddress(value: unknown) {
     : address.addressCountry && typeof address.addressCountry === "object" && !Array.isArray(address.addressCountry)
       ? String((address.addressCountry as Record<string, unknown>).name ?? "").trim()
       : "";
-  const formatted = [street, postalCode && locality ? `${postalCode} ${locality}` : locality, region, country]
+  const formatted = [streetAddress, postalCode && locality ? postalCode + " " + locality : locality, region, country]
     .filter(Boolean).join(", ");
+  const street = streetAddress ? splitExplicitStreetAddress(streetAddress) : null;
   return {
     ...(locality ? { city: locality } : {}),
     ...(region ? { region } : {}),
+    ...(postalCode ? { postalCode } : {}),
+    ...(street ?? {}),
     ...(formatted ? { address: formatted } : {}),
   };
+}
+
+function explicitCredentialNames(value: unknown) {
+  const values = Array.isArray(value) ? value : [value];
+  const names: string[] = [];
+  for (const item of values.slice(0, 20)) {
+    if (typeof item === "string") {
+      names.push(...explicitSchemaStrings(item, 160));
+      continue;
+    }
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    names.push(...explicitSchemaStrings((item as Record<string, unknown>).name, 160));
+  }
+  return [...new Set(names)].slice(0, 20);
+}
+
+function explicitOfferCatalogServices(value: unknown) {
+  const services: string[] = [];
+  const catalogs = Array.isArray(value) ? value : [value];
+  for (const catalog of catalogs.slice(0, 10)) {
+    if (!catalog || typeof catalog !== "object" || Array.isArray(catalog)) continue;
+    const rawItems = (catalog as Record<string, unknown>).itemListElement;
+    const items = Array.isArray(rawItems) ? rawItems : [rawItems];
+    for (const rawItem of items.slice(0, 40)) {
+      if (typeof rawItem === "string") {
+        services.push(...explicitSchemaStrings(rawItem, 160));
+        continue;
+      }
+      if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) continue;
+      const item = rawItem as Record<string, unknown>;
+      const offered = item.itemOffered && typeof item.itemOffered === "object" && !Array.isArray(item.itemOffered)
+        ? item.itemOffered as Record<string, unknown>
+        : null;
+      const nested = item.item && typeof item.item === "object" && !Array.isArray(item.item)
+        ? item.item as Record<string, unknown>
+        : null;
+      services.push(...explicitSchemaStrings(offered?.serviceType, 160));
+      services.push(...explicitSchemaStrings(offered?.name, 160));
+      services.push(...explicitSchemaStrings(nested?.name, 160));
+      if (!offered && !nested) services.push(...explicitSchemaStrings(item.name, 160));
+    }
+  }
+  return [...new Set(services)].slice(0, 20);
+}
+
+function explicitStructuredServices(node: JsonLdNode) {
+  return [...new Set([
+    ...explicitSchemaStrings(node.serviceType, 160),
+    ...explicitOfferCatalogServices(node.hasOfferCatalog),
+  ])].slice(0, 20);
+}
+
+function labelledDirectorySnippet(text: string) {
+  return /^(?:telef[oó]n|tel\.?|e-?mail|adresa|kde n[aá]s n[aá]jdete)\s*:/i.test(text.trim());
+}
+
+function directoryContactBlocks(html: string) {
+  const blocks: string[] = [];
+  for (const match of html.matchAll(/<address\b[^>]*>([\s\S]*?)<\/address>/gi)) {
+    blocks.push(match[0].slice(0, 6000));
+    if (blocks.length >= 20) return blocks;
+  }
+  for (const match of html.matchAll(/<(section|article|div|footer)\b([^>]*)>([\s\S]*?)<\/\1>/gi)) {
+    const attrs = match[2].replace(/[-_]/g, " ");
+    if (!/\b(?:contact|kontakt|address|adresa|location|lokalita)\b/i.test(attrs)) continue;
+    blocks.push(match[0].slice(0, 6000));
+    if (blocks.length >= 20) return blocks;
+  }
+  for (const match of html.matchAll(/<(p|li|div|span|td|dd)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
+    const text = textFromHtml(match[0]).slice(0, 500);
+    if (!labelledDirectorySnippet(text)) continue;
+    blocks.push(match[0].slice(0, 2000));
+    if (blocks.length >= 20) break;
+  }
+  return blocks;
+}
+
+function explicitContactPhone(blocks: string[]) {
+  const candidates: string[] = [];
+  for (const block of blocks) {
+    for (const match of block.matchAll(/<a\b[^>]*\bhref\s*=\s*["'](tel:[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+      const visible = normalizePublicPhone(textFromHtml(match[2]));
+      const href = normalizePublicPhone(match[1]);
+      if (visible || href) candidates.push(visible ?? href ?? "");
+    }
+    const text = textFromHtml(block).slice(0, 800);
+    const labelled = text.match(/^(?:telef[oó]n|tel\.?)\s*:\s*(.+)$/i);
+    const value = normalizePublicPhone(labelled?.[1]);
+    if (value) candidates.push(value);
+  }
+  return singleExplicitValue(candidates, phoneIdentity);
+}
+
+function explicitContactEmail(blocks: string[]) {
+  const candidates: string[] = [];
+  for (const block of blocks) {
+    for (const match of block.matchAll(/<a\b[^>]*\bhref\s*=\s*["'](mailto:[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+      const visible = normalizePublicEmail(textFromHtml(match[2]));
+      const href = normalizePublicEmail(match[1]);
+      if (visible || href) candidates.push(visible ?? href ?? "");
+    }
+    const text = textFromHtml(block).slice(0, 800);
+    const labelled = text.match(/^(?:e-?mail)\s*:\s*(.+)$/i);
+    const value = normalizePublicEmail(labelled?.[1]);
+    if (value) candidates.push(value);
+  }
+  return singleExplicitValue(candidates, (value) => value.toLowerCase());
+}
+
+function explicitSocialFromHtml(html: string, base: string, network: "facebook" | "instagram") {
+  const candidates: string[] = [];
+  for (const match of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/gi)) {
+    const url = socialUrl(decodeHtml(match[1]).trim(), base, network);
+    if (url) candidates.push(url);
+  }
+  return singleExplicitValue(candidates);
+}
+
+function explicitHtmlPostalAddress(html: string) {
+  const candidates: Array<Record<string, string>> = [];
+  const snippets: string[] = [];
+  for (const match of html.matchAll(/<address\b[^>]*>([\s\S]*?)<\/address>/gi)) snippets.push(match[0]);
+  for (const match of html.matchAll(/<(p|li|div|span|td|dd)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
+    const text = textFromHtml(match[0]).slice(0, 800);
+    if (/^(?:adresa|kde n[aá]s n[aá]jdete)\s*:/i.test(text)) snippets.push(match[0]);
+    if (snippets.length >= 20) break;
+  }
+
+  for (const snippet of snippets.slice(0, 20)) {
+    const lines = htmlLines(snippet)
+      .map((line) => line.replace(/^(?:adresa|kde n[aá]s n[aá]jdete)\s*:\s*/i, "").trim())
+      .filter(Boolean);
+    const postalIndex = lines.findIndex((line) => /^\d{3}\s?\d{2}\s+\S/.test(line));
+    if (postalIndex < 1) continue;
+    const postal = lines[postalIndex].match(/^(\d{3}\s?\d{2})\s+(.{2,120})$/);
+    if (!postal) continue;
+    const streetAddress = lines[postalIndex - 1];
+    const street = splitExplicitStreetAddress(streetAddress);
+    if (!street) continue;
+    candidates.push({
+      address: streetAddress + ", " + postal[1] + " " + postal[2].trim(),
+      postalCode: postal[1],
+      city: postal[2].trim(),
+      street: street.street,
+      houseNumber: street.houseNumber,
+      addressFormat: street.addressFormat,
+    });
+  }
+
+  if (candidates.length === 0) return {};
+  const unique = new Map<string, Record<string, string>>();
+  for (const candidate of candidates) {
+    const key = [candidate.address, candidate.city, candidate.postalCode]
+      .map((value) => value.toLocaleLowerCase("sk-SK").replace(/\s+/g, " ").trim())
+      .join("|");
+    if (!unique.has(key)) unique.set(key, candidate);
+  }
+  return unique.size === 1 ? [...unique.values()][0] : {};
 }
 
 function explicitDirectoryNode(html: string, sourceUrl: string) {
@@ -868,11 +1112,36 @@ export const genericDirectoryProfileAdapter: ControlledHtmlAdapter = ({ html, so
   const name = String(node.name ?? "").trim();
   if (!name) return [];
 
-  const description = typeof node.description === "string"
+  const schemaDescription = typeof node.description === "string"
     ? textFromHtml(node.description).slice(0, 5000)
     : "";
+  const description = schemaDescription || firstMetaDescription(html);
   const explicitUrl = explicitSchemaUrl(node.url, sourceUrl);
-  const address = explicitPostalAddress(node.address);
+  const schemaAddress = explicitPostalAddress(node.address);
+  const htmlAddress = Object.keys(schemaAddress).length === 0 ? explicitHtmlPostalAddress(html) : {};
+  const address = Object.keys(schemaAddress).length > 0 ? schemaAddress : htmlAddress;
+  const contactBlocks = directoryContactBlocks(html);
+
+  const structuredPhone = singleExplicitValue(
+    explicitSchemaStrings(node.telephone, 50)
+      .map((value) => normalizePublicPhone(value))
+      .filter((value): value is string => Boolean(value)),
+    phoneIdentity,
+  );
+  const structuredEmail = singleExplicitValue(
+    explicitSchemaStrings(node.email, 180)
+      .map((value) => normalizePublicEmail(value))
+      .filter((value): value is string => Boolean(value)),
+    (value) => value.toLowerCase(),
+  );
+  const structuredFacebook = explicitSocialFromValues(node.sameAs, sourceUrl, "facebook");
+  const structuredInstagram = explicitSocialFromValues(node.sameAs, sourceUrl, "instagram");
+  const publicPhone = structuredPhone ?? explicitContactPhone(contactBlocks);
+  const publicEmail = structuredEmail ?? explicitContactEmail(contactBlocks);
+  const facebookUrl = structuredFacebook ?? explicitSocialFromHtml(html, sourceUrl, "facebook");
+  const instagramUrl = structuredInstagram ?? explicitSocialFromHtml(html, sourceUrl, "instagram");
+  const services = explicitStructuredServices(node);
+  const qualifications = explicitCredentialNames(node.hasCredential);
   const sourceRecordUrl = explicitSchemaUrl(node["@id"], sourceUrl) ?? explicitUrl ?? sourceUrl;
 
   const proposed: Record<string, unknown> = {
@@ -883,6 +1152,12 @@ export const genericDirectoryProfileAdapter: ControlledHtmlAdapter = ({ html, so
     ...address,
   };
   if (description) proposed.description = description;
+  if (publicPhone) proposed.publicPhone = publicPhone;
+  if (publicEmail) proposed.publicEmail = publicEmail;
+  if (facebookUrl) proposed.facebookUrl = facebookUrl;
+  if (instagramUrl) proposed.instagramUrl = instagramUrl;
+  if (services.length) proposed.services = services;
+  if (qualifications.length) proposed.qualifications = qualifications;
 
   return [{
     sourceRecordId: ("url:" + sourceRecordUrl).slice(0, 240),
@@ -892,7 +1167,14 @@ export const genericDirectoryProfileAdapter: ControlledHtmlAdapter = ({ html, so
       schemaType: schemaTypes(node),
       name,
       description: description || null,
-      address: node.address ?? null,
+      descriptionSource: schemaDescription ? "JSON_LD" : description ? "META" : null,
+      address: node.address ?? (Object.keys(htmlAddress).length ? htmlAddress : null),
+      publicPhone: publicPhone ?? null,
+      publicEmail: publicEmail ?? null,
+      facebookUrl: facebookUrl ?? null,
+      instagramUrl: instagramUrl ?? null,
+      services,
+      qualifications,
       url: explicitUrl,
       schemaId: explicitSchemaUrl(node["@id"], sourceUrl),
     },
