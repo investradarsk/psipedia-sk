@@ -13,6 +13,7 @@ import {
   setAutomationDiscoveryRootEnabled,
 } from "@/lib/data-automation-discovery-store";
 import { runAutomationDiscoveryRootCanary } from "@/lib/data-automation-discovery-runner";
+import { releaseFailedDirectDiscoveryCooldowns } from "@/lib/data-automation-direct-discovery-recovery";
 import { getGovernanceState, upsertGovernanceReview } from "@/lib/data-automation-governance";
 import { TavilyAutomationSearchProvider } from "@/lib/data-automation-search-tavily";
 import {
@@ -100,7 +101,18 @@ export async function PUT(request: Request, { params }: Props) {
       if (updated) updatedRoots.push(updated);
     }
 
-    const immediateRun = enabled && !wasEnabled;
+    let releasedFailedCooldowns = 0;
+    if (enabled && category.mode === "DIRECT_ENTITY") {
+      const recovery = await releaseFailedDirectDiscoveryCooldowns({
+        rootIds: updatedRoots.map((root) => root.id),
+      }, bindings.DB);
+      releasedFailedCooldowns = recovery.released;
+    }
+
+    // Saving an enabled DIRECT_ENTITY automation is an explicit admin retry.
+    // Successful searches remain protected by normal query cooldown; only
+    // poisoned cooldowns from downstream PARTIAL/FAILED runs were retired above.
+    const immediateRun = enabled && (category.mode === "DIRECT_ENTITY" || !wasEnabled);
     if (immediateRun) {
       const provider = new TavilyAutomationSearchProvider({ apiKey: bindings.TAVILY_API_KEY });
       const task = Promise.allSettled(updatedRoots.map((root) => runAutomationDiscoveryRootCanary({
@@ -124,6 +136,7 @@ export async function PUT(request: Request, { params }: Props) {
       enabled,
       cadenceMinutes,
       immediateRun,
+      releasedFailedCooldowns,
       rootCount: updatedRoots.length,
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
