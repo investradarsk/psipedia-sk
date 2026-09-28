@@ -111,6 +111,7 @@ test("immutable governance audit tables are preserved and never mutated by reset
   assert.deepEqual(mod.PRESERVED_AUDIT_TABLES, [
     "automation_governance_review_history",
     "automation_governance_reviews",
+    "automation_update_field_reviews",
   ]);
   for (const table of mod.PRESERVED_AUDIT_TABLES) assert.equal(mod.DELETE_TABLE_ORDER.includes(table), false, table);
   assert.match(governanceMigration, /automation_governance_review_history_no_delete/);
