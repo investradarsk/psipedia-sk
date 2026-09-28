@@ -1118,8 +1118,12 @@ export const genericDirectoryProfileAdapter: ControlledHtmlAdapter = ({ html, so
   const description = schemaDescription || firstMetaDescription(html);
   const explicitUrl = explicitSchemaUrl(node.url, sourceUrl);
   const schemaAddress = explicitPostalAddress(node.address);
-  const htmlAddress = Object.keys(schemaAddress).length === 0 ? explicitHtmlPostalAddress(html) : {};
-  const address = Object.keys(schemaAddress).length > 0 ? schemaAddress : htmlAddress;
+  const htmlAddress = explicitHtmlPostalAddress(html);
+  const address = {
+    ...htmlAddress,
+    ...schemaAddress,
+    ...(!("street" in schemaAddress) && "address" in htmlAddress ? { address: htmlAddress.address } : {}),
+  };
   const contactBlocks = directoryContactBlocks(html);
 
   const structuredPhone = singleExplicitValue(
