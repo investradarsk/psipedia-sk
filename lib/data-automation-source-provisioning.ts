@@ -21,6 +21,7 @@ const EVENT_SOURCE_PROVISIONING = [
     config: {
       sourceShape: "MULTI_ITEM_LIST",
       htmlAdapterKey: "skj-exhibition-calendar",
+      expectedMinRecords: 1,
     },
   },
   {
