@@ -79,7 +79,9 @@ test("Attention pagination reaches items beyond the former source cap and distin
   expect(secondTitles.some((title) => firstTitles.includes(title))).toBe(false);
 
   await page.goBack({ waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/admin\/operations\?source=NEWS_TIP(?:#centrum-pozornosti)?$/);
   await expect(page.getByRole("form", { name: "Filtrovať upozornenia" }).getByLabel("Zdroj")).toHaveValue("NEWS_TIP");
+  await expect(page.locator('[data-source="NEWS_TIP"]')).toHaveCount(24);
   expect(await page.locator('[data-source="NEWS_TIP"] h2').allTextContents()).toEqual(firstTitles);
 
   response = await page.goto("/admin/operations?source=NEWS_TIP&cursor=not-a-valid-cursor", { waitUntil: "domcontentloaded" });
