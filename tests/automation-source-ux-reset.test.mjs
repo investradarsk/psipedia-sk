@@ -24,11 +24,13 @@ async function automationSchemaSql() {
 }
 
 function parseAutomationSchema(sql) {
+  const tables = [];
   const foreignKeys = [];
   const deleteTriggers = [];
   const tablePattern = /CREATE TABLE(?: IF NOT EXISTS)?\s+[`"]?([a-zA-Z0-9_]+)[`"]?\s*\(([\s\S]*?)\);/gi;
   for (const match of sql.matchAll(tablePattern)) {
     const child = match[1];
+    tables.push(child);
     const referencePattern = /REFERENCES\s+[`"]?([a-zA-Z0-9_]+)[`"]?\s*\([^)]*\)\s*(?:ON DELETE\s+(CASCADE|SET NULL|RESTRICT|NO ACTION))?/gi;
     for (const reference of match[2].matchAll(referencePattern)) {
       foreignKeys.push({ child, parent: reference[1], onDelete: reference[2] ?? "NO ACTION" });
@@ -39,7 +41,7 @@ function parseAutomationSchema(sql) {
     const deleteMatch = match[2].match(/\b(BEFORE|AFTER)\s+DELETE\s+ON\s+[`"]?([a-zA-Z0-9_]+)[`"]?/i);
     if (deleteMatch) deleteTriggers.push({ name: match[1], timing: deleteMatch[1].toUpperCase(), table: deleteMatch[2] });
   }
-  return { foreignKeys, deleteTriggers };
+  return { tables, foreignKeys, deleteTriggers };
 }
 
 test("reset defaults to preview and apply requires the exact confirmation", () => {
@@ -139,4 +141,18 @@ test("preserved governance rows cannot structurally block source recreation or r
   assert.doesNotMatch(governanceMigration, /REFERENCES\s+`?automation_(?:sources|discovery_roots)`?/i);
   assert.match(governanceMigration, /UNIQUE INDEX `automation_governance_reviews_subject_unique`[\s\S]*?(`subject_type`,`subject_id`)/);
   assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_discovery_roots"), false);
+});
+
+
+test("every automation table is explicitly deleted or intentionally preserved", async () => {
+  const schema = parseAutomationSchema(await automationSchemaSql());
+  const covered = new Set([
+    ...mod.DELETE_TABLE_ORDER,
+    ...mod.PRESERVED_AUDIT_TABLES,
+    "automation_discovery_roots",
+  ]);
+  const uncovered = [...new Set(schema.tables.filter((table) => table.startsWith("automation_")))]
+    .filter((table) => !covered.has(table))
+    .sort();
+  assert.deepEqual(uncovered, []);
 });
