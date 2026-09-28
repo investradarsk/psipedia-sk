@@ -1,4 +1,5 @@
 import { createCanonicalDraft, CanonicalDraftValidationError } from "./canonical-draft-service.ts";
+import { enqueueAutomationDraftCreatedAdminNotification } from "./admin-notifications.ts";
 import { upsertCanonicalPossibleDuplicateFlag } from "./canonical-draft-flags.ts";
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 import { AutomationConnectorError, fetchAutomationSourceRecords, type AutomationFetch } from "./data-automation-connectors.ts";
@@ -464,6 +465,19 @@ export async function ingestDirectEntityUrl(input: {
       provenanceType,
       detectedAt,
     }, input.database);
+    try {
+      await enqueueAutomationDraftCreatedAdminNotification(input.database, {
+        entityType: input.entityType,
+        canonicalEntityId: created.canonicalEntityId,
+      }, detectedAt);
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "automation_draft_notification_event",
+        canonicalEntityId: created.canonicalEntityId,
+        result: "failed",
+        error: error instanceof Error ? error.name : "unknown_error",
+      }));
+    }
     await ensureCanonicalSidecars(input.entityType, created.canonicalEntityId, input.database, now);
     if (input.entityType === "DIRECTORY" && verifiedDirectoryAddress) {
       try {
