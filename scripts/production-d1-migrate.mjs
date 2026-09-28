@@ -87,6 +87,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0092_automation_product_model.sql",
   "0093_automation_address_review.sql",
   "0094_canonical_draft_delete.sql",
+  "0095_automation_calendar_schedule.sql",
   "0097_automation_update_field_reviews.sql",
 ]);
 
@@ -143,6 +144,24 @@ export const AUTOMATION_PRODUCT_MODEL_INDEXES = Object.freeze([
   "automation_update_suggestions_category_idx",
 ]);
 
+export const AUTOMATION_SCHEDULE_COLUMNS = Object.freeze([
+  "schedule_mode",
+  "schedule_days_json",
+  "schedule_local_time",
+  "schedule_timezone",
+]);
+
+export const AUTOMATION_UPDATE_REVIEW_TABLES = Object.freeze([
+  "automation_update_field_reviews",
+]);
+
+export const AUTOMATION_UPDATE_REVIEW_INDEXES = Object.freeze([
+  "automation_update_field_reviews_value_unique",
+  "automation_update_field_reviews_canonical_idx",
+  "automation_update_field_reviews_suggestion_idx",
+  "automation_update_suggestions_canonical_review_idx",
+]);
+
 export const AUTOMATION_ADDRESS_REVIEW_TABLES = Object.freeze([
   "automation_address_review_cases",
 ]);
@@ -161,17 +180,6 @@ export const CANONICAL_DRAFT_DELETE_TABLES = Object.freeze([
 export const CANONICAL_DRAFT_DELETE_INDEXES = Object.freeze([
   "automation_record_suppressions_identity_unique",
   "automation_record_suppressions_created_idx",
-]);
-
-export const AUTOMATION_UPDATE_REVIEW_TABLES = Object.freeze([
-  "automation_update_field_reviews",
-]);
-
-export const AUTOMATION_UPDATE_REVIEW_INDEXES = Object.freeze([
-  "automation_update_field_reviews_value_unique",
-  "automation_update_field_reviews_canonical_idx",
-  "automation_update_field_reviews_suggestion_idx",
-  "automation_update_suggestions_canonical_review_idx",
 ]);
 
 export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
@@ -576,6 +584,9 @@ function schemaState(databaseName, configPath) {
   const partnerAuthIdentityColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_auth_identities')");
   const moderationSubmissionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('moderation_submissions')");
   const geoPointColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('geo_points')");
+  const automationDiscoveryRootColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_roots')");
+  const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
+  const automationDirectRefreshColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_direct_refresh_settings')");
   const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
   const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const moderationSubmissionForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('moderation_submissions')");
@@ -594,6 +605,9 @@ function schemaState(databaseName, configPath) {
     partnerAuthIdentityColumns,
     moderationSubmissionColumns,
     geoPointColumns,
+    automationDiscoveryRootColumns,
+    automationSourceColumns,
+    automationDirectRefreshColumns,
     partnerPasswordCredentialForeignKeys,
     partnerAuthIdentityForeignKeys,
     moderationSubmissionForeignKeys,
@@ -827,6 +841,14 @@ export function targetSchemaObjects(schema, targetMigration) {
         || CANONICAL_DRAFT_DELETE_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0095_automation_calendar_schedule.sql") {
+    const hasScheduleColumn = (columns) => columns.some((column) => AUTOMATION_SCHEDULE_COLUMNS.includes(String(column.name)));
+    return {
+      partial: hasScheduleColumn(schema.automationDiscoveryRootColumns)
+        || hasScheduleColumn(schema.automationSourceColumns)
+        || hasScheduleColumn(schema.automationDirectRefreshColumns),
+    };
+  }
   if (targetMigration === "0097_automation_update_field_reviews.sql") {
     return {
       partial: AUTOMATION_UPDATE_REVIEW_TABLES.some((table) => names.has(table))
@@ -866,6 +888,19 @@ function assertCanonicalDraftDeleteSchema(schema) {
   invariant(tableSql.includes("external_source_url"), "automation_record_suppressions external source URL is missing");
   invariant(tableSql.includes("external_record_id"), "automation_record_suppressions external record ID is missing");
   invariant(!tableSql.includes("canonical_entity_id"), "suppression registry must not own canonical content");
+}
+
+function assertAutomationCalendarScheduleSchema(schema) {
+  for (const [table, columns] of [
+    ["automation_discovery_roots", schema.automationDiscoveryRootColumns],
+    ["automation_sources", schema.automationSourceColumns],
+    ["automation_direct_refresh_settings", schema.automationDirectRefreshColumns],
+  ]) {
+    const names = new Set(columns.map((column) => String(column.name)));
+    for (const column of AUTOMATION_SCHEDULE_COLUMNS) {
+      invariant(names.has(column), `Missing automation schedule column: ${table}.${column}`);
+    }
+  }
 }
 
 function assertAutomationUpdateReviewSchema(schema) {
@@ -1333,6 +1368,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 92) assertAutomationProductModelSchema(schema);
   if (migrationIndex(targetMigration) >= 93) assertAutomationAddressReviewSchema(schema);
   if (migrationIndex(targetMigration) >= 94) assertCanonicalDraftDeleteSchema(schema);
+  if (migrationIndex(targetMigration) >= 95) assertAutomationCalendarScheduleSchema(schema);
   if (migrationIndex(targetMigration) >= 97) assertAutomationUpdateReviewSchema(schema);
 }
 
