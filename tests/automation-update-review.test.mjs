@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
 test("field-review ledger is additive and value-bound", async () => {
-  const migration = await read("drizzle/0093_automation_update_field_reviews.sql");
+  const migration = await read("drizzle/0094_automation_update_field_reviews.sql");
   assert.match(migration, /CREATE TABLE `automation_update_field_reviews`/);
   assert.match(migration, /origin_type/);
   assert.match(migration, /suggestion_id/);

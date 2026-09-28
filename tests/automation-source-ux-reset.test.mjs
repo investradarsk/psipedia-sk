@@ -59,6 +59,7 @@ test("reset allowlist is automation-only and excludes canonical tables", () => {
   assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_ingestion_receipts"));
   assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_source_candidates"));
   assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_applications"));
+  assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_address_review_cases"));
   assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_update_suggestions"));
   assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_direct_refresh_settings"), false);
   assert.equal(mod.DELETE_TABLE_ORDER.includes("canonical_external_provenance"), false);

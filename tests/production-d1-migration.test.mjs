@@ -100,7 +100,8 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0090_geo_google_place_identity.sql",
     "0091_automation_detach_drafts.sql",
     "0092_automation_product_model.sql",
-    "0093_automation_update_field_reviews.sql",
+    "0093_automation_address_review.sql",
+    "0094_automation_update_field_reviews.sql",
   ]);
 });
 
@@ -138,15 +139,28 @@ test("AUTOMATION-PRODUCT-MODEL-2 0092 detects partial schema drift", () => {
   );
 });
 
-test("AUTOMATION-UPDATE-REVIEW-1 0093 detects partial schema drift", () => {
+test("AUTOMATION-ADDRESS-REVIEW-1 0093 detects partial schema drift", () => {
   assert.deepEqual(
     targetSchemaObjects({
-      objects: [{ name: "automation_update_field_reviews", type: "table", sql: "" }],
-    }, "0093_automation_update_field_reviews.sql"),
+      objects: [{ name: "automation_address_review_cases", type: "table", sql: "" }],
+    }, "0093_automation_address_review.sql"),
     { partial: true },
   );
   assert.deepEqual(
-    targetSchemaObjects({ objects: [] }, "0093_automation_update_field_reviews.sql"),
+    targetSchemaObjects({ objects: [] }, "0093_automation_address_review.sql"),
+    { partial: false },
+  );
+});
+
+test("AUTOMATION-UPDATE-REVIEW-1 0094 detects partial schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [{ name: "automation_update_field_reviews", type: "table", sql: "" }],
+    }, "0094_automation_update_field_reviews.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0094_automation_update_field_reviews.sql"),
     { partial: false },
   );
 });
@@ -203,7 +217,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0094_future_migration.sql",
+    "0095_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -245,7 +259,8 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0090_geo_google_place_identity.sql",
     "0091_automation_detach_drafts.sql",
     "0092_automation_product_model.sql",
-    "0093_automation_update_field_reviews.sql",
+    "0093_automation_address_review.sql",
+    "0094_automation_update_field_reviews.sql",
   ]);
 });
 
@@ -253,7 +268,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0094_future_migration.sql",
+    "0095_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -281,8 +296,9 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0090_geo_google_place_identity.sql",
     "0091_automation_detach_drafts.sql",
     "0092_automation_product_model.sql",
-    "0093_automation_update_field_reviews.sql",
-    "0094_future_migration.sql",
+    "0093_automation_address_review.sql",
+    "0094_automation_update_field_reviews.sql",
+    "0095_future_migration.sql",
   ]);
 });
 

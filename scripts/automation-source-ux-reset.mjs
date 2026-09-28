@@ -31,6 +31,7 @@ export const PRESERVED_AUDIT_TABLES = Object.freeze([
 // Explicit child-first allowlist. Discovery-root rows are reusable code-level
 // configuration, so reset clears their operational state instead of deleting them.
 export const DELETE_TABLE_ORDER = Object.freeze([
+  "automation_address_review_cases",
   "automation_update_suggestions",
   "automation_canonical_apply_operations",
   "automation_entity_match_decisions",
