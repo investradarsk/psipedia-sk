@@ -30,9 +30,10 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
     view: isAdminAttentionView(view) ? view : "active",
   };
 
+  const cursor = first(raw.cursor) || undefined;
   const attention = await loadAdminAttentionPage({
     filters,
-    cursor: first(raw.cursor) || undefined,
+    cursor,
   });
 
   let newCandidates = 0;
@@ -103,7 +104,11 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
       </section>
 
       <div id="centrum-pozornosti">
-        <AdminAttentionQueue page={attention} filters={filters} />
+        <AdminAttentionQueue
+          key={JSON.stringify({ ...filters, cursor: cursor ?? "" })}
+          page={attention}
+          filters={filters}
+        />
       </div>
     </AdminShell>
   );
