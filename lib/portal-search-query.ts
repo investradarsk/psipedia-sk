@@ -231,12 +231,18 @@ export function parsePortalSearchQuery(value: string): ParsedPortalSearchQuery {
   const entityIntent: PortalSearchEntityIntent = directory ? "directory" : event ? "event" : entity?.value ?? null;
   const intentToken = canonicalIntentToken({ directoryCategory, eventType, entityIntent });
   const contentTokens = [...new Set([intentToken, ...residualTokens].filter(Boolean))].slice(0, SEARCH_MAX_TOKENS);
+  const canonicalLocationToken = location
+    ? normalizePortalSearch(location.value.city || location.value.district || location.value.region.replace(/ kraj$/, ""))
+    : "";
+  const fallbackTokens = canonicalLocationToken
+    ? [canonicalLocationToken]
+    : tokens.filter((token) => !QUERY_STOP_WORDS.has(token));
 
   return {
     raw,
     normalized,
     tokens,
-    contentTokens: contentTokens.length ? contentTokens : tokens.filter((token) => !QUERY_STOP_WORDS.has(token)),
+    contentTokens: contentTokens.length ? contentTokens : fallbackTokens,
     residualTokens,
     directoryCategory,
     eventType,
@@ -269,7 +275,7 @@ export function scorePortalSearchItem(item: PortalSearchRankable, parsed: Parsed
 
   if (item.kind === "directory" && parsed.directoryCategory && item.category === parsed.directoryCategory) {
     if (parsed.location?.level === "city" && normalizedLocationMatches(item.city, parsed.location.city)) return 10;
-    if (parsed.location?.level === "district" && normalizedLocationMatches(item.district, parsed.location.district)) return 20;
+    if (parsed.location?.district && normalizedLocationMatches(item.district, parsed.location.district)) return 20;
     if (parsed.location?.region && normalizedLocationMatches(item.region, parsed.location.region)) return 20;
   }
 
