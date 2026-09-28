@@ -312,6 +312,10 @@ test("Attention read model has 15 canonical sources, bounded page size and no si
   assert.match(store, /ADMIN_ATTENTION_MAX_PAGE_SIZE = 50/);
   assert.match(store, /LIMIT \\?/);
   assert.match(store, /ATTENTION_ORDER_SQL/);
+  assert.match(store, /ADMIN_ATTENTION_REQUEST_QUERY_MAX = ADMIN_ATTENTION_SOURCE_QUERY_COUNT \* 2/);
+  assert.match(store, /sourcePageQuery/);
+  assert.match(store, /compareAttentionRows/);
+  assert.doesNotMatch(store, /availableUnion/);
   assert.match(store, /cursorClause/);
   assert.match(store, /PARTIAL/);
   assert.match(store, /UNAVAILABLE/);
