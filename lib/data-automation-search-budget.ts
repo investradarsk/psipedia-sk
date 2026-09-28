@@ -9,6 +9,8 @@ export const AUTOMATION_SEARCH_HARD_ROOT_DAILY_REQUESTS = 50;
 export const AUTOMATION_SEARCH_DEFAULT_QUERY_COOLDOWN_MINUTES = 24 * 60;
 export const AUTOMATION_SEARCH_HARD_PROVIDER_REQUESTS_PER_RUN = 10;
 export const AUTOMATION_SEARCH_MAX_PAGES_PER_QUERY = 1;
+export const AUTOMATION_SEARCH_DEFAULT_ADDRESS_ENRICHMENT_DAILY_REQUESTS = 3;
+export const AUTOMATION_SEARCH_HARD_ADDRESS_ENRICHMENT_DAILY_REQUESTS = 5;
 export const AUTOMATION_SEARCH_PLATEAU_WINDOW = 3;
 export const AUTOMATION_SEARCH_PLATEAU_COOLDOWN_MULTIPLIER = 4;
 
@@ -41,6 +43,7 @@ export type AutomationSearchBudgetPolicy = {
   baseRootDailyRequests: number;
   manualExtraRootRequests: number;
   rootDailyRequests: number;
+  addressEnrichmentDailyRequests: number;
   queryCooldownMinutes: number;
   maxPagesPerQuery: 1;
 };
@@ -111,6 +114,11 @@ export function automationSearchBudgetPolicy(input: {
     baseRootDailyRequests,
     manualExtraRootRequests,
     rootDailyRequests: baseRootDailyRequests + manualExtraRootRequests,
+    addressEnrichmentDailyRequests: lowerBoundedConfig(
+      budget.addressEnrichmentDailyRequests,
+      AUTOMATION_SEARCH_DEFAULT_ADDRESS_ENRICHMENT_DAILY_REQUESTS,
+      AUTOMATION_SEARCH_HARD_ADDRESS_ENRICHMENT_DAILY_REQUESTS,
+    ),
     queryCooldownMinutes: Math.max(
       Math.max(60, Math.floor(input.cadenceMinutes || 0)),
       lowerBoundedConfig(
