@@ -362,7 +362,8 @@ export async function getAutomationDiscoveryRunSearchMetrics(
   try {
     const row = await db.prepare(`SELECT COALESCE(SUM(request_count),0) AS request_count,
       COALESCE(SUM(result_count),0) AS result_count
-      FROM automation_search_usage WHERE discovery_run_id=?`)
+      FROM automation_search_usage
+      WHERE discovery_run_id=? AND operation_key NOT LIKE 'address-enrichment:%'`)
       .bind(runId).first<Record<string, unknown>>();
     return {
       requestCount: numberValue(row?.request_count),
