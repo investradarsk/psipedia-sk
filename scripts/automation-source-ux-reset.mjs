@@ -25,6 +25,7 @@ export const CANONICAL_SAFETY_TABLES = Object.freeze([
 export const PRESERVED_AUDIT_TABLES = Object.freeze([
   "automation_governance_review_history",
   "automation_governance_reviews",
+  "automation_update_field_reviews",
 ]);
 
 // Explicit child-first allowlist. Discovery-root rows are reusable code-level
