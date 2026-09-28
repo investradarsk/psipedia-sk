@@ -734,6 +734,35 @@ const ATTENTION_ORDER_SQL = `ORDER BY
   sourceType ASC,
   sourceId ASC`;
 
+function sourcePageQuery(
+  source: AdminAttentionQueueSourceType,
+  filters: AdminAttentionFilters,
+  cursor: CursorPayload | null,
+) {
+  const where = pageWhere(filters, cursor);
+  return {
+    sql: `${paramsCte()}, source_rows AS (${ATTENTION_SOURCE_SELECTS[source]})
+      SELECT sourceType,sourceId,activeRank,attentionState,priority,priorityRank,relevantAt,payload
+      FROM source_rows
+      ${where.sql}
+      ${ATTENTION_ORDER_SQL}
+      LIMIT ?`,
+    bindings: where.bindings,
+  };
+}
+
+function compareAttentionRows(left: AttentionGenericRow, right: AttentionGenericRow) {
+  if (left.activeRank !== right.activeRank) return left.activeRank - right.activeRank;
+  if (left.activeRank === 0 && left.priorityRank !== right.priorityRank) return left.priorityRank - right.priorityRank;
+  if (left.relevantAt !== right.relevantAt) {
+    if (left.activeRank === 0) return left.relevantAt < right.relevantAt ? -1 : 1;
+    return left.relevantAt > right.relevantAt ? -1 : 1;
+  }
+  if (left.sourceType !== right.sourceType) return left.sourceType < right.sourceType ? -1 : 1;
+  if (left.sourceId !== right.sourceId) return left.sourceId < right.sourceId ? -1 : 1;
+  return 0;
+}
+
 function mapGenericRow(row: AttentionGenericRow, now: Date): AdminAttentionItem {
   const payload = JSON.parse(row.payload) as unknown;
   switch (row.sourceType) {
