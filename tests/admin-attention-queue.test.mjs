@@ -429,7 +429,7 @@ test("automation attention derives active state from bounded domain queries and 
   const push = readFileSync(new URL("../lib/admin-push.ts", import.meta.url), "utf8");
   assert.match(store, /automation_draft_created/);
   assert.match(store, /admin_notification_runtime/);
-  assert.match(store, /status='DRAFT'/);
+  assert.match(store, /LOWER\([a-z]\.status\)='draft'/);
   assert.match(store, /review_status='NEW'/);
   assert.match(store, /failing_sources/);
   assert.match(store, /HAVING COUNT\(\*\)=3 AND SUM\(CASE WHEN r\.status='FAILED'/);
