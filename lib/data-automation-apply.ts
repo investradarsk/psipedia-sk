@@ -12,6 +12,7 @@ import {
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { createCanonicalDraft, CanonicalDraftValidationError } from "./canonical-draft-service.ts";
+import { enqueueAutomationDraftCreatedAdminNotification } from "./admin-notifications.ts";
 import { mapAutomationFindingToDraftInput } from "./data-automation-draft-mapper.ts";
 import { createAutomationIngestionReceipt, getAutomationIngestionReceipt } from "./data-automation-ingestion-receipts.ts";
 import { upsertCanonicalExternalProvenance } from "./data-automation-product-store.ts";
@@ -541,6 +542,19 @@ export async function applyAutomationFinding(input: {
         provenanceType: "AUTOMATION_SOURCE_RECORD",
         detectedAt: at,
       }, db);
+      try {
+        await enqueueAutomationDraftCreatedAdminNotification(db, {
+          entityType: finding.entityType,
+          canonicalEntityId: created.canonicalEntityId,
+        }, at);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "automation_draft_notification_event",
+          canonicalEntityId: created.canonicalEntityId,
+          result: "failed",
+          error: error instanceof Error ? error.name : "unknown_error",
+        }));
+      }
 
       await db.prepare(`UPDATE automation_findings SET
           canonical_entity_id=NULL,canonical_entity_key=NULL,
