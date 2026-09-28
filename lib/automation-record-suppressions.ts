@@ -2,6 +2,16 @@ import { canonicalizeSourceUrl, type AutomationEntityType } from "./data-automat
 
 type Database = Pick<D1Database, "prepare">;
 
+type AutomationRecordSuppressionRow = {
+  id: number;
+  entity_type: AutomationEntityType;
+  external_source_url: string;
+  external_record_id: string;
+  suppression_reason: "ADMIN_DRAFT_DELETE";
+  created_by: string;
+  created_at: string;
+};
+
 export type AutomationRecordSuppression = {
   id: number;
   entityType: AutomationEntityType;
@@ -35,15 +45,7 @@ export async function getAutomationRecordSuppression(input: {
 }, database: Database): Promise<AutomationRecordSuppression | null> {
   const identity = automationSuppressionIdentity(input);
   if (!identity) return null;
-  let row: {
-    id: number;
-    entity_type: AutomationEntityType;
-    external_source_url: string;
-    external_record_id: string;
-    suppression_reason: "ADMIN_DRAFT_DELETE";
-    created_by: string;
-    created_at: string;
-  } | null;
+  let row: AutomationRecordSuppressionRow | null;
   try {
     row = await database.prepare(`SELECT
         id,entity_type,external_source_url,external_record_id,suppression_reason,created_by,created_at
@@ -53,15 +55,7 @@ export async function getAutomationRecordSuppression(input: {
         identity.entityType,
         identity.externalSourceUrl,
         identity.externalRecordId,
-      ).first<typeof row extends infer _ ? {
-        id: number;
-        entity_type: AutomationEntityType;
-        external_source_url: string;
-        external_record_id: string;
-        suppression_reason: "ADMIN_DRAFT_DELETE";
-        created_by: string;
-        created_at: string;
-      } : never>();
+      ).first<AutomationRecordSuppressionRow>();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/no such table:\s*automation_record_suppressions/i.test(message)) return null;
