@@ -245,6 +245,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0090_geo_google_place_identity.sql",
     "0091_automation_detach_drafts.sql",
     "0092_automation_product_model.sql",
+    "0093_automation_address_review.sql",
   ]);
 });
 
