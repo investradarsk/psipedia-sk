@@ -31,6 +31,7 @@ import {
   SITEMAP_MAX_D1_CONCURRENCY,
   SitemapStageError,
 } from "../lib/sitemap-runtime.ts";
+import { withAvailableBreedImages } from "../lib/breed-image.ts";
 
 test("lastModified uses the latest real timestamp and omits unknown dates", () => {
   assert.equal(latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(), "2026-09-07T12:30:00.000Z");
@@ -380,7 +381,7 @@ test("canonical repair migration fixes only the confirmed broken canonical targe
 });
 
 
-test("sitemap orchestrator reproduces the old Cloudflare concurrency failure and bounds the fixed runtime", async () => {
+test("sitemap orchestrator bounds D1 fan-out independently of the confirmed asset-probe root cause", async () => {
   const connectionLimit = 6;
 
   const makeProbe = () => {
@@ -448,5 +449,38 @@ test("sitemap application source has no top-level loader fan-out or required-dat
   assert.doesNotMatch(loadSource, /\.catch\(\(\) => \[\]\)/);
   assert.match(loadSource, /stage: "load-organizations"/);
   assert.match(source, /listManagedPortalSectionsForSitemap/);
+  assert.match(source, /listPublishedCanonicalBreedSitemapIndex/);
+  assert.doesNotMatch(source, /listPublishedCanonicalBreedIndex/);
   assert.match(source, /runSitemapStageSync\("global-validation"/);
+});
+
+test("old breed image availability path can exceed Cloudflare's six waiting connections", async () => {
+  let active = 0;
+  let maxActive = 0;
+  const bindings = {
+    ASSETS: {
+      async fetch() {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setImmediate(resolve));
+        active -= 1;
+        return new Response("", { status: 200, headers: { "content-type": "image/webp" } });
+      },
+    },
+  };
+  const items = Array.from({ length: 8 }, (_, index) => ({
+    image: `/images/breeds/root-cause-${index}.webp`,
+  }));
+  await withAvailableBreedImages(items, bindings);
+  assert.equal(maxActive, 8);
+  assert.ok(maxActive > 6);
+});
+
+test("breed sitemap DTO stays lightweight and never probes R2 or static assets", () => {
+  const source = fs.readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
+  const start = source.indexOf("export async function listPublishedCanonicalBreedSitemapIndex");
+  const end = source.indexOf("export async function listPublishedBreedsForComparison", start);
+  const sitemapReader = source.slice(start, end);
+  assert.match(sitemapReader, /SELECT slug,image_url,seo_json,updated_at/);
+  assert.doesNotMatch(sitemapReader, /withAvailableBreedImages|BUCKET|ASSETS|HEAD|fci_standard_json/);
 });
