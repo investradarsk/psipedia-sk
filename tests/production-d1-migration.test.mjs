@@ -154,15 +154,10 @@ test("AUTOMATION-ADDRESS-REVIEW-1 0093 detects partial schema drift", () => {
 
 test("AUTOMATION-UPDATE-REVIEW-1 0094 detects partial schema drift", () => {
   assert.deepEqual(
-    targetSchemaObjects({
-      objects: [{ name: "automation_update_field_reviews", type: "table", sql: "" }],
-    }, "0094_automation_update_field_reviews.sql"),
+    targetSchemaObjects({ objects: [{ name: "automation_update_field_reviews", type: "table", sql: "" }] }, "0094_automation_update_field_reviews.sql"),
     { partial: true },
   );
-  assert.deepEqual(
-    targetSchemaObjects({ objects: [] }, "0094_automation_update_field_reviews.sql"),
-    { partial: false },
-  );
+  assert.deepEqual(targetSchemaObjects({ objects: [] }, "0094_automation_update_field_reviews.sql"), { partial: false });
 });
 
 test("DISCOVERY-2C-E production verifier pins Tavily config but allows operator lifecycle state", () => {
