@@ -84,6 +84,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0089_automation_tavily_directory_roots.sql",
   "0090_geo_google_place_identity.sql",
   "0091_automation_detach_drafts.sql",
+  "0092_automation_product_model.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -124,6 +125,19 @@ export const AUTOMATION_GOVERNANCE_INDEXES = Object.freeze([
   "automation_governance_reviews_subject_unique",
   "automation_governance_reviews_review_due_idx",
   "automation_governance_review_history_subject_idx",
+]);
+
+export const AUTOMATION_PRODUCT_MODEL_TABLES = Object.freeze([
+  "canonical_external_provenance",
+  "automation_update_suggestions",
+  "automation_direct_refresh_settings",
+]);
+
+export const AUTOMATION_PRODUCT_MODEL_INDEXES = Object.freeze([
+  "canonical_external_provenance_identity_unique",
+  "canonical_external_provenance_canonical_idx",
+  "automation_update_suggestions_fingerprint_unique",
+  "automation_update_suggestions_category_idx",
 ]);
 
 export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
@@ -761,7 +775,23 @@ export function targetSchemaObjects(schema, targetMigration) {
       partial: names.has("automation_ingestion_receipts") || names.has("canonical_draft_flags"),
     };
   }
+  if (targetMigration === "0092_automation_product_model.sql") {
+    return {
+      partial: AUTOMATION_PRODUCT_MODEL_TABLES.some((table) => names.has(table))
+        || AUTOMATION_PRODUCT_MODEL_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
+}
+
+function assertAutomationProductModelSchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of AUTOMATION_PRODUCT_MODEL_TABLES) {
+    invariant(names.get(table)?.type === "table", `Missing automation product-model table: ${table}`);
+  }
+  for (const index of AUTOMATION_PRODUCT_MODEL_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing automation product-model index: ${index}`);
+  }
 }
 
 function assertPartnerClaimsSchema(schema) {
@@ -1220,6 +1250,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 83) assertAutomationSearchUsageSchema(schema);
   if (migrationIndex(targetMigration) >= 84) assertAutomationGovernanceSchema(schema);
   if (migrationIndex(targetMigration) >= 90) assertGeoGooglePlaceIdentitySchema(schema);
+  if (migrationIndex(targetMigration) >= 92) assertAutomationProductModelSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
