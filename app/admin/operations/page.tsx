@@ -3,14 +3,12 @@ import { AdminAttentionQueue } from "@/components/admin-attention-queue";
 import { AdminShell } from "@/components/admin-shell";
 import styles from "@/components/admin-operations-ux.module.css";
 import {
-  filterAdminAttentionItems,
   isAdminAttentionPriority,
-  isAdminAttentionSourceType,
+  isAdminAttentionQueueSourceType,
   isAdminAttentionView,
-  summarizeAdminAttention,
   type AdminAttentionFilters,
 } from "@/lib/admin-attention-queue";
-import { loadAdminAttentionQueue } from "@/lib/admin-attention-queue-store";
+import { loadAdminAttentionPage } from "@/lib/admin-attention-queue-store";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
 import { listAutomationPossibleMatchReviews } from "@/lib/data-automation-match-review";
@@ -27,14 +25,15 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
   const priority = first(raw.priority);
   const view = first(raw.view);
   const filters: AdminAttentionFilters = {
-    sourceType: isAdminAttentionSourceType(source) ? source : "all",
+    sourceType: isAdminAttentionQueueSourceType(source) ? source : "all",
     priority: isAdminAttentionPriority(priority) ? priority : "all",
     view: isAdminAttentionView(view) ? view : "active",
   };
 
-  const allItems = await loadAdminAttentionQueue();
-  const summary = summarizeAdminAttention(allItems);
-  const items = filterAdminAttentionItems(allItems, filters);
+  const attention = await loadAdminAttentionPage({
+    filters,
+    cursor: first(raw.cursor) || undefined,
+  });
 
   let newCandidates = 0;
   let sourceIssues = 0;
@@ -63,14 +62,18 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
       eyebrow="Admin"
       title="Upozornenia"
       description="Veci, pri ktorých treba niečo skontrolovať, schváliť, zamietnuť alebo vyriešiť. Technické nástroje a mapové operácie sú oddelené v hlavnej navigácii."
-      attentionCount={summary.active}
+      attentionCount={attention.summary.active}
+      attentionCountPartial={attention.availability === "PARTIAL" || attention.availability === "UNAVAILABLE"}
     >
       <section className={styles.hubGrid} aria-label="Rýchly prehľad upozornení">
-        <a className={`${styles.hubCard} ${summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="#centrum-pozornosti">
+        <a className={`${styles.hubCard} ${attention.summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="#centrum-pozornosti">
           <span className={styles.hubKicker}>Čaká na teba</span>
-          <div className={styles.hubMetric}><strong>{summary.active}</strong><span>aktívnych úloh</span></div>
+          <div className={styles.hubMetric}>
+            <strong>{attention.availability === "UNAVAILABLE" ? "—" : attention.summary.active}</strong>
+            <span>{attention.availability === "PARTIAL" ? "aktívnych úloh v dostupných zdrojoch" : "aktívnych úloh"}</span>
+          </div>
           <h2>Aktívne upozornenia</h2>
-          <p>Podnety z automatizácií, dopytov, moderácie a ďalších workflowov, ktoré vyžadujú ľudské rozhodnutie.</p>
+          <p>Podnety z dopytov, moderácie, partnerov a ďalších canonical workflowov, ktoré vyžadujú ľudské rozhodnutie.</p>
           <span className={styles.hubOpen}>Prejsť na upozornenia ↓</span>
         </a>
 
@@ -100,7 +103,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
       </section>
 
       <div id="centrum-pozornosti">
-        <AdminAttentionQueue items={items} allItems={allItems} filters={filters} />
+        <AdminAttentionQueue page={attention} filters={filters} />
       </div>
     </AdminShell>
   );
