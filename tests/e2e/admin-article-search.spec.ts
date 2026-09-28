@@ -19,8 +19,8 @@ test("article admin search finds an accented article beyond page one and keeps U
 
   const search = page.getByPlaceholder("Názov, slug, perex alebo téma");
   await search.fill("zuby");
-  await page.getByLabel("Stav").selectOption("draft");
-  await page.getByLabel("Sekcia").selectOption("clanky");
+  await page.getByLabel("Stav", { exact: true }).selectOption("draft");
+  await page.getByLabel("Sekcia", { exact: true }).selectOption("clanky");
   await page.getByRole("button", { name: "Filtrovať" }).click();
 
   await expect(page).toHaveURL(/query=zuby/);
@@ -31,8 +31,8 @@ test("article admin search finds an accented article beyond page one and keeps U
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByPlaceholder("Názov, slug, perex alebo téma")).toHaveValue("zuby");
-  await expect(page.getByLabel("Stav")).toHaveValue("draft");
-  await expect(page.getByLabel("Sekcia")).toHaveValue("clanky");
+  await expect(page.getByLabel("Stav", { exact: true })).toHaveValue("draft");
+  await expect(page.getByLabel("Sekcia", { exact: true })).toHaveValue("clanky");
   await expect(page.getByRole("heading", { name: "Žlté zúbky ADMIN SEARCH cieľ" })).toBeVisible();
 
   await page.getByRole("heading", { name: "Žlté zúbky ADMIN SEARCH cieľ" }).getByRole("link").click();
