@@ -7,12 +7,13 @@ import { runAutomationSourceNow } from "@/lib/data-automation-runner";
 import { productionAutomationHtmlAdapters } from "@/lib/data-automation-real-sources";
 import { createProductionOrganizationEnricher } from "@/lib/data-automation-organization-enrichment";
 import {
+  configureAutomationSource,
   getAutomationSourceAdmin,
   reviewAutomationSource,
-  setAutomationSourceCadence,
   setAutomationSourceEnabled,
   updateAutomationSourceAdmin,
 } from "@/lib/data-automation-source-store";
+import { prepareAutomationSourceGovernanceForApproval } from "@/lib/data-automation-source-activation";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -43,8 +44,7 @@ export async function PUT(request: Request, { params }: Props) {
       if (!bindings.DB) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
       const before = await getAutomationSourceAdmin(id, bindings.DB);
       if (!before) return Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
-      await setAutomationSourceCadence({ id, cadenceMinutes }, bindings.DB);
-      const source = await setAutomationSourceEnabled({ id, enabled }, bindings.DB);
+      const source = await configureAutomationSource({ id, cadenceMinutes, enabled }, bindings.DB);
       const immediateRun = enabled && !before.enabled;
       if (immediateRun) {
         const task = runAutomationSourceNow(id, {
@@ -70,12 +70,21 @@ export async function PUT(request: Request, { params }: Props) {
     }
 
     if (action === "approve" || action === "reject") {
+      const bindings = env as unknown as Bindings;
+      if (!bindings.DB) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
       const source = await reviewAutomationSource({
         id,
         action,
         reviewerEmail: auth.user.email,
         notes: typeof body?.notes === "string" ? body.notes : null,
-      });
+      }, bindings.DB);
+      if (source && action === "approve") {
+        await prepareAutomationSourceGovernanceForApproval({
+          source,
+          actor: auth.user.email,
+          database: bindings.DB,
+        });
+      }
       return source ? Response.json({ source }) : Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
     }
 
@@ -97,7 +106,7 @@ export async function PUT(request: Request, { params }: Props) {
     return Response.json({ error: "Neplatná source akcia." }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zdroj sa nepodarilo upraviť.";
-    const status = /review_required|not_safe|not_ready|governance_blocked|stale_update/i.test(message) ? 409 : /cadence_invalid|governance_.*invalid|rationale_required|value_too_long|number_invalid/i.test(message) ? 400 : /unique/i.test(message) ? 409 : 500;
+    const status = /review_required|not_safe|not_ready|governance_blocked|activation_blocked|stale_update/i.test(message) ? 409 : /cadence_invalid|governance_.*invalid|rationale_required|value_too_long|number_invalid/i.test(message) ? 400 : /unique/i.test(message) ? 409 : 500;
     return Response.json({ error: message }, { status });
   }
 }

@@ -190,11 +190,13 @@ export function automationSourceOnlyErrorMessage(
 ) {
   const message = typeof value === "string" ? value.trim() : "";
   if (
-    /^automation_source_not_ready:/i.test(message)
+    /^automation_source_not_ready(?::.*)?$/i.test(message)
+    || /^automation_source_governance_blocked(?::.*)?$/i.test(message)
+    || /^automation_source_activation_blocked(?::.*)?$/i.test(message)
     || /^automation_candidate_source_not_ready:/i.test(message)
     || /^automation_candidate_source_provisioning_conflict$/i.test(message)
   ) {
-    return "Tento zdroj zatiaľ nie je pripravený na automatické spracovanie.";
+    return "Tento zdroj zatiaľ nemožno automaticky kontrolovať.";
   }
   if (/^automation_[a-z0-9_.:,-]+$/i.test(message)) return fallback;
   return message || fallback;

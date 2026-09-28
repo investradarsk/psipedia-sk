@@ -6,6 +6,7 @@ import {
   reviewAutomationSourceCandidate,
 } from "@/lib/data-automation-source-store";
 import { env } from "cloudflare:workers";
+import { prepareAutomationSourceGovernanceForApproval } from "@/lib/data-automation-source-activation";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -55,6 +56,13 @@ export async function PUT(request: Request, { params }: Props) {
             reviewerEmail: auth.user.email,
             notes: typeof body?.notes === "string" ? body.notes : null,
           }, db);
+        }
+        if (source) {
+          await prepareAutomationSourceGovernanceForApproval({
+            source,
+            actor: auth.user.email,
+            database: db,
+          });
         }
       }
     }

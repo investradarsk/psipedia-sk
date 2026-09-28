@@ -4,12 +4,17 @@ import { automationSourceReadiness } from "../lib/data-automation-capability-reg
 import { automationSourceOnlyErrorMessage } from "../lib/admin-automation-presentation.ts";
 import { searchProviderCandidatesForRoot } from "../lib/data-automation-discovery-runner.ts";
 import {
+  configureAutomationSource,
   getAutomationSourceAdmin,
   getAutomationSourceCandidate,
   reviewAutomationSource,
   reviewAutomationSourceCandidate,
   upsertAutomationSourceCandidate,
 } from "../lib/data-automation-source-store.ts";
+import {
+  automationSourceActivationReadiness,
+  prepareAutomationSourceGovernanceForApproval,
+} from "../lib/data-automation-source-activation.ts";
 import { SUPPORTED_DIRECTORY_CATEGORIES } from "../lib/data-automation-source-provisioning.ts";
 
 function normalizedSql(sql) {
@@ -73,6 +78,40 @@ function candidateRow(candidate) {
   };
 }
 
+function governanceRow(a, id) {
+  return {
+    id,
+    subject_type: String(a[0]),
+    subject_id: Number(a[1]),
+    access_status: String(a[2]),
+    robots_status: String(a[3]),
+    terms_status: String(a[4]),
+    recurring_status: String(a[5]),
+    retention_status: String(a[6]),
+    retain_url: Number(a[7]),
+    retain_title: Number(a[8]),
+    retain_snippet: Number(a[9]),
+    retain_metadata: Number(a[10]),
+    retention_days: a[11] ?? null,
+    min_cadence_minutes: a[12] ?? null,
+    max_requests_per_day: a[13] ?? null,
+    manual_only: Number(a[14]),
+    path_scope: a[15] ?? null,
+    restrictions_note: a[16] ?? null,
+    terms_url: a[17] ?? null,
+    privacy_url: a[18] ?? null,
+    robots_url: a[19] ?? null,
+    evidence_url: a[20] ?? null,
+    reviewed_at: String(a[21]),
+    reviewed_by: String(a[22]),
+    rationale: String(a[23]),
+    expires_at: a[24] ?? null,
+    review_due_at: a[25] ?? null,
+    created_at: String(a[26]),
+    updated_at: String(a[27]),
+  };
+}
+
 class MemoryStatement {
   constructor(db, sql) {
     this.db = db;
@@ -107,6 +146,10 @@ class MemoryStatement {
     if (sql.includes("FROM automation_sources s") && sql.includes("WHERE s.id=? LIMIT 1")) {
       const source = this.db.sources.find((item) => item.id === Number(a[0]));
       return source ? sourceRow(source) : null;
+    }
+
+    if (sql.startsWith("SELECT * FROM automation_governance_reviews WHERE subject_type=? AND subject_id=? LIMIT 1")) {
+      return this.db.governance.find((item) => item.subject_type === a[0] && item.subject_id === Number(a[1])) ?? null;
     }
 
     if (sql.startsWith("INSERT INTO automation_sources (")) {
@@ -233,6 +276,20 @@ class MemoryStatement {
       return { success: true };
     }
 
+    if (sql.startsWith("INSERT INTO automation_governance_reviews (")) {
+      this.db.governance.push(governanceRow(a, this.db.nextGovernanceId++));
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (sql.startsWith("UPDATE automation_sources SET cadence_minutes=?,enabled=?,next_check_at=?,updated_at=? WHERE id=?")) {
+      const source = this.db.sources.find((item) => item.id === Number(a[4]));
+      if (!source) throw new Error("source missing");
+      source.cadenceMinutes = Number(a[0]);
+      source.enabled = Boolean(a[1]);
+      source.nextCheckAt = a[2] == null ? null : String(a[2]);
+      return { success: true, meta: { changes: 1 } };
+    }
+
     throw new Error("Unhandled run SQL: " + sql);
   }
 }
@@ -241,8 +298,10 @@ class MemoryD1 {
   constructor() {
     this.candidates = [];
     this.sources = [];
+    this.governance = [];
     this.nextCandidateId = 1;
     this.nextSourceId = 1;
+    this.nextGovernanceId = 1;
   }
 
   prepare(sql) {
@@ -309,6 +368,23 @@ function tavilyDirectoryRoot(category, rootKey = "tavily-sk-directory-" + catego
   };
 }
 
+function sourceGovernanceFetch({ sourceStatus = 200, robots = "allow" } = {}) {
+  return async (url) => {
+    const parsed = new URL(url);
+    if (parsed.pathname === "/robots.txt") {
+      if (robots === "missing") return new Response("", { status: 404 });
+      const body = robots === "block"
+        ? "User-agent: *\nDisallow: /"
+        : "User-agent: *\nAllow: /";
+      return new Response(body, { status: 200, headers: { "content-type": "text/plain" } });
+    }
+    return new Response("<html><body>source</body></html>", {
+      status: sourceStatus,
+      headers: { "content-type": "text/html" },
+    });
+  };
+}
+
 function mappedCandidate(category, url, rootKey) {
   const root = tavilyDirectoryRoot(category, rootKey);
   const candidates = searchProviderCandidatesForRoot({
@@ -369,6 +445,165 @@ test("HOTFIX real Veterinary Tavily SEARCH_PROVIDER candidate persists category 
   const readiness = automationSourceReadiness(source);
   assert.equal(readiness.reason, "READY");
   assert.equal(readiness.ready, true);
+});
+
+test("HOTFIX Veterinary approve prepares source governance and enables through unified readiness", async () => {
+  const db = new MemoryD1();
+  const now = new Date("2026-09-28T07:30:00.000Z");
+  const candidate = mappedCandidate(
+    "veterinari",
+    "https://veterina.example.sk/sluzba",
+    "tavily-sk-dog-veterinarians",
+  );
+  const { source } = await approveCandidateToSource(db, candidate, now);
+
+  const preparation = await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch(),
+    now,
+  });
+  assert.equal(preparation.prepared, true);
+  assert.equal(preparation.governance.state.accessStatus, "ALLOWED");
+  assert.equal(preparation.governance.state.robotsStatus, "ALLOWED");
+  assert.equal(preparation.governance.state.termsStatus, "ALLOWED");
+  assert.equal(preparation.governance.state.recurringStatus, "APPROVED");
+  assert.equal(preparation.governance.state.retentionStatus, "RESTRICTED");
+  assert.equal(preparation.governance.state.retainUrl, true);
+  assert.equal(preparation.governance.state.retainMetadata, true);
+  assert.equal(preparation.governance.state.retainTitle, false);
+  assert.equal(preparation.governance.state.retainSnippet, false);
+  assert.equal(preparation.governance.state.reviewedBy, "admin@psipedia.sk");
+
+  const readiness = await automationSourceActivationReadiness(source, db, {
+    cadenceMinutes: 10080,
+    now,
+  });
+  assert.equal(readiness.ready, true);
+  assert.equal(readiness.reason, "READY");
+
+  const wasEnabled = source.enabled;
+  const configured = await configureAutomationSource({
+    id: source.id,
+    enabled: true,
+    cadenceMinutes: 10080,
+    now,
+  }, db);
+  assert.equal(configured.enabled, true);
+  assert.equal(configured.cadenceMinutes, 10080);
+  assert.equal(configured.nextCheckAt, now.toISOString());
+  assert.equal(configured.enabled && !wasEnabled, true, "OFF -> ON requires immediate first run");
+});
+
+test("HOTFIX missing source governance fails closed without partial configure writes", async () => {
+  const db = new MemoryD1();
+  const now = new Date("2026-09-28T08:00:00.000Z");
+  const candidate = mappedCandidate("veterinari", "https://missing-governance.example.sk/profile");
+  const { source } = await approveCandidateToSource(db, candidate, now);
+  const before = {
+    cadenceMinutes: source.cadenceMinutes,
+    enabled: source.enabled,
+    nextCheckAt: source.nextCheckAt,
+  };
+
+  const readiness = await automationSourceActivationReadiness(source, db, {
+    cadenceMinutes: 10080,
+    now,
+  });
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.reason, "GOVERNANCE_BLOCKED");
+  assert.ok(readiness.governanceBlockingReasons.includes("GOVERNANCE_MISSING"));
+
+  let message = "";
+  await assert.rejects(
+    configureAutomationSource({
+      id: source.id,
+      enabled: true,
+      cadenceMinutes: 10080,
+      now,
+    }, db),
+    (error) => {
+      message = error.message;
+      return /automation_source_governance_blocked:GOVERNANCE_MISSING/.test(error.message);
+    },
+  );
+
+  const after = await getAutomationSourceAdmin(source.id, db);
+  assert.equal(after.cadenceMinutes, before.cadenceMinutes);
+  assert.equal(after.enabled, before.enabled);
+  assert.equal(after.nextCheckAt, before.nextCheckAt);
+  assert.equal(
+    automationSourceOnlyErrorMessage(message),
+    "Tento zdroj zatiaľ nemožno automaticky kontrolovať.",
+  );
+});
+
+test("HOTFIX robots or terms blockers cannot activate and approval does not overwrite existing governance", async () => {
+  const now = new Date("2026-09-28T08:15:00.000Z");
+
+  const robotsDb = new MemoryD1();
+  const { source: robotsSource } = await approveCandidateToSource(
+    robotsDb,
+    mappedCandidate("veterinari", "https://robots-block.example.sk/profile"),
+    now,
+  );
+  await prepareAutomationSourceGovernanceForApproval({
+    source: robotsSource,
+    actor: "admin@psipedia.sk",
+    database: robotsDb,
+    fetchImpl: sourceGovernanceFetch({ robots: "block" }),
+    now,
+  });
+  const robotsReadiness = await automationSourceActivationReadiness(robotsSource, robotsDb, {
+    cadenceMinutes: 10080,
+    now,
+  });
+  assert.equal(robotsReadiness.ready, false);
+  assert.ok(robotsReadiness.governanceBlockingReasons.includes("ROBOTS_NOT_ALLOWED"));
+  await assert.rejects(
+    configureAutomationSource({ id: robotsSource.id, enabled: true, cadenceMinutes: 10080, now }, robotsDb),
+    /ROBOTS_NOT_ALLOWED/,
+  );
+  assert.equal((await getAutomationSourceAdmin(robotsSource.id, robotsDb)).enabled, false);
+
+  const termsDb = new MemoryD1();
+  const { source: termsSource } = await approveCandidateToSource(
+    termsDb,
+    mappedCandidate("veterinari", "https://terms-block.example.sk/profile"),
+    now,
+  );
+  await prepareAutomationSourceGovernanceForApproval({
+    source: termsSource,
+    actor: "admin@psipedia.sk",
+    database: termsDb,
+    fetchImpl: sourceGovernanceFetch(),
+    now,
+  });
+  termsDb.governance[0].terms_status = "BLOCKED";
+  const before = structuredClone(termsDb.governance[0]);
+
+  const repeatPreparation = await prepareAutomationSourceGovernanceForApproval({
+    source: termsSource,
+    actor: "another-admin@psipedia.sk",
+    database: termsDb,
+    fetchImpl: sourceGovernanceFetch(),
+    now,
+  });
+  assert.equal(repeatPreparation.prepared, false);
+  assert.deepEqual(termsDb.governance[0], before, "existing source governance must never be silently overwritten");
+
+  const termsReadiness = await automationSourceActivationReadiness(termsSource, termsDb, {
+    cadenceMinutes: 10080,
+    now,
+  });
+  assert.equal(termsReadiness.ready, false);
+  assert.ok(termsReadiness.governanceBlockingReasons.includes("TERMS_NOT_ALLOWED"));
+  await assert.rejects(
+    configureAutomationSource({ id: termsSource.id, enabled: true, cadenceMinutes: 10080, now }, termsDb),
+    /TERMS_NOT_ALLOWED/,
+  );
+  assert.equal((await getAutomationSourceAdmin(termsSource.id, termsDb)).enabled, false);
 });
 
 test("HOTFIX all supported DIRECTORY categories provision the production generic adapter through approval", async () => {
@@ -448,7 +683,7 @@ test("HOTFIX DIRECTORY candidate without a supported adapter remains fail-closed
 
 
 test("HOTFIX source-only error mapping never exposes readiness backend codes", () => {
-  const expected = "Tento zdroj zatiaľ nie je pripravený na automatické spracovanie.";
+  const expected = "Tento zdroj zatiaľ nemožno automaticky kontrolovať.";
   for (const code of [
     "automation_source_not_ready:MISSING_ADAPTER",
     "automation_source_not_ready:UNSUPPORTED_ADAPTER",
@@ -457,6 +692,8 @@ test("HOTFIX source-only error mapping never exposes readiness backend codes", (
     "automation_source_not_ready:MISSING_PARSER",
     "automation_candidate_source_not_ready:UNSUPPORTED_ADAPTER",
     "automation_candidate_source_provisioning_conflict",
+    "automation_source_governance_blocked:GOVERNANCE_MISSING",
+    "automation_source_governance_blocked:ROBOTS_NOT_ALLOWED,TERMS_NOT_ALLOWED",
   ]) {
     assert.equal(automationSourceOnlyErrorMessage(code), expected, code);
   }

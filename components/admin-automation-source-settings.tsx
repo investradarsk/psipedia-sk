@@ -57,15 +57,15 @@ export function AdminAutomationSourceSettings({
 
         {!monitoringReady && (
           <p className="admin-flash" role="status">
-            Tento zdroj zatiaľ nie je pripravený na automatické spracovanie.
+            Tento zdroj zatiaľ nemožno automaticky kontrolovať.
           </p>
         )}
 
         <label className="admin-field">
           <span>Kontrolovať tento zdroj</span>
-          <select value={enabled ? "on" : "off"} onChange={(event) => setEnabled(event.target.value === "on")} disabled={busy || !monitoringReady}>
+          <select value={enabled ? "on" : "off"} onChange={(event) => setEnabled(event.target.value === "on")} disabled={busy}>
             <option value="off">Vypnuté</option>
-            <option value="on">Zapnuté</option>
+            <option value="on" disabled={!monitoringReady}>Zapnuté</option>
           </select>
         </label>
 
