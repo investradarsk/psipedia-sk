@@ -1,14 +1,17 @@
 import { createCanonicalDraft, CanonicalDraftValidationError } from "./canonical-draft-service.ts";
 import { upsertCanonicalPossibleDuplicateFlag } from "./canonical-draft-flags.ts";
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
-import { fetchAutomationSourceRecords, type AutomationFetch } from "./data-automation-connectors.ts";
+import { AutomationConnectorError, fetchAutomationSourceRecords, type AutomationFetch } from "./data-automation-connectors.ts";
 import { mapAutomationRecordToDraftInput } from "./data-automation-draft-mapper.ts";
 import { directoryActionableProposal } from "./data-automation-directory-diff.ts";
 import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
 import {
   classifyAutomationFinding,
+  canonicalizeSourceUrl,
+  normalizeAutomationIdentity,
   type AutomationEntityType,
   type AutomationSource,
+  type AutomationSourceRecord,
 } from "./data-automation.ts";
 import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
@@ -73,6 +76,76 @@ function ephemeralSource(input: {
   };
 }
 
+function searchResultFallbackName(label: string, sourceUrl: string) {
+  const host = new URL(sourceUrl).hostname.toLowerCase().replace(/^www\./, "");
+  const clean = label.replace(/\s+/g, " ").trim();
+  if (!clean || clean.length < 2 || clean.length > 160) return null;
+  const parts = clean.split(/\s(?:\||–|—|-)\s/).map((part) => part.trim()).filter(Boolean);
+  const candidate = parts.find((part) => part.length >= 2 && part.length <= 160) ?? clean;
+  const normalized = normalizeAutomationIdentity(candidate);
+  if (!normalized || normalized === normalizeAutomationIdentity(host)) return null;
+  if (/^(domov|home|uvod|vitajte|welcome|kontakt|contact)$/i.test(normalized)) return null;
+  return candidate;
+}
+
+function searchResultFallbackRecord(input: {
+  entityType: "DIRECTORY" | "ORGANIZATION";
+  sourceUrl: string;
+  label: string;
+  directoryCategory?: string | null;
+}): AutomationSourceRecord | null {
+  const sourceUrl = canonicalizeSourceUrl(input.sourceUrl);
+  if (!sourceUrl) return null;
+  const name = searchResultFallbackName(input.label, sourceUrl);
+  if (!name) return null;
+  const proposed = input.entityType === "DIRECTORY"
+    ? {
+        name,
+        category: input.directoryCategory,
+        semanticKind: "FACILITY_OR_SERVICE_PROFILE",
+        websiteUrl: sourceUrl,
+      }
+    : {
+        name,
+        websiteUrl: sourceUrl,
+        sourceUrl,
+      };
+  if (input.entityType === "DIRECTORY" && !input.directoryCategory) return null;
+  return {
+    sourceRecordId: ("search-url:" + sourceUrl).slice(0, 240),
+    sourceUrl,
+    sourceTimestamp: null,
+    rawRecord: {
+      sourceUrl,
+      extractedName: name,
+      identitySource: "SEARCH_RESULT_TITLE_FALLBACK",
+    },
+    proposed,
+  };
+}
+
+async function fetchDirectEntityRecords(
+  source: AutomationSource,
+  input: {
+    entityType: "DIRECTORY" | "ORGANIZATION";
+    sourceUrl: string;
+    label: string;
+    directoryCategory?: string | null;
+    fetchImpl: AutomationFetch;
+  },
+) {
+  try {
+    return await fetchAutomationSourceRecords(source, {
+      fetchImpl: input.fetchImpl,
+      htmlAdapters: productionAutomationHtmlAdapters,
+    });
+  } catch (error) {
+    if (!(error instanceof AutomationConnectorError) || error.code !== "adapter_no_records") throw error;
+    const fallback = searchResultFallbackRecord(input);
+    return fallback ? [fallback] : [];
+  }
+}
+
 async function ensureCanonicalSidecars(
   entityType: AutomationEntityType,
   canonicalEntityId: number,
@@ -123,9 +196,12 @@ export async function ingestDirectEntityUrl(input: {
     throw new Error("automation_direct_entity_technical_governance_blocked");
   }
 
-  const records = await fetchAutomationSourceRecords(source, {
+  const records = await fetchDirectEntityRecords(source, {
+    entityType: input.entityType,
+    sourceUrl: input.sourceUrl,
+    label: input.label,
+    directoryCategory: input.directoryCategory,
     fetchImpl,
-    htmlAdapters: productionAutomationHtmlAdapters,
   });
 
   const result: DirectEntityIngestionResult = {
@@ -140,8 +216,6 @@ export async function ingestDirectEntityUrl(input: {
   for (const record of records) {
     const match = await matchAutomationCanonical(source, record, input.database);
     if (input.expectedCanonicalEntityId && match.entityId !== input.expectedCanonicalEntityId) {
-      // Refresh scans are compare-only: a parser/matcher miss must never create
-      // another canonical row for an entity that is already being refreshed.
       continue;
     }
 
