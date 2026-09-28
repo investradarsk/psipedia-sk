@@ -19,6 +19,7 @@ import {
 import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/news";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
+import type { ArticleQaIssue } from "@/lib/article-content-qa";
 
 function slugify(value: string, maxLength = 90) {
   return value
@@ -121,6 +122,7 @@ export function AdminArticleEditor({
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
@@ -150,6 +152,7 @@ export function AdminArticleEditor({
     setUploading(true);
     setError("");
     setMessage("");
+    setQaIssues([]);
     try {
       const data = await uploadAdminImage(file, "articles");
       setImageUrl(data.imageUrl);
@@ -236,8 +239,19 @@ export function AdminArticleEditor({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as { article?: ManagedArticle; error?: string };
-      if (!response.ok || !data.article) throw new Error(data.error || "Článok sa nepodarilo uložiť.");
+      const data = (await response.json()) as { article?: ManagedArticle; error?: string; issues?: ArticleQaIssue[] };
+      if (!response.ok || !data.article) {
+        if (Array.isArray(data.issues)) {
+          setQaIssues(data.issues);
+          const firstBlocker = data.issues.find((item) => item.severity === "BLOCKER");
+          const targetId = firstBlocker?.blockId ? "article-content"
+            : firstBlocker?.field === "title" || firstBlocker?.field === "excerpt" ? "article-basics"
+              : firstBlocker?.field.startsWith("sources") || firstBlocker?.field.startsWith("blocks") ? "article-content"
+                : "article-publish";
+          window.requestAnimationFrame(() => document.getElementById(targetId)?.focus());
+        }
+        throw new Error(data.error || "Článok sa nepodarilo uložiť.");
+      }
 
       setStatus(data.article.status);
       setPublishedAt(dateTimeValue(data.article.publishedAt));
@@ -280,6 +294,22 @@ export function AdminArticleEditor({
     <div className={`admin-editor ${previewOpen ? "has-preview" : ""}`}>
       <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
         <AdminStickyEditorNavigation sections={editorNavigation} ariaLabel="Sekcie editora článku" />
+        {qaIssues.length > 0 && (
+          <section className="admin-form-card" aria-live="polite" aria-label="Publikačná kontrola">
+            <div className="admin-card-heading">
+              <div><span>QA</span><div><h2>{qaIssues.some((item) => item.severity === "BLOCKER") ? "Chýbajú povinné údaje" : "Vyžaduje kontrolu"}</h2><p>Publikačná kontrola našla {qaIssues.length} {qaIssues.length === 1 ? "položku" : "položiek"}. Koncept môžeš ďalej ukladať.</p></div></div>
+            </div>
+            <ul>
+              {qaIssues.map((item, index) => (
+                <li key={`${item.code}-${item.blockId ?? item.field}-${index}`}>
+                  <strong>{item.severity}: {item.message}</strong>
+                  <div>{item.suggestedAction}</div>
+                  <small>Kód: {item.code}{item.blockId ? ` · blok ${item.blockId}` : ""}</small>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <section id="article-basics" tabIndex={-1} className="admin-form-card admin-form-card--intro">
           <div className="admin-field admin-field--title">
             <label htmlFor="article-title">Názov {portalSection === "novinky" ? "novinky" : "článku"}</label>

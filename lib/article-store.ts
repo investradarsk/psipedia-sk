@@ -14,6 +14,12 @@ import {
   normalizeArticleBlocks,
   type ArticleBlock,
 } from "@/lib/article-blocks";
+import {
+  ArticlePublishIntegrityError,
+  assessArticleContentQa,
+  blockerIssues,
+  type ArticleQaIssue,
+} from "@/lib/article-content-qa";
 import { getEditorialAuthorProfile, resolveArticleAuthorSelection } from "@/lib/editorial-authors";
 import {
   editorialRichTextPlainText,
@@ -434,6 +440,57 @@ export function slugifyArticleTitle(value: string) {
     .replace(/-+$/g, "");
 }
 
+async function relatedTargetQaIssues(
+  database: D1Database,
+  blocks: ArticleBlock[],
+): Promise<ArticleQaIssue[]> {
+  const issues: ArticleQaIssue[] = [];
+  const now = new Date().toISOString();
+
+  for (const block of blocks) {
+    if (block.type !== "related" || !block.href.startsWith("/")) continue;
+    const target = block.href.split(/[?#]/, 1)[0];
+    const match = target.match(/^\/(clanky|steniatka|starostlivost|aktivity|novinky|recenzie)\/([^/]+)\/?$/);
+    if (!match) {
+      issues.push({
+        code: "RELATED_TARGET_NOT_CANONICAL",
+        field: "blocks.related",
+        blockId: block.id,
+        severity: "BLOCKER",
+        message: "Súvisiaci cieľ nemá podporovaný canonical tvar.",
+        suggestedAction: "Vyber publikovaný článok alebo existujúcu podsekciu portálu.",
+      });
+      continue;
+    }
+
+    const [, section, slug] = match;
+    const managedSubpage = section !== "clanky" && section !== "novinky"
+      ? await getManagedPortalSubpage(section as ArticlePortalSection, slug)
+      : null;
+    if (managedSubpage) continue;
+
+    const row = await database.prepare(`
+      SELECT id FROM managed_articles
+      WHERE slug = ? AND portal_section = ?
+        AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?))
+      LIMIT 1
+    `).bind(slug, section, now).first<{ id: number }>();
+
+    if (!row) {
+      issues.push({
+        code: "RELATED_TARGET_UNAVAILABLE",
+        field: "blocks.related",
+        blockId: block.id,
+        severity: "BLOCKER",
+        message: "Súvisiaci cieľ neexistuje ako verejne dostupný publikovaný článok ani podsekcia.",
+        suggestedAction: "Vyber existujúci publikovaný canonical cieľ alebo blok odstráň.",
+      });
+    }
+  }
+
+  return issues;
+}
+
 async function normalizeInput(
   payload: ManagedArticleInput,
   database: D1Database,
@@ -469,6 +526,7 @@ async function normalizeInput(
   const introRichText = suppliedIntroRichText ?? legacyRichTextToDocument(intro);
   const takeawayRichText = suppliedTakeawayRichText ?? legacyRichTextToDocument(takeaway);
   const status: ArticleStatus = payload.status === "published" ? "published" : payload.status === "scheduled" ? "scheduled" : "draft";
+  const staticQaIssues = assessArticleContentQa(payload);
   const category = ARTICLE_CATEGORIES.includes(payload.category as (typeof ARTICLE_CATEGORIES)[number])
     ? (payload.category as Article["category"])
     : null;
@@ -519,32 +577,15 @@ async function normalizeInput(
   if (status === "scheduled" && (!publishedAt || new Date(publishedAt).getTime() <= Date.now())) throw new Error("Pre plánované publikovanie vyber budúci dátum a čas.");
   if (status === "published" && publishedAt && new Date(publishedAt).getTime() > Date.now()) throw new Error("Budúci dátum použi cez tlačidlo Naplánovať publikovanie.");
 
-  for (const source of sources) {
-    if (!source.label || !source.url) throw new Error("Každý zdroj potrebuje názov aj odkaz.");
-    let url: URL;
-    try {
-      url = new URL(source.url);
-    } catch {
-      throw new Error(`Odkaz na zdroj „${source.label}“ nie je platný.`);
-    }
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      throw new Error(`Odkaz na zdroj „${source.label}“ musí začínať http:// alebo https://.`);
-    }
-  }
-
   for (const block of blocks) {
-    if ((block.type === "image" && block.url && !block.alt) || (block.type === "gallery" && block.images.some((image) => !image.alt))) {
-      throw new Error("Každý obrázok v obsahu potrebuje alt text.");
-    }
-    if (block.type === "source" && (!block.label || !block.url)) {
-      throw new Error("Každý odborný zdroj potrebuje názov aj odkaz.");
-    }
-    if (block.type === "related" && (!block.title || !block.href)) {
-      throw new Error("Súvisiaci článok potrebuje názov aj odkaz.");
-    }
     if (block.type === "embed" && block.url && !normalizeEditorialExternalVideo({ url: block.url, title: block.title, caption: block.caption })) {
       throw new Error("Video musí byť bezpečný HTTPS odkaz na YouTube alebo Vimeo.");
     }
+  }
+
+  if (status === "published" || status === "scheduled") {
+    const qaIssues = [...staticQaIssues, ...await relatedTargetQaIssues(database, blocks)];
+    if (blockerIssues(qaIssues).length) throw new ArticlePublishIntegrityError(qaIssues);
   }
 
   const imageUrl = payload.imageUrl?.trim() || null;
@@ -1001,6 +1042,67 @@ export async function updateManagedArticle(
   if(!result)return null;
   await syncArticleBreeds(database,id,input.relatedBreedIds,editorEmail);
   return rowToManagedArticle(result,input.relatedBreedIds);
+}
+
+export type ArticleContentQaAuditFinding = ArticleQaIssue & {
+  articleId: number;
+  slug: string;
+};
+
+export async function auditPublishedArticleContentQa(): Promise<{
+  findings: ArticleContentQaAuditFinding[];
+  counts: { blocker: number; warning: number; info: number };
+}> {
+  const database = requireD1Binding();
+  const now = new Date().toISOString();
+  const result = await database.prepare(`
+    SELECT *
+    FROM managed_articles
+    WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
+    ORDER BY id
+  `).bind(now).all<ArticleRow>();
+
+  const findings: ArticleContentQaAuditFinding[] = [];
+  for (const row of result.results) {
+    const article = rowToManagedArticle(row);
+    const payload: ManagedArticleInput = {
+      slug: article.slug,
+      title: article.title,
+      excerpt: article.excerpt,
+      category: article.category,
+      portalSection: article.portalSection,
+      portalSubpage: article.portalSubpage ?? null,
+      newsCategory: article.newsCategory ?? null,
+      status: "published",
+      author: article.author,
+      intro: article.intro,
+      takeaway: article.takeaway,
+      sections: article.sections,
+      blocks: article.blocks ?? [],
+      sources: (article.blocks ?? []).some((block) => block.type === "source") ? [] : article.sources,
+      imageUrl: article.image ?? null,
+      imageAlt: article.imageAlt ?? null,
+      canonicalUrl: article.seo?.canonicalUrl ?? "",
+    };
+    const issues = [
+      ...assessArticleContentQa(payload),
+      ...await relatedTargetQaIssues(database, article.blocks ?? []),
+    ];
+    for (const finding of issues) findings.push({
+      articleId: article.id,
+      slug: article.slug,
+      ...finding,
+    });
+  }
+
+  return {
+    findings,
+    counts: {
+      blocker: findings.filter((item) => item.severity === "BLOCKER").length,
+      warning: findings.filter((item) => item.severity === "WARNING").length,
+      info: findings.filter((item) => item.severity === "INFO").length,
+    },
+  };
 }
 
 export async function deleteManagedArticle(id: number) {
