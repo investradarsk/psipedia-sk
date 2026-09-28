@@ -137,6 +137,17 @@ test("review validation enforces domain enums, numeric ranges and coupled invari
   assert.match(source, /Adopčný profil už používa približný vek/);
 });
 
+test("accepted searchable fields keep search indexes and event geo sidecars synchronized", async () => {
+  const source = await read("lib/data-automation-update-review.ts");
+  assert.match(source, /derivedSearchText/);
+  assert.match(source, /normalizeDirectorySearchText/);
+  assert.match(source, /normalizeAdoptionSearchText/);
+  assert.match(source, /search_text=\?/);
+  assert.match(source, /reconcileGeoAfterSourceMutation/);
+  assert.match(source, /targetType: "MANAGED_EVENT"/);
+  assert.match(source, /new Set\(\["venue", "address", "city", "region"\]\)/);
+});
+
 test("review card exposes current/proposed source-aware field decisions without accept-all", async () => {
   const component = await read("components/admin-automation-update-suggestions.tsx");
   assert.match(component, /Doplnenia a zmeny/);
