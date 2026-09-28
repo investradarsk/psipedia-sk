@@ -249,6 +249,65 @@ test("AUTOMATION-ENTITY-ENRICHMENT-2 production DIRECTORY follows bounded semant
   assert.ok(calls.length <= 4, "primary + at most three bounded follow-up fetches");
 });
 
+test("AUTOMATION-ENTITY-ENRICHMENT-2 entity templates normalize specialized parser output without inventing missing facts", () => {
+  const event = normalizeAutomationEnrichmentProposal("EVENT", {
+    title: "Skúška retrieverov",
+    startDate: "2026-10-10",
+    venue: "Areál ABC",
+  });
+  assert.equal(event.startDate, "2026-10-10");
+  assert.equal(Object.hasOwn(event, "startTime"), false, "no invented event time");
+
+  const adoption = normalizeAutomationEnrichmentProposal("ADOPTION", {
+    name: "Rex",
+    sex: "pes",
+    approximateAgeMonths: "18",
+    weight: "24.5",
+    description: "<p>Priateľský pes.</p>",
+  });
+  assert.equal(adoption.approximateAgeMonths, 18);
+  assert.equal(adoption.weight, 24.5);
+  assert.equal(adoption.description, "Priateľský pes.");
+
+  const foster = normalizeAutomationEnrichmentProposal("FOSTER", {
+    title: "Dočasná opatera pre Rexa",
+    dog_name: "Rex",
+    urgent: "áno",
+  });
+  assert.equal(foster.dogName, "Rex");
+  assert.equal(foster.urgent, true);
+
+  const lost = normalizeAutomationEnrichmentProposal("LOST_FOUND", {
+    type: "FOUND",
+    event_date: "28.09.2026",
+    city: "Košice",
+  });
+  assert.equal(lost.eventDate, "2026-09-28");
+  assert.deepEqual(automationEnrichmentSearchPlans({
+    entityType: "LOST_FOUND",
+    proposed: lost,
+    sourceUrl: "https://kosice.example/pes/1",
+  }), [], "ambiguous lost/found cases never get generic external enrichment");
+
+  const help = normalizeAutomationEnrichmentProposal("HELP_ITEM", {
+    title: "Pomoc pre Rexa",
+    category: "COLLECTION",
+    action_url: "https://example.sk/pomoc",
+    goal_amount: "1000",
+  });
+  assert.equal(help.goalAmount, 1000);
+  assert.equal(help.actionUrl, "https://example.sk/pomoc");
+});
+
+test("AUTOMATION-ENTITY-ENRICHMENT-2 direct organization flow runs first-party enrichment before targeted search", () => {
+  const direct = read("lib/data-automation-direct-entity.ts");
+  const firstParty = direct.indexOf("await organizationEnricher(fetchedRecord");
+  const schemaFirst = direct.indexOf("await enrichAutomationRecordSchemaFirst({");
+  assert.ok(firstParty >= 0);
+  assert.ok(schemaFirst > firstParty);
+  assert.match(direct, /input\.organizationEnricher \?\? createProductionOrganizationEnricher/);
+});
+
 test("AUTOMATION-ENTITY-ENRICHMENT-2 dedicated search budget family stays separate from discovery counters", () => {
   const store = read("lib/data-automation-discovery-store.ts");
   const runner = read("lib/data-automation-discovery-runner.ts");
