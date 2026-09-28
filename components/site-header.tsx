@@ -24,13 +24,13 @@ export function SiteHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [searchReady, setSearchReady] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [openDesktopMenu, setOpenDesktopMenu] = useState<string | null>(null);
   const [openMobileMenu, setOpenMobileMenu] = useState<string | null>(null);
   const [dogNameDays, setDogNameDays] = useState<string[]>([]);
   const [currentDateLabel, setCurrentDateLabel] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const searchDialogRef = useRef<HTMLDivElement>(null);
   const searchReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -66,7 +66,10 @@ export function SiteHeader({
   }, [navigationItems]);
 
   useEffect(() => {
-    setSearchReady(true);
+    const trigger = searchTriggerRef.current;
+    if (!trigger) return;
+    trigger.setAttribute("data-search-ready", "true");
+    return () => trigger.removeAttribute("data-search-ready");
   }, []);
 
   useEffect(() => {
@@ -332,7 +335,7 @@ export function SiteHeader({
           <div className="header-actions">
             <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
             <Link href={partnerHref} className="header-contact-link" data-partner-login-entry>{partnerLabel}</Link>
-            <button className="icon-button search-trigger" type="button" onClick={(event) => openSearch(event.currentTarget)} aria-label="Otvoriť vyhľadávanie" data-search-ready={searchReady ? "true" : "false"}>
+            <button ref={searchTriggerRef} className="icon-button search-trigger" type="button" onClick={(event) => openSearch(event.currentTarget)} aria-label="Otvoriť vyhľadávanie" data-search-ready="false">
               <SearchIcon />
               <span>Hľadať</span>
             </button>
