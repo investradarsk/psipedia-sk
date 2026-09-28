@@ -276,11 +276,12 @@ const AUTOMATION_ACTION_SELECT = `
     GROUP BY categorySlug
   ),
   address_groups AS (
-    SELECT category_slug AS categorySlug,COUNT(*) AS itemCount,MAX(last_detected_at) AS relevantAt
-    FROM automation_address_review_cases
-    WHERE status='OPEN'
-      AND category_slug IN ('veterinari','psie-sluzby')
-    GROUP BY category_slug
+    SELECT r.category_slug AS categorySlug,COUNT(*) AS itemCount,MAX(r.last_detected_at) AS relevantAt
+    FROM automation_address_review_cases r
+    JOIN directory_profiles profile ON profile.id=r.canonical_entity_id
+    WHERE r.status='OPEN'
+      AND r.category_slug IN ('veterinari','psie-sluzby')
+    GROUP BY r.category_slug
   ),
   possible_match_items AS (
     SELECT mc.observation_id,mc.candidate_cluster_id,mc.created_at AS relevantAt
