@@ -25,7 +25,6 @@ function parseAutomationSchema(sql) {
   const tablePattern = /CREATE TABLE(?: IF NOT EXISTS)?\s+[`"]?([a-zA-Z0-9_]+)[`"]?\s*\(([\s\S]*?)\);/gi;
   for (const match of sql.matchAll(tablePattern)) {
     const child = match[1];
-    if (!child.startsWith("automation_")) continue;
     const referencePattern = /REFERENCES\s+[`"]?([a-zA-Z0-9_]+)[`"]?\s*\([^)]*\)\s*(?:ON DELETE\s+(CASCADE|SET NULL|RESTRICT|NO ACTION))?/gi;
     for (const reference of match[2].matchAll(referencePattern)) {
       foreignKeys.push({ child, parent: reference[1], onDelete: reference[2] ?? "NO ACTION" });
