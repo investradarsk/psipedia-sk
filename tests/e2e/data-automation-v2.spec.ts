@@ -211,7 +211,8 @@ test("manual source lifecycle keeps the approved source detail simple", async ({
   await expect(settings.getByText("Ako často kontrolovať zdroj", { exact: true })).toBeVisible();
   await expect(settings.getByRole("combobox").nth(1)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Nájdený obsah", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Otvoriť koncepty →", exact: true })).toBeVisible();
+  await expect(page.getByText("Tento zdroj zatiaľ nemá dohľadateľný canonical obsah.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Otvoriť canonical sekciu →", exact: true })).toBeVisible();
   await expect(page.getByText("Governance", { exact: false })).toHaveCount(0);
   await expect(page.getByText("Adapter", { exact: false })).toHaveCount(0);
   await expect(page.getByText("Run ID", { exact: false })).toHaveCount(0);
@@ -251,6 +252,22 @@ test("automation category source-first view is responsive and axe-clean", async 
   await expect(page.getByRole("heading", { name: "Schválené zdroje", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Zamietnuté zdroje", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "História", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectAxeClean(page);
+});
+
+
+test("DIRECT_ENTITY category is responsive and axe-clean without source candidate UX", async ({ page }) => {
+  const response = await page.goto("/admin/automatizacie/veterinari", { waitUntil: "domcontentloaded" });
+  expect(response).not.toBeNull();
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("heading", { name: "Veterinári", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hľadať nových veterinárov", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kontrolovať doplnenia a zmeny", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nové koncepty", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Doplnenia a zmeny", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nové zdroje", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Schválené zdroje", exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
