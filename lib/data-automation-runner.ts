@@ -1,5 +1,6 @@
 import type { ControlledHtmlAdapter, AutomationFetch } from "./data-automation-connectors.ts";
 import type { OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
+import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
 import { AutomationConnectorError, fetchAutomationSourceRecords } from "./data-automation-connectors.ts";
 import {
   automationFindingFingerprint,
@@ -482,6 +483,10 @@ export async function processAutomationRecordForReview(input: {
   if (input.source.entityType === "ORGANIZATION" && input.organizationEnricher) {
     record = await input.organizationEnricher(record, { detectedAt });
   }
+  record = await enrichAutomationRecordSchemaFirst({
+    entityType: input.source.entityType,
+    record,
+  });
   return processRecord(input.source, null, record, detectedAt, input.database, input.findingProposal);
 }
 
@@ -525,6 +530,10 @@ async function runSource(
             }));
           }
         }
+        candidateRecord = await enrichAutomationRecordSchemaFirst({
+          entityType: source.entityType,
+          record: candidateRecord,
+        });
         const result = await processRecord(source, runId, candidateRecord, detectedAt, options.database);
         if (result.finding) {
           if (result.created || result.reopened) {
