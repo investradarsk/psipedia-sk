@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { articles as seedArticles, type ArticleSeo } from "./content.ts";
+import { isHelpCategory, type HelpCategorySlug } from "./help.ts";
 import { isArticlePortalSection, type ArticlePortalSection } from "./portal.ts";
 
 export const ENTITY_SITEMAP_BATCH_SIZE = 500;
@@ -13,6 +14,8 @@ export type ArticleSitemapRecord = {
   id: number;
   slug: string;
   portalSection: ArticlePortalSection;
+  portalSubpage: string | null;
+  category: string;
   status: "published" | "scheduled";
   updatedAt: string | null;
   imageUrl: string | null;
@@ -31,7 +34,7 @@ export type EventSitemapRecord = {
 export type HelpSitemapRecord = {
   id: number;
   slug: string;
-  category: string;
+  category: HelpCategorySlug;
   status: "published";
   updatedAt: string | null;
   imageUrl: string | null;
@@ -42,6 +45,8 @@ type ArticleRow = {
   id: number;
   slug: string;
   portal_section: string;
+  portal_subpage: string | null;
+  category: string;
   status: string;
   updated_at: string | null;
   published_at: string | null;
@@ -127,6 +132,8 @@ export function buildPublishedArticleSitemapPageQuery(
       id,
       slug,
       portal_section,
+      portal_subpage,
+      category,
       status,
       updated_at,
       published_at,
@@ -157,6 +164,8 @@ export async function listPublishedArticleSitemapRecords(
     id: Number(row.id),
     slug: row.slug?.trim() ?? "",
     portalSection: isArticlePortalSection(row.portal_section) ? row.portal_section : "clanky",
+    portalSubpage: row.portal_subpage?.trim() || null,
+    category: row.category?.trim() || "",
     status: row.status === "scheduled" ? "scheduled" : "published",
     updatedAt: row.updated_at || row.published_at || null,
     imageUrl: row.image_url || null,
@@ -171,6 +180,8 @@ export async function getPublishedArticleSitemapRecords() {
       id: -(index + 1),
       slug: article.slug,
       portalSection: article.portalSection && isArticlePortalSection(article.portalSection) ? article.portalSection : "clanky",
+      portalSubpage: article.portalSubpage?.trim() || null,
+      category: article.category,
       status: "published" as const,
       updatedAt: article.updatedDateIso || article.dateIso || null,
       imageUrl: article.image ?? null,
@@ -274,7 +285,7 @@ export async function listPublishedHelpSitemapRecords(
   return rows.map((row) => ({
     id: Number(row.id),
     slug: row.slug?.trim() ?? "",
-    category: row.category?.trim() ?? "",
+    category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
     status: "published",
     updatedAt: row.updated_at || null,
     imageUrl: row.image_url || null,
