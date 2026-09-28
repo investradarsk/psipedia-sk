@@ -547,6 +547,10 @@ export async function listFeedUpdateSuggestions(
       AND canonical_entity_id IS NOT NULL
       AND finding_type IN ('POSSIBLE_UPDATE','POSSIBLE_INACTIVE','POSSIBLE_CANCELLED')
       AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED')
+      AND NOT (
+        json_valid(proposed_json)=1
+        AND json_extract(proposed_json,'$.lifecycleVersion')=1
+      )
     ORDER BY last_detected_at DESC,id DESC LIMIT ?`).bind(
       ...ids,
       Math.max(1, Math.min(200, limit)),

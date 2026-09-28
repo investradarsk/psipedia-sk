@@ -6,6 +6,7 @@ import {
   type AutomationReviewStatus,
 } from "./data-automation.ts";
 import {
+  automationLifecycleActionLabel,
   automationLifecycleAlreadySatisfied,
   automationLifecycleCanApply,
   automationLifecycleCurrentState,
@@ -60,6 +61,7 @@ export type AutomationLifecycleSuggestion = {
   evidenceText: string;
   sourceUrl: string | null;
   canonicalHref: string | null;
+  actionLabel: string;
   fingerprint: string;
   canApply: boolean;
   reviewStatus: AutomationReviewStatus;
@@ -165,6 +167,7 @@ async function mapLifecycleRow(row: LifecycleFindingRow, db: Database): Promise<
     evidenceText: metadata.evidenceText,
     sourceUrl,
     canonicalHref: automationCanonicalAdminHref(entityType, canonicalEntityId),
+    actionLabel: automationLifecycleActionLabel(metadata.signalType, entityLabel(before, canonicalEntityId)),
     fingerprint: row.fingerprint,
     canApply: automationLifecycleCanApply(entityType, before, metadata.targetState),
     reviewStatus: row.review_status,
@@ -330,8 +333,8 @@ async function setLifecycleDecision(input: {
   at: string;
 }, databaseInput?: Database) {
   const db = database(databaseInput);
-  const current = await db.prepare(`SELECT fingerprint,review_status,reviewer_decision FROM automation_findings
-    WHERE id=? AND ${lifecyclePredicate} LIMIT 1`).bind(input.id).first<{
+  const current = await db.prepare(`SELECT fingerprint,review_status,reviewer_decision FROM automation_findings f
+    WHERE f.id=? AND ${lifecyclePredicate} LIMIT 1`).bind(input.id).first<{
       fingerprint: string;
       review_status: AutomationReviewStatus;
       reviewer_decision: string | null;

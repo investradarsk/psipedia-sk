@@ -2,7 +2,6 @@ import { canTransitionAdoptionStatus, isAdoptionStatus, type AdoptionStatus } fr
 import { canTransitionLostFoundStatus } from "./lost-found-lifecycle.js";
 import {
   canonicalizeSourceUrl,
-  isAutomationEntityType,
   normalizeAutomationIdentity,
   sha256Hex,
   type AutomationCanonicalMatch,
@@ -300,6 +299,5 @@ export function automationLifecycleEntityLabel(
 
 export function isAutomationLifecycleEntityType(value: unknown): value is AutomationLifecycleEntityType {
   return typeof value === "string"
-    && isAutomationEntityType(value)
     && (automationLifecycleEntityTypes as readonly string[]).includes(value);
 }

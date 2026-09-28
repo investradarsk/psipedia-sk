@@ -20,6 +20,7 @@ import {
   listDirectEntityUpdateSuggestions,
   listFeedUpdateSuggestions,
 } from "@/lib/data-automation-product-store";
+import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-lifecycle-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string }> };
@@ -58,6 +59,9 @@ export default async function AutomationCategoryPage({ params }: Props) {
       ] as const))
     : [];
   const sourceContent = Object.fromEntries(sourceContentEntries);
+  const lifecycleCount = category.mode === "FEED_SOURCE"
+    ? await countOpenAutomationLifecycleSuggestions({ entityTypes: category.entityTypes }).catch(() => 0)
+    : 0;
 
   return (
     <AdminShell
@@ -67,7 +71,14 @@ export default async function AutomationCategoryPage({ params }: Props) {
       description={category.mode === "DIRECT_ENTITY"
         ? "Priame hľadanie nových entít a read-only návrhy doplnení existujúcich záznamov."
         : "Správa opakovaných zdrojov a obsahu, ktorý z nich automatizácia našla."}
-      actions={<Link href="/admin/automatizacie">← Všetky kategórie</Link>}
+      actions={(
+        <>
+          <Link href="/admin/automatizacie">← Všetky kategórie</Link>
+          {category.mode === "FEED_SOURCE" ? (
+            <Link href={`/admin/automatizacie/zmeny-stavu?category=${category.slug}`}>Zmeny stavu · {lifecycleCount}</Link>
+          ) : null}
+        </>
+      )}
     >
       <AdminAutomationSearchControls categorySlug={slug} roots={discoveryRoots} />
       <AdminAutomationCategorySources

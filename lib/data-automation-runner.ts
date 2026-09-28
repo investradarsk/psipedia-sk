@@ -15,7 +15,6 @@ import {
 import {
   automationLifecycleAlreadySatisfied,
   automationLifecycleDiff,
-  automationLifecycleEntityLabel,
   automationLifecycleFindingType,
   automationLifecycleFingerprint,
   automationLifecycleMetadata,
@@ -138,6 +137,7 @@ async function processAutomationLifecycleSignals(input: {
   source: AutomationSource;
   record: AutomationSourceRecord;
   match: AutomationCanonicalMatch;
+  runId: number | null;
   detectedAt: string;
   database: D1Database;
 }) {
@@ -166,7 +166,7 @@ async function processAutomationLifecycleSignals(input: {
       const observationHash = await sha256Hex({ rawRecord: input.record.rawRecord, lifecycleSignals: signals });
       observationId = await recordAutomationObservation({
         sourceId: input.source.id,
-        runId: null,
+        runId: input.runId,
         record: input.record,
         payloadHash: observationHash,
         detectedAt: input.detectedAt,
@@ -385,6 +385,7 @@ async function processRecord(
       source,
       record,
       match,
+      runId,
       detectedAt,
       database,
     });
