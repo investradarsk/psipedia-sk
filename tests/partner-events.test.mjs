@@ -149,8 +149,12 @@ test("Partner event Attention has stable key, direct review deep-link, lifecycle
  assert.match(partnerAttention,/PARTNER_EVENT_REVIEW:\{key:"partner-event",href:"\/admin\/partners\/events"\}/);
  assert.match(partnerAttention,/eventRow/);assert.match(partnerAttention,/events/);
  assert.match(attentionStore,/partner_event_submission_metadata/);assert.match(attentionStore,/mapPartnerEventAttention/);
- const exact=attentionStore.slice(attentionStore.indexOf("loadExactAdminAttentionSummary"));
- assert.match(exact,/PARTNER_EVENT_REVIEW/);assert.match(exact,/SUBMITTED','PENDING_REVIEW','QUARANTINED/);
+ const exactStart=attentionStore.indexOf("export async function loadExactAdminAttentionSummary");
+ const exactEnd=attentionStore.indexOf("export async function loadAdminAttentionPage");
+ const exact=attentionStore.slice(exactStart,exactEnd);
+ assert.match(attentionStore,/PARTNER_EVENT_REVIEW/);
+ assert.match(attentionStore,/s\.status IN \('SUBMITTED','PENDING_REVIEW','QUARANTINED'\)/);
+ assert.match(exact,/probeSources/);
 });
 
 test("Partner UX exposes dashboard, create, edit, history and withdraw",()=>{
