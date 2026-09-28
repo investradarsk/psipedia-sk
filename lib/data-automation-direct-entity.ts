@@ -3,6 +3,8 @@ import { upsertCanonicalPossibleDuplicateFlag } from "./canonical-draft-flags.ts
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 import { fetchAutomationSourceRecords, type AutomationFetch } from "./data-automation-connectors.ts";
 import { mapAutomationRecordToDraftInput } from "./data-automation-draft-mapper.ts";
+import { directoryActionableProposal } from "./data-automation-directory-diff.ts";
+import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
 import {
   classifyAutomationFinding,
   type AutomationEntityType,
@@ -143,7 +145,10 @@ export async function ingestDirectEntityUrl(input: {
       continue;
     }
 
-    const classified = classifyAutomationFinding({ match, proposed: record.proposed });
+    const proposedForComparison = input.entityType === "DIRECTORY"
+      ? directoryActionableProposal(record.proposed, match.before)
+      : organizationActionableProposal(record.proposed, match.before);
+    const classified = classifyAutomationFinding({ match, proposed: proposedForComparison });
     const provenanceType = input.provenanceType ?? "DIRECT_ENTITY_DISCOVERY";
 
     if (match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
@@ -173,7 +178,7 @@ export async function ingestDirectEntityUrl(input: {
           externalRecordId: record.sourceRecordId,
           suggestionType: classified.findingType,
           before: match.before ?? {},
-          proposed: record.proposed,
+          proposed: proposedForComparison,
           diff: classified.diff,
           detectedAt,
         }, input.database);
