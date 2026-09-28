@@ -95,6 +95,35 @@ test("sitemap QA rejects duplicates, parameters, internal paths and redirect sou
   assert.throws(() => assertValidSitemap([entry("/adresar/psie-skoly")]), /sitemap-redirect-source/);
 });
 
+test("redirect-source ownership wins over implicit self-canonical sitemap eligibility", () => {
+  const altheaPath = "/adresar/veterinari/veterinarna-poliklinka-althea";
+  assert.equal(isSelfCanonical(undefined, altheaPath), true);
+  assert.equal(SITEMAP_REDIRECT_SOURCES.has(altheaPath), true);
+  assert.throws(
+    () => assertValidSitemap([{ url: `https://psipedia.sk${altheaPath}` }]),
+    /sitemap-redirect-source/,
+  );
+});
+
+test("sitemap builders exclude redirect-source details before parity and global validation", () => {
+  const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
+  const articleStart = source.indexOf('const articleEntries');
+  const eventStart = source.indexOf('const eventEntries');
+  const directoryStart = source.indexOf('const directoryCandidates');
+  const helpStart = source.indexOf('const helpCandidates');
+  const articleBlock = source.slice(articleStart, eventStart);
+  const eventBlock = source.slice(eventStart, directoryStart);
+  const directoryBlock = source.slice(directoryStart, helpStart);
+
+  assert.match(articleBlock, /!SITEMAP_REDIRECT_SOURCES\.has\(path\)/);
+  assert.match(articleBlock, /redirectSource \? "redirect-source"/);
+  assert.match(eventBlock, /!SITEMAP_REDIRECT_SOURCES\.has\(path\)/);
+  assert.match(eventBlock, /redirectSource \? "redirect-source"/);
+  assert.match(directoryBlock, /SITEMAP_REDIRECT_SOURCES\.has\(path!\)/);
+  assert.match(directoryBlock, /!legacyRedirect && !redirectSource/);
+  assert.match(directoryBlock, /legacyRedirect \|\| redirectSource/);
+});
+
 test("legacy activity training URL redirects directly to the canonical managed topic", () => {
   const legacyPath = "/aktivity/-vycvik-a-aktivity-trening";
   const targetPath = "/aktivity/trening";
