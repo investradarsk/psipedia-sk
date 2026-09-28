@@ -66,42 +66,8 @@ function jsonLdPage(node, extra = "") {
   return `<!doctype html><html><head>${extra}<script type="application/ld+json">${JSON.stringify(node)}</script></head><body><h1>${node.name ?? "Profil"}</h1></body></html>`;
 }
 
-const spektraVetLikeFixture = `<!doctype html>
-<html lang="sk">
-<head>
-  <meta charset="utf-8">
-  <meta name="description" content="Veterinárna klinika pre spoločenské zvieratá v Bratislave - Ružinove.">
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "VeterinaryCare",
-      "@id": "https://spektravet.sk/sk",
-      "url": "https://spektravet.sk/sk",
-      "name": "SpektraVet – Bratislava Ružinov"
-    }
-  </script>
-</head>
-<body>
-  <main>
-    <h1>SpektraVet – Bratislava Ružinov</h1>
-    <p>Poskytujeme veterinárnu starostlivosť pre spoločenské zvieratá.</p>
-    <section id="kontakt" class="contact-block">
-      <h2>Kontakt</h2>
-      <address>
-        Ružinovská 1/4814<br>
-        82102 Bratislava - Ružinov
-      </address>
-      <p>Telefón: <a href="tel:+421903494000">+421 903 494 000</a></p>
-      <p>E-mail: <a href="mailto:info@spektravet.sk">info@spektravet.sk</a></p>
-      <p>Web: <a href="https://spektravet.sk/sk">https://spektravet.sk/sk</a></p>
-    </section>
-    <section class="hours">
-      <h2>Otváracie hodiny</h2>
-      <p>Pondelok – piatok: 08:00 – 20:00</p>
-    </section>
-  </main>
-</body>
-</html>`;
+const spektraVetLikeFixture = read("tests/fixtures/data-automation/spektravet-like-directory.html");
+
 
 class DirectoryDraftMemoryStatement {
   constructor(database, sql) {
