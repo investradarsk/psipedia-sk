@@ -82,38 +82,48 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
   ]);
 
   const articleEntries = runSitemapStageSync("build-article-entries", () => articles
-    .filter((article) => article.slug?.trim() && isSelfCanonical(article.seo, articleHref(article)))
+    .filter((article) => {
+      const path = articleHref(article);
+      return article.slug?.trim() && !SITEMAP_REDIRECT_SOURCES.has(path) && isSelfCanonical(article.seo, path);
+    })
     .map((article) => sitemapEntry(articleHref(article), {
       lastModified: latestModified([articleModified(article)]), changeFrequency: "monthly", priority: 0.8,
       images: article.imageUrl ? [article.imageUrl.startsWith("https://") ? article.imageUrl : `${SITE_URL}${article.imageUrl}`] : undefined,
     })));
   runSitemapStageSync("parity-articles", () => assertSitemapEntityParity("articles", articles.map((article) => {
     const path = articleHref(article);
-    const indexable = isSelfCanonical(article.seo, path);
+    const redirectSource = SITEMAP_REDIRECT_SOURCES.has(path);
+    const selfCanonical = isSelfCanonical(article.seo, path);
+    const indexable = !redirectSource && selfCanonical;
     return parityCandidate({
       slug: article.slug,
       url: absoluteSitemapUrl(path),
       indexable,
       validStatus: true,
-      exclusionReason: indexable ? null : "noindex-or-noncanonical",
+      exclusionReason: redirectSource ? "redirect-source" : indexable ? null : "noindex-or-noncanonical",
     });
   }), articleEntries.map((entry) => entry.url)));
 
   const eventEntries = runSitemapStageSync("build-event-entries", () => events
-    .filter((event) => event.slug?.trim() && isSelfCanonical(event.seo, eventHref(event)))
+    .filter((event) => {
+      const path = eventHref(event);
+      return event.slug?.trim() && !SITEMAP_REDIRECT_SOURCES.has(path) && isSelfCanonical(event.seo, path);
+    })
     .map((event) => sitemapEntry(eventHref(event), {
       lastModified: latestModified([event.updatedAt]), changeFrequency: "weekly", priority: 0.7,
       images: event.imageUrl ? [event.imageUrl.startsWith("https://") ? event.imageUrl : `${SITE_URL}${event.imageUrl}`] : undefined,
     })));
   runSitemapStageSync("parity-events", () => assertSitemapEntityParity("events", events.map((event) => {
     const path = eventHref(event);
-    const indexable = isSelfCanonical(event.seo, path);
+    const redirectSource = SITEMAP_REDIRECT_SOURCES.has(path);
+    const selfCanonical = isSelfCanonical(event.seo, path);
+    const indexable = !redirectSource && selfCanonical;
     return parityCandidate({
       slug: event.slug,
       url: absoluteSitemapUrl(path),
       indexable,
       validStatus: true,
-      exclusionReason: indexable ? null : "noindex-or-noncanonical",
+      exclusionReason: redirectSource ? "redirect-source" : indexable ? null : "noindex-or-noncanonical",
     });
   }), eventEntries.map((entry) => entry.url)));
 
@@ -123,9 +133,10 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
       ? `/adresar/${profile.category}/${profile.slug}`
       : null;
     const legacyRedirect = profile.category === "psie-skoly";
+    const redirectSource = Boolean(path) && SITEMAP_REDIRECT_SOURCES.has(path!);
     const selfCanonical = Boolean(path) && isSelfCanonical(profile.seo, path!);
-    const indexable = !legacyRedirect && hasKnownCategory && selfCanonical;
-    const exclusionReason = legacyRedirect
+    const indexable = !legacyRedirect && !redirectSource && hasKnownCategory && selfCanonical;
+    const exclusionReason = legacyRedirect || redirectSource
       ? "redirect-source"
       : !hasKnownCategory
         ? "unknown-directory-category"
