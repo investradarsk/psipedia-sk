@@ -844,12 +844,8 @@ function assertAutomationAddressReviewSchema(schema) {
 
 function assertAutomationUpdateReviewSchema(schema) {
   const names = objectMap(schema.objects);
-  for (const table of AUTOMATION_UPDATE_REVIEW_TABLES) {
-    invariant(names.get(table)?.type === "table", `Missing automation update-review table: ${table}`);
-  }
-  for (const index of AUTOMATION_UPDATE_REVIEW_INDEXES) {
-    invariant(names.get(index)?.type === "index", `Missing automation update-review index: ${index}`);
-  }
+  for (const table of AUTOMATION_UPDATE_REVIEW_TABLES) invariant(names.get(table)?.type === "table", `Missing automation update-review table: ${table}`);
+  for (const index of AUTOMATION_UPDATE_REVIEW_INDEXES) invariant(names.get(index)?.type === "index", `Missing automation update-review index: ${index}`);
 }
 
 function assertPartnerClaimsSchema(schema) {
