@@ -84,8 +84,12 @@ test("source-only UX maps readiness internals to one user-safe Slovak message", 
   assert.match(page, /automationSourceActivationReadiness/);
   assert.doesNotMatch(page, /automationSourceReadiness\(/);
   assert.match(page, /monitoringReady/);
-  assert.match(settings, /<option value="on" disabled=\{!monitoringReady\}>/);
-  assert.match(settings, /disabled=\{busy \|\| \(enabled && !monitoringReady\)\}/);
+  assert.match(page, /automationSourceTechnicalGovernanceRetryable/);
+  assert.match(page, /monitoringRetryable/);
+  assert.match(settings, /monitoringCanEnable = monitoringReady \|\| monitoringRetryable/);
+  assert.match(settings, /<option value="on" disabled=\{!monitoringCanEnable\}>/);
+  assert.match(settings, /disabled=\{busy \|\| \(enabled && !monitoringCanEnable\)\}/);
+  assert.match(settings, /Pri zapnutí sa bezpečnosť zdroja znova overí\./);
   assert.doesNotMatch(settings, /MISSING_ADAPTER|UNSUPPORTED_ADAPTER|ADAPTER_ENTITY_MISMATCH|ADAPTER_SHAPE_MISMATCH|MISSING_PARSER|GOVERNANCE_MISSING|ACCESS_NOT_ALLOWED|ROBOTS_NOT_ALLOWED|TERMS_NOT_ALLOWED|RECURRING_USE_NOT_APPROVED|RETENTION_/);
   assert.doesNotMatch(settings, /Pokročilé|adapter key|readiness/i);
 });
@@ -96,8 +100,31 @@ test("source configure is validation-first and preserves immediate run only afte
   const store = await read("lib/data-automation-source-store.ts");
   assert.match(route, /configureAutomationSource/);
   assert.doesNotMatch(route, /setAutomationSourceCadence/);
+  assert.match(route, /technicalGovernanceRefresh: enabled \? \{ actor: auth\.user\.email \} : undefined/);
   assert.match(route, /immediateRun = enabled && !before\.enabled/);
   assert.match(route, /if \(immediateRun\)[\s\S]*runAutomationSourceNow/);
-  assert.match(store, /automationSourceActivationReadiness\(existing, db, \{[\s\S]*cadenceMinutes/);
+  assert.match(store, /sourceActivationReadinessForEnable/);
+  assert.match(store, /automationSourceTechnicalGovernanceRefreshNeeded/);
+  assert.match(store, /refreshAutomationSourceTechnicalGovernance/);
   assert.match(store, /SET cadence_minutes=\?,enabled=\?,next_check_at=\?,updated_at=\?/);
+
+  const configureIndex = route.indexOf("const source = await configureAutomationSource");
+  const immediateRunIndex = route.indexOf("const immediateRun = enabled && !before.enabled");
+  const runIndex = route.indexOf("runAutomationSourceNow(id");
+  assert.ok(configureIndex >= 0 && configureIndex < immediateRunIndex);
+  assert.ok(immediateRunIndex < runIndex, "source run is only scheduled after successful configure");
+});
+
+
+test("technical governance retry error remains source-only and user-safe", async () => {
+  const presentation = await read("lib/admin-automation-presentation.ts");
+  assert.match(presentation, /automation_source_technical_verification_failed/);
+  assert.match(
+    presentation,
+    /Tento zdroj sa momentálne nepodarilo bezpečne overiť\. Skús to neskôr\./,
+  );
+  assert.doesNotMatch(
+    await read("components/admin-automation-source-settings.tsx"),
+    /ACCESS_NOT_ALLOWED|ROBOTS_NOT_ALLOWED|GOVERNANCE_BLOCKED|UNKNOWN|RESTRICTED|DISALLOWED/,
+  );
 });
