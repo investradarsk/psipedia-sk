@@ -23,6 +23,8 @@ test("discovery roots persist the shared schedule and finish on a calendar occur
   assert.match(store, /setAutomationDiscoveryRootSchedule/);
   assert.match(store, /nextAutomationScheduledAt\(root\.schedule, completedAt\)/);
   assert.match(store, /root\.schedule\.mode === "CALENDAR"/);
+  assert.match(store, /claimDueAutomationDiscoveryRoot/);
+  assert.match(store, /SET next_check_at=\?/);
 });
 
 test("approved sources use one normalized schedule contract and preserve interval enable semantics", async () => {
@@ -40,6 +42,8 @@ test("direct refresh keeps hourly continuation batches but calendar-schedules co
   const store = await read("lib/data-automation-product-store.ts");
   assert.match(store, /input\.batchWasFull\s*\?\s*new Date\(now\.getTime\(\) \+ 60 \* 60_000\)/);
   assert.match(store, /: nextAutomationScheduledAt\(input\.setting\.schedule, now\)/);
+  assert.match(store, /continuingCycle/);
+  assert.match(store, /claimDueDirectEntityRefreshSetting/);
   assert.match(store, /cursor_entity_id=\?/);
 });
 
@@ -57,6 +61,18 @@ test("category and source APIs accept explicit schedules while retaining legacy 
   assert.match(categoryRoute, /assertAutomationScheduleMinimumCadence/);
   assert.match(categoryRoute, /schedule\.mode === "INTERVAL"[\s\S]*immediateRun|immediateRun[\s\S]*schedule\.mode === "INTERVAL"/);
   assert.match(sourceRoute, /!before\.enabled && schedule\.mode === "INTERVAL"/);
+});
+
+test("global five-minute cron checks database-backed automation due slots without per-automation crons", async () => {
+  const [worker, wrangler] = await Promise.all([
+    read("worker/index.ts"),
+    read("wrangler.jsonc"),
+  ]);
+  assert.match(wrangler, /"crons": \["\*\/5 \* \* \* \*"\]/);
+  assert.match(worker, /five_minute_due_check/);
+  assert.match(worker, /runDataAutomationSweep/);
+  assert.match(worker, /runDataAutomationDiscoverySweep/);
+  assert.doesNotMatch(worker, /cron.*schedule_mode|schedule_mode.*cron/i);
 });
 
 test("admin UX exposes interval/calendar, weekdays, HH:mm timezone and next run", async () => {
