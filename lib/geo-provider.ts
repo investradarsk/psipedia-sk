@@ -8,6 +8,8 @@ export type NormalizedGeocoderResult = {
   region: string;
   district: string;
   city: string;
+  suburb?: string;
+  cityDistrict?: string;
   resultType: string;
   confidence: number | null;
   cityConfidence: number | null;

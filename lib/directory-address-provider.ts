@@ -1,8 +1,13 @@
 import { normalizeGeoText } from "@/lib/geo";
 import { GeoapifyGeocoder } from "@/lib/geoapify-geocoder";
-import { type NormalizedGeocoderResult } from "@/lib/geo-provider";
+import { type GeocoderProvider, type NormalizedGeocoderResult } from "@/lib/geo-provider";
 import { normalizeSlovakPostalCode } from "@/lib/directory-service-address";
-import { resolveSlovakLocation } from "@/lib/slovakia-locations";
+import {
+  SLOVAK_DISTRICTS_BY_REGION,
+  getSlovakMunicipalities,
+  normalizeSlovakLocationSearch,
+  resolveSlovakLocation,
+} from "@/lib/slovakia-locations";
 
 const SK_POSTCODE = /^\d{3}\s?\d{2}$/;
 
@@ -344,6 +349,190 @@ export type ExternalDirectoryAddressVerification = {
   status: "VERIFIED_EXACT" | "NEEDS_REVIEW";
   verified: VerifiedDirectoryAddress | null;
 };
+
+function normalizedProviderAdminName(value: string) {
+  return normalizeSlovakLocationSearch(value)
+    .replace(/\b(?:okres|district|county|region|kraj)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function providerCanonicalDistrict(result: NormalizedGeocoderResult) {
+  const candidates = [result.district, result.cityDistrict ?? ""]
+    .map(normalizedProviderAdminName)
+    .filter(Boolean);
+  for (const [region, districts] of Object.entries(SLOVAK_DISTRICTS_BY_REGION)) {
+    for (const district of districts) {
+      const canonical = normalizedProviderAdminName(district);
+      if (candidates.some((candidate) => candidate === canonical)) {
+        return { region, district };
+      }
+    }
+  }
+  return null;
+}
+
+function providerCanonicalCity(
+  district: string,
+  result: NormalizedGeocoderResult,
+) {
+  const municipalities = getSlovakMunicipalities(district);
+  if (!municipalities.length) return null;
+  const directCandidates = [result.city, result.cityDistrict ?? "", result.suburb ?? ""]
+    .map((value) => value.trim())
+    .filter(Boolean);
+  for (const candidate of directCandidates) {
+    const normalized = normalizeSlovakLocationSearch(candidate);
+    const exact = municipalities.find((municipality) =>
+      normalizeSlovakLocationSearch(municipality) === normalized
+    );
+    if (exact) return exact;
+  }
+
+  const baseCity = result.city.trim();
+  for (const detail of [result.cityDistrict ?? "", result.suburb ?? ""]) {
+    const cleanDetail = detail.trim();
+    if (!baseCity || !cleanDetail) continue;
+    const escapedBaseCity = baseCity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const detailWithoutCity = cleanDetail
+      .replace(new RegExp("^" + escapedBaseCity + "\\s*[-–—]?\\s*", "i"), "")
+      .trim();
+    for (const candidate of [
+      cleanDetail,
+      detailWithoutCity ? baseCity + " - " + detailWithoutCity : "",
+    ]) {
+      if (!candidate) continue;
+      const normalized = normalizeSlovakLocationSearch(candidate);
+      const exact = municipalities.find((municipality) =>
+        normalizeSlovakLocationSearch(municipality) === normalized
+      );
+      if (exact) return exact;
+    }
+  }
+
+  const providerText = normalizeSlovakLocationSearch([
+    result.formatted ?? "",
+    result.addressLine2 ?? "",
+    result.cityDistrict ?? "",
+    result.suburb ?? "",
+  ].join(" "));
+  const contained = municipalities.filter((municipality) => {
+    const normalized = normalizeSlovakLocationSearch(municipality);
+    return normalized.length >= 4 && providerText.includes(normalized);
+  });
+  return contained.length === 1 ? contained[0] : null;
+}
+
+export function resolveGeoapifyDirectoryLocality(result: NormalizedGeocoderResult) {
+  const district = providerCanonicalDistrict(result);
+  if (!district) return null;
+  const city = providerCanonicalCity(district.district, result);
+  if (!city) return null;
+  return resolveSlovakLocation({
+    region: district.region,
+    district: district.district,
+    city,
+  });
+}
+
+function exactExternalAddressCandidate(input: {
+  result: NormalizedGeocoderResult;
+  expectedStreet?: string;
+  expectedHouseNumber?: string;
+  expectedPostalCode?: string;
+  expectedCity?: string;
+}) {
+  const result = input.result;
+  const buildingType = result.resultType === "building"
+    || (result.resultType === "amenity" && Boolean(result.housenumber) && Boolean(result.postcode));
+  if (result.countryCode !== "SK" || !buildingType || !result.housenumber || !SK_POSTCODE.test(result.postcode ?? "")) {
+    return null;
+  }
+  const confidenceOk = (result.confidence ?? 0) >= 0.95
+    && (result.cityConfidence ?? result.confidence ?? 0) >= 0.90
+    && (result.buildingConfidence ?? result.confidence ?? 0) >= 0.95;
+  const streetOk = result.street
+    ? (result.streetConfidence ?? result.confidence ?? 0) >= 0.95
+    : true;
+  if (!confidenceOk || !streetOk) return null;
+
+  const addressFormat = result.street ? "STREET" as const : "MUNICIPALITY_NUMBER" as const;
+  if (input.expectedStreet?.trim()
+    && (!result.street || !localityMatches(input.expectedStreet, result.street))) return null;
+  if (input.expectedHouseNumber?.trim() && !houseNumberMatchesUserInput({
+    userHouseNumber: input.expectedHouseNumber,
+    providerHouseNumber: result.housenumber,
+    addressFormat,
+  })) return null;
+  if (input.expectedPostalCode?.trim()
+    && normalizeSlovakPostalCode(input.expectedPostalCode) !== normalizeSlovakPostalCode(result.postcode)) return null;
+
+  const locality = resolveGeoapifyDirectoryLocality(result);
+  if (!locality) return null;
+  if (input.expectedCity?.trim()) {
+    const cityEvidence = localityMatches(input.expectedCity, locality.city)
+      || [result.city, result.cityDistrict ?? "", result.suburb ?? "", result.formatted ?? ""]
+        .some((value) => value && localityMatches(input.expectedCity!, value));
+    if (!cityEvidence) return null;
+  }
+  return {
+    region: locality.region,
+    district: locality.district,
+    city: locality.city,
+    postalCode: normalizeSlovakPostalCode(result.postcode),
+    street: (result.street ?? "").trim(),
+    houseNumber: result.housenumber.trim(),
+    addressFormat,
+    providerResult: result,
+  } satisfies VerifiedDirectoryAddress;
+}
+
+export async function verifyExternalDirectoryAddressEvidenceBestEffort(input: {
+  evidence: string;
+  expectedStreet?: string;
+  expectedHouseNumber?: string;
+  expectedPostalCode?: string;
+  expectedCity?: string;
+  provider?: GeocoderProvider;
+  signal?: AbortSignal;
+}): Promise<ExternalDirectoryAddressVerification> {
+  const evidence = input.evidence.trim().replace(/\s+/g, " ").slice(0, 320);
+  if (evidence.length < 5) return { status: "NEEDS_REVIEW", verified: null };
+  try {
+    const provider = input.provider ?? new GeoapifyGeocoder();
+    if (!provider.isConfigured()) return { status: "NEEDS_REVIEW", verified: null };
+    const results = await provider.geocodeExact({
+      query: evidence + (/(?:slovensko|slovakia)/i.test(evidence) ? "" : ", Slovensko"),
+      precision: "EXACT",
+      countryCode: "SK",
+      signal: input.signal,
+    });
+    const accepted = results
+      .map((result) => exactExternalAddressCandidate({
+        result,
+        expectedStreet: input.expectedStreet,
+        expectedHouseNumber: input.expectedHouseNumber,
+        expectedPostalCode: input.expectedPostalCode,
+        expectedCity: input.expectedCity,
+      }))
+      .filter((item): item is VerifiedDirectoryAddress => Boolean(item));
+    if (!accepted.length) return { status: "NEEDS_REVIEW", verified: null };
+
+    const first = accepted[0];
+    const ambiguous = accepted.slice(1).some((item) =>
+      item.providerResult.providerResultId !== first.providerResult.providerResultId
+      && (
+        Math.abs(item.providerResult.latitude - first.providerResult.latitude) > 0.0002
+        || Math.abs(item.providerResult.longitude - first.providerResult.longitude) > 0.0002
+      )
+    );
+    return ambiguous
+      ? { status: "NEEDS_REVIEW", verified: null }
+      : { status: "VERIFIED_EXACT", verified: first };
+  } catch {
+    return { status: "NEEDS_REVIEW", verified: null };
+  }
+}
 
 function splitExternalAddress(address: string, city: string) {
   const match = /^(.+?)\s+(\d+(?:\/\d+[A-Za-z]?)?)$/.exec(address.trim());
