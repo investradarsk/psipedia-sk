@@ -69,8 +69,8 @@ test("search exclusions are category-scoped, bounded and local matching remains 
 
 test("DRAFT and PUBLISHED canonical rows both participate because matching has no published-only filter", async () => {
   const store = await read("lib/data-automation-store.ts");
-  const directory = store.match(/if \(source\.entityType === "DIRECTORY"\)[\s\S]*?return result\.results/s)?.[0] ?? "";
-  const adoption = store.match(/if \(source\.entityType === "ADOPTION"\)[\s\S]*?return result\.results/s)?.[0] ?? "";
+  const directory = store.match(/FROM directory_profiles[\s\S]*?ORDER BY id ASC LIMIT 50/)?.[0] ?? "";
+  const adoption = store.match(/FROM adoption_dogs[\s\S]*?ORDER BY id ASC LIMIT 50/)?.[0] ?? "";
   assert.match(directory, /FROM directory_profiles/);
   assert.match(directory, /category=\?/);
   assert.doesNotMatch(directory, /status\s*=\s*['"]published/i);
