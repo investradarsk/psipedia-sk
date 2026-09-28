@@ -224,13 +224,19 @@ export async function configureDirectEntityRefreshSetting(input: {
   const now = input.now ?? new Date();
   const at = now.toISOString();
   const unchanged = automationSchedulesEqual(existing.schedule, schedule);
+  const continuingCycle = input.enabled
+    && existing.enabled
+    && existing.cursorEntityId > 0
+    && Boolean(existing.nextCheckAt);
   const nextCheckAt = !input.enabled
     ? null
-    : schedule.mode === "CALENDAR"
-      ? existing.enabled && unchanged && existing.nextCheckAt
-        ? existing.nextCheckAt
-        : nextAutomationScheduledAt(schedule, now)
-      : at;
+    : continuingCycle
+      ? existing.nextCheckAt
+      : schedule.mode === "CALENDAR"
+        ? existing.enabled && unchanged && existing.nextCheckAt
+          ? existing.nextCheckAt
+          : nextAutomationScheduledAt(schedule, now)
+        : at;
   await db.prepare(`UPDATE automation_direct_refresh_settings SET
       enabled=?,cadence_minutes=?,schedule_mode=?,schedule_days_json=?,schedule_local_time=?,schedule_timezone=?,
       next_check_at=?,cursor_entity_id=CASE WHEN ?=0 THEN 0 ELSE cursor_entity_id END,updated_at=?
@@ -262,6 +268,25 @@ export async function listDueDirectEntityRefreshSettings(
       Math.max(1, Math.min(3, limit)),
     ).all<Record<string, unknown>>();
   return result.results.map(mapRefreshSetting);
+}
+
+export async function claimDueDirectEntityRefreshSetting(
+  setting: AutomationDirectRefreshSetting,
+  databaseInput?: Database,
+  now = new Date(),
+) {
+  const db = database(databaseInput);
+  const nowIso = now.toISOString();
+  const leaseUntil = new Date(now.getTime() + 20 * 60_000).toISOString();
+  const result = await db.prepare(`UPDATE automation_direct_refresh_settings
+    SET next_check_at=?
+    WHERE category_slug=? AND enabled=1
+      AND (next_check_at IS NULL OR next_check_at<=?)`).bind(
+      leaseUntil,
+      setting.categorySlug,
+      nowIso,
+    ).run();
+  return result.meta.changes ? { ...setting, nextCheckAt: leaseUntil } : null;
 }
 
 export type DirectRefreshCandidate = {
