@@ -13,6 +13,7 @@ export function mapAutomationRecordToDraftInput(input: {
   sourceUrl?: string | null;
   findingType?: Pick<AutomationFindingDetail, "findingType">["findingType"] | AutomationFindingType;
   createdAt: string;
+  verifiedDirectoryAddress?: CanonicalDraftInput["verifiedDirectoryAddress"];
 }): CanonicalDraftInput {
   const data = input.entityType === "DIRECTORY"
     ? {
@@ -26,6 +27,9 @@ export function mapAutomationRecordToDraftInput(input: {
     entityType: input.entityType,
     data,
     externalSourceUrl: input.sourceUrl ?? null,
+    ...(input.entityType === "DIRECTORY" && input.verifiedDirectoryAddress
+      ? { verifiedDirectoryAddress: input.verifiedDirectoryAddress }
+      : {}),
     slugSuffix: input.findingType === "DUPLICATE_CANDIDATE"
       ? duplicateSlugSuffix(input.createdAt)
       : null,
