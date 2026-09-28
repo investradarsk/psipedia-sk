@@ -732,7 +732,7 @@ export function mapAutomationFindingAttention(
 }
 
 export type AutomationActionAttentionRow = {
-  actionType: "NEW_DRAFTS" | "NEW_FEED_SOURCES" | "UPDATE_SUGGESTIONS" | "POSSIBLE_MATCH_REVIEW" | "SOURCE_ISSUE";
+  actionType: "NEW_DRAFTS" | "NEW_FEED_SOURCES" | "UPDATE_SUGGESTIONS" | "ADDRESS_REVIEW" | "POSSIBLE_MATCH_REVIEW" | "SOURCE_ISSUE";
   sourceId: string;
   categorySlug: string | null;
   count: number;
@@ -802,6 +802,16 @@ function automationActionPresentation(row: AutomationActionAttentionRow) {
       reason: "Našli sa nové alebo zmenené údaje pri existujúcich záznamoch.",
       targetHref: row.targetHref,
       actionLabel: row.count === 1 ? "Skontrolovať zmenu" : "Skontrolovať zmeny",
+      contextLabel: categoryLabel,
+      priority: "MEDIUM" as const,
+    };
+  }
+  if (row.actionType === "ADDRESS_REVIEW") {
+    return {
+      title: row.count === 1 ? "1 adresa vyžaduje kontrolu" : `${row.count} adresy vyžadujú kontrolu`,
+      reason: "Automatizácia nevie bezpečne rozhodnúť medzi viacerými možnými adresami.",
+      targetHref: row.targetHref,
+      actionLabel: row.count === 1 ? "Skontrolovať adresu" : "Skontrolovať adresy",
       contextLabel: categoryLabel,
       priority: "MEDIUM" as const,
     };
