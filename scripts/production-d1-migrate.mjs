@@ -85,6 +85,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0090_geo_google_place_identity.sql",
   "0091_automation_detach_drafts.sql",
   "0092_automation_product_model.sql",
+  "0093_automation_update_field_reviews.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -138,6 +139,17 @@ export const AUTOMATION_PRODUCT_MODEL_INDEXES = Object.freeze([
   "canonical_external_provenance_canonical_idx",
   "automation_update_suggestions_fingerprint_unique",
   "automation_update_suggestions_category_idx",
+]);
+
+export const AUTOMATION_UPDATE_REVIEW_TABLES = Object.freeze([
+  "automation_update_field_reviews",
+]);
+
+export const AUTOMATION_UPDATE_REVIEW_INDEXES = Object.freeze([
+  "automation_update_field_reviews_value_unique",
+  "automation_update_field_reviews_canonical_idx",
+  "automation_update_field_reviews_suggestion_idx",
+  "automation_update_suggestions_canonical_review_idx",
 ]);
 
 export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
@@ -781,6 +793,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || AUTOMATION_PRODUCT_MODEL_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0093_automation_update_field_reviews.sql") {
+    return {
+      partial: AUTOMATION_UPDATE_REVIEW_TABLES.some((table) => names.has(table))
+        || AUTOMATION_UPDATE_REVIEW_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -791,6 +809,16 @@ function assertAutomationProductModelSchema(schema) {
   }
   for (const index of AUTOMATION_PRODUCT_MODEL_INDEXES) {
     invariant(names.get(index)?.type === "index", `Missing automation product-model index: ${index}`);
+  }
+}
+
+function assertAutomationUpdateReviewSchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of AUTOMATION_UPDATE_REVIEW_TABLES) {
+    invariant(names.get(table)?.type === "table", `Missing automation update-review table: ${table}`);
+  }
+  for (const index of AUTOMATION_UPDATE_REVIEW_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing automation update-review index: ${index}`);
   }
 }
 
@@ -1251,6 +1279,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 84) assertAutomationGovernanceSchema(schema);
   if (migrationIndex(targetMigration) >= 90) assertGeoGooglePlaceIdentitySchema(schema);
   if (migrationIndex(targetMigration) >= 92) assertAutomationProductModelSchema(schema);
+  if (migrationIndex(targetMigration) >= 93) assertAutomationUpdateReviewSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
