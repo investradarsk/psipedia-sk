@@ -12,20 +12,18 @@ export function isCanonicalOrganizationSlug(slug: string) {
 export function buildOrganizationSitemapEntries(
   organizations: PublicOrganizationSitemapRecord[],
 ): MetadataRoute.Sitemap {
-  const entries = new Map<string, MetadataRoute.Sitemap[number]>();
+  const entries: MetadataRoute.Sitemap = [];
 
   for (const organization of organizations) {
     if (!isCanonicalOrganizationSlug(organization.slug)) continue;
     const lastModified = latestModified([organization.updatedAt, organization.publishedAt]);
-    if (!lastModified) continue;
-
     const entry = sitemapEntry(`/organizacie/${organization.slug}`, {
       lastModified,
       changeFrequency: "monthly",
       priority: 0.6,
     });
-    entries.set(entry.url, entry);
+    entries.push(entry);
   }
 
-  return [...entries.values()];
+  return entries;
 }

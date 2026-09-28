@@ -700,6 +700,7 @@ test("searches the whole portal on a dedicated results URL", async () => {
   assert.match(html, /Plemeno/);
   assert.match(html, /Prvý rok labradora/);
   assert.match(html, /Článok/);
+  assert.match(html, /<meta[^>]+name="robots"[^>]+content="noindex, follow"/i);
 });
 
 test("renders article freshness and expert sources", async () => {
@@ -730,6 +731,7 @@ test("renders article freshness and expert sources", async () => {
   assert.match(html, /Ďalšie články k téme/);
   assert.match(html, /WSAVA: Global Nutrition Guidelines/);
   assert.match(html, /"dateModified":"2026-08-16"/);
+  assert.doesNotMatch(html, /\| Psipedia(?:\.sk)? \| Psipedia\.sk/);
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(css, /\.article-blocks\s*>\s*ul\s*\{[^}]*list-style:\s*disc outside/s);
   assert.match(css, /\.article-blocks\s*>\s*ol\s*\{[^}]*list-style:\s*decimal outside/s);
@@ -956,6 +958,10 @@ test("filters a directory category on the server and keeps verification data pri
     assert.match(detailHtml, /href="\/adresar\/kynologicke-kluby\?region=Bratislavsk%C3%BD%20kraj"/);
     assert.match(detailHtml, /Spravujete tento profil\?/);
     assert.match(detailHtml, /Navrhnúť opravu údajov/);
+    assert.match(detailHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/adresar\/kynologicke-kluby\/testovaci-klub"/);
+    assert.match(detailHtml, /"BreadcrumbList"/);
+    assert.match(detailHtml, /"@type":"Organization"/);
+    assert.doesNotMatch(detailHtml, /\| Psipedia(?:\.sk)? \| Psipedia\.sk/);
     assert.doesNotMatch(detailHtml, /Ste majiteľom tohto profilu/);
   } finally {
     for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];
@@ -1008,6 +1014,9 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.match(helpHtml, /Vyberte, čo chcete riešiť/);
   assert.match(helpHtml, /Hlavný prehľad ukazuje len výber aktuálnych možností/);
   assert.match(helpHtml, /V tejto kategórii momentálne nemáme nový publikovaný záznam\./);
+  assert.match(helpHtml, /"CollectionPage"/);
+  assert.match(helpHtml, /"BreadcrumbList"/);
+  assert.doesNotMatch(helpHtml, /"verified"/i);
   assert.doesNotMatch(helpHtml, /help-hero--photo/);
 
   const adoption = await worker.fetch(new Request("http://localhost/pomoc-psom/adopcia", { headers: { accept: "text/html" } }), bindings, context);
@@ -1146,7 +1155,14 @@ test("publishes search-engine and ChatGPT discovery endpoints", async () => {
   assert.equal(robots.status, 200);
   const robotsText = await robots.text();
   assert.match(robotsText, /User-Agent: OAI-SearchBot/i);
+  assert.match(robotsText, /User-Agent: ChatGPT-User/i);
+  assert.match(robotsText, /User-Agent: GPTBot/i);
   assert.match(robotsText, /User-Agent: Googlebot/i);
+  const oaiBlock = robotsText.split(/User-Agent:/i).find((block) => /OAI-SearchBot/i.test(block)) ?? "";
+  assert.match(oaiBlock, /Disallow: \/admin\//i);
+  assert.match(oaiBlock, /Disallow: \/api\//i);
+  assert.match(oaiBlock, /Disallow: \/hladat/i);
+  assert.match(oaiBlock, /Disallow: \/oblubene/i);
   assert.match(robotsText, /Sitemap: https:\/\/psipedia\.sk\/sitemap\.xml/i);
   assert.match(robotsText, /Sitemap: https:\/\/psipedia\.sk\/news-sitemap\.xml/i);
 
@@ -1158,6 +1174,8 @@ test("publishes search-engine and ChatGPT discovery endpoints", async () => {
   assert.match(sitemapText, /https:\/\/psipedia\.sk\/starostlivost\/ako-vybrat-granule-bez-marketingovych-mytov/);
   assert.match(sitemapText, /https:\/\/psipedia\.sk\/adresar\/treneri/);
   assert.doesNotMatch(sitemapText, /https:\/\/psipedia\.sk\/adresar\/psie-skoly/);
+  assert.doesNotMatch(sitemapText, /<loc>[^<]*\?/i);
+  assert.doesNotMatch(sitemapText, /<loc>https:\/\/psipedia\.sk\/(?:admin|api|hladat|oblubene)(?:\/|<)/i);
 
   const feed = await worker.fetch(new Request("http://localhost/feed.xml"), bindings, context);
   assert.equal(feed.status, 200);
@@ -1174,6 +1192,11 @@ test("publishes search-engine and ChatGPT discovery endpoints", async () => {
   assert.match(articleHtml, /"mainEntityOfPage"/);
   assert.match(articleHtml, /"BreadcrumbList"/);
   assert.match(articleHtml, /max-image-preview:large/i);
+  assert.doesNotMatch(articleHtml, /\| Psipedia(?:\.sk)? \| Psipedia\.sk/);
+
+  const missing = await worker.fetch(new Request("http://localhost/seo-2-definitely-missing", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(missing.status, 404);
+  assert.match(await missing.text(), /<meta(?=[^>]*\bname=["']robots["'])(?=[^>]*\bcontent=["'][^"']*\bnoindex\b[^"']*["'])[^>]*>/i);
 });
 
 test("reviewer auth document shell carries the RSC route without invalid referrer metadata", async () => {
@@ -1199,6 +1222,8 @@ test("reviewer auth document shell carries the RSC route without invalid referre
     const html = await response.text();
     assert.match(html, /__VINEXT_RSC_NAV__/);
     assert.ok(html.includes('"pathname":"/recenzia/prihlasenie"'));
+    assert.match(html, /<title>Prístup k profilovej recenzii \| Psipedia\.sk<\/title>/i);
+    assert.match(html, /<meta[^>]+name="robots"[^>]+content="noindex, nofollow"/i);
     assert.doesNotMatch(html, /name="referrer"[^>]+content="Redakcia Psipedia"/i);
   }
 });

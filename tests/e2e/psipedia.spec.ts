@@ -397,12 +397,43 @@ test("@production reviewer auth renders content in repeated fresh contexts and i
 });
 
 test("@production robots and sitemaps are available and valid", async ({ request }) => {
-  const checks = [["/robots.txt", /User-agent:/i], ["/sitemap.xml", /<urlset|<sitemapindex/i], ["/news-sitemap.xml", /<urlset/i]] as const;
-  for (const [path, content] of checks) {
-    const response = await request.get(path);
-    expect(response.status(), `${path} returned HTTP ${response.status()}`).toBe(200);
-    expect(await response.text(), `${path} has unexpected content`).toMatch(content);
-  }
+  const robots = await request.get("/robots.txt");
+  expect(robots.status(), `/robots.txt returned HTTP ${robots.status()}`).toBe(200);
+  const robotsText = await robots.text();
+  expect(robotsText).toMatch(/User-agent:/i);
+  expect(robotsText).toMatch(/Sitemap:\s*https:\/\/psipedia\.sk\/sitemap\.xml/i);
+
+  const sitemap = await request.get("/sitemap.xml");
+  expect(sitemap.status(), `/sitemap.xml returned HTTP ${sitemap.status()}`).toBe(200);
+  const sitemapText = await sitemap.text();
+  expect(sitemapText).toMatch(/<urlset|<sitemapindex/i);
+
+  const locations = [...sitemapText.matchAll(/<loc>([^<]+)<\/loc>/gi)]
+    .map((match) => match[1]!.replaceAll("&amp;", "&"));
+  const uniqueLocations = new Set(locations);
+  expect(locations.length, "Production sitemap is empty").toBeGreaterThan(0);
+  expect(uniqueLocations.size, "Production sitemap contains duplicate <loc> URLs").toBe(locations.length);
+  expect(locations.some((url) => /[?#]/.test(url)), "Production sitemap contains query/hash URLs").toBe(false);
+  expect(
+    locations.some((url) => /^https:\/\/psipedia\.sk\/(?:admin|api|hladat|oblubene)(?:\/|$)/i.test(url)),
+    "Production sitemap contains an internal or noindex route",
+  ).toBe(false);
+
+  const pathname = (url: string) => new URL(url).pathname;
+  const counts = {
+    total: locations.length,
+    directoryDetails: locations.filter((url) => /^\/adresar\/[^/]+\/[^/]+$/.test(pathname(url))).length,
+    breeds: locations.filter((url) => /^\/plemena\/[^/]+$/.test(pathname(url)) && pathname(url) !== "/plemena/vyber-plemena").length,
+    events: locations.filter((url) => /^\/podujatia\/[^/]+$/.test(pathname(url)) && pathname(url) !== "/podujatia/kalendar").length,
+    organizations: locations.filter((url) => /^\/organizacie\/[^/]+$/.test(pathname(url))).length,
+    adoptions: locations.filter((url) => /^\/pomoc-psom\/adopcia\/[^/]+$/.test(pathname(url))).length,
+    lostFound: locations.filter((url) => /^\/pomoc-psom\/(?:stratene-psy|najdene-psy)\/[^/]+$/.test(pathname(url))).length,
+  };
+  console.log("SEO-2 production sitemap counts", JSON.stringify(counts));
+
+  const news = await request.get("/news-sitemap.xml");
+  expect(news.status(), `/news-sitemap.xml returned HTTP ${news.status()}`).toBe(200);
+  expect(await news.text(), "/news-sitemap.xml has unexpected content").toMatch(/<urlset/i);
 });
 
 test(NO_CONSENT_TEST, async ({ page }) => {

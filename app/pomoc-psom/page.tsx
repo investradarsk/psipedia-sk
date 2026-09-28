@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { StructuredData } from "@/components/structured-data";
 import { HelpOverview, type HelpOverviewItem, type HelpOverviewSection } from "@/components/help-overview";
 import { getPublishedHelpCases } from "@/lib/help-store";
 import { getPublicAdoptions } from "@/lib/adoption-store";
@@ -18,12 +19,15 @@ import {
   type PublicDogReport,
 } from "@/lib/lost-found-dogs";
 import type { AdoptionDog } from "@/lib/adoption";
+import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
+
+const helpRootDescription = "Adopcie, stratené psy, urgentné prípady, útulky, zbierky a ďalšie možnosti pomoci psom na jednom mieste.";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = buildPageMetadata({
   title: "Pomoc psom",
-  description: "Adopcie, stratené psy, urgentné prípady, útulky a overené zbierky na jednom mieste.",
+  description: helpRootDescription,
   path: "/pomoc-psom",
 });
 
@@ -123,6 +127,16 @@ export default async function HelpRootPage() {
   }));
 
   const totalActive = sections.reduce((sum, section) => sum + section.count, 0);
+  const schema = buildCollectionPageJsonLd({
+    name: "Pomoc psom",
+    description: helpRootDescription,
+    path: "/pomoc-psom",
+    breadcrumbs: [
+      { name: "Domov", path: "/" },
+      { name: "Pomoc psom", path: "/pomoc-psom" },
+    ],
+    items: sections.map((section) => ({ name: section.label, path: section.href })),
+  });
 
-  return <HelpOverview sections={sections} totalActive={totalActive} />;
+  return <><StructuredData value={schema} /><HelpOverview sections={sections} totalActive={totalActive} /></>;
 }

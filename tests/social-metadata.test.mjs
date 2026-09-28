@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildPageMetadata,
   buildSiteIdentityJsonLd,
+  pageTitleWithoutBrand,
   SITE_ALTERNATE_NAMES,
   SITE_NAME,
   SITE_URL,
@@ -59,6 +60,21 @@ function buildRepresentativeMetadata({
     type,
   });
 }
+
+test("page metadata strips legacy brand suffixes before the root title template", () => {
+  assert.equal(pageTitleWithoutBrand("Ako čistiť psovi zuby | Psipedia"), "Ako čistiť psovi zuby");
+  assert.equal(pageTitleWithoutBrand("Ako čistiť psovi zuby | Psipedia.sk"), "Ako čistiť psovi zuby");
+  assert.equal(pageTitleWithoutBrand("Ako čistiť psovi zuby – Psipedia"), "Ako čistiť psovi zuby");
+  assert.equal(pageTitleWithoutBrand("Ako čistiť psovi zuby | Psipedia | Psipedia.sk"), "Ako čistiť psovi zuby");
+
+  const metadata = buildPageMetadata({
+    title: "Ako čistiť psovi zuby | Psipedia",
+    description: "Praktický postup čistenia zubov psa.",
+    path: "/starostlivost/ako-cistit-psovi-zuby",
+  });
+  assert.equal(metadata.title, "Ako čistiť psovi zuby");
+  assert.equal(metadata.openGraph?.title, "Ako čistiť psovi zuby | Psipedia.sk");
+});
 
 test("site identity JSON-LD binds the canonical brand to official profiles", () => {
   const graph = buildSiteIdentityJsonLd()["@graph"];
