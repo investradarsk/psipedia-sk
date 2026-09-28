@@ -4750,7 +4750,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #71817a;
+  color: #60736a;
   font-size: 0.68rem;
   font-weight: 750;
 }
@@ -4777,7 +4777,7 @@ h3 {
 }
 
 .admin-status--draft {
-  color: #8a6a25;
+  color: #745716;
   background: #f7ecd0;
 }
 
@@ -6107,7 +6107,7 @@ h3 {
 }
 
 .admin-overview-heading span,
-.admin-overview-heading p { color: #71837b; font-size: 0.78rem; }
+.admin-overview-heading p { color: #60736a; font-size: 0.78rem; }
 .admin-overview-heading h2 { margin: 3px 0 0; font-size: 1.35rem; }
 .admin-overview-heading p { margin: 0; }
 
