@@ -421,6 +421,18 @@ test("automation action presentation is aggregated, human-readable and category-
   assert.equal(addressReview.priority, "MEDIUM");
   assert.equal(addressReview.targetHref, "/admin/automatizacie/adresy?category=veterinari");
 
+  const urgentUpdate = mapAutomationActionAttention({
+    actionType: "UPDATE_SUGGESTIONS",
+    sourceId: "updates:podujatia",
+    categorySlug: "podujatia",
+    count: 1,
+    relevantAt: "2026-09-15T09:45:00.000Z",
+    targetHref: "/admin/automatizacie/podujatia#doplnenia-zmeny",
+    sourceLabel: null,
+    priority: "HIGH",
+  }, NOW);
+  assert.equal(urgentUpdate.priority, "HIGH");
+
   const sourceIssue = mapAutomationActionAttention({
     actionType: "SOURCE_ISSUE",
     sourceId: "source-issue:42",
@@ -445,6 +457,9 @@ test("automation attention derives active state from bounded domain queries and 
   assert.match(store, /LOWER\([a-z]\.status\)='draft'/);
   assert.match(store, /review_status='NEW'/);
   assert.match(store, /automation_address_review_cases/);
+  assert.match(store, /review_status IN \('NEW','IN_REVIEW','SUPPRESSED'\)/);
+  assert.match(store, /finding_type='POSSIBLE_CANCELLED'/);
+  assert.match(store, /LOWER\(event\.status\)='published'/);
   assert.match(store, /status='OPEN'/);
   assert.match(store, /failing_sources/);
   assert.match(store, /HAVING COUNT\(\*\)=3 AND SUM\(CASE WHEN r\.status='FAILED'/);
