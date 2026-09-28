@@ -26,7 +26,7 @@ export default async function AutomationAdminPage() {
       eyebrow="Admin"
       title="Automatizácie"
       description="Vyber kategóriu a nastav priame hľadanie entít alebo monitoring opakovaných zdrojov. Nový obsah vzniká iba ako canonical koncept."
-      actions={<Link href="/admin/automatizacie/zmeny-stavu">Zmeny stavu · {lifecycleCount}</Link>}
+      actions={<><Link href="/admin/automatizacie/zmeny-stavu">Zmeny stavu · {lifecycleCount}</Link><Link href="/admin/automatizacie/prehlad">Prehľad automatizácií →</Link></>}
     >
       <section className={styles.hubGrid} aria-label="Kategórie automatizácií">
         {automationUxCategories.map((category) => {
