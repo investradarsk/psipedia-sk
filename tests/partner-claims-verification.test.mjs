@@ -159,7 +159,7 @@ test("claim and verification Attention use exact active predicates separate from
   assert.match(attentionStore,/c\.status='PENDING'/);
   assert.match(attentionStore,/PARTNER_VERIFICATION_REVIEW/);
   assert.match(attentionStore,/FROM partner_resource_verifications v/);
-  assert.match(attentionStore,/v\.status='PENDING_VERIFICATION'/);
+  assert.match(attentionStore,/x\.status='PENDING_VERIFICATION'/);
   assert.match(attentionStore,/sourceProbeSql/);
   assert.equal((attentionStore.match(/LIMIT \?/g)??[]).length,1);
   assert.match(attention,/SELECT COUNT\(\*\) count FROM partner_claims WHERE status='PENDING'/);
