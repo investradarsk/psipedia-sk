@@ -848,6 +848,7 @@ export async function listManagedArticleSummaries(options: {
   const filters = {
     query: options.query?.trim().slice(0, 120) ?? "",
     status: options.status ?? "all",
+    portalSection: options.portalSection ?? "all",
     sort: options.sort ?? "updated",
     direction: options.direction ?? "desc",
     page: options.page ?? 1,
