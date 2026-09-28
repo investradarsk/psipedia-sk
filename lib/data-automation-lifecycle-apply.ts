@@ -89,12 +89,17 @@ async function applyAdoption(suggestion: AutomationLifecycleSuggestion, reviewer
   if (!canTransitionAdoptionStatus(current.status, target)) {
     throw stale(`Aktuálny stav adopcie nepovoľuje prechod ${current.status} → ${target}. Zmenu treba vyriešiť manuálne v profile.`);
   }
-  await transitionManagedAdoptionStatus(
-    suggestion.canonicalEntityId,
-    target,
-    reviewerEmail,
-    db as unknown as AdoptionD1Database,
-  );
+  try {
+    await transitionManagedAdoptionStatus(
+      suggestion.canonicalEntityId,
+      target,
+      reviewerEmail,
+      db as unknown as AdoptionD1Database,
+    );
+  } catch (error) {
+    if (error instanceof Error && /Nepovolený prechod|neexistuje|conflict/i.test(error.message)) throw stale();
+    throw error;
+  }
   return { satisfied: false, currentState: target };
 }
 
@@ -140,7 +145,7 @@ async function applyLostFound(suggestion: AutomationLifecycleSuggestion, reviewe
       db,
     );
   } catch (error) {
-    if (error instanceof Error && error.message === "lost_found_lifecycle_stale") throw stale();
+    if (error instanceof Error && (error.message === "lost_found_lifecycle_stale" || /Nepovolený prechod/i.test(error.message))) throw stale();
     throw error;
   }
   return { satisfied: false, currentState: "RESOLVED" };

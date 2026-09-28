@@ -29,9 +29,7 @@ export default async function AutomationLifecyclePage({ searchParams }: Props) {
   ]);
   const feedCategories = automationUxCategories.filter((item) => item.mode === "FEED_SOURCE");
   const countFor = (slug: string) => Number((counts as Record<string, number | undefined>)[slug] ?? 0);
-  const total = category
-    ? countFor(category.slug)
-    : feedCategories.reduce((sum, item) => sum + countFor(item.slug), 0);
+  const grandTotal = feedCategories.reduce((sum, item) => sum + countFor(item.slug), 0);
 
   return (
     <AdminShell
@@ -42,7 +40,7 @@ export default async function AutomationLifecyclePage({ searchParams }: Props) {
       actions={<Link href="/admin/automatizacie">← Automatizácie</Link>}
     >
       <nav className={styles.sectionNav} aria-label="Filter zmien stavu">
-        <Link href="/admin/automatizacie/zmeny-stavu">Všetky · {total}</Link>
+        <Link href="/admin/automatizacie/zmeny-stavu">Všetky · {grandTotal}</Link>
         {feedCategories.map((item) => (
           <Link href={`/admin/automatizacie/zmeny-stavu?category=${item.slug}`} key={item.slug}>
             {item.title} · {countFor(item.slug)}

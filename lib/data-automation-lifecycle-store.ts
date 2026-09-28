@@ -7,7 +7,6 @@ import {
 } from "./data-automation.ts";
 import {
   automationLifecycleActionLabel,
-  automationLifecycleAlreadySatisfied,
   automationLifecycleCanApply,
   automationLifecycleCurrentState,
   automationLifecycleStateLabel,
@@ -105,7 +104,7 @@ function rowMetadata(row: LifecycleFindingRow): AutomationLifecycleMetadata | nu
       lifecycleVersion: 1,
       signalType: "EVENT_CANCELLED",
       targetState: "CANCELLED",
-      evidenceText: String(proposed.status ?? "Zrušené").slice(0, 240),
+      evidenceText: "Podujatie zrušené",
       confidenceClass: "EXPLICIT",
       sourceRecordId,
       sourceUrl,

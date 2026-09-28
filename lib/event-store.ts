@@ -335,7 +335,6 @@ export async function transitionManagedEventCancellation(
       expectedUpdatedAt,
     ).first<{ id: number; status: string; cancelled: number; updated_at: string }>();
   if (!row) throw new Error("event_lifecycle_stale");
-  await reconcileManagedEventGeo(id, editorEmail, database);
   return { id: Number(row.id), status: row.status, cancelled: Boolean(row.cancelled), updatedAt: row.updated_at };
 }
 
