@@ -1363,7 +1363,7 @@ async function runDirectEntityRefresh(
   const batchSize = 20;
   const now = options.now ? new Date(options.now) : new Date();
   const candidates = await listDirectRefreshCandidates(setting, options.database, batchSize);
-  const refreshSearchRoots = setting.entityType === "DIRECTORY"
+  const refreshSearchRoots = setting.categorySlug !== "utulky-organizacie"
     ? await listAutomationDiscoveryRoots(options.database as AutomationDiscoveryDatabase, 100, now)
     : [];
   let checked = 0;
