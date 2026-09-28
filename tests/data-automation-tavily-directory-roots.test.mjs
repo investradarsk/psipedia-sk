@@ -124,9 +124,9 @@ test("DISCOVERY-CAT-1C remains candidate-only and preserves category into pendin
   assert.doesNotMatch(runner, /INSERT INTO directory_profiles|UPDATE directory_profiles|DELETE FROM directory_profiles/i);
   assert.match(sourceStore, /candidateProvisioningConfig/);
   assert.match(provisioning, /semanticKind: "FACILITY_OR_SERVICE_PROFILE"/);
-  assert.match(sourceStore, /const provisioningConfig = candidateProvisioningConfig\\(candidate\\)/);
-  assert.match(sourceStore, /assertCandidateProvisioningReady\\(candidate, provisioningConfig\\)/);
-  assert.match(sourceStore, /stableJson\\(provisioningConfig\\)/);
+  assert.match(sourceStore, /const provisioningConfig = candidateProvisioningConfig\(candidate\)/);
+  assert.match(sourceStore, /assertCandidateProvisioningReady\(candidate, provisioningConfig\)/);
+  assert.match(sourceStore, /stableJson\(provisioningConfig\)/);
   assert.doesNotMatch(migration, /INSERT(?: OR IGNORE)? INTO automation_sources/i);
   assert.doesNotMatch(migration, /INSERT(?: OR IGNORE)? INTO directory_profiles/i);
   assert.doesNotMatch(migration, /UPDATE\s+directory_profiles|DELETE FROM\s+directory_profiles/i);
