@@ -1407,7 +1407,7 @@ test("TECHNICAL VERIFICATION source redirect bare domain to www is allowed", asy
     return new Response("<html></html>", { status: 200 });
   });
   assert.equal(access.status, "ALLOWED");
-  assert.equal(access.evidenceUrl, "https://www.redirect.example.sk/preteky/");
+  assert.equal(access.evidenceUrl, "https://www.redirect.example.sk/preteky");
 });
 
 test("TECHNICAL VERIFICATION robots follows five safe redirects and parses the final rules", async () => {
