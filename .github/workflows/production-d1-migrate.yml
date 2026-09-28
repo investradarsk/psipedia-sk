@@ -40,7 +40,8 @@ on:
           - 0090_geo_google_place_identity.sql
           - 0091_automation_detach_drafts.sql
           - 0092_automation_product_model.sql
-          - 0093_automation_calendar_schedule.sql
+          - 0093_automation_address_review.sql
+          - 0094_automation_calendar_schedule.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -101,7 +102,8 @@ jobs:
             0090_geo_google_place_identity.sql) expected_confirmation="APPLY-0090-psipedia-sk-db" ;;
             0091_automation_detach_drafts.sql) expected_confirmation="APPLY-0091-psipedia-sk-db" ;;
             0092_automation_product_model.sql) expected_confirmation="APPLY-0092-psipedia-sk-db" ;;
-            0093_automation_calendar_schedule.sql) expected_confirmation="APPLY-0093-psipedia-sk-db" ;;
+            0093_automation_address_review.sql) expected_confirmation="APPLY-0093-psipedia-sk-db" ;;
+            0094_automation_calendar_schedule.sql) expected_confirmation="APPLY-0094-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
