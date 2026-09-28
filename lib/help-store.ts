@@ -120,10 +120,10 @@ export function getD1Binding() {
   return database && typeof database.prepare === "function" ? database : null;
 }
 
-function requireD1Binding() {
-  const database = getD1Binding();
-  if (!database) throw new Error("Databáza pomoci psom zatiaľ nie je pripojená.");
-  return database;
+function requireD1Binding(database?: D1Database) {
+  const resolved = database ?? getD1Binding();
+  if (!resolved) throw new Error("Databáza pomoci psom zatiaľ nie je pripojená.");
+  return resolved;
 }
 
 async function ensureHelpStore(database: D1Database) {
@@ -393,6 +393,38 @@ export async function getManagedHelpCaseById(id: number) {
   await ensureHelpStore(database);
   const row = await database.prepare(`SELECT * FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} LIMIT 1`).bind(id).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
+}
+
+export async function transitionManagedHelpCaseResolved(
+  id: number,
+  resolved: boolean,
+  editorEmail: string,
+  expectedUpdatedAt: string,
+  databaseInput?: D1Database,
+) {
+  const database = requireD1Binding(databaseInput);
+  const current = await database.prepare(`SELECT id,status,resolved,updated_at
+    FROM help_cases WHERE id=? AND ${HELP_ADMIN_DOMAIN_SQL} LIMIT 1`)
+    .bind(id).first<{ id: number; status: string; resolved: number; updated_at: string }>();
+  if (!current) return null;
+  if (Boolean(current.resolved) === resolved) {
+    return { id: Number(current.id), status: current.status, resolved, updatedAt: current.updated_at };
+  }
+  if (!expectedUpdatedAt || current.updated_at !== expectedUpdatedAt) throw new Error("help_lifecycle_stale");
+
+  const now = new Date().toISOString();
+  const row = await database.prepare(`UPDATE help_cases
+    SET resolved=?,updated_at=?,updated_by=?
+    WHERE id=? AND updated_at=? AND ${HELP_ADMIN_DOMAIN_SQL}
+    RETURNING id,status,resolved,updated_at`).bind(
+      resolved ? 1 : 0,
+      now,
+      editorEmail,
+      id,
+      expectedUpdatedAt,
+    ).first<{ id: number; status: string; resolved: number; updated_at: string }>();
+  if (!row) throw new Error("help_lifecycle_stale");
+  return { id: Number(row.id), status: row.status, resolved: Boolean(row.resolved), updatedAt: row.updated_at };
 }
 
 export async function createManagedHelpCase(payload: ManagedHelpCaseInput, editorEmail: string) {

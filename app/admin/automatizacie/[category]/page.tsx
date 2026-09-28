@@ -15,6 +15,7 @@ import { listAutomationDiscoveryRoots } from "@/lib/data-automation-discovery-st
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
 import { isTavilySearchDiscoveryRoot } from "@/lib/tavily-canary-control";
 import { countOpenAutomationAddressReviews } from "@/lib/data-automation-address-review-store";
+import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-lifecycle-store";
 import {
   getDirectEntityRefreshSetting,
   listAutomationSourceCanonicalContent,
@@ -66,6 +67,9 @@ export default async function AutomationCategoryPage({ params }: Props) {
   const addressReviewCount = addressReviewCategory
     ? await countOpenAutomationAddressReviews(addressReviewCategory).catch(() => 0)
     : 0;
+  const lifecycleCount = category.mode === "FEED_SOURCE"
+    ? await countOpenAutomationLifecycleSuggestions({ entityTypes: category.entityTypes }).catch(() => 0)
+    : 0;
 
   return (
     <AdminShell
@@ -75,7 +79,14 @@ export default async function AutomationCategoryPage({ params }: Props) {
       description={category.mode === "DIRECT_ENTITY"
         ? "Priame hľadanie nových entít a read-only návrhy doplnení existujúcich záznamov."
         : "Správa opakovaných zdrojov a obsahu, ktorý z nich automatizácia našla."}
-      actions={<Link href="/admin/automatizacie">← Všetky kategórie</Link>}
+      actions={(
+        <>
+          <Link href="/admin/automatizacie">← Všetky kategórie</Link>
+          {category.mode === "FEED_SOURCE" ? (
+            <Link href={`/admin/automatizacie/zmeny-stavu?category=${category.slug}`}>Zmeny stavu · {lifecycleCount}</Link>
+          ) : null}
+        </>
+      )}
     >
       {addressReviewCategory ? (
         <section className={styles.section}>
