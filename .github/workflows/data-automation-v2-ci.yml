@@ -41,6 +41,8 @@ on:
       - "tests/admin-auto-ux-2.test.mjs"
       - "tests/fixtures/data-automation/**"
       - "tests/e2e/data-automation-v2.spec.ts"
+      - "tests/e2e/canonical-draft-delete.spec.ts"
+      - "tests/fixtures/canonical-draft-delete-e2e.sql"
       - ".github/workflows/data-automation-v2-ci.yml"
   workflow_dispatch:
 
@@ -109,6 +111,7 @@ jobs:
           mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/canonical-draft-delete-e2e.sql
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/data-automation-v2
@@ -124,7 +127,7 @@ jobs:
           done
           test "$ready" = 1
       - name: Source admin desktop/mobile + Axe
-        run: npx playwright test tests/e2e/data-automation-v2.spec.ts --workers=1 --retries=0
+        run: npx playwright test tests/e2e/data-automation-v2.spec.ts tests/e2e/canonical-draft-delete.spec.ts --workers=1 --retries=0
       - name: Stop local app
         if: always()
         run: |
