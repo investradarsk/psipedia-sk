@@ -55,8 +55,8 @@ export function buildContentMetadata(input: ContentMetadataInput): Metadata {
   const title = input.seo?.title?.trim() || input.fallbackTitle;
   const description = input.seo?.description?.trim() || input.fallbackDescription;
   const canonical = resolvedCanonical(input.seo, input.path);
-  const socialTitle = input.seo?.ogTitle?.trim() || title;
-  const socialDescription = input.seo?.ogDescription?.trim() || description;
+  const socialTitle = input.seo?.ogTitle?.trim() || undefined;
+  const socialDescription = input.seo?.ogDescription?.trim() || undefined;
   const base = buildPageMetadata({
     title,
     description,
@@ -76,14 +76,13 @@ export function buildContentMetadata(input: ContentMetadataInput): Metadata {
   });
   return {
     ...base,
-    title: { absolute: title },
     keywords: input.seo?.focusKeyword ? [input.seo.focusKeyword] : undefined,
   };
 }
 
 export function breedSeoFallback(name: string) {
   return {
-    title: `${name} – povaha, zdravie a výcvik | Psipedia`,
+    title: `${name} – povaha, zdravie a výcvik`,
     description: `${name}: povaha, veľkosť, zdravie, potreba pohybu, výcvik a praktické informácie pre majiteľov.`,
   };
 }
@@ -92,29 +91,29 @@ export function directorySeoFallback(name: string, city: string, category: strin
   const primaryCity = city.split(/[–—,/]/u)[0]?.trim() || city;
   const place = primaryCity && !name.toLocaleLowerCase("sk").includes(primaryCity.toLocaleLowerCase("sk")) ? ` ${primaryCity}` : "";
   if (category === "kynologicke-kluby") return {
-    title: `${name}${place} – kynologický klub | Psipedia`,
+    title: `${name}${place} – kynologický klub`,
     description: `Informácie o kynologickom klube ${name}${city ? ` v lokalite ${city}` : ""}. Kontakt, lokalita, výcvik a ďalšie praktické údaje.`,
   };
   if (category === "veterinari") return {
-    title: `${name}${place} – kontakt a služby | Psipedia`,
+    title: `${name}${place} – kontakt a služby`,
     description: `${name}${city ? ` v lokalite ${city}` : ""}: kontakt, veterinárne služby, adresa a ďalšie praktické informácie.`,
   };
   return {
-    title: `${name}${place} – služby pre psov | Psipedia`,
+    title: `${name}${place} – služby pre psov`,
     description: `${name}${city ? ` v lokalite ${city}` : ""}: ponuka služieb pre psov, kontakt, lokalita a ďalšie praktické informácie.`,
   };
 }
 
 export function eventSeoFallback(title: string, type: string, city: string) {
   return {
-    title: `${title}${type ? ` – ${type}` : ""}${city ? `, ${city}` : ""} | Psipedia`,
+    title: `${title}${type ? ` – ${type}` : ""}${city ? `, ${city}` : ""}`,
     description: `${type || "Podujatie"} ${title}${city ? ` v lokalite ${city}` : ""}. Termín, miesto, organizátor a praktické informácie pre návštevníkov so psami.`,
   };
 }
 
 export function helpSeoFallback(title: string, category: string, city: string) {
   return {
-    title: `${title}${category ? ` – ${category}` : ""}${city ? `, ${city}` : ""} | Psipedia`,
-    description: `${title}${city ? ` v lokalite ${city}` : ""}. Overené informácie, kontakt a možnosti pomoci na Psipedia.sk.`,
+    title: `${title}${category ? ` – ${category}` : ""}${city ? `, ${city}` : ""}`,
+    description: `${title}${city ? ` v lokalite ${city}` : ""}. Informácie, kontakt a možnosti pomoci na Psipedia.sk.`,
   };
 }
