@@ -35,23 +35,38 @@ export async function getAutomationRecordSuppression(input: {
 }, database: Database): Promise<AutomationRecordSuppression | null> {
   const identity = automationSuppressionIdentity(input);
   if (!identity) return null;
-  const row = await database.prepare(`SELECT
-      id,entity_type,external_source_url,external_record_id,suppression_reason,created_by,created_at
-    FROM automation_record_suppressions
-    WHERE entity_type=? AND external_source_url=? AND external_record_id=?
-    LIMIT 1`).bind(
-      identity.entityType,
-      identity.externalSourceUrl,
-      identity.externalRecordId,
-    ).first<{
-      id: number;
-      entity_type: AutomationEntityType;
-      external_source_url: string;
-      external_record_id: string;
-      suppression_reason: "ADMIN_DRAFT_DELETE";
-      created_by: string;
-      created_at: string;
-    }>();
+  let row: {
+    id: number;
+    entity_type: AutomationEntityType;
+    external_source_url: string;
+    external_record_id: string;
+    suppression_reason: "ADMIN_DRAFT_DELETE";
+    created_by: string;
+    created_at: string;
+  } | null;
+  try {
+    row = await database.prepare(`SELECT
+        id,entity_type,external_source_url,external_record_id,suppression_reason,created_by,created_at
+      FROM automation_record_suppressions
+      WHERE entity_type=? AND external_source_url=? AND external_record_id=?
+      LIMIT 1`).bind(
+        identity.entityType,
+        identity.externalSourceUrl,
+        identity.externalRecordId,
+      ).first<typeof row extends infer _ ? {
+        id: number;
+        entity_type: AutomationEntityType;
+        external_source_url: string;
+        external_record_id: string;
+        suppression_reason: "ADMIN_DRAFT_DELETE";
+        created_by: string;
+        created_at: string;
+      } : never>();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/no such table:\s*automation_record_suppressions/i.test(message)) return null;
+    throw error;
+  }
   return row ? {
     id: Number(row.id),
     entityType: row.entity_type,
