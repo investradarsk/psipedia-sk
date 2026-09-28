@@ -84,8 +84,9 @@ test("existing canonical payload is classified for updates before duplicate rece
   assert.match(exactMatch, /upsertAutomationFinding/);
   assert.match(exactMatch, /upsertCanonicalExternalProvenance/);
   assert.match(exactMatch, /ensureProcessedReceipt/);
-  assert.match(runner, /processedReceipt\?\.payloadHash === proposalHash/);
-  assert.match(runner, /processedReceipt\?\.result === "DRAFT_CREATED"/);
+  assert.doesNotMatch(runner, /processedReceipt\?\.payloadHash === proposalHash[\s\S]{0,180}return/);
+  assert.match(runner, /Once a source-record identity has a receipt/);
+  assert.match(runner, /if \(processedReceipt && \(!match\.entityId \|\| match\.quality === "UNCERTAIN" \|\| match\.quality === "NONE"\)\)/);
 });
 
 test("canonical provenance is canonical-owned and ingestion receipt still has no canonical id", async () => {
@@ -167,7 +168,19 @@ test("canonical editors always navigate back to canonical sections, never automa
 
 test("migration preserves source-independent provenance across source deletion", async () => {
   const migration = await read("drizzle/0086_automation_product_model.sql");
-  const block = migration.match(/CREATE TABLE `canonical_external_provenance`[\s\S]*?;/)?.[0] ?? "";
+  const block = migration.match(/CREATE TABLE `canonical_external_provenance`[\s\S]*?\n\);/)?.[0] ?? "";
   assert.doesNotMatch(block, /REFERENCES\s+`?automation_sources/i);
-  assert.match(block, /UNIQUE INDEX `canonical_external_provenance_identity_unique`/);
+  assert.match(migration, /UNIQUE INDEX `canonical_external_provenance_identity_unique`/);
+});
+
+
+test("direct entity fetches are access/robots gated before bounded parser fetch", async () => {
+  const direct = await read("lib/data-automation-direct-entity.ts");
+  assert.match(direct, /probeAutomationSourceAccess/);
+  assert.match(direct, /probeAutomationSourceRobots/);
+  assert.match(direct, /access\.status !== "ALLOWED"/);
+  assert.match(direct, /robots\.status === "ALLOWED" \|\| robots\.status === "NOT_APPLICABLE"/);
+  const probeIndex = direct.indexOf("probeAutomationSourceAccess");
+  const fetchIndex = direct.indexOf("fetchAutomationSourceRecords(source");
+  assert.ok(probeIndex >= 0 && fetchIndex > probeIndex);
 });
