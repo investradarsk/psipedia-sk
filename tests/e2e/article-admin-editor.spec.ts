@@ -263,8 +263,10 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
+    await waitForEditor(page);
 
     const persistedBody = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
+    await expect(persistedBody).toBeVisible();
     await persistedBody.fill("Finálny verejný obsah po odstránení internej redakčnej poznámky.");
     await page.getByRole("button", { name: "Publikovať článok" }).click();
     await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
