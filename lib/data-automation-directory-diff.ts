@@ -3,6 +3,7 @@ import {
   normalizeAutomationIdentity,
   stableJson,
 } from "./data-automation.ts";
+import { normalizeAutomationEmail, normalizeAutomationPhone } from "./data-automation-identity.ts";
 
 const DIRECTORY_ACTIONABLE_FIELDS = [
   "name",
@@ -31,16 +32,6 @@ const DIRECTORY_ACTIONABLE_FIELDS = [
 
 type DirectoryActionableField = (typeof DIRECTORY_ACTIONABLE_FIELDS)[number];
 
-function phoneIdentity(value: unknown) {
-  const digits = String(value ?? "").replace(/\D/g, "");
-  return digits || null;
-}
-
-function emailIdentity(value: unknown) {
-  const email = String(value ?? "").trim().toLowerCase();
-  return email || null;
-}
-
 function sameCanonicalUrl(left: unknown, right: unknown) {
   const a = canonicalizeSourceUrl(left);
   const b = canonicalizeSourceUrl(right);
@@ -53,8 +44,16 @@ function fieldEquivalent(field: DirectoryActionableField, before: unknown, propo
     const b = normalizeAutomationIdentity(proposed);
     return Boolean(a && b && a === b);
   }
-  if (field === "publicPhone") return phoneIdentity(before) === phoneIdentity(proposed);
-  if (field === "publicEmail") return emailIdentity(before) === emailIdentity(proposed);
+  if (field === "publicPhone") {
+    const a = normalizeAutomationPhone(before);
+    const b = normalizeAutomationPhone(proposed);
+    return Boolean(a && b && a === b);
+  }
+  if (field === "publicEmail") {
+    const a = normalizeAutomationEmail(before);
+    const b = normalizeAutomationEmail(proposed);
+    return Boolean(a && b && a === b);
+  }
   if (field === "websiteUrl" || field === "facebookUrl" || field === "instagramUrl") {
     return sameCanonicalUrl(before, proposed);
   }
