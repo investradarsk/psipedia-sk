@@ -61,7 +61,7 @@ test("Attention pagination reaches items beyond the former source cap and distin
   await expect(firstPageCards).toHaveCount(24);
   const resultStatus = page.getByRole("status").filter({ hasText: "Nájdené" });
   const initialResultText = await resultStatus.textContent();
-  const initialResultCount = Number(initialResultText?.match(/Nájdené:\s*(\d+)/)?.[1] ?? 0);
+  const initialResultCount = Number(initialResultText?.match(/Nájdené(?: v dostupných zdrojoch)?:\s*(\d+)/)?.[1] ?? 0);
   expect(initialResultCount).toBeGreaterThan(50);
   const initialBellLabel = await page.getByTestId("admin-notification-bell").getAttribute("aria-label");
   const initialBellCount = Number(initialBellLabel?.match(/(\d+)/)?.[1] ?? 0);
@@ -99,7 +99,7 @@ test("Attention pagination reaches items beyond the former source cap and distin
   response = await page.goto("/admin/operations?source=NEWS_TIP", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
   const resolvedResultText = await page.getByRole("status").filter({ hasText: "Nájdené" }).textContent();
-  const resolvedResultCount = Number(resolvedResultText?.match(/Nájdené:\s*(\d+)/)?.[1] ?? -1);
+  const resolvedResultCount = Number(resolvedResultText?.match(/Nájdené(?: v dostupných zdrojoch)?:\s*(\d+)/)?.[1] ?? -1);
   expect(resolvedResultCount).toBe(initialResultCount - 1);
   const resolvedBellLabel = await page.getByTestId("admin-notification-bell").getAttribute("aria-label");
   const resolvedBellCount = Number(resolvedBellLabel?.match(/(\d+)/)?.[1] ?? -1);
