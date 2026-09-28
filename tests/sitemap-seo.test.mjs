@@ -203,6 +203,21 @@ test("sitemap entity parity exposes duplicates, missing slugs and invalid status
   );
 });
 
+test("internal and utility routes keep explicit noindex contracts", () => {
+  const admin = fs.readFileSync(new URL("../app/admin/layout.tsx", import.meta.url), "utf8");
+  const partner = fs.readFileSync(new URL("../app/partner/layout.tsx", import.meta.url), "utf8");
+  const reviewer = fs.readFileSync(new URL("../app/recenzia/layout.tsx", import.meta.url), "utf8");
+  const search = fs.readFileSync(new URL("../app/hladat/page.tsx", import.meta.url), "utf8");
+  const favorites = fs.readFileSync(new URL("../app/oblubene/page.tsx", import.meta.url), "utf8");
+
+  for (const source of [admin, partner, reviewer]) {
+    assert.match(source, /robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
+  }
+  for (const source of [search, favorites]) {
+    assert.match(source, /robots:\s*\{\s*index:\s*false,\s*follow:\s*true/);
+  }
+});
+
 test("generated sitemap uses canonical public sources and no hardcoded fake dates", () => {
   const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
   assert.match(source, /listPublishedCanonicalBreedIndex/);
