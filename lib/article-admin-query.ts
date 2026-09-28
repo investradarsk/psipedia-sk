@@ -73,7 +73,7 @@ export function buildArticleAdminListQuery(
     const searchable = sqlFoldAdminText(
       "coalesce(title, '') || ' ' || coalesce(slug, '') || ' ' || coalesce(excerpt, '') || ' ' || coalesce(category, '')",
     );
-    clauses.push(`${searchable} LIKE ? ESCAPE '\\\\'`);
+    clauses.push(`${searchable} LIKE ? ESCAPE '\\'`);
     bindings.push(needle);
   }
   const direction = filters.direction === "asc" ? "ASC" : "DESC";
