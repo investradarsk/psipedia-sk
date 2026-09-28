@@ -1,3 +1,5 @@
+import { mergeDirectoryPublicContactData } from "./directory-profile-metadata.ts";
+
 export type CanonicalDraftEntityType =
   | "EVENT"
   | "ORGANIZATION"
@@ -227,6 +229,24 @@ export async function createCanonicalDraft(
     const name = textValue(p.name);
     const category = textValue(p.category);
     if (!name || !category) throw new CanonicalDraftValidationError("Nový koncept adresára potrebuje názov a kategóriu.");
+
+    const rawAddressFormat = textValue(p.addressFormat ?? p.address_format);
+    const addressFormat = rawAddressFormat === "STREET" || rawAddressFormat === "MUNICIPALITY_NUMBER"
+      ? rawAddressFormat
+      : "";
+    const websiteUrl = nullableText(p.websiteUrl ?? p.website_url);
+    const publicPhone = textValue(p.publicPhone ?? p.public_phone);
+    const publicEmail = textValue(p.publicEmail ?? p.public_email);
+    const facebookUrl = textValue(p.facebookUrl ?? p.facebook_url);
+    const instagramUrl = textValue(p.instagramUrl ?? p.instagram_url);
+    const sourceData = mergeDirectoryPublicContactData(null, {
+      publicPhone,
+      publicEmail,
+      websiteUrl,
+      facebookUrl,
+      instagramUrl,
+    });
+
     const after = {
       slug: canonicalDraftSlug(p.slug, name, input.slugSuffix),
       name,
@@ -240,9 +260,19 @@ export async function createCanonicalDraft(
       district: textValue(p.district),
       region: textValue(p.region),
       address: textValue(p.address),
+      postalCode: textValue(p.postalCode ?? p.postal_code),
+      street: textValue(p.street),
+      houseNumber: textValue(p.houseNumber ?? p.house_number),
+      addressFormat,
+      serviceAddressConfirmation: "LEGACY_UNCONFIRMED" as const,
       online: Boolean(p.online),
       priceNote: textValue(p.priceNote ?? p.price_note),
-      websiteUrl: nullableText(p.websiteUrl ?? p.website_url),
+      websiteUrl,
+      publicPhone,
+      publicEmail,
+      facebookUrl,
+      instagramUrl,
+      sourceData,
       importKey: nullableText(p.importKey ?? p.import_key),
       verified: Boolean(p.verified),
     };
@@ -258,15 +288,23 @@ export async function createCanonicalDraft(
       city: after.city,
       region: after.region,
       address: after.address,
+      postal_code: after.postalCode,
+      street: after.street,
+      house_number: after.houseNumber,
+      address_format: after.addressFormat,
+      service_address_confirmation: after.serviceAddressConfirmation,
       online: after.online ? 1 : 0,
       price_note: after.priceNote,
       website_url: after.websiteUrl,
       import_key: after.importKey,
-      source_data_json: "{}",
+      source_data_json: JSON.stringify(after.sourceData),
       verified: after.verified ? 1 : 0,
       featured: 0,
       district: after.district,
-      search_text: searchText([after.name, after.category, after.city, after.district, after.region]),
+      search_text: searchText([
+        after.name, after.category, after.city, after.district, after.region,
+        after.address, after.postalCode, after.street, after.houseNumber,
+      ]),
       created_at: at,
       updated_at: at,
       published_at: null,
