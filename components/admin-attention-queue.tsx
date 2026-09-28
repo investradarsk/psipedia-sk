@@ -64,9 +64,13 @@ export function AdminAttentionQueue({
   const hasFilters = (filters.sourceType && filters.sourceType !== "all")
     || (filters.priority && filters.priority !== "all")
     || (filters.view && filters.view !== "active");
-  const selectedUnavailable = filters.sourceType && filters.sourceType !== "all"
-    ? unavailable.some((source) => source.sourceType === filters.sourceType)
-    : false;
+  const selectedSource = filters.sourceType && filters.sourceType !== "all"
+    ? page.sourceAvailability.find((source) => source.sourceType === filters.sourceType)
+    : undefined;
+  const selectedUnavailable = selectedSource?.state === "UNAVAILABLE";
+  const selectedEmpty = selectedSource?.state === "EMPTY"
+    && (filters.view ?? "active") === "active"
+    && (!filters.priority || filters.priority === "all");
 
   return (
     <div className={styles.workspace} data-testid="admin-attention-queue">
@@ -176,10 +180,12 @@ export function AdminAttentionQueue({
         <div className={styles.empty}>
           <h2>{selectedUnavailable
             ? "Zvolený zdroj je momentálne nedostupný"
-            : hasFilters ? "Pre zvolený filter sa nič nenašlo" : "Žiadne aktívne upozornenia"}</h2>
+            : selectedEmpty ? "Zvolený zdroj nemá otvorené položky"
+              : hasFilters ? "Pre zvolený filter sa nič nenašlo" : "Žiadne aktívne upozornenia"}</h2>
           <p>{selectedUnavailable
             ? "Skús načítanie zopakovať; nedostupný zdroj sa nezobrazuje ako zavádzajúca nula."
-            : hasFilters ? "Vyčisti filtre alebo zvoľ inú kombináciu." : "Všetky dostupné canonical workflowy sú bez otvorených položiek."}</p>
+            : selectedEmpty ? "Dotaz prešiel úspešne a zdroj je skutočne prázdny."
+              : hasFilters ? "Vyčisti filtre alebo zvoľ inú kombináciu." : "Všetky dostupné canonical workflowy sú bez otvorených položiek."}</p>
         </div>
       )}
 
