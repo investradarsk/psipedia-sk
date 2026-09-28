@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: Context) {
     if (action !== "accept" && action !== "reject") {
       return Response.json({ error: "Neplatná lifecycle akcia." }, { status: 400 });
     }
-    if (!expectedFingerprint.startsWith("lifecycle:") || expectedFingerprint.length > 128) {
+    if (!/^(?:lifecycle:)?[a-f0-9]{64}$/i.test(expectedFingerprint)) {
       return Response.json({ error: "Návrh zmeny stavu nemá platnú verziu." }, { status: 400 });
     }
 

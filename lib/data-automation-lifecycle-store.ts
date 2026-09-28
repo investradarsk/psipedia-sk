@@ -41,6 +41,8 @@ type LifecycleFindingRow = {
   last_detected_at: string;
   source_key: string;
   source_label: string;
+  finding_type: string;
+  observation_source_record_id: string | null;
 };
 
 export type AutomationLifecycleSuggestion = {
@@ -92,9 +94,69 @@ function parseObject(value: unknown) {
   }
 }
 
-function rowMetadata(row: LifecycleFindingRow) {
+function rowMetadata(row: LifecycleFindingRow): AutomationLifecycleMetadata | null {
   const proposed = parseObject(row.proposed_json);
-  return isAutomationLifecycleMetadata(proposed) ? proposed : null;
+  if (isAutomationLifecycleMetadata(proposed)) return proposed;
+
+  const sourceRecordId = String(row.observation_source_record_id ?? row.canonical_entity_key ?? `legacy:${row.id}`).trim().slice(0, 240);
+  const sourceUrl = row.source_url && isSafeAutomationSourceUrl(row.source_url) ? row.source_url : null;
+  if (row.entity_type === "EVENT" && row.finding_type === "POSSIBLE_CANCELLED" && proposed.cancelled === true) {
+    return {
+      lifecycleVersion: 1,
+      signalType: "EVENT_CANCELLED",
+      targetState: "CANCELLED",
+      evidenceText: String(proposed.status ?? "Zrušené").slice(0, 240),
+      confidenceClass: "EXPLICIT",
+      sourceRecordId,
+      sourceUrl,
+    };
+  }
+  const adoptionStatus = String(proposed.status ?? "").trim().toUpperCase();
+  if (row.entity_type === "ADOPTION" && row.finding_type === "POSSIBLE_INACTIVE" && adoptionStatus === "ADOPTED") {
+    return {
+      lifecycleVersion: 1,
+      signalType: "ADOPTION_ADOPTED",
+      targetState: "ADOPTED",
+      evidenceText: "Adoptovaný",
+      confidenceClass: "EXPLICIT",
+      sourceRecordId,
+      sourceUrl,
+    };
+  }
+  if (row.entity_type === "ADOPTION" && row.finding_type === "POSSIBLE_INACTIVE" && adoptionStatus === "RESERVED") {
+    return {
+      lifecycleVersion: 1,
+      signalType: "ADOPTION_RESERVED",
+      targetState: "RESERVED",
+      evidenceText: "Rezervovaný",
+      confidenceClass: "EXPLICIT",
+      sourceRecordId,
+      sourceUrl,
+    };
+  }
+  if (row.entity_type === "FOSTER" && proposed.resolved === true) {
+    return {
+      lifecycleVersion: 1,
+      signalType: "FOSTER_RESOLVED",
+      targetState: "RESOLVED",
+      evidenceText: "Prípad vyriešený",
+      confidenceClass: "EXPLICIT",
+      sourceRecordId,
+      sourceUrl,
+    };
+  }
+  if (row.entity_type === "LOST_FOUND" && String(proposed.status ?? "").trim().toUpperCase() === "RESOLVED") {
+    return {
+      lifecycleVersion: 1,
+      signalType: "LOST_FOUND_RESOLVED",
+      targetState: "RESOLVED",
+      evidenceText: "Prípad vyriešený",
+      confidenceClass: "EXPLICIT",
+      sourceRecordId,
+      sourceUrl,
+    };
+  }
+  return null;
 }
 
 async function canonicalSnapshot(entityType: AutomationLifecycleEntityType, id: number, db: Database) {
@@ -180,12 +242,19 @@ async function mapLifecycleRow(row: LifecycleFindingRow, db: Database): Promise<
   };
 }
 
-const lifecycleSelect = `SELECT f.*,s.source_key,s.label AS source_label
+const lifecycleSelect = `SELECT f.*,s.source_key,s.label AS source_label,
+    o.source_record_id AS observation_source_record_id
   FROM automation_findings f
-  JOIN automation_sources s ON s.id=f.source_id`;
+  JOIN automation_sources s ON s.id=f.source_id
+  LEFT JOIN automation_observations o ON o.id=f.observation_id`;
 
-const lifecyclePredicate = `json_valid(f.proposed_json)=1
-  AND json_extract(f.proposed_json,'$.lifecycleVersion')=1`;
+const lifecyclePredicate = `json_valid(f.proposed_json)=1 AND (
+    json_extract(f.proposed_json,'$.lifecycleVersion')=1
+    OR (f.entity_type='EVENT' AND f.finding_type='POSSIBLE_CANCELLED' AND json_extract(f.proposed_json,'$.cancelled')=1)
+    OR (f.entity_type='ADOPTION' AND f.finding_type='POSSIBLE_INACTIVE' AND UPPER(COALESCE(json_extract(f.proposed_json,'$.status'),'')) IN ('ADOPTED','RESERVED'))
+    OR (f.entity_type='FOSTER' AND json_extract(f.proposed_json,'$.resolved')=1)
+    OR (f.entity_type='LOST_FOUND' AND UPPER(COALESCE(json_extract(f.proposed_json,'$.status'),''))='RESOLVED')
+  )`;
 
 export async function getAutomationLifecycleSuggestion(id: number, databaseInput?: Database) {
   const db = database(databaseInput);
@@ -289,15 +358,27 @@ export async function resolveSatisfiedAutomationLifecycleSuggestions(input: {
     WHERE source_id=? AND entity_type=? AND canonical_entity_id=?
       AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED')
       AND json_valid(proposed_json)=1
-      AND json_extract(proposed_json,'$.lifecycleVersion')=1
-      AND json_extract(proposed_json,'$.signalType')=?
-      AND json_extract(proposed_json,'$.targetState')=?`).bind(
+      AND (
+        (json_extract(proposed_json,'$.lifecycleVersion')=1
+          AND json_extract(proposed_json,'$.signalType')=?
+          AND json_extract(proposed_json,'$.targetState')=?)
+        OR (?='EVENT_CANCELLED' AND finding_type='POSSIBLE_CANCELLED' AND json_extract(proposed_json,'$.cancelled')=1)
+        OR (?='ADOPTION_ADOPTED' AND finding_type='POSSIBLE_INACTIVE' AND UPPER(COALESCE(json_extract(proposed_json,'$.status'),''))='ADOPTED')
+        OR (?='ADOPTION_RESERVED' AND finding_type='POSSIBLE_INACTIVE' AND UPPER(COALESCE(json_extract(proposed_json,'$.status'),''))='RESERVED')
+        OR (?='FOSTER_RESOLVED' AND json_extract(proposed_json,'$.resolved')=1)
+        OR (?='LOST_FOUND_RESOLVED' AND UPPER(COALESCE(json_extract(proposed_json,'$.status'),''))='RESOLVED')
+      )`).bind(
         input.at,
         input.sourceId,
         input.entityType,
         input.canonicalEntityId,
         input.signalType,
         input.targetState,
+        input.signalType,
+        input.signalType,
+        input.signalType,
+        input.signalType,
+        input.signalType,
       ).run();
 }
 
