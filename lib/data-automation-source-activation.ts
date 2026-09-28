@@ -25,6 +25,7 @@ export type AutomationSourceActivationReadiness = {
   reason: AutomationSourceActivationReason;
   governance: AutomationGovernanceRead;
   governanceBlockingReasons: string[];
+  technicalReason: string | null;
 };
 
 type ActivationSource = Pick<
@@ -43,21 +44,21 @@ export async function automationSourceActivationReadiness(
 ): Promise<AutomationSourceActivationReadiness> {
   const emptyGovernance: AutomationGovernanceRead = { schemaAvailable: true, state: null };
   if (source.reviewStatus !== "APPROVED") {
-    return { ready: false, reason: "REVIEW_REQUIRED", governance: emptyGovernance, governanceBlockingReasons: [] };
+    return { ready: false, reason: "REVIEW_REQUIRED", governance: emptyGovernance, governanceBlockingReasons: [], technicalReason: null };
   }
 
   const cadenceMinutes = options.cadenceMinutes ?? source.cadenceMinutes;
   if (!validCadence(cadenceMinutes)) {
-    return { ready: false, reason: "CADENCE_INVALID", governance: emptyGovernance, governanceBlockingReasons: [] };
+    return { ready: false, reason: "CADENCE_INVALID", governance: emptyGovernance, governanceBlockingReasons: [], technicalReason: null };
   }
 
   const technical = automationSourceReadiness(source);
   if (technical.applicable && !technical.ready) {
-    return { ready: false, reason: "TECHNICAL_NOT_READY", governance: emptyGovernance, governanceBlockingReasons: [] };
+    return { ready: false, reason: "TECHNICAL_NOT_READY", governance: emptyGovernance, governanceBlockingReasons: [], technicalReason: null };
   }
 
   if (source.connectorType !== "MANUAL_IMPORT" && (!source.sourceUrl || !isSafeAutomationSourceUrl(source.sourceUrl))) {
-    return { ready: false, reason: "UNSAFE_SOURCE_URL", governance: emptyGovernance, governanceBlockingReasons: [] };
+    return { ready: false, reason: "UNSAFE_SOURCE_URL", governance: emptyGovernance, governanceBlockingReasons: [], technicalReason: null };
   }
 
   const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: source.id }, database);
@@ -73,10 +74,11 @@ export async function automationSourceActivationReadiness(
       reason: "GOVERNANCE_BLOCKED",
       governance,
       governanceBlockingReasons: decision.blockingReasons,
+      technicalReason: null,
     };
   }
 
-  return { ready: true, reason: "READY", governance, governanceBlockingReasons: [] };
+  return { ready: true, reason: "READY", governance, governanceBlockingReasons: [], technicalReason: null };
 }
 
 type GovernanceFetch = typeof fetch;
