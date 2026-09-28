@@ -22,7 +22,7 @@ import {
 import type { ManagedArticleSummary, ManagedArticleSummaryPage } from "@/lib/article-store";
 import type { AdminModuleCounts } from "@/lib/admin-dashboard-store";
 import { getNewsCategory } from "@/lib/news";
-import { articleHref, portalSectionLabel } from "@/lib/portal";
+import { articleHref, articlePortalSectionOptions, portalSectionLabel } from "@/lib/portal";
 import { AdminPagination } from "./admin-pagination";
 import { SearchIcon } from "./icons";
 import styles from "./admin-article-dashboard.module.css";
@@ -82,10 +82,10 @@ export function AdminDashboard({
   const [message, setMessage] = useState("");
 
   const membershipFilter = useMemo(() => normalizeArticleAdminBulkFilter({
-    portalSection: fixedPortalSection ?? "",
+    portalSection: fixedPortalSection ?? (filters.portalSection === "all" ? "" : filters.portalSection),
     status: filters.status,
     q: filters.query,
-  }), [fixedPortalSection, filters.query, filters.status]);
+  }), [fixedPortalSection, filters.portalSection, filters.query, filters.status]);
   const membershipFingerprint = articleAdminBulkFingerprint(membershipFilter);
   const pageIds = articles.map((article) => article.id);
   const bulkSelection = useAdminBulkSelection({
@@ -163,6 +163,17 @@ export function AdminDashboard({
               {articleAdminStatuses.map((value) => <option key={value} value={value}>{statusLabels[value]}</option>)}
             </select>
           </label>
+          {!fixedPortalSection && (
+            <label className="admin-select-filter">
+              <span>Sekcia</span>
+              <select name="section" defaultValue={filters.portalSection}>
+                <option value="all">Všetky sekcie</option>
+                {articlePortalSectionOptions.map((option) => (
+                  <option key={option.slug} value={option.slug}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="admin-select-filter">
             <span>Zoradiť</span>
             <select name="sort" defaultValue={filters.sort}>
@@ -176,7 +187,7 @@ export function AdminDashboard({
             </select>
           </label>
           <button type="submit">Filtrovať</button>
-          {(filters.query || filters.status !== "all" || filters.sort !== "updated" || filters.direction !== "desc")
+          {(filters.query || filters.status !== "all" || filters.portalSection !== "all" || filters.sort !== "updated" || filters.direction !== "desc")
             && <Link href={routePath}>Vyčistiť filtre</Link>}
         </form>
 
