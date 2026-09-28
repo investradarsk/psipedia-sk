@@ -145,6 +145,19 @@ async function hasLostFoundPrivateData(
   return Boolean(row?.protected);
 }
 
+async function hasProtectedCanonicalRelation(
+  entityType: CanonicalDraftDeleteEntityType,
+  canonicalEntityId: number,
+  database: CanonicalDraftDeleteDatabase,
+) {
+  if (entityType !== "DIRECTORY") return false;
+  const row = await database.prepare(`SELECT 1 AS protected
+    FROM help_organizations
+    WHERE directory_profile_id=?
+    LIMIT 1`).bind(canonicalEntityId).first<{ protected: number }>();
+  return Boolean(row?.protected);
+}
+
 async function partnerResource(
   config: EntityConfig,
   canonicalEntityId: number,
@@ -206,6 +219,7 @@ export async function deleteCanonicalDraft(input: {
   if (
     await hasProtectedModerationData(config, input.canonicalEntityId, database)
     || await hasLostFoundPrivateData(input.entityType, input.canonicalEntityId, database)
+    || await hasProtectedCanonicalRelation(input.entityType, input.canonicalEntityId, database)
   ) {
     throw new CanonicalDraftDeleteError(
       "Koncept má naviazané používateľské údaje a nemožno ho bezpečne úplne vymazať.",
