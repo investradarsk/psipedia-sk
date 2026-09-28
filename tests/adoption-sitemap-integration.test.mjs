@@ -111,6 +111,13 @@ test("public help, homepage and portal search no longer source legacy adoption r
   assert.match(helpRoot, /adoptions\.items\.slice\(0, 6\)\.map\(adoptionPreview\)/);
   assert.match(helpRoot, /<StructuredData value=\{schema\}/);
   assert.match(helpRoot, /<HelpOverview sections=\{sections\} totalActive=\{totalActive\}/);
-  assert.match(portalSearch, /listAllPublicAdoptions\(\)/);
-  assert.match(portalSearch, /adoptionDetailPath\(dog\.slug\)/);
+
+  // SEARCH-1 intentionally removed the old in-memory adoption index. Public
+  // adoption results are now queried directly from canonical adoption_dogs.
+  assert.match(portalSearch, /function adoptionQuery\(/);
+  assert.match(portalSearch, /"d\.status IN \('ACTIVE','RESERVED'\)"/);
+  assert.match(portalSearch, /"d\.search_text"/);
+  assert.match(portalSearch, /"adoption_dogs d"/);
+  assert.match(portalSearch, /'\/pomoc-psom\/adopcia\/' \|\| d\.slug AS href/);
+  assert.doesNotMatch(portalSearch, /listAllPublicAdoptions\(\)/);
 });

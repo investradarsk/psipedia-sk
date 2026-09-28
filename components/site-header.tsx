@@ -30,6 +30,9 @@ export function SiteHeader({
   const [dogNameDays, setDogNameDays] = useState<string[]>([]);
   const [currentDateLabel, setCurrentDateLabel] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const searchDialogRef = useRef<HTMLDivElement>(null);
+  const searchReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const menuReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -61,6 +64,13 @@ export function SiteHeader({
       };
     });
   }, [navigationItems]);
+
+  useEffect(() => {
+    const trigger = searchTriggerRef.current;
+    if (!trigger) return;
+    trigger.setAttribute("data-search-ready", "true");
+    return () => trigger.removeAttribute("data-search-ready");
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -229,26 +239,50 @@ export function SiteHeader({
   useEffect(() => {
     if (!searchOpen) return;
     const previous = document.body.style.overflow;
+    const trigger = searchReturnFocusRef.current;
     document.body.style.overflow = "hidden";
     const timer = window.setTimeout(() => inputRef.current?.focus(), 30);
+
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setSearchOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSearchOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const dialog = searchDialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('input, button:not([disabled]), a[href]'))
+        .filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
+
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.clearTimeout(timer);
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", onKeyDown);
+      if (trigger && document.body.contains(trigger)) queueMicrotask(() => trigger.focus());
     };
   }, [searchOpen]);
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
     const clean = query.trim();
-    if (clean) window.location.href = `/hladat?q=${encodeURIComponent(clean)}`;
+    if (clean.length >= 2) window.location.href = `/hladat?q=${encodeURIComponent(clean)}`;
   }
 
-  function openSearch() {
+  function openSearch(trigger?: HTMLButtonElement) {
+    if (trigger) searchReturnFocusRef.current = trigger;
     setMenuOpen(false);
     setSearchOpen(true);
   }
@@ -301,7 +335,7 @@ export function SiteHeader({
           <div className="header-actions">
             <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
             <Link href={partnerHref} className="header-contact-link" data-partner-login-entry>{partnerLabel}</Link>
-            <button className="icon-button search-trigger" type="button" onClick={openSearch} aria-label="Otvoriť vyhľadávanie">
+            <button ref={searchTriggerRef} className="icon-button search-trigger" type="button" onClick={(event) => openSearch(event.currentTarget)} aria-label="Otvoriť vyhľadávanie" data-search-ready="false">
               <SearchIcon />
               <span>Hľadať</span>
             </button>
@@ -395,14 +429,14 @@ export function SiteHeader({
               </div>
             ))}
             <div className={styles.mobileUtilityLinks}><Link href="/o-nas#kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href={partnerHref} className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>{partnerLabel}</Link></div>
-            <button type="button" onClick={openSearch}><SearchIcon /> Hľadať na Psipedii</button>
+            <button type="button" onClick={(event) => openSearch(event.currentTarget)}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
         </div>
         <NavigationProgress />
       </header>
 
       {searchOpen && (
-        <div className="search-modal" role="dialog" aria-modal="true" aria-label="Vyhľadávanie">
+        <div ref={searchDialogRef} className="search-modal" role="dialog" aria-modal="true" aria-label="Vyhľadávanie">
           <button className="search-backdrop" type="button" onClick={() => setSearchOpen(false)} aria-label="Zavrieť vyhľadávanie" />
           <div className="search-panel">
             <div className="search-panel-head">
@@ -415,7 +449,8 @@ export function SiteHeader({
                 ref={inputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Skús „privolanie“, „labrador“..."
+                maxLength={120}
+                placeholder="Skús „veterinár v Trnave“, „labrador“…"
                 aria-label="Hľadaný výraz"
               />
               <button type="submit">Hľadať</button>
