@@ -21,6 +21,7 @@ function text(value: unknown, max = 1000) {
     .replace(/&quot;/gi, '"')
     .replace(/&#0*39;|&apos;/gi, "'")
     .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
     .trim();
   return clean ? clean.slice(0, max) : null;
 }
