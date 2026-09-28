@@ -11,6 +11,7 @@ import {
 import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 import { matchAutomationCanonical } from "./data-automation-store.ts";
+import { probeAutomationSourceAccess, probeAutomationSourceRobots } from "./data-automation-source-activation.ts";
 import {
   upsertCanonicalExternalProvenance,
   upsertDirectEntityUpdateSuggestion,
@@ -109,8 +110,19 @@ export async function ingestDirectEntityUrl(input: {
 
   const source = ephemeralSource(input);
   if (!source.config.htmlAdapterKey) throw new Error("automation_direct_entity_adapter_missing");
+
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const [access, robots] = await Promise.all([
+    probeAutomationSourceAccess(source, fetchImpl),
+    probeAutomationSourceRobots(source, fetchImpl),
+  ]);
+  const robotsAllowed = robots.status === "ALLOWED" || robots.status === "NOT_APPLICABLE";
+  if (access.status !== "ALLOWED" || !robotsAllowed) {
+    throw new Error("automation_direct_entity_technical_governance_blocked");
+  }
+
   const records = await fetchAutomationSourceRecords(source, {
-    fetchImpl: input.fetchImpl,
+    fetchImpl,
     htmlAdapters: productionAutomationHtmlAdapters,
   });
 
