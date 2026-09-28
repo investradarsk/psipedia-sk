@@ -39,8 +39,8 @@ test("article admin search finds an accented article beyond page one and keeps U
   await expect(page).toHaveURL(/\/admin\/clanky\/973061/);
 });
 
-test("article admin list is keyboard-usable, axe-clean and fits the 390px mobile viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test("article admin list is keyboard-usable, axe-clean and fits desktop/mobile viewports", async ({ page }, testInfo) => {
+  if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
   const response = await page.goto("/admin?query=ADMIN+SEARCH&status=draft&page=2", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
   const search = page.getByPlaceholder("Názov, slug, perex alebo téma");
