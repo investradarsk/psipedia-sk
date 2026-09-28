@@ -1,5 +1,5 @@
 import type { ControlledHtmlAdapter } from "./data-automation-connectors.ts";
-import type { AutomationEntityType, AutomationSource } from "./data-automation.ts";
+import type { AutomationEntityType, AutomationSource, AutomationSourceConfig } from "./data-automation.ts";
 import {
   GENERIC_DIRECTORY_PROFILE_ADAPTER,
   GENERIC_HELP_ITEM_PAGE_ADAPTER,
@@ -68,7 +68,7 @@ function sourceAdapterResolution(
   source: Pick<AutomationSource, "entityType" | "config" | "sourceUrl">,
 ) {
   const configuredAdapterKey = source.config.htmlAdapterKey?.trim() || null;
-  const eventConfig = source.entityType === "EVENT"
+  const eventConfig: AutomationSourceConfig = source.entityType === "EVENT"
     ? eventHtmlAdapterConfigForSourceUrl(source.sourceUrl)
     : {};
   const expectedEventAdapterKey = eventConfig.htmlAdapterKey?.trim() || null;
