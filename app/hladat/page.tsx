@@ -122,13 +122,17 @@ export default async function SearchPage({ searchParams }: Props) {
                         <img src={item.imageUrl} alt={"Ilustračná fotografia k článku: " + item.title} loading="lazy" decoding="async" />
                       </span>
                     ) : null}
-                    <small className={styles.type}>{item.type}</small>
-                    {item.kind === "article" ? <span className={styles.articleTopic} data-article-topic>{searchArticleTopic(item)}</span> : null}
+                    {item.kind === "article" ? (
+                      <span className={styles.articleTopic} data-article-topic>{searchArticleTopic(item)}</span>
+                    ) : (
+                      <small className={styles.type}>{item.type}</small>
+                    )}
                     <strong data-article-title={item.kind === "article" ? "" : undefined}>{item.title}</strong>
                     {item.kind === "article" ? (
                       <time className={styles.articleDate} dateTime={item.publishedAt} data-article-date>{searchArticleDate(item.publishedAt)}</time>
+                    ) : item.description ? (
+                      <span className={styles.description}>{item.description}</span>
                     ) : null}
-                    {item.description ? <span className={styles.description}>{item.description}</span> : null}
                   </span>
                   <ArrowIcon size={20} />
                 </Link>
