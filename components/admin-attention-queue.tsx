@@ -158,10 +158,12 @@ export function AdminAttentionQueue({
                 <div className={styles.kicker}>
                   <span className={`${styles.state} ${stateClass(item.attentionState)}`}>{adminAttentionStateLabels[item.attentionState]}</span>
                   <span className={`${styles.priority} ${priorityClass(item.priority)}`}>{adminAttentionPriorityLabels[item.priority]}</span>
-                  <span>{adminAttentionSourceLabels[item.sourceType]}</span>
+                  <span>{adminAttentionSourceLabels[item.sourceType]}{item.contextLabel ? ` · ${item.contextLabel}` : ""}</span>
                 </div>
                 <h2>{item.title}</h2>
-                <div className={styles.meta}><span>Zdrojový stav: {item.status}</span><span>ID: {item.sourceId}</span></div>
+                {item.sourceType !== "AUTOMATION_ACTION" && (
+                  <div className={styles.meta}><span>Zdrojový stav: {item.status}</span><span>ID: {item.sourceId}</span></div>
+                )}
               </header>
               <div className={styles.reason}>
                 <strong>Kontext</strong>
@@ -172,7 +174,7 @@ export function AdminAttentionQueue({
                 <div className={styles.meta}><span title={formatTimestamp(item.relevantAt)}>Od {formatTimestamp(item.relevantAt)}</span></div>
                 {item.metadata?.map((entry) => <div className={styles.meta} key={`${entry.label}:${entry.value}`}><span>{entry.label}: {entry.value}</span></div>)}
               </div>
-              <Link className={styles.open} href={item.targetHref}>Otvoriť</Link>
+              <Link className={styles.open} href={item.targetHref}>{item.actionLabel ?? "Otvoriť"}</Link>
             </article>
           ))}
         </section>

@@ -11,8 +11,6 @@ import {
 } from "@/lib/admin-attention-queue";
 import { loadAdminAttentionPage } from "@/lib/admin-attention-queue-store";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
-import { listAutomationPossibleMatchReviews } from "@/lib/data-automation-match-review";
 
 export const dynamic = "force-dynamic";
 
@@ -37,26 +35,8 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
     cursor,
   });
 
-  let newCandidates = 0;
-  let sourceIssues = 0;
-  let automationAvailable = true;
-  let possibleMatches = 0;
-  try {
-    const [candidates, sources, possible] = await Promise.all([
-      listAutomationSourceCandidates(undefined, 200),
-      listAutomationSourcesAdmin(undefined, 200),
-      listAutomationPossibleMatchReviews({ status: "unresolved", limit: 200 }),
-    ]);
-    possibleMatches = possible.length;
-    newCandidates = candidates.filter((candidate) => candidate.reviewStatus === "NEW").length;
-    sourceIssues = sources.filter((item) =>
-      item.reviewStatus === "PENDING"
-      || item.lastRunStatus === "FAILED"
-      || Boolean(item.lastErrorCode)
-    ).length;
-  } catch {
-    automationAvailable = false;
-  }
+  const automationAttention = attention.summary.bySource.AUTOMATION_ACTION;
+
 
   return (
     <AdminShell
@@ -79,28 +59,18 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
           <span className={styles.hubOpen}>Prejsť na upozornenia ↓</span>
         </a>
 
-        <Link className={`${styles.hubCard} ${newCandidates > 0 ? styles.hubCardPrimary : ""}`} href="/admin/automatizacie/zdroje#kandidati">
-          <span className={styles.hubKicker}>Nové zdroje</span>
-          <div className={styles.hubMetric}><strong>{automationAvailable ? newCandidates : "—"}</strong><span>na posúdenie</span></div>
-          <h2>Automatizačné zdroje</h2>
-          <p>Nové zdroje čakajúce na ľudské schválenie sa riešia v existujúcom automation review flow.</p>
-          <span className={styles.hubOpen}>Otvoriť review →</span>
-        </Link>
-
-        <Link className={`${styles.hubCard} ${sourceIssues > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/automatizacie">
-          <span className={styles.hubKicker}>Automatizácia</span>
-          <div className={styles.hubMetric}><strong>{automationAvailable ? sourceIssues : "—"}</strong><span>vyžaduje kontrolu</span></div>
-          <h2>Automatizácie na kontrolu</h2>
-          <p>{sourceIssues > 0 ? "Niektorý zdroj čaká na schválenie alebo hlási problém, ktorý vyžaduje zásah." : "Zdroje nehlásia problém, ktorý by od teba vyžadoval zásah."}</p>
+        <Link
+          className={`${styles.hubCard} ${typeof automationAttention === "number" && automationAttention > 0 ? styles.hubCardPrimary : automationAttention === 0 ? styles.hubCardGood : ""}`}
+          href="/admin/automatizacie"
+        >
+          <span className={styles.hubKicker}>Automatizácie</span>
+          <div className={styles.hubMetric}>
+            <strong>{automationAttention ?? "—"}</strong>
+            <span>{automationAttention === 1 ? "vec vyžaduje kontrolu" : "vecí vyžaduje kontrolu"}</span>
+          </div>
+          <h2>Automatizácie</h2>
+          <p>Nové koncepty, návrhy zmien, zdroje a problémy automatizácií.</p>
           <span className={styles.hubOpen}>Otvoriť automatizácie →</span>
-        </Link>
-
-        <Link className={`${styles.hubCard} ${possibleMatches > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="/admin/operations/possible-matches">
-          <span className={styles.hubKicker}>Identity review</span>
-          <div className={styles.hubMetric}><strong>{automationAvailable ? possibleMatches : "—"}</strong><span>POSSIBLE matches</span></div>
-          <h2>Neisté zhody entít</h2>
-          <p>DIRECTORY a ORGANIZATION zhody, pri ktorých musí človek rozhodnúť SAME / DIFFERENT / RELATIONSHIP / DEFER.</p>
-          <span className={styles.hubOpen}>Otvoriť review →</span>
         </Link>
       </section>
 

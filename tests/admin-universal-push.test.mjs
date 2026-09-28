@@ -28,6 +28,9 @@ test("universal delivery preserves subscription boundary, per-device dedupe and 
   assert.match(push,/result\.expired/);
   assert.match(push,/admin_push_event_deliveries[\s\S]+status = 'dead'/);
   assert.match(push,/DELETE FROM admin_notification_events/);
+  assert.match(push,/source_type='AUTOMATION_ACTION'/);
+  assert.match(push,/event_type='automation_draft_created'/);
+  assert.match(push,/LOWER\(p\.status\)='draft'/);
 });
 
 test("payloads stay short, admin-only and free of raw submission PII",()=>{
@@ -117,9 +120,14 @@ test("public, review, automation and geo actionable events have push coverage",(
   assert.match(reviews,/PENDING_REVIEW/);
 
   const automation=read("lib/data-automation-runner.ts");
-  assert.match(automation,/if \(!createdOrReopened\) return/);
-  assert.match(automation,/enqueueAutomationFindingAdminNotification/);
-  assert.match(automation,/automationFindingPriority\(type\) !== "HIGH"/);
+  const automationEvents=read("lib/admin-notifications.ts");
+  const push=read("lib/admin-push.ts");
+  assert.match(automationEvents,/enqueueAutomationActionAdminNotification/);
+  assert.match(automationEvents,/eventType: "automation_source_issue"/);
+  assert.match(automationEvents,/sourceType: "AUTOMATION_ACTION"/);
+  assert.match(automation,/enqueuePersistentAutomationSourceIssueAdminNotification/);
+  assert.doesNotMatch(automation,/enqueueAutomationFindingAdminNotification|enqueueEditorialNotification/);
+  assert.match(push,/e\.source_type <> 'AUTOMATION_ACTION' OR e\.event_type='automation_source_issue'/);
 
   const geo=read("lib/geo-store.ts");
   assert.match(geo,/\["NEEDS_REVIEW", "STALE", "FAILED"\]/);
@@ -208,6 +216,6 @@ test("one five-minute cron preserves hourly full work without consuming a second
 
 test("settings explain broad alert coverage without per-category preferences",()=>{
   const settings=read("components/admin-pwa-settings.tsx");
-  assert.match(settings,/nových podaniach, Partner aktivitách a automatických nálezoch/);
+  assert.match(settings,/nových podaniach, Partner aktivitách a závažných problémoch automatizácií/);
   assert.doesNotMatch(settings,/notificationCategories|per-category|kategóri.*upozornen/i);
 });
