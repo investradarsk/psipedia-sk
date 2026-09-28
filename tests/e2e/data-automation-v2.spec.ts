@@ -249,4 +249,3 @@ test("automation category source-first view is responsive and axe-clean", async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
-27c890a21ef06cd4f72828d4179fe2b212ee569d
