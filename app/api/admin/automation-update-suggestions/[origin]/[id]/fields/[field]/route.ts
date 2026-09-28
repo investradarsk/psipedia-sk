@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { requireAdminMutation } from "@/lib/admin-auth";
 import {
   AutomationUpdateReviewConflictError,
   AutomationUpdateReviewNotFoundError,
@@ -12,17 +12,13 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ origin: string; id: string; field: string }> };
 
-function sameOriginJson(request: Request) {
-  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-  const origin = request.headers.get("origin");
-  return contentType.startsWith("application/json") && (!origin || origin === new URL(request.url).origin);
-}
-
 export async function POST(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
-  if (!sameOriginJson(request)) {
-    return Response.json({ error: "Neplatný pôvod alebo formát požiadavky." }, { status: 403 });
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response!;
+  const user = auth.user;
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.startsWith("application/json")) {
+    return Response.json({ error: "Neplatný formát požiadavky." }, { status: 415 });
   }
 
   const { origin, id, field } = await params;
