@@ -25,10 +25,12 @@ test("existing operations route remains the alerts page and preserves exact coun
   const shell = read("components/admin-shell.tsx");
   assert.match(page, /requireAdminPageUser\("\/admin\/operations"\)/);
   assert.match(page, /title="Upozornenia"/);
-  assert.match(page, /summarizeAdminAttention\(allItems\)/);
-  assert.match(page, /attentionCount=\{summary\.active\}/);
+  assert.match(page, /loadAdminAttentionPage/);
+  assert.match(page, /attentionCount=\{attention\.summary\.active\}/);
+  assert.match(page, /attentionCountPartial=/);
   assert.match(shell, /loadExactAdminAttentionSummary/);
   assert.match(shell, /activeCount > 99 \? "99\+" : activeCount/);
+  assert.match(shell, /incomplete \? "\+" : ""/);
   assert.match(shell, /href="\/admin\/operations"/);
 });
 

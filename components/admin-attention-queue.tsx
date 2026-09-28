@@ -2,17 +2,15 @@ import Link from "next/link";
 import {
   adminAttentionPriorities,
   adminAttentionPriorityLabels,
+  adminAttentionQueueSourceTypes,
   adminAttentionSourceLabels,
-  adminAttentionSourceTypes,
   adminAttentionStateLabels,
   isAdminAttentionActive,
-  summarizeAdminAttention,
   type AdminAttentionFilters,
-  type AdminAttentionItem,
   type AdminAttentionPriority,
-  type AdminAttentionSourceType,
   type AdminAttentionState,
 } from "@/lib/admin-attention-queue";
+import type { AdminAttentionPage } from "@/lib/admin-attention-queue-store";
 import styles from "./admin-attention-queue.module.css";
 
 function formatTimestamp(value: string) {
@@ -45,38 +43,74 @@ function stateClass(state: AdminAttentionState) {
   return styles.stateDismissed;
 }
 
+function queueHref(filters: AdminAttentionFilters, cursor?: string | null) {
+  const params = new URLSearchParams();
+  if (filters.view && filters.view !== "active") params.set("view", filters.view);
+  if (filters.sourceType && filters.sourceType !== "all") params.set("source", filters.sourceType);
+  if (filters.priority && filters.priority !== "all") params.set("priority", filters.priority);
+  if (cursor) params.set("cursor", cursor);
+  const query = params.toString();
+  return `/admin/operations${query ? `?${query}` : ""}#centrum-pozornosti`;
+}
+
 export function AdminAttentionQueue({
-  items,
-  allItems,
+  page,
   filters,
 }: {
-  items: AdminAttentionItem[];
-  allItems: AdminAttentionItem[];
+  page: AdminAttentionPage;
   filters: AdminAttentionFilters;
 }) {
-  const summary = summarizeAdminAttention(allItems);
-  const activeItems = allItems.filter(isAdminAttentionActive);
-  const sourceCounts = Object.fromEntries(adminAttentionSourceTypes.map((sourceType) => [
-    sourceType,
-    activeItems.filter((item) => item.sourceType === sourceType).length,
-  ])) as Record<AdminAttentionSourceType, number>;
+  const unavailable = page.sourceAvailability.filter((source) => source.state === "UNAVAILABLE");
+  const hasFilters = (filters.sourceType && filters.sourceType !== "all")
+    || (filters.priority && filters.priority !== "all")
+    || (filters.view && filters.view !== "active");
+  const selectedSource = filters.sourceType && filters.sourceType !== "all"
+    ? page.sourceAvailability.find((source) => source.sourceType === filters.sourceType)
+    : undefined;
+  const selectedUnavailable = selectedSource?.state === "UNAVAILABLE";
+  const selectedEmpty = selectedSource?.state === "EMPTY"
+    && (filters.view ?? "active") === "active"
+    && (!filters.priority || filters.priority === "all");
 
   return (
     <div className={styles.workspace} data-testid="admin-attention-queue">
       <section className="admin-stats" aria-label="Súhrn upozornení">
-        <div><span>Aktívne</span><strong>{summary.active}</strong></div>
-        <div><span>Nové</span><strong>{summary.byState.NEW}</strong></div>
-        <div><span>Rieši sa</span><strong>{summary.byState.IN_PROGRESS}</strong></div>
-        <div><span>História</span><strong>{summary.history}</strong></div>
+        <div><span>Aktívne</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.active}</strong></div>
+        <div><span>Nové</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.byState.NEW}</strong></div>
+        <div><span>Rieši sa</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.byState.IN_PROGRESS}</strong></div>
+        <div><span>História</span><strong>{page.availability === "UNAVAILABLE" ? "—" : page.summary.history}</strong></div>
       </section>
 
+      {page.pagination.invalidCursor && (
+        <p className="admin-flash" role="alert">
+          Odkaz na stránku už nie je platný. Zobrazuje sa prvá strana s rovnakými filtrami.
+        </p>
+      )}
+      {page.availability === "PARTIAL" && (
+        <div className="admin-flash" role="alert">
+          <strong>Výsledky nie sú úplné.</strong>{" "}
+          Nedostupné zdroje: {unavailable.map((source) => adminAttentionSourceLabels[source.sourceType]).join(", ")}.{" "}
+          <Link href={queueHref(filters)}>Skúsiť znova</Link>
+        </div>
+      )}
+      {page.availability === "UNAVAILABLE" && (
+        <div className="admin-flash" role="alert">
+          <strong>Upozornenia sa momentálne nepodarilo načítať.</strong>{" "}
+          Žiadny zdroj sa netvári ako prázdny; stav je označený ako nedostupný.{" "}
+          <Link href={queueHref(filters)}>Skúsiť znova</Link>
+        </div>
+      )}
+
       <ul className={styles.sourceCounts} aria-label="Aktívne upozornenia podľa zdroja">
-        {adminAttentionSourceTypes.map((sourceType) => (
-          <li key={sourceType}><span>{adminAttentionSourceLabels[sourceType]}</span><strong>{sourceCounts[sourceType]}</strong></li>
+        {adminAttentionQueueSourceTypes.map((sourceType) => (
+          <li key={sourceType}>
+            <span>{adminAttentionSourceLabels[sourceType]}</span>
+            <strong>{page.summary.bySource[sourceType] ?? "—"}</strong>
+          </li>
         ))}
       </ul>
 
-      <form className={styles.filters} method="get" aria-label="Filtrovať upozornenia">
+      <form className={styles.filters} method="get" action="/admin/operations" aria-label="Filtrovať upozornenia">
         <label>
           <span>Zobrazenie</span>
           <select name="view" defaultValue={filters.view ?? "active"}>
@@ -89,7 +123,9 @@ export function AdminAttentionQueue({
           <span>Zdroj</span>
           <select name="source" defaultValue={filters.sourceType ?? "all"}>
             <option value="all">Všetky zdroje</option>
-            {adminAttentionSourceTypes.map((sourceType) => <option key={sourceType} value={sourceType}>{adminAttentionSourceLabels[sourceType]}</option>)}
+            {adminAttentionQueueSourceTypes.map((sourceType) => (
+              <option key={sourceType} value={sourceType}>{adminAttentionSourceLabels[sourceType]}</option>
+            ))}
           </select>
         </label>
         <label>
@@ -100,11 +136,17 @@ export function AdminAttentionQueue({
           </select>
         </label>
         <button type="submit">Filtrovať</button>
+        {hasFilters && <Link href="/admin/operations#centrum-pozornosti">Vyčistiť filtre</Link>}
       </form>
 
-      {items.length ? (
+      <p role="status">
+        {page.availability === "PARTIAL" ? "Nájdené v dostupných zdrojoch" : "Nájdené"}: <strong>{page.resultCount}</strong>
+        {" · "}Zobrazené: <strong>{page.items.length}</strong>
+      </p>
+
+      {page.items.length ? (
         <section className={styles.list} aria-label="Položky upozornení">
-          {items.map((item) => (
+          {page.items.map((item) => (
             <article
               className={`${styles.card} ${isAdminAttentionActive(item) ? "" : styles.historyCard}`}
               key={item.key}
@@ -134,11 +176,28 @@ export function AdminAttentionQueue({
             </article>
           ))}
         </section>
-      ) : (
+      ) : page.availability !== "UNAVAILABLE" && (
         <div className={styles.empty}>
-          <h2>{filters.view === "history" ? "História je pre zvolený filter prázdna" : "Žiadne aktívne upozornenia pre zvolený filter"}</h2>
-          <p>Upozornenia používajú lifecycle pôvodných workflowov; vyriešené a ignorované položky sa do aktívneho badge nepočítajú.</p>
+          <h2>{selectedUnavailable
+            ? "Zvolený zdroj je momentálne nedostupný"
+            : selectedEmpty ? "Zvolený zdroj nemá otvorené položky"
+              : hasFilters ? "Pre zvolený filter sa nič nenašlo" : "Žiadne aktívne upozornenia"}</h2>
+          <p>{selectedUnavailable
+            ? "Skús načítanie zopakovať; nedostupný zdroj sa nezobrazuje ako zavádzajúca nula."
+            : selectedEmpty ? "Dotaz prešiel úspešne a zdroj je skutočne prázdny."
+              : hasFilters ? "Vyčisti filtre alebo zvoľ inú kombináciu." : "Všetky dostupné canonical workflowy sú bez otvorených položiek."}</p>
         </div>
+      )}
+
+      {(page.pagination.nextCursor || page.pagination.invalidCursor) && (
+        <nav className="admin-pagination" aria-label="Stránkovanie upozornení">
+          {page.pagination.invalidCursor
+            ? <Link href={queueHref(filters)}>Prvá strana</Link>
+            : <span aria-disabled="true">Aktuálna strana</span>}
+          {page.pagination.nextCursor
+            ? <Link href={queueHref(filters, page.pagination.nextCursor)}>Ďalšia strana →</Link>
+            : <span aria-disabled="true">Ďalšia strana →</span>}
+        </nav>
       )}
     </div>
   );

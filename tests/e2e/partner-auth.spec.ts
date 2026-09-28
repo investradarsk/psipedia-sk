@@ -613,11 +613,17 @@ test("stale Partner moderation approval is rejected at decision time without ove
 
     await page.goto(profileDetailHref!);
     await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
+    const staleMessage = "Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.";
+    const decisionResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === "PATCH"
+      && response.url().includes("/api/admin/partners/changes/"),
+    );
     page.once("dialog", dialog => void dialog.accept());
     await page.getByRole("button", { name: "Schváliť zmeny" }).click();
-    await expect(page.getByRole("status")).toContainText(
-      "Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
-    );
+    const decisionResponse = await decisionResponsePromise;
+    expect(decisionResponse.status()).toBe(409);
+    await expect(decisionResponse.json()).resolves.toMatchObject({ error: staleMessage });
+    await expect(page.getByRole("status")).toContainText(staleMessage);
 
     await page.reload();
     await expect(page.getByText(/Čaká na rozhodnutie/).first()).toBeVisible();
