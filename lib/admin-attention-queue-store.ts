@@ -291,7 +291,18 @@ const AUTOMATION_ACTION_SELECT = `
     WHERE r.status<>'RUNNING'
   ),
   failing_sources AS (
-    SELECT s.id,s.label,s.entity_type,s.config_json,MIN(r.started_at) AS relevantAt
+    SELECT s.id,s.label,s.entity_type,s.config_json,
+      COALESCE((
+        SELECT MIN(failed.started_at)
+        FROM automation_runs failed
+        WHERE failed.source_id=s.id
+          AND failed.status='FAILED'
+          AND failed.started_at>COALESCE((
+            SELECT MAX(reset.started_at)
+            FROM automation_runs reset
+            WHERE reset.source_id=s.id AND reset.status NOT IN ('FAILED','RUNNING')
+          ),'')
+      ),MIN(r.started_at)) AS relevantAt
     FROM automation_sources s
     JOIN ranked_runs r ON r.source_id=s.id AND r.runRank<=3
     WHERE s.enabled=1 AND s.review_status='APPROVED'
