@@ -209,8 +209,15 @@ test("global public article surfaces use the shared minimal presentation", () =>
   assert.match(editorialSection, /<ArticleListItem/);
   assert.match(breedDetail, /<PublicContentList label="Súvisiace články k plemenu">/);
   assert.match(breedDetail, /<PublicArticleListItem/);
-  assert.match(searchPage, /<PublicArticleListItem/);
   for (const [label, value] of [["article card", articleCard], ["news hub", newsHub], ["section lists", editorialSection]]) {
     assert.doesNotMatch(value, /readTime[^\n]*čítania/, `${label} renders reading time`);
   }
+});
+
+test("SEARCH-1 keeps heterogeneous results in one unified presentation", () => {
+  assert.match(searchPage, /result\.items\.map\(\(item\) =>/);
+  assert.match(searchPage, /\{item\.type\}/);
+  assert.match(searchPage, /\{item\.title\}/);
+  assert.match(searchPage, /item\.description/);
+  assert.doesNotMatch(searchPage, /<PublicArticleListItem/);
 });
