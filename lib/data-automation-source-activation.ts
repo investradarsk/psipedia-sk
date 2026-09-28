@@ -122,6 +122,19 @@ type ProbeResult<T extends string> = {
 
 const ROBOTS_AGENT = "psipediadataresearch";
 
+function canonicalProbeTransportUrl(value: string) {
+  const canonical = canonicalizeSourceUrl(value);
+  if (!canonical || !isSafeAutomationSourceUrl(value)) return null;
+
+  // canonicalizeSourceUrl intentionally collapses www for source identity.
+  // Transport redirects must preserve the actual safe hostname so bare -> www
+  // is not misclassified as a loop while query/hash normalization stays deterministic.
+  const input = new URL(value);
+  const transport = new URL(canonical);
+  transport.hostname = input.hostname.toLowerCase();
+  return transport.toString();
+}
+
 async function fetchProbe(
   url: string,
   fetchImpl: GovernanceFetch,
@@ -131,9 +144,12 @@ async function fetchProbe(
   const seen = new Set<string>();
 
   for (let redirects = 0; redirects <= AUTOMATION_SOURCE_MAX_REDIRECT_HOPS; redirects += 1) {
-    const canonical = canonicalizeSourceUrl(currentUrl);
-    if (!canonical || !isSafeAutomationSourceUrl(canonical) || seen.has(canonical)) {
+    const canonical = canonicalProbeTransportUrl(currentUrl);
+    if (!canonical) {
       throw new Error("source_governance_probe_url_not_safe");
+    }
+    if (seen.has(canonical)) {
+      throw new Error("source_governance_probe_redirect_loop");
     }
     seen.add(canonical);
 
@@ -161,7 +177,19 @@ async function fetchProbe(
   throw new Error("source_governance_probe_redirect_blocked");
 }
 
-async function probeAccess(
+function technicalProbeFailureDetail(error: unknown) {
+  const name = error instanceof Error ? error.name.toLowerCase() : "";
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const safeInternal = error instanceof Error ? error.message : "";
+  if (/^source_governance_probe_[a-z0-9_]+$/.test(safeInternal)) return safeInternal;
+  if (name.includes("timeout") || name === "aborterror" || /timed?\s*out|timeout/.test(message)) return "request_timeout";
+  if (/dns|name resolution|getaddrinfo|host not found|resolve host/.test(message)) return "dns_unreachable";
+  if (/tls|ssl|certificate|cert(?:ificate)? verify/.test(message)) return "tls_error";
+  if (/connection|connect|socket|network|reset|econn/.test(message)) return "network_unreachable";
+  return "request_failed";
+}
+
+export async function probeAutomationSourceAccess(
   source: ActivationSource & { timeoutMs?: number },
   fetchImpl: GovernanceFetch,
 ): Promise<ProbeResult<"ALLOWED" | "RESTRICTED" | "BLOCKED" | "UNKNOWN">> {
@@ -180,7 +208,7 @@ async function probeAccess(
     return {
       status: "UNKNOWN",
       evidenceUrl: source.sourceUrl,
-      detail: error instanceof Error ? error.message.slice(0, 160) : "request_failed",
+      detail: technicalProbeFailureDetail(error),
     };
   }
 }
@@ -254,7 +282,7 @@ export function robotsAllowsPath(text: string, sourceUrl: string) {
   return matched[0].directive === "allow";
 }
 
-async function probeRobots(
+export async function probeAutomationSourceRobots(
   source: ActivationSource & { timeoutMs?: number },
   fetchImpl: GovernanceFetch,
 ): Promise<ProbeResult<"ALLOWED" | "RESTRICTED" | "DISALLOWED" | "NOT_APPLICABLE" | "UNKNOWN">> {
@@ -266,14 +294,24 @@ async function probeRobots(
   const robotsUrl = new URL("/robots.txt", sourceUrl.origin).toString();
   try {
     const { response, finalUrl } = await fetchProbe(robotsUrl, fetchImpl, source.timeoutMs ?? 8000);
-    if (response.status === 404 || response.status === 410) {
+    const status = response.status;
+
+    // RFC 9309 §2.3.1.3: HTTP 400-499 means robots.txt is unavailable.
+    // That does not grant content access; probeAccess independently verifies the source page.
+    if (status >= 400 && status < 500) {
       await response.body?.cancel().catch(() => undefined);
-      return { status: "NOT_APPLICABLE", evidenceUrl: finalUrl, detail: "http_" + response.status };
+      return { status: "NOT_APPLICABLE", evidenceUrl: finalUrl, detail: "http_" + status + "_unavailable" };
     }
-    if (!response.ok) {
-      const status = response.status;
+
+    // RFC 9309 §2.3.1.4: server/network failures are unreachable and must fail closed.
+    if (status >= 500 && status < 600) {
       await response.body?.cancel().catch(() => undefined);
-      return { status: "RESTRICTED", evidenceUrl: finalUrl, detail: "http_" + status };
+      return { status: "RESTRICTED", evidenceUrl: finalUrl, detail: "http_" + status + "_unreachable" };
+    }
+
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      return { status: "RESTRICTED", evidenceUrl: finalUrl, detail: "http_" + status + "_unexpected" };
     }
     const text = (await response.text()).slice(0, 250_000);
     return robotsAllowsPath(text, source.sourceUrl)
@@ -283,9 +321,44 @@ async function probeRobots(
     return {
       status: "UNKNOWN",
       evidenceUrl: robotsUrl,
-      detail: error instanceof Error ? error.message.slice(0, 160) : "request_failed",
+      detail: technicalProbeFailureDetail(error),
     };
   }
+}
+
+function technicalVerificationActivationResult(
+  access: ProbeResult<string>,
+  robots: ProbeResult<string>,
+) {
+  if (access.status === "ALLOWED" && (robots.status === "ALLOWED" || robots.status === "NOT_APPLICABLE")) {
+    return "READY";
+  }
+  if (access.status === "BLOCKED" || robots.status === "DISALLOWED") return "BLOCKED";
+  return "RETRY";
+}
+
+function logAutomationSourceTechnicalVerification(
+  source: ActivationSource,
+  access: ProbeResult<string>,
+  robots: ProbeResult<string>,
+) {
+  let hostname = "unknown";
+  try {
+    hostname = source.sourceUrl ? new URL(source.sourceUrl).hostname.toLowerCase() : "unknown";
+  } catch {
+    hostname = "unknown";
+  }
+  console.info(JSON.stringify({
+    event: "automation_source_technical_verification",
+    sourceId: source.id,
+    entityType: source.entityType,
+    hostname,
+    accessStatus: access.status,
+    accessDetail: access.detail,
+    robotsStatus: robots.status,
+    robotsDetail: robots.detail,
+    activationResult: technicalVerificationActivationResult(access, robots),
+  }));
 }
 
 function stripGeneratedTechnicalRestrictionsNote(value: string | null) {
@@ -332,8 +405,8 @@ export async function refreshAutomationSourceTechnicalGovernance(input: {
 
   const fetchImpl = input.fetchImpl ?? fetch;
   const [access, robots] = await Promise.all([
-    probeAccess(input.source, fetchImpl),
-    probeRobots(input.source, fetchImpl),
+    probeAutomationSourceAccess(input.source, fetchImpl),
+    probeAutomationSourceRobots(input.source, fetchImpl),
   ]);
   const current = before.state;
 
@@ -368,6 +441,8 @@ export async function refreshAutomationSourceTechnicalGovernance(input: {
     now: input.now,
   }, input.database);
 
+  logAutomationSourceTechnicalVerification(input.source, access, robots);
+
   return {
     refreshed: true,
     governance: { schemaAvailable: true, state: governance } satisfies AutomationGovernanceRead,
@@ -399,8 +474,8 @@ export async function prepareAutomationSourceGovernanceForApproval(input: {
 
   const fetchImpl = input.fetchImpl ?? fetch;
   const [access, robots] = await Promise.all([
-    probeAccess(input.source, fetchImpl),
-    probeRobots(input.source, fetchImpl),
+    probeAutomationSourceAccess(input.source, fetchImpl),
+    probeAutomationSourceRobots(input.source, fetchImpl),
   ]);
 
   const sourceUrl = input.source.sourceUrl && isSafeAutomationSourceUrl(input.source.sourceUrl)
@@ -446,6 +521,8 @@ export async function prepareAutomationSourceGovernanceForApproval(input: {
     actor: input.actor,
     now: input.now,
   }, input.database);
+
+  logAutomationSourceTechnicalVerification(input.source, access, robots);
 
   return {
     prepared: true,

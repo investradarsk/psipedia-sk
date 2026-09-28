@@ -14,6 +14,8 @@ import {
 import {
   automationSourceActivationReadiness,
   prepareAutomationSourceGovernanceForApproval,
+  probeAutomationSourceAccess,
+  probeAutomationSourceRobots,
   refreshAutomationSourceTechnicalGovernance,
 } from "../lib/data-automation-source-activation.ts";
 import { SUPPORTED_DIRECTORY_CATEGORIES } from "../lib/data-automation-source-provisioning.ts";
@@ -407,6 +409,7 @@ function tavilyDirectoryRoot(category, rootKey = "tavily-sk-directory-" + catego
 function sourceGovernanceFetch({
   sourceStatus = 200,
   robots = "allow",
+  robotsStatus = 200,
   sourceError = null,
   robotsError = null,
 } = {}) {
@@ -415,6 +418,7 @@ function sourceGovernanceFetch({
     if (parsed.pathname === "/robots.txt") {
       if (robotsError) throw new Error(robotsError);
       if (robots === "missing") return new Response("", { status: 404 });
+      if (robotsStatus !== 200) return new Response("", { status: robotsStatus });
       const body = robots === "block"
         ? "User-agent: *\nDisallow: /"
         : "User-agent: *\nAllow: /";
@@ -425,6 +429,19 @@ function sourceGovernanceFetch({
       status: sourceStatus,
       headers: { "content-type": "text/html" },
     });
+  };
+}
+
+function technicalProbeSource(sourceUrl = "https://technical.example.sk/preteky/") {
+  return {
+    id: 9001,
+    entityType: "EVENT",
+    connectorType: "CONTROLLED_HTML",
+    sourceUrl,
+    config: {},
+    cadenceMinutes: 360,
+    reviewStatus: "APPROVED",
+    timeoutMs: 8000,
   };
 }
 
@@ -1193,7 +1210,7 @@ test("GOVERNANCE REFRESH preserves operator terms, recurring and retention polic
   assert.ok(readiness.governanceBlockingReasons.includes("RETENTION_NOT_APPROVED"));
 });
 
-test("GOVERNANCE REFRESH existing ASKA recovers stale technical governance without reset", async () => {
+test("TECHNICAL VERIFICATION ASKA-like robots 403 recovers existing source without reset", async () => {
   const db = new MemoryD1();
   const first = new Date("2026-09-28T11:50:00.000Z");
   const retry = new Date("2026-09-28T11:55:00.000Z");
@@ -1201,7 +1218,7 @@ test("GOVERNANCE REFRESH existing ASKA recovers stale technical governance witho
     sourceKey: "existing-aska",
     label: "ASKA",
     entityType: "EVENT",
-    sourceUrl: "https://agility.sk/preteky",
+    sourceUrl: "https://agility.sk/preteky/",
     config: {},
     reviewStatus: "APPROVED",
     enabled: false,
@@ -1213,26 +1230,69 @@ test("GOVERNANCE REFRESH existing ASKA recovers stale technical governance witho
     source,
     actor: "admin@psipedia.sk",
     database: db,
-    fetchImpl: sourceGovernanceFetch({ sourceError: "temporary connection reset" }),
+    fetchImpl: sourceGovernanceFetch(),
     now: first,
   });
-  assert.equal(db.governance[0].access_status, "UNKNOWN");
+  db.governance[0].robots_status = "RESTRICTED";
+  db.governance[0].restrictions_note = "Technical access check: http_200. Technical robots check: http_403.";
+  const wasEnabled = source.enabled;
+  const stale = await automationSourceActivationReadiness(source, db, { cadenceMinutes: 360, now: retry });
+  assert.equal(stale.ready, false);
+  assert.ok(stale.governanceBlockingReasons.includes("ROBOTS_NOT_ALLOWED"));
 
-  const configured = await configureAutomationSource({
-    id: source.id,
-    enabled: true,
-    cadenceMinutes: 360,
-    now: retry,
-    technicalGovernanceRefresh: {
-      actor: "admin@psipedia.sk",
-      fetchImpl: sourceGovernanceFetch(),
-    },
-  }, db);
+  const logs = [];
+  const originalInfo = console.info;
+  console.info = (...args) => logs.push(args.map(String).join(" "));
+  let configured;
+  try {
+    configured = await configureAutomationSource({
+      id: source.id,
+      enabled: true,
+      cadenceMinutes: 360,
+      now: retry,
+      technicalGovernanceRefresh: {
+        actor: "admin@psipedia.sk",
+        fetchImpl: sourceGovernanceFetch({ robotsStatus: 403 }),
+      },
+    }, db);
+  } finally {
+    console.info = originalInfo;
+  }
 
   assert.equal(configured.id, source.id);
   assert.equal(configured.enabled, true);
+  assert.equal(configured.nextCheckAt, retry.toISOString());
   assert.equal(db.governance[0].access_status, "ALLOWED");
+  assert.equal(db.governance[0].robots_status, "NOT_APPLICABLE");
   assert.equal(db.sources.length, 1, "existing source is reused, not recreated");
+  assert.equal(configured.enabled && !wasEnabled, true, "successful OFF -> ON remains eligible for immediate first run");
+
+  const eventLine = logs.find((line) => line.includes('"event":"automation_source_technical_verification"'));
+  assert.ok(eventLine, "technical verification emits one structured diagnostic event");
+  const event = JSON.parse(eventLine);
+  assert.deepEqual(
+    {
+      sourceId: event.sourceId,
+      entityType: event.entityType,
+      hostname: event.hostname,
+      accessStatus: event.accessStatus,
+      accessDetail: event.accessDetail,
+      robotsStatus: event.robotsStatus,
+      robotsDetail: event.robotsDetail,
+      activationResult: event.activationResult,
+    },
+    {
+      sourceId: source.id,
+      entityType: "EVENT",
+      hostname: "agility.sk",
+      accessStatus: "ALLOWED",
+      accessDetail: "http_200",
+      robotsStatus: "NOT_APPLICABLE",
+      robotsDetail: "http_403_unavailable",
+      activationResult: "READY",
+    },
+  );
+  assert.doesNotMatch(eventLine, /preteky|cookie|authorization|responseBody|query/i);
 });
 
 test("GOVERNANCE REFRESH is entity-generic across all automation source entity types", async () => {
@@ -1267,4 +1327,128 @@ test("GOVERNANCE REFRESH is entity-generic across all automation source entity t
     assert.equal(db.governance[0].access_status, "ALLOWED", entityType);
     assert.equal(db.governance[0].robots_status, "ALLOWED", entityType);
   }
+});
+
+
+test("TECHNICAL VERIFICATION RFC 9309 source 200 + robots 4xx stays technically ready", async () => {
+  const source = technicalProbeSource();
+  for (const status of [400, 401, 403, 404, 405, 410, 429]) {
+    const fetchImpl = async (url) => new URL(url).pathname === "/robots.txt"
+      ? new Response("", { status })
+      : new Response("<html></html>", { status: 200 });
+    const [access, robots] = await Promise.all([
+      probeAutomationSourceAccess(source, fetchImpl),
+      probeAutomationSourceRobots(source, fetchImpl),
+    ]);
+    assert.equal(access.status, "ALLOWED", "source HTTP 200 with robots HTTP " + status);
+    assert.equal(robots.status, "NOT_APPLICABLE", "robots HTTP " + status);
+    assert.equal(robots.detail, "http_" + status + "_unavailable", "robots HTTP " + status);
+  }
+});
+
+test("TECHNICAL VERIFICATION robots rules remain authoritative on successful 2xx fetch", async () => {
+  const source = technicalProbeSource("https://technical.example.sk/preteky/2026");
+  const disallowed = await probeAutomationSourceRobots(
+    source,
+    async () => new Response("User-agent: *\nDisallow: /preteky/", { status: 200 }),
+  );
+  assert.equal(disallowed.status, "DISALLOWED");
+
+  const allowed = await probeAutomationSourceRobots(
+    source,
+    async () => new Response("User-agent: *\nDisallow: /private/\nAllow: /preteky/", { status: 200 }),
+  );
+  assert.equal(allowed.status, "ALLOWED");
+});
+
+test("TECHNICAL VERIFICATION source access and robots access are independent", async () => {
+  const source = technicalProbeSource();
+  const fetchImpl = async (url) => new URL(url).pathname === "/robots.txt"
+    ? new Response("", { status: 404 })
+    : new Response("", { status: 403 });
+  const [access, robots] = await Promise.all([
+    probeAutomationSourceAccess(source, fetchImpl),
+    probeAutomationSourceRobots(source, fetchImpl),
+  ]);
+  assert.equal(access.status, "BLOCKED");
+  assert.equal(access.detail, "http_403");
+  assert.equal(robots.status, "NOT_APPLICABLE");
+  assert.equal(robots.detail, "http_404_unavailable");
+});
+
+test("TECHNICAL VERIFICATION source and robots transient failures fail closed", async () => {
+  const source = technicalProbeSource();
+  const source500 = await probeAutomationSourceAccess(source, async () => new Response("", { status: 500 }));
+  assert.equal(source500.status, "RESTRICTED");
+  assert.equal(source500.detail, "http_500");
+
+  const robots500 = await probeAutomationSourceRobots(source, async () => new Response("", { status: 500 }));
+  assert.equal(robots500.status, "RESTRICTED");
+  assert.equal(robots500.detail, "http_500_unreachable");
+
+  const robotsTimeout = await probeAutomationSourceRobots(source, async () => {
+    throw new Error("request timed out while fetching https://secret.invalid/?token=do-not-log");
+  });
+  assert.equal(robotsTimeout.status, "UNKNOWN");
+  assert.equal(robotsTimeout.detail, "request_timeout");
+  assert.doesNotMatch(robotsTimeout.detail, /secret|token|https/i);
+});
+
+test("TECHNICAL VERIFICATION source redirect bare domain to www is allowed", async () => {
+  const source = technicalProbeSource("https://redirect.example.sk/preteky/");
+  const access = await probeAutomationSourceAccess(source, async (url) => {
+    const parsed = new URL(url);
+    if (parsed.hostname === "redirect.example.sk") {
+      return new Response("", {
+        status: 301,
+        headers: { location: "https://www.redirect.example.sk/preteky/" },
+      });
+    }
+    return new Response("<html></html>", { status: 200 });
+  });
+  assert.equal(access.status, "ALLOWED");
+  assert.equal(access.evidenceUrl, "https://www.redirect.example.sk/preteky");
+});
+
+test("TECHNICAL VERIFICATION robots follows five safe redirects and parses the final rules", async () => {
+  const source = technicalProbeSource("https://r0.example.sk/preteky/");
+  const robots = await probeAutomationSourceRobots(source, async (url) => {
+    const parsed = new URL(url);
+    const match = parsed.hostname.match(/^r([0-5])\.example\.sk$/);
+    assert.ok(match, parsed.hostname);
+    const hop = Number(match[1]);
+    if (hop < 5) {
+      return new Response("", {
+        status: 302,
+        headers: { location: "https://r" + (hop + 1) + ".example.sk/robots.txt" },
+      });
+    }
+    return new Response("User-agent: *\nAllow: /", { status: 200 });
+  });
+  assert.equal(robots.status, "ALLOWED");
+  assert.equal(robots.evidenceUrl, "https://r5.example.sk/robots.txt");
+});
+
+test("TECHNICAL VERIFICATION redirect loop and unsafe target fail closed", async () => {
+  const source = technicalProbeSource("https://loop.example.sk/preteky/");
+  const loop = await probeAutomationSourceRobots(source, async (url) => {
+    const parsed = new URL(url);
+    return new Response("", {
+      status: 302,
+      headers: {
+        location: parsed.hostname === "loop.example.sk"
+          ? "https://loop2.example.sk/robots.txt"
+          : "https://loop.example.sk/robots.txt",
+      },
+    });
+  });
+  assert.equal(loop.status, "UNKNOWN");
+  assert.equal(loop.detail, "source_governance_probe_redirect_loop");
+
+  const unsafe = await probeAutomationSourceRobots(source, async () => new Response("", {
+    status: 302,
+    headers: { location: "http://127.0.0.1/robots.txt" },
+  }));
+  assert.equal(unsafe.status, "UNKNOWN");
+  assert.equal(unsafe.detail, "source_governance_probe_url_not_safe");
 });
