@@ -13,6 +13,7 @@ import {
 import { listAutomationDiscoveryRoots } from "@/lib/data-automation-discovery-store";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
 import { isTavilySearchDiscoveryRoot } from "@/lib/tavily-canary-control";
+import { normalizeAutomationUpdateSuggestionSummaries } from "@/lib/data-automation-update-review";
 import {
   getDirectEntityRefreshSetting,
   listAutomationSourceCanonicalContent,
@@ -48,9 +49,10 @@ export default async function AutomationCategoryPage({ params }: Props) {
   const directConcepts = directSlug
     ? await listDirectEntityConcepts(directSlug).catch(() => [])
     : [];
-  const updateSuggestions = directSlug
+  const rawUpdateSuggestions = directSlug
     ? await listDirectEntityUpdateSuggestions(directSlug).catch(() => [])
     : await listFeedUpdateSuggestions(sources.map((source) => source.id)).catch(() => []);
+  const updateSuggestions = await normalizeAutomationUpdateSuggestionSummaries(rawUpdateSuggestions).catch(() => rawUpdateSuggestions);
   const sourceContentEntries = category.mode === "FEED_SOURCE"
     ? await Promise.all(sources.map(async (source) => [
         source.id,
