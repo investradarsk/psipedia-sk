@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminAutomationCategorySources } from "@/components/admin-automation-category-sources";
+import { AdminAutomationSearchControls } from "@/components/admin-automation-search-controls";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import {
@@ -68,6 +69,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
         : "Správa opakovaných zdrojov a obsahu, ktorý z nich automatizácia našla."}
       actions={<Link href="/admin/automatizacie">← Všetky kategórie</Link>}
     >
+      <AdminAutomationSearchControls categorySlug={slug} roots={discoveryRoots} />
       <AdminAutomationCategorySources
         category={category}
         sources={sources}
