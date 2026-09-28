@@ -111,19 +111,22 @@ function addLocationWhere(
 ) {
   const location = parsed.location;
   if (!location) return;
+  const alternatives: string[] = [];
   if (location.level === "city") {
     const city = normalizePortalSearch(location.city);
     const citySql = normalizedSql(fields.city);
     bindings.push(city, `${city} %`);
-    clauses.push(`(${citySql} = ? OR ${citySql} LIKE ?)`);
-  } else if (location.level === "district" && fields.district) {
+    alternatives.push(`${citySql} = ?`, `${citySql} LIKE ?`);
+  }
+  if ((location.level === "city" || location.level === "district") && location.district && fields.district) {
     bindings.push(normalizePortalSearch(location.district));
-    clauses.push(`${normalizedSql(fields.district)} = ?`);
+    alternatives.push(`${normalizedSql(fields.district)} = ?`);
   }
   if (location.region) {
     bindings.push(normalizePortalSearch(location.region));
-    clauses.push(`${normalizedSql(fields.region)} = ?`);
+    alternatives.push(`${normalizedSql(fields.region)} = ?`);
   }
+  if (alternatives.length) clauses.push(`(${alternatives.join(" OR ")})`);
 }
 
 function selectWithWindow(columns: string, from: string, clauses: string[], orderBy: string, limit: number) {
@@ -134,7 +137,7 @@ function selectWithWindow(columns: string, from: string, clauses: string[], orde
     LIMIT ${limit}`;
 }
 
-function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec {
+function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
   const bindings: unknown[] = [];
   const clauses = ["p.status = 'published'", "p.archived_at IS NULL"];
   if (parsed.directoryCategory) {
@@ -147,6 +150,7 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
     region: "p.region",
   });
   const tokens = parsed.directoryCategory ? parsed.residualTokens : parsed.contentTokens;
+  if (!parsed.directoryCategory && !tokens.length) return null;
   clauses.push(...persistedTokenClauses(
     "p.search_text",
     `p.name || ' ' || p.excerpt || ' ' || p.description || ' ' || p.services_json || ' ' || p.city || ' ' || p.district || ' ' || p.region || ' ' || p.address`,
@@ -427,11 +431,12 @@ export async function searchPortal(
   const total = databaseTotal + staticItems.length;
   const capped = total > SEARCH_MAX_VISIBLE_RESULTS;
   const totalPages = Math.min(SEARCH_MAX_PAGE, Math.ceil(total / pageSize));
-  const start = (page - 1) * pageSize;
+  const effectivePage = Math.min(page, Math.max(1, totalPages));
+  const start = (effectivePage - 1) * pageSize;
   return {
     items: sorted.slice(start, start + pageSize),
     total,
-    page,
+    page: effectivePage,
     pageSize,
     totalPages,
     capped,
