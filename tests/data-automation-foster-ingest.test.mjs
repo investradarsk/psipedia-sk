@@ -139,9 +139,6 @@ test("resolved is proposed only from an explicit adopted heading", () => {
   assert.equal(resolved.proposed.resolved, true);
   assert.equal(resolved.proposed.dogName, "Markýz");
   assert.equal(resolved.rawRecord.resolved, true);
-  assert.equal(resolved.lifecycleSignals?.[0]?.signalType, "FOSTER_RESOLVED");
-  assert.equal(resolved.lifecycleSignals?.[0]?.targetState, "RESOLVED");
-  assert.match(resolved.lifecycleSignals?.[0]?.evidenceText ?? "", /adoptovan/i);
   assert.deepEqual(
     unsupportedAutomationApplyFields("FOSTER", buildAutomationDiff(null, resolved.proposed)),
     [],

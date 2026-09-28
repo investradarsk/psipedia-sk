@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readFileSync } from "node:fs";
+import { readFile as readFileAsync } from "node:fs/promises";
 import test from "node:test";
+import { trnavaAdoptionDetailAdapter } from "../lib/data-automation-adoption-adapters.ts";
+import { zatulanePsikySalaFosterDetailAdapter } from "../lib/data-automation-foster-adapters.ts";
+import { kosiceFoundDogDetailAdapter } from "../lib/data-automation-lost-found-adapters.ts";
 import {
   automationLifecycleCanApply,
   automationLifecycleFingerprint,
@@ -8,7 +12,7 @@ import {
   stripAutomationLifecycleFields,
 } from "../lib/data-automation-lifecycle.ts";
 
-const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
+const read = (path) => readFileAsync(new URL("../" + path, import.meta.url), "utf8");
 
 function record(overrides = {}) {
   return {
@@ -193,4 +197,110 @@ test("review UI has contextual actions, canonical/source links and no bulk accep
   assert.match(ui, /Otvoriť canonical záznam/);
   assert.match(ui, /Pokročilé/);
   assert.doesNotMatch(ui, /Potvrdiť všetky|bulk accept/i);
+});
+
+
+test("real ADOPTION adapter emits adopted/reserved lifecycle signals outside canonical proposal", () => {
+  const baseHtml = \`
+    <html><body>
+      <h1>Triny</h1>
+      <div>Pohlavie: fenka</div>
+      <div>Vek: 6 rokov 3 mesiace</div>
+      <div>Rasa: Cane Corso</div>
+      <div>Veľkosť: 55 cm</div>
+      <div>Váha: 31,5 kg</div>
+      <div>Farba: hnedá</div>
+      <div>Kastrácia: Áno</div>
+      <div>Očkovaný: Áno</div>
+      <div>Hendikep: Nie</div>
+      <p>V prípade záujmu o adopciu nás kontaktujte.</p>
+    </body></html>
+  \`;
+  const source = {
+    id: 901,
+    entityType: "ADOPTION",
+    connectorType: "CONTROLLED_HTML",
+    sourceUrl: "https://trnava.utulok.sk/psy/triny",
+    config: { sourceShape: "SINGLE_ITEM", htmlAdapterKey: "trnava-adoption-detail", expectedMinRecords: 1 },
+    maxRecordsPerRun: 10,
+    timeoutMs: 5000,
+    retryMaxAttempts: 0,
+    retryBackoffMs: 100,
+    throttleMs: 0,
+  };
+
+  const [adopted] = trnavaAdoptionDetailAdapter({
+    html: baseHtml.replace("<h1>Triny</h1>", "<h1>Triny</h1><strong>Adoptovaný</strong>"),
+    source,
+  });
+  assert.equal(adopted.rawRecord.adopted, true);
+  assert.equal(adopted.lifecycleSignals?.[0]?.signalType, "ADOPTION_ADOPTED");
+  assert.equal(adopted.lifecycleSignals?.[0]?.targetState, "ADOPTED");
+  assert.equal(Object.hasOwn(adopted.proposed, "status"), false);
+
+  const [reserved] = trnavaAdoptionDetailAdapter({
+    html: baseHtml.replace("<h1>Triny</h1>", "<h1>Triny</h1><strong>Rezervovaný</strong>"),
+    source,
+  });
+  assert.equal(reserved.rawRecord.reserved, true);
+  assert.equal(reserved.lifecycleSignals?.[0]?.signalType, "ADOPTION_RESERVED");
+  assert.equal(reserved.lifecycleSignals?.[0]?.targetState, "RESERVED");
+  assert.equal(Object.hasOwn(reserved.proposed, "status"), false);
+});
+
+test("real FOSTER adapter keeps explicit resolved lifecycle separate from proposal semantics", () => {
+  const fixture = readFileSync(
+    new URL("./fixtures/data-automation/zatulane-psiky-sala-foster-detail.html", import.meta.url),
+    "utf8",
+  );
+  const source = {
+    id: 951,
+    entityType: "FOSTER",
+    connectorType: "CONTROLLED_HTML",
+    sourceUrl: "https://www.zatulanepsikysala.sk/pomoc/markyz/",
+    config: { sourceShape: "SINGLE_ITEM", htmlAdapterKey: "zatulane-psiky-sala-foster-detail", expectedMinRecords: 1 },
+    maxRecordsPerRun: 1,
+    timeoutMs: 5000,
+    retryMaxAttempts: 0,
+    retryBackoffMs: 100,
+    throttleMs: 0,
+  };
+  const [resolved] = zatulanePsikySalaFosterDetailAdapter({
+    html: fixture.replace("<h1>Markýz</h1>", "<h1>Markýz – adoptovaný</h1>"),
+    source,
+  });
+  assert.equal(resolved.rawRecord.resolved, true);
+  assert.equal(resolved.lifecycleSignals?.[0]?.signalType, "FOSTER_RESOLVED");
+  assert.equal(resolved.lifecycleSignals?.[0]?.targetState, "RESOLVED");
+});
+
+test("real LOST_FOUND adapter emits resolution only from explicit owner-resolution evidence", () => {
+  const fixture = readFileSync(
+    new URL("./fixtures/data-automation/kosice-found-dog-detail.html", import.meta.url),
+    "utf8",
+  );
+  const source = {
+    id: 903,
+    entityType: "LOST_FOUND",
+    connectorType: "CONTROLLED_HTML",
+    sourceUrl: "https://www.kosice.sk/clanok/opusteny-pes-225",
+    config: { sourceShape: "SINGLE_ITEM", htmlAdapterKey: "kosice-found-dog-detail", expectedMinRecords: 1 },
+    maxRecordsPerRun: 10,
+    timeoutMs: 5000,
+    retryMaxAttempts: 0,
+    retryBackoffMs: 100,
+    throttleMs: 0,
+  };
+  const [plain] = kosiceFoundDogDetailAdapter({ html: fixture, source });
+  assert.equal(plain.rawRecord.resolvedSignal, false);
+  assert.equal(plain.lifecycleSignals, undefined);
+
+  const [resolved] = kosiceFoundDogDetailAdapter({
+    html: fixture.replace("Pes nebol označený čipom", "Majiteľ bol dohľadaný. Pes nebol označený čipom"),
+    source,
+  });
+  assert.equal(resolved.rawRecord.resolvedSignal, true);
+  assert.equal(resolved.lifecycleSignals?.[0]?.signalType, "LOST_FOUND_RESOLVED");
+  assert.equal(resolved.lifecycleSignals?.[0]?.targetState, "RESOLVED");
+  assert.equal(Object.hasOwn(resolved.proposed, "status"), false);
 });

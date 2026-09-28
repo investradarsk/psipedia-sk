@@ -108,8 +108,8 @@ export const trnavaAdoptionDetailAdapter: ControlledHtmlAdapter = ({ html, sourc
   const color = labelledValue(pageText, "Farba");
   const ageMonths = approximateAgeMonths(ageText);
   const weight = weightKg(weightText);
-  const adoptedEvidence = pageText.match(/\bAdoptovan[ýáé]\b/i)?.[0] ?? "";
-  const reservedEvidence = adoptedEvidence ? "" : pageText.match(/\bRezervovan[ýáé]\b/i)?.[0] ?? "";
+  const adoptedEvidence = pageText.match(/Adoptovan[ýáé]/iu)?.[0] ?? "";
+  const reservedEvidence = adoptedEvidence ? "" : pageText.match(/Rezervovan[ýáé]/iu)?.[0] ?? "";
   const adopted = Boolean(adoptedEvidence);
   const reserved = Boolean(reservedEvidence);
 
