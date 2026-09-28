@@ -54,7 +54,13 @@ export async function automationSourceActivationReadiness(
 
   const technical = automationSourceReadiness(source);
   if (technical.applicable && !technical.ready) {
-    return { ready: false, reason: "TECHNICAL_NOT_READY", governance: emptyGovernance, governanceBlockingReasons: [], technicalReason: null };
+    return {
+      ready: false,
+      reason: "TECHNICAL_NOT_READY",
+      governance: emptyGovernance,
+      governanceBlockingReasons: [],
+      technicalReason: technical.reason,
+    };
   }
 
   if (source.connectorType !== "MANUAL_IMPORT" && (!source.sourceUrl || !isSafeAutomationSourceUrl(source.sourceUrl))) {
