@@ -272,8 +272,8 @@ test("runtime enforces explicit governance decisions while preserving legacy ena
 
 test("source-only approval separates technical evidence from explicit operator decisions", async () => {
   const activation = await readFile(path.join(repoRoot, "lib/data-automation-source-activation.ts"), "utf8");
-  assert.match(activation, /probeAccess/);
-  assert.match(activation, /probeRobots/);
+  assert.match(activation, /probeAutomationSourceAccess/);
+  assert.match(activation, /probeAutomationSourceRobots/);
   assert.match(activation, /termsStatus: "ALLOWED"/);
   assert.match(activation, /recurringStatus: "APPROVED"/);
   assert.match(activation, /retentionStatus: "RESTRICTED"/);
