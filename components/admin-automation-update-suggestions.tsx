@@ -95,6 +95,11 @@ export function AdminAutomationUpdateSuggestions({ initialSuggestions, onAccepte
         const actedSuggestion = item.origin === suggestion.origin && item.id === suggestion.id;
         const nextFields = item.fields.flatMap((candidate) => {
           if (actedSuggestion && candidate.field === field.field && candidate.proposedValueHash === field.proposedValueHash) return [];
+          if (
+            result.decision === "REJECTED"
+            && candidate.field === field.field
+            && proposedKey(candidate.proposed) === proposedKey(field.proposed)
+          ) return [];
           if (result.decision === "ACCEPTED" && Object.prototype.hasOwnProperty.call(result.updatedValues, candidate.field)) {
             const currentValue = result.updatedValues[candidate.field];
             if (proposedKey(currentValue) === proposedKey(candidate.proposed)) return [];
