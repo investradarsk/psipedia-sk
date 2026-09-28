@@ -271,3 +271,19 @@ test("DIRECT_ENTITY category is responsive and axe-clean without source candidat
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
+
+
+test("DIRECT_ENTITY veterinarian category is responsive and axe-clean", async ({ page }) => {
+  const response = await page.goto("/admin/automatizacie/veterinari", { waitUntil: "domcontentloaded" });
+  expect(response).not.toBeNull();
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("heading", { name: "Veterinári", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hľadať nových veterinárov", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kontrolovať doplnenia a zmeny", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nové koncepty", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Doplnenia a zmeny", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nové zdroje", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Schválené zdroje", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectAxeClean(page);
+});
