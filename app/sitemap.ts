@@ -3,12 +3,10 @@ import type { MetadataRoute } from "next";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
 import { categories } from "@/lib/content";
 import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
-import { getPublishedArticleIndex } from "@/lib/article-store";
-import { getPublishedEvents } from "@/lib/event-store";
 import { eventHref } from "@/lib/events";
 import { directoryCategories, isDirectoryCategory } from "@/lib/directory";
 import { getPublishedDirectorySitemapRecords } from "@/lib/directory-sitemap";
-import { getPublishedHelpCases } from "@/lib/help-store";
+import { getPublishedArticleSitemapRecords, getPublishedEventSitemapRecords, getPublishedHelpSitemapRecords } from "@/lib/entity-sitemap";
 import { helpCaseHref } from "@/lib/help";
 import { listPublishedOrganizationsForSitemap } from "@/lib/help-organization-store";
 import { listSitemapDogReports } from "@/lib/lost-found-dog-store";
@@ -37,12 +35,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ? listPublishedOrganizationsForSitemap(organizationDatabase).catch(() => [])
     : Promise.resolve([]);
   const [articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports, adoptions, organizations] = await Promise.all([
-    getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectorySitemapRecords(),
-    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports().catch(() => []),
+    getPublishedArticleSitemapRecords(), getPublishedEventSitemapRecords(), getPublishedDirectorySitemapRecords(),
+    getPublishedHelpSitemapRecords(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports().catch(() => []),
     listIndexableAdoptionsForSitemap().catch(() => []), organizationPromise,
   ]);
   const portalSections = managedSections.filter((section) => section.visible);
-  const articleModified = (article: (typeof articles)[number]) => article.updatedDateIso;
+  const articleModified = (article: (typeof articles)[number]) => article.updatedAt;
   const latestArticles = latestModified(articles.map(articleModified));
   const latestEvents = latestModified(events.map((event) => event.updatedAt));
   const latestDirectory = latestModified(directoryProfiles.map((profile) => profile.updatedAt));
@@ -60,7 +58,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .filter((article) => article.slug?.trim() && isSelfCanonical(article.seo, articleHref(article)))
     .map((article) => sitemapEntry(articleHref(article), {
       lastModified: latestModified([articleModified(article)]), changeFrequency: "monthly", priority: 0.8,
-      images: article.image ? [article.image.startsWith("https://") ? article.image : `${SITE_URL}${article.image}`] : undefined,
+      images: article.imageUrl ? [article.imageUrl.startsWith("https://") ? article.imageUrl : `${SITE_URL}${article.imageUrl}`] : undefined,
     }));
   assertSitemapEntityParity("articles", articles.map((article) => {
     const path = articleHref(article);
