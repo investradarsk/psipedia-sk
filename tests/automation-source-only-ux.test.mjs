@@ -84,7 +84,8 @@ test("source-only UX maps readiness internals to one user-safe Slovak message", 
   assert.match(page, /automationSourceActivationReadiness/);
   assert.doesNotMatch(page, /automationSourceReadiness\(/);
   assert.match(page, /monitoringReady/);
-  assert.match(settings, /disabled=\{busy \|\| !monitoringReady\}/);
+  assert.match(settings, /<option value="on" disabled=\{!monitoringReady\}>/);
+  assert.match(settings, /disabled=\{busy \|\| \(enabled && !monitoringReady\)\}/);
   assert.doesNotMatch(settings, /MISSING_ADAPTER|UNSUPPORTED_ADAPTER|ADAPTER_ENTITY_MISMATCH|ADAPTER_SHAPE_MISMATCH|MISSING_PARSER|GOVERNANCE_MISSING|ACCESS_NOT_ALLOWED|ROBOTS_NOT_ALLOWED|TERMS_NOT_ALLOWED|RECURRING_USE_NOT_APPROVED|RETENTION_/);
   assert.doesNotMatch(settings, /Pokročilé|adapter key|readiness/i);
 });
