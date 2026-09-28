@@ -3,7 +3,12 @@ import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { eventDateTimeIso } from "../lib/events.ts";
+import {
+  buildPublishedDirectorySitemapPageQuery,
+  listPublishedDirectorySitemapRecords,
+} from "../lib/directory-sitemap.ts";
 import { articleAuthorJsonLd, serializeJsonLd } from "../lib/seo.ts";
+import { assertSitemapEntityParity, inspectSitemapEntityParity } from "../lib/sitemap-parity.ts";
 import {
   assertValidSitemap,
   isNewsSitemapEligibleDate,
@@ -92,9 +97,118 @@ test("legacy activity training URL redirects directly to the canonical managed t
   assert.match(portalPage, /if \(portalTopic\) return <PortalTopic/);
 });
 
+test("directory sitemap reader is lightweight, cursor-batched and not capped at 500 or 1000", async () => {
+  const query = buildPublishedDirectorySitemapPageQuery(0, 500);
+  assert.equal(query.batchSize, 500);
+  assert.match(query.sql, /id > \?/);
+  assert.match(query.sql, /ORDER BY id ASC/);
+  assert.match(query.sql, /status = 'published'/);
+  assert.match(query.sql, /archived_at IS NULL/);
+  assert.doesNotMatch(query.sql, /description|services_json|qualifications_json|source_data_json|verified|featured/i);
+
+  const database = new DatabaseSync(":memory:");
+  database.exec(`
+    CREATE TABLE directory_profiles (
+      id INTEGER PRIMARY KEY,
+      slug TEXT NOT NULL,
+      category TEXT NOT NULL,
+      status TEXT NOT NULL,
+      updated_at TEXT,
+      seo_json TEXT NOT NULL DEFAULT '{}',
+      archived_at TEXT
+    );
+    BEGIN;
+  `);
+  const insert = database.prepare(
+    "INSERT INTO directory_profiles (id,slug,category,status,updated_at,seo_json,archived_at) VALUES (?,?,?,?,?,?,?)",
+  );
+  for (let id = 1; id <= 1205; id += 1) {
+    insert.run(
+      id,
+      `profil-${id}`,
+      "veterinari",
+      "published",
+      `2026-09-${String((id % 27) + 1).padStart(2, "0")}T10:00:00.000Z`,
+      id === 1205
+        ? JSON.stringify({ canonicalUrl: "https://psipedia.sk/adresar/veterinari/profil-1205", noindex: false })
+        : "{}",
+      null,
+    );
+  }
+  insert.run(1206, "draft", "veterinari", "draft", "2026-09-28T10:00:00.000Z", "{}", null);
+  insert.run(1207, "archived", "veterinari", "published", "2026-09-28T10:00:00.000Z", "{}", "2026-09-28T11:00:00.000Z");
+  database.exec("COMMIT;");
+
+  let queryCount = 0;
+  const d1 = {
+    prepare(sql) {
+      queryCount += 1;
+      return {
+        bind(...bindings) {
+          return {
+            async all() {
+              return { results: database.prepare(sql).all(...bindings) };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const records = await listPublishedDirectorySitemapRecords(d1, { batchSize: 500 });
+  assert.equal(records.length, 1205);
+  assert.equal(queryCount, 3);
+  assert.deepEqual(records.slice(0, 2).map((item) => item.id), [1, 2]);
+  assert.equal(records.at(-1).id, 1205);
+  assert.equal(records.some((item) => item.slug === "draft"), false);
+  assert.equal(records.some((item) => item.slug === "archived"), false);
+  assert.equal(records.at(-1).seo.canonicalUrl, "https://psipedia.sk/adresar/veterinari/profil-1205");
+});
+
+test("sitemap entity parity exposes duplicates, missing slugs and invalid statuses", () => {
+  const clean = [
+    { slug: "a", url: "https://psipedia.sk/a", indexable: true, validStatus: true },
+    { slug: "legacy", url: "https://psipedia.sk/legacy", indexable: false, validStatus: true, exclusionReason: "redirect-source" },
+  ];
+  const report = inspectSitemapEntityParity("test", clean, ["https://psipedia.sk/a"]);
+  assert.equal(report.indexableCanonicalCount, 1);
+  assert.equal(report.sitemapUrlCount, 1);
+  assert.equal(report.unexplainedExclusionCount, 0);
+  assert.doesNotThrow(() => assertSitemapEntityParity("test", clean, ["https://psipedia.sk/a"]));
+
+  assert.throws(
+    () => assertSitemapEntityParity("duplicates", [
+      { slug: "a", url: "https://psipedia.sk/a", indexable: true, validStatus: true },
+      { slug: "b", url: "https://psipedia.sk/b", indexable: true, validStatus: true },
+    ], ["https://psipedia.sk/a", "https://psipedia.sk/a"]),
+    /sitemap-parity:duplicates/,
+  );
+  assert.throws(
+    () => assertSitemapEntityParity("missing-slug", [
+      { slug: "", url: null, indexable: true, validStatus: true },
+    ], []),
+    /missingSlugCount/,
+  );
+  assert.throws(
+    () => assertSitemapEntityParity("invalid-status", [
+      { slug: "draft", url: "https://psipedia.sk/draft", indexable: true, validStatus: false },
+    ], []),
+    /invalidStatusCount/,
+  );
+  assert.throws(
+    () => assertSitemapEntityParity("unexplained", [
+      { slug: "hidden", url: "https://psipedia.sk/hidden", indexable: false, validStatus: true },
+    ], []),
+    /unexplainedExclusionCount/,
+  );
+});
+
 test("generated sitemap uses canonical public sources and no hardcoded fake dates", () => {
   const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
   assert.match(source, /listPublishedCanonicalBreedIndex/);
+  assert.match(source, /getPublishedDirectorySitemapRecords/);
+  assert.doesNotMatch(source, /getPublishedDirectoryProfiles/);
+  assert.match(source, /assertSitemapEntityParity/);
   assert.match(source, /isSelfCanonical/);
   assert.match(source, /assertValidSitemap/);
   assert.doesNotMatch(source, /new Date\(["']2026-08-(?:17|29)["']\)/);
