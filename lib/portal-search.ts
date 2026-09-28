@@ -294,7 +294,7 @@ function eventQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec |
     e.excerpt AS description,
     e.event_type || ' ' || e.organizer || ' ' || e.venue || ' ' || e.start_date AS keywords,
     'event' AS kind, e.event_type AS category, e.city AS city, '' AS district, e.region AS region, '' AS services`;
-  return { sql: selectWithWindow(columns, "managed_events e", clauses, `${exactOrder}, ${localityOrder}, ${prefixOrder}, e.start_date ASC, e.title COLLATE NOCASE ASC, e.slug ASC`, limit), bindings };
+  return { sql: selectWithWindow(columns, "managed_events e", clauses, `${exactOrder}, ${localityOrder}, ${prefixOrder}, e.title COLLATE NOCASE ASC, e.slug ASC`, limit), bindings };
 }
 
 function organizationLocationExpression(field: "city" | "district" | "region") {
@@ -385,7 +385,7 @@ function lostFoundQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
     r.description AS description,
     r.breed || ' ' || r.color || ' ' || r.city || ' ' || r.district || ' ' || r.region AS keywords,
     'lost-found' AS kind, r.type AS category, r.city AS city, r.district AS district, r.region AS region, '' AS services`;
-  return { sql: selectWithWindow(columns, "lost_found_dog_reports r", clauses, `${exactOrder}, ${prefixOrder}, r.event_date DESC, r.type ASC, r.slug ASC`, limit), bindings };
+  return { sql: selectWithWindow(columns, "lost_found_dog_reports r", clauses, `${exactOrder}, ${prefixOrder}, ${title} COLLATE NOCASE ASC, r.type ASC, r.slug ASC`, limit), bindings };
 }
 
 function staticSectionItems(parsed: ParsedPortalSearchQuery, section: string): PortalSearchItem[] {
@@ -451,6 +451,15 @@ function allowedSpecs(parsed: ParsedPortalSearchQuery, limit: number, section: s
     helpQuery(parsed, limit),
     lostFoundQuery(parsed, limit),
   ].filter((item): item is QuerySpec => Boolean(item));
+}
+
+export function buildPortalSearchQuerySpecsForTest(query: string, limit = SEARCH_PAGE_SIZE) {
+  const parsed = parsePortalSearchQuery(query);
+  const safeLimit = Math.max(1, Math.min(SEARCH_MAX_VISIBLE_RESULTS, Math.trunc(limit)));
+  return allowedSpecs(parsed, safeLimit, "").map((spec) => ({
+    sql: spec.sql,
+    bindingCount: spec.bindings.length,
+  }));
 }
 
 export async function searchPortal(
