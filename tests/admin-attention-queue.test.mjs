@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import {
   ADMIN_ATTENTION_QUERY_COUNT,
-  ADMIN_ATTENTION_SOURCE_LIMIT,
+  adminAttentionQueueSourceTypes,
   filterAdminAttentionItems,
   isAdminAttentionActive,
   mapAdoptionStaleAttention,
@@ -304,11 +304,19 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
   assert.equal(mapPartnerVerificationAttention({...verification,status:"REJECTED"},NOW).attentionState,"DISMISSED");
 });
 
-test("all source queries stay bounded and the attention store remains read-only", () => {
-  assert.equal(ADMIN_ATTENTION_SOURCE_LIMIT, 50);
+test("Attention read model has 15 canonical sources, bounded page size and no silent empty fallback", () => {
   assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 15);
+  assert.equal(adminAttentionQueueSourceTypes.length, 15);
+  assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_FINDING"), false);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
-  assert.equal((store.match(/LIMIT \?/g) ?? []).length, ADMIN_ATTENTION_QUERY_COUNT);
+  assert.match(store, /ADMIN_ATTENTION_MAX_PAGE_SIZE = 50/);
+  assert.match(store, /LIMIT \\?/);
+  assert.match(store, /ATTENTION_ORDER_SQL/);
+  assert.match(store, /cursorClause/);
+  assert.match(store, /PARTIAL/);
+  assert.match(store, /UNAVAILABLE/);
+  assert.doesNotMatch(store, /safeSourceResults/);
+  assert.doesNotMatch(store, /catch\s*\([^)]*\)\s*=>\s*\[\]/);
   assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
   assert.doesNotMatch(store, /sender_email|requester_email|proposed_patch_json|source_data_json|organization_name/i);
 });
@@ -331,17 +339,23 @@ test("target hrefs point to existing admin route patterns", () => {
   for (const route of routes) assert.equal(existsSync(new URL(route, import.meta.url)), true, route);
 });
 
-test("operations page uses bounded queue while shared bell uses exact summary", () => {
+test("operations page uses server pagination while shared bell uses the exact typed summary", () => {
   const page = readFileSync(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
   const shell = readFileSync(new URL("../components/admin-shell.tsx", import.meta.url), "utf8");
   assert.match(page, /requireAdminPageUser\("\/admin\/operations"\)/);
-  assert.match(page, /summarizeAdminAttention\(allItems\)/);
-  assert.match(page, /attentionCount=\{summary\.active\}/);
+  assert.match(page, /loadAdminAttentionPage/);
+  assert.match(page, /cursor:/);
+  assert.match(page, /attentionCount=\{attention\.summary\.active\}/);
+  assert.match(page, /attentionCountPartial=/);
   assert.match(shell, /loadExactAdminAttentionSummary/);
+  assert.match(shell, /niektoré zdroje nie sú dostupné/);
   assert.match(shell, /href="\/admin\/operations"/);
   assert.doesNotMatch(shell, /getNewDirectoryInquiryCount/);
   assert.match(component, /<form[^>]+method="get"/);
+  assert.match(component, /nextCursor/);
+  assert.match(component, /Zvolený zdroj je momentálne nedostupný/);
+  assert.match(component, /Zvolený zdroj nemá otvorené položky/);
 });
 
 test("article feedback lifecycle extends the existing table instead of creating a second inbox", () => {
@@ -356,4 +370,13 @@ test("operations presentation does not add a competing mutation endpoint", () =>
   const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(page + component, /fetch\(|method=["'](?:post|put|patch|delete)["']/i);
   assert.equal(existsSync(new URL("../app/api/admin/operations", import.meta.url)), false);
+});
+
+
+test("automation findings keep separate automation ownership instead of entering the canonical queue", () => {
+  assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_FINDING"), false);
+  const page = readFileSync(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /listAutomationSourceCandidates/);
+  assert.match(page, /listAutomationPossibleMatchReviews/);
+  assert.doesNotMatch(page, /mapAutomationFindingAttention/);
 });
