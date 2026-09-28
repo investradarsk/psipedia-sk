@@ -17,7 +17,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     get: (key) => typeof params[key] === "string" ? params[key] as string : null,
   });
   const [result, moduleCounts] = await Promise.all([
-    listManagedArticleSummaries(filters),
+    listManagedArticleSummaries({
+      ...filters,
+      portalSection: filters.portalSection === "all" ? undefined : filters.portalSection,
+    }),
     getAdminModuleCounts(),
   ]);
 
