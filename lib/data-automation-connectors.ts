@@ -14,7 +14,7 @@ import {
 } from "./data-automation-source-provisioning.ts";
 import {
   AUTOMATION_SOURCE_HTTP_USER_AGENT,
-  AUTOMATION_SOURCE_AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
+  AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
   automationSourceRequestTimeoutMs,
 } from "./data-automation-http-policy.ts";
 import { automationHelpRecordShapeError } from "./data-automation-help-source-readiness.ts";
