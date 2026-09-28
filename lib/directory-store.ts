@@ -1051,7 +1051,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
   editorEmail: string,
   existing: ManagedDirectoryProfile,
   now: string,
-  expectedUpdatedAt?: string,
+  guard?: {
+    expectedUpdatedAt?: string;
+    automationAddressReview?: { id: number; fingerprint: string };
+  },
 ) {
   if (existing.status === "archived") throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
   const input = normalizeManagedDirectoryProfileInput(payload, existing.importData, {
@@ -1059,7 +1062,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
     legacyAddress: existing.address,
   });
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
-  const guard = expectedUpdatedAt ? " AND updated_at = ?" : "";
+  const updatedAtGuard = guard?.expectedUpdatedAt ? " AND updated_at = ?" : "";
+  const reviewGuard = guard?.automationAddressReview
+    ? " AND EXISTS (SELECT 1 FROM automation_address_review_cases WHERE id=? AND status='OPEN' AND fingerprint=?)"
+    : "";
   const bindings = [
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
@@ -1067,7 +1073,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
     input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
-    ...(expectedUpdatedAt ? [expectedUpdatedAt] : []),
+    ...(guard?.expectedUpdatedAt ? [guard.expectedUpdatedAt] : []),
+    ...(guard?.automationAddressReview
+      ? [guard.automationAddressReview.id, guard.automationAddressReview.fingerprint]
+      : []),
   ];
   return database.prepare(`
     UPDATE directory_profiles SET
@@ -1075,7 +1084,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
       qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
       internal_email = ?, image_url = ?, image_key = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
-    WHERE id = ?${guard} RETURNING *
+    WHERE id = ?${updatedAtGuard}${reviewGuard} RETURNING *
   `).bind(...bindings);
 }
 
