@@ -91,8 +91,9 @@ test("sitemap source contains the catalog and indexable new details without dupl
   assert.match(sitemap, /listIndexableAdoptionsForSitemap/);
   assert.match(sitemap, /sitemapEntry\("\/pomoc-psom\/adopcia"/);
   assert.match(sitemap, /adoptionDetailPath\(item\.slug\)/);
-  assert.match(sitemap, /getPublishedHelpCases\(\)/);
-  assert.equal((sitemap.match(/getPublishedHelpCases\(\)/g) ?? []).length, 1);
+  assert.match(sitemap, /getPublishedHelpSitemapRecords\(\)/);
+  assert.equal((sitemap.match(/getPublishedHelpSitemapRecords\(\)/g) ?? []).length, 1);
+  assert.doesNotMatch(sitemap, /getPublishedHelpCases\(\)/);
   assert.match(sitemap, /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky"/);
   assert.match(sitemap, /exclusionReason: representedElsewhere/);
   assert.match(sitemap, /return assertValidSitemap\(entries\)/);
