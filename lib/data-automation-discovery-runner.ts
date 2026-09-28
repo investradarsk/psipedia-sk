@@ -74,6 +74,15 @@ export type DataAutomationDiscoverySweepOptions = {
 type DiscoveryCandidatesResult = {
   candidates: AutomationSourceCandidateInput[];
   warnings: string[];
+  metrics?: {
+    category: string | null;
+    discoveryMode: "DIRECT_ENTITY" | "FEED_SOURCE" | null;
+    exclusionEntityType: string;
+    exclusionCategory: string | null;
+    exclusionCount: number;
+    localPrefilterCount: number;
+    providerResultCount: number;
+  };
 };
 
 export type DiscoveryRunSummary = {
@@ -86,6 +95,14 @@ export type DiscoveryRunSummary = {
   duplicateCandidates: number;
   requestCount: number;
   resultCount: number;
+  providerResultCount: number;
+  localPrefilterCount: number;
+  exclusionCount: number;
+  canonicalDuplicateCount: number;
+  newEntityCount: number;
+  updateSuggestionCount: number;
+  category: string | null;
+  discoveryMode: "DIRECT_ENTITY" | "FEED_SOURCE" | null;
   errors: number;
   errorSummary: string | null;
   nextCheckAt: string | null;
