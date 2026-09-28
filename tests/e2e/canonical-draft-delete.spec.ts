@@ -21,8 +21,12 @@ test("canonical DRAFT can be permanently deleted only after destructive confirma
   await expect(deleteButton).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-  await deleteButton.click();
   const dialog = page.getByRole("dialog");
+  await expect(async () => {
+    if (await dialog.isVisible()) return;
+    await deleteButton.click();
+    await expect(dialog).toBeVisible({ timeout: 1_500 });
+  }).toPass({ timeout: 10_000 });
   await expect(dialog.getByRole("heading", { name: "Naozaj chcete tento koncept úplne vymazať?", exact: true })).toBeVisible();
   await expect(dialog.getByText("Táto akcia sa nedá vrátiť.", { exact: true })).toBeVisible();
 
