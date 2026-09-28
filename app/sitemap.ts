@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import type { MetadataRoute } from "next";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
 import { categories } from "@/lib/content";
-import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
+import { listPublishedCanonicalBreedSitemapIndex } from "@/lib/breed-store";
 import { eventHref } from "@/lib/events";
 import { directoryCategories, isDirectoryCategory } from "@/lib/directory";
 import { getPublishedDirectorySitemapRecords } from "@/lib/directory-sitemap";
@@ -36,7 +36,7 @@ type SitemapDatasets = {
   directoryProfiles: Awaited<ReturnType<typeof getPublishedDirectorySitemapRecords>>;
   helpCases: Awaited<ReturnType<typeof getPublishedHelpSitemapRecords>>;
   managedSections: Awaited<ReturnType<typeof listManagedPortalSectionsForSitemap>>;
-  breeds: Awaited<ReturnType<typeof listPublishedCanonicalBreedIndex>>;
+  breeds: Awaited<ReturnType<typeof listPublishedCanonicalBreedSitemapIndex>>;
   lostFoundReports: Awaited<ReturnType<typeof listSitemapDogReports>>;
   adoptions: Awaited<ReturnType<typeof listIndexableAdoptionsForSitemap>>;
   organizations: Awaited<ReturnType<typeof listPublishedOrganizationsForSitemap>>;
@@ -50,7 +50,7 @@ async function loadSitemapDatasets(): Promise<SitemapDatasets> {
     { key: "directoryProfiles", stage: "load-directory", load: () => getPublishedDirectorySitemapRecords() },
     { key: "helpCases", stage: "load-help-cases", load: () => getPublishedHelpSitemapRecords() },
     { key: "managedSections", stage: "load-managed-sections", load: () => listManagedPortalSectionsForSitemap() },
-    { key: "breeds", stage: "load-breeds", load: () => listPublishedCanonicalBreedIndex() },
+    { key: "breeds", stage: "load-breeds", load: () => listPublishedCanonicalBreedSitemapIndex() },
     { key: "lostFoundReports", stage: "load-lost-found", load: () => listSitemapDogReports() },
     { key: "adoptions", stage: "load-adoptions", load: () => listIndexableAdoptionsForSitemap() },
     {
