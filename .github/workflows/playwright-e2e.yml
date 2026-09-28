@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, codex/lost-found-dogs]
+    branches: [main, codex/lost-found-dogs, codex/hotfix-seo-sitemap-runtime-2]
   schedule:
     - cron: "17 5 * * *"
 
@@ -515,8 +515,8 @@ jobs:
 
 
   sitemap-production-diagnostic:
-    name: Read-only production sitemap diagnostic
-    if: github.event_name == 'pull_request' && github.head_ref == 'codex/hotfix-seo-sitemap-500-1'
+    name: Read-only production sitemap diagnostic collection
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'codex/hotfix-seo-sitemap')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -639,14 +639,6 @@ jobs:
           SQL
           )"
           npx wrangler d1 execute psipedia-sk-db --remote --command "$sql" --json | tee .sitemap-diagnostic/d1.json
-      - name: Upload safe sitemap diagnostic evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sitemap-production-diagnostic-${{ github.run_id }}
-          path: .sitemap-diagnostic/
-          if-no-files-found: warn
-          retention-days: 14
 
 
   notify-production-failure:
