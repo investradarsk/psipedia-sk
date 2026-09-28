@@ -185,9 +185,9 @@ export async function listAutomationDiscoveryRoots(
     const placeholders = ids.map(() => "?").join(",");
     const dayBucket = utcSearchDayBucket(now);
     const aggregate = await db.prepare(`SELECT root_id,
-        COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN 0 ELSE request_count END),0) AS requests_today,
+        COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' OR operation_key LIKE 'entity-enrichment:%' THEN 0 ELSE request_count END),0) AS requests_today,
         COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS address_enrichment_requests_today,
-        MAX(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN NULL ELSE created_at END) AS last_query_at
+        MAX(CASE WHEN operation_key LIKE 'address-enrichment:%' OR operation_key LIKE 'entity-enrichment:%' THEN NULL ELSE created_at END) AS last_query_at
       FROM automation_search_usage
       WHERE root_id IN (${placeholders}) AND day_bucket=?
       GROUP BY root_id`).bind(...ids, dayBucket).all<Record<string, unknown>>();
@@ -196,6 +196,7 @@ export async function listAutomationDiscoveryRoots(
       FROM automation_search_usage
       WHERE root_id IN (${placeholders}) AND status<>'RESERVED'
         AND operation_key NOT LIKE 'address-enrichment:%'
+        AND operation_key NOT LIKE 'entity-enrichment:%'
       ORDER BY created_at DESC,id DESC LIMIT 300`).bind(...ids).all<Record<string, unknown>>();
 
     const aggregateByRoot = new Map(aggregate.results.map((row) => [numberValue(row.root_id), row]));
@@ -647,6 +648,74 @@ export async function reserveAutomationAddressEnrichmentRequest(input: {
         (SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE entity_type=? AND day_bucket=?) AS entity_used,
         (SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage
           WHERE root_id=? AND day_bucket=? AND operation_key LIKE 'address-enrichment:%') AS enrichment_used`)
+      .bind(dayBucket, input.entityType, dayBucket, input.rootId, dayBucket)
+      .first<Record<string, unknown>>();
+    if (numberValue(usage?.global_used) >= input.globalDailyLimit) return { reserved: false, reason: "GLOBAL_BUDGET_EXHAUSTED" };
+    if (numberValue(usage?.entity_used) >= input.entityDailyLimit) return { reserved: false, reason: "CATEGORY_BUDGET_EXHAUSTED" };
+    return { reserved: false, reason: "ROOT_BUDGET_EXHAUSTED" };
+  } catch (error) {
+    if (missingSearchUsageSchema(error)) throw new Error("automation_search_usage_state_unavailable");
+    throw error;
+  }
+}
+
+export async function reserveAutomationEntityEnrichmentRequest(input: {
+  operationKey: string;
+  discoveryRunId: number | null;
+  providerKey: string;
+  rootId: number;
+  entityType: AutomationEntityType;
+  queryFingerprint: string;
+  now: Date;
+  globalDailyLimit: number;
+  entityDailyLimit: number;
+  entityEnrichmentDailyLimit: number;
+}, databaseInput?: AutomationDiscoveryDatabase): Promise<{
+  reserved: boolean;
+  reason: AutomationSearchBudgetReservationReason;
+}> {
+  const db = database(databaseInput);
+  const dayBucket = utcSearchDayBucket(input.now);
+  const at = input.now.toISOString();
+  const enrichmentLimit = Math.max(1, Math.floor(input.entityEnrichmentDailyLimit));
+  try {
+    const row = await db.prepare(`INSERT INTO automation_search_usage (
+        operation_key,discovery_run_id,provider_key,root_id,entity_type,query_fingerprint,day_bucket,
+        request_count,result_count,new_unique_candidate_count,duplicate_candidate_count,status,created_at,finalized_at
+      )
+      SELECT ?,?,?,?,?,?,?,1,0,0,0,'RESERVED',?,NULL
+      WHERE NOT EXISTS (
+        SELECT 1 FROM automation_search_usage WHERE operation_key=?
+      )
+      AND (
+        SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE day_bucket=?
+      ) < ?
+      AND (
+        SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE entity_type=? AND day_bucket=?
+      ) < ?
+      AND (
+        SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage
+        WHERE root_id=? AND day_bucket=? AND operation_key LIKE 'entity-enrichment:%'
+      ) < ?
+      RETURNING id`).bind(
+        input.operationKey, input.discoveryRunId, input.providerKey, input.rootId, input.entityType,
+        input.queryFingerprint, dayBucket, at,
+        input.operationKey,
+        dayBucket, input.globalDailyLimit,
+        input.entityType, dayBucket, input.entityDailyLimit,
+        input.rootId, dayBucket, enrichmentLimit,
+      ).first<{ id: number }>();
+    if (row) return { reserved: true, reason: "RESERVED" };
+
+    const duplicate = await db.prepare("SELECT id FROM automation_search_usage WHERE operation_key=? LIMIT 1")
+      .bind(input.operationKey).first<{ id: number }>();
+    if (duplicate) return { reserved: false, reason: "DUPLICATE_OPERATION" };
+
+    const usage = await db.prepare(`SELECT
+        (SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE day_bucket=?) AS global_used,
+        (SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage WHERE entity_type=? AND day_bucket=?) AS entity_used,
+        (SELECT COALESCE(SUM(request_count),0) FROM automation_search_usage
+          WHERE root_id=? AND day_bucket=? AND operation_key LIKE 'entity-enrichment:%') AS enrichment_used`)
       .bind(dayBucket, input.entityType, dayBucket, input.rootId, dayBucket)
       .first<Record<string, unknown>>();
     if (numberValue(usage?.global_used) >= input.globalDailyLimit) return { reserved: false, reason: "GLOBAL_BUDGET_EXHAUSTED" };
