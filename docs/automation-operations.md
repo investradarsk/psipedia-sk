@@ -59,3 +59,10 @@ A zero cursor after a successful cycle is shown as a completed cycle, not as 0%.
 - direct refresh state: `automation_direct_refresh_settings`
 - direct update suggestions: `automation_update_suggestions`
 - bounded recent DIRECT_ENTITY outcomes: `automation_discovery_outcomes`
+
+## Aktivácia migration 0098
+
+SQL pre rozšírené operations metriky je pripravené v `docs/pending-migrations/0098_automation_operations_metrics.sql`.
+Nie je zatiaľ súčasťou canonical `drizzle/` reťaze, pretože paralelné workstreamy rezervujú indexy 0096 a 0097. Kód je zámerne code-before-migration kompatibilný: bez 0098 funguje dashboard v reduced režime a historické/rozšírené metriky ostávajú `NULL`, nie vymyslené nuly.
+
+Po merge reálnych 0096 a 0097 sa pending súbor presunie bez zmeny obsahu do `drizzle/0098_automation_operations_metrics.sql`, znovu sa doplní do production migration allowlistu/workflow guardu a až potom môže byť 0098 produkčne aplikovaná. MIG-0 contiguous guard sa týmto PR nemení ani neoslabuje.
