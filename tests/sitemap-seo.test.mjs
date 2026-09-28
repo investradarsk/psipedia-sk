@@ -440,8 +440,8 @@ test("sitemap stage errors expose a safe stage code and preserve the original ca
 
 test("sitemap application source has no top-level loader fan-out or required-dataset fail-soft", () => {
   const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
-  const loadStart = source.indexOf("export async function loadSitemapDatasets");
-  const buildStart = source.indexOf("export function buildSitemapEntries");
+  const loadStart = source.indexOf("async function loadSitemapDatasets");
+  const buildStart = source.indexOf("function buildSitemapEntries");
   const loadSource = source.slice(loadStart, buildStart);
   assert.match(loadSource, /loadSitemapStages/);
   assert.doesNotMatch(loadSource, /Promise\.all/);
