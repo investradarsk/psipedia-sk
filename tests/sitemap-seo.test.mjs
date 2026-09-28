@@ -26,6 +26,11 @@ import {
   sitemapEntry,
   SITEMAP_REDIRECT_SOURCES,
 } from "../lib/sitemap-seo.ts";
+import {
+  loadSitemapStages,
+  SITEMAP_MAX_D1_CONCURRENCY,
+  SitemapStageError,
+} from "../lib/sitemap-runtime.ts";
 
 test("lastModified uses the latest real timestamp and omits unknown dates", () => {
   assert.equal(latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(), "2026-09-07T12:30:00.000Z");
@@ -372,4 +377,76 @@ test("canonical repair migration fixes only the confirmed broken canonical targe
   }
   for (const row of repairedEvents) assert.ok(row.canonical.endsWith(`/${row.slug}`));
   database.close();
+});
+
+
+test("sitemap orchestrator reproduces the old Cloudflare concurrency failure and bounds the fixed runtime", async () => {
+  const connectionLimit = 6;
+
+  const makeProbe = () => {
+    let active = 0;
+    let maxActive = 0;
+    return {
+      get maxActive() { return maxActive; },
+      async query() {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        if (active > connectionLimit) {
+          active -= 1;
+          throw new Error("simulated-cloudflare-connection-limit");
+        }
+        await new Promise((resolve) => setImmediate(resolve));
+        active -= 1;
+        return true;
+      },
+    };
+  };
+
+  const oldProbe = makeProbe();
+  await assert.rejects(
+    Promise.all(Array.from({ length: 9 }, () => oldProbe.query())),
+    /simulated-cloudflare-connection-limit/,
+  );
+  assert.ok(oldProbe.maxActive > connectionLimit);
+
+  const fixedProbe = makeProbe();
+  const stages = Array.from({ length: 9 }, (_, index) => ({
+    key: `dataset${index}`,
+    stage: `load-dataset-${index}`,
+    load: () => fixedProbe.query(),
+  }));
+  const datasets = await loadSitemapStages(stages);
+  assert.equal(Object.keys(datasets).length, 9);
+  assert.equal(SITEMAP_MAX_D1_CONCURRENCY, 1);
+  assert.equal(fixedProbe.maxActive, 1);
+});
+
+test("sitemap stage errors expose a safe stage code and preserve the original cause", async () => {
+  const cause = new Error("private-runtime-detail");
+  await assert.rejects(
+    loadSitemapStages([
+      { key: "organizations", stage: "load-organizations", load: async () => { throw cause; } },
+    ]),
+    (error) => {
+      assert.ok(error instanceof SitemapStageError);
+      assert.equal(error.message, "sitemap-stage-failed:load-organizations");
+      assert.equal(error.stage, "load-organizations");
+      assert.equal(error.cause, cause);
+      assert.doesNotMatch(error.message, /private-runtime-detail/);
+      return true;
+    },
+  );
+});
+
+test("sitemap application source has no top-level loader fan-out or required-dataset fail-soft", () => {
+  const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
+  const loadStart = source.indexOf("export async function loadSitemapDatasets");
+  const buildStart = source.indexOf("export function buildSitemapEntries");
+  const loadSource = source.slice(loadStart, buildStart);
+  assert.match(loadSource, /loadSitemapStages/);
+  assert.doesNotMatch(loadSource, /Promise\.all/);
+  assert.doesNotMatch(loadSource, /\.catch\(\(\) => \[\]\)/);
+  assert.match(loadSource, /stage: "load-organizations"/);
+  assert.match(source, /listManagedPortalSectionsForSitemap/);
+  assert.match(source, /runSitemapStageSync\("global-validation"/);
 });
