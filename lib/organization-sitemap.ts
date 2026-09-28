@@ -17,8 +17,6 @@ export function buildOrganizationSitemapEntries(
   for (const organization of organizations) {
     if (!isCanonicalOrganizationSlug(organization.slug)) continue;
     const lastModified = latestModified([organization.updatedAt, organization.publishedAt]);
-    if (!lastModified) continue;
-
     const entry = sitemapEntry(`/organizacie/${organization.slug}`, {
       lastModified,
       changeFrequency: "monthly",
