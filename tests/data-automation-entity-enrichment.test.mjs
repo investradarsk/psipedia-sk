@@ -103,7 +103,7 @@ test("AUTOMATION-ENTITY-ENRICHMENT-2 central normalization strips wrappers and r
   });
   assert.equal(normalized.name, "Veterina ABC");
   assert.equal(normalized.publicEmail, "info@example.sk");
-  assert.equal(normalized.publicPhone, "+421 900 111 222");
+  assert.equal(normalized.publicPhone, "+421900111222");
   assert.equal(Object.hasOwn(normalized, "facebookUrl"), false);
   assert.equal(Object.hasOwn(normalized, "instagramUrl"), false);
   assert.equal(normalized.description, "Explicitný opis.");
@@ -180,7 +180,7 @@ test("AUTOMATION-ENTITY-ENRICHMENT-2 stronger first-party evidence wins and conf
     sourceUrl: "https://directory.example/utulok-abc",
     existingEvidence: first.evidence,
   });
-  assert.equal(weaker.proposed.publicPhone, "+421 900 111 111");
+  assert.equal(weaker.proposed.publicPhone, "+421900111111");
   assert.ok(weaker.conflicts.includes("publicPhone"));
 });
 
@@ -200,7 +200,7 @@ test("AUTOMATION-ENTITY-ENRICHMENT-2 targeted search failure is best-effort and 
     },
   });
   assert.equal(enriched.proposed.name, "Útulok ABC");
-  assert.equal(enriched.proposed.websiteUrl, "https://utulok.example");
+  assert.equal(enriched.proposed.websiteUrl, "https://utulok.example/");
 });
 
 test("AUTOMATION-ENTITY-ENRICHMENT-2 production DIRECTORY follows bounded semantic same-domain pages through controlled fetch", async () => {
