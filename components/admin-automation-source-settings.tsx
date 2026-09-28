@@ -57,7 +57,7 @@ export function AdminAutomationSourceSettings({
 
         {!monitoringReady && (
           <p className="admin-flash" role="status">
-            Tento zdroj zatiaľ nie je pripravený na automatické spracovanie.
+            Tento zdroj zatiaľ nemožno automaticky kontrolovať.
           </p>
         )}
 
