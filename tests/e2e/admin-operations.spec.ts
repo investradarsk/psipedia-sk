@@ -50,6 +50,49 @@ test("alerts center, shared bell and active/history controls are accessible and 
   await expectAxeClean(page);
 });
 
+test("Attention pagination reaches items beyond the former source cap and distinguishes empty from unavailable", async ({ page }) => {
+  let response = await page.goto("/admin/operations?source=NEWS_TIP", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBeLessThan(400);
+
+  const filter = page.getByRole("form", { name: "Filtrovať upozornenia" });
+  await expect(filter.getByLabel("Zdroj")).toHaveValue("NEWS_TIP");
+  const firstPageCards = page.locator('[data-source="NEWS_TIP"]');
+  await expect(firstPageCards).toHaveCount(24);
+  await expect(page.getByRole("status").filter({ hasText: "Nájdené" })).toContainText("61");
+
+  const firstTitles = await firstPageCards.locator("h2").allTextContents();
+  const next = page.getByRole("link", { name: "Ďalšia strana →" });
+  await expect(next).toBeVisible();
+  await next.click();
+  await expect(page).toHaveURL(/source=NEWS_TIP.*cursor=/);
+
+  const secondPageCards = page.locator('[data-source="NEWS_TIP"]');
+  await expect(secondPageCards).toHaveCount(24);
+  const secondTitles = await secondPageCards.locator("h2").allTextContents();
+  expect(secondTitles.some((title) => firstTitles.includes(title))).toBe(false);
+
+  await page.goBack({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("form", { name: "Filtrovať upozornenia" }).getByLabel("Zdroj")).toHaveValue("NEWS_TIP");
+  expect(await page.locator('[data-source="NEWS_TIP"] h2').allTextContents()).toEqual(firstTitles);
+
+  response = await page.goto("/admin/operations?source=NEWS_TIP&cursor=not-a-valid-cursor", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("alert").filter({ hasText: "Odkaz na stránku už nie je platný" })).toBeVisible();
+  await expect(page.locator('[data-source="NEWS_TIP"]')).toHaveCount(24);
+
+  response = await page.goto("/admin/operations?source=PROFILE_REVIEW_MODERATION", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("heading", { name: "Zvolený zdroj nemá otvorené položky" })).toBeVisible();
+
+  response = await page.goto("/admin/operations?source=DIRECTORY_CHANGE_REQUEST", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("heading", { name: "Zvolený zdroj je momentálne nedostupný" })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "Výsledky nie sú úplné" })).toBeVisible();
+
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectAxeClean(page);
+});
+
 test("technical tools and maps have separate working admin entries without horizontal overflow", async ({ page }) => {
   let response = await page.goto("/admin/nastroje", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
