@@ -9,7 +9,8 @@ type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: Context) {
   const auth = await requireAdminMutation(request);
-  if (auth.response || !auth.user) return auth.response;
+  if (auth.response) return auth.response;
+  if (!auth.user) return Response.json({ error: "Na túto operáciu nemáš oprávnenie." }, { status: 401 });
 
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {

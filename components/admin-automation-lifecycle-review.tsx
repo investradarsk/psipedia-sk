@@ -96,7 +96,7 @@ export function AdminAutomationLifecycleReview({
           <div className={styles.actionStack}>
             {suggestion.canApply ? (
               <button
-                className={styles.itemActionPrimary}
+                className={`${styles.itemAction} ${styles.itemActionPrimary}`}
                 type="button"
                 disabled={pendingId === suggestion.id}
                 aria-label={suggestion.actionLabel}

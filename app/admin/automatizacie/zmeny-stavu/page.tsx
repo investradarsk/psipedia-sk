@@ -28,9 +28,10 @@ export default async function AutomationLifecyclePage({ searchParams }: Props) {
     countOpenAutomationLifecycleSuggestionsByCategory().catch(() => ({})),
   ]);
   const feedCategories = automationUxCategories.filter((item) => item.mode === "FEED_SOURCE");
+  const countFor = (slug: string) => Number((counts as Record<string, number | undefined>)[slug] ?? 0);
   const total = category
-    ? Number(counts[category.slug as keyof typeof counts] ?? 0)
-    : feedCategories.reduce((sum, item) => sum + Number(counts[item.slug as keyof typeof counts] ?? 0), 0);
+    ? countFor(category.slug)
+    : feedCategories.reduce((sum, item) => sum + countFor(item.slug), 0);
 
   return (
     <AdminShell
@@ -44,7 +45,7 @@ export default async function AutomationLifecyclePage({ searchParams }: Props) {
         <Link href="/admin/automatizacie/zmeny-stavu">Všetky · {total}</Link>
         {feedCategories.map((item) => (
           <Link href={`/admin/automatizacie/zmeny-stavu?category=${item.slug}`} key={item.slug}>
-            {item.title} · {Number(counts[item.slug as keyof typeof counts] ?? 0)}
+            {item.title} · {countFor(item.slug)}
           </Link>
         ))}
       </nav>
