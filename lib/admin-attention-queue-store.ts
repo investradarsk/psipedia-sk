@@ -438,7 +438,14 @@ function availableUnion(sources: readonly AdminAttentionQueueSourceType[]) {
 
 function sourceProbeSql(source: AdminAttentionQueueSourceType) {
   return `${paramsCte()}, source_rows AS (${ATTENTION_SOURCE_SELECTS[source]})
-    SELECT COUNT(*) AS count FROM source_rows WHERE activeRank=0`;
+    SELECT
+      COALESCE(SUM(CASE WHEN activeRank=0 THEN 1 ELSE 0 END),0) AS count,
+      COALESCE(SUM(CASE WHEN attentionState='NEW' THEN 1 ELSE 0 END),0) AS newCount,
+      COALESCE(SUM(CASE WHEN attentionState='IN_PROGRESS' THEN 1 ELSE 0 END),0) AS inProgressCount,
+      COALESCE(SUM(CASE WHEN priority='HIGH' THEN 1 ELSE 0 END),0) AS highCount,
+      MIN(relevantAt) AS minRelevantAt,
+      COALESCE(SUM(CASE WHEN payload IS NOT NULL THEN length(payload) ELSE 0 END),0) AS payloadLength
+    FROM source_rows`;
 }
 
 function safeLogSourceFailure(sourceType: AdminAttentionQueueSourceType, operation: string) {
