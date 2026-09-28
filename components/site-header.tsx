@@ -24,6 +24,7 @@ export function SiteHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchReady, setSearchReady] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [openDesktopMenu, setOpenDesktopMenu] = useState<string | null>(null);
   const [openMobileMenu, setOpenMobileMenu] = useState<string | null>(null);
@@ -63,6 +64,10 @@ export function SiteHeader({
       };
     });
   }, [navigationItems]);
+
+  useEffect(() => {
+    setSearchReady(true);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -327,7 +332,7 @@ export function SiteHeader({
           <div className="header-actions">
             <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
             <Link href={partnerHref} className="header-contact-link" data-partner-login-entry>{partnerLabel}</Link>
-            <button className="icon-button search-trigger" type="button" onClick={(event) => openSearch(event.currentTarget)} aria-label="Otvoriť vyhľadávanie">
+            <button className="icon-button search-trigger" type="button" onClick={(event) => openSearch(event.currentTarget)} aria-label="Otvoriť vyhľadávanie" data-search-ready={searchReady ? "true" : "false"}>
               <SearchIcon />
               <span>Hľadať</span>
             </button>
