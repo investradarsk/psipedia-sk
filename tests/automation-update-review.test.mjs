@@ -29,6 +29,18 @@ test("review service is explicit-field only and blocks lifecycle/private/system 
   assert.doesNotMatch(source, /internalNote|internal_email|contactPhone.*LOST_FOUND|payment|partner/i);
 });
 
+test("field decisions carry across suggestion versions for the same canonical field and value", async () => {
+  const source = await read("lib/data-automation-update-review.ts");
+  assert.match(source, /WHERE entity_type=\? AND canonical_entity_id=\?/);
+  assert.match(source, /field_key=\? AND proposed_value_hash=\?/);
+  assert.match(source, /SAME_VALUE_ALREADY_REJECTED/);
+  assert.match(source, /SAME_VALUE_ALREADY_ACCEPTED/);
+  const reviewMap = source.match(/const reviewMap = new Map\(([\s\S]*?)\n  \);/)?.[1] ?? "";
+  assert.match(reviewMap, /review\.entity_type === row\.entity_type/);
+  assert.match(reviewMap, /review\.canonical_entity_id/);
+  assert.doesNotMatch(reviewMap, /suggestion_id.*row\.id/);
+});
+
 test("accept is stale-safe, value-versioned and idempotent while reject never needs a canonical write", async () => {
   const source = await read("lib/data-automation-update-review.ts");
   assert.match(source, /proposedHash\(field, spec, change\.after\)/);
@@ -45,13 +57,17 @@ test("accept is stale-safe, value-versioned and idempotent while reject never ne
   assert.doesNotMatch(reject, /writeCanonicalField/);
 });
 
-test("DIRECT_ENTITY same value keeps resolution and changed proposal receives a new version fingerprint", async () => {
+test("DIRECT_ENTITY keeps stable lineage, preserves same-value resolution and reopens only changed payload", async () => {
   const store = await read("lib/data-automation-product-store.ts");
-  assert.match(store, /const proposalHash = await sha256Hex\(input\.proposed\)/);
-  assert.match(store, /proposalHash,/);
-  assert.match(store, /status='RESOLVED'/);
-  const conflict = store.match(/ON CONFLICT\(fingerprint\) DO UPDATE SET([\s\S]*?)\.bind\(/)?.[1] ?? "";
-  assert.doesNotMatch(conflict, /status='OPEN'/);
+  const fingerprint = store.match(/const fingerprint = await sha256Hex\(\{([\s\S]*?)\}\);/)?.[1] ?? "";
+  assert.match(fingerprint, /entityType/);
+  assert.match(fingerprint, /canonicalEntityId/);
+  assert.match(fingerprint, /externalRecordId/);
+  assert.match(fingerprint, /suggestionType/);
+  assert.doesNotMatch(fingerprint, /proposalHash/);
+  assert.match(store, /const proposedJson = stableJson\(input\.proposed\)/);
+  assert.match(store, /const diffJson = stableJson\(input\.diff\)/);
+  assert.match(store, /status=CASE[\s\S]*proposed_json=excluded\.proposed_json[\s\S]*diff_json=excluded\.diff_json[\s\S]*THEN automation_update_suggestions\.status[\s\S]*ELSE 'OPEN'/);
 });
 
 test("admin API is authenticated, same-origin JSON only and has explicit error contracts", async () => {
