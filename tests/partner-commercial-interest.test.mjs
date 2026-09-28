@@ -69,7 +69,7 @@ test("Attention canonical predicate and Partner admin pending predicate both cou
   assert.match(attentionStore,/PARTNER_COMMERCIAL_LEAD/);
   assert.match(attentionStore,/FROM partner_commercial_interests c/);
   assert.match(attentionStore,/c\.status='NEW'/);
-  const exact=attentionStore.slice(attentionStore.indexOf("loadExactAdminAttentionSummary"));
+  const exactStart=attentionStore.indexOf("export async function loadExactAdminAttentionSummary");const exactEnd=attentionStore.indexOf("export async function loadAdminAttentionPage");const exact=attentionStore.slice(exactStart,exactEnd);
   assert.match(exact,/probeSources/);
   assert.doesNotMatch(exact,/LIMIT \?/);
 });
