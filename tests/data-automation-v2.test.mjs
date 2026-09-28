@@ -545,10 +545,11 @@ test("test-source preview is structurally read-only and reports zero writes", ()
 
 test("source persistence enforces review gate and invalidates approval after safety-critical edits", () => {
   const store = read("lib/data-automation-source-store.ts");
+  const activation = read("lib/data-automation-source-activation.ts");
   assert.match(store, /sourceSafetySignature/);
   assert.match(store, /enabled=CASE WHEN \? THEN 0 ELSE enabled END/);
   assert.match(store, /review_status=CASE WHEN \? THEN 'PENDING' ELSE review_status END/);
-  assert.match(store, /existing\.reviewStatus !== "APPROVED"/);
+  assert.match(activation, /source\.reviewStatus !== "APPROVED"/);
   assert.match(store, /automation_source_review_required/);
 });
 
