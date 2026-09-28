@@ -55,6 +55,7 @@ import {
 } from "./data-automation-product-model.ts";
 import { ingestDirectEntityUrl } from "./data-automation-direct-entity.ts";
 import type { EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
+import { createProductionOrganizationEnricher, type OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
 import type { AutomationEnrichmentSearchPlan } from "./data-automation-enrichment-evidence.ts";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import type { DirectoryAddressSearch } from "./data-automation-directory-address-enrichment.ts";
@@ -1291,6 +1292,9 @@ async function runDiscoveryRoot(
       }, options.database);
       exclusionCount = Math.max(exclusionCount, exclusions.exclusionCount);
       const enrichmentSearch = await entityEnrichmentSearchForRoot(root, options, runId);
+      const organizationEnricher: OrganizationRecordEnricher | undefined = root.entityType === "ORGANIZATION"
+        ? createProductionOrganizationEnricher({ fetchImpl: options.fetchImpl })
+        : undefined;
 
       for (const candidate of candidates) {
         try {
@@ -1319,6 +1323,7 @@ async function runDiscoveryRoot(
             provenanceType: "DIRECT_ENTITY_DISCOVERY",
             addressSearch,
             enrichmentSearch,
+            organizationEnricher,
             addressEvidenceText: typeof candidate.metadata?.snippet === "string"
               ? candidate.metadata.snippet
               : null,
@@ -1504,6 +1509,7 @@ async function runDirectEntityRefresh(
     now,
   );
   const refreshEnrichmentSearches = new Map<number, EntityEnrichmentSearch | undefined>();
+  const refreshOrganizationEnricher = createProductionOrganizationEnricher({ fetchImpl: options.fetchImpl });
   let checked = 0;
   let canonicalDuplicates = 0;
   let updateSuggestions = 0;
@@ -1542,6 +1548,7 @@ async function runDirectEntityRefresh(
         expectedCanonicalEntityId: candidate.id,
         addressSearch,
         enrichmentSearch,
+        organizationEnricher: candidate.entityType === "ORGANIZATION" ? refreshOrganizationEnricher : undefined,
       });
       canonicalDuplicates += refreshed.canonicalDuplicates;
       updateSuggestions += refreshed.updateSuggestions;
