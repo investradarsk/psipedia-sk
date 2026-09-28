@@ -136,6 +136,20 @@ test("universal readiness fails closed on unsupported and mismatched adapters", 
     htmlAdapterKey: "generic-directory-profile",
     sourceShape: "MULTI_ITEM_LIST",
   })), null);
+
+  const legacyAgility = source("EVENT", {}, "https://agility.sk/preteky/");
+  const legacyReadiness = automationSourceReadiness(legacyAgility);
+  assert.equal(legacyReadiness.ready, true);
+  assert.equal(legacyReadiness.reason, "READY");
+  assert.equal(legacyReadiness.adapterKey, "agility-sk-events");
+  assert.equal(resolveAutomationCapability(legacyAgility)?.adapterKey, "agility-sk-events");
+
+  const conflictingAgility = source("EVENT", {
+    htmlAdapterKey: "zsk-sr-events",
+    sourceShape: "MULTI_ITEM_LIST",
+  }, "https://agility.sk/preteky/");
+  assert.equal(automationSourceReadiness(conflictingAgility).reason, "ADAPTER_SOURCE_MISMATCH");
+  assert.equal(resolveAutomationCapability(conflictingAgility), null);
 });
 
 test("known EVENT master URLs use an exact production provisioning allowlist", () => {
