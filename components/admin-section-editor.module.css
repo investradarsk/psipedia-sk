@@ -1,0 +1,488 @@
+.workspace {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 1fr);
+  gap: 0.8rem;
+  align-items: end;
+  padding: 1rem;
+  border: 1px solid #dce5df;
+  border-radius: 1rem;
+  background: #f8faf8;
+}
+
+.search,
+.primaryFields label,
+.subsection label,
+.drawerFields label {
+  display: grid;
+  gap: 0.38rem;
+  min-width: 0;
+  color: #42594f;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.search input,
+.primaryFields input,
+.primaryFields textarea,
+.subsection input,
+.subsection textarea,
+.drawerFields input,
+.drawerFields textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.65rem 0.72rem;
+  border: 1px solid #bac9c0;
+  border-radius: 0.68rem;
+  background: #fff;
+  color: #17352b;
+  font: inherit;
+  resize: vertical;
+}
+
+.search input:focus,
+.primaryFields input:focus,
+.primaryFields textarea:focus,
+.subsection input:focus,
+.subsection textarea:focus,
+.drawerFields input:focus,
+.drawerFields textarea:focus {
+  outline: 3px solid rgb(213 152 52 / 24%);
+  outline-offset: 2px;
+  border-color: #8b743c;
+}
+
+.contractNote {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  border-left: 4px solid #d59834;
+  background: #fff9ec;
+  color: #5a4d2d;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.list {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.sectionCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dce5df;
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.sectionRow {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.85fr) minmax(20rem, 1.6fr) minmax(16rem, auto);
+  gap: 0.8rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  background: #f8faf8;
+}
+
+.sectionToggle {
+  display: grid;
+  grid-template-columns: 2.2rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.25rem 0.35rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: #17352b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sectionToggle:hover {
+  background: #edf3ef;
+}
+
+.icon {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: #fff;
+  font-size: 1.2rem;
+}
+
+.sectionIdentity {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.sectionIdentity strong {
+  overflow-wrap: anywhere;
+}
+
+.sectionIdentity small {
+  color: #5f6e65;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+  color: #5c6c63;
+  font-size: 0.74rem;
+}
+
+.meta > span {
+  padding: 0.25rem 0.45rem;
+  border-radius: 999px;
+  background: #eef2ef;
+}
+
+.typeBadge,
+.childBadge {
+  color: #345448 !important;
+  background: #e8f0eb !important;
+  font-weight: 850;
+}
+
+.visibleBadge {
+  color: #265f3d !important;
+  background: #e7f4eb !important;
+  font-weight: 800;
+}
+
+.hiddenBadge {
+  color: #77502a !important;
+  background: #fff2df !important;
+  font-weight: 800;
+}
+
+.rowActions,
+.subsectionActions,
+.subsectionFooter {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.rowActions a,
+.rowActions button,
+.subsectionActions button,
+.subsectionFooter a,
+.subsectionFooter button {
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #c6d2ca;
+  border-radius: 0.62rem;
+  background: #fff;
+  color: #29483e;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.rowActions button:disabled,
+.subsectionActions button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.editor {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1rem;
+  border-top: 1px solid #e4eae6;
+}
+
+.primaryFields {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid #e1e8e3;
+  border-radius: 0.8rem;
+  background: #fbfcfb;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.subsectionHeading {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.subsectionHeading > div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.subsectionHeading small {
+  color: #66776e;
+}
+
+.subsectionList {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.subsection {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid #e0e7e2;
+  border-radius: 0.8rem;
+  background: #fff;
+}
+
+.subsectionHeader {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid #e8ece9;
+}
+
+.subsectionHeader > div:first-child {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.subsectionHeader > div:first-child > span:nth-child(2) {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.subsectionHeader strong,
+.subsectionHeader small {
+  overflow-wrap: anywhere;
+}
+
+.subsectionHeader small {
+  color: #6a786f;
+}
+
+.childBadge,
+.completeness {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: 0.22rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.completeness {
+  color: #675325;
+  background: #fff4d8;
+  font-weight: 800;
+}
+
+.structured {
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid #dce5df;
+  border-radius: 0.72rem;
+  background: #f9fbf9;
+}
+
+.structured summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: #174b38;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.structured > p {
+  margin: 0 0 0.8rem;
+  color: #66776e;
+  font-size: 0.78rem;
+}
+
+.fullField {
+  grid-column: 1 / -1;
+}
+
+.subsectionFooter {
+  justify-content: space-between;
+}
+
+.remove {
+  color: #7c3326 !important;
+  border-color: #dbb8ae !important;
+  background: #fff5f2 !important;
+}
+
+.empty {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1.2rem;
+  border: 1px dashed #bdcbc2;
+  border-radius: 0.9rem;
+  background: #fbfcfb;
+  color: #53665b;
+  text-align: center;
+}
+
+.savebar {
+  position: sticky;
+  bottom: 0.5rem;
+  z-index: 15;
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid #ccd8d0;
+  border-radius: 0.85rem;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 0.7rem 1.8rem rgb(23 53 43 / 14%);
+  backdrop-filter: blur(8px);
+}
+
+.savebar > div {
+  min-width: 0;
+}
+
+.savebar p {
+  margin: 0;
+  color: #276949;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.savebar .error {
+  color: #8a3428;
+}
+
+.drawerFields {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+@media (max-width: 1080px) {
+  .sectionRow {
+    grid-template-columns: minmax(13rem, 1fr) minmax(0, 1.5fr);
+  }
+
+  .rowActions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .toolbar,
+  .sectionRow,
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionRow {
+    align-items: stretch;
+  }
+
+  .meta,
+  .rowActions {
+    grid-column: auto;
+  }
+
+  .rowActions,
+  .subsectionActions {
+    justify-content: flex-start;
+  }
+
+  .subsectionHeader,
+  .subsectionHeading,
+  .savebar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .subsectionHeader {
+    display: grid;
+  }
+
+  .subsectionActions {
+    width: 100%;
+  }
+
+  .subsectionActions button {
+    flex: 1 1 8rem;
+  }
+
+  .fullField {
+    grid-column: auto;
+  }
+
+  .savebar > button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .toolbar,
+  .editor,
+  .subsection,
+  .primaryFields {
+    padding-inline: 0.72rem;
+  }
+
+  .rowActions > *,
+  .subsectionFooter > * {
+    flex: 1 1 9rem;
+  }
+
+  .meta > span {
+    max-width: 100%;
+    white-space: normal;
+  }
+}

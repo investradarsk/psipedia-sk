@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "status": "known-hybrid-migration-baseline",
+  "documentation": "docs/MIGRATION-SAFETY-SK.md",
+  "sql": {
+    "firstIndex": 0,
+    "highestIndexAtMig0": 39,
+    "requireContiguousSequence": true,
+    "allowAppendAfterBaseline": true
+  },
+  "journal": {
+    "frozenLastIndex": 23,
+    "frozenLastTag": "0023_big_shinko_yamashiro"
+  },
+  "snapshots": {
+    "frozenHighestIndex": 23
+  },
+  "historicalUnjournaledSql": {
+    "firstIndex": 24,
+    "lastIndex": 39
+  }
+}

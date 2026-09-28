@@ -1,0 +1,599 @@
+:root {
+  --ps-content-max: 1180px;
+  --ps-radius-control: 12px;
+  --ps-radius-filter: 18px;
+  --ps-radius-card: 22px;
+  --ps-radius-media: 0;
+  --ps-control-min-height: 44px;
+  --ps-card-padding: 26px;
+  --ps-heading-section: clamp(2.2rem, 4vw, 3.75rem);
+  --ps-border-soft: rgba(23, 53, 43, 0.1);
+  --ps-border-strong: rgba(23, 75, 56, 0.18);
+  --ps-surface: var(--paper);
+  --ps-surface-raised: var(--white);
+  --ps-space-section: 92px;
+  --ps-space-block: 32px;
+  --ps-space-stack: 20px;
+}
+
+/* Shared public-page primitives. `.shell` remains the canonical width source;
+   `.public-shell` narrows only the public mobile gutter without touching admin. */
+.page-container,
+.public-shell {
+  max-width: var(--ps-content-max);
+}
+
+.section {
+  padding-block: var(--ps-space-section);
+}
+
+.section-hero,
+.page-hero,
+.portal-hero,
+.portal-topic-hero,
+.news-hero,
+.help-hero,
+.directory-hero,
+.event-calendar-hero {
+  position: relative;
+  isolation: isolate;
+  border-bottom: 1px solid var(--ps-border-soft);
+}
+
+.section-hero {
+  overflow: hidden;
+}
+
+.section-hero-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Parent hubs and their structured child pages share one image-led hero language. */
+.portal-section-hero--photo {
+  color: var(--white);
+  background: var(--forest-dark);
+}
+
+.portal-section-hero--photo::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, rgba(11, 42, 32, 0.96) 0%, rgba(15, 57, 42, 0.84) 48%, rgba(15, 57, 42, 0.28) 100%);
+  pointer-events: none;
+}
+
+.portal-section-hero--photo > .page-container {
+  position: relative;
+  z-index: 2;
+}
+
+.portal-section-hero--photo .page-breadcrumbs,
+.portal-section-hero--photo .page-breadcrumbs a,
+.portal-section-hero--photo .eyebrow,
+.portal-section-hero--photo h1 {
+  color: var(--white);
+}
+
+.portal-section-hero--photo p {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.portal-section-hero--photo .portal-hero-icon,
+.portal-section-hero--photo .portal-topic-title > span {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+}
+
+.page-breadcrumbs,
+.article-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.page-breadcrumbs > span:last-child,
+.article-breadcrumbs > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.media-frame {
+  display: grid;
+  width: 100%;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-media);
+  background: linear-gradient(145deg, var(--sage-light), var(--cream));
+  box-shadow: var(--shadow-sm);
+}
+
+.media-frame--landscape {
+  aspect-ratio: 4 / 3;
+}
+
+.media-frame--portrait {
+  aspect-ratio: 4 / 5;
+}
+
+.media-frame--article {
+  aspect-ratio: 4 / 3;
+}
+
+.media-frame--auto {
+  aspect-ratio: auto;
+}
+
+.media-frame > img,
+.media-frame > picture,
+.media-frame > picture > img {
+  width: 100%;
+  height: 100%;
+}
+
+.media-frame > img,
+.media-frame > picture > img {
+  display: block;
+  object-fit: cover;
+}
+
+.section-tabs {
+  border-block: 1px solid var(--ps-border-soft);
+  background: rgba(255, 253, 248, 0.96);
+}
+
+.section-tabs-inner {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  padding-block: 11px;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.section-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: var(--ps-control-min-height);
+  align-items: center;
+  justify-content: center;
+  padding: 8px 13px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--ink-2);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  scroll-snap-align: start;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.section-tab:hover {
+  border-color: var(--ps-border-strong);
+  color: var(--forest);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.section-tab.is-active,
+.section-tab[aria-current="page"] {
+  border-color: var(--forest);
+  color: var(--white);
+  background: var(--forest);
+}
+
+/* Public navigation belongs to the shared public foundation; admin-only rules stay in navigation-hotfix.css. */
+.desktop-nav .nav-submenu a::after {
+  display: none !important;
+  content: none !important;
+}
+
+.nav-submenu a:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+
+#mobile-menu.is-open {
+  grid-template-rows: minmax(0, 1fr);
+  max-height: calc(100dvh - 68px);
+  overflow: hidden;
+}
+
+#mobile-menu.is-open > nav {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Portal flow: tabs and the first content block use one positive spacing token. */
+.portal-section-tabs + .care-urgent,
+.portal-section-tabs + .activity-fit,
+.portal-section-tabs + .puppy-start {
+  margin-top: var(--ps-space-stack);
+}
+
+.portal-section-tabs + .portal-topic-body {
+  margin-top: 0;
+  padding-top: var(--ps-space-stack);
+}
+
+.portal-section-tabs
+  + .portal-topic-body:not(.review-topic-guide)
+  > .portal-topic-copy:first-child {
+  margin-top: 0;
+}
+
+.filter-bar {
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-filter);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.card-shell {
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  background: var(--ps-surface-raised);
+}
+
+.portal-topic-copy h2 {
+  font-size: var(--ps-heading-section);
+}
+
+.portal-directory,
+.care-guidance-section {
+  padding-block: var(--ps-space-section);
+}
+
+/* Existing cards keep their section identity but now share one shell radius. */
+.article-card,
+.event-card,
+.help-card,
+.directory-card,
+.portal-subpage-card,
+.news-category-card,
+.help-category-grid > a,
+.directory-category-grid > a,
+.care-guidance-card {
+  border-radius: var(--ps-radius-card);
+}
+
+.portal-subpage-card,
+.care-guidance-card {
+  padding: var(--ps-card-padding);
+}
+
+.care-urgent-actions a,
+.activity-fit > a,
+.puppy-start-actions a,
+.care-topic-services a {
+  min-height: var(--ps-control-min-height);
+  border-radius: var(--ps-radius-control);
+}
+
+/* Existing search/filter implementations share the same visual boundary. */
+.browser-toolbar,
+.fci-filter-panel,
+.event-calendar-toolbar,
+.directory-main-search,
+.care-search {
+  border-color: var(--ps-border-soft);
+  border-radius: var(--ps-radius-filter);
+}
+
+/* Phase 4 event detail: shared container, media and cards with scannable facts before long copy. */
+.event-detail-hero {
+  padding: 34px 0 48px;
+  border-bottom: 1px solid var(--ps-border-soft);
+  background: var(--ps-surface);
+}
+
+.event-detail-hero .page-breadcrumbs {
+  margin-bottom: var(--ps-space-block);
+}
+
+.event-detail-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: clamp(32px, 5vw, 64px);
+  align-items: center;
+}
+
+.event-detail-heading {
+  min-width: 0;
+}
+
+.event-detail-heading h1 {
+  margin: 14px 0 16px;
+}
+
+.event-detail-heading > p {
+  max-width: 720px;
+  margin: 0;
+}
+
+.event-detail-tags,
+.event-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.event-detail-tags > span,
+.event-detail-tags > a,
+.event-detail-tags > b {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.event-detail-tags > span,
+.event-detail-type-link {
+  border: 1px solid var(--ps-border-strong);
+  color: var(--forest-dark);
+  background: var(--ps-surface-raised);
+}
+
+.event-detail-type-link:hover {
+  border-color: var(--forest);
+  color: var(--forest);
+}
+
+.event-detail-tags > b {
+  color: var(--coral-dark, var(--forest-dark));
+  background: var(--coral-light, var(--cream));
+}
+
+.event-detail-actions {
+  margin-top: 24px;
+}
+
+.event-detail-official-link {
+  min-height: 44px;
+  padding-inline: 4px;
+}
+
+.event-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 34px 0 0;
+}
+
+.event-detail-summary > .card-shell {
+  min-width: 0;
+  padding: 17px 18px;
+}
+
+.event-detail-summary dt {
+  margin-bottom: 7px;
+  color: var(--ink-3, var(--ink-2));
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.event-detail-summary dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 750;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.event-detail-summary dd span {
+  display: block;
+}
+
+.event-detail-body {
+  padding-block: var(--ps-space-section);
+}
+
+.event-detail-copy {
+  width: min(100%, 820px);
+  margin-inline: auto;
+}
+
+.event-detail-copy section > h2 {
+  margin: 8px 0 20px;
+}
+
+.event-detail-copy section > p {
+  white-space: pre-line;
+}
+
+.event-detail-copy section > p + p {
+  margin-top: 16px;
+}
+
+.event-practical-info.card-shell {
+  margin-top: var(--ps-space-block);
+  padding: clamp(24px, 4vw, 36px);
+}
+
+.event-detail-related {
+  padding: 0 0 var(--ps-space-section);
+}
+
+.event-detail-related-heading {
+  display: flex;
+  gap: 24px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: var(--ps-space-block);
+}
+
+.event-detail-related-heading h2 {
+  margin: 7px 0 0;
+}
+
+.event-detail-related-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Detail media: one Psipedia frame, layout/aspect can still vary by content type. */
+.event-detail-visual.media-frame,
+.help-detail-visual.media-frame,
+.directory-detail-visual.media-frame,
+.article-hero-media.media-frame,
+.breed-detail-image.media-frame,
+.portal-topic-area-image {
+  overflow: hidden;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-media);
+  box-shadow: var(--shadow-sm);
+}
+
+.event-detail-visual.media-frame,
+.help-detail-visual.media-frame,
+.directory-detail-visual.media-frame {
+  aspect-ratio: 4 / 3;
+}
+
+.article-hero-media .article-hero-image,
+.article-hero-media .article-hero-placeholder {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.breed-detail-image.media-frame {
+  display: grid;
+}
+
+.breed-detail-image.media-frame > img,
+.breed-detail-image.media-frame > .breed-card-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.portal-topic-area-image {
+  background: var(--ps-surface);
+}
+
+.portal-topic-area-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Fact panels and CTA sidebars use the same shell without flattening their content-specific layout. */
+.event-detail-facts.card-shell,
+.help-detail-facts.card-shell,
+.directory-detail-facts.card-shell,
+.article-aside.card-shell {
+  border-color: var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+}
+
+.directory-detail-facts.card-shell .text-link {
+  color: var(--forest-dark);
+}
+
+@media (max-width: 900px) {
+  .media-frame--article {
+    aspect-ratio: 16 / 9;
+  }
+
+  .event-detail-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .event-detail-visual.media-frame {
+    width: min(100%, 720px);
+  }
+
+  .event-detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .event-detail-related-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  :root {
+    --ps-radius-card: 18px;
+    --ps-radius-media: 18px;
+    --ps-space-section: 64px;
+    --ps-space-block: 24px;
+    --ps-card-padding: 20px;
+  }
+
+  .public-shell {
+    width: min(100% - 32px, 520px);
+  }
+
+  .section-tabs-inner {
+    gap: 6px;
+    padding-block: 9px;
+  }
+
+  .section-tab {
+    min-height: 44px;
+    padding: 8px 11px;
+    font-size: 0.74rem;
+  }
+
+  .menu-trigger,
+  #mobile-menu a,
+  #mobile-menu button {
+    min-height: 44px;
+  }
+
+  .event-detail-hero {
+    padding: 24px 0 36px;
+  }
+
+  .event-detail-hero .page-breadcrumbs {
+    margin-bottom: 22px;
+  }
+
+  .event-detail-hero-grid {
+    gap: 26px;
+  }
+
+  .event-detail-summary {
+    grid-template-columns: 1fr;
+    margin-top: 26px;
+  }
+
+  .event-detail-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .event-detail-actions .button,
+  .event-detail-actions .text-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .event-detail-related-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

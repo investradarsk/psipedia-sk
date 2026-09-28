@@ -1,0 +1,77 @@
+.editorTopbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.editorTopbar p { margin: 0; color: #607167; font-size: 13px; }
+.editorTopbarActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sectionCard { scroll-margin-top: 110px; }
+.heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.heading h2 { margin: 0 0 4px; }
+.heading p { margin: 0; color: #607167; }
+.sportsList { display: grid; gap: 10px; }
+.sportRow {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 90px minmax(180px, 2fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid #dce6df;
+  border-radius: 12px;
+  background: #fbfcfb;
+}
+.sportRow p { margin: 0; color: #607167; font-size: 13px; }
+.sportActions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.relationColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.relationBox { min-width: 0; border: 1px solid #dce6df; border-radius: 12px; padding: 12px; }
+.relationBox legend { font-weight: 800; padding: 0 6px; }
+.relationSearch { width: 100%; margin-bottom: 10px; }
+.relationItems { display: grid; gap: 7px; max-height: 320px; overflow: auto; padding-right: 4px; }
+.relationItems label { min-width: 0; }
+.relationItems small { display: block; color: #607167; }
+.mediaGrid { display: grid; grid-template-columns: minmax(180px, 280px) 1fr; gap: 18px; align-items: start; }
+.coverPreview { aspect-ratio: 4 / 3; border-radius: 14px; background: #eef3ef; overflow: hidden; display: grid; place-items: center; color: #5d7066; }
+.coverPreview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mediaActions { display: grid; gap: 10px; }
+.galleryList { display: grid; gap: 12px; margin-top: 14px; }
+.galleryRow { display: grid; grid-template-columns: 120px 1fr auto; gap: 12px; align-items: start; padding: 10px; border: 1px solid #dce6df; border-radius: 12px; }
+.galleryRow img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; }
+.galleryActions { display: flex; gap: 6px; flex-wrap: wrap; }
+.drawerFields { display: grid; gap: 16px; }
+.drawerSection { border-bottom: 1px solid #dce6df; padding-bottom: 18px; }
+.drawerSection:last-child { border-bottom: 0; }
+.drawerSection h3 { margin: 0 0 10px; }
+.sourceRow { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; align-items: end; margin-bottom: 8px; }
+.fciGroup { margin: 8px 0; border: 1px solid #dce6df; border-radius: 10px; padding: 8px 10px; }
+.fciGroup summary { cursor: pointer; font-weight: 800; }
+.fciGroup > div { padding-top: 12px; }
+.drawerFooter { display: flex; justify-content: flex-end; gap: 8px; }
+.validation { color: #8b2f2f; font-weight: 700; }
+.actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: rgba(255,255,255,.96);
+  border-top: 1px solid #dce6df;
+  padding: 12px 0;
+}
+.actions > div { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 780px) {
+  .relationColumns { grid-template-columns: 1fr; }
+  .mediaGrid { grid-template-columns: 1fr; }
+  .sportRow { grid-template-columns: 1fr; }
+  .sportActions { justify-content: flex-start; }
+  .galleryRow { grid-template-columns: 88px minmax(0, 1fr); }
+  .galleryRow img { width: 88px; height: 72px; }
+  .galleryActions { grid-column: 1 / -1; }
+  .sourceRow { grid-template-columns: 1fr; }
+  .actions { position: static; }
+}

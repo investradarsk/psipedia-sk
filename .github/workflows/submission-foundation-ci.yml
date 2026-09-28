@@ -1,0 +1,52 @@
+name: Submission foundation security tests
+# CI-1A workflow-only hardening
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/api/admin/moderation/**"
+      - "db/foundation-schema.ts"
+      - "drizzle/0029_submission_moderation_security_foundation.sql"
+      - "lib/audit-identity.ts"
+      - "lib/moderation-store.ts"
+      - "lib/pii-crypto.ts"
+      - "lib/private-media.ts"
+      - "lib/rate-limit.ts"
+      - "lib/resource-access.ts"
+      - "lib/resource-access-store.ts"
+      - "lib/submission-feature-flags.ts"
+      - "lib/submission-security.ts"
+      - "lib/turnstile.ts"
+      - "tests/submission-foundation.test.mjs"
+      - ".github/workflows/submission-foundation-ci.yml"
+  workflow_dispatch:
+
+# Superseded PR runs share a per-PR group; manual runs remain isolated by run_id.
+concurrency:
+  group: submission-foundation-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  foundation-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run test:foundation
+      - run: npm run lint

@@ -1,0 +1,355 @@
+"use client";
+
+import { ChangeEvent, Fragment, useEffect, useState } from "react";
+import { ArticleBlocks } from "@/components/article-blocks";
+import { AdminRichTextEditor } from "@/components/admin-rich-text-editor";
+import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import {
+  articleBlockLabels,
+  createArticleBlock,
+  type ArticleBlock,
+  type ArticleBlockImage,
+  type ArticleTextAlignment,
+} from "@/lib/article-blocks";
+import type { ManagedArticleSummary } from "@/lib/article-store";
+import { articleHref } from "@/lib/portal";
+import { editorialRichTextPlainText, legacyRichTextToDocument, normalizeEditorialRichText, type EditorialRichTextDocument } from "@/lib/editorial-content";
+import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
+
+type Props = {
+  blocks: ArticleBlock[];
+  onChange: (blocks: ArticleBlock[]) => void;
+  currentArticleId?: number;
+  onUploadingChange: (uploading: boolean) => void;
+  onMessage: (message: string) => void;
+  onError: (message: string) => void;
+};
+
+const blockTypes = Object.keys(articleBlockLabels) as ArticleBlock["type"][];
+
+function blockIcon(type: ArticleBlock["type"]) {
+  if (type === "text") return "¶";
+  if (type === "image") return "▧";
+  if (type === "gallery") return "▦";
+  if (type === "table") return "▤";
+  if (type === "tip") return "★";
+  if (type === "warning") return "!";
+  if (type === "quote") return "❞";
+  if (type === "embed") return "▶";
+  if (type === "source") return "↗";
+  if (type === "related") return "→";
+  if (type === "cta") return "CTA";
+  if (type === "bullet-list") return "•";
+  if (type === "numbered-list") return "1.";
+  return "H";
+}
+
+function cloneBlock(block: ArticleBlock): ArticleBlock {
+  return { ...structuredClone(block), id: crypto.randomUUID() };
+}
+
+export function RichTextInput({
+  value,
+  richText,
+  onChange,
+  rows = 5,
+  id,
+  placeholder,
+  required = false,
+  alignment = "left",
+  onAlignmentChange,
+  allowHeadings = true,
+}: {
+  value: string;
+  richText?: EditorialRichTextDocument;
+  onChange: (value: string, richText: EditorialRichTextDocument) => void;
+  rows?: number;
+  id: string;
+  placeholder?: string;
+  required?: boolean;
+  showLists?: boolean;
+  alignment?: ArticleTextAlignment;
+  onAlignmentChange?: (alignment: ArticleTextAlignment) => void;
+  allowHeadings?: boolean;
+}) {
+  const documentValue = normalizeEditorialRichText(richText) ?? legacyRichTextToDocument(value);
+  return (
+    <div className="admin-rich-text">
+      <AdminRichTextEditor
+        id={id}
+        value={documentValue}
+        onChange={(nextDocument) => onChange(editorialRichTextPlainText(nextDocument), nextDocument)}
+        placeholder={placeholder}
+        ariaLabel={required ? "Povinný editor textu" : "Editor textu"}
+        allowHeadings={allowHeadings}
+        allowCallouts={allowHeadings}
+        minHeight={Math.max(120, rows * 28)}
+      />
+      {onAlignmentChange && (
+        <div className="admin-rich-toolbar" role="toolbar" aria-label="Zarovnanie textu">
+          {([
+            ["left", "Vľavo"],
+            ["center", "Stred"],
+            ["right", "Vpravo"],
+          ] as const).map(([position, label]) => (
+            <button
+              type="button"
+              key={position}
+              className={alignment === position ? "is-active" : ""}
+              aria-pressed={alignment === position}
+              onClick={() => onAlignmentChange(position)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, onUploadingChange, onMessage, onError }: Props) {
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/articles?limit=100")
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data: { articles?: ManagedArticleSummary[] }) => setArticles((data.articles ?? []).filter((item) => item.id !== currentArticleId && item.status === "published")))
+      .catch(() => undefined);
+  }, [currentArticleId]);
+
+  function update(id: string, updater: (block: ArticleBlock) => ArticleBlock) {
+    onChange(blocks.map((block) => block.id === id ? updater(block) : block));
+  }
+
+  function move(index: number, offset: number) {
+    const nextIndex = index + offset;
+    if (nextIndex < 0 || nextIndex >= blocks.length) return;
+    const next = [...blocks];
+    const [item] = next.splice(index, 1);
+    next.splice(nextIndex, 0, item);
+    onChange(next);
+  }
+
+  function moveGalleryImage(blockId: string, imageIndex: number, offset: number) {
+    update(blockId, (block) => {
+      if (block.type !== "gallery") return block;
+      const targetIndex = imageIndex + offset;
+      if (targetIndex < 0 || targetIndex >= block.images.length) return block;
+      const images = [...block.images];
+      const [image] = images.splice(imageIndex, 1);
+      images.splice(targetIndex, 0, image);
+      return { ...block, images };
+    });
+  }
+
+  function drop(targetIndex: number) {
+    if (dragIndex === null || dragIndex === targetIndex) return setDragIndex(null);
+    const next = [...blocks];
+    const [item] = next.splice(dragIndex, 1);
+    next.splice(targetIndex, 0, item);
+    onChange(next);
+    setDragIndex(null);
+  }
+
+  function add(type: ArticleBlock["type"], index: number) {
+    const next = [...blocks];
+    next.splice(index, 0, createArticleBlock(type));
+    onChange(next);
+    setPickerIndex(null);
+  }
+
+  function insertControl(index: number) {
+    const open = pickerIndex === index;
+    return <div className={`admin-block-insert ${open ? "is-open" : ""}`}>
+      <button type="button" className="admin-block-insert-button" aria-expanded={open} onClick={() => setPickerIndex(open ? null : index)}>+ Vložiť blok sem</button>
+      {open && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, index)}><span>{blockIcon(type)}</span>{articleBlockLabels[type]}</button>)}</div>}
+    </div>;
+  }
+
+  async function uploadSingle(event: ChangeEvent<HTMLInputElement>, blockId: string) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    onUploadingChange(true);
+    onError("");
+    try {
+      const data = await uploadAdminImage(file, "articles");
+      update(blockId, (block) => block.type === "image" ? { ...block, url: data.imageUrl, imageKey: data.imageKey, alt: block.alt || file.name.replace(/\.[^.]+$/, "") } : block);
+      onMessage(adminImageUploadMessage(data, "Ulož článok, aby sa obrázok zachoval."));
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "Obrázok sa nepodarilo nahrať.");
+    } finally {
+      onUploadingChange(false);
+      event.target.value = "";
+    }
+  }
+
+  async function uploadGallery(event: ChangeEvent<HTMLInputElement>, blockId: string) {
+    const files = [...(event.target.files ?? [])];
+    if (!files.length) return;
+    onUploadingChange(true);
+    onError("");
+    try {
+      const uploaded = await Promise.all(files.slice(0, 12).map(async (file): Promise<ArticleBlockImage> => {
+        const data = await uploadAdminImage(file, "articles");
+        return { url: data.imageUrl, imageKey: data.imageKey, alt: file.name.replace(/\.[^.]+$/, ""), caption: "", credit: "", size: "normal" };
+      }));
+      update(blockId, (block) => block.type === "gallery" ? { ...block, images: [...block.images, ...uploaded].slice(0, 24) } : block);
+      onMessage(`Do galérie bolo nahraných ${uploaded.length} obrázkov. Ulož článok, aby sa zmena zachovala.`);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "Galériu sa nepodarilo nahrať.");
+    } finally {
+      onUploadingChange(false);
+      event.target.value = "";
+    }
+  }
+
+  return (
+    <>
+      <div className="admin-block-list">
+        {blocks.length === 0 && <div className="admin-block-empty"><strong>Článok zatiaľ nemá obsahové bloky.</strong><p>Začni textom alebo nadpisom H2.</p></div>}
+        {blocks.map((block, index) => (
+          <Fragment key={block.id}>
+          {insertControl(index)}
+          <section
+            className={`admin-block-card ${dragIndex === index ? "is-dragging" : ""}`}
+            draggable
+            onDragStart={() => setDragIndex(index)}
+            onDragEnd={() => setDragIndex(null)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => drop(index)}
+          >
+            <header className="admin-block-head">
+              <div><button type="button" className="admin-block-grip" title="Potiahni a presuň" aria-label={`Presunúť blok ${articleBlockLabels[block.type]}`}>⠿</button><strong>{articleBlockLabels[block.type]}</strong><span>Blok {index + 1}</span></div>
+              <div>
+                <button type="button" onClick={() => move(index, -1)} disabled={index === 0} aria-label="Presunúť hore">↑</button>
+                <button type="button" onClick={() => move(index, 1)} disabled={index === blocks.length - 1} aria-label="Presunúť dole">↓</button>
+                <button type="button" onClick={() => { const next = [...blocks]; next.splice(index + 1, 0, cloneBlock(block)); onChange(next); }} aria-label="Duplikovať blok">⧉</button>
+                {pendingDeleteId === block.id ? (
+                  <>
+                    <button type="button" className="is-danger" onClick={() => { onChange(blocks.filter((item) => item.id !== block.id)); setPendingDeleteId(null); }} aria-label="Potvrdiť odstránenie bloku">Odstrániť</button>
+                    <button type="button" onClick={() => setPendingDeleteId(null)} aria-label="Zrušiť odstránenie bloku">Zrušiť</button>
+                  </>
+                ) : (
+                  <button type="button" className="is-danger" onClick={() => setPendingDeleteId(block.id)} aria-label="Odstrániť blok">×</button>
+                )}
+              </div>
+            </header>
+
+            {block.type === "text" && <RichTextInput
+              id={`block-${block.id}`}
+              value={block.content}
+              showLists
+              alignment={block.alignment ?? "left"}
+              onAlignmentChange={(alignment) => update(block.id, (item) => item.type === "text" ? { ...item, alignment } : item)}
+              richText={block.richText}
+              onChange={(content, richText) => update(block.id, (item) => item.type === "text" ? { ...item, content, richText } : item)}
+              placeholder="Napíš text článku…"
+            />}
+            {(block.type === "h2" || block.type === "h3") && <div className="admin-field"><label htmlFor={`block-${block.id}`}>{block.type === "h2" ? "Hlavný medzititulok" : "Menší podnadpis"}</label><input id={`block-${block.id}`} value={block.text} onChange={(event) => update(block.id, (item) => item.type === block.type ? { ...item, text: event.target.value } : item)} placeholder={block.type === "h2" ? "Nadpis novej časti" : "Podnadpis v rámci časti"} /></div>}
+
+            {block.type === "image" && <div className="admin-block-image-fields">
+              {block.url ? <img src={block.url} alt={block.alt} /> : <div className="admin-block-image-placeholder">Obrázok ešte nie je vybraný</div>}
+              <label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadSingle(event, block.id)} />{block.url ? "Vymeniť obrázok" : "Nahrať obrázok"}</label>
+              <div className="admin-field-grid">
+                <div className="admin-field"><label>Alt text</label><input value={block.alt} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, alt: event.target.value } : item)} placeholder="Stručne opíš, čo je na obrázku" /></div>
+                <div className="admin-field"><label>Popis pod obrázkom</label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, caption: event.target.value } : item)} /></div>
+                <div className="admin-field"><label>Kredit / zdroj fotografie</label><input value={block.credit ?? ""} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, credit: event.target.value } : item)} placeholder="Autor alebo zdroj" /></div>
+                <div className="admin-field"><label>Veľkosť na stránke</label><select value={block.size ?? "normal"} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, size: event.target.value === "wide" ? "wide" : "normal" } : item)}><option value="normal">Normálna</option><option value="wide">Široká</option></select></div>
+              </div>
+            </div>}
+
+            {block.type === "gallery" && <div className="admin-gallery-editor">
+              <label className="admin-upload-button"><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadGallery(event, block.id)} />+ Nahrať obrázky do galérie</label>
+              <div className="admin-gallery-items">{block.images.map((image, imageIndex) => <div className="admin-gallery-item" key={`${image.url}-${imageIndex}`}>
+                <img src={image.url} alt={image.alt} />
+                <label>Alt text<input value={image.alt} aria-label={`Alt text obrázka ${imageIndex + 1}`} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, alt: event.target.value } : entry) } : item)} placeholder="Čo je na obrázku" /></label>
+                <label>Popis pod obrázkom<input value={image.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, caption: event.target.value } : entry) } : item)} /></label>
+                <label>Kredit / zdroj<input value={image.credit ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, credit: event.target.value } : entry) } : item)} /></label>
+                <label>Veľkosť<select value={image.size ?? "normal"} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, size: event.target.value === "wide" ? "wide" : "normal" } : entry) } : item)}><option value="normal">Normálna</option><option value="wide">Široká</option></select></label>
+                <div className="admin-gallery-item-actions">
+                  <button type="button" onClick={() => moveGalleryImage(block.id, imageIndex, -1)} disabled={imageIndex === 0} aria-label={`Presunúť obrázok ${imageIndex + 1} doľava`}>←</button>
+                  <button type="button" onClick={() => moveGalleryImage(block.id, imageIndex, 1)} disabled={imageIndex === block.images.length - 1} aria-label={`Presunúť obrázok ${imageIndex + 1} doprava`}>→</button>
+                  <button type="button" className="is-danger" onClick={() => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.filter((_, entryIndex) => entryIndex !== imageIndex) } : item)}>Odstrániť</button>
+                </div>
+              </div>)}</div>
+            </div>}
+
+            {(block.type === "bullet-list" || block.type === "numbered-list") && <div className="admin-list-editor">
+              {block.items.map((itemValue, itemIndex) => <div key={itemIndex}><span>{block.type === "numbered-list" ? `${itemIndex + 1}.` : "•"}</span><input value={itemValue} onChange={(event) => update(block.id, (item) => item.type === block.type ? { ...item, items: item.items.map((entry, entryIndex) => entryIndex === itemIndex ? event.target.value : entry) } : item)} placeholder="Položka zoznamu" /><button type="button" onClick={() => update(block.id, (item) => item.type === block.type ? { ...item, items: item.items.filter((_, entryIndex) => entryIndex !== itemIndex) } : item)} aria-label={`Odstrániť položku ${itemIndex + 1}`}>×</button></div>)}
+              <button type="button" onClick={() => update(block.id, (item) => item.type === block.type ? { ...item, items: [...item.items, ""] } : item)}>+ Pridať položku</button>
+            </div>}
+
+            {(block.type === "tip" || block.type === "warning") && <RichTextInput id={`block-${block.id}`} rows={4} value={block.content} richText={block.richText} allowHeadings={false} onChange={(content, richText) => update(block.id, (item) => item.type === block.type ? { ...item, content, richText } : item)} placeholder={block.type === "tip" ? "Praktická rada pre čitateľa…" : "Čo si musí čitateľ všimnúť alebo čomu sa vyhnúť…"} />}
+            {block.type === "quote" && <><RichTextInput id={`block-${block.id}`} rows={4} value={block.content} richText={block.richText} allowHeadings={false} onChange={(content, richText) => update(block.id, (item) => item.type === "quote" ? { ...item, content, richText } : item)} placeholder="Text citátu…" /><div className="admin-field"><label>Autor alebo zdroj citátu</label><input value={block.attribution ?? ""} onChange={(event) => update(block.id, (item) => item.type === "quote" ? { ...item, attribution: event.target.value } : item)} /></div></>}
+
+            {block.type === "table" && <div className="admin-table-editor">
+              <div className="admin-table-scroll"><table><thead><tr>{block.headers.map((header, columnIndex) => <th key={columnIndex}><input value={header} onChange={(event) => update(block.id, (item) => item.type === "table" ? { ...item, headers: item.headers.map((entry, entryIndex) => entryIndex === columnIndex ? event.target.value : entry) } : item)} /><button type="button" onClick={() => update(block.id, (item) => item.type === "table" ? { ...item, headers: item.headers.filter((_, entryIndex) => entryIndex !== columnIndex), rows: item.rows.map((row) => row.filter((_, entryIndex) => entryIndex !== columnIndex)) } : item)} aria-label={`Odstrániť stĺpec ${columnIndex + 1}`}>×</button></th>)}</tr></thead><tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{block.headers.map((_, columnIndex) => <td key={columnIndex}><input value={row[columnIndex] ?? ""} onChange={(event) => update(block.id, (item) => item.type === "table" ? { ...item, rows: item.rows.map((entry, entryIndex) => entryIndex === rowIndex ? item.headers.map((__, cellIndex) => cellIndex === columnIndex ? event.target.value : entry[cellIndex] ?? "") : entry) } : item)} /></td>)}<td><button type="button" onClick={() => update(block.id, (item) => item.type === "table" ? { ...item, rows: item.rows.filter((_, entryIndex) => entryIndex !== rowIndex) } : item)} aria-label={`Odstrániť riadok ${rowIndex + 1}`}>×</button></td></tr>)}</tbody></table></div>
+              <div className="admin-table-actions"><button type="button" onClick={() => update(block.id, (item) => item.type === "table" ? { ...item, headers: [...item.headers, `Stĺpec ${item.headers.length + 1}`], rows: item.rows.map((row) => [...row, ""]) } : item)}>+ Stĺpec</button><button type="button" onClick={() => update(block.id, (item) => item.type === "table" ? { ...item, rows: [...item.rows, item.headers.map(() => "")] } : item)}>+ Riadok</button></div>
+            </div>}
+
+            {block.type === "source" && <div className="admin-field-grid"><div className="admin-field"><label>Názov organizácie alebo článku</label><input value={block.label} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, label: event.target.value } : item)} placeholder="Napríklad AVMA alebo názov štúdie" /></div><div className="admin-field"><label>URL zdroja</label><input type="url" value={block.url} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, url: event.target.value } : item)} placeholder="https://…" /></div><div className="admin-field"><label>Dátum prístupu <small>nepovinný</small></label><input type="date" value={block.accessedAt ?? ""} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, accessedAt: event.target.value || undefined } : item)} /></div><div className="admin-field"><label>Poznámka <small>nepovinná</small></label><input value={block.note ?? ""} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, note: event.target.value } : item)} /></div></div>}
+
+            {block.type === "related" && <div className="admin-field-grid"><div className="admin-field admin-field--full"><label>Vybrať existujúci článok</label><select value={articles.find((item) => articleHref(item) === block.href)?.id ?? ""} onChange={(event) => { const selected = articles.find((item) => item.id === Number(event.target.value)); if (selected) update(block.id, (item) => item.type === "related" ? { ...item, title: selected.title, href: articleHref(selected), description: selected.excerpt } : item); }}><option value="">Vyber článok…</option>{articles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></div><div className="admin-field"><label>Názov</label><input value={block.title} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, title: event.target.value } : item)} /></div><div className="admin-field"><label>Odkaz</label><input value={block.href} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, href: event.target.value } : item)} placeholder="/sekcia/adresa" /></div></div>}
+            {block.type === "cta" && <div className="admin-cta-editor">
+              <div className="admin-field-grid">
+                <div className="admin-field admin-field--full"><label>Krátky text alebo popis</label><textarea rows={3} value={block.text} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, text: event.target.value } : item)} placeholder="Prečo by mal čitateľ na ponuku kliknúť?" /></div>
+                <div className="admin-field"><label>Text tlačidla</label><input value={block.buttonText} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, buttonText: event.target.value } : item)} placeholder="Pozrieť produkt" /></div>
+                <div className="admin-field"><label>URL odkazu</label><input value={block.url} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, url: event.target.value } : item)} placeholder="https://… alebo /adresa" /></div>
+              </div>
+              <div className="admin-cta-options">
+                <label className="admin-check"><input type="checkbox" checked={block.newTab} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, newTab: event.target.checked } : item)} /><span><strong>Otvoriť v novom okne</strong><small>Vhodné najmä pre odkazy mimo Psipedie.</small></span></label>
+                <label className="admin-check"><input type="checkbox" checked={block.sponsored} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, sponsored: event.target.checked } : item)} /><span><strong>Affiliate / sponsored</strong><small>Odkaz dostane označenie „Partnerský odkaz“ a atribúty sponsored a nofollow.</small></span></label>
+              </div>
+            </div>}
+            {block.type === "embed" && (() => {
+              const video = normalizeEditorialExternalVideo({ url: block.url, title: block.title, caption: block.caption });
+              const invalid = Boolean(block.url.trim()) && !video;
+              return <div className="admin-video-editor">
+                <div className="admin-field-grid">
+                  <div className="admin-field admin-field--full">
+                    <label>Odkaz na YouTube alebo Vimeo</label>
+                    <input
+                      type="url"
+                      value={block.url}
+                      aria-invalid={invalid || undefined}
+                      onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, url: event.target.value } : item)}
+                      placeholder="https://www.youtube.com/watch?v=… alebo https://vimeo.com/…"
+                    />
+                    {invalid
+                      ? <small role="alert">Podporované sú iba bezpečné HTTPS odkazy na YouTube alebo Vimeo. HTML iframe sem nevkladaj.</small>
+                      : <small>Vlož iba URL videa. Embed HTML sa z bezpečnostných dôvodov neprijíma.</small>}
+                  </div>
+                  <div className="admin-field"><label>Názov videa <small>nepovinný</small></label><input value={block.title ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, title: event.target.value } : item)} /></div>
+                  <div className="admin-field"><label>Popis videa <small>nepovinný</small></label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, caption: event.target.value } : item)} /></div>
+                </div>
+                {video && <div className="admin-video-preview">
+                  <iframe
+                    src={video.embedUrl}
+                    title={video.title || "Náhľad videa"}
+                    loading="lazy"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                  <button type="button" onClick={() => update(block.id, (item) => item.type === "embed" ? { ...item, url: "", provider: undefined, videoId: undefined } : item)}>Odstrániť video</button>
+                </div>}
+              </div>;
+            })()}
+          </section>
+          </Fragment>
+        ))}
+      </div>
+
+      <div className="admin-block-add">
+        <button type="button" className="admin-block-add-button" aria-expanded={pickerIndex === blocks.length} onClick={() => setPickerIndex(pickerIndex === blocks.length ? null : blocks.length)}>+ Pridať blok na koniec</button>
+        {pickerIndex === blocks.length && <div className="admin-block-picker">{blockTypes.map((type) => <button type="button" key={type} onClick={() => add(type, blocks.length)}><span>{blockIcon(type)}</span>{articleBlockLabels[type]}</button>)}</div>}
+      </div>
+
+      <details className="admin-block-preview"><summary>Náhľad blokov</summary><ArticleBlocks blocks={blocks} preview /></details>
+    </>
+  );
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "psipedia-sk",
+  "main": "./dist/server/index.js",
+  "compatibility_date": "2026-08-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS"
+  },
+  "images": {
+    "binding": "IMAGES"
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "AUTH_MODE": "cloudflare-access",
+    "ACCESS_TEAM_DOMAIN": "https://autumn-sea-d25d.cloudflareaccess.com",
+    "ACCESS_AUD": "ad835e8eb494d146e63fafa62bbefb3f162f8f299b12930f745b717c56bc2df7",
+    "GOOGLE_OAUTH_CLIENT_ID": "550179001371-7riorj30rfhqr247850ou3k8oun4h8kc.apps.googleusercontent.com",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFBd3Szmmo8Bz8qr",
+    "GOOGLE_OAUTH_ENABLED": "true",
+    "GOOGLE_MAPS_MAP_ID": "112b90c9eba732df680daf9e",
+    "PUBLIC_MAP_ENABLED": "1",
+    "PARTNER_FROM_EMAIL": "Psipedia.sk <recenzie@psipedia.sk>",
+    "PROFILE_REVIEW_SUBMISSIONS_ENABLED": "true",
+    "NOTION_ARTICLE_SYNC_ENABLED": "true",
+    "NOTION_ARTICLES_DATA_SOURCE_ID": "ae042534-c878-427e-bc76-ef587a8c61cf",
+    "NOTION_BREED_SYNC_ENABLED": "true",
+    "NOTION_BREEDS_DATA_SOURCE_ID": "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2",
+    "NOTION_EVENT_SYNC_ENABLED": "true",
+    "NOTION_EVENTS_DATA_SOURCE_ID": "76d9ccde-5816-422c-bcfe-863ab69db080",
+    "WEB_PUSH_ENABLED": "true",
+    "VAPID_PUBLIC_KEY": "BKBxq4nj9PdMNp5M9cABY6gjwsZRsuElHR_bECavAJjiuWN7cpPa3zvRqOqYmvFOLUqlWxCWM63MdEmqcfNZFQ8",
+    "VAPID_SUBJECT": "https://psipedia.sk"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1
+    }
+  }
+}

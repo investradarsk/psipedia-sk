@@ -1,0 +1,155 @@
+name: ARTICLE-UX-1 focused validation
+
+on:
+  pull_request:
+    branches: [main]
+    # Keep shared layout/build/test inputs in scope so cross-cutting changes still exercise this suite.
+    paths:
+      - "app/layout.tsx"
+      - "app/*.css"
+      - 'app/\[section\]/\[slug\]/page.tsx'
+      - "app/clanky/**"
+      - "app/api/admin/articles/**"
+      - "app/api/admin/sections/**"
+      - "components/article-*"
+      - "components/favorite-button.tsx"
+      - "components/share-button.tsx"
+      - "components/icons.tsx"
+      - "components/page-system.tsx"
+      - "components/site-header*"
+      - "components/site-footer*"
+      - "components/cookie-consent*"
+      - "lib/article-*"
+      - "lib/content.ts"
+      - "lib/content-seo.ts"
+      - "lib/news.ts"
+      - "lib/portal.ts"
+      - "lib/section-store.ts"
+      - "lib/seo.ts"
+      - "lib/navigation-store.ts"
+      - "scripts/bootstrap-article-ux-e2e.mjs"
+      - "scripts/build-verified.sh"
+      - "scripts/check-config-contract.mjs"
+      - "tests/article-modern-reading-experience.test.mjs"
+      - "tests/e2e/article-reading-experience.spec.ts"
+      - "package-lock.json"
+      - "playwright.config.ts"
+      - "vite.config.*"
+      - "tsconfig.json"
+      - ".github/workflows/article-ux-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: article-ux-1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  article-reading-experience:
+    name: Article reading UX — desktop and mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+      ARTICLE_UX_CAPTURE_PRODUCTION: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Focused source-level regressions
+        run: npm run test:article-ux
+
+      - name: Build branch code
+        run: npm run build
+
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Configure CI-only local PII keys
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          EOF
+
+      - name: Apply foundation migrations to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/article-ux-1
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/article-ux-1/server.log 2>&1 &
+          echo $! > .e2e-artifacts/article-ux-1/server.pid
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/article-ux-1/server.log
+            exit 1
+          fi
+
+      - name: Materialize ARTICLE-UX-1 fixtures in isolated local D1 only
+        run: node scripts/bootstrap-article-ux-e2e.mjs
+
+      - name: ARTICLE-UX-1 Playwright, accessibility and screenshots — desktop
+        run: npm run e2e -- tests/e2e/article-reading-experience.spec.ts --project=desktop-chromium --workers=1 --retries=0
+
+      - name: ARTICLE-UX-1 Playwright, accessibility and screenshots — mobile
+        run: npm run e2e -- tests/e2e/article-reading-experience.spec.ts --project=mobile-chromium --workers=1 --retries=0
+
+      - name: Upload ARTICLE-UX-1 visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-ux-1-visual-evidence-${{ github.run_attempt }}
+          path: .e2e-artifacts/article-ux-1/
+          if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true
+
+      - name: Upload ARTICLE-UX-1 Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-ux-1-playwright-failure-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
+          include-hidden-files: true
+
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/article-ux-1/server.pid ]; then
+            kill "$(cat .e2e-artifacts/article-ux-1/server.pid)" 2>/dev/null || true
+          fi

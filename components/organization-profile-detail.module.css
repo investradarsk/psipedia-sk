@@ -1,0 +1,401 @@
+.breadcrumbWrap {
+  padding-top: var(--ps-space-stack);
+}
+
+.breadcrumbLink,
+.contactLink {
+  display: inline-flex;
+  min-height: var(--ps-control-min-height);
+  max-width: 100%;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+
+.hero {
+  margin-top: var(--ps-space-stack);
+  padding-block: clamp(34px, 6vw, 58px);
+  background: linear-gradient(145deg, var(--sage-light), var(--cream));
+}
+
+.hero h1 {
+  max-width: 900px;
+  margin: 8px 0 12px;
+  font-family: Georgia, serif;
+  font-size: clamp(2.35rem, 6vw, 4.8rem);
+  font-weight: 500;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--forest);
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lead {
+  max-width: 760px;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: clamp(1rem, 2vw, 1.16rem);
+  line-height: 1.7;
+}
+
+.location {
+  margin: 14px 0 0;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.content {
+  padding-block: var(--ps-space-section);
+}
+
+.asideStack {
+  display: grid;
+  gap: var(--ps-space-stack);
+  min-width: 0;
+}
+
+.actionLink {
+  display: inline-flex;
+  min-height: var(--ps-control-min-height);
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 15px;
+  border: 1px solid var(--forest);
+  border-radius: var(--ps-radius-control);
+  color: var(--white);
+  background: var(--forest);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.actionLink:hover {
+  background: var(--forest-dark);
+}
+
+.breadcrumbLink:focus-visible,
+.contactLink:focus-visible,
+.actionLink:focus-visible,
+.fundraisingCta:focus-visible,
+.adoptionCardBody a:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
+
+.locationList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.locationItem {
+  min-width: 0;
+  padding: 15px 16px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: 16px;
+  background: var(--sage-light);
+}
+
+.locationHeading {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 10px;
+}
+
+.locationHeading h3 {
+  min-width: 0;
+  margin: 0;
+  color: var(--forest-dark);
+  font-size: 0.96rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.locationItem p {
+  margin: 7px 0 0;
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.primaryBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: var(--forest-dark);
+  background: var(--cream);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.fundraisingGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ps-space-stack);
+  min-width: 0;
+}
+
+.fundraisingCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 17px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: 18px;
+  background: var(--sage-light);
+}
+
+.fundraisingType {
+  margin: 0;
+  color: var(--forest);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.fundraisingCard h3 {
+  margin: 0;
+  color: var(--forest-dark);
+  font-size: 1.08rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.fundraisingDetail {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--cream);
+}
+
+.fundraisingDetail dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fundraisingDetail dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.fundraisingInstructions {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.fundraisingCta {
+  display: inline-flex;
+  width: fit-content;
+  min-height: var(--ps-control-min-height);
+  max-width: 100%;
+  align-items: center;
+  margin-top: auto;
+  color: var(--forest);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.adoptionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ps-space-stack);
+  min-width: 0;
+}
+
+.adoptionCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: 0 10px 30px rgb(25 62 44 / 6%);
+}
+
+.adoptionCardBody {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+  padding: 17px;
+}
+
+.adoptionLocation {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.adoptionCard h3 {
+  margin: 0;
+  color: var(--forest-dark);
+  font-size: 1.2rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.adoptionCard h3 a {
+  color: inherit;
+}
+
+.adoptionReserved {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  color: #70521c;
+  background: #fff8e8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.adoptionCta {
+  display: inline-flex;
+  width: fit-content;
+  min-height: var(--ps-control-min-height);
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  color: var(--forest);
+  font-size: 0.86rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .locationList,
+  .fundraisingGrid,
+  .adoptionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .breadcrumbWrap {
+    padding-top: 16px;
+  }
+
+  .hero {
+    margin-top: 16px;
+    padding-block: 32px;
+  }
+
+  .content {
+    padding-block: var(--ps-space-section);
+  }
+}
+
+
+/* UX-2A: reduce decorative variance while preserving the organization profile structure. */
+.hero {
+  padding-block: clamp(30px, 5vw, 48px);
+  border-block: 1px solid var(--ps-border-soft);
+  background: var(--cream);
+}
+
+.hero h1 {
+  font-size: clamp(2.3rem, 5vw, 4.25rem);
+  letter-spacing: -.035em;
+}
+
+.locationItem,
+.fundraisingCard,
+.adoptionCard {
+  border-radius: var(--ps-radius-card);
+}
+
+.locationItem,
+.fundraisingCard {
+  background: var(--white);
+}
+
+.adoptionCard {
+  box-shadow: var(--shadow-sm);
+}
+
+.fundraisingDetail,
+.adoptionReserved {
+  border-radius: var(--ps-radius-control);
+}
+
+@media (max-width: 620px) {
+  .hero {
+    padding-block: 28px;
+  }
+}
+
+/* PUBLIC-POLISH-2 photo contract */
+.adoptionCard {
+  border-radius: 0;
+}
+
+
+.commercialBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.premiumBadge,
+.sponsoredBadge {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.premiumBadge {
+  color: var(--forest-dark);
+  background: #f4efe1;
+  border: 1px solid rgba(96, 76, 37, 0.18);
+}
+
+.sponsoredBadge {
+  color: #7d351f;
+  background: #fff0e9;
+  border: 1px solid rgba(185, 71, 50, 0.2);
+}

@@ -1,0 +1,59 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { ArticleCard } from "@/components/article-card";
+import { categories, categoryBySlug } from "@/lib/content";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
+import { formatSlovakCount } from "@/lib/slovak-count";
+
+export const dynamic = "force-dynamic";
+
+type Props = { params: Promise<{ slug: string }> };
+
+export function generateStaticParams() {
+  return categories.map((category) => ({ slug: category.slug }));
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const category = categoryBySlug[slug];
+  if (!category) return {};
+  return {
+    title: category.label,
+    description: category.description,
+    alternates: { canonical: `/tema/${category.slug}` },
+    openGraph: {
+      type: "website",
+      title: `${category.label} – články o psoch | Psipedia.sk`,
+      description: category.description,
+      url: `/tema/${category.slug}`,
+    },
+  };
+}
+
+export default async function TopicPage({ params }: Props) {
+  const { slug } = await params;
+  const category = categoryBySlug[slug];
+  if (!category) notFound();
+  const articles = await getPublishedArticleSummaries({ category: category.label, limit: 120 });
+  const filtered = articles.filter((article) =>
+    article.portalSection !== "novinky" &&
+    article.portalSection !== "podujatia" &&
+    article.portalSection !== "recenzie"
+  );
+
+  return (
+    <main id="obsah">
+      <header className="page-hero shell">
+        <div className="page-hero-inner">
+          <span className="eyebrow">Téma</span>
+          <h1>{category.label}</h1>
+          <p>{category.description} Vyber si z našich sprievodcov a praktických postupov.</p>
+        </div>
+      </header>
+      <section className="page-body shell">
+        <p className="result-count">{formatSlovakCount(filtered.length, { one: "článok", few: "články", many: "článkov" })}</p>
+        <div className="article-grid">{filtered.map((article) => <ArticleCard article={article} key={article.slug} />)}</div>
+      </section>
+    </main>
+  );
+}

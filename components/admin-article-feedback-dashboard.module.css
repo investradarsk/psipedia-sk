@@ -1,0 +1,85 @@
+.header {
+  flex-wrap: wrap;
+  justify-content: flex-start !important;
+}
+
+.header time {
+  margin-left: auto;
+}
+
+.status {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 850;
+}
+
+.statusNew {
+  color: #244f86 !important;
+  background: #e7f0ff;
+}
+
+.statusReviewing {
+  color: #6d4b00 !important;
+  background: #fff3d8;
+}
+
+.statusResolved {
+  color: #2c6540 !important;
+  background: #e7f3e9;
+}
+
+.statusDismissed {
+  color: #56605a !important;
+  background: #eef0ef;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e6ebe7;
+}
+
+.actions button {
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid #c8d3cc;
+  border-radius: 9px;
+  color: #244b3d;
+  background: #fff;
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.actions button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.actions button:focus-visible {
+  outline: 3px solid #f5c865;
+  outline-offset: 2px;
+}
+
+.actions .primary {
+  border-color: #245d47;
+  color: #fff;
+  background: #245d47;
+}
+
+@media (max-width: 560px) {
+  .header time {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .actions button {
+    flex: 1 1 130px;
+  }
+}

@@ -1,0 +1,396 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+
+const cases = [
+  {
+    id: "bikejoring",
+    path: "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku",
+    title: "Bikejoring so psom: kompletný sprievodca od prvého tréningu až po preteky na Slovensku",
+    toc: true,
+    updated: false,
+    hasImage: true,
+  },
+  {
+    id: "stimulus-control",
+    path: "/aktivity/stimulus-control-u-psa",
+    title: "Stimulus control: kedy pes povel naozaj ovláda",
+    toc: false,
+    updated: false,
+    hasImage: true,
+  },
+  {
+    id: "granule",
+    path: "/starostlivost/ako-vybrat-granule-bez-marketingovych-mytov",
+    title: "Ako vybrať granule bez marketingových mýtov",
+    toc: false,
+    updated: true,
+    hasImage: true,
+  },
+  {
+    id: "no-image",
+    path: "/starostlivost/e2e-clanok-bez-obrazka",
+    title: "E2E článok bez hero obrázka",
+    toc: false,
+    updated: false,
+    hasImage: false,
+  },
+] as const;
+
+async function expectNoSeriousAccessibilityViolations(page: Page) {
+  const result = await new AxeBuilder({ page })
+    .include("main#obsah")
+    // Third-party YouTube/Vimeo player DOM is outside Psipedia's control.
+    // The host iframe contract is covered separately below.
+    .exclude(".article-block-embed iframe")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const violations = result.violations.filter(({ impact }) => impact === "serious" || impact === "critical");
+  expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
+}
+
+async function captureProductionBaseline(page: Page, path: string, output: string) {
+  if (process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1") return;
+  try {
+    const response = await page.goto(`https://psipedia.sk${path}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 15_000,
+    });
+    if (!response?.ok()) {
+      console.warn(`[article-ux] production baseline unavailable for ${path}: HTTP ${response?.status() ?? "unknown"}`);
+      return;
+    }
+    await page.screenshot({ path: output });
+  } catch (error) {
+    console.warn(
+      `[article-ux] production baseline unavailable for ${path}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+async function expectSemanticArticleHeadings(page: Page) {
+  const levels = await page.locator(".article-prose h2, .article-prose h3").evaluateAll((headings) =>
+    headings.map((heading) => Number(heading.tagName.slice(1))),
+  );
+  let previous = 1;
+  for (const level of levels) {
+    expect(level).toBeGreaterThanOrEqual(2);
+    expect(level).toBeLessThanOrEqual(3);
+    expect(level - previous).toBeLessThanOrEqual(1);
+    previous = level;
+  }
+}
+
+test.beforeEach(async ({ page, baseURL }) => {
+  expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\.0\.0\.1)$/);
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+});
+
+for (const articleCase of cases) {
+  test(`${articleCase.id} mobile 390x844 article composition`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureProductionBaseline(
+      page,
+      articleCase.path,
+      `.e2e-artifacts/article-ux-1/${articleCase.id}-before-production-mobile-390x844.png`,
+    );
+
+    await page.goto(articleCase.path);
+    await expect(page.getByRole("heading", { level: 1, name: articleCase.title })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Navigácia v článku" })).toBeVisible();
+    await expect(page.locator(articleCase.hasImage ? ".article-hero-image" : ".article-hero-placeholder")).toBeVisible();
+    await expect(page.locator(".article-intro")).toBeVisible();
+    await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
+    await expect(page.locator(".article-aside")).toHaveCount(0);
+    await expect(page.getByText("Najčítanejšie", { exact: true })).toHaveCount(0);
+    const mobileSidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+    await expect(mobileSidebar).toBeVisible();
+    await expect(mobileSidebar.locator("li")).toHaveCount(5);
+
+    const saveButton = page.getByRole("button", { name: /Uložiť medzi obľúbené|Odstrániť z obľúbených/ });
+    const compactShare = page.getByRole("group", { name: /Zdieľať/ }).first().getByRole("button").first();
+    for (const control of [saveButton, compactShare]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    await saveButton.focus();
+    await expect(saveButton).toBeFocused();
+
+    const metrics = await page.evaluate(() => {
+      const h1 = document.querySelector<HTMLElement>("h1")!;
+      const excerpt = document.querySelector<HTMLElement>("main#obsah header h1 + p")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image, .article-hero-placeholder")!;
+      const prose = document.querySelector<HTMLElement>(".article-prose")!;
+      const intro = document.querySelector<HTMLElement>(".article-intro")!;
+      const takeaway = document.querySelector<HTMLElement>(".takeaway-box")!;
+      const imageRect = image.getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        h1Size: Number.parseFloat(getComputedStyle(h1).fontSize),
+        excerptClipping: excerpt.scrollHeight - excerpt.clientHeight,
+        imageRatio: imageRect.width / imageRect.height,
+        proseWidth: prose.getBoundingClientRect().width,
+        proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
+        proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
+        introTop: intro.getBoundingClientRect().top,
+        introBottom: intro.getBoundingClientRect().bottom,
+        takeawayTop: takeaway.getBoundingClientRect().top,
+      };
+    });
+
+    console.log(`[article-ux] ${articleCase.id} mobile metrics ${JSON.stringify(metrics)}`);
+    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-mobile-390x844.png` });
+
+    const [mobileProseBox, mobileSidebarBox] = await Promise.all([
+      page.locator(".article-prose").boundingBox(),
+      mobileSidebar.boundingBox(),
+    ]);
+    expect(mobileProseBox).not.toBeNull();
+    expect(mobileSidebarBox).not.toBeNull();
+    expect(mobileSidebarBox!.y).toBeGreaterThanOrEqual(mobileProseBox!.y + mobileProseBox!.height - 1);
+
+    expect(metrics.overflow).toBeLessThanOrEqual(1);
+    expect(metrics.h1Size).toBeGreaterThanOrEqual(28.5);
+    expect(metrics.h1Size).toBeLessThanOrEqual(33);
+    expect(metrics.excerptClipping, "The mobile perex must be fully visible").toBeLessThanOrEqual(1);
+    expect(metrics.imageRatio).toBeGreaterThan(1.74);
+    expect(metrics.imageRatio).toBeLessThan(1.81);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.62);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.69);
+    expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
+
+    if (articleCase.id === "bikejoring") {
+      expect(
+        metrics.introTop,
+        "Bikejoring prose must be visible or directly adjacent to the first 390x844 viewport",
+      ).toBeLessThanOrEqual(944);
+    }
+
+    const toc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
+    if (articleCase.toc) {
+      await expect(toc).toHaveCount(1);
+      await expect(toc).not.toHaveAttribute("open");
+      const summary = toc.locator("summary");
+      await summary.focus();
+      await expect(summary).toBeFocused();
+      await summary.press("Enter");
+      await expect(toc).toHaveAttribute("open", "");
+      await expect(toc.locator("a[href^='#']").first()).toBeVisible();
+    } else {
+      await expect(toc).toHaveCount(0);
+    }
+
+    if (articleCase.updated) {
+      await expect(page.getByText(/Aktualizované/)).toBeVisible();
+    }
+
+    await expectSemanticArticleHeadings(page);
+    if (articleCase.id === "bikejoring") await expectNoSeriousAccessibilityViolations(page);
+  });
+
+  test(`${articleCase.id} desktop 1440x900 article composition`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await captureProductionBaseline(
+      page,
+      articleCase.path,
+      `.e2e-artifacts/article-ux-1/${articleCase.id}-before-production-desktop-1440x900.png`,
+    );
+
+    await page.goto(articleCase.path);
+    const h1 = page.getByRole("heading", { level: 1, name: articleCase.title });
+    await expect(h1).toBeVisible();
+    await expect(page.locator(articleCase.hasImage ? ".article-hero-image" : ".article-hero-placeholder")).toBeVisible();
+    await expect(page.locator(".article-prose")).toBeVisible();
+    await expect(page.locator(".article-aside")).toHaveCount(0);
+    await expect(page.getByText("Najčítanejšie", { exact: true })).toHaveCount(0);
+    const desktopSidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+    await expect(desktopSidebar).toBeVisible();
+    await expect(desktopSidebar.locator("li")).toHaveCount(5);
+
+    const metrics = await page.evaluate(() => {
+      const heading = document.querySelector<HTMLElement>("h1")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image, .article-hero-placeholder")!;
+      const prose = document.querySelector<HTMLElement>(".article-prose")!;
+      const imageRect = image.getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        h1Size: Number.parseFloat(getComputedStyle(heading).fontSize),
+        imageHeight: imageRect.height,
+        imageRatio: imageRect.width / imageRect.height,
+        proseWidth: prose.getBoundingClientRect().width,
+        proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
+        proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
+      };
+    });
+
+    expect(metrics.overflow).toBeLessThanOrEqual(1);
+    expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
+    expect(metrics.imageHeight).toBeGreaterThanOrEqual(450);
+    expect(metrics.imageHeight).toBeLessThanOrEqual(500);
+    expect(metrics.imageRatio).toBeGreaterThan(1.78);
+    expect(metrics.imageRatio).toBeLessThan(1.85);
+    expect(metrics.proseWidth).toBeGreaterThanOrEqual(700);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(721);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.65);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.71);
+
+    const [desktopProseBox, desktopSidebarBox] = await Promise.all([
+      page.locator(".article-prose").boundingBox(),
+      desktopSidebar.boundingBox(),
+    ]);
+    expect(desktopProseBox).not.toBeNull();
+    expect(desktopSidebarBox).not.toBeNull();
+    expect(desktopSidebarBox!.x).toBeGreaterThan(desktopProseBox!.x + desktopProseBox!.width);
+
+    const toc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
+    await expect(toc).toHaveCount(articleCase.toc ? 1 : 0);
+    await expectSemanticArticleHeadings(page);
+
+    const sources = page.locator(".article-block-sources");
+    if (await sources.count()) {
+      const sourceBottom = await sources.last().evaluate((node) => node.getBoundingClientRect().bottom + window.scrollY);
+      const relatedTop = await page.locator(".related-section").evaluate((node) => node.getBoundingClientRect().top + window.scrollY);
+      expect(sourceBottom).toBeLessThan(relatedTop);
+    }
+
+    if (articleCase.id === "bikejoring") await expectNoSeriousAccessibilityViolations(page);
+    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-desktop-1440x900.png` });
+  });
+}
+
+
+
+test("ARTICLE-2 manual, automatic and fallback recommendations are published-only and duplicate-free", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const bikePath = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
+  const stimulusPath = "/aktivity/stimulus-control-u-psa";
+
+  await page.goto(bikePath);
+  const manualRelated = page.locator('aside[aria-label="Súvisiaci článok"]');
+  await expect(manualRelated).toHaveCount(1);
+  await expect(manualRelated.getByText("SÚVISIACI ČLÁNOK", { exact: true })).toBeVisible();
+  await expect(manualRelated.getByRole("link")).toHaveAttribute("href", stimulusPath);
+  await expect(page.getByText("E2E nepublikovaný related kandidát", { exact: true })).toHaveCount(0);
+
+  const endLinks = page.locator(".related-section [data-article-list-item]");
+  expect(await endLinks.count()).toBeGreaterThan(0);
+  expect(await endLinks.count()).toBeLessThanOrEqual(3);
+  const sidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+  await expect(sidebar.locator("li")).toHaveCount(5);
+
+  const recommendationHrefs = await page
+    .locator('aside[aria-label="Súvisiaci článok"] a, .related-section [data-article-list-item], aside[aria-label="Najnovšie články"] a')
+    .evaluateAll((links) => links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)));
+  expect(recommendationHrefs).not.toContain(bikePath);
+  expect(new Set(recommendationHrefs).size, "Duplicate recommendation hrefs: " + JSON.stringify(recommendationHrefs)).toBe(recommendationHrefs.length);
+
+  await page.goto(stimulusPath);
+  const automaticRelated = page.locator('aside[aria-label="Súvisiaci článok"]');
+  await expect(automaticRelated).toHaveCount(1);
+  await expect(automaticRelated.getByRole("link")).toHaveAttribute("href", bikePath);
+  await expect(page.getByText("E2E nepublikovaný related kandidát", { exact: true })).toHaveCount(0);
+
+  await page.goto("/starostlivost/e2e-clanok-bez-obrazka");
+  await expect(page.locator(".article-hero-image")).toHaveCount(0);
+  await expect(page.locator(".article-hero-placeholder")).toBeVisible();
+  await expect(page.locator('aside[aria-label="Súvisiaci článok"]')).toHaveCount(0);
+  await expect(page.getByRole("complementary", { name: "Najnovšie články" }).locator("li")).toHaveCount(5);
+});
+
+test("ARTICLE-2 preserves canonical Article schema, dates, author and image metadata", async ({ page }) => {
+  const path = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
+  await page.goto(path);
+
+  const canonical = page.locator('link[rel="canonical"]');
+  await expect(canonical).toHaveAttribute("href", "https://psipedia.sk" + path);
+
+  const graph = await page.locator('script[type="application/ld+json"]').first().evaluate((node) => JSON.parse(node.textContent || "{}")["@graph"] ?? []);
+  const articleSchema = graph.find((item: { "@type"?: string }) => item["@type"] === "Article");
+  expect(articleSchema).toBeTruthy();
+  expect(articleSchema.datePublished).toBe("2026-08-17");
+  expect(articleSchema.dateModified).toBeTruthy();
+  expect(articleSchema.author?.name).toBe("Redakcia Psipedia");
+  expect(Array.isArray(articleSchema.image)).toBe(true);
+  expect(articleSchema.image.length).toBeGreaterThan(0);
+});
+
+
+test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku");
+
+  await expect(page.getByText("Redakcia Psipedia", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".article-prose strong").filter({ hasText: "Bikejoring je tímový šport" })).toBeVisible();
+  await expect(page.locator(".article-prose em").filter({ hasText: "Bezpečný začiatok je dôležitejší než rýchlosť." })).toBeVisible();
+
+  const safeVideo = page.locator('iframe[src^="https://www.youtube-nocookie.com/embed/"]');
+  await expect(safeVideo).toHaveCount(1);
+  await expect(safeVideo).toHaveAttribute("allowfullscreen", "");
+
+  const sharing = page.getByRole("group", { name: "Zdieľať článok" }).last();
+  await expect(sharing.getByRole("link", { name: "Facebook" })).toHaveAttribute("href", /facebook\.com\/sharer\/sharer\.php/);
+  await expect(sharing.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", /wa\.me/);
+  await sharing.getByRole("button", { name: "Kopírovať odkaz" }).click();
+  await expect(sharing.getByRole("button", { name: "Odkaz skopírovaný" })).toBeVisible();
+
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
+test("ARTICLE-PUBLIC legacy author fallback and malicious embed fail closed", async ({ page }) => {
+  await page.goto("/aktivity/stimulus-control-u-psa");
+  await expect(page.getByText("Martin", { exact: true }).first()).toBeVisible();
+  await expect(page.locator('iframe[src^="javascript:"]')).toHaveCount(0);
+  await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+});
+
+test("ARTICLE-PUBLIC Novinky exposes complete archive and category filters", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/novinky");
+
+  const archive = page.getByRole("list", { name: "Všetky novinky" });
+  await expect(archive.getByText("E2E výskum psov 2026")).toBeVisible();
+  const articleRows = archive.locator("[data-article-list-item]");
+  expect(await articleRows.count()).toBeGreaterThan(0);
+  const firstArticleRow = articleRows.first();
+  await expect(firstArticleRow.locator("[data-article-title]")).toBeVisible();
+  await expect(firstArticleRow.locator("[data-article-topic]")).toBeVisible();
+  await expect(firstArticleRow.locator("[data-article-date]")).toBeVisible();
+  await expect(firstArticleRow.locator("p")).toHaveCount(0);
+  const thumbnailRows = archive.locator("[data-article-list-item]:has([data-article-image])");
+  expect(await thumbnailRows.count(), "Novinky with canonical images should render compact thumbnails").toBeGreaterThan(0);
+  const firstThumbnail = thumbnailRows.first().locator("[data-article-image] img");
+  await expect(firstThumbnail).toBeVisible();
+  await expect(firstThumbnail).toHaveAttribute("alt", /Ilustračná fotografia k článku:/);
+  await expect(firstArticleRow).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať novinku|Čítať článok|Prečítať|Zistiť viac/i);
+  await expect(archive.getByText("E2E zaujímavosť zo sveta psov")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("aria-current", "page");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+
+  await page.getByRole("link", { name: "Veda a zdravie", exact: true }).click();
+  await expect(page).toHaveURL(/\/novinky\/veda-a-zdravie$/);
+  await expect(page.getByRole("list", { name: "Novinky: Veda a zdravie" }).getByText("E2E výskum psov 2026")).toBeVisible();
+  await expect(page.getByText("E2E zaujímavosť zo sveta psov")).toHaveCount(0);
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
+test("PUBLIC-GLOBAL search keeps article results compact while retaining full-text matching", async ({ page }) => {
+  await page.goto("/hladat?q=E2E%20výskum");
+  const row = page.locator('[data-article-list-item][href*="/novinky/"]').first();
+  await expect(row).toBeVisible();
+  await expect(row.locator("[data-article-title]")).toBeVisible();
+  await expect(row.locator("[data-article-topic]")).toBeVisible();
+  await expect(row.locator("[data-article-date]")).toBeVisible();
+  await expect(row.locator("p, small")).toHaveCount(0);
+  await expect(row.locator("[data-article-image] img")).toBeVisible();
+  await expect(row).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať novinku|Čítať článok|Prečítať|Zistiť viac/i);
+});
+
+test("ARTICLE-PUBLIC unknown article remains a real 404", async ({ page }) => {
+  const response = await page.goto("/clanky/article-public-neexistuje");
+  expect(response?.status()).toBe(404);
+});

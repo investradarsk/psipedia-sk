@@ -1,0 +1,121 @@
+.foundation {
+  min-width: 0;
+}
+
+.foundation :global(.browser-toolbar) {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(220px, .6fr);
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border-color: var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  background: var(--white);
+  box-shadow: none;
+}
+
+.foundation :global(.breed-search-wrap .inline-search) {
+  width: 100%;
+  min-height: var(--ps-control-min-height);
+  border-color: var(--ps-border-strong);
+  border-radius: var(--ps-radius-control);
+  background: var(--white);
+}
+
+.foundation :global(.breed-origin-filter select) {
+  width: 100%;
+  max-width: none;
+  min-height: var(--ps-control-min-height);
+  border-color: var(--ps-border-strong);
+  border-radius: var(--ps-radius-control);
+  background: var(--white);
+}
+
+.foundation :global(.fci-filter-panel) {
+  margin-bottom: 18px;
+}
+
+.foundation :global(.fci-filter-row) {
+  min-width: 0;
+}
+
+.foundation :global(.fci-filter-row button) {
+  min-height: var(--ps-control-min-height);
+}
+
+.foundation :global(.fci-group-list) {
+  gap: clamp(42px, 6vw, 58px);
+}
+
+.foundation :global(.fci-group-heading) {
+  border-bottom-color: var(--ps-border-soft);
+}
+
+.foundation :global(.fci-group-number) {
+  border-radius: var(--ps-radius-control);
+}
+
+.foundation :global(.breed-card) {
+  border-color: var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.foundation :global(.breed-card:hover) {
+  transform: translateY(-1px);
+}
+
+.foundation :global(.breed-card-body) {
+  padding: 18px;
+}
+
+.foundation :global(.empty-state) {
+  padding: clamp(40px, 8vw, 68px) 20px;
+  border-color: var(--ps-border-strong);
+  border-radius: var(--ps-radius-card);
+  background: var(--white);
+}
+
+.foundation :global(.breed-atlas-footer) {
+  margin-top: clamp(44px, 6vw, 64px);
+  padding-top: 24px;
+  border-top-color: var(--ps-border-soft);
+}
+
+.foundation :global(.breed-atlas-footer .fci-source-note) {
+  border-radius: 0 var(--ps-radius-card) var(--ps-radius-card) 0;
+}
+
+.foundation :global(.breed-utility-links a) {
+  min-height: var(--ps-control-min-height);
+  align-items: center;
+}
+
+@media (max-width: 760px) {
+  .foundation :global(.browser-toolbar) {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .foundation :global(.fci-filter-row),
+  .foundation :global(.breed-search-wrap .filter-row) {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .foundation :global(.fci-filter-row) {
+    padding-block: 2px 8px;
+    overscroll-behavior-inline: contain;
+  }
+}
+
+@media (max-width: 430px) {
+  .foundation :global(.breed-card-body) {
+    padding: 16px;
+  }
+
+  .foundation :global(.fci-group-heading) {
+    gap: 12px;
+  }
+}

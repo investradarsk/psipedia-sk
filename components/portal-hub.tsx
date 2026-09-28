@@ -1,0 +1,260 @@
+import Link from "next/link";
+import { ArticleCard } from "@/components/article-card";
+import { EventCard } from "@/components/event-card";
+import { EditorialSectionHub } from "@/components/editorial-section";
+import { ArrowIcon, SearchIcon } from "@/components/icons";
+import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
+import { PortalSectionTabs } from "@/components/portal-section-tabs";
+import type { Article } from "@/lib/content";
+import type { DogEvent } from "@/lib/events";
+import {
+  articlePortalSection,
+  portalSectionHeroImage,
+  portalSubpageHref,
+  type PortalSection,
+} from "@/lib/portal";
+
+export function PortalHub({ section, articles, events, allSections = [] }: { section: PortalSection; articles: Article[]; events?: DogEvent[]; allSections?: PortalSection[] }) {
+  const sectionArticles = articles.filter((article) => articlePortalSection(article) === section.slug);
+  const heroImage = sectionArticles.find((article) => article.image)?.image || portalSectionHeroImage(section.slug);
+  const hasEventCalendar = events !== undefined;
+  const isCare = section.slug === "starostlivost";
+  const isActivities = section.slug === "aktivity";
+  const isPuppies = section.slug === "steniatka";
+  const isReviews = section.slug === "recenzie";
+  const isEditorialHub = isCare || isActivities || isPuppies;
+  const showSectionTabs = isEditorialHub || isReviews;
+  const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
+  if (isEditorialHub) return <EditorialSectionHub section={section} articles={articles} />;
+  const careArticleArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
+  const activityArticleArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
+  const articleArea = (article: Article) => isCare ? careArticleArea(article) : activityArticleArea(article);
+  const reviewCardProps = (article: Article) => {
+    if (!isReviews) return {};
+    const category = article.portalSubpage ? subpages.find((item) => item.slug === article.portalSubpage) : null;
+    return {
+      topicHref: category ? portalSubpageHref(section, category) : `/${section.slug}`,
+      topicLabel: category?.label ?? section.label,
+      actionLabel: "Čítať recenziu",
+    };
+  };
+  const featuredSlugs = subpages.flatMap((subpage) => subpage.featuredArticleSlugs ?? []);
+  const featuredArticles = featuredSlugs.flatMap((slug) => {
+    const article = sectionArticles.find((item) => item.slug === slug);
+    return article ? [article] : [];
+  });
+  const featuredArticleIds = new Set(featuredArticles.map((article) => article.slug));
+  const hubArticles = isEditorialHub
+    ? [...featuredArticles, ...sectionArticles.filter((article) => !featuredArticleIds.has(article.slug))]
+    : sectionArticles;
+  const puppyStages = [
+    { title: "Pred príchodom", text: "Rozhodnutie, vhodné plemeno a zodpovedný pôvod.", slugs: ["pred-kupou-psa", "vyber-plemena", "vyber-chovatela"] },
+    { title: "Prvé týždne doma", text: "Bezpečie, režim, zdravie a dobré skúsenosti.", slugs: ["prve-dni", "socializacia", "hygiena", "krmenie", "ockovanie-a-zdravie"] },
+    { title: "Rast a dospievanie", text: "Spolupráca, primeraný pohyb a pokojná puberta.", slugs: ["vycvik-steniatka", "rast-a-vyvoj", "puberta"] },
+  ];
+  const careServices = [
+    { icon: "🩺", title: "Veterinári", text: "Ambulancie, kliniky a pohotovosti podľa lokality.", href: "/adresar/veterinari" },
+    { icon: "🦴", title: "Fyzioterapia", text: "Rehabilitácia, regenerácia a podpora pohybu.", href: "/adresar/fyzioterapia" },
+    { icon: "🦮", title: "Tréneri a školy", text: "Pomoc s výcvikom a problémovým správaním.", href: "/adresar/treneri" },
+    { icon: "✂️", title: "Psie salóny", text: "Úprava srsti a pravidelná hygienická starostlivosť.", href: "/adresar/salony-a-sluzby" },
+  ];
+  const activityServices = [
+    { icon: "🦮", title: "Tréneri a psie školy", text: "Základy, športová príprava aj individuálne vedenie.", href: "/adresar/treneri" },
+    { icon: "🏅", title: "Kynologické kluby", text: "Cvičiská, športové kluby a miestne organizácie.", href: "/adresar/kynologicke-kluby" },
+    { icon: "📅", title: "Podujatia", text: "Preteky, tréningy, semináre a spoločné stretnutia.", href: "/podujatia" },
+    { icon: "🏡", title: "Hotely a opatrovanie", text: "Starostlivosť o psa, keď nemôže cestovať s tebou.", href: "/adresar/hotely-a-opatrovanie" },
+  ];
+  const puppyServices = [
+    { icon: "🐕", title: "Výber plemena", text: "Porovnaj povahu, energiu a nároky plemien podľa svojho života.", href: "/plemena/vyber-plemena" },
+    { icon: "🏡", title: "Chovateľské stanice", text: "Nájdi chovateľov a over si pôvod aj zdravotné vyšetrenia.", href: "/adresar/chovatelske-stanice" },
+    { icon: "🩺", title: "Veterinári", text: "Ambulancie, kliniky a pohotovosti podľa lokality.", href: "/adresar/veterinari" },
+    { icon: "🦮", title: "Tréneri a školy", text: "Citlivé vedenie socializácie a prvých tréningových krokov.", href: "/adresar/treneri" },
+  ];
+
+  const latestContent = <section className="section section--tint portal-hub-content">
+    <PageContainer>
+      <div className="section-heading split-heading">
+        <div>
+          <span className="eyebrow">{hasEventCalendar ? "Najbližšie termíny" : isReviews ? "Najnovšie recenzie a testy" : isEditorialHub && featuredArticles.length ? "Odporúčané a najnovšie" : "Najnovšie v sekcii"}</span>
+          <h2>{hasEventCalendar ? "Čo nás čaká" : isReviews ? "Testy a skúsenosti bez ďalšieho medzikroku" : isEditorialHub ? "Čítaj priamo zo sekcie" : "Čerstvé články a sprievodcovia"}</h2>
+        </div>
+        {!isReviews && <Link href={hasEventCalendar ? "/podujatia/kalendar" : "/clanky"} className="text-link text-link--large">{hasEventCalendar ? "Celý kalendár" : "Všetky články"} <ArrowIcon /></Link>}
+      </div>
+      {hasEventCalendar && events.length ? (
+        <div className="event-grid">{events.slice(0, 3).map((event) => <EventCard event={event} key={event.id} />)}</div>
+      ) : !hasEventCalendar && hubArticles.length ? (
+        isReviews ? <>
+          <div className="review-articles-layout">
+            <div className="review-article-featured"><ArticleCard article={hubArticles[0]} {...reviewCardProps(hubArticles[0])} /></div>
+            <div className="review-article-stack">{hubArticles.slice(1, 4).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
+          </div>
+          {hubArticles.length > 4 && <div className="article-grid review-more-articles">{hubArticles.slice(4, 7).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>}
+        </> : isEditorialHub ? <>
+          <div className="care-articles-layout">
+            <div className="care-article-featured"><ArticleCard article={hubArticles[0]} {...reviewCardProps(hubArticles[0])} /></div>
+            <div className="care-article-stack">{hubArticles.slice(1, 5).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
+          </div>
+          {hubArticles.length > 5 && <div className="article-grid portal-hub-more-articles">{hubArticles.slice(5, 8).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>}
+        </> : <div className="article-grid">{hubArticles.slice(0, 3).map((article) => <ArticleCard article={article} {...reviewCardProps(article)} key={article.slug} />)}</div>
+      ) : (
+        <div className="portal-empty">
+          <span aria-hidden="true">🐾</span>
+          <div><h3>{hasEventCalendar ? "Prvé termíny pripravujeme" : isReviews ? "Prvé recenzie pripravujeme" : "Prvé články pripravujeme"}</h3><p>{hasEventCalendar ? "Kalendár je pripravený a nové podujatia sa sem pridávajú cez redakčnú administráciu." : isReviews ? "Kategórie sú pripravené. Publikované recenzie a testy sa zobrazia priamo tu aj vo svojej produktovej kategórii." : "Štruktúra sekcie je už pripravená a redakcia sem môže články pridávať priamo cez administráciu."}</p></div>
+        </div>
+      )}
+    </PageContainer>
+  </section>;
+
+  return (
+    <main id="obsah">
+      <SectionHero
+        image={heroImage}
+        className={`portal-hero portal-section-hero portal-hero--${section.accent}${heroImage ? " portal-hero--photo portal-section-hero--photo" : ""}`}
+        imageClassName="portal-hero-photo"
+        containerClassName="portal-hero-inner"
+      >
+        <Breadcrumbs>
+          <Link href="/">Domov</Link><span>/</span><span>{section.label}</span>
+        </Breadcrumbs>
+        <div className="portal-hero-copy">
+          <span className="portal-hero-icon" aria-hidden="true">{section.icon}</span>
+          <div>
+            <span className="eyebrow">{section.eyebrow}</span>
+            <h1>{section.label}</h1>
+            <p>{section.description}</p>
+          </div>
+        </div>
+        <p className="portal-hero-intro">{section.intro}</p>
+        {isCare && <form className="care-search" action="/hladat" method="get">
+          <SearchIcon size={22} />
+          <input type="hidden" name="sekcia" value="starostlivost" />
+          <label className="sr-only" htmlFor="care-search-query">Čo riešiš so svojím psom?</label>
+          <input id="care-search-query" name="q" maxLength={120} placeholder="Čo riešiš? Napríklad hnačka, svrbenie alebo samota…" />
+          <button type="submit">Nájsť odpoveď</button>
+        </form>}
+        {isActivities && <form className="care-search activity-search" action="/hladat" method="get">
+          <SearchIcon size={22} />
+          <input type="hidden" name="sekcia" value="aktivity" />
+          <label className="sr-only" htmlFor="activity-search-query">Akú aktivitu alebo šport hľadáš?</label>
+          <input id="activity-search-query" name="q" maxLength={120} placeholder="Hľadaj šport, výlet, výbavu alebo cestovanie…" />
+          <button type="submit">Hľadať v aktivitách</button>
+        </form>}
+        {isPuppies && <form className="care-search puppy-search" action="/hladat" method="get">
+          <SearchIcon size={22} />
+          <input type="hidden" name="sekcia" value="steniatka" />
+          <label className="sr-only" htmlFor="puppy-search-query">Čo potrebuješ vedieť o šteniatku?</label>
+          <input id="puppy-search-query" name="q" maxLength={120} placeholder="Hľadaj prvú noc, socializáciu, kŕmenie alebo očkovanie…" />
+          <button type="submit">Hľadať v sprievodcovi</button>
+        </form>}
+        {isReviews && <form className="care-search review-search" action="/hladat" method="get">
+          <SearchIcon size={22} />
+          <input type="hidden" name="sekcia" value="recenzie" />
+          <label className="sr-only" htmlFor="review-search-query">Čo chceš porovnať alebo overiť?</label>
+          <input id="review-search-query" name="q" maxLength={120} placeholder="Hľadaj produkt, výbavu alebo typ testu…" />
+          <button type="submit">Hľadať v recenziách</button>
+        </form>}
+      </SectionHero>
+
+      {showSectionTabs && <PortalSectionTabs section={section} />}
+
+      {isReviews && <section className="shell public-shell review-trust" aria-labelledby="review-trust-heading">
+        <div className="review-trust-heading">
+          <span className="review-trust-icon" aria-hidden="true">✓</span>
+          <div><span className="eyebrow">Ako hodnotíme</span><h2 id="review-trust-heading">Najprv skúsenosť, potom záver</h2></div>
+        </div>
+        <div className="review-trust-factors">
+          <div><strong>Reálne používanie</strong><span>Sledujeme praktickosť, odolnosť a to, čo sa ukáže až pri bežnom používaní.</span></div>
+          <div><strong>Kontext psa</strong><span>Výsledok vždy vysvetľujeme podľa veľkosti, veku, aktivity a konkrétneho použitia.</span></div>
+          <div><strong>Transparentnosť</strong><span>Partnerský obsah a affiliate odkazy označujeme tak, aby bolo jasné, čo je redakčný test.</span></div>
+        </div>
+      </section>}
+
+      {isCare && <section className="shell public-shell care-urgent" aria-labelledby="care-urgent-heading">
+        <span className="care-urgent-icon" aria-hidden="true">!</span>
+        <div><span className="eyebrow">Keď ide o čas</span><h2 id="care-urgent-heading">Má pes akútny problém?</h2><p>Pri sťaženom dýchaní, kolapse, silnom krvácaní, nafúknutom tvrdom bruchu alebo podozrení na otravu nečakaj na odpoveď z internetu.</p></div>
+        <div className="care-urgent-actions"><Link href="/starostlivost/kedy-ist-so-psom-k-veterinarovi">Kedy volať ihneď</Link><Link href="/adresar/veterinari" className="is-primary">Nájsť veterinára</Link></div>
+      </section>}
+
+      {isActivities && <section className="shell public-shell activity-fit" aria-labelledby="activity-fit-heading">
+        <div className="activity-fit-heading"><span className="activity-fit-icon" aria-hidden="true">↗</span><div><span className="eyebrow">Vyber rozumne</span><h2 id="activity-fit-heading">Dobrá aktivita sedí konkrétnemu psovi</h2></div></div>
+        <div className="activity-fit-factors">
+          <div><strong>Vek a zdravie</strong><span>Rast, kĺby, hmotnosť a aktuálna kondícia.</span></div>
+          <div><strong>Motivácia psa</strong><span>Čuchanie, beh, aport, presnosť alebo spoločný výlet.</span></div>
+          <div><strong>Čas a prostredie</strong><span>Krátky tréning, pravidelný šport alebo celodenná cesta.</span></div>
+        </div>
+        <Link href="/aktivity/psie-sporty">Porovnať možnosti <ArrowIcon size={18} /></Link>
+      </section>}
+
+      {isPuppies && <section className="shell public-shell puppy-start" aria-labelledby="puppy-start-heading">
+        <div><span className="eyebrow">Začni podľa situácie</span><h2 id="puppy-start-heading">Čakáš šteniatko alebo je už doma?</h2><p>Vyber si správny začiatok a pokračuj krok za krokom bez zahltenia.</p></div>
+        <div className="puppy-start-actions"><Link href="/steniatka/pred-kupou-psa">Ešte sa rozhodujem</Link><Link href="/steniatka/prve-dni" className="is-primary">Šteniatko je doma</Link></div>
+      </section>}
+
+      {isEditorialHub && latestContent}
+
+      {isReviews && latestContent}
+
+      {isReviews && <section className="section shell public-shell review-directory" aria-labelledby="review-directory-heading">
+        <div className="section-heading split-heading">
+          <div>
+            <span className="eyebrow">Vyber si kategóriu</span>
+            <h2 id="review-directory-heading">Nájdi test podľa toho, čo práve riešiš</h2>
+          </div>
+          <p>Každá kategória má vlastný prehľad. Uvidíš iba recenzie, testy a porovnania, ktoré do nej patria.</p>
+        </div>
+        <div className="review-category-grid">
+          {subpages.map((subpage, index) => {
+            const reviewCount = sectionArticles.filter((article) => article.portalSubpage === subpage.slug).length;
+            return (
+              <Link href={portalSubpageHref(section, subpage)} className="review-category-card" key={subpage.slug}>
+                <span className="review-category-index">{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <h3>{subpage.label}</h3>
+                  <p>{subpage.description}</p>
+                  <b>{reviewCount} {reviewCount === 1 ? "recenzia" : reviewCount > 1 && reviewCount < 5 ? "recenzie" : "recenzií"}</b>
+                </div>
+                <ArrowIcon size={20} />
+              </Link>
+            );
+          })}
+        </div>
+      </section>}
+
+      {!isReviews && <section className="section shell public-shell portal-directory" aria-labelledby="portal-directory-heading">
+        <div className="section-heading split-heading">
+          <div>
+            <span className="eyebrow">Vyber si oblasť</span>
+            <h2 id="portal-directory-heading">Všetko na jednom mieste</h2>
+          </div>
+          <p>{isCare ? "Začni tým, čo práve riešiš. V každej poradni nájdeš domáce kroky, varovné signály aj hranicu odbornej pomoci." : isActivities ? "Vyber si oblasť podľa toho, čo chcete spolu robiť. Nájdeš v nej prvé kroky, bezpečnostné limity aj praktické kontakty." : isPuppies ? "Postupuj podľa fázy, v ktorej sa práve nachádzaš. Každá téma má praktické kroky, upozornenia a užitočné kontakty." : "Každá oblasť má vlastnú adresu, ktorú si môžeš uložiť alebo priamo zdieľať."}</p>
+        </div>
+        {(isPuppies ? puppyStages : [{ title: "", text: "", slugs: subpages.map((item) => item.slug) }]).map((stage) => <div className={isPuppies ? "puppy-stage" : ""} key={stage.title || "all"}>
+          {isPuppies && <header className="puppy-stage-heading"><span>{String(puppyStages.indexOf(stage) + 1).padStart(2, "0")}</span><div><h3>{stage.title}</h3><p>{stage.text}</p></div></header>}
+          <div className="portal-subpage-grid">
+          {subpages.filter((item) => stage.slugs.includes(item.slug)).map((subpage, index) => (
+            <Link href={portalSubpageHref(section, subpage)} className={`portal-subpage-card ${isCare ? "care-area-card" : ""} ${isActivities ? "activity-area-card" : ""} ${isPuppies ? "puppy-area-card" : ""}`} key={subpage.slug}>
+              <span>{isEditorialHub ? (subpage.icon || "🐾") : String(index + 1).padStart(2, "0")}</span>
+              <div><h3>{subpage.label}</h3><p>{subpage.description}</p>{isEditorialHub && <div className="care-area-topics">{subpage.popularTopics?.slice(0, 3).map((topic) => <small key={topic}>{topic}</small>)}</div>}{isEditorialHub && <b>{sectionArticles.filter((article) => articleArea(article) === subpage.slug).length} {sectionArticles.filter((article) => articleArea(article) === subpage.slug).length === 1 ? "článok" : "článkov"}</b>}</div>
+              <ArrowIcon size={20} />
+            </Link>
+          ))}
+          </div>
+        </div>)}
+      </section>}
+
+      {!isEditorialHub && !isReviews && latestContent}
+
+      <section className="section shell public-shell">
+        <div className="portal-more-heading"><span className="eyebrow">{isCare ? "Pomoc nablízku" : isActivities ? "Tréning a zážitky nablízku" : isPuppies ? "Ďalší bezpečný krok" : isReviews ? "Súvisiace témy" : "Celá Psipedia"}</span><h2>{isCare ? "Užitočné služby a kontakty" : isActivities ? "Kam pokračovať" : isPuppies ? "Výber, zdravie a vedenie na jednom mieste" : isReviews ? "Pokračuj podľa toho, čo práve riešiš" : "Pokračuj ďalšou sekciou"}</h2>{isCare && <p>Keď článok nestačí, pokračuj priamo k vhodnému odborníkovi alebo službe.</p>}{isActivities && <p>Nájdi vedenie, klub, podujatie alebo bezpečné riešenie na čas, keď pes nemôže cestovať s tebou.</p>}{isPuppies && <p>Over si rozhodnutie, pôvod šteniatka aj odbornú pomoc skôr, než ju budeš súrne potrebovať.</p>}{isReviews && <p>Recenziu ber ako praktický vstup do rozhodovania. Pri zdraví, výžive alebo tréningu pokračuj aj do príslušnej poradenskej sekcie.</p>}</div>
+        <div className={`portal-more-grid ${isEditorialHub ? "care-service-grid" : ""}`}>
+          {(isCare ? careServices : isActivities ? activityServices : isPuppies ? puppyServices : allSections.filter((item) => item.slug !== section.slug).map((item) => ({ icon: item.icon, title: item.label, text: "", href: `/${item.slug}` }))).map((item) => (
+            <Link href={item.href} key={item.href}><span aria-hidden="true">{item.icon}</span><span><strong>{item.title}</strong>{item.text && <small>{item.text}</small>}</span><ArrowIcon size={18} /></Link>
+          ))}
+        </div>
+        {isCare && <p className="care-medical-note"><strong>Dôležité:</strong> Psipedia nenahrádza veterinárne vyšetrenie. Pri akútnom stave alebo rýchlom zhoršovaní kontaktuj veterinára bez čakania.</p>}
+        {isActivities && <p className="care-medical-note activity-safety-note"><strong>Bezpečný pohyb:</strong> Záťaž zvyšuj postupne. Pri šteniatku, seniorovi, nadváhe, bolesti alebo zdravotnom obmedzení si vhodný pohyb over u veterinára alebo fyzioterapeuta.</p>}
+        {isPuppies && <p className="care-medical-note puppy-safety-note"><strong>Dôležité pre rast:</strong> Očkovanie, zdravotné ťažkosti, výživu a primeranú záťaž rieš podľa konkrétneho šteniatka s veterinárom. Sprievodca nenahrádza vyšetrenie.</p>}
+      </section>
+    </main>
+  );
+}

@@ -1,0 +1,72 @@
+.field {
+  min-width: 0;
+}
+
+.selectionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.summary {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d7e0dc;
+  border-radius: 12px;
+  background: #f8faf9;
+}
+
+.summary img,
+.avatarPreview {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.summary div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.summary span {
+  color: #607069;
+  font-size: 0.9rem;
+}
+
+.summary p {
+  margin: 4px 0 0;
+  color: #3e4c46;
+}
+
+.drawerFields {
+  display: grid;
+  gap: 16px;
+}
+
+.avatarPreview {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.drawerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 700px) {
+  .selectionRow {
+    grid-template-columns: 1fr;
+  }
+
+  .selectionRow > button {
+    width: 100%;
+  }
+}

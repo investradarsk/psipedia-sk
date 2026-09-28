@@ -1,0 +1,19 @@
+.row {
+  composes: row from "./admin-list-row.module.css";
+}
+
+.rowCheck {
+  composes: rowCheck from "./admin-list-row.module.css";
+}
+
+.thumb {
+  composes: thumb from "./admin-list-row.module.css";
+}
+
+.main {
+  composes: main from "./admin-list-row.module.css";
+}
+
+.actions {
+  composes: actions from "./admin-list-row.module.css";
+}

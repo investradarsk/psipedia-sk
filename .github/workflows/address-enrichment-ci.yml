@@ -1,0 +1,37 @@
+name: Address enrichment controlled canary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/api/admin/address-enrichment/**"
+      - "app/admin/nastroje/address-enrichment/**"
+      - "components/admin-address-enrichment-canary.tsx"
+      - "lib/address-enrichment*.ts"
+      - "tests/address-enrichment.test.mjs"
+      - ".github/workflows/address-enrichment-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: address-enrichment-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run db:check-migrations
+      - run: npm run lint
+      - name: ADDRESS-ENRICH-2 focused tests
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/address-enrichment.test.mjs
+      - run: npm run build

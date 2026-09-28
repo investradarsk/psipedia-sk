@@ -1,0 +1,1 @@
+ALTER TABLE `managed_articles` ADD `blocks_json` text DEFAULT '[]' NOT NULL;

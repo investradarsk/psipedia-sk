@@ -1,0 +1,458 @@
+import { HELP_ADMIN_DOMAIN_SQL, isHelpAdminCreateCategory, type HelpAdminFilters, queryHelpAdmin } from "@/lib/help-admin-query";
+import { env } from "cloudflare:workers";
+import { cache } from "react";
+import { slugifyArticleTitle } from "@/lib/article-store";
+import { slovakRegions, type SlovakRegion } from "@/lib/events";
+import {
+  defaultHelpActionLabel,
+  allHelpCategories,
+  isHelpCategory,
+  type HelpCase,
+  type HelpCaseStatus,
+  type HelpCategorySlug,
+} from "@/lib/help";
+import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
+import type { AdoptionD1Database } from "@/lib/adoption-store";
+import {
+  listPublishedOrganizations,
+  type PublicOrganizationIndexItem,
+} from "@/lib/help-organization-store";
+
+export type ManagedHelpCaseInput = {
+  slug?: string;
+  title?: string;
+  category?: string;
+  status?: string;
+  excerpt?: string;
+  description?: string;
+  organization?: string;
+  dogName?: string;
+  breed?: string;
+  ageNote?: string;
+  city?: string;
+  region?: string;
+  locationNote?: string;
+  reportedDate?: string | null;
+  deadlineDate?: string | null;
+  actionLabel?: string;
+  actionUrl?: string | null;
+  contactNote?: string;
+  goalAmount?: number | string | null;
+  raisedAmount?: number | string | null;
+  imageUrl?: string | null;
+  imageKey?: string | null;
+  verified?: boolean;
+  urgent?: boolean;
+  resolved?: boolean;
+  seo?: EditableSeo;
+};
+
+export type ManagedHelpCaseSummary = Pick<
+  HelpCase,
+  | "id"
+  | "slug"
+  | "title"
+  | "category"
+  | "status"
+  | "organization"
+  | "dogName"
+  | "city"
+  | "imageUrl"
+  | "verified"
+  | "urgent"
+  | "resolved"
+>;
+
+type HelpCaseRow = {
+  id: number;
+  slug: string;
+  title: string;
+  category: string;
+  status: string;
+  excerpt: string;
+  description: string;
+  organization: string;
+  dog_name: string;
+  breed: string;
+  age_note: string;
+  city: string;
+  region: string;
+  location_note: string;
+  reported_date: string | null;
+  deadline_date: string | null;
+  action_label: string;
+  action_url: string | null;
+  contact_note: string;
+  goal_amount: number | null;
+  raised_amount: number | null;
+  image_url: string | null;
+  image_key: string | null;
+  verified: number;
+  urgent: number;
+  resolved: number;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  created_by: string;
+  updated_by: string;
+  seo_json: string;
+};
+
+type HelpCaseSummaryRow = {
+  id: number;
+  slug: string;
+  title: string;
+  category: string;
+  status: string;
+  organization: string;
+  dog_name: string;
+  city: string;
+  image_url: string | null;
+  verified: number;
+  urgent: number;
+  resolved: number;
+};
+
+type RuntimeBindings = { DB?: D1Database };
+
+export function getD1Binding() {
+  const database = (env as unknown as RuntimeBindings).DB;
+  return database && typeof database.prepare === "function" ? database : null;
+}
+
+function requireD1Binding() {
+  const database = getD1Binding();
+  if (!database) throw new Error("Databáza pomoci psom zatiaľ nie je pripojená.");
+  return database;
+}
+
+async function ensureHelpStore(database: D1Database) {
+  void database;
+  // Schema creation and indexes are handled by deployment migrations.
+}
+
+function rowToHelpCase(row: HelpCaseRow): HelpCase {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
+    status: row.status === "published" ? "published" : "draft",
+    excerpt: row.excerpt,
+    description: row.description,
+    organization: row.organization,
+    dogName: row.dog_name,
+    breed: row.breed,
+    ageNote: row.age_note,
+    city: row.city,
+    region: (slovakRegions as readonly string[]).includes(row.region) ? row.region as SlovakRegion : "Online",
+    locationNote: row.location_note,
+    reportedDate: row.reported_date,
+    deadlineDate: row.deadline_date,
+    actionLabel: row.action_label,
+    actionUrl: row.action_url,
+    contactNote: row.contact_note,
+    goalAmount: row.goal_amount,
+    raisedAmount: row.raised_amount,
+    imageUrl: row.image_url,
+    imageKey: row.image_key,
+    verified: Boolean(row.verified),
+    urgent: Boolean(row.urgent),
+    resolved: Boolean(row.resolved),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    publishedAt: row.published_at,
+    createdBy: row.created_by,
+    updatedBy: row.updated_by,
+    seo: parseSeo(row.seo_json),
+  };
+}
+
+function canonicalOrganizationToHelpCase(
+  organization: PublicOrganizationIndexItem,
+): HelpCase {
+  const region = (slovakRegions as readonly string[]).includes(organization.region)
+    ? organization.region as SlovakRegion
+    : "Online";
+  return {
+    id: organization.id,
+    slug: organization.slug,
+    title: organization.name,
+    category: "utulky",
+    status: "published",
+    excerpt: organization.shortDescription,
+    description: organization.description,
+    organization: organization.name,
+    dogName: "",
+    breed: "",
+    ageNote: "",
+    city: organization.city || "Online",
+    region,
+    locationNote: "",
+    reportedDate: null,
+    deadlineDate: null,
+    actionLabel: defaultHelpActionLabel("utulky"),
+    actionUrl: organization.websiteUrl,
+    contactNote: [organization.publicEmail, organization.publicPhone].filter(Boolean).join(" · "),
+    goalAmount: null,
+    raisedAmount: null,
+    imageUrl: organization.imageUrl,
+    imageKey: null,
+    verified: Boolean(organization.lastVerifiedAt),
+    urgent: false,
+    resolved: false,
+    createdAt: organization.publishedAt,
+    updatedAt: organization.updatedAt,
+    publishedAt: organization.publishedAt,
+    createdBy: "",
+    updatedBy: "",
+    seo: {},
+  };
+}
+
+function comparePublicHelpCases(left: HelpCase, right: HelpCase) {
+  return Number(left.resolved) - Number(right.resolved)
+    || Number(right.urgent) - Number(left.urgent)
+    || Number(right.verified) - Number(left.verified)
+    || right.updatedAt.localeCompare(left.updatedAt)
+    || right.id - left.id;
+}
+
+function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
+
+function rowToHelpCaseSummary(row: HelpCaseSummaryRow): ManagedHelpCaseSummary {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
+    status: row.status === "published" ? "published" : "draft",
+    organization: row.organization,
+    dogName: row.dog_name,
+    city: row.city,
+    imageUrl: row.image_url,
+    verified: Boolean(row.verified),
+    urgent: Boolean(row.urgent),
+    resolved: Boolean(row.resolved),
+  };
+}
+
+function normalizeUrl(value: string | null | undefined) {
+  const clean = value?.trim() || null;
+  if (!clean) return null;
+  let parsed: URL;
+  try { parsed = new URL(clean); } catch { throw new Error("Odkaz na pomoc nie je platný."); }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("Odkaz musí začínať http:// alebo https://.");
+  return clean;
+}
+
+function normalizeDate(value: string | null | undefined, label: string) {
+  const clean = value?.trim() || null;
+  if (!clean) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean) || Number.isNaN(new Date(`${clean}T12:00:00Z`).getTime())) throw new Error(`${label} nie je platný.`);
+  return clean;
+}
+
+function normalizeAmount(value: number | string | null | undefined, label: string) {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 100000000 || !Number.isInteger(numeric)) throw new Error(`${label} musí byť celé nezáporné číslo.`);
+  return numeric;
+}
+
+function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrgent?: boolean } = {}) {
+  const title = payload.title?.trim() ?? "";
+  const slug = slugifyArticleTitle(payload.slug?.trim() || title);
+  const category = payload.category && isHelpCategory(payload.category) ? payload.category : null;
+  const status: HelpCaseStatus = payload.status === "published" ? "published" : "draft";
+  const excerpt = payload.excerpt?.trim() ?? "";
+  const description = payload.description?.trim() ?? "";
+  const organization = payload.organization?.trim() ?? "";
+  const city = payload.city?.trim() ?? "";
+  const region = (slovakRegions as readonly string[]).includes(payload.region ?? "") ? payload.region as SlovakRegion : null;
+  const actionUrl = normalizeUrl(payload.actionUrl);
+  const goalAmount = normalizeAmount(payload.goalAmount, "Cieľ zbierky");
+  const raisedAmount = normalizeAmount(payload.raisedAmount, "Doteraz vyzbieraná suma");
+  const verified = Boolean(payload.verified);
+
+  if (!title) throw new Error("Doplň názov prípadu alebo výzvy.");
+  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa prípadu nie je platná.");
+  if (!category) throw new Error("Vyber kategóriu pomoci.");
+  if (category === "adopcia") throw new Error("Adopcie sa spravujú v canonical sekcii Adopcie.");
+  if (category === "stratene-a-najdene") throw new Error("Stratené a nájdené psy sa spravujú v canonical Lost/Found sekcii.");
+  if (category === "utulky") throw new Error("Útulky a organizácie sa spravujú v canonical sekcii Organizácie.");
+  if (!isHelpAdminCreateCategory(category) && !(options.allowLegacyUrgent && category === "urgentne-pripady")) throw new Error("Táto kategória nepatrí do generic Help CRUD.");
+  if (allHelpCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
+  if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
+  if (description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
+  if (!organization) throw new Error("Doplň zodpovednú organizáciu alebo osobu.");
+  if (!city) throw new Error("Doplň mesto alebo uveď Online.");
+  if (!region) throw new Error("Vyber kraj.");
+  if (category === "zbierky" && status === "published" && (!verified || !actionUrl || (goalAmount !== null && goalAmount <= 0))) {
+    throw new Error("Zbierku možno publikovať až po overení, s platným odkazom a kladnou cieľovou sumou, ak je zadaná.");
+  }
+  if (goalAmount !== null && raisedAmount !== null && raisedAmount > goalAmount * 10) throw new Error("Skontroluj vyzbieranú sumu; výrazne presahuje cieľ.");
+
+  const imageUrl = payload.imageUrl?.trim() || null;
+  if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
+
+  return {
+    slug,
+    title,
+    category,
+    status,
+    excerpt,
+    description,
+    organization,
+    dogName: payload.dogName?.trim() ?? "",
+    breed: payload.breed?.trim() ?? "",
+    ageNote: payload.ageNote?.trim() ?? "",
+    city,
+    region,
+    locationNote: payload.locationNote?.trim() ?? "",
+    reportedDate: normalizeDate(payload.reportedDate, "Dátum prípadu"),
+    deadlineDate: normalizeDate(payload.deadlineDate, "Termín pomoci"),
+    actionLabel: payload.actionLabel?.trim() || defaultHelpActionLabel(category),
+    actionUrl,
+    contactNote: payload.contactNote?.trim() ?? "",
+    goalAmount,
+    raisedAmount,
+    imageUrl,
+    imageKey: payload.imageKey?.trim() || null,
+    verified,
+    urgent: Boolean(payload.urgent),
+    resolved: Boolean(payload.resolved),
+    seo: cleanEditableSeo(payload.seo),
+  };
+}
+
+export async function getPublishedHelpCases(category?: HelpCategorySlug, limit = 250) {
+  const database = getD1Binding();
+  if (!database) return [] as HelpCase[];
+  if (category === "adopcia") return [] as HelpCase[];
+  const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
+  const organizationDatabase = database as unknown as AdoptionD1Database;
+  if (category === "utulky") {
+    return (await listPublishedOrganizations(organizationDatabase, safeLimit)).map(canonicalOrganizationToHelpCase);
+  }
+  if (category) {
+    const result = await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?").bind(category, safeLimit).all<HelpCaseRow>();
+    return result.results.map(rowToHelpCase);
+  }
+  const [legacy, organizations] = await Promise.all([
+    database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?").bind(safeLimit).all<HelpCaseRow>(),
+    listPublishedOrganizations(organizationDatabase, safeLimit),
+  ]);
+  return [
+    ...legacy.results.map(rowToHelpCase),
+    ...organizations.map(canonicalOrganizationToHelpCase),
+  ].sort(comparePublicHelpCases).slice(0, safeLimit);
+}
+
+export async function getHighlightedHelpCases(limit = 2) {
+  const database = getD1Binding();
+  if (!database) return [] as HelpCase[];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const result = await database
+    .prepare("SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND resolved = 0 ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?")
+    .bind(safeLimit)
+    .all<HelpCaseRow>();
+  return result.results.map(rowToHelpCase);
+}
+
+const getPublishedHelpCaseUncached = async (category: string, slug: string) => {
+  const database = getD1Binding();
+  if (!database || !isHelpCategory(category) || category === "utulky") return null;
+  const row = await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<HelpCaseRow>();
+  return row ? rowToHelpCase(row) : null;
+};
+export const getPublishedHelpCase = cache(getPublishedHelpCaseUncached);
+
+export async function listManagedHelpCaseSummaries(limit = 100) {
+  const database = requireD1Binding();
+  await ensureHelpStore(database);
+  const safeLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
+  const result = await database.prepare(`
+    SELECT id, slug, title, category, status, organization, dog_name, city, image_url, verified, urgent, resolved
+    FROM help_cases
+    WHERE ${HELP_ADMIN_DOMAIN_SQL}
+    ORDER BY updated_at DESC, id DESC
+    LIMIT ?
+  `).bind(safeLimit).all<HelpCaseSummaryRow>();
+  return result.results.map(rowToHelpCaseSummary);
+}
+
+export async function getManagedHelpDashboard(filters: HelpAdminFilters) {
+  const database = requireD1Binding();
+  const result = await queryHelpAdmin<HelpCaseSummaryRow>(database, filters);
+  return { ...result, items: result.items.map(rowToHelpCaseSummary) };
+}
+
+export async function getManagedHelpCaseById(id: number) {
+  const database = requireD1Binding();
+  await ensureHelpStore(database);
+  const row = await database.prepare(`SELECT * FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} LIMIT 1`).bind(id).first<HelpCaseRow>();
+  return row ? rowToHelpCase(row) : null;
+}
+
+export async function createManagedHelpCase(payload: ManagedHelpCaseInput, editorEmail: string) {
+  const database = requireD1Binding();
+  await ensureHelpStore(database);
+  const input = normalizeInput(payload);
+  const now = new Date().toISOString();
+  const row = await database.prepare(`
+    INSERT INTO help_cases (
+      slug, title, category, status, excerpt, description, organization, dog_name, breed, age_note,
+      city, region, location_note, reported_date, deadline_date, action_label, action_url, contact_note,
+      goal_amount, raised_amount, image_url, image_key, verified, urgent, resolved, seo_json,
+      created_at, updated_at, published_at, created_by, updated_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
+  `).bind(
+    input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
+    input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
+    input.reportedDate, input.deadlineDate, input.actionLabel, input.actionUrl, input.contactNote,
+    input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey, input.verified ? 1 : 0,
+    input.urgent ? 1 : 0, input.resolved ? 1 : 0, JSON.stringify(input.seo), now, now,
+    input.status === "published" ? now : null, editorEmail, editorEmail,
+  ).first<HelpCaseRow>();
+  if (!row) throw new Error("Prípad sa nepodarilo vytvoriť.");
+  return rowToHelpCase(row);
+}
+
+export async function updateManagedHelpCase(id: number, payload: ManagedHelpCaseInput, editorEmail: string, existingItem?: HelpCase) {
+  const database = requireD1Binding();
+  await ensureHelpStore(database);
+  const existing = existingItem ?? await getManagedHelpCaseById(id);
+  if (!existing) return null;
+  if (existing.category === "utulky") throw new Error("Legacy shelter záznam sa po canonical cutover už neupravuje.");
+  const input = normalizeInput(payload, { allowLegacyUrgent: existing.category === "urgentne-pripady" });
+  const now = new Date().toISOString();
+  const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
+  const row = await database.prepare(`
+    UPDATE help_cases SET
+      slug = ?, title = ?, category = ?, status = ?, excerpt = ?, description = ?, organization = ?,
+      dog_name = ?, breed = ?, age_note = ?, city = ?, region = ?, location_note = ?, reported_date = ?,
+      deadline_date = ?, action_label = ?, action_url = ?, contact_note = ?, goal_amount = ?, raised_amount = ?,
+      image_url = ?, image_key = ?, verified = ?, urgent = ?, resolved = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
+    WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *
+  `).bind(
+    input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
+    input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
+    input.reportedDate, input.deadlineDate, input.actionLabel, input.actionUrl, input.contactNote,
+    input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey, input.verified ? 1 : 0,
+    input.urgent ? 1 : 0, input.resolved ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id,
+  ).first<HelpCaseRow>();
+  return row ? rowToHelpCase(row) : null;
+}
+
+export async function deleteManagedHelpCase(id: number) {
+  const database = requireD1Binding();
+  await ensureHelpStore(database);
+  const row = await database.prepare(`DELETE FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *`).bind(id).first<HelpCaseRow>();
+  return row ? rowToHelpCase(row) : null;
+}
+
+export function isHelpCaseConflict(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("UNIQUE constraint failed") || message.includes("help_cases.category, help_cases.slug");
+}

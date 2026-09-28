@@ -1,0 +1,160 @@
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import test from "node:test";
+
+const page = readFileSync(new URL("../app/mapa/page.tsx", import.meta.url), "utf8");
+const experience = readFileSync(new URL("../components/map/map-experience.tsx", import.meta.url), "utf8");
+const renderer = readFileSync(new URL("../components/map/google-map-renderer.tsx", import.meta.url), "utf8");
+const css = readFileSync(new URL("../components/map/map-public.module.css", import.meta.url), "utf8");
+const navigation = readFileSync(new URL("../lib/navigation.ts", import.meta.url), "utf8");
+const rootLayout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+const homePage = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
+const env = readFileSync(new URL("../config/runtime-env.ts", import.meta.url), "utf8");
+const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
+const liveAudit = readFileSync(new URL("./e2e/map-production-live.spec.ts", import.meta.url), "utf8");
+
+test("canonical /mapa route exists with SSR copy, canonical metadata and no public-nav launch", () => {
+  assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), true);
+  assert.match(page, /canonical: "\/mapa"/);
+  assert.match(page, /<h1>Mapa Psipedie<\/h1>/);
+  assert.match(page, /<MapExperience/);
+  assert.doesNotMatch(navigation, /href:\s*"\/mapa"/);
+});
+
+test("Google is isolated to renderer and map experience consumes only /api/map", () => {
+  assert.match(renderer, /maps\.googleapis\.com\/maps\/api\/js/);
+  assert.match(renderer, /importLibrary\("maps"\)/);
+  assert.match(renderer, /importLibrary\("marker"\)/);
+  assert.match(renderer, /AdvancedMarkerElement/);
+  assert.match(renderer, /gmpClickable:\s*true/);
+  assert.match(renderer, /addEventListener\("gmp-click"/);
+  assert.doesNotMatch(renderer + experience, /\b(?:Places|NearbySearch|Geocoder|Geoapify)\b/i);
+  assert.match(experience, /buildMapApiUrl/);
+  assert.doesNotMatch(experience, /fetch\(["']https?:\/\//);
+  assert.doesNotMatch(rootLayout + homePage, /google-map-renderer|maps\.googleapis\.com/i);
+});
+
+test("one map instance survives filters and the renderer reconciles markers", () => {
+  assert.match(renderer, /if \(!containerRef\.current \|\| mapRef\.current\) return/);
+  assert.match(renderer, /__PSIPEDIA_MAP_INIT_COUNT__/);
+  assert.match(renderer, /markersRef = useRef\(new Map/);
+  assert.match(renderer, /nextKeys = new Set/);
+  assert.match(experience, /useSearchParams/);
+  assert.match(experience, /mapFiltersFromSearchParams/);
+  assert.doesNotMatch(page, /searchParams:/);
+  assert.doesNotMatch(experience, /key=\{.*filters/i);
+});
+
+test("client lifecycle is debounce + AbortController based and canonical href stays server-owned", () => {
+  assert.match(experience, /MapRequestGate/);
+  assert.match(experience, /scheduleMapRequest/);
+  assert.match(experience, /signal: request\.signal/);
+  assert.match(experience, /item\.href/);
+  assert.doesNotMatch(experience, /\/adresar\/\$\{|\/podujatia\/\$\{|\/organizacie\/\$\{/);
+});
+
+test("mobile bottom sheet and filter dialog have explicit accessibility, gestures and overflow boundaries", () => {
+  assert.match(experience, /role="dialog"/);
+  assert.match(experience, /aria-modal="true"/);
+  assert.match(experience, /event\.key === "Escape"/);
+  assert.match(experience, /onPointerDown/);
+  assert.match(experience, /setPointerCapture/);
+  assert.match(experience, /data-sheet-dragging/);
+  assert.match(experience, /loadingDot} role="status" aria-label="Načítavam výsledky"/);
+  assert.match(css, /touch-action:\s*none/);
+  assert.match(css, /touch-action:\s*pan-y/);
+  assert.match(css, /overscroll-behavior-y:\s*contain/);
+  assert.match(css, /390|100dvh|overflow-x:\s*hidden|data-sheet-state/);
+  assert.match(css, /@media \(max-width: 760px\)/);
+});
+
+test("singleton clusters reuse public MapItems while multi clusters retain zoom behavior", () => {
+  assert.match(renderer, /gestureHandling:\s*"greedy"/);
+  assert.match(experience, /cluster\.count === 1 && cluster\.singletonItem/);
+  assert.match(experience, /cluster\.count !== 1 \|\| !cluster\.singletonItem/);
+  assert.match(experience, /const singletonClusterItem = response\?\.mode === "clusters"/);
+  assert.match(experience, /selectItem\(item, !singletonClusterItem\)/);
+});
+
+test("map guidance and provider disclosure follow canonical client state", () => {
+  assert.match(experience, /hasGroupedClusters/);
+  assert.match(experience, /hasSelectedItem/);
+  assert.match(experience, /Vyber výsledok na mape alebo v zozname/);
+  assert.match(experience, /Vybraný výsledok nájdeš nižšie/);
+  assert.match(experience, /googleMapsConsent && rendererStatus === "ready"/);
+  assert.match(experience, /data-testid="map-provider-disclosure"/);
+  assert.doesNotMatch(page, /className=\{styles\.providerDisclosure\}/);
+});
+
+test("map config is documented without committing a real browser key", () => {
+  assert.match(env, /GOOGLE_MAPS_BROWSER_API_KEY/);
+  assert.match(env, /GOOGLE_MAPS_MAP_ID/);
+  assert.match(example, /GOOGLE_MAPS_BROWSER_API_KEY=\n/);
+  assert.match(example, /GOOGLE_MAPS_MAP_ID=\n/);
+  assert.doesNotMatch(example, /GOOGLE_MAPS_BROWSER_API_KEY=\S+/);
+});
+
+test("route-scoped CSP allows required Google families without a bare wildcard", () => {
+  assert.match(worker, /isGoogleMapsPublicRoute/);
+  assert.match(worker, /pathname === "\/mapa"/);
+  assert.match(worker, /adresar/);
+  assert.match(worker, /organizacie/);
+  assert.match(worker, /podujatia/);
+  assert.match(worker, /Content-Security-Policy/);
+  assert.match(worker, /https:\/\/maps\.googleapis\.com/);
+  assert.match(worker, /https:\/\/maps\.gstatic\.com/);
+  assert.match(worker, /Permissions-Policy/);
+  assert.doesNotMatch(worker, /script-src[^"\n;]*\s\*\s/);
+  assert.doesNotMatch(worker, /default-src\s+\*/);
+});
+
+test("live production audit preserves Google Maps consent and uses the interactive sheet header", () => {
+  assert.doesNotMatch(
+    liveAudit,
+    /addInitScript\(\(\) => localStorage\.removeItem\("psipedia-google-maps-consent"\)\)/,
+  );
+  assert.match(
+    liveAudit,
+    /localStorage\.getItem\("psipedia-google-maps-consent"\)\)\)\.toBe\("granted"\)/,
+  );
+  assert.match(liveAudit, /getByTestId\("map-sheet-header"\)/);
+  assert.match(liveAudit, /header\.scrollIntoViewIfNeeded\(\)/);
+  assert.match(liveAudit, /await locator\.hover\(\)/);
+  assert.match(liveAudit, /document\.elementFromPoint\(x, y\)/);
+  assert.match(liveAudit, /element\.contains\(target\)/);
+  assert.doesNotMatch(liveAudit, /getByTestId\("map-sheet-handle"\)/);
+});
+
+
+
+test("MAP-UX-1 map type control is presentation-only and switches the existing map instance", () => {
+  assert.match(experience, /useState<PublicMapType>\("roadmap"\)/);
+  assert.match(experience, /aria-label="Typ mapového podkladu"/);
+  assert.match(experience, /aria-pressed=\{mapType === "roadmap"\}/);
+  assert.match(experience, /aria-pressed=\{mapType === "hybrid"\}/);
+  assert.match(renderer, /mapTypeId:\s*mapTypeRef\.current/);
+  assert.match(renderer, /mapRef\.current\.setMapTypeId\(mapType\)/);
+  assert.match(renderer, /if \(!containerRef\.current \|\| mapRef\.current\) return/);
+  assert.doesNotMatch(experience, /params\.set\(["']mapType["']/);
+  assert.doesNotMatch(experience, /buildMapApiUrl\([^)]*mapType/);
+});
+
+test("MAP-UX-1 external actions use coordinate helpers and keep approximate navigation safe", () => {
+  assert.match(experience, /buildGoogleMapsPlaceUrl\(item\.latitude, item\.longitude, item\.googlePlaceId\)/);
+  assert.match(experience, /approximate \? null : buildGoogleMapsDirectionsUrl\(item\.latitude, item\.longitude, item\.googlePlaceId\)/);
+  assert.match(experience, /Otvoriť približnú polohu v Google Maps/);
+  assert.match(experience, />\s*Navigovať\s*</);
+  assert.doesNotMatch(experience, /buildGoogleMaps(?:Place|Directions)Url\([^)]*(?:displayLocation|address|city|region)/);
+  assert.doesNotMatch(experience, /navigator\.geolocation|geo:\/\//i);
+  assert.match(experience, /target="_blank"/);
+  assert.match(experience, /rel="noreferrer"/);
+});
+
+test("MAP-UX-1 controls keep mobile touch targets and Google attribution unobstructed", () => {
+  assert.match(css, /\.mapTypeControl\s*\{/);
+  assert.match(css, /\.mapTypeControl button[\s\S]*min-height:\s*36px/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.mapTypeControl button[\s\S]*min-height:\s*40px/);
+  assert.match(css, /\.cardFooter[\s\S]*flex-wrap:\s*wrap/);
+  assert.doesNotMatch(css, /\.mapTypeControl[\s\S]{0,240}bottom:/);
+});
