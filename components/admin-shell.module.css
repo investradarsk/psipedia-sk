@@ -59,3 +59,15 @@
     flex: none;
   }
 }
+
+.stickyNav {
+  position: sticky;
+  z-index: 45;
+  top: 76px;
+}
+
+@media (max-width: 760px) {
+  .stickyNav {
+    top: 68px;
+  }
+}

@@ -12,9 +12,14 @@ test("primary admin navigation is alerts-first and separates maps and technical 
   assert.match(navigation, /href="\/admin\/mapy">Mapy<\/Link>/);
   assert.match(navigation, /href="\/admin\/nastroje">Nástroje<\/Link>/);
   assert.match(navigation, /href="\/admin\/partners">Partneri<\/Link>/);
+  assert.match(navigation, />Komunita<\/span>/);
+  assert.match(navigation, /href="\/admin\/recenzie-profilov">Profilové recenzie<\/Link>/);
+  assert.match(navigation, /href="\/admin\/tipy">Tipy<\/Link>/);
+  assert.match(navigation, /href="\/admin\/hodnotenia">Hodnotenia<\/Link>/);
+  assert.match(navigation, /href="\/admin\/dopyty">Dopyty<\/Link>/);
+  assert.match(navigation, /href="\/admin\/adresar\/navrhy">Návrhy úprav<\/Link>/);
   assert.doesNotMatch(navigation, />Operácie<\/Link>/);
   assert.doesNotMatch(navigation, /href="\/admin\/import"/);
-  assert.doesNotMatch(navigation, /href="\/admin\/adresar\/navrhy"/);
 
   const hrefs = [...navigation.matchAll(/<Link href="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(hrefs).size, hrefs.length, "primary navigation must not duplicate entries");
@@ -95,6 +100,28 @@ test("automation and partner review deep links remain on the existing review sys
   assert.match(partnerAttention, /href:"\/admin\/partners\/verifications"/);
   assert.match(partnerAttention, /href:"\/admin\/partners\/commercial"/);
   assert.match(partnerAttention, /href:"\/admin\/partners\/events"/);
+});
+
+test("admin navigation remains sticky below the shared site header", () => {
+  const shell = read("components/admin-shell.tsx");
+  const shellCss = read("components/admin-shell.module.css");
+  assert.match(shell, /styles\.stickyNav/);
+  assert.match(shellCss, /\.stickyNav\s*\{[^}]*position:\s*sticky;[^}]*top:\s*76px;/s);
+  assert.match(shellCss, /@media \(max-width:\s*760px\)[\s\S]*\.stickyNav\s*\{[^}]*top:\s*68px;/);
+});
+
+test("site-wide back-to-top control is mounted for public and admin routes", () => {
+  const layout = read("app/layout.tsx");
+  const component = read("components/back-to-top.tsx");
+  const css = read("components/back-to-top.module.css");
+  assert.match(layout, /<BackToTop \/>/);
+  assert.match(component, /aria-label="Späť hore"/);
+  assert.match(component, /window\.scrollTo\(\{ top: 0, behavior \}\)/);
+  assert.match(css, /position:\s*fixed/);
+  assert.match(css, /right:/);
+  assert.match(css, /bottom:/);
+  assert.match(css, /min-width:\s*48px/);
+  assert.match(css, /min-height:\s*48px/);
 });
 
 test("mobile navigation and focused cards keep existing no-overflow contracts", () => {

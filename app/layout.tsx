@@ -4,6 +4,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { CookieConsent } from "@/components/cookie-consent";
 import { ProgrammaticAdLoader } from "@/components/programmatic-ad-loader";
+import { BackToTop } from "@/components/back-to-top";
 import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
 import { getPartnerSession } from "@/lib/partner-auth";
@@ -83,6 +84,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SiteHeader navigationItems={navigationItems} partnerAuthenticated={Boolean(partnerSession)} />
         {children}
         <SiteFooter />
+        <BackToTop />
         <CookieConsent advertisingEnabled={advertisingConsentEnabled} />
         <ProgrammaticAdLoader enabled={advertisingConsentEnabled} clientId={programmaticClientId} />
       </body>
