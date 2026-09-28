@@ -122,6 +122,19 @@ type ProbeResult<T extends string> = {
 
 const ROBOTS_AGENT = "psipediadataresearch";
 
+function canonicalProbeTransportUrl(value: string) {
+  const canonical = canonicalizeSourceUrl(value);
+  if (!canonical || !isSafeAutomationSourceUrl(value)) return null;
+
+  // canonicalizeSourceUrl intentionally collapses www for source identity.
+  // Transport redirects must preserve the actual safe hostname so bare -> www
+  // is not misclassified as a loop while query/hash normalization stays deterministic.
+  const input = new URL(value);
+  const transport = new URL(canonical);
+  transport.hostname = input.hostname.toLowerCase();
+  return transport.toString();
+}
+
 async function fetchProbe(
   url: string,
   fetchImpl: GovernanceFetch,
@@ -131,8 +144,8 @@ async function fetchProbe(
   const seen = new Set<string>();
 
   for (let redirects = 0; redirects <= AUTOMATION_SOURCE_MAX_REDIRECT_HOPS; redirects += 1) {
-    const canonical = canonicalizeSourceUrl(currentUrl);
-    if (!canonical || !isSafeAutomationSourceUrl(canonical)) {
+    const canonical = canonicalProbeTransportUrl(currentUrl);
+    if (!canonical) {
       throw new Error("source_governance_probe_url_not_safe");
     }
     if (seen.has(canonical)) {
