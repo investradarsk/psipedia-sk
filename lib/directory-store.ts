@@ -1064,7 +1064,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const updatedAtGuard = guard?.expectedUpdatedAt ? " AND updated_at = ?" : "";
   const reviewGuard = guard?.automationAddressReview
-    ? " AND EXISTS (SELECT 1 FROM automation_address_review_cases WHERE id=? AND status='OPEN' AND fingerprint=?)"
+    ? " AND EXISTS (SELECT 1 FROM automation_address_review_cases WHERE id=? AND status='OPEN' AND fingerprint=?) AND NOT EXISTS (SELECT 1 FROM geo_points WHERE directory_profile_id=directory_profiles.id AND manual_override=1)"
     : "";
   const bindings = [
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
