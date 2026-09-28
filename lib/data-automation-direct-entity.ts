@@ -17,6 +17,8 @@ import {
 } from "./data-automation-address-review-store.ts";
 import type { GeocoderProvider } from "./geo-provider.ts";
 import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
+import { createProductionOrganizationEnricher, type OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
+import { enrichAutomationRecordSchemaFirst, type EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
 import {
   classifyAutomationFinding,
   canonicalizeSourceUrl,
@@ -321,6 +323,8 @@ export async function ingestDirectEntityUrl(input: {
   provenanceType?: CanonicalExternalProvenanceType;
   expectedCanonicalEntityId?: number | null;
   addressSearch?: DirectoryAddressSearch;
+  enrichmentSearch?: EntityEnrichmentSearch;
+  organizationEnricher?: OrganizationRecordEnricher;
   addressEvidenceText?: string | null;
   geocoder?: GeocoderProvider;
 }): Promise<DirectEntityIngestionResult> {
@@ -365,22 +369,34 @@ export async function ingestDirectEntityUrl(input: {
     verifiedDirectoryAddress: VerifiedDirectoryAddress | null;
     addressReview: DirectoryAddressReviewProposal | null;
   }> = [];
+  const organizationEnricher = input.entityType === "ORGANIZATION"
+    ? input.organizationEnricher ?? createProductionOrganizationEnricher({ fetchImpl })
+    : null;
   for (const fetchedRecord of fetchedRecords) {
+    const firstPartyRecord = organizationEnricher
+      ? await organizationEnricher(fetchedRecord, { detectedAt })
+      : fetchedRecord;
+    const enrichedRecord = await enrichAutomationRecordSchemaFirst({
+      entityType: input.entityType,
+      record: firstPartyRecord,
+      targetedSearch: input.enrichmentSearch,
+      maxTargetedSearches: 2,
+    });
     if (input.entityType !== "DIRECTORY") {
-      records.push({ record: fetchedRecord, verifiedDirectoryAddress: null, addressReview: null });
+      records.push({ record: enrichedRecord, verifiedDirectoryAddress: null, addressReview: null });
       continue;
     }
-    const proposed = enrichDirectoryProposalAddress(fetchedRecord.proposed);
+    const proposed = enrichDirectoryProposalAddress(enrichedRecord.proposed);
     const exact = await enrichDirectoryProposalWithExactAddress({
       proposed,
       name: typeof proposed.name === "string" && proposed.name.trim() ? proposed.name : input.label,
-      sourceUrl: fetchedRecord.sourceUrl || input.sourceUrl,
+      sourceUrl: enrichedRecord.sourceUrl || input.sourceUrl,
       extraEvidenceText: input.addressEvidenceText,
       addressSearch: boundedAddressSearch,
       geocoder: input.geocoder,
     });
     records.push({
-      record: { ...fetchedRecord, proposed: exact.proposed },
+      record: { ...enrichedRecord, proposed: exact.proposed },
       verifiedDirectoryAddress: exact.verified,
       addressReview: exact.review,
     });
