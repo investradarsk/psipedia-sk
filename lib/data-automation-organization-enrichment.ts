@@ -313,6 +313,7 @@ function officialSiteFields(htmlParts: string[], finalUrl: string) {
     facebookUrl,
     instagramUrl,
     registrationNumber: registrationNumber(html),
+    description: description?.slice(0, 5000) ?? null,
     shortDescription: description && description.length <= 700 ? description : description?.slice(0, 700) ?? null,
     imageUrl: imageUrl && isSafeAutomationSourceUrl(imageUrl) ? imageUrl : null,
   };
@@ -347,26 +348,6 @@ function inferredLegalName(proposed: Record<string, unknown>) {
     || /\bn\.?\s*o\.?$/i.test(first)
   ) return first.slice(0, 240);
   return null;
-}
-
-function generatedDescription(proposed: Record<string, unknown>) {
-  const name = String(proposed.name ?? "").trim();
-  const city = String(proposed.city ?? "").trim();
-  const district = String(proposed.district ?? "").trim();
-  const region = String(proposed.region ?? "").trim();
-  const approval = String(proposed.sourceApprovalNumber ?? "").trim();
-  const activity = String(proposed.sourceActivity ?? "").trim();
-
-  if (!name) return null;
-  const location = [city, district && district !== city ? "okres " + district : "", region]
-    .filter(Boolean)
-    .join(", ");
-  const parts = [
-    location ? name + " pôsobí v lokalite " + location + "." : null,
-    approval ? "V registri ŠVPS je vedená pod schvaľovacím číslom " + approval + "." : null,
-    activity ? "Evidovaná činnosť: " + activity + "." : null,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" ") : null;
 }
 
 export function createProductionOrganizationEnricher(
@@ -435,10 +416,6 @@ export function createProductionOrganizationEnricher(
       if (legalName) proposed.legalName = legalName;
     }
     if (!proposed.countryCode) proposed.countryCode = "SK";
-    if (!proposed.description) {
-      const description = generatedDescription(proposed);
-      if (description) proposed.description = description;
-    }
 
     const website = String(proposed.websiteUrl ?? "").trim();
     if (website) {
@@ -447,16 +424,12 @@ export function createProductionOrganizationEnricher(
       if (finalWebsite) {
         proposed.websiteUrl = finalWebsite;
       }
-      for (const key of ["publicEmail","publicPhone","facebookUrl","instagramUrl","registrationNumber","shortDescription","imageUrl"] as const) {
+      for (const key of ["publicEmail","publicPhone","facebookUrl","instagramUrl","registrationNumber","description","shortDescription","imageUrl"] as const) {
         if (!proposed[key] && official[key]) proposed[key] = official[key];
       }
       if (finalWebsite) secondarySources.push(finalWebsite);
     }
 
-    if (!proposed.shortDescription) {
-      const fallback = generatedDescription(proposed);
-      if (fallback) proposed.shortDescription = fallback.slice(0, 700);
-    }
     if (!proposed.sourceUrl && record.sourceUrl) proposed.sourceUrl = record.sourceUrl;
     proposed.lastVerifiedAt = context.detectedAt;
 
