@@ -462,8 +462,9 @@ test("automation attention derives active state from bounded domain queries and 
   assert.match(store, /LOWER\(event\.status\)='published'/);
   assert.match(store, /status='OPEN'/);
   assert.match(store, /failing_sources/);
-  assert.match(store, /HAVING COUNT\(\*\)=3 AND SUM\(CASE WHEN r\.status='FAILED'/);
-  assert.match(store, /ROW_NUMBER\(\) OVER \(PARTITION BY r\.source_id/);
+  assert.match(store, /recent\.status='FAILED'/);
+  assert.match(store, /ORDER BY last_run\.started_at DESC,last_run\.id DESC[\s\S]+LIMIT 3/);
+  assert.doesNotMatch(store, /ROW_NUMBER\(\) OVER \(PARTITION BY r\.source_id/);
   assert.match(notifications, /sourceType: "AUTOMATION_ACTION"/);
   assert.match(notifications, /automation\/source-issue\/\$\{sourceId\}\/\$\{sequence\.sequenceStart\}/);
   assert.doesNotMatch(runner, /enqueueAutomationFindingAdminNotification|enqueueEditorialNotification|maybeQueueHighPriorityNotification/);
