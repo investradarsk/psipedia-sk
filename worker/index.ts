@@ -232,8 +232,35 @@ const worker = {
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
     if (!isFullHourlyScheduledSweep(controller)) {
-      const adminPush = await runScheduledAdminPush(env);
+      const [adminPush, dataAutomation, sourceDiscovery] = await Promise.all([
+        runScheduledAdminPush(env),
+        runDataAutomationSweep({
+          database: env.DB,
+          htmlAdapters: productionAutomationHtmlAdapters,
+          organizationEnricher: createProductionOrganizationEnricher(),
+        }).catch((error) => {
+          console.error(JSON.stringify({
+            event: "data_automation_sweep",
+            result: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          }));
+          return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 1, errors: 1, schemaReady: true, runs: [] };
+        }),
+        runDataAutomationDiscoverySweep({
+          database: env.DB,
+          searchProvider: new TavilyAutomationSearchProvider({ apiKey: env.TAVILY_API_KEY }),
+        }).catch((error) => {
+          console.error(JSON.stringify({
+            event: "data_automation_discovery_sweep",
+            result: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          }));
+          return { roots: 0, success: 0, partial: 0, failed: 1, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 1, schemaReady: true, runs: [] };
+        }),
+      ]);
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
+      console.info(JSON.stringify({ event: "data_automation_sweep", cadence: "five_minute_due_check", ...dataAutomation }));
+      console.info(JSON.stringify({ event: "data_automation_discovery_sweep", cadence: "five_minute_due_check", ...sourceDiscovery }));
       return;
     }
     const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([

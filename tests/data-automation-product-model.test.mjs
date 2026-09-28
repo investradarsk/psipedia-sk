@@ -132,7 +132,7 @@ test("direct refresh is bounded, cursor-based and reuses the discovery sweep", a
   assert.match(store, /ORDER BY id ASC LIMIT \?/);
   assert.match(store, /cursor_entity_id=\?/);
   assert.match(store, /new Date\(now\.getTime\(\) \+ 60 \* 60_000\)/);
-  assert.match(store, /new Date\(now\.getTime\(\) \+ input\.setting\.cadenceMinutes \* 60_000\)/);
+  assert.match(store, /nextAutomationScheduledAt\(input\.setting\.schedule, now\)/);
 });
 
 test("DIRECT_ENTITY and FEED_SOURCE UX are separated and sources expose canonical content", async () => {

@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { filterIndexableAdoptionsForSitemap } from "../lib/adoption-sitemap.ts";
+import {
+  buildIndexableAdoptionSitemapPageQuery,
+  filterIndexableAdoptionsForSitemap,
+  listIndexableAdoptionSitemapRecords,
+} from "../lib/adoption-sitemap.ts";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -96,7 +101,7 @@ test("sitemap source contains the catalog and indexable new details without dupl
   assert.doesNotMatch(sitemap, /getPublishedHelpCases\(\)/);
   assert.match(sitemap, /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky"/);
   assert.match(sitemap, /exclusionReason: representedElsewhere/);
-  assert.match(sitemap, /return assertValidSitemap\(entries\)/);
+  assert.match(sitemap, /runSitemapStageSync\("global-validation", \(\) => assertValidSitemap\(entries\)\)/);
 });
 
 test("public help, homepage and portal search no longer source legacy adoption rows", () => {
@@ -120,4 +125,112 @@ test("public help, homepage and portal search no longer source legacy adoption r
   assert.match(portalSearch, /"adoption_dogs d"/);
   assert.match(portalSearch, /'\/pomoc-psom\/adopcia\/' \|\| d\.slug AS href/);
   assert.doesNotMatch(portalSearch, /listAllPublicAdoptions\(\)/);
+});
+
+
+test("adoption sitemap uses lightweight keyset pagination without page fan-out or a corpus cap", async () => {
+  const query = buildIndexableAdoptionSitemapPageQuery(0, 500);
+  assert.equal(query.batchSize, 500);
+  assert.match(query.sql, /id > \?/);
+  assert.match(query.sql, /ORDER BY id ASC/);
+  assert.match(query.sql, /status = 'ACTIVE'/);
+  assert.doesNotMatch(query.sql, /COUNT\(\*\)|OFFSET|organization_name|contact_email|gallery_json/i);
+
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`
+    CREATE TABLE adoption_dogs (
+      id INTEGER PRIMARY KEY,
+      slug TEXT NOT NULL,
+      status TEXT NOT NULL,
+      description TEXT NOT NULL,
+      last_verified_at TEXT,
+      updated_at TEXT NOT NULL,
+      main_image TEXT
+    );
+    BEGIN;
+  `);
+  const insert = sqlite.prepare(
+    "INSERT INTO adoption_dogs (id,slug,status,description,last_verified_at,updated_at,main_image) VALUES (?,?,?,?,?,?,?)",
+  );
+  for (let id = 1; id <= 1205; id += 1) {
+    insert.run(
+      id,
+      `pes-${id}`,
+      "ACTIVE",
+      "Dostatočne dlhý overený opis psa na adopciu, ktorý spĺňa pravidlá indexácie a má viac než osemdesiat znakov.",
+      "2026-09-20T08:00:00.000Z",
+      "2026-09-25T08:00:00.000Z",
+      null,
+    );
+  }
+  insert.run(1206, "reserved", "RESERVED", "x".repeat(120), "2026-09-20T08:00:00.000Z", "2026-09-25T08:00:00.000Z", null);
+  sqlite.exec("COMMIT;");
+
+  let active = 0;
+  let maxActive = 0;
+  let queryCount = 0;
+  const d1 = {
+    prepare(sql) {
+      return {
+        bind(...bindings) {
+          return {
+            async all() {
+              queryCount += 1;
+              active += 1;
+              maxActive = Math.max(maxActive, active);
+              await new Promise((resolve) => setImmediate(resolve));
+              const rows = sqlite.prepare(sql).all(...bindings);
+              active -= 1;
+              return { results: rows };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const records = await listIndexableAdoptionSitemapRecords(d1, {
+    batchSize: 500,
+    now: new Date("2026-09-28T12:00:00.000Z"),
+  });
+  assert.equal(records.length, 1205);
+  assert.equal(queryCount, 3);
+  assert.equal(maxActive, 1);
+  assert.equal(records[0].id, 1);
+  assert.equal(records.at(-1).id, 1205);
+  assert.equal(records.some((item) => item.slug === "reserved"), false);
+});
+
+test("adoption sitemap fails when a keyset cursor does not advance", async () => {
+  let call = 0;
+  const d1 = {
+    prepare() {
+      return {
+        bind() {
+          return {
+            async all() {
+              call += 1;
+              if (call === 1) {
+                return { results: [
+                  { id: 1, slug: "a", status: "ACTIVE", description: "x".repeat(100), last_verified_at: "2026-09-20T00:00:00Z", updated_at: "2026-09-20T00:00:00Z", main_image: null },
+                  { id: 2, slug: "b", status: "ACTIVE", description: "x".repeat(100), last_verified_at: "2026-09-20T00:00:00Z", updated_at: "2026-09-20T00:00:00Z", main_image: null },
+                ] };
+              }
+              return { results: [
+                { id: 2, slug: "b", status: "ACTIVE", description: "x".repeat(100), last_verified_at: "2026-09-20T00:00:00Z", updated_at: "2026-09-20T00:00:00Z", main_image: null },
+              ] };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  await assert.rejects(
+    listIndexableAdoptionSitemapRecords(d1, {
+      batchSize: 2,
+      now: new Date("2026-09-28T12:00:00.000Z"),
+    }),
+    /adoption-sitemap-cursor-did-not-advance/,
+  );
 });

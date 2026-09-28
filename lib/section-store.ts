@@ -151,6 +151,16 @@ export const listManagedPortalSections = cache(async function listManagedPortalS
   return result.results.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
 });
 
+export const listManagedPortalSectionsForSitemap = cache(async function listManagedPortalSectionsForSitemap(): Promise<ManagedPortalSection[]> {
+  const db = database();
+  if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
+  // Sitemap generation is a read-only public request. Do not invoke the legacy
+  // repair path here: parseSubpages/merge already normalize legacy values for
+  // rendering without mutating production state.
+  const result = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible,updated_at FROM portal_section_settings ORDER BY position,label").all<Row>();
+  return result.results.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
+});
+
 export const getManagedPortalSection = cache(async function getManagedPortalSection(slug: string) {
   return (await listManagedPortalSections()).find((section) => section.slug === slug) ?? null;
 });

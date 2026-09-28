@@ -1,3 +1,5 @@
+import type { AutomationSchedule } from "./automation-schedule.ts";
+
 export const automationEntityTypes = [
   "EVENT",
   "ORGANIZATION",
@@ -69,6 +71,7 @@ export type AutomationSource = {
   config: AutomationSourceConfig;
   enabled: boolean;
   cadenceMinutes: number;
+  schedule?: AutomationSchedule;
   throttleMs: number;
   timeoutMs: number;
   retryMaxAttempts: number;

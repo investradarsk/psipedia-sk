@@ -1,11 +1,15 @@
 import { env } from "cloudflare:workers";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance";
 import {
+  automationScheduleFromStorage,
+  effectiveAutomationCadenceMinutes,
+  nextAutomationScheduledAt,
+} from "./automation-schedule.ts";
+import {
   automationDraftSlug,
   automationFindingPriority,
   automationReviewEffect,
   canonicalizeSourceUrl,
-  nextAutomationCheckAt,
   shouldReopenSuppressedFinding,
   type AutomationDiff,
   type AutomationFindingType,
@@ -33,6 +37,10 @@ type SourceRow = {
   config_json: string;
   enabled: number;
   cadence_minutes: number;
+  schedule_mode: string | null;
+  schedule_days_json: string | null;
+  schedule_local_time: string | null;
+  schedule_timezone: string | null;
   throttle_ms: number;
   timeout_ms: number;
   retry_max_attempts: number;
@@ -117,6 +125,13 @@ function parseJson<T>(value: string | null | undefined, fallback: T): T {
 }
 
 function mapSource(row: SourceRow): AutomationSource {
+  const schedule = automationScheduleFromStorage({
+    cadenceMinutes: row.cadence_minutes,
+    scheduleMode: row.schedule_mode,
+    scheduleDaysJson: row.schedule_days_json,
+    scheduleLocalTime: row.schedule_local_time,
+    scheduleTimezone: row.schedule_timezone,
+  });
   return {
     id: Number(row.id),
     sourceKey: row.source_key,
@@ -126,7 +141,8 @@ function mapSource(row: SourceRow): AutomationSource {
     sourceUrl: canonicalizeSourceUrl(row.source_url),
     config: parseJson<AutomationSourceConfig>(row.config_json, {}),
     enabled: Boolean(row.enabled),
-    cadenceMinutes: Number(row.cadence_minutes),
+    cadenceMinutes: effectiveAutomationCadenceMinutes(schedule),
+    schedule,
     throttleMs: Number(row.throttle_ms),
     timeoutMs: Number(row.timeout_ms),
     retryMaxAttempts: Number(row.retry_max_attempts),
@@ -144,7 +160,8 @@ export async function listDueAutomationSources(
 ) {
   const db = getDatabase(database);
   const result = await db.prepare(`SELECT id,source_key,label,entity_type,connector_type,source_url,config_json,enabled,
-    cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,next_check_at,review_status
+    cadence_minutes,schedule_mode,schedule_days_json,schedule_local_time,schedule_timezone,
+    throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,next_check_at,review_status
     FROM automation_sources
     WHERE enabled = 1 AND review_status = 'APPROVED' AND (next_check_at IS NULL OR next_check_at <= ?)
     ORDER BY COALESCE(next_check_at, created_at) ASC, id ASC
@@ -178,7 +195,8 @@ export async function listDueAutomationSources(
 export async function getAutomationSource(id: number, database?: AutomationD1Database) {
   const db = getDatabase(database);
   const row = await db.prepare(`SELECT id,source_key,label,entity_type,connector_type,source_url,config_json,enabled,
-    cadence_minutes,throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,next_check_at,review_status
+    cadence_minutes,schedule_mode,schedule_days_json,schedule_local_time,schedule_timezone,
+    throttle_ms,timeout_ms,retry_max_attempts,retry_backoff_ms,max_records_per_run,next_check_at,review_status
     FROM automation_sources WHERE id = ? LIMIT 1`).bind(id).first<SourceRow>();
   return row ? mapSource(row) : null;
 }
@@ -227,7 +245,10 @@ export async function finishAutomationRun(input: {
   const db = getDatabase(database);
   const completedIso = input.completedAt.toISOString();
   const duration = Math.max(0, input.completedAt.getTime() - input.startedAt.getTime());
-  const nextCheckAt = nextAutomationCheckAt(input.completedAt, input.source.cadenceMinutes);
+  const nextCheckAt = nextAutomationScheduledAt(
+    input.source.schedule ?? { mode: "INTERVAL", intervalMinutes: input.source.cadenceMinutes },
+    input.completedAt,
+  );
   const sourceErrorCode = input.errorSummary?.slice(0, 180) ?? null;
   await db.batch([
     db.prepare(`UPDATE automation_runs SET status=?,completed_at=?,checked_count=?,new_finding_count=?,

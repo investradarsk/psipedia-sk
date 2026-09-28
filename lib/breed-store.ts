@@ -146,6 +146,52 @@ export async function listManagedBreedSummaries(limit=500){const database=requir
 FROM managed_breeds ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
 export async function listPublishedBreedIndex(){const database=db();if(!database)return seedBreeds.map((breed,index)=>({id:-(index+1),status:"published" as const,officialFciName:"",fciSectionNumber:"",searchText:normalizeBreedSearchText(`${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`),editorialComplete:true,seo:breed.seo??{},updatedAt:"2026-08-17",...breed}));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();return withAvailableBreedImages(result.results.map(fromIndexRow),env);}
 export async function listPublishedCanonicalBreedIndex(){const database=db();if(!database)return listPublishedBreedIndex();const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();return withAvailableBreedImages(result.results.map(fromIndexRow),env);}
+
+export type BreedSitemapIndexItem = {
+  slug: string;
+  image: string;
+  seo: EditableSeo;
+  updatedAt: string;
+};
+
+type BreedSitemapIndexRow = {
+  slug: string;
+  image_url: string;
+  seo_json: string;
+  updated_at: string;
+};
+
+/**
+ * Sitemap-specific breed projection.
+ *
+ * Deliberately does not call withAvailableBreedImages(): sitemap generation
+ * must not probe R2/static assets for every breed. Those probes can create
+ * eight simultaneous outgoing connections inside one Worker invocation,
+ * while Cloudflare permits only six waiting connections.
+ */
+export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSitemapIndexItem[]> {
+  const database = db();
+  if (!database) {
+    return seedBreeds.map((breed) => ({
+      slug: breed.slug,
+      image: ownedBreedImage(breed.image),
+      seo: breed.seo ?? {},
+      updatedAt: "2026-08-17",
+    }));
+  }
+  const result = await database.prepare(
+    `SELECT slug,image_url,seo_json,updated_at
+     FROM managed_breeds
+     WHERE id IN (${canonicalBreedIdsSql})
+     ORDER BY fci_group,name`,
+  ).all<BreedSitemapIndexRow>();
+  return result.results.map((row) => ({
+    slug: row.slug,
+    image: ownedBreedImage(row.image_url),
+    seo: parseSeo(row.seo_json),
+    updatedAt: row.updated_at,
+  }));
+}
 export async function listPublishedBreedsForComparison():Promise<BreedComparisonItem[]>{const database=db();if(!database)return seedBreeds;const result=await database.prepare(`SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,fci_standard_json,origin,accent,size,weight,lifespan,coat,energy,trainability,family,intro,good_for_json,consider_json FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<ComparisonRow>();return withAvailableBreedImages(result.results.map((row:ComparisonRow)=>{const standard=parseObject<FciStandard>(row.fci_standard_json);return {slug:row.slug,name:row.name,image:row.image_url,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),origin:row.origin,accent:row.accent as Breed['accent'],size:publicBreedSize(row.size),weight:publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([standard.hmotnost_pes_kg,standard.hmotnost_suka_kg],"kg")),lifespan:publicBreedMeasurement(row.lifespan,"lifespan"),coat:row.coat,energy:row.energy,trainability:row.trainability,family:row.family,intro:row.intro,goodFor:stringArray(row.good_for_json),consider:stringArray(row.consider_json)};} ),env);}
 export async function getBreedOfTheDay(dayOfYear:number):Promise<BreedOfTheDayItem|null>{
   try {

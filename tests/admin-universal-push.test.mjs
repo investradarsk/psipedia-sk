@@ -199,7 +199,7 @@ test("legacy push remains drain-only and universal push does not create a parall
   assert.doesNotMatch(migration,/email_outbox|recipient_email/);
 });
 
-test("one five-minute cron preserves hourly full work without consuming a second trigger",()=>{
+test("one five-minute cron preserves hourly full work while allowing bounded automation due checks",()=>{
   const wrangler=read("wrangler.jsonc");
   const worker=read("worker/index.ts");
   const pushCron="*/5 * * * *";
@@ -209,8 +209,11 @@ test("one five-minute cron preserves hourly full work without consuming a second
   assert.match(worker,/getUTCMinutes\(\) === 0/);
   const fastBranch=worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"),worker.indexOf("const [summary, editorial"));
   assert.match(fastBranch,/runScheduledAdminPush\(env\)/);
+  assert.match(fastBranch,/runDataAutomationSweep/);
+  assert.match(fastBranch,/runDataAutomationDiscoverySweep/);
+  assert.match(fastBranch,/five_minute_due_check/);
   assert.match(fastBranch,/return;/);
-  assert.doesNotMatch(fastBranch,/runDataAutomationSweep|runNotion|runEditorialNotificationSweep|runPartnerNotificationSweep/);
+  assert.doesNotMatch(fastBranch,/runNotion|runEditorialNotificationSweep|runPartnerNotificationSweep/);
   assert.match(worker,/const adminPush = await runScheduledAdminPush\(env\)/);
 });
 
