@@ -748,15 +748,19 @@ async function writeCanonicalFieldAndDecision(input: {
   return updated;
 }
 
-async function remainingFields(row: SuggestionRow, db: Database) {
+async function remainingFieldState(row: SuggestionRow, db: Database) {
   const reviews = await loadReviewRows([row], db);
   const materialized = await materializeSuggestion(row, reviews, db);
-  return materialized?.fields.length ?? 0;
+  const fields = materialized?.fields ?? [];
+  return {
+    visible: fields.length,
+    reviewable: fields.filter((field) => field.reviewable).length,
+  };
 }
 
 async function resolveParentIfComplete(row: SuggestionRow, actor: string, at: string, db: Database) {
-  const remaining = await remainingFields(row, db);
-  if (remaining > 0) return remaining;
+  const remaining = await remainingFieldState(row, db);
+  if (remaining.visible > 0) return remaining.reviewable;
   if (row.origin === "DIRECT_ENTITY") {
     await db.prepare("UPDATE automation_update_suggestions SET status='RESOLVED' WHERE id=? AND status='OPEN'")
       .bind(row.id).run();
