@@ -1216,7 +1216,7 @@ function directoryFollowUpUrls(html: string, baseUrl: string) {
 }
 
 const productionGenericDirectoryProfileAdapter: ControlledHtmlAdapter = async (input) => {
-  const baseRecords = genericDirectoryProfileAdapter(input);
+  const baseRecords = await genericDirectoryProfileAdapter(input);
   if (!baseRecords.length || !input.fetchHtml) return baseRecords;
 
   const record = baseRecords[0];
