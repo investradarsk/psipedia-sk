@@ -1001,6 +1001,7 @@ test("GOVERNANCE REFRESH transient access failure recovers on one explicit enabl
   assert.equal(initial.governance.state.accessStatus, "UNKNOWN");
   assert.equal(initial.governance.state.robotsStatus, "ALLOWED");
 
+  const wasEnabled = source.enabled;
   const configured = await configureAutomationSource({
     id: source.id,
     enabled: true,
@@ -1017,6 +1018,7 @@ test("GOVERNANCE REFRESH transient access failure recovers on one explicit enabl
   assert.equal(configured.enabled, true);
   assert.equal(configured.cadenceMinutes, 10080);
   assert.equal(configured.nextCheckAt, retry.toISOString());
+  assert.equal(configured.enabled && !wasEnabled, true, "successful OFF -> ON recovery requests immediate first run");
 });
 
 test("GOVERNANCE REFRESH transient robots failure recovers on explicit enable", async () => {
