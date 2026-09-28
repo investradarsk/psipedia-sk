@@ -4,7 +4,7 @@ import { SITE_URL } from "../config/public-site.ts";
 export { SITE_URL } from "../config/public-site.ts";
 export const SITE_NAME = "Psipedia.sk";
 export const SITE_DESCRIPTION =
-  "Slovenský portál pre psí život. Overené informácie, služby, podujatia a pomoc pre každodenný život so psom.";
+  "Slovenský portál pre psí život. Informácie, služby, podujatia a pomoc pre každodenný život so psom.";
 export const SITE_ALTERNATE_NAMES = ["Psipedia", "Psipedia SK"] as const;
 export const SOCIAL_PROFILES = {
   facebook: "https://www.facebook.com/p/Psipediask-61593052546349/",
@@ -81,6 +81,14 @@ export function absoluteUrl(path: string) {
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+const SITE_TITLE_SUFFIX = /\s*(?:\||–|—|-)\s*Psipedia(?:\.sk)?\s*$/iu;
+
+export function pageTitleWithoutBrand(value: string) {
+  let title = value.trim().replace(/\s+/g, " ");
+  while (SITE_TITLE_SUFFIX.test(title)) title = title.replace(SITE_TITLE_SUFFIX, "").trim();
+  return title || SITE_NAME;
+}
+
 type PageMetadataInput = {
   title: string;
   description: string;
@@ -117,11 +125,12 @@ export function buildPageMetadata({
   tags,
   robots = INDEXABLE_ROBOTS,
 }: PageMetadataInput): Metadata {
+  const pageTitle = pageTitleWithoutBrand(title);
   const url = absoluteUrl(canonical?.trim() || path);
   const customImage = image?.trim();
   const imageUrl = absoluteUrl(customImage || SOCIAL_FALLBACK_IMAGE.path);
   const resolvedImage = customImage
-    ? { url: imageUrl, alt: imageAlt?.trim() || title }
+    ? { url: imageUrl, alt: imageAlt?.trim() || pageTitle }
     : {
         url: imageUrl,
         width: SOCIAL_FALLBACK_IMAGE.width,
@@ -129,7 +138,7 @@ export function buildPageMetadata({
         alt: SOCIAL_FALLBACK_IMAGE.alt,
       };
   const resolvedSocialTitle = socialTitle?.trim()
-    || (title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`);
+    || `${pageTitle} | ${SITE_NAME}`;
   const resolvedSocialDescription = socialDescription?.trim() || description;
   const sharedOpenGraph = {
     title: resolvedSocialTitle,
@@ -155,7 +164,7 @@ export function buildPageMetadata({
       };
 
   return {
-    title,
+    title: pageTitle,
     description,
     alternates: { canonical: url },
     openGraph,
