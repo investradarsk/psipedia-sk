@@ -659,6 +659,104 @@ export async function listCanonicalAutomationUpdateSuggestions(
   return suggestions.filter((item): item is CanonicalUpdateSuggestion => Boolean(item));
 }
 
+type AutomationUpdateSummaryLike = {
+  origin: AutomationUpdateOrigin;
+  id: number;
+  entityType: AutomationEntityType;
+  canonicalEntityId: number;
+  field: string | null;
+  value: string | null;
+};
+
+function summaryValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  return stableJson(value).slice(0, 240);
+}
+
+export async function normalizeAutomationUpdateSuggestionSummaries<T extends AutomationUpdateSummaryLike>(
+  summaries: T[],
+  databaseInput?: Database,
+): Promise<T[]> {
+  if (!summaries.length) return [];
+  const db = database(databaseInput);
+  const directIds = [...new Set(summaries.filter((item) => item.origin === "DIRECT_ENTITY").map((item) => item.id))];
+  const feedIds = [...new Set(summaries.filter((item) => item.origin === "FEED_SOURCE").map((item) => item.id))];
+  const rows: SuggestionRow[] = [];
+
+  if (directIds.length) {
+    const placeholders = directIds.map(() => "?").join(",");
+    const result = await db.prepare(`SELECT id,entity_type,canonical_entity_id,suggestion_type,before_json,proposed_json,diff_json,
+        external_source_url AS source_url,NULL AS source_label,last_detected_at AS detected_at
+      FROM automation_update_suggestions
+      WHERE status='OPEN' AND id IN (${placeholders})`)
+      .bind(...directIds).all<Record<string, unknown>>();
+    rows.push(...result.results.map((row) => ({
+      origin: "DIRECT_ENTITY" as const,
+      id: Number(row.id),
+      entity_type: row.entity_type as AutomationEntityType,
+      canonical_entity_id: Number(row.canonical_entity_id),
+      suggestion_type: row.suggestion_type as CanonicalUpdateSuggestion["suggestionType"],
+      before_json: String(row.before_json ?? "{}"),
+      proposed_json: String(row.proposed_json ?? "{}"),
+      diff_json: String(row.diff_json ?? "{}"),
+      source_url: row.source_url ? String(row.source_url) : null,
+      source_label: null,
+      detected_at: String(row.detected_at ?? ""),
+    })));
+  }
+
+  if (feedIds.length) {
+    const placeholders = feedIds.map(() => "?").join(",");
+    const result = await db.prepare(`SELECT f.id,f.entity_type,f.canonical_entity_id,f.finding_type AS suggestion_type,
+        f.before_json,f.proposed_json,f.diff_json,f.source_url,s.label AS source_label,f.last_detected_at AS detected_at
+      FROM automation_findings f
+      LEFT JOIN automation_sources s ON s.id=f.source_id
+      WHERE f.id IN (${placeholders})
+        AND f.review_status IN ('NEW','IN_REVIEW','SUPPRESSED')
+        AND f.finding_type IN ('POSSIBLE_UPDATE','POSSIBLE_INACTIVE','POSSIBLE_CANCELLED')`)
+      .bind(...feedIds).all<Record<string, unknown>>();
+    rows.push(...result.results.map((row) => ({
+      origin: "FEED_SOURCE" as const,
+      id: Number(row.id),
+      entity_type: row.entity_type as AutomationEntityType,
+      canonical_entity_id: Number(row.canonical_entity_id),
+      suggestion_type: row.suggestion_type as CanonicalUpdateSuggestion["suggestionType"],
+      before_json: String(row.before_json ?? "{}"),
+      proposed_json: String(row.proposed_json ?? "{}"),
+      diff_json: String(row.diff_json ?? "{}"),
+      source_url: row.source_url ? String(row.source_url) : null,
+      source_label: row.source_label ? String(row.source_label) : null,
+      detected_at: String(row.detected_at ?? ""),
+    })));
+  }
+
+  const reviews = await loadReviewRows(rows, db);
+  const canonicals = await loadCanonicalRows(rows, db);
+  const normalized = new Map<string, CanonicalUpdateSuggestion>();
+  for (const row of rows) {
+    const canonical = canonicals.get(`${row.entity_type}:${row.canonical_entity_id}`) ?? null;
+    const suggestion = await materializeSuggestion(row, reviews, db, canonical);
+    if (suggestion) normalized.set(`${row.origin}:${row.id}`, suggestion);
+  }
+
+  const output: T[] = [];
+  for (const summary of summaries) {
+    const suggestion = normalized.get(`${summary.origin}:${summary.id}`);
+    if (!suggestion) continue;
+    const field = suggestion.suggestionType === "POSSIBLE_UPDATE"
+      ? suggestion.fields.find((candidate) => candidate.reviewable)
+      : suggestion.fields[0];
+    if (!field) continue;
+    output.push({
+      ...summary,
+      field: field.field,
+      value: summaryValue(field.proposed),
+    } as T);
+  }
+  return output;
+}
+
 async function getSuggestionRow(origin: AutomationUpdateOrigin, id: number, db: Database): Promise<SuggestionRow | null> {
   if (origin === "DIRECT_ENTITY") {
     const row = await db.prepare(`SELECT id,entity_type,canonical_entity_id,suggestion_type,before_json,proposed_json,diff_json,
