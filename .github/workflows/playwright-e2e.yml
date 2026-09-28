@@ -70,121 +70,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Resolve exact Cloudflare preview for PR head
-        id: preview
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${PR_HEAD_SHA}/check-runs"
-          preview_url=""
-          for attempt in $(seq 1 90); do
-            payload="$(curl --silent --show-error --fail \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              "${api}")"
-            state="$(printf '%s' "${payload}" | node -e '
-              let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
-                const runs=JSON.parse(x).check_runs||[];
-                const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
-                process.stdout.write(run ? String(run.status)+"|"+String(run.conclusion||"") : "missing|");
-              });
-            ')"
-            if [ "${state}" = "completed|failure" ]; then
-              echo "::error::Cloudflare Workers Build failed for ${PR_HEAD_SHA}."
-              exit 1
-            fi
-            if [ "${state}" = "completed|success" ]; then
-              preview_url="$(printf '%s' "${payload}" | node -e '
-                let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
-                  const runs=JSON.parse(x).check_runs||[];
-                  const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
-                  const summary=run?.output?.summary||"";
-                  const match=summary.match(/Preview URL:\s*(https:\/\/[^\s]+)/);
-                  process.stdout.write(match?.[1]||"");
-                });
-              ')"
-              if [ -n "${preview_url}" ]; then break; fi
-            fi
-            sleep 5
-          done
-          test -n "${preview_url}"
-          echo "url=${preview_url}" >> "$GITHUB_OUTPUT"
-          echo "Cloudflare preview resolved for PR head ${PR_HEAD_SHA}."
-
-      - name: Assert Cloudflare preview sitemap contract
-        env:
-          PREVIEW_URL: ${{ steps.preview.outputs.url }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          metrics="$(curl --silent --show-error --location \
-            --dump-header /tmp/sitemap-preview.headers \
-            --output /tmp/sitemap-preview.xml \
-            --write-out '%{http_code}|%{content_type}|%{size_download}|%{time_total}' \
-            "${PREVIEW_URL}/sitemap.xml")"
-          IFS='|' read -r status content_type size_download time_total <<< "${metrics}"
-          echo "preview_http_status=${status}"
-          echo "preview_content_type=${content_type}"
-          echo "preview_xml_bytes=${size_download}"
-          echo "preview_time_seconds=${time_total}"
-          test "${status}" = "200"
-          printf '%s' "${content_type}" | grep -Eqi 'xml'
-
-          node <<'NODE'
-          const fs = require("fs");
-          const xml = fs.readFileSync("/tmp/sitemap-preview.xml", "utf8");
-          if (!/<urlset(?:\s|>)/.test(xml)) throw new Error("preview-sitemap-missing-urlset");
-          const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-          const duplicates = urls.filter((url, index) => urls.indexOf(url) !== index);
-          if (duplicates.length) throw new Error(`preview-sitemap-duplicate-url:${duplicates[0]}`);
-
-          const directory = urls.filter((url) => /^https:\/\/psipedia\.sk\/adresar\/[^/]+\/[^/?#]+$/.test(url));
-          if (directory.length <= 1000) throw new Error(`preview-directory-corpus-truncated:${directory.length}`);
-
-          const article = [
-            "https://psipedia.sk/starostlivost/kedy-ist-so-psom-k-veterinarovi",
-            "https://psipedia.sk/starostlivost/kolko-hodin-denne-spi-pes-stena-dospely-pes-aj-senior-maju-rozdielne-potreby",
-          ].find((url) => urls.includes(url));
-          const event = urls.includes("https://psipedia.sk/podujatia/psi-talent-2026")
-            ? "https://psipedia.sk/podujatia/psi-talent-2026"
-            : null;
-          const help = urls.find((url) => /^https:\/\/psipedia\.sk\/pomoc-psom\/(?:docasna-opatera|zbierky|urgentne-pripady|dobrovolnictvo|stratene-a-najdene)\/[^/?#]+$/.test(url));
-          if (!article) throw new Error("preview-missing-representative-article");
-          if (!event) throw new Error("preview-missing-representative-event");
-          if (!help) throw new Error("preview-missing-representative-help");
-
-          const forbidden = urls.find((url) => {
-            const { pathname, search, hash } = new URL(url);
-            return search || hash
-              || pathname === "/admin" || pathname.startsWith("/admin/")
-              || pathname === "/api" || pathname.startsWith("/api/")
-              || pathname === "/hladat" || pathname.startsWith("/hladat/");
-          });
-          if (forbidden) throw new Error(`preview-forbidden-url:${forbidden}`);
-
-          console.log("preview_counts="+JSON.stringify({
-            total: urls.length,
-            directory: directory.length,
-            organizations: urls.filter((url) => /^https:\/\/psipedia\.sk\/organizacie\/[^/?#]+$/.test(url)).length,
-            adoptions: urls.filter((url) => /^https:\/\/psipedia\.sk\/pomoc-psom\/adopcia\/[^/?#]+$/.test(url)).length,
-            lostFound: urls.filter((url) => /^https:\/\/psipedia\.sk\/pomoc-psom\/(?:stratene-psy|najdene-psy)\/[^/?#]+$/.test(url)).length,
-            breeds: urls.filter((url) => /^https:\/\/psipedia\.sk\/plemena\/[^/?#]+$/.test(url)
-              && !url.endsWith("/plemena/vyber-plemena")).length,
-          }));
-          console.log("preview_sample_directory="+directory[0]);
-          console.log("preview_sample_article="+article);
-          console.log("preview_sample_event="+event);
-          console.log("preview_sample_help="+help);
-          NODE
-
-      - name: Confirm preview files stay ephemeral
-        if: always()
-        shell: bash
-        run: rm -f /tmp/sitemap-preview.headers /tmp/sitemap-preview.xml
-
       - name: Lint
         run: npm run lint
       - name: Unit and integration tests
@@ -650,6 +535,121 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Resolve exact Cloudflare preview for PR head
+        id: preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${PR_HEAD_SHA}/check-runs"
+          preview_url=""
+          for attempt in $(seq 1 90); do
+            payload="$(curl --silent --show-error --fail \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${api}")"
+            state="$(printf '%s' "${payload}" | node -e '
+              let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
+                const runs=JSON.parse(x).check_runs||[];
+                const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
+                process.stdout.write(run ? String(run.status)+"|"+String(run.conclusion||"") : "missing|");
+              });
+            ')"
+            if [ "${state}" = "completed|failure" ]; then
+              echo "::error::Cloudflare Workers Build failed for ${PR_HEAD_SHA}."
+              exit 1
+            fi
+            if [ "${state}" = "completed|success" ]; then
+              preview_url="$(printf '%s' "${payload}" | node -e '
+                let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
+                  const runs=JSON.parse(x).check_runs||[];
+                  const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
+                  const summary=run?.output?.summary||"";
+                  const match=summary.match(/Preview URL:\s*(https:\/\/[^\s]+)/);
+                  process.stdout.write(match?.[1]||"");
+                });
+              ')"
+              if [ -n "${preview_url}" ]; then break; fi
+            fi
+            sleep 5
+          done
+          test -n "${preview_url}"
+          echo "url=${preview_url}" >> "$GITHUB_OUTPUT"
+          echo "Cloudflare preview resolved for PR head ${PR_HEAD_SHA}."
+
+      - name: Assert Cloudflare preview sitemap contract
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          metrics="$(curl --silent --show-error --location \
+            --dump-header /tmp/sitemap-preview.headers \
+            --output /tmp/sitemap-preview.xml \
+            --write-out '%{http_code}|%{content_type}|%{size_download}|%{time_total}' \
+            "${PREVIEW_URL}/sitemap.xml")"
+          IFS='|' read -r status content_type size_download time_total <<< "${metrics}"
+          echo "preview_http_status=${status}"
+          echo "preview_content_type=${content_type}"
+          echo "preview_xml_bytes=${size_download}"
+          echo "preview_time_seconds=${time_total}"
+          test "${status}" = "200"
+          printf '%s' "${content_type}" | grep -Eqi 'xml'
+
+          node <<'NODE'
+          const fs = require("fs");
+          const xml = fs.readFileSync("/tmp/sitemap-preview.xml", "utf8");
+          if (!/<urlset(?:\s|>)/.test(xml)) throw new Error("preview-sitemap-missing-urlset");
+          const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+          const duplicates = urls.filter((url, index) => urls.indexOf(url) !== index);
+          if (duplicates.length) throw new Error(`preview-sitemap-duplicate-url:${duplicates[0]}`);
+
+          const directory = urls.filter((url) => /^https:\/\/psipedia\.sk\/adresar\/[^/]+\/[^/?#]+$/.test(url));
+          if (directory.length <= 1000) throw new Error(`preview-directory-corpus-truncated:${directory.length}`);
+
+          const article = [
+            "https://psipedia.sk/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+            "https://psipedia.sk/starostlivost/kolko-hodin-denne-spi-pes-stena-dospely-pes-aj-senior-maju-rozdielne-potreby",
+          ].find((url) => urls.includes(url));
+          const event = urls.includes("https://psipedia.sk/podujatia/psi-talent-2026")
+            ? "https://psipedia.sk/podujatia/psi-talent-2026"
+            : null;
+          const help = urls.find((url) => /^https:\/\/psipedia\.sk\/pomoc-psom\/(?:docasna-opatera|zbierky|urgentne-pripady|dobrovolnictvo|stratene-a-najdene)\/[^/?#]+$/.test(url));
+          if (!article) throw new Error("preview-missing-representative-article");
+          if (!event) throw new Error("preview-missing-representative-event");
+          if (!help) throw new Error("preview-missing-representative-help");
+
+          const forbidden = urls.find((url) => {
+            const { pathname, search, hash } = new URL(url);
+            return search || hash
+              || pathname === "/admin" || pathname.startsWith("/admin/")
+              || pathname === "/api" || pathname.startsWith("/api/")
+              || pathname === "/hladat" || pathname.startsWith("/hladat/");
+          });
+          if (forbidden) throw new Error(`preview-forbidden-url:${forbidden}`);
+
+          console.log("preview_counts="+JSON.stringify({
+            total: urls.length,
+            directory: directory.length,
+            organizations: urls.filter((url) => /^https:\/\/psipedia\.sk\/organizacie\/[^/?#]+$/.test(url)).length,
+            adoptions: urls.filter((url) => /^https:\/\/psipedia\.sk\/pomoc-psom\/adopcia\/[^/?#]+$/.test(url)).length,
+            lostFound: urls.filter((url) => /^https:\/\/psipedia\.sk\/pomoc-psom\/(?:stratene-psy|najdene-psy)\/[^/?#]+$/.test(url)).length,
+            breeds: urls.filter((url) => /^https:\/\/psipedia\.sk\/plemena\/[^/?#]+$/.test(url)
+              && !url.endsWith("/plemena/vyber-plemena")).length,
+          }));
+          console.log("preview_sample_directory="+directory[0]);
+          console.log("preview_sample_article="+article);
+          console.log("preview_sample_event="+event);
+          console.log("preview_sample_help="+help);
+          NODE
+
+      - name: Confirm preview files stay ephemeral
+        if: always()
+        shell: bash
+        run: rm -f /tmp/sitemap-preview.headers /tmp/sitemap-preview.xml
+
       - name: Load canonical Cloudflare account id
         shell: bash
         run: |
