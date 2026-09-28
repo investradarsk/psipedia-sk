@@ -1186,6 +1186,122 @@ export const genericDirectoryProfileAdapter: ControlledHtmlAdapter = ({ html, so
   } satisfies AutomationSourceRecord];
 };
 
+
+function directoryFollowUpUrls(html: string, baseUrl: string) {
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return [];
+  }
+  const urls: string[] = [];
+  for (const match of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href = explicitSchemaUrl(decodeHtml(match[1]).trim(), baseUrl);
+    if (!href) continue;
+    let parsed: URL;
+    try {
+      parsed = new URL(href);
+    } catch {
+      continue;
+    }
+    if (parsed.hostname.toLowerCase() !== base.hostname.toLowerCase()) continue;
+    const semantic = normalizeAutomationIdentity(
+      textFromHtml(match[2]) + " " + parsed.pathname.replace(/[-_]/g, " "),
+    );
+    if (!/(kontakt|contact|o nas|about|sluzb|cennik)/.test(semantic)) continue;
+    if (!urls.includes(href)) urls.push(href);
+    if (urls.length >= 3) break;
+  }
+  return urls;
+}
+
+const productionGenericDirectoryProfileAdapter: ControlledHtmlAdapter = async (input) => {
+  const baseRecords = genericDirectoryProfileAdapter(input);
+  if (!baseRecords.length || !input.fetchHtml) return baseRecords;
+
+  const record = baseRecords[0];
+  const proposed = { ...record.proposed };
+  const needsFollowUp = !proposed.publicPhone
+    || !proposed.publicEmail
+    || !proposed.description
+    || !proposed.address
+    || !proposed.facebookUrl
+    || !proposed.instagramUrl;
+  if (!needsFollowUp) return baseRecords;
+
+  const sourceUrl = canonicalizeSourceUrl(input.source.sourceUrl);
+  if (!sourceUrl) return baseRecords;
+
+  const fetched: Array<{ url: string; html: string }> = [];
+  for (const url of directoryFollowUpUrls(input.html, sourceUrl)) {
+    try {
+      const page = await input.fetchHtml(url);
+      let finalUrl: URL;
+      let root: URL;
+      try {
+        finalUrl = new URL(page.finalUrl);
+        root = new URL(sourceUrl);
+      } catch {
+        continue;
+      }
+      if (finalUrl.hostname.toLowerCase() !== root.hostname.toLowerCase()) continue;
+      fetched.push({ url: canonicalizeSourceUrl(page.finalUrl) ?? url, html: page.html });
+    } catch {
+      // First-party follow-up is best-effort. The valid primary record survives.
+    }
+  }
+  if (!fetched.length) return baseRecords;
+
+  const combinedHtml = fetched.map((item) => item.html).join("\n");
+  const blocks = directoryContactBlocks(combinedHtml);
+  if (!proposed.publicPhone) {
+    const value = explicitContactPhone(blocks);
+    if (value) proposed.publicPhone = value;
+  }
+  if (!proposed.publicEmail) {
+    const value = explicitContactEmail(blocks);
+    if (value) proposed.publicEmail = value;
+  }
+  if (!proposed.facebookUrl) {
+    const values = fetched
+      .map((item) => explicitSocialFromHtml(item.html, item.url, "facebook"))
+      .filter((value): value is string => Boolean(value));
+    const value = singleExplicitValue(values);
+    if (value) proposed.facebookUrl = value;
+  }
+  if (!proposed.instagramUrl) {
+    const values = fetched
+      .map((item) => explicitSocialFromHtml(item.html, item.url, "instagram"))
+      .filter((value): value is string => Boolean(value));
+    const value = singleExplicitValue(values);
+    if (value) proposed.instagramUrl = value;
+  }
+  if (!proposed.address) {
+    const address = explicitHtmlPostalAddress(combinedHtml);
+    Object.assign(proposed, address);
+  }
+  if (!proposed.description) {
+    const descriptions = fetched
+      .map((item) => firstMetaDescription(item.html))
+      .filter(Boolean);
+    const description = singleExplicitValue(descriptions);
+    if (description) proposed.description = description;
+  }
+
+  return [{
+    ...record,
+    proposed,
+    rawRecord: {
+      ...(record.rawRecord && typeof record.rawRecord === "object" && !Array.isArray(record.rawRecord)
+        ? record.rawRecord as Record<string, unknown>
+        : { primary: record.rawRecord }),
+      enrichment: {
+        firstPartyFollowUpUrls: fetched.map((item) => item.url),
+      },
+    },
+  }];
+}
+
 function firstMetaDescription(html: string) {
   for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
     const tag = match[0];
@@ -1237,7 +1353,7 @@ export const productionAutomationHtmlAdapters: Record<string, ControlledHtmlAdap
   [TRNAVA_ADOPTION_DETAIL_ADAPTER]: trnavaAdoptionDetailAdapter,
   [ZATULANE_PSIKY_SALA_FOSTER_DETAIL_ADAPTER]: zatulanePsikySalaFosterDetailAdapter,
   [KOSICE_FOUND_DOG_DETAIL_ADAPTER]: kosiceFoundDogDetailAdapter,
-  [GENERIC_DIRECTORY_PROFILE_ADAPTER]: genericDirectoryProfileAdapter,
+  [GENERIC_DIRECTORY_PROFILE_ADAPTER]: productionGenericDirectoryProfileAdapter,
   [GENERIC_HELP_ITEM_PAGE_ADAPTER]: genericHelpItemPageAdapter,
   [ORGANIZATION_OFFICIAL_SITE_ADAPTER]: organizationOfficialSiteAdapter,
   [ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER]: psiadusaOrganizationDirectoryAdapter,
