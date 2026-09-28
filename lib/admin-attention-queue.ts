@@ -762,15 +762,25 @@ const automationDraftListHref: Record<string, string> = {
   "stratene-najdene": "/admin/stratene-najdene?status=DRAFT",
 };
 
+function slovakCountForm(count: number, one: string, few: string, many: string) {
+  const absolute = Math.abs(Math.trunc(count));
+  const lastTwo = absolute % 100;
+  if (lastTwo >= 11 && lastTwo <= 14) return many;
+  const last = absolute % 10;
+  if (last === 1) return one;
+  if (last >= 2 && last <= 4) return few;
+  return many;
+}
+
 function automationDraftTitle(categorySlug: string | null, count: number) {
-  if (categorySlug === "veterinari") return count === 1 ? "1 nový veterinárny koncept" : `${count} nové veterinárne koncepty`;
-  if (categorySlug === "adopcie") return count === 1 ? "1 nový pes na adopciu" : `${count} nových psov na adopciu`;
-  if (categorySlug === "podujatia") return count === 1 ? "1 nové podujatie" : `${count} nové podujatia`;
-  if (categorySlug === "utulky-organizacie") return count === 1 ? "1 nový koncept útulku alebo organizácie" : `${count} nových konceptov útulkov a organizácií`;
-  if (categorySlug === "psie-sluzby") return count === 1 ? "1 nový koncept psej služby" : `${count} nové koncepty psích služieb`;
-  if (categorySlug === "docasna-opatera") return count === 1 ? "1 nový koncept dočasnej opatery" : `${count} nové koncepty dočasnej opatery`;
-  if (categorySlug === "stratene-najdene") return count === 1 ? "1 nové hlásenie strateného / nájdeného psa" : `${count} nové hlásenia stratených / nájdených psov`;
-  return count === 1 ? "1 nový koncept" : `${count} nové koncepty`;
+  if (categorySlug === "veterinari") return `${count} ${slovakCountForm(count, "nový veterinárny koncept", "nové veterinárne koncepty", "nových veterinárnych konceptov")}`;
+  if (categorySlug === "adopcie") return `${count} ${slovakCountForm(count, "nový pes na adopciu", "nové psy na adopciu", "nových psov na adopciu")}`;
+  if (categorySlug === "podujatia") return `${count} ${slovakCountForm(count, "nové podujatie", "nové podujatia", "nových podujatí")}`;
+  if (categorySlug === "utulky-organizacie") return `${count} ${slovakCountForm(count, "nový koncept útulku alebo organizácie", "nové koncepty útulkov a organizácií", "nových konceptov útulkov a organizácií")}`;
+  if (categorySlug === "psie-sluzby") return `${count} ${slovakCountForm(count, "nový koncept psej služby", "nové koncepty psích služieb", "nových konceptov psích služieb")}`;
+  if (categorySlug === "docasna-opatera") return `${count} ${slovakCountForm(count, "nový koncept dočasnej opatery", "nové koncepty dočasnej opatery", "nových konceptov dočasnej opatery")}`;
+  if (categorySlug === "stratene-najdene") return `${count} ${slovakCountForm(count, "nové hlásenie strateného / nájdeného psa", "nové hlásenia stratených / nájdených psov", "nových hlásení stratených / nájdených psov")}`;
+  return `${count} ${slovakCountForm(count, "nový koncept", "nové koncepty", "nových konceptov")}`;
 }
 
 function automationActionPresentation(row: AutomationActionAttentionRow) {
@@ -782,14 +792,14 @@ function automationActionPresentation(row: AutomationActionAttentionRow) {
         ? "Automatizácia našla nové veterinárne pracoviská."
         : "Automatizácia vytvorila nové koncepty, ktoré čakajú na ľudskú kontrolu.",
       targetHref: row.count === 1 ? row.targetHref : (row.categorySlug ? automationDraftListHref[row.categorySlug] ?? row.targetHref : row.targetHref),
-      actionLabel: row.count === 1 ? "Skontrolovať koncept" : `Skontrolovať ${row.count} nové koncepty`,
+      actionLabel: row.count === 1 ? "Skontrolovať koncept" : `Skontrolovať ${automationDraftTitle(row.categorySlug, row.count)}`,
       contextLabel: categoryLabel,
       priority: "LOW" as const,
     };
   }
   if (row.actionType === "NEW_FEED_SOURCES") {
     return {
-      title: row.count === 1 ? "1 nový zdroj čaká na schválenie" : `${row.count} nové zdroje čakajú na schválenie`,
+      title: `${row.count} ${slovakCountForm(row.count, "nový zdroj čaká", "nové zdroje čakajú", "nových zdrojov čaká")} na schválenie`,
       reason: "Automatizácia našla nové opakované zdroje. Pred kontrolovaním ich musí schváliť človek.",
       targetHref: row.targetHref,
       actionLabel: "Skontrolovať zdroje",
@@ -799,7 +809,7 @@ function automationActionPresentation(row: AutomationActionAttentionRow) {
   }
   if (row.actionType === "UPDATE_SUGGESTIONS") {
     return {
-      title: row.count === 1 ? "1 návrh zmeny" : `${row.count} návrhy zmien`,
+      title: `${row.count} ${slovakCountForm(row.count, "návrh zmeny", "návrhy zmien", "návrhov zmien")}`,
       reason: "Našli sa nové alebo zmenené údaje pri existujúcich záznamoch.",
       targetHref: row.targetHref,
       actionLabel: row.count === 1 ? "Skontrolovať zmenu" : "Skontrolovať zmeny",
@@ -809,7 +819,11 @@ function automationActionPresentation(row: AutomationActionAttentionRow) {
   }
   if (row.actionType === "ADDRESS_REVIEW") {
     return {
-      title: row.count === 1 ? "1 adresa vyžaduje kontrolu" : `${row.count} adresy vyžadujú kontrolu`,
+      title: row.count === 1
+        ? "1 adresa vyžaduje kontrolu"
+        : row.count >= 2 && row.count <= 4
+          ? `${row.count} adresy vyžadujú kontrolu`
+          : `${row.count} adries vyžaduje kontrolu`,
       reason: "Automatizácia nevie bezpečne rozhodnúť medzi viacerými možnými adresami.",
       targetHref: row.targetHref,
       actionLabel: row.count === 1 ? "Skontrolovať adresu" : "Skontrolovať adresy",
@@ -819,7 +833,11 @@ function automationActionPresentation(row: AutomationActionAttentionRow) {
   }
   if (row.actionType === "POSSIBLE_MATCH_REVIEW") {
     return {
-      title: row.count === 1 ? "1 neistú zhodu treba skontrolovať" : `${row.count} neisté zhody treba skontrolovať`,
+      title: row.count === 1
+        ? "1 neistú zhodu treba skontrolovať"
+        : row.count >= 2 && row.count <= 4
+          ? `${row.count} neisté zhody treba skontrolovať`
+          : `${row.count} neistých zhôd treba skontrolovať`,
       reason: "Nie je isté, či nájdené záznamy už v Psipedii existujú.",
       targetHref: row.targetHref,
       actionLabel: "Skontrolovať zhody",
