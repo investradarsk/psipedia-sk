@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
+import { PublicArticleListItem } from "@/components/public-visual-system";
+import { getNewsCategory } from "@/lib/news";
 import { normalizePortalSearch, portalSearchFallbacks, searchPortal } from "@/lib/portal-search";
 import { SEARCH_MAX_QUERY_LENGTH } from "@/lib/portal-search-query";
 import styles from "./search.module.css";
@@ -23,6 +25,24 @@ function resultCountLabel(value: number) {
   if (value === 1) return "1 výsledok";
   if (value >= 2 && value <= 4) return `${value} výsledky`;
   return `${value} výsledkov`;
+}
+
+const searchArticleDateFormatter = new Intl.DateTimeFormat("sk-SK", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function searchArticleDate(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value.slice(0, 10) : searchArticleDateFormatter.format(date);
+}
+
+function searchArticleTopic(item: { type: string; category?: string; newsCategory?: string }) {
+  if (item.type === "Novinka") return getNewsCategory(item.newsCategory)?.shortLabel ?? "Zo sveta psov";
+  return item.category ?? "Článok";
 }
 
 function searchHref(query: string, section: string, page: number) {
@@ -90,7 +110,18 @@ export default async function SearchPage({ searchParams }: Props) {
               <strong>{resultCountLabel(result.total)}</strong>
             </div>
             <div className={styles.resultList} aria-label="Výsledky vyhľadávania">
-              {result.items.map((item) => (
+              {result.items.map((item) => item.kind === "article" ? (
+                <PublicArticleListItem
+                  key={item.href}
+                  href={item.href}
+                  title={item.title}
+                  topic={searchArticleTopic(item)}
+                  date={searchArticleDate(item.publishedAt)}
+                  dateTime={item.publishedAt}
+                  image={item.imageUrl ? { src: item.imageUrl, alt: "Ilustračná fotografia k článku: " + item.title } : undefined}
+                  listItem={false}
+                />
+              ) : (
                 <Link href={item.href} key={item.href} className={styles.result}>
                   <span className={styles.copy}>
                     <small className={styles.type}>{item.type}</small>
