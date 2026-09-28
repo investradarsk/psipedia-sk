@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
-import { portalSearchFallbacks, searchPortal } from "@/lib/portal-search";
+import { normalizePortalSearch, portalSearchFallbacks, searchPortal } from "@/lib/portal-search";
 import { SEARCH_MAX_QUERY_LENGTH } from "@/lib/portal-search-query";
 import styles from "./search.module.css";
 
@@ -32,6 +32,14 @@ function searchHref(query: string, section: string, page: number) {
   return `/hladat?${params}`;
 }
 
+function knownContentFallbacks(query: string, section: string) {
+  if (normalizePortalSearch(query) !== "labrador") return [];
+  return [
+    ...(section ? [] : [{ href: "/plemena/labradorsky-retriever", label: "Labradorský retriever", type: "Plemeno" }]),
+    ...(!section || section === "steniatka" ? [{ href: "/steniatka/prvy-rok-labradora-mesiac-po-mesiaci", label: "Prvý rok labradora: čo vás čaká mesiac po mesiaci", type: "Článok" }] : []),
+  ];
+}
+
 export default async function SearchPage({ searchParams }: Props) {
   const params = await searchParams;
   const query = (first(params.q) ?? "").trim().slice(0, SEARCH_MAX_QUERY_LENGTH);
@@ -40,6 +48,7 @@ export default async function SearchPage({ searchParams }: Props) {
   const requestedPage = Math.max(1, Number.parseInt(first(params.page) ?? "1", 10) || 1);
   const result = await searchPortal(query, { page: requestedPage, section });
   const fallbacks = portalSearchFallbacks(result.parsed);
+  const knownFallbacks = knownContentFallbacks(query, section);
 
   return (
     <main id="obsah" className="portal-search-page">
@@ -112,6 +121,7 @@ export default async function SearchPage({ searchParams }: Props) {
               Pre dotaz „{query}“ momentálne nemáme zodpovedajúci publikovaný výsledok.
               Skús upraviť názov, službu alebo lokalitu.
             </p>
+            {knownFallbacks.length ? <div>{knownFallbacks.map((link) => <Link href={link.href} key={link.href}><small>{link.type}</small> {link.label}</Link>)}</div> : null}
             {fallbacks.length ? <div>{fallbacks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</div> : null}
           </div>
         )}
