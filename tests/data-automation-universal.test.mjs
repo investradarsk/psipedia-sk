@@ -138,6 +138,34 @@ test("universal readiness fails closed on unsupported and mismatched adapters", 
   })), null);
 });
 
+test("known EVENT master URLs use an exact production provisioning allowlist", () => {
+  const cases = [
+    ["https://skj.sk/sk/vystavy/kalendar/", "skj-exhibition-calendar", undefined],
+    ["https://www.agility.sk/preteky/", "agility-sk-events", 1],
+    ["https://zsksr.sk/kalendar/", "zsk-sr-events", 1],
+    ["https://mushing.sk/preteky/", "szpz-mushing-events", 1],
+  ];
+  for (const [canonicalUrl, htmlAdapterKey, expectedMinRecords] of cases) {
+    const config = candidateProvisioningConfigFor({ entityType: "EVENT", canonicalUrl, metadata: {} });
+    assert.equal(config.htmlAdapterKey, htmlAdapterKey, canonicalUrl);
+    assert.equal(config.sourceShape, "MULTI_ITEM_LIST", canonicalUrl);
+    assert.equal(config.expectedMinRecords, expectedMinRecords, canonicalUrl);
+  }
+
+  for (const canonicalUrl of [
+    "https://agility.sk/preteky/detail",
+    "https://agility.sk/preteky?page=2",
+    "https://events.example.sk/preteky",
+    "https://mushing.sk/pretek/example-event",
+  ]) {
+    assert.deepEqual(
+      candidateProvisioningConfigFor({ entityType: "EVENT", canonicalUrl, metadata: {} }),
+      {},
+      canonicalUrl,
+    );
+  }
+});
+
 test("FOSTER and LOST_FOUND supported URL families are provisioned automatically", () => {
   assert.equal(candidateProvisioningConfigFor({
     entityType: "FOSTER",
