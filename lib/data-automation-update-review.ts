@@ -328,6 +328,8 @@ type SuggestionRow = {
 type ReviewRow = {
   origin_type: AutomationUpdateOrigin;
   suggestion_id: number;
+  entity_type: AutomationEntityType;
+  canonical_entity_id: number;
   field_key: string;
   proposed_value_hash: string;
   decision: AutomationUpdateDecision;
@@ -454,22 +456,24 @@ async function proposedHash(field: string, spec: FieldSpec | null, proposed: unk
 
 async function loadReviewRows(rows: SuggestionRow[], db: Database) {
   if (!rows.length) return [] as ReviewRow[];
-  const directIds = rows.filter((row) => row.origin === "DIRECT_ENTITY").map((row) => row.id);
-  const feedIds = rows.filter((row) => row.origin === "FEED_SOURCE").map((row) => row.id);
+  const pairs = [...new Set(rows.map((row) => `${row.entity_type}:${row.canonical_entity_id}`))];
   const output: ReviewRow[] = [];
-  for (const [origin, ids] of [["DIRECT_ENTITY", directIds], ["FEED_SOURCE", feedIds]] as const) {
-    if (!ids.length) continue;
-    const placeholders = ids.map(() => "?").join(",");
-    try {
-      const result = await db.prepare(`SELECT origin_type,suggestion_id,field_key,proposed_value_hash,decision
+  try {
+    for (const pair of pairs) {
+      const splitAt = pair.lastIndexOf(":");
+      const entityType = pair.slice(0, splitAt) as AutomationEntityType;
+      const canonicalEntityId = Number(pair.slice(splitAt + 1));
+      const result = await db.prepare(`SELECT origin_type,suggestion_id,entity_type,canonical_entity_id,
+          field_key,proposed_value_hash,decision
         FROM automation_update_field_reviews
-        WHERE origin_type=? AND suggestion_id IN (${placeholders})`).bind(origin, ...ids).all<ReviewRow>();
+        WHERE entity_type=? AND canonical_entity_id=?`)
+        .bind(entityType, canonicalEntityId).all<ReviewRow>();
       output.push(...result.results);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (/no such table: automation_update_field_reviews/i.test(message)) return [];
-      throw error;
     }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/no such table: automation_update_field_reviews/i.test(message)) return [];
+    throw error;
   }
   return output;
 }
@@ -479,7 +483,8 @@ async function materializeSuggestion(row: SuggestionRow, reviews: ReviewRow[], d
   if (!canonical) return null;
   const diff = parseRecord(row.diff_json) as AutomationDiff;
   const reviewMap = new Map(
-    reviews.filter((review) => review.origin_type === row.origin && Number(review.suggestion_id) === row.id)
+    reviews
+      .filter((review) => review.entity_type === row.entity_type && Number(review.canonical_entity_id) === row.canonical_entity_id)
       .map((review) => [`${review.field_key}:${review.proposed_value_hash}`, review]),
   );
   const fields: CanonicalUpdateSuggestionField[] = [];
@@ -630,15 +635,17 @@ async function getSuggestionRow(origin: AutomationUpdateOrigin, id: number, db: 
 }
 
 async function existingDecision(
-  origin: AutomationUpdateOrigin,
-  suggestionId: number,
+  entityType: AutomationEntityType,
+  canonicalEntityId: number,
   field: string,
   hash: string,
   db: Database,
 ) {
-  return db.prepare(`SELECT decision FROM automation_update_field_reviews
-    WHERE origin_type=? AND suggestion_id=? AND field_key=? AND proposed_value_hash=? LIMIT 1`)
-    .bind(origin, suggestionId, field, hash).first<{ decision: AutomationUpdateDecision }>();
+  return db.prepare(`SELECT origin_type,suggestion_id,decision FROM automation_update_field_reviews
+    WHERE entity_type=? AND canonical_entity_id=? AND field_key=? AND proposed_value_hash=?
+    ORDER BY reviewed_at DESC,id DESC LIMIT 1`)
+    .bind(entityType, canonicalEntityId, field, hash)
+    .first<{ origin_type: AutomationUpdateOrigin; suggestion_id: number; decision: AutomationUpdateDecision }>();
 }
 
 async function recordDecision(input: {
@@ -793,23 +800,38 @@ export async function reviewAutomationUpdateField(input: {
   const actor = input.actor.trim().toLowerCase();
   const at = (input.now ?? new Date()).toISOString();
   const decision = input.action === "accept" ? "ACCEPTED" : "REJECTED";
-  const already = await existingDecision(input.origin, row.id, field, hash, db);
+  const already = await existingDecision(row.entity_type, row.canonical_entity_id, field, hash, db);
   const canonical = await getCanonicalRow(row.entity_type, row.canonical_entity_id, db);
   if (!canonical) throw new AutomationUpdateReviewNotFoundError();
 
   if (already) {
+    const sameSuggestion = already.origin_type === row.origin && Number(already.suggestion_id) === row.id;
     if (already.decision === "REJECTED" && decision === "REJECTED") {
+      if (!sameSuggestion) {
+        await recordDecision({
+          origin: row.origin, suggestionId: row.id, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
+          field, hash, decision: "REJECTED", actor, at, reason: "SAME_VALUE_ALREADY_REJECTED",
+        }, db);
+      }
+      const remaining = await resolveParentIfComplete(row, actor, at, db);
       return {
         suggestionId: row.id, origin: row.origin, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
         field, decision, updatedValues: {}, updatedAt: String(canonical.updated_at ?? ""),
-        remainingOpenFields: await remainingFields(row, db),
+        remainingOpenFields: remaining,
       };
     }
     if (already.decision === "ACCEPTED" && decision === "ACCEPTED" && valuesEqual(spec, currentValue(canonical, row.entity_type, field, spec), change.after)) {
+      if (!sameSuggestion) {
+        await recordDecision({
+          origin: row.origin, suggestionId: row.id, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
+          field, hash, decision: "ACCEPTED", actor, at, reason: "SAME_VALUE_ALREADY_ACCEPTED",
+        }, db);
+      }
+      const remaining = await resolveParentIfComplete(row, actor, at, db);
       return {
         suggestionId: row.id, origin: row.origin, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
         field, decision, updatedValues: { [field]: currentValue(canonical, row.entity_type, field, spec) },
-        updatedAt: String(canonical.updated_at ?? ""), remainingOpenFields: await remainingFields(row, db),
+        updatedAt: String(canonical.updated_at ?? ""), remainingOpenFields: remaining,
       };
     }
     throw new AutomationUpdateReviewConflictError("Tento návrh už bol rozhodnutý inak.");
