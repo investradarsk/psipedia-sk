@@ -307,10 +307,39 @@ test("governance probes and controlled HTML connector share the source HTTP poli
     assert.match(source, /isSafeAutomationSourceUrl/);
   }
   assert.match(policy, /PsipediaDataResearch\/1\.0 \(\+https:\/\/psipedia\.sk\)/);
+  assert.match(policy, /AUTOMATION_SOURCE_MAX_REDIRECT_HOPS = 5/);
   assert.match(policy, /30_000/);
   assert.doesNotMatch(activation, /15_000/);
+  assert.match(activation, /HTTP 400-499 means robots\.txt is unavailable/);
+  assert.match(activation, /status >= 400 && status < 500/);
+  assert.match(activation, /status >= 500 && status < 600/);
+  assert.match(activation, /source_governance_probe_redirect_loop/);
 });
 
+
+
+test("technical verification observability is structured and excludes page payload fields", async () => {
+  const activation = await readFile(path.join(repoRoot, "lib/data-automation-source-activation.ts"), "utf8");
+  assert.match(activation, /event: "automation_source_technical_verification"/);
+  for (const field of [
+    "sourceId",
+    "entityType",
+    "hostname",
+    "accessStatus",
+    "accessDetail",
+    "robotsStatus",
+    "robotsDetail",
+    "activationResult",
+  ]) {
+    assert.match(activation, new RegExp(field));
+  }
+  const logStart = activation.indexOf("function logAutomationSourceTechnicalVerification");
+  const nextFunction = activation.indexOf("function stripGeneratedTechnicalRestrictionsNote", logStart);
+  const logger = activation.slice(logStart, nextFunction);
+  assert.doesNotMatch(logger, /response\.body|cookies?|authorization|headers|sourceUrl|query/i);
+  assert.match(activation, /technicalProbeFailureDetail/);
+  assert.match(activation, /request_timeout|dns_unreachable|tls_error|network_unreachable|request_failed/);
+});
 
 test("technical source governance refresh uses audited upsert history and never deletes governance", async () => {
   const [activation, migration] = await Promise.all([
