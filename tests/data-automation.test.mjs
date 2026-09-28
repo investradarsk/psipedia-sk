@@ -434,7 +434,7 @@ test("12. unauthorized review action is blocked by the existing admin auth contr
   assert.match(api, /if \(!user\)/);
 });
 
-test("13. scheduled job reuses the existing hourly Worker contract and stays bounded", () => {
+test("13. scheduled job keeps hourly full work and adds bounded five-minute automation due checks", () => {
   const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
   const wrangler = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
   const runner = readFileSync(new URL("../lib/data-automation-runner.ts", import.meta.url), "utf8");
@@ -442,10 +442,13 @@ test("13. scheduled job reuses the existing hourly Worker contract and stays bou
   assert.match(worker, /runDataAutomationSweep\(\{ database: env\.DB, htmlAdapters: productionAutomationHtmlAdapters, organizationEnricher: createProductionOrganizationEnricher\(\) \}\)/);
   assert.match(wrangler, /"crons": \["\*\/5 \* \* \* \*"\]/);
   assert.match(worker, /getUTCMinutes\(\) === 0/);
-  const pushOnlyBranch = worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"), worker.indexOf("const [summary, editorial"));
-  assert.match(pushOnlyBranch, /runScheduledAdminPush\(env\)/);
-  assert.match(pushOnlyBranch, /return;/);
-  assert.doesNotMatch(pushOnlyBranch, /runDataAutomationSweep/);
+  const fastBranch = worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"), worker.indexOf("const [summary, editorial"));
+  assert.match(fastBranch, /runScheduledAdminPush\(env\)/);
+  assert.match(fastBranch, /runDataAutomationSweep/);
+  assert.match(fastBranch, /runDataAutomationDiscoverySweep/);
+  assert.match(fastBranch, /five_minute_due_check/);
+  assert.match(fastBranch, /return;/);
+  assert.doesNotMatch(fastBranch, /runNotion|runEditorialNotificationSweep|runPartnerNotificationSweep/);
   assert.match(runner, /DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8/);
   assert.match(runner, /for \(const source of sources\)/);
 });

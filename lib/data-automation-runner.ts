@@ -5,7 +5,6 @@ import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enri
 import { AutomationConnectorError, fetchAutomationSourceRecords } from "./data-automation-connectors.ts";
 import {
   automationFindingFingerprint,
-  automationFindingPriority,
   buildAutomationDiff,
   classifyAutomationFinding,
   sha256Hex,
@@ -38,8 +37,7 @@ import {
   upsertAutomationFinding,
   type AutomationD1Database,
 } from "./data-automation-store.ts";
-import { enqueueEditorialNotification } from "./editorial-notifications";
-import { enqueueAutomationFindingAdminNotification } from "./admin-notifications";
+import { enqueuePersistentAutomationSourceIssueAdminNotification } from "./admin-notifications";
 import {
   linkAutomationFindingToCluster,
   resolveAutomationEntityCluster,
@@ -224,33 +222,6 @@ function automationResultFindingCounts(result: {
   return result.created || result.reopened ? { created: 1, updated: 0 } : { created: 0, updated: 1 };
 }
 
-async function maybeQueueHighPriorityNotification(
-  findingId: number,
-  type: AutomationFindingType,
-  createdOrReopened: boolean,
-  database: D1Database,
-  now: Date,
-) {
-  if (!createdOrReopened) return;
-  if (type === "NEW_ENTITY" || type === "DUPLICATE_CANDIDATE") return;
-  try {
-    await enqueueAutomationFindingAdminNotification(database, findingId, now);
-  } catch (error) {
-    console.error(JSON.stringify({ event: "data_automation_admin_push_enqueue", findingId, result: "failed", error: safeErrorCode(error) }));
-  }
-  if (automationFindingPriority(type) !== "HIGH") return;
-  try {
-    await enqueueEditorialNotification("automation_finding", findingId, { database, now });
-  } catch (error) {
-    console.error(JSON.stringify({
-      event: "data_automation_notification_enqueue",
-      findingId,
-      result: "failed",
-      error: safeErrorCode(error),
-    }));
-  }
-}
-
 async function createSourceErrorFinding(
   source: AutomationSource,
   errorCode: string,
@@ -284,13 +255,6 @@ async function createSourceErrorFinding(
     reason: `Kontrola zdroja zlyhala: ${errorCode}.`,
     detectedAt,
   }, database);
-  await maybeQueueHighPriorityNotification(
-    result.id,
-    "SOURCE_ERROR",
-    result.created || result.reopened,
-    database,
-    new Date(detectedAt),
-  );
   return result;
 }
 
@@ -441,13 +405,6 @@ async function processRecord(
       reason: findingReason(classified.findingType, record, match.candidates ?? []),
       detectedAt,
     }, database);
-    await maybeQueueHighPriorityNotification(
-      result.id,
-      classified.findingType,
-      result.created || result.reopened,
-      database,
-      new Date(detectedAt),
-    );
     const receipt = await ensureProcessedReceipt(source, record, proposalHash, detectedAt, database);
     if (!receipt) throw new Error("automation_ingestion_receipt_missing");
     return {
@@ -549,13 +506,6 @@ async function processRecord(
       detectedAt,
     }, database);
     await linkAutomationFindingToCluster(result.id, clusterResolution.clusterId, detectedAt, database);
-    await maybeQueueHighPriorityNotification(
-      result.id,
-      findingType,
-      result.created || result.reopened,
-      database,
-      new Date(detectedAt),
-    );
     const draft = await createCanonicalDraftForFinding(result.id, findingType, database, detectedAt);
     return { finding: findingType, draft, ...result };
   }
@@ -617,14 +567,6 @@ async function processRecord(
   if (clusterResolution) {
     await linkAutomationFindingToCluster(result.id, clusterResolution.clusterId, detectedAt, database);
   }
-
-  await maybeQueueHighPriorityNotification(
-    result.id,
-    classified.findingType,
-    result.created || result.reopened,
-    database,
-    new Date(detectedAt),
-  );
   const draft = await createCanonicalDraftForFinding(result.id, classified.findingType, database, detectedAt);
   return { finding: classified.findingType, draft, ...result };
 }
@@ -747,6 +689,19 @@ async function runSource(
     startedAt,
     completedAt,
   }, options.database);
+
+  if (status === "FAILED") {
+    try {
+      await enqueuePersistentAutomationSourceIssueAdminNotification(options.database, source.id, completedAt);
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "automation_source_issue_notification_event",
+        sourceId: source.id,
+        result: "failed",
+        error: safeErrorCode(error),
+      }));
+    }
+  }
 
   const summary = {
     sourceId: source.id,

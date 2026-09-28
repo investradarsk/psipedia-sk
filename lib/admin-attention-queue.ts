@@ -1,7 +1,7 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
-export const ADMIN_ATTENTION_QUERY_COUNT = 15;
+export const ADMIN_ATTENTION_QUERY_COUNT = 16;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -11,6 +11,7 @@ export const adminAttentionSourceTypes = [
   "DIRECTORY_INQUIRY",
   "ARTICLE_FEEDBACK",
   "ADOPTION_STALE",
+  "AUTOMATION_ACTION",
   "AUTOMATION_FINDING",
   "PARTNER_CLAIM_REVIEW",
   "PARTNER_PROFILE_CHANGE_REVIEW",
@@ -51,6 +52,8 @@ export type AdminAttentionItem = {
   relevantAt: string;
   ageDays: number;
   targetHref: string;
+  actionLabel?: string;
+  contextLabel?: string;
   metadata?: AdminAttentionMetadata[];
 };
 
@@ -68,7 +71,8 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   DIRECTORY_INQUIRY: "Dopyty",
   ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
-  AUTOMATION_FINDING: "Automatický research",
+  AUTOMATION_ACTION: "Automatizácie",
+  AUTOMATION_FINDING: "Automation finding (legacy)",
   PARTNER_CLAIM_REVIEW: "Partner claims",
   PARTNER_PROFILE_CHANGE_REVIEW: "Partner úpravy profilov",
   PARTNER_NEW_PROFILE_REVIEW: "Partner nové profily",
@@ -724,6 +728,154 @@ export function mapAutomationFindingAttention(
       { label: "Zdroj", value: row.sourceLabel },
       ...(row.sourceUrl ? [{ label: "URL", value: row.sourceUrl }] : []),
     ],
+  };
+}
+
+export type AutomationActionAttentionRow = {
+  actionType: "NEW_DRAFTS" | "NEW_FEED_SOURCES" | "UPDATE_SUGGESTIONS" | "ADDRESS_REVIEW" | "POSSIBLE_MATCH_REVIEW" | "SOURCE_ISSUE";
+  sourceId: string;
+  categorySlug: string | null;
+  count: number;
+  relevantAt: string;
+  targetHref: string;
+  sourceLabel: string | null;
+  priority?: AdminAttentionPriority;
+};
+
+const automationCategoryLabels: Record<string, string> = {
+  "veterinari": "Veterinári",
+  "psie-sluzby": "Psie služby",
+  "utulky-organizacie": "Útulky a organizácie",
+  "podujatia": "Podujatia",
+  "adopcie": "Adopcie",
+  "docasna-opatera": "Dočasná opatera",
+  "stratene-najdene": "Stratené / nájdené",
+};
+
+const automationDraftListHref: Record<string, string> = {
+  "veterinari": "/admin/adresar?category=veterinari&status=DRAFT",
+  "psie-sluzby": "/admin/adresar?status=DRAFT",
+  "utulky-organizacie": "/admin/organizacie",
+  "podujatia": "/admin/podujatia",
+  "adopcie": "/admin/adopcie?status=DRAFT",
+  "docasna-opatera": "/admin/pomoc?category=docasna-opatera&status=DRAFT",
+  "stratene-najdene": "/admin/stratene-najdene?status=DRAFT",
+};
+
+function slovakCountForm(count: number, one: string, few: string, many: string) {
+  const absolute = Math.abs(Math.trunc(count));
+  const lastTwo = absolute % 100;
+  if (lastTwo >= 11 && lastTwo <= 14) return many;
+  const last = absolute % 10;
+  if (last === 1) return one;
+  if (last >= 2 && last <= 4) return few;
+  return many;
+}
+
+function automationDraftTitle(categorySlug: string | null, count: number) {
+  if (categorySlug === "veterinari") return `${count} ${slovakCountForm(count, "nový veterinárny koncept", "nové veterinárne koncepty", "nových veterinárnych konceptov")}`;
+  if (categorySlug === "adopcie") return `${count} ${slovakCountForm(count, "nový pes na adopciu", "nové psy na adopciu", "nových psov na adopciu")}`;
+  if (categorySlug === "podujatia") return `${count} ${slovakCountForm(count, "nové podujatie", "nové podujatia", "nových podujatí")}`;
+  if (categorySlug === "utulky-organizacie") return `${count} ${slovakCountForm(count, "nový koncept útulku alebo organizácie", "nové koncepty útulkov a organizácií", "nových konceptov útulkov a organizácií")}`;
+  if (categorySlug === "psie-sluzby") return `${count} ${slovakCountForm(count, "nový koncept psej služby", "nové koncepty psích služieb", "nových konceptov psích služieb")}`;
+  if (categorySlug === "docasna-opatera") return `${count} ${slovakCountForm(count, "nový koncept dočasnej opatery", "nové koncepty dočasnej opatery", "nových konceptov dočasnej opatery")}`;
+  if (categorySlug === "stratene-najdene") return `${count} ${slovakCountForm(count, "nové hlásenie strateného / nájdeného psa", "nové hlásenia stratených / nájdených psov", "nových hlásení stratených / nájdených psov")}`;
+  return `${count} ${slovakCountForm(count, "nový koncept", "nové koncepty", "nových konceptov")}`;
+}
+
+function automationActionPresentation(row: AutomationActionAttentionRow) {
+  const categoryLabel = row.categorySlug ? automationCategoryLabels[row.categorySlug] ?? null : null;
+  if (row.actionType === "NEW_DRAFTS") {
+    return {
+      title: automationDraftTitle(row.categorySlug, row.count),
+      reason: row.categorySlug === "veterinari"
+        ? "Automatizácia našla nové veterinárne pracoviská."
+        : "Automatizácia vytvorila nové koncepty, ktoré čakajú na ľudskú kontrolu.",
+      targetHref: row.count === 1 ? row.targetHref : (row.categorySlug ? automationDraftListHref[row.categorySlug] ?? row.targetHref : row.targetHref),
+      actionLabel: row.count === 1 ? "Skontrolovať koncept" : `Skontrolovať ${automationDraftTitle(row.categorySlug, row.count)}`,
+      contextLabel: categoryLabel,
+      priority: "LOW" as const,
+    };
+  }
+  if (row.actionType === "NEW_FEED_SOURCES") {
+    return {
+      title: `${row.count} ${slovakCountForm(row.count, "nový zdroj čaká", "nové zdroje čakajú", "nových zdrojov čaká")} na schválenie`,
+      reason: "Automatizácia našla nové opakované zdroje. Pred kontrolovaním ich musí schváliť človek.",
+      targetHref: row.targetHref,
+      actionLabel: "Skontrolovať zdroje",
+      contextLabel: categoryLabel,
+      priority: "MEDIUM" as const,
+    };
+  }
+  if (row.actionType === "UPDATE_SUGGESTIONS") {
+    return {
+      title: `${row.count} ${slovakCountForm(row.count, "návrh zmeny", "návrhy zmien", "návrhov zmien")}`,
+      reason: "Našli sa nové alebo zmenené údaje pri existujúcich záznamoch.",
+      targetHref: row.targetHref,
+      actionLabel: row.count === 1 ? "Skontrolovať zmenu" : "Skontrolovať zmeny",
+      contextLabel: categoryLabel,
+      priority: row.priority ?? "MEDIUM",
+    };
+  }
+  if (row.actionType === "ADDRESS_REVIEW") {
+    return {
+      title: row.count === 1
+        ? "1 adresa vyžaduje kontrolu"
+        : row.count >= 2 && row.count <= 4
+          ? `${row.count} adresy vyžadujú kontrolu`
+          : `${row.count} adries vyžaduje kontrolu`,
+      reason: "Automatizácia nevie bezpečne rozhodnúť medzi viacerými možnými adresami.",
+      targetHref: row.targetHref,
+      actionLabel: row.count === 1 ? "Skontrolovať adresu" : "Skontrolovať adresy",
+      contextLabel: categoryLabel,
+      priority: "MEDIUM" as const,
+    };
+  }
+  if (row.actionType === "POSSIBLE_MATCH_REVIEW") {
+    return {
+      title: row.count === 1
+        ? "1 neistú zhodu treba skontrolovať"
+        : row.count >= 2 && row.count <= 4
+          ? `${row.count} neisté zhody treba skontrolovať`
+          : `${row.count} neistých zhôd treba skontrolovať`,
+      reason: "Nie je isté, či nájdené záznamy už v Psipedii existujú.",
+      targetHref: row.targetHref,
+      actionLabel: "Skontrolovať zhody",
+      contextLabel: null,
+      priority: "MEDIUM" as const,
+    };
+  }
+  return {
+    title: `${row.sourceLabel || "Zdroj"} potrebuje kontrolu`,
+    reason: "Posledné 3 kontroly zdroja zlyhali.",
+    targetHref: row.targetHref,
+    actionLabel: "Otvoriť zdroj",
+    contextLabel: categoryLabel,
+    priority: "HIGH" as const,
+  };
+}
+
+export function mapAutomationActionAttention(
+  row: AutomationActionAttentionRow,
+  now = new Date(),
+): AdminAttentionItem {
+  const presentation = automationActionPresentation(row);
+  return {
+    key: `automation-action:${row.sourceId}`,
+    sourceType: "AUTOMATION_ACTION",
+    sourceId: row.sourceId,
+    title: presentation.title,
+    reason: presentation.reason,
+    priority: presentation.priority,
+    status: "OPEN",
+    attentionState: "NEW",
+    createdAt: row.relevantAt,
+    relevantAt: row.relevantAt,
+    ageDays: ageDays(row.relevantAt, now),
+    targetHref: presentation.targetHref,
+    actionLabel: presentation.actionLabel,
+    contextLabel: presentation.contextLabel ?? undefined,
+    metadata: row.count > 1 ? [{ label: "Počet", value: String(row.count) }] : undefined,
   };
 }
 

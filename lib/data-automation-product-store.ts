@@ -12,6 +12,14 @@ import {
   automationServiceDirectoryCategories,
   type AutomationProductCategorySlug,
 } from "./data-automation-product-model.ts";
+import {
+  automationScheduleFromStorage,
+  automationScheduleStorage,
+  automationSchedulesEqual,
+  effectiveAutomationCadenceMinutes,
+  nextAutomationScheduledAt,
+  type AutomationSchedule,
+} from "./automation-schedule.ts";
 
 type Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -26,6 +34,7 @@ export type AutomationDirectRefreshSetting = {
   entityType: "DIRECTORY" | "ORGANIZATION";
   enabled: boolean;
   cadenceMinutes: number;
+  schedule: AutomationSchedule;
   cursorEntityId: number;
   nextCheckAt: string | null;
   lastCheckedAt: string | null;
@@ -164,11 +173,19 @@ export async function upsertDirectEntityUpdateSuggestion(input: {
 }
 
 function mapRefreshSetting(row: Record<string, unknown>): AutomationDirectRefreshSetting {
+  const schedule = automationScheduleFromStorage({
+    cadenceMinutes: row.cadence_minutes,
+    scheduleMode: row.schedule_mode,
+    scheduleDaysJson: row.schedule_days_json,
+    scheduleLocalTime: row.schedule_local_time,
+    scheduleTimezone: row.schedule_timezone,
+  });
   return {
     categorySlug: String(row.category_slug) as AutomationDirectRefreshSetting["categorySlug"],
     entityType: String(row.entity_type) as AutomationDirectRefreshSetting["entityType"],
     enabled: Boolean(row.enabled),
-    cadenceMinutes: Number(row.cadence_minutes),
+    cadenceMinutes: effectiveAutomationCadenceMinutes(schedule),
+    schedule,
     cursorEntityId: Number(row.cursor_entity_id ?? 0),
     nextCheckAt: row.next_check_at ? String(row.next_check_at) : null,
     lastCheckedAt: row.last_checked_at ? String(row.last_checked_at) : null,
@@ -191,22 +208,46 @@ export async function getDirectEntityRefreshSetting(
 export async function configureDirectEntityRefreshSetting(input: {
   categorySlug: AutomationDirectRefreshSetting["categorySlug"];
   enabled: boolean;
-  cadenceMinutes: number;
+  cadenceMinutes?: number;
+  schedule?: AutomationSchedule;
   now?: Date;
 }, databaseInput?: Database) {
   const db = database(databaseInput);
-  const cadence = Math.floor(input.cadenceMinutes);
-  if (!Number.isSafeInteger(cadence) || cadence < 60 || cadence > 43_200) {
+  const existing = await getDirectEntityRefreshSetting(input.categorySlug, db);
+  if (!existing) return null;
+  const legacyCadence = Math.floor(input.cadenceMinutes ?? existing.cadenceMinutes);
+  if (!input.schedule && (!Number.isSafeInteger(legacyCadence) || legacyCadence < 60 || legacyCadence > 43_200)) {
     throw new Error("automation_direct_refresh_cadence_invalid");
   }
-  const at = (input.now ?? new Date()).toISOString();
+  const schedule = input.schedule ?? { mode: "INTERVAL" as const, intervalMinutes: legacyCadence };
+  const storage = automationScheduleStorage(schedule);
+  const now = input.now ?? new Date();
+  const at = now.toISOString();
+  const unchanged = automationSchedulesEqual(existing.schedule, schedule);
+  const continuingCycle = input.enabled
+    && existing.enabled
+    && existing.cursorEntityId > 0
+    && Boolean(existing.nextCheckAt);
+  const nextCheckAt = !input.enabled
+    ? null
+    : continuingCycle
+      ? existing.nextCheckAt
+      : schedule.mode === "CALENDAR"
+        ? existing.enabled && unchanged && existing.nextCheckAt
+          ? existing.nextCheckAt
+          : nextAutomationScheduledAt(schedule, now)
+        : at;
   await db.prepare(`UPDATE automation_direct_refresh_settings SET
-      enabled=?,cadence_minutes=?,next_check_at=?,cursor_entity_id=CASE WHEN ?=0 THEN 0 ELSE cursor_entity_id END,
-      updated_at=?
+      enabled=?,cadence_minutes=?,schedule_mode=?,schedule_days_json=?,schedule_local_time=?,schedule_timezone=?,
+      next_check_at=?,cursor_entity_id=CASE WHEN ?=0 THEN 0 ELSE cursor_entity_id END,updated_at=?
     WHERE category_slug=?`).bind(
       input.enabled ? 1 : 0,
-      cadence,
-      input.enabled ? at : null,
+      storage.cadenceMinutes,
+      storage.scheduleMode,
+      storage.scheduleDaysJson,
+      storage.scheduleLocalTime,
+      storage.scheduleTimezone,
+      nextCheckAt,
       input.enabled ? 1 : 0,
       at,
       input.categorySlug,
@@ -227,6 +268,25 @@ export async function listDueDirectEntityRefreshSettings(
       Math.max(1, Math.min(3, limit)),
     ).all<Record<string, unknown>>();
   return result.results.map(mapRefreshSetting);
+}
+
+export async function claimDueDirectEntityRefreshSetting(
+  setting: AutomationDirectRefreshSetting,
+  databaseInput?: Database,
+  now = new Date(),
+) {
+  const db = database(databaseInput);
+  const nowIso = now.toISOString();
+  const leaseUntil = new Date(now.getTime() + 20 * 60_000).toISOString();
+  const result = await db.prepare(`UPDATE automation_direct_refresh_settings
+    SET next_check_at=?
+    WHERE category_slug=? AND enabled=1
+      AND (next_check_at IS NULL OR next_check_at<=?)`).bind(
+      leaseUntil,
+      setting.categorySlug,
+      nowIso,
+    ).run();
+  return result.meta.changes ? { ...setting, nextCheckAt: leaseUntil } : null;
 }
 
 export type DirectRefreshCandidate = {
@@ -289,7 +349,7 @@ export async function finishDirectEntityRefreshSetting(input: {
   const cursor = input.batchWasFull ? Math.max(0, input.lastEntityId) : 0;
   const next = input.batchWasFull
     ? new Date(now.getTime() + 60 * 60_000).toISOString()
-    : new Date(now.getTime() + input.setting.cadenceMinutes * 60_000).toISOString();
+    : nextAutomationScheduledAt(input.setting.schedule, now);
   await db.prepare(`UPDATE automation_direct_refresh_settings SET
       cursor_entity_id=?,next_check_at=?,last_checked_at=?,
       last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,

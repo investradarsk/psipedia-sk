@@ -1,6 +1,8 @@
 import { ADOPTION_STALE_DAYS } from "@/lib/adoption";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { normalizeAdminNotificationPath } from "@/lib/admin-web-push";
+import { automationCanonicalAdminHref, type AutomationEntityType } from "@/lib/data-automation";
+import { automationProductCategoryForEntity, type AutomationProductCategorySlug } from "@/lib/data-automation-product-model";
 
 export type AdminNotificationActorType = "PUBLIC" | "PARTNER" | "ADMIN" | "AUTOMATION" | "SYSTEM" | "REVIEW_AUTHOR";
 
@@ -165,34 +167,144 @@ export async function enqueueEditorialReferenceAdminNotification(
   }, now);
 }
 
+export type AutomationActionAdminNotificationInput = {
+  eventType: string;
+  resourceType: string;
+  resourceRef: string | number;
+  targetUrl: string;
+  title: string;
+  body: string;
+  tag: string;
+  dedupeKey: string;
+};
+
+export async function enqueueAutomationActionAdminNotification(
+  database: Pick<D1Database, "prepare">,
+  input: AutomationActionAdminNotificationInput,
+  now: Date | string = new Date(),
+) {
+  return enqueueAdminNotificationEvent(database, {
+    ...input,
+    sourceType: "AUTOMATION_ACTION",
+    actorType: "AUTOMATION",
+    actorRef: "automation",
+  }, now);
+}
+
+async function automationDraftNotificationDescriptor(
+  database: Pick<D1Database, "prepare">,
+  entityType: AutomationEntityType,
+  canonicalEntityId: number,
+) {
+  let label = "Koncept";
+  let categorySlug: AutomationProductCategorySlug | null = null;
+  if (entityType === "DIRECTORY") {
+    const row = await database.prepare("SELECT name,category FROM directory_profiles WHERE id=? LIMIT 1")
+      .bind(canonicalEntityId).first<{ name: string; category: string }>();
+    if (!row) return null;
+    label = row.name;
+    categorySlug = automationProductCategoryForEntity("DIRECTORY", row.category);
+  } else if (entityType === "ORGANIZATION") {
+    const row = await database.prepare("SELECT name FROM help_organizations WHERE id=? LIMIT 1")
+      .bind(canonicalEntityId).first<{ name: string }>();
+    if (!row) return null;
+    label = row.name;
+    categorySlug = "utulky-organizacie";
+  } else if (entityType === "EVENT") {
+    const row = await database.prepare("SELECT title FROM managed_events WHERE id=? LIMIT 1")
+      .bind(canonicalEntityId).first<{ title: string }>();
+    if (!row) return null;
+    label = row.title;
+    categorySlug = "podujatia";
+  } else if (entityType === "ADOPTION") {
+    const row = await database.prepare("SELECT name FROM adoption_dogs WHERE id=? LIMIT 1")
+      .bind(canonicalEntityId).first<{ name: string }>();
+    if (!row) return null;
+    label = row.name;
+    categorySlug = "adopcie";
+  } else if (entityType === "FOSTER") {
+    const row = await database.prepare("SELECT title FROM help_cases WHERE id=? LIMIT 1")
+      .bind(canonicalEntityId).first<{ title: string }>();
+    if (!row) return null;
+    label = row.title;
+    categorySlug = "docasna-opatera";
+  } else if (entityType === "LOST_FOUND") {
+    const row = await database.prepare("SELECT COALESCE(dog_name,city,'Stratené / nájdené') label FROM lost_found_dog_reports WHERE id=? LIMIT 1")
+      .bind(canonicalEntityId).first<{ label: string }>();
+    if (!row) return null;
+    label = row.label;
+    categorySlug = "stratene-najdene";
+  }
+  const targetUrl = automationCanonicalAdminHref(entityType, canonicalEntityId);
+  if (!categorySlug || !targetUrl) return null;
+  return { label, categorySlug, targetUrl };
+}
+
+export async function enqueueAutomationDraftCreatedAdminNotification(
+  database: Pick<D1Database, "prepare">,
+  input: { entityType: AutomationEntityType; canonicalEntityId: number },
+  now: Date | string = new Date(),
+) {
+  const descriptor = await automationDraftNotificationDescriptor(database, input.entityType, input.canonicalEntityId);
+  if (!descriptor) return { created: false };
+  return enqueueAutomationActionAdminNotification(database, {
+    eventType: "automation_draft_created",
+    resourceType: `automation_draft_${descriptor.categorySlug}`,
+    resourceRef: input.canonicalEntityId,
+    targetUrl: descriptor.targetUrl,
+    title: `Nový koncept: ${descriptor.label}`,
+    body: "Automatizácia vytvorila nový koncept na kontrolu.",
+    tag: `automation-draft-${input.entityType.toLowerCase()}-${input.canonicalEntityId}`,
+    dedupeKey: `automation/draft-created/${input.entityType}/${input.canonicalEntityId}`,
+  }, now);
+}
+
+export async function enqueuePersistentAutomationSourceIssueAdminNotification(
+  database: Pick<D1Database, "prepare">,
+  sourceId: number,
+  now: Date = new Date(),
+) {
+  const source = await database.prepare(
+    "SELECT id,label,enabled,review_status reviewStatus FROM automation_sources WHERE id=? LIMIT 1",
+  ).bind(sourceId).first<{ id: number; label: string; enabled: number; reviewStatus: string }>();
+  if (!source || !source.enabled || source.reviewStatus !== "APPROVED") return { created: false };
+
+  const sequence = await database.prepare(`
+    SELECT COUNT(*) failCount,MIN(started_at) sequenceStart
+    FROM automation_runs
+    WHERE source_id=?
+      AND status='FAILED'
+      AND started_at>COALESCE((
+        SELECT MAX(started_at) FROM automation_runs
+        WHERE source_id=? AND status NOT IN ('FAILED','RUNNING')
+      ),'')
+  `).bind(sourceId, sourceId).first<{ failCount: number; sequenceStart: string | null }>();
+  if (Number(sequence?.failCount ?? 0) < 3 || !sequence?.sequenceStart) return { created: false };
+
+  return enqueueAutomationActionAdminNotification(database, {
+    eventType: "automation_source_issue",
+    resourceType: "automation_source",
+    resourceRef: sourceId,
+    targetUrl: `/admin/automatizacie/zdroje/${sourceId}`,
+    title: `${source.label} potrebuje kontrolu`,
+    body: "Posledné 3 kontroly zdroja zlyhali.",
+    tag: `automation-source-issue-${sourceId}`,
+    dedupeKey: `automation/source-issue/${sourceId}/${sequence.sequenceStart}`,
+  }, now);
+}
+
 export async function enqueueAutomationFindingAdminNotification(
   database: Pick<D1Database, "prepare">,
   findingId: number,
   now: Date = new Date(),
 ) {
-  const row = await database.prepare(`SELECT f.finding_type findingType,f.priority,f.review_status reviewStatus,
-      f.last_detected_at lastDetectedAt,s.label sourceLabel
-    FROM automation_findings f
-    JOIN automation_sources s ON s.id=f.source_id
-    WHERE f.id=? LIMIT 1`)
-    .bind(findingId)
-    .first<{ findingType: string; priority: string; reviewStatus: string; lastDetectedAt: string; sourceLabel: string }>();
-  if (!row || !["NEW", "IN_REVIEW"].includes(row.reviewStatus)) return { created: false };
-  return enqueueAdminNotificationEvent(database, {
-    eventType: "automation_finding_activated",
-    sourceType: "AUTOMATION_FINDING",
-    resourceType: "automation_finding",
-    resourceRef: findingId,
-    actorType: "AUTOMATION",
-    actorRef: "automation",
-    targetUrl: `/admin/operations/automation/${findingId}`,
-    title: "Automatický nález vyžaduje kontrolu",
-    body: `${row.sourceLabel}: ${row.findingType} (${row.priority}).`,
-    tag: `automation-${findingId}`,
-    dedupeKey: `automation-finding/${findingId}/${row.lastDetectedAt}`,
-  }, now);
+  // Backward-compatible symbol only. New runs must never create the legacy
+  // AUTOMATION_FINDING user-facing notification model.
+  void database;
+  void findingId;
+  void now;
+  return { created: false };
 }
-
 
 type RolloutRuntimeRow = { rolloutStartedAt: string };
 
