@@ -28,6 +28,10 @@ export const PRESERVED_AUDIT_TABLES = Object.freeze([
   "automation_update_field_reviews",
 ]);
 
+export const PRESERVED_STATE_TABLES = Object.freeze([
+  "automation_record_suppressions",
+]);
+
 // Explicit child-first allowlist. Discovery-root rows are reusable code-level
 // configuration, so reset clears their operational state instead of deleting them.
 export const DELETE_TABLE_ORDER = Object.freeze([
@@ -167,6 +171,10 @@ export function assertStaticSafety() {
     invariant(table.startsWith("automation_"), `non-automation table in preserved audit allowlist: ${table}`);
     invariant(!DELETE_TABLE_ORDER.includes(table), `preserved audit table in delete allowlist: ${table}`);
   }
+  for (const table of PRESERVED_STATE_TABLES) {
+    invariant(table.startsWith("automation_"), `non-automation table in preserved state allowlist: ${table}`);
+    invariant(!DELETE_TABLE_ORDER.includes(table), `preserved state table in delete allowlist: ${table}`);
+  }
 }
 
 export function resetStatements(
@@ -187,6 +195,7 @@ export function preview(target) {
   assertStaticSafety();
   const deleteCounts = countsFor(target, DELETE_TABLE_ORDER);
   const preservedAuditCounts = countsFor(target, PRESERVED_AUDIT_TABLES);
+  const preservedStateCounts = countsFor(target, PRESERVED_STATE_TABLES);
   const canonicalSafetyCounts = canonicalSnapshot(target);
   const discoveryRoots = countTable(target, "automation_discovery_roots");
   const editorialAutomationFinding = tableExists(target, "editorial_notifications")
@@ -203,6 +212,7 @@ export function preview(target) {
     strictReadOnly: true,
     deleteCounts,
     preservedAuditCounts,
+    preservedStateCounts,
     resetCounts: {
       automation_discovery_roots: discoveryRoots,
       automation_direct_refresh_settings: countTable(target, "automation_direct_refresh_settings"),
@@ -220,6 +230,7 @@ export async function apply(target, before, fetchImpl = fetch) {
   invariant(before.applyAllowed, `reset blocked: ${JSON.stringify(before.blockers)}`);
   const canonicalBefore = before.canonicalSafetyCounts;
   const preservedAuditBefore = before.preservedAuditCounts;
+  const preservedStateBefore = before.preservedStateCounts;
   const existingTables = DELETE_TABLE_ORDER.filter((table) => tableExists(target, table));
   const statements = resetStatements(
     existingTables,
@@ -238,6 +249,8 @@ export async function apply(target, before, fetchImpl = fetch) {
   invariant(JSON.stringify(canonicalAfter) === JSON.stringify(canonicalBefore), "canonical safety counts changed");
   const preservedAuditAfter = countsFor(target, PRESERVED_AUDIT_TABLES);
   invariant(JSON.stringify(preservedAuditAfter) === JSON.stringify(preservedAuditBefore), "preserved governance audit counts changed");
+  const preservedStateAfter = countsFor(target, PRESERVED_STATE_TABLES);
+  invariant(JSON.stringify(preservedStateAfter) === JSON.stringify(preservedStateBefore), "preserved suppression state counts changed");
   if (tableExists(target, "automation_direct_refresh_settings")) {
     invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_direct_refresh_settings WHERE enabled<>0 OR cursor_entity_id<>0 OR next_check_at IS NOT NULL OR last_checked_at IS NOT NULL OR last_success_at IS NOT NULL OR last_error_at IS NOT NULL OR last_error_code IS NOT NULL") === 0,
       "direct refresh operational state remains after reset");
@@ -251,6 +264,8 @@ export async function apply(target, before, fetchImpl = fetch) {
     deleted: before.deleteCounts,
     preservedAuditBefore,
     preservedAuditAfter,
+    preservedStateBefore,
+    preservedStateAfter,
     canonicalBefore,
     canonicalAfter,
     remaining,
