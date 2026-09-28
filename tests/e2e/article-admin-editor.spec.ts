@@ -246,6 +246,31 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
   });
 
+  test("server-side publish gate blocks editorial placeholders, focuses content and allows draft recovery", async ({ page }, testInfo) => {
+    const suffix = projectSuffix(testInfo.project.name);
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await fillMinimumArticle(page, `CONTENT QA publish gate ${suffix}`);
+
+    const bodyEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
+    await bodyEditor.fill("Po publikovaní bude vhodné prepojiť aj článok Ako spoznať bolesť u psa.");
+
+    await page.getByRole("button", { name: "Publikovať článok" }).click();
+    await expect(page.getByRole("heading", { name: "Chýbajú povinné údaje" })).toBeVisible();
+    await expect(page.getByText(/internú redakčnú poznámku alebo placeholder/).first()).toBeVisible();
+    await expect(page.getByText("Článok zatiaľ nemožno publikovať. Oprav blokujúce položky.")).toBeVisible();
+    await expect(page.locator("#article-content")).toBeFocused();
+    await expect(page).toHaveURL(/\/admin\/novy\?sekcia=clanky/);
+
+    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
+    await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
+
+    const persistedBody = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
+    await persistedBody.fill("Finálny verejný obsah po odstránení internej redakčnej poznámky.");
+    await page.getByRole("button", { name: "Publikovať článok" }).click();
+    await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+  });
+
   test("toolbar is keyboard reachable, axe-clean and does not overflow at 390px-class mobile width", async ({ page }, testInfo) => {
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     await waitForEditor(page);
