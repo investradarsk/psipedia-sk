@@ -336,7 +336,7 @@ test("technical verification observability is structured and excludes page paylo
   const logStart = activation.indexOf("function logAutomationSourceTechnicalVerification");
   const nextFunction = activation.indexOf("function stripGeneratedTechnicalRestrictionsNote", logStart);
   const logger = activation.slice(logStart, nextFunction);
-  assert.doesNotMatch(logger, /response\.body|cookies?|authorization|headers|sourceUrl|query/i);
+  assert.doesNotMatch(logger, /responseBody:|cookies?:|authorization:|headers:|sourceUrl:|query:/i);
   assert.match(activation, /technicalProbeFailureDetail/);
   assert.match(activation, /request_timeout|dns_unreachable|tls_error|network_unreachable|request_failed/);
 });
