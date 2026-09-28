@@ -46,7 +46,7 @@ type RuntimeBindings = { DB?: D1Database };
 export const ADMIN_ATTENTION_PAGE_SIZE = 24;
 export const ADMIN_ATTENTION_MAX_PAGE_SIZE = 50;
 export const ADMIN_ATTENTION_SOURCE_QUERY_COUNT = 15;
-export const ADMIN_ATTENTION_REQUEST_QUERY_MAX = ADMIN_ATTENTION_SOURCE_QUERY_COUNT + 2;
+export const ADMIN_ATTENTION_REQUEST_QUERY_MAX = ADMIN_ATTENTION_SOURCE_QUERY_COUNT * 2;
 
 export const adminAttentionAvailabilityStates = ["OK", "EMPTY", "PARTIAL", "UNAVAILABLE"] as const;
 export type AdminAttentionAvailability = (typeof adminAttentionAvailabilityStates)[number];
@@ -98,10 +98,10 @@ type AttentionGenericRow = {
   payload: string;
 };
 
-type AttentionAggregateRow = {
+type AttentionSourceProbeRow = {
   total: number;
-  active: number;
-  history: number;
+  activeCount: number;
+  historyCount: number;
   newCount: number;
   inProgressCount: number;
   resolvedCount: number;
@@ -109,7 +109,21 @@ type AttentionAggregateRow = {
   highCount: number;
   mediumCount: number;
   lowCount: number;
-  filteredTotal: number;
+  activeHighCount: number;
+  activeMediumCount: number;
+  activeLowCount: number;
+  historyHighCount: number;
+  historyMediumCount: number;
+  historyLowCount: number;
+};
+
+type AttentionSourceSnapshot = AdminAttentionSourceAvailability & {
+  total: number;
+  historyCount: number;
+  byState: Record<AdminAttentionState, number>;
+  byPriority: Record<AdminAttentionPriority, number>;
+  activeByPriority: Record<AdminAttentionPriority, number>;
+  historyByPriority: Record<AdminAttentionPriority, number>;
 };
 
 type CursorPayload = {
