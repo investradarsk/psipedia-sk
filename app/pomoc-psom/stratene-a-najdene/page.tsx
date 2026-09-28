@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { StructuredData } from "@/components/structured-data";
 import { listPublicDogReports } from "@/lib/lost-found-dog-store";
+import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +19,25 @@ export default async function LostFoundHubPage() {
     listPublicDogReports("FOUND", { page: 1, pageSize: 1 }),
   ]);
 
+  const schema = buildCollectionPageJsonLd({
+    name: "Stratené a nájdené psy",
+    description: "Prehľad hlásení o stratených a nájdených psoch na Slovensku.",
+    path: "/pomoc-psom/stratene-a-najdene",
+    breadcrumbs: [
+      { name: "Domov", path: "/" },
+      { name: "Pomoc psom", path: "/pomoc-psom" },
+      { name: "Stratené a nájdené psy", path: "/pomoc-psom/stratene-a-najdene" },
+    ],
+    items: [
+      { name: "Stratené psy", path: "/pomoc-psom/stratene-psy" },
+      { name: "Nájdené psy", path: "/pomoc-psom/najdene-psy" },
+    ],
+  });
+
   return (
-    <main id="obsah">
+    <>
+      <StructuredData value={schema} />
+      <main id="obsah">
       <header className="page-hero shell">
         <div className="page-hero-inner">
           <span className="eyebrow">Pomoc psom</span>
@@ -51,5 +70,6 @@ export default async function LostFoundHubPage() {
         <p><Link href="/pomoc-psom">← Späť na Pomoc psom</Link></p>
       </section>
     </main>
+    </>
   );
 }
