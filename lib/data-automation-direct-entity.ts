@@ -6,9 +6,11 @@ import { mapAutomationRecordToDraftInput } from "./data-automation-draft-mapper.
 import { directoryActionableProposal } from "./data-automation-directory-diff.ts";
 import {
   enrichDirectoryProposalWithExactAddress,
+  type DirectoryAddressReviewProposal,
   type DirectoryAddressSearch,
 } from "./data-automation-directory-address-enrichment.ts";
 import type { VerifiedDirectoryAddress } from "./directory-address-provider.ts";
+import { upsertAutomationAddressReviewCase } from "./data-automation-address-review-store.ts";
 import type { GeocoderProvider } from "./geo-provider.ts";
 import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
 import {
@@ -150,6 +152,32 @@ function splitDescriptionStreetAddress(value: string) {
 function directoryProposalHasAddress(proposed: Record<string, unknown>) {
   return ["address", "street", "houseNumber", "house_number", "postalCode", "postal_code", "city"]
     .some((key) => typeof proposed[key] === "string" && proposed[key].trim().length > 0);
+}
+
+const AMBIGUOUS_DIRECTORY_ADDRESS_FIELDS = new Set([
+  "region",
+  "district",
+  "city",
+  "address",
+  "postalCode",
+  "postal_code",
+  "street",
+  "houseNumber",
+  "house_number",
+  "addressFormat",
+  "address_format",
+  "serviceAddressConfirmation",
+  "service_address_confirmation",
+]);
+
+function withoutAmbiguousDirectoryAddress(
+  proposed: Record<string, unknown>,
+  review: DirectoryAddressReviewProposal | null,
+) {
+  if (!review) return proposed;
+  return Object.fromEntries(
+    Object.entries(proposed).filter(([key]) => !AMBIGUOUS_DIRECTORY_ADDRESS_FIELDS.has(key)),
+  );
 }
 
 export function enrichDirectoryProposalAddress(proposed: Record<string, unknown>) {
@@ -331,10 +359,11 @@ export async function ingestDirectEntityUrl(input: {
   const records: Array<{
     record: AutomationSourceRecord;
     verifiedDirectoryAddress: VerifiedDirectoryAddress | null;
+    addressReview: DirectoryAddressReviewProposal | null;
   }> = [];
   for (const fetchedRecord of fetchedRecords) {
     if (input.entityType !== "DIRECTORY") {
-      records.push({ record: fetchedRecord, verifiedDirectoryAddress: null });
+      records.push({ record: fetchedRecord, verifiedDirectoryAddress: null, addressReview: null });
       continue;
     }
     const proposed = enrichDirectoryProposalAddress(fetchedRecord.proposed);
@@ -349,6 +378,7 @@ export async function ingestDirectEntityUrl(input: {
     records.push({
       record: { ...fetchedRecord, proposed: exact.proposed },
       verifiedDirectoryAddress: exact.verified,
+      addressReview: exact.review,
     });
   }
 
@@ -364,13 +394,14 @@ export async function ingestDirectEntityUrl(input: {
   for (const prepared of records) {
     const record = prepared.record;
     const verifiedDirectoryAddress = prepared.verifiedDirectoryAddress;
+    const addressReview = prepared.addressReview;
     const match = await matchAutomationCanonical(source, record, input.database);
     if (input.expectedCanonicalEntityId && match.entityId !== input.expectedCanonicalEntityId) {
       continue;
     }
 
     const proposedForComparison = input.entityType === "DIRECTORY"
-      ? directoryActionableProposal(record.proposed, match.before)
+      ? directoryActionableProposal(withoutAmbiguousDirectoryAddress(record.proposed, addressReview), match.before)
       : organizationActionableProposal(record.proposed, match.before);
     if (
       input.entityType === "DIRECTORY"
@@ -383,6 +414,18 @@ export async function ingestDirectEntityUrl(input: {
     const provenanceType = input.provenanceType ?? "DIRECT_ENTITY_DISCOVERY";
 
     if (match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
+      if (input.entityType === "DIRECTORY" && addressReview && (categorySlug === "veterinari" || categorySlug === "psie-sluzby")) {
+        await upsertAutomationAddressReviewCase({
+          canonicalEntityId: match.entityId,
+          categorySlug,
+          externalSourceUrl: record.sourceUrl,
+          externalRecordId: record.sourceRecordId,
+          reason: addressReview.reason,
+          evidence: addressReview.evidence,
+          candidates: addressReview.candidates,
+          detectedAt,
+        }, input.database);
+      }
       await upsertCanonicalExternalProvenance({
         entityType: input.entityType,
         canonicalEntityId: match.entityId,
@@ -464,6 +507,18 @@ export async function ingestDirectEntityUrl(input: {
       provenanceType,
       detectedAt,
     }, input.database);
+    if (input.entityType === "DIRECTORY" && addressReview && (categorySlug === "veterinari" || categorySlug === "psie-sluzby")) {
+      await upsertAutomationAddressReviewCase({
+        canonicalEntityId: created.canonicalEntityId,
+        categorySlug,
+        externalSourceUrl: record.sourceUrl,
+        externalRecordId: record.sourceRecordId,
+        reason: addressReview.reason,
+        evidence: addressReview.evidence,
+        candidates: addressReview.candidates,
+        detectedAt,
+      }, input.database);
+    }
     await ensureCanonicalSidecars(input.entityType, created.canonicalEntityId, input.database, now);
     if (input.entityType === "DIRECTORY" && verifiedDirectoryAddress) {
       try {
