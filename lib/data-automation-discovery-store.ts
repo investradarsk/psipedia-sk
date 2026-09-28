@@ -286,6 +286,22 @@ export async function getDueAutomationDiscoveryRoot(
   return decision.allowed ? root : null;
 }
 
+export async function claimDueAutomationDiscoveryRoot(
+  root: AutomationDiscoveryRoot,
+  databaseInput?: AutomationDiscoveryDatabase,
+  now = new Date(),
+) {
+  const db = database(databaseInput);
+  const nowIso = now.toISOString();
+  const leaseUntil = new Date(now.getTime() + 20 * 60_000).toISOString();
+  const result = await db.prepare(`UPDATE automation_discovery_roots
+    SET next_check_at=?
+    WHERE id=? AND enabled=1 AND review_status='APPROVED'
+      AND (next_check_at IS NULL OR next_check_at<=?)`)
+    .bind(leaseUntil, root.id, nowIso).run();
+  return result.meta.changes ? { ...root, nextCheckAt: leaseUntil } : null;
+}
+
 function discoveryGovernanceUsage(root: AutomationDiscoveryRoot) {
   return {
     recurring: true,
