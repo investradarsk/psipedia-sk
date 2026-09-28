@@ -7,6 +7,7 @@ import {
   filterAdminAttentionItems,
   isAdminAttentionActive,
   mapAdoptionStaleAttention,
+  mapAutomationActionAttention,
   mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
@@ -378,10 +379,64 @@ test("operations presentation does not add a competing mutation endpoint", () =>
 });
 
 
-test("automation findings keep separate automation ownership instead of entering the canonical queue", () => {
+test("automation actions replace legacy research in the user-facing queue", () => {
+  assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_ACTION"), true);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_FINDING"), false);
   const page = readFileSync(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /listAutomationSourceCandidates/);
-  assert.match(page, /listAutomationPossibleMatchReviews/);
-  assert.doesNotMatch(page, /mapAutomationFindingAttention/);
+  const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
+  assert.match(page, /attention\.summary\.bySource\.AUTOMATION_ACTION/);
+  assert.equal((page.match(/<h2>Automatizácie<\/h2>/g) ?? []).length, 1);
+  assert.doesNotMatch(page, /Automatizačné zdroje|Automatizácie na kontrolu|POSSIBLE matches|Identity review/);
+  assert.doesNotMatch(page, /listAutomationSourceCandidates|listAutomationSourcesAdmin|listAutomationPossibleMatchReviews/);
+  assert.match(component, /item\.sourceType !== "AUTOMATION_ACTION"/);
+  assert.match(component, /item\.actionLabel \?\? "Otvoriť"/);
+});
+
+test("automation action presentation is aggregated, human-readable and category-aware", () => {
+  const drafts = mapAutomationActionAttention({
+    actionType: "NEW_DRAFTS",
+    sourceId: "new-drafts:veterinari",
+    categorySlug: "veterinari",
+    count: 3,
+    relevantAt: "2026-09-15T10:00:00.000Z",
+    targetHref: "/admin/adresar/1",
+    sourceLabel: null,
+  }, NOW);
+  assert.equal(drafts.title, "3 nové veterinárne koncepty");
+  assert.equal(drafts.priority, "LOW");
+  assert.equal(drafts.contextLabel, "Veterinári");
+  assert.equal(drafts.targetHref, "/admin/adresar?category=veterinari&status=DRAFT");
+  assert.equal(drafts.actionLabel, "Skontrolovať 3 nové koncepty");
+
+  const sourceIssue = mapAutomationActionAttention({
+    actionType: "SOURCE_ISSUE",
+    sourceId: "source-issue:42",
+    categorySlug: "podujatia",
+    count: 1,
+    relevantAt: "2026-09-15T09:00:00.000Z",
+    targetHref: "/admin/automatizacie/zdroje/42",
+    sourceLabel: "ASKA",
+  }, NOW);
+  assert.equal(sourceIssue.title, "ASKA potrebuje kontrolu");
+  assert.equal(sourceIssue.reason, "Posledné 3 kontroly zdroja zlyhali.");
+  assert.equal(sourceIssue.priority, "HIGH");
+});
+
+test("automation attention derives active state from bounded domain queries and rollout-safe draft events", () => {
+  const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
+  const notifications = readFileSync(new URL("../lib/admin-notifications.ts", import.meta.url), "utf8");
+  const runner = readFileSync(new URL("../lib/data-automation-runner.ts", import.meta.url), "utf8");
+  const push = readFileSync(new URL("../lib/admin-push.ts", import.meta.url), "utf8");
+  assert.match(store, /automation_draft_created/);
+  assert.match(store, /admin_notification_runtime/);
+  assert.match(store, /status='DRAFT'/);
+  assert.match(store, /review_status='NEW'/);
+  assert.match(store, /failing_sources/);
+  assert.match(store, /HAVING COUNT\(\*\)=3 AND SUM\(CASE WHEN r\.status='FAILED'/);
+  assert.match(store, /ROW_NUMBER\(\) OVER \(PARTITION BY r\.source_id/);
+  assert.match(notifications, /sourceType: "AUTOMATION_ACTION"/);
+  assert.match(notifications, /automation\/source-issue\/\$\{sourceId\}\/\$\{sequence\.sequenceStart\}/);
+  assert.doesNotMatch(runner, /enqueueAutomationFindingAdminNotification|enqueueEditorialNotification|maybeQueueHighPriorityNotification/);
+  assert.match(runner, /enqueuePersistentAutomationSourceIssueAdminNotification/);
+  assert.match(push, /e\.source_type <> 'AUTOMATION_ACTION' OR e\.event_type='automation_source_issue'/);
 });
