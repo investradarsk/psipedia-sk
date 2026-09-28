@@ -39,6 +39,7 @@ export type AutomationCanonicalContentLink = {
   canonicalEntityId: number;
   label: string;
   status: string;
+  secondary: string | null;
   href: string;
 };
 
@@ -49,6 +50,7 @@ export type AutomationUpdateSuggestionSummary = {
   label: string;
   suggestionType: "POSSIBLE_UPDATE" | "POSSIBLE_INACTIVE" | "POSSIBLE_CANCELLED";
   field: string | null;
+  value: string | null;
   href: string;
   sourceUrl: string | null;
   lastDetectedAt: string;
@@ -402,19 +404,23 @@ async function canonicalLabelAndStatus(
   db: Database,
 ) {
   const query = entityType === "EVENT"
-    ? "SELECT title AS label,status FROM managed_events WHERE id=?"
+    ? "SELECT title AS label,status,city FROM managed_events WHERE id=?"
     : entityType === "ORGANIZATION"
-      ? "SELECT name AS label,status FROM help_organizations WHERE id=?"
+      ? "SELECT name AS label,status,city FROM help_organizations WHERE id=?"
       : entityType === "DIRECTORY"
-        ? "SELECT name AS label,status FROM directory_profiles WHERE id=?"
+        ? "SELECT name AS label,status,city FROM directory_profiles WHERE id=?"
         : entityType === "ADOPTION"
-          ? "SELECT name AS label,status FROM adoption_dogs WHERE id=?"
+          ? "SELECT name AS label,status,city FROM adoption_dogs WHERE id=?"
           : entityType === "LOST_FOUND"
-            ? "SELECT COALESCE(dog_name,city,'Stratené / nájdené') AS label,status FROM lost_found_dog_reports WHERE id=?"
-            : "SELECT title AS label,status FROM help_cases WHERE id=?";
+            ? "SELECT COALESCE(dog_name,city,'Stratené / nájdené') AS label,status,city FROM lost_found_dog_reports WHERE id=?"
+            : "SELECT title AS label,status,city FROM help_cases WHERE id=?";
   const row = await db.prepare(query + " LIMIT 1").bind(id).first<Record<string, unknown>>();
   return row
-    ? { label: String(row.label ?? ""), status: String(row.status ?? "") }
+    ? {
+        label: String(row.label ?? ""),
+        status: String(row.status ?? ""),
+        secondary: String(row.city ?? "").trim() || null,
+      }
     : null;
 }
 
@@ -501,13 +507,24 @@ export async function listDirectEntityUpdateSuggestions(
     const href = automationCanonicalAdminHref(entityType, canonicalEntityId);
     if (!canonical || !href) continue;
     const diff = parseJson(row.diff_json);
+    const field = Object.keys(diff)[0] ?? null;
+    const change = field ? diff[field] : null;
+    const after = change && typeof change === "object" && !Array.isArray(change)
+      ? (change as Record<string, unknown>).after
+      : null;
+    const value = after === null || after === undefined
+      ? null
+      : typeof after === "string" || typeof after === "number" || typeof after === "boolean"
+        ? String(after)
+        : JSON.stringify(after).slice(0, 240);
     output.push({
       id: Number(row.id),
       entityType,
       canonicalEntityId,
       label: canonical.label,
       suggestionType: row.suggestion_type as AutomationUpdateSuggestionSummary["suggestionType"],
-      field: Object.keys(diff)[0] ?? null,
+      field,
+      value,
       href,
       sourceUrl: String(row.external_source_url ?? "") || null,
       lastDetectedAt: String(row.last_detected_at ?? ""),
@@ -544,13 +561,24 @@ export async function listFeedUpdateSuggestions(
     const href = automationCanonicalAdminHref(entityType, canonicalEntityId);
     if (!canonical || !href) continue;
     const diff = parseJson(row.diff_json);
+    const field = Object.keys(diff)[0] ?? null;
+    const change = field ? diff[field] : null;
+    const after = change && typeof change === "object" && !Array.isArray(change)
+      ? (change as Record<string, unknown>).after
+      : null;
+    const value = after === null || after === undefined
+      ? null
+      : typeof after === "string" || typeof after === "number" || typeof after === "boolean"
+        ? String(after)
+        : JSON.stringify(after).slice(0, 240);
     output.push({
       id: Number(row.id),
       entityType,
       canonicalEntityId,
       label: canonical.label,
       suggestionType: row.finding_type as AutomationUpdateSuggestionSummary["suggestionType"],
-      field: Object.keys(diff)[0] ?? null,
+      field,
+      value,
       href,
       sourceUrl: row.source_url ? String(row.source_url) : null,
       lastDetectedAt: String(row.last_detected_at ?? ""),
