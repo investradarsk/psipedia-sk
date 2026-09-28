@@ -1,4 +1,4 @@
-import type { ArticlePortalSection } from "./portal.ts";
+import { isArticlePortalSection, type ArticlePortalSection } from "./portal.ts";
 import {
   adminContainsNeedle,
   boundedAdminPage,
@@ -13,10 +13,12 @@ export const articleAdminDirections = ["asc", "desc"] as const;
 export type ArticleAdminStatus = (typeof articleAdminStatuses)[number];
 export type ArticleAdminSort = (typeof articleAdminSorts)[number];
 export type ArticleAdminDirection = (typeof articleAdminDirections)[number];
+export type ArticleAdminPortalSection = "all" | ArticlePortalSection;
 
 export type ArticleAdminListFilters = {
   query: string;
   status: ArticleAdminStatus;
+  portalSection: ArticleAdminPortalSection;
   sort: ArticleAdminSort;
   direction: ArticleAdminDirection;
   page: number;
@@ -25,11 +27,13 @@ export type ArticleAdminListFilters = {
 
 export function parseArticleAdminListFilters(params: { get(name: string): string | null }): ArticleAdminListFilters {
   const status = params.get("status") ?? "all";
+  const section = params.get("section") ?? "all";
   const sort = params.get("sort") ?? "updated";
   const direction = params.get("direction") ?? "desc";
   return {
     query: (params.get("query") ?? params.get("q") ?? "").trim().slice(0, 120),
     status: (articleAdminStatuses as readonly string[]).includes(status) ? status as ArticleAdminStatus : "all",
+    portalSection: section === "all" || isArticlePortalSection(section) ? section as ArticleAdminPortalSection : "all",
     sort: (articleAdminSorts as readonly string[]).includes(sort) ? sort as ArticleAdminSort : "updated",
     direction: (articleAdminDirections as readonly string[]).includes(direction) ? direction as ArticleAdminDirection : "desc",
     page: boundedAdminPage(params.get("page")),
@@ -46,6 +50,7 @@ export function articleAdminListHref(
   const params = new URLSearchParams();
   if (next.query) params.set("query", next.query);
   if (next.status !== "all") params.set("status", next.status);
+  if (next.portalSection !== "all") params.set("section", next.portalSection);
   if (next.sort !== "updated") params.set("sort", next.sort);
   if (next.direction !== "desc") params.set("direction", next.direction);
   if (next.pageSize !== 50) params.set("pageSize", String(next.pageSize));
