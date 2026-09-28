@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { automationCadenceOptions } from "@/lib/admin-automation-presentation";
+import { automationCadenceOptions, automationSourceOnlyErrorMessage } from "@/lib/admin-automation-presentation";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
 import styles from "./admin-operations-ux.module.css";
 
 export function AdminAutomationSourceSettings({
   source,
   draftsHref,
+  monitoringReady,
 }: {
   source: AutomationSourceAdminRow;
   draftsHref: string;
+  monitoringReady: boolean;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(source.enabled);
@@ -30,7 +32,7 @@ export function AdminAutomationSourceSettings({
         body: JSON.stringify({ action: "configure", enabled, cadenceMinutes }),
       });
       const payload = await response.json().catch(() => ({})) as { immediateRun?: boolean; error?: string };
-      if (!response.ok) throw new Error(payload.error || "Nastavenie sa nepodarilo uložiť.");
+      if (!response.ok) throw new Error(automationSourceOnlyErrorMessage(payload.error, "Nastavenie sa nepodarilo uložiť."));
       setMessage(payload.immediateRun
         ? "Zdroj je zapnutý a prvá kontrola sa práve spustila."
         : "Nastavenie zdroja bolo uložené.");
@@ -53,9 +55,15 @@ export function AdminAutomationSourceSettings({
           </div>
         </div>
 
+        {!monitoringReady && (
+          <p className="admin-flash" role="status">
+            Tento zdroj zatiaľ nie je pripravený na automatické spracovanie.
+          </p>
+        )}
+
         <label className="admin-field">
           <span>Kontrolovať tento zdroj</span>
-          <select value={enabled ? "on" : "off"} onChange={(event) => setEnabled(event.target.value === "on")} disabled={busy}>
+          <select value={enabled ? "on" : "off"} onChange={(event) => setEnabled(event.target.value === "on")} disabled={busy || !monitoringReady}>
             <option value="off">Vypnuté</option>
             <option value="on">Zapnuté</option>
           </select>
@@ -71,7 +79,7 @@ export function AdminAutomationSourceSettings({
         </label>
 
         <div className="admin-form-actions">
-          <button className="is-primary" type="button" disabled={busy} onClick={() => void save()}>
+          <button className="is-primary" type="button" disabled={busy || (enabled && !monitoringReady)} onClick={() => void save()}>
             {busy ? "Ukladám…" : "Uložiť nastavenie"}
           </button>
         </div>
