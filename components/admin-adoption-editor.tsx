@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 import {
   adoptionStatusLabels,
   canTransitionAdoptionStatus,
@@ -14,6 +14,8 @@ import type { AdoptionAdminBreedOption, AdoptionAdminOrganizationOption } from "
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminAdoptionEditorProfile } from "./admin-adoption-editor-profile";
 import { AdminAdoptionEditorDetails } from "./admin-adoption-editor-details";
+import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 
 const publicStatuses = new Set<AdoptionStatus>(["ACTIVE", "RESERVED"]);
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
@@ -21,7 +23,7 @@ const nullableNumber = (data: FormData, key: string) => { const value = text(dat
 const nullableBoolean = (data: FormData, key: string) => { const value = text(data, key); return value === "true" ? true : value === "false" ? false : null; };
 const checked = (data: FormData, key: string) => data.get(key) === "on";
 
-export function AdminAdoptionEditor({ item, breeds, organizations }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOption[]; organizations: AdoptionAdminOrganizationOption[] }) {
+export function AdminAdoptionEditor({ item, breeds, organizations, automationSuggestions = [] }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOption[]; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
   const [name, setName] = useState(item?.name ?? "");
   const [slug, setSlug] = useState(item?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(item));
@@ -33,6 +35,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations }: { item?: Ad
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   const lifecycleOptions = useMemo(() => item
     ? (["DRAFT", "ACTIVE", "RESERVED", "ADOPTED", "ARCHIVED"] as AdoptionStatus[]).filter((next) => canTransitionAdoptionStatus(persistedStatus, next))
@@ -57,6 +60,20 @@ export function AdminAdoptionEditor({ item, breeds, organizations }: { item?: Ad
     } finally {
       setUploading(false); event.target.value = "";
     }
+  }
+
+  function applyAutomationUpdate(values: Record<string, unknown>, updatedAt: string) {
+    for (const [field, value] of Object.entries(values)) {
+      if (field === "name") { setName(value === null || value === undefined ? "" : String(value)); continue; }
+      const control = formRef.current?.elements.namedItem(field);
+      if (control instanceof HTMLInputElement) {
+        if (control.type === "checkbox") control.checked = Boolean(value);
+        else control.value = value === null || value === undefined ? "" : String(value);
+      } else if (control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) {
+        control.value = value === null || value === undefined ? "" : String(value);
+      }
+    }
+    setVersion(updatedAt);
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -95,8 +112,9 @@ export function AdminAdoptionEditor({ item, breeds, organizations }: { item?: Ad
     } finally { setSaving(false); }
   }
 
-  return <form className="admin-event-editor" onSubmit={save}>
+  return <form ref={formRef} className="admin-event-editor" onSubmit={save}>
     <div className="admin-event-editor-grid"><div className="admin-event-fields">
+      <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
       <section className="admin-form-card admin-form-card--intro">
         <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Meno, adresa profilu a lifecycle stav.</p></div></div></div>
         <div className="admin-field-grid">
