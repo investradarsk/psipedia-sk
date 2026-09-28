@@ -20,6 +20,7 @@ on:
       - "tests/admin-ia.test.mjs"
       - "tests/help-organization-publication.test.mjs"
       - "tests/e2e/admin-operations.spec.ts"
+      - "tests/fixtures/admin-attention-pagination-e2e.sql"
       - "tests/e2e/admin-organization-publication.spec.ts"
       - ".github/workflows/admin-operations-ci.yml"
   workflow_dispatch:
@@ -72,6 +73,8 @@ jobs:
       - name: Seed ORG-8A disposable publication fixture into isolated local D1 only
         run: |
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command "INSERT INTO help_organizations (name, slug, type, status, short_description, description, city, district, region, country_code, published_at, archived_at, created_at, updated_at, created_by, updated_by) VALUES ('ORG-8A Testovacia organizácia', 'org-8a-testovacia-organizacia', 'OTHER', 'DRAFT', 'Testovací profil publication workflow.', 'Izolovaná CI fixture pre ORG-8A.', 'Nitra', 'Nitra', 'Nitriansky kraj', 'SK', NULL, NULL, '2026-09-17T08:00:00.000Z', '2026-09-17T08:00:00.000Z', 'ci:org-8a', 'ci:org-8a') ON CONFLICT(slug) DO UPDATE SET status = 'DRAFT', published_at = NULL, archived_at = NULL, updated_at = '2026-09-17T08:00:00.000Z', updated_by = 'ci:org-8a';"
+      - name: Seed Attention pagination and unavailable-source fixtures into isolated local D1 only
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/admin-attention-pagination-e2e.sql
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/admin-operations

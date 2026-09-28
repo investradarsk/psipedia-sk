@@ -275,7 +275,7 @@ test("central attention badge counts unresolved inquiries and read remains in pr
   const before = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);
   assert.equal(before.status, 200);
   const beforeHtml = await before.text();
-  assert.match(beforeHtml, /aria-label="Upozornenia: 3 aktívnych položiek"/);
+  assert.match(beforeHtml, /aria-label="Upozornenia: najmenej 3 aktívnych položiek; niektoré zdroje nie sú dostupné"/);
 
   const update = await request(worker, d1, `/api/admin/inquiries/${firstId}`, {
     method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "read" }),
@@ -284,8 +284,8 @@ test("central attention badge counts unresolved inquiries and read remains in pr
   const after = await request(worker, d1, "/admin/dopyty", { method: "GET" }, true);
   assert.equal(after.status, 200);
   const afterHtml = await after.text();
-  assert.match(afterHtml, /aria-label="Upozornenia: 3 aktívnych položiek"/);
-  assert.doesNotMatch(afterHtml, /aria-label="Upozornenia: 2 aktívnych položiek"/);
+  assert.match(afterHtml, /aria-label="Upozornenia: najmenej 3 aktívnych položiek; niektoré zdroje nie sú dostupné"/);
+  assert.doesNotMatch(afterHtml, /aria-label="Upozornenia: najmenej 2 aktívnych položiek/);
 });
 
 test("hourly reminder sends only for new inquiries older than 24h and only once", async () => {

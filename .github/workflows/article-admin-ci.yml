@@ -13,11 +13,16 @@ on:
       - "components/admin-editorial-author-*"
       - "components/admin-rich-text-editor*"
       - "lib/article-store.ts"
+      - "lib/article-admin-query.ts"
+      - "lib/admin-list-query.ts"
       - "lib/editorial-authors.ts"
       - "lib/admin-image-upload.ts"
       - "tests/article-admin-editor.test.mjs"
+      - "tests/admin-article-search.test.mjs"
       - "tests/e2e/article-admin-editor.spec.ts"
+      - "tests/e2e/admin-article-search.spec.ts"
       - "tests/fixtures/article-admin-editor-e2e.sql"
+      - "tests/fixtures/admin-article-search-e2e.sql"
       - ".github/workflows/article-admin-ci.yml"
   workflow_dispatch:
 
@@ -52,7 +57,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: ARTICLE-ADMIN unit contract
-        run: npm run test:article-admin-editor
+        run: |
+          npm run test:article-admin-editor
+          node --experimental-strip-types --test tests/admin-article-search.test.mjs
       - name: Lint
         run: npm run lint
       - name: Build
@@ -71,6 +78,8 @@ jobs:
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Seed repository-managed legacy proof fixture
         run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/article-admin-editor-e2e.sql
+      - name: Seed isolated server-side article search fixture
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/admin-article-search-e2e.sql
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/article-admin
@@ -89,7 +98,7 @@ jobs:
             exit 1
           fi
       - name: ARTICLE-ADMIN Playwright — desktop and mobile
-        run: npx playwright test tests/e2e/article-admin-editor.spec.ts --workers=1 --retries=0
+        run: npx playwright test tests/e2e/article-admin-editor.spec.ts tests/e2e/admin-article-search.spec.ts --workers=1 --retries=0
       - name: Stop isolated local app
         if: always()
         run: |

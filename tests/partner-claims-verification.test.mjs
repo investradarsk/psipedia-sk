@@ -154,12 +154,14 @@ test("safe auth returnTo allows internal paths, blocks external redirects and to
 test("claim and verification Attention use exact active predicates separate from bounded display queries",()=>{
   assert.match(attention,/partner_claim/);
   assert.match(attention,/partner-verification/);
-  const exact=attentionStore.slice(attentionStore.indexOf("loadExactAdminAttentionSummary"));
-  assert.match(exact,/PARTNER_CLAIM_REVIEW/);
-  assert.match(exact,/partner_claims WHERE status='PENDING'/);
-  assert.match(exact,/PARTNER_VERIFICATION_REVIEW/);
-  assert.match(exact,/partner_resource_verifications WHERE status='PENDING_VERIFICATION'/);
-  assert.equal((attentionStore.match(/LIMIT \?/g)??[]).length,15);
+  assert.match(attentionStore,/PARTNER_CLAIM_REVIEW/);
+  assert.match(attentionStore,/FROM partner_claims c/);
+  assert.match(attentionStore,/c\.status='PENDING'/);
+  assert.match(attentionStore,/PARTNER_VERIFICATION_REVIEW/);
+  assert.match(attentionStore,/FROM partner_resource_verifications v/);
+  assert.match(attentionStore,/x\.status='PENDING_VERIFICATION'/);
+  assert.match(attentionStore,/sourceProbeSql/);
+  assert.equal((attentionStore.match(/LIMIT \?/g)??[]).length,1);
   assert.match(attention,/SELECT COUNT\(\*\) count FROM partner_claims WHERE status='PENDING'/);
   assert.match(attention,/SELECT COUNT\(\*\) count FROM partner_resource_verifications WHERE status='PENDING_VERIFICATION'/);
 });
