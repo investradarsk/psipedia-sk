@@ -2,6 +2,7 @@ import { env, waitUntil } from "cloudflare:workers";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import {
   automationCategoryBySlug,
+  automationDirectRefreshMinimumCadenceMinutes,
   automationDiscoveryRootsForCategory,
   isAutomationCadenceOption,
 } from "@/lib/admin-automation-presentation";
@@ -9,8 +10,8 @@ import {
   type AutomationDiscoveryRoot,
   listAutomationDiscoveryRoots,
   reviewAutomationDiscoveryRoot,
-  setAutomationDiscoveryRootCadence,
   setAutomationDiscoveryRootEnabled,
+  setAutomationDiscoveryRootSchedule,
 } from "@/lib/data-automation-discovery-store";
 import { runAutomationDiscoveryRootCanary } from "@/lib/data-automation-discovery-runner";
 import { releaseFailedDirectDiscoveryCooldowns } from "@/lib/data-automation-direct-discovery-recovery";
@@ -21,6 +22,14 @@ import {
   tavilySearchGovernancePresetForRoot,
 } from "@/lib/tavily-canary-control";
 import { configureDirectEntityRefreshSetting } from "@/lib/data-automation-product-store";
+import {
+  assertAutomationScheduleMinimumCadence,
+  automationScheduleErrorMessage,
+  automationSchedulesEqual,
+  effectiveAutomationCadenceMinutes,
+  parseAutomationSchedule,
+  type AutomationSchedule,
+} from "@/lib/automation-schedule";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string }> };
@@ -35,10 +44,24 @@ export async function PUT(request: Request, { params }: Props) {
   if (!category) return Response.json({ error: "Neznáma kategória." }, { status: 404 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const enabled = body?.enabled === true;
-  const cadenceMinutes = Number(body?.cadenceMinutes);
-  if (!isAutomationCadenceOption(cadenceMinutes)) {
-    return Response.json({ error: "Vyber platnú frekvenciu hľadania." }, { status: 400 });
+  let schedule: AutomationSchedule;
+  try {
+    if (body?.schedule !== undefined) {
+      schedule = parseAutomationSchedule(body.schedule);
+    } else {
+      const cadenceMinutes = Number(body?.cadenceMinutes);
+      if (!isAutomationCadenceOption(cadenceMinutes)) {
+        return Response.json({ error: "Vyber platnú frekvenciu hľadania." }, { status: 400 });
+      }
+      schedule = { mode: "INTERVAL", intervalMinutes: cadenceMinutes };
+    }
+    if (schedule.mode === "INTERVAL" && !isAutomationCadenceOption(schedule.intervalMinutes)) {
+      return Response.json({ error: "Vyber platný interval plánovania." }, { status: 400 });
+    }
+  } catch (error) {
+    return Response.json({ error: automationScheduleErrorMessage(error) }, { status: 400 });
   }
+  const cadenceMinutes = effectiveAutomationCadenceMinutes(schedule);
 
   const bindings = env as unknown as Bindings;
   if (!bindings.DB) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
@@ -48,10 +71,11 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({ error: "Táto kategória nepoužíva kontrolu existujúcich entít." }, { status: 400 });
     }
     try {
+      assertAutomationScheduleMinimumCadence(schedule, automationDirectRefreshMinimumCadenceMinutes());
       const setting = await configureDirectEntityRefreshSetting({
         categorySlug: category.slug as "veterinari" | "psie-sluzby" | "utulky-organizacie",
         enabled,
-        cadenceMinutes,
+        schedule,
       }, bindings.DB);
       return Response.json({ setting }, { headers: { "cache-control": "no-store" } });
     } catch (error) {
@@ -72,7 +96,7 @@ export async function PUT(request: Request, { params }: Props) {
     const wasEnabled = roots.some((root) => root.enabled);
     const unchangedDirectRetry = enabled
       && category.mode === "DIRECT_ENTITY"
-      && roots.every((root) => root.enabled && root.cadenceMinutes === cadenceMinutes);
+      && roots.every((root) => root.enabled && automationSchedulesEqual(root.schedule, schedule));
     const directRetryBudgetExhausted = unchangedDirectRetry
       && roots.every((root) => root.searchSafety && root.searchSafety.remainingRootRequests <= 0);
     if (directRetryBudgetExhausted) {
@@ -84,14 +108,16 @@ export async function PUT(request: Request, { params }: Props) {
 
     for (const root of roots) {
       const governancePreset = tavilySearchGovernancePresetForRoot(root);
-      if (cadenceMinutes < governancePreset.minCadenceMinutes) {
+      try {
+        assertAutomationScheduleMinimumCadence(schedule, governancePreset.minCadenceMinutes);
+      } catch {
         return Response.json({ error: "Táto frekvencia je pre vybranú kategóriu príliš častá." }, { status: 400 });
       }
     }
 
     const updatedRoots: AutomationDiscoveryRoot[] = [];
     for (const root of roots) {
-      let updated = await setAutomationDiscoveryRootCadence({ id: root.id, cadenceMinutes }, bindings.DB);
+      let updated = await setAutomationDiscoveryRootSchedule({ id: root.id, schedule }, bindings.DB);
       if (enabled && updated?.reviewStatus !== "APPROVED") {
         const preset = tavilySearchGovernancePresetForRoot(updated ?? root);
         const governance = await getGovernanceState({ type: "DISCOVERY_ROOT", id: root.id }, bindings.DB);
@@ -124,7 +150,9 @@ export async function PUT(request: Request, { params }: Props) {
     // Saving an enabled DIRECT_ENTITY automation is an explicit admin retry.
     // The retry retires stale successful/empty query cooldown fingerprints, but
     // normal root/entity/global daily provider budgets remain authoritative.
-    const immediateRun = enabled && (category.mode === "DIRECT_ENTITY" || !wasEnabled);
+    const immediateRun = enabled
+      && schedule.mode === "INTERVAL"
+      && (category.mode === "DIRECT_ENTITY" || !wasEnabled);
     if (immediateRun) {
       const provider = new TavilyAutomationSearchProvider({ apiKey: bindings.TAVILY_API_KEY });
       const task = Promise.allSettled(updatedRoots.map((root) => runAutomationDiscoveryRootCanary({
@@ -147,12 +175,17 @@ export async function PUT(request: Request, { params }: Props) {
     return Response.json({
       enabled,
       cadenceMinutes,
+      schedule,
       immediateRun,
       releasedFailedCooldowns,
       rootCount: updatedRoots.length,
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Nastavenie hľadania sa nepodarilo uložiť.";
-    return Response.json({ error: message }, { status: 409 });
+    return Response.json({
+      error: /^automation_schedule_/.test(message)
+        ? automationScheduleErrorMessage(error, "Nastavenie hľadania sa nepodarilo uložiť.")
+        : message,
+    }, { status: /^automation_schedule_/.test(message) ? 400 : 409 });
   }
 }
