@@ -396,7 +396,9 @@ export async function setAutomationSourceEnabled(input: {
   const nextCheckAt = !input.enabled
     ? null
     : existing.schedule.mode === "CALENDAR"
-      ? nextAutomationScheduledAt(existing.schedule, now)
+      ? existing.enabled && existing.nextCheckAt
+        ? existing.nextCheckAt
+        : nextAutomationScheduledAt(existing.schedule, now)
       : at;
   await db.prepare(`UPDATE automation_sources SET enabled=?,next_check_at=?,updated_at=? WHERE id=?`).bind(
     input.enabled ? 1 : 0,
