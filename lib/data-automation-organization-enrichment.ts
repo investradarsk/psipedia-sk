@@ -350,6 +350,17 @@ function inferredLegalName(proposed: Record<string, unknown>) {
   return null;
 }
 
+
+function trustedRegisterDescription(proposed: Record<string, unknown>) {
+  const approval = String(proposed.sourceApprovalNumber ?? "").replace(/\s+/g, " ").trim();
+  const activity = String(proposed.sourceActivity ?? "").replace(/\s+/g, " ").trim();
+  const parts = [
+    approval ? "ŠVPS schvaľovacie číslo: " + approval + "." : null,
+    activity ? "Evidovaná činnosť: " + activity + "." : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" ") : null;
+}
+
 export function createProductionOrganizationEnricher(
   options: CreateOrganizationEnricherOptions = {},
 ): OrganizationRecordEnricher {
@@ -416,6 +427,10 @@ export function createProductionOrganizationEnricher(
       if (legalName) proposed.legalName = legalName;
     }
     if (!proposed.countryCode) proposed.countryCode = "SK";
+    if (!proposed.description) {
+      const registerDescription = trustedRegisterDescription(proposed);
+      if (registerDescription) proposed.description = registerDescription;
+    }
 
     const website = String(proposed.websiteUrl ?? "").trim();
     if (website) {
