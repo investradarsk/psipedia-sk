@@ -29,6 +29,9 @@ export type PortalSearchItem = {
   district?: string;
   region?: string;
   services?: string;
+  publishedAt?: string;
+  imageUrl?: string;
+  newsCategory?: string;
 };
 
 export type PortalSearchResultPage = {
@@ -54,6 +57,9 @@ type SearchRow = {
   district: string | null;
   region: string | null;
   services: string | null;
+  published_at?: string | null;
+  image_url?: string | null;
+  news_category?: string | null;
   source_total: number;
 };
 
@@ -245,7 +251,8 @@ function articleQuery(parsed: ParsedPortalSearchQuery, limit: number, section: s
     CASE WHEN a.portal_section = 'novinky' THEN 'Novinka' ELSE 'Článok' END AS type,
     a.excerpt AS description,
     a.category || ' ' || a.focus_keyword || ' ' || a.portal_section AS keywords,
-    'article' AS kind, a.category AS category, '' AS city, '' AS district, '' AS region, '' AS services`;
+    'article' AS kind, a.category AS category, '' AS city, '' AS district, '' AS region, '' AS services,
+    a.published_at AS published_at, a.image_url AS image_url, a.news_category AS news_category`;
   return {
     sql: selectWithWindow(columns, "managed_articles a", clauses, `${exactOrder}, ${prefixOrder}, a.title COLLATE NOCASE ASC, a.slug ASC`, limit),
     bindings,
@@ -433,6 +440,9 @@ function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearc
     district: district || undefined,
     region: region || undefined,
     services: row.services ?? undefined,
+    publishedAt: row.published_at ?? undefined,
+    imageUrl: row.image_url?.trim() || undefined,
+    newsCategory: row.news_category?.trim() || undefined,
     score: 999,
   };
   item.score = scorePortalSearchItem({ ...item, haystack: item.keywords }, parsed);
