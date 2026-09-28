@@ -63,6 +63,7 @@ test("header search restores focus after Escape and submits the shared query con
   test.skip(isMobile, "desktop keyboard modal contract is covered once; mobile result layout is tested separately");
   await page.goto("/");
   const trigger = page.getByRole("button", { name: "Otvoriť vyhľadávanie" });
+  await expect(trigger).toHaveAttribute("data-search-ready", "true");
   await trigger.focus();
   await trigger.press("Enter");
   const input = page.getByRole("textbox", { name: "Hľadaný výraz" });
