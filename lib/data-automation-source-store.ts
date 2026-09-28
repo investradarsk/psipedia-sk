@@ -341,6 +341,16 @@ function sourceActivationError(readiness: Awaited<ReturnType<typeof automationSo
   }
   if (readiness.reason === "CADENCE_INVALID") return "automation_source_cadence_invalid";
   if (readiness.reason === "GOVERNANCE_BLOCKED") {
+    const state = readiness.governance.state;
+    const technicalOnly = readiness.governanceBlockingReasons.length > 0
+      && readiness.governanceBlockingReasons.every((reason) =>
+        reason === "ACCESS_NOT_ALLOWED" || reason === "ROBOTS_NOT_ALLOWED"
+      );
+    const transientTechnical = technicalOnly
+      && Boolean(state)
+      && state?.accessStatus !== "BLOCKED"
+      && state?.robotsStatus !== "DISALLOWED";
+    if (transientTechnical) return "automation_source_technical_verification_failed";
     return "automation_source_governance_blocked:" + readiness.governanceBlockingReasons.join(",");
   }
   return "automation_source_activation_blocked";
