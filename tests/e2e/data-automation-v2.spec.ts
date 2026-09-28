@@ -203,8 +203,13 @@ test("manual source lifecycle keeps the approved source detail simple", async ({
   expect(detailResponse?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: editedLabel, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Nastavenie zdroja", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Kontrolovať tento zdroj", { exact: true })).toHaveValue("off");
-  await expect(page.getByLabel("Ako často kontrolovať zdroj", { exact: true })).toBeVisible();
+  const settings = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Nastavenie zdroja", exact: true }),
+  });
+  await expect(settings.getByText("Kontrolovať tento zdroj", { exact: true })).toBeVisible();
+  await expect(settings.getByRole("combobox").first()).toHaveValue("off");
+  await expect(settings.getByText("Ako často kontrolovať zdroj", { exact: true })).toBeVisible();
+  await expect(settings.getByRole("combobox").nth(1)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Nájdený obsah", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Otvoriť koncepty →", exact: true })).toBeVisible();
   await expect(page.getByText("Governance", { exact: false })).toHaveCount(0);
