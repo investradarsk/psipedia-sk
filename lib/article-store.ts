@@ -1044,6 +1044,67 @@ export async function updateManagedArticle(
   return rowToManagedArticle(result,input.relatedBreedIds);
 }
 
+export type ArticleContentQaAuditFinding = ArticleQaIssue & {
+  articleId: number;
+  slug: string;
+};
+
+export async function auditPublishedArticleContentQa(): Promise<{
+  findings: ArticleContentQaAuditFinding[];
+  counts: { blocker: number; warning: number; info: number };
+}> {
+  const database = requireD1Binding();
+  const now = new Date().toISOString();
+  const result = await database.prepare(`
+    SELECT *
+    FROM managed_articles
+    WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
+    ORDER BY id
+  `).bind(now).all<ArticleRow>();
+
+  const findings: ArticleContentQaAuditFinding[] = [];
+  for (const row of result.results) {
+    const article = rowToManagedArticle(row);
+    const payload: ManagedArticleInput = {
+      slug: article.slug,
+      title: article.title,
+      excerpt: article.excerpt,
+      category: article.category,
+      portalSection: article.portalSection,
+      portalSubpage: article.portalSubpage ?? null,
+      newsCategory: article.newsCategory ?? null,
+      status: "published",
+      author: article.author,
+      intro: article.intro,
+      takeaway: article.takeaway,
+      sections: article.sections,
+      blocks: article.blocks ?? [],
+      sources: article.sources,
+      imageUrl: article.image ?? null,
+      imageAlt: article.imageAlt ?? null,
+      canonicalUrl: article.seo?.canonicalUrl ?? "",
+    };
+    const issues = [
+      ...assessArticleContentQa(payload),
+      ...await relatedTargetQaIssues(database, article.blocks ?? []),
+    ];
+    for (const finding of issues) findings.push({
+      articleId: article.id,
+      slug: article.slug,
+      ...finding,
+    });
+  }
+
+  return {
+    findings,
+    counts: {
+      blocker: findings.filter((item) => item.severity === "BLOCKER").length,
+      warning: findings.filter((item) => item.severity === "WARNING").length,
+      info: findings.filter((item) => item.severity === "INFO").length,
+    },
+  };
+}
+
 export async function deleteManagedArticle(id: number) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
