@@ -118,6 +118,52 @@ test("agility.sk controlled HTML fixture normalizes upcoming agility events", as
 });
 
 
+test("legacy configless agility source executes through the exact URL-backed production adapter", async () => {
+  const requests = [];
+  const rows = await fetchAutomationSourceRecords(source({
+    sourceKey: "legacy-agility-sk-preteky",
+    sourceUrl: "https://agility.sk/preteky/",
+    config: {},
+    enabled: false,
+  }), {
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      return new Response(fixture("agility-sk-events.html"), {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      });
+    },
+    htmlAdapters: { "agility-sk-events": agilitySkEventsAdapter },
+  });
+  assert.equal(rows.length, 2);
+  assert.deepEqual(requests, ["https://agility.sk/preteky/"]);
+});
+
+test("known EVENT source refuses an explicitly conflicting adapter before parsing", async () => {
+  let fetched = false;
+  await assert.rejects(
+    fetchAutomationSourceRecords(source({
+      sourceKey: "conflicting-agility-sk-preteky",
+      sourceUrl: "https://agility.sk/preteky/",
+      config: { htmlAdapterKey: "zsk-sr-events", sourceShape: "MULTI_ITEM_LIST" },
+    }), {
+      fetchImpl: async () => {
+        fetched = true;
+        return new Response(fixture("agility-sk-events.html"), {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        });
+      },
+      htmlAdapters: {
+        "agility-sk-events": agilitySkEventsAdapter,
+        "zsk-sr-events": zskSrEventsAdapter,
+      },
+    }),
+    (error) => error instanceof AutomationConnectorError && error.code === "controlled_html_adapter_source_mismatch",
+  );
+  assert.equal(fetched, true, "transport stays unchanged; mismatch is rejected before parser invocation");
+});
+
 test("ZSK table parser keeps only evidenced fields and preserves status changes", () => {
   const rows = parseZskSrCalendarTable({
     html: fixture("zsk-sr-table-national.html"),
