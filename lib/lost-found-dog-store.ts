@@ -129,8 +129,8 @@ function getD1Binding() {
   return database && typeof database.prepare === "function" ? database : null;
 }
 
-function requireD1Binding() {
-  const database = getD1Binding();
+function requireD1Binding(databaseInput?: D1Database) {
+  const database = databaseInput ?? getD1Binding();
   if (!database) throw new Error("Databáza stratených a nájdených psov nie je pripojená.");
   return database;
 }
@@ -394,6 +394,57 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
   return getAdminDogReport(reportId);
 }
 
+export async function transitionAdminDogReportStatus(
+  id: number,
+  nextStatus: LostFoundStatus,
+  actor: string,
+  expectedUpdatedAt: string,
+  databaseInput?: D1Database,
+) {
+  const database = requireD1Binding(databaseInput);
+  const row = await database.prepare(`SELECT id,status,updated_at,published_at,expires_at,resolved_at,archived_at
+    FROM lost_found_dog_reports WHERE id=? LIMIT 1`).bind(id).first<{
+      id: number;
+      status: LostFoundStatus;
+      updated_at: string;
+      published_at: string | null;
+      expires_at: string | null;
+      resolved_at: string | null;
+      archived_at: string | null;
+    }>();
+  if (!row) return null;
+  assertLostFoundStatusTransition(row.status, nextStatus);
+  if (row.status === nextStatus) {
+    return { id: Number(row.id), status: nextStatus, updatedAt: row.updated_at };
+  }
+  if (!expectedUpdatedAt || row.updated_at !== expectedUpdatedAt) throw new Error("lost_found_lifecycle_stale");
+
+  const now = new Date().toISOString();
+  const lifecycle = lifecycleFields(nextStatus, {
+    publishedAt: row.published_at,
+    expiresAt: row.expires_at,
+    resolvedAt: row.resolved_at,
+    archivedAt: row.archived_at,
+  }, row.expires_at, now);
+  const result = await database.prepare(`UPDATE lost_found_dog_reports
+    SET status=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=?
+    WHERE id=? AND updated_at=?`).bind(
+      nextStatus,
+      now,
+      lifecycle.publishedAt,
+      lifecycle.expiresAt,
+      lifecycle.resolvedAt,
+      lifecycle.archivedAt,
+      id,
+      expectedUpdatedAt,
+    ).run();
+  const changes = Number(result.meta?.changes ?? 0);
+  if (changes !== 1) throw new Error("lost_found_lifecycle_stale");
+  await database.prepare("UPDATE lost_found_dog_private_details SET updated_by=?,updated_at=? WHERE report_id=?")
+    .bind(actor, now, id).run();
+  return { id: Number(row.id), status: nextStatus, updatedAt: now };
+}
+
 export async function updateAdminDogReport(id: number, input: ManagedDogReportInput, actor: string) {
   const database = requireD1Binding();
   const existing = await getAdminDogReport(id);
@@ -467,7 +518,9 @@ export async function markAdminDogReportDuplicate(id: number, input: MarkDogRepo
   return getAdminDogReport(id);
 }
 
-function lifecycleFields(status: LostFoundStatus, existing: AdminDogReport | null, requestedExpiry: string | null, now: string) {
+type LostFoundLifecycleSnapshot = Pick<AdminDogReport, "publishedAt" | "expiresAt" | "resolvedAt" | "archivedAt">;
+
+function lifecycleFields(status: LostFoundStatus, existing: LostFoundLifecycleSnapshot | null, requestedExpiry: string | null, now: string) {
   const publicStatus = ["ACTIVE", "RESOLVED", "EXPIRED", "ARCHIVED"].includes(status);
   const publishedAt = publicStatus ? (existing?.publishedAt || now) : existing?.publishedAt || null;
   const expiresAt = status === "ACTIVE" ? (requestedExpiry || existing?.expiresAt || defaultLostFoundExpiresAt(new Date(now))) : (requestedExpiry || existing?.expiresAt || null);

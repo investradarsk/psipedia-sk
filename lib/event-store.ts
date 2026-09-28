@@ -101,10 +101,10 @@ function getD1Binding() {
   return database && typeof database.prepare === "function" ? database : null;
 }
 
-function requireD1Binding() {
-  const database = getD1Binding();
-  if (!database) throw new Error("Databáza podujatí zatiaľ nie je pripojená.");
-  return database;
+function requireD1Binding(database?: D1Database) {
+  const resolved = database ?? getD1Binding();
+  if (!resolved) throw new Error("Databáza podujatí zatiaľ nie je pripojená.");
+  return resolved;
 }
 
 async function ensureEventStore(database: D1Database) {
@@ -304,6 +304,39 @@ export async function getManagedEventById(id: number) {
   await ensureEventStore(database);
   const row = await database.prepare("SELECT * FROM managed_events WHERE id = ? LIMIT 1").bind(id).first<EventRow>();
   return row ? rowToEvent(row) : null;
+}
+
+export async function transitionManagedEventCancellation(
+  id: number,
+  cancelled: boolean,
+  editorEmail: string,
+  expectedUpdatedAt: string,
+  databaseInput?: D1Database,
+) {
+  const database = requireD1Binding(databaseInput);
+  const current = await database.prepare(
+    "SELECT id,status,cancelled,updated_at FROM managed_events WHERE id=? LIMIT 1",
+  ).bind(id).first<{ id: number; status: string; cancelled: number; updated_at: string }>();
+  if (!current) return null;
+  if (Boolean(current.cancelled) === cancelled) {
+    return { id: Number(current.id), status: current.status, cancelled, updatedAt: current.updated_at };
+  }
+  if (!expectedUpdatedAt || current.updated_at !== expectedUpdatedAt) throw new Error("event_lifecycle_stale");
+
+  const now = new Date().toISOString();
+  const row = await database.prepare(`UPDATE managed_events
+    SET cancelled=?,updated_at=?,updated_by=?
+    WHERE id=? AND updated_at=?
+    RETURNING id,status,cancelled,updated_at`).bind(
+      cancelled ? 1 : 0,
+      now,
+      editorEmail,
+      id,
+      expectedUpdatedAt,
+    ).first<{ id: number; status: string; cancelled: number; updated_at: string }>();
+  if (!row) throw new Error("event_lifecycle_stale");
+  await reconcileManagedEventGeo(id, editorEmail, database);
+  return { id: Number(row.id), status: row.status, cancelled: Boolean(row.cancelled), updatedAt: row.updated_at };
 }
 
 export async function createManagedEvent(payload: ManagedEventInput, editorEmail: string) {
