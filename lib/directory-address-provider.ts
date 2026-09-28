@@ -466,14 +466,15 @@ function exactExternalAddressCandidate(input: {
   })) return null;
   if (input.expectedPostalCode?.trim()
     && normalizeSlovakPostalCode(input.expectedPostalCode) !== normalizeSlovakPostalCode(result.postcode)) return null;
-  if (input.expectedCity?.trim()) {
-    const cityEvidence = [result.city, result.cityDistrict ?? "", result.suburb ?? "", result.formatted ?? ""]
-      .some((value) => value && localityMatches(input.expectedCity!, value));
-    if (!cityEvidence) return null;
-  }
 
   const locality = resolveGeoapifyDirectoryLocality(result);
   if (!locality) return null;
+  if (input.expectedCity?.trim()) {
+    const cityEvidence = localityMatches(input.expectedCity, locality.city)
+      || [result.city, result.cityDistrict ?? "", result.suburb ?? "", result.formatted ?? ""]
+        .some((value) => value && localityMatches(input.expectedCity!, value));
+    if (!cityEvidence) return null;
+  }
   return {
     region: locality.region,
     district: locality.district,
