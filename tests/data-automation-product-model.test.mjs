@@ -7,6 +7,7 @@ import {
   automationProductCategoryForRoot,
   automationProductModeForRoot,
 } from "../lib/data-automation-product-model.ts";
+import { directoryActionableProposal } from "../lib/data-automation-directory-diff.ts";
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
@@ -183,4 +184,45 @@ test("direct entity fetches are access/robots gated before bounded parser fetch"
   const probeIndex = direct.indexOf("probeAutomationSourceAccess");
   const fetchIndex = direct.indexOf("fetchAutomationSourceRecords(source");
   assert.ok(probeIndex >= 0 && fetchIndex > probeIndex);
+});
+
+
+test("directory actionable diff ignores matching metadata and recognizes stored contacts", () => {
+  const before = {
+    name: "VetPoint",
+    city: "Nitra",
+    websiteUrl: "https://vetpoint.sk/",
+    publicPhone: "+421 903 123 456",
+    publicEmail: "info@vetpoint.sk",
+    postalCode: "94901",
+    street: "Hlavná",
+    houseNumber: "12",
+  };
+  const noChange = directoryActionableProposal({
+    name: "VetPoint",
+    city: "Nitra",
+    websiteUrl: "https://www.vetpoint.sk",
+    publicPhone: "0903 123 456",
+    publicEmail: "INFO@VETPOINT.SK",
+    postalCode: "94901",
+    street: "Hlavná",
+    houseNumber: "12",
+    category: "veterinari",
+    semanticKind: "FACILITY_OR_SERVICE_PROFILE",
+  }, before);
+  assert.deepEqual(noChange, {});
+
+  const update = directoryActionableProposal({
+    publicPhone: "+421 905 999 999",
+    category: "veterinari",
+    semanticKind: "FACILITY_OR_SERVICE_PROFILE",
+  }, before);
+  assert.deepEqual(update, { publicPhone: "+421 905 999 999" });
+});
+
+test("legacy single-entity DIRECTORY and ORGANIZATION sources are excluded from recurring scheduling", async () => {
+  const store = await read("lib/data-automation-store.ts");
+  assert.match(store, /if \(source\.entityType === "DIRECTORY"\) return false/);
+  assert.match(store, /source\.entityType === "ORGANIZATION" && source\.config\.sourceShape !== "MULTI_ITEM_LIST"/);
+  assert.match(store, /multi-item ORGANIZATION registries\/directories as backend technical/);
 });
