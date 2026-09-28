@@ -460,10 +460,16 @@ async function loadReviewRows(rows: SuggestionRow[], db: Database) {
   for (const [origin, ids] of [["DIRECT_ENTITY", directIds], ["FEED_SOURCE", feedIds]] as const) {
     if (!ids.length) continue;
     const placeholders = ids.map(() => "?").join(",");
-    const result = await db.prepare(`SELECT origin_type,suggestion_id,field_key,proposed_value_hash,decision
-      FROM automation_update_field_reviews
-      WHERE origin_type=? AND suggestion_id IN (${placeholders})`).bind(origin, ...ids).all<ReviewRow>();
-    output.push(...result.results);
+    try {
+      const result = await db.prepare(`SELECT origin_type,suggestion_id,field_key,proposed_value_hash,decision
+        FROM automation_update_field_reviews
+        WHERE origin_type=? AND suggestion_id IN (${placeholders})`).bind(origin, ...ids).all<ReviewRow>();
+      output.push(...result.results);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/no such table: automation_update_field_reviews/i.test(message)) return [];
+      throw error;
+    }
   }
   return output;
 }
@@ -660,20 +666,21 @@ async function recordDecision(input: {
     ).run();
 }
 
-async function writeCanonicalField(input: {
+async function writeCanonicalFieldAndDecision(input: {
   row: Record<string, unknown>;
-  entityType: AutomationEntityType;
-  canonicalEntityId: number;
+  suggestion: SuggestionRow;
   field: string;
+  hash: string;
   spec: FieldSpec;
   value: unknown;
   actor: string;
   at: string;
 }, db: Database) {
-  const config = configs[input.entityType];
+  const config = configs[input.suggestion.entity_type];
   const expectedUpdatedAt = String(input.row.updated_at ?? "");
-  let updated: Record<string, unknown> | null = null;
-  if (input.entityType === "DIRECTORY" && input.spec.directoryContact) {
+  let updateStatement: D1PreparedStatement;
+
+  if (input.suggestion.entity_type === "DIRECTORY" && input.spec.directoryContact) {
     const currentData = parseRecord(input.row.source_data_json) as DirectoryImportData;
     const patch: Parameters<typeof mergeDirectoryPublicContactData>[1] = {};
     if (input.spec.directoryContact === "phone") patch.publicPhone = String(input.value ?? "");
@@ -681,11 +688,11 @@ async function writeCanonicalField(input: {
     if (input.spec.directoryContact === "facebook") patch.facebookUrl = String(input.value ?? "");
     if (input.spec.directoryContact === "instagram") patch.instagramUrl = String(input.value ?? "");
     const nextData = mergeDirectoryPublicContactData(currentData, patch);
-    updated = await db.prepare(`UPDATE directory_profiles
+    updateStatement = db.prepare(`UPDATE directory_profiles
       SET source_data_json=?,updated_at=?,updated_by=?
-      WHERE id=? AND updated_at=? RETURNING *`)
-      .bind(JSON.stringify(nextData), input.at, input.actor, input.canonicalEntityId, expectedUpdatedAt)
-      .first<Record<string, unknown>>();
+      WHERE id=? AND updated_at=?`).bind(
+        JSON.stringify(nextData), input.at, input.actor, input.suggestion.canonical_entity_id, expectedUpdatedAt,
+      );
   } else {
     if (!input.spec.column) throw new AutomationUpdateReviewUnsupportedError();
     const dbValue = input.spec.kind === "boolean"
@@ -696,12 +703,41 @@ async function writeCanonicalField(input: {
     const updatedBySql = config.updatedBy ? ",updated_by=?" : "";
     const statement = db.prepare(`UPDATE ${config.table}
       SET ${input.spec.column}=?,updated_at=?${updatedBySql}
-      WHERE id=? AND updated_at=? RETURNING *`);
-    updated = config.updatedBy
-      ? await statement.bind(dbValue, input.at, input.actor, input.canonicalEntityId, expectedUpdatedAt).first<Record<string, unknown>>()
-      : await statement.bind(dbValue, input.at, input.canonicalEntityId, expectedUpdatedAt).first<Record<string, unknown>>();
+      WHERE id=? AND updated_at=?`);
+    updateStatement = config.updatedBy
+      ? statement.bind(dbValue, input.at, input.actor, input.suggestion.canonical_entity_id, expectedUpdatedAt)
+      : statement.bind(dbValue, input.at, input.suggestion.canonical_entity_id, expectedUpdatedAt);
   }
-  if (!updated) throw new AutomationUpdateReviewConflictError();
+
+  const decisionStatement = db.prepare(`INSERT INTO automation_update_field_reviews (
+      origin_type,suggestion_id,entity_type,canonical_entity_id,field_key,proposed_value_hash,
+      decision,resolution_reason,reviewed_by,reviewed_at,created_at,updated_at
+    )
+    SELECT ?,?,?,?,?,?,'ACCEPTED',NULL,?,?,?,?,?
+    WHERE EXISTS (
+      SELECT 1 FROM ${config.table} WHERE id=? AND updated_at=?
+    )
+    ON CONFLICT(origin_type,suggestion_id,field_key,proposed_value_hash)
+    DO UPDATE SET decision='ACCEPTED',resolution_reason=NULL,reviewed_by=excluded.reviewed_by,
+      reviewed_at=excluded.reviewed_at,updated_at=excluded.updated_at`).bind(
+        input.suggestion.origin,
+        input.suggestion.id,
+        input.suggestion.entity_type,
+        input.suggestion.canonical_entity_id,
+        input.field,
+        input.hash,
+        input.actor,
+        input.at,
+        input.at,
+        input.at,
+        input.suggestion.canonical_entity_id,
+        input.at,
+      );
+
+  const [updateResult] = await db.batch([updateStatement, decisionStatement]);
+  if (Number(updateResult.meta.changes ?? 0) < 1) throw new AutomationUpdateReviewConflictError();
+  const updated = await getCanonicalRow(input.suggestion.entity_type, input.suggestion.canonical_entity_id, db);
+  if (!updated) throw new AutomationUpdateReviewNotFoundError();
   return updated;
 }
 
@@ -818,13 +854,15 @@ export async function reviewAutomationUpdateField(input: {
   }
 
   const value = validateValue(field, spec, change.after);
-  const updated = await writeCanonicalField({
-    row: canonical, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
-    field, spec, value, actor, at,
-  }, db);
-  await recordDecision({
-    origin: row.origin, suggestionId: row.id, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
-    field, hash, decision: "ACCEPTED", actor, at,
+  const updated = await writeCanonicalFieldAndDecision({
+    row: canonical,
+    suggestion: row,
+    field,
+    hash,
+    spec,
+    value,
+    actor,
+    at,
   }, db);
   const updatedValue = currentValue(updated, row.entity_type, field, spec);
   const remaining = await resolveParentIfComplete(row, actor, at, db);
