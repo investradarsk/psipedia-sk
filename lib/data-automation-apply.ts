@@ -14,6 +14,7 @@ import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { createCanonicalDraft, CanonicalDraftValidationError } from "./canonical-draft-service.ts";
 import { mapAutomationFindingToDraftInput } from "./data-automation-draft-mapper.ts";
 import { createAutomationIngestionReceipt, getAutomationIngestionReceipt } from "./data-automation-ingestion-receipts.ts";
+import { upsertCanonicalExternalProvenance } from "./data-automation-product-store.ts";
 import { upsertCanonicalPossibleDuplicateFlag } from "./canonical-draft-flags.ts";
 
 type RuntimeBindings = { DB?: D1Database };
@@ -531,6 +532,15 @@ export async function applyAutomationFinding(input: {
         firstProcessedAt: at,
       }, db);
       if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+
+      await upsertCanonicalExternalProvenance({
+        entityType: finding.entityType,
+        canonicalEntityId: created.canonicalEntityId,
+        externalSourceUrl: finding.sourceUrl,
+        externalRecordId: finding.sourceRecordId,
+        provenanceType: "AUTOMATION_SOURCE_RECORD",
+        detectedAt: at,
+      }, db);
 
       await db.prepare(`UPDATE automation_findings SET
           canonical_entity_id=NULL,canonical_entity_key=NULL,

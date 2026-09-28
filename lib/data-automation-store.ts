@@ -18,6 +18,7 @@ import {
 } from "./data-automation.ts";
 import { selectSafeAutomationMatch, type AutomationMatchCandidate } from "./data-automation-matching.ts";
 import { getCanonicalDraftFlag } from "./canonical-draft-flags.ts";
+import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
 
 export type AutomationD1Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -148,7 +149,14 @@ export async function listDueAutomationSources(
     WHERE enabled = 1 AND review_status = 'APPROVED' AND (next_check_at IS NULL OR next_check_at <= ?)
     ORDER BY COALESCE(next_check_at, created_at) ASC, id ASC
     LIMIT ?`).bind(now.toISOString(), Math.max(1, Math.min(20, limit))).all<SourceRow>();
-  const sources = result.results.map(mapSource);
+  const sources = result.results.map(mapSource).filter((source) => {
+    // DIRECT_ENTITY single-item pages are no longer recurring content sources.
+    // Keep multi-item ORGANIZATION registries/directories as backend technical
+    // feeds, but never keep one source row per canonical directory/org entity.
+    if (source.entityType === "DIRECTORY") return false;
+    if (source.entityType === "ORGANIZATION" && source.config.sourceShape !== "MULTI_ITEM_LIST") return false;
+    return true;
+  });
   const governed: AutomationSource[] = [];
   for (const source of sources) {
     const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: source.id }, db);
@@ -336,12 +344,17 @@ function organizationBefore(row: Record<string, unknown>) {
 }
 
 function directoryBefore(row: Record<string, unknown>) {
+  const sourceData = parseJson<Record<string, string | number | null>>(String(row.source_data_json ?? "{}"), {});
+  const contacts = readDirectoryPublicContacts(sourceData, String(row.website_url ?? ""));
   return {
     slug: row.slug, name: row.name, category: row.category, status: row.status, excerpt: row.excerpt,
     description: row.description, services: parseJson(String(row.services_json ?? "[]"), []),
     qualifications: parseJson(String(row.qualifications_json ?? "[]"), []), city: row.city, district: row.district,
-    region: row.region, address: row.address, online: bool(row.online), priceNote: row.price_note,
+    region: row.region, address: row.address, postalCode: row.postal_code, street: row.street,
+    houseNumber: row.house_number, addressFormat: row.address_format, online: bool(row.online), priceNote: row.price_note,
     websiteUrl: row.website_url, importKey: row.import_key, verified: bool(row.verified),
+    publicPhone: contacts.phone, publicEmail: contacts.email,
+    facebookUrl: contacts.facebook, instagramUrl: contacts.instagram,
   };
 }
 

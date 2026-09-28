@@ -52,11 +52,13 @@ test("source monitoring OFF is unscheduled and ON starts immediately", async () 
   assert.match(route, /waitUntil\(task\)/);
 });
 
-test("normal source UX contains only monitoring, cadence and canonical concepts CTA", async () => {
+test("normal source UX contains monitoring, cadence and direct canonical content navigation", async () => {
   const source = await read("components/admin-automation-source-settings.tsx");
   assert.match(source, /Kontrolovať tento zdroj/);
   assert.match(source, /Ako často kontrolovať zdroj/);
-  assert.match(source, /Otvoriť koncepty/);
+  assert.match(source, /Nájdený obsah/);
+  assert.match(source, /content\.map/);
+  assert.match(source, /Otvoriť canonical sekciu/);
   assert.doesNotMatch(source, /adapter|readiness|governance|finding|observation|cluster|receipt|write counter/i);
 });
 

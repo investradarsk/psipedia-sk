@@ -1,5 +1,5 @@
 import type { AutomationD1Database } from "./data-automation-store.ts";
-import type { AutomationEntityType } from "./data-automation.ts";
+import { canonicalizeSourceUrl, type AutomationEntityType } from "./data-automation.ts";
 
 export type AutomationIngestionReceiptResult = "DRAFT_CREATED" | "SKIPPED_DUPLICATE";
 
@@ -68,10 +68,33 @@ export async function createAutomationIngestionReceipt(
       input.sourceId,
       input.entityType,
       input.sourceRecordId,
-      input.sourceUrl ?? null,
+      canonicalizeSourceUrl(input.sourceUrl) ?? null,
       input.payloadHash ?? null,
       input.result,
       input.firstProcessedAt,
+    ).run();
+  return getAutomationIngestionReceipt(input, database);
+}
+
+
+export async function updateAutomationIngestionReceiptPayload(
+  input: {
+    sourceId: number;
+    entityType: AutomationEntityType;
+    sourceRecordId: string;
+    sourceUrl?: string | null;
+    payloadHash: string;
+  },
+  database: AutomationD1Database,
+) {
+  await database.prepare(`UPDATE automation_ingestion_receipts
+    SET source_url=?,payload_hash=?
+    WHERE source_id=? AND entity_type=? AND source_record_id=?`).bind(
+      canonicalizeSourceUrl(input.sourceUrl) ?? null,
+      input.payloadHash,
+      input.sourceId,
+      input.entityType,
+      input.sourceRecordId,
     ).run();
   return getAutomationIngestionReceipt(input, database);
 }

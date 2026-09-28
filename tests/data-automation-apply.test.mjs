@@ -268,9 +268,11 @@ test("CREATE_DRAFT leaves no persistent automation-to-draft link", () => {
   assert.match(source, /canonical_entity_id=NULL,canonical_entity_key=NULL/);
 });
 
-test("exact existing match ends in SKIPPED_DUPLICATE receipt before finding classification", () => {
+test("exact existing match detects canonical changes before detached duplicate receipt handling", () => {
   assert.match(runnerSource, /match\.entityId && match\.quality !== "UNCERTAIN" && match\.quality !== "NONE"/);
-  assert.match(runnerSource, /createAutomationIngestionReceipt/);
+  assert.match(runnerSource, /classifyAutomationFinding/);
+  assert.match(runnerSource, /POSSIBLE_UPDATE/);
+  assert.match(runnerSource, /ensureProcessedReceipt/);
   assert.match(runnerSource, /result: "SKIPPED_DUPLICATE"/);
   assert.doesNotMatch(runnerSource, /linkAutomationClusterCanonical/);
 });

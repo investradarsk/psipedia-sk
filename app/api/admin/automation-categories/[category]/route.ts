@@ -19,6 +19,7 @@ import {
   isTavilySearchDiscoveryRoot,
   tavilySearchGovernancePresetForRoot,
 } from "@/lib/tavily-canary-control";
+import { configureDirectEntityRefreshSetting } from "@/lib/data-automation-product-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string }> };
@@ -40,6 +41,23 @@ export async function PUT(request: Request, { params }: Props) {
 
   const bindings = env as unknown as Bindings;
   if (!bindings.DB) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+
+  if (body?.kind === "refresh") {
+    if (category.mode !== "DIRECT_ENTITY") {
+      return Response.json({ error: "Táto kategória nepoužíva kontrolu existujúcich entít." }, { status: 400 });
+    }
+    try {
+      const setting = await configureDirectEntityRefreshSetting({
+        categorySlug: category.slug as "veterinari" | "psie-sluzby" | "utulky-organizacie",
+        enabled,
+        cadenceMinutes,
+      }, bindings.DB);
+      return Response.json({ setting }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nastavenie kontroly zmien sa nepodarilo uložiť.";
+      return Response.json({ error: message }, { status: 409 });
+    }
+  }
 
   try {
     const allRoots = await listAutomationDiscoveryRoots(bindings.DB, 100);
@@ -73,7 +91,9 @@ export async function PUT(request: Request, { params }: Props) {
           id: root.id,
           action: "approve",
           reviewerEmail: auth.user.email,
-          notes: "Schválené používateľom zapnutím hľadania nových zdrojov.",
+          notes: category.mode === "DIRECT_ENTITY"
+            ? "Schválené používateľom zapnutím priameho hľadania nových entít."
+            : "Schválené používateľom zapnutím hľadania nových zdrojov.",
         }, bindings.DB);
       }
       updated = await setAutomationDiscoveryRootEnabled({ id: root.id, enabled }, bindings.DB);

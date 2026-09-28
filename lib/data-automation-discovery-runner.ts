@@ -38,6 +38,19 @@ import {
   upsertAutomationSourceCandidate,
   upsertAutomationSourceCandidateEvidence,
 } from "./data-automation-source-store.ts";
+import {
+  automationDiscoveryCandidateExcluded,
+  finishDirectEntityRefreshSetting,
+  listDirectRefreshCandidates,
+  listDueDirectEntityRefreshSettings,
+  loadAutomationDiscoveryExclusions,
+  type AutomationDiscoveryExclusionContext,
+} from "./data-automation-product-store.ts";
+import {
+  automationProductCategoryForRoot,
+  automationProductModeForRoot,
+} from "./data-automation-product-model.ts";
+import { ingestDirectEntityUrl } from "./data-automation-direct-entity.ts";
 
 export const DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP = 2;
 const MAX_DISCOVERY_BYTES = 1_000_000;
@@ -61,6 +74,15 @@ export type DataAutomationDiscoverySweepOptions = {
 type DiscoveryCandidatesResult = {
   candidates: AutomationSourceCandidateInput[];
   warnings: string[];
+  metrics?: {
+    category: string | null;
+    discoveryMode: "DIRECT_ENTITY" | "FEED_SOURCE" | null;
+    exclusionEntityType: string;
+    exclusionCategory: string | null;
+    exclusionCount: number;
+    localPrefilterCount: number;
+    providerResultCount: number;
+  };
 };
 
 export type DiscoveryRunSummary = {
@@ -73,6 +95,14 @@ export type DiscoveryRunSummary = {
   duplicateCandidates: number;
   requestCount: number;
   resultCount: number;
+  providerResultCount: number;
+  localPrefilterCount: number;
+  exclusionCount: number;
+  canonicalDuplicateCount: number;
+  newEntityCount: number;
+  updateSuggestionCount: number;
+  category: string | null;
+  discoveryMode: "DIRECT_ENTITY" | "FEED_SOURCE" | null;
   errors: number;
   errorSummary: string | null;
   nextCheckAt: string | null;
@@ -514,14 +544,24 @@ function searchUsageStatus(error: AutomationSearchProviderError): AutomationSear
   return error.code;
 }
 
-function searchRequestInputs(root: AutomationDiscoveryRoot) {
+function searchRequestInputs(
+  root: AutomationDiscoveryRoot,
+  exclusions?: AutomationDiscoveryExclusionContext,
+) {
+  const configuredBlockDomains = Array.isArray(root.config.blockDomains)
+    ? root.config.blockDomains.filter((value): value is string => typeof value === "string")
+    : [];
+  const blockDomains = [...new Set([
+    ...configuredBlockDomains,
+    ...(exclusions?.blockDomains ?? []),
+  ])].slice(0, 25);
   const common = {
     maxResults: root.config.maxResults,
     locale: root.config.locale,
     country: root.config.country,
     freshness: root.config.freshness,
     allowDomains: root.config.allowDomains,
-    blockDomains: root.config.blockDomains,
+    blockDomains,
   };
   const configured = Array.isArray(root.config.queries) && root.config.queries.length
     ? root.config.queries
@@ -581,11 +621,21 @@ async function discoverCandidates(
     const providerKey = typeof root.config.provider === "string" ? root.config.provider.trim() : "";
     if (!providerKey) throw new AutomationSearchProviderError("CONFIG_MISSING");
     const provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
+    const mode = automationProductModeForRoot(root);
+    const category = automationProductCategoryForRoot(root);
+    const directEntity = mode === "DIRECT_ENTITY";
+    const exclusions = await loadAutomationDiscoveryExclusions({
+      entityType: root.entityType,
+      directoryCategory: root.config.directoryCategory,
+      directEntity,
+    }, options.database);
     const policy = automationSearchBudgetPolicy(root);
-    const requests = searchRequestInputs(root).slice(0, policy.queriesPerRun);
+    const requests = searchRequestInputs(root, exclusions).slice(0, policy.queriesPerRun);
     const fingerprints = new Set<string>();
     const candidates: AutomationSourceCandidateInput[] = [];
     let providerRequests = 0;
+    let providerResultCount = 0;
+    let localPrefilterCount = 0;
     let budgetBlocked = false;
 
     for (const requestInput of requests) {
@@ -654,6 +704,7 @@ async function discoverCandidates(
             resultCount: results.length,
             now: options.now ? new Date(options.now) : new Date(),
           }, options.database as AutomationDiscoveryDatabase);
+          providerResultCount += results.length;
           const mapped = searchProviderCandidatesForRoot({
             root,
             providerKey: provider.key,
@@ -662,7 +713,12 @@ async function discoverCandidates(
             results,
             operationKey,
           });
-          candidates.push(...mapped);
+          const filtered = mapped.filter((candidate) => {
+            const excluded = automationDiscoveryCandidateExcluded(candidate.sourceUrl, exclusions, directEntity);
+            if (excluded) localPrefilterCount += 1;
+            return !excluded;
+          });
+          candidates.push(...filtered);
           break;
         } catch (rawError) {
           const error = searchProviderError(rawError);
@@ -679,7 +735,21 @@ async function discoverCandidates(
       }
     }
 
-    return { candidates: candidates.slice(0, maxCandidates), warnings: [] };
+    return {
+      candidates: candidates.slice(0, maxCandidates),
+      warnings: [],
+      metrics: {
+        category,
+        discoveryMode: mode,
+        exclusionEntityType: root.entityType,
+        exclusionCategory: root.entityType === "DIRECTORY"
+          ? String(root.config.directoryCategory ?? "") || null
+          : category,
+        exclusionCount: exclusions.exclusionCount,
+        localPrefilterCount,
+        providerResultCount,
+      },
+    };
   }
 
   if (root.discoveryType === "SITEMAP") {
@@ -927,9 +997,17 @@ async function runDiscoveryRoot(
 ): Promise<DiscoveryRunSummary> {
   const startedAt = options.now ? new Date(options.now) : new Date();
   const runId = await beginAutomationDiscoveryRun(root.id, startedAt.toISOString(), options.database as AutomationDiscoveryDatabase);
+  const category = automationProductCategoryForRoot(root);
+  const discoveryMode = automationProductModeForRoot(root);
   let candidateCount = 0;
   let reviewableCandidateCount = 0;
   let duplicateCandidateCount = 0;
+  let providerResultCount = 0;
+  let localPrefilterCount = 0;
+  let exclusionCount = 0;
+  let canonicalDuplicateCount = 0;
+  let newEntityCount = 0;
+  let updateSuggestionCount = 0;
   let errors = 0;
   let status: DiscoveryRunSummary["status"] = "SUCCESS";
   let errorSummary: string | null = null;
@@ -939,51 +1017,97 @@ async function runDiscoveryRoot(
     const discovery = await discoverCandidates(root, options, runId);
     const candidates = discovery.candidates;
     candidateCount = candidates.length;
+    providerResultCount = discovery.metrics?.providerResultCount ?? 0;
+    localPrefilterCount = discovery.metrics?.localPrefilterCount ?? 0;
+    exclusionCount = discovery.metrics?.exclusionCount ?? 0;
     if (discovery.warnings.length) {
       errors += discovery.warnings.length;
       status = candidates.length ? "PARTIAL" : "FAILED";
       errorSummary = discovery.warnings[0] ?? null;
     }
-    for (const candidate of candidates) {
-      try {
-        const stored = await upsertAutomationSourceCandidate({
-          candidate,
-          discoveredFromSourceId: null,
-          detectedAt: startedAt,
-        }, options.database);
-        const paths = Array.isArray(candidate.metadata?.discoveryPaths)
-          ? candidate.metadata!.discoveryPaths.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
-          : [];
-        const evidenceCandidates = paths.length
-          ? paths.map((path) => ({ ...candidate, metadata: { ...candidate.metadata, ...path } }))
-          : [candidate];
-        for (const evidenceCandidate of evidenceCandidates) {
-          const evidence = discoveryEvidenceContext(root, evidenceCandidate);
-          await upsertAutomationSourceCandidateEvidence({
-            candidateId: stored.id,
-            rootId: root.id,
-            discoveryRunId: runId,
-            discoveryType: root.discoveryType,
-            ...evidence,
-            seenAt: startedAt,
+
+    if (discoveryMode === "DIRECT_ENTITY") {
+      const exclusions = await loadAutomationDiscoveryExclusions({
+        entityType: root.entityType,
+        directoryCategory: root.config.directoryCategory,
+        directEntity: true,
+      }, options.database);
+      exclusionCount = Math.max(exclusionCount, exclusions.exclusionCount);
+
+      for (const candidate of candidates) {
+        try {
+          if (automationDiscoveryCandidateExcluded(candidate.sourceUrl, exclusions, true)) {
+            localPrefilterCount += 1;
+            canonicalDuplicateCount += 1;
+            continue;
+          }
+          if (root.entityType !== "DIRECTORY" && root.entityType !== "ORGANIZATION") {
+            throw new Error("automation_direct_entity_type_not_supported");
+          }
+          const directoryCategory = root.entityType === "DIRECTORY"
+            ? String(candidate.metadata?.directoryCategory ?? root.config.directoryCategory ?? "").trim()
+            : null;
+          const ingested = await ingestDirectEntityUrl({
+            entityType: root.entityType,
+            sourceUrl: candidate.sourceUrl,
+            label: candidate.label,
+            directoryCategory,
+            database: options.database,
+            fetchImpl: options.fetchImpl,
+            now: startedAt,
+            provenanceType: "DIRECT_ENTITY_DISCOVERY",
+          });
+          canonicalDuplicateCount += ingested.canonicalDuplicates;
+          newEntityCount += ingested.newEntities;
+          updateSuggestionCount += ingested.updateSuggestions;
+        } catch (error) {
+          errors += 1;
+          status = "PARTIAL";
+          errorSummary ??= safeErrorCode(error);
+        }
+      }
+    } else {
+      for (const candidate of candidates) {
+        try {
+          const stored = await upsertAutomationSourceCandidate({
+            candidate,
+            discoveredFromSourceId: null,
+            detectedAt: startedAt,
           }, options.database);
+          const paths = Array.isArray(candidate.metadata?.discoveryPaths)
+            ? candidate.metadata!.discoveryPaths.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+            : [];
+          const evidenceCandidates = paths.length
+            ? paths.map((path) => ({ ...candidate, metadata: { ...candidate.metadata, ...path } }))
+            : [candidate];
+          for (const evidenceCandidate of evidenceCandidates) {
+            const evidence = discoveryEvidenceContext(root, evidenceCandidate);
+            await upsertAutomationSourceCandidateEvidence({
+              candidateId: stored.id,
+              rootId: root.id,
+              discoveryRunId: runId,
+              discoveryType: root.discoveryType,
+              ...evidence,
+              seenAt: startedAt,
+            }, options.database);
+          }
+          const operationKey = typeof candidate.metadata?.searchOperationKey === "string"
+            ? candidate.metadata.searchOperationKey
+            : null;
+          if (operationKey) {
+            const metrics = searchMetrics.get(operationKey) ?? { newUnique: 0, duplicates: 0 };
+            const newlyCreated = stored.firstDetectedAt === startedAt.toISOString();
+            if (newlyCreated) metrics.newUnique += 1;
+            else metrics.duplicates += 1;
+            searchMetrics.set(operationKey, metrics);
+          }
+          if (stored.duplicateSourceId) duplicateCandidateCount += 1;
+          else if (stored.reviewStatus === "NEW") reviewableCandidateCount += 1;
+        } catch (error) {
+          errors += 1;
+          status = "PARTIAL";
+          errorSummary ??= safeErrorCode(error);
         }
-        const operationKey = typeof candidate.metadata?.searchOperationKey === "string"
-          ? candidate.metadata.searchOperationKey
-          : null;
-        if (operationKey) {
-          const metrics = searchMetrics.get(operationKey) ?? { newUnique: 0, duplicates: 0 };
-          const newlyCreated = stored.firstDetectedAt === startedAt.toISOString();
-          if (newlyCreated) metrics.newUnique += 1;
-          else metrics.duplicates += 1;
-          searchMetrics.set(operationKey, metrics);
-        }
-        if (stored.duplicateSourceId) duplicateCandidateCount += 1;
-        else if (stored.reviewStatus === "NEW") reviewableCandidateCount += 1;
-      } catch (error) {
-        errors += 1;
-        status = "PARTIAL";
-        errorSummary ??= safeErrorCode(error);
       }
     }
   } catch (error) {
@@ -1024,7 +1148,7 @@ async function runDiscoveryRoot(
     runId,
     options.database as AutomationDiscoveryDatabase,
   );
-  const summary = {
+  const summary: DiscoveryRunSummary = {
     runId,
     rootId: root.id,
     rootKey: root.rootKey,
@@ -1034,11 +1158,26 @@ async function runDiscoveryRoot(
     duplicateCandidates: duplicateCandidateCount,
     requestCount: searchMetricsSummary.requestCount,
     resultCount: searchMetricsSummary.resultCount,
+    providerResultCount,
+    localPrefilterCount,
+    exclusionCount,
+    canonicalDuplicateCount,
+    newEntityCount,
+    updateSuggestionCount,
+    category,
+    discoveryMode,
     errors,
     errorSummary,
     nextCheckAt: health.nextCheckAt,
   };
-  console.info(JSON.stringify({ event: "data_automation_discovery_root", ...summary }));
+  console.info(JSON.stringify({
+    event: "data_automation_discovery_root",
+    ...summary,
+    exclusionEntityType: root.entityType,
+    exclusionCategory: root.entityType === "DIRECTORY"
+      ? String(root.config.directoryCategory ?? "") || null
+      : category,
+  }));
   return summary;
 }
 
@@ -1067,6 +1206,84 @@ export async function runAutomationDiscoveryRootCanary(input: {
   if (!dueRoot) throw new Error("automation_discovery_root_not_due_or_governance_blocked");
 
   return runDiscoveryRoot(dueRoot, input.options);
+}
+
+type DirectRefreshRunSummary = {
+  category: string;
+  checked: number;
+  canonicalDuplicates: number;
+  updateSuggestions: number;
+  errors: number;
+  status: "SUCCESS" | "PARTIAL" | "FAILED";
+  cursorEntityId: number;
+};
+
+function missingProductModelSchema(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such table:\s*automation_direct_refresh_settings/i.test(message)
+    || /no such table:\s*canonical_external_provenance/i.test(message)
+    || /no such table:\s*automation_update_suggestions/i.test(message);
+}
+
+async function runDirectEntityRefresh(
+  setting: Awaited<ReturnType<typeof listDueDirectEntityRefreshSettings>>[number],
+  options: DataAutomationDiscoverySweepOptions,
+): Promise<DirectRefreshRunSummary> {
+  const batchSize = 20;
+  const now = options.now ? new Date(options.now) : new Date();
+  const candidates = await listDirectRefreshCandidates(setting, options.database, batchSize);
+  let checked = 0;
+  let canonicalDuplicates = 0;
+  let updateSuggestions = 0;
+  let errors = 0;
+  let status: DirectRefreshRunSummary["status"] = "SUCCESS";
+  let errorCode: string | null = null;
+  let lastEntityId = setting.cursorEntityId;
+
+  for (const candidate of candidates) {
+    checked += 1;
+    lastEntityId = candidate.id;
+    try {
+      const refreshed = await ingestDirectEntityUrl({
+        entityType: candidate.entityType,
+        sourceUrl: candidate.sourceUrl,
+        label: `refresh:${candidate.id}`,
+        directoryCategory: candidate.category,
+        database: options.database,
+        fetchImpl: options.fetchImpl,
+        now,
+        provenanceType: "DIRECT_ENTITY_REFRESH",
+        expectedCanonicalEntityId: candidate.id,
+      });
+      canonicalDuplicates += refreshed.canonicalDuplicates;
+      updateSuggestions += refreshed.updateSuggestions;
+    } catch (error) {
+      errors += 1;
+      status = "PARTIAL";
+      errorCode ??= safeErrorCode(error);
+    }
+  }
+
+  await finishDirectEntityRefreshSetting({
+    setting,
+    lastEntityId,
+    batchWasFull: candidates.length >= batchSize,
+    status,
+    errorCode,
+    now,
+  }, options.database);
+
+  const summary = {
+    category: setting.categorySlug,
+    checked,
+    canonicalDuplicates,
+    updateSuggestions,
+    errors,
+    status,
+    cursorEntityId: candidates.length >= batchSize ? lastEntityId : 0,
+  };
+  console.info(JSON.stringify({ event: "data_automation_direct_refresh", ...summary }));
+  return summary;
 }
 
 export async function runDataAutomationDiscoverySweep(options: DataAutomationDiscoverySweepOptions) {
@@ -1105,11 +1322,33 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
         duplicateCandidates: 0,
         requestCount: 0,
         resultCount: 0,
+        providerResultCount: 0,
+        localPrefilterCount: 0,
+        exclusionCount: 0,
+        canonicalDuplicateCount: 0,
+        newEntityCount: 0,
+        updateSuggestionCount: 0,
+        category: automationProductCategoryForRoot(root),
+        discoveryMode: automationProductModeForRoot(root),
         errors: 1,
         errorSummary: safeErrorCode(error),
         nextCheckAt: root.nextCheckAt,
       });
     }
+  }
+
+  const directRefreshRuns: DirectRefreshRunSummary[] = [];
+  try {
+    const refreshSettings = await listDueDirectEntityRefreshSettings(
+      options.database,
+      options.now ?? new Date(),
+      1,
+    );
+    for (const setting of refreshSettings) {
+      directRefreshRuns.push(await runDirectEntityRefresh(setting, options));
+    }
+  } catch (error) {
+    if (!missingProductModelSchema(error)) throw error;
   }
 
   return {
@@ -1123,5 +1362,6 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
     errors: runs.reduce((sum, run) => sum + run.errors, 0),
     schemaReady: true,
     runs,
+    directRefreshRuns,
   };
 }
