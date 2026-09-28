@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { adoptionIsIndexable } from "./adoption.ts";
+import { adoptionIsIndexable, type AdoptionDog } from "./adoption.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 
 export const ADOPTION_SITEMAP_BATCH_SIZE = 500;
@@ -23,6 +23,17 @@ type AdoptionSitemapRow = {
 };
 
 type RuntimeBindings = { DB?: AdoptionD1Database };
+
+export function filterIndexableAdoptionsForSitemap(items: AdoptionDog[], now = new Date()) {
+  return [...new Map(items
+    .filter((dog) => adoptionIsIndexable(dog, now))
+    .map((dog) => [dog.slug, {
+      id: dog.id,
+      slug: dog.slug,
+      updatedAt: dog.updatedAt,
+      mainImage: dog.mainImage,
+    } satisfies AdoptionSitemapItem])).values()];
+}
 
 function adoptionSitemapDatabase() {
   const database = (env as unknown as RuntimeBindings).DB;
