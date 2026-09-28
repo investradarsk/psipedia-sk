@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
-import { PublicArticleListItem } from "@/components/public-visual-system";
-import { filterPortalSearch, getPortalSearchIndex } from "@/lib/portal-search";
+import { portalSearchFallbacks, searchPortal } from "@/lib/portal-search";
+import { SEARCH_MAX_QUERY_LENGTH } from "@/lib/portal-search-query";
 
 export const dynamic = "force-dynamic";
 
@@ -12,26 +12,33 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-type Props = { searchParams: Promise<{ q?: string | string[]; sekcia?: string | string[] }> };
+type Props = { searchParams: Promise<{ q?: string | string[]; sekcia?: string | string[]; page?: string | string[] }> };
+
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function resultCountLabel(value: number) {
+  if (value === 1) return "1 výsledok";
+  if (value >= 2 && value <= 4) return `${value} výsledky`;
+  return `${value} výsledkov`;
+}
+
+function searchHref(query: string, section: string, page: number) {
+  const params = new URLSearchParams({ q: query });
+  if (section) params.set("sekcia", section);
+  if (page > 1) params.set("page", String(page));
+  return `/hladat?${params}`;
+}
 
 export default async function SearchPage({ searchParams }: Props) {
   const params = await searchParams;
-  const raw = params.q;
-  const query = (Array.isArray(raw) ? raw[0] : raw ?? "").trim().slice(0, 120);
-  const rawSection = Array.isArray(params.sekcia) ? params.sekcia[0] : params.sekcia;
+  const query = (first(params.q) ?? "").trim().slice(0, SEARCH_MAX_QUERY_LENGTH);
+  const rawSection = first(params.sekcia);
   const section = rawSection === "starostlivost" || rawSection === "aktivity" || rawSection === "steniatka" ? rawSection : "";
-  const results = filterPortalSearch(await getPortalSearchIndex(), query).filter((item) => !section || item.href === `/${section}` || item.href.startsWith(`/${section}/`));
-  const grouped = results.reduce((groups, item) => {
-    const group = groups.get(item.type) ?? [];
-    group.push(item);
-    groups.set(item.type, group);
-    return groups;
-  }, new Map<string, typeof results>());
-  const typeOrder = ["Plemeno", "Článok", "Novinka", "Veterinár", "Psí tréner", "Služba pre psov", "Podujatie", "Útulok", "Pomoc psom", "Sekcia"];
-  const orderedGroups = [...grouped.entries()].sort(([a], [b]) => {
-    const aIndex = typeOrder.indexOf(a); const bIndex = typeOrder.indexOf(b);
-    return (aIndex < 0 ? typeOrder.length : aIndex) - (bIndex < 0 ? typeOrder.length : bIndex) || a.localeCompare(b, "sk");
-  });
+  const requestedPage = Math.max(1, Number.parseInt(first(params.page) ?? "1", 10) || 1);
+  const result = await searchPortal(query, { page: requestedPage, section });
+  const fallbacks = portalSearchFallbacks(result.parsed);
 
   return (
     <main id="obsah" className="portal-search-page">
@@ -39,45 +46,73 @@ export default async function SearchPage({ searchParams }: Props) {
         <div className="shell">
           <span className="eyebrow">Celá Psipedia na jednom mieste</span>
           <h1>Čo hľadáš?</h1>
-          <p>{section === "starostlivost" ? "Vyhľadávame iba v poradni Zdravie a starostlivosť." : section === "aktivity" ? "Vyhľadávame iba v sekcii Výcvik a aktivity." : section === "steniatka" ? "Vyhľadávame iba v sprievodcovi Šteniatka." : "Článok, plemeno, podujatie, trénera, útulok alebo konkrétnu pomoc nájdeš jedným vyhľadávaním."}</p>
-          <form action="/hladat" method="get" className="portal-search-form">
+          <p>{section === "starostlivost" ? "Vyhľadávame iba v poradni Zdravie a starostlivosť." : section === "aktivity" ? "Vyhľadávame iba v sekcii Výcvik a aktivity." : section === "steniatka" ? "Vyhľadávame iba v sprievodcovi Šteniatka." : "Článok, plemeno, podujatie, veterinára, trénera, službu alebo pomoc nájdeš jedným vyhľadávaním."}</p>
+          <form action="/hladat" method="get" className="portal-search-form" role="search">
             <SearchIcon size={24} />
             {section && <input type="hidden" name="sekcia" value={section} />}
             <label className="sr-only" htmlFor="portal-query">Hľadaný výraz</label>
-            <input id="portal-query" name="q" defaultValue={query} maxLength={120} placeholder="Skús „labrador“, „výstava“, „tréner“…" autoFocus />
+            <input
+              id="portal-query"
+              name="q"
+              defaultValue={query}
+              maxLength={SEARCH_MAX_QUERY_LENGTH}
+              placeholder="Skús „veterinár v Trnave“, „labrador“…"
+              autoComplete="off"
+              autoFocus
+            />
             <button type="submit">Hľadať</button>
           </form>
         </div>
       </header>
 
-      <section className="section shell portal-search-results" aria-live="polite">
+      <section className="section shell portal-search-results" aria-live="polite" aria-busy="false">
         {query.length < 2 ? (
-          <div className="portal-search-start"><span aria-hidden="true">🔎</span><h2>Napíš aspoň dve písmená</h2><p>Vyhľadávame bez ohľadu na diakritiku v celom portáli.</p><div><Link href="/plemena">Atlas plemien</Link><Link href="/podujatia">Kalendár</Link><Link href="/adresar">Služby pre psov</Link><Link href="/pomoc-psom">Pomoc psom</Link></div></div>
-        ) : results.length ? (
+          <div className="portal-search-start">
+            <span aria-hidden="true">🔎</span>
+            <h2>Napíš aspoň dve písmená</h2>
+            <p>Vyhľadávame bez ohľadu na diakritiku a rozumieme aj kombinácii služby s lokalitou.</p>
+            <div><Link href="/plemena">Atlas plemien</Link><Link href="/podujatia">Kalendár</Link><Link href="/adresar">Služby pre psov</Link><Link href="/pomoc-psom">Pomoc psom</Link></div>
+          </div>
+        ) : result.items.length ? (
           <>
-            <div className="portal-search-summary"><span>Výsledky pre</span><h2>„{query}“</h2><strong>{results.length} {results.length === 1 ? "výsledok" : results.length < 5 ? "výsledky" : "výsledkov"}</strong></div>
-            <div className="portal-search-groups">
-              {orderedGroups.map(([type, items]) => (
-                <section className="portal-search-group" key={type}>
-                  <header><span>{type}</span><b>{items.length}</b></header>
-                  <div>{items.map((item) => item.articleMeta ? (
-                    <PublicArticleListItem
-                      key={item.href}
-                      href={item.href}
-                      title={item.title}
-                      topic={item.articleMeta.topic}
-                      date={item.articleMeta.date}
-                      dateTime={item.articleMeta.dateIso}
-                      image={item.articleMeta.image ? { src: item.articleMeta.image, alt: `Ilustračná fotografia k článku: ${item.title}` } : undefined}
-                      listItem={false}
-                    />
-                  ) : <Link href={item.href} key={item.href}><span><strong>{item.title}</strong><small>{item.description}</small></span><ArrowIcon size={20} /></Link>)}</div>
-                </section>
+            <div className="portal-search-summary">
+              <span>Výsledky pre</span>
+              <h2>„{query}“</h2>
+              <strong>{resultCountLabel(result.total)}</strong>
+            </div>
+            <div className="portal-search-list" aria-label="Výsledky vyhľadávania">
+              {result.items.map((item) => (
+                <Link href={item.href} key={item.href} className="portal-search-result">
+                  <span className="portal-search-result-copy">
+                    <small className="portal-search-result-type">{item.type}</small>
+                    <strong>{item.title}</strong>
+                    {item.description ? <span className="portal-search-result-description">{item.description}</span> : null}
+                  </span>
+                  <ArrowIcon size={20} />
+                </Link>
               ))}
             </div>
+
+            {result.capped ? <p className="portal-search-limit-note">Pri veľmi širokom dotaze zobrazujeme najrelevantnejších 480 výsledkov. Pre úplný zoznam použi príslušnú sekciu alebo adresár.</p> : null}
+
+            {result.totalPages > 1 ? (
+              <nav className="portal-search-pagination" aria-label="Stránkovanie výsledkov">
+                {result.page > 1 ? <Link href={searchHref(query, section, result.page - 1)} rel="prev">← Predchádzajúca</Link> : <span />}
+                <span>Strana {result.page} z {result.totalPages}</span>
+                {result.page < result.totalPages ? <Link href={searchHref(query, section, result.page + 1)} rel="next">Ďalšia →</Link> : <span />}
+              </nav>
+            ) : null}
           </>
         ) : (
-          <div className="portal-search-start"><span aria-hidden="true">🐾</span><h2>Nič sme nenašli</h2><p>Skús kratšie alebo všeobecnejšie slovo. Ak ti na Psipedii chýba dôležitá téma, môžeš nám poslať námet.</p><div><Link href="/novinky/poslat-tip">Pošli tip redakcii</Link><Link href="/clanky">Všetky články</Link></div></div>
+          <div className="portal-search-start">
+            <span aria-hidden="true">🐾</span>
+            <h2>Nenašli sme presnú zhodu</h2>
+            <p>
+              Pre dotaz „{query}“ momentálne nemáme zodpovedajúci publikovaný výsledok.
+              Skús upraviť názov, službu alebo lokalitu.
+            </p>
+            {fallbacks.length ? <div>{fallbacks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</div> : null}
+          </div>
         )}
       </section>
     </main>
