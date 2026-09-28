@@ -294,7 +294,9 @@ export async function reviewAutomationSource(input: {
 function sourceActivationError(readiness: Awaited<ReturnType<typeof automationSourceActivationReadiness>>) {
   if (readiness.reason === "REVIEW_REQUIRED") return "automation_source_review_required";
   if (readiness.reason === "UNSAFE_SOURCE_URL") return "automation_source_url_not_safe";
-  if (readiness.reason === "TECHNICAL_NOT_READY") return "automation_source_not_ready";
+  if (readiness.reason === "TECHNICAL_NOT_READY") {
+    return "automation_source_not_ready:" + (readiness.technicalReason ?? "UNKNOWN");
+  }
   if (readiness.reason === "CADENCE_INVALID") return "automation_source_cadence_invalid";
   if (readiness.reason === "GOVERNANCE_BLOCKED") {
     return "automation_source_governance_blocked:" + readiness.governanceBlockingReasons.join(",");
