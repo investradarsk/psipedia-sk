@@ -1,4 +1,5 @@
 import type { ControlledHtmlAdapter, AutomationFetch } from "./data-automation-connectors.ts";
+import { getAutomationRecordSuppression } from "./automation-record-suppressions.ts";
 import type { OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
 import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
 import { AutomationConnectorError, fetchAutomationSourceRecords } from "./data-automation-connectors.ts";
@@ -457,6 +458,37 @@ async function processRecord(
       newFindingCount: lifecycle.newFindingCount + (result.created || result.reopened ? 1 : 0),
       updatedFindingCount: lifecycle.updatedFindingCount + (result.created || result.reopened ? 0 : 1),
     };
+  }
+
+  // Suppression applies only to CREATE. Existing canonical matches above still
+  // remain eligible for read-only update suggestions.
+  const suppression = await getAutomationRecordSuppression({
+    entityType: source.entityType,
+    externalSourceUrl: record.sourceUrl,
+    externalRecordId: record.sourceRecordId,
+  }, database);
+  if (suppression) {
+    if (processedReceipt) {
+      await updateAutomationIngestionReceiptPayload({
+        sourceId: source.id,
+        entityType: source.entityType,
+        sourceRecordId: record.sourceRecordId,
+        sourceUrl: record.sourceUrl,
+        payloadHash: proposalHash,
+      }, database);
+      return { finding: null, created: false, reopened: false, processed: true, receipt: processedReceipt };
+    }
+    const receipt = await createAutomationIngestionReceipt({
+      sourceId: source.id,
+      entityType: source.entityType,
+      sourceRecordId: record.sourceRecordId,
+      sourceUrl: record.sourceUrl,
+      payloadHash: proposalHash,
+      result: "SKIPPED_DUPLICATE",
+      firstProcessedAt: detectedAt,
+    }, database);
+    if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+    return { finding: null, created: false, reopened: false, processed: true, receipt };
   }
 
   // Once a source-record identity has a receipt, a later matcher miss or

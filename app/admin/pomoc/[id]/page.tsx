@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminHelpEditor } from "@/components/admin-help-editor";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
+import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedHelpCaseById } from "@/lib/help-store";
@@ -25,5 +26,10 @@ export default async function EditHelpCasePage({ params }: Props) {
    actions={<Link href="/admin/pomoc">← Späť na pomoc psom</Link>}>
     <AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminHelpEditor item={item} />
+    {item.status === "draft" && <AdminCanonicalDraftDelete
+      entityType={item.category === "docasna-opatera" ? "FOSTER" : "HELP_ITEM"}
+      canonicalEntityId={item.id}
+      returnHref="/admin/pomoc"
+    />}
   </AdminShell>;
 }
