@@ -69,19 +69,34 @@ test("source-only UX maps readiness internals to one user-safe Slovak message", 
     read("app/admin/automatizacie/zdroje/[id]/page.tsx"),
   ]);
 
-  assert.match(presentation, /automation_source_not_ready:/);
+  assert.match(presentation, /automation_source_not_ready/);
+  assert.match(presentation, /automation_source_governance_blocked/);
+  assert.match(presentation, /automation_source_activation_blocked/);
   assert.match(presentation, /automation_candidate_source_not_ready:/);
   assert.match(presentation, /automation_candidate_source_provisioning_conflict/);
-  assert.match(presentation, /Tento zdroj zatiaľ nie je pripravený na automatické spracovanie\./);
+  assert.match(presentation, /Tento zdroj zatiaľ nemožno automaticky kontrolovať\./);
 
   assert.match(settings, /automationSourceOnlyErrorMessage/);
   assert.match(category, /automationSourceOnlyErrorMessage/);
   assert.doesNotMatch(settings, /throw new Error\(payload\.error\s*\|\|/);
   assert.doesNotMatch(category, /throw new Error\(payload\.error\s*\|\|/);
 
-  assert.match(page, /automationSourceReadiness/);
+  assert.match(page, /automationSourceActivationReadiness/);
+  assert.doesNotMatch(page, /automationSourceReadiness\(/);
   assert.match(page, /monitoringReady/);
   assert.match(settings, /disabled=\{busy \|\| !monitoringReady\}/);
-  assert.doesNotMatch(settings, /MISSING_ADAPTER|UNSUPPORTED_ADAPTER|ADAPTER_ENTITY_MISMATCH|ADAPTER_SHAPE_MISMATCH|MISSING_PARSER/);
+  assert.doesNotMatch(settings, /MISSING_ADAPTER|UNSUPPORTED_ADAPTER|ADAPTER_ENTITY_MISMATCH|ADAPTER_SHAPE_MISMATCH|MISSING_PARSER|GOVERNANCE_MISSING|ACCESS_NOT_ALLOWED|ROBOTS_NOT_ALLOWED|TERMS_NOT_ALLOWED|RECURRING_USE_NOT_APPROVED|RETENTION_/);
   assert.doesNotMatch(settings, /Pokročilé|adapter key|readiness/i);
+});
+
+
+test("source configure is validation-first and preserves immediate run only after successful OFF to ON", async () => {
+  const route = await read("app/api/admin/automation-sources/[id]/route.ts");
+  const store = await read("lib/data-automation-source-store.ts");
+  assert.match(route, /configureAutomationSource/);
+  assert.doesNotMatch(route, /setAutomationSourceCadence/);
+  assert.match(route, /immediateRun = enabled && !before\.enabled/);
+  assert.match(route, /if \(immediateRun\)[\s\S]*runAutomationSourceNow/);
+  assert.match(store, /automationSourceActivationReadiness\(existing, db, \{[\s\S]*cadenceMinutes/);
+  assert.match(store, /SET cadence_minutes=\?,enabled=\?,next_check_at=\?,updated_at=\?/);
 });
