@@ -73,9 +73,11 @@ test("FK-sensitive reset order is child-first", () => {
   assert.ok(index("automation_ingestion_receipts") < index("automation_sources"));
 });
 
-test("root and direct-refresh presets are preserved but all operational state is cleared", () => {
+test("root, direct-refresh presets and suppression registry are preserved but all operational state is cleared", () => {
   assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_discovery_roots"), false);
   assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_direct_refresh_settings"), false);
+  assert.deepEqual(mod.PRESERVED_STATE_TABLES, ["automation_record_suppressions"]);
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_record_suppressions"), false);
   assert.match(mod.ROOT_RESET_STATEMENT, /enabled=0/);
   assert.match(mod.ROOT_RESET_STATEMENT, /review_status='PENDING'/);
   assert.match(mod.ROOT_RESET_STATEMENT, /next_check_at=NULL/);
@@ -157,6 +159,7 @@ test("every automation table is explicitly deleted or intentionally preserved", 
   const covered = new Set([
     ...mod.DELETE_TABLE_ORDER,
     ...mod.PRESERVED_AUDIT_TABLES,
+    ...mod.PRESERVED_STATE_TABLES,
     "automation_discovery_roots",
     "automation_direct_refresh_settings",
   ]);
