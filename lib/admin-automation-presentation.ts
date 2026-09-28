@@ -43,6 +43,10 @@ export function automationDiscoveryMinimumCadenceMinutes(slug: string) {
   return 10080;
 }
 
+export function automationDirectRefreshMinimumCadenceMinutes() {
+  return 10080;
+}
+
 function automationCategoryForEntity(entityType: AutomationEntityType, _searchable: string, directoryCategory?: unknown) {
   return automationProductCategoryForEntity(entityType, directoryCategory);
 }
@@ -196,6 +200,10 @@ export function automationSourceOnlyErrorMessage(
   ) {
     return "Tento zdroj zatiaľ nemožno automaticky kontrolovať.";
   }
+  if (/^automation_schedule_(days_invalid|weekday_invalid|days_duplicate)$/i.test(message)) return "Vyber aspoň jeden platný deň v týždni.";
+  if (/^automation_schedule_time_invalid$/i.test(message)) return "Zadaj platný čas.";
+  if (/^automation_schedule_timezone_invalid$/i.test(message)) return "Časové pásmo musí byť Europe/Bratislava.";
+  if (/^automation_schedule_minimum_cadence$/i.test(message)) return "Zvolený rozvrh je príliš častý.";
   if (/^automation_[a-z0-9_.:,-]+$/i.test(message)) return fallback;
   return message || fallback;
 }
