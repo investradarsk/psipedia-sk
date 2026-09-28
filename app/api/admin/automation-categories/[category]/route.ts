@@ -80,7 +80,11 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({ setting }, { headers: { "cache-control": "no-store" } });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nastavenie kontroly zmien sa nepodarilo uložiť.";
-      return Response.json({ error: message }, { status: 409 });
+      return Response.json({
+        error: /^automation_schedule_/.test(message)
+          ? automationScheduleErrorMessage(error, "Nastavenie kontroly zmien sa nepodarilo uložiť.")
+          : message,
+      }, { status: /^automation_schedule_/.test(message) ? 400 : 409 });
     }
   }
 
