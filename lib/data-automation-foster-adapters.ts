@@ -136,6 +136,9 @@ export const zatulanePsikySalaFosterDetailAdapter: ControlledHtmlAdapter = ({ ht
   const organization = pageText.includes(SOURCE_ORGANIZATION) ? SOURCE_ORGANIZATION : "";
   const urgent = explicitUrgentSignal(modes);
   const resolved = explicitResolvedSignal(sourceHeading);
+  const resolvedEvidence = resolved
+    ? sourceHeading.match(/adoptovan[ýá]/i)?.[0] ?? "Adoptovaný"
+    : "";
 
   const proposed: Record<string, unknown> = {
     title: sourceHeading,
@@ -165,8 +168,12 @@ export const zatulanePsikySalaFosterDetailAdapter: ControlledHtmlAdapter = ({ ht
       description: description || null,
       urgent,
       resolved,
+      resolvedEvidence: resolvedEvidence || null,
       detailUrl,
     },
+    lifecycleSignals: resolved
+      ? [{ signalType: "FOSTER_RESOLVED", targetState: "RESOLVED", evidenceText: resolvedEvidence, confidenceClass: "EXPLICIT" }]
+      : undefined,
     proposed,
   } satisfies AutomationSourceRecord];
 };
