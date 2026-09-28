@@ -561,6 +561,9 @@ jobs:
           echo
           echo '--- tail stderr ---'
           cat .sitemap-diagnostic/tail.stderr || true
+          echo '--- robots/news status ---'
+          printf 'robots='; cat .sitemap-diagnostic/robots.txt.status.txt
+          printf 'news='; cat .sitemap-diagnostic/news-sitemap.xml.status.txt
           echo '--- error tail ---'
           cat .sitemap-diagnostic/tail.jsonl || true
       - name: Read-only production D1 sitemap schema and anomaly counts
@@ -587,6 +590,46 @@ jobs:
             SUM(CASE WHEN status='published' AND category NOT IN ('adopcia','utulky') THEN 1 ELSE 0 END) AS sitemap_candidates,
             SUM(CASE WHEN status='published' AND category NOT IN ('adopcia','utulky') AND trim(slug)='' THEN 1 ELSE 0 END) AS blank_slug
           FROM help_cases;
+          SELECT 'redirect_directory_althea' AS check_name, COUNT(*) AS matches,
+            MAX(category) AS category, MAX(slug) AS slug,
+            MAX(CASE WHEN json_valid(seo_json) THEN json_extract(seo_json,'$.canonicalUrl') ELSE NULL END) AS canonical_url,
+            MAX(CASE WHEN json_valid(seo_json) THEN json_extract(seo_json,'$.noindex') ELSE NULL END) AS noindex
+          FROM directory_profiles
+          WHERE status='published' AND archived_at IS NULL
+            AND category='veterinari' AND slug='veterinarna-poliklinka-althea';
+          SELECT 'redirect_article_training' AS check_name, COUNT(*) AS matches,
+            MAX(portal_section) AS portal_section, MAX(slug) AS slug,
+            MAX(canonical_url) AS canonical_url, MAX(noindex) AS noindex
+          FROM managed_articles
+          WHERE (status='published' OR (status='scheduled' AND published_at IS NOT NULL AND published_at <= CURRENT_TIMESTAMP))
+            AND portal_section='aktivity' AND slug='-vycvik-a-aktivity-trening';
+          SELECT 'redirect_event_calendar' AS check_name, COUNT(*) AS matches,
+            MAX(slug) AS slug,
+            MAX(CASE WHEN json_valid(seo_json) THEN json_extract(seo_json,'$.canonicalUrl') ELSE NULL END) AS canonical_url,
+            MAX(CASE WHEN json_valid(seo_json) THEN json_extract(seo_json,'$.noindex') ELSE NULL END) AS noindex
+          FROM managed_events
+          WHERE status='published' AND slug='kalendar';
+          SELECT 'legacy_directory_category' AS check_name, COUNT(*) AS matches
+          FROM directory_profiles
+          WHERE status='published' AND archived_at IS NULL AND category='psie-skoly';
+          SELECT 'directory_duplicates' AS check_name, COUNT(*) AS duplicate_groups FROM (
+            SELECT category,slug FROM directory_profiles
+            WHERE status='published' AND archived_at IS NULL
+            GROUP BY category,slug HAVING COUNT(*) > 1
+          );
+          SELECT 'article_duplicates' AS check_name, COUNT(*) AS duplicate_groups FROM (
+            SELECT portal_section,slug FROM managed_articles
+            WHERE status='published' OR (status='scheduled' AND published_at IS NOT NULL AND published_at <= CURRENT_TIMESTAMP)
+            GROUP BY portal_section,slug HAVING COUNT(*) > 1
+          );
+          SELECT 'event_duplicates' AS check_name, COUNT(*) AS duplicate_groups FROM (
+            SELECT slug FROM managed_events WHERE status='published'
+            GROUP BY slug HAVING COUNT(*) > 1
+          );
+          SELECT 'help_duplicates' AS check_name, COUNT(*) AS duplicate_groups FROM (
+            SELECT category,slug FROM help_cases WHERE status='published'
+            GROUP BY category,slug HAVING COUNT(*) > 1
+          );
           PRAGMA table_info('directory_profiles');
           PRAGMA table_info('managed_articles');
           PRAGMA table_info('managed_events');
