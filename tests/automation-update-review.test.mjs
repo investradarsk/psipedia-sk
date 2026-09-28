@@ -35,7 +35,9 @@ test("accept is stale-safe, value-versioned and idempotent while reject never ne
   assert.match(source, /expectedProposedValueHash/);
   assert.match(source, /valuesEqual\(spec, current, change\.before\)/);
   assert.match(source, /String\(canonical\.updated_at \?\? ""\) !== input\.expectedUpdatedAt/);
-  assert.match(source, /WHERE id=\? AND updated_at=\? RETURNING \*/);
+  assert.match(source, /WHERE id=\? AND updated_at=\?/);
+  assert.match(source, /db\.batch\(\[updateStatement, decisionStatement\]\)/);
+  assert.match(source, /WHERE EXISTS/);
   assert.match(source, /CANONICAL_ALREADY_MATCHES/);
   assert.match(source, /existingDecision/);
   const reject = source.match(/if \(input\.action === "reject"\) \{([\s\S]*?)\n  \}/)?.[1] ?? "";
@@ -54,9 +56,9 @@ test("DIRECT_ENTITY same value keeps resolution and changed proposal receives a 
 
 test("admin API is authenticated, same-origin JSON only and has explicit error contracts", async () => {
   const api = await read("app/api/admin/automation-update-suggestions/[origin]/[id]/fields/[field]/route.ts");
-  assert.match(api, /getAdminApiUser\(\)/);
-  assert.match(api, /unauthorizedAdminResponse/);
-  assert.match(api, /origin === new URL\(request\.url\)\.origin/);
+  assert.match(api, /requireAdminMutation\(request\)/);
+  assert.match(api, /auth\.response/);
+  assert.match(api, /auth\.user/);
   assert.match(api, /contentType\.startsWith\("application\/json"\)/);
   assert.match(api, /AutomationUpdateReviewConflictError/);
   assert.match(api, /status: 409/);
