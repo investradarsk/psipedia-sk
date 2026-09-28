@@ -143,7 +143,7 @@ export function automationEnrichmentIdentityMatches(input: {
 }
 
 function normalizedEmail(value: string) {
-  const result = normalizeAutomationEmail(value);
+  const result = normalizeAutomationEmail(value)?.toLowerCase() ?? null;
   return result && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result) ? result : null;
 }
 
