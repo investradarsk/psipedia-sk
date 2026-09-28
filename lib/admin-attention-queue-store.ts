@@ -446,17 +446,25 @@ function paramsCte() {
   )`;
 }
 
-function availableUnion(sources: readonly AdminAttentionQueueSourceType[]) {
-  return sources.length ? sources.map((source) => ATTENTION_SOURCE_SELECTS[source]).join("\nUNION ALL\n") : "";
-}
-
 function sourceProbeSql(source: AdminAttentionQueueSourceType) {
   return `${paramsCte()}, source_rows AS (${ATTENTION_SOURCE_SELECTS[source]})
     SELECT
-      COALESCE(SUM(CASE WHEN activeRank=0 THEN 1 ELSE 0 END),0) AS count,
+      COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN activeRank=0 THEN 1 ELSE 0 END),0) AS activeCount,
+      COALESCE(SUM(CASE WHEN activeRank=1 THEN 1 ELSE 0 END),0) AS historyCount,
       COALESCE(SUM(CASE WHEN attentionState='NEW' THEN 1 ELSE 0 END),0) AS newCount,
       COALESCE(SUM(CASE WHEN attentionState='IN_PROGRESS' THEN 1 ELSE 0 END),0) AS inProgressCount,
+      COALESCE(SUM(CASE WHEN attentionState='RESOLVED' THEN 1 ELSE 0 END),0) AS resolvedCount,
+      COALESCE(SUM(CASE WHEN attentionState='DISMISSED' THEN 1 ELSE 0 END),0) AS dismissedCount,
       COALESCE(SUM(CASE WHEN priority='HIGH' THEN 1 ELSE 0 END),0) AS highCount,
+      COALESCE(SUM(CASE WHEN priority='MEDIUM' THEN 1 ELSE 0 END),0) AS mediumCount,
+      COALESCE(SUM(CASE WHEN priority='LOW' THEN 1 ELSE 0 END),0) AS lowCount,
+      COALESCE(SUM(CASE WHEN activeRank=0 AND priority='HIGH' THEN 1 ELSE 0 END),0) AS activeHighCount,
+      COALESCE(SUM(CASE WHEN activeRank=0 AND priority='MEDIUM' THEN 1 ELSE 0 END),0) AS activeMediumCount,
+      COALESCE(SUM(CASE WHEN activeRank=0 AND priority='LOW' THEN 1 ELSE 0 END),0) AS activeLowCount,
+      COALESCE(SUM(CASE WHEN activeRank=1 AND priority='HIGH' THEN 1 ELSE 0 END),0) AS historyHighCount,
+      COALESCE(SUM(CASE WHEN activeRank=1 AND priority='MEDIUM' THEN 1 ELSE 0 END),0) AS historyMediumCount,
+      COALESCE(SUM(CASE WHEN activeRank=1 AND priority='LOW' THEN 1 ELSE 0 END),0) AS historyLowCount,
       MIN(relevantAt) AS minRelevantAt,
       COALESCE(SUM(CASE WHEN payload IS NOT NULL THEN length(payload) ELSE 0 END),0) AS payloadLength
     FROM source_rows`;
@@ -470,17 +478,72 @@ function safeLogSourceFailure(sourceType: AdminAttentionQueueSourceType, operati
   });
 }
 
-async function probeSources(db: AdminAttentionD1Database, now: Date) {
+function unavailableSnapshot(sourceType: AdminAttentionQueueSourceType): AttentionSourceSnapshot {
+  return {
+    sourceType,
+    state: "UNAVAILABLE",
+    activeCount: null,
+    errorCode: "ATTENTION_SOURCE_UNAVAILABLE",
+    total: 0,
+    historyCount: 0,
+    byState: { NEW: 0, IN_PROGRESS: 0, RESOLVED: 0, DISMISSED: 0 },
+    byPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
+    activeByPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
+    historyByPriority: { HIGH: 0, MEDIUM: 0, LOW: 0 },
+  };
+}
+
+function rowToSnapshot(sourceType: AdminAttentionQueueSourceType, row: AttentionSourceProbeRow | null): AttentionSourceSnapshot {
+  const activeCount = Number(row?.activeCount ?? 0);
+  return {
+    sourceType,
+    state: activeCount > 0 ? "OK" : "EMPTY",
+    activeCount,
+    total: Number(row?.total ?? 0),
+    historyCount: Number(row?.historyCount ?? 0),
+    byState: {
+      NEW: Number(row?.newCount ?? 0),
+      IN_PROGRESS: Number(row?.inProgressCount ?? 0),
+      RESOLVED: Number(row?.resolvedCount ?? 0),
+      DISMISSED: Number(row?.dismissedCount ?? 0),
+    },
+    byPriority: {
+      HIGH: Number(row?.highCount ?? 0),
+      MEDIUM: Number(row?.mediumCount ?? 0),
+      LOW: Number(row?.lowCount ?? 0),
+    },
+    activeByPriority: {
+      HIGH: Number(row?.activeHighCount ?? 0),
+      MEDIUM: Number(row?.activeMediumCount ?? 0),
+      LOW: Number(row?.activeLowCount ?? 0),
+    },
+    historyByPriority: {
+      HIGH: Number(row?.historyHighCount ?? 0),
+      MEDIUM: Number(row?.historyMediumCount ?? 0),
+      LOW: Number(row?.historyLowCount ?? 0),
+    },
+  };
+}
+
+async function probeSources(db: AdminAttentionD1Database, now: Date): Promise<AttentionSourceSnapshot[]> {
   const bindings = timeBindings(now);
-  return Promise.all(adminAttentionQueueSourceTypes.map(async (sourceType): Promise<AdminAttentionSourceAvailability> => {
+  return Promise.all(adminAttentionQueueSourceTypes.map(async (sourceType) => {
     try {
-      const row = await db.prepare(sourceProbeSql(sourceType)).bind(...bindings).first<{ count: number }>();
-      const activeCount = Number(row?.count ?? 0);
-      return { sourceType, state: activeCount > 0 ? "OK" : "EMPTY", activeCount };
+      const row = await db.prepare(sourceProbeSql(sourceType)).bind(...bindings).first<AttentionSourceProbeRow>();
+      return rowToSnapshot(sourceType, row);
     } catch {
-      safeLogSourceFailure(sourceType, "count");
-      return { sourceType, state: "UNAVAILABLE", activeCount: null, errorCode: "ATTENTION_SOURCE_UNAVAILABLE" };
+      safeLogSourceFailure(sourceType, "summary");
+      return unavailableSnapshot(sourceType);
     }
+  }));
+}
+
+function publicSourceAvailability(sources: AttentionSourceSnapshot[]): AdminAttentionSourceAvailability[] {
+  return sources.map(({ sourceType, state, activeCount, errorCode }) => ({
+    sourceType,
+    state,
+    activeCount,
+    ...(errorCode ? { errorCode } : {}),
   }));
 }
 
@@ -493,6 +556,48 @@ function summaryAvailability(sources: AdminAttentionSourceAvailability[]): "OK" 
 
 function sourceCounts(sources: AdminAttentionSourceAvailability[]) {
   return Object.fromEntries(sources.map((source) => [source.sourceType, source.activeCount])) as Record<AdminAttentionQueueSourceType, number | null>;
+}
+
+function filteredSnapshotCount(snapshot: AttentionSourceSnapshot, filters: AdminAttentionFilters) {
+  if (snapshot.state === "UNAVAILABLE") return 0;
+  const view = filters.view ?? "active";
+  const priority = filters.priority ?? "all";
+  if (priority === "all") {
+    if (view === "active") return snapshot.activeCount ?? 0;
+    if (view === "history") return snapshot.historyCount;
+    return snapshot.total;
+  }
+  if (view === "active") return snapshot.activeByPriority[priority];
+  if (view === "history") return snapshot.historyByPriority[priority];
+  return snapshot.byPriority[priority];
+}
+
+function snapshotMatchesSource(snapshot: AttentionSourceSnapshot, filters: AdminAttentionFilters) {
+  return !filters.sourceType || filters.sourceType === "all" || snapshot.sourceType === filters.sourceType;
+}
+
+function summarizeSnapshots(
+  snapshots: AttentionSourceSnapshot[],
+  sourceAvailability: AdminAttentionSourceAvailability[],
+): AdminAttentionPageSummary {
+  const available = snapshots.filter((source) => source.state !== "UNAVAILABLE");
+  return {
+    total: available.reduce((sum, source) => sum + source.total, 0),
+    active: available.reduce((sum, source) => sum + (source.activeCount ?? 0), 0),
+    history: available.reduce((sum, source) => sum + source.historyCount, 0),
+    byState: {
+      NEW: available.reduce((sum, source) => sum + source.byState.NEW, 0),
+      IN_PROGRESS: available.reduce((sum, source) => sum + source.byState.IN_PROGRESS, 0),
+      RESOLVED: available.reduce((sum, source) => sum + source.byState.RESOLVED, 0),
+      DISMISSED: available.reduce((sum, source) => sum + source.byState.DISMISSED, 0),
+    },
+    byPriority: {
+      HIGH: available.reduce((sum, source) => sum + source.byPriority.HIGH, 0),
+      MEDIUM: available.reduce((sum, source) => sum + source.byPriority.MEDIUM, 0),
+      LOW: available.reduce((sum, source) => sum + source.byPriority.LOW, 0),
+    },
+    bySource: sourceCounts(sourceAvailability),
+  };
 }
 
 function filtersFingerprint(filters: AdminAttentionFilters) {
