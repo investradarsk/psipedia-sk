@@ -14,6 +14,7 @@ import {
 import {
   automationSourceActivationReadiness,
   prepareAutomationSourceGovernanceForApproval,
+  refreshAutomationSourceTechnicalGovernance,
 } from "../lib/data-automation-source-activation.ts";
 import { SUPPORTED_DIRECTORY_CATEGORIES } from "../lib/data-automation-source-provisioning.ts";
 
@@ -281,6 +282,41 @@ class MemoryStatement {
       return { success: true, meta: { changes: 1 } };
     }
 
+    if (sql.startsWith("UPDATE automation_governance_reviews SET access_status=?")) {
+      const row = this.db.governance.find((item) =>
+        item.subject_type === a[25]
+        && item.subject_id === Number(a[26])
+        && item.updated_at === a[27]
+      );
+      if (!row) return { success: true, meta: { changes: 0 } };
+      row.access_status = String(a[0]);
+      row.robots_status = String(a[1]);
+      row.terms_status = String(a[2]);
+      row.recurring_status = String(a[3]);
+      row.retention_status = String(a[4]);
+      row.retain_url = Number(a[5]);
+      row.retain_title = Number(a[6]);
+      row.retain_snippet = Number(a[7]);
+      row.retain_metadata = Number(a[8]);
+      row.retention_days = a[9] ?? null;
+      row.min_cadence_minutes = a[10] ?? null;
+      row.max_requests_per_day = a[11] ?? null;
+      row.manual_only = Number(a[12]);
+      row.path_scope = a[13] ?? null;
+      row.restrictions_note = a[14] ?? null;
+      row.terms_url = a[15] ?? null;
+      row.privacy_url = a[16] ?? null;
+      row.robots_url = a[17] ?? null;
+      row.evidence_url = a[18] ?? null;
+      row.reviewed_at = String(a[19]);
+      row.reviewed_by = String(a[20]);
+      row.rationale = String(a[21]);
+      row.expires_at = a[22] ?? null;
+      row.review_due_at = a[23] ?? null;
+      row.updated_at = String(a[24]);
+      return { success: true, meta: { changes: 1 } };
+    }
+
     if (sql.startsWith("UPDATE automation_sources SET cadence_minutes=?,enabled=?,next_check_at=?,updated_at=? WHERE id=?")) {
       const source = this.db.sources.find((item) => item.id === Number(a[4]));
       if (!source) throw new Error("source missing");
@@ -368,16 +404,23 @@ function tavilyDirectoryRoot(category, rootKey = "tavily-sk-directory-" + catego
   };
 }
 
-function sourceGovernanceFetch({ sourceStatus = 200, robots = "allow" } = {}) {
+function sourceGovernanceFetch({
+  sourceStatus = 200,
+  robots = "allow",
+  sourceError = null,
+  robotsError = null,
+} = {}) {
   return async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname === "/robots.txt") {
+      if (robotsError) throw new Error(robotsError);
       if (robots === "missing") return new Response("", { status: 404 });
       const body = robots === "block"
         ? "User-agent: *\nDisallow: /"
         : "User-agent: *\nAllow: /";
       return new Response(body, { status: 200, headers: { "content-type": "text/plain" } });
     }
+    if (sourceError) throw new Error(sourceError);
     return new Response("<html><body>source</body></html>", {
       status: sourceStatus,
       headers: { "content-type": "text/html" },
@@ -814,8 +857,17 @@ test("HOTFIX robots or terms blockers cannot activate and approval does not over
     fetchImpl: sourceGovernanceFetch(),
     now,
   });
-  assert.equal(repeatPreparation.prepared, false);
-  assert.deepEqual(termsDb.governance[0], before, "existing source governance must never be silently overwritten");
+  assert.equal(repeatPreparation.prepared, true);
+  assert.equal(termsDb.governance[0].access_status, "ALLOWED");
+  assert.equal(termsDb.governance[0].robots_status, "ALLOWED");
+  assert.equal(termsDb.governance[0].terms_status, "BLOCKED", "operator terms decision is preserved");
+  assert.equal(termsDb.governance[0].recurring_status, before.recurring_status);
+  assert.equal(termsDb.governance[0].retention_status, before.retention_status);
+  assert.equal(termsDb.governance[0].retain_url, before.retain_url);
+  assert.equal(termsDb.governance[0].retain_title, before.retain_title);
+  assert.equal(termsDb.governance[0].retain_snippet, before.retain_snippet);
+  assert.equal(termsDb.governance[0].retain_metadata, before.retain_metadata);
+  assert.equal(termsDb.governance[0].manual_only, before.manual_only);
 
   const termsReadiness = await automationSourceActivationReadiness(termsSource, termsDb, {
     cadenceMinutes: 10080,
@@ -926,4 +978,293 @@ test("HOTFIX source-only error mapping never exposes readiness backend codes", (
     automationSourceOnlyErrorMessage("automation_source_review_required", "Nastavenie sa nepodarilo uložiť."),
     "Nastavenie sa nepodarilo uložiť.",
   );
+});
+
+
+test("GOVERNANCE REFRESH transient access failure recovers on one explicit enable attempt", async () => {
+  const db = new MemoryD1();
+  const first = new Date("2026-09-28T11:00:00.000Z");
+  const retry = new Date("2026-09-28T11:05:00.000Z");
+  const { source } = await approveCandidateToSource(
+    db,
+    mappedCandidate("veterinari", "https://transient-access.example.sk/profile"),
+    first,
+  );
+
+  const initial = await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch({ sourceError: "network timeout" }),
+    now: first,
+  });
+  assert.equal(initial.governance.state.accessStatus, "UNKNOWN");
+  assert.equal(initial.governance.state.robotsStatus, "ALLOWED");
+
+  const wasEnabled = source.enabled;
+  const configured = await configureAutomationSource({
+    id: source.id,
+    enabled: true,
+    cadenceMinutes: 10080,
+    now: retry,
+    technicalGovernanceRefresh: {
+      actor: "admin@psipedia.sk",
+      fetchImpl: sourceGovernanceFetch(),
+    },
+  }, db);
+
+  assert.equal(db.governance[0].access_status, "ALLOWED");
+  assert.equal(db.governance[0].robots_status, "ALLOWED");
+  assert.equal(configured.enabled, true);
+  assert.equal(configured.cadenceMinutes, 10080);
+  assert.equal(configured.nextCheckAt, retry.toISOString());
+  assert.equal(configured.enabled && !wasEnabled, true, "successful OFF -> ON recovery requests immediate first run");
+});
+
+test("GOVERNANCE REFRESH transient robots failure recovers on explicit enable", async () => {
+  const db = new MemoryD1();
+  const first = new Date("2026-09-28T11:10:00.000Z");
+  const retry = new Date("2026-09-28T11:15:00.000Z");
+  const { source } = await approveCandidateToSource(
+    db,
+    mappedCandidate("veterinari", "https://transient-robots.example.sk/profile"),
+    first,
+  );
+
+  await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch({ robotsError: "temporary dns failure" }),
+    now: first,
+  });
+  assert.equal(db.governance[0].robots_status, "UNKNOWN");
+
+  const configured = await configureAutomationSource({
+    id: source.id,
+    enabled: true,
+    cadenceMinutes: 10080,
+    now: retry,
+    technicalGovernanceRefresh: {
+      actor: "admin@psipedia.sk",
+      fetchImpl: sourceGovernanceFetch(),
+    },
+  }, db);
+
+  assert.equal(db.governance[0].robots_status, "ALLOWED");
+  assert.equal(configured.enabled, true);
+});
+
+test("GOVERNANCE REFRESH permanent access block remains fail-closed and configure is atomic", async () => {
+  const db = new MemoryD1();
+  const first = new Date("2026-09-28T11:20:00.000Z");
+  const retry = new Date("2026-09-28T11:25:00.000Z");
+  const { source } = await approveCandidateToSource(
+    db,
+    mappedCandidate("veterinari", "https://blocked-access.example.sk/profile"),
+    first,
+  );
+  await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch({ sourceStatus: 403 }),
+    now: first,
+  });
+  const before = { enabled: source.enabled, cadenceMinutes: source.cadenceMinutes, nextCheckAt: source.nextCheckAt };
+
+  await assert.rejects(
+    configureAutomationSource({
+      id: source.id,
+      enabled: true,
+      cadenceMinutes: 360,
+      now: retry,
+      technicalGovernanceRefresh: {
+        actor: "admin@psipedia.sk",
+        fetchImpl: sourceGovernanceFetch({ sourceStatus: 403 }),
+      },
+    }, db),
+    /automation_source_governance_blocked/,
+  );
+
+  const after = await getAutomationSourceAdmin(source.id, db);
+  assert.equal(db.governance[0].access_status, "BLOCKED");
+  assert.equal(after.enabled, before.enabled);
+  assert.equal(after.cadenceMinutes, before.cadenceMinutes);
+  assert.equal(after.nextCheckAt, before.nextCheckAt);
+});
+
+test("GOVERNANCE REFRESH robots DISALLOWED remains fail-closed and configure is atomic", async () => {
+  const db = new MemoryD1();
+  const first = new Date("2026-09-28T11:30:00.000Z");
+  const retry = new Date("2026-09-28T11:35:00.000Z");
+  const { source } = await approveCandidateToSource(
+    db,
+    mappedCandidate("veterinari", "https://blocked-robots.example.sk/profile"),
+    first,
+  );
+  await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch({ robots: "block" }),
+    now: first,
+  });
+  const before = { enabled: source.enabled, cadenceMinutes: source.cadenceMinutes, nextCheckAt: source.nextCheckAt };
+
+  await assert.rejects(
+    configureAutomationSource({
+      id: source.id,
+      enabled: true,
+      cadenceMinutes: 360,
+      now: retry,
+      technicalGovernanceRefresh: {
+        actor: "admin@psipedia.sk",
+        fetchImpl: sourceGovernanceFetch({ robots: "block" }),
+      },
+    }, db),
+    /automation_source_governance_blocked/,
+  );
+
+  const after = await getAutomationSourceAdmin(source.id, db);
+  assert.equal(db.governance[0].robots_status, "DISALLOWED");
+  assert.equal(after.enabled, before.enabled);
+  assert.equal(after.cadenceMinutes, before.cadenceMinutes);
+  assert.equal(after.nextCheckAt, before.nextCheckAt);
+});
+
+test("GOVERNANCE REFRESH preserves operator terms, recurring and retention policy decisions", async () => {
+  const db = new MemoryD1();
+  const first = new Date("2026-09-28T11:40:00.000Z");
+  const retry = new Date("2026-09-28T11:45:00.000Z");
+  const { source } = await approveCandidateToSource(
+    db,
+    mappedCandidate("veterinari", "https://operator-policy.example.sk/profile"),
+    first,
+  );
+  await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch(),
+    now: first,
+  });
+
+  const row = db.governance[0];
+  row.access_status = "UNKNOWN";
+  row.terms_status = "BLOCKED";
+  row.recurring_status = "DENIED";
+  row.retention_status = "DENIED";
+  row.retain_url = 0;
+  row.retain_metadata = 0;
+  row.manual_only = 1;
+  row.min_cadence_minutes = 20160;
+  row.restrictions_note = "Operator policy note. Access check: stale_timeout. Robots check: stale_dns.";
+
+  await refreshAutomationSourceTechnicalGovernance({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch(),
+    now: retry,
+  });
+
+  assert.equal(row.access_status, "ALLOWED");
+  assert.equal(row.robots_status, "ALLOWED");
+  assert.equal(row.terms_status, "BLOCKED");
+  assert.equal(row.recurring_status, "DENIED");
+  assert.equal(row.retention_status, "DENIED");
+  assert.equal(row.retain_url, 0);
+  assert.equal(row.retain_metadata, 0);
+  assert.equal(row.manual_only, 1);
+  assert.equal(row.min_cadence_minutes, 20160);
+  assert.match(row.restrictions_note, /Operator policy note/);
+  assert.match(row.restrictions_note, /Technical access check: http_200/);
+
+  const readiness = await automationSourceActivationReadiness(source, db, {
+    cadenceMinutes: 10080,
+    now: retry,
+  });
+  assert.equal(readiness.ready, false);
+  assert.ok(readiness.governanceBlockingReasons.includes("TERMS_NOT_ALLOWED"));
+  assert.ok(readiness.governanceBlockingReasons.includes("RECURRING_USE_NOT_APPROVED"));
+  assert.ok(readiness.governanceBlockingReasons.includes("MANUAL_ONLY"));
+  assert.ok(readiness.governanceBlockingReasons.includes("CADENCE_TOO_FREQUENT"));
+  assert.ok(readiness.governanceBlockingReasons.includes("RETENTION_NOT_APPROVED"));
+});
+
+test("GOVERNANCE REFRESH existing ASKA recovers stale technical governance without reset", async () => {
+  const db = new MemoryD1();
+  const first = new Date("2026-09-28T11:50:00.000Z");
+  const retry = new Date("2026-09-28T11:55:00.000Z");
+  const source = db.seedSource({
+    sourceKey: "existing-aska",
+    label: "ASKA",
+    entityType: "EVENT",
+    sourceUrl: "https://agility.sk/preteky",
+    config: {},
+    reviewStatus: "APPROVED",
+    enabled: false,
+    cadenceMinutes: 360,
+  });
+  assert.equal(automationSourceReadiness(source).ready, true);
+
+  await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch({ sourceError: "temporary connection reset" }),
+    now: first,
+  });
+  assert.equal(db.governance[0].access_status, "UNKNOWN");
+
+  const configured = await configureAutomationSource({
+    id: source.id,
+    enabled: true,
+    cadenceMinutes: 360,
+    now: retry,
+    technicalGovernanceRefresh: {
+      actor: "admin@psipedia.sk",
+      fetchImpl: sourceGovernanceFetch(),
+    },
+  }, db);
+
+  assert.equal(configured.id, source.id);
+  assert.equal(configured.enabled, true);
+  assert.equal(db.governance[0].access_status, "ALLOWED");
+  assert.equal(db.sources.length, 1, "existing source is reused, not recreated");
+});
+
+test("GOVERNANCE REFRESH is entity-generic across all automation source entity types", async () => {
+  const entityTypes = ["DIRECTORY", "EVENT", "ORGANIZATION", "ADOPTION", "FOSTER", "LOST_FOUND", "HELP_ITEM"];
+  for (const [index, entityType] of entityTypes.entries()) {
+    const db = new MemoryD1();
+    const first = new Date("2026-09-28T12:00:00.000Z");
+    const retry = new Date("2026-09-28T12:05:00.000Z");
+    const source = db.seedSource({
+      sourceKey: "generic-" + index,
+      label: entityType,
+      entityType,
+      sourceUrl: "https://generic-" + index + ".example.sk/source",
+      reviewStatus: "APPROVED",
+    });
+    await prepareAutomationSourceGovernanceForApproval({
+      source,
+      actor: "admin@psipedia.sk",
+      database: db,
+      fetchImpl: sourceGovernanceFetch({ sourceError: "temporary timeout" }),
+      now: first,
+    });
+    assert.equal(db.governance[0].access_status, "UNKNOWN", entityType);
+
+    await refreshAutomationSourceTechnicalGovernance({
+      source,
+      actor: "admin@psipedia.sk",
+      database: db,
+      fetchImpl: sourceGovernanceFetch(),
+      now: retry,
+    });
+    assert.equal(db.governance[0].access_status, "ALLOWED", entityType);
+    assert.equal(db.governance[0].robots_status, "ALLOWED", entityType);
+  }
 });

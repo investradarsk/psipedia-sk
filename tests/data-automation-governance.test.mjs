@@ -281,6 +281,49 @@ test("source-only approval separates technical evidence from explicit operator d
   assert.match(activation, /retainMetadata: true/);
   assert.match(activation, /retainTitle: false/);
   assert.match(activation, /retainSnippet: false/);
+  assert.match(activation, /refreshAutomationSourceTechnicalGovernance/);
+  assert.match(activation, /termsStatus: current\.termsStatus/);
+  assert.match(activation, /recurringStatus: current\.recurringStatus/);
+  assert.match(activation, /retentionStatus: current\.retentionStatus/);
+  assert.match(activation, /manualOnly: current\.manualOnly/);
+  assert.match(activation, /minCadenceMinutes: current\.minCadenceMinutes/);
+  assert.match(activation, /expectedUpdatedAt: current\.updatedAt/);
   assert.match(activation, /Discovery-root governance was not inherited/);
   assert.doesNotMatch(activation, /tavilySearchGovernancePresetForRoot|TAVILY_SEARCH_GOVERNANCE/);
+});
+
+test("governance probes and controlled HTML connector share the source HTTP policy", async () => {
+  const [activation, connectors, policy] = await Promise.all([
+    readFile(path.join(repoRoot, "lib/data-automation-source-activation.ts"), "utf8"),
+    readFile(path.join(repoRoot, "lib/data-automation-connectors.ts"), "utf8"),
+    readFile(path.join(repoRoot, "lib/data-automation-http-policy.ts"), "utf8"),
+  ]);
+
+  for (const source of [activation, connectors]) {
+    assert.match(source, /AUTOMATION_SOURCE_HTTP_USER_AGENT/);
+    assert.match(source, /AUTOMATION_SOURCE_MAX_REDIRECT_HOPS/);
+    assert.match(source, /automationSourceRequestTimeoutMs/);
+    assert.match(source, /redirect: "manual"/);
+    assert.match(source, /isSafeAutomationSourceUrl/);
+  }
+  assert.match(policy, /PsipediaDataResearch\/1\.0 \(\+https:\/\/psipedia\.sk\)/);
+  assert.match(policy, /30_000/);
+  assert.doesNotMatch(activation, /15_000/);
+});
+
+
+test("technical source governance refresh uses audited upsert history and never deletes governance", async () => {
+  const [activation, migration] = await Promise.all([
+    readFile(path.join(repoRoot, "lib/data-automation-source-activation.ts"), "utf8"),
+    readFile(path.join(repoRoot, "drizzle/0084_automation_governance_registry.sql"), "utf8"),
+  ]);
+  const refreshStart = activation.indexOf("export async function refreshAutomationSourceTechnicalGovernance");
+  const prepareStart = activation.indexOf("export async function prepareAutomationSourceGovernanceForApproval");
+  assert.ok(refreshStart >= 0 && prepareStart > refreshStart);
+  const refresh = activation.slice(refreshStart, prepareStart);
+  assert.match(refresh, /upsertGovernanceReview/);
+  assert.match(refresh, /expectedUpdatedAt: current\.updatedAt/);
+  assert.doesNotMatch(refresh, /DELETE|delete/i);
+  assert.match(migration, /CREATE TRIGGER `automation_governance_reviews_history_update`/);
+  assert.match(migration, /automation_governance_review_history_no_delete/);
 });

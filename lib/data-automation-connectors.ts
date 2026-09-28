@@ -12,6 +12,11 @@ import {
   eventHtmlAdapterConfigForSourceUrl,
   organizationHtmlAdapterKeyForSourceUrl,
 } from "./data-automation-source-provisioning.ts";
+import {
+  AUTOMATION_SOURCE_HTTP_USER_AGENT,
+  AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
+  automationSourceRequestTimeoutMs,
+} from "./data-automation-http-policy.ts";
 import { automationHelpRecordShapeError } from "./data-automation-help-source-readiness.ts";
 
 export class AutomationConnectorError extends Error {
@@ -47,7 +52,6 @@ export type AutomationConnectorContext = {
 };
 
 const MAX_SOURCE_BYTES = 1_000_000;
-const MAX_REDIRECT_HOPS = 3;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 function redirectVisitKey(value: string) {
@@ -231,9 +235,9 @@ async function fetchOnce(
       response = await fetchImpl(currentUrl, {
         headers: {
           accept: source.connectorType === "STRUCTURED_JSON" ? "application/json" : "text/html,application/xhtml+xml",
-          "user-agent": "PsipediaDataResearch/1.0 (+https://psipedia.sk)",
+          "user-agent": AUTOMATION_SOURCE_HTTP_USER_AGENT,
         },
-        signal: AbortSignal.timeout(source.timeoutMs),
+        signal: AbortSignal.timeout(automationSourceRequestTimeoutMs(source.timeoutMs)),
         redirect: "manual",
       });
     } catch (error) {
@@ -254,7 +258,7 @@ async function fetchOnce(
     if (REDIRECT_STATUSES.has(response.status)) {
       const location = response.headers.get("location");
       if (!location) throw new AutomationConnectorError("source_redirect_invalid");
-      if (redirectCount >= MAX_REDIRECT_HOPS) throw new AutomationConnectorError("source_redirect_too_many");
+      if (redirectCount >= AUTOMATION_SOURCE_MAX_REDIRECT_HOPS) throw new AutomationConnectorError("source_redirect_too_many");
       let target: URL;
       try {
         target = new URL(location, currentUrl);

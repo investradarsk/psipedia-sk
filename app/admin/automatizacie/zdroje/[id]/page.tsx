@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { AdminAutomationSourceSettings } from "@/components/admin-automation-source-settings";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { automationSourceActivationReadiness } from "@/lib/data-automation-source-activation";
+import {
+  automationSourceActivationReadiness,
+  automationSourceTechnicalGovernanceRetryable,
+} from "@/lib/data-automation-source-activation";
 import { env } from "cloudflare:workers";
 import { getAutomationSourceAdmin } from "@/lib/data-automation-source-store";
 import { automationCategoryBySlug, automationCategoryForSource } from "@/lib/admin-automation-presentation";
@@ -26,11 +29,19 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
     ? await automationSourceActivationReadiness(source, db).catch(() => null)
     : null;
   const monitoringReady = readiness?.ready === true;
+  const monitoringRetryable = readiness
+    ? automationSourceTechnicalGovernanceRetryable(readiness)
+    : false;
 
   return (
     <AdminShell user={user} eyebrow="Automatizácie" title={source.label} description={source.sourceUrl ?? "Schválený zdroj"}
       actions={<Link href={categorySlug ? "/admin/automatizacie/" + categorySlug : "/admin/automatizacie"}>← Späť na zdroje</Link>}>
-      <AdminAutomationSourceSettings source={source} draftsHref={category?.draftsHref ?? "/admin"} monitoringReady={monitoringReady} />
+      <AdminAutomationSourceSettings
+        source={source}
+        draftsHref={category?.draftsHref ?? "/admin"}
+        monitoringReady={monitoringReady}
+        monitoringRetryable={monitoringRetryable}
+      />
     </AdminShell>
   );
 }

@@ -11,16 +11,19 @@ export function AdminAutomationSourceSettings({
   source,
   draftsHref,
   monitoringReady,
+  monitoringRetryable,
 }: {
   source: AutomationSourceAdminRow;
   draftsHref: string;
   monitoringReady: boolean;
+  monitoringRetryable: boolean;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(source.enabled);
   const [cadenceMinutes, setCadenceMinutes] = useState(source.cadenceMinutes);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const monitoringCanEnable = monitoringReady || monitoringRetryable;
 
   async function save() {
     setBusy(true);
@@ -57,7 +60,9 @@ export function AdminAutomationSourceSettings({
 
         {!monitoringReady && (
           <p className="admin-flash" role="status">
-            Tento zdroj zatiaľ nemožno automaticky kontrolovať.
+            {monitoringRetryable
+              ? "Pri zapnutí sa bezpečnosť zdroja znova overí."
+              : "Tento zdroj zatiaľ nemožno automaticky kontrolovať."}
           </p>
         )}
 
@@ -65,7 +70,7 @@ export function AdminAutomationSourceSettings({
           <span>Kontrolovať tento zdroj</span>
           <select value={enabled ? "on" : "off"} onChange={(event) => setEnabled(event.target.value === "on")} disabled={busy}>
             <option value="off">Vypnuté</option>
-            <option value="on" disabled={!monitoringReady}>Zapnuté</option>
+            <option value="on" disabled={!monitoringCanEnable}>Zapnuté</option>
           </select>
         </label>
 
@@ -79,7 +84,7 @@ export function AdminAutomationSourceSettings({
         </label>
 
         <div className="admin-form-actions">
-          <button className="is-primary" type="button" disabled={busy || (enabled && !monitoringReady)} onClick={() => void save()}>
+          <button className="is-primary" type="button" disabled={busy || (enabled && !monitoringCanEnable)} onClick={() => void save()}>
             {busy ? "Ukladám…" : "Uložiť nastavenie"}
           </button>
         </div>
