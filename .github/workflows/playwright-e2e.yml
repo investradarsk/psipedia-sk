@@ -503,6 +503,18 @@ jobs:
           echo "url=${preview_url}" >> "$GITHUB_OUTPUT"
           echo "Cloudflare preview resolved for commit ${GITHUB_SHA}."
 
+      - name: Probe sitemap stages on preview
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --location             --output /tmp/sitemap-runtime-probe.json             --write-out '%{http_code}'             "${PREVIEW_URL}/api/sitemap-runtime-probe")"
+          echo "probe_http_status=${status}"
+          cat /tmp/sitemap-runtime-probe.json
+          echo
+          rm -f /tmp/sitemap-runtime-probe.json
+
       - name: Confirm old runtime reproduces sitemap 1101
         shell: bash
         run: |
