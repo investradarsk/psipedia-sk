@@ -28,6 +28,9 @@ test("universal delivery preserves subscription boundary, per-device dedupe and 
   assert.match(push,/result\.expired/);
   assert.match(push,/admin_push_event_deliveries[\s\S]+status = 'dead'/);
   assert.match(push,/DELETE FROM admin_notification_events/);
+  assert.match(push,/source_type='AUTOMATION_ACTION'/);
+  assert.match(push,/event_type='automation_draft_created'/);
+  assert.match(push,/LOWER\(p\.status\)='draft'/);
 });
 
 test("payloads stay short, admin-only and free of raw submission PII",()=>{
