@@ -549,8 +549,9 @@ jobs:
             "https://psipedia.sk/starostlivost/kedy-ist-so-psom-k-veterinarovi",
             "https://psipedia.sk/starostlivost/kolko-hodin-denne-spi-pes-stena-dospely-pes-aj-senior-maju-rozdielne-potreby",
           ].find((url) => urls.includes(url));
-          const event = urls.find((url) => /^https:\/\/psipedia\.sk\/podujatia\/[^/?#]+$/.test(url)
-            && !/\/(?:vystavy|preteky|seminare|kalendar)$/.test(url));
+          const event = urls.includes("https://psipedia.sk/podujatia/psi-talent-2026")
+            ? "https://psipedia.sk/podujatia/psi-talent-2026"
+            : null;
           const help = urls.find((url) => /^https:\/\/psipedia\.sk\/pomoc-psom\/(?:docasna-opatera|zbierky|urgentne-pripady|dobrovolnictvo|stratene-a-najdene)\/[^/?#]+$/.test(url));
           if (!article) throw new Error("preview-missing-representative-article");
           if (!event) throw new Error("preview-missing-representative-event");
