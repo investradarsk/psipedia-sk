@@ -23,7 +23,6 @@ import {
   type AdminAttentionItem,
   type AdminAttentionPriority,
   type AdminAttentionQueueSourceType,
-  type AdminAttentionSourceType,
   type AdminAttentionState,
   type ArticleFeedbackAttentionRow,
   type DirectoryChangeRequestAttentionRow,
@@ -471,8 +470,7 @@ function summaryAvailability(sources: AdminAttentionSourceAvailability[]): "OK" 
 }
 
 function sourceCounts(sources: AdminAttentionSourceAvailability[]) {
-  return Object.fromEntries(sources.map((source) => [source.sourceType, source.activeCount]))
-    as Record<AdminAttentionQueueSourceType, number | null>;
+  return Object.fromEntries(sources.map((source) => [source.sourceType, source.activeCount])) as Record<AdminAttentionQueueSourceType, number | null>;
 }
 
 function filtersFingerprint(filters: AdminAttentionFilters) {
