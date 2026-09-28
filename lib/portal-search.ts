@@ -113,7 +113,7 @@ function locationOrder(
   fields: { city: string; district?: string; region: string },
 ) {
   const location = parsed.location;
-  if (!location) return "0";
+  if (!location) return "0 + 0";
   const cases: string[] = [];
   let rank = 0;
   if (location.level === "city" && location.city) {
@@ -133,11 +133,11 @@ function locationOrder(
     cases.push(`WHEN ${normalizedSql(fields.region)} = ? THEN ${rank}`);
     rank += 1;
   }
-  return cases.length ? `CASE ${cases.join(" ")} ELSE ${rank} END` : "0";
+  return cases.length ? `CASE ${cases.join(" ")} ELSE ${rank} END` : "0 + 0";
 }
 
 function tokenMatchOrder(expression: string, tokens: string[], bindings: unknown[]) {
-  if (!tokens.length) return "0";
+  if (!tokens.length) return "0 + 0";
   const normalized = normalizedSql(expression);
   const clauses = tokens.map((token) => {
     bindings.push(`%${token}%`);
