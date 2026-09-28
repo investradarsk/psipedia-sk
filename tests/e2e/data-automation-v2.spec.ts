@@ -33,7 +33,7 @@ test("automation source management is responsive and axe-clean on admin desktop/
   await expectAxeClean(page);
 });
 
-test("manual source lifecycle covers create edit review enable test run-now and disable", async ({ page, request }, testInfo) => {
+test("manual source lifecycle keeps the approved source detail simple", async ({ page, request }, testInfo) => {
   const suffix = testInfo.project.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
   const sourceKey = ("e2e-manual-" + suffix).slice(0, 70);
   const label = "E2E Manual " + testInfo.project.name;
@@ -202,13 +202,23 @@ test("manual source lifecycle covers create edit review enable test run-now and 
   const detailResponse = await page.goto(`/admin/automatizacie/zdroje/${id}`, { waitUntil: "domcontentloaded" });
   expect(detailResponse?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: editedLabel, exact: true })).toBeVisible();
-  await expect(page.getByText("Schválený", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Vypnutý", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Bez chyby", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nastavenie zdroja", exact: true })).toBeVisible();
+  const settings = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Nastavenie zdroja", exact: true }),
+  });
+  await expect(settings.getByText("Kontrolovať tento zdroj", { exact: true })).toBeVisible();
+  await expect(settings.getByRole("combobox").first()).toHaveValue("off");
+  await expect(settings.getByText("Ako často kontrolovať zdroj", { exact: true })).toBeVisible();
+  await expect(settings.getByRole("combobox").nth(1)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nájdený obsah", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Otvoriť koncepty →", exact: true })).toBeVisible();
+  await expect(page.getByText("Governance", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("Adapter", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("Run ID", { exact: false })).toHaveCount(0);
 
-  const testSourceButton = page.getByRole("button", { name: "Overiť zdroj", exact: true });
-  await expect(testSourceButton).toBeVisible();
-  const buttonStyle = await testSourceButton.evaluate((element) => {
+  const saveButton = page.getByRole("button", { name: "Uložiť nastavenie", exact: true });
+  await expect(saveButton).toBeVisible();
+  const buttonStyle = await saveButton.evaluate((element) => {
     const style = getComputedStyle(element);
     return {
       display: style.display,
@@ -234,8 +244,13 @@ test("automation category source-first view is responsive and axe-clean", async 
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: "Podujatia", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Zdroje", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "História", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hľadať nové zdroje", exact: true })).toBeVisible();
+  await expect(page.getByText("Automaticky hľadať nové zdroje", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ako často hľadať nové zdroje", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nové zdroje", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Schválené zdroje", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zamietnuté zdroje", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "História", exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });

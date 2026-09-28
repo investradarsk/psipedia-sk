@@ -330,6 +330,29 @@ export async function setAutomationSourceEnabled(input: {
   return getAutomationSourceAdmin(input.id, db);
 }
 
+export async function setAutomationSourceCadence(input: {
+  id: number;
+  cadenceMinutes: number;
+  now?: Date;
+}, databaseInput?: AutomationSourceAdminDatabase) {
+  const db = database(databaseInput);
+  const existing = await getAutomationSourceAdmin(input.id, db);
+  if (!existing) return null;
+  const cadenceMinutes = Math.floor(input.cadenceMinutes);
+  if (!Number.isSafeInteger(cadenceMinutes) || cadenceMinutes < 60 || cadenceMinutes > 43_200) {
+    throw new Error("automation_source_cadence_invalid");
+  }
+  const now = input.now ?? new Date();
+  const at = now.toISOString();
+  const nextCheckAt = existing.enabled
+    ? new Date(now.getTime() + cadenceMinutes * 60_000).toISOString()
+    : null;
+  await db.prepare(`UPDATE automation_sources
+    SET cadence_minutes=?,next_check_at=?,updated_at=? WHERE id=?`)
+    .bind(cadenceMinutes, nextCheckAt, at, input.id).run();
+  return getAutomationSourceAdmin(input.id, db);
+}
+
 export async function listAutomationSourceRuns(
   sourceId: number,
   databaseInput?: AutomationSourceAdminDatabase,

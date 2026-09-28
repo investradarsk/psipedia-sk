@@ -6,36 +6,34 @@ const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
 test("automation hub stays source-focused", async () => {
   const page = await read("app/admin/automatizacie/page.tsx");
-  assert.match(page, /nové zdroje/);
-  assert.match(page, /problémy zdrojov/);
+  assert.match(page, /nových/);
+  assert.match(page, /schválených/);
+  assert.match(page, /zamietnutých/);
   assert.doesNotMatch(page, /pripravené návrhy/i);
 });
 
 test("category page is discovery and source management, not a content inbox", async () => {
-  const page = await read("app/admin/automatizacie/[category]/page.tsx");
-  assert.match(page, /Našli sa nové zdroje/);
-  assert.match(page, />Nový zdroj</);
-  assert.match(page, />Skontrolovať</);
-  assert.match(page, />Zdroje</);
-  assert.match(page, />História</);
-  assert.match(page, />Pokročilé</);
-  assert.doesNotMatch(page, /Pripravené návrhy/);
-  assert.doesNotMatch(page, /Koncepty a nálezy/);
+  const component = await read("components/admin-automation-category-sources.tsx");
+  assert.match(component, />Hľadať nové zdroje</);
+  assert.match(component, />Nové zdroje</);
+  assert.match(component, />Schválené zdroje</);
+  assert.match(component, />Zamietnuté zdroje</);
+  assert.doesNotMatch(component, /História|Pokročilé|Pripravené návrhy|Koncepty a nálezy/);
 });
 
-test("source decision is yes or no in the primary flow", async () => {
-  const candidate = await read("components/admin-automation-candidate-review.tsx");
-  assert.match(candidate, /ÁNO — používať/);
-  assert.match(candidate, /NIE — nepoužívať/);
-  assert.match(candidate, /Ďalšie možnosti/);
+test("source decision is approve or reject in the primary flow", async () => {
+  const category = await read("components/admin-automation-category-sources.tsx");
+  assert.match(category, /"Schváliť"/);
+  assert.match(category, /"Zamietnuť"/);
+  assert.doesNotMatch(category, /suppress|Odložiť|Pokročilé/);
 });
 
-test("source approval orchestration reuses existing safety guards", async () => {
+test("source approval keeps monitoring off until the user enables it", async () => {
   const route = await read("app/api/admin/automation-source-candidates/[id]/route.ts");
   assert.match(route, /reviewAutomationSource/);
-  assert.match(route, /previewAutomationSource/);
-  assert.match(route, /setAutomationSourceEnabled/);
-  assert.match(route, /blockedReason/);
+  assert.doesNotMatch(route, /previewAutomationSource/);
+  assert.doesNotMatch(route, /setAutomationSourceEnabled/);
+  assert.doesNotMatch(route, /activation/);
 });
 
 test("new and possible-duplicate content is converted to canonical draft", async () => {
@@ -121,16 +119,14 @@ test("publication remains an explicit entity-editor decision", async () => {
   assert.match(organizationPage, /Publication lifecycle zostáva explicitná samostatná akcia/);
 });
 
-test("technical automation internals remain advanced", async () => {
-  const [candidate, source, category] = await Promise.all([
-    read("components/admin-automation-candidate-review.tsx"),
-    read("components/admin-automation-source-detail.tsx"),
-    read("app/admin/automatizacie/[category]/page.tsx"),
+test("technical automation internals are absent from normal UX", async () => {
+  const [category, source] = await Promise.all([
+    read("components/admin-automation-category-sources.tsx"),
+    read("components/admin-automation-source-settings.tsx"),
   ]);
-  assert.match(candidate, /Pokročilé \/ technické údaje/);
-  assert.match(source, /Pokročilé — bezpečnostné pravidlá/);
-  assert.match(category, /Automatické hľadanie zdrojov/);
-  assert.match(category, /Otvoriť technické nastavenia/);
+  for (const value of [category, source]) {
+    assert.doesNotMatch(value, /adapter|readiness|governance|finding|observation|cluster|receipt|run ID|Pokročilé/i);
+  }
 });
 
 test("Notion is not part of the automation content flow", async () => {

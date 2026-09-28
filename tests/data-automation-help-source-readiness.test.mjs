@@ -225,13 +225,13 @@ test("EVENT ORGANIZATION and DIRECTORY provisioning semantics remain isolated", 
   }).htmlAdapterKey, "string");
 });
 
-test("candidate preview, source test, enable and manual run share fail-closed HELP readiness", () => {
+test("approval stays disabled while source test, enable and manual run share fail-closed HELP readiness", () => {
   const candidateRoute = read("app/api/admin/automation-source-candidates/[id]/route.ts");
   const testRoute = read("app/api/admin/automation-sources/[id]/test/route.ts");
   const runRoute = read("app/api/admin/automation-sources/[id]/run/route.ts");
   const store = read("lib/data-automation-source-store.ts");
 
-  assert.match(candidateRoute, /automationSourceReadiness\(source\)\.ready/);
+  assert.doesNotMatch(candidateRoute, /previewAutomationSource|setAutomationSourceEnabled/);
   assert.match(testRoute, /Zdroj zatiaľ nie je pripravený na automatické spracovanie/);
   assert.match(runRoute, /Zdroj zatiaľ nie je pripravený na automatické spracovanie/);
   assert.match(store, /automation_source_not_ready:/);
