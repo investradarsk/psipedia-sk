@@ -5,6 +5,7 @@ import type { AutomationDiscoveryType } from "./data-automation-discovery.ts";
 import {
   automationScheduleFromStorage,
   automationScheduleStorage,
+  automationSchedulesEqual,
   effectiveAutomationCadenceMinutes,
   nextAutomationScheduledAt,
   type AutomationSchedule,
@@ -346,7 +347,9 @@ export async function setAutomationDiscoveryRootEnabled(input: {
   const nextCheckAt = !input.enabled
     ? null
     : root.schedule.mode === "CALENDAR"
-      ? nextAutomationScheduledAt(root.schedule, now)
+      ? root.enabled && root.nextCheckAt
+        ? root.nextCheckAt
+        : nextAutomationScheduledAt(root.schedule, now)
       : at;
   await db.prepare("UPDATE automation_discovery_roots SET enabled=?,next_check_at=?,updated_at=? WHERE id=?")
     .bind(input.enabled ? 1 : 0, nextCheckAt, at, input.id).run();
@@ -365,7 +368,9 @@ export async function setAutomationDiscoveryRootSchedule(input: {
   const at = now.toISOString();
   const storage = automationScheduleStorage(input.schedule);
   const nextCheckAt = root.enabled
-    ? nextAutomationScheduledAt(input.schedule, now)
+    ? automationSchedulesEqual(root.schedule, input.schedule) && root.nextCheckAt
+      ? root.nextCheckAt
+      : nextAutomationScheduledAt(input.schedule, now)
     : null;
   await db.prepare(`UPDATE automation_discovery_roots SET
       cadence_minutes=?,schedule_mode=?,schedule_days_json=?,schedule_local_time=?,schedule_timezone=?,
