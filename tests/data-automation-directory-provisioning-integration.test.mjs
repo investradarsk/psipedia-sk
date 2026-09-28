@@ -417,7 +417,7 @@ const KNOWN_EVENT_SOURCE_CASES = [
     label: "SKJ",
     url: "https://skj.sk/sk/vystavy/kalendar/",
     adapterKey: "skj-exhibition-calendar",
-    expectedMinRecords: undefined,
+    expectedMinRecords: 1,
   },
   {
     label: "ASKA",
