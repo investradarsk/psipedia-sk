@@ -44,7 +44,12 @@ export async function PUT(request: Request, { params }: Props) {
       if (!bindings.DB) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
       const before = await getAutomationSourceAdmin(id, bindings.DB);
       if (!before) return Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
-      const source = await configureAutomationSource({ id, cadenceMinutes, enabled }, bindings.DB);
+      const source = await configureAutomationSource({
+        id,
+        cadenceMinutes,
+        enabled,
+        technicalGovernanceRefresh: enabled ? { actor: auth.user.email } : undefined,
+      }, bindings.DB);
       const immediateRun = enabled && !before.enabled;
       if (immediateRun) {
         const task = runAutomationSourceNow(id, {
@@ -89,7 +94,14 @@ export async function PUT(request: Request, { params }: Props) {
     }
 
     if (action === "enable" || action === "disable") {
-      const source = await setAutomationSourceEnabled({ id, enabled: action === "enable" });
+      const bindings = env as unknown as Bindings;
+      if (!bindings.DB) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      const enabled = action === "enable";
+      const source = await setAutomationSourceEnabled({
+        id,
+        enabled,
+        technicalGovernanceRefresh: enabled ? { actor: auth.user.email } : undefined,
+      }, bindings.DB);
       return source ? Response.json({ source }) : Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
     }
 
