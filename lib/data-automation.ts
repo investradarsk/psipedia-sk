@@ -78,12 +78,29 @@ export type AutomationSource = {
   reviewStatus?: "PENDING" | "APPROVED" | "REJECTED";
 };
 
+export const automationLifecycleSignalTypes = [
+  "EVENT_CANCELLED",
+  "ADOPTION_ADOPTED",
+  "ADOPTION_RESERVED",
+  "FOSTER_RESOLVED",
+  "LOST_FOUND_RESOLVED",
+] as const;
+export type AutomationLifecycleSignalType = (typeof automationLifecycleSignalTypes)[number];
+
+export type AutomationLifecycleSignal = {
+  signalType: AutomationLifecycleSignalType;
+  targetState: string;
+  evidenceText: string;
+  confidenceClass: "EXPLICIT";
+};
+
 export type AutomationSourceRecord = {
   sourceRecordId: string;
   sourceUrl: string | null;
   sourceTimestamp: string | null;
   rawRecord: unknown;
   proposed: Record<string, unknown>;
+  lifecycleSignals?: AutomationLifecycleSignal[];
 };
 
 export type AutomationCanonicalMatch = {

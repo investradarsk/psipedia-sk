@@ -8,14 +8,16 @@ import {
   automationUxCategories,
 } from "@/lib/admin-automation-presentation";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
+import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-lifecycle-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AutomationAdminPage() {
   const user = await requireAdminPageUser("/admin/automatizacie");
-  const [sources, candidates] = await Promise.all([
+  const [sources, candidates, lifecycleCount] = await Promise.all([
     listAutomationSourcesAdmin(undefined, 200).catch(() => []),
     listAutomationSourceCandidates(undefined, 200).catch(() => []),
+    countOpenAutomationLifecycleSuggestions().catch(() => 0),
   ]);
 
   return (
@@ -24,6 +26,7 @@ export default async function AutomationAdminPage() {
       eyebrow="Admin"
       title="Automatizácie"
       description="Vyber kategóriu a nastav priame hľadanie entít alebo monitoring opakovaných zdrojov. Nový obsah vzniká iba ako canonical koncept."
+      actions={<Link href="/admin/automatizacie/zmeny-stavu">Zmeny stavu · {lifecycleCount}</Link>}
     >
       <section className={styles.hubGrid} aria-label="Kategórie automatizácií">
         {automationUxCategories.map((category) => {

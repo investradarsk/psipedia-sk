@@ -1,4 +1,5 @@
 import type { ControlledHtmlAdapter, AutomationFetch } from "./data-automation-connectors.ts";
+import { getAutomationRecordSuppression } from "./automation-record-suppressions.ts";
 import type { OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
 import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
 import { AutomationConnectorError, fetchAutomationSourceRecords } from "./data-automation-connectors.ts";
@@ -7,10 +8,23 @@ import {
   buildAutomationDiff,
   classifyAutomationFinding,
   sha256Hex,
+  type AutomationCanonicalMatch,
   type AutomationFindingType,
   type AutomationSource,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
+import {
+  automationLifecycleAlreadySatisfied,
+  automationLifecycleDiff,
+  automationLifecycleFindingType,
+  automationLifecycleFingerprint,
+  automationLifecycleMetadata,
+  automationLifecycleReason,
+  isAutomationLifecycleEntityType,
+  normalizeAutomationLifecycleSignals,
+  stripAutomationLifecycleFields,
+} from "./data-automation-lifecycle.ts";
+import { resolveSatisfiedAutomationLifecycleSuggestions } from "./data-automation-lifecycle-store.ts";
 import {
   beginAutomationRun,
   finishAutomationRun,
@@ -117,6 +131,95 @@ function findingReason(type: AutomationFindingType, record: AutomationSourceReco
       : "Match nie je dostatočne bezpečný. Vytvorí sa samostatný koncept označený ako možná duplicita.";
   }
   return `Zdroj sa nepodarilo spracovať bezpečne (${record.sourceRecordId}).`;
+}
+
+async function processAutomationLifecycleSignals(input: {
+  source: AutomationSource;
+  record: AutomationSourceRecord;
+  match: AutomationCanonicalMatch;
+  runId: number | null;
+  detectedAt: string;
+  database: D1Database;
+}) {
+  if (!isAutomationLifecycleEntityType(input.source.entityType) || !input.match.entityId) {
+    return { signals: [], newFindingCount: 0, updatedFindingCount: 0 };
+  }
+  const signals = normalizeAutomationLifecycleSignals(input.source.entityType, input.record);
+  if (!signals.length) return { signals, newFindingCount: 0, updatedFindingCount: 0 };
+
+  let observationId: number | null = null;
+  let newFindingCount = 0;
+  let updatedFindingCount = 0;
+  for (const signal of signals) {
+    if (automationLifecycleAlreadySatisfied(input.source.entityType, input.match.before, signal)) {
+      await resolveSatisfiedAutomationLifecycleSuggestions({
+        sourceId: input.source.id,
+        entityType: input.source.entityType,
+        canonicalEntityId: input.match.entityId,
+        signalType: signal.signalType,
+        targetState: signal.targetState,
+        at: input.detectedAt,
+      }, input.database);
+      continue;
+    }
+    if (observationId === null) {
+      const observationHash = await sha256Hex({ rawRecord: input.record.rawRecord, lifecycleSignals: signals });
+      observationId = await recordAutomationObservation({
+        sourceId: input.source.id,
+        runId: input.runId,
+        record: input.record,
+        payloadHash: observationHash,
+        detectedAt: input.detectedAt,
+      }, input.database);
+    }
+    const identity = await automationLifecycleFingerprint({
+      source: input.source,
+      record: input.record,
+      entityType: input.source.entityType,
+      canonicalEntityId: input.match.entityId,
+      signal,
+    });
+    const metadata = automationLifecycleMetadata(input.record, signal);
+    const findingType = automationLifecycleFindingType(signal.signalType);
+    const result = await upsertAutomationFinding({
+      source: input.source,
+      observationId,
+      sourceRecordId: input.record.sourceRecordId,
+      sourceUrl: input.record.sourceUrl,
+      sourceTimestamp: input.record.sourceTimestamp,
+      findingType,
+      canonicalEntityId: input.match.entityId,
+      canonicalEntityKey: input.match.entityKey,
+      matchQuality: input.match.quality,
+      before: input.match.before,
+      proposed: metadata,
+      diff: automationLifecycleDiff(input.source.entityType, input.match.before, signal),
+      payloadHash: identity.payloadHash,
+      fingerprint: identity.fingerprint,
+      reason: automationLifecycleReason(signal),
+      detectedAt: input.detectedAt,
+    }, input.database);
+    if (result.created || result.reopened) newFindingCount += 1;
+    else updatedFindingCount += 1;
+  }
+  return { signals, newFindingCount, updatedFindingCount };
+}
+
+function automationResultFindingCounts(result: {
+  finding?: unknown;
+  created?: boolean;
+  reopened?: boolean;
+  newFindingCount?: number;
+  updatedFindingCount?: number;
+}) {
+  if (typeof result.newFindingCount === "number" || typeof result.updatedFindingCount === "number") {
+    return {
+      created: Math.max(0, result.newFindingCount ?? 0),
+      updated: Math.max(0, result.updatedFindingCount ?? 0),
+    };
+  }
+  if (!result.finding) return { created: 0, updated: 0 };
+  return result.created || result.reopened ? { created: 1, updated: 0 } : { created: 0, updated: 1 };
 }
 
 async function createSourceErrorFinding(
@@ -244,13 +347,31 @@ async function processRecord(
       detectedAt,
     }, database);
 
-    const classified = classifyAutomationFinding({ match, proposed: proposedForFinding });
+    const lifecycle = await processAutomationLifecycleSignals({
+      source,
+      record,
+      match,
+      runId,
+      detectedAt,
+      database,
+    });
+    const contentProposal = stripAutomationLifecycleFields(source.entityType, proposedForFinding, lifecycle.signals);
+    const classified = classifyAutomationFinding({ match, proposed: contentProposal });
     if (!classified) {
       const receipt = await ensureProcessedReceipt(source, record, proposalHash, detectedAt, database);
       if (!receipt) throw new Error("automation_ingestion_receipt_missing");
-      return { finding: null, created: false, reopened: false, processed: true, receipt };
+      return {
+        finding: lifecycle.newFindingCount + lifecycle.updatedFindingCount > 0 ? automationLifecycleFindingType(lifecycle.signals[0].signalType) : null,
+        created: false,
+        reopened: false,
+        processed: true,
+        receipt,
+        newFindingCount: lifecycle.newFindingCount,
+        updatedFindingCount: lifecycle.updatedFindingCount,
+      };
     }
 
+    const contentPayloadHash = await sha256Hex(contentProposal);
     const observationHash = await sha256Hex(record.rawRecord);
     const observationId = await recordAutomationObservation({
       sourceId: source.id,
@@ -264,7 +385,7 @@ async function processRecord(
       sourceRecordId: record.sourceRecordId,
       findingType: classified.findingType,
       canonicalEntityId: match.entityId,
-      payloadHash: proposalHash,
+      payloadHash: contentPayloadHash,
     });
     const result = await upsertAutomationFinding({
       source,
@@ -277,16 +398,54 @@ async function processRecord(
       canonicalEntityKey: match.entityKey,
       matchQuality: match.quality,
       before: match.before,
-      proposed: proposedForFinding,
+      proposed: contentProposal,
       diff: classified.diff,
-      payloadHash: proposalHash,
+      payloadHash: contentPayloadHash,
       fingerprint,
       reason: findingReason(classified.findingType, record, match.candidates ?? []),
       detectedAt,
     }, database);
     const receipt = await ensureProcessedReceipt(source, record, proposalHash, detectedAt, database);
     if (!receipt) throw new Error("automation_ingestion_receipt_missing");
-    return { finding: classified.findingType, draft: null, receipt, ...result };
+    return {
+      finding: classified.findingType,
+      draft: null,
+      receipt,
+      ...result,
+      newFindingCount: lifecycle.newFindingCount + (result.created || result.reopened ? 1 : 0),
+      updatedFindingCount: lifecycle.updatedFindingCount + (result.created || result.reopened ? 0 : 1),
+    };
+  }
+
+  // Suppression applies only to CREATE. Existing canonical matches above still
+  // remain eligible for read-only update suggestions.
+  const suppression = await getAutomationRecordSuppression({
+    entityType: source.entityType,
+    externalSourceUrl: record.sourceUrl,
+    externalRecordId: record.sourceRecordId,
+  }, database);
+  if (suppression) {
+    if (processedReceipt) {
+      await updateAutomationIngestionReceiptPayload({
+        sourceId: source.id,
+        entityType: source.entityType,
+        sourceRecordId: record.sourceRecordId,
+        sourceUrl: record.sourceUrl,
+        payloadHash: proposalHash,
+      }, database);
+      return { finding: null, created: false, reopened: false, processed: true, receipt: processedReceipt };
+    }
+    const receipt = await createAutomationIngestionReceipt({
+      sourceId: source.id,
+      entityType: source.entityType,
+      sourceRecordId: record.sourceRecordId,
+      sourceUrl: record.sourceUrl,
+      payloadHash: proposalHash,
+      result: "SKIPPED_DUPLICATE",
+      firstProcessedAt: detectedAt,
+    }, database);
+    if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+    return { finding: null, created: false, reopened: false, processed: true, receipt };
   }
 
   // Once a source-record identity has a receipt, a later matcher miss or
@@ -477,14 +636,10 @@ async function runSource(
           record: candidateRecord,
         });
         const result = await processRecord(source, runId, candidateRecord, detectedAt, options.database);
-        if (result.finding) {
-          if (result.created || result.reopened) {
-            newFindings += 1;
-            newDataFindings += 1;
-          } else {
-            updatedFindings += 1;
-          }
-        }
+        const counts = automationResultFindingCounts(result);
+        newFindings += counts.created;
+        updatedFindings += counts.updated;
+        newDataFindings += counts.created;
       } catch (error) {
         errors += 1;
         status = "PARTIAL";

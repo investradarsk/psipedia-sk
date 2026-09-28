@@ -1,5 +1,6 @@
 import { createCanonicalDraft, CanonicalDraftValidationError } from "./canonical-draft-service.ts";
 import { enqueueAutomationDraftCreatedAdminNotification } from "./admin-notifications.ts";
+import { getAutomationRecordSuppression } from "./automation-record-suppressions.ts";
 import { upsertCanonicalPossibleDuplicateFlag } from "./canonical-draft-flags.ts";
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 import { AutomationConnectorError, fetchAutomationSourceRecords, type AutomationFetch } from "./data-automation-connectors.ts";
@@ -493,6 +494,13 @@ export async function ingestDirectEntityUrl(input: {
     if (!classified || (classified.findingType !== "NEW_ENTITY" && classified.findingType !== "DUPLICATE_CANDIDATE")) {
       continue;
     }
+
+    const suppressed = await getAutomationRecordSuppression({
+      entityType: input.entityType,
+      externalSourceUrl: record.sourceUrl,
+      externalRecordId: record.sourceRecordId,
+    }, input.database);
+    if (suppressed) continue;
 
     let created;
     try {
