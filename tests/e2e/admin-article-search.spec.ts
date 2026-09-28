@@ -19,12 +19,12 @@ test("article admin search finds an accented article beyond page one and keeps U
 
   const filterForm = page.locator('form[role="search"][action="/admin"]');
   const search = filterForm.getByPlaceholder("Názov, slug, perex alebo téma");
-  await search.fill("zuby");
+  await search.fill("zubky");
   await filterForm.locator('select[name="status"]').selectOption("draft");
   await filterForm.locator('select[name="section"]').selectOption("clanky");
   await filterForm.getByRole("button", { name: "Filtrovať" }).click();
 
-  await expect(page).toHaveURL(/query=zuby/);
+  await expect(page).toHaveURL(/query=zubky/);
   await expect(page).toHaveURL(/status=draft/);
   await expect(page).toHaveURL(/section=clanky/);
   await expect(page.getByRole("heading", { name: "Žlté zúbky ADMIN SEARCH cieľ" })).toBeVisible();
@@ -32,7 +32,7 @@ test("article admin search finds an accented article beyond page one and keeps U
 
   await page.reload({ waitUntil: "domcontentloaded" });
   const restoredFilterForm = page.locator('form[role="search"][action="/admin"]');
-  await expect(restoredFilterForm.getByPlaceholder("Názov, slug, perex alebo téma")).toHaveValue("zuby");
+  await expect(restoredFilterForm.getByPlaceholder("Názov, slug, perex alebo téma")).toHaveValue("zubky");
   await expect(restoredFilterForm.locator('select[name="status"]')).toHaveValue("draft");
   await expect(restoredFilterForm.locator('select[name="section"]')).toHaveValue("clanky");
   await expect(page.getByRole("heading", { name: "Žlté zúbky ADMIN SEARCH cieľ" })).toBeVisible();
