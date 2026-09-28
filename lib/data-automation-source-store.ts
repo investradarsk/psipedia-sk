@@ -13,7 +13,11 @@ import type { AutomationSourceCandidateInput } from "./data-automation-discovery
 import { selectRelevantExistingSourceForCandidate } from "./data-automation-source-matching.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
-import { automationSourceActivationReadiness } from "./data-automation-source-activation.ts";
+import {
+  automationSourceActivationReadiness,
+  automationSourceTechnicalGovernanceRefreshNeeded,
+  refreshAutomationSourceTechnicalGovernance,
+} from "./data-automation-source-activation.ts";
 
 export type AutomationSourceAdminDatabase = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -291,6 +295,44 @@ export async function reviewAutomationSource(input: {
   return getAutomationSourceAdmin(input.id, db);
 }
 
+type AutomationSourceTechnicalGovernanceRefreshOptions = {
+  actor: string;
+  fetchImpl?: typeof fetch;
+};
+
+async function sourceActivationReadinessForEnable(
+  source: AutomationSourceAdminRow,
+  db: AutomationSourceAdminDatabase,
+  cadenceMinutes: number,
+  input: {
+    now?: Date;
+    technicalGovernanceRefresh?: AutomationSourceTechnicalGovernanceRefreshOptions;
+  },
+) {
+  let readiness = await automationSourceActivationReadiness(source, db, {
+    cadenceMinutes,
+    now: input.now,
+  });
+  if (
+    !readiness.ready
+    && input.technicalGovernanceRefresh
+    && automationSourceTechnicalGovernanceRefreshNeeded(readiness)
+  ) {
+    await refreshAutomationSourceTechnicalGovernance({
+      source,
+      actor: input.technicalGovernanceRefresh.actor,
+      database: db,
+      fetchImpl: input.technicalGovernanceRefresh.fetchImpl,
+      now: input.now,
+    });
+    readiness = await automationSourceActivationReadiness(source, db, {
+      cadenceMinutes,
+      now: input.now,
+    });
+  }
+  return readiness;
+}
+
 function sourceActivationError(readiness: Awaited<ReturnType<typeof automationSourceActivationReadiness>>) {
   if (readiness.reason === "REVIEW_REQUIRED") return "automation_source_review_required";
   if (readiness.reason === "UNSAFE_SOURCE_URL") return "automation_source_url_not_safe";
@@ -308,15 +350,18 @@ export async function setAutomationSourceEnabled(input: {
   id: number;
   enabled: boolean;
   now?: Date;
+  technicalGovernanceRefresh?: AutomationSourceTechnicalGovernanceRefreshOptions;
 }, databaseInput?: AutomationSourceAdminDatabase) {
   const db = database(databaseInput);
   const existing = await getAutomationSourceAdmin(input.id, db);
   if (!existing) return null;
   if (input.enabled) {
-    const readiness = await automationSourceActivationReadiness(existing, db, {
-      cadenceMinutes: existing.cadenceMinutes,
-      now: input.now,
-    });
+    const readiness = await sourceActivationReadinessForEnable(
+      existing,
+      db,
+      existing.cadenceMinutes,
+      input,
+    );
     if (!readiness.ready) throw new Error(sourceActivationError(readiness));
   }
   const at = (input.now ?? new Date()).toISOString();
@@ -334,6 +379,7 @@ export async function configureAutomationSource(input: {
   enabled: boolean;
   cadenceMinutes: number;
   now?: Date;
+  technicalGovernanceRefresh?: AutomationSourceTechnicalGovernanceRefreshOptions;
 }, databaseInput?: AutomationSourceAdminDatabase) {
   const db = database(databaseInput);
   const existing = await getAutomationSourceAdmin(input.id, db);
@@ -345,10 +391,12 @@ export async function configureAutomationSource(input: {
   }
 
   if (input.enabled) {
-    const readiness = await automationSourceActivationReadiness(existing, db, {
+    const readiness = await sourceActivationReadinessForEnable(
+      existing,
+      db,
       cadenceMinutes,
-      now: input.now,
-    });
+      input,
+    );
     if (!readiness.ready) throw new Error(sourceActivationError(readiness));
   }
 
