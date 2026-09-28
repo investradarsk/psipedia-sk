@@ -271,6 +271,7 @@ async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBind
     const events = await database.prepare(`SELECT e.id
       FROM admin_notification_events e
       WHERE e.created_at >= ?
+        AND (e.source_type <> 'AUTOMATION_ACTION' OR e.event_type='automation_source_issue')
         AND NOT EXISTS (
           SELECT 1 FROM admin_push_event_deliveries d
           WHERE d.event_id = e.id AND d.subscription_id = ?
