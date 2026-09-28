@@ -66,6 +66,7 @@ test("CONTENT-QA validates online and offline citations without inventing metada
   assert.ok(codes(base({ blocks: [{ id: "source-js", type: "source", label: "X", url: "javascript:alert(1)" }] })).includes("SOURCE_URL_UNSAFE"));
   assert.ok(codes(base({ blocks: [{ id: "source-data", type: "source", label: "X", url: "data:text/html,evil" }] })).includes("SOURCE_URL_UNSAFE"));
   assert.ok(codes(base({ blocks: [{ id: "source-empty", type: "source", label: "", url: "https://example.com" }] })).includes("SOURCE_TITLE_REQUIRED"));
+  assert.ok(codes(base({ blocks: [{ id: "source-date", type: "source", label: "Zdroj", url: "https://example.com", accessedAt: "neznámy" }] })).includes("SOURCE_ACCESS_DATE_INVALID"));
   assert.ok(codes(base({ blocks: [{ id: "source-offline-empty", type: "source", label: "Kniha", url: "" }] })).includes("SOURCE_IDENTITY_INCOMPLETE"));
 });
 
@@ -78,10 +79,16 @@ test("CONTENT-QA reports duplicate citations deterministically", () => {
   })).includes("SOURCE_DUPLICATE"));
 });
 
-test("CONTENT-QA validates relation shape and unsafe raw markup", () => {
+test("CONTENT-QA validates relation shape, plain-text notes, duplicates and unsafe raw markup", () => {
   assert.ok(codes(base({ blocks: [{ id: "rel", type: "related", title: "Cieľ", href: "https://example.com" }] })).includes("RELATED_TARGET_NOT_INTERNAL"));
   assert.ok(codes(base({ blocks: [{ id: "rel", type: "related", title: "", href: "" }] })).includes("RELATED_TARGET_REQUIRED"));
+  assert.ok(codes(base({ blocks: [{ id: "body", type: "text", content: "Súvisiaci článok: Ako vybrať granule bez marketingových mýtov." }] })).includes("PLAIN_TEXT_RELATION_NOTE"));
+  assert.ok(codes(base({ blocks: [
+    { id: "rel-a", type: "related", title: "Cieľ", href: "/clanky/ciel" },
+    { id: "rel-b", type: "related", title: "Cieľ druhýkrát", href: "/clanky/ciel" },
+  ] })).includes("RELATED_DUPLICATE"));
   assert.ok(codes(base({ blocks: [{ id: "body", type: "text", content: '<script>alert(1)</script>' }] })).includes("UNSAFE_RAW_MARKUP"));
+  assert.ok(codes(base({ blocks: [{ id: "body", type: "text", content: "Tento článok je odborne overené." }] })).includes("UNSUPPORTED_VERIFICATION_CLAIM"));
 });
 
 test("CONTENT-QA health content requires a real source but never creates reviewer claims", () => {
