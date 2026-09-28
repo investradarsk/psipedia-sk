@@ -12,6 +12,7 @@ import { eventTypes, slovakRegions } from "./events.ts";
 import { adoptionRegions, adoptionSexes, adoptionSizes, normalizeAdoptionSearchText } from "./adoption.ts";
 import { organizationPublicationTypes } from "./help-organization-publication.ts";
 import { dogSexes, dogSizes } from "./lost-found-dogs.ts";
+import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import { normalizeDirectorySearchText } from "./directory-store.ts";
 import {
   mergeDirectoryPublicContactData,
@@ -1019,6 +1020,23 @@ async function writeCanonicalFieldAndDecision(input: {
   return updated;
 }
 
+async function reconcileAcceptedSideEffects(
+  entityType: AutomationEntityType,
+  canonicalEntityId: number,
+  field: string,
+  actor: string,
+  db: Database,
+) {
+  if (entityType === "EVENT" && new Set(["venue", "address", "city", "region"]).has(field)) {
+    await reconcileGeoAfterSourceMutation({
+      targetType: "MANAGED_EVENT",
+      targetId: canonicalEntityId,
+      actorRef: actor,
+      actorType: "ADMIN",
+    }, db as D1Database);
+  }
+}
+
 async function remainingFieldState(row: SuggestionRow, db: Database) {
   const reviews = await loadReviewRows([row], db);
   const materialized = await materializeSuggestion(row, reviews, db);
@@ -1103,6 +1121,7 @@ export async function reviewAutomationUpdateField(input: {
           field, hash, decision: "ACCEPTED", actor, at, reason: "SAME_VALUE_ALREADY_ACCEPTED",
         }, db);
       }
+      await reconcileAcceptedSideEffects(row.entity_type, row.canonical_entity_id, field, actor, db);
       const remaining = await resolveParentIfComplete(row, actor, at, db);
       return {
         suggestionId: row.id, origin: row.origin, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
@@ -1138,6 +1157,7 @@ export async function reviewAutomationUpdateField(input: {
       origin: row.origin, suggestionId: row.id, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
       field, hash, decision: "ACCEPTED", actor, at, reason: "CANONICAL_ALREADY_MATCHES",
     }, db);
+    await reconcileAcceptedSideEffects(row.entity_type, row.canonical_entity_id, field, actor, db);
     const remaining = await resolveParentIfComplete(row, actor, at, db);
     return {
       suggestionId: row.id, origin: row.origin, entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id,
@@ -1163,6 +1183,7 @@ export async function reviewAutomationUpdateField(input: {
     actor,
     at,
   }, db);
+  await reconcileAcceptedSideEffects(row.entity_type, row.canonical_entity_id, field, actor, db);
   const updatedValue = currentValue(updated, row.entity_type, field, spec);
   const remaining = await resolveParentIfComplete(row, actor, at, db);
   return {
