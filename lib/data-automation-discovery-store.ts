@@ -3,6 +3,13 @@ import type { AutomationConnectorType, AutomationEntityType } from "./data-autom
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import type { AutomationDiscoveryType } from "./data-automation-discovery.ts";
 import {
+  automationScheduleFromStorage,
+  automationScheduleStorage,
+  effectiveAutomationCadenceMinutes,
+  nextAutomationScheduledAt,
+  type AutomationSchedule,
+} from "./automation-schedule.ts";
+import {
   automationSearchBudgetPolicy,
   automationSearchCooldownUntil,
   automationSearchPlateauSignal,
@@ -25,6 +32,7 @@ export type AutomationDiscoveryRoot = {
   enabled: boolean;
   reviewStatus: "PENDING" | "APPROVED" | "REJECTED";
   cadenceMinutes: number;
+  schedule: AutomationSchedule;
   nextCheckAt: string | null;
   lastCheckedAt: string | null;
   lastSuccessAt: string | null;
@@ -80,6 +88,13 @@ function numberValue(value: unknown) {
 }
 
 function mapRoot(row: Record<string, unknown>): AutomationDiscoveryRoot {
+  const schedule = automationScheduleFromStorage({
+    cadenceMinutes: row.cadence_minutes,
+    scheduleMode: row.schedule_mode,
+    scheduleDaysJson: row.schedule_days_json,
+    scheduleLocalTime: row.schedule_local_time,
+    scheduleTimezone: row.schedule_timezone,
+  });
   return {
     id: numberValue(row.id),
     rootKey: String(row.root_key ?? ""),
@@ -91,7 +106,8 @@ function mapRoot(row: Record<string, unknown>): AutomationDiscoveryRoot {
     config: parseJson(row.config_json),
     enabled: Boolean(row.enabled),
     reviewStatus: String(row.review_status ?? "PENDING") as AutomationDiscoveryRoot["reviewStatus"],
-    cadenceMinutes: numberValue(row.cadence_minutes),
+    cadenceMinutes: effectiveAutomationCadenceMinutes(schedule),
+    schedule,
     nextCheckAt: row.next_check_at ? String(row.next_check_at) : null,
     lastCheckedAt: row.last_checked_at ? String(row.last_checked_at) : null,
     lastSuccessAt: row.last_success_at ? String(row.last_success_at) : null,
@@ -325,9 +341,45 @@ export async function setAutomationDiscoveryRootEnabled(input: {
     if (root.reviewStatus !== "APPROVED") throw new Error("automation_discovery_review_required");
     await assertDiscoveryRootGovernance(root, db, input.now ?? new Date());
   }
-  const at = (input.now ?? new Date()).toISOString();
+  const now = input.now ?? new Date();
+  const at = now.toISOString();
+  const nextCheckAt = !input.enabled
+    ? null
+    : root.schedule.mode === "CALENDAR"
+      ? nextAutomationScheduledAt(root.schedule, now)
+      : at;
   await db.prepare("UPDATE automation_discovery_roots SET enabled=?,next_check_at=?,updated_at=? WHERE id=?")
-    .bind(input.enabled ? 1 : 0, input.enabled ? at : null, at, input.id).run();
+    .bind(input.enabled ? 1 : 0, nextCheckAt, at, input.id).run();
+  return getAutomationDiscoveryRoot(input.id, db);
+}
+
+export async function setAutomationDiscoveryRootSchedule(input: {
+  id: number;
+  schedule: AutomationSchedule;
+  now?: Date;
+}, databaseInput?: AutomationDiscoveryDatabase) {
+  const db = database(databaseInput);
+  const root = await getAutomationDiscoveryRoot(input.id, db);
+  if (!root) return null;
+  const now = input.now ?? new Date();
+  const at = now.toISOString();
+  const storage = automationScheduleStorage(input.schedule);
+  const nextCheckAt = root.enabled
+    ? nextAutomationScheduledAt(input.schedule, now)
+    : null;
+  await db.prepare(`UPDATE automation_discovery_roots SET
+      cadence_minutes=?,schedule_mode=?,schedule_days_json=?,schedule_local_time=?,schedule_timezone=?,
+      next_check_at=?,updated_at=? WHERE id=?`)
+    .bind(
+      storage.cadenceMinutes,
+      storage.scheduleMode,
+      storage.scheduleDaysJson,
+      storage.scheduleLocalTime,
+      storage.scheduleTimezone,
+      nextCheckAt,
+      at,
+      input.id,
+    ).run();
   return getAutomationDiscoveryRoot(input.id, db);
 }
 
@@ -336,22 +388,15 @@ export async function setAutomationDiscoveryRootCadence(input: {
   cadenceMinutes: number;
   now?: Date;
 }, databaseInput?: AutomationDiscoveryDatabase) {
-  const db = database(databaseInput);
-  const root = await getAutomationDiscoveryRoot(input.id, db);
-  if (!root) return null;
   const cadenceMinutes = Math.floor(input.cadenceMinutes);
   if (!Number.isSafeInteger(cadenceMinutes) || cadenceMinutes < 60 || cadenceMinutes > 43_200) {
     throw new Error("automation_discovery_cadence_invalid");
   }
-  const now = input.now ?? new Date();
-  const at = now.toISOString();
-  const nextCheckAt = root.enabled
-    ? new Date(now.getTime() + cadenceMinutes * 60_000).toISOString()
-    : null;
-  await db.prepare(`UPDATE automation_discovery_roots
-    SET cadence_minutes=?,next_check_at=?,updated_at=? WHERE id=?`)
-    .bind(cadenceMinutes, nextCheckAt, at, input.id).run();
-  return getAutomationDiscoveryRoot(input.id, db);
+  return setAutomationDiscoveryRootSchedule({
+    id: input.id,
+    schedule: { mode: "INTERVAL", intervalMinutes: cadenceMinutes },
+    now: input.now,
+  }, databaseInput);
 }
 
 export async function getAutomationDiscoveryRunSearchMetrics(
@@ -402,7 +447,7 @@ export async function beginAutomationDiscoveryRun(
 }
 
 export function nextAutomationDiscoveryCheckAt(root: AutomationDiscoveryRoot, completedAt: Date) {
-  return new Date(completedAt.getTime() + Math.max(60, root.cadenceMinutes) * 60_000).toISOString();
+  return nextAutomationScheduledAt(root.schedule, completedAt);
 }
 
 export async function finishAutomationDiscoveryRun(input: {
