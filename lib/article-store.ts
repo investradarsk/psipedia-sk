@@ -1079,7 +1079,7 @@ export async function auditPublishedArticleContentQa(): Promise<{
       takeaway: article.takeaway,
       sections: article.sections,
       blocks: article.blocks ?? [],
-      sources: article.sources,
+      sources: (article.blocks ?? []).some((block) => block.type === "source") ? [] : article.sources,
       imageUrl: article.image ?? null,
       imageAlt: article.imageAlt ?? null,
       canonicalUrl: article.seo?.canonicalUrl ?? "",
