@@ -12,7 +12,7 @@ import {
   stablePortalSearchSort,
   tokenizePortalSearch,
 } from "../lib/portal-search-query.ts";
-import { filterPortalSearch, portalSearchFallbacks } from "../lib/portal-search.ts";
+import { buildPortalSearchQuerySpecsForTest, filterPortalSearch, portalSearchFallbacks } from "../lib/portal-search.ts";
 
 test("normalization removes Slovak diacritics, case and repeated whitespace", () => {
   assert.equal(normalizePortalSearch("  VETERINÁR   v   TRNAVE  "), "veterinar v trnave");
@@ -122,6 +122,17 @@ test("pagination is explicitly bounded and keeps a stable page contract", () => 
   assert.equal(SEARCH_PAGE_SIZE, 24);
   assert.equal(SEARCH_MAX_PAGE, 20);
   assert.equal(SEARCH_MAX_VISIBLE_RESULTS, 480);
+});
+
+
+test("bounded D1 query specs stay below platform bind and SQL-size limits", () => {
+  const specs = buildPortalSearchQuerySpecsForTest("jeden dva tri styri pat sest sedem osem", SEARCH_MAX_VISIBLE_RESULTS);
+  assert.ok(specs.length >= 6);
+  for (const spec of specs) {
+    assert.ok(spec.bindingCount <= 100, `binding count ${spec.bindingCount}`);
+    assert.ok(new TextEncoder().encode(spec.sql).byteLength <= 100_000, `SQL bytes ${new TextEncoder().encode(spec.sql).byteLength}`);
+    assert.match(spec.sql, /LIMIT 480$/);
+  }
 });
 
 test("zero-result local service fallback broadens only to relevant directory scope", () => {
