@@ -136,6 +136,48 @@ test("universal readiness fails closed on unsupported and mismatched adapters", 
     htmlAdapterKey: "generic-directory-profile",
     sourceShape: "MULTI_ITEM_LIST",
   })), null);
+
+  const legacyAgility = source("EVENT", {}, "https://agility.sk/preteky/");
+  const legacyReadiness = automationSourceReadiness(legacyAgility);
+  assert.equal(legacyReadiness.ready, true);
+  assert.equal(legacyReadiness.reason, "READY");
+  assert.equal(legacyReadiness.adapterKey, "agility-sk-events");
+  assert.equal(resolveAutomationCapability(legacyAgility)?.adapterKey, "agility-sk-events");
+
+  const conflictingAgility = source("EVENT", {
+    htmlAdapterKey: "zsk-sr-events",
+    sourceShape: "MULTI_ITEM_LIST",
+  }, "https://agility.sk/preteky/");
+  assert.equal(automationSourceReadiness(conflictingAgility).reason, "ADAPTER_SOURCE_MISMATCH");
+  assert.equal(resolveAutomationCapability(conflictingAgility), null);
+});
+
+test("known EVENT master URLs use an exact production provisioning allowlist", () => {
+  const cases = [
+    ["https://skj.sk/sk/vystavy/kalendar/", "skj-exhibition-calendar", 1],
+    ["https://www.agility.sk/preteky/", "agility-sk-events", 1],
+    ["https://zsksr.sk/kalendar/", "zsk-sr-events", 1],
+    ["https://mushing.sk/preteky/", "szpz-mushing-events", 1],
+  ];
+  for (const [canonicalUrl, htmlAdapterKey, expectedMinRecords] of cases) {
+    const config = candidateProvisioningConfigFor({ entityType: "EVENT", canonicalUrl, metadata: {} });
+    assert.equal(config.htmlAdapterKey, htmlAdapterKey, canonicalUrl);
+    assert.equal(config.sourceShape, "MULTI_ITEM_LIST", canonicalUrl);
+    assert.equal(config.expectedMinRecords, expectedMinRecords, canonicalUrl);
+  }
+
+  for (const canonicalUrl of [
+    "https://agility.sk/preteky/detail",
+    "https://agility.sk/preteky?page=2",
+    "https://events.example.sk/preteky",
+    "https://mushing.sk/pretek/example-event",
+  ]) {
+    assert.deepEqual(
+      candidateProvisioningConfigFor({ entityType: "EVENT", canonicalUrl, metadata: {} }),
+      {},
+      canonicalUrl,
+    );
+  }
 });
 
 test("FOSTER and LOST_FOUND supported URL families are provisioned automatically", () => {

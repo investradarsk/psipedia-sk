@@ -399,6 +399,46 @@ function mappedCandidate(category, url, rootKey) {
   return candidates[0];
 }
 
+function eventCandidate(url, label = "Known EVENT calendar") {
+  return {
+    candidateType: "SOURCE_CANDIDATE",
+    discoveryType: "SEARCH_PROVIDER",
+    sourceUrl: url,
+    label,
+    entityType: "EVENT",
+    suggestedConnectorType: "CONTROLLED_HTML",
+    reason: "Known supported EVENT calendar discovered for operator review.",
+    metadata: {},
+  };
+}
+
+const KNOWN_EVENT_SOURCE_CASES = [
+  {
+    label: "SKJ",
+    url: "https://skj.sk/sk/vystavy/kalendar/",
+    adapterKey: "skj-exhibition-calendar",
+    expectedMinRecords: 1,
+  },
+  {
+    label: "ASKA",
+    url: "https://agility.sk/preteky/",
+    adapterKey: "agility-sk-events",
+    expectedMinRecords: 1,
+  },
+  {
+    label: "ZŠK SR",
+    url: "https://zsksr.sk/kalendar/",
+    adapterKey: "zsk-sr-events",
+    expectedMinRecords: 1,
+  },
+  {
+    label: "SZPZ",
+    url: "https://mushing.sk/preteky/",
+    adapterKey: "szpz-mushing-events",
+    expectedMinRecords: 1,
+  },
+];
+
 async function approveCandidateToSource(db, candidateInput, now = new Date("2026-09-28T07:00:00.000Z")) {
   const stored = await upsertAutomationSourceCandidate({ candidate: candidateInput, detectedAt: now }, db);
   const reloaded = await getAutomationSourceCandidate(stored.id, db, now);
@@ -425,6 +465,190 @@ async function approveCandidateToSource(db, candidateInput, now = new Date("2026
   assert.ok(source);
   return { stored, reloaded, reviewedCandidate, source };
 }
+
+test("HOTFIX EVENT provisioning approval integration maps all known master calendars to READY production adapters", async () => {
+  for (const item of KNOWN_EVENT_SOURCE_CASES) {
+    const db = new MemoryD1();
+    const candidate = eventCandidate(item.url, item.label);
+    const { reloaded, source } = await approveCandidateToSource(db, candidate);
+
+    assert.equal(reloaded.entityType, "EVENT", item.label);
+    assert.equal(reloaded.canonicalUrl, new URL(item.url.replace("www.", "")).toString().replace(/\/$/, ""), item.label);
+    assert.equal(source.entityType, "EVENT", item.label);
+    assert.equal(source.connectorType, "CONTROLLED_HTML", item.label);
+    assert.equal(source.enabled, false, item.label);
+    assert.equal(source.config.htmlAdapterKey, item.adapterKey, item.label);
+    assert.equal(source.config.sourceShape, "MULTI_ITEM_LIST", item.label);
+    assert.equal(source.config.expectedMinRecords, item.expectedMinRecords, item.label);
+    assert.equal(automationSourceReadiness(source).ready, true, item.label);
+    assert.equal(automationSourceReadiness(source).reason, "READY", item.label);
+  }
+});
+
+test("HOTFIX Agility SK candidate persists, reloads and approves with agility production adapter", async () => {
+  const db = new MemoryD1();
+  const candidate = eventCandidate("https://agility.sk/preteky/", "ASKA");
+  const stored = await upsertAutomationSourceCandidate({ candidate }, db);
+  const reloaded = await getAutomationSourceCandidate(stored.id, db);
+  assert.ok(reloaded);
+  assert.equal(reloaded.canonicalUrl, "https://agility.sk/preteky");
+
+  const reviewed = await reviewAutomationSourceCandidate({
+    id: stored.id,
+    action: "approve",
+    reviewerEmail: "admin@psipedia.sk",
+  }, db);
+  assert.ok(reviewed?.duplicateSourceId);
+
+  const source = await getAutomationSourceAdmin(reviewed.duplicateSourceId, db);
+  assert.ok(source);
+  assert.equal(source.config.htmlAdapterKey, "agility-sk-events");
+  assert.equal(source.config.sourceShape, "MULTI_ITEM_LIST");
+  assert.equal(source.config.expectedMinRecords, 1);
+  assert.equal(automationSourceReadiness(source).ready, true);
+});
+
+test("HOTFIX pre-existing configless ASKA source can reopen and activate without reset", async () => {
+  const db = new MemoryD1();
+  const now = new Date("2026-09-28T10:15:00.000Z");
+  const source = db.seedSource({
+    sourceKey: "legacy-aska",
+    label: "ASKA",
+    entityType: "EVENT",
+    sourceUrl: "https://agility.sk/preteky",
+    config: {},
+    reviewStatus: "APPROVED",
+    enabled: false,
+    cadenceMinutes: 360,
+  });
+
+  const technical = automationSourceReadiness(source);
+  assert.equal(technical.ready, true);
+  assert.equal(technical.adapterKey, "agility-sk-events");
+
+  await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch(),
+    now,
+  });
+  const readiness = await automationSourceActivationReadiness(source, db, {
+    cadenceMinutes: 360,
+    now,
+  });
+  assert.equal(readiness.ready, true);
+
+  const configured = await configureAutomationSource({
+    id: source.id,
+    enabled: true,
+    cadenceMinutes: 360,
+    now,
+  }, db);
+  assert.equal(configured.enabled, true);
+  assert.equal(configured.nextCheckAt, now.toISOString());
+});
+
+test("HOTFIX EVENT reuse repairs a missing known adapter but never activates the source", async () => {
+  const db = new MemoryD1();
+  const url = "https://agility.sk/preteky";
+  const existing = db.seedSource({
+    entityType: "EVENT",
+    sourceUrl: url,
+    config: {},
+    reviewStatus: "APPROVED",
+    enabled: true,
+  });
+  const { stored, source } = await approveCandidateToSource(db, eventCandidate(url, "ASKA"));
+
+  assert.equal(stored.duplicateSourceId, existing.id);
+  assert.equal(source.id, existing.id);
+  assert.equal(source.config.htmlAdapterKey, "agility-sk-events");
+  assert.equal(source.config.sourceShape, "MULTI_ITEM_LIST");
+  assert.equal(source.config.expectedMinRecords, 1);
+  assert.equal(source.enabled, false);
+  assert.equal(automationSourceReadiness(source).ready, true);
+});
+
+test("HOTFIX conflicting EVENT reuse fails closed without rewriting the existing adapter", async () => {
+  const db = new MemoryD1();
+  const url = "https://agility.sk/preteky";
+  const existing = db.seedSource({
+    entityType: "EVENT",
+    sourceUrl: url,
+    config: {
+      htmlAdapterKey: "zsk-sr-events",
+      sourceShape: "MULTI_ITEM_LIST",
+      expectedMinRecords: 1,
+    },
+  });
+  const before = structuredClone(existing.config);
+  const stored = await upsertAutomationSourceCandidate({ candidate: eventCandidate(url, "ASKA") }, db);
+
+  await assert.rejects(
+    reviewAutomationSourceCandidate({
+      id: stored.id,
+      action: "approve",
+      reviewerEmail: "admin@psipedia.sk",
+    }, db),
+    /automation_candidate_source_provisioning_conflict/,
+  );
+  assert.deepEqual(existing.config, before);
+});
+
+test("HOTFIX unknown EVENT page never invents an adapter and remains fail-closed", async () => {
+  const db = new MemoryD1();
+  const { source } = await approveCandidateToSource(
+    db,
+    eventCandidate("https://events.example.sk/preteky/", "Unknown calendar"),
+  );
+
+  assert.deepEqual(source.config, {});
+  assert.equal(source.enabled, false);
+  assert.equal(automationSourceReadiness(source).ready, false);
+  assert.equal(automationSourceReadiness(source).reason, "MISSING_ADAPTER");
+});
+
+test("HOTFIX known EVENT activation still requires governance and uses the unified readiness contract", async () => {
+  const db = new MemoryD1();
+  const now = new Date("2026-09-28T10:00:00.000Z");
+  const { source } = await approveCandidateToSource(
+    db,
+    eventCandidate("https://agility.sk/preteky/", "ASKA"),
+    now,
+  );
+  assert.equal(source.enabled, false);
+
+  const beforeGovernance = await automationSourceActivationReadiness(source, db, {
+    cadenceMinutes: 360,
+    now,
+  });
+  assert.equal(beforeGovernance.ready, false);
+  assert.equal(beforeGovernance.reason, "GOVERNANCE_BLOCKED");
+
+  await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch(),
+    now,
+  });
+  const ready = await automationSourceActivationReadiness(source, db, {
+    cadenceMinutes: 360,
+    now,
+  });
+  assert.equal(ready.ready, true);
+  assert.equal(ready.reason, "READY");
+
+  const configured = await configureAutomationSource({
+    id: source.id,
+    enabled: true,
+    cadenceMinutes: 360,
+    now,
+  }, db);
+  assert.equal(configured.enabled, true);
+  assert.equal(configured.nextCheckAt, now.toISOString());
+});
 
 test("HOTFIX real Veterinary Tavily SEARCH_PROVIDER candidate persists category and approves READY", async () => {
   const db = new MemoryD1();
@@ -688,6 +912,7 @@ test("HOTFIX source-only error mapping never exposes readiness backend codes", (
     "automation_source_not_ready:MISSING_ADAPTER",
     "automation_source_not_ready:UNSUPPORTED_ADAPTER",
     "automation_source_not_ready:ADAPTER_ENTITY_MISMATCH",
+    "automation_source_not_ready:ADAPTER_SOURCE_MISMATCH",
     "automation_source_not_ready:ADAPTER_SHAPE_MISMATCH",
     "automation_source_not_ready:MISSING_PARSER",
     "automation_candidate_source_not_ready:UNSUPPORTED_ADAPTER",

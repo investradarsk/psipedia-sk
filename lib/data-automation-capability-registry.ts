@@ -1,10 +1,11 @@
 import type { ControlledHtmlAdapter } from "./data-automation-connectors.ts";
-import type { AutomationEntityType, AutomationSource } from "./data-automation.ts";
+import type { AutomationEntityType, AutomationSource, AutomationSourceConfig } from "./data-automation.ts";
 import {
   GENERIC_DIRECTORY_PROFILE_ADAPTER,
   GENERIC_HELP_ITEM_PAGE_ADAPTER,
   ORGANIZATION_OFFICIAL_SITE_ADAPTER,
   ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER,
+  eventHtmlAdapterConfigForSourceUrl,
   organizationHtmlAdapterKeyForSourceUrl,
 } from "./data-automation-source-provisioning.ts";
 import { TRNAVA_ADOPTION_DETAIL_ADAPTER } from "./data-automation-adoption-adapters.ts";
@@ -63,15 +64,33 @@ export const productionAutomationCapabilityRegistry = buildAutomationCapabilityR
   productionAutomationHtmlAdapters,
 );
 
+function sourceAdapterResolution(
+  source: Pick<AutomationSource, "entityType" | "config" | "sourceUrl">,
+) {
+  const configuredAdapterKey = source.config.htmlAdapterKey?.trim() || null;
+  const eventConfig: AutomationSourceConfig = source.entityType === "EVENT"
+    ? eventHtmlAdapterConfigForSourceUrl(source.sourceUrl)
+    : {};
+  const expectedEventAdapterKey = eventConfig.htmlAdapterKey?.trim() || null;
+  if (configuredAdapterKey && expectedEventAdapterKey && configuredAdapterKey !== expectedEventAdapterKey) {
+    return { adapterKey: configuredAdapterKey, sourceMismatch: true };
+  }
+  return {
+    adapterKey: configuredAdapterKey
+      || expectedEventAdapterKey
+      || (source.entityType === "ORGANIZATION" ? organizationHtmlAdapterKeyForSourceUrl(source.sourceUrl) : null),
+    sourceMismatch: false,
+  };
+}
+
 export function resolveAutomationCapability(
   source: Pick<AutomationSource, "entityType" | "connectorType" | "config" | "sourceUrl">,
   registry = productionAutomationCapabilityRegistry,
 ) {
   if (source.connectorType !== "CONTROLLED_HTML") return null;
-  const adapterKey = source.config.htmlAdapterKey?.trim()
-    || (source.entityType === "ORGANIZATION" ? organizationHtmlAdapterKeyForSourceUrl(source.sourceUrl) : null);
-  if (!adapterKey) return null;
-  const capability = registry[adapterKey];
+  const resolution = sourceAdapterResolution(source);
+  if (resolution.sourceMismatch || !resolution.adapterKey) return null;
+  const capability = registry[resolution.adapterKey];
   if (!capability || capability.entityType !== source.entityType) return null;
   const configuredShape = source.config.sourceShape;
   if (configuredShape && capability.sourceShape !== "SOURCE_DEFINED" && configuredShape !== capability.sourceShape) return null;
@@ -84,6 +103,7 @@ export type AutomationSourceReadinessReason =
   | "MISSING_ADAPTER"
   | "UNSUPPORTED_ADAPTER"
   | "ADAPTER_ENTITY_MISMATCH"
+  | "ADAPTER_SOURCE_MISMATCH"
   | "ADAPTER_SHAPE_MISMATCH"
   | "MISSING_PARSER";
 
@@ -109,8 +129,19 @@ export function automationSourceReadiness(
   if (source.connectorType !== "CONTROLLED_HTML") {
     return { applicable: true, ready: false, reason: "UNSUPPORTED_CONNECTOR", adapterKey: null, adapterLabel: null, sourceShape: null };
   }
-  const adapterKey = source.config.htmlAdapterKey?.trim()
-    || (source.entityType === "ORGANIZATION" ? organizationHtmlAdapterKeyForSourceUrl(source.sourceUrl) : null);
+  const resolution = sourceAdapterResolution(source);
+  const adapterKey = resolution.adapterKey;
+  if (resolution.sourceMismatch) {
+    const configuredCapability = adapterKey ? registry[adapterKey] : null;
+    return {
+      applicable: true,
+      ready: false,
+      reason: "ADAPTER_SOURCE_MISMATCH",
+      adapterKey,
+      adapterLabel: configuredCapability?.label ?? null,
+      sourceShape: source.config.sourceShape ?? null,
+    };
+  }
   if (!adapterKey) return { applicable: true, ready: false, reason: "MISSING_ADAPTER", adapterKey: null, adapterLabel: null, sourceShape: source.config.sourceShape ?? null };
   const capability = registry[adapterKey];
   if (!capability) return { applicable: true, ready: false, reason: "UNSUPPORTED_ADAPTER", adapterKey, adapterLabel: null, sourceShape: source.config.sourceShape ?? null };

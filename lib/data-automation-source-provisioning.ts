@@ -14,6 +14,49 @@ export const ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER = "psiadusa-organization-di
 export const GENERIC_DIRECTORY_PROFILE_ADAPTER = "generic-directory-profile";
 export const GENERIC_HELP_ITEM_PAGE_ADAPTER = "generic-help-item-page";
 
+const EVENT_SOURCE_PROVISIONING = [
+  {
+    hostname: "skj.sk",
+    pathname: "/sk/vystavy/kalendar",
+    config: {
+      sourceShape: "MULTI_ITEM_LIST",
+      htmlAdapterKey: "skj-exhibition-calendar",
+      expectedMinRecords: 1,
+    },
+  },
+  {
+    hostname: "agility.sk",
+    pathname: "/preteky",
+    config: {
+      sourceShape: "MULTI_ITEM_LIST",
+      htmlAdapterKey: "agility-sk-events",
+      expectedMinRecords: 1,
+    },
+  },
+  {
+    hostname: "zsksr.sk",
+    pathname: "/kalendar",
+    config: {
+      sourceShape: "MULTI_ITEM_LIST",
+      htmlAdapterKey: "zsk-sr-events",
+      expectedMinRecords: 1,
+    },
+  },
+  {
+    hostname: "mushing.sk",
+    pathname: "/preteky",
+    config: {
+      sourceShape: "MULTI_ITEM_LIST",
+      htmlAdapterKey: "szpz-mushing-events",
+      expectedMinRecords: 1,
+    },
+  },
+] as const satisfies ReadonlyArray<{
+  hostname: string;
+  pathname: string;
+  config: AutomationSourceConfig;
+}>;
+
 export const SUPPORTED_DIRECTORY_CATEGORIES = [
   "veterinari",
   "treneri",
@@ -75,6 +118,17 @@ export function organizationHtmlAdapterKeyForSourceUrl(value: unknown): string |
   return ORGANIZATION_OFFICIAL_SITE_ADAPTER;
 }
 
+export function eventHtmlAdapterConfigForSourceUrl(value: unknown): AutomationSourceConfig {
+  const canonical = canonicalizeSourceUrl(value);
+  if (!canonical || !isSafeAutomationSourceUrl(canonical)) return {};
+  const url = new URL(canonical);
+  if (url.search) return {};
+  const rule = EVENT_SOURCE_PROVISIONING.find((item) =>
+    item.hostname === url.hostname && item.pathname === url.pathname
+  );
+  return rule ? { ...rule.config } : {};
+}
+
 export function candidateProvisioningConfigFor(input: {
   entityType: AutomationEntityType;
   canonicalUrl: string;
@@ -83,6 +137,10 @@ export function candidateProvisioningConfigFor(input: {
   if (input.entityType === "ORGANIZATION") {
     const htmlAdapterKey = organizationHtmlAdapterKeyForSourceUrl(input.canonicalUrl);
     return htmlAdapterKey ? { htmlAdapterKey } : {};
+  }
+
+  if (input.entityType === "EVENT") {
+    return eventHtmlAdapterConfigForSourceUrl(input.canonicalUrl);
   }
 
   if (isAutomationHelpEntityType(input.entityType)) {

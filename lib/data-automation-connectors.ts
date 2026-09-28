@@ -5,9 +5,13 @@ import {
   retryBackoffMs,
   shouldRetryAutomationStatus,
   type AutomationSource,
+  type AutomationSourceConfig,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
-import { organizationHtmlAdapterKeyForSourceUrl } from "./data-automation-source-provisioning.ts";
+import {
+  eventHtmlAdapterConfigForSourceUrl,
+  organizationHtmlAdapterKeyForSourceUrl,
+} from "./data-automation-source-provisioning.ts";
 import { automationHelpRecordShapeError } from "./data-automation-help-source-readiness.ts";
 
 export class AutomationConnectorError extends Error {
@@ -142,18 +146,26 @@ function validateContentType(source: AutomationSource, contentType: string | nul
   }
 }
 
+function eventSourceFallbackConfig(source: AutomationSource): AutomationSourceConfig {
+  return source.entityType === "EVENT"
+    ? eventHtmlAdapterConfigForSourceUrl(source.sourceUrl)
+    : {};
+}
+
 function expectedMinimumRecords(source: AutomationSource) {
-  const configured = Number(source.config.expectedMinRecords ?? 0);
+  const fallback = eventSourceFallbackConfig(source);
+  const configured = Number(source.config.expectedMinRecords ?? fallback.expectedMinRecords ?? 0);
   if (Number.isFinite(configured) && configured > 0) {
     return Math.min(source.maxRecordsPerRun, Math.max(1, Math.floor(configured)));
   }
-  if (source.config.htmlAdapterKey === "organization-official-site") return 1;
-  if (source.config.htmlAdapterKey === "psiadusa-organization-directory") return 1;
-  if (source.config.htmlAdapterKey === "svps-shelters-register") return 10;
-  if (source.config.htmlAdapterKey === "skj-exhibition-calendar") return 1;
-  if (source.config.htmlAdapterKey === "agility-sk-events") return 1;
-  if (source.config.htmlAdapterKey === "zsk-sr-events") return 1;
-  if (source.config.htmlAdapterKey === "szpz-mushing-events") return 1;
+  const adapterKey = source.config.htmlAdapterKey?.trim() || fallback.htmlAdapterKey?.trim();
+  if (adapterKey === "organization-official-site") return 1;
+  if (adapterKey === "psiadusa-organization-directory") return 1;
+  if (adapterKey === "svps-shelters-register") return 10;
+  if (adapterKey === "skj-exhibition-calendar") return 1;
+  if (adapterKey === "agility-sk-events") return 1;
+  if (adapterKey === "zsk-sr-events") return 1;
+  if (adapterKey === "szpz-mushing-events") return 1;
   return 0;
 }
 
@@ -314,8 +326,16 @@ export async function fetchAutomationSourceRecords(
       return sourceRecordsFromPayload(payload, effectiveSource);
     }
 
-    const configuredAdapterKey = source.config.htmlAdapterKey?.trim();
+    const configuredAdapterKey = source.config.htmlAdapterKey?.trim() || null;
+    const eventFallback: AutomationSourceConfig = source.entityType === "EVENT"
+      ? eventHtmlAdapterConfigForSourceUrl(effectiveSource.sourceUrl)
+      : {};
+    const expectedEventAdapterKey = eventFallback.htmlAdapterKey?.trim() || null;
+    if (configuredAdapterKey && expectedEventAdapterKey && configuredAdapterKey !== expectedEventAdapterKey) {
+      throw new AutomationConnectorError("controlled_html_adapter_source_mismatch");
+    }
     const adapterKey = configuredAdapterKey
+      || expectedEventAdapterKey
       || (source.entityType === "ORGANIZATION"
         ? organizationHtmlAdapterKeyForSourceUrl(effectiveSource.sourceUrl)
         : null);
