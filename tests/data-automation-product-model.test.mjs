@@ -91,7 +91,7 @@ test("existing canonical payload is classified for updates before duplicate rece
 
 test("canonical provenance is canonical-owned and ingestion receipt still has no canonical id", async () => {
   const [migration, receipt, apply] = await Promise.all([
-    read("drizzle/0087_automation_product_model.sql"),
+    read("drizzle/0092_automation_product_model.sql"),
     read("lib/data-automation-ingestion-receipts.ts"),
     read("lib/data-automation-apply.ts"),
   ]);
@@ -107,7 +107,7 @@ test("canonical provenance is canonical-owned and ingestion receipt still has no
 
 test("update suggestions are read-only and canonical auto-update remains absent", async () => {
   const [migration, direct, component] = await Promise.all([
-    read("drizzle/0087_automation_product_model.sql"),
+    read("drizzle/0092_automation_product_model.sql"),
     read("lib/data-automation-direct-entity.ts"),
     read("components/admin-automation-category-sources.tsx"),
   ]);
@@ -167,7 +167,7 @@ test("canonical editors always navigate back to canonical sections, never automa
 });
 
 test("migration preserves source-independent provenance across source deletion", async () => {
-  const migration = await read("drizzle/0087_automation_product_model.sql");
+  const migration = await read("drizzle/0092_automation_product_model.sql");
   const block = migration.match(/CREATE TABLE `canonical_external_provenance`[\s\S]*?\n\);/)?.[0] ?? "";
   assert.doesNotMatch(block, /REFERENCES\s+`?automation_sources/i);
   assert.match(migration, /UNIQUE INDEX `canonical_external_provenance_identity_unique`/);
