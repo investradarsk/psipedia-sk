@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminOrganizationEditor } from "@/components/admin-organization-editor";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
+import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
 import { AdminOrganizationLocations } from "@/components/admin-organization-locations";
 import { AdminShell } from "@/components/admin-shell";
@@ -37,5 +38,6 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     <AdminOrganizationEditor organization={organization} />
     <div id="locations"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
     <div id="fundraising"><AdminOrganizationFundraising organization={organization} initialMethods={methods} /></div>
+    {organization.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ORGANIZATION" canonicalEntityId={organization.id} returnHref="/admin/organizacie" />}
   </AdminShell>;
 }

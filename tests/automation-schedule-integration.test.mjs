@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
 test("migration adds backward-compatible calendar columns to every scheduling table", async () => {
-  const migration = await read("drizzle/0094_automation_calendar_schedule.sql");
+  const migration = await read("drizzle/0095_automation_calendar_schedule.sql");
   for (const table of ["automation_discovery_roots", "automation_sources", "automation_direct_refresh_settings"]) {
     assert.match(migration, new RegExp("ALTER TABLE " + table + " ADD COLUMN schedule_mode"));
     assert.match(migration, new RegExp("ALTER TABLE " + table + " ADD COLUMN schedule_days_json"));

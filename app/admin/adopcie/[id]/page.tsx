@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminAdoptionEditor } from "@/components/admin-adoption-editor";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
+import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { adoptionStatusLabels, type AdoptionStatus } from "@/lib/adoption";
@@ -24,5 +25,5 @@ export default async function EditAdoptionPage({ params }: Props) {
   ]);
   if (!item) notFound();
   const duplicateWarning = await getCanonicalDraftDuplicateWarning("ADOPTION", item.id).catch(() => null);
-  return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<Link href="/admin/adopcie">← Späť na adopcie</Link>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations}/></AdminShell>;
+  return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<Link href="/admin/adopcie">← Späť na adopcie</Link>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref="/admin/adopcie" />}</AdminShell>;
 }
