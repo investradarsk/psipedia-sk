@@ -19,9 +19,25 @@ export function AdminAutomationSearchControls({
     const requestsToday = roots.reduce((sum, root) => sum + (root.searchSafety?.requestsToday ?? 0), 0);
     const dailyLimit = roots.reduce((sum, root) => sum + (root.searchSafety?.rootDailyLimit ?? 0), 0);
     const exhaustedRoots = roots.filter((root) => root.searchSafety && root.searchSafety.remainingRootRequests <= 0).length;
+    const addressEnrichmentRequestsToday = roots.reduce(
+      (sum, root) => sum + (root.searchSafety?.addressEnrichmentRequestsToday ?? 0),
+      0,
+    );
+    const addressEnrichmentDailyLimit = roots.reduce(
+      (sum, root) => sum + (root.searchSafety?.addressEnrichmentDailyLimit ?? 0),
+      0,
+    );
     const enabledRoots = roots.filter((root) => root.enabled && root.reviewStatus === "APPROVED").length;
     const lastQueryAt = roots.map((root) => root.searchSafety?.lastQueryAt).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
-    return { requestsToday, dailyLimit, exhaustedRoots, enabledRoots, lastQueryAt };
+    return {
+      requestsToday,
+      dailyLimit,
+      exhaustedRoots,
+      addressEnrichmentRequestsToday,
+      addressEnrichmentDailyLimit,
+      enabledRoots,
+      lastQueryAt,
+    };
   }, [roots]);
 
   async function action(kind: "extend-budget" | "run") {
@@ -63,13 +79,20 @@ export function AdminAutomationSearchControls({
       <div className={styles.sectionHeader}>
         <div>
           <h2 id="search-budget-heading">Stav dnešného hľadania</h2>
-          <p>Limit sa týka iba hľadania nových entít alebo zdrojov. Kontrola existujúcich záznamov tento Tavily limit nepoužíva.</p>
+          <p>Hľadanie nových entít používa discovery limit. Pri adresárových profiloch môže aj kontrola existujúcich záznamov použiť samostatný bounded Tavily lookup, iba keď dostupné údaje nestačia na presné overenie adresy cez Geoapify.</p>
         </div>
       </div>
       <p><strong>Dnešné využitie:</strong> {summary.requestsToday} / {summary.dailyLimit} requestov</p>
       {summary.exhaustedRoots > 0
         ? <p role="status"><strong>Dnešný limit je vyčerpaný</strong>{roots.length > 1 ? ` pre ${summary.exhaustedRoots} z ${roots.length} častí kategórie.` : "."}</p>
         : <p>Dnešný limit ešte nie je vyčerpaný.</p>}
+      {summary.addressEnrichmentDailyLimit > 0 && (
+        <p>
+          <strong>Dohľadanie presnej adresy:</strong>{" "}
+          {summary.addressEnrichmentRequestsToday} / {summary.addressEnrichmentDailyLimit} requestov
+          {" "}· Geoapify sa vždy pokúsi overiť dostupnú adresu najprv; Tavily sa použije až keď dôkaz nestačí.
+        </p>
+      )}
       {summary.lastQueryAt && <p>Posledné hľadanie: {new Date(summary.lastQueryAt).toLocaleString("sk-SK")}</p>}
       <div className="admin-form-actions">
         {summary.exhaustedRoots > 0 && (
