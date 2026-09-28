@@ -1,7 +1,37 @@
 import { env } from "cloudflare:workers";
 import { articles as seedArticles, type ArticleSeo } from "./content.ts";
-import { isHelpCategory, type HelpCategorySlug } from "./help.ts";
-import { isArticlePortalSection, type ArticlePortalSection } from "./portal.ts";
+
+const ARTICLE_PORTAL_SECTIONS = [
+  "clanky",
+  "novinky",
+  "steniatka",
+  "starostlivost",
+  "aktivity",
+  "podujatia",
+  "adresar",
+  "pomoc-psom",
+  "recenzie",
+] as const;
+type ArticlePortalSection = (typeof ARTICLE_PORTAL_SECTIONS)[number];
+
+const HELP_CATEGORIES = [
+  "adopcia",
+  "utulky",
+  "docasna-opatera",
+  "zbierky",
+  "stratene-a-najdene",
+  "dobrovolnictvo",
+  "urgentne-pripady",
+] as const;
+type HelpCategorySlug = (typeof HELP_CATEGORIES)[number];
+
+function isArticlePortalSection(value: string): value is ArticlePortalSection {
+  return (ARTICLE_PORTAL_SECTIONS as readonly string[]).includes(value);
+}
+
+function isHelpCategory(value: string): value is HelpCategorySlug {
+  return (HELP_CATEGORIES as readonly string[]).includes(value);
+}
 
 export const ENTITY_SITEMAP_BATCH_SIZE = 500;
 export const ENTITY_SITEMAP_MAX_BATCH_SIZE = 1000;
