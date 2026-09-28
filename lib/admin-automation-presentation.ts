@@ -189,6 +189,9 @@ export function automationSourceOnlyErrorMessage(
   fallback = "Operáciu sa nepodarilo dokončiť.",
 ) {
   const message = typeof value === "string" ? value.trim() : "";
+  if (/^automation_source_technical_verification_failed$/i.test(message)) {
+    return "Tento zdroj sa momentálne nepodarilo bezpečne overiť. Skús to neskôr.";
+  }
   if (
     /^automation_source_not_ready(?::.*)?$/i.test(message)
     || /^automation_source_governance_blocked(?::.*)?$/i.test(message)
