@@ -5,10 +5,14 @@ import {
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 
 export const dynamic = "force-dynamic";
 
 function errorResponse(error: unknown) {
+  if (isArticlePublishIntegrityError(error)) {
+    return Response.json({ error: error.message, issues: error.issues }, { status: 422 });
+  }
   const message = error instanceof Error ? error.message : "Nastala neočakávaná chyba.";
   const status = isArticleSlugConflict(error) ? 409 : 400;
   return Response.json(

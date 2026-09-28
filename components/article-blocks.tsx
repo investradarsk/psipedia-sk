@@ -96,7 +96,9 @@ export function ArticleRichText({ value, className }: { value: string; className
 
 export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBlock[]; preview?: boolean }) {
   const headingIds = new Map(articleBlockHeadings(blocks).map((heading) => [heading.blockId, heading.id]));
-  const sources = blocks.filter((block): block is Extract<ArticleBlock, { type: "source" }> => block.type === "source" && Boolean(block.label && safeHref(block.url)));
+  const sources = blocks.filter((block): block is Extract<ArticleBlock, { type: "source" }> =>
+    block.type === "source" && Boolean(block.label && (safeHref(block.url) || block.note)),
+  );
   const firstSourceId = sources[0]?.id;
   return (
     <div className={preview ? "article-blocks article-blocks--preview" : "article-blocks"}>
@@ -134,7 +136,10 @@ export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBloc
         ) : null;
         if (block.type === "source") {
           if (block.id !== firstSourceId) return null;
-          return <aside className="article-block-source article-block-sources" key={block.id}><strong>Odborné zdroje</strong><ul>{sources.map((source) => <li key={source.id}><a href={safeHref(source.url)} target="_blank" rel="noreferrer">{source.label} ↗</a>{source.accessedAt && <small>Prístup: <time dateTime={source.accessedAt}>{new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${source.accessedAt}T12:00:00Z`))}</time></small>}{source.note && <div className="article-block-rich-content">{renderRichTextBlocks(source.note, source.id)}</div>}</li>)}</ul></aside>;
+          return <aside className="article-block-source article-block-sources" key={block.id}><strong>Odborné zdroje</strong><ul>{sources.map((source) => {
+            const href = safeHref(source.url);
+            return <li key={source.id}>{href ? <a href={href} target="_blank" rel="noreferrer">{source.label} ↗</a> : <span>{source.label}</span>}{source.accessedAt && <small>Prístup: <time dateTime={source.accessedAt}>{new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${source.accessedAt}T12:00:00Z`))}</time></small>}{source.note && <div className="article-block-rich-content">{renderRichTextBlocks(source.note, source.id)}</div>}</li>;
+          })}</ul></aside>;
         }
         if (block.type === "related") {
           const href = safeHref(block.href, true);
