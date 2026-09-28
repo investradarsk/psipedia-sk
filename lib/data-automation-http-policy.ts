@@ -1,5 +1,5 @@
 export const AUTOMATION_SOURCE_HTTP_USER_AGENT = "PsipediaDataResearch/1.0 (+https://psipedia.sk)";
-export const AUTOMATION_SOURCE_MAX_REDIRECT_HOPS = 3;
+// RFC 9309 §2.3.1.2 recommends following at least five consecutive robots.txt redirects.\n// The controlled source connector shares the same bounded transport policy for parity.\nexport const AUTOMATION_SOURCE_MAX_REDIRECT_HOPS = 5;
 
 export function automationSourceRequestTimeoutMs(value: number | null | undefined) {
   const timeout = Number(value);
