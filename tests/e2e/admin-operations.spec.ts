@@ -20,8 +20,10 @@ test("alerts center, shared bell and active/history controls are accessible and 
 
   await expect(page.getByRole("heading", { name: "Upozornenia", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Aktívne upozornenia", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Automatizačné zdroje", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Automatizácie na kontrolu", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Automatizácie", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Automatizačné zdroje", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Automatizácie na kontrolu", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Neisté zhody entít", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("admin-attention-queue")).toBeVisible();
 
   const bell = page.getByTestId("admin-notification-bell");
@@ -43,7 +45,15 @@ test("alerts center, shared bell and active/history controls are accessible and 
   await expect(page.getByRole("link", { name: "Upozornenia", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Mapy", exact: true })).toHaveAttribute("href", "/admin/mapy");
   await expect(page.getByRole("link", { name: "Nástroje", exact: true })).toHaveAttribute("href", "/admin/nastroje");
+  await expect(page.getByRole("link", { name: "Profilové recenzie", exact: true })).toHaveAttribute("href", "/admin/recenzie-profilov");
+  await expect(page.getByRole("link", { name: "Tipy", exact: true })).toHaveAttribute("href", "/admin/tipy");
+  await expect(page.getByRole("link", { name: "Hodnotenia", exact: true })).toHaveAttribute("href", "/admin/hodnotenia");
+  await expect(page.getByRole("link", { name: "Dopyty", exact: true })).toHaveAttribute("href", "/admin/dopyty");
+  await expect(page.getByRole("link", { name: "Návrhy úprav", exact: true })).toHaveAttribute("href", "/admin/adresar/navrhy");
   await expect(page.getByRole("link", { name: "Operácie", exact: true })).toHaveCount(0);
+
+  const adminNavigation = page.getByRole("navigation", { name: "Redakčné moduly" });
+  await expect(adminNavigation).toHaveCSS("position", "sticky");
   await expect(page.getByRole("heading", { name: "Lokality pre budúcu mapu", exact: true })).toHaveCount(0);
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

@@ -4,6 +4,7 @@ import {
   adminAttentionQueueSourceTypes,
   isAdminAttentionQueueSourceType,
   mapAdoptionStaleAttention,
+  mapAutomationActionAttention,
   mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
   mapDirectoryInquiryAttention,
@@ -19,6 +20,7 @@ import {
   mapPartnerVerificationAttention,
   mapProfileReviewAttention,
   type AdoptionStaleAttentionRow,
+  type AutomationActionAttentionRow,
   type AdminAttentionFilters,
   type AdminAttentionItem,
   type AdminAttentionPriority,
@@ -45,7 +47,7 @@ type RuntimeBindings = { DB?: D1Database };
 
 export const ADMIN_ATTENTION_PAGE_SIZE = 24;
 export const ADMIN_ATTENTION_MAX_PAGE_SIZE = 50;
-export const ADMIN_ATTENTION_SOURCE_QUERY_COUNT = 15;
+export const ADMIN_ATTENTION_SOURCE_QUERY_COUNT = 16;
 export const ADMIN_ATTENTION_REQUEST_QUERY_MAX = ADMIN_ATTENTION_SOURCE_QUERY_COUNT * 2;
 
 export const adminAttentionAvailabilityStates = ["OK", "EMPTY", "PARTIAL", "UNAVAILABLE"] as const;
@@ -139,6 +141,262 @@ type CursorPayload = {
 const RISK_FLAG_SQL = `json_array_length(CASE WHEN json_valid(COALESCE(s.risk_flags_json, '[]')) THEN COALESCE(s.risk_flags_json, '[]') ELSE '[]' END)`;
 const PROFILE_RISK_FLAG_SQL = `json_array_length(CASE WHEN json_valid(COALESCE(review.risk_flags_json, '[]')) THEN COALESCE(review.risk_flags_json, '[]') ELSE '[]' END)`;
 
+
+// Upozornenia are actionable domain state. Automation Operations owns activity/history/metrics.
+// Legacy automation findings remain internal technical history; this source exposes only product actions.
+const AUTOMATION_ACTION_SELECT = `
+  WITH
+  draft_events AS (
+    SELECT
+      CASE e.resource_type
+        WHEN 'automation_draft_veterinari' THEN 'veterinari'
+        WHEN 'automation_draft_psie-sluzby' THEN 'psie-sluzby'
+        WHEN 'automation_draft_utulky-organizacie' THEN 'utulky-organizacie'
+        WHEN 'automation_draft_podujatia' THEN 'podujatia'
+        WHEN 'automation_draft_adopcie' THEN 'adopcie'
+        WHEN 'automation_draft_docasna-opatera' THEN 'docasna-opatera'
+        WHEN 'automation_draft_stratene-najdene' THEN 'stratene-najdene'
+        ELSE NULL
+      END AS categorySlug,
+      e.resource_ref AS canonicalId,
+      e.target_url AS targetHref,
+      e.created_at AS relevantAt
+    FROM admin_notification_events e
+    JOIN admin_notification_runtime runtime ON runtime.id=1
+    WHERE e.source_type='AUTOMATION_ACTION'
+      AND e.event_type='automation_draft_created'
+      AND e.created_at>=runtime.rollout_started_at
+      AND (
+        (e.resource_type='automation_draft_veterinari' AND EXISTS (
+          SELECT 1 FROM directory_profiles d WHERE d.id=CAST(e.resource_ref AS INTEGER) AND LOWER(d.status)='draft'
+        ))
+        OR (e.resource_type='automation_draft_psie-sluzby' AND EXISTS (
+          SELECT 1 FROM directory_profiles d WHERE d.id=CAST(e.resource_ref AS INTEGER) AND LOWER(d.status)='draft'
+        ))
+        OR (e.resource_type='automation_draft_utulky-organizacie' AND EXISTS (
+          SELECT 1 FROM help_organizations o WHERE o.id=CAST(e.resource_ref AS INTEGER) AND LOWER(o.status)='draft'
+        ))
+        OR (e.resource_type='automation_draft_podujatia' AND EXISTS (
+          SELECT 1 FROM managed_events m WHERE m.id=CAST(e.resource_ref AS INTEGER) AND LOWER(m.status)='draft'
+        ))
+        OR (e.resource_type='automation_draft_adopcie' AND EXISTS (
+          SELECT 1 FROM adoption_dogs a WHERE a.id=CAST(e.resource_ref AS INTEGER) AND LOWER(a.status)='draft'
+        ))
+        OR (e.resource_type='automation_draft_docasna-opatera' AND EXISTS (
+          SELECT 1 FROM help_cases h WHERE h.id=CAST(e.resource_ref AS INTEGER) AND LOWER(h.status)='draft'
+        ))
+        OR (e.resource_type='automation_draft_stratene-najdene' AND EXISTS (
+          SELECT 1 FROM lost_found_dog_reports l WHERE l.id=CAST(e.resource_ref AS INTEGER) AND LOWER(l.status)='draft'
+        ))
+      )
+  ),
+  draft_groups AS (
+    SELECT categorySlug,COUNT(*) AS itemCount,MAX(relevantAt) AS relevantAt,
+      CASE WHEN COUNT(*)=1 THEN MIN(targetHref) ELSE '/admin/automatizacie' END AS targetHref
+    FROM draft_events
+    WHERE categorySlug IS NOT NULL
+    GROUP BY categorySlug
+  ),
+  candidate_items AS (
+    SELECT
+      CASE c.entity_type
+        WHEN 'EVENT' THEN 'podujatia'
+        WHEN 'ADOPTION' THEN 'adopcie'
+        WHEN 'FOSTER' THEN 'docasna-opatera'
+        WHEN 'LOST_FOUND' THEN 'stratene-najdene'
+        ELSE NULL
+      END AS categorySlug,
+      c.last_detected_at AS relevantAt
+    FROM automation_source_candidates c
+    WHERE c.review_status='NEW'
+      AND c.duplicate_source_id IS NULL
+      AND c.entity_type IN ('EVENT','ADOPTION','FOSTER','LOST_FOUND')
+      AND (
+        NOT EXISTS (SELECT 1 FROM automation_source_candidate_evidence e0 WHERE e0.candidate_id=c.id)
+        OR EXISTS (
+          SELECT 1
+          FROM automation_source_candidate_evidence e
+          JOIN automation_discovery_roots r ON r.id=e.root_id
+          WHERE e.candidate_id=c.id
+            AND r.enabled=1
+            AND r.review_status='APPROVED'
+            AND (
+              ((julianday((SELECT nowIso FROM params))-julianday(e.last_seen_at))*1440)
+                <= CASE WHEN 3*r.cadence_minutes>4320 THEN 3*r.cadence_minutes ELSE 4320 END
+              OR (
+                SELECT COUNT(*) FROM automation_discovery_runs dr
+                WHERE dr.root_id=e.root_id
+                  AND dr.status IN ('SUCCESS','PARTIAL')
+                  AND dr.started_at>e.last_seen_at
+              ) < 3
+            )
+        )
+      )
+  ),
+  candidate_groups AS (
+    SELECT categorySlug,COUNT(*) AS itemCount,MAX(relevantAt) AS relevantAt
+    FROM candidate_items
+    WHERE categorySlug IS NOT NULL
+    GROUP BY categorySlug
+  ),
+  update_items AS (
+    SELECT category_slug AS categorySlug,last_detected_at AS relevantAt,0 AS highPriority
+    FROM automation_update_suggestions
+    WHERE status='OPEN'
+    UNION ALL
+    SELECT
+      CASE f.entity_type
+        WHEN 'EVENT' THEN 'podujatia'
+        WHEN 'ADOPTION' THEN 'adopcie'
+        WHEN 'FOSTER' THEN 'docasna-opatera'
+        WHEN 'LOST_FOUND' THEN 'stratene-najdene'
+        ELSE NULL
+      END AS categorySlug,
+      f.last_detected_at AS relevantAt,
+      CASE
+        WHEN f.entity_type='EVENT'
+          AND f.finding_type='POSSIBLE_CANCELLED'
+          AND EXISTS (
+            SELECT 1
+            FROM managed_events event
+            WHERE event.id=f.canonical_entity_id
+              AND LOWER(event.status)='published'
+              AND event.start_date>=date((SELECT nowIso FROM params))
+          )
+        THEN 1 ELSE 0
+      END AS highPriority
+    FROM automation_findings f
+    WHERE f.canonical_entity_id IS NOT NULL
+      AND f.finding_type IN ('POSSIBLE_UPDATE','POSSIBLE_INACTIVE','POSSIBLE_CANCELLED')
+      AND f.review_status IN ('NEW','IN_REVIEW','SUPPRESSED')
+      AND f.entity_type IN ('EVENT','ADOPTION','FOSTER','LOST_FOUND')
+  ),
+  update_groups AS (
+    SELECT categorySlug,COUNT(*) AS itemCount,MAX(relevantAt) AS relevantAt,MAX(highPriority) AS highPriority
+    FROM update_items
+    WHERE categorySlug IS NOT NULL
+    GROUP BY categorySlug
+  ),
+  address_groups AS (
+    SELECT r.category_slug AS categorySlug,COUNT(*) AS itemCount,MAX(r.last_detected_at) AS relevantAt
+    FROM automation_address_review_cases r
+    JOIN directory_profiles profile ON profile.id=r.canonical_entity_id
+    WHERE r.status='OPEN'
+      AND r.category_slug IN ('veterinari','psie-sluzby')
+    GROUP BY r.category_slug
+  ),
+  possible_match_items AS (
+    SELECT mc.observation_id,mc.candidate_cluster_id,mc.created_at AS relevantAt
+    FROM automation_cluster_match_candidates mc
+    JOIN automation_cluster_observations co ON co.observation_id=mc.observation_id
+    JOIN automation_entity_clusters source_cluster ON source_cluster.id=co.cluster_id
+    JOIN automation_entity_clusters target_cluster ON target_cluster.id=mc.candidate_cluster_id
+    JOIN automation_observations observation ON observation.id=mc.observation_id
+    LEFT JOIN automation_entity_match_decisions decision
+      ON decision.source_cluster_id=source_cluster.id
+      AND decision.candidate_cluster_id=mc.candidate_cluster_id
+      AND decision.is_active=1
+    WHERE mc.match_quality='POSSIBLE'
+      AND source_cluster.entity_type IN ('DIRECTORY','ORGANIZATION')
+      AND target_cluster.entity_type=source_cluster.entity_type
+      AND (
+        decision.id IS NULL
+        OR observation.detected_at>decision.created_at
+        OR source_cluster.updated_at>decision.created_at
+        OR target_cluster.updated_at>decision.created_at
+      )
+  ),
+  failing_sources AS (
+    SELECT s.id,s.label,s.entity_type,s.config_json,
+      (
+        SELECT MIN(failed.started_at)
+        FROM automation_runs failed
+        WHERE failed.source_id=s.id
+          AND failed.status='FAILED'
+          AND failed.started_at>COALESCE((
+            SELECT MAX(reset.started_at)
+            FROM automation_runs reset
+            WHERE reset.source_id=s.id AND reset.status NOT IN ('FAILED','RUNNING')
+          ),'')
+      ) AS relevantAt
+    FROM automation_sources s
+    WHERE s.enabled=1
+      AND s.review_status='APPROVED'
+      AND (
+        SELECT COUNT(*)
+        FROM automation_runs recent
+        WHERE recent.source_id=s.id
+          AND recent.status='FAILED'
+          AND recent.id IN (
+            SELECT last_run.id
+            FROM automation_runs last_run
+            WHERE last_run.source_id=s.id
+              AND last_run.status<>'RUNNING'
+            ORDER BY last_run.started_at DESC,last_run.id DESC
+            LIMIT 3
+          )
+      )=3
+  )
+  SELECT
+    'AUTOMATION_ACTION' AS sourceType,
+    'new-drafts:' || categorySlug AS sourceId,
+    0 AS activeRank,'NEW' AS attentionState,'LOW' AS priority,2 AS priorityRank,relevantAt,
+    json_object('actionType','NEW_DRAFTS','sourceId','new-drafts:' || categorySlug,
+      'categorySlug',categorySlug,'count',itemCount,'relevantAt',relevantAt,'targetHref',targetHref,'sourceLabel',NULL) AS payload
+  FROM draft_groups
+  UNION ALL
+  SELECT
+    'AUTOMATION_ACTION','new-sources:' || categorySlug,0,'NEW','MEDIUM',1,relevantAt,
+    json_object('actionType','NEW_FEED_SOURCES','sourceId','new-sources:' || categorySlug,
+      'categorySlug',categorySlug,'count',itemCount,'relevantAt',relevantAt,
+      'targetHref','/admin/automatizacie/' || categorySlug || '#nove-zdroje','sourceLabel',NULL)
+  FROM candidate_groups
+  UNION ALL
+  SELECT
+    'AUTOMATION_ACTION','updates:' || categorySlug,0,'NEW',
+    CASE WHEN highPriority=1 THEN 'HIGH' ELSE 'MEDIUM' END,
+    CASE WHEN highPriority=1 THEN 0 ELSE 1 END,
+    relevantAt,
+    json_object('actionType','UPDATE_SUGGESTIONS','sourceId','updates:' || categorySlug,
+      'categorySlug',categorySlug,'count',itemCount,'relevantAt',relevantAt,
+      'targetHref','/admin/automatizacie/' || categorySlug || '#doplnenia-zmeny','sourceLabel',NULL,
+      'priority',CASE WHEN highPriority=1 THEN 'HIGH' ELSE 'MEDIUM' END)
+  FROM update_groups
+  UNION ALL
+  SELECT
+    'AUTOMATION_ACTION','address-review:' || categorySlug,0,'NEW','MEDIUM',1,relevantAt,
+    json_object('actionType','ADDRESS_REVIEW','sourceId','address-review:' || categorySlug,
+      'categorySlug',categorySlug,'count',itemCount,'relevantAt',relevantAt,
+      'targetHref','/admin/automatizacie/adresy?category=' || categorySlug,'sourceLabel',NULL)
+  FROM address_groups
+  UNION ALL
+  SELECT
+    'AUTOMATION_ACTION','possible-matches:global',0,'NEW','MEDIUM',1,MAX(relevantAt),
+    json_object('actionType','POSSIBLE_MATCH_REVIEW','sourceId','possible-matches:global',
+      'categorySlug',NULL,'count',COUNT(*),'relevantAt',MAX(relevantAt),
+      'targetHref','/admin/operations/possible-matches','sourceLabel',NULL)
+  FROM possible_match_items
+  HAVING COUNT(*)>0
+  UNION ALL
+  SELECT
+    'AUTOMATION_ACTION','source-issue:' || id,0,'IN_PROGRESS','HIGH',0,relevantAt,
+    json_object('actionType','SOURCE_ISSUE','sourceId','source-issue:' || id,
+      'categorySlug',
+        CASE
+          WHEN entity_type='EVENT' THEN 'podujatia'
+          WHEN entity_type='ADOPTION' THEN 'adopcie'
+          WHEN entity_type='FOSTER' THEN 'docasna-opatera'
+          WHEN entity_type='LOST_FOUND' THEN 'stratene-najdene'
+          WHEN entity_type='ORGANIZATION' THEN 'utulky-organizacie'
+          WHEN entity_type='DIRECTORY' AND json_extract(CASE WHEN json_valid(config_json) THEN config_json ELSE '{}' END,'$.staticFields.category')='veterinari' THEN 'veterinari'
+          WHEN entity_type='DIRECTORY' THEN 'psie-sluzby'
+          ELSE NULL
+        END,
+      'count',1,'relevantAt',relevantAt,
+      'targetHref','/admin/automatizacie/zdroje/' || id,'sourceLabel',label)
+  FROM failing_sources
+`;
+
 const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = {
   MODERATION_SUBMISSION: `
     SELECT 'MODERATION_SUBMISSION' AS sourceType, CAST(s.id AS TEXT) AS sourceId,
@@ -224,6 +482,7 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
     WHERE status IN ('ACTIVE','RESERVED')
       AND (last_verified_at IS NULL OR last_verified_at < (SELECT staleAdoptionAt FROM params))
   `,
+  AUTOMATION_ACTION: AUTOMATION_ACTION_SELECT,
   PARTNER_CLAIM_REVIEW: `
     SELECT 'PARTNER_CLAIM_REVIEW' AS sourceType, CAST(x.id AS TEXT) AS sourceId,
       CASE WHEN x.status='PENDING' THEN 0 ELSE 1 END AS activeRank,
@@ -773,6 +1032,7 @@ function mapGenericRow(row: AttentionGenericRow, now: Date): AdminAttentionItem 
     case "DIRECTORY_INQUIRY": return mapDirectoryInquiryAttention(payload as DirectoryInquiryAttentionRow, now);
     case "ARTICLE_FEEDBACK": return mapArticleFeedbackAttention(payload as ArticleFeedbackAttentionRow, now);
     case "ADOPTION_STALE": return mapAdoptionStaleAttention(payload as AdoptionStaleAttentionRow, now);
+    case "AUTOMATION_ACTION": return mapAutomationActionAttention(payload as AutomationActionAttentionRow, now);
     case "PARTNER_CLAIM_REVIEW": return mapPartnerClaimAttention(payload as PartnerClaimAttentionRow, now);
     case "PARTNER_PROFILE_CHANGE_REVIEW": return mapPartnerProfileChangeAttention(payload as PartnerProfileChangeAttentionRow, now);
     case "PARTNER_NEW_PROFILE_REVIEW": return mapPartnerNewProfileAttention(payload as PartnerNewProfileAttentionRow, now);
