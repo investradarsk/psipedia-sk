@@ -15,6 +15,8 @@ type GeoapifyResult = {
   town?: string;
   village?: string;
   municipality?: string;
+  suburb?: string;
+  district?: string;
   street?: string;
   housenumber?: string;
   postcode?: string;
@@ -67,6 +69,8 @@ function normalizeResult(result: GeoapifyResult): NormalizedGeocoderResult | nul
     region: result.state ?? "",
     district: result.county ?? "",
     city: result.city ?? result.town ?? result.village ?? result.municipality ?? "",
+    suburb: result.suburb ?? "",
+    cityDistrict: result.district ?? result.suburb ?? "",
     street: result.street ?? "",
     housenumber: result.housenumber ?? "",
     postcode: result.postcode ?? "",
