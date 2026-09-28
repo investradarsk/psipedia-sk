@@ -192,7 +192,7 @@ export async function listAutomationDiscoveryRoots(
 
     return roots.map((root) => {
       if (root.discoveryType !== "SEARCH_PROVIDER") return root;
-      const policy = automationSearchBudgetPolicy(root);
+      const policy = automationSearchBudgetPolicy(root, now);
       const summary = aggregateByRoot.get(root.id);
       const requestsToday = numberValue(summary?.requests_today);
       const addressEnrichmentRequestsToday = numberValue(summary?.address_enrichment_requests_today);
