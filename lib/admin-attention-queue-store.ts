@@ -263,6 +263,13 @@ const AUTOMATION_ACTION_SELECT = `
     WHERE categorySlug IS NOT NULL
     GROUP BY categorySlug
   ),
+  address_groups AS (
+    SELECT category_slug AS categorySlug,COUNT(*) AS itemCount,MAX(last_detected_at) AS relevantAt
+    FROM automation_address_review_cases
+    WHERE status='OPEN'
+      AND category_slug IN ('veterinari','psie-sluzby')
+    GROUP BY category_slug
+  ),
   possible_match_items AS (
     SELECT mc.observation_id,mc.candidate_cluster_id,mc.created_at AS relevantAt
     FROM automation_cluster_match_candidates mc
@@ -330,6 +337,13 @@ const AUTOMATION_ACTION_SELECT = `
       'categorySlug',categorySlug,'count',itemCount,'relevantAt',relevantAt,
       'targetHref','/admin/automatizacie/' || categorySlug || '#doplnenia-zmeny','sourceLabel',NULL)
   FROM update_groups
+  UNION ALL
+  SELECT
+    'AUTOMATION_ACTION','address-review:' || categorySlug,0,'NEW','MEDIUM',1,relevantAt,
+    json_object('actionType','ADDRESS_REVIEW','sourceId','address-review:' || categorySlug,
+      'categorySlug',categorySlug,'count',itemCount,'relevantAt',relevantAt,
+      'targetHref','/admin/automatizacie/adresy?category=' || categorySlug,'sourceLabel',NULL)
+  FROM address_groups
   UNION ALL
   SELECT
     'AUTOMATION_ACTION','possible-matches:global',0,'NEW','MEDIUM',1,MAX(relevantAt),
