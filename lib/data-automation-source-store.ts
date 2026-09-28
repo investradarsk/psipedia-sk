@@ -554,27 +554,6 @@ export async function getAutomationSourceCandidate(
   };
 }
 
-function mergedCandidateMetadataForPersistence(
-  existing: Record<string, unknown>,
-  incoming: Record<string, unknown>,
-  entityType: AutomationEntityType,
-) {
-  const merged = { ...existing, ...incoming };
-  const categoryKey = entityType === "DIRECTORY"
-    ? "directoryCategory"
-    : entityType === "HELP_ITEM"
-      ? "helpCategory"
-      : null;
-  if (categoryKey) {
-    const existingCategory = typeof existing[categoryKey] === "string" ? existing[categoryKey].trim() : "";
-    const incomingCategory = typeof incoming[categoryKey] === "string" ? incoming[categoryKey].trim() : "";
-    if (existingCategory && incomingCategory && existingCategory !== incomingCategory) {
-      merged[categoryKey] = existingCategory;
-    }
-  }
-  return merged;
-}
-
 export async function upsertAutomationSourceCandidate(input: {
   candidate: AutomationSourceCandidateInput;
   discoveredFromSourceId?: number | null;
@@ -586,14 +565,6 @@ export async function upsertAutomationSourceCandidate(input: {
     throw new Error("automation_candidate_url_not_safe");
   }
   const at = (input.detectedAt ?? new Date()).toISOString();
-  const existingCandidate = await db.prepare(`SELECT metadata_json FROM automation_source_candidates
-    WHERE canonical_url=? AND entity_type=? LIMIT 1`)
-    .bind(canonicalUrl, input.candidate.entityType).first<{ metadata_json?: string | null }>();
-  const persistedMetadata = mergedCandidateMetadataForPersistence(
-    json<Record<string, unknown>>(existingCandidate?.metadata_json, {}),
-    input.candidate.metadata ?? {},
-    input.candidate.entityType,
-  );
   const duplicate = await db.prepare(`SELECT id FROM automation_sources
     WHERE source_url=? AND entity_type=? LIMIT 1`)
     .bind(canonicalUrl, input.candidate.entityType).first<{ id: number }>();
@@ -603,9 +574,7 @@ export async function upsertAutomationSourceCandidate(input: {
       discovered_from_source_id,reason,metadata_json,duplicate_source_id,review_status,first_detected_at,last_detected_at
     ) VALUES (?,?,?,?,?,?,?,?,?,?, 'NEW',?,?)
     ON CONFLICT(canonical_url,entity_type) DO UPDATE SET
-      discovery_type=excluded.discovery_type,label=excluded.label,suggested_connector_type=excluded.suggested_connector_type,
-      discovered_from_source_id=COALESCE(excluded.discovered_from_source_id,automation_source_candidates.discovered_from_source_id),
-      reason=excluded.reason,metadata_json=excluded.metadata_json,
+      label=excluded.label,suggested_connector_type=excluded.suggested_connector_type,
       duplicate_source_id=excluded.duplicate_source_id,last_detected_at=excluded.last_detected_at,
       review_status=CASE
         WHEN automation_source_candidates.review_status='SUPPRESSED'
@@ -637,7 +606,7 @@ export async function upsertAutomationSourceCandidate(input: {
       input.candidate.discoveryType, canonicalUrl, canonicalUrl, input.candidate.label.slice(0, 160),
       input.candidate.entityType, input.candidate.suggestedConnectorType,
       input.discoveredFromSourceId ?? null, input.candidate.reason.slice(0, 1000),
-      JSON.stringify(persistedMetadata), duplicate?.id ?? null, at, at,
+      JSON.stringify(input.candidate.metadata ?? {}), duplicate?.id ?? null, at, at,
     ).run();
   const row = await db.prepare(`SELECT * FROM automation_source_candidates
     WHERE canonical_url=? AND entity_type=? LIMIT 1`)
