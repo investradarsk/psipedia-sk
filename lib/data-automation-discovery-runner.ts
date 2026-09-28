@@ -26,6 +26,7 @@ import {
   listAutomationDiscoveryRoots,
   listDueAutomationDiscoveryRoots,
   reserveAutomationAddressEnrichmentRequest,
+  reserveAutomationEntityEnrichmentRequest,
   reserveAutomationSearchRequest,
   updateAutomationSearchUsageCandidateMetrics,
   type AutomationDiscoveryDatabase,
@@ -53,6 +54,8 @@ import {
   automationProductModeForRoot,
 } from "./data-automation-product-model.ts";
 import { ingestDirectEntityUrl } from "./data-automation-direct-entity.ts";
+import type { EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
+import type { AutomationEnrichmentSearchPlan } from "./data-automation-enrichment-evidence.ts";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import type { DirectoryAddressSearch } from "./data-automation-directory-address-enrichment.ts";
 
@@ -646,6 +649,123 @@ async function addressEnrichmentSearchForRoot(
       console.info(JSON.stringify({
         event: "data_automation_address_enrichment_search_error",
         rootKey: root.rootKey,
+        fingerprint,
+        status: error.code,
+      }));
+      return [];
+    }
+  };
+}
+
+async function entityEnrichmentGovernanceAllowed(
+  root: AutomationDiscoveryRoot,
+  database: AutomationDiscoveryDatabase,
+  now: Date,
+) {
+  if (
+    root.discoveryType !== "SEARCH_PROVIDER"
+    || !["DIRECTORY", "ORGANIZATION"].includes(root.entityType)
+    || root.reviewStatus !== "APPROVED"
+  ) return false;
+  const governance = await getGovernanceState({ type: "DISCOVERY_ROOT", id: root.id }, database);
+  const decision = evaluateGovernanceForActivation(governance, {
+    recurring: true,
+    cadenceMinutes: root.cadenceMinutes,
+    storageFields: ["url", "title", "snippet", "metadata"],
+  }, now);
+  return decision.allowed;
+}
+
+async function entityEnrichmentSearchForRoot(
+  root: AutomationDiscoveryRoot,
+  options: DataAutomationDiscoverySweepOptions,
+  discoveryRunId: number | null,
+): Promise<EntityEnrichmentSearch | undefined> {
+  const now = options.now ? new Date(options.now) : new Date();
+  if (!await entityEnrichmentGovernanceAllowed(
+    root,
+    options.database as AutomationDiscoveryDatabase,
+    now,
+  )) return undefined;
+
+  const providerKey = typeof root.config.provider === "string" ? root.config.provider.trim() : "";
+  if (!providerKey) return undefined;
+  let provider: AutomationSearchProvider;
+  try {
+    provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
+  } catch {
+    return undefined;
+  }
+
+  const policy = automationSearchBudgetPolicy(root, now);
+  let runRequests = 0;
+
+  return async (plan: AutomationEnrichmentSearchPlan) => {
+    if (runRequests >= policy.entityEnrichmentRequestsPerRun) return [];
+
+    let request: AutomationSearchRequest;
+    try {
+      request = normalizeAutomationSearchRequest({
+        query: plan.query,
+        maxResults: 5,
+        locale: root.config.locale ?? "sk-SK",
+        country: root.config.country ?? "SK",
+        allowDomains: plan.sameDomain ? [plan.sameDomain] : undefined,
+      });
+    } catch {
+      return [];
+    }
+
+    const fingerprint = await automationSearchQueryFingerprint(provider.key, request);
+    const dayBucket = now.toISOString().slice(0, 10);
+    const operationKey = `entity-enrichment:${dayBucket}:${root.id}:${plan.group.toLowerCase()}:${fingerprint}`;
+    const reservation = await reserveAutomationEntityEnrichmentRequest({
+      operationKey,
+      discoveryRunId,
+      providerKey: provider.key,
+      rootId: root.id,
+      entityType: root.entityType,
+      queryFingerprint: fingerprint,
+      now,
+      globalDailyLimit: policy.globalDailyRequests,
+      entityDailyLimit: policy.entityDailyRequests,
+      entityEnrichmentDailyLimit: policy.entityEnrichmentDailyRequests,
+    }, options.database as AutomationDiscoveryDatabase);
+
+    if (!reservation.reserved) {
+      console.info(JSON.stringify({
+        event: "data_automation_entity_enrichment_search_skip",
+        rootKey: root.rootKey,
+        group: plan.group,
+        fingerprint,
+        status: reservation.reason,
+      }));
+      return [];
+    }
+
+    runRequests += 1;
+    try {
+      const results = await provider.search(request);
+      if (!Array.isArray(results)) throw new AutomationSearchProviderError("INVALID_RESPONSE");
+      await finalizeAutomationSearchUsage({
+        operationKey,
+        status: results.length ? "SUCCESS" : "EMPTY",
+        resultCount: results.length,
+        now,
+      }, options.database as AutomationDiscoveryDatabase);
+      return results.slice(0, 5);
+    } catch (rawError) {
+      const error = searchProviderError(rawError);
+      await finalizeAutomationSearchUsage({
+        operationKey,
+        status: searchUsageStatus(error),
+        resultCount: 0,
+        now,
+      }, options.database as AutomationDiscoveryDatabase);
+      console.info(JSON.stringify({
+        event: "data_automation_entity_enrichment_search_error",
+        rootKey: root.rootKey,
+        group: plan.group,
         fingerprint,
         status: error.code,
       }));
