@@ -3,6 +3,7 @@ import {
   automationCanonicalAdminHref,
   canonicalizeSourceUrl,
   sha256Hex,
+  stableJson,
   type AutomationDiff,
   type AutomationEntityType,
   type AutomationFindingType,
@@ -134,33 +135,27 @@ export async function upsertDirectEntityUpdateSuggestion(input: {
 }, databaseInput?: Database) {
   const db = database(databaseInput);
   const externalSourceUrl = normalizedUrl(input.externalSourceUrl);
-  const proposalHash = await sha256Hex(input.proposed);
   const fingerprint = await sha256Hex({
     entityType: input.entityType,
     canonicalEntityId: input.canonicalEntityId,
     externalSourceUrl,
     externalRecordId: input.externalRecordId,
     suggestionType: input.suggestionType,
-    proposalHash,
   });
-  await db.prepare(`UPDATE automation_update_suggestions
-    SET status='RESOLVED'
-    WHERE entity_type=? AND canonical_entity_id=? AND suggestion_type=?
-      AND COALESCE(external_source_url,'')=COALESCE(?,'')
-      AND external_record_id=? AND status='OPEN' AND fingerprint<>?`).bind(
-        input.entityType,
-        input.canonicalEntityId,
-        input.suggestionType,
-        externalSourceUrl,
-        input.externalRecordId.trim().slice(0, 240),
-        fingerprint,
-      ).run();
+  const proposedJson = stableJson(input.proposed);
+  const diffJson = stableJson(input.diff);
   await db.prepare(`INSERT INTO automation_update_suggestions (
       entity_type,canonical_entity_id,category_slug,external_source_url,external_record_id,suggestion_type,
       before_json,proposed_json,diff_json,fingerprint,status,first_detected_at,last_detected_at
     ) VALUES (?,?,?,?,?,?,?,?,?,?,'OPEN',?,?)
     ON CONFLICT(fingerprint) DO UPDATE SET
       before_json=excluded.before_json,proposed_json=excluded.proposed_json,diff_json=excluded.diff_json,
+      status=CASE
+        WHEN automation_update_suggestions.proposed_json=excluded.proposed_json
+         AND automation_update_suggestions.diff_json=excluded.diff_json
+        THEN automation_update_suggestions.status
+        ELSE 'OPEN'
+      END,
       last_detected_at=excluded.last_detected_at`).bind(
         input.entityType,
         input.canonicalEntityId,
@@ -169,8 +164,8 @@ export async function upsertDirectEntityUpdateSuggestion(input: {
         input.externalRecordId.trim().slice(0, 240),
         input.suggestionType,
         JSON.stringify(input.before),
-        JSON.stringify(input.proposed),
-        JSON.stringify(input.diff),
+        proposedJson,
+        diffJson,
         fingerprint,
         input.detectedAt,
         input.detectedAt,
