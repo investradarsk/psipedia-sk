@@ -162,9 +162,53 @@ function addressSearchQuery(input: {
     .slice(0, 500);
 }
 
-function searchResultEvidence(results: AutomationSearchResult[]) {
+function normalizeIdentity(value: string) {
+  return value.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("sk-SK")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function searchEvidenceIdentityMatches(
+  result: AutomationSearchResult,
+  name: string,
+  sourceUrl: string,
+) {
+  let sourceHost = "";
+  let resultHost = "";
+  try {
+    sourceHost = new URL(sourceUrl).hostname.toLowerCase().replace(/^www\./, "");
+    resultHost = new URL(result.url).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    // Search evidence remains usable only through the explicit name gate below.
+  }
+  if (sourceHost && resultHost && sourceHost === resultHost) return true;
+
+  const normalizedName = normalizeIdentity(name);
+  const haystack = normalizeIdentity([result.title, result.snippet ?? ""].join(" "));
+  if (!normalizedName || !haystack) return false;
+  if (haystack.includes(normalizedName)) return true;
+  const generic = new Set([
+    "veterinar", "veterinarna", "ambulancia", "klinika", "psia", "psi", "skola",
+    "trener", "trening", "salon", "hotel", "fyzioterapia", "kontakt", "slovensko",
+  ]);
+  const tokens = normalizedName.split(" ")
+    .filter((token) => token.length >= 4 && !generic.has(token));
+  if (!tokens.length) return false;
+  const matches = tokens.filter((token) => haystack.includes(token)).length;
+  return matches >= Math.min(2, tokens.length);
+}
+
+function searchResultEvidence(
+  results: AutomationSearchResult[],
+  name: string,
+  sourceUrl: string,
+) {
   const values: string[] = [];
   for (const result of results.slice(0, 5)) {
+    if (!searchEvidenceIdentityMatches(result, name, sourceUrl)) continue;
     const snippet = text(result.snippet);
     const title = text(result.title);
     values.push(
@@ -224,7 +268,7 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
   } catch {
     return { proposed: input.proposed, verified: null, usedAddressSearch: true };
   }
-  const searchedEvidence = searchResultEvidence(results);
+  const searchedEvidence = searchResultEvidence(results, input.name, input.sourceUrl);
   const searched = await verifyEvidence({
     candidates: searchedEvidence,
     proposed: input.proposed,
