@@ -1235,6 +1235,7 @@ test("TECHNICAL VERIFICATION ASKA-like robots 403 recovers existing source witho
   });
   db.governance[0].robots_status = "RESTRICTED";
   db.governance[0].restrictions_note = "Technical access check: http_200. Technical robots check: http_403.";
+  const wasEnabled = source.enabled;
   const stale = await automationSourceActivationReadiness(source, db, { cadenceMinutes: 360, now: retry });
   assert.equal(stale.ready, false);
   assert.ok(stale.governanceBlockingReasons.includes("ROBOTS_NOT_ALLOWED"));
@@ -1264,7 +1265,7 @@ test("TECHNICAL VERIFICATION ASKA-like robots 403 recovers existing source witho
   assert.equal(db.governance[0].access_status, "ALLOWED");
   assert.equal(db.governance[0].robots_status, "NOT_APPLICABLE");
   assert.equal(db.sources.length, 1, "existing source is reused, not recreated");
-  assert.equal(configured.enabled && !source.enabled, false, "source object is updated in-memory by the test DB");
+  assert.equal(configured.enabled && !wasEnabled, true, "successful OFF -> ON remains eligible for immediate first run");
 
   const eventLine = logs.find((line) => line.includes('"event":"automation_source_technical_verification"'));
   assert.ok(eventLine, "technical verification emits one structured diagnostic event");
@@ -1329,13 +1330,17 @@ test("GOVERNANCE REFRESH is entity-generic across all automation source entity t
 });
 
 
-test("TECHNICAL VERIFICATION RFC 9309 robots 4xx are unavailable, not restrictions", async () => {
+test("TECHNICAL VERIFICATION RFC 9309 source 200 + robots 4xx stays technically ready", async () => {
   const source = technicalProbeSource();
   for (const status of [400, 401, 403, 404, 405, 410, 429]) {
-    const robots = await probeAutomationSourceRobots(
-      source,
-      async () => new Response("", { status }),
-    );
+    const fetchImpl = async (url) => new URL(url).pathname === "/robots.txt"
+      ? new Response("", { status })
+      : new Response("<html></html>", { status: 200 });
+    const [access, robots] = await Promise.all([
+      probeAutomationSourceAccess(source, fetchImpl),
+      probeAutomationSourceRobots(source, fetchImpl),
+    ]);
+    assert.equal(access.status, "ALLOWED", "source HTTP 200 with robots HTTP " + status);
     assert.equal(robots.status, "NOT_APPLICABLE", "robots HTTP " + status);
     assert.equal(robots.detail, "http_" + status + "_unavailable", "robots HTTP " + status);
   }
