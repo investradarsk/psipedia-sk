@@ -205,6 +205,21 @@ export async function upsertAutomationAddressReviewCase(input: {
     candidates: candidates.map((candidate) => candidate.candidateHash).sort(),
   });
   await db.prepare(`
+    UPDATE automation_address_review_cases SET
+      status='STALE',resolved_at=?,resolution='SUPERSEDED',updated_at=?
+    WHERE entity_type='DIRECTORY' AND canonical_entity_id=?
+      AND external_source_url=? AND external_record_id=?
+      AND status='OPEN' AND fingerprint<>?
+  `).bind(
+    input.detectedAt,
+    input.detectedAt,
+    input.canonicalEntityId,
+    externalSourceUrl,
+    externalRecordId,
+    fingerprint,
+  ).run();
+
+  await db.prepare(`
     INSERT INTO automation_address_review_cases (
       entity_type,canonical_entity_id,category_slug,external_source_url,external_record_id,
       reason,evidence_json,candidate_json,fingerprint,status,canonical_before_json,
@@ -232,6 +247,29 @@ export async function upsertAutomationAddressReviewCase(input: {
   const row = await db.prepare(CASE_SELECT + " WHERE r.fingerprint=? LIMIT 1")
     .bind(fingerprint).first<Record<string, unknown>>();
   return row ? mapCase(row) : null;
+}
+
+export async function supersedeOpenAutomationAddressReviews(input: {
+  canonicalEntityId: number;
+  externalSourceUrl?: string | null;
+  externalRecordId: string;
+  detectedAt: string;
+}, databaseInput?: Database) {
+  const db = database(databaseInput);
+  const externalSourceUrl = canonicalizeSourceUrl(input.externalSourceUrl) ?? "";
+  await db.prepare(`
+    UPDATE automation_address_review_cases SET
+      status='STALE',resolved_at=?,resolution='SUPERSEDED',updated_at=?
+    WHERE entity_type='DIRECTORY' AND canonical_entity_id=?
+      AND external_source_url=? AND external_record_id=?
+      AND status='OPEN'
+  `).bind(
+    input.detectedAt,
+    input.detectedAt,
+    input.canonicalEntityId,
+    externalSourceUrl,
+    input.externalRecordId.trim().slice(0, 240),
+  ).run();
 }
 
 export async function countOpenAutomationAddressReviews(
