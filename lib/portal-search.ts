@@ -98,9 +98,52 @@ function persistedTokenClauses(searchExpression: string, fallbackExpression: str
 }
 
 function exactTitleOrder(titleExpression: string, parsed: ParsedPortalSearchQuery, bindings: unknown[]) {
-  const normalized = normalizedSql(titleExpression);
-  bindings.push(parsed.normalized, `${parsed.normalized}%`);
-  return `CASE WHEN ${normalized} = ? THEN 0 WHEN ${normalized} LIKE ? THEN 1 ELSE 2 END`;
+  bindings.push(parsed.normalized);
+  return `CASE WHEN ${normalizedSql(titleExpression)} = ? THEN 0 ELSE 1 END`;
+}
+
+function titlePrefixOrder(titleExpression: string, parsed: ParsedPortalSearchQuery, bindings: unknown[]) {
+  bindings.push(`${parsed.normalized}%`);
+  return `CASE WHEN ${normalizedSql(titleExpression)} LIKE ? THEN 0 ELSE 1 END`;
+}
+
+function locationOrder(
+  parsed: ParsedPortalSearchQuery,
+  bindings: unknown[],
+  fields: { city: string; district?: string; region: string },
+) {
+  const location = parsed.location;
+  if (!location) return "0";
+  const cases: string[] = [];
+  let rank = 0;
+  if (location.level === "city" && location.city) {
+    const city = normalizePortalSearch(location.city);
+    bindings.push(city, `${city} %`);
+    const citySql = normalizedSql(fields.city);
+    cases.push(`WHEN ${citySql} = ? OR ${citySql} LIKE ? THEN ${rank}`);
+    rank += 1;
+  }
+  if (location.district && fields.district) {
+    bindings.push(normalizePortalSearch(location.district));
+    cases.push(`WHEN ${normalizedSql(fields.district)} = ? THEN ${rank}`);
+    rank += 1;
+  }
+  if (location.region) {
+    bindings.push(normalizePortalSearch(location.region));
+    cases.push(`WHEN ${normalizedSql(fields.region)} = ? THEN ${rank}`);
+    rank += 1;
+  }
+  return cases.length ? `CASE ${cases.join(" ")} ELSE ${rank} END` : "0";
+}
+
+function tokenMatchOrder(expression: string, tokens: string[], bindings: unknown[]) {
+  if (!tokens.length) return "0";
+  const normalized = normalizedSql(expression);
+  const clauses = tokens.map((token) => {
+    bindings.push(`%${token}%`);
+    return `${normalized} LIKE ?`;
+  });
+  return `CASE WHEN ${clauses.join(" AND ")} THEN 0 ELSE 1 END`;
 }
 
 function addLocationWhere(
@@ -157,7 +200,14 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
     tokens,
     bindings,
   ));
-  const order = exactTitleOrder("p.name", parsed, bindings);
+  const exactOrder = exactTitleOrder("p.name", parsed, bindings);
+  const localityOrder = locationOrder(parsed, bindings, {
+    city: "p.city",
+    district: `COALESCE(NULLIF(p.district, ''), json_extract(p.source_data_json, '$."Okres"'), '')`,
+    region: "p.region",
+  });
+  const prefixOrder = titlePrefixOrder("p.name", parsed, bindings);
+  const serviceOrder = tokenMatchOrder("p.services_json", parsed.residualTokens, bindings);
   const columns = `'/adresar/' || p.category || '/' || p.slug AS href,
     p.name AS title,
     CASE WHEN p.category = 'veterinari' THEN 'Veterinár'
@@ -169,7 +219,7 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
     COALESCE(NULLIF(p.district, ''), json_extract(p.source_data_json, '$."Okres"'), '') AS district,
     p.region AS region, p.services_json AS services`;
   return {
-    sql: selectWithWindow(columns, "directory_profiles p", clauses, `${order}, p.name COLLATE NOCASE ASC, p.id ASC`, limit),
+    sql: selectWithWindow(columns, "directory_profiles p", clauses, `${exactOrder}, ${localityOrder}, ${prefixOrder}, ${serviceOrder}, p.name COLLATE NOCASE ASC, p.category ASC, p.slug ASC`, limit),
     bindings,
   };
 }
@@ -188,7 +238,8 @@ function articleQuery(parsed: ParsedPortalSearchQuery, limit: number, section: s
     tokens,
     bindings,
   ));
-  const order = exactTitleOrder("a.title", parsed, bindings);
+  const exactOrder = exactTitleOrder("a.title", parsed, bindings);
+  const prefixOrder = titlePrefixOrder("a.title", parsed, bindings);
   const columns = `CASE WHEN a.portal_section = 'clanky' THEN '/clanky/' || a.slug ELSE '/' || a.portal_section || '/' || a.slug END AS href,
     a.title AS title,
     CASE WHEN a.portal_section = 'novinky' THEN 'Novinka' ELSE 'Článok' END AS type,
@@ -196,7 +247,7 @@ function articleQuery(parsed: ParsedPortalSearchQuery, limit: number, section: s
     a.category || ' ' || a.focus_keyword || ' ' || a.portal_section AS keywords,
     'article' AS kind, a.category AS category, '' AS city, '' AS district, '' AS region, '' AS services`;
   return {
-    sql: selectWithWindow(columns, "managed_articles a", clauses, `${order}, a.title COLLATE NOCASE ASC, a.id ASC`, limit),
+    sql: selectWithWindow(columns, "managed_articles a", clauses, `${exactOrder}, ${prefixOrder}, a.title COLLATE NOCASE ASC, a.slug ASC`, limit),
     bindings,
   };
 }
@@ -212,12 +263,13 @@ function breedQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec |
     tokens,
     bindings,
   ));
-  const order = exactTitleOrder("b.name", parsed, bindings);
+  const exactOrder = exactTitleOrder("b.name", parsed, bindings);
+  const prefixOrder = titlePrefixOrder("b.name", parsed, bindings);
   const columns = `'/plemena/' || b.slug AS href, b.name AS title, 'Plemeno' AS type,
     b.intro AS description,
     b.official_fci_name || ' ' || b.group_name || ' ' || b.fci_section || ' ' || b.origin AS keywords,
     'breed' AS kind, '' AS category, '' AS city, '' AS district, '' AS region, '' AS services`;
-  return { sql: selectWithWindow(columns, "managed_breeds b", clauses, `${order}, b.name COLLATE NOCASE ASC, b.id ASC`, limit), bindings };
+  return { sql: selectWithWindow(columns, "managed_breeds b", clauses, `${exactOrder}, ${prefixOrder}, b.name COLLATE NOCASE ASC, b.slug ASC`, limit), bindings };
 }
 
 function eventQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
@@ -235,12 +287,14 @@ function eventQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec |
     bindings,
   ));
   if (!parsed.eventType && !tokens.length) return null;
-  const order = exactTitleOrder("e.title", parsed, bindings);
+  const exactOrder = exactTitleOrder("e.title", parsed, bindings);
+  const localityOrder = locationOrder(parsed, bindings, { city: "e.city", region: "e.region" });
+  const prefixOrder = titlePrefixOrder("e.title", parsed, bindings);
   const columns = `'/podujatia/' || e.slug AS href, e.title AS title, 'Podujatie' AS type,
     e.excerpt AS description,
     e.event_type || ' ' || e.organizer || ' ' || e.venue || ' ' || e.start_date AS keywords,
     'event' AS kind, e.event_type AS category, e.city AS city, '' AS district, e.region AS region, '' AS services`;
-  return { sql: selectWithWindow(columns, "managed_events e", clauses, `${order}, e.start_date ASC, e.title COLLATE NOCASE ASC, e.id ASC`, limit), bindings };
+  return { sql: selectWithWindow(columns, "managed_events e", clauses, `${exactOrder}, ${localityOrder}, ${prefixOrder}, e.start_date ASC, e.title COLLATE NOCASE ASC, e.slug ASC`, limit), bindings };
 }
 
 function organizationLocationExpression(field: "city" | "district" | "region") {
@@ -261,12 +315,13 @@ function organizationQuery(parsed: ParsedPortalSearchQuery, limit: number): Quer
     tokens,
     bindings,
   ));
-  const order = exactTitleOrder("o.name", parsed, bindings);
+  const exactOrder = exactTitleOrder("o.name", parsed, bindings);
+  const prefixOrder = titlePrefixOrder("o.name", parsed, bindings);
   const columns = `'/organizacie/' || o.slug AS href, o.name AS title, 'Organizácia' AS type,
     o.short_description AS description,
     o.type || ' ' || ${city} || ' ' || ${district} || ' ' || ${region} AS keywords,
     'organization' AS kind, o.type AS category, ${city} AS city, ${district} AS district, ${region} AS region, '' AS services`;
-  return { sql: selectWithWindow(columns, "help_organizations o", clauses, `${order}, o.name COLLATE NOCASE ASC, o.id ASC`, limit), bindings };
+  return { sql: selectWithWindow(columns, "help_organizations o", clauses, `${exactOrder}, ${prefixOrder}, o.name COLLATE NOCASE ASC, o.slug ASC`, limit), bindings };
 }
 
 function adoptionQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
@@ -281,12 +336,13 @@ function adoptionQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpe
     tokens,
     bindings,
   ));
-  const order = exactTitleOrder("d.name", parsed, bindings);
+  const exactOrder = exactTitleOrder("d.name", parsed, bindings);
+  const prefixOrder = titlePrefixOrder("d.name", parsed, bindings);
   const columns = `'/pomoc-psom/adopcia/' || d.slug AS href, d.name AS title, 'Pes na adopciu' AS type,
     d.short_description AS description,
     d.breed_name || ' ' || d.organization_name || ' ' || d.city || ' ' || d.district || ' ' || d.region AS keywords,
     'adoption' AS kind, 'adopcia' AS category, d.city AS city, d.district AS district, d.region AS region, '' AS services`;
-  return { sql: selectWithWindow(columns, "adoption_dogs d", clauses, `${order}, d.name COLLATE NOCASE ASC, d.id ASC`, limit), bindings };
+  return { sql: selectWithWindow(columns, "adoption_dogs d", clauses, `${exactOrder}, ${prefixOrder}, d.name COLLATE NOCASE ASC, d.slug ASC`, limit), bindings };
 }
 
 function helpQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
@@ -300,12 +356,13 @@ function helpQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | 
     tokens,
     bindings,
   ));
-  const order = exactTitleOrder("h.title", parsed, bindings);
+  const exactOrder = exactTitleOrder("h.title", parsed, bindings);
+  const prefixOrder = titlePrefixOrder("h.title", parsed, bindings);
   const columns = `'/pomoc-psom/' || h.category || '/' || h.slug AS href, h.title AS title, 'Pomoc psom' AS type,
     h.excerpt AS description,
     h.organization || ' ' || h.dog_name || ' ' || h.breed || ' ' || h.city || ' ' || h.region || ' ' || h.category AS keywords,
     'help' AS kind, h.category AS category, h.city AS city, '' AS district, h.region AS region, '' AS services`;
-  return { sql: selectWithWindow(columns, "help_cases h", clauses, `${order}, h.title COLLATE NOCASE ASC, h.id ASC`, limit), bindings };
+  return { sql: selectWithWindow(columns, "help_cases h", clauses, `${exactOrder}, ${prefixOrder}, h.title COLLATE NOCASE ASC, h.category ASC, h.slug ASC`, limit), bindings };
 }
 
 function lostFoundQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
@@ -321,13 +378,14 @@ function lostFoundQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
     bindings,
   ));
   const title = `CASE WHEN r.type = 'LOST' THEN 'Stratený ' ELSE 'Nájdený ' END || COALESCE(NULLIF(r.dog_name, ''), NULLIF(r.breed, ''), 'pes')`;
-  const order = exactTitleOrder(title, parsed, bindings);
+  const exactOrder = exactTitleOrder(title, parsed, bindings);
+  const prefixOrder = titlePrefixOrder(title, parsed, bindings);
   const columns = `CASE WHEN r.type = 'LOST' THEN '/pomoc-psom/stratene-psy/' || r.slug ELSE '/pomoc-psom/najdene-psy/' || r.slug END AS href,
     ${title} AS title, 'Pomoc psom' AS type,
     r.description AS description,
     r.breed || ' ' || r.color || ' ' || r.city || ' ' || r.district || ' ' || r.region AS keywords,
     'lost-found' AS kind, r.type AS category, r.city AS city, r.district AS district, r.region AS region, '' AS services`;
-  return { sql: selectWithWindow(columns, "lost_found_dog_reports r", clauses, `${order}, r.event_date DESC, r.id DESC`, limit), bindings };
+  return { sql: selectWithWindow(columns, "lost_found_dog_reports r", clauses, `${exactOrder}, ${prefixOrder}, r.event_date DESC, r.type ASC, r.slug ASC`, limit), bindings };
 }
 
 function staticSectionItems(parsed: ParsedPortalSearchQuery, section: string): PortalSearchItem[] {
