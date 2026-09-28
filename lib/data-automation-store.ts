@@ -149,7 +149,14 @@ export async function listDueAutomationSources(
     WHERE enabled = 1 AND review_status = 'APPROVED' AND (next_check_at IS NULL OR next_check_at <= ?)
     ORDER BY COALESCE(next_check_at, created_at) ASC, id ASC
     LIMIT ?`).bind(now.toISOString(), Math.max(1, Math.min(20, limit))).all<SourceRow>();
-  const sources = result.results.map(mapSource);
+  const sources = result.results.map(mapSource).filter((source) => {
+    // DIRECT_ENTITY single-item pages are no longer recurring content sources.
+    // Keep multi-item ORGANIZATION registries/directories as backend technical
+    // feeds, but never keep one source row per canonical directory/org entity.
+    if (source.entityType === "DIRECTORY") return false;
+    if (source.entityType === "ORGANIZATION" && source.config.sourceShape !== "MULTI_ITEM_LIST") return false;
+    return true;
+  });
   const governed: AutomationSource[] = [];
   for (const source of sources) {
     const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: source.id }, db);
