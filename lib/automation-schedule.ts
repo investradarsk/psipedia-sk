@@ -283,14 +283,14 @@ const WEEKDAY_SK: Record<AutomationWeekday, string> = {
   SUN: "Ne",
 };
 
-const WEEKDAY_SK_LONG: Record<AutomationWeekday, string> = {
-  MON: "pondelok",
-  TUE: "utorok",
-  WED: "stredu",
-  THU: "štvrtok",
-  FRI: "piatok",
-  SAT: "sobotu",
-  SUN: "nedeľu",
+const WEEKDAY_SK_RECURRING: Record<AutomationWeekday, string> = {
+  MON: "Každý pondelok",
+  TUE: "Každý utorok",
+  WED: "Každú stredu",
+  THU: "Každý štvrtok",
+  FRI: "Každý piatok",
+  SAT: "Každú sobotu",
+  SUN: "Každú nedeľu",
 };
 
 const INTERVAL_LABELS = new Map<number, string>([
@@ -309,7 +309,7 @@ export function formatAutomationScheduleSummary(schedule: AutomationSchedule) {
   }
   if (schedule.daysOfWeek.length === 7) return `Každý deň o ${schedule.localTime}`;
   if (schedule.daysOfWeek.length === 1) {
-    return `Každý ${WEEKDAY_SK_LONG[schedule.daysOfWeek[0]]} o ${schedule.localTime}`;
+    return `${WEEKDAY_SK_RECURRING[schedule.daysOfWeek[0]]} o ${schedule.localTime}`;
   }
   return `${schedule.daysOfWeek.map((day) => WEEKDAY_SK[day]).join(", ")} o ${schedule.localTime}`;
 }
