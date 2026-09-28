@@ -1,7 +1,6 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
-export const ADMIN_ATTENTION_SOURCE_LIMIT = 50;
 export const ADMIN_ATTENTION_QUERY_COUNT = 15;
 
 export const adminAttentionSourceTypes = [
@@ -23,6 +22,10 @@ export const adminAttentionSourceTypes = [
   "GEO_LOCATION_ISSUE",
 ] as const;
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
+export type AdminAttentionQueueSourceType = Exclude<AdminAttentionSourceType, "AUTOMATION_FINDING">;
+export const adminAttentionQueueSourceTypes = adminAttentionSourceTypes.filter(
+  (source): source is AdminAttentionQueueSourceType => source !== "AUTOMATION_FINDING",
+);
 
 export const adminAttentionPriorities = ["HIGH", "MEDIUM", "LOW"] as const;
 export type AdminAttentionPriority = (typeof adminAttentionPriorities)[number];
@@ -884,6 +887,10 @@ export function summarizeAdminAttention(items: AdminAttentionItem[]) {
 
 export function isAdminAttentionSourceType(value: string): value is AdminAttentionSourceType {
   return (adminAttentionSourceTypes as readonly string[]).includes(value);
+}
+
+export function isAdminAttentionQueueSourceType(value: string): value is AdminAttentionQueueSourceType {
+  return (adminAttentionQueueSourceTypes as readonly string[]).includes(value);
 }
 
 export function isAdminAttentionPriority(value: string): value is AdminAttentionPriority {

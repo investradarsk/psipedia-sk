@@ -66,10 +66,12 @@ test("admin uses validated transitions, audit and protects internal note from Pa
 });
 
 test("Attention canonical predicate and Partner admin pending predicate both count exactly NEW",()=>{
-  const exact=attentionStore.slice(attentionStore.indexOf("loadExactAdminAttentionSummary"));
-  assert.match(exact,/PARTNER_COMMERCIAL_LEAD/);
-  assert.match(exact,/partner_commercial_interests WHERE status='NEW'/);
-  assert.equal((attentionStore.match(/LIMIT \?/g)??[]).length,15);
+  assert.match(attentionStore,/PARTNER_COMMERCIAL_LEAD/);
+  assert.match(attentionStore,/FROM partner_commercial_interests c/);
+  assert.match(attentionStore,/c\.status='NEW'/);
+  const exactStart=attentionStore.indexOf("export async function loadExactAdminAttentionSummary");const exactEnd=attentionStore.indexOf("export async function loadAdminAttentionPage");const exact=attentionStore.slice(exactStart,exactEnd);
+  assert.match(exact,/probeSources/);
+  assert.doesNotMatch(exact,/LIMIT \?/);
 });
 
 test("commercial workflow stays pre-sales and does not mutate monetization or organic state",()=>{
