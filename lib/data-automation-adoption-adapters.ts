@@ -108,7 +108,10 @@ export const trnavaAdoptionDetailAdapter: ControlledHtmlAdapter = ({ html, sourc
   const color = labelledValue(pageText, "Farba");
   const ageMonths = approximateAgeMonths(ageText);
   const weight = weightKg(weightText);
-  const adopted = /\bAdoptovan[ýáé]\b/i.test(pageText);
+  const adoptedEvidence = pageText.match(/\bAdoptovan[ýáé]\b/i)?.[0] ?? "";
+  const reservedEvidence = adoptedEvidence ? "" : pageText.match(/\bRezervovan[ýáé]\b/i)?.[0] ?? "";
+  const adopted = Boolean(adoptedEvidence);
+  const reserved = Boolean(reservedEvidence);
 
   const proposed: Record<string, unknown> = {
     name,
@@ -137,8 +140,16 @@ export const trnavaAdoptionDetailAdapter: ControlledHtmlAdapter = ({ html, sourc
       weight: weightText,
       color,
       adopted,
+      reserved,
+      adoptedEvidence: adoptedEvidence || null,
+      reservedEvidence: reservedEvidence || null,
       detailUrl,
     },
+    lifecycleSignals: adopted
+      ? [{ signalType: "ADOPTION_ADOPTED", targetState: "ADOPTED", evidenceText: adoptedEvidence, confidenceClass: "EXPLICIT" }]
+      : reserved
+        ? [{ signalType: "ADOPTION_RESERVED", targetState: "RESERVED", evidenceText: reservedEvidence, confidenceClass: "EXPLICIT" }]
+        : undefined,
     proposed,
   } satisfies AutomationSourceRecord];
 };
