@@ -11,6 +11,10 @@ export const AUTOMATION_SEARCH_HARD_PROVIDER_REQUESTS_PER_RUN = 10;
 export const AUTOMATION_SEARCH_MAX_PAGES_PER_QUERY = 1;
 export const AUTOMATION_SEARCH_DEFAULT_ADDRESS_ENRICHMENT_DAILY_REQUESTS = 3;
 export const AUTOMATION_SEARCH_HARD_ADDRESS_ENRICHMENT_DAILY_REQUESTS = 5;
+export const AUTOMATION_SEARCH_DEFAULT_ENTITY_ENRICHMENT_DAILY_REQUESTS = 8;
+export const AUTOMATION_SEARCH_HARD_ENTITY_ENRICHMENT_DAILY_REQUESTS = 20;
+export const AUTOMATION_SEARCH_DEFAULT_ENTITY_ENRICHMENT_REQUESTS_PER_RUN = 8;
+export const AUTOMATION_SEARCH_HARD_ENTITY_ENRICHMENT_REQUESTS_PER_RUN = 12;
 export const AUTOMATION_SEARCH_PLATEAU_WINDOW = 3;
 export const AUTOMATION_SEARCH_PLATEAU_COOLDOWN_MULTIPLIER = 4;
 
@@ -44,6 +48,8 @@ export type AutomationSearchBudgetPolicy = {
   manualExtraRootRequests: number;
   rootDailyRequests: number;
   addressEnrichmentDailyRequests: number;
+  entityEnrichmentDailyRequests: number;
+  entityEnrichmentRequestsPerRun: number;
   queryCooldownMinutes: number;
   maxPagesPerQuery: 1;
 };
@@ -118,6 +124,16 @@ export function automationSearchBudgetPolicy(input: {
       budget.addressEnrichmentDailyRequests,
       AUTOMATION_SEARCH_DEFAULT_ADDRESS_ENRICHMENT_DAILY_REQUESTS,
       AUTOMATION_SEARCH_HARD_ADDRESS_ENRICHMENT_DAILY_REQUESTS,
+    ),
+    entityEnrichmentDailyRequests: lowerBoundedConfig(
+      budget.entityEnrichmentDailyRequests,
+      AUTOMATION_SEARCH_DEFAULT_ENTITY_ENRICHMENT_DAILY_REQUESTS,
+      AUTOMATION_SEARCH_HARD_ENTITY_ENRICHMENT_DAILY_REQUESTS,
+    ),
+    entityEnrichmentRequestsPerRun: lowerBoundedConfig(
+      budget.entityEnrichmentRequestsPerRun,
+      AUTOMATION_SEARCH_DEFAULT_ENTITY_ENRICHMENT_REQUESTS_PER_RUN,
+      AUTOMATION_SEARCH_HARD_ENTITY_ENRICHMENT_REQUESTS_PER_RUN,
     ),
     queryCooldownMinutes: Math.max(
       Math.max(60, Math.floor(input.cadenceMinutes || 0)),
