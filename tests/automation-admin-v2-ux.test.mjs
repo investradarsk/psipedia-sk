@@ -22,11 +22,13 @@ test("automation overview is category-first and source-only", () => {
   assert.doesNotMatch(page, /Pripravené návrhy|Koncepty a nálezy/);
 });
 
-test("existing technical entity types are hidden behind UX category mapping", () => {
+test("existing technical entity types are hidden behind the explicit product category contract", () => {
   const presentation = read("lib/admin-automation-presentation.ts");
-  assert.match(presentation, /entityType === "DIRECTORY"/);
-  assert.match(presentation, /"veterinari"/);
-  assert.match(presentation, /"psie-sluzby"/);
+  const product = read("lib/data-automation-product-model.ts");
+  assert.match(presentation, /automationProductCategoryForEntity/);
+  assert.match(product, /entityType === "DIRECTORY"/);
+  assert.match(product, /"veterinari"/);
+  assert.match(product, /"psie-sluzby"/);
   assert.match(presentation, /automationCategoryForCandidate/);
   assert.match(presentation, /automationCategoryForDiscoveryRoot/);
 });
