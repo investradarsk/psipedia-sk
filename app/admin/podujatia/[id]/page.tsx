@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminEventEditor } from "@/components/admin-event-editor";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
+import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminGeoLocation } from "@/components/admin-geo-location";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -19,5 +20,5 @@ export default async function EditEventPage({ params }: Props) {
   const event = await getManagedEventById(numericId);
   if (!event) notFound();
   const duplicateWarning = await getCanonicalDraftDuplicateWarning("EVENT", event.id).catch(() => null);
-  return <AdminShell user={user} eyebrow={event.status === "published" ? "Publikované podujatie" : "Rozpracovaný koncept"} title="Upraviť podujatie" description="Zmeny ulož ako koncept alebo ich rovno publikuj v kalendári." actions={<Link href="/admin/podujatia">← Späť na podujatia</Link>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminEventEditor event={event} /><AdminGeoLocation targetType="MANAGED_EVENT" targetId={event.id} /></AdminShell>;
+  return <AdminShell user={user} eyebrow={event.status === "published" ? "Publikované podujatie" : "Rozpracovaný koncept"} title="Upraviť podujatie" description="Zmeny ulož ako koncept alebo ich rovno publikuj v kalendári." actions={<Link href="/admin/podujatia">← Späť na podujatia</Link>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminEventEditor event={event} /><AdminGeoLocation targetType="MANAGED_EVENT" targetId={event.id} />{event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref="/admin/podujatia" />}</AdminShell>;
 }

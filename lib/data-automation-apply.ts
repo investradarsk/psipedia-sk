@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { getAutomationRecordSuppression } from "./automation-record-suppressions.ts";
 import {
   automationDraftSlug,
   type AutomationEntityType,
@@ -479,6 +480,33 @@ export async function applyAutomationFinding(input: {
 
     if (!finding.sourceRecordId) {
         throw new AutomationApplyConflictError("Finding nemá stabilnú source-record identitu pre ingestion receipt.");
+      }
+
+      const suppression = await getAutomationRecordSuppression({
+        entityType: finding.entityType,
+        externalSourceUrl: finding.sourceUrl,
+        externalRecordId: finding.sourceRecordId,
+      }, db);
+      if (suppression) {
+        const receipt = await createAutomationIngestionReceipt({
+          sourceId: finding.sourceId,
+          entityType: finding.entityType,
+          sourceRecordId: finding.sourceRecordId,
+          sourceUrl: finding.sourceUrl,
+          payloadHash: finding.payloadHash,
+          result: "SKIPPED_DUPLICATE",
+          firstProcessedAt: at,
+        }, db);
+        if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+        await db.prepare(`UPDATE automation_findings SET
+            canonical_entity_id=NULL,canonical_entity_key=NULL,
+            review_status='RESOLVED',reviewer_decision='APPROVE_APPLY',reviewer_notes=?,reviewed_by=?,reviewed_at=?,suppressed_until=NULL
+          WHERE id=? AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED','APPROVED')`).bind(
+            notes, actor, at, finding.id,
+          ).run();
+        const refreshed = await getAutomationFindingDetail(finding.id, db);
+        if (!refreshed) throw new Error("automation_suppression_resolution_missing");
+        return { finding: refreshed, application: null };
       }
 
       const priorReceipt = await getAutomationIngestionReceipt({
