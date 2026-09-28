@@ -5,16 +5,19 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { automationCadenceOptions, automationSourceOnlyErrorMessage } from "@/lib/admin-automation-presentation";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
+import type { AutomationCanonicalContentLink } from "@/lib/data-automation-product-store";
 import styles from "./admin-operations-ux.module.css";
 
 export function AdminAutomationSourceSettings({
   source,
   draftsHref,
+  content,
   monitoringReady,
   monitoringRetryable,
 }: {
   source: AutomationSourceAdminRow;
   draftsHref: string;
+  content: AutomationCanonicalContentLink[];
   monitoringReady: boolean;
   monitoringRetryable: boolean;
 }) {
@@ -92,8 +95,23 @@ export function AdminAutomationSourceSettings({
 
       <section className={styles.section}>
         <h2>Nájdený obsah</h2>
-        <p>Nový obsah sa vytvorí ako koncept v príslušnej admin sekcii. Automatizácie ho ďalej nevlastnia ani neupravujú.</p>
-        <p><Link href={draftsHref}>Otvoriť koncepty →</Link></p>
+        <p>Canonical obsah zostáva nezávislý od automatizácie. Zdroj slúži iba ako pôvod externého záznamu.</p>
+        {content.length ? (
+          <div className={styles.itemList}>
+            {content.map((item) => (
+              <article className={styles.itemCard} key={item.entityType + ":" + item.canonicalEntityId}>
+                <div className={styles.itemMain}>
+                  <div className={styles.itemTitle}><strong>{item.label}</strong></div>
+                  <p>{item.status.toLowerCase() === "draft" ? "Koncept" : "Publikované"}</p>
+                </div>
+                <Link className={styles.itemAction} href={item.href}>Otvoriť →</Link>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.empty}>Tento zdroj zatiaľ nemá dohľadateľný canonical obsah.</div>
+        )}
+        <p><Link href={draftsHref}>Otvoriť canonical sekciu →</Link></p>
       </section>
     </>
   );
