@@ -45,14 +45,19 @@ test("CONTENT-QA placeholder detector catches high-confidence editorial patterns
 });
 
 test("CONTENT-QA placeholder detector avoids broad Slovak false positives", () => {
-  const issues = assessArticleContentQa(base({
-    blocks: [{
-      id: "body",
-      type: "text",
-      content: "Majiteľ môže doplniť vodu podľa potreby. Tento článok môžeme publikovať po bežnej redakčnej kontrole.",
-    }],
-  }));
-  assert.equal(issues.some((item) => item.code === "EDITORIAL_PLACEHOLDER" || item.code === "POST_PUBLISH_EDITORIAL_NOTE"), false);
+  for (const content of [
+    "Majiteľ môže doplniť vodu podľa potreby. Tento článok môžeme publikovať po bežnej redakčnej kontrole.",
+    "Placeholder nesmie rozbiť titulok, utility ani začiatok čítania.",
+  ]) {
+    const issues = assessArticleContentQa(base({
+      blocks: [{ id: "body", type: "text", content }],
+    }));
+    assert.equal(
+      issues.some((item) => item.code === "EDITORIAL_PLACEHOLDER" || item.code === "POST_PUBLISH_EDITORIAL_NOTE"),
+      false,
+      content,
+    );
+  }
 });
 
 test("CONTENT-QA validates online and offline citations without inventing metadata", () => {
