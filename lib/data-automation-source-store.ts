@@ -18,6 +18,14 @@ import {
   automationSourceTechnicalGovernanceRefreshNeeded,
   refreshAutomationSourceTechnicalGovernance,
 } from "./data-automation-source-activation.ts";
+import {
+  automationScheduleFromStorage,
+  automationScheduleStorage,
+  automationSchedulesEqual,
+  effectiveAutomationCadenceMinutes,
+  nextAutomationScheduledAt,
+  type AutomationSchedule,
+} from "./automation-schedule.ts";
 
 export type AutomationSourceAdminDatabase = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -36,6 +44,7 @@ export type AutomationSourceAdminRow = {
   config: AutomationSourceConfig;
   enabled: boolean;
   cadenceMinutes: number;
+  schedule: AutomationSchedule;
   throttleMs: number;
   timeoutMs: number;
   retryMaxAttempts: number;
@@ -138,6 +147,13 @@ function numberValue(value: unknown) {
 }
 
 function mapSourceAdmin(row: Record<string, unknown>): AutomationSourceAdminRow {
+  const schedule = automationScheduleFromStorage({
+    cadenceMinutes: row.cadence_minutes,
+    scheduleMode: row.schedule_mode,
+    scheduleDaysJson: row.schedule_days_json,
+    scheduleLocalTime: row.schedule_local_time,
+    scheduleTimezone: row.schedule_timezone,
+  });
   return {
     id: numberValue(row.id),
     sourceKey: String(row.source_key ?? ""),
@@ -147,7 +163,8 @@ function mapSourceAdmin(row: Record<string, unknown>): AutomationSourceAdminRow 
     sourceUrl: canonicalizeSourceUrl(row.source_url),
     config: json<AutomationSourceConfig>(row.config_json, {}),
     enabled: Boolean(row.enabled),
-    cadenceMinutes: numberValue(row.cadence_minutes),
+    cadenceMinutes: effectiveAutomationCadenceMinutes(schedule),
+    schedule,
     throttleMs: numberValue(row.throttle_ms),
     timeoutMs: numberValue(row.timeout_ms),
     retryMaxAttempts: numberValue(row.retry_max_attempts),
@@ -374,10 +391,16 @@ export async function setAutomationSourceEnabled(input: {
     );
     if (!readiness.ready) throw new Error(sourceActivationError(readiness));
   }
-  const at = (input.now ?? new Date()).toISOString();
+  const now = input.now ?? new Date();
+  const at = now.toISOString();
+  const nextCheckAt = !input.enabled
+    ? null
+    : existing.schedule.mode === "CALENDAR"
+      ? nextAutomationScheduledAt(existing.schedule, now)
+      : at;
   await db.prepare(`UPDATE automation_sources SET enabled=?,next_check_at=?,updated_at=? WHERE id=?`).bind(
     input.enabled ? 1 : 0,
-    input.enabled ? at : null,
+    nextCheckAt,
     at,
     input.id,
   ).run();
@@ -387,7 +410,8 @@ export async function setAutomationSourceEnabled(input: {
 export async function configureAutomationSource(input: {
   id: number;
   enabled: boolean;
-  cadenceMinutes: number;
+  cadenceMinutes?: number;
+  schedule?: AutomationSchedule;
   now?: Date;
   technicalGovernanceRefresh?: AutomationSourceTechnicalGovernanceRefreshOptions;
 }, databaseInput?: AutomationSourceAdminDatabase) {
@@ -395,10 +419,13 @@ export async function configureAutomationSource(input: {
   const existing = await getAutomationSourceAdmin(input.id, db);
   if (!existing) return null;
 
-  const cadenceMinutes = Math.floor(input.cadenceMinutes);
-  if (!Number.isSafeInteger(cadenceMinutes) || cadenceMinutes < 60 || cadenceMinutes > 43_200) {
+  const legacyCadence = Math.floor(input.cadenceMinutes ?? existing.cadenceMinutes);
+  if (!input.schedule && (!Number.isSafeInteger(legacyCadence) || legacyCadence < 60 || legacyCadence > 43_200)) {
     throw new Error("automation_source_cadence_invalid");
   }
+  const schedule = input.schedule ?? { mode: "INTERVAL" as const, intervalMinutes: legacyCadence };
+  const storage = automationScheduleStorage(schedule);
+  const cadenceMinutes = storage.cadenceMinutes;
 
   if (input.enabled) {
     const readiness = await sourceActivationReadinessForEnable(
@@ -414,17 +441,34 @@ export async function configureAutomationSource(input: {
   const at = now.toISOString();
   let nextCheckAt: string | null = null;
   if (input.enabled) {
-    if (!existing.enabled) nextCheckAt = at;
-    else if (cadenceMinutes !== existing.cadenceMinutes) {
-      nextCheckAt = new Date(now.getTime() + cadenceMinutes * 60_000).toISOString();
+    const unchanged = automationSchedulesEqual(existing.schedule, schedule);
+    if (schedule.mode === "CALENDAR") {
+      nextCheckAt = existing.enabled && unchanged && existing.nextCheckAt
+        ? existing.nextCheckAt
+        : nextAutomationScheduledAt(schedule, now);
+    } else if (!existing.enabled) {
+      nextCheckAt = at;
+    } else if (!unchanged) {
+      nextCheckAt = nextAutomationScheduledAt(schedule, now);
     } else {
-      nextCheckAt = existing.nextCheckAt ?? new Date(now.getTime() + cadenceMinutes * 60_000).toISOString();
+      nextCheckAt = existing.nextCheckAt ?? nextAutomationScheduledAt(schedule, now);
     }
   }
 
-  await db.prepare(`UPDATE automation_sources
-    SET cadence_minutes=?,enabled=?,next_check_at=?,updated_at=? WHERE id=?`)
-    .bind(cadenceMinutes, input.enabled ? 1 : 0, nextCheckAt, at, input.id).run();
+  await db.prepare(`UPDATE automation_sources SET
+      cadence_minutes=?,schedule_mode=?,schedule_days_json=?,schedule_local_time=?,schedule_timezone=?,
+      enabled=?,next_check_at=?,updated_at=? WHERE id=?`)
+    .bind(
+      storage.cadenceMinutes,
+      storage.scheduleMode,
+      storage.scheduleDaysJson,
+      storage.scheduleLocalTime,
+      storage.scheduleTimezone,
+      input.enabled ? 1 : 0,
+      nextCheckAt,
+      at,
+      input.id,
+    ).run();
   return getAutomationSourceAdmin(input.id, db);
 }
 
@@ -440,15 +484,12 @@ export async function setAutomationSourceCadence(input: {
   if (!Number.isSafeInteger(cadenceMinutes) || cadenceMinutes < 60 || cadenceMinutes > 43_200) {
     throw new Error("automation_source_cadence_invalid");
   }
-  const now = input.now ?? new Date();
-  const at = now.toISOString();
-  const nextCheckAt = existing.enabled
-    ? new Date(now.getTime() + cadenceMinutes * 60_000).toISOString()
-    : null;
-  await db.prepare(`UPDATE automation_sources
-    SET cadence_minutes=?,next_check_at=?,updated_at=? WHERE id=?`)
-    .bind(cadenceMinutes, nextCheckAt, at, input.id).run();
-  return getAutomationSourceAdmin(input.id, db);
+  return configureAutomationSource({
+    id: input.id,
+    enabled: existing.enabled,
+    schedule: { mode: "INTERVAL", intervalMinutes: cadenceMinutes },
+    now: input.now,
+  }, db);
 }
 
 export async function listAutomationSourceRuns(
