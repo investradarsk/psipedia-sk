@@ -3,6 +3,11 @@ import {
   isSafeAutomationSourceUrl,
   type AutomationSource,
 } from "./data-automation.ts";
+import {
+  AUTOMATION_SOURCE_HTTP_AUTOMATION_SOURCE_HTTP_USER_AGENT,
+  AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
+  automationSourceRequestTimeoutMs,
+} from "./data-automation-http-policy.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
 import {
   evaluateGovernanceForActivation,
@@ -87,6 +92,26 @@ export async function automationSourceActivationReadiness(
   return { ready: true, reason: "READY", governance, governanceBlockingReasons: [], technicalReason: null };
 }
 
+const RECHECKABLE_TECHNICAL_GOVERNANCE_BLOCKERS = new Set([
+  "ACCESS_NOT_ALLOWED",
+  "ROBOTS_NOT_ALLOWED",
+]);
+
+export function automationSourceTechnicalGovernanceRefreshNeeded(
+  readiness: AutomationSourceActivationReadiness,
+) {
+  return readiness.reason === "GOVERNANCE_BLOCKED"
+    && Boolean(readiness.governance.state)
+    && readiness.governanceBlockingReasons.some((reason) => RECHECKABLE_TECHNICAL_GOVERNANCE_BLOCKERS.has(reason));
+}
+
+export function automationSourceTechnicalGovernanceRetryable(
+  readiness: AutomationSourceActivationReadiness,
+) {
+  return automationSourceTechnicalGovernanceRefreshNeeded(readiness)
+    && readiness.governanceBlockingReasons.every((reason) => RECHECKABLE_TECHNICAL_GOVERNANCE_BLOCKERS.has(reason));
+}
+
 type GovernanceFetch = typeof fetch;
 
 type ProbeResult<T extends string> = {
@@ -95,8 +120,6 @@ type ProbeResult<T extends string> = {
   detail: string;
 };
 
-const MAX_REDIRECTS = 3;
-const USER_AGENT = "PsipediaDataResearch/1.0 (+https://psipedia.sk)";
 const ROBOTS_AGENT = "psipediadataresearch";
 
 async function fetchProbe(
@@ -107,7 +130,7 @@ async function fetchProbe(
   let currentUrl = url;
   const seen = new Set<string>();
 
-  for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+  for (let redirects = 0; redirects <= AUTOMATION_SOURCE_MAX_REDIRECT_HOPS; redirects += 1) {
     const canonical = canonicalizeSourceUrl(currentUrl);
     if (!canonical || !isSafeAutomationSourceUrl(canonical) || seen.has(canonical)) {
       throw new Error("source_governance_probe_url_not_safe");
@@ -118,16 +141,16 @@ async function fetchProbe(
       method: "GET",
       headers: {
         accept: "text/html,text/plain;q=0.9,*/*;q=0.1",
-        "user-agent": USER_AGENT,
+        "user-agent": AUTOMATION_SOURCE_HTTP_USER_AGENT,
       },
       redirect: "manual",
-      signal: AbortSignal.timeout(Math.max(1000, Math.min(15_000, timeoutMs))),
+      signal: AbortSignal.timeout(automationSourceRequestTimeoutMs(timeoutMs)),
     });
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");
       await response.body?.cancel().catch(() => undefined);
-      if (!location || redirects >= MAX_REDIRECTS) throw new Error("source_governance_probe_redirect_blocked");
+      if (!location || redirects >= AUTOMATION_SOURCE_MAX_REDIRECT_HOPS) throw new Error("source_governance_probe_redirect_blocked");
       currentUrl = new URL(location, canonical).toString();
       continue;
     }
@@ -265,6 +288,94 @@ async function probeRobots(
   }
 }
 
+function stripGeneratedTechnicalRestrictionsNote(value: string | null) {
+  return (value ?? "")
+    .replace(/(?:^|\s)Access check: [^.]*\.(?=\s|$)/g, " ")
+    .replace(/(?:^|\s)Robots check: [^.]*\.(?=\s|$)/g, " ")
+    .replace(/(?:^|\s)Technical access check: [^.]*\.(?=\s|$)/g, " ")
+    .replace(/(?:^|\s)Technical robots check: [^.]*\.(?=\s|$)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function technicalRestrictionsNote(
+  existing: string | null,
+  access: ProbeResult<string>,
+  robots: ProbeResult<string>,
+) {
+  const preserved = stripGeneratedTechnicalRestrictionsNote(existing);
+  const technical = [
+    "Technical access check: " + access.detail + ".",
+    "Technical robots check: " + robots.detail + ".",
+  ].join(" ");
+  return [preserved, technical].filter(Boolean).join(" ").slice(0, 2000);
+}
+
+export async function refreshAutomationSourceTechnicalGovernance(input: {
+  source: ActivationSource & { timeoutMs?: number };
+  actor: string;
+  database: AutomationGovernanceDatabase;
+  fetchImpl?: GovernanceFetch;
+  now?: Date;
+}) {
+  const before = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: input.source.id }, input.database);
+  if (!before.schemaAvailable || !before.state) {
+    return { refreshed: false, governance: before, access: null, robots: null };
+  }
+
+  const sourceUrl = input.source.sourceUrl && isSafeAutomationSourceUrl(input.source.sourceUrl)
+    ? canonicalizeSourceUrl(input.source.sourceUrl)
+    : null;
+  if (!sourceUrl) {
+    return { refreshed: false, governance: before, access: null, robots: null };
+  }
+
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const [access, robots] = await Promise.all([
+    probeAccess(input.source, fetchImpl),
+    probeRobots(input.source, fetchImpl),
+  ]);
+  const current = before.state;
+
+  const governance = await upsertGovernanceReview({
+    subject: { type: "AUTOMATION_SOURCE", id: input.source.id },
+    review: {
+      accessStatus: access.status,
+      robotsStatus: robots.status,
+      termsStatus: current.termsStatus,
+      recurringStatus: current.recurringStatus,
+      retentionStatus: current.retentionStatus,
+      retainUrl: current.retainUrl,
+      retainTitle: current.retainTitle,
+      retainSnippet: current.retainSnippet,
+      retainMetadata: current.retainMetadata,
+      retentionDays: current.retentionDays,
+      minCadenceMinutes: current.minCadenceMinutes,
+      maxRequestsPerDay: current.maxRequestsPerDay,
+      manualOnly: current.manualOnly,
+      pathScope: current.pathScope,
+      restrictionsNote: technicalRestrictionsNote(current.restrictionsNote, access, robots),
+      termsUrl: current.termsUrl,
+      privacyUrl: current.privacyUrl,
+      robotsUrl: robots.evidenceUrl,
+      evidenceUrl: sourceUrl,
+      rationale: current.rationale,
+      expiresAt: current.expiresAt,
+      reviewDueAt: current.reviewDueAt,
+      expectedUpdatedAt: current.updatedAt,
+    },
+    actor: input.actor,
+    now: input.now,
+  }, input.database);
+
+  return {
+    refreshed: true,
+    governance: { schemaAvailable: true, state: governance } satisfies AutomationGovernanceRead,
+    access,
+    robots,
+  };
+}
+
 export async function prepareAutomationSourceGovernanceForApproval(input: {
   source: ActivationSource & { timeoutMs?: number };
   actor: string;
@@ -273,8 +384,17 @@ export async function prepareAutomationSourceGovernanceForApproval(input: {
   now?: Date;
 }) {
   const before = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: input.source.id }, input.database);
-  if (!before.schemaAvailable || before.state) {
+  if (!before.schemaAvailable) {
     return { prepared: false, governance: before, access: null, robots: null };
+  }
+  if (before.state) {
+    const refreshed = await refreshAutomationSourceTechnicalGovernance(input);
+    return {
+      prepared: refreshed.refreshed,
+      governance: refreshed.governance,
+      access: refreshed.access,
+      robots: refreshed.robots,
+    };
   }
 
   const fetchImpl = input.fetchImpl ?? fetch;
@@ -309,12 +429,11 @@ export async function prepareAutomationSourceGovernanceForApproval(input: {
       maxRequestsPerDay: null,
       manualOnly: false,
       pathScope: null,
-      restrictionsNote: [
-        "Source-only approval.",
-        "Access check: " + access.detail + ".",
-        "Robots check: " + robots.detail + ".",
-        "Stored evidence is limited to URL and automation metadata.",
-      ].join(" "),
+      restrictionsNote: technicalRestrictionsNote(
+        "Source-only approval. Stored evidence is limited to URL and automation metadata.",
+        access,
+        robots,
+      ),
       termsUrl: null,
       privacyUrl: null,
       robotsUrl: robots.evidenceUrl,
