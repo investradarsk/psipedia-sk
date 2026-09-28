@@ -7,6 +7,7 @@ import {
   automationCadenceOptions,
   automationDiscoveryMinimumCadenceMinutes,
   automationSourceDomain,
+  automationSourceOnlyErrorMessage,
   type AutomationUxCategory,
 } from "@/lib/admin-automation-presentation";
 import type { AutomationDiscoveryRoot } from "@/lib/data-automation-discovery-store";
@@ -54,7 +55,7 @@ export function AdminAutomationCategorySources({
         body: JSON.stringify({ enabled: discoveryEnabled, cadenceMinutes: discoveryCadence }),
       });
       const payload = await response.json().catch(() => ({})) as { immediateRun?: boolean; error?: string };
-      if (!response.ok) throw new Error(payload.error || "Nastavenie sa nepodarilo uložiť.");
+      if (!response.ok) throw new Error(automationSourceOnlyErrorMessage(payload.error, "Nastavenie sa nepodarilo uložiť."));
       setMessage(payload.immediateRun
         ? "Hľadanie je zapnuté a prvé hľadanie sa práve spustilo."
         : "Nastavenie hľadania bolo uložené.");
@@ -76,7 +77,7 @@ export function AdminAutomationCategorySources({
         body: JSON.stringify({ action }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Rozhodnutie sa nepodarilo uložiť.");
+      if (!response.ok) throw new Error(automationSourceOnlyErrorMessage(payload.error, "Rozhodnutie sa nepodarilo uložiť."));
       setMessage(action === "approve"
         ? "Zdroj bol schválený. Kontrolovanie zostáva vypnuté, kým ho zapneš v detaile zdroja."
         : "Zdroj bol zamietnutý a pri ďalšom hľadaní sa už medzi nové zdroje nevráti.");

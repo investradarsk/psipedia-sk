@@ -59,3 +59,29 @@ test("normal source UX contains only monitoring, cadence and canonical concepts 
   assert.match(source, /Otvoriť koncepty/);
   assert.doesNotMatch(source, /adapter|readiness|governance|finding|observation|cluster|receipt|write counter/i);
 });
+
+
+test("source-only UX maps readiness internals to one user-safe Slovak message", async () => {
+  const [presentation, settings, category, page] = await Promise.all([
+    read("lib/admin-automation-presentation.ts"),
+    read("components/admin-automation-source-settings.tsx"),
+    read("components/admin-automation-category-sources.tsx"),
+    read("app/admin/automatizacie/zdroje/[id]/page.tsx"),
+  ]);
+
+  assert.match(presentation, /automation_source_not_ready:/);
+  assert.match(presentation, /automation_candidate_source_not_ready:/);
+  assert.match(presentation, /automation_candidate_source_provisioning_conflict/);
+  assert.match(presentation, /Tento zdroj zatiaľ nie je pripravený na automatické spracovanie\./);
+
+  assert.match(settings, /automationSourceOnlyErrorMessage/);
+  assert.match(category, /automationSourceOnlyErrorMessage/);
+  assert.doesNotMatch(settings, /throw new Error\(payload\.error\s*\|\|/);
+  assert.doesNotMatch(category, /throw new Error\(payload\.error\s*\|\|/);
+
+  assert.match(page, /automationSourceReadiness/);
+  assert.match(page, /monitoringReady/);
+  assert.match(settings, /disabled=\{busy \|\| !monitoringReady\}/);
+  assert.doesNotMatch(settings, /MISSING_ADAPTER|UNSUPPORTED_ADAPTER|ADAPTER_ENTITY_MISMATCH|ADAPTER_SHAPE_MISMATCH|MISSING_PARSER/);
+  assert.doesNotMatch(settings, /Pokročilé|adapter key|readiness/i);
+});

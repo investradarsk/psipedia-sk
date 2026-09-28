@@ -730,7 +730,12 @@ export async function findRelevantAutomationSourceForCandidate(
   const result = await db.prepare(`${SOURCE_ADMIN_SELECT}
     WHERE s.entity_type=? AND s.source_url IS NOT NULL
     ORDER BY s.id ASC`).bind(candidate.entityType).all<Record<string, unknown>>();
-  return selectRelevantExistingSourceForCandidate(candidate, result.results.map(mapSourceAdmin));
+  const sources = result.results.map(mapSourceAdmin);
+  const exactUrl = sources.find((source) =>
+    canonicalizeSourceUrl(source.sourceUrl) === canonicalizeSourceUrl(candidate.canonicalUrl)
+  );
+  if (exactUrl) return exactUrl;
+  return selectRelevantExistingSourceForCandidate(candidate, sources);
 }
 
 function candidateProvisioningConfig(candidate: AutomationSourceCandidateRow): AutomationSourceConfig {
@@ -739,6 +744,81 @@ function candidateProvisioningConfig(candidate: AutomationSourceCandidateRow): A
     canonicalUrl: candidate.canonicalUrl,
     metadata: candidate.metadata,
   });
+}
+
+function candidateProvisioningRequiresReadySource(
+  candidate: AutomationSourceCandidateRow,
+  config: AutomationSourceConfig,
+) {
+  return candidate.suggestedConnectorType === "CONTROLLED_HTML" && Boolean(config.htmlAdapterKey?.trim());
+}
+
+function assertCandidateProvisioningReady(
+  candidate: AutomationSourceCandidateRow,
+  config: AutomationSourceConfig,
+  sourceUrl = candidate.canonicalUrl,
+) {
+  if (!candidateProvisioningRequiresReadySource(candidate, config)) return;
+  const readiness = automationSourceReadiness({
+    entityType: candidate.entityType,
+    connectorType: candidate.suggestedConnectorType,
+    config,
+    sourceUrl,
+  });
+  if (!readiness.ready) {
+    throw new Error("automation_candidate_source_not_ready:" + readiness.reason);
+  }
+}
+
+function provisioningConfigConflict(existing: AutomationSourceConfig, expected: AutomationSourceConfig) {
+  for (const key of ["htmlAdapterKey", "sourceShape", "expectedMinRecords"] as const) {
+    const current = existing[key];
+    const required = expected[key];
+    if (current !== undefined && required !== undefined && current !== required) return true;
+  }
+  const currentStatic = existing.staticFields ?? {};
+  const expectedStatic = expected.staticFields ?? {};
+  return Object.entries(expectedStatic).some(([key, required]) =>
+    currentStatic[key] !== undefined && currentStatic[key] !== required
+  );
+}
+
+function mergedProvisioningConfig(existing: AutomationSourceConfig, expected: AutomationSourceConfig) {
+  return {
+    ...existing,
+    ...expected,
+    staticFields: expected.staticFields
+      ? { ...(existing.staticFields ?? {}), ...expected.staticFields }
+      : existing.staticFields,
+  };
+}
+
+async function ensureCandidateProvisioningOnReusableSource(
+  candidate: AutomationSourceCandidateRow,
+  source: AutomationSourceAdminRow,
+  db: AutomationSourceAdminDatabase,
+  at: string,
+) {
+  const expected = candidateProvisioningConfig(candidate);
+  if (!candidateProvisioningRequiresReadySource(candidate, expected)) {
+    return source;
+  }
+  if (source.connectorType !== candidate.suggestedConnectorType || provisioningConfigConflict(source.config, expected)) {
+    throw new Error("automation_candidate_source_provisioning_conflict");
+  }
+
+  const repairedConfig = mergedProvisioningConfig(source.config, expected);
+  assertCandidateProvisioningReady(candidate, repairedConfig, source.sourceUrl ?? candidate.canonicalUrl);
+  if (stableJson(repairedConfig) === stableJson(source.config)) return source;
+
+  await db.prepare(`UPDATE automation_sources SET
+      config_json=?,enabled=0,review_status='PENDING',reviewed_at=NULL,reviewed_by=NULL,review_notes=NULL,
+      next_check_at=NULL,updated_at=? WHERE id=?`)
+    .bind(stableJson(repairedConfig), at, source.id).run();
+  const updated = await getAutomationSourceAdmin(source.id, db);
+  if (!updated) throw new Error("automation_candidate_source_repair_failed");
+  assertCandidateProvisioningReady(candidate, updated.config, updated.sourceUrl ?? candidate.canonicalUrl);
+  return updated;
 }
 
 function candidateSourceKey(candidate: AutomationSourceCandidateRow) {
@@ -770,14 +850,14 @@ export async function reviewAutomationSourceCandidate(input: {
   const at = atDate.toISOString();
 
   let duplicateSourceId = candidate.duplicateSourceId;
-  if (input.action === "approve" && !duplicateSourceId) {
+  if (input.action === "approve") {
+    const provisioningConfig = candidateProvisioningConfig(candidate);
+    assertCandidateProvisioningReady(candidate, provisioningConfig);
+
     const relevantSource = await findRelevantAutomationSourceForCandidate(candidate, db);
     if (relevantSource) {
-      // Reuse the complete existing source, including a known adapter/config.
-      // A discovery homepage such as https://mushing.sk must not provision a
-      // second generic source when the canonical EVENT source already points
-      // at https://mushing.sk/preteky/.
-      duplicateSourceId = relevantSource.id;
+      const provisionedSource = await ensureCandidateProvisioningOnReusableSource(candidate, relevantSource, db, at);
+      duplicateSourceId = provisionedSource.id;
     } else {
       const sourceUrl = canonicalizeSourceUrl(candidate.canonicalUrl);
       if (!sourceUrl || !isSafeAutomationSourceUrl(sourceUrl)) throw new Error("automation_candidate_url_not_safe");
@@ -788,7 +868,7 @@ export async function reviewAutomationSourceCandidate(input: {
         ) VALUES (?,?,?,?,?,?,0,1440,1000,8000,2,1000,100,NULL,?,?,'PENDING')
         RETURNING id`).bind(
           candidateSourceKey(candidate), candidate.label, candidate.entityType,
-          candidate.suggestedConnectorType, sourceUrl, stableJson(candidateProvisioningConfig(candidate)), at, at,
+          candidate.suggestedConnectorType, sourceUrl, stableJson(provisioningConfig), at, at,
         ).first<{ id: number }>();
       if (!created) throw new Error("automation_candidate_source_create_failed");
       duplicateSourceId = Number(created.id);

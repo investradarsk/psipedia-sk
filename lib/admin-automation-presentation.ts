@@ -184,6 +184,22 @@ export function automationSourceDomain(url: string | null) {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "—"; }
 }
 
+export function automationSourceOnlyErrorMessage(
+  value: unknown,
+  fallback = "Operáciu sa nepodarilo dokončiť.",
+) {
+  const message = typeof value === "string" ? value.trim() : "";
+  if (
+    /^automation_source_not_ready:/i.test(message)
+    || /^automation_candidate_source_not_ready:/i.test(message)
+    || /^automation_candidate_source_provisioning_conflict$/i.test(message)
+  ) {
+    return "Tento zdroj zatiaľ nie je pripravený na automatické spracovanie.";
+  }
+  if (/^automation_[a-z0-9_.:,-]+$/i.test(message)) return fallback;
+  return message || fallback;
+}
+
 export function automationReadableError(code: string | null) {
   if (!code) return null;
   if (/timeout/i.test(code)) return "Zdroj neodpovedal včas.";

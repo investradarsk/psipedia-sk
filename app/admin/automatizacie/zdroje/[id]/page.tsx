@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminAutomationSourceSettings } from "@/components/admin-automation-source-settings";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { automationSourceReadiness } from "@/lib/data-automation-capability-registry";
 import { getAutomationSourceAdmin } from "@/lib/data-automation-source-store";
 import { automationCategoryBySlug, automationCategoryForSource } from "@/lib/admin-automation-presentation";
 
@@ -18,11 +19,13 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
   if (!source) notFound();
   const categorySlug = automationCategoryForSource(source);
   const category = categorySlug ? automationCategoryBySlug(categorySlug) : null;
+  const readiness = automationSourceReadiness(source);
+  const monitoringReady = !readiness.applicable || readiness.ready;
 
   return (
     <AdminShell user={user} eyebrow="Automatizácie" title={source.label} description={source.sourceUrl ?? "Schválený zdroj"}
       actions={<Link href={categorySlug ? "/admin/automatizacie/" + categorySlug : "/admin/automatizacie"}>← Späť na zdroje</Link>}>
-      <AdminAutomationSourceSettings source={source} draftsHref={category?.draftsHref ?? "/admin"} />
+      <AdminAutomationSourceSettings source={source} draftsHref={category?.draftsHref ?? "/admin"} monitoringReady={monitoringReady} />
     </AdminShell>
   );
 }
