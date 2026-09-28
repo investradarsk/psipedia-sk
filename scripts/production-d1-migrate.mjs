@@ -86,7 +86,8 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0091_automation_detach_drafts.sql",
   "0092_automation_product_model.sql",
   "0093_automation_address_review.sql",
-  "0094_automation_update_field_reviews.sql",
+  "0094_canonical_draft_delete.sql",
+  "0097_automation_update_field_reviews.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -151,6 +152,15 @@ export const AUTOMATION_ADDRESS_REVIEW_INDEXES = Object.freeze([
   "automation_address_review_cases_status_detected_idx",
   "automation_address_review_cases_category_status_idx",
   "automation_address_review_cases_entity_status_idx",
+]);
+
+export const CANONICAL_DRAFT_DELETE_TABLES = Object.freeze([
+  "automation_record_suppressions",
+]);
+
+export const CANONICAL_DRAFT_DELETE_INDEXES = Object.freeze([
+  "automation_record_suppressions_identity_unique",
+  "automation_record_suppressions_created_idx",
 ]);
 
 export const AUTOMATION_UPDATE_REVIEW_TABLES = Object.freeze([
@@ -811,7 +821,13 @@ export function targetSchemaObjects(schema, targetMigration) {
         || AUTOMATION_ADDRESS_REVIEW_INDEXES.some((index) => names.has(index)),
     };
   }
-  if (targetMigration === "0094_automation_update_field_reviews.sql") {
+  if (targetMigration === "0094_canonical_draft_delete.sql") {
+    return {
+      partial: CANONICAL_DRAFT_DELETE_TABLES.some((table) => names.has(table))
+        || CANONICAL_DRAFT_DELETE_INDEXES.some((index) => names.has(index)),
+    };
+  }
+  if (targetMigration === "0097_automation_update_field_reviews.sql") {
     return {
       partial: AUTOMATION_UPDATE_REVIEW_TABLES.some((table) => names.has(table))
         || AUTOMATION_UPDATE_REVIEW_INDEXES.some((index) => names.has(index)),
@@ -840,6 +856,16 @@ function assertAutomationAddressReviewSchema(schema) {
   }
   const tableSql = String(names.get("automation_address_review_cases")?.sql ?? "");
   invariant(tableSql.includes("'OPEN','RESOLVED','DISMISSED','STALE'"), "automation address-review status constraint is incomplete");
+}
+
+function assertCanonicalDraftDeleteSchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of CANONICAL_DRAFT_DELETE_TABLES) invariant(names.get(table)?.type === "table", `Missing canonical-draft-delete table: ${table}`);
+  for (const index of CANONICAL_DRAFT_DELETE_INDEXES) invariant(names.get(index)?.type === "index", `Missing canonical-draft-delete index: ${index}`);
+  const tableSql = String(names.get("automation_record_suppressions")?.sql ?? "");
+  invariant(tableSql.includes("external_source_url"), "automation_record_suppressions external source URL is missing");
+  invariant(tableSql.includes("external_record_id"), "automation_record_suppressions external record ID is missing");
+  invariant(!tableSql.includes("canonical_entity_id"), "suppression registry must not own canonical content");
 }
 
 function assertAutomationUpdateReviewSchema(schema) {
@@ -1306,7 +1332,8 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 90) assertGeoGooglePlaceIdentitySchema(schema);
   if (migrationIndex(targetMigration) >= 92) assertAutomationProductModelSchema(schema);
   if (migrationIndex(targetMigration) >= 93) assertAutomationAddressReviewSchema(schema);
-  if (migrationIndex(targetMigration) >= 94) assertAutomationUpdateReviewSchema(schema);
+  if (migrationIndex(targetMigration) >= 94) assertCanonicalDraftDeleteSchema(schema);
+  if (migrationIndex(targetMigration) >= 97) assertAutomationUpdateReviewSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
