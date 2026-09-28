@@ -70,6 +70,18 @@ export async function PUT(request: Request, { params }: Props) {
     }
 
     const wasEnabled = roots.some((root) => root.enabled);
+    const unchangedDirectRetry = enabled
+      && category.mode === "DIRECT_ENTITY"
+      && roots.every((root) => root.enabled && root.cadenceMinutes === cadenceMinutes);
+    const directRetryBudgetExhausted = unchangedDirectRetry
+      && roots.every((root) => root.searchSafety && root.searchSafety.remainingRootRequests <= 0);
+    if (directRetryBudgetExhausted) {
+      return Response.json({
+        error: "Denný limit hľadania je dnes vyčerpaný. Nastavenie je v poriadku; nový pokus bude možný po obnovení denného limitu.",
+        code: "SEARCH_BUDGET_BLOCKED",
+      }, { status: 429, headers: { "cache-control": "no-store" } });
+    }
+
     for (const root of roots) {
       const governancePreset = tavilySearchGovernancePresetForRoot(root);
       if (cadenceMinutes < governancePreset.minCadenceMinutes) {
@@ -110,8 +122,8 @@ export async function PUT(request: Request, { params }: Props) {
     }
 
     // Saving an enabled DIRECT_ENTITY automation is an explicit admin retry.
-    // Successful searches remain protected by normal query cooldown; only
-    // poisoned cooldowns from downstream PARTIAL/FAILED runs were retired above.
+    // The retry retires stale successful/empty query cooldown fingerprints, but
+    // normal root/entity/global daily provider budgets remain authoritative.
     const immediateRun = enabled && (category.mode === "DIRECT_ENTITY" || !wasEnabled);
     if (immediateRun) {
       const provider = new TavilyAutomationSearchProvider({ apiKey: bindings.TAVILY_API_KEY });
