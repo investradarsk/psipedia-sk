@@ -58,11 +58,11 @@ Each source has an exact active-count probe. A failed probe is `UNAVAILABLE` wit
 The queue remains a read-time model; no materialized Attention table was added.
 
 1. Fifteen source probes establish exact active counts and source availability.
-2. Available sources are composed into a normalized `UNION ALL` read model.
-3. One aggregate query returns exact available-source totals/facets for the current request.
-4. One page query returns at most `pageSize + 1` rows.
+2. Each available source keeps its own normalized read query; failures stay isolated.
+3. Exact totals/facets are summed from the isolated source summaries.
+4. Each relevant source returns at most `pageSize + 1` rows, then the server performs the deterministic global merge.
 5. Default page size is 24; hard maximum is 50.
-6. A full Attention page is bounded to at most **17 D1 queries**: 15 probes + one aggregate + one page query.
+6. A full Attention page is bounded to at most **30 D1 queries**: 15 probes + one aggregate + up to fifteen bounded source page queries.
 
 The cursor is Base64URL-encoded JSON and contains:
 - active/history rank,
@@ -127,8 +127,8 @@ No migration is required by this PR.
 
 Attention page bounds:
 - 15 source probes, in parallel,
-- one aggregate query,
-- one page query,
+- no cross-source aggregate query,
+- up to fifteen bounded source page queries,
 - 24 default / 50 maximum rows returned to the page.
 
 Article list bounds:
