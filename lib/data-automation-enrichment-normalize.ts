@@ -33,7 +33,7 @@ function email(value: unknown) {
   } catch {
     return null;
   }
-  const normalized = normalizeAutomationEmail(clean);
+  const normalized = normalizeAutomationEmail(clean)?.toLowerCase() ?? null;
   if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return null;
   if (/^(?:no-?reply|noreply)@/i.test(normalized)) return null;
   return normalized;
