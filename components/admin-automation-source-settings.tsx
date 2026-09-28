@@ -6,7 +6,6 @@ import { useState } from "react";
 import { automationCadenceOptions, automationSourceOnlyErrorMessage } from "@/lib/admin-automation-presentation";
 import type { AutomationCanonicalContentLink } from "@/lib/data-automation-product-store";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
-import type { AutomationCanonicalContentLink } from "@/lib/data-automation-product-store";
 import styles from "./admin-operations-ux.module.css";
 
 export function AdminAutomationSourceSettings({
