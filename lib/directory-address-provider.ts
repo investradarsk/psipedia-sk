@@ -393,11 +393,7 @@ function providerCanonicalCity(
   for (const detail of [result.cityDistrict ?? "", result.suburb ?? ""]) {
     const cleanDetail = detail.trim();
     if (!baseCity || !cleanDetail) continue;
-    const escapedBaseCity = baseCity.replace(/[.*+?^$()|[\]\\{}]/g, "\\export type ExternalDirectoryAddressVerification = {
-  status: "VERIFIED_EXACT" | "NEEDS_REVIEW";
-  verified: VerifiedDirectoryAddress | null;
-};
-");
+    const escapedBaseCity = baseCity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const detailWithoutCity = cleanDetail
       .replace(new RegExp("^" + escapedBaseCity + "\\s*[-–—]?\\s*", "i"), "")
       .trim();
