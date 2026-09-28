@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminHelpEditor } from "@/components/admin-help-editor";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
@@ -21,7 +22,7 @@ export default async function EditHelpCasePage({ params }: Props) {
     eyebrow={item.status === "published" ? "Publikovaný Help záznam" : "Rozpracovaný Help koncept"}
     title="Upraviť Help prípad"
     description="Uprav iba canonical generic Help záznam. Publikačný stav, urgentnosť a vyriešenie zostávajú vedomé redakčné rozhodnutia."
-  >
+   actions={<Link href="/admin/pomoc">← Späť na pomoc psom</Link>}>
     <AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminHelpEditor item={item} />
   </AdminShell>;
