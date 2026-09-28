@@ -393,9 +393,12 @@ test("Attention new-profile source is safe, stable, deep-linked and exact-counte
   assert.match(attentionStore,/partner_new_profile_metadata/);
   assert.match(attentionStore,/mapPartnerNewProfileAttention/);
   assert.doesNotMatch(attentionStore,/proposed_patch_json/);
-  const exact=attentionStore.slice(attentionStore.indexOf("loadExactAdminAttentionSummary"));
-  assert.match(exact,/PARTNER_NEW_PROFILE_REVIEW/);
-  assert.match(exact,/s\.status IN \('SUBMITTED','PENDING_REVIEW','QUARANTINED'\)/);
+  const exactStart=attentionStore.indexOf("export async function loadExactAdminAttentionSummary");
+  const exactEnd=attentionStore.indexOf("export async function loadAdminAttentionPage");
+  const exact=attentionStore.slice(exactStart,exactEnd);
+  assert.match(attentionStore,/PARTNER_NEW_PROFILE_REVIEW/);
+  assert.match(attentionStore,/s\.status IN \('SUBMITTED','PENDING_REVIEW','QUARANTINED'\)/);
+  assert.match(exact,/probeSources/);
   assert.match(partnerAttention,/newProfileRow/);
   assert.match(partnerAttention,/newProfiles/);
 });

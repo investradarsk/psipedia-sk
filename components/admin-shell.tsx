@@ -27,16 +27,24 @@ function BellIcon() {
   );
 }
 
-async function AdminNotificationBell({ count }: { count?: number }) {
+async function AdminNotificationBell({ count, partial = false }: { count?: number; partial?: boolean }) {
   let activeCount = count;
+  let incomplete = partial;
   if (activeCount === undefined) {
-    activeCount = (await loadExactAdminAttentionSummary()).active;
+    const summary = await loadExactAdminAttentionSummary();
+    activeCount = summary.active;
+    incomplete = summary.availability !== "OK";
   }
-  const label = activeCount === 0
-    ? "Upozornenia: žiadne aktívne položky"
-    : activeCount === 1
-      ? "Upozornenia: 1 aktívna položka"
-      : `Upozornenia: ${activeCount} aktívnych položiek`;
+  const label = incomplete
+    ? `Upozornenia: najmenej ${activeCount} aktívnych položiek; niektoré zdroje nie sú dostupné`
+    : activeCount === 0
+      ? "Upozornenia: žiadne aktívne položky"
+      : activeCount === 1
+        ? "Upozornenia: 1 aktívna položka"
+        : `Upozornenia: ${activeCount} aktívnych položiek`;
+  const badge = activeCount > 0
+    ? `${activeCount > 99 ? "99+" : activeCount}${incomplete ? "+" : ""}`
+    : incomplete ? "!" : null;
 
   return (
     <Link
@@ -47,7 +55,7 @@ async function AdminNotificationBell({ count }: { count?: number }) {
       data-testid="admin-notification-bell"
     >
       <BellIcon />
-      {activeCount > 0 && <span className={styles.badge} aria-hidden="true">{activeCount > 99 ? "99+" : activeCount}</span>}
+      {badge && <span className={styles.badge} aria-hidden="true">{badge}</span>}
     </Link>
   );
 }
@@ -60,6 +68,7 @@ export function AdminShell({
   actions,
   children,
   attentionCount,
+  attentionCountPartial,
 }: {
   user: ChatGPTUser;
   eyebrow: string;
@@ -68,6 +77,7 @@ export function AdminShell({
   actions?: ReactNode;
   children: ReactNode;
   attentionCount?: number;
+  attentionCountPartial?: boolean;
 }) {
   return (
     <main id="obsah" className="admin-root">
@@ -75,7 +85,7 @@ export function AdminShell({
         <header className="admin-topbar">
           <Link href="/admin" className="admin-brand" aria-label="Psipedia redakcia – prehľad"><span><PawMark size={23} /></span><strong>Psipedia</strong><small>redakcia</small></Link>
           <div className={styles.topbarActions}>
-            <AdminNotificationBell count={attentionCount} />
+            <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
             <div className="admin-account"><span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span><a href={chatGPTSignOutPath("/", user.authProvider)}>Odhlásiť</a></div>
           </div>
         </header>

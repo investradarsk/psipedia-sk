@@ -195,9 +195,12 @@ test("Attention representation is unique, stable, deep-linked and exact-counted"
   assert.match(attention, /title:`\$\{row\.resourceName\} čaká na schválenie úprav`/);
   assert.match(attention, /priority:stale\?"HIGH":"MEDIUM"/);
   assert.match(attentionStore, /PARTNER_PROFILE_CHANGE_REVIEW/);
-  const exact = attentionStore.slice(attentionStore.indexOf("loadExactAdminAttentionSummary"));
-  assert.match(exact, /partner_profile_change_metadata/);
-  assert.match(exact, /s\.status IN \('SUBMITTED','PENDING_REVIEW','QUARANTINED'\)/);
+  const exactStart = attentionStore.indexOf("export async function loadExactAdminAttentionSummary");
+  const exactEnd = attentionStore.indexOf("export async function loadAdminAttentionPage");
+  const exact = attentionStore.slice(exactStart, exactEnd);
+  assert.match(attentionStore, /partner_profile_change_metadata/);
+  assert.match(attentionStore, /s\.status IN \('SUBMITTED','PENDING_REVIEW','QUARANTINED'\)/);
+  assert.match(exact, /probeSources/);
   assert.match(attentionStore, /mapPartnerProfileChangeAttention/);
 });
 
