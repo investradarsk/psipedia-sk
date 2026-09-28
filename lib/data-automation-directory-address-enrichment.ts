@@ -54,6 +54,17 @@ function postalAddressEvidence(value: string) {
   return matches;
 }
 
+function partialStreetAddressEvidence(value: string) {
+  const clean = text(value);
+  const matches: string[] = [];
+  const pattern = /([\p{L}][\p{L} .'-]{1,80}?\s+\d+[A-Za-z]?(?:\/\d+[A-Za-z]?)?(?:\s*,\s*[\p{L}][\p{L} .'-]{1,80})?)/gu;
+  for (const match of clean.matchAll(pattern)) {
+    if (match[1]) matches.push(match[1]);
+    if (matches.length >= 4) break;
+  }
+  return matches;
+}
+
 function proposalEvidence(proposed: Record<string, unknown>, extraEvidenceText?: string | null) {
   const address = text(proposed.address);
   const street = text(proposed.street);
@@ -70,8 +81,10 @@ function proposalEvidence(proposed: Record<string, unknown>, extraEvidenceText?:
     address,
     ...labelledAddressEvidence(description),
     ...postalAddressEvidence(description),
+    ...partialStreetAddressEvidence(description),
     ...labelledAddressEvidence(extra),
     ...postalAddressEvidence(extra),
+    ...partialStreetAddressEvidence(extra),
   ]);
 }
 
@@ -157,8 +170,10 @@ function searchResultEvidence(results: AutomationSearchResult[]) {
     values.push(
       ...labelledAddressEvidence(snippet),
       ...postalAddressEvidence(snippet),
+      ...partialStreetAddressEvidence(snippet),
       ...labelledAddressEvidence(title),
       ...postalAddressEvidence(title),
+      ...partialStreetAddressEvidence(title),
     );
   }
   return uniqueEvidence(values, 4);
