@@ -3,10 +3,19 @@ import { SitemapStageError } from "@/lib/sitemap-runtime";
 
 function diagnosticCause(error: unknown) {
   if (!error || typeof error !== "object") return { name: typeof error };
-  const value = error as { name?: unknown; code?: unknown };
+  const value = error as { name?: unknown; code?: unknown; message?: unknown };
+  const message = typeof value.message === "string" ? value.message : "";
+  const sitemapMatch = message.match(/^(sitemap-[a-z-]+):(.+)$/);
+  let path: string | null = null;
+  if (sitemapMatch?.[2]) {
+    try { path = new URL(sitemapMatch[2]).pathname; }
+    catch { path = null; }
+  }
   return {
     name: typeof value.name === "string" ? value.name : "Error",
-    code: typeof value.code === "string" || typeof value.code === "number" ? String(value.code) : null,
+    code: sitemapMatch?.[1]
+      ?? (typeof value.code === "string" || typeof value.code === "number" ? String(value.code) : null),
+    path,
   };
 }
 
