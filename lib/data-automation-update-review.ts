@@ -495,30 +495,34 @@ async function proposedHash(field: string, spec: FieldSpec | null, proposed: unk
 
 async function loadReviewRows(rows: SuggestionRow[], db: Database) {
   if (!rows.length) return [] as ReviewRow[];
-  const pairs = [...new Set(rows.map((row) => `${row.entity_type}:${row.canonical_entity_id}`))];
-  const output: ReviewRow[] = [];
+  const pairs = [...new Map(rows.map((row) => [
+    `${row.entity_type}:${row.canonical_entity_id}`,
+    { entityType: row.entity_type, canonicalEntityId: row.canonical_entity_id },
+  ])).values()];
+  const where = pairs.map(() => "(entity_type=? AND canonical_entity_id=?)").join(" OR ");
+  const bindings = pairs.flatMap((pair) => [pair.entityType, pair.canonicalEntityId]);
   try {
-    for (const pair of pairs) {
-      const splitAt = pair.lastIndexOf(":");
-      const entityType = pair.slice(0, splitAt) as AutomationEntityType;
-      const canonicalEntityId = Number(pair.slice(splitAt + 1));
-      const result = await db.prepare(`SELECT origin_type,suggestion_id,entity_type,canonical_entity_id,
-          field_key,proposed_value_hash,decision
-        FROM automation_update_field_reviews
-        WHERE entity_type=? AND canonical_entity_id=?`)
-        .bind(entityType, canonicalEntityId).all<ReviewRow>();
-      output.push(...result.results);
-    }
+    const result = await db.prepare(`SELECT origin_type,suggestion_id,entity_type,canonical_entity_id,
+        field_key,proposed_value_hash,decision
+      FROM automation_update_field_reviews
+      WHERE ${where}`).bind(...bindings).all<ReviewRow>();
+    return result.results;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/no such table: automation_update_field_reviews/i.test(message)) return [];
     throw error;
   }
-  return output;
 }
 
-async function materializeSuggestion(row: SuggestionRow, reviews: ReviewRow[], db: Database): Promise<CanonicalUpdateSuggestion | null> {
-  const canonical = await getCanonicalRow(row.entity_type, row.canonical_entity_id, db);
+async function materializeSuggestion(
+  row: SuggestionRow,
+  reviews: ReviewRow[],
+  db: Database,
+  canonicalInput?: Record<string, unknown> | null,
+): Promise<CanonicalUpdateSuggestion | null> {
+  const canonical = canonicalInput === undefined
+    ? await getCanonicalRow(row.entity_type, row.canonical_entity_id, db)
+    : canonicalInput;
   if (!canonical) return null;
   const diff = parseRecord(row.diff_json) as AutomationDiff;
   const reviewMap = new Map(
@@ -622,6 +626,27 @@ async function loadSuggestionRows(entityType: AutomationEntityType, canonicalEnt
   } satisfies SuggestionRow));
 }
 
+async function loadCanonicalRows(rows: SuggestionRow[], db: Database) {
+  const output = new Map<string, Record<string, unknown>>();
+  const groups = new Map<AutomationEntityType, Set<number>>();
+  for (const row of rows) {
+    const ids = groups.get(row.entity_type) ?? new Set<number>();
+    ids.add(row.canonical_entity_id);
+    groups.set(row.entity_type, ids);
+  }
+  for (const [entityType, idsSet] of groups) {
+    const ids = [...idsSet];
+    if (!ids.length) continue;
+    const placeholders = ids.map(() => "?").join(",");
+    const result = await db.prepare(`SELECT * FROM ${configs[entityType].table} WHERE id IN (${placeholders})`)
+      .bind(...ids).all<Record<string, unknown>>();
+    for (const row of result.results) {
+      output.set(`${entityType}:${Number(row.id)}`, row);
+    }
+  }
+  return output;
+}
+
 export async function listCanonicalAutomationUpdateSuggestions(
   input: { entityType: AutomationEntityType; canonicalEntityId: number },
   databaseInput?: Database,
@@ -629,7 +654,8 @@ export async function listCanonicalAutomationUpdateSuggestions(
   const db = database(databaseInput);
   const rows = await loadSuggestionRows(input.entityType, input.canonicalEntityId, db);
   const reviews = await loadReviewRows(rows, db);
-  const suggestions = await Promise.all(rows.map((row) => materializeSuggestion(row, reviews, db)));
+  const canonical = await getCanonicalRow(input.entityType, input.canonicalEntityId, db);
+  const suggestions = await Promise.all(rows.map((row) => materializeSuggestion(row, reviews, db, canonical)));
   return suggestions.filter((item): item is CanonicalUpdateSuggestion => Boolean(item));
 }
 
