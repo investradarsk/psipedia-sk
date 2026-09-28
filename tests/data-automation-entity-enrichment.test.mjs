@@ -255,7 +255,7 @@ test("AUTOMATION-ENTITY-ENRICHMENT-2 dedicated search budget family stays separa
   assert.match(store, /reserveAutomationEntityEnrichmentRequest/);
   assert.match(store, /operation_key LIKE 'entity-enrichment:%'/);
   assert.match(store, /operation_key NOT LIKE 'entity-enrichment:%'/);
-  assert.match(runner, /entity-enrichment:\\${dayBucket}/);
+  assert.match(runner, /entity-enrichment:\$\{dayBucket\}/);
   assert.match(runner, /entityEnrichmentRequestsPerRun/);
   assert.match(runner, /reserveAutomationEntityEnrichmentRequest/);
 });
