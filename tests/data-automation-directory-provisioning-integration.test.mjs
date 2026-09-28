@@ -35,6 +35,10 @@ function sourceRow(source) {
     config_json: JSON.stringify(source.config),
     enabled: source.enabled ? 1 : 0,
     cadence_minutes: source.cadenceMinutes,
+    schedule_mode: source.scheduleMode ?? null,
+    schedule_days_json: source.scheduleDaysJson ?? null,
+    schedule_local_time: source.scheduleLocalTime ?? null,
+    schedule_timezone: source.scheduleTimezone ?? null,
     throttle_ms: source.throttleMs,
     timeout_ms: source.timeoutMs,
     retry_max_attempts: source.retryMaxAttempts,
@@ -166,6 +170,10 @@ class MemoryStatement {
         config: JSON.parse(String(a[5] ?? "{}")),
         enabled: false,
         cadenceMinutes: 1440,
+        scheduleMode: null,
+        scheduleDaysJson: null,
+        scheduleLocalTime: null,
+        scheduleTimezone: null,
         throttleMs: 1000,
         timeoutMs: 8000,
         retryMaxAttempts: 2,
@@ -316,6 +324,19 @@ class MemoryStatement {
       row.expires_at = a[22] ?? null;
       row.review_due_at = a[23] ?? null;
       row.updated_at = String(a[24]);
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (sql.startsWith("UPDATE automation_sources SET cadence_minutes=?,schedule_mode=?,schedule_days_json=?,schedule_local_time=?,schedule_timezone=?, enabled=?,next_check_at=?,updated_at=? WHERE id=?")) {
+      const source = this.db.sources.find((item) => item.id === Number(a[8]));
+      if (!source) throw new Error("source missing");
+      source.cadenceMinutes = Number(a[0]);
+      source.scheduleMode = a[1] == null ? null : String(a[1]);
+      source.scheduleDaysJson = a[2] == null ? null : String(a[2]);
+      source.scheduleLocalTime = a[3] == null ? null : String(a[3]);
+      source.scheduleTimezone = a[4] == null ? null : String(a[4]);
+      source.enabled = Boolean(a[5]);
+      source.nextCheckAt = a[6] == null ? null : String(a[6]);
       return { success: true, meta: { changes: 1 } };
     }
 
