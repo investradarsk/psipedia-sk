@@ -544,14 +544,24 @@ function searchUsageStatus(error: AutomationSearchProviderError): AutomationSear
   return error.code;
 }
 
-function searchRequestInputs(root: AutomationDiscoveryRoot) {
+function searchRequestInputs(
+  root: AutomationDiscoveryRoot,
+  exclusions?: AutomationDiscoveryExclusionContext,
+) {
+  const configuredBlockDomains = Array.isArray(root.config.blockDomains)
+    ? root.config.blockDomains.filter((value): value is string => typeof value === "string")
+    : [];
+  const blockDomains = [...new Set([
+    ...configuredBlockDomains,
+    ...(exclusions?.blockDomains ?? []),
+  ])].slice(0, 25);
   const common = {
     maxResults: root.config.maxResults,
     locale: root.config.locale,
     country: root.config.country,
     freshness: root.config.freshness,
     allowDomains: root.config.allowDomains,
-    blockDomains: root.config.blockDomains,
+    blockDomains,
   };
   const configured = Array.isArray(root.config.queries) && root.config.queries.length
     ? root.config.queries
@@ -611,11 +621,21 @@ async function discoverCandidates(
     const providerKey = typeof root.config.provider === "string" ? root.config.provider.trim() : "";
     if (!providerKey) throw new AutomationSearchProviderError("CONFIG_MISSING");
     const provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
+    const mode = automationProductModeForRoot(root);
+    const category = automationProductCategoryForRoot(root);
+    const directEntity = mode === "DIRECT_ENTITY";
+    const exclusions = await loadAutomationDiscoveryExclusions({
+      entityType: root.entityType,
+      directoryCategory: root.config.directoryCategory,
+      directEntity,
+    }, options.database);
     const policy = automationSearchBudgetPolicy(root);
-    const requests = searchRequestInputs(root).slice(0, policy.queriesPerRun);
+    const requests = searchRequestInputs(root, exclusions).slice(0, policy.queriesPerRun);
     const fingerprints = new Set<string>();
     const candidates: AutomationSourceCandidateInput[] = [];
     let providerRequests = 0;
+    let providerResultCount = 0;
+    let localPrefilterCount = 0;
     let budgetBlocked = false;
 
     for (const requestInput of requests) {
@@ -684,6 +704,7 @@ async function discoverCandidates(
             resultCount: results.length,
             now: options.now ? new Date(options.now) : new Date(),
           }, options.database as AutomationDiscoveryDatabase);
+          providerResultCount += results.length;
           const mapped = searchProviderCandidatesForRoot({
             root,
             providerKey: provider.key,
@@ -692,7 +713,12 @@ async function discoverCandidates(
             results,
             operationKey,
           });
-          candidates.push(...mapped);
+          const filtered = mapped.filter((candidate) => {
+            const excluded = automationDiscoveryCandidateExcluded(candidate.sourceUrl, exclusions, directEntity);
+            if (excluded) localPrefilterCount += 1;
+            return !excluded;
+          });
+          candidates.push(...filtered);
           break;
         } catch (rawError) {
           const error = searchProviderError(rawError);
@@ -709,7 +735,21 @@ async function discoverCandidates(
       }
     }
 
-    return { candidates: candidates.slice(0, maxCandidates), warnings: [] };
+    return {
+      candidates: candidates.slice(0, maxCandidates),
+      warnings: [],
+      metrics: {
+        category,
+        discoveryMode: mode,
+        exclusionEntityType: root.entityType,
+        exclusionCategory: root.entityType === "DIRECTORY"
+          ? String(root.config.directoryCategory ?? "") || null
+          : category,
+        exclusionCount: exclusions.exclusionCount,
+        localPrefilterCount,
+        providerResultCount,
+      },
+    };
   }
 
   if (root.discoveryType === "SITEMAP") {
