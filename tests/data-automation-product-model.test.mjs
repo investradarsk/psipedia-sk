@@ -60,7 +60,7 @@ test("search exclusions are category-scoped, bounded and local matching remains 
   assert.match(store, /FROM automation_source_candidates[\s\S]*WHERE entity_type=\?/);
   assert.match(store, /review_status IN \('NEW','APPROVED','REJECTED'\)/);
   assert.match(store, /boundedUnique\(\[\.\.\.knownDomains\], 20\)/);
-  assert.match(store, /input\.directEntity && input\.entityType === "DIRECTORY"[\s\S]*\? \[\]/);
+  assert.match(store, /blockDomains: input\.directEntity \? \[\] : boundedUnique/);
   assert.match(runner, /blockDomains = \[\.\.\.new Set\([\s\S]*\)\]\.slice\(0, 25\)/);
   assert.match(runner, /automationDiscoveryCandidateExcluded/);
   assert.match(runner, /exclusionCategory/);
