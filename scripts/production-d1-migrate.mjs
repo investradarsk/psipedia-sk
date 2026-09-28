@@ -88,7 +88,6 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0093_automation_address_review.sql",
   "0094_canonical_draft_delete.sql",
   "0095_automation_calendar_schedule.sql",
-  "0098_automation_operations_metrics.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -169,19 +168,6 @@ export const CANONICAL_DRAFT_DELETE_TABLES = Object.freeze([
 export const CANONICAL_DRAFT_DELETE_INDEXES = Object.freeze([
   "automation_record_suppressions_identity_unique",
   "automation_record_suppressions_created_idx",
-]);
-
-export const AUTOMATION_OPERATIONS_DISCOVERY_RUN_COLUMNS = Object.freeze([
-  "search_request_count","search_result_count","provider_result_count","local_prefilter_count","exclusion_count",
-  "canonical_duplicate_count","new_entity_count","update_suggestion_count","possible_duplicate_count",
-  "address_verified_exact_count","address_no_exact_count",
-]);
-export const AUTOMATION_OPERATIONS_REFRESH_COLUMNS = Object.freeze([
-  "last_batch_checked_count","last_batch_update_suggestion_count","last_batch_error_count",
-]);
-export const AUTOMATION_OPERATIONS_TABLES = Object.freeze(["automation_discovery_outcomes"]);
-export const AUTOMATION_OPERATIONS_INDEXES = Object.freeze([
-  "automation_discovery_runs_started_idx","automation_discovery_outcomes_root_created_idx","automation_discovery_outcomes_run_idx",
 ]);
 
 export const AUTOMATION_NON_EVENT_FOUNDATION_TABLES = Object.freeze([
@@ -589,7 +575,6 @@ function schemaState(databaseName, configPath) {
   const automationDiscoveryRootColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_roots')");
   const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
   const automationDirectRefreshColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_direct_refresh_settings')");
-  const automationDiscoveryRunColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_runs')");
   const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
   const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const moderationSubmissionForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('moderation_submissions')");
@@ -611,7 +596,6 @@ function schemaState(databaseName, configPath) {
     automationDiscoveryRootColumns,
     automationSourceColumns,
     automationDirectRefreshColumns,
-    automationDiscoveryRunColumns,
     partnerPasswordCredentialForeignKeys,
     partnerAuthIdentityForeignKeys,
     moderationSubmissionForeignKeys,
@@ -853,16 +837,6 @@ export function targetSchemaObjects(schema, targetMigration) {
         || hasScheduleColumn(schema.automationDirectRefreshColumns),
     };
   }
-  if (targetMigration === "0098_automation_operations_metrics.sql") {
-    const discoveryRunColumns = new Set((schema.automationDiscoveryRunColumns ?? []).map((column) => String(column.name)));
-    const refreshColumns = new Set((schema.automationDirectRefreshColumns ?? []).map((column) => String(column.name)));
-    return {
-      partial: AUTOMATION_OPERATIONS_DISCOVERY_RUN_COLUMNS.some((column) => discoveryRunColumns.has(column))
-        || AUTOMATION_OPERATIONS_REFRESH_COLUMNS.some((column) => refreshColumns.has(column))
-        || AUTOMATION_OPERATIONS_TABLES.some((table) => names.has(table))
-        || AUTOMATION_OPERATIONS_INDEXES.some((index) => names.has(index)),
-    };
-  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -896,14 +870,6 @@ function assertCanonicalDraftDeleteSchema(schema) {
   invariant(tableSql.includes("external_source_url"), "automation_record_suppressions external source URL is missing");
   invariant(tableSql.includes("external_record_id"), "automation_record_suppressions external record ID is missing");
   invariant(!tableSql.includes("canonical_entity_id"), "suppression registry must not own canonical content");
-}
-
-function assertAutomationOperationsSchema(schema) {
-  const names = objectMap(schema.objects);
-  assertRequiredColumns(schema.automationDiscoveryRunColumns, "automation_discovery_runs", AUTOMATION_OPERATIONS_DISCOVERY_RUN_COLUMNS);
-  assertRequiredColumns(schema.automationDirectRefreshColumns, "automation_direct_refresh_settings", AUTOMATION_OPERATIONS_REFRESH_COLUMNS);
-  for (const table of AUTOMATION_OPERATIONS_TABLES) invariant(names.get(table)?.type === "table", `Missing automation operations table: ${table}`);
-  for (const index of AUTOMATION_OPERATIONS_INDEXES) invariant(names.get(index)?.type === "index", `Missing automation operations index: ${index}`);
 }
 
 function assertAutomationCalendarScheduleSchema(schema) {
@@ -1379,7 +1345,6 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 93) assertAutomationAddressReviewSchema(schema);
   if (migrationIndex(targetMigration) >= 94) assertCanonicalDraftDeleteSchema(schema);
   if (migrationIndex(targetMigration) >= 95) assertAutomationCalendarScheduleSchema(schema);
-  if (migrationIndex(targetMigration) >= 98) assertAutomationOperationsSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
