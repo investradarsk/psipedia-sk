@@ -29,6 +29,8 @@ on:
       - "tests/g4-possible-review-decisions.test.mjs"
       - "tests/g5-canonical-apply.test.mjs"
       - "tests/automation-cluster-admin-integration.test.mjs"
+      - "scripts/automation-source-ux-reset.mjs"
+      - "tests/automation-source-ux-reset.test.mjs"
       - "tests/admin-auto-ux-2.test.mjs"
       - "tests/fixtures/data-automation/**"
       - "tests/e2e/data-automation-v2.spec.ts"
@@ -64,6 +66,8 @@ jobs:
         run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v2.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/data-automation-background-run.test.mjs tests/data-automation-clustering.test.mjs tests/data-automation-discovery-evidence.test.mjs tests/data-automation-sitemap.test.mjs tests/data-automation-rss.test.mjs tests/data-automation-structured-directory.test.mjs tests/data-automation-search-provider.test.mjs tests/data-automation-search-budget.test.mjs tests/data-automation-tavily-root.test.mjs tests/data-automation-help-source-readiness.test.mjs tests/data-automation-tavily-directory-roots.test.mjs tests/data-automation-tavily-help-roots.test.mjs tests/data-automation-universal.test.mjs tests/admin-attention-queue.test.mjs tests/automation-admin-v2-ux.test.mjs tests/g4-possible-review-decisions.test.mjs tests/g5-canonical-apply.test.mjs tests/automation-cluster-admin-integration.test.mjs
       - name: DISCOVERY-4B governance tests
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-governance.test.mjs tests/tavily-canary-control.test.mjs
+      - name: Automation source UX reset contract
+        run: node --test tests/automation-source-ux-reset.test.mjs
       - run: npm run build
 
   admin-e2e:
