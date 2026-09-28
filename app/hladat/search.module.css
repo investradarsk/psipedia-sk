@@ -1,3 +1,7 @@
+:global(.portal-search-form button) {
+  background: var(--coral-dark);
+}
+
 .resultList {
   display: grid;
   gap: 12px;
@@ -23,7 +27,7 @@
 }
 
 .result:focus-visible {
-  outline: 3px solid var(--coral);
+  outline: 3px solid var(--coral-dark);
   outline-offset: 3px;
 }
 
