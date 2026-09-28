@@ -111,6 +111,32 @@ test("canonical editors receive suggestions server-side and keep local dirty sta
   assert.match(directory, /onAccepted=\{applyAutomationUpdate\}/);
 });
 
+test("category summaries are normalized to genuinely active reviewable fields", async () => {
+  const [service, page] = await Promise.all([
+    read("lib/data-automation-update-review.ts"),
+    read("app/admin/automatizacie/[category]/page.tsx"),
+  ]);
+  assert.match(service, /normalizeAutomationUpdateSuggestionSummaries/);
+  assert.match(service, /suggestion\.fields\.find\(\(candidate\) => candidate\.reviewable\)/);
+  assert.match(service, /loadCanonicalRows\(rows, db\)/);
+  assert.match(page, /normalizeAutomationUpdateSuggestionSummaries\(rawUpdateSuggestions\)/);
+});
+
+test("review validation enforces domain enums, numeric ranges and coupled invariants", async () => {
+  const source = await read("lib/data-automation-update-review.ts");
+  assert.match(source, /eventTypes/);
+  assert.match(source, /adoptionSexes/);
+  assert.match(source, /adoptionSizes/);
+  assert.match(source, /organizationPublicationTypes/);
+  assert.match(source, /dogSexes/);
+  assert.match(source, /dogSizes/);
+  assert.match(source, /spec\.allowed/);
+  assert.match(source, /spec\.minNumber/);
+  assert.match(source, /spec\.maxNumber/);
+  assert.match(source, /Dátum konca nemôže byť pred dátumom začiatku/);
+  assert.match(source, /Adopčný profil už používa približný vek/);
+});
+
 test("review card exposes current/proposed source-aware field decisions without accept-all", async () => {
   const component = await read("components/admin-automation-update-suggestions.tsx");
   assert.match(component, /Doplnenia a zmeny/);
