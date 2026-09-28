@@ -557,7 +557,10 @@ jobs:
           const directory = urls.filter((url) => /^https:\/\/psipedia\.sk\/adresar\/[^/]+\/[^/?#]+$/.test(url));
           if (directory.length <= 1000) throw new Error(`preview-directory-corpus-truncated:${directory.length}`);
 
-          const article = urls.find((url) => /^https:\/\/psipedia\.sk\/clanky\/[^/?#]+$/.test(url));
+          const article = [
+  "https://psipedia.sk/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+  "https://psipedia.sk/starostlivost/kolko-hodin-denne-spi-pes-stena-dospely-pes-aj-senior-maju-rozdielne-potreby",
+].find((url) => urls.includes(url));
           const event = urls.find((url) => /^https:\/\/psipedia\.sk\/podujatia\/[^/?#]+$/.test(url)
             && !/\/(?:vystavy|preteky|seminare|kalendar)$/.test(url));
           const help = urls.find((url) => /^https:\/\/psipedia\.sk\/pomoc-psom\/(?:docasna-opatera|zbierky|urgentne-pripady|dobrovolnictvo|stratene-a-najdene)\/[^/?#]+$/.test(url));
