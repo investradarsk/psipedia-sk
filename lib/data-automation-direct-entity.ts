@@ -11,7 +11,7 @@ import {
 import type { VerifiedDirectoryAddress } from "./directory-address-provider.ts";
 import type { GeocoderProvider } from "./geo-provider.ts";
 import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
-import { createProductionOrganizationEnricher } from "./data-automation-organization-enrichment.ts";
+import { createProductionOrganizationEnricher, type OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
 import { enrichAutomationRecordSchemaFirst, type EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
 import {
   classifyAutomationFinding,
@@ -292,6 +292,7 @@ export async function ingestDirectEntityUrl(input: {
   expectedCanonicalEntityId?: number | null;
   addressSearch?: DirectoryAddressSearch;
   enrichmentSearch?: EntityEnrichmentSearch;
+  organizationEnricher?: OrganizationRecordEnricher;
   addressEvidenceText?: string | null;
   geocoder?: GeocoderProvider;
 }): Promise<DirectEntityIngestionResult> {
@@ -336,7 +337,7 @@ export async function ingestDirectEntityUrl(input: {
     verifiedDirectoryAddress: VerifiedDirectoryAddress | null;
   }> = [];
   const organizationEnricher = input.entityType === "ORGANIZATION"
-    ? createProductionOrganizationEnricher({ fetchImpl })
+    ? input.organizationEnricher ?? createProductionOrganizationEnricher({ fetchImpl })
     : null;
   for (const fetchedRecord of fetchedRecords) {
     const firstPartyRecord = organizationEnricher
