@@ -36,11 +36,17 @@ export function mapAutomationFindingToDraftInput(
   finding: AutomationFindingDetail,
   createdAt: string,
 ): CanonicalDraftInput {
-  return mapAutomationRecordToDraftInput({
+  const mapped = mapAutomationRecordToDraftInput({
     entityType: finding.entityType,
     proposed: finding.proposed,
     sourceUrl: finding.sourceUrl,
     findingType: finding.findingType,
     createdAt,
   });
+  return {
+    ...mapped,
+    // Keep the DETACH boundary explicit: the canonical draft owns only the
+    // external URL, never an automation finding/source ownership link.
+    externalSourceUrl: finding.sourceUrl,
+  };
 }
