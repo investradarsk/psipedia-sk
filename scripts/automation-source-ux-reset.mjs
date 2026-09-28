@@ -52,6 +52,7 @@ export const DELETE_TABLE_ORDER = Object.freeze([
   "automation_findings",
   "automation_observations",
   "automation_runs",
+  "automation_discovery_outcomes",
   "automation_discovery_runs",
   "automation_source_candidates",
   "automation_entity_clusters",
