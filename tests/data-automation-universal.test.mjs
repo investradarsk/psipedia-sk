@@ -263,8 +263,8 @@ test("HOTFIX DIRECTORY structured schema stays authoritative for contacts, socia
   assert.equal(record.proposed.description, "Explicitný JSON-LD opis.");
   assert.equal(record.proposed.publicPhone, "+421 2 555 123 45");
   assert.equal(record.proposed.publicEmail, "kontakt@example.sk");
-  assert.equal(record.proposed.facebookUrl, "https://www.facebook.com/explicitna-klinika");
-  assert.equal(record.proposed.instagramUrl, "https://www.instagram.com/explicitna-klinika");
+  assert.equal(record.proposed.facebookUrl, "https://facebook.com/explicitna-klinika");
+  assert.equal(record.proposed.instagramUrl, "https://instagram.com/explicitna-klinika");
   assert.deepEqual(record.proposed.services, ["Veterinárna ambulancia", "Preventívna prehliadka"]);
   assert.deepEqual(record.proposed.qualifications, ["Certifikované pracovisko"]);
   assert.equal(record.proposed.city, "Nitra");
