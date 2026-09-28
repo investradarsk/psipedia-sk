@@ -611,10 +611,11 @@ test("run now reuses production runner and blocks disabled or unapproved sources
   assert.match(route, /canonicalDraftWrite:\s*true,\s*publication:\s*false/);
 });
 
-test("scheduler still respects enabled state and next-check cadence", () => {
+test("scheduler still respects enabled state and shared next-check schedule", () => {
   const store = read("lib/data-automation-store.ts");
   assert.match(store, /WHERE enabled = 1 AND review_status = 'APPROVED' AND \(next_check_at IS NULL OR next_check_at <= \?\)/);
-  assert.match(store, /nextAutomationCheckAt/);
+  assert.match(store, /nextAutomationScheduledAt/);
+  assert.match(store, /input\.source\.schedule \?\?/);
 });
 
 test("source error lifecycle resolves recovery and superseded error signatures without deleting history", () => {
