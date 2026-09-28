@@ -46,7 +46,8 @@ export type AutomationSearchBudgetPolicy = {
 };
 
 function finiteInt(value: unknown) {
-  const number = Number(value ?? 0);
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
   return Number.isFinite(number) ? Math.floor(number) : null;
 }
 
