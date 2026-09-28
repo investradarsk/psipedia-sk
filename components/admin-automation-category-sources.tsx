@@ -12,7 +12,7 @@ import {
   type AutomationUxCategory,
 } from "@/lib/admin-automation-presentation";
 import { AdminAutomationScheduleFields } from "./admin-automation-schedule-fields";
-import type { AutomationSchedule } from "@/lib/automation-schedule";
+import { formatAutomationScheduleSummary, type AutomationSchedule } from "@/lib/automation-schedule";
 import type { AutomationDiscoveryRoot } from "@/lib/data-automation-discovery-store";
 import type {
   AutomationCanonicalContentLink,
@@ -259,7 +259,7 @@ export function AdminAutomationCategorySources({
             <div className={styles.sectionHeader}><div><h2>Schválené zdroje</h2></div><span className={styles.sectionCount}>{approvedSources.length}</span></div>
             {approvedSources.length ? <div className={styles.itemList}>{approvedSources.map((source) => {
               const found = sourceContent[String(source.id)] ?? [];
-              return <article className={styles.itemCard} key={source.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{source.label}</strong></div><p>{automationSourceDomain(source.sourceUrl)} · {source.enabled ? "Kontrolovanie zapnuté" : "Kontrolovanie vypnuté"}</p><div><strong>Nájdený obsah</strong>{found.length ? found.map((item) => <p key={item.entityType + ":" + item.canonicalEntityId}><Link href={item.href}>{contentStatus(item.status)} · {item.label}{item.secondary ? " · " + item.secondary : ""} →</Link></p>) : <p>Zatiaľ žiadny canonical obsah.</p>}</div></div><Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link></article>;
+              return <article className={styles.itemCard} key={source.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{source.label}</strong></div><p>{automationSourceDomain(source.sourceUrl)} · {source.enabled ? "Kontrolovanie zapnuté" : "Kontrolovanie vypnuté"} · {formatAutomationScheduleSummary(source.schedule)}</p><div><strong>Nájdený obsah</strong>{found.length ? found.map((item) => <p key={item.entityType + ":" + item.canonicalEntityId}><Link href={item.href}>{contentStatus(item.status)} · {item.label}{item.secondary ? " · " + item.secondary : ""} →</Link></p>) : <p>Zatiaľ žiadny canonical obsah.</p>}</div></div><Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link></article>;
             })}</div> : <div className={styles.empty}>Zatiaľ nemáte schválený žiadny zdroj.</div>}
           </section>
 
