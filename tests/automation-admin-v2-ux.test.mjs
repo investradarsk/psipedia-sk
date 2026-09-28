@@ -31,13 +31,16 @@ test("existing technical entity types are hidden behind UX category mapping", ()
   assert.match(presentation, /automationCategoryForDiscoveryRoot/);
 });
 
-test("category detail follows source discovery then new approved rejected order", () => {
+test("category detail separates direct entities from recurring feed sources", () => {
   const component = read("components/admin-automation-category-sources.tsx");
-  const discovery = component.indexOf("<h2>Hľadať nové zdroje</h2>");
-  const fresh = component.indexOf("<h2>Nové zdroje</h2>");
-  const approved = component.indexOf("<h2>Schválené zdroje</h2>");
-  const rejected = component.indexOf("<h2>Zamietnuté zdroje</h2>");
-  assert.ok(discovery >= 0 && fresh > discovery && approved > fresh && rejected > approved);
+  assert.match(component, /category\.mode === "DIRECT_ENTITY"/);
+  assert.match(component, /Hľadať nových veterinárov/);
+  assert.match(component, /Nové koncepty/);
+  assert.match(component, /Kontrolovať doplnenia a zmeny/);
+  assert.match(component, /Hľadať nové zdroje/);
+  assert.match(component, /Nové zdroje/);
+  assert.match(component, /Schválené zdroje/);
+  assert.match(component, /Zamietnuté zdroje/);
   assert.doesNotMatch(component, /História|Pokročilé|Pripravené návrhy|Koncepty a nálezy/);
 });
 
