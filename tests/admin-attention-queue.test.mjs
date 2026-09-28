@@ -408,6 +408,19 @@ test("automation action presentation is aggregated, human-readable and category-
   assert.equal(drafts.targetHref, "/admin/adresar?category=veterinari&status=DRAFT");
   assert.equal(drafts.actionLabel, "Skontrolovať 3 nové koncepty");
 
+  const addressReview = mapAutomationActionAttention({
+    actionType: "ADDRESS_REVIEW",
+    sourceId: "address-review:veterinari",
+    categorySlug: "veterinari",
+    count: 2,
+    relevantAt: "2026-09-15T09:30:00.000Z",
+    targetHref: "/admin/automatizacie/adresy?category=veterinari",
+    sourceLabel: null,
+  }, NOW);
+  assert.equal(addressReview.title, "2 adresy vyžadujú kontrolu");
+  assert.equal(addressReview.priority, "MEDIUM");
+  assert.equal(addressReview.targetHref, "/admin/automatizacie/adresy?category=veterinari");
+
   const sourceIssue = mapAutomationActionAttention({
     actionType: "SOURCE_ISSUE",
     sourceId: "source-issue:42",
@@ -431,6 +444,8 @@ test("automation attention derives active state from bounded domain queries and 
   assert.match(store, /admin_notification_runtime/);
   assert.match(store, /LOWER\([a-z]\.status\)='draft'/);
   assert.match(store, /review_status='NEW'/);
+  assert.match(store, /automation_address_review_cases/);
+  assert.match(store, /status='OPEN'/);
   assert.match(store, /failing_sources/);
   assert.match(store, /HAVING COUNT\(\*\)=3 AND SUM\(CASE WHEN r\.status='FAILED'/);
   assert.match(store, /ROW_NUMBER\(\) OVER \(PARTITION BY r\.source_id/);
