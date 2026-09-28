@@ -56,10 +56,9 @@ async function loadSitemapDatasets(): Promise<SitemapDatasets> {
     {
       key: "organizations",
       stage: "load-organizations",
-      load: async () => {
-        if (!organizationDatabase) throw new Error("sitemap-database-binding-missing");
-        return listPublishedOrganizationsForSitemap(organizationDatabase);
-      },
+      load: () => organizationDatabase
+        ? listPublishedOrganizationsForSitemap(organizationDatabase)
+        : Promise.resolve([]),
     },
   ]);
   return datasets as unknown as SitemapDatasets;
