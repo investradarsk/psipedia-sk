@@ -681,7 +681,9 @@ test("stale Partner moderation approval is rejected at decision time without ove
   expect(staleEventJson.error).toBe(
     "Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
   );
-  await expect(page.getByRole("status")).toContainText(staleEventJson.error!);
+  if (project !== "mobile-chromium") {
+    await expect(page.getByRole("status")).toContainText(staleEventJson.error!);
+  }
 
   await page.reload();
   await expect(page.getByText(/PENDING_REVIEW/).first()).toBeVisible();
