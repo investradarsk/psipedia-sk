@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminAttentionQueue } from "@/components/admin-attention-queue";
+import { AdminAttentionHistorySync } from "@/components/admin-attention-history-sync";
 import { AdminShell } from "@/components/admin-shell";
 import styles from "@/components/admin-operations-ux.module.css";
 import {
@@ -103,6 +104,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
         </Link>
       </section>
 
+      <AdminAttentionHistorySync cursor={cursor ?? ""} />
       <div id="centrum-pozornosti">
         <AdminAttentionQueue
           key={JSON.stringify({ ...filters, cursor: cursor ?? "" })}
