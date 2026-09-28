@@ -475,7 +475,7 @@ export async function searchPortal(
   const need = Math.min(SEARCH_MAX_VISIBLE_RESULTS, page * pageSize);
   const staticItems = staticSectionItems(parsed, section);
   const db = database();
-  let databaseItems: PortalSearchItem[] = [];
+  const databaseItems: PortalSearchItem[] = [];
   let databaseTotal = 0;
 
   if (db) {
