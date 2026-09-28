@@ -26,6 +26,12 @@ import {
   sitemapEntry,
   SITEMAP_REDIRECT_SOURCES,
 } from "../lib/sitemap-seo.ts";
+import {
+  loadSitemapStages,
+  SITEMAP_MAX_D1_CONCURRENCY,
+  SitemapStageError,
+} from "../lib/sitemap-runtime.ts";
+import { withAvailableBreedImages } from "../lib/breed-image.ts";
 
 test("lastModified uses the latest real timestamp and omits unknown dates", () => {
   assert.equal(latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(), "2026-09-07T12:30:00.000Z");
@@ -81,12 +87,57 @@ test("only indexable self-canonical content is eligible for sitemap", () => {
   assert.equal(isSelfCanonical({ canonicalUrl: "https://psipedia.sk/plemena/labrador" }, "/plemena/labradorsky-retriever"), false);
 });
 
+test("invalid and external canonical URLs are not self-canonical", () => {
+  const path = "/starostlivost/test-canonical";
+  assert.equal(isSelfCanonical({ canonicalUrl: "not a valid absolute canonical" }, path), false);
+  assert.equal(isSelfCanonical({ canonicalUrl: "https://example.com/starostlivost/test-canonical" }, path), false);
+  assert.equal(isSelfCanonical({ canonicalUrl: "http://psipedia.sk/starostlivost/test-canonical" }, path), false);
+});
+
+test("global sitemap validation catches a cross-entity URL collision", () => {
+  const landingEntry = { url: "https://psipedia.sk/podujatia/example" };
+  const entityEntry = { url: "https://psipedia.sk/podujatia/example" };
+  assert.throws(
+    () => assertValidSitemap([landingEntry, entityEntry]),
+    /sitemap-duplicate-url:https:\/\/psipedia\.sk\/podujatia\/example/,
+  );
+});
+
 test("sitemap QA rejects duplicates, parameters, internal paths and redirect sources", () => {
   const entry = (path) => ({ url: `https://psipedia.sk${path}` });
   assert.throws(() => assertValidSitemap([entry("/plemena"), entry("/plemena")]), /sitemap-duplicate-url/);
   assert.throws(() => assertValidSitemap([entry("/plemena?fciGroup=1")]), /sitemap-parametric-url/);
   assert.throws(() => assertValidSitemap([entry("/admin")]), /sitemap-internal-url/);
   assert.throws(() => assertValidSitemap([entry("/adresar/psie-skoly")]), /sitemap-redirect-source/);
+});
+
+test("redirect-source ownership wins over implicit self-canonical sitemap eligibility", () => {
+  const altheaPath = "/adresar/veterinari/veterinarna-poliklinka-althea";
+  assert.equal(isSelfCanonical(undefined, altheaPath), true);
+  assert.equal(SITEMAP_REDIRECT_SOURCES.has(altheaPath), true);
+  assert.throws(
+    () => assertValidSitemap([{ url: `https://psipedia.sk${altheaPath}` }]),
+    /sitemap-redirect-source/,
+  );
+});
+
+test("sitemap builders exclude redirect-source details before parity and global validation", () => {
+  const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
+  const articleStart = source.indexOf('const articleEntries');
+  const eventStart = source.indexOf('const eventEntries');
+  const directoryStart = source.indexOf('const directoryCandidates');
+  const helpStart = source.indexOf('const helpCandidates');
+  const articleBlock = source.slice(articleStart, eventStart);
+  const eventBlock = source.slice(eventStart, directoryStart);
+  const directoryBlock = source.slice(directoryStart, helpStart);
+
+  assert.match(articleBlock, /!SITEMAP_REDIRECT_SOURCES\.has\(path\)/);
+  assert.match(articleBlock, /redirectSource \? "redirect-source"/);
+  assert.match(eventBlock, /!SITEMAP_REDIRECT_SOURCES\.has\(path\)/);
+  assert.match(eventBlock, /redirectSource \? "redirect-source"/);
+  assert.match(directoryBlock, /SITEMAP_REDIRECT_SOURCES\.has\(path!\)/);
+  assert.match(directoryBlock, /!legacyRedirect && !redirectSource/);
+  assert.match(directoryBlock, /legacyRedirect \|\| redirectSource/);
 });
 
 test("legacy activity training URL redirects directly to the canonical managed topic", () => {
@@ -322,7 +373,7 @@ test("internal and utility routes keep explicit noindex contracts", () => {
 
 test("generated sitemap uses canonical public sources and no hardcoded fake dates", () => {
   const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
-  assert.match(source, /listPublishedCanonicalBreedIndex/);
+  assert.match(source, /listPublishedCanonicalBreedSitemapIndex/);
   assert.match(source, /getPublishedDirectorySitemapRecords/);
   assert.match(source, /getPublishedArticleSitemapRecords/);
   assert.match(source, /getPublishedEventSitemapRecords/);
@@ -372,4 +423,109 @@ test("canonical repair migration fixes only the confirmed broken canonical targe
   }
   for (const row of repairedEvents) assert.ok(row.canonical.endsWith(`/${row.slug}`));
   database.close();
+});
+
+
+test("sitemap orchestrator bounds D1 fan-out independently of the confirmed asset-probe root cause", async () => {
+  const connectionLimit = 6;
+
+  const makeProbe = () => {
+    let active = 0;
+    let maxActive = 0;
+    return {
+      get maxActive() { return maxActive; },
+      async query() {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        if (active > connectionLimit) {
+          active -= 1;
+          throw new Error("simulated-cloudflare-connection-limit");
+        }
+        await new Promise((resolve) => setImmediate(resolve));
+        active -= 1;
+        return true;
+      },
+    };
+  };
+
+  const oldProbe = makeProbe();
+  await assert.rejects(
+    Promise.all(Array.from({ length: 9 }, () => oldProbe.query())),
+    /simulated-cloudflare-connection-limit/,
+  );
+  assert.ok(oldProbe.maxActive > connectionLimit);
+
+  const fixedProbe = makeProbe();
+  const stages = Array.from({ length: 9 }, (_, index) => ({
+    key: `dataset${index}`,
+    stage: `load-dataset-${index}`,
+    load: () => fixedProbe.query(),
+  }));
+  const datasets = await loadSitemapStages(stages);
+  assert.equal(Object.keys(datasets).length, 9);
+  assert.equal(SITEMAP_MAX_D1_CONCURRENCY, 1);
+  assert.equal(fixedProbe.maxActive, 1);
+});
+
+test("sitemap stage errors expose a safe stage code and preserve the original cause", async () => {
+  const cause = new Error("private-runtime-detail");
+  await assert.rejects(
+    loadSitemapStages([
+      { key: "organizations", stage: "load-organizations", load: async () => { throw cause; } },
+    ]),
+    (error) => {
+      assert.ok(error instanceof SitemapStageError);
+      assert.equal(error.message, "sitemap-stage-failed:load-organizations");
+      assert.equal(error.stage, "load-organizations");
+      assert.equal(error.cause, cause);
+      assert.doesNotMatch(error.message, /private-runtime-detail/);
+      return true;
+    },
+  );
+});
+
+test("sitemap application source has no top-level loader fan-out or required-dataset fail-soft", () => {
+  const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
+  const loadStart = source.indexOf("async function loadSitemapDatasets");
+  const buildStart = source.indexOf("function buildSitemapEntries");
+  const loadSource = source.slice(loadStart, buildStart);
+  assert.match(loadSource, /loadSitemapStages/);
+  assert.doesNotMatch(loadSource, /Promise\.all/);
+  assert.doesNotMatch(loadSource, /\.catch\(\(\) => \[\]\)/);
+  assert.match(loadSource, /stage: "load-organizations"/);
+  assert.match(source, /listManagedPortalSectionsForSitemap/);
+  assert.match(source, /listPublishedCanonicalBreedSitemapIndex/);
+  assert.doesNotMatch(source, /listPublishedCanonicalBreedIndex/);
+  assert.match(source, /runSitemapStageSync\("global-validation"/);
+});
+
+test("old breed image availability path can exceed Cloudflare's six waiting connections", async () => {
+  let active = 0;
+  let maxActive = 0;
+  const bindings = {
+    ASSETS: {
+      async fetch() {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setImmediate(resolve));
+        active -= 1;
+        return new Response("", { status: 200, headers: { "content-type": "image/webp" } });
+      },
+    },
+  };
+  const items = Array.from({ length: 8 }, (_, index) => ({
+    image: `/images/breeds/root-cause-${index}.webp`,
+  }));
+  await withAvailableBreedImages(items, bindings);
+  assert.equal(maxActive, 8);
+  assert.ok(maxActive > 6);
+});
+
+test("breed sitemap DTO stays lightweight and never probes R2 or static assets", () => {
+  const source = fs.readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
+  const start = source.indexOf("export async function listPublishedCanonicalBreedSitemapIndex");
+  const end = source.indexOf("export async function listPublishedBreedsForComparison", start);
+  const sitemapReader = source.slice(start, end);
+  assert.match(sitemapReader, /SELECT slug,image_url,seo_json,updated_at/);
+  assert.doesNotMatch(sitemapReader, /withAvailableBreedImages|BUCKET|ASSETS|HEAD|fci_standard_json/);
 });
