@@ -124,6 +124,81 @@ function searchResultFallbackRecord(input: {
   };
 }
 
+function splitDescriptionStreetAddress(value: string) {
+  const clean = value.replace(/\s+/g, " ").trim();
+  const match = clean.match(/^(.+?\D)\s+(\d+[A-Za-z]?(?:\/\d+[A-Za-z]?)?)$/u);
+  if (!match) return null;
+  const street = match[1].trim();
+  const houseNumber = match[2].trim();
+  if (street.length < 2 || street.length > 120 || houseNumber.length > 40) return null;
+  const streetWords = street.split(/\s+/).filter(Boolean);
+  if (streetWords.length > 3) return null;
+  return { street, houseNumber };
+}
+
+function directoryProposalHasAddress(proposed: Record<string, unknown>) {
+  return ["address", "street", "houseNumber", "house_number", "postalCode", "postal_code", "city"]
+    .some((key) => typeof proposed[key] === "string" && proposed[key].trim().length > 0);
+}
+
+export function enrichDirectoryProposalAddress(proposed: Record<string, unknown>) {
+  if (directoryProposalHasAddress(proposed)) return proposed;
+  const description = typeof proposed.description === "string"
+    ? proposed.description.replace(/\s+/g, " ").trim()
+    : "";
+  if (!description) return proposed;
+
+  const candidates: Array<{
+    address: string;
+    postalCode: string;
+    city: string;
+    street: string;
+    houseNumber: string;
+    addressFormat: "STREET";
+  }> = [];
+
+  for (const postalMatch of description.matchAll(/\b(\d{3}\s?\d{2})\b/gu)) {
+    if (postalMatch.index === undefined) continue;
+    const beforeStart = Math.max(0, postalMatch.index - 140);
+    const rawBefore = description.slice(beforeStart, postalMatch.index).replace(/[,\s]+$/, "");
+    const lastSeparator = Math.max(
+      rawBefore.lastIndexOf(","),
+      rawBefore.lastIndexOf(";"),
+      rawBefore.lastIndexOf("."),
+      rawBefore.lastIndexOf(":"),
+    );
+    let streetAddress = (lastSeparator >= 0 ? rawBefore.slice(lastSeparator + 1) : rawBefore).trim();
+    streetAddress = streetAddress
+      .replace(/^(?:adresa|sídlo|sidlo|prevádzka|prevadzka|nájdete nás|najdete nas)\s*:?\s*/i, "")
+      .trim();
+    const street = splitDescriptionStreetAddress(streetAddress);
+    if (!street) continue;
+
+    const after = description.slice(postalMatch.index + postalMatch[0].length, postalMatch.index + postalMatch[0].length + 100).trimStart();
+    const cityMatch = after.match(/^([\p{L}][\p{L} .'-]{1,80}?)(?=$|[.;|,])/u);
+    const city = cityMatch?.[1]?.replace(/\s+/g, " ").trim() ?? "";
+    if (city.length < 2 || city.length > 80) continue;
+
+    const postalCode = postalMatch[1];
+    candidates.push({
+      address: `${streetAddress}, ${postalCode} ${city}`,
+      postalCode,
+      city,
+      street: street.street,
+      houseNumber: street.houseNumber,
+      addressFormat: "STREET",
+    });
+  }
+
+  const unique = new Map<string, (typeof candidates)[number]>();
+  for (const candidate of candidates) {
+    const key = `${normalizeAutomationIdentity(candidate.address)}|${normalizeAutomationIdentity(candidate.city)}`;
+    if (key && !unique.has(key)) unique.set(key, candidate);
+  }
+  if (unique.size !== 1) return proposed;
+  return { ...proposed, ...[...unique.values()][0] };
+}
+
 async function fetchDirectEntityRecords(
   source: AutomationSource,
   input: {
@@ -196,13 +271,19 @@ export async function ingestDirectEntityUrl(input: {
     throw new Error("automation_direct_entity_technical_governance_blocked");
   }
 
-  const records = await fetchDirectEntityRecords(source, {
+  const fetchedRecords = await fetchDirectEntityRecords(source, {
     entityType: input.entityType,
     sourceUrl: input.sourceUrl,
     label: input.label,
     directoryCategory: input.directoryCategory,
     fetchImpl,
   });
+  const records = input.entityType === "DIRECTORY"
+    ? fetchedRecords.map((record) => ({
+        ...record,
+        proposed: enrichDirectoryProposalAddress(record.proposed),
+      }))
+    : fetchedRecords;
 
   const result: DirectEntityIngestionResult = {
     fetchedRecords: records.length,
