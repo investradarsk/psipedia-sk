@@ -87,6 +87,22 @@ test("only indexable self-canonical content is eligible for sitemap", () => {
   assert.equal(isSelfCanonical({ canonicalUrl: "https://psipedia.sk/plemena/labrador" }, "/plemena/labradorsky-retriever"), false);
 });
 
+test("invalid and external canonical URLs are not self-canonical", () => {
+  const path = "/starostlivost/test-canonical";
+  assert.equal(isSelfCanonical({ canonicalUrl: "not a valid absolute canonical" }, path), false);
+  assert.equal(isSelfCanonical({ canonicalUrl: "https://example.com/starostlivost/test-canonical" }, path), false);
+  assert.equal(isSelfCanonical({ canonicalUrl: "http://psipedia.sk/starostlivost/test-canonical" }, path), false);
+});
+
+test("global sitemap validation catches a cross-entity URL collision", () => {
+  const landingEntry = { url: "https://psipedia.sk/podujatia/example" };
+  const entityEntry = { url: "https://psipedia.sk/podujatia/example" };
+  assert.throws(
+    () => assertValidSitemap([landingEntry, entityEntry]),
+    /sitemap-duplicate-url:https:\/\/psipedia\.sk\/podujatia\/example/,
+  );
+});
+
 test("sitemap QA rejects duplicates, parameters, internal paths and redirect sources", () => {
   const entry = (path) => ({ url: `https://psipedia.sk${path}` });
   assert.throws(() => assertValidSitemap([entry("/plemena"), entry("/plemena")]), /sitemap-duplicate-url/);
