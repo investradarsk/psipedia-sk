@@ -10,8 +10,9 @@ test("category discovery OFF stays unscheduled while DIRECT_ENTITY save can retr
     read("app/api/admin/automation-categories/[category]/route.ts"),
   ]);
   assert.match(store, /WHERE enabled=1 AND review_status='APPROVED'/);
-  assert.match(store, /input\.enabled \? at : null/);
-  assert.match(route, /immediateRun = enabled && \(category\.mode === "DIRECT_ENTITY" \|\| !wasEnabled\)/);
+  assert.match(store, /root\.schedule\.mode === "CALENDAR"/);
+  assert.match(store, /: at;/);
+  assert.match(route, /schedule\.mode === "INTERVAL"[\s\S]*category\.mode === "DIRECT_ENTITY"/);
   assert.match(route, /releaseFailedDirectDiscoveryCooldowns/);
   assert.match(route, /runAutomationDiscoveryRootCanary/);
   assert.match(route, /waitUntil\(task\)/);
@@ -42,13 +43,14 @@ test("rejected URL identity is stable and cannot reappear as NEW", async () => {
   assert.match(store, /input\.action === "reject" \? "REJECTED"/);
 });
 
-test("source monitoring OFF is unscheduled and ON starts immediately", async () => {
+test("source monitoring OFF is unscheduled and interval ON starts immediately while calendar ON waits", async () => {
   const [sourceStore, route] = await Promise.all([
     read("lib/data-automation-source-store.ts"),
     read("app/api/admin/automation-sources/[id]/route.ts"),
   ]);
-  assert.match(sourceStore, /input\.enabled \? at : null/);
-  assert.match(route, /immediateRun = enabled && !before\.enabled/);
+  assert.match(sourceStore, /schedule\.mode === "CALENDAR"/);
+  assert.match(sourceStore, /else if \(!existing\.enabled\) \{\s*nextCheckAt = at;/);
+  assert.match(route, /immediateRun = enabled && !before\.enabled && schedule\.mode === "INTERVAL"/);
   assert.match(route, /runAutomationSourceNow/);
   assert.match(route, /waitUntil\(task\)/);
 });
@@ -104,15 +106,15 @@ test("source configure is validation-first and preserves immediate run only afte
   assert.match(route, /configureAutomationSource/);
   assert.doesNotMatch(route, /setAutomationSourceCadence/);
   assert.match(route, /technicalGovernanceRefresh: enabled \? \{ actor: auth\.user\.email \} : undefined/);
-  assert.match(route, /immediateRun = enabled && !before\.enabled/);
+  assert.match(route, /immediateRun = enabled && !before\.enabled && schedule\.mode === "INTERVAL"/);
   assert.match(route, /if \(immediateRun\)[\s\S]*runAutomationSourceNow/);
   assert.match(store, /sourceActivationReadinessForEnable/);
   assert.match(store, /automationSourceTechnicalGovernanceRefreshNeeded/);
   assert.match(store, /refreshAutomationSourceTechnicalGovernance/);
-  assert.match(store, /SET cadence_minutes=\?,enabled=\?,next_check_at=\?,updated_at=\?/);
+  assert.match(store, /cadence_minutes=\?,schedule_mode=\?,schedule_days_json=\?,schedule_local_time=\?,schedule_timezone=\?/);
 
   const configureIndex = route.indexOf("const source = await configureAutomationSource");
-  const immediateRunIndex = route.indexOf("const immediateRun = enabled && !before.enabled");
+  const immediateRunIndex = route.indexOf("const immediateRun = enabled");
   const runIndex = route.indexOf("runAutomationSourceNow(id");
   assert.ok(configureIndex >= 0 && configureIndex < immediateRunIndex);
   assert.ok(immediateRunIndex < runIndex, "source run is only scheduled after successful configure");

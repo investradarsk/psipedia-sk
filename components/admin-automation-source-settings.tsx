@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { automationCadenceOptions, automationSourceOnlyErrorMessage } from "@/lib/admin-automation-presentation";
+import { formatAutomationNextRun } from "@/lib/automation-schedule";
+import { AdminAutomationScheduleFields } from "./admin-automation-schedule-fields";
 import type { AutomationCanonicalContentLink } from "@/lib/data-automation-product-store";
 import type { AutomationSourceAdminRow } from "@/lib/data-automation-source-store";
 import styles from "./admin-operations-ux.module.css";
@@ -23,7 +25,7 @@ export function AdminAutomationSourceSettings({
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(source.enabled);
-  const [cadenceMinutes, setCadenceMinutes] = useState(source.cadenceMinutes);
+  const [schedule, setSchedule] = useState(source.schedule);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const monitoringCanEnable = monitoringReady || monitoringRetryable;
@@ -35,7 +37,7 @@ export function AdminAutomationSourceSettings({
       const response = await fetch("/api/admin/automation-sources/" + source.id, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "configure", enabled, cadenceMinutes }),
+        body: JSON.stringify({ action: "configure", enabled, schedule }),
       });
       const payload = await response.json().catch(() => ({})) as { immediateRun?: boolean; error?: string };
       if (!response.ok) throw new Error(automationSourceOnlyErrorMessage(payload.error, "Nastavenie sa nepodarilo uložiť."));
@@ -57,7 +59,9 @@ export function AdminAutomationSourceSettings({
         <div className={styles.sectionHeader}>
           <div>
             <h2>Nastavenie zdroja</h2>
-            <p>Po zapnutí sa zdroj skontroluje hneď a potom podľa zvolenej frekvencie.</p>
+            <p>{schedule.mode === "INTERVAL"
+              ? "Pri intervale sa po zapnutí zdroj skontroluje hneď a potom podľa zvolenej frekvencie."
+              : "Pri presnom rozvrhu sa po zapnutí zdroj prvýkrát skontroluje až v najbližší zvolený deň a čas."}</p>
           </div>
         </div>
 
@@ -77,14 +81,15 @@ export function AdminAutomationSourceSettings({
           </select>
         </label>
 
-        <label className="admin-field">
-          <span>Ako často kontrolovať zdroj</span>
-          <select value={cadenceMinutes} onChange={(event) => setCadenceMinutes(Number(event.target.value))} disabled={busy}>
-            {automationCadenceOptions.map((option) => (
-              <option key={option.minutes} value={option.minutes}>{option.label}</option>
-            ))}
-          </select>
-        </label>
+        <AdminAutomationScheduleFields
+          schedule={schedule}
+          onChange={setSchedule}
+          intervalOptions={automationCadenceOptions}
+          disabled={busy}
+          intervalLabel="Ako často kontrolovať zdroj"
+        />
+
+        <p><strong>Ďalšie spustenie:</strong> {enabled ? formatAutomationNextRun(source.nextCheckAt) : "—"}</p>
 
         <div className="admin-form-actions">
           <button className="is-primary" type="button" disabled={busy || (enabled && !monitoringCanEnable)} onClick={() => void save()}>

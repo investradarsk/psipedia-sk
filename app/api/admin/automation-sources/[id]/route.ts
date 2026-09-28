@@ -14,6 +14,11 @@ import {
   updateAutomationSourceAdmin,
 } from "@/lib/data-automation-source-store";
 import { prepareAutomationSourceGovernanceForApproval } from "@/lib/data-automation-source-activation";
+import {
+  automationScheduleErrorMessage,
+  parseAutomationSchedule,
+  type AutomationSchedule,
+} from "@/lib/automation-schedule";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -36,9 +41,22 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     if (action === "configure") {
       const enabled = body?.enabled === true;
-      const cadenceMinutes = Number(body?.cadenceMinutes);
-      if (!isAutomationCadenceOption(cadenceMinutes)) {
-        return Response.json({ error: "Vyber platnú frekvenciu kontroly." }, { status: 400 });
+      let schedule: AutomationSchedule;
+      try {
+        if (body?.schedule !== undefined) {
+          schedule = parseAutomationSchedule(body.schedule);
+        } else {
+          const cadenceMinutes = Number(body?.cadenceMinutes);
+          if (!isAutomationCadenceOption(cadenceMinutes)) {
+            return Response.json({ error: "Vyber platnú frekvenciu kontroly." }, { status: 400 });
+          }
+          schedule = { mode: "INTERVAL", intervalMinutes: cadenceMinutes };
+        }
+        if (schedule.mode === "INTERVAL" && !isAutomationCadenceOption(schedule.intervalMinutes)) {
+          return Response.json({ error: "Vyber platný interval plánovania." }, { status: 400 });
+        }
+      } catch (error) {
+        return Response.json({ error: automationScheduleErrorMessage(error) }, { status: 400 });
       }
       const bindings = env as unknown as Bindings;
       if (!bindings.DB) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
@@ -46,11 +64,11 @@ export async function PUT(request: Request, { params }: Props) {
       if (!before) return Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
       const source = await configureAutomationSource({
         id,
-        cadenceMinutes,
+        schedule,
         enabled,
         technicalGovernanceRefresh: enabled ? { actor: auth.user.email } : undefined,
       }, bindings.DB);
-      const immediateRun = enabled && !before.enabled;
+      const immediateRun = enabled && !before.enabled && schedule.mode === "INTERVAL";
       if (immediateRun) {
         const task = runAutomationSourceNow(id, {
           database: bindings.DB,
@@ -118,6 +136,9 @@ export async function PUT(request: Request, { params }: Props) {
     return Response.json({ error: "Neplatná source akcia." }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zdroj sa nepodarilo upraviť.";
+    if (/^automation_schedule_/.test(message)) {
+      return Response.json({ error: automationScheduleErrorMessage(error, "Nastavenie rozvrhu sa nepodarilo uložiť.") }, { status: 400 });
+    }
     const status = /review_required|not_safe|not_ready|governance_blocked|technical_verification_failed|activation_blocked|stale_update/i.test(message) ? 409 : /cadence_invalid|governance_.*invalid|rationale_required|value_too_long|number_invalid/i.test(message) ? 400 : /unique/i.test(message) ? 409 : 500;
     return Response.json({ error: message }, { status });
   }

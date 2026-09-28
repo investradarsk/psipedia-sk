@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   automationCadenceOptions,
+  automationDirectRefreshMinimumCadenceMinutes,
   automationDiscoveryMinimumCadenceMinutes,
   automationSourceDomain,
   automationSourceOnlyErrorMessage,
   type AutomationUxCategory,
 } from "@/lib/admin-automation-presentation";
+import { AdminAutomationScheduleFields } from "./admin-automation-schedule-fields";
+import { formatAutomationScheduleSummary, type AutomationSchedule } from "@/lib/automation-schedule";
 import type { AutomationDiscoveryRoot } from "@/lib/data-automation-discovery-store";
 import type {
   AutomationCanonicalContentLink,
@@ -80,15 +83,37 @@ export function AdminAutomationCategorySources({
     () => automationCadenceOptions.filter((option) => option.minutes >= minimumCadence),
     [minimumCadence],
   );
-  const initialCadence = discoveryRoots[0]?.cadenceMinutes;
+  const initialDiscoverySchedule = discoveryRoots[0]?.schedule;
   const [discoveryEnabled, setDiscoveryEnabled] = useState(discoveryRoots.some((root) => root.enabled));
-  const [discoveryCadence, setDiscoveryCadence] = useState(
-    cadenceOptions.some((option) => option.minutes === initialCadence)
-      ? Number(initialCadence)
-      : cadenceOptions[0].minutes,
+  const [discoverySchedule, setDiscoverySchedule] = useState<AutomationSchedule>(() => {
+    if (initialDiscoverySchedule?.mode === "CALENDAR") return initialDiscoverySchedule;
+    const initialCadence = initialDiscoverySchedule?.mode === "INTERVAL"
+      ? initialDiscoverySchedule.intervalMinutes
+      : discoveryRoots[0]?.cadenceMinutes;
+    return {
+      mode: "INTERVAL",
+      intervalMinutes: cadenceOptions.some((option) => option.minutes === initialCadence)
+        ? Number(initialCadence)
+        : cadenceOptions[0].minutes,
+    };
+  });
+  const refreshCadenceOptions = useMemo(
+    () => automationCadenceOptions.filter((option) => option.minutes >= automationDirectRefreshMinimumCadenceMinutes()),
+    [],
   );
   const [refreshEnabled, setRefreshEnabled] = useState(refreshSetting?.enabled ?? false);
-  const [refreshCadence, setRefreshCadence] = useState(refreshSetting?.cadenceMinutes ?? 20_160);
+  const [refreshSchedule, setRefreshSchedule] = useState<AutomationSchedule>(() => {
+    if (refreshSetting?.schedule?.mode === "CALENDAR") return refreshSetting.schedule;
+    const intervalMinutes = refreshSetting?.schedule?.mode === "INTERVAL"
+      ? refreshSetting.schedule.intervalMinutes
+      : refreshSetting?.cadenceMinutes ?? 20_160;
+    return {
+      mode: "INTERVAL",
+      intervalMinutes: refreshCadenceOptions.some((option) => option.minutes === intervalMinutes)
+        ? intervalMinutes
+        : refreshCadenceOptions[0].minutes,
+    };
+  });
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
@@ -103,7 +128,7 @@ export function AdminAutomationCategorySources({
       const response = await fetch("/api/admin/automation-categories/" + category.slug, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "discovery", enabled: discoveryEnabled, cadenceMinutes: discoveryCadence }),
+        body: JSON.stringify({ kind: "discovery", enabled: discoveryEnabled, schedule: discoverySchedule }),
       });
       const payload = await response.json().catch(() => ({})) as { immediateRun?: boolean; error?: string };
       if (!response.ok) throw new Error(automationSourceOnlyErrorMessage(payload.error, "Nastavenie sa nepodarilo uložiť."));
@@ -125,7 +150,7 @@ export function AdminAutomationCategorySources({
       const response = await fetch("/api/admin/automation-categories/" + category.slug, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "refresh", enabled: refreshEnabled, cadenceMinutes: refreshCadence }),
+        body: JSON.stringify({ kind: "refresh", enabled: refreshEnabled, schedule: refreshSchedule }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(automationSourceOnlyErrorMessage(payload.error, "Nastavenie kontroly zmien sa nepodarilo uložiť."));
@@ -184,12 +209,13 @@ export function AdminAutomationCategorySources({
             <option value="on">Zapnuté</option>
           </select>
         </label>
-        <label className="admin-field">
-          <span>{category.mode === "DIRECT_ENTITY" ? "Ako často hľadať" : "Ako často hľadať nové zdroje"}</span>
-          <select value={discoveryCadence} onChange={(event) => setDiscoveryCadence(Number(event.target.value))} disabled={busy !== null}>
-            {cadenceOptions.map((option) => <option key={option.minutes} value={option.minutes}>{option.label}</option>)}
-          </select>
-        </label>
+        <AdminAutomationScheduleFields
+          schedule={discoverySchedule}
+          onChange={setDiscoverySchedule}
+          intervalOptions={cadenceOptions}
+          disabled={busy !== null}
+          intervalLabel={category.mode === "DIRECT_ENTITY" ? "Ako často hľadať" : "Ako často hľadať nové zdroje"}
+        />
         <div className="admin-form-actions">
           <button className="is-primary" type="button" disabled={busy !== null} onClick={() => void saveDiscovery()}>
             {busy === "discovery" ? "Ukladám…" : "Uložiť nastavenie"}
@@ -202,7 +228,13 @@ export function AdminAutomationCategorySources({
           <section className={styles.section}>
             <div className={styles.sectionHeader}><div><h2>Kontrolovať doplnenia a zmeny</h2><p>Existujúce záznamy sa kontrolujú po bounded dávkach. Zistená zmena sa iba navrhne; canonical záznam sa automaticky nemení.</p></div></div>
             <label className="admin-field"><span>Kontrolovať existujúce záznamy</span><select value={refreshEnabled ? "on" : "off"} onChange={(event) => setRefreshEnabled(event.target.value === "on")} disabled={busy !== null}><option value="off">Vypnuté</option><option value="on">Zapnuté</option></select></label>
-            <label className="admin-field"><span>Ako často kontrolovať</span><select value={refreshCadence} onChange={(event) => setRefreshCadence(Number(event.target.value))} disabled={busy !== null}>{automationCadenceOptions.filter((option) => option.minutes >= 10_080).map((option) => <option key={option.minutes} value={option.minutes}>{option.label}</option>)}</select></label>
+            <AdminAutomationScheduleFields
+              schedule={refreshSchedule}
+              onChange={setRefreshSchedule}
+              intervalOptions={refreshCadenceOptions}
+              disabled={busy !== null}
+              intervalLabel="Ako často kontrolovať"
+            />
             <div className="admin-form-actions"><button className="is-primary" type="button" disabled={busy !== null} onClick={() => void saveRefresh()}>{busy === "refresh" ? "Ukladám…" : "Uložiť nastavenie"}</button></div>
           </section>
 
@@ -227,7 +259,7 @@ export function AdminAutomationCategorySources({
             <div className={styles.sectionHeader}><div><h2>Schválené zdroje</h2></div><span className={styles.sectionCount}>{approvedSources.length}</span></div>
             {approvedSources.length ? <div className={styles.itemList}>{approvedSources.map((source) => {
               const found = sourceContent[String(source.id)] ?? [];
-              return <article className={styles.itemCard} key={source.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{source.label}</strong></div><p>{automationSourceDomain(source.sourceUrl)} · {source.enabled ? "Kontrolovanie zapnuté" : "Kontrolovanie vypnuté"}</p><div><strong>Nájdený obsah</strong>{found.length ? found.map((item) => <p key={item.entityType + ":" + item.canonicalEntityId}><Link href={item.href}>{contentStatus(item.status)} · {item.label}{item.secondary ? " · " + item.secondary : ""} →</Link></p>) : <p>Zatiaľ žiadny canonical obsah.</p>}</div></div><Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link></article>;
+              return <article className={styles.itemCard} key={source.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{source.label}</strong></div><p>{automationSourceDomain(source.sourceUrl)} · {source.enabled ? "Kontrolovanie zapnuté" : "Kontrolovanie vypnuté"} · {formatAutomationScheduleSummary(source.schedule)}</p><div><strong>Nájdený obsah</strong>{found.length ? found.map((item) => <p key={item.entityType + ":" + item.canonicalEntityId}><Link href={item.href}>{contentStatus(item.status)} · {item.label}{item.secondary ? " · " + item.secondary : ""} →</Link></p>) : <p>Zatiaľ žiadny canonical obsah.</p>}</div></div><Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link></article>;
             })}</div> : <div className={styles.empty}>Zatiaľ nemáte schválený žiadny zdroj.</div>}
           </section>
 
