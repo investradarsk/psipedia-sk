@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { automationSourceReadiness } from "../lib/data-automation-capability-registry.ts";
+import { automationSourceOnlyErrorMessage } from "../lib/admin-automation-presentation.ts";
 import { searchProviderCandidatesForRoot } from "../lib/data-automation-discovery-runner.ts";
 import {
   getAutomationSourceAdmin,
@@ -443,4 +444,24 @@ test("HOTFIX DIRECTORY candidate without a supported adapter remains fail-closed
   const readiness = automationSourceReadiness(source);
   assert.equal(readiness.reason, "MISSING_ADAPTER");
   assert.equal(readiness.ready, false);
+});
+
+
+test("HOTFIX source-only error mapping never exposes readiness backend codes", () => {
+  const expected = "Tento zdroj zatiaľ nie je pripravený na automatické spracovanie.";
+  for (const code of [
+    "automation_source_not_ready:MISSING_ADAPTER",
+    "automation_source_not_ready:UNSUPPORTED_ADAPTER",
+    "automation_source_not_ready:ADAPTER_ENTITY_MISMATCH",
+    "automation_source_not_ready:ADAPTER_SHAPE_MISMATCH",
+    "automation_source_not_ready:MISSING_PARSER",
+    "automation_candidate_source_not_ready:UNSUPPORTED_ADAPTER",
+    "automation_candidate_source_provisioning_conflict",
+  ]) {
+    assert.equal(automationSourceOnlyErrorMessage(code), expected, code);
+  }
+  assert.equal(
+    automationSourceOnlyErrorMessage("automation_source_review_required", "Nastavenie sa nepodarilo uložiť."),
+    "Nastavenie sa nepodarilo uložiť.",
+  );
 });
