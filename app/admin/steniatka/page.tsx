@@ -36,7 +36,7 @@ export default async function AdminPuppiesPage({ searchParams }: { searchParams:
         initialCounts={result.counts}
         initialResultCount={result.resultCount}
         pagination={result.pagination}
-        filters={filters}
+        filters={{ ...filters, portalSection: "all" }}
         fixedPortalSection="steniatka"
       />
     </AdminShell>
