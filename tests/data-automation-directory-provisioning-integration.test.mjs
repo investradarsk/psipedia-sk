@@ -857,8 +857,17 @@ test("HOTFIX robots or terms blockers cannot activate and approval does not over
     fetchImpl: sourceGovernanceFetch(),
     now,
   });
-  assert.equal(repeatPreparation.prepared, false);
-  assert.deepEqual(termsDb.governance[0], before, "existing source governance must never be silently overwritten");
+  assert.equal(repeatPreparation.prepared, true);
+  assert.equal(termsDb.governance[0].access_status, "ALLOWED");
+  assert.equal(termsDb.governance[0].robots_status, "ALLOWED");
+  assert.equal(termsDb.governance[0].terms_status, "BLOCKED", "operator terms decision is preserved");
+  assert.equal(termsDb.governance[0].recurring_status, before.recurring_status);
+  assert.equal(termsDb.governance[0].retention_status, before.retention_status);
+  assert.equal(termsDb.governance[0].retain_url, before.retain_url);
+  assert.equal(termsDb.governance[0].retain_title, before.retain_title);
+  assert.equal(termsDb.governance[0].retain_snippet, before.retain_snippet);
+  assert.equal(termsDb.governance[0].retain_metadata, before.retain_metadata);
+  assert.equal(termsDb.governance[0].manual_only, before.manual_only);
 
   const termsReadiness = await automationSourceActivationReadiness(termsSource, termsDb, {
     cadenceMinutes: 10080,
