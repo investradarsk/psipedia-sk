@@ -1,7 +1,7 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
-export const ADMIN_ATTENTION_QUERY_COUNT = 15;
+export const ADMIN_ATTENTION_QUERY_COUNT = 16;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -72,7 +72,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
   AUTOMATION_ACTION: "Automatizácie",
-  AUTOMATION_FINDING: "Automatický research",
+  AUTOMATION_FINDING: "Automation finding (legacy)",
   PARTNER_CLAIM_REVIEW: "Partner claims",
   PARTNER_PROFILE_CHANGE_REVIEW: "Partner úpravy profilov",
   PARTNER_NEW_PROFILE_REVIEW: "Partner nové profily",
