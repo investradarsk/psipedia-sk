@@ -41,6 +41,9 @@ export type AutomationDirectRefreshSetting = {
   lastSuccessAt: string | null;
   lastErrorAt: string | null;
   lastErrorCode: string | null;
+  lastBatchCheckedCount: number | null;
+  lastBatchUpdateSuggestionCount: number | null;
+  lastBatchErrorCount: number | null;
 };
 
 export type AutomationCanonicalContentLink = {
@@ -192,6 +195,9 @@ function mapRefreshSetting(row: Record<string, unknown>): AutomationDirectRefres
     lastSuccessAt: row.last_success_at ? String(row.last_success_at) : null,
     lastErrorAt: row.last_error_at ? String(row.last_error_at) : null,
     lastErrorCode: row.last_error_code ? String(row.last_error_code) : null,
+    lastBatchCheckedCount: row.last_batch_checked_count === null || row.last_batch_checked_count === undefined ? null : Number(row.last_batch_checked_count),
+    lastBatchUpdateSuggestionCount: row.last_batch_update_suggestion_count === null || row.last_batch_update_suggestion_count === undefined ? null : Number(row.last_batch_update_suggestion_count),
+    lastBatchErrorCount: row.last_batch_error_count === null || row.last_batch_error_count === undefined ? null : Number(row.last_batch_error_count),
   };
 }
 
@@ -335,12 +341,99 @@ export async function listDirectRefreshCandidates(
   })).filter((row) => Boolean(row.sourceUrl));
 }
 
+export type AutomationDirectRefreshProgress = {
+  categorySlug: AutomationDirectRefreshSetting["categorySlug"];
+  totalCanonical: number;
+  withWebsite: number;
+  withoutWebsite: number;
+  eligibleTotal: number;
+  eligibleProcessedInCurrentCycle: number;
+  eligibleRemaining: number;
+  currentCursorId: number;
+  state: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETE" | "IDLE_AFTER_ERROR";
+  lastCheckedAt: string | null;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorCode: string | null;
+  lastBatchCheckedCount: number | null;
+  lastBatchUpdateSuggestionCount: number | null;
+  lastBatchErrorCount: number | null;
+  nextCheckAt: string | null;
+};
+
+export async function getDirectRefreshProgress(
+  categorySlug: AutomationDirectRefreshSetting["categorySlug"],
+  databaseInput?: Database,
+): Promise<AutomationDirectRefreshProgress | null> {
+  const db = database(databaseInput);
+  const setting = await getDirectEntityRefreshSetting(categorySlug, db);
+  if (!setting) return null;
+
+  let row: Record<string, unknown> | null;
+  if (categorySlug === "utulky-organizacie") {
+    row = await db.prepare(`SELECT
+      COUNT(*) AS total_canonical,
+      COALESCE(SUM(CASE WHEN website_url IS NOT NULL AND TRIM(website_url)<>'' THEN 1 ELSE 0 END),0) AS with_website,
+      COALESCE(SUM(CASE WHEN website_url IS NULL OR TRIM(website_url)='' THEN 1 ELSE 0 END),0) AS without_website,
+      COALESCE(SUM(CASE WHEN website_url IS NOT NULL AND TRIM(website_url)<>'' AND id<=? THEN 1 ELSE 0 END),0) AS processed
+      FROM help_organizations`).bind(setting.cursorEntityId).first<Record<string, unknown>>();
+  } else {
+    const categories = categorySlug === "veterinari" ? ["veterinari"] : automationServiceDirectoryCategories;
+    const placeholders = categories.map(() => "?").join(",");
+    row = await db.prepare(`SELECT
+      COUNT(*) AS total_canonical,
+      COALESCE(SUM(CASE WHEN website_url IS NOT NULL AND TRIM(website_url)<>'' THEN 1 ELSE 0 END),0) AS with_website,
+      COALESCE(SUM(CASE WHEN website_url IS NULL OR TRIM(website_url)='' THEN 1 ELSE 0 END),0) AS without_website,
+      COALESCE(SUM(CASE WHEN website_url IS NOT NULL AND TRIM(website_url)<>'' AND id<=? THEN 1 ELSE 0 END),0) AS processed
+      FROM directory_profiles WHERE category IN (${placeholders})`).bind(
+        setting.cursorEntityId,
+        ...categories,
+      ).first<Record<string, unknown>>();
+  }
+
+  const totalCanonical = Number(row?.total_canonical ?? 0);
+  const withWebsite = Number(row?.with_website ?? 0);
+  const withoutWebsite = Number(row?.without_website ?? 0);
+  const processed = setting.cursorEntityId > 0 ? Number(row?.processed ?? 0) : 0;
+  const latestSuccess = setting.lastSuccessAt && (!setting.lastErrorAt || setting.lastSuccessAt >= setting.lastErrorAt);
+  const state = setting.cursorEntityId > 0
+    ? "IN_PROGRESS" as const
+    : latestSuccess
+      ? "COMPLETE" as const
+      : setting.lastCheckedAt
+        ? "IDLE_AFTER_ERROR" as const
+        : "NOT_STARTED" as const;
+
+  return {
+    categorySlug,
+    totalCanonical,
+    withWebsite,
+    withoutWebsite,
+    eligibleTotal: withWebsite,
+    eligibleProcessedInCurrentCycle: processed,
+    eligibleRemaining: Math.max(0, withWebsite - processed),
+    currentCursorId: setting.cursorEntityId,
+    state,
+    lastCheckedAt: setting.lastCheckedAt,
+    lastSuccessAt: setting.lastSuccessAt,
+    lastErrorAt: setting.lastErrorAt,
+    lastErrorCode: setting.lastErrorCode,
+    lastBatchCheckedCount: setting.lastBatchCheckedCount,
+    lastBatchUpdateSuggestionCount: setting.lastBatchUpdateSuggestionCount,
+    lastBatchErrorCount: setting.lastBatchErrorCount,
+    nextCheckAt: setting.nextCheckAt,
+  };
+}
+
 export async function finishDirectEntityRefreshSetting(input: {
   setting: AutomationDirectRefreshSetting;
   lastEntityId: number;
   batchWasFull: boolean;
   status: "SUCCESS" | "PARTIAL" | "FAILED";
   errorCode?: string | null;
+  checkedCount?: number;
+  updateSuggestionCount?: number;
+  errorCount?: number;
   now?: Date;
 }, databaseInput?: Database) {
   const db = database(databaseInput);
@@ -350,25 +443,36 @@ export async function finishDirectEntityRefreshSetting(input: {
   const next = input.batchWasFull
     ? new Date(now.getTime() + 60 * 60_000).toISOString()
     : nextAutomationScheduledAt(input.setting.schedule, now);
-  await db.prepare(`UPDATE automation_direct_refresh_settings SET
-      cursor_entity_id=?,next_check_at=?,last_checked_at=?,
-      last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,
-      last_error_at=CASE WHEN ?='SUCCESS' THEN last_error_at ELSE ? END,
-      last_error_code=CASE WHEN ?='SUCCESS' THEN NULL ELSE ? END,
-      updated_at=?
-    WHERE category_slug=?`).bind(
-      cursor,
-      next,
-      at,
-      input.status,
-      at,
-      input.status,
-      at,
-      input.status,
-      input.errorCode?.slice(0, 180) ?? null,
-      at,
-      input.setting.categorySlug,
-    ).run();
+  try {
+    await db.prepare(`UPDATE automation_direct_refresh_settings SET
+        cursor_entity_id=?,next_check_at=?,last_checked_at=?,
+        last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,
+        last_error_at=CASE WHEN ?='SUCCESS' THEN last_error_at ELSE ? END,
+        last_error_code=CASE WHEN ?='SUCCESS' THEN NULL ELSE ? END,
+        last_batch_checked_count=CASE WHEN ?>0 THEN ? ELSE last_batch_checked_count END,
+        last_batch_update_suggestion_count=CASE WHEN ?>0 THEN ? ELSE last_batch_update_suggestion_count END,
+        last_batch_error_count=CASE WHEN ?>0 THEN ? ELSE last_batch_error_count END,
+        updated_at=?
+      WHERE category_slug=?`).bind(
+        cursor,next,at,input.status,at,input.status,at,input.status,input.errorCode?.slice(0,180)??null,
+        Math.max(0,Math.floor(input.checkedCount??0)),Math.max(0,Math.floor(input.checkedCount??0)),
+        Math.max(0,Math.floor(input.checkedCount??0)),Math.max(0,Math.floor(input.updateSuggestionCount??0)),
+        Math.max(0,Math.floor(input.checkedCount??0)),Math.max(0,Math.floor(input.errorCount??0)),
+        at,input.setting.categorySlug,
+      ).run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/no such column:|has no column named/i.test(message)) throw error;
+    await db.prepare(`UPDATE automation_direct_refresh_settings SET
+        cursor_entity_id=?,next_check_at=?,last_checked_at=?,
+        last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,
+        last_error_at=CASE WHEN ?='SUCCESS' THEN last_error_at ELSE ? END,
+        last_error_code=CASE WHEN ?='SUCCESS' THEN NULL ELSE ? END,
+        updated_at=?
+      WHERE category_slug=?`).bind(
+        cursor,next,at,input.status,at,input.status,at,input.status,input.errorCode?.slice(0,180)??null,at,input.setting.categorySlug,
+      ).run();
+  }
 }
 
 export type AutomationDiscoveryExclusionContext = {
