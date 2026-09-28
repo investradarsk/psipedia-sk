@@ -89,7 +89,9 @@ test("HOTFIX DIRECTORY CREATE_DRAFT reuses public-contact metadata and unconfirm
   assert.match(draftMapper, /serviceAddressConfirmation:\s*"LEGACY_UNCONFIRMED"/);
   assert.match(draftService, /mergeDirectoryPublicContactData/);
   assert.match(draftService, /source_data_json:\s*JSON\.stringify\(after\.sourceData\)/);
-  assert.match(draftService, /serviceAddressConfirmation:\s*"LEGACY_UNCONFIRMED"/);
+  assert.match(draftService, /verifiedAddress/);
+  assert.match(draftService, /"CONFIRMED_SERVICE_LOCATION" as const/);
+  assert.match(draftService, /"LEGACY_UNCONFIRMED" as const/);
   assert.match(draftService, /service_address_confirmation:\s*after\.serviceAddressConfirmation/);
   assert.doesNotMatch(draftService, /openingHours|opening_hours/);
 });

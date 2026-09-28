@@ -14,6 +14,15 @@ export type CanonicalDraftInput = {
   data: Record<string, unknown>;
   externalSourceUrl?: string | null;
   slugSuffix?: string | null;
+  verifiedDirectoryAddress?: {
+    region: string;
+    district: string;
+    city: string;
+    postalCode: string;
+    street: string;
+    houseNumber: string;
+    addressFormat: "STREET" | "MUNICIPALITY_NUMBER";
+  } | null;
 };
 
 export type CanonicalDraftDatabase = Pick<D1Database, "prepare">;
@@ -230,9 +239,18 @@ export async function createCanonicalDraft(
     const category = textValue(p.category);
     if (!name || !category) throw new CanonicalDraftValidationError("Nový koncept adresára potrebuje názov a kategóriu.");
 
-    const rawAddressFormat = textValue(p.addressFormat ?? p.address_format);
+    const verifiedAddress = input.verifiedDirectoryAddress ?? null;
+    const rawAddressFormat = textValue(verifiedAddress?.addressFormat ?? p.addressFormat ?? p.address_format);
     const addressFormat = rawAddressFormat === "STREET" || rawAddressFormat === "MUNICIPALITY_NUMBER"
       ? rawAddressFormat
+      : "";
+    const verifiedAddressLine = verifiedAddress
+      ? [
+          verifiedAddress.addressFormat === "STREET"
+            ? [verifiedAddress.street, verifiedAddress.houseNumber].filter(Boolean).join(" ")
+            : [verifiedAddress.city, verifiedAddress.houseNumber].filter(Boolean).join(" "),
+          [verifiedAddress.postalCode, verifiedAddress.city].filter(Boolean).join(" "),
+        ].filter(Boolean).join(", ")
       : "";
     const websiteUrl = nullableText(p.websiteUrl ?? p.website_url);
     const publicPhone = textValue(p.publicPhone ?? p.public_phone);
@@ -256,15 +274,17 @@ export async function createCanonicalDraft(
       description: textValue(p.description),
       services: Array.isArray(p.services) ? p.services : [],
       qualifications: Array.isArray(p.qualifications) ? p.qualifications : [],
-      city: textValue(p.city),
-      district: textValue(p.district),
-      region: textValue(p.region),
-      address: textValue(p.address),
-      postalCode: textValue(p.postalCode ?? p.postal_code),
-      street: textValue(p.street),
-      houseNumber: textValue(p.houseNumber ?? p.house_number),
+      city: textValue(verifiedAddress?.city ?? p.city),
+      district: textValue(verifiedAddress?.district ?? p.district),
+      region: textValue(verifiedAddress?.region ?? p.region),
+      address: verifiedAddressLine || textValue(p.address),
+      postalCode: textValue(verifiedAddress?.postalCode ?? p.postalCode ?? p.postal_code),
+      street: textValue(verifiedAddress?.street ?? p.street),
+      houseNumber: textValue(verifiedAddress?.houseNumber ?? p.houseNumber ?? p.house_number),
       addressFormat,
-      serviceAddressConfirmation: "LEGACY_UNCONFIRMED" as const,
+      serviceAddressConfirmation: verifiedAddress
+        ? "CONFIRMED_SERVICE_LOCATION" as const
+        : "LEGACY_UNCONFIRMED" as const,
       online: Boolean(p.online),
       priceNote: textValue(p.priceNote ?? p.price_note),
       websiteUrl,

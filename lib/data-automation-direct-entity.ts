@@ -4,6 +4,12 @@ import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } 
 import { AutomationConnectorError, fetchAutomationSourceRecords, type AutomationFetch } from "./data-automation-connectors.ts";
 import { mapAutomationRecordToDraftInput } from "./data-automation-draft-mapper.ts";
 import { directoryActionableProposal } from "./data-automation-directory-diff.ts";
+import {
+  enrichDirectoryProposalWithExactAddress,
+  type DirectoryAddressSearch,
+} from "./data-automation-directory-address-enrichment.ts";
+import type { VerifiedDirectoryAddress } from "./directory-address-provider.ts";
+import type { GeocoderProvider } from "./geo-provider.ts";
 import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
 import {
   classifyAutomationFinding,
@@ -26,7 +32,12 @@ import {
   automationProductCategoryForEntity,
   type AutomationProductCategorySlug,
 } from "./data-automation-product-model.ts";
-import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
+import {
+  applyGeocoderResolution,
+  getGeoPointForTarget,
+  reconcileGeoAfterSourceMutation,
+  setGeoVisibility,
+} from "./geo-store.ts";
 
 const DIRECT_AUTOMATION_ACTOR = "automation@psipedia.sk";
 
@@ -221,6 +232,33 @@ async function fetchDirectEntityRecords(
   }
 }
 
+async function applyVerifiedDirectoryGeo(
+  canonicalEntityId: number,
+  verified: VerifiedDirectoryAddress,
+  database: D1Database,
+) {
+  let point = await getGeoPointForTarget("DIRECTORY_PROFILE", canonicalEntityId, database);
+  if (!point || point.manualOverride) return;
+  if (point.publicVisibility !== "EXACT_PUBLIC" || point.publicPrecision !== "EXACT") {
+    point = await setGeoVisibility({
+      targetType: "DIRECTORY_PROFILE",
+      targetId: canonicalEntityId,
+      visibility: "EXACT_PUBLIC",
+      precision: "EXACT",
+      actorRef: DIRECT_AUTOMATION_ACTOR,
+      actorType: "SYSTEM",
+      reason: "AUTOMATION_GEOAPIFY_VERIFIED_ADDRESS",
+    }, database);
+  }
+  if (point.manualOverride) return;
+  await applyGeocoderResolution({
+    targetType: "DIRECTORY_PROFILE",
+    targetId: canonicalEntityId,
+    result: verified.providerResult,
+    method: "GEOCODER",
+  }, database);
+}
+
 async function ensureCanonicalSidecars(
   entityType: AutomationEntityType,
   canonicalEntityId: number,
@@ -250,6 +288,9 @@ export async function ingestDirectEntityUrl(input: {
   now?: Date;
   provenanceType?: CanonicalExternalProvenanceType;
   expectedCanonicalEntityId?: number | null;
+  addressSearch?: DirectoryAddressSearch;
+  addressEvidenceText?: string | null;
+  geocoder?: GeocoderProvider;
 }): Promise<DirectEntityIngestionResult> {
   const now = input.now ?? new Date();
   const detectedAt = now.toISOString();
@@ -278,12 +319,38 @@ export async function ingestDirectEntityUrl(input: {
     directoryCategory: input.directoryCategory,
     fetchImpl,
   });
-  const records = input.entityType === "DIRECTORY"
-    ? fetchedRecords.map((record) => ({
-        ...record,
-        proposed: enrichDirectoryProposalAddress(record.proposed),
-      }))
-    : fetchedRecords;
+
+  let addressSearchUsed = false;
+  const boundedAddressSearch = input.addressSearch
+    ? async (query: string) => {
+        if (addressSearchUsed) return [];
+        addressSearchUsed = true;
+        return input.addressSearch!(query);
+      }
+    : undefined;
+  const records: Array<{
+    record: AutomationSourceRecord;
+    verifiedDirectoryAddress: VerifiedDirectoryAddress | null;
+  }> = [];
+  for (const fetchedRecord of fetchedRecords) {
+    if (input.entityType !== "DIRECTORY") {
+      records.push({ record: fetchedRecord, verifiedDirectoryAddress: null });
+      continue;
+    }
+    const proposed = enrichDirectoryProposalAddress(fetchedRecord.proposed);
+    const exact = await enrichDirectoryProposalWithExactAddress({
+      proposed,
+      name: typeof proposed.name === "string" && proposed.name.trim() ? proposed.name : input.label,
+      sourceUrl: fetchedRecord.sourceUrl || input.sourceUrl,
+      extraEvidenceText: input.addressEvidenceText,
+      addressSearch: boundedAddressSearch,
+      geocoder: input.geocoder,
+    });
+    records.push({
+      record: { ...fetchedRecord, proposed: exact.proposed },
+      verifiedDirectoryAddress: exact.verified,
+    });
+  }
 
   const result: DirectEntityIngestionResult = {
     fetchedRecords: records.length,
@@ -294,7 +361,9 @@ export async function ingestDirectEntityUrl(input: {
     canonicalEntityIds: [],
   };
 
-  for (const record of records) {
+  for (const prepared of records) {
+    const record = prepared.record;
+    const verifiedDirectoryAddress = prepared.verifiedDirectoryAddress;
     const match = await matchAutomationCanonical(source, record, input.database);
     if (input.expectedCanonicalEntityId && match.entityId !== input.expectedCanonicalEntityId) {
       continue;
@@ -303,6 +372,13 @@ export async function ingestDirectEntityUrl(input: {
     const proposedForComparison = input.entityType === "DIRECTORY"
       ? directoryActionableProposal(record.proposed, match.before)
       : organizationActionableProposal(record.proposed, match.before);
+    if (
+      input.entityType === "DIRECTORY"
+      && verifiedDirectoryAddress
+      && String(match.before?.serviceAddressConfirmation ?? "") !== "CONFIRMED_SERVICE_LOCATION"
+    ) {
+      proposedForComparison.serviceAddressConfirmation = "CONFIRMED_SERVICE_LOCATION";
+    }
     const classified = classifyAutomationFinding({ match, proposed: proposedForComparison });
     const provenanceType = input.provenanceType ?? "DIRECT_ENTITY_DISCOVERY";
 
@@ -356,6 +432,7 @@ export async function ingestDirectEntityUrl(input: {
           sourceUrl: record.sourceUrl,
           findingType: classified.findingType,
           createdAt: detectedAt,
+          verifiedDirectoryAddress,
         }),
         { actor: DIRECT_AUTOMATION_ACTOR, createdAt: detectedAt },
         input.database,
@@ -388,6 +465,18 @@ export async function ingestDirectEntityUrl(input: {
       detectedAt,
     }, input.database);
     await ensureCanonicalSidecars(input.entityType, created.canonicalEntityId, input.database, now);
+    if (input.entityType === "DIRECTORY" && verifiedDirectoryAddress) {
+      try {
+        await applyVerifiedDirectoryGeo(created.canonicalEntityId, verifiedDirectoryAddress, input.database);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "automation_directory_verified_geo_apply",
+          canonicalEntityId: created.canonicalEntityId,
+          result: "deferred",
+          error: error instanceof Error ? error.name : "unknown_error",
+        }));
+      }
+    }
     result.newEntities += 1;
     result.canonicalEntityIds.push(created.canonicalEntityId);
   }
