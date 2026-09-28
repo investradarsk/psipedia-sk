@@ -138,7 +138,7 @@ export function buildPageMetadata({
         alt: SOCIAL_FALLBACK_IMAGE.alt,
       };
   const resolvedSocialTitle = socialTitle?.trim()
-    || `${pageTitle} | ${SITE_NAME}`;
+    || (pageTitle.includes(SITE_NAME) ? pageTitle : `${pageTitle} | ${SITE_NAME}`);
   const resolvedSocialDescription = socialDescription?.trim() || description;
   const sharedOpenGraph = {
     title: resolvedSocialTitle,
