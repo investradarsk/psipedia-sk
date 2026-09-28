@@ -16,10 +16,11 @@ import { listIndexableAdoptionsForSitemap } from "@/lib/adoption-sitemap";
 import { buildOrganizationSitemapEntries, isCanonicalOrganizationSlug } from "@/lib/organization-sitemap";
 import { articleHref, portalSubpageHref } from "@/lib/portal";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
-import { listManagedPortalSections } from "@/lib/section-store";
+import { listManagedPortalSectionsForSitemap } from "@/lib/section-store";
 import { SITE_URL } from "@/lib/seo";
 import { assertSitemapEntityParity, type SitemapParityCandidate } from "@/lib/sitemap-parity";
 import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
+import { loadSitemapStages, runSitemapStageSync } from "@/lib/sitemap-runtime";
 
 function absoluteSitemapUrl(path: string) {
   return `${SITE_URL}${path}`;
@@ -29,16 +30,43 @@ function parityCandidate(input: SitemapParityCandidate) {
   return input;
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+type SitemapDatasets = {
+  articles: Awaited<ReturnType<typeof getPublishedArticleSitemapRecords>>;
+  events: Awaited<ReturnType<typeof getPublishedEventSitemapRecords>>;
+  directoryProfiles: Awaited<ReturnType<typeof getPublishedDirectorySitemapRecords>>;
+  helpCases: Awaited<ReturnType<typeof getPublishedHelpSitemapRecords>>;
+  managedSections: Awaited<ReturnType<typeof listManagedPortalSectionsForSitemap>>;
+  breeds: Awaited<ReturnType<typeof listPublishedCanonicalBreedIndex>>;
+  lostFoundReports: Awaited<ReturnType<typeof listSitemapDogReports>>;
+  adoptions: Awaited<ReturnType<typeof listIndexableAdoptionsForSitemap>>;
+  organizations: Awaited<ReturnType<typeof listPublishedOrganizationsForSitemap>>;
+};
+
+export async function loadSitemapDatasets(): Promise<SitemapDatasets> {
   const organizationDatabase = (env as unknown as { DB?: AdoptionD1Database }).DB;
-  const organizationPromise = organizationDatabase
-    ? listPublishedOrganizationsForSitemap(organizationDatabase).catch(() => [])
-    : Promise.resolve([]);
-  const [articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports, adoptions, organizations] = await Promise.all([
-    getPublishedArticleSitemapRecords(), getPublishedEventSitemapRecords(), getPublishedDirectorySitemapRecords(),
-    getPublishedHelpSitemapRecords(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports().catch(() => []),
-    listIndexableAdoptionsForSitemap().catch(() => []), organizationPromise,
+  const datasets = await loadSitemapStages([
+    { key: "articles", stage: "load-articles", load: () => getPublishedArticleSitemapRecords() },
+    { key: "events", stage: "load-events", load: () => getPublishedEventSitemapRecords() },
+    { key: "directoryProfiles", stage: "load-directory", load: () => getPublishedDirectorySitemapRecords() },
+    { key: "helpCases", stage: "load-help-cases", load: () => getPublishedHelpSitemapRecords() },
+    { key: "managedSections", stage: "load-managed-sections", load: () => listManagedPortalSectionsForSitemap() },
+    { key: "breeds", stage: "load-breeds", load: () => listPublishedCanonicalBreedIndex() },
+    { key: "lostFoundReports", stage: "load-lost-found", load: () => listSitemapDogReports() },
+    { key: "adoptions", stage: "load-adoptions", load: () => listIndexableAdoptionsForSitemap() },
+    {
+      key: "organizations",
+      stage: "load-organizations",
+      load: async () => {
+        if (!organizationDatabase) throw new Error("sitemap-database-binding-missing");
+        return listPublishedOrganizationsForSitemap(organizationDatabase);
+      },
+    },
   ]);
+  return datasets as unknown as SitemapDatasets;
+}
+
+export function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
+  const { articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports, adoptions, organizations } = datasets;
   const portalSections = managedSections.filter((section) => section.visible);
   const articleModified = (article: (typeof articles)[number]) => article.updatedAt;
   const latestArticles = latestModified(articles.map(articleModified));
@@ -290,5 +318,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...breedEntries,
   ];
 
-  return assertValidSitemap(entries);
+  return runSitemapStageSync("global-validation", () => assertValidSitemap(entries));
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const datasets = await loadSitemapDatasets();
+  return buildSitemapEntries(datasets);
 }
