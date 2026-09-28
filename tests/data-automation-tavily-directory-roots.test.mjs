@@ -115,18 +115,14 @@ test("DISCOVERY-CAT-1C weekly Tavily budget remains bounded", () => {
   assert.equal(policy.maxPagesPerQuery, 1);
 });
 
-test("DISCOVERY-CAT-1C remains candidate-only and preserves category into pending source provisioning", () => {
+test("DISCOVERY-CAT-1C roots now feed DIRECT_ENTITY ingestion instead of persistent source candidates", () => {
   const runner = read("lib/data-automation-discovery-runner.ts");
-  const sourceStore = read("lib/data-automation-source-store.ts");
   const provisioning = read("lib/data-automation-source-provisioning.ts");
-  assert.match(runner, /upsertAutomationSourceCandidate/);
+  assert.match(runner, /discoveryMode === "DIRECT_ENTITY"/);
+  assert.match(runner, /ingestDirectEntityUrl/);
   assert.match(runner, /directoryCategory/);
-  assert.doesNotMatch(runner, /INSERT INTO directory_profiles|UPDATE directory_profiles|DELETE FROM directory_profiles/i);
-  assert.match(sourceStore, /candidateProvisioningConfig/);
+  assert.match(runner, /else \{[\s\S]*upsertAutomationSourceCandidate/);
   assert.match(provisioning, /semanticKind: "FACILITY_OR_SERVICE_PROFILE"/);
-  assert.match(sourceStore, /const provisioningConfig = candidateProvisioningConfig\(candidate\)/);
-  assert.match(sourceStore, /assertCandidateProvisioningReady\(candidate, provisioningConfig\)/);
-  assert.match(sourceStore, /stableJson\(provisioningConfig\)/);
   assert.doesNotMatch(migration, /INSERT(?: OR IGNORE)? INTO automation_sources/i);
   assert.doesNotMatch(migration, /INSERT(?: OR IGNORE)? INTO directory_profiles/i);
   assert.doesNotMatch(migration, /UPDATE\s+directory_profiles|DELETE FROM\s+directory_profiles/i);
