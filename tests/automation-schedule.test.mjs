@@ -125,7 +125,11 @@ test("legacy rows with NULL schedule fields remain interval schedules", () => {
   );
 });
 
-test("schedule parser rejects malformed weekdays, duplicates, time and timezone", () => {
+test("schedule parser rejects malformed interval, weekdays, duplicates, time and timezone", () => {
+  assert.throws(
+    () => parseAutomationSchedule({ mode: "INTERVAL", intervalMinutes: "1440" }),
+    /automation_schedule_interval_invalid/,
+  );
   assert.throws(
     () => parseAutomationSchedule({ mode: "CALENDAR", daysOfWeek: [], localTime: "08:00", timezone: AUTOMATION_TIMEZONE }),
     /automation_schedule_days_invalid/,
