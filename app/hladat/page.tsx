@@ -106,6 +106,7 @@ export default async function SearchPage({ searchParams }: Props) {
         ) : (
           <div className="portal-search-start">
             <span aria-hidden="true">🐾</span>
+            <span>Výsledky pre „{query}“</span>
             <h2>Nenašli sme presnú zhodu</h2>
             <p>
               Pre dotaz „{query}“ momentálne nemáme zodpovedajúci publikovaný výsledok.
