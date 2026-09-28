@@ -549,6 +549,8 @@ jobs:
           tail_pid=$!
           sleep 5
           curl --silent --show-error --location             --dump-header .sitemap-diagnostic/headers.txt             --output .sitemap-diagnostic/body.txt             --write-out '%{http_code}\n'             https://psipedia.sk/sitemap.xml | tee .sitemap-diagnostic/status.txt
+          curl --silent --show-error --location             --output /dev/null             --write-out '%{http_code}\n'             https://psipedia.sk/robots.txt | tee .sitemap-diagnostic/robots.txt.status.txt
+          curl --silent --show-error --location             --output /dev/null             --write-out '%{http_code}\n'             https://psipedia.sk/news-sitemap.xml | tee .sitemap-diagnostic/news-sitemap.xml.status.txt
           sleep 8
           kill "$tail_pid" 2>/dev/null || true
           wait "$tail_pid" 2>/dev/null || true
