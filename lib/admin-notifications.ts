@@ -298,29 +298,13 @@ export async function enqueueAutomationFindingAdminNotification(
   findingId: number,
   now: Date = new Date(),
 ) {
-  const row = await database.prepare(`SELECT f.finding_type findingType,f.priority,f.review_status reviewStatus,
-      f.last_detected_at lastDetectedAt,s.label sourceLabel
-    FROM automation_findings f
-    JOIN automation_sources s ON s.id=f.source_id
-    WHERE f.id=? LIMIT 1`)
-    .bind(findingId)
-    .first<{ findingType: string; priority: string; reviewStatus: string; lastDetectedAt: string; sourceLabel: string }>();
-  if (!row || !["NEW", "IN_REVIEW"].includes(row.reviewStatus)) return { created: false };
-  return enqueueAdminNotificationEvent(database, {
-    eventType: "automation_finding_activated",
-    sourceType: "AUTOMATION_FINDING",
-    resourceType: "automation_finding",
-    resourceRef: findingId,
-    actorType: "AUTOMATION",
-    actorRef: "automation",
-    targetUrl: `/admin/operations/automation/${findingId}`,
-    title: "Automatický nález vyžaduje kontrolu",
-    body: `${row.sourceLabel}: ${row.findingType} (${row.priority}).`,
-    tag: `automation-${findingId}`,
-    dedupeKey: `automation-finding/${findingId}/${row.lastDetectedAt}`,
-  }, now);
+  // Backward-compatible symbol only. New runs must never create the legacy
+  // AUTOMATION_FINDING user-facing notification model.
+  void database;
+  void findingId;
+  void now;
+  return { created: false };
 }
-
 
 type RolloutRuntimeRow = { rolloutStartedAt: string };
 
