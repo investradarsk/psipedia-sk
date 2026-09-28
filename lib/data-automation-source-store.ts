@@ -18,7 +18,9 @@ import {
   automationSourceTechnicalGovernanceRefreshNeeded,
   refreshAutomationSourceTechnicalGovernance,
 } from "./data-automation-source-activation.ts";
+import { getGovernanceState } from "./data-automation-governance.ts";
 import {
+  assertAutomationScheduleMinimumCadence,
   automationScheduleFromStorage,
   automationScheduleStorage,
   automationSchedulesEqual,
@@ -428,6 +430,10 @@ export async function configureAutomationSource(input: {
   const schedule = input.schedule ?? { mode: "INTERVAL" as const, intervalMinutes: legacyCadence };
   const storage = automationScheduleStorage(schedule);
   const cadenceMinutes = storage.cadenceMinutes;
+  const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: existing.id }, db);
+  if (governance.state?.minCadenceMinutes) {
+    assertAutomationScheduleMinimumCadence(schedule, governance.state.minCadenceMinutes);
+  }
 
   if (input.enabled) {
     const readiness = await sourceActivationReadinessForEnable(
