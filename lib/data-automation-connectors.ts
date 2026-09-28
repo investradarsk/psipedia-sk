@@ -5,6 +5,7 @@ import {
   retryBackoffMs,
   shouldRetryAutomationStatus,
   type AutomationSource,
+  type AutomationSourceConfig,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
 import {
@@ -145,7 +146,7 @@ function validateContentType(source: AutomationSource, contentType: string | nul
   }
 }
 
-function eventSourceFallbackConfig(source: AutomationSource) {
+function eventSourceFallbackConfig(source: AutomationSource): AutomationSourceConfig {
   return source.entityType === "EVENT"
     ? eventHtmlAdapterConfigForSourceUrl(source.sourceUrl)
     : {};
@@ -326,7 +327,7 @@ export async function fetchAutomationSourceRecords(
     }
 
     const configuredAdapterKey = source.config.htmlAdapterKey?.trim() || null;
-    const eventFallback = source.entityType === "EVENT"
+    const eventFallback: AutomationSourceConfig = source.entityType === "EVENT"
       ? eventHtmlAdapterConfigForSourceUrl(effectiveSource.sourceUrl)
       : {};
     const expectedEventAdapterKey = eventFallback.htmlAdapterKey?.trim() || null;
