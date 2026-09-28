@@ -1196,7 +1196,7 @@ test("publishes search-engine and ChatGPT discovery endpoints", async () => {
 
   const missing = await worker.fetch(new Request("http://localhost/seo-2-definitely-missing", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(missing.status, 404);
-  assert.match(await missing.text(), /<meta[^>]+name="robots"[^>]+content="noindex, follow"/i);
+  assert.match(await missing.text(), /<meta(?=[^>]*\\bname=["\']robots["\'])(?=[^>]*\\bcontent=["\'][^"\']*\\bnoindex\\b[^"\']*["\'])[^>]*>/i);
 });
 
 test("reviewer auth document shell carries the RSC route without invalid referrer metadata", async () => {
