@@ -11,6 +11,8 @@ import {
   structuredDirectoryNextPageUrl,
   type StructuredDirectoryConfig,
   type AutomationSearchProvider,
+  type AutomationSearchRequest,
+  type AutomationSearchResult,
   type AutomationSourceCandidateInput,
 } from "./data-automation-discovery.ts";
 import {
@@ -533,6 +535,41 @@ function searchRequestInputs(root: AutomationDiscoveryRoot) {
   });
 }
 
+export function searchProviderCandidatesForRoot(input: {
+  root: AutomationDiscoveryRoot;
+  providerKey: string;
+  request: AutomationSearchRequest;
+  fingerprint: string;
+  results: AutomationSearchResult[];
+  operationKey: string;
+}) {
+  const directoryCategory = input.root.entityType === "DIRECTORY"
+    && typeof input.root.config.directoryCategory === "string"
+    ? input.root.config.directoryCategory.trim()
+    : "";
+  const helpCategory = input.root.entityType === "HELP_ITEM"
+    && typeof input.root.config.helpCategory === "string"
+    ? input.root.config.helpCategory.trim()
+    : "";
+
+  return automationSearchResultsToCandidates({
+    providerKey: input.providerKey,
+    request: input.request,
+    fingerprint: input.fingerprint,
+    results: input.results,
+    entityType: input.root.entityType,
+    suggestedConnectorType: input.root.suggestedConnectorType,
+  }).map((candidate) => ({
+    ...candidate,
+    metadata: {
+      ...(candidate.metadata ?? {}),
+      ...(directoryCategory ? { directoryCategory } : {}),
+      ...(helpCategory ? { helpCategory } : {}),
+      searchOperationKey: input.operationKey,
+    },
+  }));
+}
+
 async function discoverCandidates(
   root: AutomationDiscoveryRoot,
   options: DataAutomationDiscoverySweepOptions,
@@ -543,12 +580,6 @@ async function discoverCandidates(
   if (root.discoveryType === "SEARCH_PROVIDER") {
     const providerKey = typeof root.config.provider === "string" ? root.config.provider.trim() : "";
     if (!providerKey) throw new AutomationSearchProviderError("CONFIG_MISSING");
-    const directoryCategory = root.entityType === "DIRECTORY" && typeof root.config.directoryCategory === "string"
-      ? root.config.directoryCategory.trim()
-      : "";
-    const helpCategory = root.entityType === "HELP_ITEM" && typeof root.config.helpCategory === "string"
-      ? root.config.helpCategory.trim()
-      : "";
     const provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
     const policy = automationSearchBudgetPolicy(root);
     const requests = searchRequestInputs(root).slice(0, policy.queriesPerRun);
@@ -623,22 +654,14 @@ async function discoverCandidates(
             resultCount: results.length,
             now: options.now ? new Date(options.now) : new Date(),
           }, options.database as AutomationDiscoveryDatabase);
-          const mapped = automationSearchResultsToCandidates({
+          const mapped = searchProviderCandidatesForRoot({
+            root,
             providerKey: provider.key,
             request,
             fingerprint,
             results,
-            entityType: root.entityType,
-            suggestedConnectorType: root.suggestedConnectorType,
-          }).map((candidate) => ({
-            ...candidate,
-            metadata: {
-              ...(candidate.metadata ?? {}),
-              ...(directoryCategory ? { directoryCategory } : {}),
-              ...(helpCategory ? { helpCategory } : {}),
-              searchOperationKey: operationKey,
-            },
-          }));
+            operationKey,
+          });
           candidates.push(...mapped);
           break;
         } catch (rawError) {
