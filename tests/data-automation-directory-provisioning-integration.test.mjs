@@ -508,6 +508,47 @@ test("HOTFIX Agility SK candidate persists, reloads and approves with agility pr
   assert.equal(automationSourceReadiness(source).ready, true);
 });
 
+test("HOTFIX pre-existing configless ASKA source can reopen and activate without reset", async () => {
+  const db = new MemoryD1();
+  const now = new Date("2026-09-28T10:15:00.000Z");
+  const source = db.seedSource({
+    sourceKey: "legacy-aska",
+    label: "ASKA",
+    entityType: "EVENT",
+    sourceUrl: "https://agility.sk/preteky",
+    config: {},
+    reviewStatus: "APPROVED",
+    enabled: false,
+    cadenceMinutes: 360,
+  });
+
+  const technical = automationSourceReadiness(source);
+  assert.equal(technical.ready, true);
+  assert.equal(technical.adapterKey, "agility-sk-events");
+
+  await prepareAutomationSourceGovernanceForApproval({
+    source,
+    actor: "admin@psipedia.sk",
+    database: db,
+    fetchImpl: sourceGovernanceFetch(),
+    now,
+  });
+  const readiness = await automationSourceActivationReadiness(source, db, {
+    cadenceMinutes: 360,
+    now,
+  });
+  assert.equal(readiness.ready, true);
+
+  const configured = await configureAutomationSource({
+    id: source.id,
+    enabled: true,
+    cadenceMinutes: 360,
+    now,
+  }, db);
+  assert.equal(configured.enabled, true);
+  assert.equal(configured.nextCheckAt, now.toISOString());
+});
+
 test("HOTFIX EVENT reuse repairs a missing known adapter but never activates the source", async () => {
   const db = new MemoryD1();
   const url = "https://agility.sk/preteky";
@@ -871,6 +912,7 @@ test("HOTFIX source-only error mapping never exposes readiness backend codes", (
     "automation_source_not_ready:MISSING_ADAPTER",
     "automation_source_not_ready:UNSUPPORTED_ADAPTER",
     "automation_source_not_ready:ADAPTER_ENTITY_MISMATCH",
+    "automation_source_not_ready:ADAPTER_SOURCE_MISMATCH",
     "automation_source_not_ready:ADAPTER_SHAPE_MISMATCH",
     "automation_source_not_ready:MISSING_PARSER",
     "automation_candidate_source_not_ready:UNSUPPORTED_ADAPTER",
