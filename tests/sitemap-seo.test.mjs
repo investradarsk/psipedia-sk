@@ -328,7 +328,7 @@ test("internal and utility routes keep explicit noindex contracts", () => {
 
 test("generated sitemap uses canonical public sources and no hardcoded fake dates", () => {
   const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
-  assert.match(source, /listPublishedCanonicalBreedIndex/);
+  assert.match(source, /listPublishedCanonicalBreedSitemapIndex/);
   assert.match(source, /getPublishedDirectorySitemapRecords/);
   assert.match(source, /getPublishedArticleSitemapRecords/);
   assert.match(source, /getPublishedEventSitemapRecords/);
