@@ -10,7 +10,10 @@ import {
   type DirectoryAddressSearch,
 } from "./data-automation-directory-address-enrichment.ts";
 import type { VerifiedDirectoryAddress } from "./directory-address-provider.ts";
-import { upsertAutomationAddressReviewCase } from "./data-automation-address-review-store.ts";
+import {
+  supersedeOpenAutomationAddressReviews,
+  upsertAutomationAddressReviewCase,
+} from "./data-automation-address-review-store.ts";
 import type { GeocoderProvider } from "./geo-provider.ts";
 import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
 import {
@@ -414,6 +417,14 @@ export async function ingestDirectEntityUrl(input: {
     const provenanceType = input.provenanceType ?? "DIRECT_ENTITY_DISCOVERY";
 
     if (match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
+      if (input.entityType === "DIRECTORY" && verifiedDirectoryAddress) {
+        await supersedeOpenAutomationAddressReviews({
+          canonicalEntityId: match.entityId,
+          externalSourceUrl: record.sourceUrl,
+          externalRecordId: record.sourceRecordId,
+          detectedAt,
+        }, input.database);
+      }
       if (input.entityType === "DIRECTORY" && addressReview && (categorySlug === "veterinari" || categorySlug === "psie-sluzby")) {
         await upsertAutomationAddressReviewCase({
           canonicalEntityId: match.entityId,
