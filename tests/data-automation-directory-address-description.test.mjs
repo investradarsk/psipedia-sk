@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { register } from "node:module";
 import test from "node:test";
-import { enrichDirectoryProposalAddress } from "../lib/data-automation-direct-entity.ts";
+
+register("./admin-events-loader.mjs", import.meta.url);
+const { enrichDirectoryProposalAddress } = await import("../lib/data-automation-direct-entity.ts");
 
 test("DIRECTORY direct discovery promotes one explicit postal address from description", () => {
   const proposed = enrichDirectoryProposalAddress({
