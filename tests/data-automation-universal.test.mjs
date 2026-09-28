@@ -154,7 +154,7 @@ test("universal readiness fails closed on unsupported and mismatched adapters", 
 
 test("known EVENT master URLs use an exact production provisioning allowlist", () => {
   const cases = [
-    ["https://skj.sk/sk/vystavy/kalendar/", "skj-exhibition-calendar", undefined],
+    ["https://skj.sk/sk/vystavy/kalendar/", "skj-exhibition-calendar", 1],
     ["https://www.agility.sk/preteky/", "agility-sk-events", 1],
     ["https://zsksr.sk/kalendar/", "zsk-sr-events", 1],
     ["https://mushing.sk/preteky/", "szpz-mushing-events", 1],
