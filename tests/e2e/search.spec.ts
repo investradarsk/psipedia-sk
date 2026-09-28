@@ -40,9 +40,12 @@ test("exact directory profile remains searchable beyond 500 published rows", asy
 
 test("zero-result state is actionable without unrelated popular content", async ({ page }) => {
   await page.goto(`/hladat?q=${encodeURIComponent("zzzxxyy-no-search-result")}`);
-  await expect(page.getByRole("heading", { name: "Nenašli sme presnú zhodu" })).toBeVisible();
-  await expect(page.getByText(/momentálne nemáme zodpovedajúci publikovaný výsledok/)).toBeVisible();
-  await expect(page.getByRole("link", { name: "Všetky články" })).toHaveCount(0);
+  const searchResults = page.locator("main#obsah");
+  await expect(searchResults.getByRole("heading", { name: "Nenašli sme presnú zhodu" })).toBeVisible();
+  await expect(searchResults.getByText(/momentálne nemáme zodpovedajúci publikovaný výsledok/)).toBeVisible();
+  // Global navigation/footer may legitimately link to all articles. The zero-result
+  // search surface itself must not inject unrelated popular-content fallbacks.
+  await expect(searchResults.getByRole("link", { name: "Všetky články" })).toHaveCount(0);
 });
 
 test("search page is keyboard-accessible, responsive and axe-clean", async ({ page, isMobile }) => {
@@ -61,16 +64,18 @@ test("header search restores focus after Escape and submits the shared query con
   await page.goto("/");
   const trigger = page.getByRole("button", { name: "Otvoriť vyhľadávanie" });
   await trigger.focus();
-  await page.keyboard.press("Enter");
+  await trigger.press("Enter");
   const input = page.getByRole("textbox", { name: "Hľadaný výraz" });
   await expect(input).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
 
-  await page.keyboard.press("Enter");
+  // Target the focused trigger directly so the test exercises native keyboard
+  // activation without racing React's modal-unmount focus restoration.
+  await trigger.press("Enter");
   await expect(input).toBeFocused();
   await input.fill("veterinár v Trnave");
-  await page.keyboard.press("Enter");
+  await input.press("Enter");
   await expect(page).toHaveURL(/\/hladat\?q=veterin%C3%A1r%20v%20Trnave/);
   await expect(page.getByRole("link", { name: /SEARCH E2E Ambulancia 001/ })).toBeVisible();
 });
