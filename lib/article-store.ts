@@ -28,6 +28,8 @@ import {
   type EditorialRichTextDocument,
 } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
+import { buildArticleAdminListQuery, type ArticleAdminDirection, type ArticleAdminSort, type ArticleAdminStatus } from "@/lib/article-admin-query";
+import type { AdminListAvailability } from "@/lib/admin-list-query";
 
 export type ArticleStatus = "draft" | "scheduled" | "published";
 
@@ -74,6 +76,8 @@ export type ManagedArticleSummaryPage = {
     scheduled: number;
     draft: number;
   };
+  resultCount: number;
+  availability: AdminListAvailability;
   pagination: {
     page: number;
     pageSize: number;
@@ -834,31 +838,38 @@ export async function listManagedArticleSummaries(options: {
   page?: number;
   pageSize?: number;
   portalSection?: ArticlePortalSection;
+  query?: string;
+  status?: ArticleAdminStatus;
+  sort?: ArticleAdminSort;
+  direction?: ArticleAdminDirection;
 } = {}): Promise<ManagedArticleSummaryPage> {
   const database = requireD1Binding();
   await ensureArticleStore(database);
-  const page = Math.max(1, Math.trunc(options.page ?? 1));
-  const pageSize = Math.max(1, Math.min(100, Math.trunc(options.pageSize ?? 50)));
-  const where = options.portalSection ? "WHERE portal_section = ?" : "";
-  const bindings = options.portalSection ? [options.portalSection] : [];
-  const listStatement = database.prepare(`
-    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, updated_at
-    FROM managed_articles
-    ${where}
-    ORDER BY updated_at DESC, id DESC
-    LIMIT ? OFFSET ?
-  `).bind(...bindings, pageSize, (page - 1) * pageSize);
-  const countStatement = database.prepare(`
-    SELECT
-      COUNT(*) AS total,
-      COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
-      COALESCE(SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END), 0) AS scheduled,
-      COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
-    FROM managed_articles
-    ${where}
-  `).bind(...bindings);
-  const [listResult, countResult] = await database.batch([listStatement, countStatement]);
-  const rows = (listResult.results ?? []) as unknown as ArticleSummaryRow[];
+  const filters = {
+    query: options.query?.trim().slice(0, 120) ?? "",
+    status: options.status ?? "all",
+    sort: options.sort ?? "updated",
+    direction: options.direction ?? "desc",
+    page: options.page ?? 1,
+    pageSize: options.pageSize ?? 50,
+  } as const;
+  const filteredQuery = buildArticleAdminListQuery(filters, options.portalSection);
+  const globalWhere = options.portalSection ? "WHERE portal_section = ?" : "";
+  const globalBindings = options.portalSection ? [options.portalSection] : [];
+  const [filteredCountResult, countResult] = await database.batch([
+    database.prepare(`SELECT COUNT(*) AS total FROM managed_articles ${filteredQuery.where}`)
+      .bind(...filteredQuery.bindings),
+    database.prepare(`
+      SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
+        COALESCE(SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END), 0) AS scheduled,
+        COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
+      FROM managed_articles
+      ${globalWhere}
+    `).bind(...globalBindings),
+  ]);
+  const resultCount = Number((filteredCountResult.results?.[0] as { total?: number } | undefined)?.total ?? 0);
   const rawCounts = (countResult.results?.[0] ?? null) as unknown as ArticleCountRow | null;
   const counts = {
     total: Number(rawCounts?.total ?? 0),
@@ -866,18 +877,29 @@ export async function listManagedArticleSummaries(options: {
     scheduled: Number(rawCounts?.scheduled ?? 0),
     draft: Number(rawCounts?.draft ?? 0),
   };
+  const totalPages = Math.max(1, Math.ceil(resultCount / filteredQuery.pageSize));
+  const page = Math.min(filteredQuery.page, totalPages);
+  const pageQuery = buildArticleAdminListQuery({ ...filters, page }, options.portalSection);
+  const listResult = await database.prepare(`
+    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, updated_at
+    FROM managed_articles
+    ${pageQuery.where}
+    ORDER BY ${pageQuery.orderBy}
+    LIMIT ? OFFSET ?
+  `).bind(...pageQuery.bindings, pageQuery.pageSize, pageQuery.offset).all<ArticleSummaryRow>();
   return {
-    articles: rows.map(rowToManagedArticleSummary),
+    articles: listResult.results.map(rowToManagedArticleSummary),
     counts,
+    resultCount,
+    availability: resultCount > 0 ? "OK" : "EMPTY",
     pagination: {
       page,
-      pageSize,
-      total: counts.total,
-      totalPages: Math.max(1, Math.ceil(counts.total / pageSize)),
+      pageSize: pageQuery.pageSize,
+      total: resultCount,
+      totalPages,
     },
   };
 }
-
 export async function getManagedArticleById(id: number) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
