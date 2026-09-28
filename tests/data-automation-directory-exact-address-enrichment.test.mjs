@@ -132,6 +132,30 @@ test("DIRECTORY address enrichment makes at most one bounded Tavily lookup when 
   assert.equal(enriched.proposed.serviceAddressConfirmation, "CONFIRMED_SERVICE_LOCATION");
 });
 
+test("DIRECTORY address enrichment ignores unrelated Tavily address evidence", async () => {
+  const provider = geocoder([geoResult()]);
+  const enriched = await enrichDirectoryProposalWithExactAddress({
+    proposed: {
+      name: "Psia škola Alfa",
+      category: "treneri",
+      description: "Výcvik psov v Košiciach.",
+    },
+    name: "Psia škola Alfa",
+    sourceUrl: "https://alfa.sk",
+    geocoder: provider,
+    addressSearch: async () => [{
+      url: "https://ina-firma.sk/kontakt",
+      title: "Iná firma",
+      snippet: "Adresa: Polská 6, 040 01 Košice.",
+      rank: 1,
+    }],
+  });
+
+  assert.equal(enriched.verified, null);
+  assert.equal(provider.calls.length, 0);
+  assert.notEqual(enriched.proposed.serviceAddressConfirmation, "CONFIRMED_SERVICE_LOCATION");
+});
+
 test("DIRECTORY address enrichment fails closed when Geoapify exact candidates are ambiguous", async () => {
   const provider = geocoder([
     geoResult(),
