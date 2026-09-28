@@ -20,6 +20,7 @@ test("article admin params are bounded and invalid values fail closed", () => {
   const parsed = parseArticleAdminListFilters(params({
     query: "  zuby  ",
     status: "invalid",
+    section: "invalid",
     sort: "sql",
     direction: "sideways",
     page: "-4",
@@ -27,6 +28,7 @@ test("article admin params are bounded and invalid values fail closed", () => {
   }));
   assert.equal(parsed.query, "zuby");
   assert.equal(parsed.status, "all");
+  assert.equal(parsed.portalSection, "all");
   assert.equal(parsed.sort, "updated");
   assert.equal(parsed.direction, "desc");
   assert.equal(parsed.page, 1);
@@ -41,6 +43,7 @@ test("article search is accent-insensitive and escapes wildcard control characte
   const query = buildArticleAdminListQuery({
     query: "Žuby",
     status: "published",
+    portalSection: "all",
     sort: "title",
     direction: "asc",
     page: 2,
@@ -59,18 +62,20 @@ test("article admin URL persists filter and pagination state", () => {
   const href = articleAdminListHref("/admin", {
     query: "zuby psa",
     status: "draft",
+    portalSection: "clanky",
     sort: "title",
     direction: "asc",
     page: 2,
     pageSize: 50,
   });
-  assert.equal(href, "/admin?query=zuby+psa&status=draft&sort=title&direction=asc&page=2");
+  assert.equal(href, "/admin?query=zuby+psa&status=draft&section=clanky&sort=title&direction=asc&page=2");
 });
 
 test("article search query contract stays server-side and deterministic", () => {
   const query = buildArticleAdminListQuery({
     query: "",
     status: "all",
+    portalSection: "all",
     sort: "updated",
     direction: "desc",
     page: 1,
