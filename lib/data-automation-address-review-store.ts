@@ -283,6 +283,7 @@ export function buildResolveAutomationAddressReviewStatement(input: {
   actorRef: string;
   candidateHash: string;
   verifiedProvider: string;
+  canonicalUpdatedAt: string;
   now: string;
 }) {
   return input.database.prepare(`
@@ -290,6 +291,11 @@ export function buildResolveAutomationAddressReviewStatement(input: {
       status='RESOLVED',resolved_at=?,resolved_by=?,resolution='APPLIED',
       selected_candidate_hash=?,verified_provider=?,updated_at=?
     WHERE id=? AND status='OPEN' AND fingerprint=?
+      AND EXISTS (
+        SELECT 1 FROM directory_profiles p
+        WHERE p.id=automation_address_review_cases.canonical_entity_id
+          AND p.updated_at=?
+      )
   `).bind(
     input.now,
     input.actorRef,
@@ -298,6 +304,7 @@ export function buildResolveAutomationAddressReviewStatement(input: {
     input.now,
     input.id,
     input.fingerprint,
+    input.canonicalUpdatedAt,
   );
 }
 
