@@ -14,7 +14,7 @@ export const ORGANIZATION_PSIADUSA_DIRECTORY_ADAPTER = "psiadusa-organization-di
 export const GENERIC_DIRECTORY_PROFILE_ADAPTER = "generic-directory-profile";
 export const GENERIC_HELP_ITEM_PAGE_ADAPTER = "generic-help-item-page";
 
-const DIRECTORY_CATEGORIES = new Set([
+export const SUPPORTED_DIRECTORY_CATEGORIES = [
   "veterinari",
   "treneri",
   "kynologicke-kluby",
@@ -25,7 +25,9 @@ const DIRECTORY_CATEGORIES = new Set([
   "vencenie",
   "fyzioterapia",
   "dalsie-sluzby",
-]);
+] as const;
+
+const DIRECTORY_CATEGORIES = new Set<string>(SUPPORTED_DIRECTORY_CATEGORIES);
 
 const CLUB_DIRECTORY_CATEGORIES = new Set(["kynologicke-kluby", "chovatelske-kluby"]);
 const HELP_ITEM_CATEGORIES = new Set(["zbierky", "dobrovolnictvo"]);
