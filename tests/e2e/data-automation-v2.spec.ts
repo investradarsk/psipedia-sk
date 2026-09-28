@@ -287,3 +287,15 @@ test("DIRECT_ENTITY veterinarian category is responsive and axe-clean", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
+
+
+test("lifecycle review page is responsive and axe-clean", async ({ page }) => {
+  const response = await page.goto("/admin/automatizacie/zmeny-stavu", { waitUntil: "domcontentloaded" });
+  expect(response).not.toBeNull();
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("heading", { name: "Zmeny stavu", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Filter zmien stavu" })).toBeVisible();
+  await expect(page.getByText("Každý lifecycle prechod sa kontroluje samostatne; hromadné potvrdenie nie je dostupné.", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectAxeClean(page);
+});

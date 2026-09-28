@@ -85,9 +85,10 @@ function publicLocationDescription(sentence: string) {
   return match?.[1]?.replace(/\s+/g, " ").trim() ?? "";
 }
 
-function resolutionSignal(pageText: string) {
+function resolutionEvidence(pageText: string) {
   const publicPart = pageText.split(/\bÚnia vzájomnej pomoci\b/i)[0] ?? pageText;
-  return /majiteľ[^.!?]{0,80}(?:zisten|dohľadan|prevzal|prevzala|vráten|vraten)/i.test(publicPart);
+  const match = publicPart.match(/majiteľ[^.!?]{0,80}(?:zisten|dohľadan|prevzal|prevzala|vráten|vraten)[^.!?]{0,80}/i);
+  return match?.[0]?.replace(/\s+/g, " ").trim().slice(0, 240) ?? "";
 }
 
 export const kosiceFoundDogDetailAdapter: ControlledHtmlAdapter = ({ html, source }) => {
@@ -106,6 +107,7 @@ export const kosiceFoundDogDetailAdapter: ControlledHtmlAdapter = ({ html, sourc
   if (!eventDate) return [];
 
   const locationDescription = publicLocationDescription(sentence);
+  const resolvedEvidence = resolutionEvidence(pageText);
   const proposed: Record<string, unknown> = {
     type: "FOUND",
     description: sentence,
@@ -126,9 +128,13 @@ export const kosiceFoundDogDetailAdapter: ControlledHtmlAdapter = ({ html, sourc
       eventDate,
       city: "Košice",
       locationDescription: locationDescription || null,
-      resolvedSignal: resolutionSignal(pageText),
+      resolvedSignal: Boolean(resolvedEvidence),
+      resolvedEvidence: resolvedEvidence || null,
       detailUrl,
     },
+    lifecycleSignals: resolvedEvidence
+      ? [{ signalType: "LOST_FOUND_RESOLVED", targetState: "RESOLVED", evidenceText: resolvedEvidence, confidenceClass: "EXPLICIT" }]
+      : undefined,
     proposed,
   } satisfies AutomationSourceRecord];
 };
