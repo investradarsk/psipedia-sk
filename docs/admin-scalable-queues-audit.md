@@ -98,6 +98,7 @@ Existing source owners retain their transition guards (for example partner claim
 Article list state is server-side and URL-addressable:
 - `query` (max 120 chars),
 - `status`,
+- `section` / portal section,
 - `sort`,
 - `direction`,
 - `page`,
@@ -105,7 +106,7 @@ Article list state is server-side and URL-addressable:
 
 Search covers title, slug, excerpt and category. Slovak diacritics are folded in the SQL expression and in the search needle. SQL wildcard characters `%`, `_` and `\\` are escaped. Sort fields/direction come only from allowlists; user input never becomes a SQL identifier.
 
-Example: `/admin?query=zuby&status=draft&page=2`.
+Example: `/admin?query=zuby&status=draft&section=clanky&page=2`.
 
 The store returns an exact filtered `resultCount` plus global article status counts. The UI no longer searches only the current 50-row page. Bulk “all matching” remains disabled because no safe snapshot/fingerprint mutation contract has been enabled for articles.
 
@@ -147,6 +148,7 @@ Isolated local D1 fixtures cover:
 - invalid cursor reset,
 - explicit EMPTY versus simulated UNAVAILABLE source,
 - partial result warning,
+- canonical NEWS_TIP resolve through its existing owner followed by an exact queue and bell count decrement,
 - article search across 61 rows with the target deliberately beyond page 1,
 - Slovak diacritic search (`zuby` -> `Žlté zúbky`),
 - status + URL state across refresh,
