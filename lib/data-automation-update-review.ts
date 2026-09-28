@@ -760,7 +760,8 @@ async function remainingFieldState(row: SuggestionRow, db: Database) {
 
 async function resolveParentIfComplete(row: SuggestionRow, actor: string, at: string, db: Database) {
   const remaining = await remainingFieldState(row, db);
-  if (remaining.visible > 0) return remaining.reviewable;
+  if (row.suggestion_type !== "POSSIBLE_UPDATE") return remaining.reviewable;
+  if (remaining.reviewable > 0) return remaining.reviewable;
   if (row.origin === "DIRECT_ENTITY") {
     await db.prepare("UPDATE automation_update_suggestions SET status='RESOLVED' WHERE id=? AND status='OPEN'")
       .bind(row.id).run();
