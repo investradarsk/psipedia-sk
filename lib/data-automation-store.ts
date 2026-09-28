@@ -18,6 +18,7 @@ import {
 } from "./data-automation.ts";
 import { selectSafeAutomationMatch, type AutomationMatchCandidate } from "./data-automation-matching.ts";
 import { getCanonicalDraftFlag } from "./canonical-draft-flags.ts";
+import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
 
 export type AutomationD1Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -336,12 +337,17 @@ function organizationBefore(row: Record<string, unknown>) {
 }
 
 function directoryBefore(row: Record<string, unknown>) {
+  const sourceData = parseJson<Record<string, string | number | null>>(String(row.source_data_json ?? "{}"), {});
+  const contacts = readDirectoryPublicContacts(sourceData, String(row.website_url ?? ""));
   return {
     slug: row.slug, name: row.name, category: row.category, status: row.status, excerpt: row.excerpt,
     description: row.description, services: parseJson(String(row.services_json ?? "[]"), []),
     qualifications: parseJson(String(row.qualifications_json ?? "[]"), []), city: row.city, district: row.district,
-    region: row.region, address: row.address, online: bool(row.online), priceNote: row.price_note,
+    region: row.region, address: row.address, postalCode: row.postal_code, street: row.street,
+    houseNumber: row.house_number, addressFormat: row.address_format, online: bool(row.online), priceNote: row.price_note,
     websiteUrl: row.website_url, importKey: row.import_key, verified: bool(row.verified),
+    publicPhone: contacts.phone, publicEmail: contacts.email,
+    facebookUrl: contacts.facebook, instagramUrl: contacts.instagram,
   };
 }
 
