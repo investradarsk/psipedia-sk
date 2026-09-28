@@ -4,7 +4,7 @@ import {
   type AutomationSource,
 } from "./data-automation.ts";
 import {
-  AUTOMATION_SOURCE_HTTP_AUTOMATION_SOURCE_HTTP_USER_AGENT,
+  AUTOMATION_SOURCE_HTTP_USER_AGENT,
   AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
   automationSourceRequestTimeoutMs,
 } from "./data-automation-http-policy.ts";
