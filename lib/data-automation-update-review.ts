@@ -461,6 +461,29 @@ function validateValue(field: string, spec: FieldSpec, value: unknown) {
   return result;
 }
 
+function validateResultingRecord(
+  entityType: AutomationEntityType,
+  field: string,
+  value: unknown,
+  current: Record<string, unknown>,
+) {
+  if (entityType === "EVENT" && (field === "startDate" || field === "endDate")) {
+    const startDate = field === "startDate" ? String(value ?? "") : String(current.start_date ?? "");
+    const endDate = field === "endDate" ? String(value ?? "") : String(current.end_date ?? "");
+    if (startDate && endDate && endDate < startDate) {
+      throw new AutomationUpdateReviewValidationError("Dátum konca nemôže byť pred dátumom začiatku.");
+    }
+  }
+  if (entityType === "ADOPTION") {
+    if (field === "birthDate" && String(value ?? "") && current.approximate_age_months !== null && current.approximate_age_months !== undefined) {
+      throw new AutomationUpdateReviewValidationError("Adopčný profil už používa približný vek. Dátum narodenia skontroluj manuálne.");
+    }
+    if (field === "approximateAgeMonths" && value !== null && value !== undefined && String(current.birth_date ?? "")) {
+      throw new AutomationUpdateReviewValidationError("Adopčný profil už používa dátum narodenia. Približný vek skontroluj manuálne.");
+    }
+  }
+}
+
 async function getCanonicalRow(entityType: AutomationEntityType, canonicalEntityId: number, db: Database) {
   const config = configs[entityType];
   return db.prepare(`SELECT * FROM ${config.table} WHERE id=? LIMIT 1`).bind(canonicalEntityId).first<Record<string, unknown>>();
@@ -897,6 +920,7 @@ export async function reviewAutomationUpdateField(input: {
   }
 
   const value = validateValue(field, spec, change.after);
+  validateResultingRecord(row.entity_type, field, value, canonical);
   const updated = await writeCanonicalFieldAndDecision({
     row: canonical,
     suggestion: row,
