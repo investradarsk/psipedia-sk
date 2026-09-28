@@ -8,6 +8,8 @@ import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upl
 import { organizationAdminInputFromCandidate, type OrganizationAdminInput } from "@/lib/help-organization-admin-input";
 import type { OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
 import { organizationPublicationTypes } from "@/lib/help-organization-publication";
+import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 
 const typeLabels: Record<string, string> = {
   SHELTER: "Útulok",
@@ -42,7 +44,7 @@ function text(value: string | null) {
   return value ?? "";
 }
 
-export function AdminOrganizationEditor({ organization }: { organization?: OrganizationPublicationAdminItem | null }) {
+export function AdminOrganizationEditor({ organization, automationSuggestions = [] }: { organization?: OrganizationPublicationAdminItem | null; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
   const router = useRouter();
   const [draft, setDraft] = useState<OrganizationAdminInput>(() => organization ? organizationAdminInputFromCandidate(organization) : blankInput());
   const hydrated = useSyncExternalStore(
@@ -82,6 +84,11 @@ export function AdminOrganizationEditor({ organization }: { organization?: Organ
     } finally { setUploading(false); }
   }
 
+  function applyAutomationUpdate(values: Record<string, unknown>, updatedAt: string) {
+    setDraft((current) => ({ ...current, ...values } as OrganizationAdminInput));
+    setExpectedUpdatedAt(updatedAt);
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (archived) return;
@@ -110,6 +117,7 @@ export function AdminOrganizationEditor({ organization }: { organization?: Organ
   return <form className="admin-event-editor" onSubmit={save}>
     <AdminStickyEditorNavigation sections={sections} ariaLabel="Sekcie editora organizácie" />
     <div className="admin-event-fields">
+      <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
       {archived && <p className="admin-message admin-message--error">Archivovaná organizácia je iba na čítanie. Obnov ju zo zoznamu organizácií do konceptu, ak ju potrebuješ upraviť.</p>}
 
       <AdminEditorSection id="organization-general" className="admin-form-card">
