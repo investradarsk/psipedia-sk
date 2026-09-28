@@ -11,9 +11,9 @@ import {
 import type { AutomationSourceAdminInput } from "./data-automation-source-admin.ts";
 import type { AutomationSourceCandidateInput } from "./data-automation-discovery.ts";
 import { selectRelevantExistingSourceForCandidate } from "./data-automation-source-matching.ts";
-import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
+import { automationSourceActivationReadiness } from "./data-automation-source-activation.ts";
 
 export type AutomationSourceAdminDatabase = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -291,6 +291,17 @@ export async function reviewAutomationSource(input: {
   return getAutomationSourceAdmin(input.id, db);
 }
 
+function sourceActivationError(readiness: Awaited<ReturnType<typeof automationSourceActivationReadiness>>) {
+  if (readiness.reason === "REVIEW_REQUIRED") return "automation_source_review_required";
+  if (readiness.reason === "UNSAFE_SOURCE_URL") return "automation_source_url_not_safe";
+  if (readiness.reason === "TECHNICAL_NOT_READY") return "automation_source_not_ready";
+  if (readiness.reason === "CADENCE_INVALID") return "automation_source_cadence_invalid";
+  if (readiness.reason === "GOVERNANCE_BLOCKED") {
+    return "automation_source_governance_blocked:" + readiness.governanceBlockingReasons.join(",");
+  }
+  return "automation_source_activation_blocked";
+}
+
 export async function setAutomationSourceEnabled(input: {
   id: number;
   enabled: boolean;
@@ -300,25 +311,11 @@ export async function setAutomationSourceEnabled(input: {
   const existing = await getAutomationSourceAdmin(input.id, db);
   if (!existing) return null;
   if (input.enabled) {
-    if (existing.reviewStatus !== "APPROVED") throw new Error("automation_source_review_required");
-    if (existing.connectorType === "CONTROLLED_HTML") {
-      const readiness = automationSourceReadiness(existing);
-      if (!readiness.ready) {
-        throw new Error("automation_source_not_ready:" + readiness.reason);
-      }
-    }
-    if (existing.connectorType !== "MANUAL_IMPORT" && (!existing.sourceUrl || !isSafeAutomationSourceUrl(existing.sourceUrl))) {
-      throw new Error("automation_source_url_not_safe");
-    }
-    const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: input.id }, db);
-    const decision = evaluateGovernanceForActivation(governance, {
-      recurring: true,
+    const readiness = await automationSourceActivationReadiness(existing, db, {
       cadenceMinutes: existing.cadenceMinutes,
-      storageFields: ["url", "metadata"],
+      now: input.now,
     });
-    if (!decision.allowed) {
-      throw new Error("automation_source_governance_blocked:" + decision.blockingReasons.join(","));
-    }
+    if (!readiness.ready) throw new Error(sourceActivationError(readiness));
   }
   const at = (input.now ?? new Date()).toISOString();
   await db.prepare(`UPDATE automation_sources SET enabled=?,next_check_at=?,updated_at=? WHERE id=?`).bind(
@@ -327,6 +324,47 @@ export async function setAutomationSourceEnabled(input: {
     at,
     input.id,
   ).run();
+  return getAutomationSourceAdmin(input.id, db);
+}
+
+export async function configureAutomationSource(input: {
+  id: number;
+  enabled: boolean;
+  cadenceMinutes: number;
+  now?: Date;
+}, databaseInput?: AutomationSourceAdminDatabase) {
+  const db = database(databaseInput);
+  const existing = await getAutomationSourceAdmin(input.id, db);
+  if (!existing) return null;
+
+  const cadenceMinutes = Math.floor(input.cadenceMinutes);
+  if (!Number.isSafeInteger(cadenceMinutes) || cadenceMinutes < 60 || cadenceMinutes > 43_200) {
+    throw new Error("automation_source_cadence_invalid");
+  }
+
+  if (input.enabled) {
+    const readiness = await automationSourceActivationReadiness(existing, db, {
+      cadenceMinutes,
+      now: input.now,
+    });
+    if (!readiness.ready) throw new Error(sourceActivationError(readiness));
+  }
+
+  const now = input.now ?? new Date();
+  const at = now.toISOString();
+  let nextCheckAt: string | null = null;
+  if (input.enabled) {
+    if (!existing.enabled) nextCheckAt = at;
+    else if (cadenceMinutes !== existing.cadenceMinutes) {
+      nextCheckAt = new Date(now.getTime() + cadenceMinutes * 60_000).toISOString();
+    } else {
+      nextCheckAt = existing.nextCheckAt ?? new Date(now.getTime() + cadenceMinutes * 60_000).toISOString();
+    }
+  }
+
+  await db.prepare(`UPDATE automation_sources
+    SET cadence_minutes=?,enabled=?,next_check_at=?,updated_at=? WHERE id=?`)
+    .bind(cadenceMinutes, input.enabled ? 1 : 0, nextCheckAt, at, input.id).run();
   return getAutomationSourceAdmin(input.id, db);
 }
 
