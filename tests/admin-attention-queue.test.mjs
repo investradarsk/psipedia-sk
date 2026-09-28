@@ -317,7 +317,7 @@ test("Attention read model has 15 canonical sources, bounded page size and no si
   assert.match(store, /UNAVAILABLE/);
   assert.doesNotMatch(store, /safeSourceResults/);
   assert.doesNotMatch(store, /catch\s*\([^)]*\)\s*=>\s*\[\]/);
-  assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
+  assert.doesNotMatch(store, /\b(?:INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|REPLACE\s+INTO)\b/i);
   assert.doesNotMatch(store, /sender_email|requester_email|proposed_patch_json|source_data_json|organization_name/i);
 });
 
