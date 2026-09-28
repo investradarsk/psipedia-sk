@@ -310,3 +310,20 @@ test("governance probes and controlled HTML connector share the source HTTP poli
   assert.match(policy, /30_000/);
   assert.doesNotMatch(activation, /15_000/);
 });
+
+
+test("technical source governance refresh uses audited upsert history and never deletes governance", async () => {
+  const [activation, migration] = await Promise.all([
+    readFile(path.join(repoRoot, "lib/data-automation-source-activation.ts"), "utf8"),
+    readFile(path.join(repoRoot, "drizzle/0084_automation_governance_registry.sql"), "utf8"),
+  ]);
+  const refreshStart = activation.indexOf("export async function refreshAutomationSourceTechnicalGovernance");
+  const prepareStart = activation.indexOf("export async function prepareAutomationSourceGovernanceForApproval");
+  assert.ok(refreshStart >= 0 && prepareStart > refreshStart);
+  const refresh = activation.slice(refreshStart, prepareStart);
+  assert.match(refresh, /upsertGovernanceReview/);
+  assert.match(refresh, /expectedUpdatedAt: current\.updatedAt/);
+  assert.doesNotMatch(refresh, /DELETE|delete/i);
+  assert.match(migration, /CREATE TRIGGER `automation_governance_reviews_history_update`/);
+  assert.match(migration, /automation_governance_review_history_no_delete/);
+});
