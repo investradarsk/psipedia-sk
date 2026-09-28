@@ -32,7 +32,7 @@ function contentStatus(status: string) {
   return status || "Záznam";
 }
 
-function suggestionField(field: string | null, type: AutomationUpdateSuggestionSummary["suggestionType"]) {
+function suggestionField(field: string | null, value: string | null, type: AutomationUpdateSuggestionSummary["suggestionType"]) {
   if (type === "POSSIBLE_CANCELLED") return "Zdroj uvádza možné zrušenie podujatia.";
   if (type === "POSSIBLE_INACTIVE") return "Zdroj uvádza možnú zmenu stavu.";
   const labels: Record<string, string> = {
@@ -50,7 +50,9 @@ function suggestionField(field: string | null, type: AutomationUpdateSuggestionS
     startDate: "Dátum",
     start_date: "Dátum",
   };
-  return field ? `Nájdené doplnenie alebo zmena: ${labels[field] ?? field}` : "Nájdené doplnenie alebo zmena.";
+  const label = field ? labels[field] ?? field : null;
+  if (label && value) return `Nájdené doplnenie alebo zmena: ${label} · ${value}`;
+  return label ? `Nájdené doplnenie alebo zmena: ${label}` : "Nájdené doplnenie alebo zmena.";
 }
 
 export function AdminAutomationCategorySources({
@@ -206,12 +208,12 @@ export function AdminAutomationCategorySources({
 
           <section className={styles.section} id="nove-koncepty">
             <div className={styles.sectionHeader}><div><h2>Nové koncepty</h2></div><span className={styles.sectionCount}>{directConcepts.length}</span></div>
-            {directConcepts.length ? <div className={styles.itemList}>{directConcepts.map((item) => <article className={styles.itemCard} key={item.entityType + ":" + item.canonicalEntityId}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{item.label}</strong></div><p>{contentStatus(item.status)}</p></div><Link className={styles.itemAction} href={item.href}>Otvoriť →</Link></article>)}</div> : <div className={styles.empty}>Zatiaľ nebol vytvorený žiadny nový koncept.</div>}
+            {directConcepts.length ? <div className={styles.itemList}>{directConcepts.map((item) => <article className={styles.itemCard} key={item.entityType + ":" + item.canonicalEntityId}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{item.label}</strong></div><p>{[contentStatus(item.status), item.secondary].filter(Boolean).join(" · ")}</p></div><Link className={styles.itemAction} href={item.href}>Otvoriť →</Link></article>)}</div> : <div className={styles.empty}>Zatiaľ nebol vytvorený žiadny nový koncept.</div>}
           </section>
 
           <section className={styles.section} id="doplnenia-zmeny">
             <div className={styles.sectionHeader}><div><h2>Doplnenia a zmeny</h2></div><span className={styles.sectionCount}>{updateSuggestions.length}</span></div>
-            {updateSuggestions.length ? <div className={styles.itemList}>{updateSuggestions.map((item) => <article className={styles.itemCard} key={item.origin + ":" + item.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{item.label}</strong></div><p>{suggestionField(item.field, item.suggestionType)}</p></div><Link className={styles.itemAction} href={item.href}>Otvoriť profil →</Link></article>)}</div> : <div className={styles.empty}>Zatiaľ neboli nájdené žiadne doplnenia ani zmeny.</div>}
+            {updateSuggestions.length ? <div className={styles.itemList}>{updateSuggestions.map((item) => <article className={styles.itemCard} key={item.origin + ":" + item.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{item.label}</strong></div><p>{suggestionField(item.field, item.value, item.suggestionType)}</p></div><Link className={styles.itemAction} href={item.href}>Otvoriť profil →</Link></article>)}</div> : <div className={styles.empty}>Zatiaľ neboli nájdené žiadne doplnenia ani zmeny.</div>}
           </section>
         </>
       ) : (
@@ -225,13 +227,13 @@ export function AdminAutomationCategorySources({
             <div className={styles.sectionHeader}><div><h2>Schválené zdroje</h2></div><span className={styles.sectionCount}>{approvedSources.length}</span></div>
             {approvedSources.length ? <div className={styles.itemList}>{approvedSources.map((source) => {
               const found = sourceContent[String(source.id)] ?? [];
-              return <article className={styles.itemCard} key={source.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{source.label}</strong></div><p>{automationSourceDomain(source.sourceUrl)} · {source.enabled ? "Kontrolovanie zapnuté" : "Kontrolovanie vypnuté"}</p>{found.length > 0 && <div><strong>Nájdený obsah</strong>{found.map((item) => <p key={item.entityType + ":" + item.canonicalEntityId}><Link href={item.href}>{contentStatus(item.status)} · {item.label} →</Link></p>)}</div>}</div><Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link></article>;
+              return <article className={styles.itemCard} key={source.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{source.label}</strong></div><p>{automationSourceDomain(source.sourceUrl)} · {source.enabled ? "Kontrolovanie zapnuté" : "Kontrolovanie vypnuté"}</p><div><strong>Nájdený obsah</strong>{found.length ? found.map((item) => <p key={item.entityType + ":" + item.canonicalEntityId}><Link href={item.href}>{contentStatus(item.status)} · {item.label}{item.secondary ? " · " + item.secondary : ""} →</Link></p>) : <p>Zatiaľ žiadny canonical obsah.</p>}</div></div><Link className={styles.itemAction} href={"/admin/automatizacie/zdroje/" + source.id}>Otvoriť zdroj</Link></article>;
             })}</div> : <div className={styles.empty}>Zatiaľ nemáte schválený žiadny zdroj.</div>}
           </section>
 
           <section className={styles.section} id="doplnenia-zmeny">
             <div className={styles.sectionHeader}><div><h2>Doplnenia a zmeny</h2></div><span className={styles.sectionCount}>{updateSuggestions.length}</span></div>
-            {updateSuggestions.length ? <div className={styles.itemList}>{updateSuggestions.map((item) => <article className={styles.itemCard} key={item.origin + ":" + item.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{item.label}</strong></div><p>{suggestionField(item.field, item.suggestionType)}</p></div><Link className={styles.itemAction} href={item.href}>Otvoriť →</Link></article>)}</div> : <div className={styles.empty}>Zatiaľ neboli nájdené žiadne doplnenia ani zmeny.</div>}
+            {updateSuggestions.length ? <div className={styles.itemList}>{updateSuggestions.map((item) => <article className={styles.itemCard} key={item.origin + ":" + item.id}><div className={styles.itemMain}><div className={styles.itemTitle}><strong>{item.label}</strong></div><p>{suggestionField(item.field, item.value, item.suggestionType)}</p></div><Link className={styles.itemAction} href={item.href}>Otvoriť →</Link></article>)}</div> : <div className={styles.empty}>Zatiaľ neboli nájdené žiadne doplnenia ani zmeny.</div>}
           </section>
 
           <section className={styles.section} id="zamietnute-zdroje">
