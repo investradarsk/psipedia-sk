@@ -102,6 +102,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0092_automation_product_model.sql",
     "0093_automation_address_review.sql",
     "0094_canonical_draft_delete.sql",
+    "0095_automation_calendar_schedule.sql",
     "0097_automation_update_field_reviews.sql",
   ]);
 });
@@ -159,6 +160,29 @@ test("CANONICAL-DRAFT-DELETE-1 0094 detects partial suppression schema drift", (
     { partial: true },
   );
   assert.deepEqual(targetSchemaObjects({ objects: [] }, "0094_canonical_draft_delete.sql"), { partial: false });
+});
+
+test("AUTOMATION-SCHEDULE-2 0095 detects partial calendar schedule schema drift", () => {
+  const oneColumn = [{ name: "schedule_mode" }];
+  const empty = [];
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [],
+      automationDiscoveryRootColumns: oneColumn,
+      automationSourceColumns: empty,
+      automationDirectRefreshColumns: empty,
+    }, "0095_automation_calendar_schedule.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [],
+      automationDiscoveryRootColumns: empty,
+      automationSourceColumns: empty,
+      automationDirectRefreshColumns: empty,
+    }, "0095_automation_calendar_schedule.sql"),
+    { partial: false },
+  );
 });
 
 test("AUTOMATION-UPDATE-REVIEW-1 0097 detects partial schema drift", () => {
@@ -265,6 +289,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0092_automation_product_model.sql",
     "0093_automation_address_review.sql",
     "0094_canonical_draft_delete.sql",
+    "0095_automation_calendar_schedule.sql",
     "0097_automation_update_field_reviews.sql",
   ]);
 });
@@ -303,6 +328,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0092_automation_product_model.sql",
     "0093_automation_address_review.sql",
     "0094_canonical_draft_delete.sql",
+    "0095_automation_calendar_schedule.sql",
     "0097_automation_update_field_reviews.sql",
     "0098_future_migration.sql",
   ]);
