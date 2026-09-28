@@ -1,4 +1,4 @@
-import { isArticlePortalSection, type ArticlePortalSection } from "./portal.ts";
+import type { ArticlePortalSection } from "./portal.ts";
 import {
   adminContainsNeedle,
   boundedAdminPage,
@@ -7,6 +7,17 @@ import {
 } from "./admin-list-query.ts";
 
 export const articleAdminStatuses = ["all", "published", "scheduled", "draft"] as const;
+export const articleAdminPortalSections = [
+  "clanky",
+  "novinky",
+  "steniatka",
+  "starostlivost",
+  "aktivity",
+  "podujatia",
+  "adresar",
+  "pomoc-psom",
+  "recenzie",
+] as const satisfies readonly ArticlePortalSection[];
 export const articleAdminSorts = ["updated", "title"] as const;
 export const articleAdminDirections = ["asc", "desc"] as const;
 
@@ -33,7 +44,9 @@ export function parseArticleAdminListFilters(params: { get(name: string): string
   return {
     query: (params.get("query") ?? params.get("q") ?? "").trim().slice(0, 120),
     status: (articleAdminStatuses as readonly string[]).includes(status) ? status as ArticleAdminStatus : "all",
-    portalSection: section === "all" || isArticlePortalSection(section) ? section as ArticleAdminPortalSection : "all",
+    portalSection: section === "all" || (articleAdminPortalSections as readonly string[]).includes(section)
+      ? section as ArticleAdminPortalSection
+      : "all",
     sort: (articleAdminSorts as readonly string[]).includes(sort) ? sort as ArticleAdminSort : "updated",
     direction: (articleAdminDirections as readonly string[]).includes(direction) ? direction as ArticleAdminDirection : "desc",
     page: boundedAdminPage(params.get("page")),
