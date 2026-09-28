@@ -77,7 +77,7 @@ test("delete captures suppressions before provenance removal and preserves recei
   assert.ok(canonicalDeleteIndex > provenanceDeleteIndex);
   assert.doesNotMatch(deleteService, /DELETE FROM automation_ingestion_receipts/);
   assert.doesNotMatch(deleteService, /DELETE FROM automation_(?:runs|source_runs|observations|governance)/);
-  assert.match(receipts, /UNIQUE\(source_id,entity_type,source_record_id\)/);
+  assert.match(receipts, /ON CONFLICT\(source_id,entity_type,source_record_id\) DO NOTHING/);
 });
 
 test("delete cleans mutable canonical sidecars but fails closed for protected user/partner data", () => {
