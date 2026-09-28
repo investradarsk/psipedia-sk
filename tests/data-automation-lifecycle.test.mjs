@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { readFile as readFileAsync } from "node:fs/promises";
 import test from "node:test";
 import { trnavaAdoptionDetailAdapter } from "../lib/data-automation-adoption-adapters.ts";
