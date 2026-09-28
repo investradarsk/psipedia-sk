@@ -142,6 +142,8 @@ const RISK_FLAG_SQL = `json_array_length(CASE WHEN json_valid(COALESCE(s.risk_fl
 const PROFILE_RISK_FLAG_SQL = `json_array_length(CASE WHEN json_valid(COALESCE(review.risk_flags_json, '[]')) THEN COALESCE(review.risk_flags_json, '[]') ELSE '[]' END)`;
 
 
+// Upozornenia are actionable domain state. Automation Operations owns activity/history/metrics.
+// Legacy automation findings remain internal technical history; this source exposes only product actions.
 const AUTOMATION_ACTION_SELECT = `
   WITH
   draft_events AS (
@@ -304,15 +306,9 @@ const AUTOMATION_ACTION_SELECT = `
         OR target_cluster.updated_at>decision.created_at
       )
   ),
-  ranked_runs AS (
-    SELECT r.source_id,r.status,r.started_at,r.id,
-      ROW_NUMBER() OVER (PARTITION BY r.source_id ORDER BY r.started_at DESC,r.id DESC) AS runRank
-    FROM automation_runs r
-    WHERE r.status<>'RUNNING'
-  ),
   failing_sources AS (
     SELECT s.id,s.label,s.entity_type,s.config_json,
-      COALESCE((
+      (
         SELECT MIN(failed.started_at)
         FROM automation_runs failed
         WHERE failed.source_id=s.id
@@ -322,12 +318,24 @@ const AUTOMATION_ACTION_SELECT = `
             FROM automation_runs reset
             WHERE reset.source_id=s.id AND reset.status NOT IN ('FAILED','RUNNING')
           ),'')
-      ),MIN(r.started_at)) AS relevantAt
+      ) AS relevantAt
     FROM automation_sources s
-    JOIN ranked_runs r ON r.source_id=s.id AND r.runRank<=3
-    WHERE s.enabled=1 AND s.review_status='APPROVED'
-    GROUP BY s.id,s.label,s.entity_type,s.config_json
-    HAVING COUNT(*)=3 AND SUM(CASE WHEN r.status='FAILED' THEN 1 ELSE 0 END)=3
+    WHERE s.enabled=1
+      AND s.review_status='APPROVED'
+      AND (
+        SELECT COUNT(*)
+        FROM automation_runs recent
+        WHERE recent.source_id=s.id
+          AND recent.status='FAILED'
+          AND recent.id IN (
+            SELECT last_run.id
+            FROM automation_runs last_run
+            WHERE last_run.source_id=s.id
+              AND last_run.status<>'RUNNING'
+            ORDER BY last_run.started_at DESC,last_run.id DESC
+            LIMIT 3
+          )
+      )=3
   )
   SELECT
     'AUTOMATION_ACTION' AS sourceType,
