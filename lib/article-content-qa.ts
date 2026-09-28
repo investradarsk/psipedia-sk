@@ -39,10 +39,11 @@ function comparisonText(value: string) {
 function placeholderMatch(value: string) {
   const normalized = comparisonText(value);
   if (!normalized) return null;
-  if (/\b(?:todo|fixme|placeholder|lorem ipsum)\b/.test(normalized)) return "EDITORIAL_PLACEHOLDER";
+  if (/\b(?:todo|fixme)\b/.test(normalized) || normalized.includes("lorem ipsum")) return "EDITORIAL_PLACEHOLDER";
   if (normalized.includes("po publikovani bude vhodne")) return "POST_PUBLISH_EDITORIAL_NOTE";
   const lines = value.replace(/\r\n?/g, "\n").split("\n").map(comparisonText).filter(Boolean);
   if (lines.some((line) => /^(?:\[[^\]]+\]\s*)?(?:sem\s+)?doplnit(?:\s*[:.!-]|$)/.test(line))) return "EDITORIAL_PLACEHOLDER";
+  if (lines.some((line) => /^(?:\[[^\]]+\]\s*)?placeholder(?:\s*[:.!-]|$)/.test(line))) return "EDITORIAL_PLACEHOLDER";
   return null;
 }
 
