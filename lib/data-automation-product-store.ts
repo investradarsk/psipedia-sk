@@ -138,7 +138,6 @@ export async function upsertDirectEntityUpdateSuggestion(input: {
     externalSourceUrl,
     externalRecordId: input.externalRecordId,
     suggestionType: input.suggestionType,
-    diff: input.diff,
   });
   await db.prepare(`INSERT INTO automation_update_suggestions (
       entity_type,canonical_entity_id,category_slug,external_source_url,external_record_id,suggestion_type,
