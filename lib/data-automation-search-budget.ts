@@ -38,12 +38,15 @@ export type AutomationSearchBudgetPolicy = {
   providerRequestsPerRun: number;
   globalDailyRequests: number;
   entityDailyRequests: number;
+  baseRootDailyRequests: number;
+  manualExtraRootRequests: number;
   rootDailyRequests: number;
   queryCooldownMinutes: number;
   maxPagesPerQuery: 1;
 };
 
 function finiteInt(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? Math.floor(number) : null;
 }
@@ -58,15 +61,36 @@ export function utcSearchDayBucket(now = new Date()) {
   return now.toISOString().slice(0, 10);
 }
 
+function manualRootBudgetExtra(budget: Record<string, unknown>, now: Date) {
+  const rows = Array.isArray(budget.adminOverrides) ? budget.adminOverrides : [];
+  const dayBucket = utcSearchDayBucket(now);
+  return Math.max(0, rows.reduce((sum, value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return sum;
+    const row = value as Record<string, unknown>;
+    if (row.dayBucket !== dayBucket || row.reason !== "MANUAL_BUDGET_OVERRIDE") return sum;
+    const extra = finiteInt(row.extraRequests);
+    return sum + (extra && extra > 0 ? Math.min(extra, AUTOMATION_SEARCH_HARD_PROVIDER_REQUESTS_PER_RUN) : 0);
+  }, 0));
+}
+
 export function automationSearchBudgetPolicy(input: {
   entityType: AutomationEntityType;
   cadenceMinutes: number;
   config: Record<string, unknown>;
-}): AutomationSearchBudgetPolicy {
+}, now = new Date()): AutomationSearchBudgetPolicy {
   const budget = input.config.searchBudget && typeof input.config.searchBudget === "object" && !Array.isArray(input.config.searchBudget)
     ? input.config.searchBudget as Record<string, unknown>
     : {};
   const entityDefault = AUTOMATION_SEARCH_DEFAULT_ENTITY_DAILY_REQUESTS[input.entityType] ?? 10;
+  const baseRootDailyRequests = lowerBoundedConfig(
+    budget.rootDailyRequests ?? input.config.dailyRequestCap,
+    AUTOMATION_SEARCH_DEFAULT_ROOT_DAILY_REQUESTS,
+    AUTOMATION_SEARCH_HARD_ROOT_DAILY_REQUESTS,
+  );
+  const manualExtraRootRequests = Math.min(
+    Math.max(0, AUTOMATION_SEARCH_HARD_ROOT_DAILY_REQUESTS - baseRootDailyRequests),
+    manualRootBudgetExtra(budget, now),
+  );
   return {
     queriesPerRun: lowerBoundedConfig(
       budget.queriesPerRun ?? input.config.maxQueriesPerRun,
@@ -84,11 +108,9 @@ export function automationSearchBudgetPolicy(input: {
       entityDefault,
       entityDefault,
     ),
-    rootDailyRequests: lowerBoundedConfig(
-      budget.rootDailyRequests ?? input.config.dailyRequestCap,
-      AUTOMATION_SEARCH_DEFAULT_ROOT_DAILY_REQUESTS,
-      AUTOMATION_SEARCH_HARD_ROOT_DAILY_REQUESTS,
-    ),
+    baseRootDailyRequests,
+    manualExtraRootRequests,
+    rootDailyRequests: baseRootDailyRequests + manualExtraRootRequests,
     queryCooldownMinutes: Math.max(
       Math.max(60, Math.floor(input.cadenceMinutes || 0)),
       lowerBoundedConfig(
