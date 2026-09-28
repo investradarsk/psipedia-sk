@@ -107,6 +107,17 @@ test("an exact profile remains eligible beyond an old 500-item corpus boundary",
   assert.equal(result[0]?.href, target.href);
 });
 
+
+test("required breed, article and nonsense scenarios produce deterministic outcomes", () => {
+  const items = [
+    { href: "/plemena/labradorsky-retriever", title: "Labradorský retriever", type: "Plemeno", description: "Retríver", keywords: "FCI retriever" },
+    { href: "/starostlivost/ako-cistit-psovi-zuby", title: "Ako čistiť psovi zuby", type: "Článok", description: "Praktický návod", keywords: "dentálna hygiena zuby" },
+  ];
+  assert.equal(filterPortalSearch(items, "labradorský retriever", 24)[0]?.href, "/plemena/labradorsky-retriever");
+  assert.equal(filterPortalSearch(items, "ako čistiť psovi zuby", 24)[0]?.href, "/starostlivost/ako-cistit-psovi-zuby");
+  assert.deepEqual(filterPortalSearch(items, "zzzxxyy-no-search-result", 24), []);
+});
+
 test("pagination is explicitly bounded and keeps a stable page contract", () => {
   assert.equal(SEARCH_PAGE_SIZE, 24);
   assert.equal(SEARCH_MAX_PAGE, 20);
