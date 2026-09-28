@@ -512,6 +512,20 @@ export async function resetManualGeoOverride(targetType: GeoTargetType, targetId
   return point;
 }
 
+export function buildDirectoryGeoInvalidationForAddressReviewStatement(
+  profileId: number,
+  database: GeoD1Database,
+  now: string,
+) {
+  return database.prepare(`
+    UPDATE geo_points SET
+      latitude=NULL,longitude=NULL,resolution_method=NULL,provider=NULL,provenance=NULL,source_license=NULL,
+      resolved_source_fingerprint=NULL,geocode_status='STALE',last_error_code=NULL,last_error_at=NULL,
+      retry_after_at=NULL,last_geocoded_at=NULL,updated_at=?
+    WHERE directory_profile_id=? AND manual_override=0
+  `).bind(now, profileId);
+}
+
 export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, targetIdValue: number, database?: GeoD1Database) {
   const db = requireGeoD1(database);
   const current = await getGeoPointForTarget(targetType, targetIdValue, db);
