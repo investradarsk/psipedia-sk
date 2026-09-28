@@ -47,7 +47,11 @@ function placeholderMatch(value: string) {
 }
 
 function unsafeMarkup(value: string) {
-  return /<\s*(?:script|style|iframe|object|embed)\b|\bon(?:error|load|click)\s*=|javascript\s*:|data\s*:/i.test(value);
+  return /<\s*(?:script|style|iframe|object|embed)\b|\bon(?:error|load|click)\s*=|javascript\s*:|\b(?:href|src)\s*=\s*["']?\s*data\s*:/i.test(value);
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value : "";
 }
 
 function issue(input: ArticleQaIssue) {
@@ -55,22 +59,35 @@ function issue(input: ArticleQaIssue) {
 }
 
 function blockTextParts(block: ArticleBlock): Array<{ field: string; value: string }> {
-  if (block.type === "text" || block.type === "tip" || block.type === "warning" || block.type === "quote") return [{ field: "content", value: block.content }];
-  if (block.type === "h2" || block.type === "h3") return [{ field: "text", value: block.text }];
-  if (block.type === "bullet-list" || block.type === "numbered-list") return block.items.map((value, index) => ({ field: `items.${index}`, value }));
-  if (block.type === "table") return [
-    ...block.headers.map((value, index) => ({ field: `headers.${index}`, value })),
-    ...block.rows.flatMap((row, rowIndex) => row.map((value, cellIndex) => ({ field: `rows.${rowIndex}.${cellIndex}`, value }))),
-  ];
-  if (block.type === "source") return [{ field: "label", value: block.label }, { field: "note", value: block.note ?? "" }];
-  if (block.type === "related") return [{ field: "title", value: block.title }, { field: "description", value: block.description ?? "" }];
-  if (block.type === "cta") return [{ field: "text", value: block.text }, { field: "buttonText", value: block.buttonText }];
-  if (block.type === "image") return [{ field: "alt", value: block.alt }, { field: "caption", value: block.caption ?? "" }, { field: "credit", value: block.credit ?? "" }];
-  if (block.type === "gallery") return block.images.flatMap((image, index) => [
-    { field: `images.${index}.alt`, value: image.alt },
-    { field: `images.${index}.caption`, value: image.caption ?? "" },
-    { field: `images.${index}.credit`, value: image.credit ?? "" },
-  ]);
+  const raw = block as unknown as Record<string, unknown>;
+  const type = stringValue(raw.type);
+  if (type === "text" || type === "tip" || type === "warning" || type === "quote") return [{ field: "content", value: stringValue(raw.content) }];
+  if (type === "h2" || type === "h3") return [{ field: "text", value: stringValue(raw.text) }];
+  if (type === "bullet-list" || type === "numbered-list") {
+    return (Array.isArray(raw.items) ? raw.items : []).map((value, index) => ({ field: `items.${index}`, value: stringValue(value) }));
+  }
+  if (type === "table") {
+    const headers = Array.isArray(raw.headers) ? raw.headers : [];
+    const rows = Array.isArray(raw.rows) ? raw.rows : [];
+    return [
+      ...headers.map((value, index) => ({ field: `headers.${index}`, value: stringValue(value) })),
+      ...rows.flatMap((row, rowIndex) => Array.isArray(row) ? row.map((value, cellIndex) => ({ field: `rows.${rowIndex}.${cellIndex}`, value: stringValue(value) })) : []),
+    ];
+  }
+  if (type === "source") return [{ field: "label", value: stringValue(raw.label) }, { field: "note", value: stringValue(raw.note) }];
+  if (type === "related") return [{ field: "title", value: stringValue(raw.title) }, { field: "description", value: stringValue(raw.description) }];
+  if (type === "cta") return [{ field: "text", value: stringValue(raw.text) }, { field: "buttonText", value: stringValue(raw.buttonText) }];
+  if (type === "image") return [{ field: "alt", value: stringValue(raw.alt) }, { field: "caption", value: stringValue(raw.caption) }, { field: "credit", value: stringValue(raw.credit) }];
+  if (type === "gallery") {
+    return (Array.isArray(raw.images) ? raw.images : []).flatMap((image, index) => {
+      const item = image && typeof image === "object" ? image as Record<string, unknown> : {};
+      return [
+        { field: `images.${index}.alt`, value: stringValue(item.alt) },
+        { field: `images.${index}.caption`, value: stringValue(item.caption) },
+        { field: `images.${index}.credit`, value: stringValue(item.credit) },
+      ];
+    });
+  }
   return [];
 }
 
@@ -151,7 +168,9 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
     });
   }
 
-  const rawBlocks = Array.isArray(payload.blocks) ? payload.blocks as ArticleBlock[] : [];
+  const rawBlocks = Array.isArray(payload.blocks)
+    ? payload.blocks.filter((block): block is ArticleBlock => Boolean(block) && typeof block === "object")
+    : [];
   for (const block of rawBlocks) {
     for (const part of blockTextParts(block)) {
       if (placeholderMatch(part.value)) result.push(issue({
@@ -166,28 +185,32 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
       }));
     }
 
-    if ((block.type === "text" || block.type === "tip" || block.type === "warning" || block.type === "quote") && !block.content.trim()) {
+    const rawBlock = block as unknown as Record<string, unknown>;
+    if ((block.type === "text" || block.type === "tip" || block.type === "warning" || block.type === "quote") && !stringValue(rawBlock.content).trim()) {
       result.push(issue({
         code: "EMPTY_REQUIRED_BLOCK", field: "blocks", blockId: block.id, severity: "BLOCKER",
         message: "Obsahový blok je prázdny.",
         suggestedAction: "Doplň obsah alebo blok odstráň.",
       }));
     }
-    if ((block.type === "h2" || block.type === "h3") && !block.text.trim()) {
+    if ((block.type === "h2" || block.type === "h3") && !stringValue(rawBlock.text).trim()) {
       result.push(issue({
         code: "EMPTY_REQUIRED_BLOCK", field: "blocks", blockId: block.id, severity: "BLOCKER",
         message: "Nadpisový blok je prázdny.",
         suggestedAction: "Doplň nadpis alebo blok odstráň.",
       }));
     }
-    if (block.type === "image" && block.url && !block.alt.trim()) {
+    if (block.type === "image" && stringValue(rawBlock.url) && !stringValue(rawBlock.alt).trim()) {
       result.push(issue({
         code: "IMAGE_ALT_REQUIRED", field: "blocks", blockId: block.id, severity: "BLOCKER",
         message: "Obrázok nemá alternatívny text.",
         suggestedAction: "Doplň stručný ALT text obrázka.",
       }));
     }
-    if (block.type === "gallery" && block.images.some((image) => image.url && !image.alt.trim())) {
+    if (block.type === "gallery" && (Array.isArray(rawBlock.images) ? rawBlock.images : []).some((image) => {
+      const item = image && typeof image === "object" ? image as Record<string, unknown> : {};
+      return Boolean(stringValue(item.url)) && !stringValue(item.alt).trim();
+    })) {
       result.push(issue({
         code: "IMAGE_ALT_REQUIRED", field: "blocks", blockId: block.id, severity: "BLOCKER",
         message: "Aspoň jeden obrázok v galérii nemá alternatívny text.",
@@ -196,12 +219,14 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
     }
     if (block.type === "source") result.push(...sourceIssues(block as unknown as Record<string, unknown>, "blocks.source", block.id));
     if (block.type === "related") {
-      if (!block.title.trim() || !block.href.trim()) result.push(issue({
+      const relatedTitle = stringValue(rawBlock.title);
+      const relatedHref = stringValue(rawBlock.href);
+      if (!relatedTitle.trim() || !relatedHref.trim()) result.push(issue({
         code: "RELATED_TARGET_REQUIRED", field: "blocks.related", blockId: block.id, severity: "BLOCKER",
         message: "Súvisiaci článok nemá názov alebo cieľ.",
         suggestedAction: "Vyber existujúci canonical cieľ alebo blok odstráň.",
       }));
-      else if (!block.href.startsWith("/")) result.push(issue({
+      else if (!relatedHref.startsWith("/")) result.push(issue({
         code: "RELATED_TARGET_NOT_INTERNAL", field: "blocks.related", blockId: block.id, severity: "BLOCKER",
         message: "Blok „Súvisiaci článok“ musí smerovať na interný canonical cieľ.",
         suggestedAction: "Použi internú URL začínajúcu / alebo externý odkaz vlož ako bežný odkaz/CTA.",
@@ -213,7 +238,29 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
     result.push(...sourceIssues(source as unknown as Record<string, unknown>, `sources.${index}`));
   }
 
-  const healthContent = payload.category === "Zdravie"
+  const sourceIdentity = new Map<string, string>();
+  const allSources: Array<{ source: Record<string, unknown>; field: string; blockId?: string }> = [
+    ...(payload.sources ?? []).map((source, index) => ({ source: source as unknown as Record<string, unknown>, field: `sources.${index}` })),
+    ...rawBlocks.filter((block) => block.type === "source").map((block) => ({ source: block as unknown as Record<string, unknown>, field: "blocks.source", blockId: block.id })),
+  ];
+  for (const entry of allSources) {
+    const label = comparisonText(stringValue(entry.source.label));
+    const url = comparisonText(stringValue(entry.source.url));
+    const key = url || label;
+    if (!key) continue;
+    const first = sourceIdentity.get(key);
+    if (first) result.push(issue({
+      code: "SOURCE_DUPLICATE",
+      field: entry.field,
+      blockId: entry.blockId,
+      severity: "WARNING",
+      message: "Rovnaký odborný zdroj je uvedený viackrát.",
+      suggestedAction: `Ponechaj jednu citáciu; prvý výskyt je v ${first}.`,
+    }));
+    else sourceIdentity.set(key, entry.field);
+  }
+
+    const healthContent = payload.category === "Zdravie"
     || (payload.portalSection === "starostlivost" && payload.portalSubpage === "zdravie");
   if (healthContent) {
     const sources = [
