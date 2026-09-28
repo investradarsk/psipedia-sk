@@ -1,6 +1,7 @@
 import type { AutomationEntityType } from "./data-automation";
 import type { AutomationSourceAdminRow, AutomationSourceCandidateRow } from "./data-automation-source-store";
 import type { AutomationDiscoveryRoot } from "./data-automation-discovery-store";
+import { automationProductCategoryBySlug, automationProductCategoryForEntity, type AutomationCategoryMode } from "./data-automation-product-model";
 import type { AutomationFindingSummary } from "./data-automation-store";
 
 export type AutomationUxCategory = {
@@ -8,17 +9,18 @@ export type AutomationUxCategory = {
   title: string;
   description: string;
   entityTypes: AutomationEntityType[];
+  mode: AutomationCategoryMode;
   draftsHref: string;
 };
 
 export const automationUxCategories: AutomationUxCategory[] = [
-  { slug: "podujatia", title: "Podujatia", description: "Kalendáre, preteky, výstavy a ďalšie psie podujatia.", entityTypes: ["EVENT"], draftsHref: "/admin/podujatia" },
-  { slug: "veterinari", title: "Veterinári", description: "Veterinárne ambulancie, kliniky a pracoviská.", entityTypes: ["DIRECTORY"], draftsHref: "/admin/adresar?category=veterinari&status=DRAFT" },
-  { slug: "utulky-organizacie", title: "Útulky a organizácie", description: "Útulky, karanténne stanice a organizácie pomáhajúce psom.", entityTypes: ["ORGANIZATION"], draftsHref: "/admin/organizacie" },
-  { slug: "psie-sluzby", title: "Psie služby", description: "Hotely, tréneri, salóny, škôlky a ďalšie služby.", entityTypes: ["DIRECTORY"], draftsHref: "/admin/adresar?status=DRAFT" },
-  { slug: "adopcie", title: "Adopcie", description: "Psy a ponuky určené na adopciu.", entityTypes: ["ADOPTION"], draftsHref: "/admin/adopcie?status=DRAFT" },
-  { slug: "docasna-opatera", title: "Dočasná opatera", description: "Výzvy a ponuky dočasnej opatery.", entityTypes: ["FOSTER"], draftsHref: "/admin/pomoc?category=docasna-opatera&status=DRAFT" },
-  { slug: "stratene-najdene", title: "Stratené / nájdené", description: "Hlásenia o stratených a nájdených psoch.", entityTypes: ["LOST_FOUND"], draftsHref: "/admin/stratene-najdene?status=DRAFT" },
+  { slug: "podujatia", title: "Podujatia", description: "Kalendáre, preteky, výstavy a ďalšie psie podujatia.", entityTypes: ["EVENT"], mode: "FEED_SOURCE", draftsHref: "/admin/podujatia" },
+  { slug: "veterinari", title: "Veterinári", description: "Veterinárne ambulancie, kliniky a pracoviská.", entityTypes: ["DIRECTORY"], mode: "DIRECT_ENTITY", draftsHref: "/admin/adresar?category=veterinari&status=DRAFT" },
+  { slug: "utulky-organizacie", title: "Útulky a organizácie", description: "Útulky, karanténne stanice a organizácie pomáhajúce psom.", entityTypes: ["ORGANIZATION"], mode: "DIRECT_ENTITY", draftsHref: "/admin/organizacie" },
+  { slug: "psie-sluzby", title: "Psie služby", description: "Hotely, tréneri, salóny, škôlky a ďalšie služby.", entityTypes: ["DIRECTORY"], mode: "DIRECT_ENTITY", draftsHref: "/admin/adresar?status=DRAFT" },
+  { slug: "adopcie", title: "Adopcie", description: "Psy a ponuky určené na adopciu.", entityTypes: ["ADOPTION"], mode: "FEED_SOURCE", draftsHref: "/admin/adopcie?status=DRAFT" },
+  { slug: "docasna-opatera", title: "Dočasná opatera", description: "Výzvy a ponuky dočasnej opatery.", entityTypes: ["FOSTER"], mode: "FEED_SOURCE", draftsHref: "/admin/pomoc?category=docasna-opatera&status=DRAFT" },
+  { slug: "stratene-najdene", title: "Stratené / nájdené", description: "Hlásenia o stratených a nájdených psoch.", entityTypes: ["LOST_FOUND"], mode: "FEED_SOURCE", draftsHref: "/admin/stratene-najdene?status=DRAFT" },
 ];
 
 export const automationCadenceOptions = Object.freeze([
@@ -41,16 +43,8 @@ export function automationDiscoveryMinimumCadenceMinutes(slug: string) {
   return 10080;
 }
 
-const directoryVeterinaryHint = /veterin|vet\b|klinika|ambulancia/i;
-
-function automationCategoryForEntity(entityType: AutomationEntityType, searchable: string, directoryCategory?: unknown) {
-  if (entityType === "DIRECTORY") {
-    const canonicalCategory = typeof directoryCategory === "string" ? directoryCategory.trim().toLowerCase() : "";
-    if (canonicalCategory === "veterinari") return "veterinari";
-    if (canonicalCategory) return "psie-sluzby";
-    return directoryVeterinaryHint.test(searchable) ? "veterinari" : "psie-sluzby";
-  }
-  return automationUxCategories.find((category) => category.entityTypes.includes(entityType))?.slug ?? null;
+function automationCategoryForEntity(entityType: AutomationEntityType, _searchable: string, directoryCategory?: unknown) {
+  return automationProductCategoryForEntity(entityType, directoryCategory);
 }
 
 export function automationCategoryForSource(source: Pick<AutomationSourceAdminRow, "entityType" | "sourceKey" | "label" | "sourceUrl" | "config">) {
@@ -78,6 +72,7 @@ export function automationCategoryForDiscoveryRoot(root: Pick<AutomationDiscover
 }
 
 export function automationCategoryBySlug(slug: string) {
+  if (!automationProductCategoryBySlug(slug)) return null;
   return automationUxCategories.find((category) => category.slug === slug) ?? null;
 }
 
