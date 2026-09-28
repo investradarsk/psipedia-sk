@@ -31,7 +31,12 @@ import {
 } from "./data-automation-clustering.ts";
 import { isDirectoryFacilityObservation } from "./data-automation-directory-matching.ts";
 import { applyAutomationFinding } from "./data-automation-apply.ts";
-import { createAutomationIngestionReceipt, getAutomationIngestionReceipt } from "./data-automation-ingestion-receipts.ts";
+import {
+  createAutomationIngestionReceipt,
+  getAutomationIngestionReceipt,
+  updateAutomationIngestionReceiptPayload,
+} from "./data-automation-ingestion-receipts.ts";
+import { upsertCanonicalExternalProvenance } from "./data-automation-product-store.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 const AUTOMATION_DRAFT_ACTOR = "automation@psipedia.sk";
@@ -204,6 +209,39 @@ async function safelyCreateSourceErrorFinding(
   }
 }
 
+async function ensureProcessedReceipt(
+  source: AutomationSource,
+  record: AutomationSourceRecord,
+  proposalHash: string,
+  detectedAt: string,
+  database: D1Database,
+) {
+  const existing = await getAutomationIngestionReceipt({
+    sourceId: source.id,
+    entityType: source.entityType,
+    sourceRecordId: record.sourceRecordId,
+  }, database);
+  if (existing) {
+    await updateAutomationIngestionReceiptPayload({
+      sourceId: source.id,
+      entityType: source.entityType,
+      sourceRecordId: record.sourceRecordId,
+      sourceUrl: record.sourceUrl,
+      payloadHash: proposalHash,
+    }, database);
+    return existing;
+  }
+  return createAutomationIngestionReceipt({
+    sourceId: source.id,
+    entityType: source.entityType,
+    sourceRecordId: record.sourceRecordId,
+    sourceUrl: record.sourceUrl,
+    payloadHash: proposalHash,
+    result: "SKIPPED_DUPLICATE",
+    firstProcessedAt: detectedAt,
+  }, database);
+}
+
 async function processRecord(
   source: AutomationSource,
   runId: number | null,
@@ -213,33 +251,98 @@ async function processRecord(
   findingProposal?: Record<string, unknown>,
 ) {
   requiredIdentity(source, record);
+  const proposedForFinding = findingProposal ?? record.proposed;
+  const proposalHash = await sha256Hex(proposedForFinding);
   const processedReceipt = await getAutomationIngestionReceipt({
     sourceId: source.id,
     entityType: source.entityType,
     sourceRecordId: record.sourceRecordId,
   }, database);
-  if (processedReceipt) {
+  if (processedReceipt?.payloadHash === proposalHash) {
     return { finding: null, created: false, reopened: false, processed: true };
   }
-  const proposedForFinding = findingProposal ?? record.proposed;
-  const proposalHash = await sha256Hex(proposedForFinding);
 
   let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
     ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
     : await matchAutomationCanonical(source, record, database);
 
+  // Safe canonical matches are not terminal duplicates until the payload is
+  // compared. This is what enables read-only update suggestions for both
+  // DRAFT and PUBLISHED canonical rows while preserving NO auto-update.
   if (match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
-    const receipt = await createAutomationIngestionReceipt({
+    await upsertCanonicalExternalProvenance({
+      entityType: source.entityType,
+      canonicalEntityId: match.entityId,
+      externalSourceUrl: record.sourceUrl,
+      externalRecordId: record.sourceRecordId,
+      provenanceType: "AUTOMATION_SOURCE_RECORD",
+      detectedAt,
+    }, database);
+
+    const classified = classifyAutomationFinding({ match, proposed: proposedForFinding });
+    if (!classified) {
+      const receipt = await ensureProcessedReceipt(source, record, proposalHash, detectedAt, database);
+      if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+      return { finding: null, created: false, reopened: false, processed: true, receipt };
+    }
+
+    const observationHash = await sha256Hex(record.rawRecord);
+    const observationId = await recordAutomationObservation({
+      sourceId: source.id,
+      runId,
+      record,
+      payloadHash: observationHash,
+      detectedAt,
+    }, database);
+    const fingerprint = automationFindingFingerprint({
+      sourceKey: source.sourceKey,
+      sourceRecordId: record.sourceRecordId,
+      findingType: classified.findingType,
+      canonicalEntityId: match.entityId,
+      payloadHash: proposalHash,
+    });
+    const result = await upsertAutomationFinding({
+      source,
+      observationId,
+      sourceRecordId: record.sourceRecordId,
+      sourceUrl: record.sourceUrl,
+      sourceTimestamp: record.sourceTimestamp,
+      findingType: classified.findingType,
+      canonicalEntityId: match.entityId,
+      canonicalEntityKey: match.entityKey,
+      matchQuality: match.quality,
+      before: match.before,
+      proposed: proposedForFinding,
+      diff: classified.diff,
+      payloadHash: proposalHash,
+      fingerprint,
+      reason: findingReason(classified.findingType, record, match.candidates ?? []),
+      detectedAt,
+    }, database);
+    await maybeQueueHighPriorityNotification(
+      result.id,
+      classified.findingType,
+      result.created || result.reopened,
+      database,
+      new Date(detectedAt),
+    );
+    const receipt = await ensureProcessedReceipt(source, record, proposalHash, detectedAt, database);
+    if (!receipt) throw new Error("automation_ingestion_receipt_missing");
+    return { finding: classified.findingType, draft: null, receipt, ...result };
+  }
+
+  // If an earlier CREATE_DRAFT receipt exists, a changed payload may be
+  // re-compared, but a matcher regression is never allowed to create a second
+  // canonical draft for the same stable source-record identity.
+  if (processedReceipt?.result === "DRAFT_CREATED" && !match.entityId) {
+    await updateAutomationIngestionReceiptPayload({
       sourceId: source.id,
       entityType: source.entityType,
       sourceRecordId: record.sourceRecordId,
       sourceUrl: record.sourceUrl,
       payloadHash: proposalHash,
-      result: "SKIPPED_DUPLICATE",
-      firstProcessedAt: detectedAt,
     }, database);
-    if (!receipt) throw new Error("automation_ingestion_receipt_missing");
-    return { finding: null, created: false, reopened: false, processed: true, receipt };
+    return { finding: null, created: false, reopened: false, processed: true, receipt: processedReceipt };
   }
 
   const observationHash = await sha256Hex(record.rawRecord);
