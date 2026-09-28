@@ -1,7 +1,7 @@
 import type { AutomationEntityType } from "./data-automation";
 import type { AutomationSourceAdminRow, AutomationSourceCandidateRow } from "./data-automation-source-store";
 import type { AutomationDiscoveryRoot } from "./data-automation-discovery-store";
-import { automationProductCategoryBySlug, automationProductCategoryForEntity, type AutomationCategoryMode } from "./data-automation-product-model";
+import { automationProductCategoryBySlug, automationProductCategoryForEntity, type AutomationCategoryMode } from "./data-automation-product-model.ts";
 import type { AutomationFindingSummary } from "./data-automation-store";
 
 export type AutomationUxCategory = {
