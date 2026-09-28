@@ -17,11 +17,12 @@ test("article admin search finds an accented article beyond page one and keeps U
   const response = await page.goto("/admin", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
 
-  const search = page.getByPlaceholder("Názov, slug, perex alebo téma");
+  const filterForm = page.locator('form[role="search"][action="/admin"]');
+  const search = filterForm.getByPlaceholder("Názov, slug, perex alebo téma");
   await search.fill("zuby");
-  await page.getByLabel("Stav", { exact: true }).selectOption("draft");
-  await page.getByLabel("Sekcia", { exact: true }).selectOption("clanky");
-  await page.getByRole("button", { name: "Filtrovať" }).click();
+  await filterForm.locator('select[name="status"]').selectOption("draft");
+  await filterForm.locator('select[name="section"]').selectOption("clanky");
+  await filterForm.getByRole("button", { name: "Filtrovať" }).click();
 
   await expect(page).toHaveURL(/query=zuby/);
   await expect(page).toHaveURL(/status=draft/);
@@ -30,9 +31,10 @@ test("article admin search finds an accented article beyond page one and keeps U
   await expect(page.getByRole("status").filter({ hasText: "Nájdené" })).toContainText("Nájdené: 1");
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByPlaceholder("Názov, slug, perex alebo téma")).toHaveValue("zuby");
-  await expect(page.getByLabel("Stav", { exact: true })).toHaveValue("draft");
-  await expect(page.getByLabel("Sekcia", { exact: true })).toHaveValue("clanky");
+  const restoredFilterForm = page.locator('form[role="search"][action="/admin"]');
+  await expect(restoredFilterForm.getByPlaceholder("Názov, slug, perex alebo téma")).toHaveValue("zuby");
+  await expect(restoredFilterForm.locator('select[name="status"]')).toHaveValue("draft");
+  await expect(restoredFilterForm.locator('select[name="section"]')).toHaveValue("clanky");
   await expect(page.getByRole("heading", { name: "Žlté zúbky ADMIN SEARCH cieľ" })).toBeVisible();
 
   await page.getByRole("heading", { name: "Žlté zúbky ADMIN SEARCH cieľ" }).getByRole("link").click();
