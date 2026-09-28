@@ -10,6 +10,7 @@ import {
 import { env } from "cloudflare:workers";
 import { getAutomationSourceAdmin } from "@/lib/data-automation-source-store";
 import { automationCategoryBySlug, automationCategoryForSource } from "@/lib/admin-automation-presentation";
+import { listAutomationSourceCanonicalContent } from "@/lib/data-automation-product-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -28,6 +29,7 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
   const readiness = db
     ? await automationSourceActivationReadiness(source, db).catch(() => null)
     : null;
+  const content = await listAutomationSourceCanonicalContent(source.id).catch(() => []);
   const monitoringReady = readiness?.ready === true;
   const monitoringRetryable = readiness
     ? automationSourceTechnicalGovernanceRetryable(readiness)
@@ -39,6 +41,7 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
       <AdminAutomationSourceSettings
         source={source}
         draftsHref={category?.draftsHref ?? "/admin"}
+        content={content}
         monitoringReady={monitoringReady}
         monitoringRetryable={monitoringRetryable}
       />

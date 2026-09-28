@@ -23,7 +23,7 @@ export default async function AutomationAdminPage() {
       user={user}
       eyebrow="Admin"
       title="Automatizácie"
-      description="Vyber kategóriu a spravuj zdroje. Nájdený obsah sa rieši ako koncept v príslušnej admin sekcii."
+      description="Vyber kategóriu a nastav priame hľadanie entít alebo monitoring opakovaných zdrojov. Nový obsah vzniká iba ako canonical koncept."
     >
       <section className={styles.hubGrid} aria-label="Kategórie automatizácií">
         {automationUxCategories.map((category) => {
@@ -36,8 +36,10 @@ export default async function AutomationAdminPage() {
             <Link className={styles.hubCard} href={"/admin/automatizacie/" + category.slug} key={category.slug}>
               <h2>{category.title}</h2>
               <p>{category.description}</p>
-              <p>{newCount} nových · {approvedCount} schválených · {rejectedCount} zamietnutých</p>
-              <span className={styles.hubOpen}>Otvoriť zdroje →</span>
+              {category.mode === "DIRECT_ENTITY"
+                ? <p>Priame vyhľadávanie entít · bez schvaľovania zdrojov</p>
+                : <p>{newCount} nových · {approvedCount} schválených · {rejectedCount} zamietnutých</p>}
+              <span className={styles.hubOpen}>{category.mode === "DIRECT_ENTITY" ? "Otvoriť automatizáciu →" : "Otvoriť zdroje →"}</span>
             </Link>
           );
         })}

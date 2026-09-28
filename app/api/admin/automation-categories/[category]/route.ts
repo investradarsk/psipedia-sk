@@ -13,12 +13,14 @@ import {
   setAutomationDiscoveryRootEnabled,
 } from "@/lib/data-automation-discovery-store";
 import { runAutomationDiscoveryRootCanary } from "@/lib/data-automation-discovery-runner";
+import { releaseFailedDirectDiscoveryCooldowns } from "@/lib/data-automation-direct-discovery-recovery";
 import { getGovernanceState, upsertGovernanceReview } from "@/lib/data-automation-governance";
 import { TavilyAutomationSearchProvider } from "@/lib/data-automation-search-tavily";
 import {
   isTavilySearchDiscoveryRoot,
   tavilySearchGovernancePresetForRoot,
 } from "@/lib/tavily-canary-control";
+import { configureDirectEntityRefreshSetting } from "@/lib/data-automation-product-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string }> };
@@ -40,6 +42,23 @@ export async function PUT(request: Request, { params }: Props) {
 
   const bindings = env as unknown as Bindings;
   if (!bindings.DB) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+
+  if (body?.kind === "refresh") {
+    if (category.mode !== "DIRECT_ENTITY") {
+      return Response.json({ error: "Táto kategória nepoužíva kontrolu existujúcich entít." }, { status: 400 });
+    }
+    try {
+      const setting = await configureDirectEntityRefreshSetting({
+        categorySlug: category.slug as "veterinari" | "psie-sluzby" | "utulky-organizacie",
+        enabled,
+        cadenceMinutes,
+      }, bindings.DB);
+      return Response.json({ setting }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nastavenie kontroly zmien sa nepodarilo uložiť.";
+      return Response.json({ error: message }, { status: 409 });
+    }
+  }
 
   try {
     const allRoots = await listAutomationDiscoveryRoots(bindings.DB, 100);
@@ -73,14 +92,27 @@ export async function PUT(request: Request, { params }: Props) {
           id: root.id,
           action: "approve",
           reviewerEmail: auth.user.email,
-          notes: "Schválené používateľom zapnutím hľadania nových zdrojov.",
+          notes: category.mode === "DIRECT_ENTITY"
+            ? "Schválené používateľom zapnutím priameho hľadania nových entít."
+            : "Schválené používateľom zapnutím hľadania nových zdrojov.",
         }, bindings.DB);
       }
       updated = await setAutomationDiscoveryRootEnabled({ id: root.id, enabled }, bindings.DB);
       if (updated) updatedRoots.push(updated);
     }
 
-    const immediateRun = enabled && !wasEnabled;
+    let releasedFailedCooldowns = 0;
+    if (enabled && category.mode === "DIRECT_ENTITY") {
+      const recovery = await releaseFailedDirectDiscoveryCooldowns({
+        rootIds: updatedRoots.map((root) => root.id),
+      }, bindings.DB);
+      releasedFailedCooldowns = recovery.released;
+    }
+
+    // Saving an enabled DIRECT_ENTITY automation is an explicit admin retry.
+    // Successful searches remain protected by normal query cooldown; only
+    // poisoned cooldowns from downstream PARTIAL/FAILED runs were retired above.
+    const immediateRun = enabled && (category.mode === "DIRECT_ENTITY" || !wasEnabled);
     if (immediateRun) {
       const provider = new TavilyAutomationSearchProvider({ apiKey: bindings.TAVILY_API_KEY });
       const task = Promise.allSettled(updatedRoots.map((root) => runAutomationDiscoveryRootCanary({
@@ -104,6 +136,7 @@ export async function PUT(request: Request, { params }: Props) {
       enabled,
       cadenceMinutes,
       immediateRun,
+      releasedFailedCooldowns,
       rootCount: updatedRoots.length,
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

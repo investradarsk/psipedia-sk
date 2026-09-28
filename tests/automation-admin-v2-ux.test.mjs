@@ -22,22 +22,27 @@ test("automation overview is category-first and source-only", () => {
   assert.doesNotMatch(page, /Pripravené návrhy|Koncepty a nálezy/);
 });
 
-test("existing technical entity types are hidden behind UX category mapping", () => {
+test("existing technical entity types are hidden behind the explicit product category contract", () => {
   const presentation = read("lib/admin-automation-presentation.ts");
-  assert.match(presentation, /entityType === "DIRECTORY"/);
-  assert.match(presentation, /"veterinari"/);
-  assert.match(presentation, /"psie-sluzby"/);
+  const product = read("lib/data-automation-product-model.ts");
+  assert.match(presentation, /automationProductCategoryForEntity/);
+  assert.match(product, /entityType === "DIRECTORY"/);
+  assert.match(product, /"veterinari"/);
+  assert.match(product, /"psie-sluzby"/);
   assert.match(presentation, /automationCategoryForCandidate/);
   assert.match(presentation, /automationCategoryForDiscoveryRoot/);
 });
 
-test("category detail follows source discovery then new approved rejected order", () => {
+test("category detail separates direct entities from recurring feed sources", () => {
   const component = read("components/admin-automation-category-sources.tsx");
-  const discovery = component.indexOf("<h2>Hľadať nové zdroje</h2>");
-  const fresh = component.indexOf("<h2>Nové zdroje</h2>");
-  const approved = component.indexOf("<h2>Schválené zdroje</h2>");
-  const rejected = component.indexOf("<h2>Zamietnuté zdroje</h2>");
-  assert.ok(discovery >= 0 && fresh > discovery && approved > fresh && rejected > approved);
+  assert.match(component, /category\.mode === "DIRECT_ENTITY"/);
+  assert.match(component, /Hľadať nových veterinárov/);
+  assert.match(component, /Nové koncepty/);
+  assert.match(component, /Kontrolovať doplnenia a zmeny/);
+  assert.match(component, /Hľadať nové zdroje/);
+  assert.match(component, /Nové zdroje/);
+  assert.match(component, /Schválené zdroje/);
+  assert.match(component, /Zamietnuté zdroje/);
   assert.doesNotMatch(component, /História|Pokročilé|Pripravené návrhy|Koncepty a nálezy/);
 });
 

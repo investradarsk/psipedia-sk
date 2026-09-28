@@ -4,14 +4,15 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
-test("category discovery OFF has no scheduled eligibility and ON schedules an immediate first run", async () => {
+test("category discovery OFF stays unscheduled while DIRECT_ENTITY save can retry immediately", async () => {
   const [store, route] = await Promise.all([
     read("lib/data-automation-discovery-store.ts"),
     read("app/api/admin/automation-categories/[category]/route.ts"),
   ]);
   assert.match(store, /WHERE enabled=1 AND review_status='APPROVED'/);
   assert.match(store, /input\.enabled \? at : null/);
-  assert.match(route, /immediateRun = enabled && !wasEnabled/);
+  assert.match(route, /immediateRun = enabled && \(category\.mode === "DIRECT_ENTITY" \|\| !wasEnabled\)/);
+  assert.match(route, /releaseFailedDirectDiscoveryCooldowns/);
   assert.match(route, /runAutomationDiscoveryRootCanary/);
   assert.match(route, /waitUntil\(task\)/);
 });
@@ -52,11 +53,13 @@ test("source monitoring OFF is unscheduled and ON starts immediately", async () 
   assert.match(route, /waitUntil\(task\)/);
 });
 
-test("normal source UX contains only monitoring, cadence and canonical concepts CTA", async () => {
+test("normal source UX contains monitoring, cadence and direct canonical content navigation", async () => {
   const source = await read("components/admin-automation-source-settings.tsx");
   assert.match(source, /Kontrolovať tento zdroj/);
   assert.match(source, /Ako často kontrolovať zdroj/);
-  assert.match(source, /Otvoriť koncepty/);
+  assert.match(source, /Nájdený obsah/);
+  assert.match(source, /content\.map/);
+  assert.match(source, /Otvoriť canonical sekciu/);
   assert.doesNotMatch(source, /adapter|readiness|governance|finding|observation|cluster|receipt|write counter/i);
 });
 

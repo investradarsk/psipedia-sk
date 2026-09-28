@@ -36,6 +36,12 @@ function organization(overrides = {}) {
   };
 }
 
+function graphEntity(jsonLd, type) {
+  const entity = jsonLd["@graph"].find((item) => item["@type"] === type);
+  assert.ok(entity, `${type} entity must exist`);
+  return entity;
+}
+
 test("published organization metadata reuses canonical SEO contract including OG and Twitter", () => {
   const metadata = buildOrganizationMetadata(organization());
   const canonical = "https://psipedia.sk/organizacie/psia-nadej";
@@ -62,10 +68,12 @@ test("metadata uses a safe deterministic organization fallback when descriptions
   );
 });
 
-test("Organization JSON-LD has stable canonical identity and only sanitized real public fields", () => {
+test("Organization JSON-LD has stable canonical identity plus a real breadcrumb hierarchy", () => {
   const jsonLd = buildOrganizationJsonLd(organization());
-  assert.deepEqual(jsonLd, {
-    "@context": "https://schema.org",
+  const entity = graphEntity(jsonLd, "Organization");
+  const breadcrumb = graphEntity(jsonLd, "BreadcrumbList");
+
+  assert.deepEqual(entity, {
     "@type": "Organization",
     "@id": "https://psipedia.sk/organizacie/psia-nadej#organization",
     name: "Psia nádej",
@@ -80,8 +88,14 @@ test("Organization JSON-LD has stable canonical identity and only sanitized real
       "https://instagram.com/example",
     ],
   });
+  assert.deepEqual(breadcrumb.itemListElement, [
+    { "@type": "ListItem", position: 1, name: "Domov", item: "https://psipedia.sk/" },
+    { "@type": "ListItem", position: 2, name: "Pomoc psom", item: "https://psipedia.sk/pomoc-psom" },
+    { "@type": "ListItem", position: 3, name: "Psia nádej", item: "https://psipedia.sk/organizacie/psia-nadej" },
+  ]);
   assert.equal(JSON.stringify(jsonLd).includes("sourceUrl"), false);
   assert.equal(JSON.stringify(jsonLd).includes("lastVerifiedAt"), false);
+  assert.equal(JSON.stringify(jsonLd).includes("verified"), false);
 });
 
 test("Organization JSON-LD excludes unsafe URLs and empty optional values without garbage", () => {
@@ -95,9 +109,9 @@ test("Organization JSON-LD excludes unsafe URLs and empty optional values withou
     instagramUrl: "notaurl",
     imageUrl: "javascript:alert(1)",
   }));
+  const entity = graphEntity(jsonLd, "Organization");
 
-  assert.deepEqual(jsonLd, {
-    "@context": "https://schema.org",
+  assert.deepEqual(entity, {
     "@type": "Organization",
     "@id": "https://psipedia.sk/organizacie/psia-nadej#organization",
     name: "Psia nádej",

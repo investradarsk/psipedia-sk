@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminOrganizationEditor } from "@/components/admin-organization-editor";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
@@ -31,7 +32,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     eyebrow="Organizácie · Detail"
     title={organization.name}
     description="Canonical údaje, lokality a fundraising na jednom admin detaile. Publication lifecycle zostáva explicitná samostatná akcia."
-  >
+   actions={<Link href="/admin/organizacie">← Späť na organizácie</Link>}>
     <AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminOrganizationEditor organization={organization} />
     <div id="locations"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>

@@ -99,6 +99,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0089_automation_tavily_directory_roots.sql",
     "0090_geo_google_place_identity.sql",
     "0091_automation_detach_drafts.sql",
+    "0092_automation_product_model.sql",
   ]);
 });
 
@@ -119,6 +120,19 @@ test("DISCOVERY-CAT-1B 0088 is a data-only production target with no schema drif
 test("DISCOVERY-CAT-1C 0089 is a data-only production target with no schema drift surface", () => {
   assert.deepEqual(
     targetSchemaObjects({ objects: [] }, "0089_automation_tavily_directory_roots.sql"),
+    { partial: false },
+  );
+});
+
+test("AUTOMATION-PRODUCT-MODEL-2 0092 detects partial schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [{ name: "canonical_external_provenance", type: "table", sql: "" }],
+    }, "0092_automation_product_model.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0092_automation_product_model.sql"),
     { partial: false },
   );
 });
@@ -175,7 +189,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0092_future_migration.sql",
+    "0093_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -216,6 +230,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0089_automation_tavily_directory_roots.sql",
     "0090_geo_google_place_identity.sql",
     "0091_automation_detach_drafts.sql",
+    "0092_automation_product_model.sql",
   ]);
 });
 
@@ -223,7 +238,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0092_future_migration.sql",
+    "0093_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -250,7 +265,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0089_automation_tavily_directory_roots.sql",
     "0090_geo_google_place_identity.sql",
     "0091_automation_detach_drafts.sql",
-    "0092_future_migration.sql",
+    "0092_automation_product_model.sql",
+    "0093_future_migration.sql",
   ]);
 });
 

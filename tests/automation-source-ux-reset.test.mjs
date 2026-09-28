@@ -59,6 +59,9 @@ test("reset allowlist is automation-only and excludes canonical tables", () => {
   assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_ingestion_receipts"));
   assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_source_candidates"));
   assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_applications"));
+  assert.ok(mod.DELETE_TABLE_ORDER.includes("automation_update_suggestions"));
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_direct_refresh_settings"), false);
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("canonical_external_provenance"), false);
 });
 
 test("FK-sensitive reset order is child-first", () => {
@@ -70,21 +73,26 @@ test("FK-sensitive reset order is child-first", () => {
   assert.ok(index("automation_ingestion_receipts") < index("automation_sources"));
 });
 
-test("root presets are preserved but all operational state is cleared", () => {
+test("root and direct-refresh presets are preserved but all operational state is cleared", () => {
   assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_discovery_roots"), false);
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_direct_refresh_settings"), false);
   assert.match(mod.ROOT_RESET_STATEMENT, /enabled=0/);
   assert.match(mod.ROOT_RESET_STATEMENT, /review_status='PENDING'/);
   assert.match(mod.ROOT_RESET_STATEMENT, /next_check_at=NULL/);
   assert.match(mod.ROOT_RESET_STATEMENT, /last_checked_at=NULL/);
+  assert.match(mod.DIRECT_REFRESH_RESET_STATEMENT, /enabled=0/);
+  assert.match(mod.DIRECT_REFRESH_RESET_STATEMENT, /cursor_entity_id=0/);
+  assert.match(mod.DIRECT_REFRESH_RESET_STATEMENT, /last_error_code=NULL/);
 });
 
 test("mutation batch is explicit and includes no canonical delete", () => {
-  const statements = mod.resetStatements(["automation_runs", "automation_sources"], true, true);
+  const statements = mod.resetStatements(["automation_runs", "automation_sources"], true, true, true);
   assert.deepEqual(statements.slice(0, 3), [
     "DELETE FROM editorial_notifications WHERE resource_type='automation_finding'",
     'DELETE FROM "automation_runs"',
     'DELETE FROM "automation_sources"',
   ]);
+  assert.equal(statements.at(-2), mod.DIRECT_REFRESH_RESET_STATEMENT);
   assert.equal(statements.at(-1), mod.ROOT_RESET_STATEMENT);
   assert.equal(statements.some((statement) => /DELETE FROM .*managed_events|directory_profiles|adoption_dogs|help_cases/i.test(statement)), false);
 });
@@ -150,6 +158,7 @@ test("every automation table is explicitly deleted or intentionally preserved", 
     ...mod.DELETE_TABLE_ORDER,
     ...mod.PRESERVED_AUDIT_TABLES,
     "automation_discovery_roots",
+    "automation_direct_refresh_settings",
   ]);
   const uncovered = [...new Set(schema.tables.filter((table) => table.startsWith("automation_")))]
     .filter((table) => !covered.has(table))

@@ -3,24 +3,31 @@ import type { MetadataRoute } from "next";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
 import { categories } from "@/lib/content";
 import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
-import { getPublishedArticleIndex } from "@/lib/article-store";
-import { getPublishedEvents } from "@/lib/event-store";
 import { eventHref } from "@/lib/events";
-import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
-import { directoryCategories, directoryProfileHref } from "@/lib/directory";
-import { getPublishedHelpCases } from "@/lib/help-store";
+import { directoryCategories, isDirectoryCategory } from "@/lib/directory";
+import { getPublishedDirectorySitemapRecords } from "@/lib/directory-sitemap";
+import { getPublishedArticleSitemapRecords, getPublishedEventSitemapRecords, getPublishedHelpSitemapRecords } from "@/lib/entity-sitemap";
 import { helpCaseHref } from "@/lib/help";
 import { listPublishedOrganizationsForSitemap } from "@/lib/help-organization-store";
 import { listSitemapDogReports } from "@/lib/lost-found-dog-store";
 import { dogReportHref } from "@/lib/lost-found-dogs";
 import { adoptionDetailPath } from "@/lib/adoption-detail";
 import { listIndexableAdoptionsForSitemap } from "@/lib/adoption-sitemap";
-import { buildOrganizationSitemapEntries } from "@/lib/organization-sitemap";
+import { buildOrganizationSitemapEntries, isCanonicalOrganizationSlug } from "@/lib/organization-sitemap";
 import { articleHref, portalSubpageHref } from "@/lib/portal";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { listManagedPortalSections } from "@/lib/section-store";
 import { SITE_URL } from "@/lib/seo";
+import { assertSitemapEntityParity, type SitemapParityCandidate } from "@/lib/sitemap-parity";
 import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
+
+function absoluteSitemapUrl(path: string) {
+  return `${SITE_URL}${path}`;
+}
+
+function parityCandidate(input: SitemapParityCandidate) {
+  return input;
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const organizationDatabase = (env as unknown as { DB?: AdoptionD1Database }).DB;
@@ -28,12 +35,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ? listPublishedOrganizationsForSitemap(organizationDatabase).catch(() => [])
     : Promise.resolve([]);
   const [articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports, adoptions, organizations] = await Promise.all([
-    getPublishedArticleIndex(), getPublishedEvents(), getPublishedDirectoryProfiles(),
-    getPublishedHelpCases(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports().catch(() => []),
+    getPublishedArticleSitemapRecords(), getPublishedEventSitemapRecords(), getPublishedDirectorySitemapRecords(),
+    getPublishedHelpSitemapRecords(), listManagedPortalSections(), listPublishedCanonicalBreedIndex(), listSitemapDogReports().catch(() => []),
     listIndexableAdoptionsForSitemap().catch(() => []), organizationPromise,
   ]);
   const portalSections = managedSections.filter((section) => section.visible);
-  const articleModified = (article: (typeof articles)[number]) => article.updatedDateIso;
+  const articleModified = (article: (typeof articles)[number]) => article.updatedAt;
   const latestArticles = latestModified(articles.map(articleModified));
   const latestEvents = latestModified(events.map((event) => event.updatedAt));
   const latestDirectory = latestModified(directoryProfiles.map((profile) => profile.updatedAt));
@@ -47,7 +54,168 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     latestHelp?.toISOString(), latestLostFound?.toISOString(), latestAdoptions?.toISOString(), latestBreeds?.toISOString(), latestSections?.toISOString(),
   ]);
 
-  const entries: MetadataRoute.Sitemap = [
+  const articleEntries = articles
+    .filter((article) => article.slug?.trim() && isSelfCanonical(article.seo, articleHref(article)))
+    .map((article) => sitemapEntry(articleHref(article), {
+      lastModified: latestModified([articleModified(article)]), changeFrequency: "monthly", priority: 0.8,
+      images: article.imageUrl ? [article.imageUrl.startsWith("https://") ? article.imageUrl : `${SITE_URL}${article.imageUrl}`] : undefined,
+    }));
+  assertSitemapEntityParity("articles", articles.map((article) => {
+    const path = articleHref(article);
+    const indexable = isSelfCanonical(article.seo, path);
+    return parityCandidate({
+      slug: article.slug,
+      url: absoluteSitemapUrl(path),
+      indexable,
+      validStatus: true,
+      exclusionReason: indexable ? null : "noindex-or-noncanonical",
+    });
+  }), articleEntries.map((entry) => entry.url));
+
+  const eventEntries = events
+    .filter((event) => event.slug?.trim() && isSelfCanonical(event.seo, eventHref(event)))
+    .map((event) => sitemapEntry(eventHref(event), {
+      lastModified: latestModified([event.updatedAt]), changeFrequency: "weekly", priority: 0.7,
+      images: event.imageUrl ? [event.imageUrl.startsWith("https://") ? event.imageUrl : `${SITE_URL}${event.imageUrl}`] : undefined,
+    }));
+  assertSitemapEntityParity("events", events.map((event) => {
+    const path = eventHref(event);
+    const indexable = isSelfCanonical(event.seo, path);
+    return parityCandidate({
+      slug: event.slug,
+      url: absoluteSitemapUrl(path),
+      indexable,
+      validStatus: true,
+      exclusionReason: indexable ? null : "noindex-or-noncanonical",
+    });
+  }), eventEntries.map((entry) => entry.url));
+
+  const directoryCandidates = directoryProfiles.map((profile) => {
+    const hasKnownCategory = isDirectoryCategory(profile.category);
+    const path = hasKnownCategory && profile.slug?.trim()
+      ? `/adresar/${profile.category}/${profile.slug}`
+      : null;
+    const legacyRedirect = profile.category === "psie-skoly";
+    const selfCanonical = Boolean(path) && isSelfCanonical(profile.seo, path!);
+    const indexable = !legacyRedirect && hasKnownCategory && selfCanonical;
+    const exclusionReason = legacyRedirect
+      ? "redirect-source"
+      : !hasKnownCategory
+        ? "unknown-directory-category"
+        : !selfCanonical && profile.slug?.trim()
+          ? "noindex-or-noncanonical"
+          : null;
+    return {
+      profile,
+      path,
+      parity: parityCandidate({
+        slug: profile.slug,
+        url: path ? absoluteSitemapUrl(path) : null,
+        indexable: profile.slug?.trim() ? indexable : true,
+        validStatus: profile.status === "published",
+        exclusionReason,
+      }),
+    };
+  });
+  const directoryEntries = directoryCandidates.flatMap(({ profile, path, parity }) => {
+    if (!path || !parity.indexable) return [];
+    return [sitemapEntry(path, {
+      lastModified: latestModified([profile.updatedAt]), changeFrequency: "monthly", priority: 0.6,
+    })];
+  });
+  assertSitemapEntityParity(
+    "directory",
+    directoryCandidates.map((candidate) => candidate.parity),
+    directoryEntries.map((entry) => entry.url),
+  );
+
+  const helpCandidates = helpCases.map((item) => {
+    const path = helpCaseHref(item);
+    const representedElsewhere = item.category === "adopcia" || item.category === "utulky";
+    const selfCanonical = isSelfCanonical(item.seo, path);
+    const indexable = !representedElsewhere && selfCanonical;
+    return {
+      item,
+      path,
+      parity: parityCandidate({
+        slug: item.slug,
+        url: absoluteSitemapUrl(path),
+        indexable: item.slug?.trim() ? indexable : true,
+        validStatus: true,
+        exclusionReason: representedElsewhere
+          ? "dedicated-canonical-entity"
+          : selfCanonical
+            ? null
+            : "noindex-or-noncanonical",
+      }),
+    };
+  });
+  const helpEntries = helpCandidates.flatMap(({ item, path, parity }) => parity.indexable && item.slug?.trim()
+    ? [sitemapEntry(path, {
+        lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.8,
+        images: item.imageUrl ? [item.imageUrl.startsWith("https://") ? item.imageUrl : `${SITE_URL}${item.imageUrl}`] : undefined,
+      })]
+    : []);
+  assertSitemapEntityParity("help", helpCandidates.map((candidate) => candidate.parity), helpEntries.map((entry) => entry.url));
+
+  const adoptionEntries = adoptions
+    .filter((item) => item.slug?.trim())
+    .map((item) => sitemapEntry(adoptionDetailPath(item.slug), {
+      lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.8,
+      images: item.mainImage ? [item.mainImage.startsWith("https://") ? item.mainImage : `${SITE_URL}${item.mainImage}`] : undefined,
+    }));
+  assertSitemapEntityParity("adoptions", adoptions.map((item) => parityCandidate({
+    slug: item.slug,
+    url: item.slug?.trim() ? absoluteSitemapUrl(adoptionDetailPath(item.slug)) : null,
+    indexable: true,
+    validStatus: true,
+  })), adoptionEntries.map((entry) => entry.url));
+
+  const organizationEntries = buildOrganizationSitemapEntries(organizations);
+  assertSitemapEntityParity("organizations", organizations.map((organization) => {
+    const hasSlug = Boolean(organization.slug?.trim());
+    const canonicalSlug = hasSlug && isCanonicalOrganizationSlug(organization.slug);
+    return parityCandidate({
+      slug: organization.slug,
+      url: canonicalSlug ? absoluteSitemapUrl(`/organizacie/${organization.slug}`) : null,
+      indexable: hasSlug ? canonicalSlug : true,
+      validStatus: true,
+      exclusionReason: hasSlug && !canonicalSlug ? "noncanonical-slug" : null,
+    });
+  }), organizationEntries.map((entry) => entry.url));
+
+  const lostFoundEntries = lostFoundReports
+    .filter((item) => item.slug?.trim())
+    .map((item) => sitemapEntry(dogReportHref(item), {
+      lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.85,
+      images: item.mainImage ? [item.mainImage.startsWith("https://") ? item.mainImage : `${SITE_URL}${item.mainImage}`] : undefined,
+    }));
+  assertSitemapEntityParity("lost-found", lostFoundReports.map((item) => parityCandidate({
+    slug: item.slug,
+    url: item.slug?.trim() ? absoluteSitemapUrl(dogReportHref(item)) : null,
+    indexable: true,
+    validStatus: true,
+  })), lostFoundEntries.map((entry) => entry.url));
+
+  const breedEntries = breeds
+    .filter((breed) => breed.slug?.trim() && isSelfCanonical(breed.seo, `/plemena/${breed.slug}`))
+    .map((breed) => sitemapEntry(`/plemena/${breed.slug}`, {
+      lastModified: latestModified([breed.updatedAt]), changeFrequency: "monthly", priority: 0.8,
+      images: breed.image ? [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] : undefined,
+    }));
+  assertSitemapEntityParity("breeds", breeds.map((breed) => {
+    const path = `/plemena/${breed.slug}`;
+    const indexable = isSelfCanonical(breed.seo, path);
+    return parityCandidate({
+      slug: breed.slug,
+      url: absoluteSitemapUrl(path),
+      indexable,
+      validStatus: true,
+      exclusionReason: indexable ? null : "noindex-or-noncanonical",
+    });
+  }), breedEntries.map((entry) => entry.url));
+
+  const landingEntries: MetadataRoute.Sitemap = [
     sitemapEntry("", { lastModified: homepageModified, changeFrequency: "daily", priority: 1 }),
     sitemapEntry("/clanky", { lastModified: latestArticles, changeFrequency: "weekly", priority: 0.7 }),
     sitemapEntry("/plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
@@ -85,38 +253,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }),
       ];
     }),
-    ...articles.filter((article) => isSelfCanonical(article.seo, articleHref(article))).map((article) => sitemapEntry(articleHref(article), {
-      lastModified: latestModified([articleModified(article)]), changeFrequency: "monthly", priority: 0.8,
-      images: article.image ? [article.image.startsWith("https://") ? article.image : `${SITE_URL}${article.image}`] : undefined,
-    })),
-    ...events.filter((event) => isSelfCanonical(event.seo, eventHref(event))).map((event) => sitemapEntry(eventHref(event), {
-      lastModified: latestModified([event.updatedAt]), changeFrequency: "weekly", priority: 0.7,
-      images: event.imageUrl ? [event.imageUrl.startsWith("https://") ? event.imageUrl : `${SITE_URL}${event.imageUrl}`] : undefined,
-    })),
     ...directoryCategories.map((category) => sitemapEntry(`/adresar/${category.slug}`, {
       lastModified: latestModified(directoryProfiles.filter((profile) => profile.category === category.slug).map((profile) => profile.updatedAt)),
       changeFrequency: "weekly", priority: 0.7,
-    })),
-    ...directoryProfiles.filter((profile) => profile.category !== "psie-skoly" && isSelfCanonical(profile.seo, directoryProfileHref(profile))).map((profile) => sitemapEntry(directoryProfileHref(profile), {
-      lastModified: latestModified([profile.updatedAt]), changeFrequency: "monthly", priority: 0.6,
-      images: profile.imageUrl ? [profile.imageUrl.startsWith("https://") ? profile.imageUrl : `${SITE_URL}${profile.imageUrl}`] : undefined,
-    })),
-    ...helpCases.filter((item) => item.category !== "adopcia" && item.category !== "utulky" && isSelfCanonical(item.seo, helpCaseHref(item))).map((item) => sitemapEntry(helpCaseHref(item), {
-      lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.8,
-      images: item.imageUrl ? [item.imageUrl.startsWith("https://") ? item.imageUrl : `${SITE_URL}${item.imageUrl}`] : undefined,
-    })),
-    ...adoptions.map((item) => sitemapEntry(adoptionDetailPath(item.slug), {
-      lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.8,
-      images: item.mainImage ? [item.mainImage.startsWith("https://") ? item.mainImage : `${SITE_URL}${item.mainImage}`] : undefined,
-    })),
-    ...buildOrganizationSitemapEntries(organizations),
-    ...lostFoundReports.map((item) => sitemapEntry(dogReportHref(item), {
-      lastModified: latestModified([item.updatedAt]), changeFrequency: "daily", priority: 0.85,
-      images: item.mainImage ? [item.mainImage.startsWith("https://") ? item.mainImage : `${SITE_URL}${item.mainImage}`] : undefined,
-    })),
-    ...breeds.filter((breed) => isSelfCanonical(breed.seo, `/plemena/${breed.slug}`)).map((breed) => sitemapEntry(`/plemena/${breed.slug}`, {
-      lastModified: latestModified([breed.updatedAt]), changeFrequency: "monthly", priority: 0.8,
-      images: breed.image ? [breed.image.startsWith("https://") ? breed.image : `${SITE_URL}${breed.image}`] : undefined,
     })),
     ...categories.map((category) => sitemapEntry(`/tema/${category.slug}`, {
       lastModified: latestModified(articles.filter((article) => article.category === category.label).map(articleModified)),
@@ -124,5 +263,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  return assertValidSitemap([...new Map(entries.map((entry) => [entry.url, entry])).values()]);
+  // Some landing routes are intentionally described by both the managed portal
+  // hierarchy and a specialized landing builder. Coalesce those known landing
+  // representations only; detail-entity arrays above are never de-duplicated.
+  const uniqueLandingEntries = [...new Map(landingEntries.map((entry) => [entry.url, entry])).values()];
+  assertSitemapEntityParity(
+    "static-landings",
+    uniqueLandingEntries.map((entry) => parityCandidate({
+      slug: new URL(entry.url).pathname || "/",
+      url: entry.url,
+      indexable: true,
+      validStatus: true,
+    })),
+    uniqueLandingEntries.map((entry) => entry.url),
+  );
+
+  const entries: MetadataRoute.Sitemap = [
+    ...uniqueLandingEntries,
+    ...articleEntries,
+    ...eventEntries,
+    ...directoryEntries,
+    ...helpEntries,
+    ...adoptionEntries,
+    ...organizationEntries,
+    ...lostFoundEntries,
+    ...breedEntries,
+  ];
+
+  return assertValidSitemap(entries);
 }

@@ -19,6 +19,7 @@ export const CANONICAL_SAFETY_TABLES = Object.freeze([
   "profile_reviews",
   "geo_points",
   "canonical_draft_flags",
+  "canonical_external_provenance",
 ]);
 
 export const PRESERVED_AUDIT_TABLES = Object.freeze([
@@ -29,6 +30,7 @@ export const PRESERVED_AUDIT_TABLES = Object.freeze([
 // Explicit child-first allowlist. Discovery-root rows are reusable code-level
 // configuration, so reset clears their operational state instead of deleting them.
 export const DELETE_TABLE_ORDER = Object.freeze([
+  "automation_update_suggestions",
   "automation_canonical_apply_operations",
   "automation_entity_match_decisions",
   "automation_search_usage",
@@ -52,6 +54,16 @@ export const DELETE_TABLE_ORDER = Object.freeze([
   "automation_ingestion_receipts",
   "automation_sources",
 ]);
+
+export const DIRECT_REFRESH_RESET_STATEMENT = `UPDATE automation_direct_refresh_settings SET
+  enabled=0,
+  cursor_entity_id=0,
+  next_check_at=NULL,
+  last_checked_at=NULL,
+  last_success_at=NULL,
+  last_error_at=NULL,
+  last_error_code=NULL,
+  updated_at=datetime('now')`;
 
 export const ROOT_RESET_STATEMENT = `UPDATE automation_discovery_roots SET
   enabled=0,
@@ -146,17 +158,25 @@ export function assertStaticSafety() {
     invariant(!canonical.has(table), `canonical table in delete allowlist: ${table}`);
   }
   invariant(!DELETE_TABLE_ORDER.includes("automation_discovery_roots"), "discovery root presets must be reset, not deleted");
+  invariant(!DELETE_TABLE_ORDER.includes("automation_direct_refresh_settings"), "direct refresh presets must be reset, not deleted");
   invariant(!DELETE_TABLE_ORDER.includes("canonical_draft_flags"), "canonical-local draft flags must be preserved");
+  invariant(!DELETE_TABLE_ORDER.includes("canonical_external_provenance"), "canonical provenance must be preserved");
   for (const table of PRESERVED_AUDIT_TABLES) {
     invariant(table.startsWith("automation_"), `non-automation table in preserved audit allowlist: ${table}`);
     invariant(!DELETE_TABLE_ORDER.includes(table), `preserved audit table in delete allowlist: ${table}`);
   }
 }
 
-export function resetStatements(existingTables, hasEditorialNotifications, hasDiscoveryRoots) {
+export function resetStatements(
+  existingTables,
+  hasEditorialNotifications,
+  hasDiscoveryRoots,
+  hasDirectRefreshSettings = false,
+) {
   const statements = [];
   if (hasEditorialNotifications) statements.push("DELETE FROM editorial_notifications WHERE resource_type='automation_finding'");
   for (const table of existingTables) statements.push(`DELETE FROM "${table}"`);
+  if (hasDirectRefreshSettings) statements.push(DIRECT_REFRESH_RESET_STATEMENT);
   if (hasDiscoveryRoots) statements.push(ROOT_RESET_STATEMENT);
   return statements;
 }
@@ -181,7 +201,11 @@ export function preview(target) {
     strictReadOnly: true,
     deleteCounts,
     preservedAuditCounts,
-    resetCounts: { automation_discovery_roots: discoveryRoots, editorialAutomationFinding },
+    resetCounts: {
+      automation_discovery_roots: discoveryRoots,
+      automation_direct_refresh_settings: countTable(target, "automation_direct_refresh_settings"),
+      editorialAutomationFinding,
+    },
     canonicalSafetyCounts,
     canonicalDeleteTargets: [],
     blockers,
@@ -199,6 +223,7 @@ export async function apply(target, before, fetchImpl = fetch) {
     existingTables,
     tableExists(target, "editorial_notifications"),
     tableExists(target, "automation_discovery_roots"),
+    tableExists(target, "automation_direct_refresh_settings"),
   );
   invariant(statements.length > 0, "reset produced no statements");
   await executeAtomicBatch(target, statements, fetchImpl);
@@ -211,6 +236,10 @@ export async function apply(target, before, fetchImpl = fetch) {
   invariant(JSON.stringify(canonicalAfter) === JSON.stringify(canonicalBefore), "canonical safety counts changed");
   const preservedAuditAfter = countsFor(target, PRESERVED_AUDIT_TABLES);
   invariant(JSON.stringify(preservedAuditAfter) === JSON.stringify(preservedAuditBefore), "preserved governance audit counts changed");
+  if (tableExists(target, "automation_direct_refresh_settings")) {
+    invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_direct_refresh_settings WHERE enabled<>0 OR cursor_entity_id<>0 OR next_check_at IS NOT NULL OR last_checked_at IS NOT NULL OR last_success_at IS NOT NULL OR last_error_at IS NOT NULL OR last_error_code IS NOT NULL") === 0,
+      "direct refresh operational state remains after reset");
+  }
   if (tableExists(target, "automation_discovery_roots")) {
     invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_discovery_roots WHERE enabled<>0 OR review_status<>'PENDING' OR next_check_at IS NOT NULL OR last_checked_at IS NOT NULL") === 0,
       "discovery operational state remains after reset");

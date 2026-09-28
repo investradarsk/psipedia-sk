@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PawMark } from "@/components/icons";
+
+export const metadata: Metadata = {
+  title: "Stránka sa nenašla",
+  robots: { index: false, follow: true },
+};
 
 export default function NotFound() {
   return (

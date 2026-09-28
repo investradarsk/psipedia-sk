@@ -3,7 +3,20 @@ import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { eventDateTimeIso } from "../lib/events.ts";
+import {
+  buildPublishedDirectorySitemapPageQuery,
+  listPublishedDirectorySitemapRecords,
+} from "../lib/directory-sitemap.ts";
+import {
+  buildPublishedArticleSitemapPageQuery,
+  buildPublishedEventSitemapPageQuery,
+  buildPublishedHelpSitemapPageQuery,
+  listPublishedArticleSitemapRecords,
+  listPublishedEventSitemapRecords,
+  listPublishedHelpSitemapRecords,
+} from "../lib/entity-sitemap.ts";
 import { articleAuthorJsonLd, serializeJsonLd } from "../lib/seo.ts";
+import { assertSitemapEntityParity, inspectSitemapEntityParity } from "../lib/sitemap-parity.ts";
 import {
   assertValidSitemap,
   isNewsSitemapEligibleDate,
@@ -92,9 +105,230 @@ test("legacy activity training URL redirects directly to the canonical managed t
   assert.match(portalPage, /if \(portalTopic\) return <PortalTopic/);
 });
 
+test("directory sitemap reader is lightweight, cursor-batched and not capped at 500 or 1000", async () => {
+  const query = buildPublishedDirectorySitemapPageQuery(0, 500);
+  assert.equal(query.batchSize, 500);
+  assert.match(query.sql, /id > \?/);
+  assert.match(query.sql, /ORDER BY id ASC/);
+  assert.match(query.sql, /status = 'published'/);
+  assert.match(query.sql, /archived_at IS NULL/);
+  assert.doesNotMatch(query.sql, /description|services_json|qualifications_json|source_data_json|verified|featured/i);
+
+  const database = new DatabaseSync(":memory:");
+  database.exec(`
+    CREATE TABLE directory_profiles (
+      id INTEGER PRIMARY KEY,
+      slug TEXT NOT NULL,
+      category TEXT NOT NULL,
+      status TEXT NOT NULL,
+      updated_at TEXT,
+      seo_json TEXT NOT NULL DEFAULT '{}',
+      archived_at TEXT
+    );
+    BEGIN;
+  `);
+  const insert = database.prepare(
+    "INSERT INTO directory_profiles (id,slug,category,status,updated_at,seo_json,archived_at) VALUES (?,?,?,?,?,?,?)",
+  );
+  for (let id = 1; id <= 1205; id += 1) {
+    insert.run(
+      id,
+      `profil-${id}`,
+      "veterinari",
+      "published",
+      `2026-09-${String((id % 27) + 1).padStart(2, "0")}T10:00:00.000Z`,
+      id === 1205
+        ? JSON.stringify({ canonicalUrl: "https://psipedia.sk/adresar/veterinari/profil-1205", noindex: false })
+        : "{}",
+      null,
+    );
+  }
+  insert.run(1206, "draft", "veterinari", "draft", "2026-09-28T10:00:00.000Z", "{}", null);
+  insert.run(1207, "archived", "veterinari", "published", "2026-09-28T10:00:00.000Z", "{}", "2026-09-28T11:00:00.000Z");
+  database.exec("COMMIT;");
+
+  let queryCount = 0;
+  const d1 = {
+    prepare(sql) {
+      queryCount += 1;
+      return {
+        bind(...bindings) {
+          return {
+            async all() {
+              return { results: database.prepare(sql).all(...bindings) };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const records = await listPublishedDirectorySitemapRecords(d1, { batchSize: 500 });
+  assert.equal(records.length, 1205);
+  assert.equal(queryCount, 3);
+  assert.deepEqual(records.slice(0, 2).map((item) => item.id), [1, 2]);
+  assert.equal(records.at(-1).id, 1205);
+  assert.equal(records.some((item) => item.slug === "draft"), false);
+  assert.equal(records.some((item) => item.slug === "archived"), false);
+  assert.equal(records.at(-1).seo.canonicalUrl, "https://psipedia.sk/adresar/veterinari/profil-1205");
+});
+
+test("article, event and Help sitemap readers remain complete beyond 1000 rows", async () => {
+  const articleQuery = buildPublishedArticleSitemapPageQuery(0, 500, "2026-09-28T12:00:00.000Z");
+  const eventQuery = buildPublishedEventSitemapPageQuery(0, 500);
+  const helpQuery = buildPublishedHelpSitemapPageQuery(0, 500);
+  for (const query of [articleQuery, eventQuery, helpQuery]) {
+    assert.match(query.sql, /id > \?/);
+    assert.match(query.sql, /ORDER BY id ASC/);
+    assert.doesNotMatch(query.sql, /description|excerpt|services_json|practical_info|source_data_json/i);
+  }
+
+  const database = new DatabaseSync(":memory:");
+  database.exec(`
+    CREATE TABLE managed_articles (
+      id INTEGER PRIMARY KEY,
+      slug TEXT NOT NULL,
+      portal_section TEXT NOT NULL,
+      portal_subpage TEXT,
+      category TEXT NOT NULL,
+      status TEXT NOT NULL,
+      updated_at TEXT,
+      published_at TEXT,
+      image_url TEXT,
+      canonical_url TEXT NOT NULL DEFAULT '',
+      noindex INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE managed_events (
+      id INTEGER PRIMARY KEY,
+      slug TEXT NOT NULL,
+      status TEXT NOT NULL,
+      updated_at TEXT,
+      image_url TEXT,
+      seo_json TEXT NOT NULL DEFAULT '{}'
+    );
+    CREATE TABLE help_cases (
+      id INTEGER PRIMARY KEY,
+      slug TEXT NOT NULL,
+      category TEXT NOT NULL,
+      status TEXT NOT NULL,
+      updated_at TEXT,
+      image_url TEXT,
+      seo_json TEXT NOT NULL DEFAULT '{}'
+    );
+    BEGIN;
+  `);
+  const articleInsert = database.prepare(
+    "INSERT INTO managed_articles (id,slug,portal_section,portal_subpage,category,status,updated_at,published_at,image_url,canonical_url,noindex) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+  );
+  const eventInsert = database.prepare(
+    "INSERT INTO managed_events (id,slug,status,updated_at,image_url,seo_json) VALUES (?,?,?,?,?,?)",
+  );
+  const helpInsert = database.prepare(
+    "INSERT INTO help_cases (id,slug,category,status,updated_at,image_url,seo_json) VALUES (?,?,?,?,?,?,?)",
+  );
+  for (let id = 1; id <= 1205; id += 1) {
+    const updated = `2026-09-${String((id % 27) + 1).padStart(2, "0")}T10:00:00.000Z`;
+    articleInsert.run(id, `article-${id}`, "starostlivost", "zdravie", "Zdravie", "published", updated, updated, null, "", 0);
+    eventInsert.run(id, `event-${id}`, "published", updated, null, "{}");
+    helpInsert.run(id, `help-${id}`, "docasna-opatera", "published", updated, null, "{}");
+  }
+  articleInsert.run(1206, "draft-article", "clanky", null, "Výcvik", "draft", null, null, null, "", 0);
+  eventInsert.run(1206, "draft-event", "draft", null, null, "{}");
+  helpInsert.run(1206, "draft-help", "zbierky", "draft", null, null, "{}");
+  database.exec("COMMIT;");
+
+  let queryCount = 0;
+  const d1 = {
+    prepare(sql) {
+      queryCount += 1;
+      return {
+        bind(...bindings) {
+          return { async all() { return { results: database.prepare(sql).all(...bindings) }; } };
+        },
+      };
+    },
+  };
+
+  const [articles, events, help] = await Promise.all([
+    listPublishedArticleSitemapRecords(d1, { batchSize: 500, nowIso: "2026-09-28T12:00:00.000Z" }),
+    listPublishedEventSitemapRecords(d1, { batchSize: 500 }),
+    listPublishedHelpSitemapRecords(d1, { batchSize: 500 }),
+  ]);
+  assert.equal(articles.length, 1205);
+  assert.equal(events.length, 1205);
+  assert.equal(help.length, 1205);
+  assert.equal(queryCount, 9);
+  assert.equal(articles.at(-1).portalSubpage, "zdravie");
+  assert.equal(articles.at(-1).category, "Zdravie");
+  assert.equal(help.at(-1).category, "docasna-opatera");
+  assert.equal(articles.some((item) => item.slug === "draft-article"), false);
+  assert.equal(events.some((item) => item.slug === "draft-event"), false);
+  assert.equal(help.some((item) => item.slug === "draft-help"), false);
+  database.close();
+});
+
+test("sitemap entity parity exposes duplicates, missing slugs and invalid statuses", () => {
+  const clean = [
+    { slug: "a", url: "https://psipedia.sk/a", indexable: true, validStatus: true },
+    { slug: "legacy", url: "https://psipedia.sk/legacy", indexable: false, validStatus: true, exclusionReason: "redirect-source" },
+  ];
+  const report = inspectSitemapEntityParity("test", clean, ["https://psipedia.sk/a"]);
+  assert.equal(report.indexableCanonicalCount, 1);
+  assert.equal(report.sitemapUrlCount, 1);
+  assert.equal(report.unexplainedExclusionCount, 0);
+  assert.doesNotThrow(() => assertSitemapEntityParity("test", clean, ["https://psipedia.sk/a"]));
+
+  assert.throws(
+    () => assertSitemapEntityParity("duplicates", [
+      { slug: "a", url: "https://psipedia.sk/a", indexable: true, validStatus: true },
+      { slug: "b", url: "https://psipedia.sk/b", indexable: true, validStatus: true },
+    ], ["https://psipedia.sk/a", "https://psipedia.sk/a"]),
+    /sitemap-parity:duplicates/,
+  );
+  assert.throws(
+    () => assertSitemapEntityParity("missing-slug", [
+      { slug: "", url: null, indexable: true, validStatus: true },
+    ], []),
+    /missingSlugCount/,
+  );
+  assert.throws(
+    () => assertSitemapEntityParity("invalid-status", [
+      { slug: "draft", url: "https://psipedia.sk/draft", indexable: true, validStatus: false },
+    ], []),
+    /invalidStatusCount/,
+  );
+  assert.throws(
+    () => assertSitemapEntityParity("unexplained", [
+      { slug: "hidden", url: "https://psipedia.sk/hidden", indexable: false, validStatus: true },
+    ], []),
+    /unexplainedExclusionCount/,
+  );
+});
+
+test("internal and utility routes keep explicit noindex contracts", () => {
+  const admin = fs.readFileSync(new URL("../app/admin/layout.tsx", import.meta.url), "utf8");
+  const partner = fs.readFileSync(new URL("../app/partner/layout.tsx", import.meta.url), "utf8");
+  const reviewer = fs.readFileSync(new URL("../app/recenzia/layout.tsx", import.meta.url), "utf8");
+  const search = fs.readFileSync(new URL("../app/hladat/page.tsx", import.meta.url), "utf8");
+  const favorites = fs.readFileSync(new URL("../app/oblubene/page.tsx", import.meta.url), "utf8");
+
+  for (const source of [admin, partner, reviewer]) {
+    assert.match(source, /robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
+  }
+  for (const source of [search, favorites]) {
+    assert.match(source, /robots:\s*\{\s*index:\s*false,\s*follow:\s*true/);
+  }
+});
+
 test("generated sitemap uses canonical public sources and no hardcoded fake dates", () => {
   const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
   assert.match(source, /listPublishedCanonicalBreedIndex/);
+  assert.match(source, /getPublishedDirectorySitemapRecords/);
+  assert.match(source, /getPublishedArticleSitemapRecords/);
+  assert.match(source, /getPublishedEventSitemapRecords/);
+  assert.match(source, /getPublishedHelpSitemapRecords/);
+  assert.doesNotMatch(source, /getPublishedDirectoryProfiles|getPublishedArticleIndex|getPublishedEvents|getPublishedHelpCases/);
+  assert.match(source, /assertSitemapEntityParity/);
   assert.match(source, /isSelfCanonical/);
   assert.match(source, /assertValidSitemap/);
   assert.doesNotMatch(source, /new Date\(["']2026-08-(?:17|29)["']\)/);
