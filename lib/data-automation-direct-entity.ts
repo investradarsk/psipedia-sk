@@ -466,7 +466,16 @@ export async function ingestDirectEntityUrl(input: {
     }, input.database);
     await ensureCanonicalSidecars(input.entityType, created.canonicalEntityId, input.database, now);
     if (input.entityType === "DIRECTORY" && verifiedDirectoryAddress) {
-      await applyVerifiedDirectoryGeo(created.canonicalEntityId, verifiedDirectoryAddress, input.database);
+      try {
+        await applyVerifiedDirectoryGeo(created.canonicalEntityId, verifiedDirectoryAddress, input.database);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "automation_directory_verified_geo_apply",
+          canonicalEntityId: created.canonicalEntityId,
+          result: "deferred",
+          error: error instanceof Error ? error.name : "unknown_error",
+        }));
+      }
     }
     result.newEntities += 1;
     result.canonicalEntityIds.push(created.canonicalEntityId);
