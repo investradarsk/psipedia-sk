@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminAutomationCategorySources } from "@/components/admin-automation-category-sources";
 import { AdminAutomationSearchControls } from "@/components/admin-automation-search-controls";
 import { AdminShell } from "@/components/admin-shell";
+import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import {
   automationCategoryBySlug,
@@ -13,6 +14,8 @@ import {
 import { listAutomationDiscoveryRoots } from "@/lib/data-automation-discovery-store";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
 import { isTavilySearchDiscoveryRoot } from "@/lib/tavily-canary-control";
+import { countOpenAutomationAddressReviews } from "@/lib/data-automation-address-review-store";
+import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-lifecycle-store";
 import {
   getDirectEntityRefreshSetting,
   listAutomationSourceCanonicalContent,
@@ -20,7 +23,6 @@ import {
   listDirectEntityUpdateSuggestions,
   listFeedUpdateSuggestions,
 } from "@/lib/data-automation-product-store";
-import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-lifecycle-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string }> };
@@ -59,6 +61,12 @@ export default async function AutomationCategoryPage({ params }: Props) {
       ] as const))
     : [];
   const sourceContent = Object.fromEntries(sourceContentEntries);
+  const addressReviewCategory = slug === "veterinari" || slug === "psie-sluzby"
+    ? slug
+    : null;
+  const addressReviewCount = addressReviewCategory
+    ? await countOpenAutomationAddressReviews(addressReviewCategory).catch(() => 0)
+    : 0;
   const lifecycleCount = category.mode === "FEED_SOURCE"
     ? await countOpenAutomationLifecycleSuggestions({ entityTypes: category.entityTypes }).catch(() => 0)
     : 0;
@@ -80,6 +88,23 @@ export default async function AutomationCategoryPage({ params }: Props) {
         </>
       )}
     >
+      {addressReviewCategory ? (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Adresy na kontrolu</h2>
+              <p>Nejednoznačné exact adresy, pri ktorých musí správnu budovu potvrdiť administrátor.</p>
+            </div>
+            <span className={styles.sectionCount}>{addressReviewCount}</span>
+          </div>
+          <Link
+            className={styles.itemAction}
+            href={`/admin/automatizacie/adresy?category=${addressReviewCategory}`}
+          >
+            Adresy na kontrolu · {addressReviewCount}
+          </Link>
+        </section>
+      ) : null}
       <AdminAutomationSearchControls categorySlug={slug} roots={discoveryRoots} />
       <AdminAutomationCategorySources
         category={category}
