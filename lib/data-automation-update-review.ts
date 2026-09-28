@@ -9,9 +9,10 @@ import {
 } from "./data-automation.ts";
 import { automationFieldLabel, automationSourceDomain } from "./admin-automation-presentation.ts";
 import { eventTypes, slovakRegions } from "./events.ts";
-import { adoptionRegions, adoptionSexes, adoptionSizes } from "./adoption.ts";
+import { adoptionRegions, adoptionSexes, adoptionSizes, normalizeAdoptionSearchText } from "./adoption.ts";
 import { organizationPublicationTypes } from "./help-organization-publication.ts";
 import { dogSexes, dogSizes } from "./lost-found-dogs.ts";
+import { normalizeDirectorySearchText } from "./directory-store.ts";
 import {
   mergeDirectoryPublicContactData,
   readDirectoryPublicContacts,
@@ -461,6 +462,108 @@ function validateValue(field: string, spec: FieldSpec, value: unknown) {
   return result;
 }
 
+function jsonStringArray(value: unknown) {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value !== "string") return [] as string[];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function nextColumnValue(
+  row: Record<string, unknown>,
+  field: string,
+  changedField: string,
+  changedValue: unknown,
+  column: string,
+) {
+  return field === changedField ? changedValue : row[column];
+}
+
+function derivedSearchText(
+  entityType: AutomationEntityType,
+  row: Record<string, unknown>,
+  field: string,
+  value: unknown,
+): string | null {
+  if (entityType === "DIRECTORY") {
+    const affecting = new Set(["name", "excerpt", "description", "services", "qualifications"]);
+    if (!affecting.has(field)) return null;
+    const services = field === "services" ? jsonStringArray(value) : jsonStringArray(row.services_json);
+    const qualifications = field === "qualifications" ? jsonStringArray(value) : jsonStringArray(row.qualifications_json);
+    return normalizeDirectorySearchText([
+      String(nextColumnValue(row, "name", field, value, "name") ?? ""),
+      String(nextColumnValue(row, "excerpt", field, value, "excerpt") ?? ""),
+      String(nextColumnValue(row, "description", field, value, "description") ?? ""),
+      services.join(" "),
+      qualifications.join(" "),
+      String(row.city ?? ""),
+      String(row.district ?? ""),
+      String(row.region ?? ""),
+      String(row.address ?? ""),
+      String(row.postal_code ?? ""),
+      String(row.street ?? ""),
+      String(row.house_number ?? ""),
+    ].join(" "));
+  }
+  if (entityType === "ADOPTION") {
+    const columns: Record<string, string> = {
+      name: "name",
+      breedName: "breed_name",
+      color: "color",
+      region: "region",
+      district: "district",
+      city: "city",
+      organizationName: "organization_name",
+      shortDescription: "short_description",
+    };
+    if (!columns[field]) return null;
+    const read = (key: string, column: string) => String(nextColumnValue(row, key, field, value, column) ?? "");
+    return normalizeAdoptionSearchText([
+      read("name", "name"),
+      read("breedName", "breed_name"),
+      read("color", "color"),
+      read("region", "region"),
+      read("district", "district"),
+      read("city", "city"),
+      read("organizationName", "organization_name"),
+      read("shortDescription", "short_description"),
+      String(row.temperament ?? ""),
+    ]);
+  }
+  if (entityType === "LOST_FOUND") {
+    const columns: Record<string, string> = {
+      dogName: "dog_name",
+      breed: "breed",
+      color: "color",
+      description: "description",
+      region: "region",
+      district: "district",
+      city: "city",
+      locationDescription: "location_description",
+    };
+    if (!columns[field]) return null;
+    const read = (key: string, column: string) => String(nextColumnValue(row, key, field, value, column) ?? "");
+    return [
+      String(row.type ?? ""),
+      read("dogName", "dog_name"),
+      read("breed", "breed"),
+      read("color", "color"),
+      read("description", "description"),
+      String(row.distinguishing_marks ?? ""),
+      read("region", "region"),
+      read("district", "district"),
+      read("city", "city"),
+      read("locationDescription", "location_description"),
+      String(row.source ?? ""),
+    ].filter(Boolean).join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  }
+  return null;
+}
+
 function validateResultingRecord(
   entityType: AutomationEntityType,
   field: string,
@@ -870,13 +973,18 @@ async function writeCanonicalFieldAndDecision(input: {
       : input.spec.kind === "json"
         ? JSON.stringify(input.value)
         : input.value;
+    const searchText = derivedSearchText(input.suggestion.entity_type, input.row, input.field, input.value);
+    const searchTextSql = searchText === null ? "" : ",search_text=?";
     const updatedBySql = config.updatedBy ? ",updated_by=?" : "";
     const statement = db.prepare(`UPDATE ${config.table}
-      SET ${input.spec.column}=?,updated_at=?${updatedBySql}
+      SET ${input.spec.column}=?${searchTextSql},updated_at=?${updatedBySql}
       WHERE id=? AND updated_at=?`);
-    updateStatement = config.updatedBy
-      ? statement.bind(dbValue, input.at, input.actor, input.suggestion.canonical_entity_id, expectedUpdatedAt)
-      : statement.bind(dbValue, input.at, input.suggestion.canonical_entity_id, expectedUpdatedAt);
+    const values: unknown[] = [dbValue];
+    if (searchText !== null) values.push(searchText);
+    values.push(input.at);
+    if (config.updatedBy) values.push(input.actor);
+    values.push(input.suggestion.canonical_entity_id, expectedUpdatedAt);
+    updateStatement = statement.bind(...values);
   }
 
   const decisionStatement = db.prepare(`INSERT INTO automation_update_field_reviews (
