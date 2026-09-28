@@ -258,10 +258,10 @@ async function processRecord(
     entityType: source.entityType,
     sourceRecordId: record.sourceRecordId,
   }, database);
-  if (processedReceipt?.payloadHash === proposalHash) {
-    return { finding: null, created: false, reopened: false, processed: true };
-  }
-
+  // A receipt proves that this stable source-record identity has already been
+  // processed, but it does not own or point at canonical content. We still
+  // re-run canonical matching so legacy receipts can acquire canonical-owned
+  // provenance and existing DRAFT/PUBLISHED rows can surface read-only updates.
   let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
     ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
     : await matchAutomationCanonical(source, record, database);
@@ -331,10 +331,10 @@ async function processRecord(
     return { finding: classified.findingType, draft: null, receipt, ...result };
   }
 
-  // If an earlier CREATE_DRAFT receipt exists, a changed payload may be
-  // re-compared, but a matcher regression is never allowed to create a second
-  // canonical draft for the same stable source-record identity.
-  if (processedReceipt?.result === "DRAFT_CREATED" && !match.entityId) {
+  // Once a source-record identity has a receipt, a later matcher miss or
+  // ambiguity must never create another canonical row. This applies to both
+  // prior DRAFT_CREATED and SKIPPED_DUPLICATE receipts.
+  if (processedReceipt && (!match.entityId || match.quality === "UNCERTAIN" || match.quality === "NONE")) {
     await updateAutomationIngestionReceiptPayload({
       sourceId: source.id,
       entityType: source.entityType,
