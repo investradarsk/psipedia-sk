@@ -26,6 +26,7 @@ import {
   listAutomationDiscoveryRoots,
   listDueAutomationDiscoveryRoots,
   reserveAutomationAddressEnrichmentRequest,
+  reserveAutomationEntityEnrichmentRequest,
   reserveAutomationSearchRequest,
   updateAutomationSearchUsageCandidateMetrics,
   type AutomationDiscoveryDatabase,
@@ -53,6 +54,9 @@ import {
   automationProductModeForRoot,
 } from "./data-automation-product-model.ts";
 import { ingestDirectEntityUrl } from "./data-automation-direct-entity.ts";
+import type { EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
+import { createProductionOrganizationEnricher, type OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
+import type { AutomationEnrichmentSearchPlan } from "./data-automation-enrichment-evidence.ts";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import type { DirectoryAddressSearch } from "./data-automation-directory-address-enrichment.ts";
 
@@ -654,6 +658,123 @@ async function addressEnrichmentSearchForRoot(
   };
 }
 
+async function entityEnrichmentGovernanceAllowed(
+  root: AutomationDiscoveryRoot,
+  database: AutomationDiscoveryDatabase,
+  now: Date,
+) {
+  if (
+    root.discoveryType !== "SEARCH_PROVIDER"
+    || !["DIRECTORY", "ORGANIZATION"].includes(root.entityType)
+    || root.reviewStatus !== "APPROVED"
+  ) return false;
+  const governance = await getGovernanceState({ type: "DISCOVERY_ROOT", id: root.id }, database);
+  const decision = evaluateGovernanceForActivation(governance, {
+    recurring: true,
+    cadenceMinutes: root.cadenceMinutes,
+    storageFields: ["url", "title", "snippet", "metadata"],
+  }, now);
+  return decision.allowed;
+}
+
+async function entityEnrichmentSearchForRoot(
+  root: AutomationDiscoveryRoot,
+  options: DataAutomationDiscoverySweepOptions,
+  discoveryRunId: number | null,
+): Promise<EntityEnrichmentSearch | undefined> {
+  const now = options.now ? new Date(options.now) : new Date();
+  if (!await entityEnrichmentGovernanceAllowed(
+    root,
+    options.database as AutomationDiscoveryDatabase,
+    now,
+  )) return undefined;
+
+  const providerKey = typeof root.config.provider === "string" ? root.config.provider.trim() : "";
+  if (!providerKey) return undefined;
+  let provider: AutomationSearchProvider;
+  try {
+    provider = requireConfiguredSearchProvider(options.searchProvider, providerKey);
+  } catch {
+    return undefined;
+  }
+
+  const policy = automationSearchBudgetPolicy(root, now);
+  let runRequests = 0;
+
+  return async (plan: AutomationEnrichmentSearchPlan) => {
+    if (runRequests >= policy.entityEnrichmentRequestsPerRun) return [];
+
+    let request: AutomationSearchRequest;
+    try {
+      request = normalizeAutomationSearchRequest({
+        query: plan.query,
+        maxResults: 5,
+        locale: root.config.locale ?? "sk-SK",
+        country: root.config.country ?? "SK",
+        allowDomains: plan.sameDomain ? [plan.sameDomain] : undefined,
+      });
+    } catch {
+      return [];
+    }
+
+    const fingerprint = await automationSearchQueryFingerprint(provider.key, request);
+    const dayBucket = now.toISOString().slice(0, 10);
+    const operationKey = `entity-enrichment:${dayBucket}:${root.id}:${plan.group.toLowerCase()}:${fingerprint}`;
+    const reservation = await reserveAutomationEntityEnrichmentRequest({
+      operationKey,
+      discoveryRunId,
+      providerKey: provider.key,
+      rootId: root.id,
+      entityType: root.entityType,
+      queryFingerprint: fingerprint,
+      now,
+      globalDailyLimit: policy.globalDailyRequests,
+      entityDailyLimit: policy.entityDailyRequests,
+      entityEnrichmentDailyLimit: policy.entityEnrichmentDailyRequests,
+    }, options.database as AutomationDiscoveryDatabase);
+
+    if (!reservation.reserved) {
+      console.info(JSON.stringify({
+        event: "data_automation_entity_enrichment_search_skip",
+        rootKey: root.rootKey,
+        group: plan.group,
+        fingerprint,
+        status: reservation.reason,
+      }));
+      return [];
+    }
+
+    runRequests += 1;
+    try {
+      const results = await provider.search(request);
+      if (!Array.isArray(results)) throw new AutomationSearchProviderError("INVALID_RESPONSE");
+      await finalizeAutomationSearchUsage({
+        operationKey,
+        status: results.length ? "SUCCESS" : "EMPTY",
+        resultCount: results.length,
+        now,
+      }, options.database as AutomationDiscoveryDatabase);
+      return results.slice(0, 5);
+    } catch (rawError) {
+      const error = searchProviderError(rawError);
+      await finalizeAutomationSearchUsage({
+        operationKey,
+        status: searchUsageStatus(error),
+        resultCount: 0,
+        now,
+      }, options.database as AutomationDiscoveryDatabase);
+      console.info(JSON.stringify({
+        event: "data_automation_entity_enrichment_search_error",
+        rootKey: root.rootKey,
+        group: plan.group,
+        fingerprint,
+        status: error.code,
+      }));
+      return [];
+    }
+  };
+}
+
 function directoryRootForRefreshCandidate(
   roots: AutomationDiscoveryRoot[],
   candidate: Awaited<ReturnType<typeof listDirectRefreshCandidates>>[number],
@@ -665,6 +786,19 @@ function directoryRootForRefreshCandidate(
     && root.reviewStatus === "APPROVED"
     && root.entityType === "DIRECTORY"
     && String(root.config.directoryCategory ?? "").trim() === category
+  ) ?? null;
+}
+
+function enrichmentRootForRefreshCandidate(
+  roots: AutomationDiscoveryRoot[],
+  candidate: Awaited<ReturnType<typeof listDirectRefreshCandidates>>[number],
+) {
+  if (candidate.entityType === "DIRECTORY") return directoryRootForRefreshCandidate(roots, candidate);
+  if (candidate.entityType !== "ORGANIZATION") return null;
+  return roots.find((root) =>
+    root.discoveryType === "SEARCH_PROVIDER"
+    && root.reviewStatus === "APPROVED"
+    && root.entityType === "ORGANIZATION"
   ) ?? null;
 }
 
@@ -1157,6 +1291,10 @@ async function runDiscoveryRoot(
         directEntity: true,
       }, options.database);
       exclusionCount = Math.max(exclusionCount, exclusions.exclusionCount);
+      const enrichmentSearch = await entityEnrichmentSearchForRoot(root, options, runId);
+      const organizationEnricher: OrganizationRecordEnricher | undefined = root.entityType === "ORGANIZATION"
+        ? createProductionOrganizationEnricher({ fetchImpl: options.fetchImpl })
+        : undefined;
 
       for (const candidate of candidates) {
         try {
@@ -1184,6 +1322,8 @@ async function runDiscoveryRoot(
             now: startedAt,
             provenanceType: "DIRECT_ENTITY_DISCOVERY",
             addressSearch,
+            enrichmentSearch,
+            organizationEnricher,
             addressEvidenceText: typeof candidate.metadata?.snippet === "string"
               ? candidate.metadata.snippet
               : null,
@@ -1363,9 +1503,13 @@ async function runDirectEntityRefresh(
   const batchSize = 20;
   const now = options.now ? new Date(options.now) : new Date();
   const candidates = await listDirectRefreshCandidates(setting, options.database, batchSize);
-  const refreshSearchRoots = setting.categorySlug !== "utulky-organizacie"
-    ? await listAutomationDiscoveryRoots(options.database as AutomationDiscoveryDatabase, 100, now)
-    : [];
+  const refreshSearchRoots = await listAutomationDiscoveryRoots(
+    options.database as AutomationDiscoveryDatabase,
+    100,
+    now,
+  );
+  const refreshEnrichmentSearches = new Map<number, EntityEnrichmentSearch | undefined>();
+  const refreshOrganizationEnricher = createProductionOrganizationEnricher({ fetchImpl: options.fetchImpl });
   let checked = 0;
   let canonicalDuplicates = 0;
   let updateSuggestions = 0;
@@ -1378,10 +1522,20 @@ async function runDirectEntityRefresh(
     checked += 1;
     lastEntityId = candidate.id;
     try {
-      const searchRoot = directoryRootForRefreshCandidate(refreshSearchRoots, candidate);
-      const addressSearch = searchRoot
+      const searchRoot = enrichmentRootForRefreshCandidate(refreshSearchRoots, candidate);
+      const addressSearch = searchRoot && candidate.entityType === "DIRECTORY"
         ? await addressEnrichmentSearchForRoot(searchRoot, options, null)
         : undefined;
+      let enrichmentSearch: EntityEnrichmentSearch | undefined;
+      if (searchRoot) {
+        if (!refreshEnrichmentSearches.has(searchRoot.id)) {
+          refreshEnrichmentSearches.set(
+            searchRoot.id,
+            await entityEnrichmentSearchForRoot(searchRoot, options, null),
+          );
+        }
+        enrichmentSearch = refreshEnrichmentSearches.get(searchRoot.id);
+      }
       const refreshed = await ingestDirectEntityUrl({
         entityType: candidate.entityType,
         sourceUrl: candidate.sourceUrl,
@@ -1393,6 +1547,8 @@ async function runDirectEntityRefresh(
         provenanceType: "DIRECT_ENTITY_REFRESH",
         expectedCanonicalEntityId: candidate.id,
         addressSearch,
+        enrichmentSearch,
+        organizationEnricher: candidate.entityType === "ORGANIZATION" ? refreshOrganizationEnricher : undefined,
       });
       canonicalDuplicates += refreshed.canonicalDuplicates;
       updateSuggestions += refreshed.updateSuggestions;
