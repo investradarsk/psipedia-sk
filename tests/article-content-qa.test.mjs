@@ -6,6 +6,7 @@ import {
   assessArticleContentQa,
   blockerIssues,
 } from "../lib/article-content-qa.ts";
+import { buildDentalArticleRemediation } from "../lib/article-content-remediation.ts";
 
 function base(overrides = {}) {
   return {
@@ -122,4 +123,50 @@ test("CONTENT-QA public renderer keeps safe clickable online sources and visible
   assert.match(renderer, /href \? <a href=\{href\}/);
   assert.match(renderer, /: <span>\{source\.label\}<\/span>/);
   assert.match(renderer, /rel="noreferrer"/);
+});
+
+
+test("CONTENT-QA dental remediation is exact, canonical-rich-text-safe and idempotent", () => {
+  const input = {
+    sections: [{
+      heading: "Dentálna hygiena",
+      paragraphs: [
+        "Verejný text zostáva.",
+        "Súvisiaca podsekcia: Hygiena šteniatka.",
+      ],
+      bullets: [],
+    }],
+    blocks: [
+      { id: "note", type: "text", content: "po publikovaní bude vhodné prepojiť aj článok Ako spoznať bolesť u psa" },
+      { id: "nutrition", type: "text", content: "Súvisiaci článok: Ako vybrať granule bez marketingových mýtov." },
+      { id: "keep", type: "text", content: "Legitímna veta: používateľ môže doplniť vodu." },
+    ],
+    relatedNutritionArticleHref: "/starostlivost/ako-vybrat-granule-bez-marketingovych-mytov",
+  };
+  const first = buildDentalArticleRemediation(input);
+  assert.equal(first.changed, true);
+  assert.equal(first.removedEditorialNotes.length, 3);
+  assert.equal(first.blocks.some((block) => block.id === "note"), false);
+  assert.equal(first.blocks.some((block) => block.id === "nutrition"), false);
+  assert.equal(first.blocks.some((block) => block.type === "related" && block.href === input.relatedNutritionArticleHref), true);
+  assert.equal(first.blocks.some((block) => block.type === "text" && block.content.includes("doplniť vodu")), true);
+
+  const second = buildDentalArticleRemediation({
+    sections: first.sections,
+    blocks: first.blocks,
+    relatedNutritionArticleHref: input.relatedNutritionArticleHref,
+  });
+  assert.equal(second.changed, false);
+  assert.equal(second.addedRelatedArticle, false);
+  assert.deepEqual(second.blocks, first.blocks);
+});
+
+test("CONTENT-QA dental remediation never invents a missing canonical target", () => {
+  const result = buildDentalArticleRemediation({
+    sections: [],
+    blocks: [{ id: "nutrition", type: "text", content: "Súvisiaci článok: Ako vybrať granule bez marketingových mýtov." }],
+    relatedNutritionArticleHref: null,
+  });
+  assert.equal(result.addedRelatedArticle, false);
+  assert.ok(result.manualRequired.some((item) => item.includes("nebol automaticky pridaný")));
 });
