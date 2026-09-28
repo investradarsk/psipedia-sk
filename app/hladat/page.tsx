@@ -66,7 +66,7 @@ export default async function SearchPage({ searchParams }: Props) {
               name="q"
               defaultValue={query}
               maxLength={SEARCH_MAX_QUERY_LENGTH}
-              placeholder="Skús „veterinár v Trnave“, „labrador“…"
+              placeholder="Hľadať na Psipedii"
               autoComplete="off"
             />
             <button type="submit">Hľadať</button>
