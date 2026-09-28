@@ -1337,7 +1337,7 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
     }
   }
 
-  let directRefreshRuns: DirectRefreshRunSummary[] = [];
+  const directRefreshRuns: DirectRefreshRunSummary[] = [];
   try {
     const refreshSettings = await listDueDirectEntityRefreshSettings(
       options.database,
