@@ -406,7 +406,7 @@ test("automation action presentation is aggregated, human-readable and category-
   assert.equal(drafts.priority, "LOW");
   assert.equal(drafts.contextLabel, "Veterinári");
   assert.equal(drafts.targetHref, "/admin/adresar?category=veterinari&status=DRAFT");
-  assert.equal(drafts.actionLabel, "Skontrolovať 3 nové koncepty");
+  assert.equal(drafts.actionLabel, "Skontrolovať 3 nové veterinárne koncepty");
 
   const addressReview = mapAutomationActionAttention({
     actionType: "ADDRESS_REVIEW",
