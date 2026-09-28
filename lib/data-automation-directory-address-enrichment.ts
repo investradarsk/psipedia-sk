@@ -22,6 +22,7 @@ export type DirectoryExactAddressEnrichment = {
   proposed: Record<string, unknown>;
   verified: VerifiedDirectoryAddress | null;
   usedAddressSearch: boolean;
+  attempted: boolean;
   review: DirectoryAddressReviewProposal | null;
 };
 
@@ -256,7 +257,7 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
 }): Promise<DirectoryExactAddressEnrichment> {
   const provider = input.geocoder ?? new GeoapifyGeocoder();
   if (!provider.isConfigured()) {
-    return { proposed: input.proposed, verified: null, usedAddressSearch: false, review: null };
+    return { proposed: input.proposed, verified: null, usedAddressSearch: false, attempted: false, review: null };
   }
 
   const evidence = proposalEvidence(input.proposed, input.extraEvidenceText);
@@ -271,12 +272,13 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
       proposed: applyVerifiedAddress(input.proposed, direct.verified),
       verified: direct.verified,
       usedAddressSearch: false,
+      attempted: true,
       review: null,
     };
   }
 
   if (!input.addressSearch) {
-    return { proposed: input.proposed, verified: null, usedAddressSearch: false, review: direct.review };
+    return { proposed: input.proposed, verified: null, usedAddressSearch: false, attempted: evidence.length > 0, review: direct.review };
   }
 
   const query = addressSearchQuery({
@@ -284,13 +286,13 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
     sourceUrl: input.sourceUrl,
     evidence,
   });
-  if (!query) return { proposed: input.proposed, verified: null, usedAddressSearch: false, review: direct.review };
+  if (!query) return { proposed: input.proposed, verified: null, usedAddressSearch: false, attempted: evidence.length > 0, review: direct.review };
 
   let results: AutomationSearchResult[];
   try {
     results = await input.addressSearch(query);
   } catch {
-    return { proposed: input.proposed, verified: null, usedAddressSearch: true, review: direct.review };
+    return { proposed: input.proposed, verified: null, usedAddressSearch: true, attempted: true, review: direct.review };
   }
   const searchedEvidence = searchResultEvidence(results, input.name, input.sourceUrl);
   const searched = await verifyEvidence({
@@ -304,6 +306,7 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
       proposed: input.proposed,
       verified: null,
       usedAddressSearch: true,
+      attempted: true,
       review: searched.review ?? direct.review,
     };
   }
@@ -311,6 +314,7 @@ export async function enrichDirectoryProposalWithExactAddress(input: {
     proposed: applyVerifiedAddress(input.proposed, searched.verified),
     verified: searched.verified,
     usedAddressSearch: true,
+    attempted: true,
     review: null,
   };
 }
