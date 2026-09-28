@@ -119,7 +119,7 @@ test("CONTENT-QA server integration gates publish/scheduled, keeps draft save pa
 
 test("CONTENT-QA public renderer keeps safe clickable online sources and visible offline citations", () => {
   const renderer = readFileSync("components/article-blocks.tsx", "utf8");
-  assert.match(renderer, /safeHref\(source\.url\) \|\| block\.note/);
+  assert.match(renderer, /safeHref\(block\.url\) \|\| block\.note/);
   assert.match(renderer, /href \? <a href=\{href\}/);
   assert.match(renderer, /: <span>\{source\.label\}<\/span>/);
   assert.match(renderer, /rel="noreferrer"/);
