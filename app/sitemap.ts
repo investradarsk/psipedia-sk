@@ -42,7 +42,7 @@ type SitemapDatasets = {
   organizations: Awaited<ReturnType<typeof listPublishedOrganizationsForSitemap>>;
 };
 
-export async function loadSitemapDatasets(): Promise<SitemapDatasets> {
+async function loadSitemapDatasets(): Promise<SitemapDatasets> {
   const organizationDatabase = (env as unknown as { DB?: AdoptionD1Database }).DB;
   const datasets = await loadSitemapStages([
     { key: "articles", stage: "load-articles", load: () => getPublishedArticleSitemapRecords() },
@@ -65,7 +65,7 @@ export async function loadSitemapDatasets(): Promise<SitemapDatasets> {
   return datasets as unknown as SitemapDatasets;
 }
 
-export function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
+function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
   const { articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports, adoptions, organizations } = datasets;
   const portalSections = managedSections.filter((section) => section.visible);
   const articleModified = (article: (typeof articles)[number]) => article.updatedAt;
