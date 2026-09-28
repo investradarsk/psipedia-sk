@@ -238,7 +238,7 @@ const AUTOMATION_ACTION_SELECT = `
     GROUP BY categorySlug
   ),
   update_items AS (
-    SELECT category_slug AS categorySlug,last_detected_at AS relevantAt
+    SELECT category_slug AS categorySlug,last_detected_at AS relevantAt,0 AS highPriority
     FROM automation_update_suggestions
     WHERE status='OPEN'
     UNION ALL
@@ -250,15 +250,27 @@ const AUTOMATION_ACTION_SELECT = `
         WHEN 'LOST_FOUND' THEN 'stratene-najdene'
         ELSE NULL
       END AS categorySlug,
-      f.last_detected_at AS relevantAt
+      f.last_detected_at AS relevantAt,
+      CASE
+        WHEN f.entity_type='EVENT'
+          AND f.finding_type='POSSIBLE_CANCELLED'
+          AND EXISTS (
+            SELECT 1
+            FROM managed_events event
+            WHERE event.id=f.canonical_entity_id
+              AND LOWER(event.status)='published'
+              AND event.start_date>=date((SELECT nowIso FROM params))
+          )
+        THEN 1 ELSE 0
+      END AS highPriority
     FROM automation_findings f
     WHERE f.canonical_entity_id IS NOT NULL
       AND f.finding_type IN ('POSSIBLE_UPDATE','POSSIBLE_INACTIVE','POSSIBLE_CANCELLED')
-      AND f.review_status IN ('NEW','IN_REVIEW')
+      AND f.review_status IN ('NEW','IN_REVIEW','SUPPRESSED')
       AND f.entity_type IN ('EVENT','ADOPTION','FOSTER','LOST_FOUND')
   ),
   update_groups AS (
-    SELECT categorySlug,COUNT(*) AS itemCount,MAX(relevantAt) AS relevantAt
+    SELECT categorySlug,COUNT(*) AS itemCount,MAX(relevantAt) AS relevantAt,MAX(highPriority) AS highPriority
     FROM update_items
     WHERE categorySlug IS NOT NULL
     GROUP BY categorySlug
@@ -332,10 +344,14 @@ const AUTOMATION_ACTION_SELECT = `
   FROM candidate_groups
   UNION ALL
   SELECT
-    'AUTOMATION_ACTION','updates:' || categorySlug,0,'NEW','MEDIUM',1,relevantAt,
+    'AUTOMATION_ACTION','updates:' || categorySlug,0,'NEW',
+    CASE WHEN highPriority=1 THEN 'HIGH' ELSE 'MEDIUM' END,
+    CASE WHEN highPriority=1 THEN 0 ELSE 1 END,
+    relevantAt,
     json_object('actionType','UPDATE_SUGGESTIONS','sourceId','updates:' || categorySlug,
       'categorySlug',categorySlug,'count',itemCount,'relevantAt',relevantAt,
-      'targetHref','/admin/automatizacie/' || categorySlug || '#doplnenia-zmeny','sourceLabel',NULL)
+      'targetHref','/admin/automatizacie/' || categorySlug || '#doplnenia-zmeny','sourceLabel',NULL,
+      'priority',CASE WHEN highPriority=1 THEN 'HIGH' ELSE 'MEDIUM' END)
   FROM update_groups
   UNION ALL
   SELECT
@@ -363,7 +379,7 @@ const AUTOMATION_ACTION_SELECT = `
           WHEN entity_type='FOSTER' THEN 'docasna-opatera'
           WHEN entity_type='LOST_FOUND' THEN 'stratene-najdene'
           WHEN entity_type='ORGANIZATION' THEN 'utulky-organizacie'
-          WHEN entity_type='DIRECTORY' AND json_extract(config_json,'$.staticFields.category')='veterinari' THEN 'veterinari'
+          WHEN entity_type='DIRECTORY' AND json_extract(CASE WHEN json_valid(config_json) THEN config_json ELSE '{}' END,'$.staticFields.category')='veterinari' THEN 'veterinari'
           WHEN entity_type='DIRECTORY' THEN 'psie-sluzby'
           ELSE NULL
         END,
