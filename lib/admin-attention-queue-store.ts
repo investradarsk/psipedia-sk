@@ -797,13 +797,16 @@ function emptyPageSummary(bySource: Record<AdminAttentionQueueSourceType, number
 
 export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1Database, now = new Date()): Promise<AdminAttentionExactSummary> {
   const db = requireD1Binding(database);
-  const sources = await probeSources(db, now);
-  const bySource = sourceCounts(sources);
+  const snapshots = await probeSources(db, now);
+  const sourceAvailability = publicSourceAvailability(snapshots);
+  const bySource = sourceCounts(sourceAvailability);
   return {
     active: Object.values(bySource).reduce((sum, value) => sum + (value ?? 0), 0),
     bySource,
-    availability: summaryAvailability(sources),
-    unavailableSources: sources.filter((source) => source.state === "UNAVAILABLE").map((source) => source.sourceType),
+    availability: summaryAvailability(sourceAvailability),
+    unavailableSources: sourceAvailability
+      .filter((source) => source.state === "UNAVAILABLE")
+      .map((source) => source.sourceType),
   };
 }
 
@@ -822,89 +825,66 @@ export async function loadAdminAttentionPage(
   const requestedCursor = options.cursor?.trim() || "";
   const cursor = decodeAdminAttentionCursor(requestedCursor || undefined, filters);
   const invalidCursor = Boolean(requestedCursor) && !cursor;
-
-  const sourceAvailability = await probeSources(db, now);
-  const bySource = sourceCounts(sourceAvailability);
-  const availableSources = sourceAvailability
-    .filter((source) => source.state !== "UNAVAILABLE")
-    .map((source) => source.sourceType);
-  const overallAvailability = summaryAvailability(sourceAvailability);
-
-  if (!availableSources.length) {
-    return {
-      items: [],
-      summary: emptyPageSummary(bySource),
-      resultCount: 0,
-      availability: "UNAVAILABLE",
-      sourceAvailability,
-      pagination: { pageSize, nextCursor: null, invalidCursor },
-    };
-  }
-
-  const union = availableUnion(availableSources);
-  const filter = filterClause(filters);
-  const aggregateSql = `${paramsCte()}, attention AS (${union})
-    SELECT
-      COUNT(*) AS total,
-      COALESCE(SUM(CASE WHEN activeRank=0 THEN 1 ELSE 0 END),0) AS active,
-      COALESCE(SUM(CASE WHEN activeRank=1 THEN 1 ELSE 0 END),0) AS history,
-      COALESCE(SUM(CASE WHEN attentionState='NEW' THEN 1 ELSE 0 END),0) AS newCount,
-      COALESCE(SUM(CASE WHEN attentionState='IN_PROGRESS' THEN 1 ELSE 0 END),0) AS inProgressCount,
-      COALESCE(SUM(CASE WHEN attentionState='RESOLVED' THEN 1 ELSE 0 END),0) AS resolvedCount,
-      COALESCE(SUM(CASE WHEN attentionState='DISMISSED' THEN 1 ELSE 0 END),0) AS dismissedCount,
-      COALESCE(SUM(CASE WHEN priority='HIGH' THEN 1 ELSE 0 END),0) AS highCount,
-      COALESCE(SUM(CASE WHEN priority='MEDIUM' THEN 1 ELSE 0 END),0) AS mediumCount,
-      COALESCE(SUM(CASE WHEN priority='LOW' THEN 1 ELSE 0 END),0) AS lowCount,
-      (SELECT COUNT(*) FROM attention ${filter.sql}) AS filteredTotal
-    FROM attention`;
-  let aggregate: AttentionAggregateRow;
-  try {
-    aggregate = await db.prepare(aggregateSql).bind(...timeBindings(now), ...filter.bindings).first<AttentionAggregateRow>()
-      ?? { total: 0, active: 0, history: 0, newCount: 0, inProgressCount: 0, resolvedCount: 0, dismissedCount: 0, highCount: 0, mediumCount: 0, lowCount: 0, filteredTotal: 0 };
-  } catch {
-    console.warn("Admin attention aggregate unavailable.", { operation: "aggregate", errorCode: "ATTENTION_READ_MODEL_UNAVAILABLE" });
-    return {
-      items: [],
-      summary: emptyPageSummary(bySource),
-      resultCount: 0,
-      availability: "UNAVAILABLE",
-      sourceAvailability,
-      pagination: { pageSize, nextCursor: null, invalidCursor },
-    };
-  }
-
   const currentCursor = invalidCursor ? null : cursor;
-  const pageFilter = pageWhere(filters, currentCursor);
-  const pageSql = `${paramsCte()}, attention AS (${union})
-    SELECT sourceType,sourceId,activeRank,attentionState,priority,priorityRank,relevantAt,payload
-    FROM attention
-    ${pageFilter.sql}
-    ${ATTENTION_ORDER_SQL}
-    LIMIT ?`;
-  let rows: AttentionGenericRow[];
-  try {
-    const result = await db.prepare(pageSql)
-      .bind(...timeBindings(now), ...pageFilter.bindings, pageSize + 1)
-      .all<AttentionGenericRow>();
-    rows = result.results;
-  } catch {
-    console.warn("Admin attention page unavailable.", { operation: "page", errorCode: "ATTENTION_READ_MODEL_UNAVAILABLE" });
+
+  let snapshots = await probeSources(db, now);
+  let sourceAvailability = publicSourceAvailability(snapshots);
+
+  if (!sourceAvailability.some((source) => source.state !== "UNAVAILABLE")) {
+    const bySource = sourceCounts(sourceAvailability);
     return {
       items: [],
       summary: emptyPageSummary(bySource),
-      resultCount: Number(aggregate.filteredTotal ?? 0),
+      resultCount: 0,
       availability: "UNAVAILABLE",
       sourceAvailability,
       pagination: { pageSize, nextCursor: null, invalidCursor },
     };
   }
 
+  const candidates = snapshots.filter(
+    (source) => source.state !== "UNAVAILABLE" && snapshotMatchesSource(source, filters),
+  );
+  const bindings = timeBindings(now);
+  const pageResults = await Promise.all(candidates.map(async (source) => {
+    const query = sourcePageQuery(source.sourceType, filters, currentCursor);
+    try {
+      const result = await db.prepare(query.sql)
+        .bind(...bindings, ...query.bindings, pageSize + 1)
+        .all<AttentionGenericRow>();
+      return { sourceType: source.sourceType, rows: result.results, failed: false as const };
+    } catch {
+      safeLogSourceFailure(source.sourceType, "page");
+      return { sourceType: source.sourceType, rows: [] as AttentionGenericRow[], failed: true as const };
+    }
+  }));
+
+  const failedSources = new Set(
+    pageResults.filter((result) => result.failed).map((result) => result.sourceType),
+  );
+  if (failedSources.size) {
+    snapshots = snapshots.map((snapshot) => failedSources.has(snapshot.sourceType)
+      ? unavailableSnapshot(snapshot.sourceType)
+      : snapshot);
+    sourceAvailability = publicSourceAvailability(snapshots);
+  }
+
+  const bySource = sourceCounts(sourceAvailability);
+  const summary = summarizeSnapshots(snapshots, sourceAvailability);
+  const overallAvailability = summaryAvailability(sourceAvailability);
+  const resultCount = snapshots
+    .filter((snapshot) => snapshotMatchesSource(snapshot, filters))
+    .reduce((sum, snapshot) => sum + filteredSnapshotCount(snapshot, filters), 0);
+
+  const rows = pageResults
+    .filter((result) => !result.failed)
+    .flatMap((result) => result.rows)
+    .sort(compareAttentionRows);
   const visibleRows = rows.slice(0, pageSize);
   const items = visibleRows.map((row) => mapGenericRow(row, now));
   const nextCursor = rows.length > pageSize && visibleRows.length
     ? encodeAdminAttentionCursor(visibleRows[visibleRows.length - 1], filters)
     : null;
-  const resultCount = Number(aggregate.filteredTotal ?? 0);
   const availability: AdminAttentionAvailability = overallAvailability === "UNAVAILABLE"
     ? "UNAVAILABLE"
     : overallAvailability === "PARTIAL"
@@ -913,23 +893,7 @@ export async function loadAdminAttentionPage(
 
   return {
     items,
-    summary: {
-      total: Number(aggregate.total ?? 0),
-      active: Object.values(bySource).reduce((sum, value) => sum + (value ?? 0), 0),
-      history: Number(aggregate.history ?? 0),
-      byState: {
-        NEW: Number(aggregate.newCount ?? 0),
-        IN_PROGRESS: Number(aggregate.inProgressCount ?? 0),
-        RESOLVED: Number(aggregate.resolvedCount ?? 0),
-        DISMISSED: Number(aggregate.dismissedCount ?? 0),
-      },
-      byPriority: {
-        HIGH: Number(aggregate.highCount ?? 0),
-        MEDIUM: Number(aggregate.mediumCount ?? 0),
-        LOW: Number(aggregate.lowCount ?? 0),
-      },
-      bySource,
-    },
+    summary: { ...summary, bySource },
     resultCount,
     availability,
     sourceAvailability,
