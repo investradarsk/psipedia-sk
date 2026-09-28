@@ -21,13 +21,16 @@ export const CANONICAL_SAFETY_TABLES = Object.freeze([
   "canonical_draft_flags",
 ]);
 
+export const PRESERVED_AUDIT_TABLES = Object.freeze([
+  "automation_governance_review_history",
+  "automation_governance_reviews",
+]);
+
 // Explicit child-first allowlist. Discovery-root rows are reusable code-level
 // configuration, so reset clears their operational state instead of deleting them.
 export const DELETE_TABLE_ORDER = Object.freeze([
   "automation_canonical_apply_operations",
   "automation_entity_match_decisions",
-  "automation_governance_review_history",
-  "automation_governance_reviews",
   "automation_search_usage",
   "automation_source_candidate_evidence",
   "automation_cluster_canonical_claims",
@@ -144,6 +147,10 @@ export function assertStaticSafety() {
   }
   invariant(!DELETE_TABLE_ORDER.includes("automation_discovery_roots"), "discovery root presets must be reset, not deleted");
   invariant(!DELETE_TABLE_ORDER.includes("canonical_draft_flags"), "canonical-local draft flags must be preserved");
+  for (const table of PRESERVED_AUDIT_TABLES) {
+    invariant(table.startsWith("automation_"), `non-automation table in preserved audit allowlist: ${table}`);
+    invariant(!DELETE_TABLE_ORDER.includes(table), `preserved audit table in delete allowlist: ${table}`);
+  }
 }
 
 export function resetStatements(existingTables, hasEditorialNotifications, hasDiscoveryRoots) {
@@ -157,6 +164,7 @@ export function resetStatements(existingTables, hasEditorialNotifications, hasDi
 export function preview(target) {
   assertStaticSafety();
   const deleteCounts = countsFor(target, DELETE_TABLE_ORDER);
+  const preservedAuditCounts = countsFor(target, PRESERVED_AUDIT_TABLES);
   const canonicalSafetyCounts = canonicalSnapshot(target);
   const discoveryRoots = countTable(target, "automation_discovery_roots");
   const editorialAutomationFinding = tableExists(target, "editorial_notifications")
@@ -172,6 +180,7 @@ export function preview(target) {
     mode: "preview",
     strictReadOnly: true,
     deleteCounts,
+    preservedAuditCounts,
     resetCounts: { automation_discovery_roots: discoveryRoots, editorialAutomationFinding },
     canonicalSafetyCounts,
     canonicalDeleteTargets: [],
@@ -184,6 +193,7 @@ export async function apply(target, before, fetchImpl = fetch) {
   invariant(process.env.AUTOMATION_RESET_CONFIRMATION === APPLY_CONFIRMATION, "exact apply confirmation is required");
   invariant(before.applyAllowed, `reset blocked: ${JSON.stringify(before.blockers)}`);
   const canonicalBefore = before.canonicalSafetyCounts;
+  const preservedAuditBefore = before.preservedAuditCounts;
   const existingTables = DELETE_TABLE_ORDER.filter((table) => tableExists(target, table));
   const statements = resetStatements(
     existingTables,
@@ -199,11 +209,21 @@ export async function apply(target, before, fetchImpl = fetch) {
   }
   const canonicalAfter = canonicalSnapshot(target);
   invariant(JSON.stringify(canonicalAfter) === JSON.stringify(canonicalBefore), "canonical safety counts changed");
+  const preservedAuditAfter = countsFor(target, PRESERVED_AUDIT_TABLES);
+  invariant(JSON.stringify(preservedAuditAfter) === JSON.stringify(preservedAuditBefore), "preserved governance audit counts changed");
   if (tableExists(target, "automation_discovery_roots")) {
     invariant(scalar(target, "SELECT COUNT(*) AS count FROM automation_discovery_roots WHERE enabled<>0 OR review_status<>'PENDING' OR next_check_at IS NOT NULL OR last_checked_at IS NOT NULL") === 0,
       "discovery operational state remains after reset");
   }
-  return { mode: "apply", deleted: before.deleteCounts, canonicalBefore, canonicalAfter, remaining };
+  return {
+    mode: "apply",
+    deleted: before.deleteCounts,
+    preservedAuditBefore,
+    preservedAuditAfter,
+    canonicalBefore,
+    canonicalAfter,
+    remaining,
+  };
 }
 
 async function main() {
