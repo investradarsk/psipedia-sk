@@ -523,7 +523,11 @@ export function buildDirectoryGeoInvalidationForAddressReviewStatement(
       resolved_source_fingerprint=NULL,geocode_status='STALE',last_error_code=NULL,last_error_at=NULL,
       retry_after_at=NULL,last_geocoded_at=NULL,updated_at=?
     WHERE directory_profile_id=? AND manual_override=0
-  `).bind(now, profileId);
+      AND EXISTS (
+        SELECT 1 FROM directory_profiles p
+        WHERE p.id=? AND p.updated_at=?
+      )
+  `).bind(now, profileId, profileId, now);
 }
 
 export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, targetIdValue: number, database?: GeoD1Database) {
