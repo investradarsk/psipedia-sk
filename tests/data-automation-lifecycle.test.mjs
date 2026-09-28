@@ -201,7 +201,7 @@ test("review UI has contextual actions, canonical/source links and no bulk accep
 
 
 test("real ADOPTION adapter emits adopted/reserved lifecycle signals outside canonical proposal", () => {
-  const baseHtml = \`
+  const baseHtml = `
     <html><body>
       <h1>Triny</h1>
       <div>Pohlavie: fenka</div>
@@ -215,7 +215,7 @@ test("real ADOPTION adapter emits adopted/reserved lifecycle signals outside can
       <div>Hendikep: Nie</div>
       <p>V prípade záujmu o adopciu nás kontaktujte.</p>
     </body></html>
-  \`;
+  `;
   const source = {
     id: 901,
     entityType: "ADOPTION",
