@@ -101,7 +101,7 @@ test("sitemap source contains the catalog and indexable new details without dupl
   assert.doesNotMatch(sitemap, /getPublishedHelpCases\(\)/);
   assert.match(sitemap, /const representedElsewhere = item\.category === "adopcia" \|\| item\.category === "utulky"/);
   assert.match(sitemap, /exclusionReason: representedElsewhere/);
-  assert.match(sitemap, /return assertValidSitemap\(entries\)/);
+  assert.match(sitemap, /runSitemapStageSync\("global-validation", \(\) => assertValidSitemap\(entries\)\)/);
 });
 
 test("public help, homepage and portal search no longer source legacy adoption rows", () => {
