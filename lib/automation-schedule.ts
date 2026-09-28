@@ -149,7 +149,7 @@ export function parseAutomationSchedule(value: unknown): AutomationSchedule {
   }
   const input = value as Record<string, unknown>;
   if (input.mode === "INTERVAL") {
-    const intervalMinutes = Number(input.intervalMinutes);
+    const intervalMinutes = input.intervalMinutes;
     if (!validIntervalMinutes(intervalMinutes)) throw new Error("automation_schedule_interval_invalid");
     return { mode: "INTERVAL", intervalMinutes };
   }
