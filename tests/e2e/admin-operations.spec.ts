@@ -50,8 +50,8 @@ test("alerts center, shared bell and active/history controls are accessible and 
   await expectAxeClean(page);
 });
 
-test("Attention pagination reaches items beyond the former source cap and distinguishes empty from unavailable", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test("Attention pagination reaches items beyond the former source cap and distinguishes empty from unavailable", async ({ page }, testInfo) => {
+  if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
   let response = await page.goto("/admin/operations?source=NEWS_TIP", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
 
