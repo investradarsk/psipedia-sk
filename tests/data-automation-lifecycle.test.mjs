@@ -110,10 +110,16 @@ test("lifecycle fingerprint changes when material evidence changes", async () =>
     ...base,
     signal: { signalType: "ADOPTION_ADOPTED", targetState: "ADOPTED", evidenceText: "Adoptovaný", confidenceClass: "EXPLICIT" },
   });
+  const sameEvidenceLater = await automationLifecycleFingerprint({
+    ...base,
+    record: { ...base.record, sourceTimestamp: "2026-09-29T18:00:00.000Z" },
+    signal: { signalType: "ADOPTION_ADOPTED", targetState: "ADOPTED", evidenceText: "Adoptovaný", confidenceClass: "EXPLICIT" },
+  });
   const second = await automationLifecycleFingerprint({
     ...base,
     signal: { signalType: "ADOPTION_ADOPTED", targetState: "ADOPTED", evidenceText: "Rex bol adoptovaný 28. 9. 2026.", confidenceClass: "EXPLICIT" },
   });
+  assert.equal(first.fingerprint, sameEvidenceLater.fingerprint);
   assert.notEqual(first.fingerprint, second.fingerprint);
 });
 

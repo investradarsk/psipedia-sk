@@ -5,6 +5,7 @@ import {
   normalizeAutomationIdentity,
   sha256Hex,
   type AutomationCanonicalMatch,
+  type AutomationDiff,
   type AutomationEntityType,
   type AutomationFindingType,
   type AutomationLifecycleSignal,
@@ -199,7 +200,7 @@ export function automationLifecycleDiff(
   entityType: AutomationEntityType,
   before: Record<string, unknown> | null,
   signal: AutomationLifecycleSignal,
-) {
+): AutomationDiff {
   if (entityType === "EVENT") return { cancelled: { before: Boolean(before?.cancelled), after: true } };
   if (entityType === "FOSTER") return { resolved: { before: Boolean(before?.resolved), after: true } };
   return { status: { before: before?.status ?? null, after: signal.targetState } };
@@ -268,7 +269,7 @@ export function isAutomationLifecycleMetadata(value: unknown): value is Automati
 
 export async function automationLifecycleFingerprint(input: {
   source: Pick<AutomationSource, "sourceKey">;
-  record: Pick<AutomationSourceRecord, "sourceRecordId" | "sourceUrl" | "sourceTimestamp">;
+  record: Pick<AutomationSourceRecord, "sourceRecordId" | "sourceUrl">;
   entityType: AutomationEntityType;
   canonicalEntityId: number;
   signal: AutomationLifecycleSignal;
@@ -282,7 +283,6 @@ export async function automationLifecycleFingerprint(input: {
     sourceKey: input.source.sourceKey,
     sourceRecordId: input.record.sourceRecordId,
     sourceUrl: canonicalizeSourceUrl(input.record.sourceUrl),
-    sourceTimestamp: input.record.sourceTimestamp,
     evidenceText: evidence(input.signal.evidenceText, ""),
   };
   const payloadHash = await sha256Hex(material);

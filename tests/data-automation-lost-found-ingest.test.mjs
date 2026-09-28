@@ -97,6 +97,9 @@ test("resolution signal remains provenance-only", () => {
     ),
   );
   assert.equal(record.rawRecord.resolvedSignal, true);
+  assert.equal(record.lifecycleSignals?.[0]?.signalType, "LOST_FOUND_RESOLVED");
+  assert.equal(record.lifecycleSignals?.[0]?.targetState, "RESOLVED");
+  assert.match(record.lifecycleSignals?.[0]?.evidenceText ?? "", /Majiteľ bol dohľadaný/i);
   assert.equal(Object.hasOwn(record.proposed, "status"), false);
   assert.equal(Object.hasOwn(record.proposed, "resolved"), false);
   assert.equal(Object.hasOwn(record.proposed, "resolvedAt"), false);

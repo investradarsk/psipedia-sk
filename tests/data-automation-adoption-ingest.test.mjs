@@ -85,6 +85,21 @@ test("Trnava detail adapter preserves adopted lifecycle signal outside canonical
   });
   assert.equal(records.length, 1);
   assert.equal(records[0].rawRecord.adopted, true);
+  assert.equal(records[0].lifecycleSignals?.[0]?.signalType, "ADOPTION_ADOPTED");
+  assert.equal(records[0].lifecycleSignals?.[0]?.targetState, "ADOPTED");
+  assert.match(records[0].lifecycleSignals?.[0]?.evidenceText ?? "", /adoptovan/i);
+  assert.equal(Object.hasOwn(records[0].proposed, "status"), false);
+});
+
+test("Trnava detail adapter emits reservation lifecycle only from explicit reserved evidence", () => {
+  const records = trnavaAdoptionDetailAdapter({
+    html: activeHtml.replace("<h1>Triny</h1>", "<h1>Triny</h1><strong>Rezervovaný</strong>"),
+    source: source("https://trnava.utulok.sk/psy/triny"),
+  });
+  assert.equal(records.length, 1);
+  assert.equal(records[0].rawRecord.reserved, true);
+  assert.equal(records[0].lifecycleSignals?.[0]?.signalType, "ADOPTION_RESERVED");
+  assert.equal(records[0].lifecycleSignals?.[0]?.targetState, "RESERVED");
   assert.equal(Object.hasOwn(records[0].proposed, "status"), false);
 });
 
