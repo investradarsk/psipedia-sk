@@ -513,6 +513,97 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+
+  sitemap-production-diagnostic:
+    name: Read-only production sitemap diagnostic
+    if: github.event_name == 'pull_request' && github.head_ref == 'codex/hotfix-seo-sitemap-500-1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Checkout hotfix diagnostic revision
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Load canonical Cloudflare account id
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(x.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+          test -n "$CLOUDFLARE_API_TOKEN"
+      - name: Capture sitemap response and Cloudflare runtime error tail
+        shell: bash
+        run: |
+          set -u
+          mkdir -p .sitemap-diagnostic
+          npx wrangler tail psipedia-sk --format json --status error > .sitemap-diagnostic/tail.jsonl 2> .sitemap-diagnostic/tail.stderr &
+          tail_pid=$!
+          sleep 5
+          curl --silent --show-error --location             --dump-header .sitemap-diagnostic/headers.txt             --output .sitemap-diagnostic/body.txt             --write-out '%{http_code}\n'             https://psipedia.sk/sitemap.xml | tee .sitemap-diagnostic/status.txt
+          sleep 8
+          kill "$tail_pid" 2>/dev/null || true
+          wait "$tail_pid" 2>/dev/null || true
+          echo '--- status ---'
+          cat .sitemap-diagnostic/status.txt
+          echo '--- headers ---'
+          cat .sitemap-diagnostic/headers.txt
+          echo '--- body (first 4000 bytes) ---'
+          head -c 4000 .sitemap-diagnostic/body.txt || true
+          echo
+          echo '--- tail stderr ---'
+          cat .sitemap-diagnostic/tail.stderr || true
+          echo '--- error tail ---'
+          cat .sitemap-diagnostic/tail.jsonl || true
+      - name: Read-only production D1 sitemap schema and anomaly counts
+        shell: bash
+        run: |
+          set -euo pipefail
+          sql="$(cat <<'SQL'
+          SELECT 'directory_profiles' AS dataset, COUNT(*) AS total,
+            SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) AS published,
+            SUM(CASE WHEN status='published' AND archived_at IS NULL THEN 1 ELSE 0 END) AS sitemap_candidates,
+            SUM(CASE WHEN status='published' AND archived_at IS NULL AND trim(slug)='' THEN 1 ELSE 0 END) AS blank_slug
+          FROM directory_profiles;
+          SELECT 'managed_articles' AS dataset, COUNT(*) AS total,
+            SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) AS published,
+            SUM(CASE WHEN (status='published' OR (status='scheduled' AND published_at IS NOT NULL AND published_at <= CURRENT_TIMESTAMP)) THEN 1 ELSE 0 END) AS sitemap_candidates,
+            SUM(CASE WHEN (status='published' OR (status='scheduled' AND published_at IS NOT NULL AND published_at <= CURRENT_TIMESTAMP)) AND trim(slug)='' THEN 1 ELSE 0 END) AS blank_slug
+          FROM managed_articles;
+          SELECT 'managed_events' AS dataset, COUNT(*) AS total,
+            SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) AS sitemap_candidates,
+            SUM(CASE WHEN status='published' AND trim(slug)='' THEN 1 ELSE 0 END) AS blank_slug
+          FROM managed_events;
+          SELECT 'help_cases' AS dataset, COUNT(*) AS total,
+            SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) AS published,
+            SUM(CASE WHEN status='published' AND category NOT IN ('adopcia','utulky') THEN 1 ELSE 0 END) AS sitemap_candidates,
+            SUM(CASE WHEN status='published' AND category NOT IN ('adopcia','utulky') AND trim(slug)='' THEN 1 ELSE 0 END) AS blank_slug
+          FROM help_cases;
+          PRAGMA table_info('directory_profiles');
+          PRAGMA table_info('managed_articles');
+          PRAGMA table_info('managed_events');
+          PRAGMA table_info('help_cases');
+          SQL
+          )"
+          npx wrangler d1 execute psipedia-sk-db --remote --command "$sql" --json | tee .sitemap-diagnostic/d1.json
+      - name: Upload safe sitemap diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sitemap-production-diagnostic-${{ github.run_id }}
+          path: .sitemap-diagnostic/
+          if-no-files-found: warn
+          retention-days: 14
+
+
   notify-production-failure:
     name: Notify owner about failed production smoke
     needs: production-smoke
