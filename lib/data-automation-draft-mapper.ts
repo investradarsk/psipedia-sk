@@ -10,9 +10,17 @@ export function mapAutomationFindingToDraftInput(
   finding: AutomationFindingDetail,
   createdAt: string,
 ): CanonicalDraftInput {
+  const data = finding.entityType === "DIRECTORY"
+    ? {
+        ...finding.proposed,
+        // Source-proposed addresses are never provider-confirmed by automation.
+        // Canonical draft creation enforces the same fail-closed value again.
+        serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
+      }
+    : finding.proposed;
   return {
     entityType: finding.entityType,
-    data: finding.proposed,
+    data,
     externalSourceUrl: finding.sourceUrl,
     slugSuffix: finding.findingType === "DUPLICATE_CANDIDATE"
       ? duplicateSlugSuffix(createdAt)

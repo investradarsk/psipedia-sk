@@ -15,8 +15,12 @@ import {
 import {
   candidateProvisioningConfigFor,
   qualifiedClubDirectoryCategory,
+  SUPPORTED_DIRECTORY_CATEGORIES,
 } from "../lib/data-automation-source-provisioning.ts";
 import { universalAutomationDiscoveryRootPresets } from "../lib/data-automation-source-presets.ts";
+import { createCanonicalDraft } from "../lib/canonical-draft-service.ts";
+import { mapAutomationFindingToDraftInput } from "../lib/data-automation-draft-mapper.ts";
+import { readDirectoryPublicContacts } from "../lib/directory-profile-metadata.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const applySource = read("lib/data-automation-apply.ts");
@@ -60,6 +64,41 @@ function source(entityType, config, sourceUrl = "https://example.sk/sluzba") {
 
 function jsonLdPage(node, extra = "") {
   return `<!doctype html><html><head>${extra}<script type="application/ld+json">${JSON.stringify(node)}</script></head><body><h1>${node.name ?? "Profil"}</h1></body></html>`;
+}
+
+const spektraVetLikeFixture = read("tests/fixtures/data-automation/spektravet-like-directory.html");
+
+
+class DirectoryDraftMemoryStatement {
+  constructor(database, sql) {
+    this.database = database;
+    this.sql = sql.replace(/\s+/g, " ").trim();
+    this.args = [];
+  }
+  bind(...args) {
+    this.args = args;
+    return this;
+  }
+  async first() {
+    const match = this.sql.match(/^INSERT INTO directory_profiles \((.+)\) VALUES \((.+)\) RETURNING id$/);
+    if (!match) throw new Error("Unhandled DIRECTORY draft SQL: " + this.sql);
+    const columns = match[1].split(",").map((value) => value.trim());
+    assert.equal(columns.length, this.args.length);
+    const row = { id: this.database.nextId++ };
+    for (let index = 0; index < columns.length; index += 1) row[columns[index]] = this.args[index];
+    this.database.rows.push(row);
+    return { id: row.id };
+  }
+}
+
+class DirectoryDraftMemoryD1 {
+  constructor() {
+    this.rows = [];
+    this.nextId = 1;
+  }
+  prepare(sql) {
+    return new DirectoryDraftMemoryStatement(this, sql);
+  }
 }
 
 test("universal registry exposes every production parser through one capability facade", () => {
@@ -113,17 +152,7 @@ test("FOSTER and LOST_FOUND supported URL families are provisioned automatically
 });
 
 test("DIRECTORY category is explicit and survives into generic parser output", () => {
-  const categories = [
-    "veterinari",
-    "treneri",
-    "salony-a-sluzby",
-    "hotely-a-opatrovanie",
-    "fyzioterapia",
-    "vencenie",
-    "chovatelske-stanice",
-    "dalsie-sluzby",
-  ];
-  for (const category of categories) {
+  for (const category of SUPPORTED_DIRECTORY_CATEGORIES) {
     const config = candidateProvisioningConfigFor({
       entityType: "DIRECTORY",
       canonicalUrl: "https://example.sk/sluzba",
@@ -155,6 +184,177 @@ test("DIRECTORY category is explicit and survives into generic parser output", (
     assert.equal(records[0].proposed.region, "Nitriansky kraj");
     assert.deepEqual(canonicalSafeProposal("DIRECTORY", records[0].proposed), [], category);
   }
+});
+
+test("HOTFIX DIRECTORY parser enriches a SpektraVet-like page from bounded same-page evidence", () => {
+  const config = candidateProvisioningConfigFor({
+    entityType: "DIRECTORY",
+    canonicalUrl: "https://spektravet.sk/sk",
+    metadata: { directoryCategory: "veterinari" },
+  });
+  const records = genericDirectoryProfileAdapter({
+    source: source("DIRECTORY", config, "https://spektravet.sk/sk"),
+    html: spektraVetLikeFixture,
+  });
+  assert.equal(records.length, 1);
+  const proposed = records[0].proposed;
+  assert.equal(proposed.name, "SpektraVet – Bratislava Ružinov");
+  assert.equal(proposed.category, "veterinari");
+  assert.equal(proposed.semanticKind, "FACILITY_OR_SERVICE_PROFILE");
+  assert.equal(proposed.websiteUrl, "https://spektravet.sk/sk");
+  assert.equal(proposed.publicPhone, "+421 903 494 000");
+  assert.equal(proposed.publicEmail, "info@spektravet.sk");
+  assert.equal(proposed.description, "Veterinárna klinika pre spoločenské zvieratá v Bratislave - Ružinove.");
+  assert.equal(proposed.address, "Ružinovská 1/4814, 82102 Bratislava - Ružinov");
+  assert.equal(proposed.city, "Bratislava - Ružinov");
+  assert.equal(proposed.postalCode, "82102");
+  assert.equal(proposed.street, "Ružinovská");
+  assert.equal(proposed.houseNumber, "1/4814");
+  assert.equal(proposed.addressFormat, "STREET");
+  assert.equal(Object.hasOwn(proposed, "region"), false);
+  assert.equal(Object.hasOwn(proposed, "district"), false);
+  assert.equal(Object.hasOwn(proposed, "services"), false);
+  assert.equal(Object.hasOwn(proposed, "qualifications"), false);
+  assert.equal(Object.hasOwn(proposed, "verified"), false);
+  assert.doesNotMatch(proposed.description, /otváracie|08:00/i);
+  assert.deepEqual(canonicalSafeProposal("DIRECTORY", proposed), []);
+});
+
+test("HOTFIX DIRECTORY structured schema stays authoritative for contacts, socials and safe lists", () => {
+  const config = candidateProvisioningConfigFor({
+    entityType: "DIRECTORY",
+    canonicalUrl: "https://example.sk/clinic",
+    metadata: { directoryCategory: "veterinari" },
+  });
+  const html = jsonLdPage({
+    "@context": "https://schema.org",
+    "@type": "VeterinaryCare",
+    "@id": "https://example.sk/clinic",
+    url: "https://example.sk/clinic",
+    name: "Explicitná klinika",
+    description: "Explicitný JSON-LD opis.",
+    telephone: "+421 2 555 123 45",
+    email: "kontakt@example.sk",
+    sameAs: [
+      "https://www.facebook.com/explicitna-klinika/",
+      "https://www.instagram.com/explicitna-klinika/",
+    ],
+    serviceType: ["Veterinárna ambulancia"],
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      itemListElement: [
+        { "@type": "Offer", itemOffered: { "@type": "Service", name: "Preventívna prehliadka" } },
+      ],
+    },
+    hasCredential: [{ "@type": "EducationalOccupationalCredential", name: "Certifikované pracovisko" }],
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "Hlavná 12",
+      postalCode: "949 01",
+      addressLocality: "Nitra",
+      addressRegion: "Nitriansky kraj",
+    },
+  }, '<meta name="description" content="Tento fallback nesmie prepísať JSON-LD.">');
+  const [record] = genericDirectoryProfileAdapter({
+    source: source("DIRECTORY", config, "https://example.sk/clinic"),
+    html,
+  });
+  assert.ok(record);
+  assert.equal(record.proposed.description, "Explicitný JSON-LD opis.");
+  assert.equal(record.proposed.publicPhone, "+421 2 555 123 45");
+  assert.equal(record.proposed.publicEmail, "kontakt@example.sk");
+  assert.equal(record.proposed.facebookUrl, "https://facebook.com/explicitna-klinika");
+  assert.equal(record.proposed.instagramUrl, "https://instagram.com/explicitna-klinika");
+  assert.deepEqual(record.proposed.services, ["Veterinárna ambulancia", "Preventívna prehliadka"]);
+  assert.deepEqual(record.proposed.qualifications, ["Certifikované pracovisko"]);
+  assert.equal(record.proposed.city, "Nitra");
+  assert.equal(record.proposed.region, "Nitriansky kraj");
+  assert.equal(record.proposed.postalCode, "949 01");
+  assert.equal(record.proposed.street, "Hlavná");
+  assert.equal(record.proposed.houseNumber, "12");
+  assert.deepEqual(canonicalSafeProposal("DIRECTORY", record.proposed), []);
+});
+
+test("HOTFIX DIRECTORY conflicting same-page contact candidates fail closed per field", () => {
+  const config = candidateProvisioningConfigFor({
+    entityType: "DIRECTORY",
+    canonicalUrl: "https://example.sk/profile",
+    metadata: { directoryCategory: "treneri" },
+  });
+  const html = jsonLdPage({
+    "@context": "https://schema.org",
+    "@type": "ProfessionalService",
+    "@id": "https://example.sk/profile",
+    url: "https://example.sk/profile",
+    name: "Tréningová služba",
+  }).replace("</body>", [
+    '<section class="kontakt"><p>Telefón: <a href="tel:+421900111111">+421 900 111 111</a></p></section>',
+    '<section class="contact"><p>Tel: <a href="tel:+421900222222">+421 900 222 222</a></p></section>',
+    "</body>",
+  ].join(""));
+  const [record] = genericDirectoryProfileAdapter({
+    source: source("DIRECTORY", config, "https://example.sk/profile"),
+    html,
+  });
+  assert.ok(record);
+  assert.equal(Object.hasOwn(record.proposed, "publicPhone"), false);
+});
+
+test("HOTFIX DIRECTORY parser-to-canonical-draft preserves contacts and keeps source address unconfirmed", async () => {
+  const config = candidateProvisioningConfigFor({
+    entityType: "DIRECTORY",
+    canonicalUrl: "https://spektravet.sk/sk",
+    metadata: { directoryCategory: "veterinari" },
+  });
+  const [record] = genericDirectoryProfileAdapter({
+    source: source("DIRECTORY", config, "https://spektravet.sk/sk"),
+    html: spektraVetLikeFixture,
+  });
+  assert.ok(record);
+  assert.deepEqual(canonicalSafeProposal("DIRECTORY", record.proposed), []);
+
+  const finding = {
+    entityType: "DIRECTORY",
+    findingType: "NEW_ENTITY",
+    proposed: record.proposed,
+    sourceUrl: record.sourceUrl,
+  };
+  const input = mapAutomationFindingToDraftInput(finding, "2026-09-28T09:30:00.000Z");
+  assert.equal(input.data.serviceAddressConfirmation, "LEGACY_UNCONFIRMED");
+
+  const database = new DirectoryDraftMemoryD1();
+  const created = await createCanonicalDraft(
+    input,
+    { actor: "automation-test@psipedia.sk", createdAt: "2026-09-28T09:30:00.000Z" },
+    database,
+  );
+  assert.equal(created.canonicalEntityId, 1);
+  assert.equal(database.rows.length, 1);
+  const row = database.rows[0];
+  assert.equal(row.status, "draft");
+  assert.equal(row.name, "SpektraVet – Bratislava Ružinov");
+  assert.equal(row.category, "veterinari");
+  assert.equal(row.website_url, "https://spektravet.sk/sk");
+  assert.equal(row.description, "Veterinárna klinika pre spoločenské zvieratá v Bratislave - Ružinove.");
+  assert.equal(row.city, "Bratislava - Ružinov");
+  assert.equal(row.postal_code, "82102");
+  assert.equal(row.street, "Ružinovská");
+  assert.equal(row.house_number, "1/4814");
+  assert.equal(row.address_format, "STREET");
+  assert.equal(row.service_address_confirmation, "LEGACY_UNCONFIRMED");
+  assert.equal(row.published_at, null);
+
+  const importData = JSON.parse(row.source_data_json);
+  assert.deepEqual(readDirectoryPublicContacts(importData, row.website_url), {
+    phone: "+421 903 494 000",
+    email: "info@spektravet.sk",
+    website: "https://spektravet.sk/sk",
+    facebook: "",
+    instagram: "",
+  });
+  assert.equal(importData["Telefón"], "+421 903 494 000");
+  assert.equal(importData["E-mail"], "info@spektravet.sk");
+  assert.equal(importData.Web, "https://spektravet.sk/sk");
 });
 
 test("generic DIRECTORY parser extracts only explicit schema data and fails closed", () => {

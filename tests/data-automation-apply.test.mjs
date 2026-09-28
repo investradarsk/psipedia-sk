@@ -81,6 +81,19 @@ test("CREATE_DRAFT idempotency is receipt-based without canonical linkage", () =
 });
 
 
+test("HOTFIX DIRECTORY CREATE_DRAFT reuses public-contact metadata and unconfirmed service-address contract", () => {
+  assert.match(applySource, /"publicPhone", "publicEmail", "facebookUrl", "instagramUrl"/);
+  for (const field of ["postalCode", "street", "houseNumber", "addressFormat"]) {
+    assert.match(applySource, new RegExp(field));
+  }
+  assert.match(draftMapper, /serviceAddressConfirmation:\s*"LEGACY_UNCONFIRMED"/);
+  assert.match(draftService, /mergeDirectoryPublicContactData/);
+  assert.match(draftService, /source_data_json:\s*JSON\.stringify\(after\.sourceData\)/);
+  assert.match(draftService, /serviceAddressConfirmation:\s*"LEGACY_UNCONFIRMED"/);
+  assert.match(draftService, /service_address_confirmation:\s*after\.serviceAddressConfirmation/);
+  assert.doesNotMatch(draftService, /openingHours|opening_hours/);
+});
+
 test("EVENT automation GEO reconciliation is draft-only", () => {
   assert.match(applySource, /reconcileGeoAfterSourceMutation/);
   assert.match(applySource, /targetType: "MANAGED_EVENT"/);
