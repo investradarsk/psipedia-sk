@@ -713,7 +713,7 @@ async function writeCanonicalFieldAndDecision(input: {
       origin_type,suggestion_id,entity_type,canonical_entity_id,field_key,proposed_value_hash,
       decision,resolution_reason,reviewed_by,reviewed_at,created_at,updated_at
     )
-    SELECT ?,?,?,?,?,?,'ACCEPTED',NULL,?,?,?,?,?
+    SELECT ?,?,?,?,?,?,'ACCEPTED',NULL,?,?,?,?
     WHERE EXISTS (
       SELECT 1 FROM ${config.table} WHERE id=? AND updated_at=?
     )
