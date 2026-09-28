@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
-import { PublicArticleListItem } from "@/components/public-visual-system";
 import { getNewsCategory } from "@/lib/news";
 import { normalizePortalSearch, portalSearchFallbacks, searchPortal } from "@/lib/portal-search";
 import { SEARCH_MAX_QUERY_LENGTH } from "@/lib/portal-search-query";
@@ -110,22 +109,25 @@ export default async function SearchPage({ searchParams }: Props) {
               <strong>{resultCountLabel(result.total)}</strong>
             </div>
             <div className={styles.resultList} aria-label="Výsledky vyhľadávania">
-              {result.items.map((item) => item.kind === "article" ? (
-                <PublicArticleListItem
-                  key={item.href}
+              {result.items.map((item) => (
+                <Link
                   href={item.href}
-                  title={item.title}
-                  topic={searchArticleTopic(item)}
-                  date={searchArticleDate(item.publishedAt)}
-                  dateTime={item.publishedAt}
-                  image={item.imageUrl ? { src: item.imageUrl, alt: "Ilustračná fotografia k článku: " + item.title } : undefined}
-                  listItem={false}
-                />
-              ) : (
-                <Link href={item.href} key={item.href} className={styles.result}>
+                  key={item.href}
+                  className={styles.result}
+                  data-article-list-item={item.kind === "article" ? "" : undefined}
+                >
                   <span className={styles.copy}>
+                    {item.kind === "article" && item.imageUrl ? (
+                      <span className={styles.articleImage} data-article-image>
+                        <img src={item.imageUrl} alt={"Ilustračná fotografia k článku: " + item.title} loading="lazy" decoding="async" />
+                      </span>
+                    ) : null}
                     <small className={styles.type}>{item.type}</small>
-                    <strong>{item.title}</strong>
+                    {item.kind === "article" ? <span className={styles.articleTopic} data-article-topic>{searchArticleTopic(item)}</span> : null}
+                    <strong data-article-title={item.kind === "article" ? "" : undefined}>{item.title}</strong>
+                    {item.kind === "article" ? (
+                      <time className={styles.articleDate} dateTime={item.publishedAt} data-article-date>{searchArticleDate(item.publishedAt)}</time>
+                    ) : null}
                     {item.description ? <span className={styles.description}>{item.description}</span> : null}
                   </span>
                   <ArrowIcon size={20} />
