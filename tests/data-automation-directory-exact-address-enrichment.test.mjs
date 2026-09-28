@@ -241,4 +241,4 @@ test("canonical DIRECTORY draft trusts only the explicit verified-address channe
   assert.equal(verified.after.status, "draft");
   assert.equal(verified.after.serviceAddressConfirmation, "CONFIRMED_SERVICE_LOCATION");
   assert.equal(verified.after.address, "Polská 6, 040 01 Košice - Juh");
-}
+});
