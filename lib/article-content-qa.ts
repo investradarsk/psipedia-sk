@@ -46,6 +46,16 @@ function placeholderMatch(value: string) {
   return null;
 }
 
+function plainTextRelationNote(value: string) {
+  const lines = value.replace(/\r\n?/g, "\n").split("\n").map(comparisonText).filter(Boolean);
+  return lines.some((line) => /^(?:súvisiaci|suvisiaci) (?:článok|clanok|podsekcia)\s*:\s*\S+/.test(line));
+}
+
+function unsupportedVerificationClaim(value: string) {
+  const normalized = comparisonText(value);
+  return /\b(?:overene veterinarom|odborne overene|overeny clanok)\b/.test(normalized);
+}
+
 function unsafeMarkup(value: string) {
   return /<\s*(?:script|style|iframe|object|embed)\b|\bon(?:error|load|click)\s*=|javascript\s*:|\b(?:href|src)\s*=\s*["']?\s*data\s*:/i.test(value);
 }
@@ -105,6 +115,15 @@ function sourceIssues(source: Record<string, unknown>, field: string, blockId?: 
     suggestedAction: "Doplň názov dokumentu, stránky, knihy alebo publikácie.",
   }));
 
+  const accessedAt = typeof source.accessedAt === "string" ? source.accessedAt.trim() : "";
+  if (accessedAt && !/^\d{4}-\d{2}-\d{2}$/.test(accessedAt)) {
+    result.push(issue({
+      code: "SOURCE_ACCESS_DATE_INVALID", field, blockId, severity: "BLOCKER",
+      message: "Dátum prístupu k zdroju nemá platný ISO formát.",
+      suggestedAction: "Dátum oprav alebo ho odstráň; neznámy dátum sa nevymýšľa.",
+    }));
+  }
+
   if (url) {
     try {
       const parsed = new URL(url);
@@ -145,6 +164,16 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
       message: "Text obsahuje internú redakčnú poznámku alebo placeholder.",
       suggestedAction: "Odstráň internú poznámku alebo ju nahraď finálnym čitateľským textom.",
     }));
+    if (plainTextRelationNote(value)) result.push(issue({
+      code: "PLAIN_TEXT_RELATION_NOTE", field, severity: "BLOCKER",
+      message: "Text obsahuje redakčnú poznámku o súvisiacom obsahu namiesto canonical vzťahu.",
+      suggestedAction: "Použi canonical relation blok alebo poznámku odstráň.",
+    }));
+    if (unsupportedVerificationClaim(value)) result.push(issue({
+      code: "UNSUPPORTED_VERIFICATION_CLAIM", field, severity: "BLOCKER",
+      message: "Text používa nepodložené všeobecné tvrdenie o odbornom overení.",
+      suggestedAction: "Odstráň všeobecné „Overené“ tvrdenie.",
+    }));
     if (unsafeMarkup(value)) result.push(issue({
       code: "UNSAFE_RAW_MARKUP", field, severity: "BLOCKER",
       message: "Text obsahuje nebezpečný raw HTML alebo URL protokol.",
@@ -177,6 +206,16 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
         code: "EDITORIAL_PLACEHOLDER", field: `blocks.${part.field}`, blockId: block.id, severity: "BLOCKER",
         message: "Obsahový blok obsahuje internú redakčnú poznámku alebo placeholder.",
         suggestedAction: "Odstráň redakčnú poznámku alebo ju nahraď finálnym textom.",
+      }));
+      if (plainTextRelationNote(part.value)) result.push(issue({
+        code: "PLAIN_TEXT_RELATION_NOTE", field: `blocks.${part.field}`, blockId: block.id, severity: "BLOCKER",
+        message: "Text obsahuje redakčnú poznámku o súvisiacom článku alebo podsekcii namiesto canonical vzťahu.",
+        suggestedAction: "Použi existujúci relation blok s platným canonical cieľom alebo poznámku odstráň.",
+      }));
+      if (unsupportedVerificationClaim(part.value)) result.push(issue({
+        code: "UNSUPPORTED_VERIFICATION_CLAIM", field: `blocks.${part.field}`, blockId: block.id, severity: "BLOCKER",
+        message: "Obsah používa nepodložené všeobecné tvrdenie o odbornom overení.",
+        suggestedAction: "Odstráň všeobecné „Overené“ tvrdenie; zobraz iba konkrétne údaje reviewera, ak sú reálne evidované.",
       }));
       if (unsafeMarkup(part.value)) result.push(issue({
         code: "UNSAFE_RAW_MARKUP", field: `blocks.${part.field}`, blockId: block.id, severity: "BLOCKER",
@@ -238,7 +277,24 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
     result.push(...sourceIssues(source as unknown as Record<string, unknown>, `sources.${index}`));
   }
 
-  const sourceIdentity = new Map<string, string>();
+  const relatedIdentity = new Map<string, string>();
+  for (const block of rawBlocks.filter((item) => item.type === "related")) {
+    const raw = block as unknown as Record<string, unknown>;
+    const href = stringValue(raw.href).split(/[?#]/, 1)[0].replace(/\/$/, "");
+    if (!href) continue;
+    const first = relatedIdentity.get(href);
+    if (first) result.push(issue({
+      code: "RELATED_DUPLICATE",
+      field: "blocks.related",
+      blockId: block.id,
+      severity: "WARNING",
+      message: "Rovnaký súvisiaci canonical cieľ je uvedený viackrát.",
+      suggestedAction: `Ponechaj jeden relation blok; prvý blok je ${first}.`,
+    }));
+    else relatedIdentity.set(href, block.id);
+  }
+
+    const sourceIdentity = new Map<string, string>();
   const allSources: Array<{ source: Record<string, unknown>; field: string; blockId?: string }> = [
     ...(payload.sources ?? []).map((source, index) => ({ source: source as unknown as Record<string, unknown>, field: `sources.${index}` })),
     ...rawBlocks.filter((block) => block.type === "source").map((block) => ({ source: block as unknown as Record<string, unknown>, field: "blocks.source", blockId: block.id })),
