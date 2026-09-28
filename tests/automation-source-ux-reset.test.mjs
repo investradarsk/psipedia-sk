@@ -6,10 +6,14 @@ const scriptUrl = new URL("../scripts/automation-source-ux-reset.mjs", import.me
 const workflowUrl = new URL("../.github/workflows/automation-source-ux-reset.yml", import.meta.url);
 const drizzleUrl = new URL("../drizzle/", import.meta.url);
 const governanceMigrationUrl = new URL("../drizzle/0084_automation_governance_registry.sql", import.meta.url);
+const sourceFoundationMigrationUrl = new URL("../drizzle/0050_data_automation_foundation.sql", import.meta.url);
+const discoveryMigrationUrl = new URL("../drizzle/0056_scheduled_source_discovery.sql", import.meta.url);
 const mod = await import(scriptUrl);
 const source = await fs.readFile(scriptUrl, "utf8");
 const workflow = await fs.readFile(workflowUrl, "utf8");
 const governanceMigration = await fs.readFile(governanceMigrationUrl, "utf8");
+const sourceFoundationMigration = await fs.readFile(sourceFoundationMigrationUrl, "utf8");
+const discoveryMigration = await fs.readFile(discoveryMigrationUrl, "utf8");
 
 async function automationSchemaSql() {
   const files = (await fs.readdir(drizzleUrl))
@@ -126,4 +130,13 @@ test("all inbound automation FKs and delete triggers are safe for the destructiv
     (trigger) => trigger.timing === "BEFORE" && index.has(trigger.table),
   );
   assert.deepEqual(blockingTriggers, []);
+});
+
+
+test("preserved governance rows cannot structurally block source recreation or root reset", () => {
+  assert.match(sourceFoundationMigration, /CREATE TABLE `automation_sources`[\s\S]*?`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL/);
+  assert.match(discoveryMigration, /CREATE TABLE `automation_discovery_roots`[\s\S]*?`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL/);
+  assert.doesNotMatch(governanceMigration, /REFERENCES\s+`?automation_(?:sources|discovery_roots)`?/i);
+  assert.match(governanceMigration, /UNIQUE INDEX `automation_governance_reviews_subject_unique`[\s\S]*?(`subject_type`,`subject_id`)/);
+  assert.equal(mod.DELETE_TABLE_ORDER.includes("automation_discovery_roots"), false);
 });
