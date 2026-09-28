@@ -1,18 +1,20 @@
-import type { Article } from "@/lib/content";
-import { getPublishedArticles } from "@/lib/article-store";
-import { listPublishedBreedIndex, type ManagedBreedIndexItem } from "@/lib/breed-store";
-import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
-import { directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
-import { getPublishedEvents } from "@/lib/event-store";
-import { eventHref, formatEventDate } from "@/lib/events";
-import { getPublishedHelpCases } from "@/lib/help-store";
-import { getHelpCategory, helpCaseHref } from "@/lib/help";
-import { getNewsCategory } from "@/lib/news";
-import { articleHref, articlePortalSection, portalSubpageHref, type PortalSection } from "@/lib/portal";
-import { listManagedPortalSections } from "@/lib/section-store";
-import { articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
-import { listAllPublicAdoptions } from "@/lib/adoption-store";
-import { adoptionDetailPath } from "@/lib/adoption-detail";
+import { env } from "cloudflare:workers";
+import { getDirectoryCategory } from "@/lib/directory";
+import { getHelpCategory } from "@/lib/help";
+import { portalSections, portalSubpageHref } from "@/lib/portal";
+import {
+  SEARCH_MAX_PAGE,
+  SEARCH_MAX_VISIBLE_RESULTS,
+  SEARCH_PAGE_SIZE,
+  normalizePortalSearch,
+  parsePortalSearchQuery,
+  scorePortalSearchItem,
+  stablePortalSearchSort,
+  type ParsedPortalSearchQuery,
+  type PortalSearchRankable,
+} from "@/lib/portal-search-query";
+
+export { normalizePortalSearch, parsePortalSearchQuery } from "@/lib/portal-search-query";
 
 export type PortalSearchItem = {
   href: string;
@@ -20,80 +22,470 @@ export type PortalSearchItem = {
   type: string;
   description: string;
   keywords: string;
-  articleMeta?: { topic: string; date: string; dateIso: string; image?: string };
+  score: number;
+  kind: PortalSearchRankable["kind"];
+  category?: string;
+  city?: string;
+  district?: string;
+  region?: string;
+  services?: string;
 };
 
-export function normalizePortalSearch(value: string) {
-  return value.toLocaleLowerCase("sk").normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+export type PortalSearchResultPage = {
+  items: PortalSearchItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  capped: boolean;
+  parsed: ParsedPortalSearchQuery;
+};
+
+type RuntimeBindings = { DB?: D1Database };
+type SearchRow = {
+  href: string;
+  title: string;
+  type: string;
+  description: string;
+  keywords: string;
+  kind: PortalSearchRankable["kind"];
+  category: string | null;
+  city: string | null;
+  district: string | null;
+  region: string | null;
+  services: string | null;
+  source_total: number;
+};
+
+type QuerySpec = { sql: string; bindings: unknown[] };
+
+const DIACRITIC_REPLACEMENTS = [
+  ["Á", "A"], ["Ä", "A"], ["Č", "C"], ["Ď", "D"], ["É", "E"], ["Í", "I"], ["Ĺ", "L"], ["Ľ", "L"],
+  ["Ň", "N"], ["Ó", "O"], ["Ô", "O"], ["Ŕ", "R"], ["Š", "S"], ["Ť", "T"], ["Ú", "U"], ["Ý", "Y"], ["Ž", "Z"],
+  ["á", "a"], ["ä", "a"], ["č", "c"], ["ď", "d"], ["é", "e"], ["í", "i"], ["ĺ", "l"], ["ľ", "l"],
+  ["ň", "n"], ["ó", "o"], ["ô", "o"], ["ŕ", "r"], ["š", "s"], ["ť", "t"], ["ú", "u"], ["ý", "y"], ["ž", "z"],
+] as const;
+
+function database() {
+  const db = (env as unknown as RuntimeBindings).DB;
+  return db && typeof db.prepare === "function" ? db : null;
 }
 
-export function filterPortalSearch(items: PortalSearchItem[], query: string, limit = 100) {
-  const needle = normalizePortalSearch(query);
-  if (needle.length < 2) return [];
-  return items
-    .map((item) => {
-      const title = normalizePortalSearch(item.title);
-      const haystack = normalizePortalSearch(`${item.title} ${item.description} ${item.keywords} ${item.type}`);
-      const score = title === needle ? 0 : title.startsWith(needle) ? 1 : title.includes(needle) ? 2 : haystack.includes(needle) ? 3 : 99;
-      return { item, score };
-    })
-    .filter((match) => match.score < 99)
-    .sort((a, b) => a.score - b.score || a.item.title.localeCompare(b.item.title, "sk"))
-    .slice(0, limit)
-    .map((match) => match.item);
+function normalizedSql(expression: string) {
+  let sql = `CAST(COALESCE(${expression}, '') AS TEXT)`;
+  for (const [from, to] of DIACRITIC_REPLACEMENTS) sql = `replace(${sql}, '${from}', '${to}')`;
+  for (const symbol of ["-", ".", ",", "/", "(", ")", ":", ";"]) sql = `replace(${sql}, '${symbol}', ' ')`;
+  return `lower(trim(${sql}))`;
 }
 
-function baseSearchItems(articles: Article[], sections: PortalSection[], breeds: ManagedBreedIndexItem[]): PortalSearchItem[] {
+function tokenClauses(expression: string, tokens: string[], bindings: unknown[]) {
+  if (!tokens.length) return [];
+  const normalized = normalizedSql(expression);
+  return tokens.map((token) => {
+    bindings.push(`%${token}%`);
+    return `${normalized} LIKE ?`;
+  });
+}
+
+function persistedTokenClauses(searchExpression: string, fallbackExpression: string, tokens: string[], bindings: unknown[]) {
+  if (!tokens.length) return [];
+  const fallback = normalizedSql(fallbackExpression);
+  return tokens.map((token) => {
+    const pattern = `%${token}%`;
+    bindings.push(pattern, pattern);
+    return `(${searchExpression} LIKE ? OR ${fallback} LIKE ?)`;
+  });
+}
+
+function exactTitleOrder(titleExpression: string, parsed: ParsedPortalSearchQuery, bindings: unknown[]) {
+  const normalized = normalizedSql(titleExpression);
+  bindings.push(parsed.normalized, `${parsed.normalized}%`);
+  return `CASE WHEN ${normalized} = ? THEN 0 WHEN ${normalized} LIKE ? THEN 1 ELSE 2 END`;
+}
+
+function addLocationWhere(
+  clauses: string[],
+  bindings: unknown[],
+  parsed: ParsedPortalSearchQuery,
+  fields: { city: string; district?: string; region: string },
+) {
+  const location = parsed.location;
+  if (!location) return;
+  if (location.level === "city") {
+    const city = normalizePortalSearch(location.city);
+    const citySql = normalizedSql(fields.city);
+    bindings.push(city, `${city} %`);
+    clauses.push(`(${citySql} = ? OR ${citySql} LIKE ?)`);
+  } else if (location.level === "district" && fields.district) {
+    bindings.push(normalizePortalSearch(location.district));
+    clauses.push(`${normalizedSql(fields.district)} = ?`);
+  }
+  if (location.region) {
+    bindings.push(normalizePortalSearch(location.region));
+    clauses.push(`${normalizedSql(fields.region)} = ?`);
+  }
+}
+
+function selectWithWindow(columns: string, from: string, clauses: string[], orderBy: string, limit: number) {
+  return `SELECT ${columns}, COUNT(*) OVER() AS source_total
+    FROM ${from}
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY ${orderBy}
+    LIMIT ${limit}`;
+}
+
+function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec {
+  const bindings: unknown[] = [];
+  const clauses = ["p.status = 'published'", "p.archived_at IS NULL"];
+  if (parsed.directoryCategory) {
+    clauses.push("p.category = ?");
+    bindings.push(parsed.directoryCategory);
+  }
+  addLocationWhere(clauses, bindings, parsed, {
+    city: "p.city",
+    district: `COALESCE(NULLIF(p.district, ''), json_extract(p.source_data_json, '$."Okres"'), '')`,
+    region: "p.region",
+  });
+  const tokens = parsed.directoryCategory ? parsed.residualTokens : parsed.contentTokens;
+  clauses.push(...persistedTokenClauses(
+    "p.search_text",
+    `p.name || ' ' || p.excerpt || ' ' || p.description || ' ' || p.services_json || ' ' || p.city || ' ' || p.district || ' ' || p.region || ' ' || p.address`,
+    tokens,
+    bindings,
+  ));
+  const order = exactTitleOrder("p.name", parsed, bindings);
+  const columns = `'/adresar/' || p.category || '/' || p.slug AS href,
+    p.name AS title,
+    CASE WHEN p.category = 'veterinari' THEN 'Veterinár'
+         WHEN p.category = 'treneri' THEN 'Psí tréner'
+         ELSE 'Služba pre psov' END AS type,
+    p.excerpt AS description,
+    p.category || ' ' || p.services_json || ' ' || p.city || ' ' || p.district || ' ' || p.region AS keywords,
+    'directory' AS kind, p.category AS category, p.city AS city,
+    COALESCE(NULLIF(p.district, ''), json_extract(p.source_data_json, '$."Okres"'), '') AS district,
+    p.region AS region, p.services_json AS services`;
+  return {
+    sql: selectWithWindow(columns, "directory_profiles p", clauses, `${order}, p.name COLLATE NOCASE ASC, p.id ASC`, limit),
+    bindings,
+  };
+}
+
+function articleQuery(parsed: ParsedPortalSearchQuery, limit: number, section: string): QuerySpec | null {
+  const tokens = parsed.contentTokens;
+  if (!tokens.length) return null;
+  const bindings: unknown[] = [new Date().toISOString()];
+  const clauses = ["(a.status = 'published' OR (a.status = 'scheduled' AND a.published_at <= ?))"];
+  if (section) {
+    clauses.push("a.portal_section = ?");
+    bindings.push(section);
+  }
+  clauses.push(...tokenClauses(
+    `a.title || ' ' || a.excerpt || ' ' || a.intro || ' ' || a.focus_keyword || ' ' || a.category`,
+    tokens,
+    bindings,
+  ));
+  const order = exactTitleOrder("a.title", parsed, bindings);
+  const columns = `CASE WHEN a.portal_section = 'clanky' THEN '/clanky/' || a.slug ELSE '/' || a.portal_section || '/' || a.slug END AS href,
+    a.title AS title,
+    CASE WHEN a.portal_section = 'novinky' THEN 'Novinka' ELSE 'Článok' END AS type,
+    a.excerpt AS description,
+    a.category || ' ' || a.focus_keyword || ' ' || a.portal_section AS keywords,
+    'article' AS kind, a.category AS category, '' AS city, '' AS district, '' AS region, '' AS services`;
+  return {
+    sql: selectWithWindow(columns, "managed_articles a", clauses, `${order}, a.title COLLATE NOCASE ASC, a.id ASC`, limit),
+    bindings,
+  };
+}
+
+function breedQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
+  const tokens = parsed.contentTokens;
+  if (!tokens.length) return null;
+  const bindings: unknown[] = [];
+  const clauses = ["b.status = 'published'"];
+  clauses.push(...persistedTokenClauses(
+    "b.search_text",
+    `b.name || ' ' || b.official_fci_name || ' ' || b.group_name || ' ' || b.fci_section || ' ' || b.origin || ' ' || b.intro`,
+    tokens,
+    bindings,
+  ));
+  const order = exactTitleOrder("b.name", parsed, bindings);
+  const columns = `'/plemena/' || b.slug AS href, b.name AS title, 'Plemeno' AS type,
+    b.intro AS description,
+    b.official_fci_name || ' ' || b.group_name || ' ' || b.fci_section || ' ' || b.origin AS keywords,
+    'breed' AS kind, '' AS category, '' AS city, '' AS district, '' AS region, '' AS services`;
+  return { sql: selectWithWindow(columns, "managed_breeds b", clauses, `${order}, b.name COLLATE NOCASE ASC, b.id ASC`, limit), bindings };
+}
+
+function eventQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
+  const bindings: unknown[] = [];
+  const clauses = ["e.status = 'published'"];
+  if (parsed.eventType) {
+    clauses.push("e.event_type = ?");
+    bindings.push(parsed.eventType);
+  }
+  addLocationWhere(clauses, bindings, parsed, { city: "e.city", region: "e.region" });
+  const tokens = parsed.eventType ? parsed.residualTokens : parsed.contentTokens;
+  clauses.push(...tokenClauses(
+    `e.title || ' ' || e.excerpt || ' ' || e.event_type || ' ' || e.organizer || ' ' || e.venue || ' ' || e.city || ' ' || e.region`,
+    tokens,
+    bindings,
+  ));
+  if (!parsed.eventType && !tokens.length) return null;
+  const order = exactTitleOrder("e.title", parsed, bindings);
+  const columns = `'/podujatia/' || e.slug AS href, e.title AS title, 'Podujatie' AS type,
+    e.excerpt AS description,
+    e.event_type || ' ' || e.organizer || ' ' || e.venue || ' ' || e.start_date AS keywords,
+    'event' AS kind, e.event_type AS category, e.city AS city, '' AS district, e.region AS region, '' AS services`;
+  return { sql: selectWithWindow(columns, "managed_events e", clauses, `${order}, e.start_date ASC, e.title COLLATE NOCASE ASC, e.id ASC`, limit), bindings };
+}
+
+function organizationLocationExpression(field: "city" | "district" | "region") {
+  return `COALESCE((SELECT l.${field} FROM organization_locations l WHERE l.organization_id = o.id ORDER BY l.is_primary DESC, l.sort_order ASC, l.id ASC LIMIT 1), o.${field})`;
+}
+
+function organizationQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
+  const tokens = parsed.entityIntent === "organization" ? parsed.residualTokens : parsed.contentTokens;
+  if (!tokens.length && parsed.entityIntent !== "organization") return null;
+  const bindings: unknown[] = [];
+  const clauses = ["o.status = 'PUBLISHED'", "o.published_at IS NOT NULL", "o.archived_at IS NULL"];
+  const city = organizationLocationExpression("city");
+  const district = organizationLocationExpression("district");
+  const region = organizationLocationExpression("region");
+  addLocationWhere(clauses, bindings, parsed, { city, district, region });
+  clauses.push(...tokenClauses(
+    `o.name || ' ' || o.short_description || ' ' || o.description || ' ' || o.type || ' ' || ${city} || ' ' || ${district} || ' ' || ${region}`,
+    tokens,
+    bindings,
+  ));
+  const order = exactTitleOrder("o.name", parsed, bindings);
+  const columns = `'/organizacie/' || o.slug AS href, o.name AS title, 'Organizácia' AS type,
+    o.short_description AS description,
+    o.type || ' ' || ${city} || ' ' || ${district} || ' ' || ${region} AS keywords,
+    'organization' AS kind, o.type AS category, ${city} AS city, ${district} AS district, ${region} AS region, '' AS services`;
+  return { sql: selectWithWindow(columns, "help_organizations o", clauses, `${order}, o.name COLLATE NOCASE ASC, o.id ASC`, limit), bindings };
+}
+
+function adoptionQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
+  const tokens = parsed.entityIntent === "adoption" ? parsed.residualTokens : parsed.contentTokens;
+  if (!tokens.length && parsed.entityIntent !== "adoption") return null;
+  const bindings: unknown[] = [];
+  const clauses = ["d.status IN ('ACTIVE','RESERVED')"];
+  addLocationWhere(clauses, bindings, parsed, { city: "d.city", district: "d.district", region: "d.region" });
+  clauses.push(...persistedTokenClauses(
+    "d.search_text",
+    `d.name || ' ' || d.breed_name || ' ' || d.organization_name || ' ' || d.short_description || ' ' || d.description || ' ' || d.city || ' ' || d.district || ' ' || d.region`,
+    tokens,
+    bindings,
+  ));
+  const order = exactTitleOrder("d.name", parsed, bindings);
+  const columns = `'/pomoc-psom/adopcia/' || d.slug AS href, d.name AS title, 'Pes na adopciu' AS type,
+    d.short_description AS description,
+    d.breed_name || ' ' || d.organization_name || ' ' || d.city || ' ' || d.district || ' ' || d.region AS keywords,
+    'adoption' AS kind, 'adopcia' AS category, d.city AS city, d.district AS district, d.region AS region, '' AS services`;
+  return { sql: selectWithWindow(columns, "adoption_dogs d", clauses, `${order}, d.name COLLATE NOCASE ASC, d.id ASC`, limit), bindings };
+}
+
+function helpQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
+  const tokens = parsed.contentTokens;
+  if (!tokens.length) return null;
+  const bindings: unknown[] = [];
+  const clauses = ["h.status = 'published'", "h.category NOT IN ('adopcia','utulky','stratene-a-najdene')"];
+  addLocationWhere(clauses, bindings, parsed, { city: "h.city", region: "h.region" });
+  clauses.push(...tokenClauses(
+    `h.title || ' ' || h.excerpt || ' ' || h.description || ' ' || h.organization || ' ' || h.dog_name || ' ' || h.breed || ' ' || h.city || ' ' || h.region || ' ' || h.category`,
+    tokens,
+    bindings,
+  ));
+  const order = exactTitleOrder("h.title", parsed, bindings);
+  const columns = `'/pomoc-psom/' || h.category || '/' || h.slug AS href, h.title AS title, 'Pomoc psom' AS type,
+    h.excerpt AS description,
+    h.organization || ' ' || h.dog_name || ' ' || h.breed || ' ' || h.city || ' ' || h.region || ' ' || h.category AS keywords,
+    'help' AS kind, h.category AS category, h.city AS city, '' AS district, h.region AS region, '' AS services`;
+  return { sql: selectWithWindow(columns, "help_cases h", clauses, `${order}, h.title COLLATE NOCASE ASC, h.id ASC`, limit), bindings };
+}
+
+function lostFoundQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySpec | null {
+  const tokens = parsed.entityIntent === "lost-found" ? parsed.residualTokens : parsed.contentTokens;
+  if (!tokens.length && parsed.entityIntent !== "lost-found") return null;
+  const bindings: unknown[] = [new Date().toISOString()];
+  const clauses = ["r.status = 'ACTIVE'", "r.published_at IS NOT NULL", "(r.expires_at IS NULL OR r.expires_at > ?)"];
+  addLocationWhere(clauses, bindings, parsed, { city: "r.city", district: "r.district", region: "r.region" });
+  clauses.push(...persistedTokenClauses(
+    "r.search_text",
+    `COALESCE(r.dog_name, '') || ' ' || r.breed || ' ' || r.color || ' ' || r.description || ' ' || r.distinguishing_marks || ' ' || r.city || ' ' || r.district || ' ' || r.region`,
+    tokens,
+    bindings,
+  ));
+  const title = `CASE WHEN r.type = 'LOST' THEN 'Stratený ' ELSE 'Nájdený ' END || COALESCE(NULLIF(r.dog_name, ''), NULLIF(r.breed, ''), 'pes')`;
+  const order = exactTitleOrder(title, parsed, bindings);
+  const columns = `CASE WHEN r.type = 'LOST' THEN '/pomoc-psom/stratene-psy/' || r.slug ELSE '/pomoc-psom/najdene-psy/' || r.slug END AS href,
+    ${title} AS title, 'Pomoc psom' AS type,
+    r.description AS description,
+    r.breed || ' ' || r.color || ' ' || r.city || ' ' || r.district || ' ' || r.region AS keywords,
+    'lost-found' AS kind, r.type AS category, r.city AS city, r.district AS district, r.region AS region, '' AS services`;
+  return { sql: selectWithWindow(columns, "lost_found_dog_reports r", clauses, `${order}, r.event_date DESC, r.id DESC`, limit), bindings };
+}
+
+function staticSectionItems(parsed: ParsedPortalSearchQuery, section: string): PortalSearchItem[] {
+  const rank = (item: Omit<PortalSearchItem, "score">) => ({ ...item, score: scorePortalSearchItem(item, parsed) });
+  return portalSections
+    .filter((portalSection) => !section || portalSection.slug === section)
+    .flatMap((portalSection) => [
+      rank({
+        href: `/${portalSection.slug}`,
+        title: portalSection.label,
+        type: "Sekcia",
+        description: portalSection.description,
+        keywords: `${portalSection.eyebrow} ${portalSection.intro}`,
+        kind: "section",
+      }),
+      ...portalSection.subpages
+        .filter((subpage) => subpage.visible !== false)
+        .map((subpage) => rank({
+          href: portalSubpageHref(portalSection, subpage),
+          title: subpage.label,
+          type: "Sekcia",
+          description: subpage.description,
+          keywords: `${portalSection.label} ${portalSection.description} ${(subpage.popularTopics ?? []).join(" ")} ${(subpage.commonQuestions ?? []).join(" ")}`,
+          kind: "section" as const,
+        })),
+    ])
+    .filter((item) => item.score < 999);
+}
+
+function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearchItem | null {
+  const city = row.city?.trim() ?? "";
+  const district = row.district?.trim() ?? "";
+  const region = row.region?.trim() ?? "";
+  const location = [city, district && district !== city ? district : "", region && region !== district ? region : ""].filter(Boolean).join(" · ");
+  const description = [row.description?.trim() ?? "", location].filter(Boolean).join(" · ");
+  const item: PortalSearchItem = {
+    href: row.href,
+    title: row.title,
+    type: row.type,
+    description,
+    keywords: row.keywords ?? "",
+    kind: row.kind,
+    category: row.category ?? undefined,
+    city: city || undefined,
+    district: district || undefined,
+    region: region || undefined,
+    services: row.services ?? undefined,
+    score: 999,
+  };
+  item.score = scorePortalSearchItem({ ...item, haystack: item.keywords }, parsed);
+  return item.score < 999 ? item : null;
+}
+
+function allowedSpecs(parsed: ParsedPortalSearchQuery, limit: number, section: string) {
+  if (section) return [articleQuery(parsed, limit, section)].filter((item): item is QuerySpec => Boolean(item));
   return [
-    ...sections.flatMap((section) => [
-      { href: `/${section.slug}`, title: section.label, type: "Sekcia", description: section.description, keywords: `${section.eyebrow} ${section.intro}` },
-      ...section.subpages.filter((subpage) => subpage.visible !== false).map((subpage) => ({ href: portalSubpageHref(section, subpage), title: subpage.label, type: section.label, description: subpage.description, keywords: `${section.label} ${section.description} ${(subpage.popularTopics ?? []).join(" ")} ${(subpage.commonQuestions ?? []).join(" ")}` })),
-    ]),
-    ...breeds.map((breed) => ({ href: `/plemena/${breed.slug}`, title: breed.name, type: "Plemeno", description: breed.intro || `${breed.officialFciName} · FCI skupina ${breed.fciGroup}`, keywords: `${breed.officialFciName} ${breed.group} ${breed.fciSection} ${breed.origin} ${breed.searchText}` })),
-    ...articles.map((article) => {
-      const isNews = articlePortalSection(article) === "novinky";
-      const newsCategory = isNews ? getNewsCategory(article.newsCategory) : null;
-      return {
-        href: articleHref(article),
-        title: article.title,
-        type: isNews ? "Novinka" : "Článok",
-        description: article.excerpt,
-        keywords: `${article.category} ${newsCategory?.label ?? ""} ${article.intro} ${article.takeaway} ${article.seo?.focusKeyword ?? ""} ${articleBlockPlainText(article.blocks?.length ? article.blocks : legacyArticleBlocks(article.sections, article.sources))}`,
-        articleMeta: { topic: newsCategory?.shortLabel ?? article.category, date: article.date, dateIso: article.dateIso, image: article.image || undefined },
-      };
-    }),
-  ];
+    directoryQuery(parsed, limit),
+    articleQuery(parsed, limit, ""),
+    breedQuery(parsed, limit),
+    eventQuery(parsed, limit),
+    organizationQuery(parsed, limit),
+    adoptionQuery(parsed, limit),
+    helpQuery(parsed, limit),
+    lostFoundQuery(parsed, limit),
+  ].filter((item): item is QuerySpec => Boolean(item));
 }
 
-function uniqueItems(items: PortalSearchItem[]) {
-  return [...new Map(items.map((item) => [item.href, item])).values()];
+export async function searchPortal(
+  query: string,
+  options: { page?: number; pageSize?: number; section?: string } = {},
+): Promise<PortalSearchResultPage> {
+  const parsed = parsePortalSearchQuery(query);
+  const pageSize = Math.max(1, Math.min(48, Math.trunc(options.pageSize ?? SEARCH_PAGE_SIZE)));
+  const page = Math.max(1, Math.min(SEARCH_MAX_PAGE, Math.trunc(options.page ?? 1)));
+  const section = ["starostlivost", "aktivity", "steniatka"].includes(options.section ?? "") ? options.section! : "";
+  if (parsed.normalized.length < 2) return { items: [], total: 0, page: 1, pageSize, totalPages: 0, capped: false, parsed };
+
+  const need = Math.min(SEARCH_MAX_VISIBLE_RESULTS, page * pageSize);
+  const staticItems = staticSectionItems(parsed, section);
+  const db = database();
+  let databaseItems: PortalSearchItem[] = [];
+  let databaseTotal = 0;
+
+  if (db) {
+    const specs = allowedSpecs(parsed, need, section);
+    if (specs.length) {
+      const results = await db.batch(specs.map((spec) => db.prepare(spec.sql).bind(...spec.bindings)));
+      for (const result of results) {
+        const rows = (result.results ?? []) as unknown as SearchRow[];
+        databaseTotal += Number(rows[0]?.source_total ?? 0);
+        for (const row of rows) {
+          const item = rowToItem(row, parsed);
+          if (item) databaseItems.push(item);
+        }
+      }
+    }
+  }
+
+  const unique = [...new Map([...staticItems, ...databaseItems].map((item) => [item.href, item])).values()];
+  const sorted = stablePortalSearchSort(unique);
+  const total = databaseTotal + staticItems.length;
+  const capped = total > SEARCH_MAX_VISIBLE_RESULTS;
+  const totalPages = Math.min(SEARCH_MAX_PAGE, Math.ceil(total / pageSize));
+  const start = (page - 1) * pageSize;
+  return {
+    items: sorted.slice(start, start + pageSize),
+    total,
+    page,
+    pageSize,
+    totalPages,
+    capped,
+    parsed,
+  };
 }
 
-export async function getHeaderSearchIndex() {
-  return getPortalSearchIndex();
+function kindFromLegacyType(type: string): PortalSearchRankable["kind"] {
+  if (type === "Plemeno") return "breed";
+  if (type === "Článok" || type === "Novinka") return "article";
+  if (type === "Podujatie") return "event";
+  if (type === "Veterinár" || type === "Psí tréner" || type === "Služba pre psov") return "directory";
+  if (type === "Organizácia" || type === "Útulok") return "organization";
+  if (type === "Pes na adopciu") return "adoption";
+  if (type === "Pomoc psom") return "help";
+  return "section";
 }
 
-export async function getPortalSearchIndex() {
-  const [articles, events, profiles, helpCases, sections, breeds, adoptions] = await Promise.all([
-    getPublishedArticles(),
-    getPublishedEvents(),
-    getPublishedDirectoryProfiles(),
-    getPublishedHelpCases(),
-    listManagedPortalSections(),
-    listPublishedBreedIndex(),
-    listAllPublicAdoptions(),
-  ]);
+export function filterPortalSearch(items: Omit<PortalSearchItem, "score" | "kind">[], query: string, limit = 100) {
+  const parsed = parsePortalSearchQuery(query);
+  if (parsed.normalized.length < 2) return [];
+  return stablePortalSearchSort(items.map((item) => {
+    const kind = kindFromLegacyType(item.type);
+    return { ...item, kind, score: scorePortalSearchItem({ ...item, kind, haystack: item.keywords }, parsed) };
+  }).filter((item) => item.score < 999)).slice(0, limit);
+}
 
-  const items: PortalSearchItem[] = [
-    ...baseSearchItems(articles, sections.filter((section) => section.visible), breeds),
-    ...events.map((event) => ({ href: eventHref(event), title: event.title, type: "Podujatie", description: `${formatEventDate(event)} · ${event.city}`, keywords: `${event.eventType} ${event.organizer} ${event.region} ${event.venue}` })),
-    ...profiles.map((profile) => {
-      const type = profile.category === "veterinari" ? "Veterinár" : profile.category === "treneri" ? "Psí tréner" : profile.category === "utulky-a-zachrana" ? "Útulok" : "Služba pre psov";
-      return { href: directoryProfileHref(profile), title: profile.name, type, description: `${profile.excerpt} · ${profile.city}`, keywords: `${getDirectoryCategory(profile.category)?.label ?? ""} ${profile.region} ${profile.address} ${profile.description} ${profile.services.join(" ")} ${profile.qualifications.join(" ")}` };
-    }),
-    ...helpCases.map((item) => ({ href: helpCaseHref(item), title: item.title, type: item.category === "utulky" ? "Útulok" : "Pomoc psom", description: `${item.excerpt} · ${item.city}`, keywords: `${getHelpCategory(item.category)?.label ?? ""} ${item.organization} ${item.region} ${item.dogName} ${item.breed} ${item.description}` })),
-    ...adoptions.map((dog) => ({ href: adoptionDetailPath(dog.slug), title: dog.name, type: "Pes na adopciu", description: `${dog.shortDescription} · ${dog.city}`, keywords: `${dog.breedName} ${dog.organizationName} ${dog.region} ${dog.district} ${dog.city} ${dog.description}` })),
-  ];
+/** @deprecated Full in-memory portal indexes are intentionally disabled by SEARCH-1. */
+export async function getPortalSearchIndex(): Promise<PortalSearchItem[]> {
+  return [];
+}
 
-  return uniqueItems(items);
+/** Header search submits to /hladat and therefore uses the same server search contract. */
+export async function getHeaderSearchIndex(): Promise<PortalSearchItem[]> {
+  return [];
+}
+
+export function portalSearchFallbacks(parsed: ParsedPortalSearchQuery) {
+  const links: Array<{ href: string; label: string }> = [];
+  if (parsed.directoryCategory) {
+    const category = getDirectoryCategory(parsed.directoryCategory);
+    if (parsed.location?.level === "city" && parsed.location.district) {
+      const params = new URLSearchParams({ region: parsed.location.region, district: parsed.location.district });
+      links.push({ href: `/adresar/${parsed.directoryCategory}?${params}`, label: `Skúsiť celý okres ${parsed.location.district}` });
+    }
+    links.push({ href: `/adresar/${parsed.directoryCategory}`, label: category ? `Všetky: ${category.label}` : "Otvoriť adresár" });
+  } else if (parsed.eventType) {
+    links.push({ href: "/podujatia", label: "Pozrieť všetky podujatia" });
+  } else if (parsed.entityIntent === "adoption") {
+    links.push({ href: "/pomoc-psom/adopcia", label: "Psy na adopciu" });
+  } else if (parsed.entityIntent === "organization") {
+    links.push({ href: "/pomoc-psom/utulky", label: getHelpCategory("utulky")?.label ?? "Útulky a organizácie" });
+  } else if (parsed.entityIntent === "lost-found") {
+    links.push({ href: "/pomoc-psom/stratene-a-najdene", label: "Stratené a nájdené psy" });
+  }
+  return links;
 }
