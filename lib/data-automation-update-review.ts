@@ -8,6 +8,10 @@ import {
   type AutomationFindingType,
 } from "./data-automation.ts";
 import { automationFieldLabel, automationSourceDomain } from "./admin-automation-presentation.ts";
+import { eventTypes, slovakRegions } from "./events.ts";
+import { adoptionRegions, adoptionSexes, adoptionSizes } from "./adoption.ts";
+import { organizationPublicationTypes } from "./help-organization-publication.ts";
+import { dogSexes, dogSizes } from "./lost-found-dogs.ts";
 import {
   mergeDirectoryPublicContactData,
   readDirectoryPublicContacts,
@@ -93,6 +97,9 @@ type FieldSpec = {
   label?: string;
   directoryContact?: "phone" | "email" | "facebook" | "instagram";
   max?: number;
+  allowed?: readonly string[];
+  minNumber?: number;
+  maxNumber?: number;
 };
 type EntityConfig = {
   table: string;
@@ -142,9 +149,9 @@ const commonAliases: Record<string, string> = {
   service_address_confirmation: "serviceAddressConfirmation",
 };
 
-const text = (column: string, label?: string, max = 10000): FieldSpec => ({ column, kind: "text", label, max });
+const text = (column: string, label?: string, max = 10000, allowed?: readonly string[]): FieldSpec => ({ column, kind: "text", label, max, allowed });
 const url = (column: string, label?: string): FieldSpec => ({ column, kind: "url", label, max: 2048 });
-const number = (column: string, label?: string): FieldSpec => ({ column, kind: "number", label });
+const number = (column: string, label?: string, minNumber?: number, maxNumber?: number): FieldSpec => ({ column, kind: "number", label, minNumber, maxNumber });
 const bool = (column: string, label?: string): FieldSpec => ({ column, kind: "boolean", label });
 const json = (column: string, label?: string): FieldSpec => ({ column, kind: "json", label });
 const email = (column: string, label?: string): FieldSpec => ({ column, kind: "email", label, max: 320 });
@@ -185,7 +192,7 @@ const configs: Record<AutomationEntityType, EntityConfig> = {
       name: text("name", "Názov", 240),
       legalName: text("legal_name", "Právny názov", 300),
       registrationNumber: text("registration_number", "Registračné číslo", 120),
-      type: text("type", "Typ organizácie", 80),
+      type: text("type", "Typ organizácie", 80, organizationPublicationTypes),
       shortDescription: text("short_description", "Krátky popis", 1000),
       description: text("description", "Popis"),
       publicEmail: email("public_email", "Verejný e-mail"),
@@ -203,14 +210,14 @@ const configs: Record<AutomationEntityType, EntityConfig> = {
     fields: {
       title: text("title", "Názov", 300),
       excerpt: text("excerpt", "Krátky popis", 1000),
-      eventType: text("event_type", "Typ podujatia", 120),
+      eventType: text("event_type", "Typ podujatia", 120, eventTypes),
       startDate: text("start_date", "Dátum začiatku", 20),
       startTime: text("start_time", "Čas začiatku", 20),
       endDate: text("end_date", "Dátum konca", 20),
       endTime: text("end_time", "Čas konca", 20),
       venue: text("venue", "Miesto", 300),
       city: text("city", "Obec / mesto", 200),
-      region: text("region", "Kraj", 120),
+      region: text("region", "Kraj", 120, slovakRegions),
       address: text("address", "Adresa", 400),
       organizer: text("organizer", "Organizátor", 300),
       description: text("description", "Popis"),
@@ -225,15 +232,15 @@ const configs: Record<AutomationEntityType, EntityConfig> = {
     aliases: commonAliases,
     fields: {
       name: text("name", "Meno", 240),
-      sex: text("sex", "Pohlavie", 40),
+      sex: text("sex", "Pohlavie", 40, adoptionSexes),
       birthDate: text("birth_date", "Dátum narodenia", 20),
-      approximateAgeMonths: number("approximate_age_months", "Približný vek v mesiacoch"),
-      size: text("size", "Veľkosť", 40),
-      weight: number("weight", "Hmotnosť"),
+      approximateAgeMonths: number("approximate_age_months", "Približný vek v mesiacoch", 0, 360),
+      size: text("size", "Veľkosť", 40, adoptionSizes),
+      weight: number("weight", "Hmotnosť", 0, 200),
       breedName: text("breed_name", "Plemeno", 240),
       breedMix: bool("breed_mix", "Kríženec"),
       color: text("color", "Farba", 160),
-      region: text("region", "Kraj", 120),
+      region: text("region", "Kraj", 120, adoptionRegions),
       district: text("district", "Okres", 160),
       city: text("city", "Mesto", 160),
       organizationName: text("organization_name", "Organizácia", 300),
@@ -261,8 +268,8 @@ const configs: Record<AutomationEntityType, EntityConfig> = {
       deadlineDate: text("deadline_date", "Termín", 20),
       actionUrl: url("action_url", "Odkaz"),
       contactNote: text("contact_note", "Kontaktná poznámka", 1000),
-      goalAmount: number("goal_amount", "Cieľová suma"),
-      raisedAmount: number("raised_amount", "Vyzbierané"),
+      goalAmount: number("goal_amount", "Cieľová suma", 0),
+      raisedAmount: number("raised_amount", "Vyzbierané", 0),
     },
   },
   HELP_ITEM: {
@@ -296,11 +303,11 @@ const configs: Record<AutomationEntityType, EntityConfig> = {
     manualFields: new Set(["type", "status"]),
     fields: {
       dogName: text("dog_name", "Meno psa", 160),
-      sex: text("sex", "Pohlavie", 40),
+      sex: text("sex", "Pohlavie", 40, dogSexes),
       breed: text("breed", "Plemeno", 240),
       color: text("color", "Farba", 160),
       approximateAge: text("approximate_age", "Približný vek", 160),
-      size: text("size", "Veľkosť", 40),
+      size: text("size", "Veľkosť", 40, dogSizes),
       description: text("description", "Popis"),
       eventDate: text("event_date", "Dátum udalosti", 20),
       region: text("region", "Kraj", 120),
@@ -412,6 +419,12 @@ function validateValue(field: string, spec: FieldSpec, value: unknown) {
   const normalized = normalizedValue(spec, value);
   if (spec.kind === "number") {
     if (normalized !== null && typeof normalized !== "number") throw new AutomationUpdateReviewValidationError();
+    if (typeof normalized === "number" && spec.minNumber !== undefined && normalized < spec.minNumber) {
+      throw new AutomationUpdateReviewValidationError("Navrhovaná číselná hodnota je príliš nízka.");
+    }
+    if (typeof normalized === "number" && spec.maxNumber !== undefined && normalized > spec.maxNumber) {
+      throw new AutomationUpdateReviewValidationError("Navrhovaná číselná hodnota je príliš vysoká.");
+    }
     return normalized;
   }
   if (spec.kind === "boolean") return Boolean(normalized);
@@ -422,6 +435,9 @@ function validateValue(field: string, spec: FieldSpec, value: unknown) {
   }
   const result = String(normalized ?? "");
   if (spec.max && result.length > spec.max) throw new AutomationUpdateReviewValidationError("Navrhovaná hodnota je príliš dlhá.");
+  if (spec.allowed && result && !spec.allowed.includes(result)) {
+    throw new AutomationUpdateReviewValidationError("Navrhovaná hodnota nie je povolená pre toto pole.");
+  }
   if (spec.kind === "url" && result) {
     try {
       const parsed = new URL(result);
