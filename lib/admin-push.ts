@@ -469,6 +469,24 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
       AND NOT EXISTS (
         SELECT 1 FROM admin_push_event_deliveries d
         WHERE d.event_id = admin_notification_events.id AND d.status IN ('pending','failed')
+      )
+      AND NOT (
+        source_type='AUTOMATION_ACTION'
+        AND event_type='automation_draft_created'
+        AND (
+          (resource_type IN ('automation_draft_veterinari','automation_draft_psie-sluzby')
+            AND EXISTS (SELECT 1 FROM directory_profiles p WHERE p.id=CAST(resource_ref AS INTEGER) AND LOWER(p.status)='draft'))
+          OR (resource_type='automation_draft_utulky-organizacie'
+            AND EXISTS (SELECT 1 FROM help_organizations o WHERE o.id=CAST(resource_ref AS INTEGER) AND LOWER(o.status)='draft'))
+          OR (resource_type='automation_draft_podujatia'
+            AND EXISTS (SELECT 1 FROM managed_events e WHERE e.id=CAST(resource_ref AS INTEGER) AND LOWER(e.status)='draft'))
+          OR (resource_type='automation_draft_adopcie'
+            AND EXISTS (SELECT 1 FROM adoption_dogs a WHERE a.id=CAST(resource_ref AS INTEGER) AND LOWER(a.status)='draft'))
+          OR (resource_type='automation_draft_docasna-opatera'
+            AND EXISTS (SELECT 1 FROM help_cases h WHERE h.id=CAST(resource_ref AS INTEGER) AND LOWER(h.status)='draft'))
+          OR (resource_type='automation_draft_stratene-najdene'
+            AND EXISTS (SELECT 1 FROM lost_found_dog_reports l WHERE l.id=CAST(resource_ref AS INTEGER) AND LOWER(l.status)='draft'))
+        )
       )`).bind(eventRetentionCutoff).run();
   await resolved.database.prepare(
     "DELETE FROM admin_push_subscriptions WHERE enabled = 0 AND updated_at < ?",
