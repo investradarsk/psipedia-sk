@@ -1013,8 +1013,8 @@ export async function listManagedDirectoryProfileSummaries(options: {
   };
 }
 
-export async function getManagedDirectoryProfileById(id: number) {
-  const database = requireD1Binding();
+export async function getManagedDirectoryProfileById(id: number, databaseInput?: D1Database) {
+  const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const row = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1").bind(id).first<DirectoryProfileRow>();
   return row ? rowToManagedProfile(row) : null;
@@ -1044,32 +1044,54 @@ export async function createManagedDirectoryProfile(payload: ManagedDirectoryPro
   return rowToManagedProfile(row);
 }
 
-export async function updateManagedDirectoryProfile(id: number, payload: ManagedDirectoryProfileInput, editorEmail: string, existingProfile?: ManagedDirectoryProfile) {
-  const database = requireD1Binding();
-  await ensureDirectoryStore(database);
-  const existing = existingProfile ?? await getManagedDirectoryProfileById(id);
-  if (!existing) return null;
+export function buildManagedDirectoryProfileUpdateStatement(
+  database: D1Database,
+  id: number,
+  payload: ManagedDirectoryProfileInput,
+  editorEmail: string,
+  existing: ManagedDirectoryProfile,
+  now: string,
+  expectedUpdatedAt?: string,
+) {
   if (existing.status === "archived") throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
   const input = normalizeManagedDirectoryProfileInput(payload, existing.importData, {
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
   });
-  const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
-  const row = await database.prepare(`
-    UPDATE directory_profiles SET
-      slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
-      qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
-      address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
-      internal_email = ?, image_url = ?, image_key = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
-    WHERE id = ? RETURNING *
-  `).bind(
+  const guard = expectedUpdatedAt ? " AND updated_at = ?" : "";
+  const bindings = [
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
     input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
+    ...(expectedUpdatedAt ? [expectedUpdatedAt] : []),
+  ];
+  return database.prepare(`
+    UPDATE directory_profiles SET
+      slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
+      qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
+      address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
+      internal_email = ?, image_url = ?, image_key = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
+    WHERE id = ?${guard} RETURNING *
+  `).bind(...bindings);
+}
+
+export async function updateManagedDirectoryProfile(id: number, payload: ManagedDirectoryProfileInput, editorEmail: string, existingProfile?: ManagedDirectoryProfile) {
+  const database = requireD1Binding();
+  await ensureDirectoryStore(database);
+  const existing = existingProfile ?? await getManagedDirectoryProfileById(id, database);
+  if (!existing) return null;
+  const now = new Date().toISOString();
+  const row = await buildManagedDirectoryProfileUpdateStatement(
+    database,
+    id,
+    payload,
+    editorEmail,
+    existing,
+    now,
   ).first<DirectoryProfileRow>();
   if (!row) return null;
   await reconcileGeoAfterSourceMutation({
