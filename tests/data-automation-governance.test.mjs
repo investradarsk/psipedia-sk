@@ -123,10 +123,13 @@ test("0084 is additive, shared-subject, immutable-history and has no implicit ap
 });
 
 test("new source activation is governance-gated without changing candidate provisioning semantics", async () => {
-  const store = await readFile(path.join(repoRoot, "lib/data-automation-source-store.ts"), "utf8");
-  assert.match(store, /existing\.reviewStatus !== "APPROVED"/);
-  assert.match(store, /getGovernanceState\(\{ type: "AUTOMATION_SOURCE", id: input\.id \}/);
-  assert.match(store, /evaluateGovernanceForActivation/);
+  const [store, activation] = await Promise.all([
+    readFile(path.join(repoRoot, "lib/data-automation-source-store.ts"), "utf8"),
+    readFile(path.join(repoRoot, "lib/data-automation-source-activation.ts"), "utf8"),
+  ]);
+  assert.match(activation, /source\.reviewStatus !== "APPROVED"/);
+  assert.match(activation, /getGovernanceState\(\{ type: "AUTOMATION_SOURCE", id: source\.id \}/);
+  assert.match(activation, /evaluateGovernanceForActivation/);
   assert.match(store, /automation_source_governance_blocked/);
   assert.match(store, /VALUES \(\?,\?,\?,\?,\?,\?,0,/);
 });
@@ -264,4 +267,20 @@ test("runtime enforces explicit governance decisions while preserving legacy ena
   assert.match(discoveryStore, /Legacy transition remains for non-search roots only/);
   assert.match(discoveryStore, /root\.discoveryType === "SEARCH_PROVIDER"/);
   assert.match(discoveryStore, /"snippet"/);
+});
+
+
+test("source-only approval separates technical evidence from explicit operator decisions", async () => {
+  const activation = await readFile(path.join(repoRoot, "lib/data-automation-source-activation.ts"), "utf8");
+  assert.match(activation, /probeAccess/);
+  assert.match(activation, /probeRobots/);
+  assert.match(activation, /termsStatus: "ALLOWED"/);
+  assert.match(activation, /recurringStatus: "APPROVED"/);
+  assert.match(activation, /retentionStatus: "RESTRICTED"/);
+  assert.match(activation, /retainUrl: true/);
+  assert.match(activation, /retainMetadata: true/);
+  assert.match(activation, /retainTitle: false/);
+  assert.match(activation, /retainSnippet: false/);
+  assert.match(activation, /Discovery-root governance was not inherited/);
+  assert.doesNotMatch(activation, /tavilySearchGovernancePresetForRoot|TAVILY_SEARCH_GOVERNANCE/);
 });
