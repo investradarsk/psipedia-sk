@@ -1,6 +1,6 @@
 import { normalizeGeoText } from "@/lib/geo";
 import { GeoapifyGeocoder } from "@/lib/geoapify-geocoder";
-import { type GeocoderProvider, type NormalizedGeocoderResult } from "@/lib/geo-provider";
+import { GeocoderProviderError, type GeocoderProvider, type NormalizedGeocoderResult } from "@/lib/geo-provider";
 import { normalizeSlovakPostalCode } from "@/lib/directory-service-address";
 import {
   SLOVAK_DISTRICTS_BY_REGION,
@@ -345,9 +345,28 @@ export async function verifyDirectoryAddressSelection(input: {
   });
 }
 
+export type DirectoryAddressReviewReason = "MULTIPLE_EXACT_CANDIDATES";
+
+export type DirectoryAddressReviewCandidate = {
+  provider: string;
+  providerResultId: string | null;
+  formattedAddress: string;
+  region: string;
+  district: string;
+  city: string;
+  postalCode: string;
+  street: string;
+  houseNumber: string;
+  addressFormat: "STREET" | "MUNICIPALITY_NUMBER";
+  latitude: number;
+  longitude: number;
+};
+
 export type ExternalDirectoryAddressVerification = {
   status: "VERIFIED_EXACT" | "NEEDS_REVIEW";
   verified: VerifiedDirectoryAddress | null;
+  reviewReason: DirectoryAddressReviewReason | null;
+  reviewCandidates: DirectoryAddressReviewCandidate[];
 };
 
 function normalizedProviderAdminName(value: string) {
@@ -487,6 +506,61 @@ function exactExternalAddressCandidate(input: {
   } satisfies VerifiedDirectoryAddress;
 }
 
+function reviewCandidateFromVerified(verified: VerifiedDirectoryAddress): DirectoryAddressReviewCandidate {
+  const result = verified.providerResult;
+  const firstLine = verified.addressFormat === "STREET"
+    ? [verified.street, verified.houseNumber].filter(Boolean).join(" ")
+    : [verified.city, verified.houseNumber].filter(Boolean).join(" ");
+  return {
+    provider: result.provider,
+    providerResultId: result.providerResultId,
+    formattedAddress: result.formatted?.trim()
+      || [firstLine, [verified.postalCode, verified.city].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+    region: verified.region,
+    district: verified.district,
+    city: verified.city,
+    postalCode: verified.postalCode,
+    street: verified.street,
+    houseNumber: verified.houseNumber,
+    addressFormat: verified.addressFormat,
+    latitude: result.latitude,
+    longitude: result.longitude,
+  };
+}
+
+function boundedReviewCandidates(accepted: VerifiedDirectoryAddress[]) {
+  const seen = new Set<string>();
+  const candidates: DirectoryAddressReviewCandidate[] = [];
+  for (const verified of accepted) {
+    const candidate = reviewCandidateFromVerified(verified);
+    const key = [
+      candidate.provider,
+      candidate.providerResultId ?? "",
+      normalizeGeoText(candidate.region),
+      normalizeGeoText(candidate.district),
+      normalizeGeoText(candidate.city),
+      normalizeSlovakPostalCode(candidate.postalCode),
+      normalizeGeoText(candidate.street),
+      candidate.houseNumber.trim().toUpperCase(),
+      candidate.addressFormat,
+      candidate.latitude.toFixed(6),
+      candidate.longitude.toFixed(6),
+    ].join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push(candidate);
+    if (candidates.length >= 5) break;
+  }
+  return candidates;
+}
+
+function needsExternalAddressReview(
+  reviewReason: DirectoryAddressReviewReason | null = null,
+  reviewCandidates: DirectoryAddressReviewCandidate[] = [],
+): ExternalDirectoryAddressVerification {
+  return { status: "NEEDS_REVIEW", verified: null, reviewReason, reviewCandidates };
+}
+
 export async function verifyExternalDirectoryAddressEvidenceBestEffort(input: {
   evidence: string;
   expectedStreet?: string;
@@ -497,10 +571,10 @@ export async function verifyExternalDirectoryAddressEvidenceBestEffort(input: {
   signal?: AbortSignal;
 }): Promise<ExternalDirectoryAddressVerification> {
   const evidence = input.evidence.trim().replace(/\s+/g, " ").slice(0, 320);
-  if (evidence.length < 5) return { status: "NEEDS_REVIEW", verified: null };
+  if (evidence.length < 5) return needsExternalAddressReview();
   try {
     const provider = input.provider ?? new GeoapifyGeocoder();
-    if (!provider.isConfigured()) return { status: "NEEDS_REVIEW", verified: null };
+    if (!provider.isConfigured()) return needsExternalAddressReview();
     const results = await provider.geocodeExact({
       query: evidence + (/(?:slovensko|slovakia)/i.test(evidence) ? "" : ", Slovensko"),
       precision: "EXACT",
@@ -516,7 +590,7 @@ export async function verifyExternalDirectoryAddressEvidenceBestEffort(input: {
         expectedCity: input.expectedCity,
       }))
       .filter((item): item is VerifiedDirectoryAddress => Boolean(item));
-    if (!accepted.length) return { status: "NEEDS_REVIEW", verified: null };
+    if (!accepted.length) return needsExternalAddressReview();
 
     const first = accepted[0];
     const ambiguous = accepted.slice(1).some((item) =>
@@ -527,11 +601,81 @@ export async function verifyExternalDirectoryAddressEvidenceBestEffort(input: {
       )
     );
     return ambiguous
-      ? { status: "NEEDS_REVIEW", verified: null }
-      : { status: "VERIFIED_EXACT", verified: first };
+      ? needsExternalAddressReview("MULTIPLE_EXACT_CANDIDATES", boundedReviewCandidates(accepted))
+      : {
+          status: "VERIFIED_EXACT",
+          verified: first,
+          reviewReason: null,
+          reviewCandidates: [],
+        };
   } catch {
-    return { status: "NEEDS_REVIEW", verified: null };
+    return needsExternalAddressReview();
   }
+}
+
+function reviewSelectionMatches(
+  selected: DirectoryAddressReviewCandidate,
+  verified: VerifiedDirectoryAddress,
+) {
+  return selected.addressFormat === verified.addressFormat
+    && normalizeGeoText(selected.region) === normalizeGeoText(verified.region)
+    && normalizeGeoText(selected.district) === normalizeGeoText(verified.district)
+    && normalizeGeoText(selected.city) === normalizeGeoText(verified.city)
+    && normalizeSlovakPostalCode(selected.postalCode) === normalizeSlovakPostalCode(verified.postalCode)
+    && normalizeGeoText(selected.street) === normalizeGeoText(verified.street)
+    && normalizeHouseNumberToken(selected.houseNumber) === normalizeHouseNumberToken(verified.houseNumber);
+}
+
+export async function verifyAutomationAddressReviewSelection(input: {
+  candidate: DirectoryAddressReviewCandidate;
+  provider?: GeocoderProvider;
+  signal?: AbortSignal;
+}) {
+  const provider = input.provider ?? new GeoapifyGeocoder();
+  if (!provider.isConfigured()) {
+    throw new GeocoderProviderError("DISABLED", "Adresu sa teraz nepodarilo znovu overiť.");
+  }
+  const candidate = input.candidate;
+  const locationOrStreet = candidate.addressFormat === "STREET" ? candidate.street : candidate.city;
+  const query = [
+    locationOrStreet,
+    candidate.houseNumber,
+    candidate.postalCode,
+    candidate.city,
+    candidate.district,
+    candidate.region,
+    "Slovensko",
+  ].filter(Boolean).join(", ");
+  const results = await provider.geocodeExact({
+    query,
+    precision: "EXACT",
+    countryCode: "SK",
+    structuredAddress: candidate.addressFormat === "STREET"
+      ? {
+          housenumber: candidate.houseNumber,
+          street: candidate.street,
+          postcode: candidate.postalCode,
+          city: candidate.city,
+          state: candidate.region,
+          country: "Slovakia",
+        }
+      : undefined,
+    signal: input.signal,
+  });
+  const verified = results
+    .map((result) => exactExternalAddressCandidate({
+      result,
+      expectedStreet: candidate.addressFormat === "STREET" ? candidate.street : undefined,
+      expectedHouseNumber: candidate.houseNumber,
+      expectedPostalCode: candidate.postalCode,
+      expectedCity: candidate.city,
+    }))
+    .filter((item): item is VerifiedDirectoryAddress => Boolean(item))
+    .find((item) => reviewSelectionMatches(candidate, item));
+  if (!verified) {
+    throw new Error("automation_address_review_revalidation_changed");
+  }
+  return verified;
 }
 
 function splitExternalAddress(address: string, city: string) {
@@ -554,7 +698,7 @@ export async function verifyExternalDirectoryAddressBestEffort(input: {
   try {
     const locality = requireLocality(input.region, input.district, input.city);
     const parsed = splitExternalAddress(input.address, locality.city);
-    if (!parsed) return { status: "NEEDS_REVIEW", verified: null };
+    if (!parsed) return needsExternalAddressReview();
 
     const verified = await verifyDirectoryCanonicalAddress({
       ...locality,
@@ -564,8 +708,8 @@ export async function verifyExternalDirectoryAddressBestEffort(input: {
       provider: input.provider,
       signal: input.signal,
     });
-    return { status: "VERIFIED_EXACT", verified };
+    return { status: "VERIFIED_EXACT", verified, reviewReason: null, reviewCandidates: [] };
   } catch {
-    return { status: "NEEDS_REVIEW", verified: null };
+    return needsExternalAddressReview();
   }
 }

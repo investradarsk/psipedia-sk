@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminAutomationCategorySources } from "@/components/admin-automation-category-sources";
 import { AdminAutomationSearchControls } from "@/components/admin-automation-search-controls";
 import { AdminShell } from "@/components/admin-shell";
+import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import {
   automationCategoryBySlug,
@@ -13,6 +14,7 @@ import {
 import { listAutomationDiscoveryRoots } from "@/lib/data-automation-discovery-store";
 import { listAutomationSourceCandidates, listAutomationSourcesAdmin } from "@/lib/data-automation-source-store";
 import { isTavilySearchDiscoveryRoot } from "@/lib/tavily-canary-control";
+import { countOpenAutomationAddressReviews } from "@/lib/data-automation-address-review-store";
 import {
   getDirectEntityRefreshSetting,
   listAutomationSourceCanonicalContent,
@@ -58,6 +60,12 @@ export default async function AutomationCategoryPage({ params }: Props) {
       ] as const))
     : [];
   const sourceContent = Object.fromEntries(sourceContentEntries);
+  const addressReviewCategory = slug === "veterinari" || slug === "psie-sluzby"
+    ? slug
+    : null;
+  const addressReviewCount = addressReviewCategory
+    ? await countOpenAutomationAddressReviews(addressReviewCategory).catch(() => 0)
+    : 0;
 
   return (
     <AdminShell
@@ -69,6 +77,23 @@ export default async function AutomationCategoryPage({ params }: Props) {
         : "Správa opakovaných zdrojov a obsahu, ktorý z nich automatizácia našla."}
       actions={<Link href="/admin/automatizacie">← Všetky kategórie</Link>}
     >
+      {addressReviewCategory ? (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Adresy na kontrolu</h2>
+              <p>Nejednoznačné exact adresy, pri ktorých musí správnu budovu potvrdiť administrátor.</p>
+            </div>
+            <span className={styles.sectionCount}>{addressReviewCount}</span>
+          </div>
+          <Link
+            className={styles.itemAction}
+            href={`/admin/automatizacie/adresy?category=${addressReviewCategory}`}
+          >
+            Adresy na kontrolu · {addressReviewCount}
+          </Link>
+        </section>
+      ) : null}
       <AdminAutomationSearchControls categorySlug={slug} roots={discoveryRoots} />
       <AdminAutomationCategorySources
         category={category}
