@@ -10,7 +10,6 @@ import {
   automationFindingPriority,
   automationReviewEffect,
   canonicalizeSourceUrl,
-  nextAutomationCheckAt,
   shouldReopenSuppressedFinding,
   type AutomationDiff,
   type AutomationFindingType,
