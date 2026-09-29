@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { ProfileReviewSection } from "@/components/profile-review-section";
+import { RelatedBreedList } from "@/components/related-entity-list";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
@@ -15,6 +16,7 @@ import { Breadcrumbs, MediaFrame } from "@/components/page-system";
 import { getDirectoryCategory } from "@/lib/directory";
 import type { DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
 import type { PublicProfileReviewData } from "@/lib/profile-review-read";
+import type { PublicRelatedBreed } from "@/lib/content-relations";
 import styles from "./directory-profile-detail.module.css";
 
 export function DirectoryProfileDetail({
@@ -23,12 +25,14 @@ export function DirectoryProfileDetail({
   reviewReadError = false,
   commercial,
   publicMap,
+  relatedBreeds = [],
 }: {
   presentation: DirectoryDetailPresentation;
   reviews: PublicProfileReviewData | null;
   reviewReadError?: boolean;
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
   publicMap?: PublicEntityMapResult & PublicMapRuntime;
+  relatedBreeds?: PublicRelatedBreed[];
 }) {
   const category = getDirectoryCategory(presentation.category);
   const hasEmbeddedMap = Boolean(publicMap?.items.length);
@@ -162,6 +166,12 @@ export function DirectoryProfileDetail({
               </ul>
             </DetailSection>
           )}
+
+          {relatedBreeds.length > 0 ? (
+            <DetailSection eyebrow="Explicitné prepojenie" title="Plemená prepojené s týmto profilom">
+              <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto profilom" />
+            </DetailSection>
+          ) : null}
 
           {hasEmbeddedMap && publicMap ? (
             <PublicLocationMap
