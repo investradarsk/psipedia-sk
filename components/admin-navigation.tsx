@@ -49,13 +49,10 @@ function focusableElements(root: HTMLElement) {
 export function AdminNavigation({ stickyClassName }: { stickyClassName: string }) {
   const pathname = usePathname();
   const active = findActiveAdminNavigationItem(pathname);
-  const [open, setOpen] = useState(false);
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const open = openPath === pathname;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -69,7 +66,7 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        setOpen(false);
+        setOpenPath(null);
         requestAnimationFrame(() => triggerRef.current?.focus());
         return;
       }
@@ -95,7 +92,7 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   }, [open]);
 
   const closeDrawer = () => {
-    setOpen(false);
+    setOpenPath(null);
     requestAnimationFrame(() => triggerRef.current?.focus());
   };
 
@@ -124,7 +121,7 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
           aria-expanded={open}
           aria-controls="admin-mobile-menu"
           aria-haspopup="dialog"
-          onClick={() => setOpen(true)}
+          onClick={() => setOpenPath(pathname)}
         >
           Menu
         </button>
