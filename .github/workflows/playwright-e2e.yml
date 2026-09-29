@@ -803,6 +803,7 @@ jobs:
           PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
           PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
           TURNSTILE_SITE_KEY=1x00000000000000000000AA
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1
           LOST_FOUND_SUBMISSIONS_ENABLED=1
           EOF
       - name: Apply clean schema to isolated local D1 only
@@ -845,7 +846,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: lost-found-1-e2e-\${{ github.run_attempt }}
+          name: lost-found-1-e2e-${{ github.run_attempt }}
           path: |
             .e2e-artifacts/lost-found-1/
             playwright-report/
