@@ -153,7 +153,7 @@
 .metricValue span {
   max-width: 130px;
   padding-bottom: 3px;
-  color: #6c7c75;
+  color: #586c63;
   font-size: .72rem;
   font-weight: 750;
   line-height: 1.25;
@@ -161,9 +161,13 @@
 
 .metricCard p {
   margin: 0;
-  color: #65766f;
+  color: #566a61;
   font-size: .8rem;
   line-height: 1.55;
+}
+
+.metricCard.metricCardPrimary p {
+  color: #cfe0d7;
 }
 
 .metricCard b {
