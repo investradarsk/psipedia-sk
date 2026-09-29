@@ -72,7 +72,7 @@ export default async function Home() {
           <div className="hero-copy">
             <span className="hero-kicker"><SparkIcon size={17} /> Slovenský portál pre psí život</span>
             <h1>Rozumej svojmu psovi.<br /><em>Každý deň o trochu viac.</em></h1>
-            <p>Overené informácie, služby, podujatia a pomoc pre každodenný život so psom.</p>
+            <p>Informácie, služby, podujatia a pomoc pre každodenný život so psom.</p>
           </div>
         </div>
       </section>
@@ -239,7 +239,7 @@ export default async function Home() {
                       {item.urgent ? <b>Urgentné</b> : null}
                     </span>
                     <strong>{item.title}</strong>
-                    <small>{item.city}{item.verified ? " · Overené" : ""}</small>
+                    <small>{item.city}</small>
                   </span>
                 </Link>
               </article>
