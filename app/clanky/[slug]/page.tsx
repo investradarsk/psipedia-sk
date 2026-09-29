@@ -8,6 +8,7 @@ import { sanitizePublicArticleContent } from "@/lib/article-content-remediation"
 import { articles as seedArticles } from "@/lib/content";
 import { articleHref } from "@/lib/portal";
 import { legacyArticleRedirectPath } from "@/lib/legacy-public-redirects";
+import { listRelatedBreedsForArticle } from "@/lib/content-relations";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +37,16 @@ export default async function LegacyArticlePage({ params }: Props) {
   const canonical = articleHref(article);
   if (canonical !== `/clanky/${slug}`) redirect(canonical);
 
-  const [magazine, authorProfile] = await Promise.all([
+  const [magazine, authorProfile, relatedBreeds] = await Promise.all([
     getArticleMagazineData(article),
     getPublishedArticleAuthorProfile(article),
+    listRelatedBreedsForArticle(article.slug).catch((error) => {
+      console.error("Public article breed relations read failed", {
+        articleSlug: article.slug,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} authorProfile={authorProfile} />;
+  return <ArticleDetail article={article} magazine={magazine} authorProfile={authorProfile} relatedBreeds={relatedBreeds} />;
 }
