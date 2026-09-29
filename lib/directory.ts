@@ -29,7 +29,7 @@ export const directoryCategories = [
     label: "Chovateľské stanice",
     singular: "Chovateľská stanica",
     icon: "🏡",
-    description: "Preverené chovateľské stanice s jasnými informáciami o plemene a vrhoch.",
+    description: "Chovateľské stanice s dostupnými údajmi o plemene, zameraní a chove.",
   },
   {
     slug: "salony-a-sluzby",

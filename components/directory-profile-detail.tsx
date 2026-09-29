@@ -92,7 +92,6 @@ export function DirectoryProfileDetail({
             <div className={styles.heroCopy}>
               <div className={styles.badges}>
                 <span className={styles.categoryBadge}>{category?.singular ?? category?.label}</span>
-                {presentation.verified && <span className={styles.verifiedBadge}>Overené</span>}
                 {presentation.featured && <span className={styles.featuredBadge}>Odporúčame</span>}
                 {commercial?.premium && <span className={styles.premiumBadge} title="Platené rozšírenie profilu.">Premium profil</span>}
                 {commercial?.promoted && <span className={styles.sponsoredBadge}>{commercial.sponsoredLabel ?? "Sponzorované"}</span>}
