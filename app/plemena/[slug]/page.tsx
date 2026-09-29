@@ -301,7 +301,7 @@ export default async function BreedDetailPage({ params }: Props) {
     relations.articles.length ? { id: "suvisiaci-obsah", label: "Články" } : null,
     hasBreederContacts ? { id: "chov-a-kluby", label: "Chov a kluby" } : null,
     { id: "uzitocne", label: "Užitočné odkazy" },
-    relations.similarBreeds.length ? { id: "podobne", label: "Prepojené plemená" } : null,
+    relations.similarBreeds.length ? { id: "podobne", label: "Podobné plemená" } : null,
   ].filter((item): item is { id: string; label: string } => Boolean(item));
 
   return (
@@ -623,7 +623,7 @@ export default async function BreedDetailPage({ params }: Props) {
 
       {relations.similarBreeds.length > 0 ? (
         <section id="podobne" className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}>
-          <header><span className="eyebrow">Súvisiace plemená</span><h2>Prepojené plemená</h2></header>
+          <header><span className="eyebrow">Súvisiace plemená</span><h2>Podobné plemená</h2></header>
           <div className="breed-similar-grid">
             {relations.similarBreeds.map((item) => (
               <Link href={item.href} key={item.id}>
