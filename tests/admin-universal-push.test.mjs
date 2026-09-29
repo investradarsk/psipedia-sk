@@ -213,7 +213,8 @@ test("one five-minute cron preserves hourly full work while allowing bounded aut
   assert.match(fastBranch,/runDataAutomationDiscoverySweep/);
   assert.match(fastBranch,/five_minute_due_check/);
   assert.match(fastBranch,/return;/);
-  assert.doesNotMatch(fastBranch,/runNotion|runEditorialNotificationSweep|runPartnerNotificationSweep/);
+  assert.match(fastBranch,/runNotionDirectorySyncSweep/);
+  assert.doesNotMatch(fastBranch,/runNotion(?:Article|Breed|Event)SyncSweep|runEditorialNotificationSweep|runPartnerNotificationSweep/);
   assert.match(worker,/const adminPush = await runScheduledAdminPush\(env\)/);
 });
 
