@@ -245,9 +245,12 @@ async function main() {
 
   const directoryRaw = readPaged(db, configPath, `
     SELECT d.id,d.slug,d.name,d.category,d.status,d.published_at,d.archived_at,d.online,
-      d.address,d.city,d.district,d.region,d.website_url,d.verified,d.featured,
+      d.address,d.city,d.district,d.region,d.postal_code,d.street,d.house_number,d.address_format,d.service_address_confirmation,
+      d.website_url,d.verified,d.featured,
       o.id organization_id,o.slug organization_slug,o.name organization_name,
       g.id geo_point_id,g.geocode_status,g.public_visibility,g.public_precision,
+      g.latitude,g.longitude,g.provider,g.normalized_query,g.source_fingerprint,g.resolved_source_fingerprint,
+      g.google_place_id,g.google_place_source_fingerprint,
       CASE WHEN g.geocode_status='RESOLVED'
         AND g.public_visibility IN ('EXACT_PUBLIC','APPROXIMATE_PUBLIC')
         AND g.latitude IS NOT NULL AND g.longitude IS NOT NULL
@@ -267,10 +270,17 @@ async function main() {
       id: number(row.id), slug: text(row.slug), name: text(row.name), category: text(row.category), subcategory: "",
       published_state: text(row.status), archived_state: row.archived_at ? "ARCHIVED" : "ACTIVE",
       online: bool(row.online) ? 1 : 0,
-      street: "", house_number: "", postal_code: "", city: text(row.city), district: text(row.district), region: text(row.region), country: "",
-      address: text(row.address), formatted_address: "", website: text(row.website_url), phone: "",
+      street: text(row.street), house_number: text(row.house_number), postal_code: text(row.postal_code), city: text(row.city), district: text(row.district), region: text(row.region), country: "SK",
+      address_format: text(row.address_format), service_address_confirmation: text(row.service_address_confirmation),
+      address: text(row.address), formatted_address: [text(row.street), text(row.house_number), text(row.postal_code), text(row.city)].filter(Boolean).join(" "), website: text(row.website_url), phone: "",
       organization_id: row.organization_id == null ? "" : number(row.organization_id), organization_slug: text(row.organization_slug), organization_name: text(row.organization_name),
-      geo_point_id: row.geo_point_id == null ? "" : number(row.geo_point_id), geocode_status: text(row.geocode_status), public_visibility: text(row.public_visibility), public_precision: text(row.public_precision), resolved_public_geo: bool(row.resolved_public_geo) ? 1 : 0,
+      geo_point_id: row.geo_point_id == null ? "" : number(row.geo_point_id), geocode_status: text(row.geocode_status), public_visibility: text(row.public_visibility), public_precision: text(row.public_precision),
+      latitude: row.latitude == null ? "" : Number(row.latitude), longitude: row.longitude == null ? "" : Number(row.longitude),
+      provider: text(row.provider), normalized_query: text(row.normalized_query),
+      source_fingerprint: text(row.source_fingerprint), resolved_source_fingerprint: text(row.resolved_source_fingerprint),
+      google_place_id: text(row.google_place_id), google_place_source_fingerprint: text(row.google_place_source_fingerprint),
+      google_place_current: text(row.google_place_id) && text(row.google_place_source_fingerprint) && text(row.source_fingerprint) === text(row.google_place_source_fingerprint) ? 1 : 0,
+      resolved_public_geo: bool(row.resolved_public_geo) ? 1 : 0,
       physical_evidence: semantics.evidence,
       online_semantic_bucket: semantics.bucket,
       online_semantic_reason: semantics.reason,
@@ -418,6 +428,8 @@ async function main() {
     ambiguous_online: countWhere(directory,(r)=>r.online_semantic_bucket==="AMBIGUOUS"),
     insufficient_online: countWhere(directory,(r)=>r.online_semantic_bucket==="INSUFFICIENT_DATA"),
     potential_duplicate_review: countWhere(directory,(r)=>r.potential_duplicate_review===1),
+    google_place_current: countWhere(directory,(r)=>r.google_place_current===1),
+    coordinate_only_resolved_public_geo: countWhere(directory,(r)=>r.resolved_public_geo===1 && r.google_place_current!==1),
   };
   const eventCounts = {
     current_upcoming_physical_total: eventsExpected,
