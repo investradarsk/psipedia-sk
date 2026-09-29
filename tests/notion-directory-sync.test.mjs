@@ -82,6 +82,19 @@ test("technical GEO and sync state are mirrored from Psipedia without becoming e
   assert.doesNotMatch(notionSnapshotBody, /Google Place ID|Latitude|Longitude|GEO stav|GEO provider/);
 });
 
+
+test("multiline rich text stays lossless so services do not collapse into one item", () => {
+  assert.match(syncSource, /function richTextPlainText/);
+  assert.match(syncSource, /\.join\(""\)\.replace\(\/\\r\\n\?\/g, "\\n"\)\.trim\(\)/);
+  assert.doesNotMatch(syncSource, /notionRichTextPlainText/);
+  assert.match(syncSource, /split\(\/\\n\|;\/g\)/);
+});
+
+test("a duplicate Notion row cannot silently steal an existing profile mapping", () => {
+  assert.match(syncSource, /existingMapping\.notion_page_id !== input\.page\.id/);
+  assert.match(syncSource, /už je prepojený s iným Notion záznamom/);
+});
+
 test("directory Notion mapping is one-to-one and idempotent", () => {
   assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(migrationSource, /directory_profile_id INTEGER NOT NULL UNIQUE/);
