@@ -17,6 +17,7 @@ import { getPublicProfileReviewData, type ProfileReviewReadDatabase } from "@/li
 import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreements";
 import { getPublicMapItemsForEntity } from "@/lib/map-query";
 import { getPublicMapRuntime } from "@/lib/public-map-runtime";
+import { listRelatedBreedsForDirectoryProfile } from "@/lib/content-relations";
 
 export const dynamic = "force-dynamic";
 type Search = Record<string, string | string[] | undefined>;
@@ -102,11 +103,19 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
     });
     return { items: [] };
   });
-  const [partnerState, reviewResult, commercial, publicMap] = await Promise.all([
+  const relatedBreedsPromise = listRelatedBreedsForDirectoryProfile(profile.id).catch((error) => {
+    console.error("Public directory breed relations read failed", {
+      profileId: profile.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  });
+  const [partnerState, reviewResult, commercial, publicMap, relatedBreeds] = await Promise.all([
     partnerStatePromise,
     reviewsPromise,
     commercialPromise,
     publicMapPromise,
+    relatedBreedsPromise,
   ]);
   const publicMapPresentation = { ...publicMap, ...getPublicMapRuntime() };
   const schemaType = profile.category === "veterinari" ? "VeterinaryCare" : ["kynologicke-kluby","chovatelske-kluby"].includes(profile.category) ? "Organization" : "LocalBusiness";
@@ -123,5 +132,5 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       {"@type":"ListItem",position:3,name:getDirectoryCategory(profile.category)?.label,item:`${SITE_URL}/adresar/${profile.category}`}, {"@type":"ListItem",position:4,name:profile.name,item:canonical}]}
   ]};
   const correctionHref = `/adresar/${profile.category}/${profile.slug}/upravit`;
-  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} publicMap={publicMapPresentation} /><PartnerPublicOwnership state={partnerState} correctionHref={correctionHref} /></>;
+  return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} publicMap={publicMapPresentation} relatedBreeds={relatedBreeds} /><PartnerPublicOwnership state={partnerState} correctionHref={correctionHref} /></>;
 }
