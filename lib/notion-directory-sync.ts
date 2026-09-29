@@ -19,6 +19,7 @@ import {
   notionRequest,
   sha256Text,
 } from "@/lib/notion-sync-shared";
+import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
 
 export type NotionDirectorySyncBindings = {
@@ -667,6 +668,11 @@ async function applyNotionToProfile(input: {
       database: input.database,
     });
   }
+
+  await autoAssignGooglePlaceForDirectoryProfile({
+    targetId: updated.id,
+    database: input.database,
+  });
 
   return await getManagedDirectoryProfileById(updated.id, input.database) ?? updated;
 }
