@@ -270,7 +270,7 @@ export async function getAutomationOperationsOverview(
           FROM automation_search_usage WHERE day_bucket=?`).bind(dayBucket).first<Record<string, unknown>>();
         return { usageRows: usage.results, todayUsageRows: todayUsage.results, todayUsed: n(today?.used) };
       } catch (error) {
-        if (/no such table:\\s*automation_search_usage/i.test(error instanceof Error ? error.message : String(error))) {
+        if (/no such table:\s*automation_search_usage/i.test(error instanceof Error ? error.message : String(error))) {
           throw new Error("automation_search_usage_unavailable");
         }
         throw error;
@@ -293,7 +293,7 @@ export async function getAutomationOperationsOverview(
         return (await db.prepare(`SELECT * FROM automation_discovery_outcomes
           WHERE created_at>=? ORDER BY created_at DESC,id DESC LIMIT 200`).bind(cutoff).all<Record<string, unknown>>()).results;
       } catch (error) {
-        if (/no such table:\\s*automation_discovery_outcomes/i.test(error instanceof Error ? error.message : String(error))) {
+        if (/no such table:\s*automation_discovery_outcomes/i.test(error instanceof Error ? error.message : String(error))) {
           throw new Error("automation_discovery_outcomes_unavailable");
         }
         throw error;
