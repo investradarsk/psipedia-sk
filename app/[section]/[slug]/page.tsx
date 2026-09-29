@@ -8,8 +8,9 @@ import { PortalTopic } from "@/components/portal-topic";
 import { getAllPublishedArticleSummaries, getPublishedArticle, getPublishedArticleAuthorProfile, getPublishedArticleSummaries } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
 import { buildArticleMetadata } from "@/lib/article-seo";
+import { sanitizePublicArticleContent } from "@/lib/article-content-remediation";
 import { getPublishedEvent, getPublishedEvents, getUpcomingEvents } from "@/lib/event-store";
-import { eventDateTimeIso, eventHref, eventPortalCategory, eventTimeFilterFromParam, eventTypeFromPortalSlug, selectRelatedEvents } from "@/lib/events";
+import { buildPublicEventPresentation, eventDateTimeIso, eventHref, eventPortalCategory, eventTimeFilterFromParam, eventTypeFromPortalSlug, selectRelatedEvents } from "@/lib/events";
 import { articleHref, portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getNewsCategory } from "@/lib/news";
 import { getPublishedReviewSummaries, portalSubpageHasEditorialValue } from "@/lib/reviews";
@@ -60,8 +61,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!(await getManagedPortalSection(section))?.visible) return {};
   if (section === "podujatia") {
-    const event = await getPublishedEvent(slug);
-    if (event) {
+    const storedEvent = await getPublishedEvent(slug);
+    if (storedEvent) {
+      const event = buildPublicEventPresentation(storedEvent);
       const fallback = eventSeoFallback(event.title, event.eventType, event.city);
       return buildContentMetadata({ seo: event.seo, fallbackTitle: fallback.title,
         fallbackDescription: fallback.description,
@@ -71,9 +73,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       });
     }
   }
-  const article = await getPublishedArticle(slug);
-  if (!article) return {};
-  return buildArticleMetadata(article);
+  const storedArticle = await getPublishedArticle(slug);
+  if (!storedArticle) return {};
+  return buildArticleMetadata(sanitizePublicArticleContent(storedArticle));
 }
 
 export default async function PortalContentPage({ params, searchParams }: Props) {
@@ -102,8 +104,9 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   if (portalTopic) return <PortalTopic {...portalTopic} articles={await getPublishedArticleSummaries({ portalSection: portalTopic.section.slug as ArticlePortalSection, limit: 120 })} />;
 
   if (section === "podujatia") {
-    const event = await getPublishedEvent(slug);
-    if (event) {
+    const storedEvent = await getPublishedEvent(slug);
+    if (storedEvent) {
+      const event = buildPublicEventPresentation(storedEvent);
       const canonical = resolvedCanonical(event.seo, eventHref(event));
       const eventCategory = eventPortalCategory(event.eventType);
       const location = event.region === "Online" ? { "@type": "VirtualLocation", url: event.websiteUrl || canonical } : { "@type": "Place", name: event.venue || event.city, address: { "@type": "PostalAddress", streetAddress: event.address || undefined, addressLocality: event.city, addressRegion: event.region, addressCountry: "SK" } };
@@ -125,8 +128,9 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     }
   }
 
-  const article = await getPublishedArticle(slug);
-  if (!article) notFound();
+  const storedArticle = await getPublishedArticle(slug);
+  if (!storedArticle) notFound();
+  const article = sanitizePublicArticleContent(storedArticle);
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) redirect(canonical);
 
