@@ -191,14 +191,19 @@ export default async function SearchPage({ searchParams }: Props) {
   const activeTypeLabel = typeFilterLabel(activeTypeFilter);
   const activeLocationLabel = locationLabel(result.parsed);
   const mapHref = section ? null : portalSearchMapHref(result.parsed);
+  const explicitLocation = locationProvided ? parsePortalSearchLocationFilter(rawLocationFilter) : null;
   const invalidTypeFilter = typeProvided && Boolean(rawTypeFilter) && !parsePortalSearchTypeFilter(rawTypeFilter);
-  const invalidLocationFilter = locationProvided && Boolean(rawLocationFilter) && !parsePortalSearchLocationFilter(rawLocationFilter);
+  const invalidLocationFilter = locationProvided && Boolean(rawLocationFilter) && !explicitLocation;
   const locationFieldValue = locationProvided
-    ? (parsePortalSearchLocationFilter(rawLocationFilter)?.city
-      || parsePortalSearchLocationFilter(rawLocationFilter)?.district
-      || parsePortalSearchLocationFilter(rawLocationFilter)?.region
-      || rawLocationFilter)
-    : activeLocationLabel.replace(/^okres\s+/, "");
+    ? explicitLocation?.level === "city"
+      ? explicitLocation.city
+      : explicitLocation?.level === "district"
+        ? `okres ${explicitLocation.district}`
+        : explicitLocation?.level === "region"
+          ? `kraj ${explicitLocation.region}`
+          : rawLocationFilter
+    : activeLocationLabel;
+  const hasActiveDiscoveryFilter = Boolean(activeTypeLabel || activeLocationLabel);
 
   return (
     <main id="obsah" className="portal-search-page">
@@ -384,8 +389,9 @@ export default async function SearchPage({ searchParams }: Props) {
             <span>Výsledky pre „{query}“</span>
             <h2>Nenašli sme presnú zhodu</h2>
             <p>
-              Zachovali sme zvolený typ aj lokalitu, ale pre túto kombináciu momentálne nemáme zodpovedajúci publikovaný výsledok.
-              Môžeš rozšíriť lokalitu alebo zrušiť jeden z filtrov.
+              {hasActiveDiscoveryFilter
+                ? "Pre zvolený typ alebo lokalitu momentálne nemáme zodpovedajúci publikovaný výsledok. Môžeš rozšíriť lokalitu alebo zrušiť jeden z filtrov."
+                : `Pre dotaz „${query}“ momentálne nemáme zodpovedajúci publikovaný výsledok. Skús upraviť názov, službu alebo lokalitu.`}
             </p>
             {broadenings.length ? <div>{broadenings.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</div> : null}
             {knownFallbacks.length ? <div>{knownFallbacks.map((link) => <Link href={link.href} key={link.href}><small>{link.type}</small> {link.label}</Link>)}</div> : null}
