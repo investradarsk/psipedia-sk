@@ -932,7 +932,10 @@ export async function runNotionDirectorySyncSweep(input: {
       ) {
         const profile = await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database);
         const sourceImageUrl = externalSourceImageUrl(propertyText(page, "Hlavný obrázok URL"));
-        if (profile && sourceImageUrl) {
+        const existingMonitor = profile
+          ? await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", profile.id)
+          : null;
+        if (profile && sourceImageUrl && !existingMonitor) {
           await upsertMediaSourceMonitor({
             database: input.database,
             entityType: "DIRECTORY_PROFILE",
