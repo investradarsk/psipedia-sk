@@ -222,7 +222,7 @@ export function OrganizationProfileDetail({
           ) : null}
 
           {adoptions.length > 0 ? (
-            <DetailSection eyebrow="Explicitné prepojenie" title="Psy na adopciu v tejto organizácii">
+            <DetailSection eyebrow="Adopcie" title="Psy na adopciu v tejto organizácii">
               <div className={styles.adoptionGrid}>
                 {adoptions.map((adoption) => (
                   <OrganizationAdoptionCard adoption={adoption} key={adoption.id} />
