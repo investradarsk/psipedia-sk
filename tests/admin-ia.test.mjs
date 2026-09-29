@@ -134,6 +134,7 @@ test("admin landing is the read-only workspace and old article filters redirect 
   const landing = read("app/admin/page.tsx");
   const articles = read("app/admin/clanky/page.tsx");
   const articleDashboard = read("components/admin-dashboard.tsx");
+  const articleEditor = read("components/admin-article-editor.tsx");
 
   assert.match(landing, /title="Pracovný prehľad"/);
   assert.match(landing, /loadExactAdminAttentionSummary\(\)/);
@@ -150,6 +151,7 @@ test("admin landing is the read-only workspace and old article filters redirect 
   assert.match(articles, /listManagedArticleSummaries/);
   assert.match(articles, /listPath="\/admin\/clanky"/);
   assert.match(articleDashboard, /const routePath = fixedPortalSection \? "\/admin\/steniatka" : listPath;/);
+  assert.match(articleEditor, /window\.location\.assign\("\/admin\/clanky"\)/);
 });
 
 test("dashboard uses bounded existing summaries and never treats unavailable data as a successful zero", () => {
