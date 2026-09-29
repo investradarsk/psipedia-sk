@@ -43,7 +43,7 @@ on:
           - 0093_automation_address_review.sql
           - 0094_canonical_draft_delete.sql
           - 0095_automation_calendar_schedule.sql
-          - 0097_automation_update_field_reviews.sql
+          - 0096_automation_update_field_reviews.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -107,7 +107,7 @@ jobs:
             0093_automation_address_review.sql) expected_confirmation="APPLY-0093-psipedia-sk-db" ;;
             0094_canonical_draft_delete.sql) expected_confirmation="APPLY-0094-psipedia-sk-db" ;;
             0095_automation_calendar_schedule.sql) expected_confirmation="APPLY-0095-psipedia-sk-db" ;;
-            0097_automation_update_field_reviews.sql) expected_confirmation="APPLY-0097-psipedia-sk-db" ;;
+            0096_automation_update_field_reviews.sql) expected_confirmation="APPLY-0096-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
