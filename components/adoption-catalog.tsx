@@ -13,7 +13,7 @@ import {
   type AdoptionPublicDog,
 } from "@/lib/adoption-catalog";
 import { adoptionDetailPath } from "@/lib/adoption-detail";
-import type { AdoptionBreedOption, AdoptionPagination } from "@/lib/adoption-store";
+import type { AdoptionBreedOptionsResult, AdoptionPagination } from "@/lib/adoption-store";
 import type { AdoptionDog } from "@/lib/adoption";
 import styles from "./adoption.module.css";
 
@@ -25,7 +25,7 @@ type CatalogResult = {
 type Props = {
   result: CatalogResult;
   filters: AdoptionCatalogFilters;
-  breeds: AdoptionBreedOption[];
+  breeds: AdoptionBreedOptionsResult;
 };
 
 function formatCatalogDate(value: string) {
@@ -102,7 +102,7 @@ export function AdoptionCatalog({ result, filters, breeds }: Props) {
 
     <form className={styles.filters} method="get" aria-label="Filtrovať psy na adopciu">
       <div className={`${styles.field} ${styles.searchField}`}><label htmlFor="adoption-q">Hľadať</label><input id="adoption-q" name="q" defaultValue={filters.q} placeholder="meno, mesto, plemeno…" /></div>
-      <div className={styles.field}><label htmlFor="adoption-breed">Plemeno</label><select id="adoption-breed" name="plemeno" defaultValue={filters.breedId ? String(filters.breedId) : ""}><option value="">Všetky plemená</option>{breeds.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</select></div>
+      <div className={styles.field}><label htmlFor="adoption-breed">Plemeno</label>{!breeds.available && filters.breedId ? <input type="hidden" name="plemeno" value={filters.breedId} /> : null}<select id="adoption-breed" name="plemeno" defaultValue={filters.breedId ? String(filters.breedId) : ""} disabled={!breeds.available}><option value="">{breeds.available ? "Všetky plemená" : "Plemená sú momentálne nedostupné"}</option>{breeds.options.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</select></div>
       <div className={styles.field}><label htmlFor="adoption-age">Vek</label><select id="adoption-age" name="vek" defaultValue={filters.age}><option value="">Všetky veky</option>{Object.entries(adoptionCatalogAgeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
       <div className={styles.field}><label htmlFor="adoption-sex">Pohlavie</label><select id="adoption-sex" name="pohlavie" defaultValue={filters.sex}><option value="">Všetky</option><option value="MALE">Pes</option><option value="FEMALE">Sučka</option></select></div>
       <div className={styles.field}><label htmlFor="adoption-size">Veľkosť</label><select id="adoption-size" name="velkost" defaultValue={filters.size}><option value="">Všetky veľkosti</option><option value="SMALL">Malý</option><option value="MEDIUM">Stredný</option><option value="LARGE">Veľký</option><option value="GIANT">Obrovský</option></select></div>

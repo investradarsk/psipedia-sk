@@ -6,7 +6,7 @@ import {
   adoptionSizes,
   type AdoptionDog,
 } from "@/lib/adoption";
-import type { AdoptionAdminBreedOption } from "@/lib/adoption-admin-write";
+import type { AdoptionAdminBreedOptionsResult } from "@/lib/adoption-admin-write";
 
 const labels = {
   sex: { MALE: "Pes", FEMALE: "Sučka", UNKNOWN: "Neuvedené" },
@@ -15,12 +15,12 @@ const labels = {
   compatibility: { YES: "Áno", NO: "Nie", CONDITIONAL: "S podmienkami", UNKNOWN: "Neoverené" },
 } as const;
 
-export function AdminAdoptionEditorProfile({ item, breeds, publishing }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOption[]; publishing: boolean }) {
+export function AdminAdoptionEditorProfile({ item, breeds, publishing }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; publishing: boolean }) {
   return <>
     <section className="admin-form-card">
       <div className="admin-card-heading"><div><span>02</span><div><h2>Plemeno a profil</h2><p>Vek, pohlavie, veľkosť a fyzické údaje.</p></div></div></div>
       <div className="admin-field-grid">
-        <div className="admin-field"><label htmlFor="adoption-breed">Plemeno z databázy</label><select id="adoption-breed" name="breedId" defaultValue={item?.breedId ?? ""}><option value="">Bez väzby / kríženec / neznáme</option>{breeds.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</select></div>
+        <div className="admin-field"><label htmlFor="adoption-breed">Plemeno z databázy</label>{!breeds.available && item?.breedId ? <input type="hidden" name="breedId" value={item.breedId} /> : null}<select id="adoption-breed" name="breedId" defaultValue={item?.breedId ?? ""} disabled={!breeds.available}><option value="">{breeds.available ? "Bez väzby / kríženec / neznáme" : "Plemená sú momentálne nedostupné"}</option>{breeds.options.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</select></div>
         <div className="admin-field"><label htmlFor="adoption-breed-name">Opis plemena / typ</label><input id="adoption-breed-name" name="breedName" defaultValue={item?.breedName ?? ""} /><small>Pri vybranom breed_id server použije názov z managed_breeds.</small></div>
         <label className="admin-event-cancelled"><input type="checkbox" name="breedMix" defaultChecked={item?.breedMix ?? false}/><span><strong>Kríženec</strong><small>Môže zostať aj bez breed_id.</small></span></label>
         <div className="admin-field"><label htmlFor="adoption-sex">Pohlavie{publishing ? " *" : ""}</label><select id="adoption-sex" name="sex" defaultValue={item?.sex ?? "UNKNOWN"}>{adoptionSexes.map((value) => <option key={value} value={value}>{labels.sex[value]}</option>)}</select></div>
