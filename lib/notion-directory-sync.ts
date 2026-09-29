@@ -559,7 +559,7 @@ async function writeProfileToNotion(input: {
       database: input.database,
       entityType: "DIRECTORY_PROFILE",
       entityId: input.profile.id,
-      sourcePageUrl: input.profile.websiteUrl,
+      sourcePageUrl: monitor?.sourcePageUrl || input.profile.websiteUrl,
       sourceImageUrl,
       activeImageKey: input.profile.imageKey,
     });
@@ -648,12 +648,14 @@ async function applyNotionToProfile(input: {
   }
 
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
+  const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || current.websiteUrl || "";
+  const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name || current.name;
   const prepared = sourceImageUrl
     ? await prepareNotionMainImage({
         bindings: input.bindings,
         sourceUrl: sourceImageUrl,
-        sourcePageUrl: desired.websiteUrl || current.websiteUrl || "",
-        altText: desired.name || current.name,
+        sourcePageUrl,
+        altText: imageAltText,
         folder: "directory",
         existingImageUrl: current.imageUrl,
         existingImageKey: current.imageKey,
@@ -717,7 +719,7 @@ async function applyNotionToProfile(input: {
         database: input.database,
         entityType: "DIRECTORY_PROFILE",
         entityId: updated.id,
-        sourcePageUrl: desired.websiteUrl || current.websiteUrl,
+        sourcePageUrl,
         sourceImageUrl,
         sourceContentHash: prepared.sourceContentHash,
         activeImageKey: prepared.imageKey,
@@ -940,7 +942,7 @@ export async function runNotionDirectorySyncSweep(input: {
             database: input.database,
             entityType: "DIRECTORY_PROFILE",
             entityId: profile.id,
-            sourcePageUrl: profile.websiteUrl,
+            sourcePageUrl: propertyText(page, "Zdroj obrázka") || profile.websiteUrl,
             sourceImageUrl,
             activeImageKey: profile.imageKey,
           });
