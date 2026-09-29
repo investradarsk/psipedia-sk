@@ -56,12 +56,19 @@ test("service worker registration is admin-only and admin remains usable without
 
 test("admin settings can exclude the current browser from Cloudflare Web Analytics", () => {
   const settings = read("../components/admin-pwa-settings.tsx");
+  const route = read("../app/api/admin/analytics-device/route.ts");
   assert.match(settings, /ANALYTICS_EXCLUSION_COOKIE = "psipedia_internal"/);
-  assert.match(settings, /Max-Age=\$\{ANALYTICS_EXCLUSION_MAX_AGE\}/);
-  assert.match(settings, /SameSite=Lax/);
+  assert.match(settings, /fetch\("\/api\/admin\/analytics-device"/);
   assert.match(settings, /Nezapočítavať toto zariadenie do návštevnosti/);
   assert.match(settings, /Znovu započítavať toto zariadenie/);
   assert.match(settings, /window\.location\.reload\(\)/);
+  assert.match(route, /getAdminApiUser/);
+  assert.match(route, /requireAdminMutation/);
+  assert.match(route, /COOKIE_NAME = "psipedia_internal"/);
+  assert.match(route, /Max-Age=\$\{COOKIE_MAX_AGE\}/);
+  assert.match(route, /HttpOnly/);
+  assert.match(route, /SameSite=Lax/);
+  assert.match(route, /Set-Cookie/);
 });
 
 test("push permission is requested only from explicit enable action", () => {
