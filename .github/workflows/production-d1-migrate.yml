@@ -183,12 +183,14 @@ jobs:
         run: node scripts/production-d1-migrate.mjs geo-readiness
 
       - name: Key production route smoke
+        timeout-minutes: 5
         shell: bash
         run: |
           set -euo pipefail
           for route in             "/"             "/adresar"             "/adresar/veterinari/ab-vet-piestany"             "/pomoc-psom/utulky"             "/sitemap.xml"             "/recenzie"             "/mapa"             "/partner/prihlasenie"             "/partner/registracia"             "/partner/zabudnute-heslo"
           do
-            status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "https://psipedia.sk$route")"
+            echo "checking $route"
+            status="$(curl --silent --show-error --location --connect-timeout 10 --max-time 30 --output /dev/null --write-out '%{http_code}' "https://psipedia.sk$route")"
             echo "$route -> $status"
             case "$status" in
               200|301|302|307|308) ;;
