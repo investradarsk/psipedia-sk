@@ -6,13 +6,22 @@ import {
   SEARCH_MAX_PAGE,
   SEARCH_MAX_VISIBLE_RESULTS,
   SEARCH_PAGE_SIZE,
+  applyPortalSearchFilterOverrides,
   normalizePortalSearch,
+  parsePortalSearchLocationFilter,
   parsePortalSearchQuery,
+  parsePortalSearchTypeFilter,
+  portalSearchTypeFilterFromParsed,
   scorePortalSearchItem,
   stablePortalSearchSort,
   tokenizePortalSearch,
 } from "../lib/portal-search-query.ts";
-import { buildPortalSearchQuerySpecsForTest, filterPortalSearch, portalSearchFallbacks } from "../lib/portal-search.ts";
+import {
+  buildPortalSearchQuerySpecsForTest,
+  filterPortalSearch,
+  portalSearchFallbacks,
+  portalSearchMapHref,
+} from "../lib/portal-search.ts";
 
 test("normalization removes Slovak diacritics, case and repeated whitespace", () => {
   assert.equal(normalizePortalSearch("  VETERINÁR   v   TRNAVE  "), "veterinar v trnave");
@@ -41,6 +50,62 @@ test("location parser understands Slovak prepositions and common locatives", () 
   assert.equal(parsePortalSearchQuery("tréner psov v Bratislave").location?.city, "Bratislava");
   assert.equal(parsePortalSearchQuery("výstava psov v Košiciach").location?.city, "Košice");
   assert.equal(parsePortalSearchQuery("psí hotel v Nitre").location?.city, "Nitra");
+});
+
+test("URL filter overrides are canonical, clearable and stable across reloads", () => {
+  const inferred = parsePortalSearchQuery("veterinár v Trnave");
+  assert.equal(portalSearchTypeFilterFromParsed(inferred), "veterinari");
+
+  const changed = applyPortalSearchFilterOverrides(inferred, {
+    typeProvided: true,
+    type: "treneri",
+    locationProvided: true,
+    location: "mesto:Nitra",
+  });
+  assert.equal(changed.directoryCategory, "treneri");
+  assert.equal(changed.entityIntent, "directory");
+  assert.equal(changed.location?.level, "city");
+  assert.equal(changed.location?.city, "Nitra");
+  assert.deepEqual(changed.contentTokens, ["trener"]);
+
+  const clearedLocation = applyPortalSearchFilterOverrides(inferred, {
+    locationProvided: true,
+    location: "",
+  });
+  assert.equal(clearedLocation.location, null);
+  assert.equal(clearedLocation.directoryCategory, "veterinari");
+
+  const clearedType = applyPortalSearchFilterOverrides(inferred, {
+    typeProvided: true,
+    type: "",
+  });
+  assert.equal(clearedType.directoryCategory, null);
+  assert.equal(clearedType.entityIntent, null);
+  assert.equal(clearedType.location?.city, "Trnava");
+  assert.deepEqual(clearedType.contentTokens, ["veterinar"]);
+
+  assert.equal(parsePortalSearchTypeFilter("event:Výstava")?.eventType, "Výstava");
+  assert.equal(parsePortalSearchTypeFilter("unknown"), null);
+  assert.equal(parsePortalSearchLocationFilter("okres Trnava")?.level, "district");
+  assert.equal(parsePortalSearchLocationFilter("okres:Trnava")?.level, "district");
+  assert.equal(parsePortalSearchLocationFilter("kraj Trnavský kraj")?.level, "region");
+  assert.equal(parsePortalSearchLocationFilter("mesto:Trnava")?.level, "city");
+});
+
+test("search hands local intent to the existing map query contract only for supported entities", () => {
+  const vet = portalSearchMapHref(parsePortalSearchQuery("veterinár v Trnave"));
+  assert.equal(
+    vet,
+    "/mapa?category=services&subcategory=veterinari&region=Trnavsk%C3%BD+kraj&district=Trnava&city=Trnava",
+  );
+
+  const event = portalSearchMapHref(parsePortalSearchQuery("výstava psov v Košiciach"));
+  assert.equal(
+    event,
+    "/mapa?category=events&eventType=V%C3%BDstava&region=Ko%C5%A1ick%C3%BD+kraj&city=Ko%C5%A1ice",
+  );
+
+  assert.equal(portalSearchMapHref(parsePortalSearchQuery("pes na adopciu Trnava")), null);
 });
 
 test("event, breed and article-shaped queries preserve useful residual text", () => {
@@ -131,6 +196,40 @@ test("bounded D1 query specs stay below platform bind and SQL-size limits", () =
   for (const spec of specs) {
     assert.ok(spec.bindingCount <= 100, `binding count ${spec.bindingCount}`);
     assert.ok(new TextEncoder().encode(spec.sql).byteLength <= 100_000, `SQL bytes ${new TextEncoder().encode(spec.sql).byteLength}`);
+    assert.match(spec.sql, /LIMIT 480$/);
+  }
+});
+
+test("recognized entity type scopes server queries while clearing it restores cross-type search", () => {
+  const scoped = buildPortalSearchQuerySpecsForTest("veterinár v Trnave", SEARCH_MAX_VISIBLE_RESULTS);
+  assert.equal(scoped.length, 1);
+  assert.match(scoped[0].sql, /FROM directory_profiles p/);
+
+  const cleared = buildPortalSearchQuerySpecsForTest(
+    "veterinár v Trnave",
+    SEARCH_MAX_VISIBLE_RESULTS,
+    { typeProvided: true, type: "" },
+  );
+  assert.ok(cleared.length >= 2);
+  assert.ok(cleared.some((spec) => /FROM directory_profiles p/.test(spec.sql)));
+  assert.ok(cleared.some((spec) => /FROM managed_articles a/.test(spec.sql)));
+});
+
+test("URL-filtered query specs keep SEARCH-1 SQL, binding and visibility caps", () => {
+  const specs = buildPortalSearchQuerySpecsForTest(
+    "pohotovosť",
+    SEARCH_MAX_VISIBLE_RESULTS,
+    {
+      typeProvided: true,
+      type: "veterinari",
+      locationProvided: true,
+      location: "mesto:Trnava",
+    },
+  );
+  assert.ok(specs.length >= 1);
+  for (const spec of specs) {
+    assert.ok(spec.bindingCount <= 100, `binding count ${spec.bindingCount}`);
+    assert.ok(new TextEncoder().encode(spec.sql).byteLength <= 100_000);
     assert.match(spec.sql, /LIMIT 480$/);
   }
 });
