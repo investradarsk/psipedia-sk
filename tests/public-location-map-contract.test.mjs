@@ -65,7 +65,10 @@ test("PUBLIC-MAPS-1 detail map is consent-gated and no Google script is injected
     read("components/map/public-location-map.tsx"),
     read("components/map/google-map-renderer.tsx"),
   ]);
-  assert.match(component, /\(rendererEnabled \|\| testRenderer\) && !consentGranted/);
+  assert.match(component, /const waitingForConsent = rendererAvailable && !consentGranted/);
+  assert.match(component, /Google Maps čaká na tvoje povolenie/);
+  assert.match(component, /Interaktívna mapa momentálne nie je dostupná/);
+  assert.match(component, /\{waitingForConsent \? \(/);
   assert.match(component, /Povoliť Google Maps/);
   assert.doesNotMatch(component, /document\.createElement\(["']script["']\)/);
   assert.match(renderer, /!rendererEnabled \|\| !consentGranted \|\| configMissing/);
