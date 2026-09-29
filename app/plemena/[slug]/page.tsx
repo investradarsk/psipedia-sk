@@ -98,10 +98,23 @@ export default async function BreedDetailPage({ params }: Props) {
   const gallery = breed.gallery ?? [];
   const sources = breed.sources ?? [];
   const relations = managedBreed
-    ? await getBreedDetailRelations(managedBreed)
+    ? await getBreedDetailRelations(managedBreed).catch((error) => {
+        console.error("Public breed relations read failed", {
+          breedId: managedBreed.id,
+          breedSlug: managedBreed.slug,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return { articles: [], breedingStations: [], breedClubs: [], similarBreeds: [] };
+      })
     : { articles: [], breedingStations: [], breedClubs: [], similarBreeds: [] };
 
-  const relatedArticleMeta = await getPublicArticleListMeta(relations.articles.map((article) => article.slug));
+  const relatedArticleMeta = await getPublicArticleListMeta(relations.articles.map((article) => article.slug)).catch((error) => {
+    console.error("Public breed related article metadata read failed", {
+      breedSlug: breed.slug,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return new Map();
+  });
   const relatedArticles = relations.articles.flatMap((article) => {
     const meta = relatedArticleMeta.get(article.slug);
     return meta ? [{ ...article, ...meta }] : [];
@@ -288,7 +301,7 @@ export default async function BreedDetailPage({ params }: Props) {
     relations.articles.length ? { id: "suvisiaci-obsah", label: "Články" } : null,
     hasBreederContacts ? { id: "chov-a-kluby", label: "Chov a kluby" } : null,
     { id: "uzitocne", label: "Užitočné odkazy" },
-    relations.similarBreeds.length ? { id: "podobne", label: "Podobné plemená" } : null,
+    relations.similarBreeds.length ? { id: "podobne", label: "Prepojené plemená" } : null,
   ].filter((item): item is { id: string; label: string } => Boolean(item));
 
   return (
@@ -503,12 +516,12 @@ export default async function BreedDetailPage({ params }: Props) {
 
       {relatedArticles.length > 0 ? (
         <section className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`} id="suvisiaci-obsah">
-          <header><span className="eyebrow">Ďalšie čítanie</span><h2>Prehĺbte si vedomosti</h2></header>
+          <header><span className="eyebrow">Explicitné prepojenie</span><h2>Články o tomto plemene</h2></header>
           <PublicContentList label="Súvisiace články k plemenu">
             {relatedArticles.map((article) => (
               <PublicArticleListItem
                 key={article.slug}
-                href={article.portalSection === "clanky" ? `/clanky/${article.slug}` : `/${article.portalSection}/${article.slug}`}
+                href={article.href}
                 title={article.title}
                 topic={article.topic}
                 date={article.date}
@@ -525,12 +538,12 @@ export default async function BreedDetailPage({ params }: Props) {
           className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}
           id="chov-a-kluby"
         >
-          <header><span className="eyebrow">Z našej databázy</span><h2>Chovateľské stanice</h2></header>
+          <header><span className="eyebrow">Explicitné prepojenie</span><h2>Chovateľské stanice pre toto plemeno</h2></header>
           <div className={styles.dataCardGrid}>
             {relations.breedingStations.map((profile) => (
               <PublicDataCard
                 key={profile.id}
-                href={`/adresar/chovatelske-stanice/${profile.slug}`}
+                href={profile.href}
                 eyebrow="Chovateľská stanica"
                 title={profile.name}
                 meta={[profile.city, profile.region].filter(Boolean).join(" · ")}
@@ -540,9 +553,6 @@ export default async function BreedDetailPage({ params }: Props) {
               />
             ))}
           </div>
-          <Link className="text-link" href={`/adresar/chovatelske-stanice?breed=${encodeURIComponent(breed.name)}`}>
-            Zobraziť všetky chovateľské stanice pre toto plemeno →
-          </Link>
         </section>
       ) : null}
 
@@ -551,12 +561,12 @@ export default async function BreedDetailPage({ params }: Props) {
           className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}
           id={relations.breedingStations.length ? undefined : "chov-a-kluby"}
         >
-          <header><span className="eyebrow">Organizácie a chov</span><h2>Chovateľský klub</h2></header>
+          <header><span className="eyebrow">Explicitné prepojenie</span><h2>Chovateľské kluby pre toto plemeno</h2></header>
           <div className={styles.dataCardGrid}>
             {relations.breedClubs.map((profile) => (
               <PublicDataCard
                 key={profile.id}
-                href={`/adresar/chovatelske-kluby/${profile.slug}`}
+                href={profile.href}
                 eyebrow="Chovateľský klub"
                 title={profile.name}
                 meta={[profile.city, profile.region].filter(Boolean).join(" · ")}
@@ -613,10 +623,10 @@ export default async function BreedDetailPage({ params }: Props) {
 
       {relations.similarBreeds.length > 0 ? (
         <section id="podobne" className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}>
-          <header><span className="eyebrow">Objavte ďalšie profily</span><h2>Podobné plemená</h2></header>
+          <header><span className="eyebrow">Explicitné prepojenie</span><h2>Prepojené plemená</h2></header>
           <div className="breed-similar-grid">
             {relations.similarBreeds.map((item) => (
-              <Link href={`/plemena/${item.slug}`} key={item.id}>
+              <Link href={item.href} key={item.id}>
                 {item.image
                   ? <BreedPhoto src={item.image} alt="" loading="lazy" />
                   : <span aria-hidden="true"><PawMark size={30} /></span>}
