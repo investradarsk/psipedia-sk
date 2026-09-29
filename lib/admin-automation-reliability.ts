@@ -27,7 +27,7 @@ export type AdminAutomationReliabilitySummary = {
 
 type ReadInput<T> = {
   key: string;
-  load: () => Promise<T>;
+  load: () => Promise<T> | T;
   fallback: T;
   empty: (value: T) => boolean;
 };
