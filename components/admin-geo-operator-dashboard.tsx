@@ -5,9 +5,13 @@ import { useMemo, useState } from "react";
 import { type GeoAdminOperatorRow, type GeoAdminOperatorSummary } from "@/lib/geo-admin-operator";
 import { geoAdminOperatorStateLabels, type GeoAdminOperatorState } from "@/lib/geo-admin-operator-state";
 
-const filters: Array<{ value: "ALL" | "ERRORS" | GeoAdminOperatorState; label: string }> = [
+type GeoOperatorFilter = "ALL" | "ERRORS" | "ON_MAP_PLACE" | "ON_MAP_COORDINATES" | GeoAdminOperatorState;
+
+const filters: Array<{ value: GeoOperatorFilter; label: string }> = [
   { value: "ALL", label: "Všetky" },
   { value: "ON_MAP", label: "Na mape" },
+  { value: "ON_MAP_PLACE", label: "Google miesto" },
+  { value: "ON_MAP_COORDINATES", label: "Iba súradnice" },
   { value: "PENDING", label: "Čaká na spracovanie" },
   { value: "NEEDS_REVIEW", label: "Treba skontrolovať" },
   { value: "MISSING_ADDRESS", label: "Chýba adresa" },
@@ -25,10 +29,12 @@ const stateIcon: Record<GeoAdminOperatorState, string> = {
   NOT_PUBLIC: "⚪",
 };
 
-function matchesFilter(state: GeoAdminOperatorState, filter: string) {
+function matchesFilter(item: GeoAdminOperatorRow, filter: GeoOperatorFilter) {
   if (filter === "ALL") return true;
-  if (filter === "ERRORS") return ["INCOMPLETE_ADDRESS", "INVALID_ADDRESS", "FAILED"].includes(state);
-  return state === filter;
+  if (filter === "ERRORS") return ["INCOMPLETE_ADDRESS", "INVALID_ADDRESS", "FAILED"].includes(item.operatorState);
+  if (filter === "ON_MAP_PLACE") return item.operatorState === "ON_MAP" && item.googleMapsTarget === "PLACE";
+  if (filter === "ON_MAP_COORDINATES") return item.operatorState === "ON_MAP" && item.googleMapsTarget === "COORDINATES";
+  return item.operatorState === filter;
 }
 
 function addressLabel(item: GeoAdminOperatorRow) {
@@ -44,19 +50,22 @@ export function AdminGeoOperatorDashboard({
   items: GeoAdminOperatorRow[];
   summary: GeoAdminOperatorSummary;
 }) {
-  const [filter, setFilter] = useState<string>("ALL");
+  const [filter, setFilter] = useState<GeoOperatorFilter>("ALL");
   const [query, setQuery] = useState("");
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
     return items.filter((item) => {
-      if (!matchesFilter(item.operatorState, filter)) return false;
+      if (!matchesFilter(item, filter)) return false;
       if (!needle) return true;
       return `${item.name} ${item.city} ${item.district} ${item.region} ${item.category} ${item.categoryLabel}`
         .toLocaleLowerCase("sk")
         .includes(needle);
     });
   }, [filter, items, query]);
+
+  const onMapGooglePlaceCount = items.filter((item) => item.operatorState === "ON_MAP" && item.googleMapsTarget === "PLACE").length;
+  const onMapCoordinatesCount = items.filter((item) => item.operatorState === "ON_MAP" && item.googleMapsTarget === "COORDINATES").length;
 
   const cards: Array<{ state: GeoAdminOperatorState; label: string }> = [
     { state: "ON_MAP", label: "Na mape" },
@@ -82,6 +91,12 @@ export function AdminGeoOperatorDashboard({
             <div key={state}>
               <span>{stateIcon[state]} {label}</span>
               <strong>{state === "INCOMPLETE_ADDRESS" ? summary.INCOMPLETE_ADDRESS + summary.INVALID_ADDRESS : summary[state]}</strong>
+              {state === "ON_MAP" ? (
+                <small aria-label="Spôsob otvorenia v Google Maps" style={{ display: "grid", gap: 2, marginTop: 8 }}>
+                  <span>🏷️ Konkrétne miesto: {onMapGooglePlaceCount}</span>
+                  <span>📍 Iba súradnice: {onMapCoordinatesCount}</span>
+                </small>
+              ) : null}
             </div>
           ))}
         </div>
@@ -143,6 +158,12 @@ export function AdminGeoOperatorDashboard({
                       <strong>Stav adresy:</strong> {item.addressState === "COMPLETE" ? "🟢 Kompletná" : item.addressState === "MISSING" ? "🔴 Chýba" : item.addressState === "INCOMPLETE" ? "🔴 Neúplná" : "🟡 Treba skontrolovať"}
                       {" · "}
                       <strong>Stav mapy:</strong> {stateIcon[item.operatorState]} {geoAdminOperatorStateLabels[item.operatorState]}
+                      {item.operatorState === "ON_MAP" ? (
+                        <>
+                          {" · "}
+                          <strong>Google Maps:</strong> {item.googleMapsTarget === "PLACE" ? "🏷️ Konkrétne miesto" : "📍 Iba súradnice"}
+                        </>
+                      ) : null}
                     </p>
                     <p className="admin-help" style={{ margin: "6px 0 0" }}>{item.operatorReason}</p>
                   </div>
@@ -176,6 +197,9 @@ export function AdminGeoOperatorDashboard({
                     <span>normalized query: {item.normalizedQuery ?? "—"}</span>
                     <span>source_fingerprint: {item.sourceFingerprint ?? "—"}</span>
                     <span>resolved_source_fingerprint: {item.resolvedSourceFingerprint ?? "—"}</span>
+                    <span>google_place_id: {item.googlePlaceId ?? "—"}</span>
+                    <span>google_place_source_fingerprint: {item.googlePlaceSourceFingerprint ?? "—"}</span>
+                    <span>google_maps_target: {item.googleMapsTarget ?? "—"}</span>
                     <span>latitude: {item.latitude ?? "—"}</span>
                     <span>longitude: {item.longitude ?? "—"}</span>
                     <span>error/reason code: {item.errorCode ?? item.addressReason}</span>
