@@ -145,6 +145,16 @@ export async function auditConfigurationContract(root = defaultRoot) {
     "ae042534-c878-427e-bc76-ef587a8c61cf",
     "production Notion article sync must stay pinned to the exact Články data source",
   );
+  assert.equal(
+    wrangler.vars?.NOTION_DIRECTORY_SYNC_ENABLED,
+    "true",
+    "production Notion directory sync must stay enabled in wrangler.jsonc",
+  );
+  assert.equal(
+    wrangler.vars?.NOTION_DIRECTORY_DATA_SOURCE_ID,
+    "84e0664c-ca47-405f-9d54-31b20287bc8c",
+    "production Notion directory sync must stay pinned to the exact Adresár data source",
+  );
 
   for (const secretName of SECRET_ENV_NAMES) {
     assert.equal(secretName in (wrangler.vars ?? {}), false, `${secretName} must not be committed in wrangler vars`);
