@@ -129,7 +129,7 @@ test("Notion address edits use canonical verification and exact GEO lifecycle", 
 });
 
 test("existing Psipedia profiles bootstrap into Notion in bounded batches", () => {
-  assert.match(syncSource, /const BOOTSTRAP_BATCH = 20/);
+  assert.match(syncSource, /const BOOTSTRAP_BATCH = 100/);
   assert.match(syncSource, /LEFT JOIN directory_notion_sync dns/);
   assert.match(syncSource, /WHERE dns\.directory_profile_id IS NULL/);
   assert.match(syncSource, /createNotionPage/);
