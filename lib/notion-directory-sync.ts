@@ -114,7 +114,7 @@ export type NotionDirectorySyncSummary = {
 };
 
 const SYSTEM_ACTOR = "notion-directory-sync@psipedia.sk";
-const BOOTSTRAP_BATCH = 20;
+const BOOTSTRAP_BATCH = 100;
 const CHANGED_PROFILE_BATCH = 20;
 const NOTION_SCAN_BATCH = 40;
 const NOTION_API_RICH_TEXT_CHUNK = 1800;
