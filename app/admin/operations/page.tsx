@@ -61,7 +61,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
 
         <Link
           className={`${styles.hubCard} ${typeof automationAttention === "number" && automationAttention > 0 ? styles.hubCardPrimary : automationAttention === 0 ? styles.hubCardGood : ""}`}
-          href="/admin/automatizacie"
+          href="/admin/operations?source=AUTOMATION_ACTION#centrum-pozornosti"
         >
           <span className={styles.hubKicker}>Automatizácie</span>
           <div className={styles.hubMetric}>
@@ -70,7 +70,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
           </div>
           <h2>Automatizácie</h2>
           <p>Nové koncepty, návrhy zmien, zdroje a problémy automatizácií.</p>
-          <span className={styles.hubOpen}>Otvoriť automatizácie →</span>
+          <span className={styles.hubOpen}>Zobraziť upozornenia →</span>
         </Link>
       </section>
 

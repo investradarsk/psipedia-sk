@@ -58,13 +58,36 @@
 }
 
 .sourceCounts li {
+  display: block;
+}
+
+.sourceCounts a {
   display: inline-flex;
   gap: .4rem;
   align-items: center;
   padding: .45rem .65rem;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: #f4f6f3;
+  color: inherit;
   font-size: .82rem;
+  text-decoration: none;
+}
+
+.sourceCounts a:hover {
+  border-color: var(--line, #d9ded8);
+  background: #e9eee9;
+}
+
+.sourceCounts a[aria-current="page"] {
+  border-color: #0f5b43;
+  background: #e5efe9;
+  color: #0b4936;
+}
+
+.sourceCounts a:focus-visible {
+  outline: 3px solid #f5c865;
+  outline-offset: 2px;
 }
 
 .list {
