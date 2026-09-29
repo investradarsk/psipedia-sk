@@ -128,6 +128,17 @@ test("Notion address edits use canonical verification and exact GEO lifecycle", 
   assert.match(storeSource, /reconcileGeoAfterSourceMutation/);
 });
 
+test("ready Notion rows without a Psipedia ID create directly as published profiles", () => {
+  assert.match(syncSource, /createManagedDirectoryProfile/);
+  assert.match(syncSource, /if \(propertyText\(page, "Psipedia ID"\)\) return false/);
+  assert.match(syncSource, /editorialState === "Ready" \|\| editorialState === "Publikované"/);
+  assert.match(syncSource, /function newProfileInput/);
+  assert.match(syncSource, /status: "published"/);
+  assert.match(syncSource, /createManagedDirectoryProfile\(payload, SYSTEM_ACTOR, input\.database\)/);
+  assert.match(syncSource, /summary\.createdFromNotion \+= 1/);
+  assert.match(syncSource, /await writeProfileToNotion\(\{/);
+});
+
 test("existing Psipedia profiles bootstrap into Notion in bounded batches", () => {
   assert.match(syncSource, /const BOOTSTRAP_BATCH = 20/);
   assert.match(syncSource, /LEFT JOIN directory_notion_sync dns/);
