@@ -200,6 +200,21 @@ test("bounded D1 query specs stay below platform bind and SQL-size limits", () =
   }
 });
 
+test("recognized entity type scopes server queries while clearing it restores cross-type search", () => {
+  const scoped = buildPortalSearchQuerySpecsForTest("veterinár v Trnave", SEARCH_MAX_VISIBLE_RESULTS);
+  assert.equal(scoped.length, 1);
+  assert.match(scoped[0].sql, /FROM directory_profiles p/);
+
+  const cleared = buildPortalSearchQuerySpecsForTest(
+    "veterinár v Trnave",
+    SEARCH_MAX_VISIBLE_RESULTS,
+    { typeProvided: true, type: "" },
+  );
+  assert.ok(cleared.length >= 2);
+  assert.ok(cleared.some((spec) => /FROM directory_profiles p/.test(spec.sql)));
+  assert.ok(cleared.some((spec) => /FROM managed_articles a/.test(spec.sql)));
+});
+
 test("URL-filtered query specs keep SEARCH-1 SQL, binding and visibility caps", () => {
   const specs = buildPortalSearchQuerySpecsForTest(
     "pohotovosť",
