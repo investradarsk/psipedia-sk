@@ -448,7 +448,11 @@ test("13. scheduled job keeps hourly full work and adds bounded five-minute auto
   assert.match(fastBranch, /runDataAutomationDiscoverySweep/);
   assert.match(fastBranch, /five_minute_due_check/);
   assert.match(fastBranch, /return;/);
-  assert.doesNotMatch(fastBranch, /runNotion|runEditorialNotificationSweep|runPartnerNotificationSweep/);
+  assert.match(fastBranch, /runNotionDirectoryBootstrapSweep/);
+  assert.doesNotMatch(
+    fastBranch,
+    /runNotion(?:Article|Breed|Event|Directory)SyncSweep|runEditorialNotificationSweep|runPartnerNotificationSweep/,
+  );
   assert.match(runner, /DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8/);
   assert.match(runner, /for \(const source of sources\)/);
 });
