@@ -99,16 +99,34 @@ export async function createPendingPublicLostFoundDogReport(
     "SELECT r.id,r.slug FROM lost_found_dog_reports r " +
     "JOIN lost_found_dog_private_details p ON p.report_id=r.id " +
     "WHERE r.source=?1 AND r.status IN ('PENDING','DRAFT') AND r.published_at IS NULL " +
-    "AND r.type=?2 AND r.event_date=?3 AND lower(r.city)=lower(?4) AND r.description=?5 " +
-    "AND r.created_at>=?6 AND ((?7 IS NOT NULL AND p.contact_phone_hash=?7) " +
-    "OR (?8 IS NOT NULL AND p.contact_email_hash=?8)) ORDER BY r.id DESC LIMIT 1";
+    "AND r.type=?2 AND r.event_date=?3 AND lower(r.city)=lower(?4) " +
+    "AND COALESCE(r.dog_name,'')=?5 AND r.description=?6 AND r.distinguishing_marks=?7 " +
+    "AND r.collar_description=?8 AND r.region=?9 AND r.district=?10 AND r.location_description=?11 " +
+    "AND r.sex=?12 AND r.breed=?13 AND r.breed_unknown=?14 AND r.color=?15 AND r.approximate_age=?16 " +
+    "AND r.size=?17 AND r.chipped=?18 AND COALESCE(r.last_seen_date_time,'')=COALESCE(?19,'') " +
+    "AND r.created_at>=?20 AND ((?21 IS NOT NULL AND p.contact_phone_hash=?21) " +
+    "OR (?22 IS NOT NULL AND p.contact_email_hash=?22)) ORDER BY r.id DESC LIMIT 1";
 
   const existing = await database.prepare(existingSql).bind(
     LOST_FOUND_PUBLIC_SOURCE,
     input.type,
     input.eventDate,
     input.city,
+    input.dogName ?? "",
     input.description,
+    input.distinguishingMarks,
+    input.collarDescription,
+    input.region,
+    input.district,
+    input.locationDescription,
+    input.sex,
+    input.breed,
+    input.breedUnknown ? 1 : 0,
+    input.color,
+    input.approximateAge,
+    input.size,
+    input.chipped,
+    input.lastSeenDateTime,
     retryThreshold,
     privatePii.contactPhoneHash,
     privatePii.contactEmailHash,
