@@ -452,16 +452,29 @@ function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearc
 
 function allowedSpecs(parsed: ParsedPortalSearchQuery, limit: number, section: string) {
   if (section) return [articleQuery(parsed, limit, section)].filter((item): item is QuerySpec => Boolean(item));
-  return [
-    directoryQuery(parsed, limit),
-    articleQuery(parsed, limit, ""),
-    breedQuery(parsed, limit),
-    eventQuery(parsed, limit),
-    organizationQuery(parsed, limit),
-    adoptionQuery(parsed, limit),
-    helpQuery(parsed, limit),
-    lostFoundQuery(parsed, limit),
-  ].filter((item): item is QuerySpec => Boolean(item));
+
+  const scoped = parsed.entityIntent === "directory"
+    ? [directoryQuery(parsed, limit)]
+    : parsed.entityIntent === "event"
+      ? [eventQuery(parsed, limit)]
+      : parsed.entityIntent === "adoption"
+        ? [adoptionQuery(parsed, limit)]
+        : parsed.entityIntent === "organization"
+          ? [organizationQuery(parsed, limit)]
+          : parsed.entityIntent === "lost-found"
+            ? [lostFoundQuery(parsed, limit)]
+            : [
+                directoryQuery(parsed, limit),
+                articleQuery(parsed, limit, ""),
+                breedQuery(parsed, limit),
+                eventQuery(parsed, limit),
+                organizationQuery(parsed, limit),
+                adoptionQuery(parsed, limit),
+                helpQuery(parsed, limit),
+                lostFoundQuery(parsed, limit),
+              ];
+
+  return scoped.filter((item): item is QuerySpec => Boolean(item));
 }
 
 export function buildPortalSearchQuerySpecsForTest(
