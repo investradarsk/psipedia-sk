@@ -2,13 +2,13 @@ import { existsSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const cloudflareWorkersModule = \`
+const cloudflareWorkersModule = `
   export const env = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   export const waitUntil = (promise) => {
     globalThis.__CLOUDFLARE_WAIT_UNTIL__ = promise;
     promise.catch(() => undefined);
   };
-\`;
+`;
 
 function resolveRepoAlias(specifier) {
   if (!specifier.startsWith("@/")) return null;
@@ -30,7 +30,7 @@ function resolveRepoAlias(specifier) {
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "cloudflare:workers") {
     return {
-      url: \`data:text/javascript,\${encodeURIComponent(cloudflareWorkersModule)}\`,
+      url: `data:text/javascript,${encodeURIComponent(cloudflareWorkersModule)}`,
       shortCircuit: true,
     };
   }
