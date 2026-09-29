@@ -143,7 +143,7 @@ test("admin landing is the read-only workspace and old article filters redirect 
   assert.match(landing, /getAdminDataQualitySummary/);
   assert.doesNotMatch(landing, /listManagedArticleSummaries/);
   assert.match(landing, /redirect\(legacyHref\)/);
-  for (const key of ["query", "status", "section", "sort", "direction", "page"]) {
+  for (const key of ["query", "q", "status", "section", "sort", "direction", "page", "pageSize"]) {
     assert.match(landing, new RegExp(`"${key}"`));
   }
 
