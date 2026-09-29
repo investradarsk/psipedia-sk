@@ -4,6 +4,7 @@ import { PawMark } from "@/components/icons";
 import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
+import { lostFoundSubmissionEnabled } from "@/lib/submission-feature-flags";
 import { dogReportBasePath, dogReportHref, dogReportTypeLabel, dogReportTypeShortLabel, dogSexLabel, dogSizeLabel, formatDogReportDate, type DogReportType, type DogSex, type DogSize } from "@/lib/lost-found-dogs";
 import styles from "./lost-found-dogs.module.css";
 
@@ -29,6 +30,7 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
   const page = Math.max(1, Number.parseInt(scalar(raw.page) || "1", 10) || 1);
   const breedId = Number.isInteger(breedIdValue) && breedIdValue > 0 ? breedIdValue : null;
 
+  const submissionsEnabled = lostFoundSubmissionEnabled();
   const [result, breeds] = await Promise.all([
     listPublicDogReports(type, { q, region, locality, date, sex, size, breedId, page, pageSize: 24 }),
     listPublishedBreedOptions(),
@@ -53,7 +55,7 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
           title={title}
           intro={intro}
           meta={<span><strong>{result.total}</strong> aktívnych hlásení</span>}
-          actions={<nav className={styles.switcher} aria-label="Typ hlásenia"><Link href="/pomoc-psom/stratene-psy" aria-current={type === "LOST" ? "page" : undefined}>Stratené psy</Link><Link href="/pomoc-psom/najdene-psy" aria-current={type === "FOUND" ? "page" : undefined}>Nájdené psy</Link></nav>}
+          actions={<div className={styles.headerActions}><nav className={styles.switcher} aria-label="Typ hlásenia"><Link href="/pomoc-psom/stratene-psy" aria-current={type === "LOST" ? "page" : undefined}>Stratené psy</Link><Link href="/pomoc-psom/najdene-psy" aria-current={type === "FOUND" ? "page" : undefined}>Nájdené psy</Link></nav>{submissionsEnabled ? <Link className="button button--dark" href="/pomoc-psom/stratene-a-najdene/nahlasit">Nahlásiť psa</Link> : null}</div>}
         />
       </div>
 
