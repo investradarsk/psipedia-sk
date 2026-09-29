@@ -106,7 +106,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
         empty: (value) => value.length === 0,
       })))
     : [];
-  const sourceContent = Object.fromEntries(sourceContentReads.map((read, index) => [sources[index]?.id, read.data]));
+  const sourceContent = Object.fromEntries(sourceContentReads.map((read, index) => [sources[index]!.id, read.data]));
   const addressReviewCategory = slug === "veterinari" || slug === "psie-sluzby"
     ? slug
     : null;
