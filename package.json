@@ -17,7 +17,7 @@
     "test:config": "node --experimental-strip-types --test tests/config-contract.test.mjs",
     "test:deploy-safety": "node --test tests/deploy-safety.test.mjs",
     "test:migration-safety": "node --test tests/migration-safety.test.mjs tests/production-d1-migration.test.mjs tests/production-d1-history-audit.test.mjs tests/production-d1-backlog-rollout.test.mjs",
-    "test:lost-found": "node --test tests/lost-found-lifecycle.test.mjs tests/lost-found-admin-contract.test.mjs && node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/lost-found-public-submission.test.mjs",
+    "test:lost-found": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/lost-found-lifecycle.test.mjs tests/lost-found-admin-contract.test.mjs tests/lost-found-public-submission.test.mjs",
     "test:org-fundraising": "node --experimental-strip-types --test tests/organization-fundraising-contract.test.mjs",
     "test:org-fundraising-foundation": "node --experimental-strip-types --test tests/organization-fundraising-foundation.test.mjs",
     "test:org-fundraising-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/organization-fundraising-admin.test.mjs tests/organization-fundraising-verification.test.mjs",
