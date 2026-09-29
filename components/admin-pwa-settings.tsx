@@ -19,20 +19,6 @@ type PushConfig = {
 };
 
 const ANALYTICS_EXCLUSION_COOKIE = "psipedia_internal";
-const ANALYTICS_EXCLUSION_MAX_AGE = 60 * 60 * 24 * 365;
-
-function isAnalyticsExcluded() {
-  return document.cookie
-    .split(";")
-    .some((cookie) => cookie.trim() === `${ANALYTICS_EXCLUSION_COOKIE}=1`);
-}
-
-function setAnalyticsExclusionCookie(enabled: boolean) {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = enabled
-    ? `${ANALYTICS_EXCLUSION_COOKIE}=1; Path=/; Max-Age=${ANALYTICS_EXCLUSION_MAX_AGE}; SameSite=Lax${secure}`
-    : `${ANALYTICS_EXCLUSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
-}
 
 function base64UrlToUint8Array(value: string) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -76,13 +62,26 @@ export function AdminPwaSettings() {
   const [serviceWorkerSupported, setServiceWorkerSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [busy, setBusy] = useState(false);
-  const [analyticsExcluded, setAnalyticsExcluded] = useState(false);
+  const [analyticsBusy, setAnalyticsBusy] = useState(false);
+  const [analyticsExcluded, setAnalyticsExcluded] = useState<boolean | null>(null);
 
   const inspect = useCallback(async () => {
     setMessage("");
-    setAnalyticsExcluded(isAnalyticsExcluded());
     setStandalone(isStandalone());
     setIos(isIos());
+
+    try {
+      const analyticsResponse = await fetch("/api/admin/analytics-device", {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!analyticsResponse.ok) throw new Error("Stav analytiky tohto zariadenia sa nepodarilo načítať.");
+      const analyticsState = await analyticsResponse.json() as { excluded?: boolean };
+      setAnalyticsExcluded(analyticsState.excluded === true);
+    } catch (error) {
+      setAnalyticsExcluded(null);
+      setMessage(error instanceof Error ? error.message : "Stav analytiky tohto zariadenia sa nepodarilo zistiť.");
+    }
 
     const hasServiceWorker = "serviceWorker" in navigator;
     const hasPushManager = "PushManager" in window;
@@ -141,10 +140,26 @@ export function AdminPwaSettings() {
     return () => window.clearTimeout(timer);
   }, [inspect]);
 
-  function updateAnalyticsExclusion(enabled: boolean) {
-    setAnalyticsExclusionCookie(enabled);
-    setAnalyticsExcluded(enabled);
-    window.location.reload();
+  async function updateAnalyticsExclusion(excluded: boolean) {
+    if (analyticsBusy) return;
+    setAnalyticsBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/analytics-device", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ excluded }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? "Nastavenie analytiky sa nepodarilo uložiť.");
+      }
+      setAnalyticsExcluded(excluded);
+      window.location.reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Nastavenie analytiky sa nepodarilo uložiť.");
+      setAnalyticsBusy(false);
+    }
   }
 
   async function enableNotifications() {
@@ -273,18 +288,19 @@ export function AdminPwaSettings() {
           <div>
             <dt>Stav</dt>
             <dd data-testid="analytics-device-state">
-              {analyticsExcluded ? "Nezapočítava sa" : "Započítava sa"}
+              {analyticsExcluded === null ? "Zisťujem stav…" : analyticsExcluded ? "Nezapočítava sa" : "Započítava sa"}
             </dd>
           </div>
         </dl>
         <div className="admin-form-actions">
-          {analyticsExcluded ? (
-            <button type="button" onClick={() => updateAnalyticsExclusion(false)}>
-              Znovu započítavať toto zariadenie
+          {analyticsExcluded === true && (
+            <button type="button" onClick={() => void updateAnalyticsExclusion(false)} disabled={analyticsBusy}>
+              {analyticsBusy ? "Ukladám…" : "Znovu započítavať toto zariadenie"}
             </button>
-          ) : (
-            <button className="is-primary" type="button" onClick={() => updateAnalyticsExclusion(true)}>
-              Nezapočítavať toto zariadenie do návštevnosti
+          )}
+          {analyticsExcluded === false && (
+            <button className="is-primary" type="button" onClick={() => void updateAnalyticsExclusion(true)} disabled={analyticsBusy}>
+              {analyticsBusy ? "Ukladám…" : "Nezapočítavať toto zariadenie do návštevnosti"}
             </button>
           )}
         </div>
