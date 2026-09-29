@@ -303,6 +303,38 @@ async function findPublishedDirectoryRelation(
   return { id: Number(row.id), name: row.name, slug: row.slug, category: row.category };
 }
 
+async function safePublishedDirectoryRelation(
+  organizationId: number,
+  directoryProfileId: number | null,
+  database: AdoptionD1Database,
+) {
+  try {
+    return await findPublishedDirectoryRelation(directoryProfileId, database);
+  } catch (error) {
+    console.error("Public organization directory relation read failed", {
+      organizationId,
+      directoryProfileId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function safePublicOrganizationAdoptions(
+  organizationId: number,
+  database: AdoptionD1Database,
+) {
+  try {
+    return await listPublicAdoptionsByOrganizationId(organizationId, database);
+  } catch (error) {
+    console.error("Public organization adoption relations read failed", {
+      organizationId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
 function toPublicOrganization(
   row: PublicOrganizationRow,
   directory: PublicOrganizationDirectoryRelation | null,
@@ -345,7 +377,7 @@ export async function getPublicOrganizationBySlug(
   if (!row) return null;
   const [locations, directory] = await Promise.all([
     listPublicOrganizationLocations(row, database),
-    findPublishedDirectoryRelation(row.directory_profile_id, database),
+    safePublishedDirectoryRelation(Number(row.id), row.directory_profile_id, database),
   ]);
   return toPublicOrganization(row, directory, locations);
 }
@@ -398,7 +430,7 @@ export async function getPublicOrganizationCompositionBySlug(
   if (!row) return null;
   const [locations, adoptions, directory, fundraisingMethods] = await Promise.all([
     listPublicOrganizationLocations(row, database),
-    listPublicAdoptionsByOrganizationId(Number(row.id), database),
+    safePublicOrganizationAdoptions(Number(row.id), database),
     findPublishedDirectoryRelation(row.directory_profile_id, database),
     listPublicOrganizationFundraisingMethods(Number(row.id), row.status, database),
   ]);
