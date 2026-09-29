@@ -36,7 +36,7 @@ function formattedDate(value: string) {
 }
 
 const moduleOverview: Array<{ key: keyof AdminModuleCounts; label: string; href: string }> = [
-  { key: "articles", label: "Články", href: "/admin" },
+  { key: "articles", label: "Články", href: "/admin/clanky" },
   { key: "puppies", label: "Šteniatka", href: "/admin/steniatka" },
   { key: "breeds", label: "Plemená", href: "/admin/plemena" },
   { key: "sections", label: "Sekcie", href: "/admin/sekcie" },
