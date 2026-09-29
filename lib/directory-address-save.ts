@@ -36,16 +36,18 @@ export async function applyVerifiedDirectoryAddressGeo(input: {
   profileId: number;
   verified: VerifiedDirectoryAddress;
   actorRef: string;
+  database?: D1Database;
 }) {
-  let point = await getGeoPointForTarget("DIRECTORY_PROFILE", input.profileId);
+  let point = await getGeoPointForTarget("DIRECTORY_PROFILE", input.profileId, input.database);
   if (!point) {
     point = (await initializeGeoPointForTarget(
       "DIRECTORY_PROFILE",
       input.profileId,
       input.actorRef,
+      input.database,
     )).point;
   } else {
-    point = await syncGeoPointAfterSourceChange("DIRECTORY_PROFILE", input.profileId) ?? point;
+    point = await syncGeoPointAfterSourceChange("DIRECTORY_PROFILE", input.profileId, input.database) ?? point;
   }
 
   if (point.manualOverride) return point;
@@ -58,7 +60,7 @@ export async function applyVerifiedDirectoryAddressGeo(input: {
       precision: "EXACT",
       actorRef: input.actorRef,
       reason: "PROVIDER_VERIFIED_ADDRESS",
-    });
+    }, input.database);
   }
 
   return applyGeocoderResolution({
@@ -66,7 +68,7 @@ export async function applyVerifiedDirectoryAddressGeo(input: {
     targetId: input.profileId,
     result: input.verified.providerResult,
     method: "GEOCODER",
-  });
+  }, input.database);
 }
 
 export function directoryPhysicalAddressChanged(
