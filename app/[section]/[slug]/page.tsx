@@ -22,6 +22,7 @@ import { absoluteUrl, SITE_URL } from "@/lib/seo";
 import { legacyArticleRedirectPath } from "@/lib/legacy-public-redirects";
 import { getPublicMapItemsForEntity } from "@/lib/map-query";
 import { getPublicMapRuntime } from "@/lib/public-map-runtime";
+import { listRelatedBreedsForArticle } from "@/lib/content-relations";
 
 export const dynamic = "force-dynamic";
 
@@ -135,9 +136,16 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) redirect(canonical);
 
-  const [magazine, authorProfile] = await Promise.all([
+  const [magazine, authorProfile, relatedBreeds] = await Promise.all([
     getArticleMagazineData(article),
     getPublishedArticleAuthorProfile(article),
+    listRelatedBreedsForArticle(article.slug).catch((error) => {
+      console.error("Public article breed relations read failed", {
+        articleSlug: article.slug,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} authorProfile={authorProfile} portalSection={section === "recenzie" ? managedSection : undefined} />;
+  return <ArticleDetail article={article} magazine={magazine} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={section === "recenzie" ? managedSection : undefined} />;
 }
