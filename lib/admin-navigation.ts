@@ -131,11 +131,7 @@ export function getAdminBreadcrumbs(pathname: string) {
     { label: active.label, href: active.href },
   ];
 
-  const activePrefixes = [active.href, ...(active.matches ?? [])]
-    .filter((prefix) => pathMatchesPrefix(pathname, prefix))
-    .sort((a, b) => b.length - a.length);
-  const matchedPrefix = activePrefixes[0] ?? active.href;
-  if (normalizedPath(pathname) !== normalizedPath(matchedPrefix)) {
+  if (normalizedPath(pathname) !== normalizedPath(active.href)) {
     breadcrumbs.push({ label: detailLabel(pathname), href: normalizedPath(pathname), current: true });
   } else {
     breadcrumbs[breadcrumbs.length - 1] = { ...breadcrumbs[breadcrumbs.length - 1], current: true };
