@@ -281,7 +281,7 @@ export function AdminArticleEditor({
   function cancelEditing() {
     if (dirty && !window.confirm("Máš neuložené zmeny. Naozaj chceš opustiť editor bez uloženia?")) return;
     allowNavigationRef.current = true;
-    window.location.assign("/admin");
+    window.location.assign("/admin/clanky");
   }
 
   function unpublish() {
