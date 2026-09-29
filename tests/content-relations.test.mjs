@@ -128,6 +128,8 @@ test("breed relation implementation removes self links, duplicate canonical iden
   assert.doesNotMatch(source, /fci_group=\? AND \(\?='' OR fci_section_number=\?\)/);
   assert.match(source, /publicArticleRelationTargetSql\("a"\)/);
   assert.match(source, /publicDirectoryRelationTargetSql\("d"\)/);
+  assert.doesNotMatch(source, /ORDER BY d\.featured DESC/, "explicit related entities must not inherit promoted/featured ordering");
+  assert.match(source, /ORDER BY d\.name COLLATE NOCASE ASC,d\.id ASC/);
 });
 
 test("empty related collections render no box and detail routes fail open on relation errors", async () => {
