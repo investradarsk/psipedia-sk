@@ -320,59 +320,60 @@ const AUTOMATION_ACTION_SELECT = `
 
   SELECT
     'AUTOMATION_ACTION' AS sourceType,
-    'address-review:' || r.category_slug AS sourceId,
-    0 AS activeRank,'NEW' AS attentionState,'MEDIUM' AS priority,1 AS priorityRank,
-    MAX(r.last_detected_at) AS relevantAt,
+    sourceId,
+    0 AS activeRank,'NEW' AS attentionState,'MEDIUM' AS priority,1 AS priorityRank,relevantAt,
     json_object(
-      'actionType','ADDRESS_REVIEW',
-      'sourceId','address-review:' || r.category_slug,
-      'categorySlug',r.category_slug,
-      'count',COUNT(*),
-      'relevantAt',MAX(r.last_detected_at),
-      'targetHref','/admin/automatizacie/adresy?category=' || r.category_slug,
+      'actionType',actionType,
+      'sourceId',sourceId,
+      'categorySlug',categorySlug,
+      'count',itemCount,
+      'relevantAt',relevantAt,
+      'targetHref',targetHref,
       'sourceLabel',NULL
     ) AS payload
-  FROM automation_address_review_cases r
-  JOIN directory_profiles profile ON profile.id=r.canonical_entity_id
-  WHERE r.status='OPEN'
-    AND r.category_slug IN ('veterinari','psie-sluzby')
-  GROUP BY r.category_slug
+  FROM (
+    SELECT
+      'ADDRESS_REVIEW' AS actionType,
+      'address-review:' || r.category_slug AS sourceId,
+      r.category_slug AS categorySlug,
+      COUNT(*) AS itemCount,
+      MAX(r.last_detected_at) AS relevantAt,
+      '/admin/automatizacie/adresy?category=' || r.category_slug AS targetHref
+    FROM automation_address_review_cases r
+    JOIN directory_profiles profile ON profile.id=r.canonical_entity_id
+    WHERE r.status='OPEN'
+      AND r.category_slug IN ('veterinari','psie-sluzby')
+    GROUP BY r.category_slug
 
-  UNION ALL
+    UNION ALL
 
-  SELECT
-    'AUTOMATION_ACTION' AS sourceType,
-    'possible-matches:global' AS sourceId,
-    0 AS activeRank,'NEW' AS attentionState,'MEDIUM' AS priority,1 AS priorityRank,
-    MAX(mc.created_at) AS relevantAt,
-    json_object(
-      'actionType','POSSIBLE_MATCH_REVIEW',
-      'sourceId','possible-matches:global',
-      'categorySlug',NULL,
-      'count',COUNT(*),
-      'relevantAt',MAX(mc.created_at),
-      'targetHref','/admin/operations/possible-matches',
-      'sourceLabel',NULL
-    ) AS payload
-  FROM automation_cluster_match_candidates mc
-  JOIN automation_cluster_observations co ON co.observation_id=mc.observation_id
-  JOIN automation_entity_clusters source_cluster ON source_cluster.id=co.cluster_id
-  JOIN automation_entity_clusters target_cluster ON target_cluster.id=mc.candidate_cluster_id
-  JOIN automation_observations observation ON observation.id=mc.observation_id
-  LEFT JOIN automation_entity_match_decisions decision
-    ON decision.source_cluster_id=source_cluster.id
-    AND decision.candidate_cluster_id=mc.candidate_cluster_id
-    AND decision.is_active=1
-  WHERE mc.match_quality='POSSIBLE'
-    AND source_cluster.entity_type IN ('DIRECTORY','ORGANIZATION')
-    AND target_cluster.entity_type=source_cluster.entity_type
-    AND (
-      decision.id IS NULL
-      OR observation.detected_at>decision.created_at
-      OR source_cluster.updated_at>decision.created_at
-      OR target_cluster.updated_at>decision.created_at
-    )
-  HAVING COUNT(*)>0
+    SELECT
+      'POSSIBLE_MATCH_REVIEW' AS actionType,
+      'possible-matches:global' AS sourceId,
+      NULL AS categorySlug,
+      COUNT(*) AS itemCount,
+      MAX(mc.created_at) AS relevantAt,
+      '/admin/operations/possible-matches' AS targetHref
+    FROM automation_cluster_match_candidates mc
+    JOIN automation_cluster_observations co ON co.observation_id=mc.observation_id
+    JOIN automation_entity_clusters source_cluster ON source_cluster.id=co.cluster_id
+    JOIN automation_entity_clusters target_cluster ON target_cluster.id=mc.candidate_cluster_id
+    JOIN automation_observations observation ON observation.id=mc.observation_id
+    LEFT JOIN automation_entity_match_decisions decision
+      ON decision.source_cluster_id=source_cluster.id
+      AND decision.candidate_cluster_id=mc.candidate_cluster_id
+      AND decision.is_active=1
+    WHERE mc.match_quality='POSSIBLE'
+      AND source_cluster.entity_type IN ('DIRECTORY','ORGANIZATION')
+      AND target_cluster.entity_type=source_cluster.entity_type
+      AND (
+        decision.id IS NULL
+        OR observation.detected_at>decision.created_at
+        OR source_cluster.updated_at>decision.created_at
+        OR target_cluster.updated_at>decision.created_at
+      )
+    HAVING COUNT(*)>0
+  ) AS review_groups
 
   UNION ALL
 
