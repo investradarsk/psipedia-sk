@@ -30,7 +30,7 @@ export function sanitizePublicArticleText(value: string) {
 
       let next = line;
       next = next.replace(
-        /(?:,\s*)?po publikovan[íi] bude vhodn[ée]\b[^.!?\n]*(?:[.!?]|$)/giu,
+        /(?:,\s*)?po publikovan[íi] bude vhodn[ée](?=\s|$)[^.!?\n]*(?:[.!?]|$)/giu,
         (match) => match.trimStart().startsWith(",") ? "." : "",
       );
       next = next.replace(
