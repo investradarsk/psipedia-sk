@@ -103,6 +103,9 @@ test("public intake persists PENDING only, hashes/encrypts PII and never returns
   assert.match(store, /hashPii/);
   assert.match(store, /lost_found_dog_private_details/);
   assert.match(store, /15 \* 60 \* 1000/);
+  assert.match(store, /COALESCE\(r\.dog_name,' '\)\?5|COALESCE\(r\.dog_name,''\)=\?5/);
+  assert.match(store, /r\.distinguishing_marks=\?7/);
+  assert.match(store, /r\.size=\?17/);
   assert.match(route, /enforcePublicLostFoundRateLimits/);
   assert.match(route, /verifyPublicLostFoundTurnstile/);
   assert.match(route, /publicLostFoundHoneypotTriggered/);
