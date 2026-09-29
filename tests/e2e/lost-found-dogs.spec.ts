@@ -356,7 +356,7 @@ test("valid public submission stays private until admin approval, then publishes
   );
   await page.getByRole("button", { name: "Publikovať ako aktívne" }).click();
   expect((await approveResponse).status()).toBe(200);
-  await expect(page.getByText("Hlásenie bolo uložené.")).toBeVisible();
+  await expect(page.getByText("Hlásenie je aktívne a verejné.")).toBeVisible();
 
   const publicLink = page.getByRole("link", { name: /Verejný náhľad/ });
   await expect(publicLink).toBeVisible();
