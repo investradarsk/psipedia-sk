@@ -95,10 +95,11 @@ export default async function AutomationCategoryPage({ params }: Props) {
         fallback: [],
         empty: (value) => value.length === 0,
       });
+  const rawUpdateSuggestions = rawUpdateSuggestionsRead.data;
   const updateSuggestionsRead = await readAdminAutomationData({
     key: `category:${slug}:normalize-update-suggestions`,
-    load: () => normalizeAutomationUpdateSuggestionSummaries(rawUpdateSuggestionsRead.data),
-    fallback: rawUpdateSuggestionsRead.data,
+    load: () => normalizeAutomationUpdateSuggestionSummaries(rawUpdateSuggestions),
+    fallback: rawUpdateSuggestions,
     empty: (value) => value.length === 0,
   });
   const sourceContentReads = category.mode === "FEED_SOURCE"
