@@ -682,22 +682,7 @@ async function createProfileFromNotion(input: {
   }
 
   const created = await createManagedDirectoryProfile(payload, SYSTEM_ACTOR, input.database);
-
-  if (verified) {
-    await applyVerifiedDirectoryAddressGeo({
-      profileId: created.id,
-      verified,
-      actorRef: SYSTEM_ACTOR,
-      database: input.database,
-    });
-  }
-
-  await autoAssignGooglePlaceForDirectoryProfile({
-    targetId: created.id,
-    database: input.database,
-  });
-
-  return await getManagedDirectoryProfileById(created.id, input.database) ?? created;
+  return { profile: created, verified };
 }
 
 async function applyNotionToProfile(input: {
@@ -840,6 +825,21 @@ async function syncMappedPage(input: {
   if (!profile) return "unchanged" as const;
 
   const page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
+
+  // A mapping may already exist even when the first Notion write-back failed.
+  // In that recovery state Psipedia is authoritative: restore the ID/status
+  // into Notion before normal bidirectional conflict resolution.
+  if (propertyText(page, "Psipedia ID") !== String(profile.id)) {
+    await writeProfileToNotion({
+      database: input.database,
+      bindings: input.bindings,
+      dataSourceId: input.dataSourceId,
+      profile,
+      pageId: page.id,
+    });
+    return "pushed" as const;
+  }
+
   const profileHash = await snapshotHash(profileSnapshot(profile));
   const pageHash = await snapshotHash(notionSnapshot(page));
   const lastHash = input.mapping.content_hash;
@@ -957,12 +957,17 @@ export async function runNotionDirectorySyncSweep(input: {
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
       if (!mapping && notionProfileReadyForCreate(page)) {
-        const created = await createProfileFromNotion({
+        const creation = await createProfileFromNotion({
           database: input.database,
           page,
         });
+        let created = creation.profile;
         const syncedAt = new Date().toISOString();
         const contentHash = await snapshotHash(profileSnapshot(created));
+
+        // Persist the one-to-one relation immediately after the profile INSERT.
+        // If a later GEO, Google Place or Notion API call fails, the next sweep
+        // must recover the same profile instead of attempting another INSERT.
         await saveMapping({
           database: input.database,
           pageId: page.id,
@@ -972,6 +977,22 @@ export async function runNotionDirectorySyncSweep(input: {
           psipediaUpdatedAt: created.updatedAt,
           syncedAt,
         });
+
+        if (creation.verified) {
+          await applyVerifiedDirectoryAddressGeo({
+            profileId: created.id,
+            verified: creation.verified,
+            actorRef: SYSTEM_ACTOR,
+            database: input.database,
+          });
+        }
+
+        await autoAssignGooglePlaceForDirectoryProfile({
+          targetId: created.id,
+          database: input.database,
+        });
+        created = await getManagedDirectoryProfileById(created.id, input.database) ?? created;
+
         await writeProfileToNotion({
           database: input.database,
           bindings: input.bindings,
