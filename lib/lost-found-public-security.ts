@@ -54,9 +54,10 @@ export async function verifyPublicLostFoundTurnstile(input: {
   token: string;
   secret: string;
   now?: Date;
+  allowLocalE2EBypass?: boolean;
 }) {
   if (
-    process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP === "1"
+    input.allowLocalE2EBypass === true
     && input.token === "e2e-lost-found-turnstile"
   ) {
     return { ok: true as const, challengeAt: (input.now ?? new Date()).toISOString() };
