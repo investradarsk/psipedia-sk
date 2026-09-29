@@ -779,3 +779,77 @@ jobs:
               body: `Playwright production smoke pre Psipediu zlyhal.\n\n[Otvoriť workflow a artifacts](${runUrl})`,
               assignees: [context.repo.owner],
             });
+
+
+  lost-found-public-e2e:
+    name: LOST-FOUND-1 public submission — desktop/mobile
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'codex/lost-found-1')
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build LOST-FOUND-1 PR code
+        run: npm run build
+      - name: Configure isolated local submission security
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          TURNSTILE_SITE_KEY=1x00000000000000000000AA
+          TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+          LOST_FOUND_SUBMISSIONS_ENABLED=1
+          EOF
+      - name: Apply clean schema to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed LOST/FOUND fixtures into isolated local D1 only
+        run: |
+          mkdir -p .e2e-artifacts/lost-found-1
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/lost-found-e2e.sql
+      - name: Start isolated local app
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: |
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/lost-found-1/server.log 2>&1 &
+          echo $! > .e2e-artifacts/lost-found-1/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+      - name: LOST-FOUND-1 Playwright — desktop and 390px mobile
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: npx playwright test tests/e2e/lost-found-dogs.spec.ts --workers=1 --retries=0
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/lost-found-1/server.pid ]; then
+            kill "$(cat .e2e-artifacts/lost-found-1/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload LOST-FOUND-1 evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lost-found-1-e2e-\${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/lost-found-1/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: warn
+          retention-days: 14
