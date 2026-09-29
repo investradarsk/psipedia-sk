@@ -516,7 +516,7 @@ export default async function BreedDetailPage({ params }: Props) {
 
       {relatedArticles.length > 0 ? (
         <section className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`} id="suvisiaci-obsah">
-          <header><span className="eyebrow">Explicitné prepojenie</span><h2>Články o tomto plemene</h2></header>
+          <header><span className="eyebrow">Súvisiaci obsah</span><h2>Články o tomto plemene</h2></header>
           <PublicContentList label="Súvisiace články k plemenu">
             {relatedArticles.map((article) => (
               <PublicArticleListItem
@@ -538,7 +538,7 @@ export default async function BreedDetailPage({ params }: Props) {
           className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}
           id="chov-a-kluby"
         >
-          <header><span className="eyebrow">Explicitné prepojenie</span><h2>Chovateľské stanice pre toto plemeno</h2></header>
+          <header><span className="eyebrow">Chov a kluby</span><h2>Chovateľské stanice pre toto plemeno</h2></header>
           <div className={styles.dataCardGrid}>
             {relations.breedingStations.map((profile) => (
               <PublicDataCard
@@ -561,7 +561,7 @@ export default async function BreedDetailPage({ params }: Props) {
           className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}
           id={relations.breedingStations.length ? undefined : "chov-a-kluby"}
         >
-          <header><span className="eyebrow">Explicitné prepojenie</span><h2>Chovateľské kluby pre toto plemeno</h2></header>
+          <header><span className="eyebrow">Chov a kluby</span><h2>Chovateľské kluby pre toto plemeno</h2></header>
           <div className={styles.dataCardGrid}>
             {relations.breedClubs.map((profile) => (
               <PublicDataCard
@@ -623,7 +623,7 @@ export default async function BreedDetailPage({ params }: Props) {
 
       {relations.similarBreeds.length > 0 ? (
         <section id="podobne" className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}>
-          <header><span className="eyebrow">Explicitné prepojenie</span><h2>Prepojené plemená</h2></header>
+          <header><span className="eyebrow">Súvisiace plemená</span><h2>Prepojené plemená</h2></header>
           <div className="breed-similar-grid">
             {relations.similarBreeds.map((item) => (
               <Link href={item.href} key={item.id}>
