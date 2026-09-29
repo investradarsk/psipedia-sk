@@ -17,7 +17,6 @@ import {
   notionFlagEnabled,
   notionPropertyRecord,
   notionRequest,
-  notionRichTextPlainText,
   sha256Text,
 } from "@/lib/notion-sync-shared";
 import { SITE_URL } from "@/config/public-site";
@@ -127,11 +126,20 @@ function property(page: NotionPage, name: string) {
   return notionPropertyRecord(page as Parameters<typeof notionPropertyRecord>[0], name);
 }
 
+function richTextPlainText(value: unknown) {
+  if (!Array.isArray(value)) return "";
+  return value.map((item) => {
+    if (!item || typeof item !== "object") return "";
+    const plainText = (item as Record<string, unknown>).plain_text;
+    return typeof plainText === "string" ? plainText : "";
+  }).join("").replace(/\r\n?/g, "\n").trim();
+}
+
 function propertyText(page: NotionPage, name: string) {
   const record = property(page, name);
   if (!record) return "";
-  if (Array.isArray(record.title)) return notionRichTextPlainText(record.title);
-  if (Array.isArray(record.rich_text)) return notionRichTextPlainText(record.rich_text);
+  if (Array.isArray(record.title)) return richTextPlainText(record.title);
+  if (Array.isArray(record.rich_text)) return richTextPlainText(record.rich_text);
   if (typeof record.url === "string") return record.url.trim();
   if (typeof record.email === "string") return record.email.trim();
   if (typeof record.phone_number === "string") return record.phone_number.trim();
