@@ -6,11 +6,13 @@ import {
   SEARCH_MAX_PAGE,
   SEARCH_MAX_VISIBLE_RESULTS,
   SEARCH_PAGE_SIZE,
+  applyPortalSearchFilterOverrides,
   normalizePortalSearch,
   parsePortalSearchQuery,
   scorePortalSearchItem,
   stablePortalSearchSort,
   type ParsedPortalSearchQuery,
+  type PortalSearchFilterOverrides,
   type PortalSearchRankable,
 } from "@/lib/portal-search-query";
 
@@ -426,8 +428,7 @@ function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearc
   const city = row.city?.trim() ?? "";
   const district = row.district?.trim() ?? "";
   const region = row.region?.trim() ?? "";
-  const location = [city, district && district !== city ? district : "", region && region !== district ? region : ""].filter(Boolean).join(" · ");
-  const description = [row.description?.trim() ?? "", location].filter(Boolean).join(" · ");
+  const description = row.description?.trim() ?? "";
   const item: PortalSearchItem = {
     href: row.href,
     title: row.title,
@@ -463,8 +464,12 @@ function allowedSpecs(parsed: ParsedPortalSearchQuery, limit: number, section: s
   ].filter((item): item is QuerySpec => Boolean(item));
 }
 
-export function buildPortalSearchQuerySpecsForTest(query: string, limit = SEARCH_PAGE_SIZE) {
-  const parsed = parsePortalSearchQuery(query);
+export function buildPortalSearchQuerySpecsForTest(
+  query: string,
+  limit = SEARCH_PAGE_SIZE,
+  filters: PortalSearchFilterOverrides = {},
+) {
+  const parsed = applyPortalSearchFilterOverrides(parsePortalSearchQuery(query), filters);
   const safeLimit = Math.max(1, Math.min(SEARCH_MAX_VISIBLE_RESULTS, Math.trunc(limit)));
   return allowedSpecs(parsed, safeLimit, "").map((spec) => ({
     sql: spec.sql,
@@ -474,9 +479,14 @@ export function buildPortalSearchQuerySpecsForTest(query: string, limit = SEARCH
 
 export async function searchPortal(
   query: string,
-  options: { page?: number; pageSize?: number; section?: string } = {},
+  options: {
+    page?: number;
+    pageSize?: number;
+    section?: string;
+    filters?: PortalSearchFilterOverrides;
+  } = {},
 ): Promise<PortalSearchResultPage> {
-  const parsed = parsePortalSearchQuery(query);
+  const parsed = applyPortalSearchFilterOverrides(parsePortalSearchQuery(query), options.filters);
   const pageSize = Math.max(1, Math.min(48, Math.trunc(options.pageSize ?? SEARCH_PAGE_SIZE)));
   const page = Math.max(1, Math.min(SEARCH_MAX_PAGE, Math.trunc(options.page ?? 1)));
   const section = ["starostlivost", "aktivity", "steniatka"].includes(options.section ?? "") ? options.section! : "";
@@ -549,6 +559,28 @@ export async function getPortalSearchIndex(): Promise<PortalSearchItem[]> {
 /** Header search submits to /hladat and therefore uses the same server search contract. */
 export async function getHeaderSearchIndex(): Promise<PortalSearchItem[]> {
   return [];
+}
+
+export function portalSearchMapHref(parsed: ParsedPortalSearchQuery) {
+  const params = new URLSearchParams();
+  if (parsed.entityIntent === "directory") {
+    params.set("category", "services");
+    if (parsed.directoryCategory) params.set("subcategory", parsed.directoryCategory);
+  } else if (parsed.entityIntent === "event") {
+    params.set("category", "events");
+    if (parsed.eventType) params.set("eventType", parsed.eventType);
+  } else if (parsed.entityIntent === "organization") {
+    params.set("category", "organizations");
+  } else {
+    return null;
+  }
+
+  if (parsed.location?.region) params.set("region", parsed.location.region);
+  if (parsed.location?.district) params.set("district", parsed.location.district);
+  if (parsed.location?.city) params.set("city", parsed.location.city);
+  const residualSearch = parsed.residualTokens.join(" ").trim();
+  if (residualSearch.length >= 2) params.set("search", residualSearch);
+  return `/mapa?${params.toString()}`;
 }
 
 export function portalSearchFallbacks(parsed: ParsedPortalSearchQuery) {
