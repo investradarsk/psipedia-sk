@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminAutomationAvailabilityState } from "@/app/admin/automatizacie/_components/automation-availability-state";
 import styles from "@/components/admin-automation-operations.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { automationReadableError } from "@/lib/admin-automation-presentation";
+import { readAdminAutomationData, summarizeAdminAutomationReads } from "@/lib/admin-automation-reliability";
 import {
   getAutomationOperationsOverview,
   type AutomationOperationsCategory,
@@ -156,7 +158,28 @@ export default async function AutomationOperationsPage({ searchParams }: { searc
   const user = await requireAdminPageUser("/admin/automatizacie/prehlad");
   const raw = await searchParams;
   const range = parseAutomationOperationsRange(one(raw.range));
-  const overview = await getAutomationOperationsOverview(range);
+  const overviewRead = await readAdminAutomationData({
+    key: `operations-overview:${range}`,
+    load: () => getAutomationOperationsOverview(range),
+    fallback: null,
+    empty: (value) => value === null,
+  });
+  const overviewReadReliability = summarizeAdminAutomationReads([overviewRead]);
+  if (overviewRead.status === "UNAVAILABLE" || !overviewRead.data) {
+    return <AdminShell
+      user={user}
+      eyebrow="Automatizácie"
+      title="Prehľad automatizácií"
+      description="Prevádzkový prehľad sa momentálne nepodarilo bezpečne načítať."
+      actions={<Link href="/admin/automatizacie">← Automatizácie</Link>}
+    >
+      <AdminAutomationAvailabilityState
+        summary={overviewReadReliability}
+        refreshHref={`/admin/automatizacie/prehlad?range=${range}`}
+      />
+    </AdminShell>;
+  }
+  const overview = overviewRead.data;
 
   return <AdminShell
     user={user}
@@ -170,6 +193,11 @@ export default async function AutomationOperationsPage({ searchParams }: { searc
       <Link href="/admin/automatizacie/prehlad?range=7d" aria-current={range === "7d" ? "page" : undefined}>7 dní</Link>
       <Link href="/admin/automatizacie/prehlad?range=30d" aria-current={range === "30d" ? "page" : undefined}>30 dní</Link>
     </nav>
+
+    <AdminAutomationAvailabilityState
+      summary={overview.reliability}
+      refreshHref={`/admin/automatizacie/prehlad?range=${range}`}
+    />
 
     {!overview.extendedMetricsAvailable && <p className={styles.notice}>
       Rozšírené metriky zatiaľ nie sú dostupné. Staršie behy zostávajú zobrazené bez vymyslených núl.
