@@ -128,6 +128,40 @@ test("Notion address edits use canonical verification and exact GEO lifecycle", 
   assert.match(storeSource, /reconcileGeoAfterSourceMutation/);
 });
 
+test("ready Notion rows without a Psipedia ID create directly as published profiles", () => {
+  assert.match(syncSource, /createManagedDirectoryProfile/);
+  assert.match(syncSource, /if \(propertyText\(page, "Psipedia ID"\)\) return false/);
+  assert.match(syncSource, /editorialState === "Ready" \|\| editorialState === "Publikované"/);
+  assert.match(syncSource, /function newProfileInput/);
+  assert.match(syncSource, /status: "published"/);
+  assert.match(syncSource, /createManagedDirectoryProfile\(payload, SYSTEM_ACTOR, input\.database\)/);
+  assert.match(syncSource, /summary\.createdFromNotion \+= 1/);
+  assert.match(syncSource, /await writeProfileToNotion\(\{/);
+});
+
+test("Notion-first creation uses the durable R2 image pipeline from MEDIA-SOURCE-QUALITY-1", () => {
+  assert.match(syncSource, /prepareNotionMainImage\(\{/);
+  assert.match(syncSource, /folder: "directory"/);
+  assert.match(syncSource, /sourceContentHash: creation\.prepared\.sourceContentHash/);
+  assert.match(syncSource, /upsertMediaSourceMonitor\(\{/);
+  assert.doesNotMatch(
+    syncSource.slice(syncSource.indexOf("function newProfileInput"), syncSource.indexOf("function notionProfileReadyForCreate")),
+    /imageUrl: desired\.imageUrl/,
+  );
+});
+
+test("Notion-first creation persists mapping before post-create GEO work and can recover a failed write-back", () => {
+  const sweepBody = syncSource.slice(
+    syncSource.indexOf("export async function runNotionDirectorySyncSweep"),
+  );
+  assert.ok(
+    sweepBody.indexOf("await saveMapping({") < sweepBody.indexOf("await autoAssignGooglePlaceForDirectoryProfile({"),
+    "mapping must exist before post-create Google Place work",
+  );
+  assert.match(syncSource, /propertyText\(page, "Psipedia ID"\) !== String\(profile\.id\)/);
+  assert.match(syncSource, /return "pushed" as const/);
+});
+
 test("existing Psipedia profiles bootstrap into Notion in bounded batches", () => {
   assert.match(syncSource, /const BOOTSTRAP_BATCH = 20/);
   assert.match(syncSource, /LEFT JOIN directory_notion_sync dns/);

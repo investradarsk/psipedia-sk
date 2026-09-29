@@ -1030,8 +1030,12 @@ export async function getManagedDirectoryProfileByCategorySlug(category: Directo
   return row ? rowToManagedProfile(row) : null;
 }
 
-export async function createManagedDirectoryProfile(payload: ManagedDirectoryProfileInput, editorEmail: string) {
-  const database = requireD1Binding();
+export async function createManagedDirectoryProfile(
+  payload: ManagedDirectoryProfileInput,
+  editorEmail: string,
+  databaseInput?: D1Database,
+) {
+  const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const input = normalizeManagedDirectoryProfileInput(payload);
   const now = new Date().toISOString();

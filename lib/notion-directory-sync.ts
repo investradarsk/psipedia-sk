@@ -1,6 +1,7 @@
 import type { ManagedDirectoryProfile } from "@/lib/directory";
 import {
   archiveManagedDirectoryProfile,
+  createManagedDirectoryProfile,
   getManagedDirectoryProfileById,
   restoreManagedDirectoryProfile,
   updateManagedDirectoryProfile,
@@ -113,6 +114,7 @@ export type NotionDirectorySyncSummary = {
   schemaReady: boolean;
   notionScanned: number;
   bootstrapped: number;
+  createdFromNotion: number;
   pulledFromNotion: number;
   pushedToNotion: number;
   unchanged: number;
@@ -626,6 +628,137 @@ function fullProfileInput(
   };
 }
 
+function ownPsipediaImage(value: string) {
+  const localized = localizeOwnAsset(value);
+  return localized && (localized.startsWith("/media/") || localized.startsWith("/images/"))
+    ? localized
+    : null;
+}
+
+function newProfileInput(
+  desired: EditableDirectorySnapshot,
+  preparedImage?: { imageUrl: string | null; imageKey: string | null } | null,
+): ManagedDirectoryProfileInput {
+  return {
+    slug: desired.slug,
+    name: desired.name,
+    category: desired.category,
+    status: "published",
+    excerpt: desired.excerpt,
+    description: desired.description,
+    services: desired.services,
+    qualifications: desired.qualifications,
+    region: desired.region,
+    district: desired.district,
+    city: desired.city,
+    address: desired.address,
+    postalCode: desired.postalCode,
+    street: desired.street,
+    houseNumber: desired.houseNumber,
+    addressFormat: desired.addressFormat,
+    online: desired.online,
+    priceNote: desired.priceNote,
+    websiteUrl: desired.websiteUrl || null,
+    publicPhone: desired.publicPhone,
+    publicEmail: desired.publicEmail,
+    facebookUrl: desired.facebookUrl,
+    instagramUrl: desired.instagramUrl,
+    internalEmail: desired.internalEmail || null,
+    imageUrl: preparedImage?.imageUrl ?? ownPsipediaImage(desired.imageUrl),
+    imageKey: preparedImage?.imageKey ?? null,
+    verified: desired.verified,
+    featured: desired.featured,
+    seo: {
+      title: desired.seo.title,
+      description: desired.seo.description,
+      focusKeyword: desired.seo.focusKeyword,
+      canonicalUrl: desired.seo.canonicalUrl,
+      ogTitle: desired.seo.ogTitle,
+      ogDescription: desired.seo.ogDescription,
+      ogImage: ownPsipediaImage(desired.seo.ogImage) ?? "",
+      noindex: desired.seo.noindex,
+    },
+  };
+}
+
+function notionProfileReadyForCreate(page: NotionPage) {
+  if (propertyText(page, "Psipedia ID")) return false;
+  const editorialState = propertyText(page, "Stav");
+  return editorialState === "Ready" || editorialState === "Publikované";
+}
+
+async function createProfileFromNotion(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  page: NotionPage;
+}) {
+  const desired = notionSnapshot(input.page);
+  const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
+  const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
+  const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
+  const prepared = sourceImageUrl
+    ? await prepareNotionMainImage({
+        bindings: input.bindings,
+        sourceUrl: sourceImageUrl,
+        sourcePageUrl,
+        altText: imageAltText,
+        folder: "directory",
+        existingImageUrl: null,
+        existingImageKey: null,
+      })
+    : null;
+
+  try {
+    let payload = newProfileInput(
+      desired,
+      prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
+    );
+    let verified = null;
+
+    if (!desired.online && desired.confirmedServiceLocation) {
+      const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
+      verified = await verifyDirectoryCanonicalAddress({
+        region: desired.region,
+        district: desired.district,
+        city: desired.city,
+        street: desired.street,
+        houseNumber: desired.houseNumber,
+        addressFormat,
+        revalidateStreet: addressFormat === "STREET",
+      });
+      payload = withVerifiedDirectoryAddress(payload, verified);
+    } else if (desired.online && !desired.region && !desired.district && !desired.city) {
+      payload = {
+        ...payload,
+        region: "",
+        district: "",
+        city: "",
+        postalCode: "",
+        street: "",
+        houseNumber: "",
+        addressFormat: "",
+        clearServiceAddressConfirmation: true,
+      };
+    } else {
+      payload = { ...payload, clearServiceAddressConfirmation: true };
+    }
+
+    const created = await createManagedDirectoryProfile(payload, SYSTEM_ACTOR, input.database);
+    return {
+      profile: created,
+      verified,
+      prepared,
+      sourceImageUrl,
+      sourcePageUrl,
+    };
+  } catch (error) {
+    if (prepared?.uploadedKey) {
+      await cleanupNotionImageKeys(input.bindings.BUCKET, [prepared.uploadedKey]);
+    }
+    throw error;
+  }
+}
+
 async function applyNotionToProfile(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -806,6 +939,20 @@ async function syncMappedPage(input: {
   if (!profile) return "unchanged" as const;
 
   const page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
+
+  // A mapping can already exist when the first Notion write-back failed.
+  // Restore the canonical Psipedia ID/status before ordinary conflict resolution.
+  if (propertyText(page, "Psipedia ID") !== String(profile.id)) {
+    await writeProfileToNotion({
+      database: input.database,
+      bindings: input.bindings,
+      dataSourceId: input.dataSourceId,
+      profile,
+      pageId: page.id,
+    });
+    return "pushed" as const;
+  }
+
   const existingMonitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", profile.id);
   const currentSourceImageUrl = existingMonitor?.sourceImageUrl || externalSourceImageUrl(profile.imageUrl);
   const profileHash = await snapshotHash(profileSnapshot(profile, currentSourceImageUrl));
@@ -901,6 +1048,7 @@ export async function runNotionDirectorySyncSweep(input: {
     schemaReady: false,
     notionScanned: 0,
     bootstrapped: 0,
+    createdFromNotion: 0,
     pulledFromNotion: 0,
     pushedToNotion: 0,
     unchanged: 0,
@@ -924,6 +1072,70 @@ export async function runNotionDirectorySyncSweep(input: {
     try {
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
+
+      if (!mapping && notionProfileReadyForCreate(page)) {
+        const creation = await createProfileFromNotion({
+          database: input.database,
+          bindings: input.bindings,
+          page,
+        });
+        let created = creation.profile;
+        const syncedAt = new Date().toISOString();
+        const contentHash = await snapshotHash(
+          profileSnapshot(created, creation.sourceImageUrl || externalSourceImageUrl(created.imageUrl)),
+        );
+
+        // Save the one-to-one mapping immediately after INSERT. Any later
+        // media/GEO/Google/Notion failure must recover this same profile.
+        await saveMapping({
+          database: input.database,
+          pageId: page.id,
+          profileId: created.id,
+          contentHash,
+          notionLastEditedTime: page.last_edited_time ?? null,
+          psipediaUpdatedAt: created.updatedAt,
+          syncedAt,
+        });
+
+        if (creation.prepared && creation.sourceImageUrl) {
+          await upsertMediaSourceMonitor({
+            database: input.database,
+            entityType: "DIRECTORY_PROFILE",
+            entityId: created.id,
+            sourcePageUrl: creation.sourcePageUrl,
+            sourceImageUrl: creation.sourceImageUrl,
+            sourceContentHash: creation.prepared.sourceContentHash,
+            activeImageKey: creation.prepared.imageKey,
+          });
+          await cleanupNotionImageKeys(input.bindings.BUCKET, creation.prepared.replacedKeys);
+        }
+
+        if (creation.verified) {
+          await applyVerifiedDirectoryAddressGeo({
+            profileId: created.id,
+            verified: creation.verified,
+            actorRef: SYSTEM_ACTOR,
+            database: input.database,
+          });
+        }
+
+        await autoAssignGooglePlaceForDirectoryProfile({
+          targetId: created.id,
+          database: input.database,
+        });
+        created = await getManagedDirectoryProfileById(created.id, input.database) ?? created;
+
+        await writeProfileToNotion({
+          database: input.database,
+          bindings: input.bindings,
+          dataSourceId,
+          profile: created,
+          pageId: page.id,
+        });
+        summary.createdFromNotion += 1;
+        continue;
+      }
+
       if (!mapping) continue;
 
       if (
