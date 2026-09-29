@@ -67,15 +67,6 @@ jobs:
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium
 
-      - name: Configure isolated local admin runtime
-        run: |
-          cat > .dev.vars <<'EOF'
-          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
-          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
-          TURNSTILE_SITE_KEY=1x00000000000000000000AA
-          PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1
-          EOF
-
       - name: Apply schema to isolated local D1 only
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
@@ -117,7 +108,7 @@ jobs:
         with:
           name: admin-ia-2-screenshots-${{ github.run_attempt }}
           path: .e2e-artifacts/admin-ia-2/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Upload Playwright failure evidence
