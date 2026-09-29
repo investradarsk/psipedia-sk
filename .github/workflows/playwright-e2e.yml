@@ -36,13 +36,23 @@ jobs:
           git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" > /tmp/changed-files.txt
           cat /tmp/changed-files.txt
 
+          head_ref="${{ github.head_ref }}"
+          workflow_changed=false
+          if grep -qx '.github/workflows/playwright-e2e.yml' /tmp/changed-files.txt; then
+            workflow_changed=true
+          fi
+
           admin_events=false
-          if grep -Eq '^(app/admin/events/|app/api/admin/events/|components/admin-events|lib/admin-events|scripts/bootstrap-admin-events-e2e\.mjs$|scripts/check-admin-events-local\.mjs$|tests/e2e/admin-events\.spec\.ts$|tests/admin-events|\.github/workflows/playwright-e2e\.yml$)' /tmp/changed-files.txt; then
+          if grep -Eq '^(app/admin/events/|app/api/admin/events/|components/admin-events|lib/admin-events|scripts/bootstrap-admin-events-e2e\.mjs$|scripts/check-admin-events-local\.mjs$|tests/e2e/admin-events\.spec\.ts$|tests/admin-events)' /tmp/changed-files.txt; then
+            admin_events=true
+          elif [[ "${workflow_changed}" == "true" && "${head_ref}" != codex/lost-found-1* ]]; then
             admin_events=true
           fi
 
           search=false
-          if grep -Eq '^(app/hladat/|components/site-header\.tsx$|lib/portal-search|tests/portal-search\.test\.mjs$|tests/e2e/search\.spec\.ts$|tests/fixtures/search-e2e\.sql$|\.github/workflows/playwright-e2e\.yml$)' /tmp/changed-files.txt; then
+          if grep -Eq '^(app/hladat/|components/site-header\.tsx$|lib/portal-search|tests/portal-search\.test\.mjs$|tests/e2e/search\.spec\.ts$|tests/fixtures/search-e2e\.sql$)' /tmp/changed-files.txt; then
+            search=true
+          elif [[ "${workflow_changed}" == "true" && "${head_ref}" != codex/lost-found-1* ]]; then
             search=true
           fi
 
