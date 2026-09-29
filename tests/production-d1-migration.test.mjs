@@ -344,6 +344,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0096_automation_update_field_reviews.sql",
     "0097_automation_operations_metrics.sql",
     "0098_directory_notion_bidirectional_sync.sql",
+    "0099_media_source_quality.sql",
   ]);
 });
 
@@ -385,6 +386,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0096_automation_update_field_reviews.sql",
     "0097_automation_operations_metrics.sql",
     "0098_directory_notion_bidirectional_sync.sql",
+    "0099_media_source_quality.sql",
     "0100_future_migration.sql",
   ]);
 });
