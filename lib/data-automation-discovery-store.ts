@@ -61,6 +61,17 @@ export type AutomationDiscoveryRunSummaryRow = {
   candidateCount: number;
   reviewableCandidateCount: number;
   duplicateCandidateCount: number;
+  searchRequestCount: number | null;
+  searchResultCount: number | null;
+  providerResultCount: number | null;
+  localPrefilterCount: number | null;
+  exclusionCount: number | null;
+  canonicalDuplicateCount: number | null;
+  newEntityCount: number | null;
+  updateSuggestionCount: number | null;
+  possibleDuplicateCount: number | null;
+  addressVerifiedExactCount: number | null;
+  addressNoExactCount: number | null;
   errorCount: number;
   durationMs: number | null;
   errorSummary: string | null;
@@ -86,6 +97,12 @@ function parseJson(value: unknown) {
 function numberValue(value: unknown) {
   const number = Number(value ?? 0);
   return Number.isFinite(number) ? number : 0;
+}
+
+function nullableNumberValue(value: unknown) {
+  if (value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function mapRoot(row: Record<string, unknown>): AutomationDiscoveryRoot {
@@ -127,6 +144,17 @@ function mapRun(row: Record<string, unknown>): AutomationDiscoveryRunSummaryRow 
     candidateCount: numberValue(row.candidate_count),
     reviewableCandidateCount: numberValue(row.reviewable_candidate_count),
     duplicateCandidateCount: numberValue(row.duplicate_candidate_count),
+    searchRequestCount: nullableNumberValue(row.search_request_count),
+    searchResultCount: nullableNumberValue(row.search_result_count),
+    providerResultCount: nullableNumberValue(row.provider_result_count),
+    localPrefilterCount: nullableNumberValue(row.local_prefilter_count),
+    exclusionCount: nullableNumberValue(row.exclusion_count),
+    canonicalDuplicateCount: nullableNumberValue(row.canonical_duplicate_count),
+    newEntityCount: nullableNumberValue(row.new_entity_count),
+    updateSuggestionCount: nullableNumberValue(row.update_suggestion_count),
+    possibleDuplicateCount: nullableNumberValue(row.possible_duplicate_count),
+    addressVerifiedExactCount: nullableNumberValue(row.address_verified_exact_count),
+    addressNoExactCount: nullableNumberValue(row.address_no_exact_count),
     errorCount: numberValue(row.error_count),
     durationMs: row.duration_ms === null || row.duration_ms === undefined ? null : numberValue(row.duration_ms),
     errorSummary: row.error_summary ? String(row.error_summary) : null,
@@ -479,6 +507,17 @@ export async function finishAutomationDiscoveryRun(input: {
   candidateCount: number;
   reviewableCandidateCount: number;
   duplicateCandidateCount: number;
+  searchRequestCount: number;
+  searchResultCount: number;
+  providerResultCount: number;
+  localPrefilterCount: number;
+  exclusionCount: number;
+  canonicalDuplicateCount: number;
+  newEntityCount: number;
+  updateSuggestionCount: number;
+  possibleDuplicateCount: number;
+  addressVerifiedExactCount: number;
+  addressNoExactCount: number;
   errorCount: number;
   errorSummary: string | null;
   startedAt: Date;
@@ -488,14 +527,7 @@ export async function finishAutomationDiscoveryRun(input: {
   const completedAt = input.completedAt.toISOString();
   const durationMs = Math.max(0, input.completedAt.getTime() - input.startedAt.getTime());
   const nextCheckAt = nextAutomationDiscoveryCheckAt(input.root, input.completedAt);
-  await db.batch([
-    db.prepare(`UPDATE automation_discovery_runs SET status=?,completed_at=?,candidate_count=?,
-      reviewable_candidate_count=?,duplicate_candidate_count=?,error_count=?,duration_ms=?,error_summary=?
-      WHERE id=?`).bind(
-        input.status, completedAt, input.candidateCount, input.reviewableCandidateCount,
-        input.duplicateCandidateCount, input.errorCount, durationMs, input.errorSummary, input.runId,
-      ),
-    db.prepare(`UPDATE automation_discovery_roots SET
+  const rootUpdate = () => db.prepare(`UPDATE automation_discovery_roots SET
       next_check_at=?,last_checked_at=?,
       last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,
       last_error_at=CASE WHEN ?='SUCCESS' THEN last_error_at ELSE ? END,
@@ -507,11 +539,77 @@ export async function finishAutomationDiscoveryRun(input: {
         input.status, completedAt,
         input.status, input.errorSummary,
         completedAt, input.root.id,
-      ),
-  ]);
+      );
+  try {
+    await db.batch([
+      db.prepare(`UPDATE automation_discovery_runs SET status=?,completed_at=?,candidate_count=?,
+        reviewable_candidate_count=?,duplicate_candidate_count=?,
+        search_request_count=?,search_result_count=?,provider_result_count=?,local_prefilter_count=?,exclusion_count=?,
+        canonical_duplicate_count=?,new_entity_count=?,update_suggestion_count=?,possible_duplicate_count=?,
+        address_verified_exact_count=?,address_no_exact_count=?,
+        error_count=?,duration_ms=?,error_summary=?
+        WHERE id=?`).bind(
+          input.status, completedAt, input.candidateCount, input.reviewableCandidateCount, input.duplicateCandidateCount,
+          input.searchRequestCount, input.searchResultCount, input.providerResultCount, input.localPrefilterCount, input.exclusionCount,
+          input.canonicalDuplicateCount, input.newEntityCount, input.updateSuggestionCount, input.possibleDuplicateCount,
+          input.addressVerifiedExactCount, input.addressNoExactCount,
+          input.errorCount, durationMs, input.errorSummary, input.runId,
+        ),
+      rootUpdate(),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/no such column:|has no column named/i.test(message)) throw error;
+    await db.batch([
+      db.prepare(`UPDATE automation_discovery_runs SET status=?,completed_at=?,candidate_count=?,
+        reviewable_candidate_count=?,duplicate_candidate_count=?,error_count=?,duration_ms=?,error_summary=?
+        WHERE id=?`).bind(
+          input.status, completedAt, input.candidateCount, input.reviewableCandidateCount,
+          input.duplicateCandidateCount, input.errorCount, durationMs, input.errorSummary, input.runId,
+        ),
+      rootUpdate(),
+    ]);
+  }
   return { nextCheckAt, durationMs };
 }
 
+
+export type AutomationDiscoveryOutcomeInput = {
+  outcomeType: "NEW_DRAFT" | "EXISTING_CANONICAL" | "POSSIBLE_DUPLICATE" | "UPDATE_SUGGESTION";
+  canonicalEntityId: number | null;
+  label: string;
+  sourceUrl: string | null;
+  matchReasonCode: string;
+};
+
+export async function recordAutomationDiscoveryOutcomes(input: {
+  runId: number;
+  rootId: number;
+  categorySlug: string | null;
+  entityType: AutomationEntityType;
+  outcomes: AutomationDiscoveryOutcomeInput[];
+  createdAt: string;
+}, databaseInput?: AutomationDiscoveryDatabase) {
+  if (!input.outcomes.length) return;
+  const db = database(databaseInput);
+  try {
+    const statements = input.outcomes.slice(0,100).map((outcome)=>db.prepare(`INSERT INTO automation_discovery_outcomes
+      (run_id,root_id,category_slug,entity_type,outcome_type,canonical_entity_id,label,source_url,match_reason_code,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`).bind(
+        input.runId,input.rootId,input.categorySlug,input.entityType,outcome.outcomeType,outcome.canonicalEntityId,
+        outcome.label.slice(0,240),outcome.sourceUrl?.slice(0,1000)??null,outcome.matchReasonCode.slice(0,80),input.createdAt,
+      ));
+    statements.push(db.prepare(`DELETE FROM automation_discovery_outcomes
+      WHERE root_id=? AND id NOT IN (
+        SELECT id FROM automation_discovery_outcomes WHERE root_id=? ORDER BY created_at DESC,id DESC LIMIT 500
+      )`).bind(input.rootId,input.rootId));
+    await db.batch(statements);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/no such table:\s*automation_discovery_outcomes/i.test(message)) return;
+    throw error;
+  }
+}
 
 function missingSearchUsageSchema(error: unknown) {
   return /no such table:\s*automation_search_usage/i.test(

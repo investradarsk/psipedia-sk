@@ -30,6 +30,8 @@ import {
   reserveAutomationEntityEnrichmentRequest,
   reserveAutomationSearchRequest,
   updateAutomationSearchUsageCandidateMetrics,
+  recordAutomationDiscoveryOutcomes,
+  type AutomationDiscoveryOutcomeInput,
   type AutomationDiscoveryDatabase,
   type AutomationDiscoveryRoot,
 } from "./data-automation-discovery-store.ts";
@@ -111,6 +113,9 @@ export type DiscoveryRunSummary = {
   canonicalDuplicateCount: number;
   newEntityCount: number;
   updateSuggestionCount: number;
+  possibleDuplicateCount: number;
+  addressVerifiedExactCount: number;
+  addressNoExactCount: number;
   category: string | null;
   discoveryMode: "DIRECT_ENTITY" | "FEED_SOURCE" | null;
   errors: number;
@@ -1268,6 +1273,10 @@ async function runDiscoveryRoot(
   let canonicalDuplicateCount = 0;
   let newEntityCount = 0;
   let updateSuggestionCount = 0;
+  let possibleDuplicateCount = 0;
+  let addressVerifiedExactCount = 0;
+  let addressNoExactCount = 0;
+  const operationalOutcomes: AutomationDiscoveryOutcomeInput[] = [];
   let errors = 0;
   let status: DiscoveryRunSummary["status"] = "SUCCESS";
   let errorSummary: string | null = null;
@@ -1303,6 +1312,13 @@ async function runDiscoveryRoot(
           if (automationDiscoveryCandidateExcluded(candidate.sourceUrl, exclusions, true)) {
             localPrefilterCount += 1;
             canonicalDuplicateCount += 1;
+            operationalOutcomes.push({
+              outcomeType: "EXISTING_CANONICAL",
+              canonicalEntityId: null,
+              label: candidate.label,
+              sourceUrl: candidate.sourceUrl,
+              matchReasonCode: "SAME_WEB",
+            });
             continue;
           }
           if (root.entityType !== "DIRECTORY" && root.entityType !== "ORGANIZATION") {
@@ -1330,9 +1346,13 @@ async function runDiscoveryRoot(
               ? candidate.metadata.snippet
               : null,
           });
-          canonicalDuplicateCount += ingested.canonicalDuplicates;
+          canonicalDuplicateCount += ingested.existingCanonicalMatches;
           newEntityCount += ingested.newEntities;
           updateSuggestionCount += ingested.updateSuggestions;
+          possibleDuplicateCount += ingested.possibleDuplicates;
+          addressVerifiedExactCount += ingested.addressVerifiedExact;
+          addressNoExactCount += ingested.addressNoExact;
+          operationalOutcomes.push(...ingested.outcomes);
         } catch (error) {
           errors += 1;
           status = "PARTIAL";
@@ -1404,6 +1424,24 @@ async function runDiscoveryRoot(
   }
 
   const completedAt = options.now ? new Date(options.now) : new Date();
+  const searchMetricsSummary = await getAutomationDiscoveryRunSearchMetrics(
+    runId,
+    options.database as AutomationDiscoveryDatabase,
+  );
+  try {
+    await recordAutomationDiscoveryOutcomes({
+      runId,
+      rootId: root.id,
+      categorySlug: category,
+      entityType: root.entityType,
+      outcomes: operationalOutcomes,
+      createdAt: completedAt.toISOString(),
+    }, options.database as AutomationDiscoveryDatabase);
+  } catch (error) {
+    errors += 1;
+    status = status === "FAILED" ? status : "PARTIAL";
+    errorSummary ??= safeErrorCode(error);
+  }
   const health = await finishAutomationDiscoveryRun({
     runId,
     root,
@@ -1411,16 +1449,22 @@ async function runDiscoveryRoot(
     candidateCount,
     reviewableCandidateCount,
     duplicateCandidateCount,
+    searchRequestCount: searchMetricsSummary.requestCount,
+    searchResultCount: searchMetricsSummary.resultCount,
+    providerResultCount,
+    localPrefilterCount,
+    exclusionCount,
+    canonicalDuplicateCount,
+    newEntityCount,
+    updateSuggestionCount,
+    possibleDuplicateCount,
+    addressVerifiedExactCount,
+    addressNoExactCount,
     errorCount: errors,
     errorSummary,
     startedAt,
     completedAt,
   }, options.database as AutomationDiscoveryDatabase);
-
-  const searchMetricsSummary = await getAutomationDiscoveryRunSearchMetrics(
-    runId,
-    options.database as AutomationDiscoveryDatabase,
-  );
   const summary: DiscoveryRunSummary = {
     runId,
     rootId: root.id,
@@ -1437,6 +1481,9 @@ async function runDiscoveryRoot(
     canonicalDuplicateCount,
     newEntityCount,
     updateSuggestionCount,
+    possibleDuplicateCount,
+    addressVerifiedExactCount,
+    addressNoExactCount,
     category,
     discoveryMode,
     errors,
@@ -1574,6 +1621,9 @@ async function runDirectEntityRefresh(
     batchWasFull: candidates.length >= batchSize,
     status,
     errorCode,
+    checkedCount: checked,
+    updateSuggestionCount: updateSuggestions,
+    errorCount: errors,
     now,
   }, options.database);
 
@@ -1638,6 +1688,9 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
         canonicalDuplicateCount: 0,
         newEntityCount: 0,
         updateSuggestionCount: 0,
+        possibleDuplicateCount: 0,
+        addressVerifiedExactCount: 0,
+        addressNoExactCount: 0,
         category: automationProductCategoryForRoot(root),
         discoveryMode: automationProductModeForRoot(root),
         errors: 1,
