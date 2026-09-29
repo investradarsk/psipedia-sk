@@ -68,10 +68,11 @@ export function isAdoptionAdminConflict(error: unknown) {
 export async function listAdoptionAdminBreedOptions(
   database?: AdoptionD1Database,
   selected?: CanonicalBreedOption | null,
+  selectedId?: number | null,
 ): Promise<AdoptionAdminBreedOptionsResult> {
   const bound = (env as unknown as RuntimeBindings).DB;
   const db = database ?? (bound && typeof bound.prepare === "function" ? bound : null);
-  return readCanonicalBreedOptions(db, { selected });
+  return readCanonicalBreedOptions(db, { selected, selectedId });
 }
 
 export async function listAdoptionAdminOrganizationOptions(database?: AdoptionD1Database) {
