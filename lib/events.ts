@@ -111,6 +111,61 @@ export function eventHref(event: Pick<DogEvent, "slug">) {
   return `/podujatia/${event.slug}`;
 }
 
+function eventPresentationComparisonText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[_*#>`\[\]()]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isInternalEventPresentationLine(value: string) {
+  const normalized = eventPresentationComparisonText(value)
+    .replace(/^(?:[-*]|\d+\.)\s+/, "")
+    .replace(/[_-]+/g, " ");
+
+  if (/^nezistene(?:\b|\s*[–—-])/.test(normalized)) return true;
+  if (/^[^:]{1,80}:\s*nezistene\b/.test(normalized)) return true;
+  if (/^(?:zdroje?|source(?: url)?|url zdroja|zdrojova url|importovane z)\s*:\s*https?:\/\//.test(normalized)) return true;
+  if (/^(?:source (?:id|url|key)|external (?:id|key)|import (?:id|key|source|url)|raw (?:source|payload|url)|zdrojove id|interne id)\s*:/.test(normalized)) return true;
+  return false;
+}
+
+export function sanitizePublicEventText(value: string) {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .filter((line) => !isInternalEventPresentationLine(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function buildPublicEventPresentation(event: DogEvent): DogEvent {
+  const excerpt = sanitizePublicEventText(event.excerpt);
+  let description = sanitizePublicEventText(event.description);
+  let practicalInfo = sanitizePublicEventText(event.practicalInfo);
+
+  const excerptComparable = eventPresentationComparisonText(excerpt);
+  if (description && excerptComparable && eventPresentationComparisonText(description) === excerptComparable) {
+    description = "";
+  }
+
+  const visibleDescriptionComparable = eventPresentationComparisonText(description);
+  const practicalComparable = eventPresentationComparisonText(practicalInfo);
+  if (
+    practicalInfo
+    && practicalComparable
+    && (practicalComparable === excerptComparable || practicalComparable === visibleDescriptionComparable)
+  ) {
+    practicalInfo = "";
+  }
+
+  return { ...event, excerpt, description, practicalInfo };
+}
+
 export function formatEventDate(event: Pick<DogEvent, "startDate" | "endDate">) {
   const formatter = new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: EVENT_TIME_ZONE });
   const start = new Date(`${event.startDate}T12:00:00Z`);
