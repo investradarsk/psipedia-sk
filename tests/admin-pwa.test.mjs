@@ -54,6 +54,16 @@ test("service worker registration is admin-only and admin remains usable without
   assert.match(registration, /neukladajú do fronty/);
 });
 
+test("admin settings can exclude the current browser from Cloudflare Web Analytics", () => {
+  const settings = read("../components/admin-pwa-settings.tsx");
+  assert.match(settings, /ANALYTICS_EXCLUSION_COOKIE = "psipedia_internal"/);
+  assert.match(settings, /Max-Age=\$\{ANALYTICS_EXCLUSION_MAX_AGE\}/);
+  assert.match(settings, /SameSite=Lax/);
+  assert.match(settings, /Nezapočítavať toto zariadenie do návštevnosti/);
+  assert.match(settings, /Znovu započítavať toto zariadenie/);
+  assert.match(settings, /window\.location\.reload\(\)/);
+});
+
 test("push permission is requested only from explicit enable action", () => {
   const settings = read("../components/admin-pwa-settings.tsx");
   const permissionIndex = settings.indexOf("Notification.requestPermission()");
