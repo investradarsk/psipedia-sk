@@ -25,6 +25,7 @@ type Bindings = {
   DB?: D1Database;
   TURNSTILE_SECRET_KEY?: string;
   PII_HASH_KEY?: string;
+  PSIPEDIA_E2E_LOCAL_BOOTSTRAP?: string;
 };
 
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
@@ -103,9 +104,10 @@ export async function POST(request: Request) {
     const runtime = env as unknown as Bindings;
     const database = getPublicLostFoundDatabase(runtime.DB);
     const hashKey = required(runtime.PII_HASH_KEY);
-    const turnstileSecret = process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP === "1"
-      ? ""
-      : required(runtime.TURNSTILE_SECRET_KEY);
+    const requestHost = new URL(request.url).hostname;
+    const localE2E = runtime.PSIPEDIA_E2E_LOCAL_BOOTSTRAP === "1"
+      && (requestHost === "localhost" || requestHost === "127.0.0.1");
+    const turnstileSecret = localE2E ? "" : required(runtime.TURNSTILE_SECRET_KEY);
     const contactIdentity = submission.normalizedEmail || submission.normalizedPhone || "missing-contact";
 
     await enforcePublicLostFoundRateLimits({
@@ -120,6 +122,7 @@ export async function POST(request: Request) {
       request,
       token: typeof form.get("turnstileToken") === "string" ? String(form.get("turnstileToken")) : "",
       secret: turnstileSecret,
+      allowLocalE2EBypass: localE2E,
     });
 
     const report = await createPendingPublicLostFoundDogReport(submission, { database });
