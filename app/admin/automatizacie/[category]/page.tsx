@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminAutomationCategorySources } from "@/components/admin-automation-category-sources";
 import { AdminAutomationSearchControls } from "@/components/admin-automation-search-controls";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminAutomationAvailabilityState } from "@/app/admin/automatizacie/_components/automation-availability-state";
 import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import {
@@ -17,6 +18,7 @@ import { isTavilySearchDiscoveryRoot } from "@/lib/tavily-canary-control";
 import { normalizeAutomationUpdateSuggestionSummaries } from "@/lib/data-automation-update-review";
 import { countOpenAutomationAddressReviews } from "@/lib/data-automation-address-review-store";
 import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-lifecycle-store";
+import { readAdminAutomationData, summarizeAdminAutomationReads } from "@/lib/admin-automation-reliability";
 import {
   getDirectEntityRefreshSetting,
   listAutomationSourceCanonicalContent,
@@ -34,44 +36,115 @@ export default async function AutomationCategoryPage({ params }: Props) {
   if (!category) notFound();
   const user = await requireAdminPageUser("/admin/automatizacie/" + slug);
 
-  const [allSources, allCandidates, allRoots] = await Promise.all([
-    listAutomationSourcesAdmin(undefined, 200).catch(() => []),
-    listAutomationSourceCandidates(undefined, 200).catch(() => []),
-    listAutomationDiscoveryRoots(undefined, 100).catch(() => []),
+  const [allSourcesRead, allCandidatesRead, allRootsRead] = await Promise.all([
+    readAdminAutomationData({
+      key: `category:${slug}:sources`,
+      load: () => listAutomationSourcesAdmin(undefined, 200),
+      fallback: [],
+      empty: (value) => value.length === 0,
+    }),
+    readAdminAutomationData({
+      key: `category:${slug}:candidates`,
+      load: () => listAutomationSourceCandidates(undefined, 200),
+      fallback: [],
+      empty: (value) => value.length === 0,
+    }),
+    readAdminAutomationData({
+      key: `category:${slug}:discovery-roots`,
+      load: () => listAutomationDiscoveryRoots(undefined, 100),
+      fallback: [],
+      empty: (value) => value.length === 0,
+    }),
   ]);
-  const sources = automationSourcesForCategory(allSources, slug);
-  const candidates = automationCandidatesForCategory(allCandidates, slug);
-  const discoveryRoots = automationDiscoveryRootsForCategory(allRoots, slug).filter(isTavilySearchDiscoveryRoot);
+  const sources = automationSourcesForCategory(allSourcesRead.data, slug);
+  const candidates = automationCandidatesForCategory(allCandidatesRead.data, slug);
+  const discoveryRoots = automationDiscoveryRootsForCategory(allRootsRead.data, slug).filter(isTavilySearchDiscoveryRoot);
 
   const directSlug = category.mode === "DIRECT_ENTITY"
     ? slug as "veterinari" | "psie-sluzby" | "utulky-organizacie"
     : null;
-  const refreshSetting = directSlug
-    ? await getDirectEntityRefreshSetting(directSlug).catch(() => null)
+  const refreshSettingRead = directSlug
+    ? await readAdminAutomationData({
+        key: `category:${slug}:refresh-setting`,
+        load: () => getDirectEntityRefreshSetting(directSlug),
+        fallback: null,
+        empty: (value) => value === null,
+      })
     : null;
-  const directConcepts = directSlug
-    ? await listDirectEntityConcepts(directSlug).catch(() => [])
+  const directConceptsRead = directSlug
+    ? await readAdminAutomationData({
+        key: `category:${slug}:direct-concepts`,
+        load: () => listDirectEntityConcepts(directSlug),
+        fallback: [],
+        empty: (value) => value.length === 0,
+      })
+    : null;
+  const rawUpdateSuggestionsRead = directSlug
+    ? await readAdminAutomationData({
+        key: `category:${slug}:direct-update-suggestions`,
+        load: () => listDirectEntityUpdateSuggestions(directSlug),
+        fallback: [],
+        empty: (value) => value.length === 0,
+      })
+    : await readAdminAutomationData({
+        key: `category:${slug}:feed-update-suggestions`,
+        load: () => listFeedUpdateSuggestions(sources.map((source) => source.id)),
+        fallback: [],
+        empty: (value) => value.length === 0,
+      });
+  const updateSuggestionsRead = await readAdminAutomationData({
+    key: `category:${slug}:normalize-update-suggestions`,
+    load: () => normalizeAutomationUpdateSuggestionSummaries(rawUpdateSuggestionsRead.data),
+    fallback: rawUpdateSuggestionsRead.data,
+    empty: (value) => value.length === 0,
+  });
+  const sourceContentReads = category.mode === "FEED_SOURCE"
+    ? await Promise.all(sources.map((source) => readAdminAutomationData({
+        key: `category:${slug}:source-content:${source.id}`,
+        load: () => listAutomationSourceCanonicalContent(source.id),
+        fallback: [],
+        empty: (value) => value.length === 0,
+      })))
     : [];
-  const rawUpdateSuggestions = directSlug
-    ? await listDirectEntityUpdateSuggestions(directSlug).catch(() => [])
-    : await listFeedUpdateSuggestions(sources.map((source) => source.id)).catch(() => []);
-  const updateSuggestions = await normalizeAutomationUpdateSuggestionSummaries(rawUpdateSuggestions).catch(() => rawUpdateSuggestions);
-  const sourceContentEntries = category.mode === "FEED_SOURCE"
-    ? await Promise.all(sources.map(async (source) => [
-        source.id,
-        await listAutomationSourceCanonicalContent(source.id).catch(() => []),
-      ] as const))
-    : [];
-  const sourceContent = Object.fromEntries(sourceContentEntries);
+  const sourceContent = Object.fromEntries(sourceContentReads.map((read, index) => [sources[index]?.id, read.data]));
   const addressReviewCategory = slug === "veterinari" || slug === "psie-sluzby"
     ? slug
     : null;
-  const addressReviewCount = addressReviewCategory
-    ? await countOpenAutomationAddressReviews(addressReviewCategory).catch(() => 0)
-    : 0;
-  const lifecycleCount = category.mode === "FEED_SOURCE"
-    ? await countOpenAutomationLifecycleSuggestions({ entityTypes: category.entityTypes }).catch(() => 0)
-    : 0;
+  const addressReviewRead = addressReviewCategory
+    ? await readAdminAutomationData({
+        key: `category:${slug}:address-review-count`,
+        load: () => countOpenAutomationAddressReviews(addressReviewCategory),
+        fallback: 0,
+        empty: (value) => value === 0,
+      })
+    : null;
+  const lifecycleRead = category.mode === "FEED_SOURCE"
+    ? await readAdminAutomationData({
+        key: `category:${slug}:lifecycle-count`,
+        load: () => countOpenAutomationLifecycleSuggestions({ entityTypes: category.entityTypes }),
+        fallback: 0,
+        empty: (value) => value === 0,
+      })
+    : null;
+
+  const reliability = summarizeAdminAutomationReads([
+    allSourcesRead,
+    allCandidatesRead,
+    allRootsRead,
+    rawUpdateSuggestionsRead,
+    updateSuggestionsRead,
+    ...sourceContentReads,
+    ...(refreshSettingRead ? [refreshSettingRead] : []),
+    ...(directConceptsRead ? [directConceptsRead] : []),
+    ...(addressReviewRead ? [addressReviewRead] : []),
+    ...(lifecycleRead ? [lifecycleRead] : []),
+  ]);
+  const refreshSetting = refreshSettingRead?.data ?? null;
+  const directConcepts = directConceptsRead?.data ?? [];
+  const updateSuggestions = updateSuggestionsRead.data;
+  const addressReviewCount = addressReviewRead?.data ?? 0;
+  const addressReviewLabel = addressReviewRead?.status === "UNAVAILABLE" ? "—" : String(addressReviewCount);
+  const lifecycleLabel = lifecycleRead?.status === "UNAVAILABLE" ? "—" : String(lifecycleRead?.data ?? 0);
 
   return (
     <AdminShell
@@ -86,11 +159,12 @@ export default async function AutomationCategoryPage({ params }: Props) {
           <Link href="/admin/automatizacie">← Všetky kategórie</Link>
           <Link href="/admin/automatizacie/prehlad">Prehľad</Link>
           {category.mode === "FEED_SOURCE" ? (
-            <Link href={`/admin/automatizacie/zmeny-stavu?category=${category.slug}`}>Zmeny stavu · {lifecycleCount}</Link>
+            <Link href={`/admin/automatizacie/zmeny-stavu?category=${category.slug}`}>Zmeny stavu · {lifecycleLabel}</Link>
           ) : null}
         </>
       )}
     >
+      <AdminAutomationAvailabilityState summary={reliability} refreshHref={`/admin/automatizacie/${slug}`} />
       {addressReviewCategory ? (
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
@@ -98,13 +172,13 @@ export default async function AutomationCategoryPage({ params }: Props) {
               <h2>Adresy na kontrolu</h2>
               <p>Nejednoznačné exact adresy, pri ktorých musí správnu budovu potvrdiť administrátor.</p>
             </div>
-            <span className={styles.sectionCount}>{addressReviewCount}</span>
+            <span className={styles.sectionCount}>{addressReviewLabel}</span>
           </div>
           <Link
             className={styles.itemAction}
             href={`/admin/automatizacie/adresy?category=${addressReviewCategory}`}
           >
-            Adresy na kontrolu · {addressReviewCount}
+            Adresy na kontrolu · {addressReviewLabel}
           </Link>
         </section>
       ) : null}
