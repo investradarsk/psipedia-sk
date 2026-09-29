@@ -39,6 +39,24 @@ test("admin PWA settings are responsive, accessible and do not prompt on load", 
   await expectAxeClean(page);
 });
 
+test("admin can exclude and re-include the current browser from analytics", async ({ page, context }) => {
+  await context.clearCookies();
+  await page.goto("/admin/nastavenia", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByTestId("analytics-device-state")).toHaveText("Započítava sa");
+  await page.getByRole("button", { name: "Nezapočítavať toto zariadenie do návštevnosti" }).click();
+  await page.waitForLoadState("domcontentloaded");
+
+  await expect(page.getByTestId("analytics-device-state")).toHaveText("Nezapočítava sa");
+  expect((await context.cookies()).some((cookie) => cookie.name === "psipedia_internal" && cookie.value === "1")).toBe(true);
+
+  await page.getByRole("button", { name: "Znovu započítavať toto zariadenie" }).click();
+  await page.waitForLoadState("domcontentloaded");
+
+  await expect(page.getByTestId("analytics-device-state")).toHaveText("Započítava sa");
+  expect((await context.cookies()).some((cookie) => cookie.name === "psipedia_internal")).toBe(false);
+});
+
 test("service worker registers without intercepting admin requests and offline mutations stay network-only", async ({ page, context }) => {
   await page.goto("/admin/nastavenia", { waitUntil: "domcontentloaded" });
   await expect.poll(async () => page.evaluate(async () => {

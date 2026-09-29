@@ -18,6 +18,8 @@ type PushConfig = {
   publicKey: string | null;
 };
 
+const ANALYTICS_EXCLUSION_COOKIE = "psipedia_internal";
+
 function base64UrlToUint8Array(value: string) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
@@ -60,11 +62,26 @@ export function AdminPwaSettings() {
   const [serviceWorkerSupported, setServiceWorkerSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [busy, setBusy] = useState(false);
+  const [analyticsBusy, setAnalyticsBusy] = useState(false);
+  const [analyticsExcluded, setAnalyticsExcluded] = useState<boolean | null>(null);
 
   const inspect = useCallback(async () => {
     setMessage("");
     setStandalone(isStandalone());
     setIos(isIos());
+
+    try {
+      const analyticsResponse = await fetch("/api/admin/analytics-device", {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!analyticsResponse.ok) throw new Error("Stav analytiky tohto zariadenia sa nepodarilo načítať.");
+      const analyticsState = await analyticsResponse.json() as { excluded?: boolean };
+      setAnalyticsExcluded(analyticsState.excluded === true);
+    } catch (error) {
+      setAnalyticsExcluded(null);
+      setMessage(error instanceof Error ? error.message : "Stav analytiky tohto zariadenia sa nepodarilo zistiť.");
+    }
 
     const hasServiceWorker = "serviceWorker" in navigator;
     const hasPushManager = "PushManager" in window;
@@ -122,6 +139,28 @@ export function AdminPwaSettings() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [inspect]);
+
+  async function updateAnalyticsExclusion(excluded: boolean) {
+    if (analyticsBusy) return;
+    setAnalyticsBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/analytics-device", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ excluded }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? "Nastavenie analytiky sa nepodarilo uložiť.");
+      }
+      setAnalyticsExcluded(excluded);
+      window.location.reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Nastavenie analytiky sa nepodarilo uložiť.");
+      setAnalyticsBusy(false);
+    }
+  }
 
   async function enableNotifications() {
     if (!config?.publicKey || busy) return;
@@ -236,6 +275,39 @@ export function AdminPwaSettings() {
           </div>
         )}
         <p className={styles.safetyNote}>Admin nikdy neukladá publikovanie ani iné redakčné zmeny do offline fronty.</p>
+      </section>
+
+      <section className="admin-panel">
+        <h2>Návštevnosť tohto zariadenia</h2>
+        <p>
+          Toto nastavenie označí iba tento prehliadač ako interný. Cloudflare Web Analytics ho potom
+          podľa pravidla s cookie <code>{ANALYTICS_EXCLUSION_COOKIE}=1</code> nebude započítavať do
+          návštev, zobrazení stránok ani RUM metrík.
+        </p>
+        <dl className={styles.statusList}>
+          <div>
+            <dt>Stav</dt>
+            <dd data-testid="analytics-device-state">
+              {analyticsExcluded === null ? "Zisťujem stav…" : analyticsExcluded ? "Nezapočítava sa" : "Započítava sa"}
+            </dd>
+          </div>
+        </dl>
+        <div className="admin-form-actions">
+          {analyticsExcluded === true && (
+            <button type="button" onClick={() => void updateAnalyticsExclusion(false)} disabled={analyticsBusy}>
+              {analyticsBusy ? "Ukladám…" : "Znovu započítavať toto zariadenie"}
+            </button>
+          )}
+          {analyticsExcluded === false && (
+            <button className="is-primary" type="button" onClick={() => void updateAnalyticsExclusion(true)} disabled={analyticsBusy}>
+              {analyticsBusy ? "Ukladám…" : "Nezapočítavať toto zariadenie do návštevnosti"}
+            </button>
+          )}
+        </div>
+        <p className={styles.infoNote}>
+          Platí iba pre tento prehliadač. Po vymazaní cookies treba nastavenie zapnúť znova.
+          Po zmene sa stránka automaticky obnoví, aby sa nové pravidlo uplatnilo hneď.
+        </p>
       </section>
 
       <section className="admin-panel">
