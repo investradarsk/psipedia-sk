@@ -366,16 +366,22 @@ export function applyPortalSearchFilterOverrides(
   let directoryCategory = parsed.directoryCategory;
   let eventType = parsed.eventType;
   let entityIntent = parsed.entityIntent;
+  const originalIntentToken = canonicalIntentToken({
+    directoryCategory: parsed.directoryCategory,
+    eventType: parsed.eventType,
+    entityIntent: parsed.entityIntent,
+  });
+  let selectedType = null as ReturnType<typeof parsePortalSearchTypeFilter>;
 
   if (overrides.typeProvided) {
     directoryCategory = null;
     eventType = null;
     entityIntent = null;
-    const selection = parsePortalSearchTypeFilter(overrides.type ?? "");
-    if (selection) {
-      directoryCategory = selection.directoryCategory;
-      eventType = selection.eventType;
-      entityIntent = selection.entityIntent;
+    selectedType = parsePortalSearchTypeFilter(overrides.type ?? "");
+    if (selectedType) {
+      directoryCategory = selectedType.directoryCategory;
+      eventType = selectedType.eventType;
+      entityIntent = selectedType.entityIntent;
     }
   }
 
@@ -383,7 +389,9 @@ export function applyPortalSearchFilterOverrides(
     ? parsePortalSearchLocationFilter(overrides.location ?? "")
     : parsed.location;
   const intentToken = canonicalIntentToken({ directoryCategory, eventType, entityIntent });
-  const contentTokens = [...new Set([intentToken, ...parsed.residualTokens].filter(Boolean))]
+  const lexicalTokens = [...parsed.residualTokens];
+  if (overrides.typeProvided && !selectedType && originalIntentToken) lexicalTokens.unshift(originalIntentToken);
+  const contentTokens = [...new Set([intentToken, ...lexicalTokens].filter(Boolean))]
     .slice(0, SEARCH_MAX_TOKENS);
 
   return {
