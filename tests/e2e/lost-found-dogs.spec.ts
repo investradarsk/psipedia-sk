@@ -327,7 +327,7 @@ test("valid public submission stays private until admin approval, then publishes
   await page.getByLabel("Obec alebo mesto *").fill("Nitra");
   await page.getByLabel("Približné miesto").fill("Okolie mestského parku.");
   await page.locator('input[name="contactPhone"]').fill(phone);
-  await page.getByLabel("E-mail").fill(email);
+  await page.locator('input[name="contactEmail"]').fill(email);
 
   const responsePromise = page.waitForResponse((response) =>
     response.url().endsWith("/api/lost-found/submissions") && response.request().method() === "POST"
