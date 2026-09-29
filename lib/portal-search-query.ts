@@ -79,6 +79,20 @@ export type ParsedPortalSearchQuery = {
   location: PortalSearchLocation | null;
 };
 
+export type PortalSearchFilterOverrides = {
+  type?: string;
+  typeProvided?: boolean;
+  location?: string;
+  locationProvided?: boolean;
+};
+
+export type PortalSearchTypeFilter =
+  | DirectoryCategorySlug
+  | `event:${keyof typeof EVENT_TYPE_SYNONYMS}`
+  | "adoption"
+  | "organization"
+  | "lost-found";
+
 type PhraseMatch<T> = { start: number; end: number; value: T; phrase: string };
 
 const QUERY_STOP_WORDS = new Set(["v", "vo", "na", "pri", "u", "do", "z", "zo", "pre"]);
@@ -248,6 +262,128 @@ export function parsePortalSearchQuery(value: string): ParsedPortalSearchQuery {
     eventType,
     entityIntent,
     location: location?.value ?? null,
+  };
+}
+
+const directoryTypeFilterValues = new Set<DirectoryCategorySlug>(
+  Object.keys(DIRECTORY_SERVICE_SYNONYMS) as DirectoryCategorySlug[],
+);
+const eventTypeFilterValues = new Set<keyof typeof EVENT_TYPE_SYNONYMS>(
+  Object.keys(EVENT_TYPE_SYNONYMS) as Array<keyof typeof EVENT_TYPE_SYNONYMS>,
+);
+
+export function portalSearchTypeFilterFromParsed(parsed: ParsedPortalSearchQuery): PortalSearchTypeFilter | "" {
+  if (parsed.directoryCategory) return parsed.directoryCategory;
+  if (parsed.eventType) return `event:${parsed.eventType}`;
+  if (parsed.entityIntent === "adoption" || parsed.entityIntent === "organization" || parsed.entityIntent === "lost-found") {
+    return parsed.entityIntent;
+  }
+  return "";
+}
+
+export function parsePortalSearchTypeFilter(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (directoryTypeFilterValues.has(trimmed as DirectoryCategorySlug)) {
+    return {
+      directoryCategory: trimmed as DirectoryCategorySlug,
+      eventType: null,
+      entityIntent: "directory" as const,
+    };
+  }
+  if (trimmed.startsWith("event:")) {
+    const eventType = trimmed.slice("event:".length) as keyof typeof EVENT_TYPE_SYNONYMS;
+    if (eventTypeFilterValues.has(eventType)) {
+      return { directoryCategory: null, eventType, entityIntent: "event" as const };
+    }
+  }
+  if (trimmed === "adoption" || trimmed === "organization" || trimmed === "lost-found") {
+    return { directoryCategory: null, eventType: null, entityIntent: trimmed };
+  }
+  return null;
+}
+
+function canonicalDistrictLocation(value: string): PortalSearchLocation | null {
+  const normalized = normalizePortalSearch(value);
+  for (const [region, districts] of Object.entries(SLOVAK_DISTRICTS_BY_REGION)) {
+    const district = districts.find((item) => normalizePortalSearch(item) === normalized);
+    if (district) return { level: "district", city: "", district, region, matchedText: normalized };
+  }
+  return null;
+}
+
+function canonicalRegionLocation(value: string): PortalSearchLocation | null {
+  const normalized = normalizePortalSearch(value);
+  const region = SLOVAK_REGIONS.find((item) => {
+    const full = normalizePortalSearch(item);
+    return full === normalized || normalizePortalSearch(item.replace(/ kraj$/, "")) === normalized;
+  });
+  return region ? { level: "region", city: "", district: "", region, matchedText: normalized } : null;
+}
+
+export function parsePortalSearchLocationFilter(value: string): PortalSearchLocation | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const separator = trimmed.indexOf(":");
+  if (separator > 0) {
+    const scope = normalizePortalSearch(trimmed.slice(0, separator));
+    const label = trimmed.slice(separator + 1).trim();
+    if (!label) return null;
+    if (scope === "okres" || scope === "district") return canonicalDistrictLocation(label);
+    if (scope === "kraj" || scope === "region") return canonicalRegionLocation(label);
+    if (scope === "mesto" || scope === "city") {
+      const found = findLocation(tokenizePortalSearch(label));
+      return found?.value.level === "city" ? found.value : null;
+    }
+  }
+
+  return findLocation(tokenizePortalSearch(trimmed))?.value ?? null;
+}
+
+export function portalSearchLocationFilterValue(location: PortalSearchLocation | null) {
+  if (!location) return "";
+  if (location.level === "city") return `mesto:${location.city}`;
+  if (location.level === "district") return `okres:${location.district}`;
+  return `kraj:${location.region}`;
+}
+
+export function applyPortalSearchFilterOverrides(
+  parsed: ParsedPortalSearchQuery,
+  overrides: PortalSearchFilterOverrides = {},
+): ParsedPortalSearchQuery {
+  if (!overrides.typeProvided && !overrides.locationProvided) return parsed;
+
+  let directoryCategory = parsed.directoryCategory;
+  let eventType = parsed.eventType;
+  let entityIntent = parsed.entityIntent;
+
+  if (overrides.typeProvided) {
+    directoryCategory = null;
+    eventType = null;
+    entityIntent = null;
+    const selection = parsePortalSearchTypeFilter(overrides.type ?? "");
+    if (selection) {
+      directoryCategory = selection.directoryCategory;
+      eventType = selection.eventType;
+      entityIntent = selection.entityIntent;
+    }
+  }
+
+  const location = overrides.locationProvided
+    ? parsePortalSearchLocationFilter(overrides.location ?? "")
+    : parsed.location;
+  const intentToken = canonicalIntentToken({ directoryCategory, eventType, entityIntent });
+  const contentTokens = [...new Set([intentToken, ...parsed.residualTokens].filter(Boolean))]
+    .slice(0, SEARCH_MAX_TOKENS);
+
+  return {
+    ...parsed,
+    contentTokens,
+    directoryCategory,
+    eventType,
+    entityIntent,
+    location,
   };
 }
 
