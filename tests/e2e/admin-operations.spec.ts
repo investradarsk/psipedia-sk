@@ -29,9 +29,6 @@ test("alerts center, shared bell and active/history controls are accessible and 
   const sourceCounts = page.getByRole("list", { name: "Aktívne upozornenia podľa zdroja" });
   const automationSourceCount = sourceCounts.getByRole("listitem").filter({ hasText: "Automatizácie" });
   await expect(automationSourceCount).toContainText("1");
-  const automationAction = page.locator('[data-source="AUTOMATION_ACTION"]');
-  await expect(automationAction).toHaveCount(1);
-  await expect(automationAction.getByRole("heading", { name: "1 nový zdroj čaká na schválenie", exact: true })).toBeVisible();
 
   const bell = page.getByTestId("admin-notification-bell");
   await expect(bell).toBeVisible();
@@ -62,6 +59,23 @@ test("alerts center, shared bell and active/history controls are accessible and 
   const adminNavigation = page.getByRole("navigation", { name: "Redakčné moduly" });
   await expect(adminNavigation).toHaveCSS("position", "sticky");
   await expect(page.getByRole("heading", { name: "Lokality pre budúcu mapu", exact: true })).toHaveCount(0);
+
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectAxeClean(page);
+});
+
+test("automation Attention source is available and its action is reachable through the source filter", async ({ page }) => {
+  const response = await page.goto("/admin/operations?source=AUTOMATION_ACTION", { waitUntil: "domcontentloaded" });
+  expect(response).not.toBeNull();
+  expect(response?.status()).toBeLessThan(400);
+
+  const filter = page.getByRole("form", { name: "Filtrovať upozornenia" });
+  await expect(filter.getByLabel("Zdroj")).toHaveValue("AUTOMATION_ACTION");
+  await expect(page.getByRole("alert").filter({ hasText: "Zvolený zdroj je momentálne nedostupný" })).toHaveCount(0);
+
+  const automationAction = page.locator('[data-source="AUTOMATION_ACTION"]');
+  await expect(automationAction).toHaveCount(1);
+  await expect(automationAction.getByRole("heading", { name: "1 nový zdroj čaká na schválenie", exact: true })).toBeVisible();
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
