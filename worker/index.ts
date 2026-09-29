@@ -14,7 +14,10 @@ import { runReviewAuthorNotificationSweep } from "../lib/review-author-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
-import { runNotionDirectorySyncSweep } from "../lib/notion-directory-sync";
+import {
+  runNotionDirectoryBootstrapSweep,
+  runNotionDirectorySyncSweep,
+} from "../lib/notion-directory-sync";
 import { runMediaSourceMonitorSweep } from "../lib/media-source-monitor";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
@@ -236,7 +239,7 @@ const worker = {
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
     if (!isFullHourlyScheduledSweep(controller)) {
-      const [adminPush, dataAutomation, sourceDiscovery] = await Promise.all([
+      const [adminPush, dataAutomation, sourceDiscovery, notionDirectoryBackfill] = await Promise.all([
         runScheduledAdminPush(env),
         runDataAutomationSweep({
           database: env.DB,
@@ -261,10 +264,19 @@ const worker = {
           }));
           return { roots: 0, success: 0, partial: 0, failed: 1, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 1, schemaReady: true, runs: [] };
         }),
+        runNotionDirectoryBootstrapSweep({ database: env.DB, bindings: env }).catch((error) => {
+          console.error(JSON.stringify({
+            event: "notion_directory_backfill_sweep",
+            result: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          }));
+          return { enabled: true, schemaReady: false, selected: 0, bootstrapped: 0, failed: 1, hasMore: true };
+        }),
       ]);
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
       console.info(JSON.stringify({ event: "data_automation_sweep", cadence: "five_minute_due_check", ...dataAutomation }));
       console.info(JSON.stringify({ event: "data_automation_discovery_sweep", cadence: "five_minute_due_check", ...sourceDiscovery }));
+      console.info(JSON.stringify({ event: "notion_directory_backfill_sweep", cadence: "five_minute", ...notionDirectoryBackfill }));
       return;
     }
     const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, notionDirectory, mediaSourceQuality, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
