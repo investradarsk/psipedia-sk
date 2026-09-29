@@ -431,7 +431,7 @@ export async function getPublicOrganizationCompositionBySlug(
   const [locations, adoptions, directory, fundraisingMethods] = await Promise.all([
     listPublicOrganizationLocations(row, database),
     safePublicOrganizationAdoptions(Number(row.id), database),
-    findPublishedDirectoryRelation(row.directory_profile_id, database),
+    safePublishedDirectoryRelation(Number(row.id), row.directory_profile_id, database),
     listPublicOrganizationFundraisingMethods(Number(row.id), row.status, database),
   ]);
   return {
