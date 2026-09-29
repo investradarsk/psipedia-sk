@@ -15,18 +15,24 @@ import {
   withVerifiedDirectoryAddress,
 } from "@/lib/directory-address-save";
 import {
+  cleanupNotionImageKeys,
   notionFlagEnabled,
   notionPropertyRecord,
   notionRequest,
+  prepareNotionMainImage,
   sha256Text,
+  type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
+import {
+  getMediaSourceMonitorForEntity,
+  upsertMediaSourceMonitor,
+} from "@/lib/media-source-monitor";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
 
-export type NotionDirectorySyncBindings = {
+export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
   NOTION_DIRECTORY_DATA_SOURCE_ID?: string;
-  NOTION_API_TOKEN?: string;
 };
 
 type NotionPage = {
@@ -199,7 +205,19 @@ function localizeOwnAsset(value: string) {
   return cleanValue;
 }
 
-function profileSnapshot(profile: ManagedDirectoryProfile): EditableDirectorySnapshot {
+function externalSourceImageUrl(value: string | null | undefined) {
+  const cleanValue = clean(value);
+  if (!cleanValue || !/^https:\/\//i.test(cleanValue)) return "";
+  try {
+    const url = new URL(cleanValue);
+    if (url.hostname === "psipedia.sk" || url.hostname.endsWith(".psipedia.sk")) return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function profileSnapshot(profile: ManagedDirectoryProfile, sourceImageUrl = ""): EditableDirectorySnapshot {
   const contacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
   return {
     slug: clean(profile.slug),
@@ -229,7 +247,7 @@ function profileSnapshot(profile: ManagedDirectoryProfile): EditableDirectorySna
     facebookUrl: clean(contacts.facebook),
     instagramUrl: clean(contacts.instagram),
     internalEmail: clean(profile.internalEmail),
-    imageUrl: absoluteAsset(profile.imageUrl),
+    imageUrl: sourceImageUrl || externalSourceImageUrl(profile.imageUrl),
     verified: profile.verified,
     featured: profile.featured,
     seo: {
@@ -349,8 +367,9 @@ function notionProfileProperties(
   geo: GeoMirrorRow | null,
   hash: string,
   syncedAt: string,
+  sourceImageUrl = "",
 ) {
-  const snapshot = profileSnapshot(profile);
+  const snapshot = profileSnapshot(profile, sourceImageUrl);
   const googleCurrent = Boolean(
     geo?.google_place_id
     && geo.google_place_source_fingerprint
@@ -528,12 +547,25 @@ async function writeProfileToNotion(input: {
   pageId?: string | null;
 }) {
   const syncedAt = new Date().toISOString();
-  const hash = await snapshotHash(profileSnapshot(input.profile));
+  const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", input.profile.id);
+  const sourceImageUrl = monitor?.sourceImageUrl || externalSourceImageUrl(input.profile.imageUrl);
+  const hash = await snapshotHash(profileSnapshot(input.profile, sourceImageUrl));
   const geo = await loadGeoMirror(input.database, input.profile.id);
-  const properties = notionProfileProperties(input.profile, geo ?? null, hash, syncedAt);
+  const properties = notionProfileProperties(input.profile, geo ?? null, hash, syncedAt, sourceImageUrl);
   const page = input.pageId
     ? await patchNotionPage(input.bindings, input.pageId, properties)
     : await createNotionPage(input.bindings, input.dataSourceId, properties);
+
+  if (sourceImageUrl) {
+    await upsertMediaSourceMonitor({
+      database: input.database,
+      entityType: "DIRECTORY_PROFILE",
+      entityId: input.profile.id,
+      sourcePageUrl: monitor?.sourcePageUrl || input.profile.websiteUrl,
+      sourceImageUrl,
+      activeImageKey: input.profile.imageKey,
+    });
+  }
 
   await saveMapping({
     database: input.database,
@@ -550,9 +582,10 @@ async function writeProfileToNotion(input: {
 function fullProfileInput(
   desired: EditableDirectorySnapshot,
   current: ManagedDirectoryProfile,
+  preparedImage?: { imageUrl: string | null; imageKey: string | null } | null,
 ): ManagedDirectoryProfileInput {
-  const desiredImage = localizeOwnAsset(desired.imageUrl);
-  const currentImage = absoluteAsset(current.imageUrl);
+  const imageUrl = preparedImage?.imageUrl ?? current.imageUrl;
+  const imageKey = preparedImage?.imageKey ?? current.imageKey;
   return {
     slug: desired.slug,
     name: desired.name,
@@ -578,8 +611,8 @@ function fullProfileInput(
     facebookUrl: desired.facebookUrl,
     instagramUrl: desired.instagramUrl,
     internalEmail: desired.internalEmail || null,
-    imageUrl: desiredImage,
-    imageKey: desired.imageUrl && desired.imageUrl === currentImage ? current.imageKey : null,
+    imageUrl,
+    imageKey,
     verified: desired.verified,
     featured: desired.featured,
     seo: {
@@ -589,14 +622,23 @@ function fullProfileInput(
       canonicalUrl: desired.seo.canonicalUrl,
       ogTitle: desired.seo.ogTitle,
       ogDescription: desired.seo.ogDescription,
-      ogImage: localizeOwnAsset(desired.seo.ogImage) ?? "",
+      ogImage: localizeOwnAsset(desired.seo.ogImage) ?? current.seo?.ogImage ?? "",
       noindex: desired.seo.noindex,
     },
   };
 }
 
+function ownPsipediaImage(value: string) {
+  const localized = localizeOwnAsset(value);
+  return localized && (localized.startsWith("/media/") || localized.startsWith("/images/"))
+    ? localized
+    : null;
+}
 
-function newProfileInput(desired: EditableDirectorySnapshot): ManagedDirectoryProfileInput {
+function newProfileInput(
+  desired: EditableDirectorySnapshot,
+  preparedImage?: { imageUrl: string | null; imageKey: string | null } | null,
+): ManagedDirectoryProfileInput {
   return {
     slug: desired.slug,
     name: desired.name,
@@ -622,8 +664,8 @@ function newProfileInput(desired: EditableDirectorySnapshot): ManagedDirectoryPr
     facebookUrl: desired.facebookUrl,
     instagramUrl: desired.instagramUrl,
     internalEmail: desired.internalEmail || null,
-    imageUrl: localizeOwnAsset(desired.imageUrl),
-    imageKey: null,
+    imageUrl: preparedImage?.imageUrl ?? ownPsipediaImage(desired.imageUrl),
+    imageKey: preparedImage?.imageKey ?? null,
     verified: desired.verified,
     featured: desired.featured,
     seo: {
@@ -633,7 +675,7 @@ function newProfileInput(desired: EditableDirectorySnapshot): ManagedDirectoryPr
       canonicalUrl: desired.seo.canonicalUrl,
       ogTitle: desired.seo.ogTitle,
       ogDescription: desired.seo.ogDescription,
-      ogImage: localizeOwnAsset(desired.seo.ogImage) ?? "",
+      ogImage: ownPsipediaImage(desired.seo.ogImage) ?? "",
       noindex: desired.seo.noindex,
     },
   };
@@ -647,46 +689,79 @@ function notionProfileReadyForCreate(page: NotionPage) {
 
 async function createProfileFromNotion(input: {
   database: D1Database;
+  bindings: NotionDirectorySyncBindings;
   page: NotionPage;
 }) {
   const desired = notionSnapshot(input.page);
-  let payload = newProfileInput(desired);
-  let verified = null;
+  const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
+  const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
+  const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
+  const prepared = sourceImageUrl
+    ? await prepareNotionMainImage({
+        bindings: input.bindings,
+        sourceUrl: sourceImageUrl,
+        sourcePageUrl,
+        altText: imageAltText,
+        folder: "directory",
+        existingImageUrl: null,
+        existingImageKey: null,
+      })
+    : null;
 
-  if (!desired.online && desired.confirmedServiceLocation) {
-    const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
-    verified = await verifyDirectoryCanonicalAddress({
-      region: desired.region,
-      district: desired.district,
-      city: desired.city,
-      street: desired.street,
-      houseNumber: desired.houseNumber,
-      addressFormat,
-      revalidateStreet: addressFormat === "STREET",
-    });
-    payload = withVerifiedDirectoryAddress(payload, verified);
-  } else if (desired.online && !desired.region && !desired.district && !desired.city) {
-    payload = {
-      ...payload,
-      region: "",
-      district: "",
-      city: "",
-      postalCode: "",
-      street: "",
-      houseNumber: "",
-      addressFormat: "",
-      clearServiceAddressConfirmation: true,
+  try {
+    let payload = newProfileInput(
+      desired,
+      prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
+    );
+    let verified = null;
+
+    if (!desired.online && desired.confirmedServiceLocation) {
+      const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
+      verified = await verifyDirectoryCanonicalAddress({
+        region: desired.region,
+        district: desired.district,
+        city: desired.city,
+        street: desired.street,
+        houseNumber: desired.houseNumber,
+        addressFormat,
+        revalidateStreet: addressFormat === "STREET",
+      });
+      payload = withVerifiedDirectoryAddress(payload, verified);
+    } else if (desired.online && !desired.region && !desired.district && !desired.city) {
+      payload = {
+        ...payload,
+        region: "",
+        district: "",
+        city: "",
+        postalCode: "",
+        street: "",
+        houseNumber: "",
+        addressFormat: "",
+        clearServiceAddressConfirmation: true,
+      };
+    } else {
+      payload = { ...payload, clearServiceAddressConfirmation: true };
+    }
+
+    const created = await createManagedDirectoryProfile(payload, SYSTEM_ACTOR, input.database);
+    return {
+      profile: created,
+      verified,
+      prepared,
+      sourceImageUrl,
+      sourcePageUrl,
     };
-  } else {
-    payload = { ...payload, clearServiceAddressConfirmation: true };
+  } catch (error) {
+    if (prepared?.uploadedKey) {
+      await cleanupNotionImageKeys(input.bindings.BUCKET, [prepared.uploadedKey]);
+    }
+    throw error;
   }
-
-  const created = await createManagedDirectoryProfile(payload, SYSTEM_ACTOR, input.database);
-  return { profile: created, verified };
 }
 
 async function applyNotionToProfile(input: {
   database: D1Database;
+  bindings: NotionDirectorySyncBindings;
   page: NotionPage;
   profile: ManagedDirectoryProfile;
 }) {
@@ -705,7 +780,26 @@ async function applyNotionToProfile(input: {
     current = restored;
   }
 
-  let payload = fullProfileInput(desired, current);
+  const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
+  const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || current.websiteUrl || "";
+  const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name || current.name;
+  const prepared = sourceImageUrl
+    ? await prepareNotionMainImage({
+        bindings: input.bindings,
+        sourceUrl: sourceImageUrl,
+        sourcePageUrl,
+        altText: imageAltText,
+        folder: "directory",
+        existingImageUrl: current.imageUrl,
+        existingImageKey: current.imageKey,
+      })
+    : null;
+
+  let payload = fullProfileInput(
+    desired,
+    current,
+    prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
+  );
   const addressChanged = directoryPhysicalAddressChanged(current, payload);
   const needsFreshAddressVerification = !desired.online && (
     addressChanged
@@ -743,30 +837,50 @@ async function applyNotionToProfile(input: {
     payload = { ...payload, clearServiceAddressConfirmation: true };
   }
 
-  const updated = await updateManagedDirectoryProfile(
-    current.id,
-    payload,
-    SYSTEM_ACTOR,
-    current,
-    input.database,
-  );
-  if (!updated) throw new Error("Profil sa pri synchronizácii nepodarilo uložiť.");
+  try {
+    const updated = await updateManagedDirectoryProfile(
+      current.id,
+      payload,
+      SYSTEM_ACTOR,
+      current,
+      input.database,
+    );
+    if (!updated) throw new Error("Profil sa pri synchronizácii nepodarilo uložiť.");
 
-  if (verified) {
-    await applyVerifiedDirectoryAddressGeo({
-      profileId: updated.id,
-      verified,
-      actorRef: SYSTEM_ACTOR,
+    if (prepared && sourceImageUrl) {
+      await upsertMediaSourceMonitor({
+        database: input.database,
+        entityType: "DIRECTORY_PROFILE",
+        entityId: updated.id,
+        sourcePageUrl,
+        sourceImageUrl,
+        sourceContentHash: prepared.sourceContentHash,
+        activeImageKey: prepared.imageKey,
+      });
+      await cleanupNotionImageKeys(input.bindings.BUCKET, prepared.replacedKeys);
+    }
+
+    if (verified) {
+      await applyVerifiedDirectoryAddressGeo({
+        profileId: updated.id,
+        verified,
+        actorRef: SYSTEM_ACTOR,
+        database: input.database,
+      });
+    }
+
+    await autoAssignGooglePlaceForDirectoryProfile({
+      targetId: updated.id,
       database: input.database,
     });
+
+    return await getManagedDirectoryProfileById(updated.id, input.database) ?? updated;
+  } catch (error) {
+    if (prepared?.uploadedKey) {
+      await cleanupNotionImageKeys(input.bindings.BUCKET, [prepared.uploadedKey]);
+    }
+    throw error;
   }
-
-  await autoAssignGooglePlaceForDirectoryProfile({
-    targetId: updated.id,
-    database: input.database,
-  });
-
-  return await getManagedDirectoryProfileById(updated.id, input.database) ?? updated;
 }
 
 async function recentNotionPages(
@@ -826,9 +940,8 @@ async function syncMappedPage(input: {
 
   const page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
 
-  // A mapping may already exist even when the first Notion write-back failed.
-  // In that recovery state Psipedia is authoritative: restore the ID/status
-  // into Notion before normal bidirectional conflict resolution.
+  // A mapping can already exist when the first Notion write-back failed.
+  // Restore the canonical Psipedia ID/status before ordinary conflict resolution.
   if (propertyText(page, "Psipedia ID") !== String(profile.id)) {
     await writeProfileToNotion({
       database: input.database,
@@ -840,7 +953,9 @@ async function syncMappedPage(input: {
     return "pushed" as const;
   }
 
-  const profileHash = await snapshotHash(profileSnapshot(profile));
+  const existingMonitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", profile.id);
+  const currentSourceImageUrl = existingMonitor?.sourceImageUrl || externalSourceImageUrl(profile.imageUrl);
+  const profileHash = await snapshotHash(profileSnapshot(profile, currentSourceImageUrl));
   const pageHash = await snapshotHash(notionSnapshot(page));
   const lastHash = input.mapping.content_hash;
   const profileChanged = profileHash !== lastHash;
@@ -871,6 +986,7 @@ async function syncMappedPage(input: {
   if (notionWins) {
     const updated = await applyNotionToProfile({
       database: input.database,
+      bindings: input.bindings,
       page,
       profile,
     });
@@ -907,7 +1023,8 @@ async function recoverMappingFromPage(input: {
   if (existingMapping && existingMapping.notion_page_id !== input.page.id) {
     throw new Error(`Psipedia profil ID ${profileId} už je prepojený s iným Notion záznamom.`);
   }
-  const hash = await snapshotHash(profileSnapshot(profile));
+  const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", profile.id);
+  const hash = await snapshotHash(profileSnapshot(profile, monitor?.sourceImageUrl || externalSourceImageUrl(profile.imageUrl)));
   const now = new Date().toISOString();
   await saveMapping({
     database: input.database,
@@ -959,15 +1076,17 @@ export async function runNotionDirectorySyncSweep(input: {
       if (!mapping && notionProfileReadyForCreate(page)) {
         const creation = await createProfileFromNotion({
           database: input.database,
+          bindings: input.bindings,
           page,
         });
         let created = creation.profile;
         const syncedAt = new Date().toISOString();
-        const contentHash = await snapshotHash(profileSnapshot(created));
+        const contentHash = await snapshotHash(
+          profileSnapshot(created, creation.sourceImageUrl || externalSourceImageUrl(created.imageUrl)),
+        );
 
-        // Persist the one-to-one relation immediately after the profile INSERT.
-        // If a later GEO, Google Place or Notion API call fails, the next sweep
-        // must recover the same profile instead of attempting another INSERT.
+        // Save the one-to-one mapping immediately after INSERT. Any later
+        // media/GEO/Google/Notion failure must recover this same profile.
         await saveMapping({
           database: input.database,
           pageId: page.id,
@@ -977,6 +1096,19 @@ export async function runNotionDirectorySyncSweep(input: {
           psipediaUpdatedAt: created.updatedAt,
           syncedAt,
         });
+
+        if (creation.prepared && creation.sourceImageUrl) {
+          await upsertMediaSourceMonitor({
+            database: input.database,
+            entityType: "DIRECTORY_PROFILE",
+            entityId: created.id,
+            sourcePageUrl: creation.sourcePageUrl,
+            sourceImageUrl: creation.sourceImageUrl,
+            sourceContentHash: creation.prepared.sourceContentHash,
+            activeImageKey: creation.prepared.imageKey,
+          });
+          await cleanupNotionImageKeys(input.bindings.BUCKET, creation.prepared.replacedKeys);
+        }
 
         if (creation.verified) {
           await applyVerifiedDirectoryAddressGeo({
@@ -1012,6 +1144,21 @@ export async function runNotionDirectorySyncSweep(input: {
         && page.last_edited_time === mapping.notion_last_edited_time
         && propertyText(page, "Sync hash") === mapping.content_hash
       ) {
+        const profile = await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database);
+        const sourceImageUrl = externalSourceImageUrl(propertyText(page, "Hlavný obrázok URL"));
+        const existingMonitor = profile
+          ? await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", profile.id)
+          : null;
+        if (profile && sourceImageUrl && !existingMonitor) {
+          await upsertMediaSourceMonitor({
+            database: input.database,
+            entityType: "DIRECTORY_PROFILE",
+            entityId: profile.id,
+            sourcePageUrl: propertyText(page, "Zdroj obrázka") || profile.websiteUrl,
+            sourceImageUrl,
+            activeImageKey: profile.imageKey,
+          });
+        }
         continue;
       }
 

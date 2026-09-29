@@ -1,6 +1,9 @@
+import type { ImagesBindingLike } from "@/lib/private-media";
+
 export type NotionSyncBindings = {
   NOTION_API_TOKEN?: string;
   BUCKET?: R2Bucket;
+  IMAGES?: ImagesBindingLike;
 };
 
 export type NotionPage = {
@@ -166,12 +169,16 @@ export async function updateNotionSyncState(
   );
 }
 
-export async function sha256Text(value: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+export async function sha256Bytes(bytes: Uint8Array) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function safeRemoteImageUrl(value: string) {
+export async function sha256Text(value: string) {
+  return sha256Bytes(new TextEncoder().encode(value));
+}
+
+export function safeRemoteImageUrl(value: string) {
   let url: URL;
   try {
     url = new URL(value);
@@ -254,7 +261,7 @@ async function readRemoteImageBody(response: Response) {
   return bytes;
 }
 
-async function downloadRemoteImage(sourceUrl: string) {
+export async function downloadRemoteImage(sourceUrl: string) {
   let url = safeRemoteImageUrl(sourceUrl);
 
   for (let redirectCount = 0; redirectCount <= MAX_REMOTE_IMAGE_REDIRECTS; redirectCount += 1) {
@@ -292,10 +299,62 @@ async function downloadRemoteImage(sourceUrl: string) {
     if (!contentType || !extension) {
       throw new Error("Hlavný obrázok musí byť JPG, PNG, WebP alebo AVIF.");
     }
-    return { bytes, contentType, extension };
+    return {
+      bytes,
+      contentType,
+      extension,
+      contentHash: await sha256Bytes(bytes),
+      finalUrl: url.toString(),
+    };
   }
 
   throw new Error("Hlavný obrázok sa nepodarilo stiahnuť.");
+}
+
+
+export async function optimizeRemoteImageForStorage(
+  bindings: Pick<NotionSyncBindings, "IMAGES">,
+  remote: Awaited<ReturnType<typeof downloadRemoteImage>>,
+) {
+  const images = bindings.IMAGES;
+  if (!images) {
+    return {
+      bytes: remote.bytes,
+      contentType: remote.contentType,
+      extension: remote.extension,
+      optimized: false,
+    };
+  }
+
+  try {
+    const source = new Blob([remote.bytes.slice().buffer], { type: remote.contentType }).stream();
+    const transformed = await images.input(source)
+      .transform({ width: 2000, height: 2000, fit: "scale-down", metadata: "none" })
+      .output({ format: "image/webp", quality: 82, anim: false });
+    const response = await transformed.response();
+    if (!response.ok) throw new Error("Image transformation failed");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (!bytes.byteLength || bytes.byteLength > MAX_REMOTE_IMAGE_BYTES) {
+      throw new Error("Optimized image is invalid");
+    }
+    return {
+      bytes,
+      contentType: "image/webp",
+      extension: "webp",
+      optimized: true,
+    };
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "remote_image_optimization_fallback",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return {
+      bytes: remote.bytes,
+      contentType: remote.contentType,
+      extension: remote.extension,
+      optimized: false,
+    };
+  }
 }
 
 export type PreparedNotionImage = {
@@ -303,6 +362,8 @@ export type PreparedNotionImage = {
   imageKey: string | null;
   uploadedKey: string | null;
   replacedKeys: string[];
+  sourceContentHash: string | null;
+  sourceUrl: string | null;
 };
 
 export async function prepareNotionMainImage(args: {
@@ -321,6 +382,8 @@ export async function prepareNotionMainImage(args: {
       imageKey: args.existingImageKey ?? null,
       uploadedKey: null,
       replacedKeys: [],
+      sourceContentHash: null,
+      sourceUrl: null,
     };
   }
 
@@ -332,31 +395,38 @@ export async function prepareNotionMainImage(args: {
   const sourceFingerprint = await sha256Text(sourceUrl);
   if (args.existingImageKey) {
     const currentObject = await bucket.head(args.existingImageKey);
-    if (currentObject?.customMetadata?.notionSourceHash === sourceFingerprint) {
+    const metadata = currentObject?.customMetadata;
+    if (metadata?.sourceUrlHash === sourceFingerprint || metadata?.notionSourceHash === sourceFingerprint) {
       return {
         imageUrl: args.existingImageUrl || `/media/${args.existingImageKey}`,
         imageKey: args.existingImageKey,
         uploadedKey: null,
         replacedKeys: [],
+        sourceContentHash: metadata?.sourceContentHash ?? null,
+        sourceUrl,
       };
     }
   }
 
   const remote = await downloadRemoteImage(sourceUrl);
-  const key = `${args.folder}/${new Date().getUTCFullYear()}/${crypto.randomUUID()}.${remote.extension}`;
+  const stored = await optimizeRemoteImageForStorage(args.bindings, remote);
+  const key = `${args.folder}/${new Date().getUTCFullYear()}/${crypto.randomUUID()}.${stored.extension}`;
   const imageUrl = `/media/${key}`;
 
-  await bucket.put(key, remote.bytes, {
+  await bucket.put(key, stored.bytes, {
     httpMetadata: {
-      contentType: remote.contentType,
+      contentType: stored.contentType,
       cacheControl: "public, max-age=31536000, immutable",
     },
     customMetadata: {
       source: "notion-sync",
       notionSourceHash: sourceFingerprint,
+      sourceUrlHash: sourceFingerprint,
+      sourceContentHash: remote.contentHash,
       notionSourceUrl: sourceUrl.slice(0, 400),
       imageSourceUrl: (args.sourcePageUrl ?? "").slice(0, 400),
       altText: (args.altText ?? "").slice(0, 250),
+      optimized: stored.optimized ? "1" : "0",
     },
   });
 
@@ -365,6 +435,8 @@ export async function prepareNotionMainImage(args: {
     imageKey: key,
     uploadedKey: key,
     replacedKeys: args.existingImageKey && args.existingImageKey !== key ? [args.existingImageKey] : [],
+    sourceContentHash: remote.contentHash,
+    sourceUrl,
   };
 }
 

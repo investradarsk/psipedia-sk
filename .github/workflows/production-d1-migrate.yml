@@ -46,6 +46,7 @@ on:
           - 0096_automation_update_field_reviews.sql
           - 0097_automation_operations_metrics.sql
           - 0098_directory_notion_bidirectional_sync.sql
+          - 0099_media_source_quality.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -112,6 +113,7 @@ jobs:
             0096_automation_update_field_reviews.sql) expected_confirmation="APPLY-0096-psipedia-sk-db" ;;
             0097_automation_operations_metrics.sql) expected_confirmation="APPLY-0097-psipedia-sk-db" ;;
             0098_directory_notion_bidirectional_sync.sql) expected_confirmation="APPLY-0098-psipedia-sk-db" ;;
+            0099_media_source_quality.sql) expected_confirmation="APPLY-0099-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"

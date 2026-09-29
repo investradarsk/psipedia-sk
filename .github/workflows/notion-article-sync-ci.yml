@@ -23,6 +23,13 @@ on:
       - "drizzle/0045_notion_breed_sync.sql"
       - "drizzle/0047_notion_event_sync.sql"
       - "drizzle/0098_directory_notion_bidirectional_sync.sql"
+      - "drizzle/0099_media_source_quality.sql"
+      - "lib/media-source-monitor.ts"
+      - "lib/data-quality-store.ts"
+      - "app/admin/kvalita/**"
+      - "app/api/admin/data-quality/**"
+      - "components/admin-data-quality-dashboard.tsx"
+      - "tests/media-source-quality.test.mjs"
       - "tests/notion-article-sync.test.mjs"
       - "tests/notion-breed-sync.test.mjs"
       - "tests/notion-event-sync.test.mjs"
@@ -72,7 +79,7 @@ jobs:
         run: npm run test:migration-safety
 
       - name: Notion sync safety contract
-        run: node --test tests/notion-article-sync.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs
+        run: node --test tests/notion-article-sync.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs tests/media-source-quality.test.mjs
 
       - name: Production build
         run: npm run build

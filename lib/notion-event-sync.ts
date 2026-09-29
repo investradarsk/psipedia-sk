@@ -6,6 +6,7 @@ import {
   type ManagedEventInput,
 } from "@/lib/event-store";
 import type { DogEvent } from "@/lib/events";
+import { getMediaSourceMonitorForEntity, upsertMediaSourceMonitor } from "@/lib/media-source-monitor";
 import {
   cleanupNotionImageKeys,
   listReadyNotionPages,
@@ -217,6 +218,17 @@ async function syncOneEvent(
     }
 
     if (mapping.content_hash === contentHash) {
+      const existingMonitor = await getMediaSourceMonitorForEntity(database, "MANAGED_EVENT", existing.id);
+      if (sourceUrl && !existingMonitor) {
+        await upsertMediaSourceMonitor({
+          database,
+          entityType: "MANAGED_EVENT",
+          entityId: existing.id,
+          sourcePageUrl,
+          sourceImageUrl: sourceUrl,
+          activeImageKey: existing.imageKey,
+        });
+      }
       await upsertMapping(database, page, existing.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované",
@@ -230,6 +242,17 @@ async function syncOneEvent(
     try {
       const updated = await updateManagedEvent(existing.id, payload, SYNC_ACTOR, existing);
       if (!updated) throw new Error("Prepojené podujatie sa nepodarilo aktualizovať.");
+      if (sourceUrl) {
+        await upsertMediaSourceMonitor({
+          database,
+          entityType: "MANAGED_EVENT",
+          entityId: updated.id,
+          sourcePageUrl,
+          sourceImageUrl: sourceUrl,
+          sourceContentHash: prepared.sourceContentHash,
+          activeImageKey: prepared.imageKey,
+        });
+      }
       await cleanupNotionImageKeys(bindings.BUCKET, prepared.replacedKeys);
       await upsertMapping(database, page, updated.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
@@ -248,6 +271,17 @@ async function syncOneEvent(
   const { payload, prepared } = await preparePayloadWithImage(bindings, page, basePayload);
   try {
     const created = await createManagedEvent(payload, SYNC_ACTOR);
+    if (sourceUrl) {
+      await upsertMediaSourceMonitor({
+        database,
+        entityType: "MANAGED_EVENT",
+        entityId: created.id,
+        sourcePageUrl,
+        sourceImageUrl: sourceUrl,
+        sourceContentHash: prepared.sourceContentHash,
+        activeImageKey: prepared.imageKey,
+      });
+    }
     await upsertMapping(database, page, created.id, contentHash, now);
     await updateNotionSyncState(bindings, page.id, {
       state: "Synchronizované",
