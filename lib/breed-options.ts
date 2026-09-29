@@ -29,6 +29,7 @@ export type BreedOptionDatabase = {
 
 type BreedOptionReadInput = {
   selected?: CanonicalBreedOption | null;
+  selectedId?: number | null;
   limit?: number;
 };
 
@@ -66,6 +67,8 @@ export async function readCanonicalBreedOptions(
   input: BreedOptionReadInput = {},
 ): Promise<CanonicalBreedOptionsResult> {
   const persistedSelected = normalizeBreedOption(input.selected);
+  const rawSelectedId = Number(input.selectedId ?? persistedSelected?.id ?? 0);
+  const selectedId = Number.isSafeInteger(rawSelectedId) && rawSelectedId > 0 ? rawSelectedId : null;
   if (!database) {
     return {
       available: false,
@@ -89,12 +92,12 @@ export async function readCanonicalBreedOptions(
       if (option) byId.set(option.id, option);
     }
 
-    if (persistedSelected && !byId.has(persistedSelected.id)) {
+    if (selectedId && !byId.has(selectedId)) {
       const legacyRow = await database.prepare(
         "SELECT id, name FROM managed_breeds WHERE id = ? LIMIT 1",
-      ).bind(persistedSelected.id).first<BreedOptionRow>();
-      const legacyOption = normalizeBreedOption(legacyRow) ?? persistedSelected;
-      byId.set(legacyOption.id, legacyOption);
+      ).bind(selectedId).first<BreedOptionRow>();
+      const legacyOption = normalizeBreedOption(legacyRow) ?? (persistedSelected?.id === selectedId ? persistedSelected : null);
+      if (legacyOption) byId.set(legacyOption.id, legacyOption);
     }
 
     return {
