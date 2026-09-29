@@ -2,6 +2,7 @@ import {
   downloadRemoteImage,
   optimizeRemoteImageForStorage,
   safeRemoteImageUrl,
+  notionRequest,
   type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 
@@ -510,6 +511,7 @@ export async function runMediaSourceMonitorSweep(input: {
   bindings: MonitorBindings;
   now?: Date;
   limit?: number;
+  force?: boolean;
 }) {
   if (!await mediaSourceMonitorSchemaReady(input.database)) {
     return { schemaReady: false, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 0 };
@@ -520,9 +522,10 @@ export async function runMediaSourceMonitorSweep(input: {
 
   await seedMissingMediaMonitors(input.database, now);
 
-  const result = await input.database.prepare(`
+  const dueClause = input.force ? "1=1" : "(last_checked_at IS NULL OR last_checked_at <= ?)";
+  const statement = input.database.prepare(`
     SELECT * FROM media_source_monitors
-    WHERE last_checked_at IS NULL OR last_checked_at <= ?
+    WHERE ${dueClause}
     ORDER BY CASE status
       WHEN 'CHANGED' THEN 0
       WHEN 'MISSING' THEN 1
@@ -531,7 +534,10 @@ export async function runMediaSourceMonitorSweep(input: {
       ELSE 4
     END, COALESCE(last_checked_at, '') ASC, id ASC
     LIMIT ?
-  `).bind(before, Math.max(1, Math.min(100, input.limit ?? 25))).all<MonitorRow>();
+  `);
+  const result = input.force
+    ? await statement.bind(Math.max(1, Math.min(100, input.limit ?? 25))).all<MonitorRow>()
+    : await statement.bind(before, Math.max(1, Math.min(100, input.limit ?? 25))).all<MonitorRow>();
 
   const summary = { schemaReady: true, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 0 };
   for (const raw of result.results ?? []) {
@@ -556,6 +562,42 @@ export async function listMediaSourceIssues(database: D1Database, limit = 100) {
     LIMIT ?
   `).bind(Math.max(1, Math.min(250, limit))).all<MonitorRow>();
   return (result.results ?? []).map(rowToMonitor);
+}
+
+async function writeAcceptedSourceBackToNotion(input: {
+  database: D1Database;
+  bindings: MonitorBindings;
+  row: MediaSourceMonitor;
+  sourceImageUrl: string;
+}) {
+  if (!input.bindings.NOTION_API_TOKEN?.trim()) return;
+  const mappingTable = input.row.entityType === "MANAGED_EVENT"
+    ? "event_notion_sync"
+    : "directory_notion_sync";
+  const entityColumn = input.row.entityType === "MANAGED_EVENT"
+    ? "event_id"
+    : "directory_profile_id";
+  try {
+    const mapping = await input.database.prepare(
+      `SELECT notion_page_id FROM ${mappingTable} WHERE ${entityColumn}=? LIMIT 1`,
+    ).bind(input.row.entityId).first<{ notion_page_id: string }>();
+    if (!mapping?.notion_page_id) return;
+    await notionRequest(input.bindings, `/pages/${encodeURIComponent(mapping.notion_page_id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        properties: {
+          "Hlavný obrázok URL": { url: input.sourceImageUrl },
+        },
+      }),
+    });
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "media_source_notion_writeback_failed",
+      entityType: input.row.entityType,
+      entityId: input.row.entityId,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
 }
 
 export async function acceptMediaSourceCandidate(input: {
@@ -617,6 +659,13 @@ export async function acceptMediaSourceCandidate(input: {
         issue_started_at=NULL, last_error=NULL, updated_at=?
     WHERE id=?
   `).bind(row.candidateImageUrl, row.candidateContentHash, key, now, now, row.id).run();
+
+  await writeAcceptedSourceBackToNotion({
+    database: input.database,
+    bindings: input.bindings,
+    row,
+    sourceImageUrl: row.candidateImageUrl,
+  });
 
   await bucket.delete(row.candidateImageKey).catch(() => undefined);
   if (row.activeImageKey && row.activeImageKey !== key && (row.activeImageKey.startsWith("directory/") || row.activeImageKey.startsWith("events/"))) {
