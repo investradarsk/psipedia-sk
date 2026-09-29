@@ -31,6 +31,7 @@ import {
 import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 import { matchAutomationCanonical } from "./data-automation-store.ts";
+import { automationMatchExplanation, type AutomationMatchExplanationCode } from "./data-automation-operations-model.ts";
 import { probeAutomationSourceAccess, probeAutomationSourceRobots } from "./data-automation-source-activation.ts";
 import {
   upsertCanonicalExternalProvenance,
@@ -55,13 +56,25 @@ type DirectCategorySlug = Extract<
   "veterinari" | "psie-sluzby" | "utulky-organizacie"
 >;
 
+export type DirectEntityOperationalOutcome = {
+  outcomeType: "NEW_DRAFT" | "EXISTING_CANONICAL" | "POSSIBLE_DUPLICATE" | "UPDATE_SUGGESTION";
+  canonicalEntityId: number | null;
+  label: string;
+  sourceUrl: string | null;
+  matchReasonCode: AutomationMatchExplanationCode;
+};
+
 export type DirectEntityIngestionResult = {
   fetchedRecords: number;
   canonicalDuplicates: number;
+  existingCanonicalMatches: number;
   newEntities: number;
   updateSuggestions: number;
   possibleDuplicates: number;
+  addressVerifiedExact: number;
+  addressNoExact: number;
   canonicalEntityIds: number[];
+  outcomes: DirectEntityOperationalOutcome[];
 };
 
 function ephemeralSource(input: {
@@ -369,6 +382,7 @@ export async function ingestDirectEntityUrl(input: {
     record: AutomationSourceRecord;
     verifiedDirectoryAddress: VerifiedDirectoryAddress | null;
     addressReview: DirectoryAddressReviewProposal | null;
+    addressAttempted: boolean;
   }> = [];
   const organizationEnricher = input.entityType === "ORGANIZATION"
     ? input.organizationEnricher ?? createProductionOrganizationEnricher({ fetchImpl })
@@ -384,7 +398,7 @@ export async function ingestDirectEntityUrl(input: {
       maxTargetedSearches: 2,
     });
     if (input.entityType !== "DIRECTORY") {
-      records.push({ record: enrichedRecord, verifiedDirectoryAddress: null, addressReview: null });
+      records.push({ record: enrichedRecord, verifiedDirectoryAddress: null, addressReview: null, addressAttempted: false });
       continue;
     }
     const proposed = enrichDirectoryProposalAddress(enrichedRecord.proposed);
@@ -400,23 +414,34 @@ export async function ingestDirectEntityUrl(input: {
       record: { ...enrichedRecord, proposed: exact.proposed },
       verifiedDirectoryAddress: exact.verified,
       addressReview: exact.review,
+      addressAttempted: exact.attempted,
     });
   }
 
   const result: DirectEntityIngestionResult = {
     fetchedRecords: records.length,
     canonicalDuplicates: 0,
+    existingCanonicalMatches: 0,
     newEntities: 0,
     updateSuggestions: 0,
     possibleDuplicates: 0,
+    addressVerifiedExact: 0,
+    addressNoExact: 0,
     canonicalEntityIds: [],
+    outcomes: [],
   };
 
   for (const prepared of records) {
     const record = prepared.record;
     const verifiedDirectoryAddress = prepared.verifiedDirectoryAddress;
     const addressReview = prepared.addressReview;
+    if (input.entityType === "DIRECTORY" && prepared.addressAttempted) {
+      if (verifiedDirectoryAddress) result.addressVerifiedExact += 1;
+      else result.addressNoExact += 1;
+    }
     const match = await matchAutomationCanonical(source, record, input.database);
+    const explanation = automationMatchExplanation({ record, match });
+    const outcomeLabel = String(record.proposed.name ?? record.proposed.title ?? input.label).trim().slice(0, 240) || input.label;
     if (input.expectedCanonicalEntityId && match.entityId !== input.expectedCanonicalEntityId) {
       continue;
     }
@@ -435,6 +460,7 @@ export async function ingestDirectEntityUrl(input: {
     const provenanceType = input.provenanceType ?? "DIRECT_ENTITY_DISCOVERY";
 
     if (match.entityId && match.quality !== "UNCERTAIN" && match.quality !== "NONE") {
+      result.existingCanonicalMatches += 1;
       if (input.entityType === "DIRECTORY" && verifiedDirectoryAddress) {
         await supersedeOpenAutomationAddressReviews({
           canonicalEntityId: match.entityId,
@@ -466,6 +492,13 @@ export async function ingestDirectEntityUrl(input: {
       result.canonicalEntityIds.push(match.entityId);
       if (!classified) {
         result.canonicalDuplicates += 1;
+        result.outcomes.push({
+          outcomeType: "EXISTING_CANONICAL",
+          canonicalEntityId: match.entityId,
+          label: outcomeLabel,
+          sourceUrl: record.sourceUrl,
+          matchReasonCode: explanation.code,
+        });
         continue;
       }
       if (
@@ -486,6 +519,13 @@ export async function ingestDirectEntityUrl(input: {
           detectedAt,
         }, input.database);
         result.updateSuggestions += 1;
+        result.outcomes.push({
+          outcomeType: "UPDATE_SUGGESTION",
+          canonicalEntityId: match.entityId,
+          label: outcomeLabel,
+          sourceUrl: record.sourceUrl,
+          matchReasonCode: explanation.code,
+        });
       }
       continue;
     }
@@ -534,6 +574,14 @@ export async function ingestDirectEntityUrl(input: {
       }, input.database);
       result.possibleDuplicates += 1;
     }
+
+    result.outcomes.push({
+      outcomeType: classified.findingType === "DUPLICATE_CANDIDATE" ? "POSSIBLE_DUPLICATE" : "NEW_DRAFT",
+      canonicalEntityId: created.canonicalEntityId,
+      label: outcomeLabel,
+      sourceUrl: record.sourceUrl,
+      matchReasonCode: explanation.code,
+    });
 
     await upsertCanonicalExternalProvenance({
       entityType: input.entityType,

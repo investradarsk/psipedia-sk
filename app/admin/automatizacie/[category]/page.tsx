@@ -82,6 +82,7 @@ export default async function AutomationCategoryPage({ params }: Props) {
       actions={(
         <>
           <Link href="/admin/automatizacie">← Všetky kategórie</Link>
+          <Link href="/admin/automatizacie/prehlad">Prehľad</Link>
           {category.mode === "FEED_SOURCE" ? (
             <Link href={`/admin/automatizacie/zmeny-stavu?category=${category.slug}`}>Zmeny stavu · {lifecycleCount}</Link>
           ) : null}
