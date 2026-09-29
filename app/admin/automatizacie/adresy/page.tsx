@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminAutomationAvailabilityState } from "@/app/admin/automatizacie/_components/automation-availability-state";
 import styles from "@/components/admin-operations-ux.module.css";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import {
@@ -7,6 +8,7 @@ import {
   listOpenAutomationAddressReviews,
   type AutomationAddressReviewCategory,
 } from "@/lib/data-automation-address-review-store";
+import { readAdminAutomationData, summarizeAdminAutomationReads } from "@/lib/admin-automation-reliability";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +38,24 @@ export default async function AutomationAddressReviewQueuePage({ searchParams }:
   const params = await searchParams;
   const category = categoryFilter(params.category);
   const user = await requireAdminPageUser("/admin/automatizacie/adresy");
-  const [reviews, total] = await Promise.all([
-    listOpenAutomationAddressReviews({ categorySlug: category, limit: 100 }).catch(() => []),
-    countOpenAutomationAddressReviews(category).catch(() => 0),
+  const [reviewsRead, totalRead] = await Promise.all([
+    readAdminAutomationData({
+      key: `address-reviews:${category ?? "all"}:items`,
+      load: () => listOpenAutomationAddressReviews({ categorySlug: category, limit: 100 }),
+      fallback: [],
+      empty: (value) => value.length === 0,
+    }),
+    readAdminAutomationData({
+      key: `address-reviews:${category ?? "all"}:count`,
+      load: () => countOpenAutomationAddressReviews(category),
+      fallback: 0,
+      empty: (value) => value === 0,
+    }),
   ]);
+  const reliability = summarizeAdminAutomationReads([reviewsRead, totalRead]);
+  const reviews = reviewsRead.data;
+  const total = totalRead.data;
+  const totalLabel = totalRead.status === "UNAVAILABLE" ? "—" : String(total);
 
   return (
     <AdminShell
@@ -49,6 +65,10 @@ export default async function AutomationAddressReviewQueuePage({ searchParams }:
       description="Automatizácia našla adresu, ale potrebuje potvrdiť správnu budovu alebo prevádzku."
       actions={<Link href="/admin/automatizacie">← Automatizácie</Link>}
     >
+      <AdminAutomationAvailabilityState
+        summary={reliability}
+        refreshHref={category ? `/admin/automatizacie/adresy?category=${category}` : "/admin/automatizacie/adresy"}
+      />
       <nav className={styles.sectionNav} aria-label="Filter kategórie">
         <Link href="/admin/automatizacie/adresy">Všetky</Link>
         <Link href="/admin/automatizacie/adresy?category=veterinari">Veterinári</Link>
@@ -61,7 +81,7 @@ export default async function AutomationAddressReviewQueuePage({ searchParams }:
             <h2>{category ? categoryLabel(category) : "Otvorené kontroly"}</h2>
             <p>Vyber iba z bezpečných exact kandidátov. Finálny zápis vždy prejde novým provider overením.</p>
           </div>
-          <span className={styles.sectionCount}>{total}</span>
+          <span className={styles.sectionCount}>{totalLabel}</span>
         </div>
 
         {reviews.length ? (
