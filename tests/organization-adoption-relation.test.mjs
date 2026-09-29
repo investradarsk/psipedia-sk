@@ -97,8 +97,7 @@ test("organization relation uses only canonical organization_id and public lifec
   assert.match(relationPredicate, /d\.status IN \(\?, \?\)/);
   assert.doesNotMatch(relationPredicate, /organization_name|organization_slug/i);
   assert.doesNotMatch(sql, /help_cases/i);
-  assert.match(sql, new RegExp(ORGANIZATION_PUBLIC_ADOPTIONS_ORDER.replace(/[.*+?^${}()|[\]\\]/g, "\\  assert.match(sql, new RegExp(ORGANIZATION_PUBLIC_ADOPTIONS_ORDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-")));
+  assert.match(sql, new RegExp(ORGANIZATION_PUBLIC_ADOPTIONS_ORDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(sql, /LIMIT \\?/);
 });
 
