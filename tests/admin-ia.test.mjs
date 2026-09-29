@@ -1,141 +1,228 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  adminNavigationGroups,
+  adminNavigationItems,
+  findActiveAdminNavigationItem,
+  getAdminBreadcrumbs,
+} from "../lib/admin-navigation.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("primary admin navigation is alerts-first and separates maps and technical tools", () => {
-  const shell = read("components/admin-shell.tsx");
-  const navigation = shell.slice(shell.indexOf("function AdminNavigation"), shell.indexOf("function BellIcon"));
-  assert.match(navigation, /href="\/admin\/automatizacie">Automatizácie<\/Link>/);
-  assert.match(navigation, /href="\/admin\/operations">Upozornenia<\/Link>/);
-  assert.match(navigation, /href="\/admin\/mapy">Mapy<\/Link>/);
-  assert.match(navigation, /href="\/admin\/nastroje">Nástroje<\/Link>/);
-  assert.match(navigation, /href="\/admin\/partners">Partneri<\/Link>/);
-  assert.match(navigation, />Komunita<\/span>/);
-  assert.match(navigation, /href="\/admin\/recenzie-profilov">Profilové recenzie<\/Link>/);
-  assert.match(navigation, /href="\/admin\/tipy">Tipy<\/Link>/);
-  assert.match(navigation, /href="\/admin\/hodnotenia">Hodnotenia<\/Link>/);
-  assert.match(navigation, /href="\/admin\/dopyty">Dopyty<\/Link>/);
-  assert.match(navigation, /href="\/admin\/adresar\/navrhy">Návrhy úprav<\/Link>/);
-  assert.doesNotMatch(navigation, />Operácie<\/Link>/);
-  assert.doesNotMatch(navigation, /href="\/admin\/import"/);
+test("admin navigation has at most seven task-oriented groups and keeps all canonical agendas reachable", () => {
+  assert.ok(adminNavigationGroups.length <= 7);
+  assert.deepEqual(adminNavigationGroups.map((group) => group.label), [
+    "Prehľad",
+    "Obsah",
+    "Služby a pomoc",
+    "Komunita a partneri",
+    "Automatizácie a kvalita",
+    "Nastavenia a prevádzka",
+  ]);
 
-  const hrefs = [...navigation.matchAll(/<Link href="([^"]+)"/g)].map((match) => match[1]);
-  assert.equal(new Set(hrefs).size, hrefs.length, "primary navigation must not duplicate entries");
-});
-
-test("existing operations route remains the alerts page and preserves exact count behavior", () => {
-  const page = read("app/admin/operations/page.tsx");
-  const shell = read("components/admin-shell.tsx");
-  assert.match(page, /requireAdminPageUser\("\/admin\/operations"\)/);
-  assert.match(page, /title="Upozornenia"/);
-  assert.match(page, /loadAdminAttentionPage/);
-  assert.match(page, /attentionCount=\{attention\.summary\.active\}/);
-  assert.match(page, /attentionCountPartial=/);
-  assert.match(shell, /loadExactAdminAttentionSummary/);
-  assert.match(shell, /activeCount > 99 \? "99\+" : activeCount/);
-  assert.match(shell, /incomplete \? "\+" : ""/);
-  assert.match(shell, /href="\/admin\/operations"/);
-});
-
-test("human-action queues remain in alerts, including real geo review work", () => {
-  const attention = read("lib/admin-attention-queue.ts");
-  for (const label of [
-    "Moderácia",
-    "Profilové recenzie",
-    "Tipy pre redakciu",
-    "Návrhy úprav",
-    "Dopyty",
-    "Hodnotenia článkov",
-    "Adopcie",
-    "Automatický research",
-    "Partner claims",
-    "Partner úpravy profilov",
-    "Partner nové profily",
-    "Partner podujatia",
-    "Partner overenia",
-    "Partner komerčné leady",
-    "Partner komerčné dohody",
-    "Geo lokality",
+  const hrefs = adminNavigationItems.map((item) => item.href);
+  assert.equal(new Set(hrefs).size, hrefs.length, "primary admin navigation must not duplicate entries");
+  for (const href of [
+    "/admin",
+    "/admin/operations",
+    "/admin/clanky",
+    "/admin/steniatka",
+    "/admin/plemena",
+    "/admin/sekcie",
+    "/admin/meniny",
+    "/admin/adresar",
+    "/admin/organizacie",
+    "/admin/podujatia",
+    "/admin/pomoc",
+    "/admin/adopcie",
+    "/admin/stratene-najdene",
+    "/admin/mapy",
+    "/admin/recenzie-profilov",
+    "/admin/tipy",
+    "/admin/hodnotenia",
+    "/admin/dopyty",
+    "/admin/adresar/navrhy",
+    "/admin/partners",
+    "/admin/automatizacie",
+    "/admin/kvalita",
+    "/admin/nastroje",
+    "/admin/nastavenia",
+    "/admin/navigacia",
+    "/admin/monetizacia",
+    "/admin/pravne",
   ]) {
-    assert.match(attention, new RegExp(label));
+    assert.ok(hrefs.includes(href), `missing admin agenda ${href}`);
   }
-  assert.match(attention, /GEO_LOCATION_ISSUE: "Geo lokality"/);
 });
 
-test("technical utilities are absent from alerts landing and have their own thin landing page", () => {
-  const alerts = read("app/admin/operations/page.tsx");
-  const tools = read("app/admin/nastroje/page.tsx");
-  assert.doesNotMatch(alerts, /Geo foundation|Lokality pre budúcu mapu|Profilový outreach/);
-  assert.match(tools, /title="Nástroje"/);
-  assert.match(tools, /href="\/admin\/import"/);
-  assert.match(tools, /href="\/admin\/operations\/outreach"/);
-  assert.doesNotMatch(tools, /fetch\(|method=["'](?:post|put|patch|delete)["']/i);
-  assert.equal(existsSync(new URL("../app/api/admin/nastroje", import.meta.url)), false);
+test("active state uses the most specific top-level owner for detail and legacy routes", () => {
+  const cases = [
+    ["/admin", "/admin"],
+    ["/admin/clanky/123", "/admin/clanky"],
+    ["/admin/novy", "/admin/clanky"],
+    ["/admin/adresar/42", "/admin/adresar"],
+    ["/admin/adresar/navrhy", "/admin/adresar/navrhy"],
+    ["/admin/partners/claims/claim-1", "/admin/partners"],
+    ["/admin/operations", "/admin/operations"],
+    ["/admin/operations/automation/42", "/admin/automatizacie"],
+    ["/admin/operations/outreach/42", "/admin/nastroje"],
+    ["/admin/operations/possible-matches/1/2", "/admin/nastroje"],
+    ["/admin/operations/geo", "/admin/mapy"],
+  ];
+  for (const [pathname, href] of cases) {
+    assert.equal(findActiveAdminNavigationItem(pathname)?.href, href, pathname);
+  }
 });
 
-test("maps are canonical top-level UI while legacy GEO route redirects and technical tools live under Nástroje", () => {
-  const maps = read("app/admin/mapy/page.tsx");
-  const legacyGeo = read("app/admin/operations/geo/page.tsx");
-  const geoTools = read("app/admin/nastroje/geo/page.tsx");
-  assert.match(maps, /requireAdminPageUser\("\/admin\/mapy"\)/);
-  assert.match(maps, /title="Mapy"/);
-  assert.match(maps, /href="\/admin\/operations\?source=GEO_LOCATION_ISSUE"/);
-  assert.match(maps, /AdminGeoOperatorDashboard/);
-  assert.doesNotMatch(maps, /AdminGeoOperations/);
-  assert.match(legacyGeo, /redirect\("\/admin\/mapy"\)/);
-  assert.match(geoTools, /requireAdminPageUser\("\/admin\/nastroje\/geo"\)/);
-  assert.match(geoTools, /AdminGeoOperations/);
+test("breadcrumbs point back to the canonical list and identify details", () => {
+  assert.deepEqual(getAdminBreadcrumbs("/admin"), [
+    { label: "Pracovný prehľad", href: "/admin", current: true },
+  ]);
+
+  const article = getAdminBreadcrumbs("/admin/clanky/15");
+  assert.deepEqual(article.map((item) => item.href), ["/admin", "/admin/clanky", "/admin/clanky/15"]);
+  assert.equal(article.at(-1)?.current, true);
+
+  const partner = getAdminBreadcrumbs("/admin/partners/claims/abc");
+  assert.deepEqual(partner.map((item) => item.href), ["/admin", "/admin/partners", "/admin/partners/claims/abc"]);
 });
 
-test("automation and partner review deep links remain on the existing review systems", () => {
-  const concept = read("app/admin/automatizacie/[category]/cluster/[id]/page.tsx");
-  const attention = read("lib/admin-attention-queue.ts");
-  const partnerAttention = read("lib/partner-attention.ts");
-  assert.match(concept, /\/admin\/operations\/automation\//);
-  assert.equal(existsSync(new URL("../app/admin/operations/automation/[id]/page.tsx", import.meta.url)), true);
-  assert.match(attention, /partnerAttentionHref/);
-  assert.match(partnerAttention, /href:"\/admin\/partners\/claims"/);
-  assert.match(partnerAttention, /href:"\/admin\/partners\/verifications"/);
-  assert.match(partnerAttention, /href:"\/admin\/partners\/commercial"/);
-  assert.match(partnerAttention, /href:"\/admin\/partners\/events"/);
-});
-
-test("admin navigation remains sticky below the shared site header", () => {
+test("admin shell renders shared active navigation, breadcrumbs, sticky positioning and existing attention bell", () => {
   const shell = read("components/admin-shell.tsx");
   const shellCss = read("components/admin-shell.module.css");
-  assert.match(shell, /styles\.stickyNav/);
+  const navigation = read("components/admin-navigation.tsx");
+  const navigationCss = read("components/admin-navigation.module.css");
+
+  assert.match(shell, /<AdminNavigation stickyClassName={styles\.stickyNav} \/>/);
+  assert.match(shell, /<AdminBreadcrumbs \/>/);
+  assert.match(shell, /loadExactAdminAttentionSummary/);
+  assert.match(shell, /href="\/admin\/operations"/);
+  assert.match(shell, /activeCount > 99 \? "99\+" : activeCount/);
   assert.match(shellCss, /\.stickyNav\s*\{[^}]*position:\s*sticky;[^}]*top:\s*76px;/s);
   assert.match(shellCss, /@media \(max-width:\s*760px\)[\s\S]*\.stickyNav\s*\{[^}]*top:\s*68px;/);
+  assert.match(shellCss, /scroll-margin-top:\s*178px/);
+  assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
+  assert.match(navigation, /aria-label="Drobečková navigácia"/);
+  assert.match(navigationCss, /a\[aria-current="page"\]/);
 });
 
-test("site-wide back-to-top control is mounted for public and admin routes", () => {
+test("mobile admin navigation has Escape close, focus trap and focus return without a second back-to-top control", () => {
+  const navigation = read("components/admin-navigation.tsx");
+  const navigationCss = read("components/admin-navigation.module.css");
   const layout = read("app/layout.tsx");
-  const component = read("components/back-to-top.tsx");
-  const css = read("components/back-to-top.module.css");
+  const backToTop = read("components/back-to-top.tsx");
+
+  assert.match(navigation, /event\.key === "Escape"/);
+  assert.match(navigation, /event\.key !== "Tab"/);
+  assert.match(navigation, /triggerRef\.current\?\.focus\(\)/);
+  assert.match(navigation, /aria-modal="true"/);
+  assert.match(navigation, /aria-expanded=\{open\}/);
+  assert.match(navigationCss, /@media \(max-width:\s*390px\)/);
+  assert.match(navigationCss, /grid-template-columns:\s*1fr/);
   assert.match(layout, /<BackToTop \/>/);
-  assert.match(component, /aria-label="Späť hore"/);
-  assert.match(component, /window\.scrollTo\(\{ top: 0, behavior \}\)/);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /right:/);
-  assert.match(css, /bottom:/);
-  assert.match(css, /min-width:\s*48px/);
-  assert.match(css, /min-height:\s*48px/);
+  assert.match(backToTop, /aria-label="Späť hore"/);
+  assert.doesNotMatch(navigation, /Späť hore/);
 });
 
-test("mobile navigation and focused cards keep existing no-overflow contracts", () => {
-  const globals = read("app/globals.css");
-  const operationsCss = read("components/admin-operations-ux.module.css");
-  assert.match(globals, /\.admin-section-nav\s*\{[^}]*overflow-x:\s*auto;/s);
-  assert.match(globals, /\.admin-nav-group,\s*\n\s*\.admin-nav-public \{ flex: 0 0 auto; \}/);
-  assert.match(operationsCss, /@media \(max-width: 860px\)[\s\S]*\.hubGrid \{\s*grid-template-columns: 1fr;/);
+test("admin landing is the read-only workspace and old article filters redirect to the explicit list", () => {
+  const landing = read("app/admin/page.tsx");
+  const articles = read("app/admin/clanky/page.tsx");
+  const articleDashboard = read("components/admin-dashboard.tsx");
+
+  assert.match(landing, /title="Pracovný prehľad"/);
+  assert.match(landing, /loadExactAdminAttentionSummary\(\)/);
+  assert.match(landing, /readAdminAutomationData/);
+  assert.match(landing, /summarizeAdminAutomationReads/);
+  assert.match(landing, /getAdminDataQualitySummary/);
+  assert.doesNotMatch(landing, /listManagedArticleSummaries/);
+  assert.match(landing, /redirect\(legacyHref\)/);
+  for (const key of ["query", "status", "section", "sort", "direction", "page"]) {
+    assert.match(landing, new RegExp(`"${key}"`));
+  }
+
+  assert.match(articles, /requireAdminPageUser\("\/admin\/clanky"\)/);
+  assert.match(articles, /listManagedArticleSummaries/);
+  assert.match(articles, /listPath="\/admin\/clanky"/);
+  assert.match(articleDashboard, /const routePath = fixedPortalSection \? "\/admin\/steniatka" : listPath;/);
 });
 
-test("IA refactor adds no operations backend and no canonical/publication mutation surface", () => {
-  const alerts = read("app/admin/operations/page.tsx");
-  const tools = read("app/admin/nastroje/page.tsx");
-  assert.doesNotMatch(alerts + tools, /fetch\(|method=["'](?:post|put|patch|delete)["']/i);
-  assert.equal(existsSync(new URL("../app/api/admin/operations", import.meta.url)), false);
-  assert.equal(existsSync(new URL("../app/api/admin/nastroje", import.meta.url)), false);
+test("dashboard uses bounded existing summaries and never treats unavailable data as a successful zero", () => {
+  const landing = read("app/admin/page.tsx");
+  const dashboard = read("components/admin-workspace-dashboard.tsx");
+  const store = read("lib/admin-dashboard-store.ts");
+  const reliability = read("lib/admin-automation-reliability.ts");
+
+  assert.match(landing, /loadExactAdminAttentionSummary/);
+  assert.match(landing, /countOpenAutomationLifecycleSuggestions/);
+  assert.match(store, /SELECT COUNT\(\*\) AS count[\s\S]*FROM directory_profiles/);
+  assert.match(store, /SELECT COUNT\(\*\) AS count FROM media_source_monitors/);
+  assert.doesNotMatch(landing, /loadDataQualityDashboard/);
+  assert.match(dashboard, /status === "UNAVAILABLE" \|\| value === null[\s\S]*\? "—"/);
+  assert.match(dashboard, /status === "PARTIAL"[\s\S]*\? `\$\{value\}\+`/);
+  assert.match(reliability, /export async function readAdminAutomationData/);
+  assert.match(reliability, /export function summarizeAdminAutomationReads/);
+});
+
+test("dashboard count cards point to canonical filtered work queues", () => {
+  const dashboard = read("components/admin-workspace-dashboard.tsx");
+  for (const pair of [
+    ["AUTOMATION_ACTION", "/admin/operations?source=AUTOMATION_ACTION"],
+    ["PARTNER_CLAIM_REVIEW", "/admin/operations?source=PARTNER_CLAIM_REVIEW"],
+    ["MODERATION_SUBMISSION", "MODERATION_SUBMISSION"],
+    ["PROFILE_REVIEW_MODERATION", "PROFILE_REVIEW_MODERATION"],
+    ["NEWS_TIP", "NEWS_TIP"],
+    ["DIRECTORY_CHANGE_REQUEST", "DIRECTORY_CHANGE_REQUEST"],
+    ["DIRECTORY_INQUIRY", "DIRECTORY_INQUIRY"],
+    ["ARTICLE_FEEDBACK", "ARTICLE_FEEDBACK"],
+  ]) {
+    assert.match(dashboard, new RegExp(pair[1].replace(/[?]/g, "\\?")));
+  }
+  assert.match(dashboard, /href="\/admin\/kvalita"/);
+  assert.match(dashboard, /href="\/admin\/automatizacie\/zmeny-stavu"/);
+});
+
+test("all previous admin agendas and technical deep-link owners still exist", () => {
+  for (const path of [
+    "app/admin/adopcie/page.tsx",
+    "app/admin/adresar/page.tsx",
+    "app/admin/adresar/navrhy/page.tsx",
+    "app/admin/automatizacie/page.tsx",
+    "app/admin/dopyty/page.tsx",
+    "app/admin/hodnotenia/page.tsx",
+    "app/admin/import/page.tsx",
+    "app/admin/kvalita/page.tsx",
+    "app/admin/mapy/page.tsx",
+    "app/admin/meniny/page.tsx",
+    "app/admin/monetizacia/page.tsx",
+    "app/admin/nastavenia/page.tsx",
+    "app/admin/nastroje/page.tsx",
+    "app/admin/navigacia/page.tsx",
+    "app/admin/operations/page.tsx",
+    "app/admin/operations/automation/page.tsx",
+    "app/admin/operations/outreach/page.tsx",
+    "app/admin/operations/possible-matches/page.tsx",
+    "app/admin/organizacie/page.tsx",
+    "app/admin/partners/page.tsx",
+    "app/admin/plemena/page.tsx",
+    "app/admin/podujatia/page.tsx",
+    "app/admin/pomoc/page.tsx",
+    "app/admin/pravne/page.tsx",
+    "app/admin/recenzie-profilov/page.tsx",
+    "app/admin/sekcie/page.tsx",
+    "app/admin/steniatka/page.tsx",
+    "app/admin/stratene-najdene/page.tsx",
+    "app/admin/tipy/page.tsx",
+  ]) {
+    assert.equal(existsSync(new URL("../" + path, import.meta.url)), true, path);
+  }
+});
+
+test("IA workstream adds no admin mutation API and does not alter auth boundaries", () => {
+  const landing = read("app/admin/page.tsx");
+  const articles = read("app/admin/clanky/page.tsx");
+  assert.match(landing, /requireAdminPageUser\("\/admin"\)/);
+  assert.match(articles, /requireAdminPageUser\("\/admin\/clanky"\)/);
+  assert.doesNotMatch(landing + articles, /fetch\(|method=["'](?:post|put|patch|delete)["']/i);
+  assert.equal(existsSync(new URL("../app/api/admin/admin-ia-2", import.meta.url)), false);
 });
