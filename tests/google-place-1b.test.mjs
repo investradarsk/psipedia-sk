@@ -126,6 +126,30 @@ test("GOOGLE-PLACE-1B provider failures happen before any write batch", async ()
   assert.ok(apply.indexOf("await previewOne(target, key)") < apply.indexOf("await databaseHandle.batch"));
 });
 
+
+test("GOOGLE-PLACE auto-match reuses strict MATCH rules and fails closed on ambiguous or stale targets", async () => {
+  const [source, adminRoute, notionSync] = await Promise.all([
+    read("lib/google-place-canary.ts"),
+    read("app/api/admin/directory/[id]/route.ts"),
+    read("lib/notion-directory-sync.ts"),
+  ]);
+  const auto = source.slice(
+    source.indexOf("export async function autoAssignGooglePlaceForDirectoryProfile"),
+    source.indexOf("export async function previewGooglePlaceCanary"),
+  );
+  assert.match(auto, /includeCurrentGoogle: true/);
+  assert.match(auto, /target\.currentGooglePlaceSourceFingerprint === target\.sourceFingerprint/);
+  assert.match(auto, /item\.decision !== "MATCH"/);
+  assert.match(auto, /result: item\.decision/);
+  assert.match(auto, /resolved_source_fingerprint = source_fingerprint/);
+  assert.match(auto, /public_visibility = 'EXACT_PUBLIC'/);
+  assert.match(auto, /public_precision = 'EXACT'/);
+  assert.match(auto, /source_fingerprint = \?/);
+  assert.match(auto, /result: "ERROR"/);
+  assert.match(adminRoute, /autoAssignGooglePlaceForDirectoryProfile\(\{ targetId: id \}\)/);
+  assert.match(notionSync, /autoAssignGooglePlaceForDirectoryProfile/);
+});
+
 test("GOOGLE-PLACE-1B admin is operator-first, max 5, MATCH-only and explicit confirmation", async () => {
   const [component, route, page, tools] = await Promise.all([
     read("components/admin-google-places-canary.tsx"),

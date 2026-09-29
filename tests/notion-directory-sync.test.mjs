@@ -118,6 +118,11 @@ test("Notion address edits use canonical verification and exact GEO lifecycle", 
   assert.match(syncSource, /verifyDirectoryCanonicalAddress/);
   assert.match(syncSource, /withVerifiedDirectoryAddress/);
   assert.match(syncSource, /applyVerifiedDirectoryAddressGeo/);
+  assert.match(syncSource, /autoAssignGooglePlaceForDirectoryProfile/);
+  assert.ok(
+    syncSource.indexOf("applyVerifiedDirectoryAddressGeo") < syncSource.lastIndexOf("autoAssignGooglePlaceForDirectoryProfile"),
+    "Google Place auto-match must run after verified exact GEO is applied",
+  );
   assert.match(addressSaveSource, /applyGeocoderResolution/);
   assert.match(addressSaveSource, /setGeoVisibility/);
   assert.match(storeSource, /reconcileGeoAfterSourceMutation/);

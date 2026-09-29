@@ -253,6 +253,116 @@ async function previewOne(target: GooglePlaceCanaryTarget, apiKey?: string) {
   } satisfies GooglePlaceCanaryPreviewItem;
 }
 
+
+export type GooglePlaceAutoAssignResult = {
+  targetId: number;
+  result: "UPDATED" | "NO_OP" | "REVIEW" | "NO_MATCH" | "INELIGIBLE" | "DISABLED" | "ERROR";
+  googlePlaceId: string | null;
+  reason: string;
+};
+
+export async function autoAssignGooglePlaceForDirectoryProfile(input: {
+  targetId: number;
+  apiKey?: string;
+  database?: Db;
+}): Promise<GooglePlaceAutoAssignResult> {
+  const targetId = Number(input.targetId);
+  if (!Number.isSafeInteger(targetId) || targetId <= 0) {
+    return { targetId, result: "INELIGIBLE", googlePlaceId: null, reason: "Neplatné directory profile ID." };
+  }
+
+  try {
+    const databaseHandle = db(input.database);
+    let target: GooglePlaceCanaryTarget;
+    try {
+      [target] = await loadCandidateRows({
+        targetIds: [targetId],
+        includeCurrentGoogle: true,
+      }, databaseHandle);
+    } catch (error) {
+      return {
+        targetId,
+        result: "INELIGIBLE",
+        googlePlaceId: null,
+        reason: error instanceof Error ? error.message : "Profil nie je eligible pre Google Place auto-match.",
+      };
+    }
+
+    if (
+      target.currentGooglePlaceId
+      && target.currentGooglePlaceSourceFingerprint === target.sourceFingerprint
+    ) {
+      return {
+        targetId,
+        result: "NO_OP",
+        googlePlaceId: target.currentGooglePlaceId,
+        reason: "Profil už má aktuálne Google Place ID pre súčasný source fingerprint.",
+      };
+    }
+
+    const key = input.apiKey ?? googlePlacesApiKey();
+    if (!key) {
+      return {
+        targetId,
+        result: "DISABLED",
+        googlePlaceId: null,
+        reason: "GOOGLE_PLACES_API_KEY nie je nakonfigurovaný.",
+      };
+    }
+
+    const item = await previewOne(target, key);
+    if (item.decision !== "MATCH" || !item.candidate) {
+      return {
+        targetId,
+        result: item.decision,
+        googlePlaceId: item.candidate?.id ?? null,
+        reason: item.reason,
+      };
+    }
+
+    const matchedAt = new Date().toISOString();
+    const write = await databaseHandle.prepare(`
+      UPDATE geo_points
+      SET google_place_id = ?, google_place_source_fingerprint = ?, google_place_matched_at = ?
+      WHERE target_type = 'DIRECTORY_PROFILE'
+        AND directory_profile_id = ?
+        AND source_fingerprint = ?
+        AND resolved_source_fingerprint = source_fingerprint
+        AND geocode_status = 'RESOLVED'
+        AND public_visibility = 'EXACT_PUBLIC'
+        AND public_precision = 'EXACT'
+        AND (
+          google_place_id IS NULL
+          OR google_place_source_fingerprint IS NULL
+          OR google_place_source_fingerprint <> source_fingerprint
+        )
+    `).bind(
+      item.candidate.id,
+      target.sourceFingerprint,
+      matchedAt,
+      target.targetId,
+      target.sourceFingerprint,
+    ).run();
+
+    const changes = Number(write.meta?.changes ?? 0);
+    return {
+      targetId,
+      result: changes > 0 ? "UPDATED" : "NO_OP",
+      googlePlaceId: item.candidate.id,
+      reason: changes > 0
+        ? item.reason
+        : "Google Place identity sa medzitým aktualizovala alebo sa zmenil GEO source fingerprint.",
+    };
+  } catch (error) {
+    return {
+      targetId,
+      result: "ERROR",
+      googlePlaceId: null,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function previewGooglePlaceCanary(input: {
   targetIds?: unknown;
   limit?: number;

@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection } from "@/lib/directory-address-provider";
+import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -85,6 +86,7 @@ export async function PUT(request: Request, { params }: Props) {
     if (verified) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
+    await autoAssignGooglePlaceForDirectoryProfile({ targetId: id });
     return Response.json({ profile });
   } catch (error) { return errorResponse(error); }
 }
