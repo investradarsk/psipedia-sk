@@ -766,11 +766,12 @@ function sourceProbeSql(source: AdminAttentionQueueSourceType) {
     FROM source_rows`;
 }
 
-function safeLogSourceFailure(sourceType: AdminAttentionQueueSourceType, operation: string) {
+function safeLogSourceFailure(sourceType: AdminAttentionQueueSourceType, operation: string, error?: unknown) {
   console.warn("Admin attention source unavailable.", {
     sourceType,
     operation,
     errorCode: "ATTENTION_SOURCE_UNAVAILABLE",
+    errorMessage: error instanceof Error ? error.message : undefined,
   });
 }
 
@@ -827,8 +828,8 @@ async function probeSources(db: AdminAttentionD1Database, now: Date): Promise<At
     try {
       const row = await db.prepare(sourceProbeSql(sourceType)).bind(...bindings).first<AttentionSourceProbeRow>();
       return rowToSnapshot(sourceType, row);
-    } catch {
-      safeLogSourceFailure(sourceType, "summary");
+    } catch (error) {
+      safeLogSourceFailure(sourceType, "summary", error);
       return unavailableSnapshot(sourceType);
     }
   }));
@@ -1150,8 +1151,8 @@ export async function loadAdminAttentionPage(
         .bind(...bindings, ...query.bindings, pageSize + 1)
         .all<AttentionGenericRow>();
       return { sourceType: source.sourceType, rows: result.results, failed: false as const };
-    } catch {
-      safeLogSourceFailure(source.sourceType, "page");
+    } catch (error) {
+      safeLogSourceFailure(source.sourceType, "page", error);
       return { sourceType: source.sourceType, rows: [] as AttentionGenericRow[], failed: true as const };
     }
   }));
