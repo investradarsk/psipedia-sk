@@ -29,6 +29,8 @@ test("mobile homepage keeps the compact hero and exposes discovery above the fol
 
   await expect(hero).toBeVisible();
   await expect(headline).toBeVisible();
+  await expect(hero.getByText("Informácie, služby, podujatia a pomoc pre každodenný život so psom.", { exact: true })).toBeVisible();
+  await expect(hero.getByText("Overené", { exact: true })).toHaveCount(0);
   await expect(searchInput).toBeVisible();
 
   const metrics = await page.evaluate(() => {
@@ -67,6 +69,8 @@ test("desktop homepage uses the HOME-3 compact hero composition", async ({ page 
   await expect(hero).toBeVisible();
   await expect(image).toBeVisible();
   await expect(hero.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(hero.getByText("Informácie, služby, podujatia a pomoc pre každodenný život so psom.", { exact: true })).toBeVisible();
+  await expect(hero.getByText("Overené", { exact: true })).toHaveCount(0);
   await expect(discovery).toBeVisible();
 
   const metrics = await page.evaluate(() => ({
