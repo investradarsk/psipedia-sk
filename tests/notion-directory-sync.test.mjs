@@ -139,6 +139,18 @@ test("ready Notion rows without a Psipedia ID create directly as published profi
   assert.match(syncSource, /await writeProfileToNotion\(\{/);
 });
 
+test("Notion-first creation persists mapping before post-create GEO work and can recover a failed write-back", () => {
+  const sweepBody = syncSource.slice(
+    syncSource.indexOf("export async function runNotionDirectorySyncSweep"),
+  );
+  assert.ok(
+    sweepBody.indexOf("await saveMapping({") < sweepBody.indexOf("await autoAssignGooglePlaceForDirectoryProfile({"),
+    "mapping must exist before post-create Google Place work",
+  );
+  assert.match(syncSource, /propertyText\(page, "Psipedia ID"\) !== String\(profile\.id\)/);
+  assert.match(syncSource, /return "pushed" as const/);
+});
+
 test("existing Psipedia profiles bootstrap into Notion in bounded batches", () => {
   assert.match(syncSource, /const BOOTSTRAP_BATCH = 20/);
   assert.match(syncSource, /LEFT JOIN directory_notion_sync dns/);
