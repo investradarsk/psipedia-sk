@@ -26,6 +26,13 @@ test("alerts center, shared bell and active/history controls are accessible and 
   await expect(page.getByRole("heading", { name: "Neisté zhody entít", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("admin-attention-queue")).toBeVisible();
 
+  const sourceCounts = page.getByRole("list", { name: "Aktívne upozornenia podľa zdroja" });
+  const automationSourceCount = sourceCounts.getByRole("listitem").filter({ hasText: "Automatizácie" });
+  await expect(automationSourceCount).toContainText("1");
+  const automationAction = page.locator('[data-source="AUTOMATION_ACTION"]');
+  await expect(automationAction).toHaveCount(1);
+  await expect(automationAction.getByRole("heading", { name: "1 nový zdroj čaká na schválenie", exact: true })).toBeVisible();
+
   const bell = page.getByTestId("admin-notification-bell");
   await expect(bell).toBeVisible();
   await expect(bell).toHaveAttribute("href", "/admin/operations");
