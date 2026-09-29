@@ -79,3 +79,51 @@ export async function getAdminModuleCounts(): Promise<AdminModuleCounts> {
     return { ...emptyCounts };
   }
 }
+
+
+export type AdminDataQualitySummary = {
+  profilesWithCoreIssues: number;
+  mediaIssues: number;
+};
+
+function adminDashboardDatabase() {
+  const database = (env as unknown as RuntimeBindings).DB;
+  if (!database || typeof database.prepare !== "function") {
+    throw new Error("Databáza pre admin prehľad nie je dostupná.");
+  }
+  return database;
+}
+
+export async function getAdminDataQualitySummary(): Promise<AdminDataQualitySummary> {
+  const database = adminDashboardDatabase();
+  const profileRow = await database.prepare(`
+    SELECT COUNT(*) AS count
+    FROM directory_profiles
+    WHERE status <> 'archived'
+      AND (
+        trim(COALESCE(description, '')) = ''
+        OR trim(COALESCE(image_url, '')) = ''
+        OR (
+          COALESCE(online, 0) = 0
+          AND (
+            trim(COALESCE(city, '')) = ''
+            OR COALESCE(service_address_confirmation, '') <> 'CONFIRMED_SERVICE_LOCATION'
+          )
+        )
+      )
+  `).first<CountRow>();
+
+  const monitorTable = await database.prepare(
+    "SELECT 1 AS count FROM sqlite_master WHERE type='table' AND name='media_source_monitors' LIMIT 1",
+  ).first<CountRow>();
+  const mediaRow = monitorTable
+    ? await database.prepare(
+        "SELECT COUNT(*) AS count FROM media_source_monitors WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')",
+      ).first<CountRow>()
+    : null;
+
+  return {
+    profilesWithCoreIssues: Number(profileRow?.count) || 0,
+    mediaIssues: Number(mediaRow?.count) || 0,
+  };
+}
