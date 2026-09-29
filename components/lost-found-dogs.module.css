@@ -14,3 +14,5 @@
 .gallery img {
   border-radius: 0;
 }
+
+.headerActions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.headerActions>a{white-space:nowrap}@media(max-width:600px){.headerActions{align-items:stretch;flex-direction:column}.headerActions>a{width:100%;justify-content:center;text-align:center}}

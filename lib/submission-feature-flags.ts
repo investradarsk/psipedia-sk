@@ -30,3 +30,8 @@ export function profileReviewSubmissionEnabled() {
   const runtime = env as unknown as SubmissionFeatureEnv;
   return enabled(runtime.PROFILE_REVIEW_SUBMISSIONS_ENABLED);
 }
+
+export function lostFoundSubmissionEnabled() {
+  const runtime = env as unknown as SubmissionFeatureEnv;
+  return enabled(runtime.LOST_FOUND_SUBMISSIONS_ENABLED);
+}

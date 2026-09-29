@@ -241,3 +241,196 @@ test("authenticated admin LOST/FOUND mutation contract covers create, edit, life
   expect(duplicateResult.report.duplicateReason).toBe("CI regression duplicate");
   expect(duplicateResult.report.archivedAt).toBeTruthy();
 });
+
+
+async function installLostFoundTurnstileMock(page: Page) {
+  await page.addInitScript(() => {
+    (window as unknown as { turnstile: unknown }).turnstile = {
+      render(_container: HTMLElement, options: Record<string, unknown>) {
+        const callback = options.callback as ((token: string) => void) | undefined;
+        queueMicrotask(() => callback?.("e2e-lost-found-turnstile"));
+        return "lost-found-e2e-widget";
+      },
+      remove() {},
+    };
+  });
+}
+
+function publicReportMultipart(name: string, email: string, overrides: Record<string, string> = {}) {
+  return {
+    type: "FOUND",
+    dogName: name,
+    sex: "UNKNOWN",
+    breed: "",
+    breedUnknown: "1",
+    color: "čierna",
+    approximateAge: "neznámy",
+    size: "MEDIUM",
+    description: "Lokálne E2E hlásenie nájdeného psa určené iba na overenie bezpečného moderation flow.",
+    distinguishingMarks: "Biela škvrna na hrudi.",
+    collarDescription: "Bez obojka.",
+    chipped: "UNKNOWN",
+    eventDate: "2026-09-29",
+    lastSeenDateTime: "",
+    region: "Nitriansky kraj",
+    district: "Nitra",
+    city: "Nitra",
+    locationDescription: "Približne pri mestskom parku.",
+    contactName: "E2E Public Reporter",
+    contactPhone: "+421900123456",
+    contactEmail: email,
+    website: "",
+    turnstileToken: "e2e-lost-found-turnstile",
+    ...overrides,
+  };
+}
+
+async function postPublicReport(page: Page, name: string, email: string, overrides: Record<string, string> = {}) {
+  return page.request.post("/api/lost-found/submissions", {
+    headers: { origin: "http://localhost:5173", "sec-fetch-site": "same-origin" },
+    multipart: publicReportMultipart(name, email, overrides),
+  });
+}
+
+async function adminReportHref(page: Page, name: string) {
+  await page.goto("/admin/stratene-najdene?q=" + encodeURIComponent(name), { waitUntil: "domcontentloaded" });
+  const row = page.locator("tr").filter({ hasText: name }).first();
+  await expect(row).toBeVisible();
+  const href = await row.locator('a[href^="/admin/stratene-najdene/"]').first().getAttribute("href");
+  expect(href).toMatch(/^\/admin\/stratene-najdene\/\d+$/);
+  return href as string;
+}
+
+test("public submission form is accessible and mobile-safe at 390 px", async ({ page }, testInfo) => {
+  if (testInfo.project.name.includes("mobile")) await page.setViewportSize({ width: 390, height: 844 });
+  await installLostFoundTurnstileMock(page);
+  const response = await page.goto("/pomoc-psom/stratene-a-najdene/nahlasit", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1, name: "Nahlásiť strateného alebo nájdeného psa" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Odoslať hlásenie" })).toBeEnabled();
+  await expectNoHorizontalOverflow(page);
+  await expectNoAxeViolations(page);
+});
+
+test("valid public submission stays private until admin approval, then publishes without contact PII", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Canonical write lifecycle runs once on desktop.");
+  await installLostFoundTurnstileMock(page);
+  const unique = "Public Found " + Date.now() + "-" + testInfo.retry;
+  const email = "public-found-" + Date.now() + "@example.invalid";
+  const phone = "+421900123456";
+
+  await page.goto("/pomoc-psom/stratene-a-najdene/nahlasit", { waitUntil: "domcontentloaded" });
+  const reportType = page.getByLabel("Typ hlásenia *");
+  await expect.poll(async () => {
+    await reportType.selectOption("FOUND");
+    return page.getByLabel("Naposledy videný *").count();
+  }).toBe(0);
+  await expect(reportType).toHaveValue("FOUND");
+  await page.locator('input[name="dogName"]').fill(unique);
+  await page.getByLabel("Dátum udalosti").fill("2026-09-29");
+  await page.getByLabel("Popis *").fill("Nájdený pes pri mestskom parku. Pokojný, čierny a dobre socializovaný.");
+  await page.getByLabel("Kraj *").selectOption("Nitriansky kraj");
+  await page.getByLabel("Obec alebo mesto *").fill("Nitra");
+  await page.getByLabel("Približné miesto").fill("Okolie mestského parku.");
+  await page.locator('input[name="contactPhone"]').fill(phone);
+  await page.locator('input[name="contactEmail"]').fill(email);
+
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().endsWith("/api/lost-found/submissions") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "Odoslať hlásenie" }).click();
+  const submitResponse = await responsePromise;
+  expect(submitResponse.status()).toBe(201);
+  const payload = await submitResponse.json() as Record<string, unknown>;
+  expect(payload.success).toBe(true);
+  expect(payload).not.toHaveProperty("status");
+  expect(payload).not.toHaveProperty("reportId");
+  expect(payload).not.toHaveProperty("id");
+  await expect(page.getByRole("heading", { level: 1, name: "Hlásenie sme prijali" })).toBeVisible();
+
+  await page.goto("/pomoc-psom/najdene-psy?q=" + encodeURIComponent(unique), { waitUntil: "domcontentloaded" });
+  await expect(page.locator("body")).not.toContainText(unique);
+
+  const adminHref = await adminReportHref(page, unique);
+  await page.goto(adminHref, { waitUntil: "domcontentloaded" });
+  await expect(page.locator('input[type="email"]')).toHaveValue(email);
+  const inputValues = await page.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  expect(inputValues).toContain(phone);
+
+  const approveResponse = page.waitForResponse((response) =>
+    response.url().includes("/api/admin/lost-found/") && response.request().method() === "PUT"
+  );
+  await page.getByRole("button", { name: "Publikovať ako aktívne" }).click();
+  expect((await approveResponse).status()).toBe(200);
+  await expect(page.getByText("Hlásenie je aktívne a verejné.")).toBeVisible();
+
+  const publicLink = page.getByRole("link", { name: /Verejný náhľad/ });
+  await expect(publicLink).toBeVisible();
+  const publicHref = await publicLink.getAttribute("href");
+  expect(publicHref).toMatch(/^\/pomoc-psom\/najdene-psy\//);
+
+  await page.goto(publicHref as string, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { level: 1, name: unique })).toBeVisible();
+  const html = await page.content();
+  expect(html).not.toContain(email);
+  expect(html).not.toContain(phone);
+  const schema = await page.locator('script[type="application/ld+json"]').allTextContents();
+  expect(schema.join("\n")).not.toContain(email);
+  expect(schema.join("\n")).not.toContain(phone);
+});
+
+test("public invalid, honeypot and rate-limited submissions fail safely without technical leakage", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Mutation abuse controls run once on desktop.");
+  const stamp = String(Date.now());
+
+  const invalid = await postPublicReport(page, "Invalid Future " + stamp, "invalid-" + stamp + "@example.invalid", { eventDate: "2999-01-01" });
+  expect(invalid.status()).toBe(422);
+  const invalidBody = await invalid.json() as { error?: string };
+  expect(invalidBody.error).toMatch(/budúcnosti|dátum/i);
+  expect(JSON.stringify(invalidBody)).not.toMatch(/SQL|D1|stack|PENDING/i);
+
+  const spamName = "Honeypot " + stamp;
+  const spam = await page.request.post("/api/lost-found/submissions", {
+    headers: { origin: "http://localhost:5173", "sec-fetch-site": "same-origin" },
+    multipart: { website: "https://spam.invalid/" + stamp },
+  });
+  expect(spam.status()).toBe(201);
+  await page.goto("/admin/stratene-najdene?q=" + encodeURIComponent(spamName), { waitUntil: "domcontentloaded" });
+  await expect(page.locator("body")).not.toContainText(spamName);
+
+  const rateName = "Rate Limit " + stamp;
+  const rateEmail = "rate-" + stamp + "@example.invalid";
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    const response = await postPublicReport(page, rateName, rateEmail);
+    expect(response.status(), "attempt " + attempt).toBe(201);
+  }
+  const limited = await postPublicReport(page, rateName, rateEmail);
+  expect(limited.status()).toBe(429);
+  const limitedBody = await limited.json() as { error?: string };
+  expect(limitedBody.error).toMatch(/priveľa/i);
+
+  await page.goto("/admin/stratene-najdene?q=" + encodeURIComponent(rateName), { waitUntil: "domcontentloaded" });
+  const rows = page.locator("tr").filter({ hasText: rateName });
+  await expect(rows).toHaveCount(1);
+});
+
+test("admin can reject a public submission and it never becomes public", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Canonical rejection lifecycle runs once on desktop.");
+  const stamp = String(Date.now());
+  const name = "Rejected Found " + stamp;
+  const email = "rejected-" + stamp + "@example.invalid";
+  const submitted = await postPublicReport(page, name, email);
+  expect(submitted.status()).toBe(201);
+
+  const adminHref = await adminReportHref(page, name);
+  await page.goto(adminHref, { waitUntil: "domcontentloaded" });
+  const rejectResponse = page.waitForResponse((response) =>
+    response.url().includes("/api/admin/lost-found/") && response.request().method() === "PUT"
+  );
+  await page.getByRole("button", { name: "Zamietnuť" }).click();
+  expect((await rejectResponse).status()).toBe(200);
+  await expect(page.getByText("Hlásenie bolo uložené.")).toBeVisible();
+
+  await page.goto("/pomoc-psom/najdene-psy?q=" + encodeURIComponent(name), { waitUntil: "domcontentloaded" });
+  await expect(page.locator("body")).not.toContainText(name);
+});

@@ -98,7 +98,7 @@ test("generic PUT enforces duplicate type invariant on the server before update"
   const route = await readFile(new URL("../app/api/admin/lost-found/[id]/route.ts", import.meta.url), "utf8");
   assert.match(route, /input\.type !== undefined && input\.type !== existing\.type/);
   assert.match(route, /assertAdminDogReportTypeChangeKeepsDuplicateInvariant\(numericId, input\.type\)/);
-  assert.ok(route.indexOf("assertAdminDogReportTypeChangeKeepsDuplicateInvariant") < route.indexOf("updateAdminDogReport(numericId"));
+  assert.ok(route.indexOf("assertAdminDogReportTypeChangeKeepsDuplicateInvariant(numericId, input.type)") < route.indexOf("const report = await updateAdminDogReport"));
 
   const invariant = await readFile(new URL("../lib/lost-found-duplicate-invariant.ts", import.meta.url), "utf8");
   assert.match(invariant, /JOIN lost_found_dog_reports target ON target\.id = child\.duplicate_of_id/);
