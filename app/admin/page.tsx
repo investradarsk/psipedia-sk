@@ -14,7 +14,7 @@ import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-l
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
-const legacyArticleFilterKeys = new Set(["query", "status", "section", "sort", "direction", "page"]);
+const legacyArticleFilterKeys = new Set(["query", "q", "status", "section", "sort", "direction", "page", "pageSize"]);
 
 function legacyArticleListHref(params: SearchParams) {
   if (!Object.keys(params).some((key) => legacyArticleFilterKeys.has(key))) return null;
