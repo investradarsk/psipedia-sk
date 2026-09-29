@@ -89,6 +89,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0094_canonical_draft_delete.sql",
   "0095_automation_calendar_schedule.sql",
   "0096_automation_update_field_reviews.sql",
+  "0097_automation_operations_metrics.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -160,6 +161,36 @@ export const AUTOMATION_UPDATE_REVIEW_INDEXES = Object.freeze([
   "automation_update_field_reviews_canonical_idx",
   "automation_update_field_reviews_suggestion_idx",
   "automation_update_suggestions_canonical_review_idx",
+]);
+
+export const AUTOMATION_OPERATIONS_RUN_COLUMNS = Object.freeze([
+  "search_request_count",
+  "search_result_count",
+  "provider_result_count",
+  "local_prefilter_count",
+  "exclusion_count",
+  "canonical_duplicate_count",
+  "new_entity_count",
+  "update_suggestion_count",
+  "possible_duplicate_count",
+  "address_verified_exact_count",
+  "address_no_exact_count",
+]);
+
+export const AUTOMATION_OPERATIONS_REFRESH_COLUMNS = Object.freeze([
+  "last_batch_checked_count",
+  "last_batch_update_suggestion_count",
+  "last_batch_error_count",
+]);
+
+export const AUTOMATION_OPERATIONS_TABLES = Object.freeze([
+  "automation_discovery_outcomes",
+]);
+
+export const AUTOMATION_OPERATIONS_INDEXES = Object.freeze([
+  "automation_discovery_runs_started_idx",
+  "automation_discovery_outcomes_root_created_idx",
+  "automation_discovery_outcomes_run_idx",
 ]);
 
 export const AUTOMATION_ADDRESS_REVIEW_TABLES = Object.freeze([
@@ -584,6 +615,7 @@ function schemaState(databaseName, configPath) {
   const moderationSubmissionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('moderation_submissions')");
   const geoPointColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('geo_points')");
   const automationDiscoveryRootColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_roots')");
+  const automationDiscoveryRunColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_runs')");
   const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
   const automationDirectRefreshColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_direct_refresh_settings')");
   const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
@@ -605,6 +637,7 @@ function schemaState(databaseName, configPath) {
     moderationSubmissionColumns,
     geoPointColumns,
     automationDiscoveryRootColumns,
+    automationDiscoveryRunColumns,
     automationSourceColumns,
     automationDirectRefreshColumns,
     partnerPasswordCredentialForeignKeys,
@@ -854,6 +887,16 @@ export function targetSchemaObjects(schema, targetMigration) {
         || AUTOMATION_UPDATE_REVIEW_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0097_automation_operations_metrics.sql") {
+    const runColumns = new Set(schema.automationDiscoveryRunColumns.map((column) => String(column.name)));
+    const refreshColumns = new Set(schema.automationDirectRefreshColumns.map((column) => String(column.name)));
+    return {
+      partial: AUTOMATION_OPERATIONS_RUN_COLUMNS.some((column) => runColumns.has(column))
+        || AUTOMATION_OPERATIONS_REFRESH_COLUMNS.some((column) => refreshColumns.has(column))
+        || AUTOMATION_OPERATIONS_TABLES.some((table) => names.has(table))
+        || AUTOMATION_OPERATIONS_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -906,6 +949,19 @@ function assertAutomationUpdateReviewSchema(schema) {
   const names = objectMap(schema.objects);
   for (const table of AUTOMATION_UPDATE_REVIEW_TABLES) invariant(names.get(table)?.type === "table", `Missing automation update-review table: ${table}`);
   for (const index of AUTOMATION_UPDATE_REVIEW_INDEXES) invariant(names.get(index)?.type === "index", `Missing automation update-review index: ${index}`);
+}
+
+function assertAutomationOperationsSchema(schema) {
+  const names = objectMap(schema.objects);
+  const runColumns = new Set(schema.automationDiscoveryRunColumns.map((column) => String(column.name)));
+  const refreshColumns = new Set(schema.automationDirectRefreshColumns.map((column) => String(column.name)));
+  for (const column of AUTOMATION_OPERATIONS_RUN_COLUMNS) invariant(runColumns.has(column), `Missing automation operations run column: automation_discovery_runs.${column}`);
+  for (const column of AUTOMATION_OPERATIONS_REFRESH_COLUMNS) invariant(refreshColumns.has(column), `Missing automation operations refresh column: automation_direct_refresh_settings.${column}`);
+  for (const table of AUTOMATION_OPERATIONS_TABLES) invariant(names.get(table)?.type === "table", `Missing automation operations table: ${table}`);
+  for (const index of AUTOMATION_OPERATIONS_INDEXES) invariant(names.get(index)?.type === "index", `Missing automation operations index: ${index}`);
+  const outcomeSql = String(names.get("automation_discovery_outcomes")?.sql ?? "");
+  invariant(outcomeSql.includes("'NEW_DRAFT','EXISTING_CANONICAL','POSSIBLE_DUPLICATE','UPDATE_SUGGESTION'"), "automation discovery outcome constraint is incomplete");
+  invariant(outcomeSql.includes("canonical_entity_id"), "automation discovery outcome canonical reference is missing");
 }
 
 function assertPartnerClaimsSchema(schema) {
@@ -1369,6 +1425,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 94) assertCanonicalDraftDeleteSchema(schema);
   if (migrationIndex(targetMigration) >= 95) assertAutomationCalendarScheduleSchema(schema);
   if (migrationIndex(targetMigration) >= 96) assertAutomationUpdateReviewSchema(schema);
+  if (migrationIndex(targetMigration) >= 97) assertAutomationOperationsSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {

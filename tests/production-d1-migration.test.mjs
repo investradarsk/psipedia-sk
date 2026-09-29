@@ -104,6 +104,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0094_canonical_draft_delete.sql",
     "0095_automation_calendar_schedule.sql",
     "0096_automation_update_field_reviews.sql",
+    "0097_automation_operations_metrics.sql",
   ]);
 });
 
@@ -193,6 +194,23 @@ test("AUTOMATION-UPDATE-REVIEW-1 0096 detects partial schema drift", () => {
   assert.deepEqual(targetSchemaObjects({ objects: [] }, "0096_automation_update_field_reviews.sql"), { partial: false });
 });
 
+test("AUTOMATION-OPERATIONS-2 0097 detects partial metrics schema drift", () => {
+  const empty = {
+    objects: [],
+    automationDiscoveryRunColumns: [],
+    automationDirectRefreshColumns: [],
+  };
+  assert.deepEqual(targetSchemaObjects(empty, "0097_automation_operations_metrics.sql"), { partial: false });
+  assert.deepEqual(targetSchemaObjects({
+    ...empty,
+    automationDiscoveryRunColumns: [{ name: "search_request_count" }],
+  }, "0097_automation_operations_metrics.sql"), { partial: true });
+  assert.deepEqual(targetSchemaObjects({
+    ...empty,
+    objects: [{ name: "automation_discovery_outcomes", type: "table", sql: "" }],
+  }, "0097_automation_operations_metrics.sql"), { partial: true });
+});
+
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
@@ -252,7 +270,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0097_future_migration.sql",
+    "0098_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -298,6 +316,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0094_canonical_draft_delete.sql",
     "0095_automation_calendar_schedule.sql",
     "0096_automation_update_field_reviews.sql",
+    "0097_automation_operations_metrics.sql",
   ]);
 });
 
@@ -305,7 +324,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0097_future_migration.sql",
+    "0098_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -337,7 +356,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0094_canonical_draft_delete.sql",
     "0095_automation_calendar_schedule.sql",
     "0096_automation_update_field_reviews.sql",
-    "0097_future_migration.sql",
+    "0097_automation_operations_metrics.sql",
+    "0098_future_migration.sql",
   ]);
 });
 

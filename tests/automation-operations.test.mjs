@@ -96,7 +96,7 @@ test("match explainability uses only observable evidence and otherwise stays gen
 });
 
 test("migration persists extended run metrics without fake historical zero backfill", () => {
-  const migration = read("docs/pending-migrations/0098_automation_operations_metrics.sql");
+  const migration = read("drizzle/0097_automation_operations_metrics.sql");
   for (const column of [
     "search_request_count",
     "search_result_count",
@@ -210,7 +210,7 @@ test("code-before-migration compatibility degrades to reduced metrics instead of
 
 test("bounded outcome history can explain existing and possible duplicate results without owning canonicals", () => {
   const [migration, store, direct] = [
-    read("docs/pending-migrations/0098_automation_operations_metrics.sql"),
+    read("drizzle/0097_automation_operations_metrics.sql"),
     read("lib/data-automation-discovery-store.ts"),
     read("lib/data-automation-direct-entity.ts"),
   ];
