@@ -75,7 +75,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   const storedArticle = await getPublishedArticle(slug);
   if (!storedArticle) return {};
-  return buildArticleMetadata(sanitizePublicArticleContent(storedArticle));
+  const article = sanitizePublicArticleContent(storedArticle);
+  return buildArticleMetadata(article);
 }
 
 export default async function PortalContentPage({ params, searchParams }: Props) {
