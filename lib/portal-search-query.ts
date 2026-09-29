@@ -329,15 +329,6 @@ export function parsePortalSearchLocationFilter(value: string): PortalSearchLoca
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  const normalized = normalizePortalSearch(trimmed);
-  if (normalized.startsWith("okres ")) return canonicalDistrictLocation(trimmed.slice(trimmed.indexOf(" ") + 1));
-  if (normalized.startsWith("kraj ")) return canonicalRegionLocation(trimmed.slice(trimmed.indexOf(" ") + 1));
-  if (normalized.startsWith("mesto ")) {
-    const label = trimmed.slice(trimmed.indexOf(" ") + 1);
-    const found = findLocation(tokenizePortalSearch(label));
-    return found?.value.level === "city" ? found.value : null;
-  }
-
   const separator = trimmed.indexOf(":");
   if (separator > 0) {
     const scope = normalizePortalSearch(trimmed.slice(0, separator));
@@ -349,6 +340,20 @@ export function parsePortalSearchLocationFilter(value: string): PortalSearchLoca
       const found = findLocation(tokenizePortalSearch(label));
       return found?.value.level === "city" ? found.value : null;
     }
+  }
+
+  const normalized = normalizePortalSearch(trimmed);
+  const firstWhitespace = trimmed.search(/\s/);
+  if (normalized.startsWith("okres ") && firstWhitespace > 0) {
+    return canonicalDistrictLocation(trimmed.slice(firstWhitespace + 1));
+  }
+  if (normalized.startsWith("kraj ") && firstWhitespace > 0) {
+    return canonicalRegionLocation(trimmed.slice(firstWhitespace + 1));
+  }
+  if (normalized.startsWith("mesto ") && firstWhitespace > 0) {
+    const label = trimmed.slice(firstWhitespace + 1);
+    const found = findLocation(tokenizePortalSearch(label));
+    return found?.value.level === "city" ? found.value : null;
   }
 
   return findLocation(tokenizePortalSearch(trimmed))?.value ?? null;
