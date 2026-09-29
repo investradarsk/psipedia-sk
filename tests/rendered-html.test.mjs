@@ -657,7 +657,7 @@ test("renders the news portal and stable topic URLs without published news", asy
   assert.equal(science.status, 200);
   const scienceHtml = await science.text();
   assert.match(scienceHtml, /Čo nový objav naozaj znamená/);
-  assert.match(scienceHtml, /Prvú overenú správu pripravujeme/);
+  assert.match(scienceHtml, /Prvú správu pripravujeme/);
 });
 
 test("renders the community news-tip workflow on its own stable URL", async () => {

@@ -10,7 +10,7 @@ import {
   type AdoptionStatus,
   type ManagedAdoptionInput,
 } from "@/lib/adoption";
-import type { AdoptionAdminBreedOption, AdoptionAdminOrganizationOption } from "@/lib/adoption-admin-write";
+import type { AdoptionAdminBreedOptionsResult, AdoptionAdminOrganizationOption } from "@/lib/adoption-admin-write";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminAdoptionEditorProfile } from "./admin-adoption-editor-profile";
 import { AdminAdoptionEditorDetails } from "./admin-adoption-editor-details";
@@ -23,7 +23,7 @@ const nullableNumber = (data: FormData, key: string) => { const value = text(dat
 const nullableBoolean = (data: FormData, key: string) => { const value = text(data, key); return value === "true" ? true : value === "false" ? false : null; };
 const checked = (data: FormData, key: string) => data.get(key) === "on";
 
-export function AdminAdoptionEditor({ item, breeds, organizations, automationSuggestions = [] }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOption[]; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
+export function AdminAdoptionEditor({ item, breeds, organizations, automationSuggestions = [] }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; organizations: AdoptionAdminOrganizationOption[]; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
   const [name, setName] = useState(item?.name ?? "");
   const [slug, setSlug] = useState(item?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(item));

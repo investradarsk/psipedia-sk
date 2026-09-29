@@ -27,7 +27,62 @@ test("local veterinarian intent works with preposition and without diacritics", 
     await expect(page.getByRole("heading", { name: `„${query}“` })).toBeVisible();
     await expect(page.getByRole("link", { name: /SEARCH E2E Ambulancia 001/ })).toBeVisible();
     await expect(page.getByText("Veterinár", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Zrušiť filter typu Veterinári" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Zrušiť filter lokality Trnava" })).toBeVisible();
   }
+});
+
+test("type and location filters are URL-addressable and survive reload, back and forward", async ({ page }) => {
+  await page.goto(`/hladat?q=${encodeURIComponent("veterinár v Trnave")}`);
+
+  const typeFilter = page.getByLabel("Typ výsledku");
+  const locationFilter = page.getByLabel("Lokalita");
+  await expect(typeFilter).toHaveValue("veterinari");
+  await expect(locationFilter).toHaveValue("Trnava");
+
+  await typeFilter.selectOption("treneri");
+  await locationFilter.fill("Trnava");
+  await page.getByRole("button", { name: "Upraviť výsledky" }).click();
+
+  await expect(page).toHaveURL(/\/hladat\?.*typ=treneri.*lokalita=Trnava/);
+  await expect(page.getByRole("link", { name: /SEARCH E2E Tréner Trnava/ })).toBeVisible();
+  await expect(page.getByText("Trnava · Trnavský kraj", { exact: true }).first()).toBeVisible();
+  const mapLink = page.getByRole("link", { name: "Zobraziť na mape" });
+  await expect(mapLink).toHaveAttribute(
+    "href",
+    "/mapa?category=services&subcategory=treneri&region=Trnavsk%C3%BD+kraj&district=Trnava&city=Trnava",
+  );
+
+  await page.reload();
+  await expect(page.getByLabel("Typ výsledku")).toHaveValue("treneri");
+  await expect(page.getByLabel("Lokalita")).toHaveValue("Trnava");
+  await expect(page.getByRole("link", { name: /SEARCH E2E Tréner Trnava/ })).toBeVisible();
+
+  await page.getByLabel("Lokalita").fill("Nitra");
+  await page.getByRole("button", { name: "Upraviť výsledky" }).click();
+  await expect(page).toHaveURL(/\/hladat\?.*typ=treneri.*lokalita=Nitra/);
+  await expect(page.getByRole("link", { name: /SEARCH E2E Tréner Nitra/ })).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/lokalita=Trnava/);
+  await expect(page.getByRole("link", { name: /SEARCH E2E Tréner Trnava/ })).toBeVisible();
+
+  await page.goForward();
+  await expect(page).toHaveURL(/lokalita=Nitra/);
+  await expect(page.getByRole("link", { name: /SEARCH E2E Tréner Nitra/ })).toBeVisible();
+});
+
+test("zero-result local intent keeps filters and offers bounded broader scopes", async ({ page }) => {
+  await page.goto(
+    `/hladat?q=${encodeURIComponent("search2-no-match")}&typ=veterinari&lokalita=${encodeURIComponent("mesto:Trnava")}`,
+  );
+  await expect(page.getByRole("heading", { name: "Nenašli sme presnú zhodu" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Zrušiť filter typu Veterinári" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Zrušiť filter lokality Trnava" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Rozšíriť na okres Trnava" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Rozšíriť na Trnavský kraj" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Hľadať bez obmedzenia lokality" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Hľadať vo všetkých typoch výsledkov" })).toBeVisible();
 });
 
 test("exact directory profile remains searchable beyond 500 published rows", async ({ page }) => {

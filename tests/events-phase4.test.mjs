@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { eventTypePortalHref, selectRelatedEvents } from "../lib/events.ts";
+import { buildPublicEventPresentation, eventTypePortalHref, selectRelatedEvents } from "../lib/events.ts";
 
 function event(overrides) {
   return {
@@ -40,6 +40,27 @@ test("detail exposes real event fields before optional media and never renders e
   assert.match(detail, /event\.practicalInfo &&/);
   assert.match(detail, /event\.imageUrl && \([\s\S]*data-event-image/);
   assert.doesNotMatch(detail, /PawMark|Program|Poplatky|Podmienky účasti/);
+});
+
+test("PUBLIC-HYGIENE event presentation removes import diagnostics, raw sources and exact duplicate copy", () => {
+  const presentation = buildPublicEventPresentation(event({
+    excerpt: "Špeciálna výstava belgických ovčiakov.",
+    description: "Špeciálna výstava belgických ovčiakov.",
+    practicalInfo: [
+      "Návštevníci: Nezistené – zdroj neurčuje režim návštevníkov",
+      "Zdroje: https://kalendar.unkk.sk/",
+      "source_id: import-0062",
+      "Parkovanie: pri areáli.",
+      "Návštevníci: vstup voľný.",
+      "Zdroj: klubový bulletin.",
+    ].join("\n"),
+  }));
+
+  assert.equal(presentation.description, "");
+  assert.doesNotMatch(presentation.practicalInfo, /Nezistené|https:\/\/kalendar\.unkk\.sk|source_id/i);
+  assert.match(presentation.practicalInfo, /Parkovanie: pri areáli/);
+  assert.match(presentation.practicalInfo, /Návštevníci: vstup voľný/);
+  assert.match(presentation.practicalInfo, /Zdroj: klubový bulletin/);
 });
 
 test("event type links only target existing public type routes", () => {
@@ -89,6 +110,7 @@ test("route keeps canonical metadata, truthful Event status/location/organizer a
   assert.match(page, /url: canonical/);
   assert.doesNotMatch(page, /offers:|priceCurrency|ticket/);
   assert.match(page, /getUpcomingEvents\(8\)/);
+  assert.match(page, /buildPublicEventPresentation\(storedEvent\)/);
   assert.match(page, /selectRelatedEvents\(event,/);
   assert.match(page, /<EventDetail event=\{event\} related=\{related\}/);
 });

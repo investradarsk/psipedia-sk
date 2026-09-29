@@ -47,10 +47,15 @@ test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
     const map = page.getByTestId("public-location-map");
     await expect(map.getByRole("heading", { name: "Kde nás nájdete" })).toBeVisible();
     await expect(page.getByTestId("detail-map-consent-gate")).toBeVisible();
+    await expect(map.getByText("Google Maps čaká na tvoje povolenie", { exact: true })).toBeVisible();
+    await expect(map).not.toContainText("Interaktívna mapa momentálne nie je dostupná");
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
     await expect(map).toHaveAttribute("data-hydrated", "true");
 
-    await page.getByRole("button", { name: "Povoliť Google Maps" }).click();
+    const consentButton = page.getByRole("button", { name: "Povoliť Google Maps" });
+    await consentButton.focus();
+    await expect(consentButton).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
     await expect(page.getByTestId("marker-service:991001")).toBeVisible();
     await expect(page.getByTestId("map-test-renderer")).toHaveAttribute("data-map-init-count", "1");

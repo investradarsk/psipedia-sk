@@ -7,6 +7,10 @@ import {
   automationOperationsCutoff,
   parseAutomationOperationsRange,
 } from "../lib/data-automation-operations-model.ts";
+import {
+  readAdminAutomationData,
+  summarizeAdminAutomationReads,
+} from "../lib/admin-automation-reliability.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
@@ -228,4 +232,121 @@ test("empty refresh continuation preserves the last meaningful batch metrics", (
   assert.match(store, /last_batch_checked_count=CASE WHEN \?>0 THEN \? ELSE last_batch_checked_count END/);
   assert.match(store, /last_batch_update_suggestion_count=CASE WHEN \?>0 THEN \? ELSE last_batch_update_suggestion_count END/);
   assert.match(store, /last_batch_error_count=CASE WHEN \?>0 THEN \? ELSE last_batch_error_count END/);
+});
+
+
+test("admin automation availability contract distinguishes success and genuine empty", async () => {
+  const ok = await readAdminAutomationData({
+    key: "test:ok",
+    load: async () => [1],
+    fallback: [],
+    empty: (value) => value.length === 0,
+  });
+  const empty = await readAdminAutomationData({
+    key: "test:empty",
+    load: async () => [],
+    fallback: [],
+    empty: (value) => value.length === 0,
+  });
+
+  assert.equal(ok.status, "OK");
+  assert.deepEqual(ok.data, [1]);
+  assert.equal(ok.errorRef, null);
+  assert.equal(empty.status, "EMPTY");
+  assert.deepEqual(empty.data, []);
+  assert.equal(summarizeAdminAutomationReads([ok, empty]).status, "OK");
+});
+
+test("admin automation availability contract reports partial and redacts loader errors", async () => {
+  const logs = [];
+  const originalError = console.error;
+  console.error = (...args) => logs.push(args.join(" "));
+  try {
+    const ok = await readAdminAutomationData({
+      key: "test:partial:ok",
+      load: async () => ({ count: 4 }),
+      fallback: { count: 0 },
+      empty: (value) => value.count === 0,
+    });
+    const failed = await readAdminAutomationData({
+      key: "test:partial:failed",
+      load: async () => {
+        throw new Error("SQL SELECT secret-token-value");
+      },
+      fallback: [],
+      empty: (value) => value.length === 0,
+    });
+    const summary = summarizeAdminAutomationReads([ok, failed]);
+
+    assert.equal(summary.status, "PARTIAL");
+    assert.equal(failed.status, "UNAVAILABLE");
+    assert.deepEqual(failed.data, []);
+    assert.match(failed.errorRef, /^AA-[A-Z0-9]+-[A-F0-9]{8}$/);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /admin_automation_read_unavailable/);
+    assert.match(logs[0], /errorRef/);
+    assert.doesNotMatch(logs[0], /SQL SELECT|secret-token-value|stack/i);
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test("admin automation availability contract reports unavailable when every read fails", async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const first = await readAdminAutomationData({
+      key: "test:unavailable:first",
+      load: async () => { throw new TypeError("private failure one"); },
+      fallback: 0,
+      empty: (value) => value === 0,
+    });
+    const second = await readAdminAutomationData({
+      key: "test:unavailable:second",
+      load: async () => { throw new Error("private failure two"); },
+      fallback: null,
+      empty: (value) => value === null,
+    });
+    const summary = summarizeAdminAutomationReads([first, second]);
+
+    assert.equal(summary.status, "UNAVAILABLE");
+    assert.equal(summary.errorRefs.length, 2);
+    assert.equal(summary.sections.every((section) => section.status === "UNAVAILABLE"), true);
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test("admin automation pages do not hide loader exceptions behind empty fallback catches", () => {
+  const pages = [
+    "app/admin/automatizacie/page.tsx",
+    "app/admin/automatizacie/[category]/page.tsx",
+    "app/admin/automatizacie/adresy/page.tsx",
+    "app/admin/automatizacie/adresy/[id]/page.tsx",
+    "app/admin/automatizacie/zdroje/page.tsx",
+    "app/admin/automatizacie/zdroje/[id]/page.tsx",
+    "app/admin/automatizacie/[category]/discovery/[id]/page.tsx",
+    "app/admin/automatizacie/zmeny-stavu/page.tsx",
+  ].map(read);
+
+  for (const page of pages) {
+    assert.doesNotMatch(page, /\.catch\(\(\) => \[\]\)/);
+    assert.doesNotMatch(page, /\.catch\(\(\) => 0\)/);
+    assert.doesNotMatch(page, /\.catch\(\(\) => null\)/);
+  }
+});
+
+test("admin automation failure UI is read-only, correlated and contains no internal error detail", () => {
+  const helper = read("lib/admin-automation-reliability.ts");
+  const ui = read("app/admin/automatizacie/_components/automation-availability-state.tsx");
+
+  assert.match(helper, /AdminAutomationReliabilitySummary/);
+  assert.match(helper, /"OK", "EMPTY", "PARTIAL", "UNAVAILABLE"/);
+  assert.match(helper, /errorRef/);
+  assert.doesNotMatch(helper, /admin_notification_events|INSERT INTO|UPDATE |DELETE FROM/);
+  assert.doesNotMatch(ui, /stack|SQL|secret/i);
+  assert.match(ui, /Čas kontroly/);
+  assert.match(ui, /Referencia chyby/);
+  assert.match(ui, /Obnoviť údaje/);
+  assert.doesNotMatch(ui, /<form|action=|fetch\(/);
 });

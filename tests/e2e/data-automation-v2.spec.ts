@@ -29,6 +29,7 @@ test("automation source management is responsive and axe-clean on admin desktop/
   await expect(page.getByRole("heading", { name: "Čaká na tvoje rozhodnutie", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Monitorované zdroje", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Automatické hľadanie nových zdrojov", exact: true })).toBeVisible();
+  await expect(page.locator("[data-admin-automation-availability]")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });

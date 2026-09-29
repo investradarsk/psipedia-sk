@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
@@ -6,7 +7,8 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(([key]) => localStorage.setItem(key, "necessary"), [CONSENT_KEY]);
 });
 
-test("event detail exposes primary facts before long content and keeps optional media honest", async ({ page }) => {
+test("event detail exposes primary facts before long content and keeps optional media honest", async ({ page }, testInfo) => {
+  await page.setViewportSize(testInfo.project.name.includes("mobile") ? { width: 390, height: 844 } : { width: 1440, height: 960 });
   await page.goto("/podujatia");
   const eventLink = page.locator('[data-event-card] a[href^="/podujatia/"]').first();
   const href = await eventLink.getAttribute("href");
@@ -35,4 +37,17 @@ test("event detail exposes primary facts before long content and keeps optional 
   for (let index = 0; index < await externalActions.count(); index += 1) {
     await expect(externalActions.nth(index)).toHaveAttribute("href", /^https?:\/\//);
   }
+
+  const body = page.locator("body");
+  await expect(body).not.toContainText(/Nezistené\s*[–—-]\s*zdroj/i);
+  await expect(body).not.toContainText(/Zdroje:\s*https?:\/\//i);
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+
+  const axe = await new AxeBuilder({ page })
+    .include("main#obsah")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(axe.violations.filter(({ impact }) => impact === "serious" || impact === "critical")).toEqual([]);
 });

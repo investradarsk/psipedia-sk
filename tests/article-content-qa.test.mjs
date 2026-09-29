@@ -6,7 +6,7 @@ import {
   assessArticleContentQa,
   blockerIssues,
 } from "../lib/article-content-qa.ts";
-import { buildDentalArticleRemediation } from "../lib/article-content-remediation.ts";
+import { buildDentalArticleRemediation, sanitizePublicArticleContent } from "../lib/article-content-remediation.ts";
 
 function base(overrides = {}) {
   return {
@@ -42,6 +42,55 @@ test("CONTENT-QA placeholder detector catches high-confidence editorial patterns
     assert.ok(codes(base({ blocks: [{ id: "body", type: "text", content: text }] })).includes("EDITORIAL_PLACEHOLDER")
       || codes(base({ blocks: [{ id: "body", type: "text", content: text }] })).includes("POST_PUBLISH_EDITORIAL_NOTE"), text);
   }
+});
+
+test("PUBLIC-HYGIENE public article sanitation removes editorial instructions and preserves legitimate copy", () => {
+  const sanitized = sanitizePublicArticleContent({
+    ...base({
+      excerpt: "Verejný perex. Súvisiaci článok: Ako vybrať granule bez marketingových mýtov.",
+      intro: "Ak pes reaguje bolesťou, po publikovaní bude vhodné prepojiť aj článok Ako spoznať bolesť u psa.",
+      takeaway: "Majiteľ môže doplniť vodu podľa potreby.",
+      sections: [{
+        heading: "Dentálna hygiena",
+        paragraphs: [
+          "Verejný text zostáva. Súvisiaca podsekcia: Hygiena šteniatka.",
+          "Toto je súvisiaci článok o hygiene v bežnom redakčnom význame, nie interná inštrukcia.",
+        ],
+        bullets: ["PLACEHOLDER: doplniť neskôr", "Čistite zuby jemne."],
+      }],
+      blocks: [
+        { id: "todo", type: "text", content: "TODO: doplniť odkaz" },
+        { id: "keep", type: "text", content: "Legitímna veta: používateľ môže doplniť vodu." },
+      ],
+    }),
+    slug: "public-hygiene-test",
+  });
+
+  const publicText = JSON.stringify(sanitized);
+  for (const phrase of [
+    "po publikovaní bude vhodné",
+    "Súvisiaca podsekcia:",
+    "Súvisiaci článok:",
+    "PLACEHOLDER:",
+    "TODO:",
+  ]) {
+    assert.equal(publicText.includes(phrase), false, phrase);
+  }
+  assert.equal(sanitized.intro, "Ak pes reaguje bolesťou.");
+  assert.match(sanitized.takeaway, /doplniť vodu/);
+  assert.match(sanitized.sections[0].paragraphs.join(" "), /Toto je súvisiaci článok o hygiene/);
+  assert.match(JSON.stringify(sanitized.blocks), /používateľ môže doplniť vodu/);
+});
+
+test("PUBLIC-HYGIENE public article routes sanitize before metadata and SSR rendering", () => {
+  const portalRoute = readFileSync("app/[section]/[slug]/page.tsx", "utf8");
+  const legacyRoute = readFileSync("app/clanky/[slug]/page.tsx", "utf8");
+  assert.match(portalRoute, /sanitizePublicArticleContent/);
+  assert.match(legacyRoute, /sanitizePublicArticleContent/);
+  assert.match(portalRoute, /const article = sanitizePublicArticleContent\(storedArticle\)/);
+  assert.match(legacyRoute, /const article = sanitizePublicArticleContent\(storedArticle\)/);
+  assert.match(portalRoute, /buildArticleMetadata\(article\)/);
+  assert.match(legacyRoute, /buildArticleMetadata\(article\)/);
 });
 
 test("CONTENT-QA placeholder detector avoids broad Slovak false positives", () => {
