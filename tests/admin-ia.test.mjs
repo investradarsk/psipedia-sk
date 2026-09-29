@@ -7,6 +7,7 @@ import {
   findActiveAdminNavigationItem,
   getAdminBreadcrumbs,
 } from "../lib/admin-navigation.ts";
+import { summarizeAdminAutomationReads } from "../lib/admin-automation-reliability.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
@@ -86,6 +87,10 @@ test("breadcrumbs point back to the canonical list and identify details", () => 
 
   const partner = getAdminBreadcrumbs("/admin/partners/claims/abc");
   assert.deepEqual(partner.map((item) => item.href), ["/admin", "/admin/partners", "/admin/partners/claims/abc"]);
+
+  const newArticle = getAdminBreadcrumbs("/admin/novy");
+  assert.deepEqual(newArticle.map((item) => item.href), ["/admin", "/admin/clanky", "/admin/novy"]);
+  assert.equal(newArticle.at(-1)?.label, "Nový záznam");
 });
 
 test("admin shell renders shared active navigation, breadcrumbs, sticky positioning and existing attention bell", () => {
@@ -162,6 +167,16 @@ test("dashboard uses bounded existing summaries and never treats unavailable dat
   assert.match(dashboard, /status === "PARTIAL"[\s\S]*\? `\$\{value\}\+`/);
   assert.match(reliability, /export async function readAdminAutomationData/);
   assert.match(reliability, /export function summarizeAdminAutomationReads/);
+});
+
+
+test("existing automation reliability contract distinguishes OK EMPTY PARTIAL and UNAVAILABLE", () => {
+  const read = (key, status) => ({ key, status, data: 0, checkedAt: "2026-09-30T00:00:00.000Z", errorRef: status === "UNAVAILABLE" ? "AA-TEST" : null });
+  assert.equal(summarizeAdminAutomationReads([]).status, "EMPTY");
+  assert.equal(summarizeAdminAutomationReads([read("a", "EMPTY")]).status, "EMPTY");
+  assert.equal(summarizeAdminAutomationReads([read("a", "OK"), read("b", "EMPTY")]).status, "OK");
+  assert.equal(summarizeAdminAutomationReads([read("a", "OK"), read("b", "UNAVAILABLE")]).status, "PARTIAL");
+  assert.equal(summarizeAdminAutomationReads([read("a", "UNAVAILABLE"), read("b", "UNAVAILABLE")]).status, "UNAVAILABLE");
 });
 
 test("dashboard count cards point to canonical filtered work queues", () => {
