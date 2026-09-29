@@ -12,7 +12,7 @@ export default async function AdminSettingsPage() {
       user={user}
       eyebrow="Admin aplikácia"
       title="Nastavenia aplikácie"
-      description="Inštalácia admin PWA a upozornenia pre toto zariadenie. Redakčné úpravy zostávajú vždy online-only."
+      description="Nastavenia tohto zariadenia: admin PWA, upozornenia a vylúčenie vlastnej návštevnosti z Cloudflare Web Analytics. Redakčné úpravy zostávajú vždy online-only."
     >
       <AdminPwaSettings />
     </AdminShell>
