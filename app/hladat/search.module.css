@@ -157,3 +157,197 @@
     grid-column: 2;
   }
 }
+
+
+.discovery {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface-soft);
+}
+
+.discoveryIntro {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.discoveryIntro h2 {
+  margin: 4px 0 0;
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+}
+
+.discoveryEyebrow {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.discoveryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.discoveryActions a,
+.mapLink {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.discoveryActions a:focus-visible,
+.chip:focus-visible,
+.filterForm :is(input, select, button):focus-visible {
+  outline: 3px solid var(--coral-dark);
+  outline-offset: 3px;
+}
+
+.mapLink {
+  border-color: var(--coral-dark) !important;
+  color: var(--coral-dark);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.chip {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(23, 75, 56, 0.2);
+  border-radius: 999px;
+  background: white;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.filterForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.filterForm label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.filterForm label > span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.filterForm input,
+.filterForm select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+
+.filterForm button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--coral-dark);
+  color: white;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.filterNotice {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 7px 10px;
+  align-items: center;
+}
+
+.location {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.services {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.services > span {
+  max-width: 100%;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .discovery {
+    margin-top: 18px;
+    padding: 17px;
+    border-radius: 16px;
+  }
+
+  .discoveryIntro {
+    display: grid;
+  }
+
+  .discoveryActions {
+    justify-content: flex-start;
+  }
+
+  .filterForm {
+    grid-template-columns: 1fr;
+  }
+
+  .filterForm button {
+    width: 100%;
+  }
+}

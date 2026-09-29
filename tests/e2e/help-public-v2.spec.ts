@@ -20,6 +20,7 @@ test("Help landing is compact, canonical, accessible and touch-safe", async ({ p
   const response = await page.goto("/pomoc-psom", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1, name: "Pomoc psom" })).toBeVisible();
+  await expect(page.locator("main#obsah")).not.toContainText(/\\b(?:Overené|Preverené)\\b/u);
 
   const categoryNav = page.locator("[data-help-category-nav]");
   await expect(categoryNav.locator("a")).toHaveCount(6);

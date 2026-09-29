@@ -109,8 +109,8 @@ export function NewsHub({
             </PublicContentList>
           ) : (
             <div className={styles.empty}>
-              <strong>{category ? "Prvú overenú správu pripravujeme" : "Prvé overené správy pripravujeme"}</strong>
-              <p>{category ? "Táto téma má vlastnú stálu adresu. Keď pribudne novinka, zobrazí sa tu spolu so zdrojom a dátumom aktualizácie." : "Archív dopĺňame iba o publikované a overené novinky."}</p>
+              <strong>{category ? "Prvú správu pripravujeme" : "Prvé správy pripravujeme"}</strong>
+              <p>{category ? "Táto téma má vlastnú stálu adresu. Keď pribudne novinka, zobrazí sa tu spolu so zdrojom a dátumom aktualizácie." : "Archív dopĺňame o publikované novinky so zdrojmi a dátumom aktualizácie."}</p>
               <PublicActionLink href="/novinky" variant="secondary">Zobraziť všetky</PublicActionLink>
             </div>
           )}

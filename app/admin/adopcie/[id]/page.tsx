@@ -19,13 +19,16 @@ export default async function EditAdoptionPage({ params }: Props) {
   const numericId = Number.parseInt(id, 10);
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
   const user = await requireAdminPageUser(`/admin/adopcie/${id}`);
-  const [item, breeds, organizations] = await Promise.all([
+  const [item, organizations] = await Promise.all([
     getAdoptionById(numericId),
-    listAdoptionAdminBreedOptions(),
     listAdoptionAdminOrganizationOptions(),
   ]);
   if (!item) notFound();
-  const [duplicateWarning, automationSuggestions] = await Promise.all([
+  const selectedBreed = item.breedId && item.breedName.trim()
+    ? { id: item.breedId, name: item.breedName }
+    : null;
+  const [breeds, duplicateWarning, automationSuggestions] = await Promise.all([
+    listAdoptionAdminBreedOptions(undefined, selectedBreed, item.breedId),
     getCanonicalDraftDuplicateWarning("ADOPTION", item.id).catch(() => null),
     listCanonicalAutomationUpdateSuggestions({ entityType: "ADOPTION", canonicalEntityId: item.id }),
   ]);

@@ -47,3 +47,13 @@ test("admin API authenticates and rejects malformed payloads server-side",()=>{c
 test("optimistic update is scoped to one id and original updated_at",()=>{const source=read("../lib/adoption-admin-write.ts");assert.match(source,/WHERE id = \? AND updated_at = \?/);assert.match(source,/existing\.updatedAt !== expectedUpdatedAt/);assert.match(source,/changes !== 1/);assert.match(source,/AdoptionConcurrentEditError/)});
 test("editor exposes only model-backed fields and safe lifecycle defaults",()=>{const source=read("../components/admin-adoption-editor.tsx");assert.match(source,/item\?\.status \?\? "DRAFT"/);assert.match(source,/\["DRAFT", "ACTIVE", "RESERVED"\]/);for(const field of ["birthDate","approximateAgeMonths","breedId","organizationName","lastVerifiedAt","gallery","healthNotes","adoptionRequirements"])assert.match(source,new RegExp(field));assert.doesNotMatch(source,/hard delete|DELETE/i)});
 test("list gains only create and edit links without changing dashboard query logic",()=>{const page=read("../app/admin/adopcie/page.tsx");const dashboard=read("../components/admin-adoption-dashboard.tsx");assert.match(page,/\/admin\/adopcie\/novy/);assert.match(dashboard,/\/admin\/adopcie\/\$\{item\.id\}/);assert.doesNotMatch(page,/publish|archive|bulk/i)});
+
+test("breed option outage keeps the stored breed id instead of silently clearing it",()=>{
+  const profile=read("../components/admin-adoption-editor-profile.tsx");
+  const editPage=read("../app/admin/adopcie/[id]/page.tsx");
+  assert.match(profile,/disabled=\{!breeds\.available\}/);
+  assert.match(profile,/type="hidden" name="breedId" value=\{item\.breedId\}/);
+  assert.match(profile,/breeds\.options\.map/);
+  assert.match(editPage,/const selectedBreed = item\.breedId && item\.breedName\.trim\(\)/);
+  assert.match(editPage,/listAdoptionAdminBreedOptions\(undefined, selectedBreed, item\.breedId\)/);
+});
