@@ -193,7 +193,7 @@ test("AUTOMATION-UPDATE-REVIEW-1 0096 detects partial schema drift", () => {
   assert.deepEqual(targetSchemaObjects({ objects: [] }, "0096_automation_update_field_reviews.sql"), { partial: false });
 });
 
-test("DISCOVERY-2C-E production verifier pins Tavily config but allows operator lifecycle state", () => {
+test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
     discovery_type: "SEARCH_PROVIDER",
@@ -226,12 +226,19 @@ test("DISCOVERY-2C-E production verifier pins Tavily config but allows operator 
     review_status: "APPROVED",
   }), true);
 
-  assert.throws(() => assertTavilyEventCadenceState({
+  assert.equal(assertTavilyEventCadenceState({
     ...stableConfig,
     enabled: 1,
     review_status: "APPROVED",
     cadence_minutes: 1440,
-  }), /cadence must be 2880 minutes/);
+  }), true);
+
+  assert.throws(() => assertTavilyEventCadenceState({
+    ...stableConfig,
+    enabled: 1,
+    review_status: "APPROVED",
+    query_cooldown_minutes: 1440,
+  }), /query cooldown must be 2880 minutes/);
 });
 
 test("production D1 target allowlist tracks every canonical migration from 0062 onward", async () => {
