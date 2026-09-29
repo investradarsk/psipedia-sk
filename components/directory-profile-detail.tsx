@@ -168,7 +168,7 @@ export function DirectoryProfileDetail({
           )}
 
           {relatedBreeds.length > 0 ? (
-            <DetailSection eyebrow="Explicitné prepojenie" title="Plemená prepojené s týmto profilom">
+            <DetailSection eyebrow="Súvisiace plemená" title="Plemená prepojené s týmto profilom">
               <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto profilom" />
             </DetailSection>
           ) : null}
