@@ -1,6 +1,5 @@
 import type { ArticleBlock } from "@/lib/article-blocks";
 import type { Article, ArticleSection } from "@/lib/content";
-import { editorialRichTextPlainText } from "@/lib/editorial-content";
 
 export const DENTAL_ARTICLE_SLUG = "ako-cistit-psovi-zuby";
 
@@ -12,6 +11,18 @@ const DENTAL_EDITORIAL_SENTENCES = [
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function publicArticleRichTextPlainText(value: Article["introRichText"]) {
+  if (!value || value.type !== "doc" || value.version !== 1 || !Array.isArray(value.content)) return "";
+  return value.content
+    .flatMap((block) => block.type === "bulletList" || block.type === "orderedList" ? block.items : [block.content])
+    .flatMap((inline) => inline)
+    .filter((node) => node.type === "text")
+    .map((node) => node.text)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function sanitizePublicArticleText(value: string) {
@@ -121,8 +132,8 @@ function sanitizePublicArticleBlocks(blocks: ArticleBlock[]) {
 }
 
 export function sanitizePublicArticleContent(article: Article): Article {
-  const richIntro = article.introRichText ? editorialRichTextPlainText(article.introRichText) : null;
-  const richTakeaway = article.takeawayRichText ? editorialRichTextPlainText(article.takeawayRichText) : null;
+  const richIntro = article.introRichText ? publicArticleRichTextPlainText(article.introRichText) : null;
+  const richTakeaway = article.takeawayRichText ? publicArticleRichTextPlainText(article.takeawayRichText) : null;
   const introSource = richIntro ?? article.intro;
   const takeawaySource = richTakeaway ?? article.takeaway;
   const intro = sanitizePublicArticleText(introSource);
