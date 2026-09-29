@@ -52,6 +52,8 @@ export const EVENT_TYPE_SYNONYMS = {
   "Tréning": ["tréning psov", "trening psov"],
 } as const;
 
+export type PortalSearchEventType = keyof typeof EVENT_TYPE_SYNONYMS | "Stretnutie" | "Iné";
+
 export const ENTITY_INTENT_SYNONYMS = {
   adoption: ["pes na adopciu", "psy na adopciu", "adopcia psa", "adopcia"],
   organization: ["útulok", "utulok", "organizácia pre psov", "organizacia pre psov"],
@@ -74,7 +76,7 @@ export type ParsedPortalSearchQuery = {
   contentTokens: string[];
   residualTokens: string[];
   directoryCategory: DirectoryCategorySlug | null;
-  eventType: keyof typeof EVENT_TYPE_SYNONYMS | null;
+  eventType: PortalSearchEventType | null;
   entityIntent: PortalSearchEntityIntent;
   location: PortalSearchLocation | null;
 };
@@ -88,7 +90,7 @@ export type PortalSearchFilterOverrides = {
 
 export type PortalSearchTypeFilter =
   | DirectoryCategorySlug
-  | `event:${keyof typeof EVENT_TYPE_SYNONYMS}`
+  | `event:${PortalSearchEventType}`
   | "adoption"
   | "organization"
   | "lost-found";
@@ -173,7 +175,7 @@ const directorySynonymMap = phraseMap(
 );
 const eventSynonymMap = phraseMap(
   Object.entries(EVENT_TYPE_SYNONYMS).flatMap(([eventType, synonyms]) =>
-    synonyms.map((synonym) => [synonym, eventType as keyof typeof EVENT_TYPE_SYNONYMS] as [string, keyof typeof EVENT_TYPE_SYNONYMS]),
+    synonyms.map((synonym) => [synonym, eventType as PortalSearchEventType] as [string, PortalSearchEventType]),
   ),
 );
 const entitySynonymMap = phraseMap<Exclude<PortalSearchEntityIntent, "directory" | "event" | null>>(
@@ -215,7 +217,7 @@ function indexesFor(...matches: Array<PhraseMatch<unknown> | null>) {
 
 function canonicalIntentToken(parsed: {
   directoryCategory: DirectoryCategorySlug | null;
-  eventType: keyof typeof EVENT_TYPE_SYNONYMS | null;
+  eventType: PortalSearchEventType | null;
   entityIntent: PortalSearchEntityIntent;
 }) {
   if (parsed.directoryCategory === "veterinari") return "veterinar";
@@ -268,9 +270,11 @@ export function parsePortalSearchQuery(value: string): ParsedPortalSearchQuery {
 const directoryTypeFilterValues = new Set<DirectoryCategorySlug>(
   Object.keys(DIRECTORY_SERVICE_SYNONYMS) as DirectoryCategorySlug[],
 );
-const eventTypeFilterValues = new Set<keyof typeof EVENT_TYPE_SYNONYMS>(
-  Object.keys(EVENT_TYPE_SYNONYMS) as Array<keyof typeof EVENT_TYPE_SYNONYMS>,
-);
+const eventTypeFilterValues = new Set<PortalSearchEventType>([
+  ...(Object.keys(EVENT_TYPE_SYNONYMS) as PortalSearchEventType[]),
+  "Stretnutie",
+  "Iné",
+]);
 
 export function portalSearchTypeFilterFromParsed(parsed: ParsedPortalSearchQuery): PortalSearchTypeFilter | "" {
   if (parsed.directoryCategory) return parsed.directoryCategory;
@@ -292,7 +296,7 @@ export function parsePortalSearchTypeFilter(value: string) {
     };
   }
   if (trimmed.startsWith("event:")) {
-    const eventType = trimmed.slice("event:".length) as keyof typeof EVENT_TYPE_SYNONYMS;
+    const eventType = trimmed.slice("event:".length) as PortalSearchEventType;
     if (eventTypeFilterValues.has(eventType)) {
       return { directoryCategory: null, eventType, entityIntent: "event" as const };
     }
