@@ -326,7 +326,7 @@ test("valid public submission stays private until admin approval, then publishes
   await page.getByLabel("Kraj *").selectOption("Nitriansky kraj");
   await page.getByLabel("Obec alebo mesto *").fill("Nitra");
   await page.getByLabel("Približné miesto").fill("Okolie mestského parku.");
-  await page.getByLabel("Telefón").fill(phone);
+  await page.locator('input[name="contactPhone"]').fill(phone);
   await page.getByLabel("E-mail").fill(email);
 
   const responsePromise = page.waitForResponse((response) =>
