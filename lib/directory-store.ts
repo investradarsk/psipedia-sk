@@ -1088,8 +1088,14 @@ export function buildManagedDirectoryProfileUpdateStatement(
   `).bind(...bindings);
 }
 
-export async function updateManagedDirectoryProfile(id: number, payload: ManagedDirectoryProfileInput, editorEmail: string, existingProfile?: ManagedDirectoryProfile) {
-  const database = requireD1Binding();
+export async function updateManagedDirectoryProfile(
+  id: number,
+  payload: ManagedDirectoryProfileInput,
+  editorEmail: string,
+  existingProfile?: ManagedDirectoryProfile,
+  databaseInput?: D1Database,
+) {
+  const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const existing = existingProfile ?? await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
@@ -1109,10 +1115,15 @@ export async function updateManagedDirectoryProfile(id: number, payload: Managed
   return rowToManagedProfile(row);
 }
 
-export async function archiveManagedDirectoryProfile(id: number, editorEmail: string, now = new Date()) {
-  const database = requireD1Binding();
+export async function archiveManagedDirectoryProfile(
+  id: number,
+  editorEmail: string,
+  now = new Date(),
+  databaseInput?: D1Database,
+) {
+  const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
-  const existing = await getManagedDirectoryProfileById(id);
+  const existing = await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
   if (existing.status === "archived") return existing;
   await ensureResourceForDirectoryProfile(id, database, now);
@@ -1130,10 +1141,15 @@ export async function archiveManagedDirectoryProfile(id: number, editorEmail: st
   return rowToManagedProfile(row);
 }
 
-export async function restoreManagedDirectoryProfile(id: number, editorEmail: string, now = new Date()) {
-  const database = requireD1Binding();
+export async function restoreManagedDirectoryProfile(
+  id: number,
+  editorEmail: string,
+  now = new Date(),
+  databaseInput?: D1Database,
+) {
+  const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
-  const existing = await getManagedDirectoryProfileById(id);
+  const existing = await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
   if (existing.status !== "archived") throw new Error("Obnoviť možno iba archivovaný profil.");
   await ensureResourceForDirectoryProfile(id, database, now);
