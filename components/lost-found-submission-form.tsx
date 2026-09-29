@@ -81,7 +81,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
 
   if (result?.type === "success") {
     return (
-      <section className={styles.confirmation} aria-live="polite">
+      <section className={[styles.confirmation, styles.shell].join(" ")} aria-live="polite">
         <span className="eyebrow">Pomoc psom</span>
         <h1>Hlásenie sme prijali</h1>
         <p>{result.text}</p>
@@ -94,7 +94,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
   }
 
   return (
-    <form ref={formRef} className={styles.form} onSubmit={submit} encType="multipart/form-data">
+    <form ref={formRef} className={[styles.form, styles.shell].join(" ")} onSubmit={submit} encType="multipart/form-data">
       <header className={styles.header}>
         <span className="eyebrow">Pomoc psom</span>
         <h1>Nahlásiť strateného alebo nájdeného psa</h1>
