@@ -18,6 +18,22 @@ type PushConfig = {
   publicKey: string | null;
 };
 
+const ANALYTICS_EXCLUSION_COOKIE = "psipedia_internal";
+const ANALYTICS_EXCLUSION_MAX_AGE = 60 * 60 * 24 * 365;
+
+function isAnalyticsExcluded() {
+  return document.cookie
+    .split(";")
+    .some((cookie) => cookie.trim() === `${ANALYTICS_EXCLUSION_COOKIE}=1`);
+}
+
+function setAnalyticsExclusionCookie(enabled: boolean) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = enabled
+    ? `${ANALYTICS_EXCLUSION_COOKIE}=1; Path=/; Max-Age=${ANALYTICS_EXCLUSION_MAX_AGE}; SameSite=Lax${secure}`
+    : `${ANALYTICS_EXCLUSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+}
+
 function base64UrlToUint8Array(value: string) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
@@ -60,9 +76,11 @@ export function AdminPwaSettings() {
   const [serviceWorkerSupported, setServiceWorkerSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [busy, setBusy] = useState(false);
+  const [analyticsExcluded, setAnalyticsExcluded] = useState(false);
 
   const inspect = useCallback(async () => {
     setMessage("");
+    setAnalyticsExcluded(isAnalyticsExcluded());
     setStandalone(isStandalone());
     setIos(isIos());
 
@@ -122,6 +140,12 @@ export function AdminPwaSettings() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [inspect]);
+
+  function updateAnalyticsExclusion(enabled: boolean) {
+    setAnalyticsExclusionCookie(enabled);
+    setAnalyticsExcluded(enabled);
+    window.location.reload();
+  }
 
   async function enableNotifications() {
     if (!config?.publicKey || busy) return;
@@ -236,6 +260,38 @@ export function AdminPwaSettings() {
           </div>
         )}
         <p className={styles.safetyNote}>Admin nikdy neukladá publikovanie ani iné redakčné zmeny do offline fronty.</p>
+      </section>
+
+      <section className="admin-panel">
+        <h2>Návštevnosť tohto zariadenia</h2>
+        <p>
+          Toto nastavenie označí iba tento prehliadač ako interný. Cloudflare Web Analytics ho potom
+          podľa pravidla s cookie <code>{ANALYTICS_EXCLUSION_COOKIE}=1</code> nebude započítavať do
+          návštev, zobrazení stránok ani RUM metrík.
+        </p>
+        <dl className={styles.statusList}>
+          <div>
+            <dt>Stav</dt>
+            <dd data-testid="analytics-device-state">
+              {analyticsExcluded ? "Nezapočítava sa" : "Započítava sa"}
+            </dd>
+          </div>
+        </dl>
+        <div className="admin-form-actions">
+          {analyticsExcluded ? (
+            <button type="button" onClick={() => updateAnalyticsExclusion(false)}>
+              Znovu započítavať toto zariadenie
+            </button>
+          ) : (
+            <button className="is-primary" type="button" onClick={() => updateAnalyticsExclusion(true)}>
+              Nezapočítavať toto zariadenie do návštevnosti
+            </button>
+          )}
+        </div>
+        <p className={styles.infoNote}>
+          Platí iba pre tento prehliadač. Po vymazaní cookies treba nastavenie zapnúť znova.
+          Po zmene sa stránka automaticky obnoví, aby sa nové pravidlo uplatnilo hneď.
+        </p>
       </section>
 
       <section className="admin-panel">
