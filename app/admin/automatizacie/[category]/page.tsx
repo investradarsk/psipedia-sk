@@ -56,9 +56,12 @@ export default async function AutomationCategoryPage({ params }: Props) {
       empty: (value) => value.length === 0,
     }),
   ]);
-  const sources = automationSourcesForCategory(allSourcesRead.data, slug);
-  const candidates = automationCandidatesForCategory(allCandidatesRead.data, slug);
-  const discoveryRoots = automationDiscoveryRootsForCategory(allRootsRead.data, slug).filter(isTavilySearchDiscoveryRoot);
+  const allSources = allSourcesRead.data;
+  const allCandidates = allCandidatesRead.data;
+  const allRoots = allRootsRead.data;
+  const sources = automationSourcesForCategory(allSources, slug);
+  const candidates = automationCandidatesForCategory(allCandidates, slug);
+  const discoveryRoots = automationDiscoveryRootsForCategory(allRoots, slug).filter(isTavilySearchDiscoveryRoot);
 
   const directSlug = category.mode === "DIRECT_ENTITY"
     ? slug as "veterinari" | "psie-sluzby" | "utulky-organizacie"
