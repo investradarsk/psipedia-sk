@@ -103,7 +103,9 @@ export async function POST(request: Request) {
     const runtime = env as unknown as Bindings;
     const database = getPublicLostFoundDatabase(runtime.DB);
     const hashKey = required(runtime.PII_HASH_KEY);
-    const turnstileSecret = required(runtime.TURNSTILE_SECRET_KEY);
+    const turnstileSecret = process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP === "1"
+      ? ""
+      : required(runtime.TURNSTILE_SECRET_KEY);
     const contactIdentity = submission.normalizedEmail || submission.normalizedPhone || "missing-contact";
 
     await enforcePublicLostFoundRateLimits({
