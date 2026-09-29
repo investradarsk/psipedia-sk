@@ -31,6 +31,9 @@ export type GeoAdminOperatorRow = {
   normalizedQuery: string | null;
   sourceFingerprint: string | null;
   resolvedSourceFingerprint: string | null;
+  googlePlaceId: string | null;
+  googlePlaceSourceFingerprint: string | null;
+  googleMapsTarget: "PLACE" | "COORDINATES" | null;
   latitude: number | null;
   longitude: number | null;
   errorCode: string | null;
@@ -68,6 +71,7 @@ export async function loadGeoAdminOperatorProfiles() {
       d.street, d.house_number, d.address_format, d.service_address_confirmation, d.online,
       g.id AS geo_point_id, g.geocode_status, g.public_visibility, g.public_precision,
       g.provider, g.normalized_query, g.source_fingerprint, g.resolved_source_fingerprint,
+      g.google_place_id, g.google_place_source_fingerprint,
       g.latitude, g.longitude, g.last_error_code, g.manual_override, g.updated_at AS geo_updated_at
     FROM directory_profiles d
     LEFT JOIN geo_points g ON g.directory_profile_id = d.id
@@ -105,6 +109,15 @@ export async function loadGeoAdminOperatorProfiles() {
     });
     const id = Number(row.id);
     const category = value(row, "category");
+    const sourceFingerprint = nullable(row, "source_fingerprint");
+    const googlePlaceId = nullable(row, "google_place_id");
+    const googlePlaceSourceFingerprint = nullable(row, "google_place_source_fingerprint");
+    const hasCurrentGooglePlace = Boolean(
+      googlePlaceId
+      && googlePlaceSourceFingerprint
+      && sourceFingerprint
+      && googlePlaceSourceFingerprint === sourceFingerprint,
+    );
 
     return {
       id,
@@ -128,8 +141,11 @@ export async function loadGeoAdminOperatorProfiles() {
       publicPrecision: nullable(row, "public_precision"),
       provider: nullable(row, "provider"),
       normalizedQuery: nullable(row, "normalized_query"),
-      sourceFingerprint: nullable(row, "source_fingerprint"),
+      sourceFingerprint,
       resolvedSourceFingerprint: nullable(row, "resolved_source_fingerprint"),
+      googlePlaceId,
+      googlePlaceSourceFingerprint,
+      googleMapsTarget: state.state === "ON_MAP" ? (hasCurrentGooglePlace ? "PLACE" : "COORDINATES") : null,
       latitude: numberOrNull(row, "latitude"),
       longitude: numberOrNull(row, "longitude"),
       errorCode: nullable(row, "last_error_code"),
