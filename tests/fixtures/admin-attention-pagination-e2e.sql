@@ -27,3 +27,33 @@ FROM seq;
 
 -- Simulate one unavailable canonical Attention source in isolated CI only.
 DROP TABLE directory_profile_change_requests;
+
+
+-- Keep one deterministic AUTOMATION_ACTION row available. This catches production-style
+-- failures where the whole automation Attention source becomes unavailable.
+DELETE FROM automation_source_candidates
+WHERE canonical_url = 'https://attention-e2e.example/events';
+
+INSERT INTO automation_source_candidates (
+  discovery_type, source_url, canonical_url, label, entity_type, suggested_connector_type,
+  discovered_from_source_id, reason, metadata_json, duplicate_source_id, review_status,
+  reviewer_notes, reviewed_by, reviewed_at, suppressed_until, first_detected_at, last_detected_at
+) VALUES (
+  'SEARCH_PROVIDER',
+  'https://attention-e2e.example/events',
+  'https://attention-e2e.example/events',
+  'Attention E2E event source',
+  'EVENT',
+  'CONTROLLED_HTML',
+  NULL,
+  'Isolated fixture for AUTOMATION_ACTION availability.',
+  '{}',
+  NULL,
+  'NEW',
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  '2026-09-15T09:00:00.000Z',
+  '2026-09-15T09:00:00.000Z'
+);
