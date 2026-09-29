@@ -320,6 +320,7 @@ test("valid public submission stays private until admin approval, then publishes
   const phone = "+421900123456";
 
   await page.goto("/pomoc-psom/stratene-a-najdene/nahlasit", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Typ hlásenia *").selectOption("FOUND");
   await page.locator('input[name="dogName"]').fill(unique);
   await page.getByLabel("Dátum udalosti").fill("2026-09-29");
   await page.getByLabel("Popis *").fill("Nájdený pes pri mestskom parku. Pokojný, čierny a dobre socializovaný.");
