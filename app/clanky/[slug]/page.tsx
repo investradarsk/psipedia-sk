@@ -21,7 +21,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const storedArticle = await getPublishedArticle(slug);
   if (!storedArticle) return {};
-  return buildArticleMetadata(sanitizePublicArticleContent(storedArticle));
+  const article = sanitizePublicArticleContent(storedArticle);
+  return buildArticleMetadata(article);
 }
 
 export default async function LegacyArticlePage({ params }: Props) {
