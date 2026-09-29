@@ -88,7 +88,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0093_automation_address_review.sql",
   "0094_canonical_draft_delete.sql",
   "0095_automation_calendar_schedule.sql",
-  "0097_automation_update_field_reviews.sql",
+  "0096_automation_update_field_reviews.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -849,7 +849,7 @@ export function targetSchemaObjects(schema, targetMigration) {
         || hasScheduleColumn(schema.automationDirectRefreshColumns),
     };
   }
-  if (targetMigration === "0097_automation_update_field_reviews.sql") {
+  if (targetMigration === "0096_automation_update_field_reviews.sql") {
     return {
       partial: AUTOMATION_UPDATE_REVIEW_TABLES.some((table) => names.has(table))
         || AUTOMATION_UPDATE_REVIEW_INDEXES.some((index) => names.has(index)),
@@ -1369,7 +1369,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 93) assertAutomationAddressReviewSchema(schema);
   if (migrationIndex(targetMigration) >= 94) assertCanonicalDraftDeleteSchema(schema);
   if (migrationIndex(targetMigration) >= 95) assertAutomationCalendarScheduleSchema(schema);
-  if (migrationIndex(targetMigration) >= 97) assertAutomationUpdateReviewSchema(schema);
+  if (migrationIndex(targetMigration) >= 96) assertAutomationUpdateReviewSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
