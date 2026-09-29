@@ -90,14 +90,14 @@ UNION ALL
 SELECT id, 991104, '2026-09-30T00:30:00.000Z', 'ci:content-relations'
 FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak';
 
-INSERT INTO breed_directory_relations (breed_id, profile_id, created_at, created_by)
-SELECT id, 991101, '2026-09-30T00:31:00.000Z', 'ci:content-relations'
+INSERT INTO breed_directory_relations (breed_id, profile_id, relation_type, source, created_at, created_by)
+SELECT id, 991101, 'breed-club', 'manual', '2026-09-30T00:31:00.000Z', 'ci:content-relations'
 FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak'
 UNION ALL
-SELECT id, 991103, '2026-09-30T00:31:00.000Z', 'ci:content-relations'
+SELECT id, 991103, 'breeding-station', 'manual', '2026-09-30T00:31:00.000Z', 'ci:content-relations'
 FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak'
 UNION ALL
-SELECT id, 991104, '2026-09-30T00:31:00.000Z', 'ci:content-relations'
+SELECT id, 991104, 'breed-club', 'manual', '2026-09-30T00:31:00.000Z', 'ci:content-relations'
 FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak';
 
 INSERT INTO help_organizations (
