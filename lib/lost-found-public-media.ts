@@ -173,6 +173,9 @@ export async function publishLostFoundPublicMedia(
   const database = getPublicLostFoundDatabase(options.database);
   const row = await mediaRow(reportId, database);
   if (!row?.safeKey || row.state !== "ATTACHED") return null;
+  if (row.publicKey) {
+    return { assetId: row.id, imageKey: row.publicKey, imageUrl: "/media/" + row.publicKey };
+  }
   const year = (options.now ?? new Date()).getUTCFullYear();
   const publicKey = "lost-found/" + year + "/" + crypto.randomUUID() + ".webp";
   await publishSafeImage({
@@ -181,6 +184,9 @@ export async function publishLostFoundPublicMedia(
     privateBucket: privateBucket(options.privateBucket),
     publicBucket: publicBucket(options.publicBucket),
   });
+  await database.prepare(
+    "UPDATE media_assets SET public_key=?1 WHERE id=?2 AND state='ATTACHED'",
+  ).bind(publicKey, row.id).run();
   return { assetId: row.id, imageKey: publicKey, imageUrl: "/media/" + publicKey };
 }
 
