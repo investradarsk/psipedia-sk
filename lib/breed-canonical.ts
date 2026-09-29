@@ -1,3 +1,7 @@
+export function breedProfileHref(slug: string) {
+  return `/plemena/${slug}`;
+}
+
 /** One eligibility predicate for winners and competing rows. */
 export function canonicalBreedEligibilitySql(alias:string) {
   const seo=`CASE WHEN json_valid(${alias}.seo_json) THEN ${alias}.seo_json ELSE '{}' END`;
