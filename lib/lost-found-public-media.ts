@@ -76,6 +76,8 @@ export async function createLostFoundPublicMedia(input: {
   }
 
   const database = getPublicLostFoundDatabase(input.database);
+  const existing = await mediaRow(input.reportId, database);
+  if (existing) return { id: existing.id, safeKey: existing.safeKey, created: false as const };
   const store = privateBucket(input.privateBucket);
   const assetId = crypto.randomUUID();
   let ingested;
@@ -129,7 +131,7 @@ export async function createLostFoundPublicMedia(input: {
     throw error;
   }
 
-  return { id: ingested.assetId, safeKey: ingested.safeKey };
+  return { id: ingested.assetId, safeKey: ingested.safeKey, created: true as const };
 }
 
 export async function cleanupLostFoundPublicMedia(
