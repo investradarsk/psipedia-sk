@@ -102,12 +102,20 @@ export function AdminAttentionQueue({
       )}
 
       <ul className={styles.sourceCounts} aria-label="Aktívne upozornenia podľa zdroja">
-        {adminAttentionQueueSourceTypes.map((sourceType) => (
-          <li key={sourceType}>
-            <span>{adminAttentionSourceLabels[sourceType]}</span>
-            <strong>{page.summary.bySource[sourceType] ?? "—"}</strong>
-          </li>
-        ))}
+        {adminAttentionQueueSourceTypes.map((sourceType) => {
+          const selected = filters.sourceType === sourceType;
+          return (
+            <li key={sourceType}>
+              <Link
+                href={queueHref({ ...filters, sourceType })}
+                aria-current={selected ? "page" : undefined}
+              >
+                <span>{adminAttentionSourceLabels[sourceType]}</span>
+                <strong>{page.summary.bySource[sourceType] ?? "—"}</strong>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
 
       <form className={styles.filters} method="get" action="/admin/operations" aria-label="Filtrovať upozornenia">

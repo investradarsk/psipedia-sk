@@ -94,8 +94,10 @@ export function PublicLocationMap({
   const directionsUrl = selected && !isApproximateMapItem(selected)
     ? buildGoogleMapsDirectionsUrl(selected.latitude, selected.longitude, selected.googlePlaceId)
     : null;
-  const showRenderer = consentGranted && (testRenderer || rendererEnabled);
-  const showMapControls = consentGranted && (testRenderer || rendererEnabled);
+  const rendererAvailable = testRenderer || rendererEnabled;
+  const waitingForConsent = rendererAvailable && !consentGranted;
+  const showRenderer = consentGranted && rendererAvailable;
+  const showMapControls = consentGranted && rendererAvailable;
 
   function focusItem(item: MapItem) {
     setSelectedItemId(item.id);
@@ -142,8 +144,8 @@ export function PublicLocationMap({
             />
           ) : (
             <div className={styles.fallback} role="status">
-              <strong>Interaktívna mapa momentálne nie je dostupná</strong>
-              <span>Ostatný obsah profilu zostáva plne dostupný.</span>
+              <strong>{waitingForConsent ? "Google Maps čaká na tvoje povolenie" : "Interaktívna mapa momentálne nie je dostupná"}</strong>
+              <span>{waitingForConsent ? "Mapový podklad sa načíta až po povolení nižšie." : "Ostatný obsah profilu zostáva plne dostupný."}</span>
             </div>
           )}
 
@@ -154,7 +156,7 @@ export function PublicLocationMap({
             </div>
           ) : null}
 
-          {(rendererEnabled || testRenderer) && !consentGranted ? (
+          {waitingForConsent ? (
             <div className={styles.consent} data-testid="detail-map-consent-gate">
               <strong>Načítať interaktívnu Google mapu?</strong>
               <span>Google Maps sa načíta až po tvojom výslovnom povolení. Detail stránky funguje aj bez nej.</span>

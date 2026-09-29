@@ -1,5 +1,5 @@
 import type { ArticleBlock } from "@/lib/article-blocks";
-import type { ArticleSection } from "@/lib/content";
+import type { Article, ArticleSection } from "@/lib/content";
 
 export const DENTAL_ARTICLE_SLUG = "ako-cistit-psovi-zuby";
 
@@ -11,6 +11,144 @@ const DENTAL_EDITORIAL_SENTENCES = [
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function publicArticleRichTextPlainText(value: Article["introRichText"]) {
+  if (!value || value.type !== "doc" || value.version !== 1 || !Array.isArray(value.content)) return "";
+  return value.content
+    .flatMap((block) => block.type === "bulletList" || block.type === "orderedList" ? block.items : [block.content])
+    .flatMap((inline) => inline)
+    .filter((node) => node.type === "text")
+    .map((node) => node.text)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function sanitizePublicArticleText(value: string) {
+  const lines = value.replace(/\r\n?/g, "\n").split("\n");
+
+  return lines
+    .flatMap((line) => {
+      const normalizedLine = normalize(line).replace(/^(?:[-*]|\d+\.)\s+/, "");
+      if (
+        /^(?:todo|fixme)(?:\s*[:.!-]|$)/.test(normalizedLine)
+        || /^(?:sem\s+)?doplnit(?:\s*[:.!-]|$)/.test(normalizedLine)
+        || /^placeholder(?:\s*[:.!-]|$)/.test(normalizedLine)
+      ) {
+        return [];
+      }
+
+      let next = line;
+      next = next.replace(
+        /(?:,\s*)?po publikovan[íi] bude vhodn[ée](?=\s|$)[^.!?\n]*(?:[.!?]|$)/giu,
+        (match) => match.trimStart().startsWith(",") ? "." : "",
+      );
+      next = next.replace(
+        /\bS[uú]visiaci\s+[cč]l[aá]nok\s*:\s*[^.!?\n]*(?:[.!?]|$)/giu,
+        "",
+      );
+      next = next.replace(
+        /\bS[uú]visiaca\s+podsekcia\s*:\s*[^.!?\n]*(?:[.!?]|$)/giu,
+        "",
+      );
+      next = next
+        .replace(/[ \t]{2,}/g, " ")
+        .replace(/\s+([,.!?])/g, "$1")
+        .replace(/\.\s*\./g, ".")
+        .trim();
+
+      return next ? [next] : [];
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function sanitizePublicArticleSections(sections: ArticleSection[]) {
+  return sections.flatMap((section) => {
+    const heading = sanitizePublicArticleText(section.heading ?? "");
+    const paragraphs = (section.paragraphs ?? [])
+      .map(sanitizePublicArticleText)
+      .filter(Boolean);
+    const bullets = (section.bullets ?? [])
+      .map(sanitizePublicArticleText)
+      .filter(Boolean);
+    const tip = sanitizePublicArticleText(section.tip ?? "");
+    if (!heading && !paragraphs.length && !bullets.length && !tip) return [];
+    return [{
+      ...section,
+      heading,
+      paragraphs,
+      ...(section.bullets ? { bullets } : {}),
+      ...(section.tip ? { tip: tip || undefined } : {}),
+    }];
+  });
+}
+
+function sanitizePublicArticleBlocks(blocks: ArticleBlock[]) {
+  return blocks.flatMap((block): ArticleBlock[] => {
+    if (block.type === "text" || block.type === "tip" || block.type === "warning" || block.type === "quote") {
+      const content = sanitizePublicArticleText(block.content);
+      if (!content) return [];
+      return [{ ...block, content, ...(content === block.content ? {} : { richText: undefined }) }];
+    }
+    if (block.type === "h2" || block.type === "h3") {
+      const text = sanitizePublicArticleText(block.text);
+      return text ? [{ ...block, text }] : [];
+    }
+    if (block.type === "bullet-list" || block.type === "numbered-list") {
+      const items = block.items.map(sanitizePublicArticleText).filter(Boolean);
+      return items.length ? [{ ...block, items }] : [];
+    }
+    if (block.type === "table") {
+      return [{
+        ...block,
+        headers: block.headers.map(sanitizePublicArticleText),
+        rows: block.rows.map((row) => row.map(sanitizePublicArticleText)),
+      }];
+    }
+    if (block.type === "image") {
+      const caption = sanitizePublicArticleText(block.caption ?? "");
+      const credit = sanitizePublicArticleText(block.credit ?? "");
+      return [{ ...block, caption: caption || undefined, credit: credit || undefined }];
+    }
+    if (block.type === "gallery") {
+      return [{
+        ...block,
+        images: block.images.map((image) => {
+          const caption = sanitizePublicArticleText(image.caption ?? "");
+          const credit = sanitizePublicArticleText(image.credit ?? "");
+          return { ...image, caption: caption || undefined, credit: credit || undefined };
+        }),
+      }];
+    }
+    if (block.type === "source") {
+      const note = sanitizePublicArticleText(block.note ?? "");
+      return [{ ...block, note: note || undefined }];
+    }
+    return [block];
+  });
+}
+
+export function sanitizePublicArticleContent(article: Article): Article {
+  const richIntro = article.introRichText ? publicArticleRichTextPlainText(article.introRichText) : null;
+  const richTakeaway = article.takeawayRichText ? publicArticleRichTextPlainText(article.takeawayRichText) : null;
+  const introSource = richIntro ?? article.intro;
+  const takeawaySource = richTakeaway ?? article.takeaway;
+  const intro = sanitizePublicArticleText(introSource);
+  const takeaway = sanitizePublicArticleText(takeawaySource);
+
+  return {
+    ...article,
+    excerpt: sanitizePublicArticleText(article.excerpt),
+    intro,
+    takeaway,
+    introRichText: richIntro !== null && intro !== richIntro ? undefined : article.introRichText,
+    takeawayRichText: richTakeaway !== null && takeaway !== richTakeaway ? undefined : article.takeawayRichText,
+    sections: sanitizePublicArticleSections(article.sections ?? []),
+    blocks: article.blocks ? sanitizePublicArticleBlocks(article.blocks) : article.blocks,
+  };
 }
 
 function removeKnownEditorialLines(value: string) {
