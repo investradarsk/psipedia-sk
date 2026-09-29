@@ -274,7 +274,7 @@ export function ArticleDetail({
       {relatedBreeds.length > 0 ? (
         <section className={styles.relatedSection} aria-labelledby="article-related-breeds-title" data-explicit-content-relation="article-breed">
           <div className="shell">
-            <span className="eyebrow">Explicitné prepojenie obsahu</span>
+            <span className="eyebrow">Súvisiace plemená</span>
             <h2 id="article-related-breeds-title">Plemená prepojené s týmto článkom</h2>
             <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto článkom" />
           </div>
