@@ -790,6 +790,10 @@ async function recoverMappingFromPage(input: {
   if (!Number.isSafeInteger(profileId) || profileId <= 0) return null;
   const profile = await getManagedDirectoryProfileById(profileId, input.database);
   if (!profile) return null;
+  const existingMapping = await loadMappingByProfile(input.database, profileId);
+  if (existingMapping && existingMapping.notion_page_id !== input.page.id) {
+    throw new Error(`Psipedia profil ID ${profileId} už je prepojený s iným Notion záznamom.`);
+  }
   const hash = await snapshotHash(profileSnapshot(profile));
   const now = new Date().toISOString();
   await saveMapping({
