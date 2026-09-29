@@ -447,6 +447,20 @@ test("automation action presentation is aggregated, human-readable and category-
   assert.equal(sourceIssue.priority, "HIGH");
 });
 
+test("automation Attention SQL stays flat inside the generic D1 source_rows CTE", () => {
+  const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
+  const start = store.indexOf("const AUTOMATION_ACTION_SELECT = `");
+  const end = store.indexOf("`;\\n\\nconst ATTENTION_SOURCE_SELECTS", start);
+  assert.ok(start >= 0 && end > start, "AUTOMATION_ACTION_SELECT must be present");
+  const sql = store.slice(start + "const AUTOMATION_ACTION_SELECT = `".length, end);
+  assert.doesNotMatch(sql, /^\\s*WITH\\b/, "nested WITH inside source_rows is not production-D1 safe");
+  assert.match(sql, /FROM automation_source_candidates/);
+  assert.match(sql, /FROM automation_update_suggestions/);
+  assert.match(sql, /FROM automation_address_review_cases/);
+  assert.match(sql, /FROM automation_cluster_match_candidates/);
+  assert.match(sql, /FROM automation_sources/);
+});
+
 test("automation attention derives active state from bounded domain queries and rollout-safe draft events", () => {
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   const notifications = readFileSync(new URL("../lib/admin-notifications.ts", import.meta.url), "utf8");
