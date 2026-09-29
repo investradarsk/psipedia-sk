@@ -18,6 +18,12 @@ import {
   type AutomationDirectRefreshProgress,
 } from "./data-automation-product-store.ts";
 import { automationCanonicalAdminHref, type AutomationEntityType } from "./data-automation.ts";
+import {
+  readAdminAutomationData,
+  summarizeAdminAutomationReads,
+  type AdminAutomationReadResult,
+  type AdminAutomationReliabilitySummary,
+} from "./admin-automation-reliability.ts";
 
 type Database = Pick<D1Database, "prepare" | "batch">;
 type RuntimeBindings = { DB?: D1Database };
@@ -131,6 +137,7 @@ export type AutomationOperationsOverview = {
   cutoff: string;
   generatedAt: string;
   extendedMetricsAvailable: boolean;
+  reliability: AdminAutomationReliabilitySummary;
   global: {
     requestCount: number;
     resultCount: number;
@@ -184,68 +191,119 @@ export async function getAutomationOperationsOverview(
   const db = database(databaseInput);
   const cutoff = automationOperationsCutoff(range, now);
 
-  const [rootsResult, discoveryResult, sourcesResult, sourceRunsResult, candidateStatusResult] = await Promise.all([
-    db.prepare(`SELECT id,root_key,label,entity_type,config_json,enabled,cadence_minutes,next_check_at,
-      last_checked_at,last_success_at,last_error_at,last_error_code
-      FROM automation_discovery_roots ORDER BY id`).all<Record<string, unknown>>(),
-    db.prepare(`SELECT r.*,d.entity_type AS root_entity_type,d.config_json AS root_config_json,
-      d.root_key,d.label AS root_label
-      FROM automation_discovery_runs r JOIN automation_discovery_roots d ON d.id=r.root_id
-      WHERE r.started_at>=? ORDER BY r.started_at DESC,r.id DESC LIMIT 1000`).bind(cutoff).all<Record<string, unknown>>(),
-    db.prepare(`SELECT id,entity_type,config_json,enabled,review_status,cadence_minutes,next_check_at,
-      last_checked_at,last_success_at,last_error_at,last_error_code
-      FROM automation_sources ORDER BY id`).all<Record<string, unknown>>(),
-    db.prepare(`SELECT r.*,s.entity_type AS source_entity_type,s.config_json AS source_config_json,
-      s.label AS source_label
-      FROM automation_runs r JOIN automation_sources s ON s.id=r.source_id
-      WHERE r.started_at>=? ORDER BY r.started_at DESC,r.id DESC LIMIT 1000`).bind(cutoff).all<Record<string, unknown>>(),
-    db.prepare(`SELECT entity_type,review_status,COUNT(*) AS count
-      FROM automation_source_candidates
-      WHERE entity_type IN ('EVENT','ADOPTION','FOSTER','LOST_FOUND')
-      GROUP BY entity_type,review_status`).all<Record<string, unknown>>().catch(() => ({ results: [] as Record<string, unknown>[] })),
+  const [rootsRead, discoveryRead, sourcesRead, sourceRunsRead, candidateStatusRead] = await Promise.all([
+    readAdminAutomationData({
+      key: "operations:discovery-roots",
+      load: async () => (await db.prepare(`SELECT id,root_key,label,entity_type,config_json,enabled,cadence_minutes,next_check_at,
+        last_checked_at,last_success_at,last_error_at,last_error_code
+        FROM automation_discovery_roots ORDER BY id`).all<Record<string, unknown>>()).results,
+      fallback: [] as Record<string, unknown>[],
+      empty: (value) => value.length === 0,
+    }),
+    readAdminAutomationData({
+      key: "operations:discovery-runs",
+      load: async () => (await db.prepare(`SELECT r.*,d.entity_type AS root_entity_type,d.config_json AS root_config_json,
+        d.root_key,d.label AS root_label
+        FROM automation_discovery_runs r JOIN automation_discovery_roots d ON d.id=r.root_id
+        WHERE r.started_at>=? ORDER BY r.started_at DESC,r.id DESC LIMIT 1000`).bind(cutoff).all<Record<string, unknown>>()).results,
+      fallback: [] as Record<string, unknown>[],
+      empty: (value) => value.length === 0,
+    }),
+    readAdminAutomationData({
+      key: "operations:sources",
+      load: async () => (await db.prepare(`SELECT id,entity_type,config_json,enabled,review_status,cadence_minutes,next_check_at,
+        last_checked_at,last_success_at,last_error_at,last_error_code
+        FROM automation_sources ORDER BY id`).all<Record<string, unknown>>()).results,
+      fallback: [] as Record<string, unknown>[],
+      empty: (value) => value.length === 0,
+    }),
+    readAdminAutomationData({
+      key: "operations:source-runs",
+      load: async () => (await db.prepare(`SELECT r.*,s.entity_type AS source_entity_type,s.config_json AS source_config_json,
+        s.label AS source_label
+        FROM automation_runs r JOIN automation_sources s ON s.id=r.source_id
+        WHERE r.started_at>=? ORDER BY r.started_at DESC,r.id DESC LIMIT 1000`).bind(cutoff).all<Record<string, unknown>>()).results,
+      fallback: [] as Record<string, unknown>[],
+      empty: (value) => value.length === 0,
+    }),
+    readAdminAutomationData({
+      key: "operations:candidate-status",
+      load: async () => (await db.prepare(`SELECT entity_type,review_status,COUNT(*) AS count
+        FROM automation_source_candidates
+        WHERE entity_type IN ('EVENT','ADOPTION','FOSTER','LOST_FOUND')
+        GROUP BY entity_type,review_status`).all<Record<string, unknown>>()).results,
+      fallback: [] as Record<string, unknown>[],
+      empty: (value) => value.length === 0,
+    }),
   ]);
+  const reliabilityReads: AdminAutomationReadResult<unknown>[] = [
+    rootsRead,
+    discoveryRead,
+    sourcesRead,
+    sourceRunsRead,
+    candidateStatusRead,
+  ];
 
-  const roots = rootsResult.results;
-  const discoveryRuns = discoveryResult.results;
-  const sources = sourcesResult.results;
-  const sourceRuns = sourceRunsResult.results;
-  const candidateStatusRows = candidateStatusResult.results;
-  let usageRows: Record<string, unknown>[] = [];
-  let todayUsageRows: Record<string, unknown>[] = [];
-  let todayUsed = 0;
-  try {
-    const usage = await db.prepare(`SELECT root_id,
-      COALESCE(SUM(CASE WHEN operation_key NOT LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS discovery_requests,
-      COALESCE(SUM(CASE WHEN operation_key NOT LIKE 'address-enrichment:%' THEN result_count ELSE 0 END),0) AS discovery_results,
-      COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS address_requests,
-      COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN result_count ELSE 0 END),0) AS address_results
-      FROM automation_search_usage WHERE created_at>=? AND status<>'RESERVED' GROUP BY root_id`)
-      .bind(cutoff).all<Record<string, unknown>>();
-    usageRows = usage.results;
-    const dayBucket = utcSearchDayBucket(now);
-    const todayUsage = await db.prepare(`SELECT root_id,
-      COALESCE(SUM(CASE WHEN operation_key NOT LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS discovery_requests,
-      COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS address_requests
-      FROM automation_search_usage WHERE day_bucket=? GROUP BY root_id`)
-      .bind(dayBucket).all<Record<string, unknown>>();
-    todayUsageRows = todayUsage.results;
-    const today = await db.prepare(`SELECT COALESCE(SUM(request_count),0) AS used
-      FROM automation_search_usage WHERE day_bucket=?`).bind(dayBucket).first<Record<string, unknown>>();
-    todayUsed = n(today?.used);
-  } catch (error) {
-    if (!/no such table:\s*automation_search_usage/i.test(error instanceof Error ? error.message : String(error))) throw error;
-  }
+  const roots = rootsRead.data;
+  const discoveryRuns = discoveryRead.data;
+  const sources = sourcesRead.data;
+  const sourceRuns = sourceRunsRead.data;
+  const candidateStatusRows = candidateStatusRead.data;
+  const usageRead = await readAdminAutomationData({
+    key: "operations:search-usage",
+    load: async () => {
+      try {
+        const usage = await db.prepare(`SELECT root_id,
+          COALESCE(SUM(CASE WHEN operation_key NOT LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS discovery_requests,
+          COALESCE(SUM(CASE WHEN operation_key NOT LIKE 'address-enrichment:%' THEN result_count ELSE 0 END),0) AS discovery_results,
+          COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS address_requests,
+          COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN result_count ELSE 0 END),0) AS address_results
+          FROM automation_search_usage WHERE created_at>=? AND status<>'RESERVED' GROUP BY root_id`)
+          .bind(cutoff).all<Record<string, unknown>>();
+        const dayBucket = utcSearchDayBucket(now);
+        const todayUsage = await db.prepare(`SELECT root_id,
+          COALESCE(SUM(CASE WHEN operation_key NOT LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS discovery_requests,
+          COALESCE(SUM(CASE WHEN operation_key LIKE 'address-enrichment:%' THEN request_count ELSE 0 END),0) AS address_requests
+          FROM automation_search_usage WHERE day_bucket=? GROUP BY root_id`)
+          .bind(dayBucket).all<Record<string, unknown>>();
+        const today = await db.prepare(`SELECT COALESCE(SUM(request_count),0) AS used
+          FROM automation_search_usage WHERE day_bucket=?`).bind(dayBucket).first<Record<string, unknown>>();
+        return { usageRows: usage.results, todayUsageRows: todayUsage.results, todayUsed: n(today?.used) };
+      } catch (error) {
+        if (/no such table:\\s*automation_search_usage/i.test(error instanceof Error ? error.message : String(error))) {
+          throw new Error("automation_search_usage_unavailable");
+        }
+        throw error;
+      }
+    },
+    fallback: { usageRows: [] as Record<string, unknown>[], todayUsageRows: [] as Record<string, unknown>[], todayUsed: 0 },
+    empty: (value) => value.usageRows.length === 0 && value.todayUsageRows.length === 0 && value.todayUsed === 0,
+  });
+  reliabilityReads.push(usageRead);
+  const usageRows = usageRead.data.usageRows;
+  const todayUsageRows = usageRead.data.todayUsageRows;
+  const todayUsed = usageRead.data.todayUsed;
   const usageByRoot = new Map(usageRows.map((row) => [n(row.root_id), row]));
   const todayUsageByRoot = new Map(todayUsageRows.map((row) => [n(row.root_id), row]));
 
-  let outcomeRows: Record<string, unknown>[] = [];
-  try {
-    const result = await db.prepare(`SELECT * FROM automation_discovery_outcomes
-      WHERE created_at>=? ORDER BY created_at DESC,id DESC LIMIT 200`).bind(cutoff).all<Record<string, unknown>>();
-    outcomeRows = result.results;
-  } catch (error) {
-    if (!/no such table:\s*automation_discovery_outcomes/i.test(error instanceof Error ? error.message : String(error))) throw error;
-  }
+  const outcomeRead = await readAdminAutomationData({
+    key: "operations:discovery-outcomes",
+    load: async () => {
+      try {
+        return (await db.prepare(`SELECT * FROM automation_discovery_outcomes
+          WHERE created_at>=? ORDER BY created_at DESC,id DESC LIMIT 200`).bind(cutoff).all<Record<string, unknown>>()).results;
+      } catch (error) {
+        if (/no such table:\\s*automation_discovery_outcomes/i.test(error instanceof Error ? error.message : String(error))) {
+          throw new Error("automation_discovery_outcomes_unavailable");
+        }
+        throw error;
+      }
+    },
+    fallback: [] as Record<string, unknown>[],
+    empty: (value) => value.length === 0,
+  });
+  reliabilityReads.push(outcomeRead);
+  const outcomeRows = outcomeRead.data;
 
   const existingCanonical = new Map<AutomationEntityType, Set<number>>();
   const tableForType: Partial<Record<AutomationEntityType, string>> = {
@@ -265,24 +323,35 @@ export async function getAutomationOperationsOverview(
     if (!ids.length) continue;
     const placeholders = ids.map(() => "?").join(",");
     const table = tableForType[entityType]!;
-    try {
-      const result = await db.prepare(`SELECT id FROM ${table} WHERE id IN (${placeholders})`)
-        .bind(...ids).all<Record<string, unknown>>();
-      existingCanonical.set(entityType, new Set(result.results.map((row) => n(row.id))));
-    } catch {
-      existingCanonical.set(entityType, new Set());
-    }
+    const canonicalRead = await readAdminAutomationData({
+      key: `operations:canonical-existence:${entityType}`,
+      load: async () => (await db.prepare(`SELECT id FROM ${table} WHERE id IN (${placeholders})`)
+        .bind(...ids).all<Record<string, unknown>>()).results,
+      fallback: [] as Record<string, unknown>[],
+      empty: (value) => value.length === 0,
+    });
+    reliabilityReads.push(canonicalRead);
+    existingCanonical.set(entityType, new Set(canonicalRead.data.map((row) => n(row.id))));
   }
 
   const refreshBySlug = new Map<AutomationProductCategorySlug, AutomationDirectRefreshProgress | null>();
   for (const slug of ["veterinari", "psie-sluzby", "utulky-organizacie"] as const) {
-    try {
-      refreshBySlug.set(slug, await getDirectRefreshProgress(slug, db));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!/no such table:|no such column:/i.test(message)) throw error;
-      refreshBySlug.set(slug, null);
-    }
+    const refreshRead = await readAdminAutomationData({
+      key: `operations:refresh:${slug}`,
+      load: async () => {
+        try {
+          return await getDirectRefreshProgress(slug, db);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (/no such table:|no such column:/i.test(message)) throw new Error("automation_refresh_progress_unavailable");
+          throw error;
+        }
+      },
+      fallback: null,
+      empty: (value) => value === null,
+    });
+    reliabilityReads.push(refreshRead);
+    refreshBySlug.set(slug, refreshRead.data);
   }
 
   const categories: AutomationOperationsCategory[] = automationProductCategoryContract.map((contract) => {
@@ -480,6 +549,7 @@ export async function getAutomationOperationsOverview(
     generatedAt: now.toISOString(),
     extendedMetricsAvailable: discoveryRuns.length === 0 || discoveryRuns.some((row) =>
       row.new_entity_count !== undefined || row.search_request_count !== undefined),
+    reliability: summarizeAdminAutomationReads(reliabilityReads),
     global: {
       requestCount: categories.reduce((sum, row) => sum + row.requestCount, 0),
       resultCount: categories.reduce((sum, row) => sum + row.resultCount, 0),
