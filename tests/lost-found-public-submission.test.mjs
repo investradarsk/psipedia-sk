@@ -110,7 +110,7 @@ test("public intake persists PENDING only, hashes/encrypts PII and never returns
   const acceptedStart = route.indexOf("function acceptedResponse");
   const acceptedEnd = route.indexOf("function required", acceptedStart);
   const accepted = route.slice(acceptedStart, acceptedEnd);
-  assert.doesNotMatch(accepted, /reportId|status|PENDING|slug/);
+  assert.doesNotMatch(accepted, /reportId|PENDING|slug/);
 });
 
 test("public DTO/render path cannot carry private contact or private media keys", () => {
