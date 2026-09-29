@@ -1,6 +1,11 @@
 import { env } from "cloudflare:workers";
 import type { ManagedAdoptionInput } from "./adoption.ts";
 import {
+  readCanonicalBreedOptions,
+  type CanonicalBreedOption,
+  type CanonicalBreedOptionsResult,
+} from "./breed-options.ts";
+import {
   createManagedAdoption,
   getAdoptionById,
   isAdoptionConflict,
@@ -9,7 +14,8 @@ import {
   type PreparedAdoptionWrite,
 } from "./adoption-store.ts";
 
-export type AdoptionAdminBreedOption = { id: number; name: string; slug: string };
+export type AdoptionAdminBreedOption = CanonicalBreedOption;
+export type AdoptionAdminBreedOptionsResult = CanonicalBreedOptionsResult;
 export type AdoptionAdminOrganizationOption = { id: number; name: string; slug: string };
 type RuntimeBindings = { DB?: AdoptionD1Database };
 type RunResult = { meta?: { changes?: number }; changes?: number };
@@ -59,10 +65,13 @@ export function isAdoptionAdminConflict(error: unknown) {
   return isAdoptionConcurrentEditError(error) || isAdoptionConflict(error);
 }
 
-export async function listAdoptionAdminBreedOptions(database?: AdoptionD1Database) {
-  const db = requireD1Binding(database);
-  const result = await db.prepare("SELECT id, name, slug FROM managed_breeds ORDER BY name COLLATE NOCASE ASC").all<AdoptionAdminBreedOption>();
-  return result.results.map((row) => ({ id: Number(row.id), name: row.name, slug: row.slug }));
+export async function listAdoptionAdminBreedOptions(
+  database?: AdoptionD1Database,
+  selected?: CanonicalBreedOption | null,
+): Promise<AdoptionAdminBreedOptionsResult> {
+  const bound = (env as unknown as RuntimeBindings).DB;
+  const db = database ?? (bound && typeof bound.prepare === "function" ? bound : null);
+  return readCanonicalBreedOptions(db, { selected });
 }
 
 export async function listAdoptionAdminOrganizationOptions(database?: AdoptionD1Database) {
