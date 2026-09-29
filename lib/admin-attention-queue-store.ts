@@ -146,8 +146,8 @@ const PROFILE_RISK_FLAG_SQL = `json_array_length(CASE WHEN json_valid(COALESCE(r
 // Legacy automation findings remain internal technical history; this source exposes only product actions.
 const AUTOMATION_ACTION_SELECT = `
   -- Keep this as a flat SELECT/UNION statement. This SQL is embedded inside the
-  -- generic source_rows CTE; a second nested WITH made the production D1 source
-  -- fail as unavailable even though every underlying table existed.
+  -- generic source_rows CTE. The previous nested-WITH shape was the production
+  -- query shape when AUTOMATION_ACTION became unavailable after the schema rollout.
   SELECT
     'AUTOMATION_ACTION' AS sourceType,
     'new-drafts:' || categorySlug AS sourceId,
