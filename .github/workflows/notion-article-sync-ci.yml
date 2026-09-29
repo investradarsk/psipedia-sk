@@ -8,6 +8,7 @@ on:
       - "lib/article-subsection-taxonomy.ts"
       - "lib/notion-breed-sync.ts"
       - "lib/notion-event-sync.ts"
+      - "lib/notion-directory-sync.ts"
       - "lib/notion-sync-shared.ts"
       - "app/api/admin/notion-sync/**"
       - "app/api/admin/notion-breeds-sync/**"
@@ -21,9 +22,11 @@ on:
       - "drizzle/0044_notion_article_sync.sql"
       - "drizzle/0045_notion_breed_sync.sql"
       - "drizzle/0047_notion_event_sync.sql"
+      - "drizzle/0098_directory_notion_bidirectional_sync.sql"
       - "tests/notion-article-sync.test.mjs"
       - "tests/notion-breed-sync.test.mjs"
       - "tests/notion-event-sync.test.mjs"
+      - "tests/notion-directory-sync.test.mjs"
       - "tests/config-contract.test.mjs"
       - "scripts/check-config-contract.mjs"
       - "scripts/check-migration-safety.mjs"
@@ -69,7 +72,7 @@ jobs:
         run: npm run test:migration-safety
 
       - name: Notion sync safety contract
-        run: node --test tests/notion-article-sync.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs
+        run: node --test tests/notion-article-sync.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs
 
       - name: Production build
         run: npm run build

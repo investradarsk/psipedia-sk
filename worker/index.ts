@@ -14,6 +14,7 @@ import { runReviewAuthorNotificationSweep } from "../lib/review-author-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
+import { runNotionDirectorySyncSweep } from "../lib/notion-directory-sync";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -41,10 +42,12 @@ interface Env {
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_BREED_SYNC_ENABLED?: string;
   NOTION_EVENT_SYNC_ENABLED?: string;
+  NOTION_DIRECTORY_SYNC_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
+  NOTION_DIRECTORY_DATA_SOURCE_ID?: string;
   TAVILY_API_KEY?: string;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   IMAGES: {
@@ -263,7 +266,7 @@ const worker = {
       console.info(JSON.stringify({ event: "data_automation_discovery_sweep", cadence: "five_minute_due_check", ...sourceDiscovery }));
       return;
     }
-    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
+    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, notionDirectory, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
@@ -285,6 +288,14 @@ const worker = {
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
       runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
       runNotionEventSyncSweep({ database: env.DB, bindings: env }),
+      runNotionDirectorySyncSweep({ database: env.DB, bindings: env }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "notion_directory_sync_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return { enabled: true, schemaReady: false, notionScanned: 0, bootstrapped: 0, pulledFromNotion: 0, pushedToNotion: 0, unchanged: 0, failed: 1 };
+      }),
       runDataAutomationSweep({ database: env.DB, htmlAdapters: productionAutomationHtmlAdapters, organizationEnricher: createProductionOrganizationEnricher() }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_sweep",
@@ -343,6 +354,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_article_sync_sweep", ...notionArticles }));
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
+    console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
     console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
     console.info(JSON.stringify({ event: "data_automation_discovery_sweep", ...sourceDiscovery }));
     console.info(JSON.stringify({ event: "partner_media_cleanup", ...partnerMediaCleanup }));

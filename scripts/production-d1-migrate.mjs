@@ -90,6 +90,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0095_automation_calendar_schedule.sql",
   "0096_automation_update_field_reviews.sql",
   "0097_automation_operations_metrics.sql",
+  "0098_directory_notion_bidirectional_sync.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -191,6 +192,11 @@ export const AUTOMATION_OPERATIONS_INDEXES = Object.freeze([
   "automation_discovery_runs_started_idx",
   "automation_discovery_outcomes_root_created_idx",
   "automation_discovery_outcomes_run_idx",
+]);
+
+export const DIRECTORY_NOTION_SYNC_INDEXES = Object.freeze([
+  "directory_notion_sync_last_synced_idx",
+  "directory_notion_sync_psipedia_updated_idx",
 ]);
 
 export const AUTOMATION_ADDRESS_REVIEW_TABLES = Object.freeze([
@@ -897,6 +903,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || AUTOMATION_OPERATIONS_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0098_directory_notion_bidirectional_sync.sql") {
+    return {
+      partial: names.has("directory_notion_sync")
+        || DIRECTORY_NOTION_SYNC_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -962,6 +974,19 @@ function assertAutomationOperationsSchema(schema) {
   const outcomeSql = String(names.get("automation_discovery_outcomes")?.sql ?? "");
   invariant(outcomeSql.includes("'NEW_DRAFT','EXISTING_CANONICAL','POSSIBLE_DUPLICATE','UPDATE_SUGGESTION'"), "automation discovery outcome constraint is incomplete");
   invariant(outcomeSql.includes("canonical_entity_id"), "automation discovery outcome canonical reference is missing");
+}
+
+function assertDirectoryNotionSyncSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("directory_notion_sync")?.type === "table", "Missing directory_notion_sync table");
+  for (const index of DIRECTORY_NOTION_SYNC_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing directory Notion sync index: ${index}`);
+  }
+  const tableSql = String(names.get("directory_notion_sync")?.sql ?? "");
+  invariant(tableSql.includes("notion_page_id"), "directory_notion_sync notion page identity is missing");
+  invariant(tableSql.includes("directory_profile_id"), "directory_notion_sync profile identity is missing");
+  invariant(tableSql.includes("content_hash"), "directory_notion_sync content hash is missing");
+  invariant(tableSql.includes("REFERENCES directory_profiles"), "directory_notion_sync profile foreign key is missing");
 }
 
 function assertPartnerClaimsSchema(schema) {
@@ -1426,6 +1451,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 95) assertAutomationCalendarScheduleSchema(schema);
   if (migrationIndex(targetMigration) >= 96) assertAutomationUpdateReviewSchema(schema);
   if (migrationIndex(targetMigration) >= 97) assertAutomationOperationsSchema(schema);
+  if (migrationIndex(targetMigration) >= 98) assertDirectoryNotionSyncSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
