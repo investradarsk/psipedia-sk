@@ -295,3 +295,13 @@ test("admin query supports lifecycle, stale filtering, search and pagination", (
   assert.equal(query.pageSize, 40);
   assert.equal(query.offset, 40);
 });
+
+
+test("unknown adoption dates, locations and source URLs normalize to null or empty values",()=>{
+  const normalized=normalizeAdoptionInput({ name:"Koncept", slug:"koncept", birthDate:"", region:"", city:"", externalSourceUrl:"", lastVerifiedAt:"" });
+  assert.equal(normalized.birthDate,null);
+  assert.equal(normalized.region,"");
+  assert.equal(normalized.city,"");
+  assert.equal(normalized.externalSourceUrl,null);
+  assert.equal(normalized.lastVerifiedAt,null);
+});
