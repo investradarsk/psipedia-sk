@@ -15,6 +15,7 @@ import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { runNotionDirectorySyncSweep } from "../lib/notion-directory-sync";
+import { runMediaSourceMonitorSweep } from "../lib/media-source-monitor";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -266,7 +267,7 @@ const worker = {
       console.info(JSON.stringify({ event: "data_automation_discovery_sweep", cadence: "five_minute_due_check", ...sourceDiscovery }));
       return;
     }
-    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, notionDirectory, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
+    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, notionDirectory, mediaSourceQuality, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
@@ -295,6 +296,14 @@ const worker = {
           error: error instanceof Error ? error.message : String(error),
         }));
         return { enabled: true, schemaReady: false, notionScanned: 0, bootstrapped: 0, pulledFromNotion: 0, pushedToNotion: 0, unchanged: 0, failed: 1 };
+      }),
+      runMediaSourceMonitorSweep({ database: env.DB, bindings: env }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "media_source_quality_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return { schemaReady: false, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 1 };
       }),
       runDataAutomationSweep({ database: env.DB, htmlAdapters: productionAutomationHtmlAdapters, organizationEnricher: createProductionOrganizationEnricher() }).catch((error) => {
         console.error(JSON.stringify({
@@ -355,6 +364,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
     console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
+    console.info(JSON.stringify({ event: "media_source_quality_sweep", ...mediaSourceQuality }));
     console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
     console.info(JSON.stringify({ event: "data_automation_discovery_sweep", ...sourceDiscovery }));
     console.info(JSON.stringify({ event: "partner_media_cleanup", ...partnerMediaCleanup }));

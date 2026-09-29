@@ -91,6 +91,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0096_automation_update_field_reviews.sql",
   "0097_automation_operations_metrics.sql",
   "0098_directory_notion_bidirectional_sync.sql",
+  "0099_media_source_quality.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -197,6 +198,12 @@ export const AUTOMATION_OPERATIONS_INDEXES = Object.freeze([
 export const DIRECTORY_NOTION_SYNC_INDEXES = Object.freeze([
   "directory_notion_sync_last_synced_idx",
   "directory_notion_sync_psipedia_updated_idx",
+]);
+
+export const MEDIA_SOURCE_QUALITY_INDEXES = Object.freeze([
+  "media_source_monitors_due_idx",
+  "media_source_monitors_status_idx",
+  "media_source_monitors_entity_idx",
 ]);
 
 export const AUTOMATION_ADDRESS_REVIEW_TABLES = Object.freeze([
@@ -909,6 +916,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || DIRECTORY_NOTION_SYNC_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0099_media_source_quality.sql") {
+    return {
+      partial: names.has("media_source_monitors")
+        || MEDIA_SOURCE_QUALITY_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -987,6 +1000,19 @@ function assertDirectoryNotionSyncSchema(schema) {
   invariant(tableSql.includes("directory_profile_id"), "directory_notion_sync profile identity is missing");
   invariant(tableSql.includes("content_hash"), "directory_notion_sync content hash is missing");
   invariant(tableSql.includes("REFERENCES directory_profiles"), "directory_notion_sync profile foreign key is missing");
+}
+
+function assertMediaSourceQualitySchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("media_source_monitors")?.type === "table", "Missing media_source_monitors table");
+  for (const index of MEDIA_SOURCE_QUALITY_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing media source quality index: ${index}`);
+  }
+  const tableSql = String(names.get("media_source_monitors")?.sql ?? "");
+  invariant(tableSql.includes("DIRECTORY_PROFILE"), "media_source_monitors entity constraint is missing DIRECTORY_PROFILE");
+  invariant(tableSql.includes("MANAGED_EVENT"), "media_source_monitors entity constraint is missing MANAGED_EVENT");
+  invariant(tableSql.includes("CANDIDATE") && tableSql.includes("CHANGED") && tableSql.includes("MISSING"), "media_source_monitors status constraint is incomplete");
+  invariant(tableSql.includes("UNIQUE(entity_type, entity_id)") || tableSql.includes("UNIQUE (entity_type, entity_id)"), "media_source_monitors entity uniqueness is missing");
 }
 
 function assertPartnerClaimsSchema(schema) {
@@ -1452,6 +1478,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 96) assertAutomationUpdateReviewSchema(schema);
   if (migrationIndex(targetMigration) >= 97) assertAutomationOperationsSchema(schema);
   if (migrationIndex(targetMigration) >= 98) assertDirectoryNotionSyncSchema(schema);
+  if (migrationIndex(targetMigration) >= 99) assertMediaSourceQualitySchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
