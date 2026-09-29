@@ -1,4 +1,7 @@
-import { canonicalBreedIdsSql, canonicalBreedWinnerSql, rotateBreeds } from "./breed-canonical";
+import { breedProfileHref, canonicalBreedIdsSql, canonicalBreedWinnerSql, rotateBreeds } from "./breed-canonical";
+import { publicArticleRelationTargetSql, publicDirectoryRelationTargetSql } from "./content-relations";
+import { articleHref, type ArticlePortalSection } from "./portal";
+import { directoryProfileHref } from "./directory";
 import { ownedBreedImage, withAvailableBreedImages } from "./breed-image";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
@@ -68,10 +71,10 @@ export type BreedEditorOptions = {
   directoryProfiles:Array<{id:number;name:string;category:string;city:string;region:string}>;
 };
 export type BreedDetailRelations = {
-  articles:Array<{id:number;slug:string;title:string;excerpt:string;portalSection:string;image:string|null;accent:string}>;
-  breedingStations:Array<{id:number;slug:string;name:string;excerpt:string;city:string;region:string;image:string|null}>;
-  breedClubs:Array<{id:number;slug:string;name:string;excerpt:string;city:string;region:string;image:string|null}>;
-  similarBreeds:Array<{id:number;slug:string;name:string;image:string;fciGroup:number;fciSection:string}>;
+  articles:Array<{id:number;slug:string;title:string;excerpt:string;portalSection:ArticlePortalSection;href:string;image:string|null;accent:string}>;
+  breedingStations:Array<{id:number;slug:string;name:string;href:string;excerpt:string;city:string;region:string;image:string|null}>;
+  breedClubs:Array<{id:number;slug:string;name:string;href:string;excerpt:string;city:string;region:string;image:string|null}>;
+  similarBreeds:Array<{id:number;slug:string;name:string;href:string;image:string;fciGroup:number;fciSection:string}>;
 };
 type RuntimeBindings = { DB?: D1Database };
 
@@ -218,17 +221,52 @@ export async function getBreedEditorOptions():Promise<BreedEditorOptions>{const 
   database.prepare("SELECT id,name,category,city,region FROM directory_profiles WHERE category IN ('chovatelske-stanice','chovatelske-kluby') ORDER BY category,name LIMIT 500"),
 ]);return {breeds:breedsResult.results as BreedEditorOptions["breeds"],articles:articlesResult.results as BreedEditorOptions["articles"],directoryProfiles:directoryResult.results as BreedEditorOptions["directoryProfiles"]};}
 
-export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"fciGroup"|"fciSectionNumber"|"relatedBreedIds">):Promise<BreedDetailRelations>{
-  const database=db();if(!database)return {articles:[],breedingStations:[],breedClubs:[],similarBreeds:[]};
-  const articleQuery=database.prepare(`SELECT a.id,a.slug,a.title,a.excerpt,a.portal_section,a.image_url,a.accent FROM breed_article_relations r JOIN managed_articles a ON a.id=r.article_id WHERE r.breed_id=? AND (a.status='published' OR (a.status='scheduled' AND a.published_at<=?)) ORDER BY a.published_at DESC,a.id DESC LIMIT 5`).bind(breed.id,new Date().toISOString());
-  const stationsQuery=database.prepare(`SELECT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url FROM breed_directory_relations r JOIN directory_profiles d ON d.id=r.profile_id WHERE r.breed_id=? AND d.status='published' AND d.category='chovatelske-stanice' ORDER BY d.featured DESC,d.name ASC LIMIT 4`).bind(breed.id);
-  const clubsQuery=database.prepare(`SELECT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url FROM breed_directory_relations r JOIN directory_profiles d ON d.id=r.profile_id WHERE r.breed_id=? AND d.status='published' AND d.category='chovatelske-kluby' ORDER BY d.featured DESC,d.name ASC LIMIT 3`).bind(breed.id);
-  const similarQuery=breed.relatedBreedIds.length?database.prepare(`SELECT b.id,b.slug,b.name,b.image_url,b.fci_group,b.fci_section,b.fci_section_number FROM json_each(?) chosen JOIN managed_breeds b ON b.id=CAST(chosen.value AS INTEGER) WHERE b.id IN (${canonicalBreedIdsSql}) AND b.id<>? ORDER BY chosen.key LIMIT 4`).bind(JSON.stringify(breed.relatedBreedIds),breed.id):database.prepare(`SELECT id,slug,name,image_url,fci_group,fci_section,fci_section_number FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) AND id<>? AND fci_group=? AND (?='' OR fci_section_number=?) ORDER BY name LIMIT 4`).bind(breed.id,breed.fciGroup,breed.fciSectionNumber,breed.fciSectionNumber);
+export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"relatedBreedIds">):Promise<BreedDetailRelations>{
+  const database=db();
+  if(!database)return {articles:[],breedingStations:[],breedClubs:[],similarBreeds:[]};
+  const now=new Date().toISOString();
+  const articleQuery=database.prepare(`SELECT DISTINCT a.id,a.slug,a.title,a.excerpt,a.portal_section,a.image_url,a.accent
+    FROM breed_article_relations r
+    JOIN managed_articles a ON a.id=r.article_id
+    WHERE r.breed_id=? AND ${publicArticleRelationTargetSql("a")}
+    ORDER BY a.published_at DESC,a.id DESC
+    LIMIT 5`).bind(breed.id,now);
+  const stationsQuery=database.prepare(`SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
+    FROM breed_directory_relations r
+    JOIN directory_profiles d ON d.id=r.profile_id
+    WHERE r.breed_id=? AND ${publicDirectoryRelationTargetSql("d")} AND d.category='chovatelske-stanice'
+    ORDER BY d.featured DESC,d.name COLLATE NOCASE ASC,d.id ASC
+    LIMIT 4`).bind(breed.id);
+  const clubsQuery=database.prepare(`SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
+    FROM breed_directory_relations r
+    JOIN directory_profiles d ON d.id=r.profile_id
+    WHERE r.breed_id=? AND ${publicDirectoryRelationTargetSql("d")} AND d.category='chovatelske-kluby'
+    ORDER BY d.featured DESC,d.name COLLATE NOCASE ASC,d.id ASC
+    LIMIT 3`).bind(breed.id);
+  const similarQuery=breed.relatedBreedIds.length
+    ? database.prepare(`SELECT b.id,b.slug,b.name,b.image_url,b.fci_group,b.fci_section,b.fci_section_number
+        FROM json_each(?) chosen
+        JOIN managed_breeds b ON b.id=CAST(chosen.value AS INTEGER)
+        WHERE b.id IN (${canonicalBreedIdsSql}) AND b.id<>?
+        GROUP BY b.id
+        ORDER BY MIN(CAST(chosen.key AS INTEGER)) ASC,b.id ASC
+        LIMIT 4`).bind(JSON.stringify(breed.relatedBreedIds),breed.id)
+    : database.prepare("SELECT id,slug,name,image_url,fci_group,fci_section,fci_section_number FROM managed_breeds WHERE 0=1 LIMIT 4");
   const [articlesResult,stationsResult,clubsResult,similarResult]=await database.batch([articleQuery,stationsQuery,clubsQuery,similarQuery]);
-  const articles=(articlesResult.results as Array<{id:number;slug:string;title:string;excerpt:string;portal_section:string;image_url:string|null;accent:string}>).map((row)=>({id:row.id,slug:row.slug,title:row.title,excerpt:row.excerpt,portalSection:row.portal_section,image:row.image_url,accent:row.accent}));
-  const directory=[...stationsResult.results,...clubsResult.results].map((row)=>row as {id:number;slug:string;name:string;category:string;excerpt:string;city:string;region:string;image_url:string|null}).map((row)=>({id:row.id,slug:row.slug,name:row.name,category:row.category,excerpt:row.excerpt,city:row.city,region:row.region,image:row.image_url}));
-  const similarBreeds=(similarResult.results as Array<{id:number;slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string}>).map((row)=>({id:row.id,slug:row.slug,name:row.name,image:row.image_url,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section)}));
-  return {articles,breedingStations:directory.filter((item)=>item.category==='chovatelske-stanice'),breedClubs:directory.filter((item)=>item.category==='chovatelske-kluby'),similarBreeds:similarBreeds.map(item=>({...item,image:ownedBreedImage(item.image) }))};
+  const articles=(articlesResult.results as Array<{id:number;slug:string;title:string;excerpt:string;portal_section:string;image_url:string|null;accent:string}>).map((row)=>{
+    const portalSection=row.portal_section as ArticlePortalSection;
+    return {id:row.id,slug:row.slug,title:row.title,excerpt:row.excerpt,portalSection,href:articleHref({slug:row.slug,portalSection}),image:row.image_url,accent:row.accent};
+  });
+  const directory=[...stationsResult.results,...clubsResult.results]
+    .map((row)=>row as {id:number;slug:string;name:string;category:"chovatelske-stanice"|"chovatelske-kluby";excerpt:string;city:string;region:string;image_url:string|null})
+    .map((row)=>({id:row.id,slug:row.slug,name:row.name,href:directoryProfileHref({category:row.category,slug:row.slug}),category:row.category,excerpt:row.excerpt,city:row.city,region:row.region,image:row.image_url}));
+  const similarBreeds=(similarResult.results as Array<{id:number;slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string}>).map((row)=>({id:row.id,slug:row.slug,name:row.name,href:breedProfileHref(row.slug),image:row.image_url,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section)}));
+  return {
+    articles,
+    breedingStations:directory.filter((item)=>item.category==='chovatelske-stanice'),
+    breedClubs:directory.filter((item)=>item.category==='chovatelske-kluby'),
+    similarBreeds:similarBreeds.map(item=>({...item,image:ownedBreedImage(item.image)})),
+  };
 }
 
 function clean(input:ManagedBreedInput){
