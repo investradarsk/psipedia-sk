@@ -48,7 +48,7 @@ type MonitorRow = {
   updated_at: string;
 };
 
-type MonitorBindings = Pick<NotionSyncBindings, "BUCKET" | "IMAGES">;
+type MonitorBindings = NotionSyncBindings;
 
 const SOURCE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MAX_HTML_BYTES = 768 * 1024;
@@ -166,10 +166,6 @@ async function seedMissingMediaMonitors(database: D1Database, now: string) {
     FROM directory_profiles
     WHERE status <> 'archived'
       AND website_url IS NOT NULL AND trim(website_url) <> ''
-      AND (
-        image_url IS NULL OR trim(image_url) = ''
-        OR image_url LIKE 'https://%'
-      )
   `).bind(now, now).run();
 
   await database.prepare(`
@@ -188,10 +184,6 @@ async function seedMissingMediaMonitors(database: D1Database, now: string) {
       ?
     FROM managed_events
     WHERE website_url IS NOT NULL AND trim(website_url) <> ''
-      AND (
-        image_url IS NULL OR trim(image_url) = ''
-        OR image_url LIKE 'https://%'
-      )
   `).bind(now, now).run();
 }
 
@@ -392,6 +384,7 @@ async function monitorOne(input: {
 }) {
   const { row } = input;
   let sourceImageUrl = cleanUrl(row.sourceImageUrl);
+  const hadTrackedSource = Boolean(sourceImageUrl);
 
   if (!sourceImageUrl && row.sourcePageUrl) {
     try {
@@ -422,10 +415,13 @@ async function monitorOne(input: {
 
   try {
     const remote = await downloadRemoteImage(sourceImageUrl);
-    const needsCandidate = !row.activeImageKey || (
-      Boolean(row.sourceContentHash)
-      && row.sourceContentHash !== remote.contentHash
-    );
+    const discoveredWithoutBaseline = !hadTrackedSource && !row.sourceContentHash;
+    const needsCandidate = !row.activeImageKey
+      || discoveredWithoutBaseline
+      || (
+        Boolean(row.sourceContentHash)
+        && row.sourceContentHash !== remote.contentHash
+      );
 
     if (!needsCandidate) {
       await deleteCandidate(input.bindings.BUCKET, row.candidateImageKey);
@@ -454,7 +450,7 @@ async function monitorOne(input: {
     await setMonitorResult({
       database: input.database,
       row,
-      status: row.activeImageKey ? "CHANGED" : "CANDIDATE",
+      status: row.activeImageKey && row.sourceContentHash ? "CHANGED" : "CANDIDATE",
       now: input.now,
       sourceImageUrl: candidate.finalUrl,
       candidateImageUrl: candidate.finalUrl,
@@ -462,7 +458,7 @@ async function monitorOne(input: {
       candidateContentHash: candidate.contentHash,
       httpStatus: 200,
     });
-    return row.activeImageKey ? "changed" as const : "candidate" as const;
+    return row.activeImageKey && row.sourceContentHash ? "changed" as const : "candidate" as const;
   } catch (error) {
     const status = httpStatusFromError(error);
     if (row.sourcePageUrl) {
