@@ -121,6 +121,16 @@ export type NotionDirectorySyncSummary = {
   failed: number;
 };
 
+export type NotionDirectoryBootstrapSummary = {
+  enabled: boolean;
+  schemaReady: boolean;
+  selected: number;
+  bootstrapped: number;
+  failed: number;
+  hasMore: boolean;
+};
+
+
 const SYSTEM_ACTOR = "notion-directory-sync@psipedia.sk";
 const BOOTSTRAP_BATCH = 20;
 const CHANGED_PROFILE_BATCH = 20;
@@ -1036,6 +1046,53 @@ async function recoverMappingFromPage(input: {
     syncedAt: now,
   });
   return loadMappingByProfile(input.database, profileId);
+}
+
+export async function runNotionDirectoryBootstrapSweep(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+}): Promise<NotionDirectoryBootstrapSummary> {
+  const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
+  const summary: NotionDirectoryBootstrapSummary = {
+    enabled,
+    schemaReady: false,
+    selected: 0,
+    bootstrapped: 0,
+    failed: 0,
+    hasMore: false,
+  };
+  if (!enabled) return summary;
+
+  const dataSourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() ?? "";
+  if (!input.bindings.NOTION_API_TOKEN?.trim() || !dataSourceId) {
+    summary.failed = 1;
+    return summary;
+  }
+
+  summary.schemaReady = await schemaReady(input.database);
+  if (!summary.schemaReady) return summary;
+
+  const bootstrapIds = await bootstrapProfileIds(input.database);
+  summary.selected = bootstrapIds.length;
+
+  for (const profileId of bootstrapIds) {
+    try {
+      const profile = await getManagedDirectoryProfileById(profileId, input.database);
+      if (!profile) continue;
+      await writeProfileToNotion({
+        database: input.database,
+        bindings: input.bindings,
+        dataSourceId,
+        profile,
+      });
+      summary.bootstrapped += 1;
+    } catch {
+      summary.failed += 1;
+    }
+  }
+
+  summary.hasMore = (await bootstrapProfileIds(input.database)).length > 0;
+  return summary;
 }
 
 export async function runNotionDirectorySyncSweep(input: {
