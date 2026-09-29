@@ -105,6 +105,18 @@ test("operator view exposes human search and filters instead of canonical IDs", 
   assert.match(operatorComponent, /Chyby/);
 });
 
+
+test("operator map summary distinguishes current Google place IDs from coordinate-only links", () => {
+  assert.match(operatorStore, /g\.google_place_id/);
+  assert.match(operatorStore, /g\.google_place_source_fingerprint/);
+  assert.match(operatorStore, /googlePlaceSourceFingerprint === sourceFingerprint/);
+  assert.match(operatorStore, /googleMapsTarget: state\.state === "ON_MAP"/);
+  assert.match(operatorComponent, /Konkrétne miesto/);
+  assert.match(operatorComponent, /Iba súradnice/);
+  assert.match(operatorComponent, /ON_MAP_PLACE/);
+  assert.match(operatorComponent, /ON_MAP_COORDINATES/);
+});
+
 test("mobile-safe layout avoids forced horizontal tables in the operator-first view", () => {
   assert.match(operatorComponent, /flexWrap: "wrap"/);
   assert.match(operatorComponent, /minWidth: 0/);
