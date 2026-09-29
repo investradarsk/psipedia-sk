@@ -27,7 +27,7 @@ on:
       - "drizzle/0092_automation_product_model.sql"
       - "drizzle/0093_automation_address_review.sql"
       - "drizzle/0094_canonical_draft_delete.sql"
-      - "drizzle/0097_automation_update_field_reviews.sql"
+      - "drizzle/0096_automation_update_field_reviews.sql"
       - "lib/canonical-draft-delete.ts"
       - "lib/automation-record-suppressions.ts"
       - "components/admin-canonical-draft-delete.tsx"
