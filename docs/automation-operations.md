@@ -60,9 +60,10 @@ A zero cursor after a successful cycle is shown as a completed cycle, not as 0%.
 - direct update suggestions: `automation_update_suggestions`
 - bounded recent DIRECT_ENTITY outcomes: `automation_discovery_outcomes`
 
-## Aktivácia migration 0098
+## Aktivácia migration 0097
 
-SQL pre rozšírené operations metriky je pripravené v `docs/pending-migrations/0098_automation_operations_metrics.sql`.
-Nie je zatiaľ súčasťou canonical `drizzle/` reťaze, pretože paralelné workstreamy rezervujú indexy 0096 a 0097. Kód je zámerne code-before-migration kompatibilný: bez 0098 funguje dashboard v reduced režime a historické/rozšírené metriky ostávajú `NULL`, nie vymyslené nuly.
+Rozšírené operations metriky sú po dokončení paralelných workstreamov aktivované ako canonical migrácia `drizzle/0097_automation_operations_metrics.sql`.
 
-Po merge reálnych 0096 a 0097 sa pending súbor presunie bez zmeny obsahu do `drizzle/0098_automation_operations_metrics.sql`, znovu sa doplní do production migration allowlistu/workflow guardu a až potom môže byť 0098 produkčne aplikovaná. MIG-0 contiguous guard sa týmto PR nemení ani neoslabuje.
+Pôvodne pending SQL bolo pripravené pod rezervovaným indexom 0098, ale finálny canonical chain po merge ostatných workstreamov skončil na 0096 a žiadna samostatná 0097 nevznikla. Preto bol pending súbor presunutý bez zmeny SQL obsahu na 0097, aby zostal MIG-0 chain súvislý bez umelej prázdnej migrácie.
+
+Kód zostáva code-before-migration kompatibilný: pred produkčným apply 0097 dashboard funguje v reduced režime a historické/rozšírené metriky ostávajú `NULL`, nie vymyslené nuly. Produkčný rollout používa explicitný guard `APPLY-0097-psipedia-sk-db`.
