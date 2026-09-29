@@ -131,9 +131,11 @@ test("existing Psipedia profiles bootstrap into Notion in bounded batches", () =
   assert.match(syncSource, /bootstrapped \+= 1/);
 });
 
-test("directory mirror runs every five minutes and production is pinned to the exact Notion data source", () => {
+test("directory mirror runs in the full hourly worker sweep and production is pinned to the exact Notion data source", () => {
   assert.match(workerSource, /runNotionDirectorySyncSweep/);
-  assert.match(workerSource, /event: "notion_directory_sync_sweep", cadence: "five_minute"/);
+  assert.match(workerSource, /event: "notion_directory_sync_sweep"/);
+  const boundedFiveMinuteBranch = workerSource.split("if (!isFullHourlyScheduledSweep(controller)) {")[1]?.split("const [summary,")[0] ?? "";
+  assert.doesNotMatch(boundedFiveMinuteBranch, /runNotionDirectorySyncSweep/);
   assert.match(wranglerSource, /"NOTION_DIRECTORY_SYNC_ENABLED": "true"/);
   assert.match(wranglerSource, /"NOTION_DIRECTORY_DATA_SOURCE_ID": "84e0664c-ca47-405f-9d54-31b20287bc8c"/);
 });
