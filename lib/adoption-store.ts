@@ -36,6 +36,11 @@ import {
   type ManagedAdoptionInput,
   type NormalizedAdoptionInput,
 } from "./adoption.ts";
+import {
+  readCanonicalBreedOptions,
+  type CanonicalBreedOption,
+  type CanonicalBreedOptionsResult,
+} from "./breed-options.ts";
 
 export type AdoptionD1Statement = {
   bind(...values: unknown[]): AdoptionD1Statement;
@@ -49,7 +54,8 @@ type RuntimeBindings = { DB?: AdoptionD1Database };
 type ManagedBreedRow = { id: number; name: string; slug: string };
 type ManagedOrganizationRow = { id: number; name: string; slug: string };
 
-export type AdoptionBreedOption = ManagedBreedRow;
+export type AdoptionBreedOption = CanonicalBreedOption;
+export type AdoptionBreedOptionsResult = CanonicalBreedOptionsResult;
 export type AdoptionOrganizationReference = { organizationId: number | null; organizationName: string; organizationSlug: string | null };
 export type AdoptionPublicOrganizationLink = { id: number; name: string; slug: string };
 export type AdoptionPublicQueryFilters = AdoptionPublicFilters & {
@@ -336,11 +342,8 @@ export async function getPublicAdoptionBySlug(slug: string, database?: AdoptionD
   return row ? rowToDog(row) : null;
 }
 
-export async function listPublishedAdoptionBreedOptions(database?: AdoptionD1Database) {
-  const db = database ?? getD1Binding();
-  if (!db) return [] as AdoptionBreedOption[];
-  const result = await db.prepare("SELECT id, name, slug FROM managed_breeds WHERE status = 'published' ORDER BY name ASC").all<ManagedBreedRow>();
-  return result.results.map((row) => ({ id: Number(row.id), name: row.name, slug: row.slug }));
+export async function listPublishedAdoptionBreedOptions(database?: AdoptionD1Database): Promise<AdoptionBreedOptionsResult> {
+  return readCanonicalBreedOptions(database ?? getD1Binding());
 }
 
 export async function listPublicAdoptions(filters: AdoptionPublicQueryFilters = {}, database?: AdoptionD1Database) {

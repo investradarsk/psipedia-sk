@@ -136,3 +136,12 @@ test("facet URLs are noindex candidates and route uses only the adoption store",
   assert.match(route, /listPublishedAdoptionBreedOptions/);
   assert.doesNotMatch(route, /help-store|help_cases/);
 });
+
+
+test("breed filter exposes source availability without inventing fallback options",()=>{
+  const component=read("../components/adoption-catalog.tsx");
+  assert.match(component,/disabled=\{!breeds\.available\}/);
+  assert.match(component,/breeds\.options\.map/);
+  assert.match(component,/!breeds\.available && filters\.breedId/);
+  assert.match(component,/type="hidden" name="plemeno" value=\{filters\.breedId\}/);
+});
