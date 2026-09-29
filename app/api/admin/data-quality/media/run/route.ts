@@ -12,6 +12,7 @@ export async function POST() {
       database: env.DB,
       bindings: env,
       limit: 100,
+      force: true,
     });
     return Response.json(result);
   } catch (error) {
