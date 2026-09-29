@@ -6,7 +6,7 @@ import {
   type ManagedEventInput,
 } from "@/lib/event-store";
 import type { DogEvent } from "@/lib/events";
-import { upsertMediaSourceMonitor } from "@/lib/media-source-monitor";
+import { getMediaSourceMonitorForEntity, upsertMediaSourceMonitor } from "@/lib/media-source-monitor";
 import {
   cleanupNotionImageKeys,
   listReadyNotionPages,
@@ -218,7 +218,8 @@ async function syncOneEvent(
     }
 
     if (mapping.content_hash === contentHash) {
-      if (sourceUrl) {
+      const existingMonitor = await getMediaSourceMonitorForEntity(database, "MANAGED_EVENT", existing.id);
+      if (sourceUrl && !existingMonitor) {
         await upsertMediaSourceMonitor({
           database,
           entityType: "MANAGED_EVENT",
