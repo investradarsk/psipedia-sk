@@ -713,6 +713,7 @@ async function syncMappedPage(input: {
   dataSourceId: string;
   mapping: DirectoryNotionMapping;
   page?: NotionPage;
+  forcePsipediaPush?: boolean;
 }) {
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile) return "unchanged" as const;
@@ -725,16 +726,16 @@ async function syncMappedPage(input: {
   const notionChanged = pageHash !== lastHash;
 
   if (!profileChanged && !notionChanged) {
-    if ((page.last_edited_time ?? null) !== input.mapping.notion_last_edited_time) {
-      await saveMapping({
+    const notionMetadataChanged = (page.last_edited_time ?? null) !== input.mapping.notion_last_edited_time;
+    if (input.forcePsipediaPush || notionMetadataChanged) {
+      await writeProfileToNotion({
         database: input.database,
+        bindings: input.bindings,
+        dataSourceId: input.dataSourceId,
+        profile,
         pageId: page.id,
-        profileId: profile.id,
-        contentHash: lastHash,
-        notionLastEditedTime: page.last_edited_time ?? input.mapping.notion_last_edited_time,
-        psipediaUpdatedAt: profile.updatedAt,
-        syncedAt: new Date().toISOString(),
       });
+      return "pushed" as const;
     }
     return "unchanged" as const;
   }
@@ -865,6 +866,7 @@ export async function runNotionDirectorySyncSweep(input: {
         bindings: input.bindings,
         dataSourceId,
         mapping,
+        forcePsipediaPush: true,
       });
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;
