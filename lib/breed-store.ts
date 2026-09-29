@@ -235,13 +235,13 @@ export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"rela
     FROM breed_directory_relations r
     JOIN directory_profiles d ON d.id=r.profile_id
     WHERE r.breed_id=? AND ${publicDirectoryRelationTargetSql("d")} AND d.category='chovatelske-stanice'
-    ORDER BY d.featured DESC,d.name COLLATE NOCASE ASC,d.id ASC
+    ORDER BY d.name COLLATE NOCASE ASC,d.id ASC
     LIMIT 4`).bind(breed.id);
   const clubsQuery=database.prepare(`SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
     FROM breed_directory_relations r
     JOIN directory_profiles d ON d.id=r.profile_id
     WHERE r.breed_id=? AND ${publicDirectoryRelationTargetSql("d")} AND d.category='chovatelske-kluby'
-    ORDER BY d.featured DESC,d.name COLLATE NOCASE ASC,d.id ASC
+    ORDER BY d.name COLLATE NOCASE ASC,d.id ASC
     LIMIT 3`).bind(breed.id);
   const similarQuery=breed.relatedBreedIds.length
     ? database.prepare(`SELECT b.id,b.slug,b.name,b.image_url,b.fci_group,b.fci_section,b.fci_section_number
