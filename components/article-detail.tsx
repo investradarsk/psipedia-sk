@@ -9,6 +9,7 @@ import { Breadcrumbs, MediaFrame } from "@/components/page-system";
 import { PublicContentList } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
 import { ShareButton } from "@/components/share-button";
+import { RelatedBreedList } from "@/components/related-entity-list";
 import { AdSlot } from "@/components/ad-slot";
 import type { Article } from "@/lib/content";
 import type { ArticleMagazineData } from "@/lib/article-magazine";
@@ -19,6 +20,7 @@ import { absoluteUrl, articleAuthorJsonLd, ORGANIZATION_ID, serializeJsonLd, SIT
 import { articleBlockHeadings, articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
 import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/editorial-content";
 import { AD_PLACEMENTS } from "@/lib/monetization";
+import type { PublicRelatedBreed } from "@/lib/content-relations";
 import styles from "./article-detail.module.css";
 
 function safeExternalImageCreditUrl(value?: string) {
@@ -42,11 +44,13 @@ export function ArticleDetail({
   magazine,
   portalSection,
   authorProfile,
+  relatedBreeds = [],
 }: {
   article: Article;
   magazine: ArticleMagazineData;
   portalSection?: PortalSection;
   authorProfile?: EditorialAuthorProfile | null;
+  relatedBreeds?: PublicRelatedBreed[];
 }) {
   const section = articlePortalSection(article);
   const sectionHref = section === "clanky" ? "/clanky" : `/${section}`;
@@ -266,6 +270,16 @@ export function ArticleDetail({
           ) : null}
         </div>
       </div>
+
+      {relatedBreeds.length > 0 ? (
+        <section className={styles.relatedSection} aria-labelledby="article-related-breeds-title" data-explicit-content-relation="article-breed">
+          <div className="shell">
+            <span className="eyebrow">Explicitné prepojenie obsahu</span>
+            <h2 id="article-related-breeds-title">Plemená prepojené s týmto článkom</h2>
+            <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto článkom" />
+          </div>
+        </section>
+      ) : null}
 
       {relatedItems.length > 0 ? (
         <section className={`${styles.relatedSection} related-section`}>
