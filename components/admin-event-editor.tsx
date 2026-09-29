@@ -6,6 +6,8 @@ import { ChangeEvent, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import { eventSeoFallback } from "@/lib/content-seo";
 import styles from "./admin-event-editor.module.css";
 
@@ -13,7 +15,7 @@ function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
 }
 
-export function AdminEventEditor({ event }: { event?: DogEvent }) {
+export function AdminEventEditor({ event, automationSuggestions = [] }: { event?: DogEvent; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
   const [title, setTitle] = useState(event?.title ?? "");
   const [slug, setSlug] = useState(event?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(event));
@@ -59,6 +61,28 @@ export function AdminEventEditor({ event }: { event?: DogEvent }) {
     } finally { setUploading(false); uploadEvent.target.value = ""; }
   }
 
+  function applyAutomationUpdate(values: Record<string, unknown>) {
+    for (const [field, value] of Object.entries(values)) {
+      const text = value === null || value === undefined ? "" : String(value);
+      if (field === "title") setTitle(text);
+      else if (field === "excerpt") setExcerpt(text);
+      else if (field === "eventType") setEventType(text as EventType);
+      else if (field === "startDate") setStartDate(text);
+      else if (field === "startTime") setStartTime(text);
+      else if (field === "endDate") setEndDate(text);
+      else if (field === "endTime") setEndTime(text);
+      else if (field === "venue") setVenue(text);
+      else if (field === "city") setCity(text);
+      else if (field === "region") setRegion(text as SlovakRegion);
+      else if (field === "address") setAddress(text);
+      else if (field === "organizer") setOrganizer(text);
+      else if (field === "description") setDescription(text);
+      else if (field === "practicalInfo") setPracticalInfo(text);
+      else if (field === "websiteUrl") setWebsiteUrl(text);
+      else if (field === "registrationUrl") setRegistrationUrl(text);
+    }
+  }
+
   async function save(nextStatus: EventStatus) {
     setSaving(true); setError(""); setMessage("");
     try {
@@ -81,6 +105,7 @@ export function AdminEventEditor({ event }: { event?: DogEvent }) {
     <form className="admin-event-editor" onSubmit={(submitEvent) => { submitEvent.preventDefault(); void save("draft"); }}>
       <div className="admin-event-editor-grid">
         <div className="admin-event-fields">
+          <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
           <section className="admin-form-card admin-form-card--intro">
             <div className="admin-field admin-field--title"><label htmlFor="event-title">Názov podujatia</label><input id="event-title" value={title} onChange={(input) => changeTitle(input.target.value)} placeholder="Napríklad: Klubová výstava retrieverov" required /></div>
             <div className="admin-field"><label htmlFor="event-excerpt">Krátky popis</label><textarea id="event-excerpt" rows={3} value={excerpt} onChange={(input) => setExcerpt(input.target.value)} placeholder="Čo sa bude diať a pre koho je podujatie určené?" required /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>

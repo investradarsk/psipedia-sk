@@ -12,6 +12,8 @@ import {
 } from "@/lib/help";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import { helpSeoFallback } from "@/lib/content-seo";
 import { HELP_ADMIN_CREATE_CATEGORIES } from "@/lib/help-admin-query";
 import styles from "./admin-help-bulk.module.css";
@@ -20,7 +22,7 @@ function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
 }
 
-export function AdminHelpEditor({ item }: { item?: HelpCase }) {
+export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: HelpCase; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
   const [title, setTitle] = useState(item?.title ?? "");
   const titleInputRef = useRef<HTMLInputElement>(null);
   const titleDraftRef = useRef(item?.title ?? "");
@@ -76,6 +78,28 @@ export function AdminHelpEditor({ item }: { item?: HelpCase }) {
     finally { setUploading(false); event.target.value = ""; }
   }
 
+  function applyAutomationUpdate(values: Record<string, unknown>) {
+    for (const [field, value] of Object.entries(values)) {
+      const text = value === null || value === undefined ? "" : String(value);
+      if (field === "title") { titleDraftRef.current = text; setTitle(text); }
+      else if (field === "excerpt") setExcerpt(text);
+      else if (field === "description") setDescription(text);
+      else if (field === "organization") setOrganization(text);
+      else if (field === "dogName") setDogName(text);
+      else if (field === "breed") setBreed(text);
+      else if (field === "ageNote") setAgeNote(text);
+      else if (field === "city") setCity(text);
+      else if (field === "region") setRegion(text as SlovakRegion);
+      else if (field === "locationNote") setLocationNote(text);
+      else if (field === "reportedDate") setReportedDate(text);
+      else if (field === "deadlineDate") setDeadlineDate(text);
+      else if (field === "actionUrl") setActionUrl(text);
+      else if (field === "contactNote") setContactNote(text);
+      else if (field === "goalAmount") setGoalAmount(value === null || value === undefined ? "" : String(value));
+      else if (field === "raisedAmount") setRaisedAmount(value === null || value === undefined ? "" : String(value));
+    }
+  }
+
   async function save(nextStatus: HelpCaseStatus) {
     setSaving(true); setError(""); setMessage("");
     try {
@@ -96,6 +120,7 @@ export function AdminHelpEditor({ item }: { item?: HelpCase }) {
   const categoryOptions = HELP_ADMIN_CREATE_CATEGORIES.map((slug) => getHelpCategory(slug)).filter((entry): entry is NonNullable<ReturnType<typeof getHelpCategory>> => Boolean(entry));
   if (item?.category === "urgentne-pripady") { const legacy = getHelpCategory("urgentne-pripady"); if (legacy) categoryOptions.push(legacy); }
   return <form className={`${styles.editor} admin-event-editor admin-help-editor`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}><div className={styles.editorBoundary} role="note"><strong>Tento editor vlastní iba generic Help.</strong><span>Adopcie, Lost/Found a organizácie uprav v ich canonical moduloch.</span><nav className={styles.moduleLinks} aria-label="Samostatné admin moduly"><Link href="/admin/adopcie">Adopcie</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link><Link href="/admin/organizacie">Organizácie</Link></nav></div><div className="admin-event-editor-grid"><div className="admin-event-fields">
+    <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
     <section className="admin-form-card admin-form-card--intro"><div className="admin-field admin-field--title"><label htmlFor="help-title">Názov prípadu alebo výzvy</label><input ref={titleInputRef} id="help-title" value={title} onChange={(event) => changeTitle(event.target.value)} placeholder="Napríklad: Ben hľadá pokojný domov" required /></div><div className="admin-field"><label htmlFor="help-excerpt">Krátky popis</label><textarea id="help-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Čo sa deje a aká pomoc je potrebná?" required /><small>{excerpt.length} znakov · odporúčame 80–180</small></div></section>
     <section className="admin-form-card"><div className="admin-card-heading"><div><span>01</span><div><h2>Zaradenie a zodpovednosť</h2><p>Kategória, organizácia a miesto prípadu.</p></div></div></div><div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-category">Kategória</label><select id="help-category" value={category} onChange={(event) => changeCategory(event.target.value as HelpCategorySlug)}>{categoryOptions.map((entry) => <option value={entry.slug} key={entry.slug}>{entry.label}</option>)}</select></div><div className="admin-field"><label htmlFor="help-organization">Zodpovedná organizácia alebo osoba</label><input id="help-organization" value={organization} onChange={(event) => setOrganization(event.target.value)} placeholder="Názov útulku alebo overenej osoby" required /></div><div className="admin-field"><label htmlFor="help-region">Kraj</label><select id="help-region" value={region} onChange={(event) => setRegion(event.target.value as SlovakRegion)}>{slovakRegions.map((entry) => <option key={entry}>{entry}</option>)}</select></div><div className="admin-field"><label htmlFor="help-city">Mesto</label><input id="help-city" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Zlaté Moravce alebo Online" required /></div></div><div className="admin-field"><label htmlFor="help-location">Spresnenie lokality <small>nepovinné</small></label><input id="help-location" value={locationNote} onChange={(event) => setLocationNote(event.target.value)} placeholder="Mestská časť, ulica alebo približné miesto" /></div></section>
     <section className="admin-form-card"><div className="admin-card-heading"><div><span>02</span><div><h2>Informácie o prípade</h2><p>Príbeh, pes a dôležité termíny.</p></div></div></div><div className="admin-field"><label htmlFor="help-description">Podrobný popis</label><textarea id="help-description" rows={9} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={"Vysvetli situáciu, čo už bolo urobené a aká konkrétna pomoc je potrebná.\n\nNový odsek začni po prázdnom riadku."} required /></div><div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-dog-name">Meno psa <small>nepovinné</small></label><input id="help-dog-name" value={dogName} onChange={(event) => setDogName(event.target.value)} placeholder="Ben" /></div><div className="admin-field"><label htmlFor="help-breed">Plemeno alebo typ <small>nepovinné</small></label><input id="help-breed" value={breed} onChange={(event) => setBreed(event.target.value)} placeholder="Kríženec, labrador…" /></div><div className="admin-field"><label htmlFor="help-age">Vek <small>nepovinné</small></label><input id="help-age" value={ageNote} onChange={(event) => setAgeNote(event.target.value)} placeholder="asi 3 roky" /></div><div className="admin-field"><label htmlFor="help-reported">Dátum prípadu <small>nepovinné</small></label><input id="help-reported" type="date" value={reportedDate} onChange={(event) => setReportedDate(event.target.value)} /></div><div className="admin-field"><label htmlFor="help-deadline">Termín pomoci <small>nepovinné</small></label><input id="help-deadline" type="date" value={deadlineDate} onChange={(event) => setDeadlineDate(event.target.value)} /></div></div></section>

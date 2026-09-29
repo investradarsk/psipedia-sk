@@ -27,6 +27,7 @@ on:
       - "drizzle/0092_automation_product_model.sql"
       - "drizzle/0093_automation_address_review.sql"
       - "drizzle/0094_canonical_draft_delete.sql"
+      - "drizzle/0096_automation_update_field_reviews.sql"
       - "lib/canonical-draft-delete.ts"
       - "lib/automation-record-suppressions.ts"
       - "components/admin-canonical-draft-delete.tsx"
@@ -41,6 +42,7 @@ on:
       - "tests/automation-cluster-admin-integration.test.mjs"
       - "scripts/automation-source-ux-reset.mjs"
       - "tests/automation-source-ux-reset.test.mjs"
+      - "tests/automation-update-review.test.mjs"
       - "tests/admin-auto-ux-2.test.mjs"
       - "tests/fixtures/data-automation/**"
       - "tests/e2e/data-automation-v2.spec.ts"
@@ -84,6 +86,8 @@ jobs:
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-governance.test.mjs tests/tavily-canary-control.test.mjs
       - name: Automation source UX reset contract
         run: node --test tests/automation-source-ux-reset.test.mjs
+      - name: Automation update review contract
+        run: node --experimental-strip-types --test tests/automation-update-review.test.mjs
       - run: npm run build
 
   admin-e2e:

@@ -10,6 +10,8 @@ import {
   AdminStickyEditorNavigation,
 } from "@/components/admin-interaction-system";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 import { DirectoryAddressAutocomplete } from "@/components/directory-address-autocomplete";
@@ -40,7 +42,7 @@ function listFromText(value: string) {
   return value.split(/\n+/).map((item) => item.trim()).filter(Boolean);
 }
 
-export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryProfile }) {
+export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { profile?: ManagedDirectoryProfile; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
   const [name, setName] = useState(profile?.name ?? "");
   const [slug, setSlug] = useState(profile?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(profile));
@@ -102,6 +104,24 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
     } finally {
       setUploading(false);
       event.target.value = "";
+    }
+  }
+
+  function applyAutomationUpdate(values: Record<string, unknown>) {
+    for (const [field, value] of Object.entries(values)) {
+      const text = value === null || value === undefined ? "" : String(value);
+      if (field === "name") setName(text);
+      else if (field === "excerpt") setExcerpt(text);
+      else if (field === "description") setDescription(text);
+      else if (field === "services" && Array.isArray(value)) setServices(value.map(String).join("\n"));
+      else if (field === "qualifications" && Array.isArray(value)) setQualifications(value.map(String).join("\n"));
+      else if (field === "online") setOnline(Boolean(value));
+      else if (field === "priceNote") setPriceNote(text);
+      else if (field === "websiteUrl") setWebsiteUrl(text);
+      else if (field === "publicPhone") setPublicPhone(text);
+      else if (field === "publicEmail") setPublicEmail(text);
+      else if (field === "facebookUrl") setFacebookUrl(text);
+      else if (field === "instagramUrl") setInstagramUrl(text);
     }
   }
 
@@ -208,6 +228,7 @@ export function AdminDirectoryEditor({ profile }: { profile?: ManagedDirectoryPr
 
       <div className="admin-event-editor-grid">
         <div className="admin-event-fields">
+          <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
           <AdminEditorSection id="directory-main" className="admin-form-card admin-form-card--intro">
             <div className="admin-card-heading"><div><span>01</span><div><h2>Hlavné údaje</h2><p>Názov, zaradenie a krátke verejné predstavenie.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="directory-name">Názov profilu</label><input id="directory-name" value={name} onChange={(event) => changeName(event.target.value)} placeholder="Napríklad: Psia škola Pod Zoborom" required /></div>

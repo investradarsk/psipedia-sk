@@ -5,6 +5,8 @@ import { ChangeEvent, useMemo, useState } from "react";
 import { uploadAdminImage, adminImageUploadMessage } from "@/lib/admin-image-upload";
 import { chipStateLabel, dogReportHref, dogReportStatusLabel, dogReportTypeLabel, dogSexLabel, dogSizeLabel, type AdminDogReport, type BreedOption, type ChipState, type DogReportType, type DogSex, type DogSize, type PublicLocationPrecision } from "@/lib/lost-found-dogs";
 import { allowedLostFoundTransitions, type LostFoundStatus } from "@/lib/lost-found-lifecycle.js";
+import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import styles from "./admin-lost-found.module.css";
 
 type EditorState = {
@@ -33,7 +35,7 @@ const transitionLabel: Record<LostFoundStatus, string> = {
   ARCHIVED: "Archivovať",
 };
 
-export function AdminLostFoundEditor({ report, breeds }: { report?: AdminDogReport; breeds: BreedOption[] }) {
+export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [] }: { report?: AdminDogReport; breeds: BreedOption[]; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
   const [state,setState]=useState(()=>initial(report)); const [saving,setSaving]=useState(false); const [uploading,setUploading]=useState(false); const [message,setMessage]=useState(""); const [error,setError]=useState("");
   const set=<K extends keyof EditorState>(key:K,value:EditorState[K])=>setState((s)=>({...s,[key]:value}));
   const publicHref=useMemo(()=>state.slug?dogReportHref({type:state.type,slug:state.slug}):"",[state.slug,state.type]);
@@ -57,6 +59,7 @@ export function AdminLostFoundEditor({ report, breeds }: { report?: AdminDogRepo
       if(!report)window.location.assign(`/admin/stratene-najdene/${data.report.id}?vytvorene=1`);
     }catch(err){setError(err instanceof Error?err.message:"Uloženie zlyhalo.")}finally{setSaving(false)}
   }
+  function applyAutomationUpdate(values: Record<string, unknown>) { setState((current) => ({ ...current, ...values } as EditorState)); }
   async function markDuplicate(){
     if(!report)return;
     setSaving(true);setError("");setMessage("");
@@ -68,6 +71,7 @@ export function AdminLostFoundEditor({ report, breeds }: { report?: AdminDogRepo
     }catch(err){setError(err instanceof Error?err.message:"Označenie duplicity zlyhalo.")}finally{setSaving(false)}
   }
   return <form onSubmit={(e)=>{e.preventDefault();void save()}}>
+    <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
     {(message||error)&&<div className={`${styles.message} ${error?styles.error:""}`} role="status">{error||message}</div>}
     <div className={styles.formGrid}><div className={styles.sections}>
       <section className={styles.card}><h2>1. Typ a stav prípadu</h2><div className={styles.fieldGrid}><div className={styles.field}><label>Typ</label><select value={state.type} onChange={(e)=>set("type",e.target.value as DogReportType)}><option value="LOST">LOST — stratený</option><option value="FOUND">FOUND — nájdený</option></select></div><div className={styles.field}><label>Stav</label><strong>{dogReportStatusLabel[state.status]}</strong><small className={styles.help}>{report?"Stav sa mení iba explicitnou moderátorskou akciou nižšie.":"Nové hlásenie sa vždy vytvorí ako koncept (DRAFT)."}</small></div></div><div className={styles.field}><label>Slug</label><input value={state.slug} onChange={(e)=>set("slug",slugify(e.target.value))} placeholder="strateny-rex-nitra" required/></div></section>

@@ -88,6 +88,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0093_automation_address_review.sql",
   "0094_canonical_draft_delete.sql",
   "0095_automation_calendar_schedule.sql",
+  "0096_automation_update_field_reviews.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -148,6 +149,17 @@ export const AUTOMATION_SCHEDULE_COLUMNS = Object.freeze([
   "schedule_days_json",
   "schedule_local_time",
   "schedule_timezone",
+]);
+
+export const AUTOMATION_UPDATE_REVIEW_TABLES = Object.freeze([
+  "automation_update_field_reviews",
+]);
+
+export const AUTOMATION_UPDATE_REVIEW_INDEXES = Object.freeze([
+  "automation_update_field_reviews_value_unique",
+  "automation_update_field_reviews_canonical_idx",
+  "automation_update_field_reviews_suggestion_idx",
+  "automation_update_suggestions_canonical_review_idx",
 ]);
 
 export const AUTOMATION_ADDRESS_REVIEW_TABLES = Object.freeze([
@@ -837,6 +849,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || hasScheduleColumn(schema.automationDirectRefreshColumns),
     };
   }
+  if (targetMigration === "0096_automation_update_field_reviews.sql") {
+    return {
+      partial: AUTOMATION_UPDATE_REVIEW_TABLES.some((table) => names.has(table))
+        || AUTOMATION_UPDATE_REVIEW_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -883,6 +901,12 @@ function assertAutomationCalendarScheduleSchema(schema) {
       invariant(names.has(column), `Missing automation schedule column: ${table}.${column}`);
     }
   }
+}
+
+function assertAutomationUpdateReviewSchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of AUTOMATION_UPDATE_REVIEW_TABLES) invariant(names.get(table)?.type === "table", `Missing automation update-review table: ${table}`);
+  for (const index of AUTOMATION_UPDATE_REVIEW_INDEXES) invariant(names.get(index)?.type === "index", `Missing automation update-review index: ${index}`);
 }
 
 function assertPartnerClaimsSchema(schema) {
@@ -1345,6 +1369,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 93) assertAutomationAddressReviewSchema(schema);
   if (migrationIndex(targetMigration) >= 94) assertCanonicalDraftDeleteSchema(schema);
   if (migrationIndex(targetMigration) >= 95) assertAutomationCalendarScheduleSchema(schema);
+  if (migrationIndex(targetMigration) >= 96) assertAutomationUpdateReviewSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {

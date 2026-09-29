@@ -9,6 +9,7 @@ import { adoptionStatusLabels, type AdoptionStatus } from "@/lib/adoption";
 import { listAdoptionAdminBreedOptions, listAdoptionAdminOrganizationOptions } from "@/lib/adoption-admin-write";
 import { getAdoptionById } from "@/lib/adoption-store";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
+import { listCanonicalAutomationUpdateSuggestions } from "@/lib/data-automation-update-review";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -24,6 +25,9 @@ export default async function EditAdoptionPage({ params }: Props) {
     listAdoptionAdminOrganizationOptions(),
   ]);
   if (!item) notFound();
-  const duplicateWarning = await getCanonicalDraftDuplicateWarning("ADOPTION", item.id).catch(() => null);
-  return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<Link href="/admin/adopcie">← Späť na adopcie</Link>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref="/admin/adopcie" />}</AdminShell>;
+  const [duplicateWarning, automationSuggestions] = await Promise.all([
+    getCanonicalDraftDuplicateWarning("ADOPTION", item.id).catch(() => null),
+    listCanonicalAutomationUpdateSuggestions({ entityType: "ADOPTION", canonicalEntityId: item.id }),
+  ]);
+  return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<Link href="/admin/adopcie">← Späť na adopcie</Link>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref="/admin/adopcie" />}</AdminShell>;
 }
