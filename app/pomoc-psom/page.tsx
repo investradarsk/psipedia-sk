@@ -51,7 +51,7 @@ function genericPreview(item: HelpCase): HelpOverviewItem {
     eyebrow: category?.singular ?? "Pomoc psom",
     meta: placeMeta(item.organization, item.city, item.region),
     excerpt: item.excerpt,
-    badge: item.urgent ? "Urgentné" : item.verified ? "Overené" : null,
+    badge: item.urgent ? "Urgentné" : null,
     urgent: item.urgent,
   };
 }

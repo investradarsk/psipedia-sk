@@ -12,7 +12,7 @@ test.describe("public services detail shell", () => {
     const heading = main.getByRole("heading", { level: 1, name: longServicesDetailName });
     await expect(heading).toBeVisible();
     await expect(main.getByText("Tréner / psia škola", { exact: true })).toBeVisible();
-    await expect(main.getByText("Overené", { exact: true })).toBeVisible();
+    await expect(main.getByText("Overené", { exact: true })).toHaveCount(0);
     await expect(main.getByText("Odporúčame", { exact: true })).toBeVisible();
     await expect(main.getByRole("link", { name: "Poslať dopyt", exact: true })).toHaveAttribute("href", "#kontakt");
     await expect(main.getByRole("link", { name: "Zavolať", exact: true })).toHaveAttribute("href", "tel:+421900123456");

@@ -66,3 +66,36 @@ test("article slug generator no longer hard-cuts the final word", async () => {
   assert.match(source, /lastWordBoundary/);
   assert.doesNotMatch(source, /replace\(\/\^-\+\|-\+\$\/g, ""\)\s*\.slice\(0, 90\)/);
 });
+
+test("public trust language rejects generic verification marketing while keeping concrete value copy", async () => {
+  const sources = await Promise.all([
+    "app/page.tsx",
+    "lib/directory.ts",
+    "components/directory-profile-detail.tsx",
+    "app/pomoc-psom/page.tsx",
+    "components/help-card.tsx",
+    "lib/help.ts",
+    "components/news-hub.tsx",
+    "components/site-header.tsx",
+    "components/site-footer.tsx",
+    "lib/seo.ts",
+  ].map((path) => fs.readFile(new URL(`../${path}`, import.meta.url), "utf8")));
+
+  const combined = sources.join("\n");
+  assert.doesNotMatch(combined, /\b(?:Overené|Overená|Overenú|overené|overená|overenú|Preverené|preverené)\b/u);
+  assert.doesNotMatch(combined, /Transparentné výzvy/u);
+  assert.match(combined, /novinky so zdrojmi a dátumom aktualizácie/);
+  assert.match(combined, /Výzvy s uvedeným organizátorom, cieľom a odkazom/);
+});
+
+test("precise verification terms remain attached to auditable adoption freshness", async () => {
+  const catalog = await fs.readFile(new URL("../components/adoption-catalog.tsx", import.meta.url), "utf8");
+  const detail = await fs.readFile(new URL("../components/adoption-detail.tsx", import.meta.url), "utf8");
+  const adoptionModel = await fs.readFile(new URL("../lib/adoption-detail.ts", import.meta.url), "utf8");
+
+  assert.match(catalog, /Naposledy overené/);
+  assert.match(detail, /dog\.lastVerifiedAt/);
+  assert.match(detail, /Posledné overenie:/);
+  assert.match(detail, /Pred rozhodnutím si aktuálnu dostupnosť potvrďte priamo s organizáciou/);
+  assert.match(adoptionModel, /lastVerifiedAt/);
+});

@@ -14,7 +14,7 @@ export const helpCategories = [
     label: "Útulky a organizácie",
     singular: "Útulok alebo organizácia",
     icon: "🤝",
-    description: "Overené útulky, občianske združenia a ich aktuálne potreby.",
+    description: "Útulky, občianske združenia a informácie o tom, ako im pomôcť.",
   },
   {
     slug: "docasna-opatera",
@@ -26,9 +26,9 @@ export const helpCategories = [
   {
     slug: "zbierky",
     label: "Zbierky a výzvy",
-    singular: "Overená zbierka",
+    singular: "Zbierka alebo výzva",
     icon: "💛",
-    description: "Transparentné výzvy so známym organizátorom, cieľom a odkazom.",
+    description: "Výzvy s uvedeným organizátorom, cieľom a odkazom.",
   },
   {
     slug: "stratene-a-najdene",
@@ -112,7 +112,7 @@ export function defaultHelpActionLabel(category: HelpCategorySlug) {
     utulky: "Pomôcť organizácii",
     "stratene-a-najdene": "Mám informáciu",
     "urgentne-pripady": "Ako môžem pomôcť",
-    zbierky: "Otvoriť overenú zbierku",
+    zbierky: "Otvoriť zbierku alebo výzvu",
     "docasna-opatera": "Ponúknuť dočasnú opateru",
     dobrovolnictvo: "Chcem pomôcť",
   } satisfies Record<HelpCategorySlug, string>)[category];
