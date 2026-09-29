@@ -66,6 +66,7 @@ export function AdminDashboard({
   pagination,
   filters,
   fixedPortalSection,
+  listPath = "/admin",
 }: {
   initialArticles: ManagedArticleSummary[];
   initialCounts: ManagedArticleSummaryPage["counts"];
@@ -74,6 +75,7 @@ export function AdminDashboard({
   pagination: ManagedArticleSummaryPage["pagination"];
   filters: ArticleAdminListFilters;
   fixedPortalSection?: ManagedArticleSummary["portalSection"];
+  listPath?: string;
 }) {
   const [articles, setArticles] = useState(initialArticles);
   const [counts, setCounts] = useState(initialCounts);
@@ -95,7 +97,7 @@ export function AdminDashboard({
     resultCount,
     supportsAllMatching: false,
   });
-  const routePath = fixedPortalSection ? "/admin/steniatka" : "/admin";
+  const routePath = fixedPortalSection ? "/admin/steniatka" : listPath;
   const paginationBase = articleAdminListHref(routePath, { ...filters, page: 1 });
 
   async function removeArticle(article: ManagedArticleSummary) {
