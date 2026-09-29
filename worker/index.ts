@@ -235,16 +235,8 @@ const worker = {
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
     if (!isFullHourlyScheduledSweep(controller)) {
-      const [adminPush, notionDirectory, dataAutomation, sourceDiscovery] = await Promise.all([
+      const [adminPush, dataAutomation, sourceDiscovery] = await Promise.all([
         runScheduledAdminPush(env),
-        runNotionDirectorySyncSweep({ database: env.DB, bindings: env }).catch((error) => {
-          console.error(JSON.stringify({
-            event: "notion_directory_sync_sweep",
-            result: "failed",
-            error: error instanceof Error ? error.message : String(error),
-          }));
-          return { enabled: true, schemaReady: false, notionScanned: 0, bootstrapped: 0, pulledFromNotion: 0, pushedToNotion: 0, unchanged: 0, failed: 1 };
-        }),
         runDataAutomationSweep({
           database: env.DB,
           htmlAdapters: productionAutomationHtmlAdapters,
@@ -270,7 +262,6 @@ const worker = {
         }),
       ]);
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
-      console.info(JSON.stringify({ event: "notion_directory_sync_sweep", cadence: "five_minute", ...notionDirectory }));
       console.info(JSON.stringify({ event: "data_automation_sweep", cadence: "five_minute_due_check", ...dataAutomation }));
       console.info(JSON.stringify({ event: "data_automation_discovery_sweep", cadence: "five_minute_due_check", ...sourceDiscovery }));
       return;
