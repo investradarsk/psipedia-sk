@@ -87,8 +87,10 @@ test("PUBLIC-HYGIENE public article routes sanitize before metadata and SSR rend
   const legacyRoute = readFileSync("app/clanky/[slug]/page.tsx", "utf8");
   assert.match(portalRoute, /sanitizePublicArticleContent/);
   assert.match(legacyRoute, /sanitizePublicArticleContent/);
-  assert.match(portalRoute, /buildArticleMetadata\(sanitizePublicArticleContent\(storedArticle\)\)/);
-  assert.match(legacyRoute, /buildArticleMetadata\(sanitizePublicArticleContent\(storedArticle\)\)/);
+  assert.match(portalRoute, /const article = sanitizePublicArticleContent\(storedArticle\)/);
+  assert.match(legacyRoute, /const article = sanitizePublicArticleContent\(storedArticle\)/);
+  assert.match(portalRoute, /buildArticleMetadata\(article\)/);
+  assert.match(legacyRoute, /buildArticleMetadata\(article\)/);
 });
 
 test("CONTENT-QA placeholder detector avoids broad Slovak false positives", () => {
