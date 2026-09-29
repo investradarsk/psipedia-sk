@@ -77,10 +77,14 @@ test("global source manager remains available but is explicitly advanced", () =>
   assert.match(page, /AdminAutomationSourceManager/);
 });
 
-test("automation unavailable schema has safe fallback and old overview redirects", () => {
+test("automation unavailable reads use explicit reliability state and old overview redirects", () => {
   const overview = read("app/admin/automatizacie/page.tsx");
+  const reliability = read("lib/admin-automation-reliability.ts");
   const legacy = read("app/admin/operations/automation/page.tsx");
-  assert.match(overview, /\.catch\(\(\) => \[\]\)/);
+  assert.match(overview, /readAdminAutomationData/);
+  assert.match(overview, /AdminAutomationAvailabilityState/);
+  assert.doesNotMatch(overview, /\.catch\(\(\) => \[\]\)/);
+  assert.match(reliability, /"OK", "EMPTY", "PARTIAL", "UNAVAILABLE"/);
   assert.match(legacy, /redirect\("\/admin\/automatizacie"\)/);
 });
 
