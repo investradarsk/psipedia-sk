@@ -429,20 +429,31 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                   <input value={street} readOnly />
                 </div>
                 <div className="admin-field">
-                  <label htmlFor="directory-house-number">Číslo domu</label>
+                  <label htmlFor="directory-house-number">Číslo domu <small>nepovinné pri miestach bez prideleného čísla</small></label>
                   <input
                     id="directory-house-number"
                     value={houseNumber}
                     onChange={(event) => {
-                      setHouseNumber(event.target.value);
-                      setPostalCode("");
+                      const value = event.target.value;
+                      setHouseNumber(value);
+                      if (value.trim()) setPostalCode("");
                     }}
                     placeholder="Napríklad 1892/74 alebo 74"
-                    required={!online}
                   />
-                  <small>Po uložení server overí presnú kombináciu ulice a čísla domu cez Geoapify.</small>
+                  <small>Ak miesto nemá verejne dohľadateľné číslo domu, nechaj pole prázdne. Polohu potom musí potvrdiť Google Maps.</small>
                 </div>
-                {postalCode ? <div className="admin-field"><label>PSČ</label><input value={postalCode} readOnly /></div> : null}
+                <div className="admin-field">
+                  <label htmlFor="directory-postal-code">PSČ</label>
+                  <input
+                    id="directory-postal-code"
+                    value={postalCode}
+                    onChange={(event) => setPostalCode(event.target.value)}
+                    placeholder="Napríklad 031 01"
+                    inputMode="numeric"
+                    required={!online && !houseNumber.trim()}
+                  />
+                  <small>{houseNumber.trim() ? "Pri klasickej adrese PSČ po uložení overí Geoapify." : "Pri mieste bez čísla domu zadaj verejne používané PSČ."}</small>
+                </div>
               </div>
             ) : null}
             <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Ak má profil aj fyzickú prevádzku, vyplň adresu vyššie. Online-only profil môže zostať bez fyzickej adresy a nebude mapovým kandidátom.</small></span></label>
