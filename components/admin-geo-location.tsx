@@ -154,7 +154,10 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
   }
 
   useEffect(() => {
-    setPortalTarget(document.getElementById("directory-location"));
+    const frame = window.requestAnimationFrame(() => {
+      setPortalTarget(document.getElementById("directory-location"));
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
