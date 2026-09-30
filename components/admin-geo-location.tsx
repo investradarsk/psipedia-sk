@@ -289,7 +289,13 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
           </div>
 
           {!snapshot.schemaReady ? (
-            <p className="admin-message admin-message--error">Mapová poloha v tomto prostredí nie je dostupná.</p>
+            <>
+              <p className="admin-message admin-message--error">Mapová poloha v tomto prostredí nie je dostupná.</p>
+              <details>
+                <summary>Technické informácie</summary>
+                <p className="admin-help">Canonical profil funguje ďalej bez geo operácií.</p>
+              </details>
+            </>
           ) : !publicLocation ? (
             <div className="admin-editor-actions">
               <button type="button" disabled={busy} onClick={() => void savePrivate()}>
