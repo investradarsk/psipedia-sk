@@ -8,6 +8,7 @@ import {
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import type { ArticleBlock } from "@/lib/article-blocks";
+import { preserveArticlePromoBlocks } from "@/lib/article-promo";
 import { articleHref } from "@/lib/portal";
 import {
   isCompatibleLegacyArticleSubsection,
@@ -897,7 +898,11 @@ async function syncOneNotionPage(
       return "unchanged";
     }
 
-    const prepared = await prepareNotionMainImage(bindings, page, basePayload, existing);
+    const preservedPayload: ManagedArticleInput = {
+      ...basePayload,
+      blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
+    };
+    const prepared = await prepareNotionMainImage(bindings, page, preservedPayload, existing);
     let updated: Awaited<ReturnType<typeof updateManagedArticle>> | null = null;
     try {
       updated = await updateManagedArticle(existing.id, prepared.payload, SYNC_ACTOR, existing);
