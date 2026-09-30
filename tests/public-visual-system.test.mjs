@@ -108,11 +108,12 @@ test("article list contract keeps text minimal while allowing an optional thumbn
   const contract = source.slice(start, end);
   assert.match(contract, /title: ReactNode/);
   assert.match(contract, /topic: ReactNode/);
-  assert.match(contract, /date: ReactNode/);
+  assert.match(contract, /date\?: ReactNode/);
   assert.match(contract, /image\?: \{ src: string; alt: string \}/);
   assert.match(contract, /image \? \(/);
   assert.match(contract, /<img src=\{image\.src\} alt=\{image\.alt\}/);
-  assert.match(contract, /<time dateTime=\{dateTime\} data-article-date>\{date\}<\/time>/);
+  assert.match(contract, /date \? <span aria-hidden="true">·<\/span> : null/);
+  assert.match(contract, /date \? \(dateTime \? <time dateTime=\{dateTime\} data-article-date>\{date\}<\/time>/);
   assert.doesNotMatch(contract, /excerpt|readTime|actionLabel/);
   assert.match(styles, /\.articleListItemWithImage\s*\{[^}]*grid-template-columns:\s*132px minmax\(0, 1fr\)/s);
   assert.match(styles, /\.articleListMedia img\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
@@ -202,14 +203,18 @@ test("HEADER-NAV-2 separates the editorial masthead, forest navigation band and 
 });
 
 
-test("global public article surfaces use the shared minimal presentation", () => {
-  assert.match(articleCard, /if \(!large\) return <ArticleListItem/);
-  assert.match(articleCard, /ArticleListItem article=\{article\}/);
+test("global public article surfaces use shared featured, grid and compact presentation", () => {
+  assert.match(articleCard, /export type ArticleCardVariant = "featured" \| "grid" \| "compact"/);
+  assert.match(articleCard, /resolvedVariant === "compact"/);
+  assert.match(articleCard, /<ArticleListItem/);
+  assert.match(articleCard, /data-article-variant=\{resolvedVariant\}/);
+  assert.match(homeEditorial, /variant="featured"/);
+  assert.match(homeEditorial, /variant="compact"/);
   assert.match(newsHub, /<ArticleListItem/);
   assert.match(editorialSection, /<ArticleListItem/);
   assert.match(breedDetail, /<PublicContentList label="Súvisiace články k plemenu">/);
   assert.match(breedDetail, /<PublicArticleListItem/);
-  for (const [label, value] of [["article card", articleCard], ["news hub", newsHub], ["section lists", editorialSection]]) {
+  for (const [label, value] of [["article card", articleCard], ["homepage article layout", homeEditorial], ["news hub", newsHub], ["section lists", editorialSection]]) {
     assert.doesNotMatch(value, /readTime[^\n]*čítania/, `${label} renders reading time`);
   }
 });
