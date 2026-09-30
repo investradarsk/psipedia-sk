@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { allDirectoryCategories, isDirectoryCategory } from "@/lib/directory";
+import { readDirectoryProfileReviewMetadata } from "@/lib/directory-profile-metadata";
 import {
   queryDirectoryAdmin,
   type DirectoryAdminFilters,
@@ -18,6 +19,7 @@ type DirectoryAdminRow = {
   district: string;
   region: string;
   image_url: string | null;
+  source_data_json: string;
   verified: number;
   featured: number;
   updated_at: string;
@@ -49,6 +51,16 @@ function safeServices(value: string) {
 }
 
 function rowToSummary(row: DirectoryAdminRow): ManagedDirectoryProfileSummary {
+  let sourceData: Record<string, string | number | null> | null = null;
+  try {
+    const parsed = JSON.parse(row.source_data_json) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      sourceData = parsed as Record<string, string | number | null>;
+    }
+  } catch {
+    sourceData = null;
+  }
+  const reviewMetadata = readDirectoryProfileReviewMetadata(sourceData);
   return {
     id: row.id,
     slug: row.slug,
@@ -60,6 +72,8 @@ function rowToSummary(row: DirectoryAdminRow): ManagedDirectoryProfileSummary {
     district: row.district,
     region: row.region,
     imageUrl: row.image_url,
+    reviewed: reviewMetadata.reviewed,
+    reviewedAt: reviewMetadata.reviewedAt,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
