@@ -150,7 +150,7 @@ export function ReviewsHub({
       <section className={styles.trustStrip} aria-label="Pravidlá hodnotenia">
         <PageContainer className={styles.trustGrid}>
           <div><strong>Redakčný test</strong><span>Metodika, podmienky testu a záver sú viditeľne oddelené od reklamy.</span></div>
-          <div><strong>Recenzie používateľov</strong><span>Hviezdičky Psipedia vznikajú iba z publikovaných používateľských recenzií.</span></div>
+          <div><strong>Hodnotenia používateľov</strong><span>Skóre Psipedia vzniká iba z používateľských recenzií a e-shop hodnotení od overených e-mailov.</span></div>
           <div><strong>Externé hodnotenia</strong><span>Google ani iné externé skóre nikdy nemiešame do priemeru Psipedia.</span></div>
         </PageContainer>
       </section>
