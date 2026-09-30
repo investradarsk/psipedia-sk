@@ -25,10 +25,12 @@ export default async function AdminDataQualityPage({
 }) {
   const user = await requireAdminPageUser("/admin/kvalita");
   const params = await searchParams;
+  const mediaSection = firstParam(params.section) === "media";
+  const requestedCategory = firstParam(params.category);
   const data = await loadDataQualityDashboard({
     profilePage: positivePage(params.page),
     mediaPage: positivePage(params.mediaPage),
-    category: firstParam(params.category),
+    category: !mediaSection && requestedCategory === "podujatia" ? "all" : requestedCategory,
     issue: firstParam(params.issue),
     profileStatus: firstParam(params.status),
     priority: firstParam(params.priority),
