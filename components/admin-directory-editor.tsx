@@ -394,11 +394,11 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                 setCity(location.city);
                 if (changed) {
                   setAddressProviderResultId("");
-                  setNumberlessLocalityConfirmed(false);
                   setPostalCode("");
                   setStreet("");
                   setHouseNumber("");
                   setAddressFormat("");
+                  setNumberlessLocalityConfirmed(false);
                 }
               }}
             />
@@ -447,9 +447,8 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                     id="directory-house-number"
                     value={houseNumber}
                     onChange={(event) => {
-                      const value = event.target.value;
-                      setHouseNumber(value);
-                      if (value.trim()) {
+                      setHouseNumber(event.target.value);
+                      if (event.target.value.trim()) {
                         setPostalCode("");
                         setNumberlessLocalityConfirmed(false);
                       }
