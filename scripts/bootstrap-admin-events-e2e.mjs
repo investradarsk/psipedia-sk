@@ -10,12 +10,16 @@ const db = new DatabaseSync(resolve(directory, files[0]));
 // Materialize existing empty schema only in the isolated test DB. No migration
 // data repairs are executed; the shared layout also needs navigation/settings.
 const migrations = readdirSync('drizzle').filter(name => name.endsWith('.sql')).sort();
+const executableSql = statement => statement
+  .replace(/^\s*(?:(?:--[^\r\n]*)(?:\r?\n|$)\s*)+/, '')
+  .trim();
+
 for (const name of migrations) for (const statement of readFileSync('drizzle/' + name, 'utf8').split('--> statement-breakpoint')) {
-  const sql = statement.trim();
+  const sql = executableSql(statement);
   if (/^CREATE TABLE/i.test(sql)) db.exec(sql.replace(/^CREATE TABLE(?! IF NOT EXISTS)/i, 'CREATE TABLE IF NOT EXISTS'));
 }
 for (const name of migrations) for (const statement of readFileSync('drizzle/' + name, 'utf8').split('--> statement-breakpoint')) {
-  const sql = statement.trim();
+  const sql = executableSql(statement);
   if (/^ALTER TABLE.* ADD /i.test(sql)) {
     try { db.exec(sql); } catch (error) { if (!String(error).includes('duplicate column name')) throw error; }
   }
