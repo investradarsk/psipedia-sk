@@ -371,7 +371,7 @@ export async function prepareNotionMainImage(args: {
   sourceUrl: string;
   sourcePageUrl?: string;
   altText?: string;
-  folder: "articles" | "breeds" | "events" | "directory" | "help" | "adoptions";
+  folder: "articles" | "breeds" | "events" | "directory" | "help" | "adoptions" | "eshops";
   existingImageUrl?: string | null;
   existingImageKey?: string | null;
 }): Promise<PreparedNotionImage> {
