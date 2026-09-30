@@ -36,7 +36,7 @@ function formattedDate(value: string) {
 }
 
 const moduleOverview: Array<{ key: keyof AdminModuleCounts; label: string; href: string }> = [
-  { key: "articles", label: "Články", href: "/admin" },
+  { key: "articles", label: "Články", href: "/admin/clanky" },
   { key: "puppies", label: "Šteniatka", href: "/admin/steniatka" },
   { key: "breeds", label: "Plemená", href: "/admin/plemena" },
   { key: "sections", label: "Sekcie", href: "/admin/sekcie" },
@@ -66,6 +66,7 @@ export function AdminDashboard({
   pagination,
   filters,
   fixedPortalSection,
+  listPath = "/admin",
 }: {
   initialArticles: ManagedArticleSummary[];
   initialCounts: ManagedArticleSummaryPage["counts"];
@@ -74,6 +75,7 @@ export function AdminDashboard({
   pagination: ManagedArticleSummaryPage["pagination"];
   filters: ArticleAdminListFilters;
   fixedPortalSection?: ManagedArticleSummary["portalSection"];
+  listPath?: string;
 }) {
   const [articles, setArticles] = useState(initialArticles);
   const [counts, setCounts] = useState(initialCounts);
@@ -95,7 +97,7 @@ export function AdminDashboard({
     resultCount,
     supportsAllMatching: false,
   });
-  const routePath = fixedPortalSection ? "/admin/steniatka" : "/admin";
+  const routePath = fixedPortalSection ? "/admin/steniatka" : listPath;
   const paginationBase = articleAdminListHref(routePath, { ...filters, page: 1 });
 
   async function removeArticle(article: ManagedArticleSummary) {

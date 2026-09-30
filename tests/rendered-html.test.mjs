@@ -540,8 +540,14 @@ test("uses light admin lists and loads full records only for detail and save", a
     const dashboard = await worker.fetch(adminRequest("/admin"), bindings, context);
     assert.equal(dashboard.status, 200);
     const dashboardHtml = await dashboard.text();
-    assert.match(dashboardHtml, /Testovací článok/);
-    assert.match(dashboardHtml, /Súhrnný prehľad/);
+    assert.match(dashboardHtml, /Pracovný prehľad/);
+    assert.match(dashboardHtml, /Čo potrebuje pozornosť/);
+
+    const articles = await worker.fetch(adminRequest("/admin/clanky"), bindings, context);
+    assert.equal(articles.status, 200);
+    const articlesHtml = await articles.text();
+    assert.match(articlesHtml, /Testovací článok/);
+    assert.match(articlesHtml, /Články a novinky/);
 
     const directory = await worker.fetch(adminRequest("/admin/adresar"), bindings, context);
     assert.equal(directory.status, 200);

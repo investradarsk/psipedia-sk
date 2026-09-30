@@ -1,0 +1,123 @@
+name: ADMIN-IA-2 admin navigation and workspace
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/page.tsx"
+      - "app/admin/clanky/**"
+      - "components/admin-shell.tsx"
+      - "components/admin-shell.module.css"
+      - "components/admin-navigation.tsx"
+      - "components/admin-navigation.module.css"
+      - "components/admin-workspace-dashboard.tsx"
+      - "components/admin-workspace-dashboard.module.css"
+      - "components/admin-dashboard.tsx"
+      - "components/admin-article-editor.tsx"
+      - "lib/admin-navigation.ts"
+      - "lib/admin-dashboard-store.ts"
+      - "tests/admin-ia.test.mjs"
+      - "tests/e2e/admin-ia-2.spec.ts"
+      - "tests/e2e/admin-operations.spec.ts"
+      - ".github/workflows/admin-ia-2.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: admin-ia-2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  admin-ia-2:
+    name: ADMIN-IA-2 — contracts, build, lint and Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      - name: ADMIN-IA-2 contract tests
+        run: node --experimental-strip-types --test tests/admin-ia.test.mjs
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build PR code
+        run: npm run build
+
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Apply schema to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/admin-ia-2
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-ia-2/server.log 2>&1 &
+          echo $! > .e2e-artifacts/admin-ia-2/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/admin-ia-2/server.log
+            exit 1
+          fi
+
+      - name: ADMIN-IA-2 Playwright — desktop and 390px mobile
+        run: npx playwright test tests/e2e/admin-ia-2.spec.ts --workers=1 --retries=0
+
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/admin-ia-2/server.pid ]; then
+            kill "$(cat .e2e-artifacts/admin-ia-2/server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload desktop/mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-ia-2-screenshots-${{ github.run_attempt }}
+          path: .e2e-artifacts/admin-ia-2/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-ia-2-failure-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14

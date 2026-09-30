@@ -2,23 +2,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
+import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
 import { PawMark } from "./icons";
 import styles from "./admin-shell.module.css";
-
-const ADMIN_NAV_GROUP_LABEL_STYLE = { color: "#60756c" } as const;
-
-function AdminNavigation() {
-  return (
-    <nav className={`${styles.stickyNav} admin-section-nav flex-wrap max-[760px]:flex-nowrap`} aria-label="Redakčné moduly">
-      <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Obsah</span><div><Link href="/admin">Články</Link><Link href="/admin/steniatka">Šteniatka</Link><Link href="/admin/plemena">Plemená</Link><Link href="/admin/sekcie">Sekcie</Link></div></div>
-      <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Práca</span><div><Link href="/admin/automatizacie">Automatizácie</Link><Link href="/admin/operations">Upozornenia</Link><Link href="/admin/kvalita">Kvalita údajov</Link><Link href="/admin/mapy">Mapy</Link><Link href="/admin/nastroje">Nástroje</Link><Link href="/admin/partners">Partneri</Link></div></div>
-      <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Komunita</span><div><Link href="/admin/recenzie-profilov">Profilové recenzie</Link><Link href="/admin/tipy">Tipy</Link><Link href="/admin/hodnotenia">Hodnotenia</Link><Link href="/admin/dopyty">Dopyty</Link><Link href="/admin/adresar/navrhy">Návrhy úprav</Link></div></div>
-      <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Portál</span><div><Link href="/admin/podujatia">Podujatia</Link><Link href="/admin/meniny">Psie meniny</Link><Link href="/admin/adresar">Adresár</Link><Link href="/admin/pomoc">Pomoc</Link><Link href="/admin/organizacie">Organizácie</Link><Link href="/admin/adopcie">Adopcie</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link></div></div>
-      <div className="admin-nav-group"><span style={ADMIN_NAV_GROUP_LABEL_STYLE}>Nastavenia</span><div><Link href="/admin/nastavenia">Aplikácia</Link><Link href="/admin/navigacia">Navigácia</Link><Link href="/admin/monetizacia">Monetizácia</Link><Link href="/admin/pravne">Právne</Link></div></div>
-      <div className="admin-nav-public"><Link href="/adresar" target="_blank" rel="noreferrer">Adresár ↗</Link><Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc ↗</Link></div>
-    </nav>
-  );
-}
 
 function BellIcon() {
   return (
@@ -84,16 +70,36 @@ export function AdminShell({
     <main id="obsah" className="admin-root">
       <div className="admin-shell shell">
         <header className="admin-topbar">
-          <Link href="/admin" className="admin-brand" aria-label="Psipedia redakcia – prehľad"><span><PawMark size={23} /></span><strong>Psipedia</strong><small>redakcia</small></Link>
+          <Link href="/admin" className="admin-brand" aria-label="Psipedia redakcia – pracovný prehľad">
+            <span><PawMark size={23} /></span><strong>Psipedia</strong><small>redakcia</small>
+          </Link>
           <div className={styles.topbarActions}>
             <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
-            <div className="admin-account"><span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span><a href={chatGPTSignOutPath("/", user.authProvider)}>Odhlásiť</a></div>
+            <div className="admin-account">
+              <span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span>
+              <a href={chatGPTSignOutPath("/", user.authProvider)}>Odhlásiť</a>
+            </div>
           </div>
         </header>
-        <AdminNavigation />
-        <div className="admin-heading"><div><span className="admin-eyebrow">{eyebrow}</span><h1>{title}</h1>{description && <p>{description}</p>}</div>{actions && <div className="admin-heading-actions">{actions}</div>}</div>
-        {children}
-        <footer className="admin-footer"><span>Zmeny sa na verejnom webe ukážu až po publikovaní obsahu.</span><a href="/" target="_blank" rel="noreferrer">Otvoriť Psipedia.sk ↗</a></footer>
+
+        <AdminNavigation stickyClassName={styles.stickyNav} />
+        <AdminBreadcrumbs />
+
+        <div className={`admin-heading ${styles.headingAnchor}`}>
+          <div>
+            <span className="admin-eyebrow">{eyebrow}</span>
+            <h1>{title}</h1>
+            {description && <p>{description}</p>}
+          </div>
+          {actions && <div className="admin-heading-actions">{actions}</div>}
+        </div>
+
+        <div className={styles.contentArea}>{children}</div>
+
+        <footer className="admin-footer">
+          <span>Zmeny sa na verejnom webe ukážu až po publikovaní obsahu.</span>
+          <a href="/" target="_blank" rel="noreferrer">Otvoriť Psipedia.sk ↗</a>
+        </footer>
       </div>
     </main>
   );
