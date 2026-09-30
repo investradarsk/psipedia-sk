@@ -10,7 +10,7 @@ const eventSync = await readFile(new URL("../lib/notion-event-sync.ts", import.m
 const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
 const adminPage = await readFile(new URL("../app/admin/kvalita/page.tsx", import.meta.url), "utf8");
 const adminComponent = await readFile(new URL("../components/admin-data-quality-dashboard.tsx", import.meta.url), "utf8");
-const adminShell = await readFile(new URL("../components/admin-shell.tsx", import.meta.url), "utf8");
+const adminNavigation = await readFile(new URL("../lib/admin-navigation.ts", import.meta.url), "utf8");
 
 test("media source monitor has a stable one-row-per-entity schema", () => {
   assert.match(migration, /CREATE TABLE IF NOT EXISTS media_source_monitors/);
@@ -65,7 +65,7 @@ test("source changes create a review candidate instead of silently replacing pub
 });
 
 test("admin has one quality workspace with manual check and candidate approval", () => {
-  assert.match(adminShell, /href="\/admin\/kvalita"/);
+  assert.match(adminNavigation, /href: "\/admin\/kvalita"/);
   assert.match(adminPage, /Kvalita údajov/);
   assert.match(adminComponent, /Skontrolovať teraz/);
   assert.match(adminComponent, /Použiť nový obrázok/);

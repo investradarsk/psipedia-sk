@@ -5,9 +5,26 @@ import { loadDataQualityDashboard } from "@/lib/data-quality-store";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDataQualityPage() {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function positivePage(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw || !/^\d+$/.test(raw)) return 1;
+  const parsed = Number(raw);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+export default async function AdminDataQualityPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const user = await requireAdminPageUser("/admin/kvalita");
-  const data = await loadDataQualityDashboard();
+  const params = await searchParams;
+  const data = await loadDataQualityDashboard({
+    profilePage: positivePage(params.page),
+    mediaPage: positivePage(params.mediaPage),
+  });
 
   return (
     <AdminShell

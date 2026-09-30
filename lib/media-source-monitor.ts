@@ -553,14 +553,17 @@ export async function runMediaSourceMonitorSweep(input: {
   return summary;
 }
 
-export async function listMediaSourceIssues(database: D1Database, limit = 100) {
+export async function listMediaSourceIssues(database: D1Database, limit = 100, offset = 0) {
   if (!await mediaSourceMonitorSchemaReady(database)) return [];
   const result = await database.prepare(`
     SELECT * FROM media_source_monitors
     WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')
     ORDER BY COALESCE(issue_started_at, updated_at) DESC, id DESC
-    LIMIT ?
-  `).bind(Math.max(1, Math.min(250, limit))).all<MonitorRow>();
+    LIMIT ? OFFSET ?
+  `).bind(
+    Math.max(1, Math.min(250, limit)),
+    Math.max(0, Math.floor(offset)),
+  ).all<MonitorRow>();
   return (result.results ?? []).map(rowToMonitor);
 }
 
