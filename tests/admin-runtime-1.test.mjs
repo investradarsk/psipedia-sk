@@ -302,6 +302,16 @@ test("data quality surfaces reviewable contact suggestions from existing automat
     proposedValueHash: result.profiles[0].suggestions[0].proposedValueHash,
   });
   assert.match(result.profiles[0].suggestions[0].proposedValueHash, /^[a-f0-9]{64}$/);
+
+  const phoneActionable = await quality.loadDataQualityDashboard({ issue: "phone", solution: "actionable" });
+  assert.equal(phoneActionable.profilePagination.totalItems, 1);
+  assert.equal(phoneActionable.profiles.length, 1);
+  assert.equal(phoneActionable.profiles[0].id, 1);
+  assert.equal(phoneActionable.profiles[0].suggestions[0].issueKey, "phone");
+
+  const emailActionable = await quality.loadDataQualityDashboard({ issue: "email", solution: "actionable" });
+  assert.equal(emailActionable.profilePagination.totalItems, 0);
+  assert.equal(emailActionable.profiles.length, 0);
   fixture.close();
 });
 
