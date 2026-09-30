@@ -23,7 +23,13 @@ import {
 } from "@/lib/directory-service-address";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { directorySeoFallback } from "@/lib/content-seo";
-import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import {
+  directoryQualityFields,
+  readDirectoryPublicContacts,
+  type DirectoryQualityField,
+  type DirectoryQualityResolutionInput,
+  type DirectoryQualityResolutionStatus,
+} from "@/lib/directory-profile-metadata";
 import styles from "./admin-directory-editor.module.css";
 
 const editorSections = [
@@ -40,6 +46,67 @@ function slugify(value: string) {
 
 function listFromText(value: string) {
   return value.split(/\n+/).map((item) => item.trim()).filter(Boolean);
+}
+
+function qualityResolutionInput(profile?: ManagedDirectoryProfile): DirectoryQualityResolutionInput {
+  return Object.fromEntries(
+    directoryQualityFields.map((field) => [field, profile?.qualityMetadata[field]?.status ?? ""]),
+  ) as DirectoryQualityResolutionInput;
+}
+
+function qualityCheckedAtInput(profile?: ManagedDirectoryProfile) {
+  return Object.fromEntries(
+    directoryQualityFields
+      .map((field) => [field, profile?.qualityMetadata[field]?.checkedAt ?? ""] as const)
+      .filter(([, value]) => Boolean(value)),
+  ) as Partial<Record<DirectoryQualityField, string>>;
+}
+
+const qualityResolutionOptions: Array<{ value: DirectoryQualityResolutionStatus; label: string }> = [
+  { value: "DOES_NOT_EXIST", label: "Profil tento údaj nemá" },
+  { value: "NOT_PUBLIC", label: "Verejne nezverejnené" },
+  { value: "NOT_FOUND", label: "Nedohľadateľné" },
+  { value: "NOT_APPLICABLE", label: "Nevzťahuje sa na tento profil" },
+];
+
+function QualityResolutionField({
+  field,
+  value,
+  checkedAt,
+  onChange,
+}: {
+  field: DirectoryQualityField;
+  value: DirectoryQualityResolutionStatus | "";
+  checkedAt?: string;
+  onChange: (value: DirectoryQualityResolutionStatus | "") => void;
+}) {
+  const checkedDate = checkedAt ? new Date(checkedAt) : null;
+  const checkedLabel = checkedDate && !Number.isNaN(checkedDate.getTime())
+    ? new Intl.DateTimeFormat("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).format(checkedDate)
+    : "";
+
+  return (
+    <div className="admin-field">
+      <label htmlFor={`directory-quality-${field}`}>Stav chýbajúceho údaja</label>
+      <select
+        id={`directory-quality-${field}`}
+        value={value}
+        onChange={(event) => onChange(event.target.value as DirectoryQualityResolutionStatus | "")}
+      >
+        <option value="">Treba doplniť / ešte neskontrolované</option>
+        {qualityResolutionOptions.map((option) => (
+          <option value={option.value} key={option.value}>{option.label}</option>
+        ))}
+      </select>
+      <small>
+        {value
+          ? checkedLabel
+            ? `Skontrolované ${checkedLabel}. Po 12 mesiacoch sa údaj automaticky znovu zaradí na kontrolu.`
+            : "Po uložení sa zaznamená dátum kontroly. Po 12 mesiacoch sa údaj automaticky znovu zaradí na kontrolu."
+          : "Ak sa údaj dá dohľadať, nechaj tento stav prázdny a doplň ho."}
+      </small>
+    </div>
+  );
 }
 
 export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { profile?: ManagedDirectoryProfile; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
@@ -70,6 +137,8 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
   const [internalEmail, setInternalEmail] = useState(profile?.internalEmail ?? "");
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? "");
+  const [qualityResolutions, setQualityResolutions] = useState<DirectoryQualityResolutionInput>(() => qualityResolutionInput(profile));
+  const [qualityCheckedAt, setQualityCheckedAt] = useState<Partial<Record<DirectoryQualityField, string>>>(() => qualityCheckedAtInput(profile));
   const [verified, setVerified] = useState(profile?.verified ?? false);
   const [featured, setFeatured] = useState(profile?.featured ?? false);
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
@@ -90,6 +159,15 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
     if (!slugEdited) setSlug(slugify(value));
   }
 
+  function setQualityResolution(field: DirectoryQualityField, value: DirectoryQualityResolutionStatus | "") {
+    setQualityResolutions((current) => ({ ...current, [field]: value }));
+    setQualityCheckedAt((current) => ({ ...current, [field]: "" }));
+  }
+
+  function clearQualityResolution(field: DirectoryQualityField) {
+    setQualityResolution(field, "");
+  }
+
   async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -98,6 +176,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
       const data = await uploadAdminImage(file, "directory");
       setImageUrl(data.imageUrl);
       setImageKey(data.imageKey);
+      clearQualityResolution("image");
       setMessage(adminImageUploadMessage(data, "Ulož profil."));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
@@ -117,9 +196,9 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
       else if (field === "qualifications" && Array.isArray(value)) setQualifications(value.map(String).join("\n"));
       else if (field === "online") setOnline(Boolean(value));
       else if (field === "priceNote") setPriceNote(text);
-      else if (field === "websiteUrl") setWebsiteUrl(text);
-      else if (field === "publicPhone") setPublicPhone(text);
-      else if (field === "publicEmail") setPublicEmail(text);
+      else if (field === "websiteUrl") { setWebsiteUrl(text); if (text.trim()) clearQualityResolution("website"); }
+      else if (field === "publicPhone") { setPublicPhone(text); if (text.trim()) clearQualityResolution("phone"); }
+      else if (field === "publicEmail") { setPublicEmail(text); if (text.trim()) clearQualityResolution("email"); }
       else if (field === "facebookUrl") setFacebookUrl(text);
       else if (field === "instagramUrl") setInstagramUrl(text);
     }
@@ -142,12 +221,15 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
           publicPhone, publicEmail, facebookUrl, instagramUrl,
           internalEmail: internalEmail || null,
           imageUrl: imageUrl || null, imageKey: imageKey || null,
+          qualityResolutions,
           verified, featured, seo,
         }),
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
       setStatus(data.profile.status);
+      setQualityResolutions(qualityResolutionInput(data.profile));
+      setQualityCheckedAt(qualityCheckedAtInput(data.profile));
       setMessage(nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
       if (!profile) window.location.assign(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
@@ -308,6 +390,14 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
               </div>
             ) : null}
             <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Ak má profil aj fyzickú prevádzku, vyplň adresu vyššie. Online-only profil môže zostať bez fyzickej adresy a nebude mapovým kandidátom.</small></span></label>
+            {!online && addressEvaluation.state !== "COMPLETE" ? (
+              <QualityResolutionField
+                field="address"
+                value={qualityResolutions.address ?? ""}
+                checkedAt={qualityCheckedAt.address}
+                onChange={(value) => setQualityResolution("address", value)}
+              />
+            ) : null}
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-content" className="admin-form-card">
@@ -324,19 +414,28 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
           <AdminEditorSection id="directory-contacts" className="admin-form-card">
             <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Verejné kontakty sú oddelené od interného e-mailu Psipedie.</p></div></div></div>
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="tel" value={publicPhone} onChange={(event) => setPublicPhone(event.target.value)} placeholder="+421 900 000 000" /></div>
-              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="email" value={publicEmail} onChange={(event) => setPublicEmail(event.target.value)} placeholder="kontakt@profil.sk" /></div>
-              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} placeholder="https://…" /></div>
+              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="tel" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="email" value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="url" value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); if (value.trim()) clearQualityResolution("website"); }} placeholder="https://…" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
               <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type="url" value={facebookUrl} onChange={(event) => setFacebookUrl(event.target.value)} placeholder="https://facebook.com/…" /></div>
               <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="url" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
               <div className="admin-field"><label htmlFor="directory-email">Interný e-mail <small>neverejný</small></label><input id="directory-email" type="email" value={internalEmail} onChange={(event) => setInternalEmail(event.target.value)} placeholder="kontakt@profil.sk" /></div>
             </div>
+            <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
             <AdminHelpText term="Súkromie">Interný e-mail slúži administrácii a nezmiešava sa s verejným kontaktným contractom.</AdminHelpText>
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <img src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            {!imageUrl ? (
+              <QualityResolutionField
+                field="image"
+                value={qualityResolutions.image ?? ""}
+                checkedAt={qualityCheckedAt.image}
+                onChange={(value) => setQualityResolution("image", value)}
+              />
+            ) : null}
             <div className="admin-directory-flags">
               <label className="admin-event-cancelled"><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} /><span><strong>Overený profil</strong><small>Trust stav: redakcia preverila základné údaje. Nie je to publication state.</small></span></label>
               <label className="admin-event-cancelled"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /><span><strong>Odporúčaný profil</strong><small>Existujúci featured flag pre poradie. Neznamená platené ani sponzorované umiestnenie.</small></span></label>
