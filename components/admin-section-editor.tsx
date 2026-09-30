@@ -57,7 +57,7 @@ export function AdminSectionEditor({
       ? initialOpenSlug ?? null
       : initialSections[0]?.slug ?? null,
   );
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialOpenSlug ?? "");
   const [settingsTarget, setSettingsTarget] = useState<SettingsTarget>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
