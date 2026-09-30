@@ -1,5 +1,5 @@
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { reviewAuthors } from "./review-schema";
 
 export const managedEshops = sqliteTable("managed_eshops", {
@@ -17,7 +17,7 @@ export const managedEshops = sqliteTable("managed_eshops", {
   updatedBy: text("updated_by").notNull(),
 }, table => [
   uniqueIndex("managed_eshops_slug_unique").on(table.slug),
-  check("managed_eshops_status_check", sql\`\${table.status} IN ('draft','published','archived')\`),
+  check("managed_eshops_status_check", sql`${table.status} IN (\'draft\',\'published\',\'archived\')`),
   index("managed_eshops_public_idx").on(table.status, table.name),
 ]);
 
@@ -33,11 +33,11 @@ export const eshopRatings = sqliteTable("eshop_ratings", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 }, table => [
-  check("eshop_ratings_delivery_check", sql\`\${table.deliveryRating} BETWEEN 1 AND 5\`),
-  check("eshop_ratings_communication_check", sql\`\${table.communicationRating} BETWEEN 1 AND 5\`),
-  check("eshop_ratings_assortment_check", sql\`\${table.assortmentRating} BETWEEN 1 AND 5\`),
-  check("eshop_ratings_price_check", sql\`\${table.priceRating} BETWEEN 1 AND 5\`),
-  check("eshop_ratings_overall_check", sql\`\${table.overallRating} BETWEEN 1 AND 5\`),
+  check("eshop_ratings_delivery_check", sql`${table.deliveryRating} BETWEEN 1 AND 5`),
+  check("eshop_ratings_communication_check", sql`${table.communicationRating} BETWEEN 1 AND 5`),
+  check("eshop_ratings_assortment_check", sql`${table.assortmentRating} BETWEEN 1 AND 5`),
+  check("eshop_ratings_price_check", sql`${table.priceRating} BETWEEN 1 AND 5`),
+  check("eshop_ratings_overall_check", sql`${table.overallRating} BETWEEN 1 AND 5`),
   uniqueIndex("eshop_ratings_eshop_author_unique").on(table.eshopId, table.authorId),
   index("eshop_ratings_eshop_updated_idx").on(table.eshopId, table.updatedAt),
   index("eshop_ratings_author_updated_idx").on(table.authorId, table.updatedAt),
