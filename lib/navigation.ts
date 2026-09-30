@@ -16,5 +16,5 @@ export const defaultNavigationItems: NavigationItem[] = [
   { id: "pomoc-psom", label: "Pomoc psom", href: "/pomoc-psom", parentId: null, position: 5, visible: true },
   { id: "podujatia", label: "Podujatia", href: "/podujatia", parentId: null, position: 6, visible: true },
   { id: "recenzie", label: "Recenzie a testy", href: "/recenzie", parentId: null, position: 7, visible: true },
-  { id: "novinky", label: "Novinky", href: "/novinky", parentId: null, position: 8, visible: true },
+  { id: "novinky", label: "Novinky zo sveta psov", href: "/clanky", parentId: null, position: 8, visible: true },
 ];
