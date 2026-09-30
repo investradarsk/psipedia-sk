@@ -67,6 +67,7 @@ export type ManagedDirectoryProfileInput = {
   imageUrl?: string | null;
   imageKey?: string | null;
   qualityResolutions?: DirectoryQualityResolutionInput;
+  qualityCheckedAt?: string;
   verified?: boolean;
   featured?: boolean;
   seo?: EditableSeo;
@@ -605,6 +606,15 @@ function normalizePublicPhone(value: string | null | undefined) {
   return clean;
 }
 
+function normalizeQualityCheckedAt(value: string | undefined) {
+  if (value === undefined) return null;
+  const clean = value.trim();
+  if (!clean) return null;
+  const timestamp = Date.parse(clean);
+  if (!Number.isFinite(timestamp)) throw new Error("Dátum kontroly kvality nie je platný.");
+  return new Date(Math.min(timestamp, Date.now())).toISOString();
+}
+
 function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData> | undefined, category: DirectoryCategorySlug) {
   const name = cleanText(value?.name, 180);
   const region = normalizeDirectoryRegion(cleanText(value?.region, 80));
@@ -721,6 +731,7 @@ export function normalizeManagedDirectoryProfileInput(
     instagramUrl,
   });
   const publicContacts = readDirectoryPublicContacts(contactSourceData, websiteUrl ?? "");
+  const qualityCheckedAt = normalizeQualityCheckedAt(payload.qualityCheckedAt);
   const sourceData = mergeDirectoryQualityMetadata(
     contactSourceData,
     payload.qualityResolutions,
@@ -731,6 +742,8 @@ export function normalizeManagedDirectoryProfileInput(
       image: Boolean(imageUrl),
       address: online || serviceAddress.state === "COMPLETE",
     },
+    qualityCheckedAt ?? undefined,
+    { refreshCheckedAt: Boolean(qualityCheckedAt) },
   );
   return {
     slug,

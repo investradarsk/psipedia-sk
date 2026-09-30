@@ -38,6 +38,12 @@ test("directory Notion mirror covers the complete managed profile contract", () 
     "Instagram",
     "Interný e-mail",
     "Hlavný obrázok URL",
+    "Kvalita · Telefón",
+    "Kvalita · E-mail",
+    "Kvalita · Web",
+    "Kvalita · Obrázok",
+    "Kvalita · Adresa",
+    "Kvalita skontrolované",
     "Overené",
     "Odporúčané",
     "SEO title",
@@ -51,6 +57,18 @@ test("directory Notion mirror covers the complete managed profile contract", () 
   ]) {
     assert.ok(syncSource.includes(`"${field}"`), `missing Notion directory field ${field}`);
   }
+});
+
+test("Notion quality resolution fields map to Psipedia quality metadata and carry an explicit review date", () => {
+  assert.match(syncSource, /notionQualityStatusMap/);
+  assert.match(syncSource, /"Nemá": "DOES_NOT_EXIST"/);
+  assert.match(syncSource, /"Verejne nezverejnené": "NOT_PUBLIC"/);
+  assert.match(syncSource, /"Nedohľadateľné": "NOT_FOUND"/);
+  assert.match(syncSource, /"Nevzťahuje sa": "NOT_APPLICABLE"/);
+  assert.match(syncSource, /qualityResolutions: notionQualityResolutions\(page\)/);
+  assert.match(syncSource, /qualityCheckedAt: propertyDateStart\(page, "Kvalita skontrolované"\)/);
+  assert.match(syncSource, /qualityResolutions: desired\.qualityResolutions/);
+  assert.match(syncSource, /qualityCheckedAt: desired\.qualityCheckedAt/);
 });
 
 test("technical GEO and sync state are mirrored from Psipedia without becoming editable profile input", () => {

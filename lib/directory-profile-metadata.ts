@@ -66,11 +66,20 @@ export function isDirectoryQualityResolutionCurrent(
   return checkedAt >= cutoff;
 }
 
+export function directoryQualityCheckedAtSummary(metadata: DirectoryQualityMetadata | null | undefined) {
+  const values = directoryQualityFields
+    .map((field) => metadata?.[field]?.checkedAt ?? "")
+    .filter((value) => Number.isFinite(Date.parse(value)));
+  if (!values.length) return "";
+  return values.sort((a, b) => Date.parse(a) - Date.parse(b))[0];
+}
+
 export function mergeDirectoryQualityMetadata(
   current: DirectoryImportData | null | undefined,
   input: DirectoryQualityResolutionInput | undefined,
   present: Partial<Record<DirectoryQualityField, boolean>>,
   nowIso = new Date().toISOString(),
+  options: { refreshCheckedAt?: boolean } = {},
 ) {
   const next: DirectoryImportData = { ...(current ?? {}) };
   const existing = readDirectoryQualityMetadata(next);
@@ -94,9 +103,11 @@ export function mergeDirectoryQualityMetadata(
     }
 
     next[statusKey] = requested;
-    next[checkedAtKey] = existing[field]?.status === requested && existing[field]?.checkedAt
-      ? existing[field]!.checkedAt
-      : nowIso;
+    next[checkedAtKey] = options.refreshCheckedAt
+      ? nowIso
+      : existing[field]?.status === requested && existing[field]?.checkedAt
+        ? existing[field]!.checkedAt
+        : nowIso;
   }
 
   return next;
