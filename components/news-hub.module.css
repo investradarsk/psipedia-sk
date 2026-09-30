@@ -54,6 +54,8 @@
   border-color: var(--forest);
   color: #fff;
   background: var(--forest);
+  text-decoration: underline;
+  text-underline-offset: .22em;
 }
 
 .filters a:focus-visible {
