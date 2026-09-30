@@ -1701,3 +1701,90 @@
     height: 42px;
   }
 }
+
+
+/* CATEGORY-VISUAL-1: shared landing rhythm and non-carousel category discovery. */
+.rootHeader {
+  margin-top: 4px;
+}
+
+.hero {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.hero::before {
+  display: none;
+}
+
+.mainSearch {
+  grid-column: auto;
+  margin-top: 18px;
+}
+
+.categoryNav:not(.categoryNavCompact) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 11px;
+  margin-inline: 0;
+  padding: 2px 0 4px;
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+.categoryNav:not(.categoryNavCompact) a {
+  width: 100%;
+  max-width: none;
+  min-height: 86px;
+  flex: none;
+}
+
+.categoryNavCompact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 8px;
+  margin-inline: 0;
+  padding: 2px 0 5px;
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+.categoryNavCompact a {
+  width: 100%;
+  max-width: none;
+  min-height: 50px;
+  flex: none;
+}
+
+@media (max-width: 700px) {
+  .hero {
+    margin-top: 4px;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .categoryNav:not(.categoryNavCompact) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-right: 0;
+  }
+
+  .categoryNav:not(.categoryNavCompact) a {
+    min-height: 78px;
+  }
+
+  .categoryNavCompact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 440px) {
+  .categoryNav:not(.categoryNavCompact),
+  .categoryNavCompact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
