@@ -17,6 +17,7 @@ const lostFound = read("components/lost-found-dogs-page.tsx");
 const detail = read("components/help-details/help-detail-shell.tsx");
 const organization = read("components/organization-profile-detail.tsx");
 const adminDashboard = read("components/admin-help-dashboard.tsx");
+const adminHelpHub = read("app/admin/pomoc-psom/page.tsx");
 const adminEditor = read("components/admin-help-editor.tsx");
 const adminQuery = read("lib/help-admin-query.ts");
 const adminStore = read("lib/help-store.ts");
@@ -102,9 +103,10 @@ test("empty states and 390px mobile contract are explicit", () => {
 test("Help Admin owns only generic Help and routes dedicated domains to their canonical admins", () => {
   assert.match(adminQuery, /HELP_ADMIN_DEDICATED_CATEGORIES = \["adopcia", "utulky", "stratene-a-najdene"\]/);
   assert.match(adminQuery, /HELP_ADMIN_CREATE_CATEGORIES = \["docasna-opatera", "zbierky", "dobrovolnictvo"\]/);
-  assert.match(adminDashboard, /href="\/admin\/adopcie"/);
-  assert.match(adminDashboard, /href="\/admin\/stratene-najdene"/);
-  assert.match(adminDashboard, /href="\/admin\/organizacie"/);
+  assert.match(adminHelpHub, /adopcia: "\/admin\/adopcie"/);
+  assert.match(adminHelpHub, /"stratene-a-najdene": "\/admin\/stratene-najdene"/);
+  assert.match(adminHelpHub, /utulky: "\/admin\/pomoc\?category=utulky"/);
+  assert.match(adminDashboard, /href="\/admin\/pomoc-psom"/);
   assert.match(adminEditor, /HELP_ADMIN_CREATE_CATEGORIES/);
   assert.doesNotMatch(adminEditor, /helpCategories\.filter/);
   assert.match(adminStore, /Adopcie sa spravujú v canonical sekcii Adopcie/);
