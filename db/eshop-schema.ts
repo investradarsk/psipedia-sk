@@ -17,7 +17,7 @@ export const managedEshops = sqliteTable("managed_eshops", {
   updatedBy: text("updated_by").notNull(),
 }, table => [
   uniqueIndex("managed_eshops_slug_unique").on(table.slug),
-  check("managed_eshops_status_check", sql`${table.status} IN (\'draft\',\'published\',\'archived\')`),
+  check("managed_eshops_status_check", sql`${table.status} IN ('draft','published','archived')`),
   index("managed_eshops_public_idx").on(table.status, table.name),
 ]);
 
