@@ -1,32 +1,8 @@
 import Link from "next/link";
 import type { Article } from "@/lib/content";
-import { articleHref, articlePortalSection, portalSectionLabel } from "@/lib/portal";
-import { ArrowIcon, PawMark } from "@/components/icons";
-
-function ArticleVisual({ article }: { article: Article }) {
-  return article.image ? (
-    <img
-      src={article.image}
-      alt={article.imageAlt || `Ilustračná fotografia k článku: ${article.title}`}
-      loading="lazy"
-      decoding="async"
-    />
-  ) : (
-    <span className="home-article-placeholder" aria-hidden="true">
-      <PawMark size={36} />
-    </span>
-  );
-}
-
-function ArticleMeta({ article }: { article: Article }) {
-  const section = articlePortalSection(article);
-  return (
-    <span className="home-article-meta article-card-meta">
-      <span>{portalSectionLabel(section)}</span>
-      <time dateTime={article.dateIso}>{article.date}</time>
-    </span>
-  );
-}
+import { articlePortalSection } from "@/lib/portal";
+import { ArticleCard } from "@/components/article-card";
+import { ArrowIcon } from "@/components/icons";
 
 function HomeArticleFeatureLayout({
   articles,
@@ -40,24 +16,18 @@ function HomeArticleFeatureLayout({
 
   return (
     <div className="home-latest-layout home-article-feature-layout" data-home-article-layout={testId}>
-      <article
-        className="home-latest-lead article-card--large"
+      <div
+        className="home-latest-lead"
         data-home-article-lead
         data-home-article-slug={lead.slug}
         data-home-article-date={lead.dateIso}
         data-home-article-section={articlePortalSection(lead)}
       >
-        <Link href={articleHref(lead)} className="home-latest-lead-link">
-          <span className="home-latest-lead-media"><ArticleVisual article={lead} /></span>
-          <span className="home-latest-lead-copy">
-            <ArticleMeta article={lead} />
-            <h3>{lead.title}</h3>
-          </span>
-        </Link>
-      </article>
+        <ArticleCard article={lead} variant="featured" headingLevel={3} />
+      </div>
 
       <div
-        className="home-latest-list featured-stack"
+        className="home-latest-list"
         data-home-article-secondary={testId}
         data-home-latest-secondary={testId === "latest" ? "true" : undefined}
       >
@@ -69,13 +39,7 @@ function HomeArticleFeatureLayout({
             data-home-article-date={article.dateIso}
             data-home-article-section={articlePortalSection(article)}
           >
-            <Link href={articleHref(article)}>
-              <span className="home-latest-thumb"><ArticleVisual article={article} /></span>
-              <span className="home-latest-copy">
-                <ArticleMeta article={article} />
-                <h3>{article.title}</h3>
-              </span>
-            </Link>
+            <ArticleCard article={article} variant="compact" listItem={false} />
           </article>
         ))}
       </div>

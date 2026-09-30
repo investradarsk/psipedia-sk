@@ -57,7 +57,7 @@ export function ArticleBrowser({
 
       {visible.length > 0 ? (
         <div className="article-grid">
-          {visible.map((article) => <ArticleCard key={article.slug} article={article} />)}
+          {visible.map((article) => <ArticleCard key={article.slug} article={article} headingLevel={2} />)}
         </div>
       ) : (
         <div className="empty-state">
