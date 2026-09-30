@@ -70,7 +70,7 @@
     "test:partner-events": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-events.test.mjs",
     "test:reviews-submission": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/profile-review-submission.test.mjs tests/eshop-ratings.test.mjs",
     "test:partner-commercial-v1": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-commercial-agreements.test.mjs",
-    "test:reviews-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/profile-review-admin.test.mjs tests/admin-attention-queue.test.mjs tests/reviews-admin-hub.test.mjs",
+    "test:reviews-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/profile-review-admin.test.mjs tests/admin-attention-queue.test.mjs tests/reviews-admin-hub.test.mjs tests/notion-eshop-sync.test.mjs",
     "test:partner-h3": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-multimethod-auth.test.mjs",
     "test:search": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/portal-search.test.mjs",
     "test:canonical-draft-delete": "node --experimental-strip-types --test tests/canonical-draft-delete.test.mjs",
