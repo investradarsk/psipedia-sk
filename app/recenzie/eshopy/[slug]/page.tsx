@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { ESHOP_RATING_FIELDS, getPublishedEshopBySlug } from "@/lib/eshop-ratings";
+import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
+import { getPublishedEshopBySlug } from "@/lib/eshop-ratings";
 import styles from "./eshop-profile.module.css";
 
 export const dynamic = "force-dynamic";
