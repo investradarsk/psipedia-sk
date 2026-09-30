@@ -26,6 +26,7 @@ export default async function AdminEshopsPage() {
       <div className={styles.list}>
         {shops.map((shop) => (
           <article className={styles.card} key={shop.id}>
+            <div className={styles.logo}>{shop.logoUrl ? <img src={shop.logoUrl} alt="" /> : <span>LOGO</span>}</div>
             <div className={styles.main}>
               <div className={styles.topline}>
                 <span data-status={shop.status}>{shop.status === "published" ? "Publikovaný" : shop.status === "archived" ? "Archivovaný" : "Koncept"}</span>
@@ -33,10 +34,12 @@ export default async function AdminEshopsPage() {
               </div>
               <h2>{shop.name}</h2>
               <p>{shop.description}</p>
+              {shop.focusTags.length ? <div className={styles.tags}>{shop.focusTags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
               <div className={styles.links}>
                 <a href={shop.websiteUrl} target="_blank" rel="noreferrer">Web e-shopu ↗</a>
                 <a href={shop.sourceUrl} target="_blank" rel="noreferrer">Zdroj profilu ↗</a>
                 {shop.status === "published" ? <Link href={`/recenzie/eshopy/${shop.slug}`} target="_blank">Profil Psipedia ↗</Link> : null}
+                <Link className={styles.editLink} href={`/admin/recenzie/eshopy/${shop.id}`}>Upraviť profil</Link>
               </div>
             </div>
             <div className={styles.rating}>

@@ -34,10 +34,14 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
       <PageContainer>
         <Breadcrumbs><Link href="/">Domov</Link><span>/</span><Link href="/recenzie?typ=eshopy">Recenzie a testy</Link><span>/</span><span>{shop.name}</span></Breadcrumbs>
         <section className={styles.hero}>
-          <div>
+          <div className={styles.heroIdentity}>
+            <div className={styles.logo}>{shop.logoUrl ? <img src={shop.logoUrl} alt={`Logo ${shop.name}`} /> : <span aria-hidden="true">🛒</span>}</div>
+            <div>
             <span className="eyebrow">E-shop · hodnotenia Psipedia</span>
             <h1>{shop.name}</h1>
             <p>{shop.description}</p>
+            {shop.focusTags.length ? <div className={styles.focusTags}>{shop.focusTags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
+            </div>
           </div>
           <div className={styles.heroActions}>
             <Link href={`/recenzie/eshopy/${shop.slug}/hodnotit`}>Ohodnotiť e-shop</Link>

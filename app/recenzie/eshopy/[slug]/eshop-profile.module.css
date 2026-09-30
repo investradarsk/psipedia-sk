@@ -27,3 +27,12 @@
   .summary { grid-template-columns: 1fr; }
   .dimensions { grid-template-columns: 1fr; }
 }
+
+.heroIdentity { display: grid; grid-template-columns: 112px minmax(0,1fr); gap: 20px; align-items: center; }
+.logo { display: grid; width: 112px; height: 92px; place-items: center; overflow: hidden; border: 1px solid #dfe6e1; border-radius: 16px; background: #f7f9f6; }
+.logo img { width: 100%; height: 100%; padding: 14px; box-sizing: border-box; object-fit: contain; background: #fff; }
+.logo span { font-size: 2rem; }
+.focusTags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.focusTags span { padding: 6px 9px; border-radius: 999px; color: #315246; background: #eef4ee; font-size: .7rem; font-weight: 800; }
+@media (max-width: 760px) { .heroIdentity { grid-template-columns: 78px minmax(0,1fr); } .logo { width: 78px; height: 68px; border-radius: 12px; } }
+@media (max-width: 480px) { .heroIdentity { grid-template-columns: 1fr; } }

@@ -127,25 +127,36 @@ export function ReviewsHub({
         </PageContainer>
       </header>
 
-      <nav className={styles.switcher} aria-label="Typ recenzií" id="obsah-recenzie">
-        <PageContainer className={styles.switcherInner}>
-          {([
-            ["all", "Všetko"],
-            ["products", "Produkty"],
-            ["services", "Služby"],
-            ["eshops", "E-shopy"],
-          ] as const).map(([key, label]) => (
-            <Link
-              key={key}
-              href={viewHref(key)}
-              className={view === key ? styles.activeSwitch : undefined}
-              aria-current={view === key ? "page" : undefined}
-            >
-              {label}
-            </Link>
-          ))}
+      <section className={styles.modeSection} id="obsah-recenzie" aria-labelledby="reviews-mode-heading">
+        <PageContainer>
+          <div className={styles.modeHeading}>
+            <span className={styles.eyebrow}>Vyber si, čo chceš pozrieť</span>
+            <h2 id="reviews-mode-heading">Štyri jednoduché vstupy do recenzií</h2>
+          </div>
+          <nav className={styles.modeGrid} aria-label="Typ recenzií">
+            {([
+              ["all", "Všetko", "★", "Testy produktov, skúsenosti so službami aj hodnotenia e-shopov na jednom mieste."],
+              ["products", "Produkty", "🦴", "Redakčné testy krmív, výbavy a produktov pre psy."],
+              ["services", "Služby", "🐾", "Skúsenosti používateľov s veterinármi, trénermi a ďalšími službami."],
+              ["eshops", "E-shopy", "🛒", "Jednoduché hodnotenia nákupnej skúsenosti od e-mailom overených používateľov."],
+            ] as const).map(([key, label, icon, description]) => (
+              <Link
+                key={key}
+                href={viewHref(key)}
+                className={`${styles.modeCard} ${view === key ? styles.activeMode : ""}`}
+                aria-current={view === key ? "page" : undefined}
+              >
+                <span className={styles.modeIcon} aria-hidden="true">{icon}</span>
+                <div>
+                  <h3>{label}</h3>
+                  <p>{description}</p>
+                </div>
+                <b>{view === key ? "Zobrazené" : "Otvoriť"} <ArrowIcon size={18} /></b>
+              </Link>
+            ))}
+          </nav>
         </PageContainer>
-      </nav>
+      </section>
 
       <section className={styles.trustStrip} aria-label="Pravidlá hodnotenia">
         <PageContainer className={styles.trustGrid}>
@@ -253,12 +264,16 @@ export function ReviewsHub({
                 {eshops.map((shop) => (
                   <Link className={styles.eshopCard} href={`/recenzie/eshopy/${shop.slug}`} key={shop.id}>
                     <div className={styles.eshopCardTop}>
-                      <div><span>E-shop</span><h3>{shop.name}</h3></div>
+                      <div className={styles.eshopIdentity}>
+                        <span className={styles.eshopLogo}>{shop.logoUrl ? <img src={shop.logoUrl} alt="" /> : <span aria-hidden="true">🛒</span>}</span>
+                        <div><span>E-shop</span><h3>{shop.name}</h3></div>
+                      </div>
                       {shop.averages ? (
                         <strong aria-label={`Celkové hodnotenie ${shop.averages.overall} z 5`}>{shop.averages.overall.toLocaleString("sk-SK", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ★</strong>
                       ) : <small>Bez hodnotení</small>}
                     </div>
                     <p>{shop.description}</p>
+                    {shop.focusTags.length ? <div className={styles.eshopTags}>{shop.focusTags.slice(0, 6).map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
                     {shop.averages ? (
                       <dl className={styles.eshopMiniRatings}>
                         {ESHOP_RATING_FIELDS.slice(0, 4).map((field) => (

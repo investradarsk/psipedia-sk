@@ -61,6 +61,43 @@ test("0100 creates e-shop profiles, bounded ratings and five initial published s
   sqlite.close();
 });
 
+test("0101 adds editable logo and focus tags without changing rating rows", () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(
+    "PRAGMA foreign_keys=ON;" +
+    "CREATE TABLE review_authors (" +
+    "id TEXT PRIMARY KEY NOT NULL,email_ciphertext TEXT NOT NULL,email_hash TEXT NOT NULL UNIQUE," +
+    "display_name TEXT,status TEXT NOT NULL DEFAULT 'ACTIVE',email_verified_at TEXT,deactivated_at TEXT," +
+    "created_at TEXT NOT NULL,updated_at TEXT NOT NULL);"
+  );
+  sqlite.exec(read("drizzle/0100_eshop_ratings.sql"));
+  sqlite.exec(read("drizzle/0101_eshop_profile_presentation.sql"));
+
+  const columns = sqlite.prepare("PRAGMA table_info('managed_eshops')").all().map((row) => row.name);
+  assert.ok(columns.includes("logo_url"));
+  assert.ok(columns.includes("logo_key"));
+  assert.ok(columns.includes("focus_tags_json"));
+
+  const superZoo = sqlite.prepare("SELECT focus_tags_json FROM managed_eshops WHERE slug='super-zoo'").get();
+  const tags = JSON.parse(superZoo.focus_tags_json);
+  assert.ok(tags.includes("Kompletný sortiment"));
+  assert.ok(tags.includes("Krmivo"));
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM eshop_ratings").get().count, 0);
+  sqlite.close();
+});
+
+test("admin e-shop profile supports focus tags and R2 logo upload", () => {
+  const editor = read("components/admin-eshop-editor.tsx");
+  const api = read("app/api/admin/eshops/[id]/route.ts");
+  const upload = read("app/api/admin/uploads/route.ts");
+  assert.match(editor, /Zameranie sortimentu/);
+  assert.match(editor, /uploadAdminImage\(file, "eshops"\)/);
+  assert.match(editor, /focusTags: tagsFromText\(focusTags\)/);
+  assert.match(api, /requireAdminMutation/);
+  assert.match(api, /updateManagedEshop/);
+  assert.match(upload, /"eshops"/);
+});
+
 test("e-shop submission reuses verified reviewer, Turnstile and rate limiting without mandatory review text", () => {
   const route = read("app/api/review-author/eshop-ratings/route.ts");
   const form = read("components/eshop-rating-form.tsx");
