@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { PartnerTurnstile } from "@/components/partner-turnstile";
 import { LOST_FOUND_TURNSTILE_ACTION } from "@/lib/lost-found-public-constants";
 import styles from "./lost-found-submission-form.module.css";
@@ -29,7 +29,11 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const resultRef = useRef<HTMLElement | null>(null);
   const [type, setType] = useState<"LOST" | "FOUND">("LOST");
-  const [clientReady, setClientReady] = useState(false);
+  const clientReady = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileAttempt, setTurnstileAttempt] = useState(0);
   const [sending, setSending] = useState(false);
@@ -38,10 +42,6 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
   const onToken = useCallback((token: string) => setTurnstileToken(token), []);
   const setResultNode = useCallback((node: HTMLElement | null) => {
     resultRef.current = node;
-  }, []);
-
-  useEffect(() => {
-    setClientReady(true);
   }, []);
 
   useEffect(() => {
