@@ -1788,3 +1788,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.categoryNav a[aria-current="page"] .categoryNavCopy strong {
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}
