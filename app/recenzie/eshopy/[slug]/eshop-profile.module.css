@@ -1,0 +1,29 @@
+.page { min-height: 70vh; padding: 34px 0 64px; background: #f5f7f3; }
+.hero { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 28px; align-items: end; padding: 30px; border: 1px solid #dfe6e1; border-radius: 22px; background: #fff; }
+.hero h1 { margin: 8px 0 12px; font-size: clamp(2.6rem,7vw,5rem); line-height: .94; letter-spacing: -.04em; }
+.hero p { max-width: 760px; margin: 0; color: #64766d; line-height: 1.65; }
+.heroActions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+.heroActions a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; border-radius: 11px; color: #174b38; background: #edf3ee; font-size: .77rem; font-weight: 850; text-decoration: none; }
+.heroActions a:first-child { color: #fff; background: #174b38; }
+.summary { display: grid; grid-template-columns: minmax(190px,.7fr) minmax(0,2fr); gap: 14px; margin-top: 18px; }
+.score,.dimensions,.zero { padding: 22px; border: 1px solid #dfe6e1; border-radius: 18px; background: #fff; }
+.score strong { display: block; color: #17352b; font-size: 3.3rem; line-height: 1; }
+.score span { display: block; margin-top: 7px; color: #687970; font-size: .78rem; }
+.dimensions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.dimension { padding: 14px; border-radius: 12px; background: #f6f8f5; }
+.dimension span { display: block; color: #687970; font-size: .68rem; font-weight: 750; }
+.dimension strong { display: block; margin-top: 4px; color: #17352b; font-size: 1.25rem; }
+.zero strong { color: #17352b; }
+.zero p { margin: 6px 0 0; color: #687970; }
+.info { margin-top: 18px; padding: 20px 22px; border-radius: 16px; background: #17352b; color: #fff; }
+.info strong { display: block; margin-bottom: 5px; }
+.info p { margin: 0; color: rgba(255,255,255,.76); font-size: .78rem; line-height: 1.55; }
+.source { margin-top: 12px; color: #6f8179; font-size: .7rem; }
+.source a { color: #315246; font-weight: 800; }
+.ratingShell { min-height: 70vh; padding: 38px 16px 68px; background: #f5f7f3; }
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; padding: 22px; }
+  .heroActions { justify-content: flex-start; }
+  .summary { grid-template-columns: 1fr; }
+  .dimensions { grid-template-columns: 1fr; }
+}
