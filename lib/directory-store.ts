@@ -20,8 +20,10 @@ import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import {
   isDirectoryInternalMetadataKey,
+  mergeDirectoryProfileReviewMetadata,
   mergeDirectoryPublicContactData,
   mergeDirectoryQualityMetadata,
+  readDirectoryProfileReviewMetadata,
   readDirectoryPublicContacts,
   readDirectoryQualityMetadata,
   type DirectoryQualityResolutionInput,
@@ -85,6 +87,8 @@ export type ManagedDirectoryProfileSummary = Pick<
   | "district"
   | "region"
   | "imageUrl"
+  | "reviewed"
+  | "reviewedAt"
   | "verified"
   | "featured"
   | "updatedAt"
@@ -473,10 +477,14 @@ function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JS
 
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
   const importData = safeImportData(row.source_data_json, true);
+  const reviewMetadata = readDirectoryProfileReviewMetadata(importData);
   return {
     ...rowToPublicProfile(row),
     importData,
     qualityMetadata: readDirectoryQualityMetadata(importData),
+    reviewed: reviewMetadata.reviewed,
+    reviewedAt: reviewMetadata.reviewedAt,
+    reviewedBy: reviewMetadata.reviewedBy,
     city: row.city,
     district: row.district,
     region: row.region,
@@ -493,7 +501,7 @@ function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile 
   };
 }
 
-function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDirectoryProfileSummary {
+function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow, reviewedAt = ""): ManagedDirectoryProfileSummary {
   return {
     id: row.id,
     slug: row.slug,
@@ -505,6 +513,8 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDir
     district: row.district,
     region: normalizeDirectoryRegion(row.region) ?? "Online",
     imageUrl: row.image_url,
+    reviewed: Boolean(reviewedAt),
+    reviewedAt,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
@@ -1034,6 +1044,17 @@ export async function listManagedDirectoryProfileSummaries(options: {
   `).bind(...(category ? [category] : []));
   const [listResult, countResult] = await database.batch([listStatement, countStatement]);
   const rows = (listResult.results ?? []) as unknown as DirectoryProfileSummaryRow[];
+  const reviewedAtById = new Map<number, string>();
+  if (rows.length) {
+    const placeholders = rows.map(() => "?").join(",");
+    const reviewRows = await database.prepare(`
+      SELECT id,
+        COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
+      FROM directory_profiles
+      WHERE id IN (${placeholders})
+    `).bind(...rows.map((row) => row.id)).all<{ id: number; reviewed_at: string }>();
+    for (const row of reviewRows.results) reviewedAtById.set(row.id, row.reviewed_at?.trim() ?? "");
+  }
   const rawCounts = (countResult.results?.[0] ?? null) as unknown as DirectoryProfileCountRow | null;
   const counts = {
     total: Number(rawCounts?.total ?? 0),
@@ -1041,7 +1062,7 @@ export async function listManagedDirectoryProfileSummaries(options: {
     draft: Number(rawCounts?.draft ?? 0),
   };
   return {
-    profiles: rows.map(rowToManagedProfileSummary),
+    profiles: rows.map((row) => rowToManagedProfileSummary(row, reviewedAtById.get(row.id) ?? "")),
     counts,
     pagination: {
       page,
@@ -1156,6 +1177,27 @@ export async function updateManagedDirectoryProfile(
     targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
   }, database);
   return rowToManagedProfile(row);
+}
+
+export async function setManagedDirectoryProfileReviewed(
+  id: number,
+  reviewed: boolean,
+  editorEmail: string,
+  now = new Date(),
+  databaseInput?: D1Database,
+) {
+  const database = databaseInput ?? requireD1Binding();
+  await ensureDirectoryStore(database);
+  const row = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
+    .bind(id)
+    .first<DirectoryProfileRow>();
+  if (!row) return null;
+  const importData = safeImportData(row.source_data_json, true);
+  const sourceData = mergeDirectoryProfileReviewMetadata(importData, reviewed, editorEmail, now.toISOString());
+  const updated = await database.prepare(
+    "UPDATE directory_profiles SET source_data_json = ? WHERE id = ? RETURNING *",
+  ).bind(JSON.stringify(sourceData), id).first<DirectoryProfileRow>();
+  return updated ? rowToManagedProfile(updated) : null;
 }
 
 export async function archiveManagedDirectoryProfile(

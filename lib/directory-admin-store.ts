@@ -48,7 +48,7 @@ function safeServices(value: string) {
   }
 }
 
-function rowToSummary(row: DirectoryAdminRow): ManagedDirectoryProfileSummary {
+function rowToSummary(row: DirectoryAdminRow, reviewedAt = ""): ManagedDirectoryProfileSummary {
   return {
     id: row.id,
     slug: row.slug,
@@ -60,6 +60,8 @@ function rowToSummary(row: DirectoryAdminRow): ManagedDirectoryProfileSummary {
     district: row.district,
     region: row.region,
     imageUrl: row.image_url,
+    reviewed: Boolean(reviewedAt),
+    reviewedAt,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
@@ -67,9 +69,21 @@ function rowToSummary(row: DirectoryAdminRow): ManagedDirectoryProfileSummary {
 }
 
 export async function getManagedDirectoryAdminPage(filters: DirectoryAdminFilters): Promise<ManagedDirectoryAdminPage> {
-  const result = await queryDirectoryAdmin<DirectoryAdminRow>(requireD1Binding(), filters, allDirectoryCategories);
+  const database = requireD1Binding();
+  const result = await queryDirectoryAdmin<DirectoryAdminRow>(database, filters, allDirectoryCategories);
+  const reviewedAtById = new Map<number, string>();
+  if (result.items.length) {
+    const placeholders = result.items.map(() => "?").join(",");
+    const reviewRows = await database.prepare(`
+      SELECT id,
+        COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
+      FROM directory_profiles
+      WHERE id IN (${placeholders})
+    `).bind(...result.items.map((profile) => profile.id)).all<{ id: number; reviewed_at: string }>();
+    for (const row of reviewRows.results) reviewedAtById.set(row.id, row.reviewed_at?.trim() ?? "");
+  }
   return {
-    profiles: result.items.map(rowToSummary),
+    profiles: result.items.map((row) => rowToSummary(row, reviewedAtById.get(row.id) ?? "")),
     counts: result.counts,
     resultCount: result.resultCount,
     pagination: {

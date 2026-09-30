@@ -48,6 +48,13 @@ function listFromText(value: string) {
   return value.split(/\n+/).map((item) => item.trim()).filter(Boolean);
 }
 
+function formatProfileReviewDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : new Intl.DateTimeFormat("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+}
+
 function qualityResolutionInput(profile?: ManagedDirectoryProfile): DirectoryQualityResolutionInput {
   return Object.fromEntries(
     directoryQualityFields.map((field) => [field, profile?.qualityMetadata[field]?.status ?? ""]),
@@ -139,6 +146,9 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? "");
   const [qualityResolutions, setQualityResolutions] = useState<DirectoryQualityResolutionInput>(() => qualityResolutionInput(profile));
   const [qualityCheckedAt, setQualityCheckedAt] = useState<Partial<Record<DirectoryQualityField, string>>>(() => qualityCheckedAtInput(profile));
+  const [reviewed, setReviewed] = useState(profile?.reviewed ?? false);
+  const [reviewedAt, setReviewedAt] = useState(profile?.reviewedAt ?? "");
+  const [reviewSaving, setReviewSaving] = useState(false);
   const [verified, setVerified] = useState(profile?.verified ?? false);
   const [featured, setFeatured] = useState(profile?.featured ?? false);
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
@@ -239,6 +249,27 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
     }
   }
 
+  async function changeReviewed(nextReviewed: boolean) {
+    if (!profile) return;
+    setReviewSaving(true); setError(""); setMessage("");
+    try {
+      const response = await fetch(`/api/admin/directory/${profile.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "set-reviewed", reviewed: nextReviewed }),
+      });
+      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
+      if (!response.ok || !data.profile) throw new Error(data.error || "Stav kontroly sa nepodarilo uložiť.");
+      setReviewed(data.profile.reviewed);
+      setReviewedAt(data.profile.reviewedAt);
+      setMessage(data.profile.reviewed ? "Profil je označený ako odkontrolovaný." : "Označenie kontroly bolo zrušené.");
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "Stav kontroly sa nepodarilo uložiť.");
+    } finally {
+      setReviewSaving(false);
+    }
+  }
+
   async function restoreArchivedProfile() {
     if (!profile || profile.status !== "archived") return;
     setSaving(true); setError(""); setMessage("");
@@ -262,6 +293,17 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
       <section className="admin-form-card">
         <h2>Archivovaný profil</h2>
         <p>Profil nie je verejný a jeho canonical resource zostáva zachovaný pre historické a trust dáta.</p>
+        <label className={styles.reviewControl}>
+          <input
+            type="checkbox"
+            checked={reviewed}
+            disabled={reviewSaving}
+            onChange={(event) => void changeReviewed(event.target.checked)}
+          />
+          <span>Odkontrolované</span>
+          {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
+        </label>
+        {message && <p className="admin-flash" role="status">{message}</p>}
         {error && <p className="admin-flash admin-flash--error" role="alert">{error}</p>}
         <AdminActionButton variant="primary" disabled={saving} onClick={() => void restoreArchivedProfile()}>
           {saving ? "Obnovujem…" : "Obnoviť do konceptu"}
@@ -305,7 +347,21 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
     <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
       <div className={styles.editorTopline}>
         <AdminStickyEditorNavigation sections={editorSections} ariaLabel="Sekcie profilu adresára" />
-        <AdminActionButton variant="secondary" onClick={() => setAdvancedOpen(true)}>Pokročilé a SEO</AdminActionButton>
+        <div className={styles.toplineActions}>
+          {profile && (
+            <label className={styles.reviewControl}>
+              <input
+                type="checkbox"
+                checked={reviewed}
+                disabled={reviewSaving}
+                onChange={(event) => void changeReviewed(event.target.checked)}
+              />
+              <span>Odkontrolované</span>
+              {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
+            </label>
+          )}
+          <AdminActionButton variant="secondary" onClick={() => setAdvancedOpen(true)}>Pokročilé a SEO</AdminActionButton>
+        </div>
       </div>
 
       <div className="admin-event-editor-grid">

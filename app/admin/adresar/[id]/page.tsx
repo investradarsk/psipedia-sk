@@ -6,6 +6,7 @@ import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-de
 import { AdminGeoLocation } from "@/components/admin-geo-location";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { directoryProfileHref } from "@/lib/directory";
 import { getManagedDirectoryProfileById } from "@/lib/directory-store";
 import { geoSensitiveDirectoryCategory } from "@/lib/geo";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
@@ -25,5 +26,5 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
     getCanonicalDraftDuplicateWarning("DIRECTORY", profile.id).catch(() => null),
     listCanonicalAutomationUpdateSuggestions({ entityType: "DIRECTORY", canonicalEntityId: profile.id }),
   ]);
-  return <AdminShell user={user} eyebrow={profile.status === "published" ? "Publikovaný profil" : profile.status === "archived" ? "Archivovaný profil" : "Koncept profilu"} title={profile.status === "archived" ? "Archivovaný profil" : "Upraviť profil"} description={profile.status === "archived" ? "Archivovaný profil je mimo verejného webu. Obnov ho do konceptu, ak ho chceš znovu upravovať." : "Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."} actions={<Link href="/admin/adresar">← Späť na adresár</Link>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminDirectoryEditor profile={profile} automationSuggestions={automationSuggestions} /><AdminGeoLocation targetType="DIRECTORY_PROFILE" targetId={profile.id} sensitive={geoSensitiveDirectoryCategory(profile.category)} />{profile.status === "draft" && <AdminCanonicalDraftDelete entityType="DIRECTORY" canonicalEntityId={profile.id} returnHref="/admin/adresar" />}</AdminShell>;
+  return <AdminShell user={user} eyebrow={profile.status === "published" ? "Publikovaný profil" : profile.status === "archived" ? "Archivovaný profil" : "Koncept profilu"} title={profile.status === "archived" ? "Archivovaný profil" : "Upraviť profil"} description={profile.status === "archived" ? "Archivovaný profil je mimo verejného webu. Obnov ho do konceptu, ak ho chceš znovu upravovať." : "Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."} actions={<><Link href="/admin/adresar">← Späť na adresár</Link>{profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}</>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminDirectoryEditor profile={profile} automationSuggestions={automationSuggestions} /><AdminGeoLocation targetType="DIRECTORY_PROFILE" targetId={profile.id} sensitive={geoSensitiveDirectoryCategory(profile.category)} />{profile.status === "draft" && <AdminCanonicalDraftDelete entityType="DIRECTORY" canonicalEntityId={profile.id} returnHref="/admin/adresar" />}</AdminShell>;
 }
