@@ -137,3 +137,43 @@
 .row :global(.admin-article-main) > p.meta {
   color: #52665d;
 }
+
+
+.reviewToggle {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #cad8d1;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: #29483e;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.reviewToggle input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: currentColor;
+}
+
+.reviewToggle:has(input:checked) {
+  background: #eef6f1;
+  border-color: #9eb8aa;
+}
+
+.reviewToggle:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+@media (max-width: 720px) {
+  .reviewToggle {
+    width: 100%;
+  }
+}
