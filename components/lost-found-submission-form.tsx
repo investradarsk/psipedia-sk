@@ -27,7 +27,7 @@ const regions = [
 
 export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const resultRef = useRef<HTMLElement>(null);
+  const resultRef = useRef<HTMLElement | null>(null);
   const [type, setType] = useState<"LOST" | "FOUND">("LOST");
   const [clientReady, setClientReady] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -36,6 +36,9 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [result, setResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const onToken = useCallback((token: string) => setTurnstileToken(token), []);
+  const setResultNode = useCallback((node: HTMLElement | null) => {
+    resultRef.current = node;
+  }, []);
 
   useEffect(() => {
     setClientReady(true);
@@ -104,7 +107,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
 
   if (result?.type === "success") {
     return (
-      <section ref={resultRef} tabIndex={-1} className={[styles.confirmation, styles.shell].join(" ")} aria-live="polite">
+      <section ref={setResultNode} tabIndex={-1} className={[styles.confirmation, styles.shell].join(" ")} aria-live="polite">
         <span className="eyebrow">Pomoc psom</span>
         <h1>Hlásenie sme prijali</h1>
         <p>{result.text}</p>
@@ -132,7 +135,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
         <p>Hlásenie pred zverejnením skontrolujeme. Telefón a e-mail sa verejne nezobrazia.</p>
       </header>
 
-      {result?.type === "error" ? <p ref={resultRef as React.RefObject<HTMLParagraphElement>} tabIndex={-1} className={styles.error} role="alert">{result.text}</p> : null}
+      {result?.type === "error" ? <p ref={setResultNode} tabIndex={-1} className={styles.error} role="alert">{result.text}</p> : null}
 
       <noscript>
         <p className={styles.error} role="alert">
