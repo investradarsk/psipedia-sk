@@ -42,6 +42,10 @@ export function AdminArticleTopicPicker({
       const data = await response.json() as { topic?: ArticleTopic; existing?: boolean; error?: string };
       if (!response.ok || !data.topic) throw new Error(data.error || "Tému sa nepodarilo vytvoriť.");
       setAvailable((current) => current.some((topic) => topic.id === data.topic!.id) ? current : [...current, data.topic!]);
+      if (!data.topic.isActive) {
+        setMessage("Táto téma už existuje, ale je neaktívna. Aktivuj ju v správe tém.");
+        return;
+      }
       if (!value.includes(data.topic.id)) onChange([...value, data.topic.id]);
       setMessage(data.existing ? "Ekvivalentná téma už existovala a bola vybraná." : "Nová téma bola vytvorená a vybraná.");
       setQuery("");
