@@ -375,7 +375,7 @@ test("quality UI never renders raw monitor errors, SQL or stack traces", () => {
   assert.doesNotMatch(component, /monitor\.lastError/);
   assert.doesNotMatch(component, /stack/i);
   assert.match(component, /Nájdené zo zdrojov/);
-  assert.match(component, />Prevziať</);
+  assert.match(component, /Prevziať/);
   assert.match(component, /automation-update-suggestions/);
   assert.match(component, /Referencia:/);
   assert.match(reliability, /errorType:/);
