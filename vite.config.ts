@@ -56,7 +56,7 @@ const localBindingConfig = {
         },
       ]
     : [],
-  r2_buckets: r2 ? [resourceConfig.r2] : [],
+  r2_buckets: r2 ? [resourceConfig.r2, resourceConfig.submission_r2] : [],
 };
 
 export default defineConfig(async () => {
