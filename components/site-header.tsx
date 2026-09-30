@@ -44,13 +44,14 @@ export function SiteHeader({
     const visible = navigationItems.filter((item) => item.visible);
     return visible.filter((item) => !item.parentId).map((item) => {
       const slug = item.href.split("/").filter(Boolean)[0] ?? "";
-      const section = portalSections.find((candidate) => candidate.slug === slug);
+      const sectionSlug = item.id === "novinky" && slug === "clanky" ? "novinky" : slug;
+      const section = portalSections.find((candidate) => candidate.slug === sectionSlug);
       const storedChildren = visible.filter((child) => child.parentId === item.id);
-      const fallbackChildren = ["steniatka", "starostlivost", "aktivity"].includes(slug)
+      const fallbackChildren = ["steniatka", "starostlivost", "aktivity"].includes(sectionSlug)
         ? (section?.subpages ?? []).filter((subpage) => subpage.visible !== false).map((subpage, position) => ({
-            id: `portal-${slug}-${subpage.slug}`,
+            id: `portal-${sectionSlug}-${subpage.slug}`,
             label: subpage.label,
-            href: subpage.href ?? `/${slug}/${subpage.slug}`,
+            href: subpage.href ?? `/${sectionSlug}/${subpage.slug}`,
             parentId: item.id,
             position,
             visible: true,
@@ -58,7 +59,7 @@ export function SiteHeader({
         : [];
       return {
         ...item,
-        className: slug === "pomoc-psom" ? "nav-help" : slug === "novinky" ? "nav-news" : undefined,
+        className: sectionSlug === "pomoc-psom" ? "nav-help" : sectionSlug === "novinky" ? "nav-news" : undefined,
         title: section?.description,
         children: storedChildren.length ? storedChildren : fallbackChildren,
       };
