@@ -54,6 +54,30 @@ type MonitorBindings = NotionSyncBindings;
 const SOURCE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MAX_HTML_BYTES = 768 * 1024;
 const PAGE_REDIRECTS = 3;
+const REJECTED_CANDIDATES_PREFIX = "REJECTED_CANDIDATES:";
+
+function normalizedIdentityTokens(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3 && !["klub", "kynologicky", "kynologicke", "slovensky", "slovenska", "slovensko", "oz"].includes(token));
+}
+
+function rejectedCandidateUrls(lastError: string | null) {
+  if (!lastError?.startsWith(REJECTED_CANDIDATES_PREFIX)) return [] as string[];
+  try {
+    const parsed = JSON.parse(lastError.slice(REJECTED_CANDIDATES_PREFIX.length));
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string").slice(-12) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rejectedCandidateMarker(urls: readonly string[]) {
+  return urls.length ? REJECTED_CANDIDATES_PREFIX + JSON.stringify([...new Set(urls)].slice(-12)) : null;
+}
 
 function cleanUrl(value: string | null | undefined) {
   const clean = value?.trim() ?? "";
@@ -260,15 +284,31 @@ async function fetchHtml(pageUrl: string) {
   throw new Error("Zdrojová stránka sa nedá načítať.");
 }
 
-export async function discoverMediaCandidate(pageUrl: string) {
+export async function discoverMediaCandidate(pageUrl: string, options: {
+  entityLabel?: string | null;
+  excludeUrls?: readonly string[];
+  requireIdentityMatch?: boolean;
+} = {}) {
   const page = await fetchHtml(pageUrl);
-  const candidates = new Map<string, number>();
+  const candidates = new Map<string, { score: number; identityMatch: boolean }>();
+  const excluded = new Set((options.excludeUrls ?? []).map((value) => cleanUrl(value)).filter(Boolean));
+  const identityTokens = normalizedIdentityTokens(options.entityLabel);
+
+  function addCandidate(url: string | null, score: number, signal = "") {
+    if (!url || excluded.has(url)) return;
+    const normalizedSignal = signal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const matches = identityTokens.filter((token) => normalizedSignal.includes(token));
+    const identityMatch = identityTokens.length > 0 && matches.length >= Math.min(2, identityTokens.length);
+    const adjusted = score + (identityMatch ? 140 + matches.length * 10 : 0);
+    const current = candidates.get(url);
+    if (!current || adjusted > current.score) candidates.set(url, { score: adjusted, identityMatch });
+  }
 
   for (const tag of page.html.match(/<meta\b[^>]*>/gi) ?? []) {
     const property = (attribute(tag, "property") || attribute(tag, "name")).toLowerCase();
     if (property !== "og:image" && property !== "twitter:image" && property !== "twitter:image:src") continue;
     const url = absoluteCandidate(attribute(tag, "content"), page.finalUrl);
-    if (url) candidates.set(url, Math.max(candidates.get(url) ?? 0, property === "og:image" ? 80 : 70));
+    addCandidate(url, identityTokens.length ? 15 : property === "og:image" ? 80 : 70, attribute(tag, "content"));
   }
 
   for (const tag of page.html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -278,18 +318,21 @@ export async function discoverMediaCandidate(pageUrl: string) {
     const signal = [
       raw,
       attribute(tag, "alt"),
+      attribute(tag, "title"),
       attribute(tag, "class"),
       attribute(tag, "id"),
-    ].join(" ").toLowerCase();
+    ].join(" ");
+    const normalizedSignal = signal.toLowerCase();
     let score = 30;
-    if (/logo|brand|site-logo|header-logo|navbar-logo/.test(signal)) score += 80;
-    if (/hero|cover|banner|event/.test(signal)) score += 25;
-    if (/avatar|icon|sprite|tracking|pixel/.test(signal)) score -= 40;
-    candidates.set(url, Math.max(candidates.get(url) ?? 0, score));
+    if (/hero|cover|banner|event/.test(normalizedSignal)) score += 25;
+    if (/logo|brand|site-logo|header-logo|navbar-logo/.test(normalizedSignal)) score += identityTokens.length ? 5 : 80;
+    if (/avatar|icon|sprite|tracking|pixel/.test(normalizedSignal)) score -= 40;
+    addCandidate(url, score, signal);
   }
 
   return [...candidates.entries()]
-    .sort((a, b) => b[1] - a[1])
+    .filter(([, value]) => !options.requireIdentityMatch || value.identityMatch)
+    .sort((a, b) => b[1].score - a[1].score)
     .map(([url]) => url)[0] ?? null;
 }
 
@@ -377,6 +420,28 @@ async function setMonitorResult(input: {
   ).run();
 }
 
+async function mediaEntityContext(database: D1Database, row: MediaSourceMonitor) {
+  if (row.entityType === "DIRECTORY_PROFILE") {
+    const entity = await database.prepare(
+      "SELECT name, category FROM directory_profiles WHERE id=? LIMIT 1",
+    ).bind(row.entityId).first<{ name: string; category: string }>();
+    const shared = row.sourcePageUrl
+      ? await database.prepare(
+          "SELECT COUNT(*) count FROM media_source_monitors WHERE entity_type='DIRECTORY_PROFILE' AND source_page_url=?",
+        ).bind(row.sourcePageUrl).first<{ count: number }>()
+      : null;
+    return {
+      label: entity?.name ?? null,
+      category: entity?.category ?? null,
+      sharedSource: Number(shared?.count ?? 0) > 1,
+    };
+  }
+  const entity = await database.prepare(
+    "SELECT title FROM managed_events WHERE id=? LIMIT 1",
+  ).bind(row.entityId).first<{ title: string }>();
+  return { label: entity?.title ?? null, category: "podujatia", sharedSource: false };
+}
+
 async function monitorOne(input: {
   database: D1Database;
   bindings: MonitorBindings;
@@ -384,12 +449,19 @@ async function monitorOne(input: {
   now: string;
 }) {
   const { row } = input;
+  const context = await mediaEntityContext(input.database, row);
+  const rejectedUrls = rejectedCandidateUrls(row.lastError);
   let sourceImageUrl = cleanUrl(row.sourceImageUrl);
+  if (sourceImageUrl && rejectedUrls.includes(sourceImageUrl)) sourceImageUrl = null;
   const hadTrackedSource = Boolean(sourceImageUrl);
 
   if (!sourceImageUrl && row.sourcePageUrl) {
     try {
-      sourceImageUrl = await discoverMediaCandidate(row.sourcePageUrl);
+      sourceImageUrl = await discoverMediaCandidate(row.sourcePageUrl, {
+        entityLabel: context.label,
+        excludeUrls: rejectedUrls,
+        requireIdentityMatch: context.sharedSource,
+      });
     } catch (error) {
       await setMonitorResult({
         database: input.database,
@@ -409,7 +481,7 @@ async function monitorOne(input: {
       row,
       status: "MISSING",
       now: input.now,
-      error: "Na zdrojovej stránke sa nepodarilo nájsť použiteľný obrázok.",
+      error: rejectedCandidateMarker(rejectedUrls) ?? "Na zdrojovej stránke sa nepodarilo nájsť použiteľný obrázok.",
     });
     return "missing" as const;
   }
@@ -458,13 +530,18 @@ async function monitorOne(input: {
       candidateImageKey: candidate.key,
       candidateContentHash: candidate.contentHash,
       httpStatus: 200,
+      error: rejectedCandidateMarker(rejectedUrls),
     });
     return row.activeImageKey && row.sourceContentHash ? "changed" as const : "candidate" as const;
   } catch (error) {
     const status = httpStatusFromError(error);
     if (row.sourcePageUrl) {
       try {
-        const discovered = await discoverMediaCandidate(row.sourcePageUrl);
+        const discovered = await discoverMediaCandidate(row.sourcePageUrl, {
+          entityLabel: context.label,
+          excludeUrls: [...rejectedUrls, sourceImageUrl].filter((value): value is string => Boolean(value)),
+          requireIdentityMatch: context.sharedSource,
+        });
         if (discovered && discovered !== sourceImageUrl) {
           const candidate = await storeCandidate({
             bindings: input.bindings,
@@ -485,7 +562,7 @@ async function monitorOne(input: {
             candidateImageKey: candidate.key,
             candidateContentHash: candidate.contentHash,
             httpStatus: status,
-            error: "Pôvodný obrázok už nie je dostupný; našiel sa nový kandidát na zdrojovej stránke.",
+            error: rejectedCandidateMarker(rejectedUrls) ?? "Pôvodný obrázok už nie je dostupný; našiel sa nový kandidát na zdrojovej stránke.",
           });
           return row.activeImageKey ? "changed" as const : "candidate" as const;
         }
@@ -609,6 +686,46 @@ async function writeAcceptedSourceBackToNotion(input: {
   }
 }
 
+export async function rejectMediaSourceCandidate(input: {
+  database: D1Database;
+  bindings: MonitorBindings;
+  monitorId: number;
+  actorRef: string;
+  now?: Date;
+}) {
+  if (!await mediaSourceMonitorSchemaReady(input.database)) throw new Error("Monitoring obrázkov zatiaľ nie je nasadený.");
+  const raw = await input.database.prepare(
+    "SELECT * FROM media_source_monitors WHERE id=? LIMIT 1",
+  ).bind(input.monitorId).first<MonitorRow>();
+  if (!raw) throw new Error("Kontrola obrázka sa nenašla.");
+  const row = rowToMonitor(raw);
+  if (!row.candidateImageUrl) throw new Error("Táto položka nemá kandidáta na zamietnutie.");
+
+  const rejected = [...rejectedCandidateUrls(row.lastError), row.candidateImageUrl];
+  await deleteCandidate(input.bindings.BUCKET, row.candidateImageKey);
+  const now = (input.now ?? new Date()).toISOString();
+  await input.database.prepare(`
+    UPDATE media_source_monitors
+    SET source_image_url=NULL, source_content_hash=NULL, status='UNTRACKED',
+        candidate_image_url=NULL, candidate_image_key=NULL, candidate_content_hash=NULL,
+        last_http_status=NULL, last_checked_at=NULL, issue_started_at=?,
+        last_error=?, updated_at=?
+    WHERE id=?
+  `).bind(row.issueStartedAt ?? now, rejectedCandidateMarker(rejected), now, row.id).run();
+
+  const refreshedRaw = await input.database.prepare(
+    "SELECT * FROM media_source_monitors WHERE id=? LIMIT 1",
+  ).bind(row.id).first<MonitorRow>();
+  if (!refreshedRaw) throw new Error("Kontrola obrázka sa po zamietnutí nenašla.");
+  const outcome = await monitorOne({
+    database: input.database,
+    bindings: input.bindings,
+    row: rowToMonitor(refreshedRaw),
+    now,
+  });
+  return { monitorId: row.id, rejectedUrl: row.candidateImageUrl, outcome };
+}
+
 export async function acceptMediaSourceCandidate(input: {
   database: D1Database;
   bindings: MonitorBindings;
@@ -665,9 +782,17 @@ export async function acceptMediaSourceCandidate(input: {
     SET source_image_url=?, source_content_hash=?, active_image_key=?,
         status='OK', candidate_image_url=NULL, candidate_image_key=NULL,
         candidate_content_hash=NULL, last_http_status=200, last_checked_at=?,
-        issue_started_at=NULL, last_error=NULL, updated_at=?
+        issue_started_at=NULL, last_error=?, updated_at=?
     WHERE id=?
-  `).bind(row.candidateImageUrl, row.candidateContentHash, key, now, now, row.id).run();
+  `).bind(
+    row.candidateImageUrl,
+    row.candidateContentHash,
+    key,
+    now,
+    rejectedCandidateMarker(rejectedCandidateUrls(row.lastError)),
+    now,
+    row.id,
+  ).run();
 
   await writeAcceptedSourceBackToNotion({
     database: input.database,
