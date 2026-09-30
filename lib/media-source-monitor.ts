@@ -635,6 +635,7 @@ export async function listMediaSourceIssues(
   limit = 100,
   offset = 0,
   category = "all",
+  statusFilter = "all",
 ) {
   if (!await mediaSourceMonitorSchemaReady(database)) return [];
   let categoryClause = "";
@@ -645,9 +646,20 @@ export async function listMediaSourceIssues(
     categoryClause = " AND entity_type='DIRECTORY_PROFILE' AND entity_id IN (SELECT id FROM directory_profiles WHERE category=?)";
     categoryBindings.push(category);
   }
+  const statusClause = statusFilter === "review"
+    ? " AND status IN ('CANDIDATE','CHANGED')"
+    : statusFilter === "candidate"
+      ? " AND status='CANDIDATE'"
+      : statusFilter === "changed"
+        ? " AND status='CHANGED'"
+        : statusFilter === "missing"
+          ? " AND status='MISSING'"
+          : statusFilter === "error"
+            ? " AND status='ERROR'"
+            : "";
   const result = await database.prepare(`
     SELECT * FROM media_source_monitors
-    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${categoryClause}
+    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${categoryClause}${statusClause}
     ORDER BY CASE status
       WHEN 'CHANGED' THEN 0
       WHEN 'CANDIDATE' THEN 1

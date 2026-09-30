@@ -41,6 +41,12 @@ function reference(errorRef: string | null) {
   return errorRef ? <> Referencia: <code>{errorRef}</code>.</> : null;
 }
 
+function priorityLabel(priority: "critical" | "important" | "supplement") {
+  if (priority === "critical") return "Kritické";
+  if (priority === "important") return "Dôležité";
+  return "Doplniť";
+}
+
 export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,6 +54,15 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   const [message, setMessage] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<Set<number>>(new Set());
   const activeSection = searchParams.get("section") === "media" ? "media" : "profiles";
+  const hasProfileFilters = data.category !== "all"
+    || data.issue !== "all"
+    || data.profileStatus !== "all"
+    || data.priority !== "all"
+    || Boolean(data.query)
+    || Boolean(data.region)
+    || Boolean(data.district);
+  const hasMediaFilters = data.category !== "all" || data.mediaStatus !== "all";
+  const hasActiveFilters = activeSection === "media" ? hasMediaFilters : hasProfileFilters;
 
   const reviewableMediaIds = data.media
     .filter(({ monitor }) => Boolean(monitor.candidateImageKey))
@@ -70,9 +85,17 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     if (section === "media") {
       query.set("section", "media");
       query.delete("page");
+      query.delete("q");
+      query.delete("issue");
+      query.delete("status");
+      query.delete("priority");
+      query.delete("region");
+      query.delete("district");
     } else {
       query.delete("section");
       query.delete("mediaPage");
+      query.delete("mediaStatus");
+      if (query.get("category") === "podujatia") query.delete("category");
     }
     const suffix = query.toString();
     return suffix ? `/admin/kvalita?${suffix}` : "/admin/kvalita";
@@ -166,22 +189,92 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
       </section>
 
       <section className="admin-panel">
-        <form className="admin-toolbar" action="/admin/kvalita" method="get">
+        <form className="admin-toolbar admin-quality-filter-toolbar" action="/admin/kvalita" method="get">
           {activeSection === "media" ? <input type="hidden" name="section" value="media" /> : null}
+
+          {activeSection === "profiles" ? (
+            <label className="admin-search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                name="q"
+                defaultValue={data.query}
+                placeholder="Názov, mesto, okres alebo ID profilu"
+              />
+            </label>
+          ) : null}
+
           <label className="admin-select-filter">
             <span>Kategória</span>
             <select name="category" defaultValue={data.category}>
-              {data.categoryOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
+              {data.categoryOptions
+                .filter((option) => activeSection === "media" || option.value !== "podujatia")
+                .map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
             </select>
           </label>
-          <button type="submit">Filtrovať</button>
-          {data.category !== "all" ? (
-            <Link href={activeSection === "media" ? "/admin/kvalita?section=media" : "/admin/kvalita"}>
-              Vyčistiť filter
-            </Link>
-          ) : null}
+
+          {activeSection === "profiles" ? (
+            <>
+              <label className="admin-select-filter">
+                <span>Typ problému</span>
+                <select name="issue" defaultValue={data.issue}>
+                  {data.issueOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="admin-select-filter">
+                <span>Priorita</span>
+                <select name="priority" defaultValue={data.priority}>
+                  {data.priorityOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="admin-select-filter">
+                <span>Stav profilu</span>
+                <select name="status" defaultValue={data.profileStatus}>
+                  {data.profileStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="admin-select-filter">
+                <span>Kraj</span>
+                <select name="region" defaultValue={data.region}>
+                  <option value="">Všetky kraje</option>
+                  {data.regionOptions.map((region) => <option key={region} value={region}>{region}</option>)}
+                </select>
+              </label>
+              <label className="admin-select-filter">
+                <span>Okres</span>
+                <select name="district" defaultValue={data.district}>
+                  <option value="">Všetky okresy</option>
+                  {data.districtOptions.map((district) => <option key={district} value={district}>{district}</option>)}
+                </select>
+              </label>
+            </>
+          ) : (
+            <label className="admin-select-filter">
+              <span>Stav obrázka</span>
+              <select name="mediaStatus" defaultValue={data.mediaStatus}>
+                {data.mediaStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <div className="admin-quality-filter-actions">
+            <button type="submit">Filtrovať</button>
+            {hasActiveFilters ? (
+              <Link href={activeSection === "media" ? "/admin/kvalita?section=media" : "/admin/kvalita"}>
+                Vyčistiť filtre
+              </Link>
+            ) : null}
+          </div>
         </form>
       </section>
 
@@ -241,6 +334,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                 <span>Telefón {count(data.summary.missingPhone)}</span>
                 <span>E-mail {count(data.summary.missingEmail)}</span>
                 <span>Web {count(data.summary.missingWebsite)}</span>
+                <span>Obrázok {count(data.summary.missingImage)}</span>
                 <span>Adresa {count(data.summary.incompleteAddress)}</span>
               </div>
               <p className="admin-help-results">
@@ -255,6 +349,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                         <div className="admin-article-tags">
                           <span>{profile.category || "Bez kategórie"}</span>
                           <span>{profile.status === "published" ? "Publikované" : "Koncept"}</span>
+                          <span>{priorityLabel(profile.priority)}</span>
                         </div>
                         <h2><Link href={profile.href}>{profile.name}</Link></h2>
                         <div className="admin-quality-issue-chips">
@@ -271,7 +366,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                 <div className="admin-empty">
                   <span>✓</span>
                   <h2>Profily sú kompletné</h2>
-                  <p>Kontrola nenašla chýbajúce údaje podľa aktuálnych pravidiel.</p>
+                  <p>{hasProfileFilters ? "Aktuálnym filtrom nezodpovedá žiadny problémový profil." : "Kontrola nenašla chýbajúce údaje podľa aktuálnych pravidiel."}</p>
                 </div>
               )}
 

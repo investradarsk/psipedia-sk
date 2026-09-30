@@ -22,6 +22,8 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       image_key TEXT,
       online INTEGER,
       city TEXT,
+      district TEXT,
+      region TEXT,
       service_address_confirmation TEXT,
       source_data_json TEXT
     );
@@ -35,8 +37,8 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
   const insertProfile = sqlite.prepare(`
     INSERT INTO directory_profiles (
       id, slug, name, category, status, description, website_url, image_url, image_key,
-      online, city, service_address_confirmation, source_data_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      online, city, district, region, service_address_confirmation, source_data_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (let id = 1; id <= 1200; id += 1) {
     insertProfile.run(
@@ -51,6 +53,8 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       null,
       0,
       "Nitra",
+      "Nitra",
+      "Nitriansky kraj",
       "CONFIRMED_SERVICE_LOCATION",
       id % 37 === 0 ? "{invalid-json" : "{}",
     );
@@ -196,6 +200,37 @@ test("current profile quality resolutions suppress legitimate missing fields and
   assert.equal(stale.summary.profilesWithIssues, 1200);
   assert.equal(stale.summary.missingPhone, 1200);
   assert.equal(stale.summary.missingEmail, 1200);
+  fixture.close();
+});
+
+test("data quality filters narrow profiles and media without changing facet summaries", async () => {
+  const fixture = d1Fixture();
+  useDb(fixture.db);
+
+  const filtered = await quality.loadDataQualityDashboard({
+    category: "veterinari",
+    issue: "image",
+    profileStatus: "published",
+    priority: "important",
+    query: "Profil 0011",
+    region: "Nitriansky kraj",
+    district: "Nitra",
+    mediaStatus: "error",
+  });
+
+  assert.equal(filtered.summary.totalProfiles, 1);
+  assert.equal(filtered.summary.profilesWithIssues, 1);
+  assert.equal(filtered.profilePagination.totalItems, 1);
+  assert.equal(filtered.profiles.length, 1);
+  assert.equal(filtered.profiles[0].id, 11);
+  assert.equal(filtered.profiles[0].priority, "important");
+  assert.ok(filtered.profiles[0].issues.some((issue) => issue.key === "image"));
+  assert.deepEqual(filtered.regionOptions, ["Nitriansky kraj"]);
+  assert.deepEqual(filtered.districtOptions, ["Nitra"]);
+
+  assert.equal(filtered.summary.mediaIssues, 250);
+  assert.equal(filtered.mediaPagination.totalItems, 0);
+  assert.equal(filtered.media.length, 0);
   fixture.close();
 });
 
