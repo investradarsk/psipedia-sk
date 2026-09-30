@@ -356,10 +356,13 @@ const issueSql: Record<Exclude<DataQualityIssueFilter, "all">, string> = {
   address: INCOMPLETE_ADDRESS_SQL,
 };
 
+const IMPORTANT_PROFILE_ISSUE_SQL = `(${MISSING_PHONE_SQL} OR ${MISSING_EMAIL_SQL} OR ${MISSING_WEBSITE_SQL})`;
+const SUPPLEMENT_PROFILE_ISSUE_SQL = `(${MISSING_DESCRIPTION_SQL} OR ${MISSING_IMAGE_SQL})`;
+
 const prioritySql: Record<Exclude<DataQualityPriority, "all">, string> = {
   critical: `(${INCOMPLETE_ADDRESS_SQL})`,
-  important: `(${MISSING_PHONE_SQL} OR ${MISSING_EMAIL_SQL} OR ${MISSING_WEBSITE_SQL})`,
-  supplement: `(${MISSING_DESCRIPTION_SQL} OR ${MISSING_IMAGE_SQL})`,
+  important: `NOT (${INCOMPLETE_ADDRESS_SQL}) AND ${IMPORTANT_PROFILE_ISSUE_SQL}`,
+  supplement: `NOT (${INCOMPLETE_ADDRESS_SQL}) AND NOT ${IMPORTANT_PROFILE_ISSUE_SQL} AND ${SUPPLEMENT_PROFILE_ISSUE_SQL}`,
 };
 
 function profilePriority(issues: DirectoryQualityItem["issues"]): DirectoryQualityItem["priority"] {
