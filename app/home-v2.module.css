@@ -1578,11 +1578,16 @@
 
 .homeV2 :global(.home-latest-item > [data-article-list-item]) {
   min-height: 100%;
+  grid-template-columns: minmax(0, 1fr);
   padding: 12px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.homeV2 :global(.home-latest-item > [data-article-list-item]:has([data-article-image])) {
+  grid-template-columns: 112px minmax(0, 1fr);
 }
 
 .homeV2 :global(.home-latest-item > [data-article-list-item]:hover) {
@@ -1617,8 +1622,12 @@
   }
 
   .homeV2 :global(.home-latest-item > [data-article-list-item]) {
-    grid-template-columns: 88px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 11px;
     padding-block: 12px;
+  }
+
+  .homeV2 :global(.home-latest-item > [data-article-list-item]:has([data-article-image])) {
+    grid-template-columns: 88px minmax(0, 1fr);
   }
 }
