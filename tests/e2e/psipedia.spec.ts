@@ -265,7 +265,7 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   ]);
   await expect(page.locator("h1")).toContainText(/Čo hľadáš\?|Hľadať|Výsledky/i);
   await gotoProductionPage(page, "/");
-  const ordinaryArticles = page.locator("[data-article-list-item]");
+  const ordinaryArticles = page.locator("[data-home-article-secondary] [data-article-list-item]");
   if (await ordinaryArticles.count()) {
     const first = ordinaryArticles.first();
     await expect(first.locator("[data-article-title]")).toBeVisible();
