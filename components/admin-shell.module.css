@@ -71,3 +71,24 @@
     top: 68px;
   }
 }
+
+
+.headingAnchor,
+.contentArea,
+.contentArea :global([id]),
+.contentArea :global(:focus-visible) {
+  scroll-margin-top: 178px;
+}
+
+.contentArea {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .headingAnchor,
+  .contentArea,
+  .contentArea :global([id]),
+  .contentArea :global(:focus-visible) {
+    scroll-margin-top: 150px;
+  }
+}
