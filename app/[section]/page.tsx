@@ -14,7 +14,7 @@ import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const NOVINKY_DESCRIPTION = "Výber príbehov, zaujímavostí, výskumu a užitočných tém zo sveta psov.";
+const NOVINKY_DESCRIPTION = "Výber príbehov, zaujímavostí, výskumu a užitočných tém zo sveta psov.";\nconst REVIEWS_DESCRIPTION = "Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste.";
 
 type Props = { params: Promise<{ section: string }>; searchParams: Promise<{ termin?: string | string[]; typ?: string | string[] }> };\ntype ReviewBindings = { DB?: ProfileReviewReadDatabase };\n\nfunction publicReviewDatabase() {\n  const database = (env as unknown as ReviewBindings).DB;\n  return database && typeof database.prepare === "function" ? database : null;\n}\n\nfunction scalar(value: string | string[] | undefined) {\n  return Array.isArray(value) ? value[0] : value;\n}
 type EventsPageProps = Parameters<typeof EventsListingPage>[0] & { schema: ReturnType<typeof buildCollectionPageJsonLd> | null };
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { section: slug } = await params;
   const section = await getManagedPortalSection(slug);
   if (!section?.visible) return {};
-  const description = slug === "novinky" ? NOVINKY_DESCRIPTION : section.description;
+  const description = slug === "novinky" ? NOVINKY_DESCRIPTION : slug === "recenzie" ? REVIEWS_DESCRIPTION : section.description;
   return buildPageMetadata({
     title: section.label,
     description,
