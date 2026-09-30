@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
-import { verifyDirectoryAddressSelection } from "@/lib/directory-address-provider";
+import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection } from "@/lib/directory-address-provider";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -9,6 +9,7 @@ import {
   preserveDirectoryPhysicalAddress,
   requireDirectoryAddressProviderSchema,
   withVerifiedDirectoryAddress,
+  withVerifiedDirectoryNumberlessAddress,
 } from "@/lib/directory-address-save";
 
 export const dynamic = "force-dynamic";
@@ -44,23 +45,36 @@ export async function PUT(request: Request, { params }: Props) {
     let verified = null;
     let payload = body;
     if (body.addressProviderResultId?.trim()) {
-      await requireDirectoryAddressProviderSchema();
-      verified = await verifyDirectoryAddressSelection({
-        region: body.region ?? before.region,
-        district: body.district ?? before.district,
-        city: body.city ?? before.city,
-        providerResultId: body.addressProviderResultId,
-        street: body.street ?? before.street,
-        houseNumber: body.houseNumber ?? before.houseNumber,
-      });
-      payload = withVerifiedDirectoryAddress(body, verified);
+      const houseNumber = (body.houseNumber ?? before.houseNumber).trim();
+      if (houseNumber) {
+        await requireDirectoryAddressProviderSchema();
+        verified = await verifyDirectoryAddressSelection({
+          region: body.region ?? before.region,
+          district: body.district ?? before.district,
+          city: body.city ?? before.city,
+          providerResultId: body.addressProviderResultId,
+          street: body.street ?? before.street,
+          houseNumber,
+        });
+        payload = withVerifiedDirectoryAddress(body, verified);
+      } else {
+        const numberless = await verifyDirectoryNumberlessAddressSelection({
+          region: body.region ?? before.region,
+          district: body.district ?? before.district,
+          city: body.city ?? before.city,
+          postalCode: body.postalCode ?? before.postalCode,
+          providerResultId: body.addressProviderResultId,
+          street: body.street ?? before.street,
+        });
+        payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
+      }
     } else if (changed) {
       const clearingForOnlineOnly = body.online === true
         && !body.region?.trim()
         && !body.district?.trim()
         && !body.city?.trim();
       if (!clearingForOnlineOnly) {
-        throw new Error("Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov a doplnením čísla domu.");
+        throw new Error("Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov.");
       }
       payload = {
         ...body,
