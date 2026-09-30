@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { parseArticleAdminListFilters } from "@/lib/article-admin-query";
 import { listManagedArticleSummaries } from "@/lib/article-store";
+import { listArticleTopics } from "@/lib/article-topics";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,13 @@ export default async function AdminArticlesPage({ searchParams }: { searchParams
   const filters = parseArticleAdminListFilters({
     get: (key) => typeof params[key] === "string" ? params[key] as string : null,
   });
-  const result = await listManagedArticleSummaries({
-    ...filters,
-    portalSection: filters.portalSection === "all" ? undefined : filters.portalSection,
-  });
+  const [result, topicOptions] = await Promise.all([
+    listManagedArticleSummaries({
+      ...filters,
+      portalSection: filters.portalSection === "all" ? undefined : filters.portalSection,
+    }),
+    listArticleTopics({ includeInactive: true }),
+  ]);
 
   return (
     <AdminShell
@@ -26,7 +30,7 @@ export default async function AdminArticlesPage({ searchParams }: { searchParams
       eyebrow="Obsah"
       title="Články a novinky"
       description="Hľadaj, filtruj, upravuj a publikuj redakčný obsah. Pracovný prehľad zostáva na /admin."
-      actions={<Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link>}
+      actions={<><Link className="admin-secondary-action" href="/admin/clanky/temy">Témy článkov</Link><Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link></>}
     >
       <AdminDashboard
         key={JSON.stringify(filters)}
@@ -36,6 +40,7 @@ export default async function AdminArticlesPage({ searchParams }: { searchParams
         pagination={result.pagination}
         filters={filters}
         listPath="/admin/clanky"
+        topicOptions={topicOptions}
       />
     </AdminShell>
   );

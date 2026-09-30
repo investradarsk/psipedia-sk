@@ -96,6 +96,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0101_eshop_profile_presentation.sql",
   "0102_eshop_notion_sync.sql",
   "0103_admin_entity_reviews.sql",
+  "0104_article_topics.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -972,6 +973,19 @@ export function targetSchemaObjects(schema, targetMigration) {
         || ADMIN_ENTITY_REVIEW_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0104_article_topics.sql") {
+    return {
+      partial: names.has("article_topics")
+        || names.has("article_topic_assignments")
+        || [
+          "article_topics_slug_unique",
+          "article_topics_normalized_key_unique",
+          "article_topics_active_label_idx",
+          "article_topic_assignments_article_idx",
+          "article_topic_assignments_topic_idx",
+        ].some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1544,6 +1558,23 @@ function assertAutomationDiscoveryEvidenceSchema(schema) {
   );
 }
 
+function assertArticleTopicSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("article_topics")?.type === "table", "Missing article_topics table");
+  invariant(names.get("article_topic_assignments")?.type === "table", "Missing article_topic_assignments table");
+  for (const index of [
+    "article_topics_slug_unique",
+    "article_topics_normalized_key_unique",
+    "article_topics_active_label_idx",
+    "article_topic_assignments_article_idx",
+    "article_topic_assignments_topic_idx",
+  ]) invariant(names.get(index)?.type === "index", `Missing article topic index: ${index}`);
+  const assignmentsSql = String(names.get("article_topic_assignments")?.sql ?? "");
+  invariant(assignmentsSql.includes("PRIMARY KEY (article_id, topic_id)"), "Article topic assignment primary key is missing");
+  invariant(assignmentsSql.includes("REFERENCES managed_articles(id) ON DELETE CASCADE"), "Article topic article FK is incomplete");
+  invariant(assignmentsSql.includes("REFERENCES article_topics(id) ON DELETE CASCADE"), "Article topic topic FK is incomplete");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1578,6 +1609,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 101) assertEshopProfilePresentationSchema(schema);
   if (migrationIndex(targetMigration) >= 102) assertEshopNotionSyncSchema(schema);
   if (migrationIndex(targetMigration) >= 103) assertAdminEntityReviewSchema(schema);
+  if (migrationIndex(targetMigration) >= 104) assertArticleTopicSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {

@@ -272,8 +272,15 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     await expect(first.locator("[data-article-topic]")).toBeVisible();
     await expect(first.locator("[data-article-date]")).toBeVisible();
     await expect(first.locator("p")).toHaveCount(0);
-    const imagedSecondary = page.locator(".featured-stack [data-article-list-item]:has([data-article-image])");
-    expect(await imagedSecondary.count(), "Homepage secondary articles with images should keep thumbnails").toBeGreaterThan(0);
+    const imagedSecondary = page.locator("[data-home-article-secondary] [data-article-list-item]:has([data-article-image])");
+    for (let index = 0; index < await imagedSecondary.count(); index += 1) {
+      const image = imagedSecondary.nth(index).locator("[data-article-image] img");
+      await expect(image, "Homepage secondary thumbnail should be visible when the selected article has an image").toBeVisible();
+      expect(
+        await image.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+        "Homepage secondary thumbnail failed to load",
+      ).toBeGreaterThan(0);
+    }
     const heights = await ordinaryArticles.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
     expect(heights.every((height) => height < 220), `Homepage secondary article rows are oversized: ${JSON.stringify(heights)}`).toBe(true);
   }
