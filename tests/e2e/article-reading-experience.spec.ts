@@ -499,8 +499,13 @@ test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visua
   test.skip(testInfo.project.name !== "desktop-chromium", "Viewport matrix is captured once from the desktop Chromium project.");
 
   const surfaces = [
-    { id: "magazine-cards", path: "/clanky", selector: "[data-article-card]" },
-    { id: "homepage-cards", path: "/", selector: "[data-home-latest] [data-article-card]" },
+    { id: "magazine-cards", path: "/clanky", selector: "[data-article-card]", emptySelector: null },
+    {
+      id: "homepage-cards",
+      path: "/",
+      selector: "[data-home-latest] [data-article-card]",
+      emptySelector: "[data-home-latest-empty]",
+    },
   ] as const;
   const viewports = [
     { width: 360, height: 800, label: "mobile-360x800" },
@@ -523,7 +528,26 @@ test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visua
 
       await page.goto(surface.path);
       const cards = page.locator(surface.selector);
-      expect(await cards.count(), `${surface.id} should expose at least one article card`).toBeGreaterThan(0);
+      const cardCount = await cards.count();
+
+      if (cardCount === 0 && surface.emptySelector) {
+        await expect(page.locator(surface.emptySelector)).toBeVisible();
+        expect(
+          await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth)),
+          `${surface.id} ${viewport.label}: empty state horizontal overflow`,
+        ).toBeLessThanOrEqual(1);
+        await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
+
+        if (viewport.width === 390 || viewport.width === 1440) {
+          await page.screenshot({
+            path: `.e2e-artifacts/article-ux-1/${surface.id}-after-local-${viewport.label}.png`,
+          });
+          await expectNoSeriousAccessibilityViolations(page);
+        }
+        continue;
+      }
+
+      expect(cardCount, `${surface.id} should expose article cards or its canonical empty state`).toBeGreaterThan(0);
       await expect(cards.first()).toBeVisible();
 
       const metrics = await page.evaluate((selector) => {
