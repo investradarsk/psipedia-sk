@@ -320,21 +320,6 @@ async function safePublishedDirectoryRelation(
   }
 }
 
-async function safePublicOrganizationAdoptions(
-  organizationId: number,
-  database: AdoptionD1Database,
-) {
-  try {
-    return await listPublicAdoptionsByOrganizationId(organizationId, database);
-  } catch (error) {
-    console.error("Public organization adoption relations read failed", {
-      organizationId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return [];
-  }
-}
-
 function toPublicOrganization(
   row: PublicOrganizationRow,
   directory: PublicOrganizationDirectoryRelation | null,
@@ -428,9 +413,16 @@ export async function getPublicOrganizationCompositionBySlug(
 ): Promise<PublicOrganizationComposition | null> {
   const row = await findPublicOrganizationRowBySlug(slug, database);
   if (!row) return null;
+  const adoptionsPromise = listPublicAdoptionsByOrganizationId(Number(row.id), database).catch((error) => {
+    console.error("Public organization adoption relations read failed", {
+      organizationId: Number(row.id),
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  });
   const [locations, adoptions, directory, fundraisingMethods] = await Promise.all([
     listPublicOrganizationLocations(row, database),
-    safePublicOrganizationAdoptions(Number(row.id), database),
+    adoptionsPromise,
     safePublishedDirectoryRelation(Number(row.id), row.directory_profile_id, database),
     listPublicOrganizationFundraisingMethods(Number(row.id), row.status, database),
   ]);
