@@ -96,9 +96,12 @@ function qualityResolutionCurrentSql(field: DirectoryQualityField) {
   const checkedAtKey = directoryQualityCheckedAtSourceKey(field).replaceAll('"', '""');
   const statuses = directoryQualityResolutionStatuses.map((status) => `'${status}'`).join(",");
   return `(
-    CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."${statusKey}"') AS TEXT) IN (${statuses})
-    AND datetime(CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."${checkedAtKey}"') AS TEXT))
-      >= datetime('now', '-${DIRECTORY_QUALITY_RECHECK_DAYS} days')
+    COALESCE(
+      CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."${statusKey}"') AS TEXT) IN (${statuses})
+      AND datetime(CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."${checkedAtKey}"') AS TEXT))
+        >= datetime('now', '-${DIRECTORY_QUALITY_RECHECK_DAYS} days'),
+      0
+    ) = 1
   )`;
 }
 
