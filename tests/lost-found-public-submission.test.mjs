@@ -175,6 +175,17 @@ test("public submission retry resets Turnstile after failed API or network reque
   assert.match(form, /resultRef\.current\?\.scrollIntoView/);
 });
 
+test("lost/found report route keeps shared header CSS and help overview exposes direct report CTA", () => {
+  const page = readFileSync(new URL("../app/pomoc-psom/stratene-a-najdene/nahlasit/page.tsx", import.meta.url), "utf8");
+  const overview = readFileSync(new URL("../components/help-overview.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /site-header\.module\.css/);
+  assert.match(page, /routeCssAnchor/);
+  assert.match(overview, /Stratil sa vám pes alebo ste psa našli\?/);
+  assert.match(overview, /\/pomoc-psom\/stratene-a-najdene\/nahlasit/);
+  assert.match(overview, /Nahlásiť psa/);
+});
+
 test("public image upload stays private until moderation and 0100 is not created", () => {
   const media = readFileSync(new URL("../lib/lost-found-public-media.ts", import.meta.url), "utf8");
   assert.match(media, /SUBMISSION_UPLOADS/);
