@@ -65,6 +65,7 @@ async function captureProductionBaseline(page: Page, path: string, output: strin
       console.warn(`[article-ux] production baseline unavailable for ${path}: HTTP ${response?.status() ?? "unknown"}`);
       return;
     }
+    await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined);
     await page.screenshot({ path: output });
   } catch (error) {
     console.warn(
@@ -299,6 +300,8 @@ for (const articleCase of cases) {
       };
     });
 
+    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-desktop-1440x900.png` });
+
     expect(metrics.overflow).toBeLessThanOrEqual(1);
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
     if (articleCase.hasImage) {
@@ -357,7 +360,6 @@ for (const articleCase of cases) {
     }
 
     if (articleCase.id === "bikejoring") await expectNoSeriousAccessibilityViolations(page);
-    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-desktop-1440x900.png` });
   });
 }
 
