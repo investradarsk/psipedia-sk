@@ -58,12 +58,6 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
     setTurnstileAttempt((attempt) => attempt + 1);
   }
 
-  function focusField(name: string | null | undefined) {
-    if (!name) return;
-    const element = formRef.current?.elements.namedItem(name);
-    if (element instanceof HTMLElement) element.focus();
-  }
-
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!clientReady || sending) return;
