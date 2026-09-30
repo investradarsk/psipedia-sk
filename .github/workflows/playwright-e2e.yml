@@ -314,7 +314,7 @@ jobs:
         with:
           name: home-1-visual-evidence-${{ github.run_attempt }}
           path: .e2e-artifacts/home-1/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
       - name: Stop local app server
         if: always()
