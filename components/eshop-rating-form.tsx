@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useState } from "react";
 import { PartnerTurnstile } from "@/components/partner-turnstile";
-import type { EshopRatingInput } from "@/lib/eshop-ratings";
-import { ESHOP_RATING_FIELDS } from "@/lib/eshop-ratings";
+import { ESHOP_RATING_FIELDS, type EshopRatingInput } from "@/lib/eshop-rating-domain";
 import { reviewAuthorAuthHref } from "@/lib/review-author-return-to";
 import styles from "./eshop-rating-form.module.css";
 
