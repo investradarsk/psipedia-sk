@@ -390,7 +390,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0105_future_migration.sql",
+    "0106_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -408,90 +408,24 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
   const result = selectMigrationsThrough(files, "0069_partner_auth_onboarding_hardening.sql");
   assert.equal(result.targetIndex, 69);
   assert.equal(result.selected.at(-1), "0069_partner_auth_onboarding_hardening.sql");
-  assert.deepEqual(result.excludedFuture, [
-    "0070_partner_multimethod_auth.sql",
-    "0071_admin_universal_notifications.sql",
-    "0072_partner_media_uploads.sql",
-    "0073_automation_multisource_entity_resolution.sql",
-    "0074_directory_service_address.sql",
-    "0075_automation_zsk_event_source.sql",
-    "0076_automation_non_event_entity_resolution_foundation.sql",
-    "0077_directory_geo_provider_result_id.sql",
-    "0078_automation_possible_match_reviews.sql",
-    "0079_automation_agility_event_source.sql",
-    "0080_automation_canonical_apply.sql",
-    "0081_automation_mushing_event_source.sql",
-    "0082_automation_discovery_candidate_evidence.sql",
-    "0083_automation_search_budgets.sql",
-    "0084_automation_governance_registry.sql",
-    "0085_automation_tavily_discovery_root.sql",
-    "0086_automation_tavily_event_cadence.sql",
-    "0087_automation_tavily_help_roots.sql",
-    "0088_automation_tavily_organization_root.sql",
-    "0089_automation_tavily_directory_roots.sql",
-    "0090_geo_google_place_identity.sql",
-    "0091_automation_detach_drafts.sql",
-    "0092_automation_product_model.sql",
-    "0093_automation_address_review.sql",
-    "0094_canonical_draft_delete.sql",
-    "0095_automation_calendar_schedule.sql",
-    "0096_automation_update_field_reviews.sql",
-    "0097_automation_operations_metrics.sql",
-    "0098_directory_notion_bidirectional_sync.sql",
-    "0099_media_source_quality.sql",
-    "0100_eshop_ratings.sql",
-    "0101_eshop_profile_presentation.sql",
-    "0102_eshop_notion_sync.sql",
-    "0103_admin_entity_reviews.sql",
-    "0104_article_topics.sql",
-  ]);
+  assert.deepEqual(
+    result.excludedFuture,
+    SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 69),
+  );
 });
 
 test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes future migrations", () => {
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0105_future_migration.sql",
+    "0106_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
-    "0071_admin_universal_notifications.sql",
-    "0072_partner_media_uploads.sql",
-    "0073_automation_multisource_entity_resolution.sql",
-    "0074_directory_service_address.sql",
-    "0075_automation_zsk_event_source.sql",
-    "0076_automation_non_event_entity_resolution_foundation.sql",
-    "0077_directory_geo_provider_result_id.sql",
-    "0078_automation_possible_match_reviews.sql",
-    "0079_automation_agility_event_source.sql",
-    "0080_automation_canonical_apply.sql",
-    "0081_automation_mushing_event_source.sql",
-    "0082_automation_discovery_candidate_evidence.sql",
-    "0083_automation_search_budgets.sql",
-    "0084_automation_governance_registry.sql",
-    "0085_automation_tavily_discovery_root.sql",
-    "0086_automation_tavily_event_cadence.sql",
-    "0087_automation_tavily_help_roots.sql",
-    "0088_automation_tavily_organization_root.sql",
-    "0089_automation_tavily_directory_roots.sql",
-    "0090_geo_google_place_identity.sql",
-    "0091_automation_detach_drafts.sql",
-    "0092_automation_product_model.sql",
-    "0093_automation_address_review.sql",
-    "0094_canonical_draft_delete.sql",
-    "0095_automation_calendar_schedule.sql",
-    "0096_automation_update_field_reviews.sql",
-    "0097_automation_operations_metrics.sql",
-    "0098_directory_notion_bidirectional_sync.sql",
-    "0099_media_source_quality.sql",
-    "0100_eshop_ratings.sql",
-    "0101_eshop_profile_presentation.sql",
-    "0102_eshop_notion_sync.sql",
-    "0103_admin_entity_reviews.sql",
-    "0104_article_topics.sql",
-    "0105_future_migration.sql",
+    ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
+    "0106_future_migration.sql",
   ]);
 });
 
