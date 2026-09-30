@@ -303,6 +303,91 @@ test("data quality surfaces reviewable contact suggestions from existing automat
   fixture.close();
 });
 
+test("data quality allows description adoption but keeps address suggestions manual", async () => {
+  const fixture = d1Fixture();
+  useDb(fixture.db);
+  await fixture.db.prepare(`UPDATE directory_profiles
+    SET service_address_confirmation='NEEDS_REVIEW'
+    WHERE id=8`).run();
+  await fixture.db.prepare(`CREATE TABLE automation_update_suggestions (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    canonical_entity_id INTEGER NOT NULL,
+    suggestion_type TEXT NOT NULL,
+    before_json TEXT NOT NULL,
+    proposed_json TEXT NOT NULL,
+    diff_json TEXT NOT NULL,
+    external_source_url TEXT,
+    last_detected_at TEXT NOT NULL,
+    status TEXT NOT NULL
+  )`).run();
+  await fixture.db.prepare(`CREATE TABLE automation_sources (
+    id INTEGER PRIMARY KEY,
+    label TEXT
+  )`).run();
+  await fixture.db.prepare(`CREATE TABLE automation_findings (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    canonical_entity_id INTEGER NOT NULL,
+    finding_type TEXT NOT NULL,
+    before_json TEXT NOT NULL,
+    proposed_json TEXT NOT NULL,
+    diff_json TEXT NOT NULL,
+    source_url TEXT,
+    source_id INTEGER,
+    last_detected_at TEXT NOT NULL,
+    review_status TEXT NOT NULL
+  )`).run();
+
+  await fixture.db.prepare(`INSERT INTO automation_update_suggestions (
+    id, entity_type, canonical_entity_id, suggestion_type, before_json, proposed_json,
+    diff_json, external_source_url, last_detected_at, status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+    2,
+    "DIRECTORY",
+    7,
+    "POSSIBLE_UPDATE",
+    JSON.stringify({ description: "" }),
+    JSON.stringify({ description: "Veterinárna ambulancia poskytujúca odbornú starostlivosť o spoločenské zvieratá." }),
+    JSON.stringify({ description: { before: "", after: "Veterinárna ambulancia poskytujúca odbornú starostlivosť o spoločenské zvieratá." } }),
+    "https://example.test/o-nas",
+    "2026-09-30T12:10:00.000Z",
+    "OPEN",
+  ).run();
+
+  await fixture.db.prepare(`INSERT INTO automation_update_suggestions (
+    id, entity_type, canonical_entity_id, suggestion_type, before_json, proposed_json,
+    diff_json, external_source_url, last_detected_at, status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+    3,
+    "DIRECTORY",
+    8,
+    "POSSIBLE_UPDATE",
+    JSON.stringify({ address: "" }),
+    JSON.stringify({ address: "Hlavná 12, Nitra" }),
+    JSON.stringify({ address: { before: "", after: "Hlavná 12, Nitra" } }),
+    "https://example.test/kontakt",
+    "2026-09-30T12:20:00.000Z",
+    "OPEN",
+  ).run();
+
+  const descriptionResult = await quality.loadDataQualityDashboard({ query: "Profil 0007" });
+  assert.equal(descriptionResult.profiles[0].suggestions.length, 1);
+  assert.equal(descriptionResult.profiles[0].suggestions[0].field, "description");
+  assert.equal(descriptionResult.profiles[0].suggestions[0].issueKey, "description");
+  assert.equal(descriptionResult.profiles[0].suggestions[0].reviewMode, "accept");
+  assert.equal(descriptionResult.profiles[0].suggestions[0].label, "Popis");
+
+  const addressResult = await quality.loadDataQualityDashboard({ query: "Profil 0008" });
+  assert.equal(addressResult.profiles[0].suggestions.length, 1);
+  assert.equal(addressResult.profiles[0].suggestions[0].field, "address");
+  assert.equal(addressResult.profiles[0].suggestions[0].issueKey, "address");
+  assert.equal(addressResult.profiles[0].suggestions[0].reviewMode, "manual");
+  assert.equal(addressResult.profiles[0].suggestions[0].proposed, "Hlavná 12, Nitra");
+  assert.match(addressResult.profiles[0].suggestions[0].note, /skontrolovať/i);
+  fixture.close();
+});
+
 test("entity lookup deduplicates and chunks more than 100 IDs under the D1 binding ceiling", async () => {
   const fixture = d1Fixture();
   useDb(fixture.db);
@@ -376,6 +461,9 @@ test("quality UI never renders raw monitor errors, SQL or stack traces", () => {
   assert.doesNotMatch(component, /stack/i);
   assert.match(component, /Nájdené zo zdrojov/);
   assert.match(component, /Prevziať/);
+  assert.match(component, /Skontrolovať v profile/);
+  assert.match(component, /vyžaduje kontrolu/);
+  assert.match(component, /suggestion\.reviewMode === "accept"/);
   assert.match(component, /automation-update-suggestions/);
   assert.match(component, /Referencia:/);
   assert.match(reliability, /errorType:/);
