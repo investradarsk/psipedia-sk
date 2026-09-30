@@ -36,6 +36,8 @@ type DirectoryQualityRow = {
   image_key: string | null;
   online: number | null;
   city: string | null;
+  district: string | null;
+  region: string | null;
   service_address_confirmation: string | null;
   source_data_json: string | null;
 };
@@ -72,6 +74,46 @@ export const dataQualityCategoryOptions = [
 ] as const;
 
 export type DataQualityCategory = (typeof dataQualityCategoryOptions)[number]["value"];
+
+export const dataQualityIssueOptions = [
+  { value: "all", label: "Všetky problémy" },
+  { value: "description", label: "Chýba popis" },
+  { value: "phone", label: "Chýba telefón" },
+  { value: "email", label: "Chýba e-mail" },
+  { value: "website", label: "Chýba web" },
+  { value: "image", label: "Chýba hlavný obrázok" },
+  { value: "address", label: "Adresa nie je potvrdená" },
+] as const;
+
+export type DataQualityIssueFilter = (typeof dataQualityIssueOptions)[number]["value"];
+
+export const dataQualityProfileStatusOptions = [
+  { value: "all", label: "Všetky stavy" },
+  { value: "published", label: "Publikované" },
+  { value: "draft", label: "Koncepty" },
+] as const;
+
+export type DataQualityProfileStatus = (typeof dataQualityProfileStatusOptions)[number]["value"];
+
+export const dataQualityPriorityOptions = [
+  { value: "all", label: "Všetky priority" },
+  { value: "critical", label: "Kritické" },
+  { value: "important", label: "Dôležité" },
+  { value: "supplement", label: "Doplniť" },
+] as const;
+
+export type DataQualityPriority = (typeof dataQualityPriorityOptions)[number]["value"];
+
+export const dataQualityMediaStatusOptions = [
+  { value: "all", label: "Všetky stavy obrázkov" },
+  { value: "review", label: "Na schválenie" },
+  { value: "candidate", label: "Nový obrázok" },
+  { value: "changed", label: "Zmenený obrázok" },
+  { value: "missing", label: "Zdroj chýba" },
+  { value: "error", label: "Kontrola zlyhala" },
+] as const;
+
+export type DataQualityMediaStatus = (typeof dataQualityMediaStatusOptions)[number]["value"];
 
 const VALID_SOURCE_DATA_SQL =
   "CASE WHEN json_valid(COALESCE(source_data_json, '')) THEN source_data_json ELSE '{}' END";
@@ -143,6 +185,7 @@ export type DirectoryQualityItem = {
   slug: string;
   category: string;
   status: string;
+  priority: Exclude<DataQualityPriority, "all">;
   issues: Array<{ key: DataQualityIssueKey; label: string }>;
   mediaMonitor: MediaSourceMonitor | null;
   href: string;
@@ -196,6 +239,19 @@ export type DataQualityDashboard = {
   availability: AdminAutomationReliabilitySummary;
   category: DataQualityCategory;
   categoryOptions: typeof dataQualityCategoryOptions;
+  issue: DataQualityIssueFilter;
+  issueOptions: typeof dataQualityIssueOptions;
+  profileStatus: DataQualityProfileStatus;
+  profileStatusOptions: typeof dataQualityProfileStatusOptions;
+  priority: DataQualityPriority;
+  priorityOptions: typeof dataQualityPriorityOptions;
+  query: string;
+  region: string;
+  district: string;
+  regionOptions: string[];
+  districtOptions: string[];
+  mediaStatus: DataQualityMediaStatus;
+  mediaStatusOptions: typeof dataQualityMediaStatusOptions;
   sections: {
     profiles: AvailabilitySection;
     media: AvailabilitySection;
@@ -207,6 +263,8 @@ type ProfileReadData = {
   summary: ExcludeNulls<NullableProfileSummary>;
   profiles: DirectoryQualityItem[];
   pagination: DataQualityPagination;
+  regionOptions: string[];
+  districtOptions: string[];
 };
 
 type MediaReadData = {
@@ -279,11 +337,103 @@ function directoryIssues(row: DirectoryQualityRow) {
   return issues;
 }
 
-async function loadProfileQualityPage(requestedPage: number, category: DataQualityCategory): Promise<ProfileReadData> {
+type ProfileQualityFilters = {
+  category: DataQualityCategory;
+  issue: DataQualityIssueFilter;
+  status: DataQualityProfileStatus;
+  priority: DataQualityPriority;
+  query: string;
+  region: string;
+  district: string;
+};
+
+const issueSql: Record<Exclude<DataQualityIssueFilter, "all">, string> = {
+  description: MISSING_DESCRIPTION_SQL,
+  phone: MISSING_PHONE_SQL,
+  email: MISSING_EMAIL_SQL,
+  website: MISSING_WEBSITE_SQL,
+  image: MISSING_IMAGE_SQL,
+  address: INCOMPLETE_ADDRESS_SQL,
+};
+
+const prioritySql: Record<Exclude<DataQualityPriority, "all">, string> = {
+  critical: `(${INCOMPLETE_ADDRESS_SQL})`,
+  important: `(${MISSING_PHONE_SQL} OR ${MISSING_EMAIL_SQL} OR ${MISSING_WEBSITE_SQL})`,
+  supplement: `(${MISSING_DESCRIPTION_SQL} OR ${MISSING_IMAGE_SQL})`,
+};
+
+function profilePriority(issues: DirectoryQualityItem["issues"]): DirectoryQualityItem["priority"] {
+  if (issues.some((issue) => issue.key === "address")) return "critical";
+  if (issues.some((issue) => issue.key === "phone" || issue.key === "email" || issue.key === "website")) return "important";
+  return "supplement";
+}
+
+function profileFilterSql(
+  filters: ProfileQualityFilters,
+  options: { includeIssue?: boolean; includePriority?: boolean } = {},
+) {
+  const clauses: string[] = [];
+  const bindings: string[] = [];
+  if (filters.category !== "all" && filters.category !== "podujatia") {
+    clauses.push("category=?");
+    bindings.push(filters.category);
+  }
+  if (filters.status !== "all") {
+    clauses.push("status=?");
+    bindings.push(filters.status);
+  }
+  if (filters.region) {
+    clauses.push("region=?");
+    bindings.push(filters.region);
+  }
+  if (filters.district) {
+    clauses.push("district=?");
+    bindings.push(filters.district);
+  }
+  if (filters.query) {
+    const like = `%${filters.query}%`;
+    clauses.push("(name LIKE ? COLLATE NOCASE OR city LIKE ? COLLATE NOCASE OR district LIKE ? COLLATE NOCASE OR region LIKE ? COLLATE NOCASE OR CAST(id AS TEXT)=?)");
+    bindings.push(like, like, like, like, filters.query);
+  }
+  if (options.includeIssue !== false && filters.issue !== "all") {
+    clauses.push(`(${issueSql[filters.issue]})`);
+  }
+  if (options.includePriority !== false && filters.priority !== "all") {
+    clauses.push(`(${prioritySql[filters.priority]})`);
+  }
+  return {
+    clause: clauses.length ? ` AND ${clauses.join(" AND ")}` : "",
+    bindings,
+  };
+}
+
+async function loadDirectoryLocationOptions(database: D1Database, filters: ProfileQualityFilters) {
+  const categoryClause = filters.category !== "all" && filters.category !== "podujatia" ? " AND category=?" : "";
+  const categoryBindings = categoryClause ? [filters.category] : [];
+  const districtRegionClause = filters.region ? " AND region=?" : "";
+  const [regions, districts] = await Promise.all([
+    database.prepare(`
+      SELECT DISTINCT region AS value
+      FROM directory_profiles
+      WHERE status <> 'archived' AND trim(COALESCE(region, '')) <> ''${categoryClause}
+      ORDER BY region COLLATE NOCASE
+    `).bind(...categoryBindings).all<{ value: string }>(),
+    database.prepare(`
+      SELECT DISTINCT district AS value
+      FROM directory_profiles
+      WHERE status <> 'archived' AND trim(COALESCE(district, '')) <> ''${categoryClause}${districtRegionClause}
+      ORDER BY district COLLATE NOCASE
+    `).bind(...categoryBindings, ...(filters.region ? [filters.region] : [])).all<{ value: string }>(),
+  ]);
+  const values = (rows: { results?: Array<{ value: string }> }) =>
+    (rows.results ?? []).map((row) => row.value?.trim()).filter((value): value is string => Boolean(value));
+  return { regionOptions: values(regions), districtOptions: values(districts) };
+}
+
+async function loadProfileQualityPage(requestedPage: number, filters: ProfileQualityFilters): Promise<ProfileReadData> {
   const db = database();
-  const categoryClause = category !== "all" && category !== "podujatia" ? " AND category=?" : "";
-  const categoryBindings = categoryClause ? [category] : [];
-  if (category === "podujatia") {
+  const locationOptions = await loadDirectoryLocationOptions(db, filters);
+  if (filters.category === "podujatia") {
     return {
       summary: {
         totalProfiles: 0,
@@ -297,8 +447,12 @@ async function loadProfileQualityPage(requestedPage: number, category: DataQuali
       },
       profiles: [],
       pagination: emptyPagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE),
+      ...locationOptions,
     };
   }
+
+  const baseFilter = profileFilterSql(filters, { includeIssue: false, includePriority: false });
+  const resultFilter = profileFilterSql(filters);
   const summaryRow = await db.prepare(`
     SELECT
       COUNT(*) AS total_profiles,
@@ -310,8 +464,8 @@ async function loadProfileQualityPage(requestedPage: number, category: DataQuali
       SUM(CASE WHEN ${MISSING_IMAGE_SQL} THEN 1 ELSE 0 END) AS missing_image,
       SUM(CASE WHEN ${INCOMPLETE_ADDRESS_SQL} THEN 1 ELSE 0 END) AS incomplete_address
     FROM directory_profiles
-    WHERE status <> 'archived'${categoryClause}
-  `).bind(...categoryBindings).first<ProfileSummaryRow>();
+    WHERE status <> 'archived'${baseFilter.clause}
+  `).bind(...baseFilter.bindings).first<ProfileSummaryRow>();
 
   const summary = {
     totalProfiles: Number(summaryRow?.total_profiles ?? 0),
@@ -323,30 +477,42 @@ async function loadProfileQualityPage(requestedPage: number, category: DataQuali
     missingImage: Number(summaryRow?.missing_image ?? 0),
     incompleteAddress: Number(summaryRow?.incomplete_address ?? 0),
   };
-  const paging = pagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE, summary.profilesWithIssues);
+
+  const countRow = await db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM directory_profiles
+    WHERE status <> 'archived'${resultFilter.clause}
+      AND ${PROFILE_ISSUE_SQL}
+  `).bind(...resultFilter.bindings).first<{ count: number }>();
+  const resultCount = Number(countRow?.count ?? 0);
+  const paging = pagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE, resultCount);
   const offset = (paging.page - 1) * paging.pageSize;
   const result = await db.prepare(`
     SELECT id, slug, name, category, status, description, website_url, image_url, image_key,
-           online, city, service_address_confirmation, source_data_json
+           online, city, district, region, service_address_confirmation, source_data_json
     FROM directory_profiles
-    WHERE status <> 'archived'${categoryClause}
+    WHERE status <> 'archived'${resultFilter.clause}
       AND ${PROFILE_ISSUE_SQL}
     ORDER BY name COLLATE NOCASE ASC, id ASC
     LIMIT ? OFFSET ?
-  `).bind(...categoryBindings, paging.pageSize, offset).all<DirectoryQualityRow>();
+  `).bind(...resultFilter.bindings, paging.pageSize, offset).all<DirectoryQualityRow>();
 
-  const profiles = (result.results ?? []).map((row) => ({
-    id: Number(row.id),
-    name: row.name || `Profil #${row.id}`,
-    slug: row.slug ?? "",
-    category: row.category ?? "",
-    status: row.status ?? "",
-    issues: directoryIssues(row),
-    mediaMonitor: null,
-    href: `/admin/adresar/${row.id}`,
-  }));
+  const profiles = (result.results ?? []).map((row) => {
+    const issues = directoryIssues(row);
+    return {
+      id: Number(row.id),
+      name: row.name || `Profil #${row.id}`,
+      slug: row.slug ?? "",
+      category: row.category ?? "",
+      status: row.status ?? "",
+      priority: profilePriority(issues),
+      issues,
+      mediaMonitor: null,
+      href: `/admin/adresar/${row.id}`,
+    };
+  });
 
-  return { summary, profiles, pagination: paging };
+  return { summary, profiles, pagination: paging, ...locationOptions };
 }
 
 function mediaCategorySql(category: DataQualityCategory) {
@@ -358,7 +524,20 @@ function mediaCategorySql(category: DataQualityCategory) {
   };
 }
 
-async function loadMediaQualityPage(requestedPage: number, category: DataQualityCategory): Promise<MediaReadData> {
+function mediaStatusSql(status: DataQualityMediaStatus) {
+  if (status === "review") return " AND status IN ('CANDIDATE','CHANGED')";
+  if (status === "candidate") return " AND status='CANDIDATE'";
+  if (status === "changed") return " AND status='CHANGED'";
+  if (status === "missing") return " AND status='MISSING'";
+  if (status === "error") return " AND status='ERROR'";
+  return "";
+}
+
+async function loadMediaQualityPage(
+  requestedPage: number,
+  category: DataQualityCategory,
+  mediaStatus: DataQualityMediaStatus,
+): Promise<MediaReadData> {
   const db = database();
   if (!await mediaSourceMonitorSchemaReady(db)) {
     const error = new Error("Voliteľný monitoring obrázkov nie je v tejto schéme dostupný.");
@@ -380,9 +559,16 @@ async function loadMediaQualityPage(requestedPage: number, category: DataQuality
     changedMedia: Number(summaryRow?.changed_media ?? 0),
     missingMediaSource: Number(summaryRow?.missing_media_source ?? 0),
   };
-  const paging = pagination(requestedPage, DATA_QUALITY_MEDIA_PAGE_SIZE, summary.mediaIssues);
+  const statusClause = mediaStatusSql(mediaStatus);
+  const countRow = await db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM media_source_monitors
+    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${mediaCategory.clause}${statusClause}
+  `).bind(...mediaCategory.bindings).first<{ count: number }>();
+  const resultCount = Number(countRow?.count ?? 0);
+  const paging = pagination(requestedPage, DATA_QUALITY_MEDIA_PAGE_SIZE, resultCount);
   const offset = (paging.page - 1) * paging.pageSize;
-  const monitors = await listMediaSourceIssues(db, paging.pageSize, offset, category);
+  const monitors = await listMediaSourceIssues(db, paging.pageSize, offset, category, mediaStatus);
   return { summary, monitors, pagination: paging, monitorReady: true };
 }
 
@@ -492,16 +678,47 @@ export async function loadDataQualityDashboard(input: {
   profilePage?: number;
   mediaPage?: number;
   category?: string;
+  issue?: string;
+  profileStatus?: string;
+  priority?: string;
+  query?: string;
+  region?: string;
+  district?: string;
+  mediaStatus?: string;
 } = {}): Promise<DataQualityDashboard> {
   const requestedProfilePage = safePage(input.profilePage);
   const requestedMediaPage = safePage(input.mediaPage);
   const category = dataQualityCategoryOptions.some((option) => option.value === input.category)
     ? input.category as DataQualityCategory
     : "all";
+  const issue = dataQualityIssueOptions.some((option) => option.value === input.issue)
+    ? input.issue as DataQualityIssueFilter
+    : "all";
+  const profileStatus = dataQualityProfileStatusOptions.some((option) => option.value === input.profileStatus)
+    ? input.profileStatus as DataQualityProfileStatus
+    : "all";
+  const priority = dataQualityPriorityOptions.some((option) => option.value === input.priority)
+    ? input.priority as DataQualityPriority
+    : "all";
+  const mediaStatus = dataQualityMediaStatusOptions.some((option) => option.value === input.mediaStatus)
+    ? input.mediaStatus as DataQualityMediaStatus
+    : "all";
+  const query = input.query?.trim().slice(0, 100) ?? "";
+  const region = input.region?.trim().slice(0, 80) ?? "";
+  const district = input.district?.trim().slice(0, 100) ?? "";
+  const profileFilters: ProfileQualityFilters = {
+    category,
+    issue,
+    status: profileStatus,
+    priority,
+    query,
+    region,
+    district,
+  };
 
   const profileRead = await readAdminAutomationData({
     key: "data-quality:profiles",
-    load: () => loadProfileQualityPage(requestedProfilePage, category),
+    load: () => loadProfileQualityPage(requestedProfilePage, profileFilters),
     fallback: {
       summary: {
         totalProfiles: 0,
@@ -515,13 +732,15 @@ export async function loadDataQualityDashboard(input: {
       },
       profiles: [],
       pagination: emptyPagination(requestedProfilePage, DATA_QUALITY_PROFILE_PAGE_SIZE),
+      regionOptions: [],
+      districtOptions: [],
     },
     empty: (value) => value.summary.totalProfiles === 0,
   });
 
   const mediaRead = await readAdminAutomationData({
     key: "data-quality:media",
-    load: () => loadMediaQualityPage(requestedMediaPage, category),
+    load: () => loadMediaQualityPage(requestedMediaPage, category, mediaStatus),
     fallback: {
       summary: { mediaIssues: 0, changedMedia: 0, missingMediaSource: 0 },
       monitors: [],
@@ -559,6 +778,19 @@ export async function loadDataQualityDashboard(input: {
     mediaPagination: mediaRead.data.pagination,
     category,
     categoryOptions: dataQualityCategoryOptions,
+    issue,
+    issueOptions: dataQualityIssueOptions,
+    profileStatus,
+    profileStatusOptions: dataQualityProfileStatusOptions,
+    priority,
+    priorityOptions: dataQualityPriorityOptions,
+    query,
+    region,
+    district,
+    regionOptions: profileRead.data.regionOptions,
+    districtOptions: profileRead.data.districtOptions,
+    mediaStatus,
+    mediaStatusOptions: dataQualityMediaStatusOptions,
     availability,
     sections: {
       profiles: { status: profileRead.status, errorRef: profileRead.errorRef },
