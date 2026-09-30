@@ -3,6 +3,7 @@ import { AdminReviewsHub } from "@/components/admin-reviews-hub";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listManagedArticleSummaries } from "@/lib/article-store";
+import { countManagedEshops } from "@/lib/eshop-ratings";
 import { listProfileReviewsAdmin } from "@/lib/profile-review-admin";
 import { getManagedPortalSection } from "@/lib/section-store";
 
@@ -11,11 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function AdminReviewsPage() {
   const user = await requireAdminPageUser("/admin/recenzie");
 
-  const [articlesResult, pendingResult, allReviewsResult, sectionResult] = await Promise.allSettled([
+  const [articlesResult, pendingResult, allReviewsResult, sectionResult, eshopResult] = await Promise.allSettled([
     listManagedArticleSummaries({ portalSection: "recenzie", pageSize: 1 }),
     listProfileReviewsAdmin({ status: "PENDING_REVIEW", pageSize: 1 }),
     listProfileReviewsAdmin({ status: "all", pageSize: 1 }),
     getManagedPortalSection("recenzie"),
+    countManagedEshops(),
   ]);
 
   const articleCounts = articlesResult.status === "fulfilled"
@@ -26,6 +28,7 @@ export default async function AdminReviewsPage() {
   const categoryCount = sectionResult.status === "fulfilled" && sectionResult.value
     ? sectionResult.value.subpages.filter((item) => item.visible !== false).length
     : null;
+  const eshopCounts = eshopResult.status === "fulfilled" ? eshopResult.value : { total: null, published: null };
 
   return (
     <AdminShell
@@ -40,6 +43,7 @@ export default async function AdminReviewsPage() {
         pendingReviews={pendingReviews}
         totalReviews={totalReviews}
         categoryCount={categoryCount}
+        eshopCounts={eshopCounts}
       />
     </AdminShell>
   );
