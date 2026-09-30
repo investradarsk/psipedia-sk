@@ -86,10 +86,8 @@ test("Help Admin list is paged, accent-insensitive and keeps dedicated modules o
   await expect(page.getByRole("heading",{level:1,name:"Help prípady a výzvy"})).toBeVisible();
   await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 65");
   await expect(page.locator(".admin-help-row")).toHaveCount(50);
-  const moduleLinks=page.getByRole("navigation",{name:"Samostatné admin moduly"}).first();
-  await expect(moduleLinks.getByRole("link",{name:"Adopcie",exact:true})).toHaveAttribute("href","/admin/adopcie");
-  await expect(moduleLinks.getByRole("link",{name:"Stratené / nájdené",exact:true})).toHaveAttribute("href","/admin/stratene-najdene");
-  await expect(moduleLinks.getByRole("link",{name:"Organizácie",exact:true})).toHaveAttribute("href","/admin/organizacie");
+  const helpHubNav=page.getByRole("navigation",{name:"Pomoc psom"}).first();
+  await expect(helpHubNav.getByRole("link",{name:"Všetky kategórie",exact:true})).toHaveAttribute("href","/admin/pomoc-psom");
   await page.getByRole("link",{name:"Ďalšia →"}).click();
   await expect(page.locator(".admin-help-row")).toHaveCount(15);
 
@@ -184,7 +182,7 @@ test("Help Admin 390x844 list, editor and import preview have no page overflow, 
   for(const control of [
     search,page.getByLabel("Kategória"),page.getByLabel("Publikácia"),page.getByLabel("Urgentnosť"),
     page.getByLabel("Stav prípadu"),page.getByLabel("Organizácia / osoba"),page.getByLabel("Lokalita"),
-    page.getByRole("button",{name:"Použiť filtre"}),page.getByRole("navigation",{name:"Samostatné admin moduly"}).first().getByRole("link",{name:"Adopcie",exact:true}),
+    page.getByRole("button",{name:"Použiť filtre"}),page.getByRole("navigation",{name:"Pomoc psom"}).first().getByRole("link",{name:"Všetky kategórie",exact:true}),
   ]){
     const box=await control.boundingBox();expect(box?.height??0).toBeGreaterThanOrEqual(44);
   }
