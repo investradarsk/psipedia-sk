@@ -9,5 +9,9 @@
     "binding": "BUCKET",
     "bucket_name": "psipedia-sk-bucket"
   },
+  "submission_r2": {
+    "binding": "SUBMISSION_UPLOADS",
+    "bucket_name": "psipedia-submission-uploads"
+  },
   "account_id": "5ff902d3d80376478b9213b2b8ae8d6e"
 }

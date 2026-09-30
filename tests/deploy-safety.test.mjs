@@ -129,7 +129,7 @@ async function createArtifactFixture({ buildCommand = null } = {}) {
     main: "./index.js",
     assets: { directory: "../client" },
     d1_databases: [{ binding: "DB" }],
-    r2_buckets: [{ binding: "BUCKET" }],
+    r2_buckets: [{ binding: "BUCKET" }, { binding: "SUBMISSION_UPLOADS" }],
     ...(buildCommand ? { build: { command: buildCommand } } : {}),
   };
   await fs.writeFile(
@@ -144,7 +144,7 @@ test("prepared artifact validator fingerprints the complete dist tree determinis
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const options = {
     root,
-    canonicalResources: { d1: { binding: "DB" }, r2: { binding: "BUCKET" } },
+    canonicalResources: { d1: { binding: "DB" }, r2: { binding: "BUCKET" }, submission_r2: { binding: "SUBMISSION_UPLOADS" } },
   };
 
   const first = await validatePreparedDeployArtifact(options);
@@ -156,6 +156,28 @@ test("prepared artifact validator fingerprints the complete dist tree determinis
   assert.notEqual(changed.fingerprint, first.fingerprint);
 });
 
+test("prepared artifact validator rejects a missing private submission R2 binding", async (t) => {
+  const root = await createArtifactFixture();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+
+  const wranglerPath = path.join(root, "dist", "server", "wrangler.json");
+  const wrangler = JSON.parse(await fs.readFile(wranglerPath, "utf8"));
+  wrangler.r2_buckets = [{ binding: "BUCKET" }];
+  await fs.writeFile(wranglerPath, `${JSON.stringify(wrangler, null, 2)}\n`);
+
+  await assert.rejects(
+    () => validatePreparedDeployArtifact({
+      root,
+      canonicalResources: {
+        d1: { binding: "DB" },
+        r2: { binding: "BUCKET" },
+        submission_r2: { binding: "SUBMISSION_UPLOADS" },
+      },
+    }),
+    /missing canonical R2 binding SUBMISSION_UPLOADS/,
+  );
+});
+
 test("prepared artifact validator rejects a Wrangler build hook that could create artifact B", async (t) => {
   const root = await createArtifactFixture({ buildCommand: "npm run build" });
   t.after(() => fs.rm(root, { recursive: true, force: true }));
@@ -163,7 +185,7 @@ test("prepared artifact validator rejects a Wrangler build hook that could creat
   await assert.rejects(
     () => validatePreparedDeployArtifact({
       root,
-      canonicalResources: { d1: { binding: "DB" }, r2: { binding: "BUCKET" } },
+      canonicalResources: { d1: { binding: "DB" }, r2: { binding: "BUCKET" }, submission_r2: { binding: "SUBMISSION_UPLOADS" } },
     }),
     /must not declare build\.command/,
   );

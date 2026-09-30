@@ -153,6 +153,28 @@ test("moderation uses existing LOST_FOUND_CASE foundation and approval precedes 
   assert.match(adminRoute, /finalizeLostFoundPublicMedia/);
 });
 
+test("public submission form cannot fall back to GET before or without hydration", () => {
+  const form = readFileSync(new URL("../components/lost-found-submission-form.tsx", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/lost-found/submissions/route.ts", import.meta.url), "utf8");
+
+  assert.match(form, /method="post"/);
+  assert.match(form, /action="\/api\/lost-found\/submissions"/);
+  assert.match(form, /disabled=\{!clientReady \|\| sending\}/);
+  assert.match(form, /<noscript>/);
+  assert.match(form, /Údaje neboli odoslané/);
+  assert.match(form, /lost-found-public-constants/);
+  assert.doesNotMatch(form, /from "@\/lib\/lost-found-public-submission"/);
+  assert.doesNotMatch(route, /export async function GET/);
+});
+
+test("public submission retry resets Turnstile after failed API or network request", () => {
+  const form = readFileSync(new URL("../components/lost-found-submission-form.tsx", import.meta.url), "utf8");
+  assert.match(form, /resetTurnstile\(\)/);
+  assert.match(form, /key=\{turnstileAttempt\}/);
+  assert.match(form, /Odosielam…/);
+  assert.match(form, /resultRef\.current\?\.scrollIntoView/);
+});
+
 test("public image upload stays private until moderation and 0100 is not created", () => {
   const media = readFileSync(new URL("../lib/lost-found-public-media.ts", import.meta.url), "utf8");
   assert.match(media, /SUBMISSION_UPLOADS/);
