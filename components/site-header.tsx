@@ -314,6 +314,15 @@ export function SiteHeader({
       <nav aria-label="Rýchla navigácia">
         <a className="skip-link" href="#obsah">Preskočiť na obsah</a>
       </nav>
+      {dogNameDays.length > 0 ? (
+        <div className={styles.mobileNameDay} data-mobile-name-day>
+          <span>Psie meniny</span>
+          <strong>{dogNameDays.join(", ")}</strong>
+          {currentDateLabel ? <i className={styles.nameDayDivider} aria-hidden="true" /> : null}
+          {currentDateLabel ? <time className={styles.currentDate}>{currentDateLabel}</time> : null}
+        </div>
+      ) : null}
+
       <header className="site-header" ref={headerRef}>
         <div className={`header-inner shell public-shell ${styles.masthead}`} data-header-masthead>
           {menuButton(styles.mobileLeftTrigger)}
@@ -390,15 +399,6 @@ export function SiteHeader({
             ) : <Link href={item.href} className={item.className} title={item.title} key={item.id} data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</Link>)}
           </nav>
         </div>
-
-        {dogNameDays.length > 0 ? (
-          <div className={styles.mobileNameDay} data-mobile-name-day>
-            <span>Psie meniny</span>
-            <strong>{dogNameDays.join(", ")}</strong>
-            {currentDateLabel ? <i className={styles.nameDayDivider} aria-hidden="true" /> : null}
-            {currentDateLabel ? <time className={styles.currentDate}>{currentDateLabel}</time> : null}
-          </div>
-        ) : null}
 
         <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell public-shell" aria-label="Mobilná navigácia">
