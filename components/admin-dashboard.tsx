@@ -20,6 +20,7 @@ import {
   type ArticleAdminListFilters,
 } from "@/lib/article-admin-query";
 import type { ManagedArticleSummary, ManagedArticleSummaryPage } from "@/lib/article-store";
+import type { ArticleTopic } from "@/lib/article-topics";
 import type { AdminModuleCounts } from "@/lib/admin-dashboard-store";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSectionOptions, portalSectionLabel } from "@/lib/portal";
@@ -67,6 +68,7 @@ export function AdminDashboard({
   filters,
   fixedPortalSection,
   listPath = "/admin",
+  topicOptions = [],
 }: {
   initialArticles: ManagedArticleSummary[];
   initialCounts: ManagedArticleSummaryPage["counts"];
@@ -76,6 +78,7 @@ export function AdminDashboard({
   filters: ArticleAdminListFilters;
   fixedPortalSection?: ManagedArticleSummary["portalSection"];
   listPath?: string;
+  topicOptions?: ArticleTopic[];
 }) {
   const [articles, setArticles] = useState(initialArticles);
   const [counts, setCounts] = useState(initialCounts);
@@ -88,7 +91,7 @@ export function AdminDashboard({
     status: filters.status,
     q: filters.query,
   }), [fixedPortalSection, filters.portalSection, filters.query, filters.status]);
-  const membershipFingerprint = articleAdminBulkFingerprint(membershipFilter);
+  const membershipFingerprint = `${articleAdminBulkFingerprint(membershipFilter)}|topic:${filters.topicId ?? ""}`;
   const pageIds = articles.map((article) => article.id);
   const bulkSelection = useAdminBulkSelection({
     module: "articles",
@@ -176,6 +179,17 @@ export function AdminDashboard({
               </select>
             </label>
           )}
+          {!fixedPortalSection && (
+            <label className="admin-select-filter">
+              <span>Téma</span>
+              <select name="topic" defaultValue={filters.topicId ? String(filters.topicId) : ""}>
+                <option value="">Všetky témy</option>
+                {topicOptions.map((topic) => (
+                  <option key={topic.id} value={topic.id}>{topic.label}{topic.isActive ? "" : " (neaktívna)"}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="admin-select-filter">
             <span>Zoradiť</span>
             <select name="sort" defaultValue={filters.sort}>
@@ -189,7 +203,7 @@ export function AdminDashboard({
             </select>
           </label>
           <button type="submit">Filtrovať</button>
-          {(filters.query || filters.status !== "all" || filters.portalSection !== "all" || filters.sort !== "updated" || filters.direction !== "desc")
+          {(filters.query || filters.status !== "all" || filters.portalSection !== "all" || filters.topicId || filters.sort !== "updated" || filters.direction !== "desc")
             && <Link href={routePath}>Vyčistiť filtre</Link>}
         </form>
 
