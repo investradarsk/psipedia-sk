@@ -201,7 +201,7 @@ export async function queryDirectoryAdmin<T>(
   const resultCount = Number(count?.count ?? 0);
   const pages = Math.max(1, Math.ceil(resultCount / safePageSize));
   const page = Math.min(Math.max(1, Math.trunc(filters.page || 1)), pages);
-  const result = await database.prepare(`SELECT id, slug, name, category, status, services_json, city, district, region, image_url, source_data_json, verified, featured, updated_at
+  const result = await database.prepare(`SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at
     FROM directory_profiles${membershipQuery.where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
     .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();
   const [regions, districts, cities] = await Promise.all([
