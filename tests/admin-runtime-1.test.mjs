@@ -22,6 +22,8 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       image_key TEXT,
       online INTEGER,
       city TEXT,
+      district TEXT,
+      region TEXT,
       service_address_confirmation TEXT,
       source_data_json TEXT
     );
@@ -35,8 +37,8 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
   const insertProfile = sqlite.prepare(`
     INSERT INTO directory_profiles (
       id, slug, name, category, status, description, website_url, image_url, image_key,
-      online, city, service_address_confirmation, source_data_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      online, city, district, region, service_address_confirmation, source_data_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (let id = 1; id <= 1200; id += 1) {
     insertProfile.run(
@@ -51,6 +53,8 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       null,
       0,
       "Nitra",
+      "Nitra",
+      "Nitriansky kraj",
       "CONFIRMED_SERVICE_LOCATION",
       id % 37 === 0 ? "{invalid-json" : "{}",
     );
