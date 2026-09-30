@@ -32,7 +32,7 @@ export type ArticleAdminListFilters = {
   portalSection: ArticleAdminPortalSection;
   sort: ArticleAdminSort;
   direction: ArticleAdminDirection;
-  topicId: number | null;
+  topicId?: number | null;
   page: number;
   pageSize: number;
 };
