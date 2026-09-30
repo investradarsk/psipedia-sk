@@ -539,6 +539,7 @@ test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visua
         await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
 
         if (viewport.width === 390 || viewport.width === 1440) {
+          await page.evaluate(() => window.scrollTo(0, 0));
           await page.screenshot({
             path: `.e2e-artifacts/article-ux-1/${surface.id}-after-local-${viewport.label}.png`,
           });
@@ -574,6 +575,7 @@ test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visua
       await expect(primaryLink).toBeFocused();
 
       if (viewport.width === 390 || viewport.width === 1440) {
+        await page.evaluate(() => window.scrollTo(0, 0));
         await page.screenshot({
           path: `.e2e-artifacts/article-ux-1/${surface.id}-after-local-${viewport.label}.png`,
         });
