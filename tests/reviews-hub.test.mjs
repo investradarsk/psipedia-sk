@@ -22,11 +22,15 @@ test("reviews hub separates editorial products, user service reviews and verifie
   assert.match(hub, /Produkty/);
   assert.match(hub, /Služby/);
   assert.match(hub, /E-shopy/);
+  assert.match(hub, /Štyri jednoduché vstupy do recenzií/);
+  assert.match(hub, /styles\.modeCard/);
   assert.match(hub, /Najnovšie testy Psipedia/);
   assert.match(hub, /Najnovšie recenzie služieb/);
   assert.match(hub, /Hodnotenia nákupnej skúsenosti/);
   assert.match(hub, /overený e-mail/);
   assert.match(hub, /\/recenzie\/eshopy\/\$\{shop\.slug\}/);
+  assert.match(hub, /shop\.logoUrl/);
+  assert.match(hub, /shop\.focusTags/);
   assert.match(hub, /Google ani iné externé skóre nikdy nemiešame do priemeru Psipedia/);
   assert.match(hub, /Affiliate a sponzorovaný obsah musí byť označený/);
 });
@@ -49,7 +53,8 @@ test("reviews hub styling stays isolated in a CSS module", () => {
   const hub = read("components/reviews-hub.tsx");
   const css = read("components/reviews-hub.module.css");
   assert.match(hub, /reviews-hub\.module\.css/);
-  assert.match(css, /\.switcher/);
+  assert.match(css, /\.modeGrid/);
+  assert.match(css, /\.modeCard/);
   assert.match(css, /\.reviewGrid/);
   assert.match(css, /\.categoryGrid/);
   assert.match(css, /\.eshopGrid/);
