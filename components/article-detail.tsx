@@ -3,6 +3,7 @@ import { categorySlug } from "@/components/article-card";
 import { ArticleBlocks } from "@/components/article-blocks";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
+import { ArticleReadTracker } from "@/components/article-read-tracker";
 import { FavoriteButton } from "@/components/favorite-button";
 import { Breadcrumbs, MediaFrame } from "@/components/page-system";
 import { PublicContentList } from "@/components/public-visual-system";
@@ -147,6 +148,7 @@ export function ArticleDetail({
   return (
     <main id="obsah" className={styles.modernArticle}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
+      <ArticleReadTracker articleSlug={article.slug} />
       <header className={`${styles.hero} shell`}>
         <Breadcrumbs label="Navigácia v článku">
           <Link href="/">Domov</Link><span>/</span>

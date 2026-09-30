@@ -97,6 +97,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0102_eshop_notion_sync.sql",
   "0103_admin_entity_reviews.sql",
   "0104_article_topics.sql",
+  "0105_article_popularity.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -986,6 +987,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         ].some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0105_article_popularity.sql") {
+    return {
+      partial: names.has("article_read_hourly")
+        || names.has("article_read_hourly_bucket_idx"),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1575,6 +1582,16 @@ function assertArticleTopicSchema(schema) {
   invariant(assignmentsSql.includes("REFERENCES article_topics(id) ON DELETE CASCADE"), "Article topic topic FK is incomplete");
 }
 
+function assertArticlePopularitySchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("article_read_hourly")?.type === "table", "Missing article_read_hourly table");
+  invariant(names.get("article_read_hourly_bucket_idx")?.type === "index", "Missing article_read_hourly bucket index");
+  const tableSql = String(names.get("article_read_hourly")?.sql ?? "");
+  invariant(tableSql.includes("PRIMARY KEY (article_id, bucket_hour)"), "Article popularity primary key is missing");
+  invariant(tableSql.includes("REFERENCES managed_articles(id) ON DELETE CASCADE"), "Article popularity article FK is incomplete");
+  invariant(tableSql.includes("CHECK (qualified_reads >= 0)"), "Article popularity non-negative read constraint is missing");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1610,6 +1627,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 102) assertEshopNotionSyncSchema(schema);
   if (migrationIndex(targetMigration) >= 103) assertAdminEntityReviewSchema(schema);
   if (migrationIndex(targetMigration) >= 104) assertArticleTopicSchema(schema);
+  if (migrationIndex(targetMigration) >= 105) assertArticlePopularitySchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
