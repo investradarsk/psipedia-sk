@@ -183,13 +183,28 @@ export type DataQualityIssueKey =
   | "address"
   | "image-source";
 
-export type DataQualityContactSuggestion = {
+export type DataQualityFieldSuggestion = {
   origin: AutomationUpdateOrigin;
   suggestionId: number;
-  field: "publicPhone" | "publicEmail" | "websiteUrl";
-  issueKey: "phone" | "email" | "website";
+  field:
+    | "publicPhone"
+    | "publicEmail"
+    | "websiteUrl"
+    | "description"
+    | "address"
+    | "city"
+    | "district"
+    | "region"
+    | "postalCode"
+    | "street"
+    | "houseNumber"
+    | "addressFormat"
+    | "serviceAddressConfirmation";
+  issueKey: "phone" | "email" | "website" | "description" | "address";
   label: string;
   proposed: string;
+  reviewMode: "accept" | "manual";
+  note: string | null;
   sourceUrl: string | null;
   sourceLabel: string;
   detectedAt: string;
@@ -205,7 +220,7 @@ export type DirectoryQualityItem = {
   status: string;
   priority: Exclude<DataQualityPriority, "all">;
   issues: Array<{ key: DataQualityIssueKey; label: string }>;
-  suggestions: DataQualityContactSuggestion[];
+  suggestions: DataQualityFieldSuggestion[];
   mediaMonitor: MediaSourceMonitor | null;
   href: string;
 };
@@ -766,25 +781,37 @@ export async function loadDataQualityDashboard(input: {
     key: "data-quality:profile-suggestions",
     load: async () => {
       const profileIds = profileRead.data.profiles.map((profile) => profile.id);
-      if (!profileIds.length) return [] as Array<{ profileId: number; suggestion: DataQualityContactSuggestion }>;
+      if (!profileIds.length) return [] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>;
       const suggestions = await listCanonicalAutomationUpdateSuggestionsForEntities({
         entityType: "DIRECTORY",
         canonicalEntityIds: profileIds,
       }, database());
       const issueField = {
-        publicPhone: { issueKey: "phone", label: "Telefón" },
-        publicEmail: { issueKey: "email", label: "E-mail" },
-        websiteUrl: { issueKey: "website", label: "Web" },
+        publicPhone: { issueKey: "phone", label: "Telefón", reviewMode: "accept" },
+        publicEmail: { issueKey: "email", label: "E-mail", reviewMode: "accept" },
+        websiteUrl: { issueKey: "website", label: "Web", reviewMode: "accept" },
+        description: { issueKey: "description", label: "Popis", reviewMode: "accept" },
+        address: { issueKey: "address", label: "Adresa", reviewMode: "manual" },
+        city: { issueKey: "address", label: "Mesto / obec", reviewMode: "manual" },
+        district: { issueKey: "address", label: "Okres", reviewMode: "manual" },
+        region: { issueKey: "address", label: "Kraj", reviewMode: "manual" },
+        postalCode: { issueKey: "address", label: "PSČ", reviewMode: "manual" },
+        street: { issueKey: "address", label: "Ulica", reviewMode: "manual" },
+        houseNumber: { issueKey: "address", label: "Číslo domu", reviewMode: "manual" },
+        addressFormat: { issueKey: "address", label: "Formát adresy", reviewMode: "manual" },
+        serviceAddressConfirmation: { issueKey: "address", label: "Potvrdenie adresy", reviewMode: "manual" },
       } as const;
       const profileIssues = new Map(
         profileRead.data.profiles.map((profile) => [profile.id, new Set(profile.issues.map((issue) => issue.key))]),
       );
       return suggestions.flatMap((suggestion) =>
         suggestion.fields.flatMap((field) => {
-          if (!field.reviewable || field.state !== "OPEN") return [];
           if (!(field.field in issueField)) return [];
           const typedField = field.field as keyof typeof issueField;
           const meta = issueField[typedField];
+          const canAccept = meta.reviewMode === "accept" && field.reviewable && field.state === "OPEN";
+          const canReviewManually = meta.reviewMode === "manual" && field.state === "UNSUPPORTED";
+          if (!canAccept && !canReviewManually) return [];
           if (!profileIssues.get(suggestion.canonicalEntityId)?.has(meta.issueKey)) return [];
           const proposed = field.proposed === null || field.proposed === undefined ? "" : String(field.proposed).trim();
           if (!proposed) return [];
@@ -797,12 +824,16 @@ export async function loadDataQualityDashboard(input: {
               issueKey: meta.issueKey,
               label: meta.label,
               proposed,
+              reviewMode: meta.reviewMode,
+              note: meta.reviewMode === "manual"
+                ? "Adresu treba pred uložením skontrolovať v profile."
+                : field.note,
               sourceUrl: suggestion.sourceUrl,
               sourceLabel: suggestion.sourceLabel,
               detectedAt: suggestion.detectedAt,
               canonicalUpdatedAt: suggestion.canonicalUpdatedAt,
               proposedValueHash: field.proposedValueHash,
-            } satisfies DataQualityContactSuggestion,
+            } satisfies DataQualityFieldSuggestion,
           }];
         }),
       );
