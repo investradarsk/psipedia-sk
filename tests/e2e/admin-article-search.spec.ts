@@ -14,10 +14,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("article admin search finds an accented article beyond page one and keeps URL state", async ({ page }) => {
-  const response = await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
 
-  const filterForm = page.locator('form[role="search"][action="/admin"]');
+  const filterForm = page.locator('form[role="search"][action="/admin/clanky"]');
   const search = filterForm.getByPlaceholder("Názov, slug, perex alebo téma");
   await search.fill("zubky");
   await filterForm.locator('select[name="status"]').selectOption("draft");
@@ -31,7 +31,7 @@ test("article admin search finds an accented article beyond page one and keeps U
   await expect(page.getByRole("status").filter({ hasText: "Nájdené" })).toContainText("Nájdené: 1");
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  const restoredFilterForm = page.locator('form[role="search"][action="/admin"]');
+  const restoredFilterForm = page.locator('form[role="search"][action="/admin/clanky"]');
   await expect(restoredFilterForm.getByPlaceholder("Názov, slug, perex alebo téma")).toHaveValue("zubky");
   await expect(restoredFilterForm.locator('select[name="status"]')).toHaveValue("draft");
   await expect(restoredFilterForm.locator('select[name="section"]')).toHaveValue("clanky");
@@ -43,7 +43,7 @@ test("article admin search finds an accented article beyond page one and keeps U
 
 test("article admin list is keyboard-usable, axe-clean and fits desktop/mobile viewports", async ({ page }, testInfo) => {
   if (testInfo.project.name === "mobile-chromium") await page.setViewportSize({ width: 390, height: 844 });
-  const response = await page.goto("/admin?query=ADMIN+SEARCH&status=draft&page=2", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/admin/clanky?query=ADMIN+SEARCH&status=draft&page=2", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
   const search = page.getByPlaceholder("Názov, slug, perex alebo téma");
   await search.focus();
