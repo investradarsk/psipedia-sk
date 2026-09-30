@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { verifyDirectoryNumberlessAddressSelection } from "../lib/directory-address-provider.ts";
+import { applyGooglePlaceResolution } from "../lib/geo-store.ts";
 import { evaluateNumberlessGooglePlaceCandidates } from "../lib/google-place-matching.ts";
 
 const routeSource = readFileSync(new URL("../app/api/admin/geo/[targetType]/[id]/route.ts", import.meta.url), "utf8");
@@ -149,6 +150,127 @@ test("numberless confirm revalidates the same Google Place and persists Google c
   assert.match(routeSource, /applyGooglePlaceResolution/);
   assert.match(routeSource, /place: \{[\s\S]*id: google\.candidate\.id,[\s\S]*latitude: google\.candidate\.latitude,[\s\S]*longitude: google\.candidate\.longitude/);
   assert.doesNotMatch(geoUiSource, /action:\s*"manual"|setManualGeoCoordinates/);
+});
+
+function googleResolutionDb(patch = {}) {
+  const writes = [];
+  const row = {
+    id: 501,
+    target_type: "DIRECTORY_PROFILE",
+    directory_profile_id: 77,
+    organization_location_id: null,
+    managed_event_id: null,
+    public_visibility: "EXACT_PUBLIC",
+    public_precision: "EXACT",
+    latitude: null,
+    longitude: null,
+    resolution_method: null,
+    provider: null,
+    provenance: null,
+    source_license: null,
+    normalized_query: null,
+    query_fingerprint: null,
+    source_fingerprint: "agi-source",
+    resolved_source_fingerprint: null,
+    geocode_status: "PENDING",
+    last_error_code: null,
+    last_error_at: null,
+    retry_after_at: null,
+    attempt_count: 0,
+    manual_override: 0,
+    manual_updated_at: null,
+    manual_updated_by: null,
+    last_geocoded_at: null,
+    created_at: "2026-09-30T00:00:00.000Z",
+    updated_at: "2026-09-30T00:00:00.000Z",
+    ...patch,
+  };
+  return {
+    writes,
+    db: {
+      prepare(sql) {
+        if (/PRAGMA table_info\('geo_points'\)/.test(sql)) {
+          return { async all() { return { results: [{ name: "provider_result_id" }] }; } };
+        }
+        return {
+          bind(...args) {
+            return {
+              async first() {
+                if (/FROM geo_points WHERE directory_profile_id = \? LIMIT 1/.test(sql)) return { ...row };
+                return null;
+              },
+              async run() {
+                writes.push({ sql, args });
+                if (/provider='google_places'/.test(sql)) {
+                  row.latitude = args[0];
+                  row.longitude = args[1];
+                  row.resolution_method = "GEOCODER";
+                  row.provider = "google_places";
+                  row.provenance = "Google Places API (New)";
+                  row.source_license = null;
+                  row.resolved_source_fingerprint = row.source_fingerprint;
+                  row.geocode_status = "RESOLVED";
+                  row.last_error_code = null;
+                  row.attempt_count += 1;
+                }
+                return { meta: { changes: 1 } };
+              },
+              async all() { return { results: [] }; },
+            };
+          },
+          async first() { return null; },
+          async all() { return { results: [] }; },
+          async run() { return { meta: { changes: 0 } }; },
+        };
+      },
+      async batch() { return []; },
+    },
+  };
+}
+
+test("numberless Google confirmation resolves the existing geo_point as EXACT_PUBLIC / EXACT / RESOLVED", async () => {
+  const fixture = googleResolutionDb();
+  const point = await applyGooglePlaceResolution({
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 77,
+    place: { id: "agi-google-place", latitude: 49.081, longitude: 19.612 },
+  }, fixture.db);
+  assert.equal(point.publicVisibility, "EXACT_PUBLIC");
+  assert.equal(point.publicPrecision, "EXACT");
+  assert.equal(point.geocodeStatus, "RESOLVED");
+  assert.equal(point.latitude, 49.081);
+  assert.equal(point.longitude, 19.612);
+  assert.equal(point.resolutionMethod, "GEOCODER");
+  assert.equal(point.provider, "google_places");
+  assert.equal(point.provenance, "Google Places API (New)");
+  assert.equal(point.resolvedSourceFingerprint, point.sourceFingerprint);
+  assert.equal(point.manualOverride, false);
+  assert.equal(fixture.writes.length, 1);
+  assert.match(fixture.writes[0].sql, /google_place_id=\?/);
+  assert.equal(fixture.writes[0].args[2], "agi-google-place");
+  assert.equal(fixture.writes[0].args[3], "agi-google-place");
+});
+
+test("Google Place resolution refuses manual overrides and non-exact publication contracts", async () => {
+  const manual = googleResolutionDb({ manual_override: 1 });
+  await assert.rejects(
+    applyGooglePlaceResolution({
+      targetType: "DIRECTORY_PROFILE",
+      targetId: 77,
+      place: { id: "agi-google-place", latitude: 49.081, longitude: 19.612 },
+    }, manual.db),
+    /manual override/,
+  );
+
+  const approximate = googleResolutionDb({ public_visibility: "APPROXIMATE_PUBLIC", public_precision: "MUNICIPALITY" });
+  await assert.rejects(
+    applyGooglePlaceResolution({
+      targetType: "DIRECTORY_PROFILE",
+      targetId: 77,
+      place: { id: "agi-google-place", latitude: 49.081, longitude: 19.612 },
+    }, approximate.db),
+    /EXACT_PUBLIC \/ EXACT/,
+  );
 });
 
 test("Google Place resolution keeps exact public map contract and truthful provider identity", () => {
