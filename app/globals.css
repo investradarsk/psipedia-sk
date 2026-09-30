@@ -15046,11 +15046,47 @@ a.breed-fci-path-node:focus-visible {
 
 
 /* ADMIN-QUALITY-UX-1: focused profile/media review workspace */
+.admin-quality-tabs-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: stretch;
+  margin: 0 0 18px;
+}
+
 .admin-quality-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin: 0 0 18px;
+  margin: 0;
+}
+
+.admin-quality-quick-check,
+.admin-quality-secondary-link {
+  display: inline-flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid #c7d4cc;
+  border-radius: 12px;
+  color: #174b38;
+  background: #fff;
+  font-size: .78rem;
+  font-weight: 820;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-quality-quick-check:hover:not(:disabled),
+.admin-quality-secondary-link:hover {
+  border-color: #90aa9c;
+  background: #f1f6f2;
+}
+
+.admin-quality-quick-check:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
 
 .admin-quality-tabs > a {
@@ -15412,8 +15448,17 @@ a.breed-fci-path-node:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .admin-quality-tabs-wrap {
+    grid-template-columns: 1fr;
+  }
+
   .admin-quality-tabs {
     grid-template-columns: 1fr;
+  }
+
+  .admin-quality-quick-check {
+    min-height: 46px;
+    width: 100%;
   }
 
   .admin-quality-section-heading--actions {
