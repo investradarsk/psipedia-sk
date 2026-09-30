@@ -59,11 +59,7 @@ function rowToItem(row: NavigationRow): NavigationItem {
 
 export function canonicalizeLegacyNewsLanding(items: NavigationItem[]) {
   return items.map((item) => item.href === "/novinky"
-    ? {
-        ...item,
-        href: "/clanky",
-        label: item.id === "novinky" && item.label === "Novinky" ? "Novinky zo sveta psov" : item.label,
-      }
+    ? { ...item, href: "/clanky" }
     : item);
 }
 
