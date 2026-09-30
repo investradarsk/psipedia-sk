@@ -12,6 +12,7 @@ import {
   assertAutomationGovernanceSchema,
   assertTavilyEventCadenceState,
   assertPartnerAuthPreserved,
+  requiresExactPartnerAuthPreservation,
   assertPendingTargetSchemaClean,
   buildScopedWranglerConfig,
   selectMigrationsThrough,
@@ -574,6 +575,22 @@ test("PARTNER-H3 data preservation mismatch fails closed", () => {
     }),
     /partnerAccounts data changed unexpectedly/,
   );
+});
+
+test("PARTNER-H3 exact auth snapshot is limited to the first 0070 rollout", () => {
+  assert.equal(requiresExactPartnerAuthPreservation("0070_partner_multimethod_auth.sql", false), true);
+  assert.equal(requiresExactPartnerAuthPreservation("0070_partner_multimethod_auth.sql", true), false);
+  assert.equal(requiresExactPartnerAuthPreservation("0071_admin_universal_notifications.sql", false), false);
+  assert.equal(requiresExactPartnerAuthPreservation("0100_eshop_ratings.sql", false), false);
+  assert.equal(requiresExactPartnerAuthPreservation("0100_eshop_ratings.sql", true), false);
+});
+
+test("post-0070 production verification keeps auth integrity checks without freezing live sessions", async () => {
+  const script = await readFile(path.join(repoRoot, "scripts/production-d1-migrate.mjs"), "utf8");
+  assert.match(script, /requiresExactPartnerAuthPreservation\(targetMigration, state\.targetApplied\)/);
+  assert.match(script, /requiresExactPartnerAuthPreservation\(targetMigration, internal\.targetApplied\)/);
+  assert.match(script, /partnerH3IntegritySnapshot/);
+  assert.match(script, /assertPartnerH3Integrity/);
 });
 
 test("scoped Wrangler config keeps exact canonical production D1 identity", () => {
