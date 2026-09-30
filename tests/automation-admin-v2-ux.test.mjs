@@ -5,8 +5,9 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
 test("admin navigation exposes Automations as a top-level admin destination", () => {
-  const shell = read("components/admin-shell.tsx");
-  assert.match(shell, /href="\/admin\/automatizacie">Automatizácie/);
+  const navigation = read("lib/admin-navigation.ts");
+  assert.match(navigation, /label: "Automatizácie"/);
+  assert.match(navigation, /href: "\/admin\/automatizacie"/);
 });
 
 test("automation overview is category-first and source-only", () => {
