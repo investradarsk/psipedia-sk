@@ -105,8 +105,9 @@ test.beforeEach(async ({ page, baseURL }) => {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
-test("ARTICLE-VISUAL-1 captures requested production references on desktop and mobile", async ({ page }) => {
+test("ARTICLE-VISUAL-1 captures requested production references on desktop and mobile", async ({ page }, testInfo) => {
   test.skip(process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1", "Production capture is CI-only.");
+  test.skip(testInfo.project.name !== "desktop-chromium", "Captured once with explicit desktop and mobile viewports.");
   for (const reference of productionReferenceCases) {
     await page.setViewportSize({ width: 1440, height: 900 });
     await captureProductionBaseline(
@@ -237,9 +238,12 @@ for (const articleCase of cases) {
       }
       await firstAnchor.click();
       await expectAnchorClearsStickyHeader(page, href!);
+
+      await page.goto("about:blank");
       await page.goto(`${articleCase.path}${href}`);
       await expectAnchorClearsStickyHeader(page, href!);
-      await expect(toc).not.toHaveAttribute("open");
+      const directToc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
+      await expect(directToc).not.toHaveAttribute("open");
     } else {
       await expect(toc).toHaveCount(0);
     }
@@ -335,9 +339,12 @@ for (const articleCase of cases) {
       expect(href).toBeTruthy();
       await firstAnchor.click();
       await expectAnchorClearsStickyHeader(page, href!);
+
+      await page.goto("about:blank");
       await page.goto(`${articleCase.path}${href}`);
       await expectAnchorClearsStickyHeader(page, href!);
-      await expect(toc).not.toHaveAttribute("open");
+      const directToc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
+      await expect(directToc).not.toHaveAttribute("open");
     }
     await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
     await expectSemanticArticleHeadings(page);
