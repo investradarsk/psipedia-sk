@@ -763,6 +763,85 @@ export async function listCanonicalAutomationUpdateSuggestions(
   return suggestions.filter((item): item is CanonicalUpdateSuggestion => Boolean(item));
 }
 
+function isMissingAutomationSuggestionSchema(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such table:\s*(automation_update_suggestions|automation_findings|automation_sources|automation_update_field_reviews)/i.test(message);
+}
+
+function suggestionRowFromRecord(row: Record<string, unknown>, origin: AutomationUpdateOrigin): SuggestionRow {
+  return {
+    origin,
+    id: Number(row.id),
+    entity_type: row.entity_type as AutomationEntityType,
+    canonical_entity_id: Number(row.canonical_entity_id),
+    suggestion_type: row.suggestion_type as CanonicalUpdateSuggestion["suggestionType"],
+    before_json: String(row.before_json ?? "{}"),
+    proposed_json: String(row.proposed_json ?? "{}"),
+    diff_json: String(row.diff_json ?? "{}"),
+    source_url: row.source_url ? String(row.source_url) : null,
+    source_label: row.source_label ? String(row.source_label) : null,
+    detected_at: String(row.detected_at ?? ""),
+  };
+}
+
+export async function listCanonicalAutomationUpdateSuggestionsForEntities(
+  input: { entityType: AutomationEntityType; canonicalEntityIds: readonly number[] },
+  databaseInput?: Database,
+) {
+  const ids = [...new Set(
+    input.canonicalEntityIds
+      .map(Number)
+      .filter((id) => Number.isSafeInteger(id) && id > 0),
+  )].slice(0, 80);
+  if (!ids.length) return [] as CanonicalUpdateSuggestion[];
+
+  const db = database(databaseInput);
+  const placeholders = ids.map(() => "?").join(",");
+  let rows: SuggestionRow[] = [];
+  try {
+    const [direct, feed] = await Promise.all([
+      db.prepare(`SELECT id,entity_type,canonical_entity_id,suggestion_type,before_json,proposed_json,diff_json,
+          external_source_url AS source_url,NULL AS source_label,last_detected_at AS detected_at
+        FROM automation_update_suggestions
+        WHERE entity_type=? AND canonical_entity_id IN (${placeholders}) AND status='OPEN'
+        ORDER BY last_detected_at DESC,id DESC LIMIT 500`)
+        .bind(input.entityType, ...ids).all<Record<string, unknown>>(),
+      db.prepare(`SELECT f.id,f.entity_type,f.canonical_entity_id,f.finding_type AS suggestion_type,
+          f.before_json,f.proposed_json,f.diff_json,f.source_url,s.label AS source_label,f.last_detected_at AS detected_at
+        FROM automation_findings f
+        LEFT JOIN automation_sources s ON s.id=f.source_id
+        WHERE f.entity_type=? AND f.canonical_entity_id IN (${placeholders})
+          AND f.finding_type IN ('POSSIBLE_UPDATE','POSSIBLE_INACTIVE','POSSIBLE_CANCELLED')
+          AND f.review_status IN ('NEW','IN_REVIEW','SUPPRESSED')
+        ORDER BY f.last_detected_at DESC,f.id DESC LIMIT 500`)
+        .bind(input.entityType, ...ids).all<Record<string, unknown>>(),
+    ]);
+    rows = [
+      ...(direct.results ?? []).map((row) => suggestionRowFromRecord(row, "DIRECT_ENTITY")),
+      ...(feed.results ?? []).map((row) => suggestionRowFromRecord(row, "FEED_SOURCE")),
+    ];
+  } catch (error) {
+    if (isMissingAutomationSuggestionSchema(error)) return [];
+    throw error;
+  }
+
+  if (!rows.length) return [];
+  let reviews: ReviewRow[] = [];
+  try {
+    reviews = await loadReviewRows(rows, db);
+  } catch (error) {
+    if (!isMissingAutomationSuggestionSchema(error)) throw error;
+  }
+  const canonicals = await loadCanonicalRows(rows, db);
+  const suggestions = await Promise.all(rows.map((row) => materializeSuggestion(
+    row,
+    reviews,
+    db,
+    canonicals.get(`${row.entity_type}:${row.canonical_entity_id}`) ?? null,
+  )));
+  return suggestions.filter((item): item is CanonicalUpdateSuggestion => Boolean(item));
+}
+
 type AutomationUpdateSummaryLike = {
   origin: AutomationUpdateOrigin;
   id: number;
