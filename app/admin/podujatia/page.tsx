@@ -3,15 +3,18 @@ import { AdminEventDashboard } from "@/components/admin-event-dashboard";
 import styles from "@/components/admin-event-dashboard.module.css";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { listReviewedAdminEntityIds } from "@/lib/admin-entity-review-store";
 import { listManagedEventSummaries } from "@/lib/event-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminEventsPage() {
   const user = await requireAdminPageUser("/admin/podujatia");
+  const events = await listManagedEventSummaries();
+  const reviewedIds = await listReviewedAdminEntityIds("EVENT", events.map((event) => event.id));
   return (
     <AdminShell user={user} eyebrow="Kalendár podujatí" title="Termíny pod kontrolou" description="Pridávaj výstavy, preteky, semináre a tréningy. Zverejnené podujatia sa okamžite ukážu v kalendári." actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/podujatia/nove">+ Nové podujatie</Link>}>
-      <AdminEventDashboard initialEvents={await listManagedEventSummaries()} />
+      <AdminEventDashboard initialEvents={events} reviewedIds={reviewedIds} />
     </AdminShell>
   );
 }
