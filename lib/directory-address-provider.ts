@@ -389,6 +389,34 @@ export async function verifyDirectoryNumberlessAddressSelection(input: {
   };
 }
 
+
+export function verifyDirectoryNumberlessLocality(input: {
+  region: string;
+  district: string;
+  city: string;
+  postalCode: string;
+  street: string;
+}): VerifiedDirectoryNumberlessAddress {
+  const locality = requireLocality(input.region, input.district, input.city);
+  const postalCode = normalizeSlovakPostalCode(input.postalCode);
+  if (!SK_POSTCODE.test(postalCode)) throw new Error("Doplň platné PSČ pre miesto bez čísla domu.");
+
+  const street = input.street.trim().replace(/\s+/g, " ");
+  if (street.length < 3) throw new Error("Zadaná lokalita je príliš krátka.");
+  if (street.length > 160) throw new Error("Zadaná lokalita je príliš dlhá.");
+  if (/[\u0000-\u001f\u007f]/.test(street) || /[<>]/.test(street)) {
+    throw new Error("Zadaná lokalita obsahuje nepovolené znaky.");
+  }
+
+  return {
+    ...locality,
+    postalCode,
+    street,
+    houseNumber: "",
+    addressFormat: "STREET",
+  };
+}
+
 export type DirectoryAddressReviewReason = "MULTIPLE_EXACT_CANDIDATES";
 
 export type DirectoryAddressReviewCandidate = {
