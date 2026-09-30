@@ -1,3 +1,7 @@
+.routeCssAnchor {
+  min-width: 0;
+}
+
 .masthead {
   display: grid;
   min-height: 68px;

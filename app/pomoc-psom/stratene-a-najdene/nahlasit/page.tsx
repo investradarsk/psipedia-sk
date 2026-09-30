@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LostFoundSubmissionForm } from "@/components/lost-found-submission-form";
 import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
 import { lostFoundSubmissionEnabled } from "@/lib/submission-feature-flags";
+import headerStyles from "@/components/site-header.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -28,5 +29,5 @@ export default function LostFoundSubmissionPage() {
   if (!lostFoundSubmissionEnabled()) return <UnavailableState />;
   const siteKey = getPartnerTurnstileSiteKey();
   if (!siteKey) return <UnavailableState security />;
-  return <main id="obsah"><LostFoundSubmissionForm siteKey={siteKey} /></main>;
+  return <main id="obsah" className={headerStyles.routeCssAnchor}><LostFoundSubmissionForm siteKey={siteKey} /></main>;
 }
