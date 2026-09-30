@@ -5,7 +5,16 @@ import {
   type AdminAutomationReadAvailabilityStatus,
   type AdminAutomationReliabilitySummary,
 } from "@/lib/admin-automation-reliability";
-import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import {
+  DIRECTORY_QUALITY_RECHECK_DAYS,
+  directoryQualityCheckedAtSourceKey,
+  directoryQualityResolutionStatuses,
+  directoryQualityStatusSourceKey,
+  isDirectoryQualityResolutionCurrent,
+  readDirectoryPublicContacts,
+  readDirectoryQualityMetadata,
+  type DirectoryQualityField,
+} from "@/lib/directory-profile-metadata";
 import {
   listMediaSourceIssues,
   mediaSourceMonitorSchemaReady,
@@ -58,29 +67,46 @@ export const DATA_QUALITY_MEDIA_PAGE_SIZE = 50;
 const VALID_SOURCE_DATA_SQL =
   "CASE WHEN json_valid(COALESCE(source_data_json, '')) THEN source_data_json ELSE '{}' END";
 const MISSING_DESCRIPTION_SQL = "trim(COALESCE(description, '')) = ''";
-const MISSING_PHONE_SQL = `trim(COALESCE(
+const RAW_MISSING_PHONE_SQL = `trim(COALESCE(
   CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Telefón"') AS TEXT),
   CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Telefon"') AS TEXT),
   CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."phone"') AS TEXT),
   ''
 )) = ''`;
-const MISSING_EMAIL_SQL = `trim(COALESCE(
+const RAW_MISSING_EMAIL_SQL = `trim(COALESCE(
   CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."E-mail"') AS TEXT),
   CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Email"') AS TEXT),
   CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."email"') AS TEXT),
   ''
 )) = ''`;
-const MISSING_WEBSITE_SQL = `trim(COALESCE(
+const RAW_MISSING_WEBSITE_SQL = `trim(COALESCE(
   CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Web"') AS TEXT),
   CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Webstránka"') AS TEXT),
   website_url,
   ''
 )) = ''`;
-const MISSING_IMAGE_SQL = "trim(COALESCE(image_url, '')) = ''";
-const INCOMPLETE_ADDRESS_SQL = `COALESCE(online, 0) = 0 AND (
+const RAW_MISSING_IMAGE_SQL = "trim(COALESCE(image_url, '')) = ''";
+const RAW_INCOMPLETE_ADDRESS_SQL = `COALESCE(online, 0) = 0 AND (
   trim(COALESCE(city, '')) = ''
   OR COALESCE(service_address_confirmation, '') <> 'CONFIRMED_SERVICE_LOCATION'
 )`;
+
+function qualityResolutionCurrentSql(field: DirectoryQualityField) {
+  const statusKey = directoryQualityStatusSourceKey(field).replaceAll('"', '""');
+  const checkedAtKey = directoryQualityCheckedAtSourceKey(field).replaceAll('"', '""');
+  const statuses = directoryQualityResolutionStatuses.map((status) => `'${status}'`).join(",");
+  return `(
+    CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."${statusKey}"') AS TEXT) IN (${statuses})
+    AND datetime(CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."${checkedAtKey}"') AS TEXT))
+      >= datetime('now', '-${DIRECTORY_QUALITY_RECHECK_DAYS} days')
+  )`;
+}
+
+const MISSING_PHONE_SQL = `(${RAW_MISSING_PHONE_SQL}) AND NOT ${qualityResolutionCurrentSql("phone")}`;
+const MISSING_EMAIL_SQL = `(${RAW_MISSING_EMAIL_SQL}) AND NOT ${qualityResolutionCurrentSql("email")}`;
+const MISSING_WEBSITE_SQL = `(${RAW_MISSING_WEBSITE_SQL}) AND NOT ${qualityResolutionCurrentSql("website")}`;
+const MISSING_IMAGE_SQL = `(${RAW_MISSING_IMAGE_SQL}) AND NOT ${qualityResolutionCurrentSql("image")}`;
+const INCOMPLETE_ADDRESS_SQL = `(${RAW_INCOMPLETE_ADDRESS_SQL}) AND NOT ${qualityResolutionCurrentSql("address")}`;
 const PROFILE_ISSUE_SQL = `(
   ${MISSING_DESCRIPTION_SQL}
   OR ${MISSING_PHONE_SQL}
@@ -211,14 +237,28 @@ function emptyPagination(page: number, pageSize: number) {
 }
 
 function directoryIssues(row: DirectoryQualityRow) {
-  const contacts = readDirectoryPublicContacts(parseImportData(row.source_data_json), row.website_url ?? "");
+  const importData = parseImportData(row.source_data_json);
+  const contacts = readDirectoryPublicContacts(importData, row.website_url ?? "");
+  const quality = readDirectoryQualityMetadata(importData);
   const issues: DirectoryQualityItem["issues"] = [];
   if (!row.description?.trim()) issues.push({ key: "description", label: "Chýba popis" });
-  if (!contacts.phone) issues.push({ key: "phone", label: "Chýba telefón" });
-  if (!contacts.email) issues.push({ key: "email", label: "Chýba e-mail" });
-  if (!contacts.website) issues.push({ key: "website", label: "Chýba web" });
-  if (!row.image_url?.trim()) issues.push({ key: "image", label: "Chýba hlavný obrázok" });
-  if (!Boolean(row.online) && (!row.city?.trim() || row.service_address_confirmation !== "CONFIRMED_SERVICE_LOCATION")) {
+  if (!contacts.phone && !isDirectoryQualityResolutionCurrent(quality, "phone")) {
+    issues.push({ key: "phone", label: "Chýba telefón" });
+  }
+  if (!contacts.email && !isDirectoryQualityResolutionCurrent(quality, "email")) {
+    issues.push({ key: "email", label: "Chýba e-mail" });
+  }
+  if (!contacts.website && !isDirectoryQualityResolutionCurrent(quality, "website")) {
+    issues.push({ key: "website", label: "Chýba web" });
+  }
+  if (!row.image_url?.trim() && !isDirectoryQualityResolutionCurrent(quality, "image")) {
+    issues.push({ key: "image", label: "Chýba hlavný obrázok" });
+  }
+  if (
+    !Boolean(row.online)
+    && (!row.city?.trim() || row.service_address_confirmation !== "CONFIRMED_SERVICE_LOCATION")
+    && !isDirectoryQualityResolutionCurrent(quality, "address")
+  ) {
     issues.push({ key: "address", label: "Adresa nie je úplne potvrdená" });
   }
   return issues;
