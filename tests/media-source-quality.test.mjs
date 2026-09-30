@@ -64,11 +64,15 @@ test("source changes create a review candidate instead of silently replacing pub
   assert.match(monitor, /UPDATE managed_events/);
 });
 
-test("admin has one quality workspace with manual check and candidate approval", () => {
+test("admin quality workspace separates profile cleanup from focused image approval", () => {
   assert.match(adminNavigation, /href: "\/admin\/kvalita"/);
   assert.match(adminPage, /Kvalita údajov/);
+  assert.match(adminComponent, /admin-quality-tabs/);
+  assert.match(adminComponent, /sectionHref\("media"\)/);
   assert.match(adminComponent, /Skontrolovať teraz/);
-  assert.match(adminComponent, /Použiť nový obrázok/);
+  assert.match(adminComponent, /Schváliť obrázok/);
   assert.match(adminComponent, /Chýbajúce údaje v profiloch/);
-  assert.match(adminComponent, /Zmeny a chyby obrázkov/);
+  assert.match(adminComponent, /Obrázky na kontrolu/);
+  assert.match(adminComponent, /admin-quality-profile-row/);
+  assert.match(adminComponent, /admin-quality-media-card/);
 });

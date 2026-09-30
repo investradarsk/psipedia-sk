@@ -558,7 +558,13 @@ export async function listMediaSourceIssues(database: D1Database, limit = 100, o
   const result = await database.prepare(`
     SELECT * FROM media_source_monitors
     WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')
-    ORDER BY COALESCE(issue_started_at, updated_at) DESC, id DESC
+    ORDER BY CASE status
+      WHEN 'CHANGED' THEN 0
+      WHEN 'CANDIDATE' THEN 1
+      WHEN 'MISSING' THEN 2
+      WHEN 'ERROR' THEN 3
+      ELSE 4
+    END, COALESCE(issue_started_at, updated_at) DESC, id DESC
     LIMIT ? OFFSET ?
   `).bind(
     Math.max(1, Math.min(250, limit)),
