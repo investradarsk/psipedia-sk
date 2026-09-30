@@ -34,6 +34,7 @@ export default async function AdminDataQualityPage({
     issue: firstParam(params.issue),
     profileStatus: firstParam(params.status),
     priority: firstParam(params.priority),
+    solution: firstParam(params.solution),
     query: firstParam(params.q),
     region: firstParam(params.region),
     district: firstParam(params.district),

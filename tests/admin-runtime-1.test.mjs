@@ -293,6 +293,8 @@ test("data quality surfaces reviewable contact suggestions from existing automat
     issueKey: "phone",
     label: "Telefón",
     proposed: "+421 900 123 456",
+    reviewMode: "accept",
+    note: null,
     sourceUrl: "https://example.test/kontakt",
     sourceLabel: "example.test",
     detectedAt: "2026-09-30T12:00:00.000Z",
@@ -300,6 +302,120 @@ test("data quality surfaces reviewable contact suggestions from existing automat
     proposedValueHash: result.profiles[0].suggestions[0].proposedValueHash,
   });
   assert.match(result.profiles[0].suggestions[0].proposedValueHash, /^[a-f0-9]{64}$/);
+
+  const phoneActionable = await quality.loadDataQualityDashboard({ issue: "phone", solution: "actionable" });
+  assert.equal(phoneActionable.profilePagination.totalItems, 1);
+  assert.equal(phoneActionable.profiles.length, 1);
+  assert.equal(phoneActionable.profiles[0].id, 1);
+  assert.equal(phoneActionable.profiles[0].suggestions[0].issueKey, "phone");
+
+  const emailActionable = await quality.loadDataQualityDashboard({ issue: "email", solution: "actionable" });
+  assert.equal(emailActionable.profilePagination.totalItems, 0);
+  assert.equal(emailActionable.profiles.length, 0);
+  fixture.close();
+});
+
+test("data quality allows description adoption but keeps address suggestions manual", async () => {
+  const fixture = d1Fixture();
+  useDb(fixture.db);
+  await fixture.db.prepare(`UPDATE directory_profiles
+    SET service_address_confirmation='NEEDS_REVIEW'
+    WHERE id=8`).run();
+  await fixture.db.prepare(`CREATE TABLE automation_update_suggestions (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    canonical_entity_id INTEGER NOT NULL,
+    suggestion_type TEXT NOT NULL,
+    before_json TEXT NOT NULL,
+    proposed_json TEXT NOT NULL,
+    diff_json TEXT NOT NULL,
+    external_source_url TEXT,
+    last_detected_at TEXT NOT NULL,
+    status TEXT NOT NULL
+  )`).run();
+  await fixture.db.prepare(`CREATE TABLE automation_sources (
+    id INTEGER PRIMARY KEY,
+    label TEXT
+  )`).run();
+  await fixture.db.prepare(`CREATE TABLE automation_findings (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    canonical_entity_id INTEGER NOT NULL,
+    finding_type TEXT NOT NULL,
+    before_json TEXT NOT NULL,
+    proposed_json TEXT NOT NULL,
+    diff_json TEXT NOT NULL,
+    source_url TEXT,
+    source_id INTEGER,
+    last_detected_at TEXT NOT NULL,
+    review_status TEXT NOT NULL
+  )`).run();
+
+  await fixture.db.prepare(`INSERT INTO automation_update_suggestions (
+    id, entity_type, canonical_entity_id, suggestion_type, before_json, proposed_json,
+    diff_json, external_source_url, last_detected_at, status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+    2,
+    "DIRECTORY",
+    7,
+    "POSSIBLE_UPDATE",
+    JSON.stringify({ description: "" }),
+    JSON.stringify({ description: "Veterinárna ambulancia poskytujúca odbornú starostlivosť o spoločenské zvieratá." }),
+    JSON.stringify({ description: { before: "", after: "Veterinárna ambulancia poskytujúca odbornú starostlivosť o spoločenské zvieratá." } }),
+    "https://example.test/o-nas",
+    "2026-09-30T12:10:00.000Z",
+    "OPEN",
+  ).run();
+
+  await fixture.db.prepare(`INSERT INTO automation_update_suggestions (
+    id, entity_type, canonical_entity_id, suggestion_type, before_json, proposed_json,
+    diff_json, external_source_url, last_detected_at, status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+    3,
+    "DIRECTORY",
+    8,
+    "POSSIBLE_UPDATE",
+    JSON.stringify({ address: "" }),
+    JSON.stringify({ address: "Hlavná 12, Nitra" }),
+    JSON.stringify({ address: { before: "", after: "Hlavná 12, Nitra" } }),
+    "https://example.test/kontakt",
+    "2026-09-30T12:20:00.000Z",
+    "OPEN",
+  ).run();
+
+  const descriptionResult = await quality.loadDataQualityDashboard({ query: "Profil 0007" });
+  assert.equal(descriptionResult.profiles[0].suggestions.length, 1);
+  assert.equal(descriptionResult.profiles[0].suggestions[0].field, "description");
+  assert.equal(descriptionResult.profiles[0].suggestions[0].issueKey, "description");
+  assert.equal(descriptionResult.profiles[0].suggestions[0].reviewMode, "accept");
+  assert.equal(descriptionResult.profiles[0].suggestions[0].label, "Popis");
+
+  const addressResult = await quality.loadDataQualityDashboard({ query: "Profil 0008" });
+  assert.equal(addressResult.profiles[0].suggestions.length, 1);
+  assert.equal(addressResult.profiles[0].suggestions[0].field, "address");
+  assert.equal(addressResult.profiles[0].suggestions[0].issueKey, "address");
+  assert.equal(addressResult.profiles[0].suggestions[0].reviewMode, "manual");
+  assert.equal(addressResult.profiles[0].suggestions[0].proposed, "Hlavná 12, Nitra");
+  assert.match(addressResult.profiles[0].suggestions[0].note, /skontrolovať/i);
+
+  const actionable = await quality.loadDataQualityDashboard({ solution: "actionable" });
+  assert.equal(actionable.solution, "actionable");
+  assert.equal(actionable.profilePagination.totalItems, 1);
+  assert.equal(actionable.profiles.length, 1);
+  assert.equal(actionable.profiles[0].id, 7);
+  assert.ok(actionable.profiles[0].suggestions.some((item) => item.reviewMode === "accept"));
+
+  const manual = await quality.loadDataQualityDashboard({ solution: "manual" });
+  assert.equal(manual.profilePagination.totalItems, 1);
+  assert.equal(manual.profiles.length, 1);
+  assert.equal(manual.profiles[0].id, 8);
+  assert.ok(manual.profiles[0].suggestions.some((item) => item.reviewMode === "manual"));
+
+  const withoutSuggestion = await quality.loadDataQualityDashboard({ solution: "none" });
+  assert.equal(withoutSuggestion.profilePagination.totalItems, 1198);
+  assert.equal(withoutSuggestion.profiles.length, quality.DATA_QUALITY_PROFILE_PAGE_SIZE);
+  assert.ok(withoutSuggestion.profiles.every((profile) => profile.suggestions.length === 0));
+  assert.ok(fixture.metrics.maxBindings <= quality.DATA_QUALITY_D1_MAX_BOUND_PARAMS);
   fixture.close();
 });
 
@@ -376,6 +492,11 @@ test("quality UI never renders raw monitor errors, SQL or stack traces", () => {
   assert.doesNotMatch(component, /stack/i);
   assert.match(component, /Nájdené zo zdrojov/);
   assert.match(component, /Prevziať/);
+  assert.match(component, /Skontrolovať v profile/);
+  assert.match(component, /Nájdené riešenie/);
+  assert.match(component, /name="solution"/);
+  assert.match(component, /vyžaduje kontrolu/);
+  assert.match(component, /suggestion\.reviewMode === "accept"/);
   assert.match(component, /automation-update-suggestions/);
   assert.match(component, /Referencia:/);
   assert.match(reliability, /errorType:/);
@@ -388,6 +509,7 @@ test("quality auth runs before protected data loading and pagination preserves q
   assert.ok(page.indexOf("requireAdminPageUser") < page.indexOf("loadDataQualityDashboard"));
   assert.match(page, /profilePage: positivePage\(params\.page\)/);
   assert.match(page, /mediaPage: positivePage\(params\.mediaPage\)/);
+  assert.match(page, /solution: firstParam\(params\.solution\)/);
   assert.match(component, /new URLSearchParams\(searchParams\.toString\(\)\)/);
   assert.match(component, /query\.set\(key, String\(value\)\)/);
 });

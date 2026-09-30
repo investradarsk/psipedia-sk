@@ -784,6 +784,43 @@ function suggestionRowFromRecord(row: Record<string, unknown>, origin: Automatio
   };
 }
 
+export async function listCanonicalAutomationUpdateSuggestionEntityIds(
+  input: { entityType: AutomationEntityType },
+  databaseInput?: Database,
+) {
+  const db = database(databaseInput);
+  const ids = new Set<number>();
+
+  try {
+    const direct = await db.prepare(`SELECT DISTINCT canonical_entity_id
+      FROM automation_update_suggestions
+      WHERE entity_type=? AND suggestion_type='POSSIBLE_UPDATE' AND status='OPEN'`)
+      .bind(input.entityType).all<{ canonical_entity_id: number }>();
+    for (const row of direct.results ?? []) {
+      const id = Number(row.canonical_entity_id);
+      if (Number.isSafeInteger(id) && id > 0) ids.add(id);
+    }
+  } catch (error) {
+    if (!isMissingAutomationSuggestionSchema(error)) throw error;
+  }
+
+  try {
+    const feed = await db.prepare(`SELECT DISTINCT canonical_entity_id
+      FROM automation_findings
+      WHERE entity_type=? AND finding_type='POSSIBLE_UPDATE'
+        AND review_status IN ('NEW','IN_REVIEW','SUPPRESSED')`)
+      .bind(input.entityType).all<{ canonical_entity_id: number }>();
+    for (const row of feed.results ?? []) {
+      const id = Number(row.canonical_entity_id);
+      if (Number.isSafeInteger(id) && id > 0) ids.add(id);
+    }
+  } catch (error) {
+    if (!isMissingAutomationSuggestionSchema(error)) throw error;
+  }
+
+  return [...ids].sort((a, b) => a - b);
+}
+
 export async function listCanonicalAutomationUpdateSuggestionsForEntities(
   input: { entityType: AutomationEntityType; canonicalEntityIds: readonly number[] },
   databaseInput?: Database,
