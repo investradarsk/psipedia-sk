@@ -349,3 +349,109 @@ export async function getPublicProfileReviewData(
     },
   };
 }
+
+
+export type PublicProfileReviewFeedItem = {
+  id: string;
+  displayName: string;
+  overallRating: number;
+  body: string;
+  publishedAt: string;
+  targetType: ReviewableCanonicalResourceType;
+  targetName: string;
+  targetHref: string;
+  targetCategory: string | null;
+};
+
+type PublicProfileReviewFeedRow = {
+  id: string;
+  overall_rating: number;
+  body: string;
+  created_at: string;
+  published_at: string | null;
+  display_name: string | null;
+  entity_type: string;
+  directory_name: string | null;
+  directory_slug: string | null;
+  directory_category: string | null;
+  organization_name: string | null;
+  organization_slug: string | null;
+};
+
+export async function listLatestPublicProfileReviews(
+  database: ProfileReviewReadDatabase,
+  limit = 8,
+): Promise<PublicProfileReviewFeedItem[]> {
+  const safeLimit = Math.max(1, Math.min(24, Math.trunc(limit)));
+  const { results } = await database.prepare(`SELECT
+      review.id,
+      review.overall_rating,
+      review.body,
+      review.created_at,
+      review.published_at,
+      author.display_name,
+      resource.entity_type,
+      directory.name AS directory_name,
+      directory.slug AS directory_slug,
+      directory.category AS directory_category,
+      organization.name AS organization_name,
+      organization.slug AS organization_slug
+    FROM profile_reviews review
+    INNER JOIN review_authors author ON author.id=review.author_id
+    INNER JOIN partner_resources resource ON resource.id=review.resource_id
+    LEFT JOIN directory_profiles directory
+      ON resource.entity_type='DIRECTORY_PROFILE'
+      AND directory.id=resource.directory_profile_id
+    LEFT JOIN help_organizations organization
+      ON resource.entity_type='HELP_ORGANIZATION'
+      AND organization.id=resource.help_organization_id
+    WHERE review.status='VISIBLE'
+      AND (
+        (
+          resource.entity_type='DIRECTORY_PROFILE'
+          AND directory.status='published'
+          AND directory.archived_at IS NULL
+        )
+        OR
+        (
+          resource.entity_type='HELP_ORGANIZATION'
+          AND organization.status='PUBLISHED'
+          AND organization.published_at IS NOT NULL
+          AND organization.archived_at IS NULL
+        )
+      )
+    ORDER BY COALESCE(review.published_at, review.created_at) DESC, review.id DESC
+    LIMIT ?`).bind(safeLimit).all<PublicProfileReviewFeedRow>();
+
+  return results.flatMap((row) => {
+    if (row.entity_type === "DIRECTORY_PROFILE") {
+      if (!row.directory_name || !row.directory_slug || !row.directory_category) return [];
+      return [{
+        id: row.id,
+        displayName: safePublicReviewDisplayName(row.display_name),
+        overallRating: Number(row.overall_rating),
+        body: row.body,
+        publishedAt: row.published_at || row.created_at,
+        targetType: "DIRECTORY_PROFILE" as const,
+        targetName: row.directory_name,
+        targetHref: `/adresar/${row.directory_category}/${row.directory_slug}`,
+        targetCategory: row.directory_category,
+      }];
+    }
+    if (row.entity_type === "HELP_ORGANIZATION") {
+      if (!row.organization_name || !row.organization_slug) return [];
+      return [{
+        id: row.id,
+        displayName: safePublicReviewDisplayName(row.display_name),
+        overallRating: Number(row.overall_rating),
+        body: row.body,
+        publishedAt: row.published_at || row.created_at,
+        targetType: "HELP_ORGANIZATION" as const,
+        targetName: row.organization_name,
+        targetHref: `/organizacie/${row.organization_slug}`,
+        targetCategory: null,
+      }];
+    }
+    return [];
+  });
+}
