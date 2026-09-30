@@ -129,6 +129,10 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
           if (failLookups && /WHERE id IN\s*\(/i.test(sql)) throw new Error("simulated lookup failure with SQL details");
           return { results: sqlite.prepare(sql).all(...args) };
         },
+        async run() {
+          if (failLookups && /WHERE id IN\s*\(/i.test(sql)) throw new Error("simulated lookup failure with SQL details");
+          return sqlite.prepare(sql).run(...args);
+        },
       };
     },
   };
@@ -160,6 +164,38 @@ test("data quality stays bounded with thousands of profiles and 250 media issues
   assert.equal(first.media.length, quality.DATA_QUALITY_MEDIA_PAGE_SIZE);
   assert.equal(second.media.length, quality.DATA_QUALITY_MEDIA_PAGE_SIZE);
   assert.ok(fixture.metrics.maxBindings <= quality.DATA_QUALITY_D1_MAX_BOUND_PARAMS);
+  fixture.close();
+});
+
+test("current profile quality resolutions suppress legitimate missing fields and expire after 12 months", async () => {
+  const fixture = d1Fixture();
+  useDb(fixture.db);
+  const now = new Date().toISOString();
+  const currentQuality = JSON.stringify({
+    _psipedia_quality_phone_status: "NOT_PUBLIC",
+    _psipedia_quality_phone_checked_at: now,
+    _psipedia_quality_email_status: "NOT_FOUND",
+    _psipedia_quality_email_checked_at: now,
+  });
+  await fixture.db.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 1").bind(currentQuality).run();
+
+  const current = await quality.loadDataQualityDashboard();
+  assert.equal(current.summary.profilesWithIssues, 1199);
+  assert.equal(current.summary.missingPhone, 1199);
+  assert.equal(current.summary.missingEmail, 1199);
+
+  const staleQuality = JSON.stringify({
+    _psipedia_quality_phone_status: "NOT_PUBLIC",
+    _psipedia_quality_phone_checked_at: "2000-01-01T00:00:00.000Z",
+    _psipedia_quality_email_status: "NOT_FOUND",
+    _psipedia_quality_email_checked_at: "2000-01-01T00:00:00.000Z",
+  });
+  await fixture.db.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 1").bind(staleQuality).run();
+
+  const stale = await quality.loadDataQualityDashboard();
+  assert.equal(stale.summary.profilesWithIssues, 1200);
+  assert.equal(stale.summary.missingPhone, 1200);
+  assert.equal(stale.summary.missingEmail, 1200);
   fixture.close();
 });
 

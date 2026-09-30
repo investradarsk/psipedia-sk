@@ -1,5 +1,6 @@
 import type { ArticleSeo } from "@/lib/content";
 import type { DirectoryAddressFormat, DirectoryServiceAddressConfirmation } from "@/lib/directory-service-address";
+import type { DirectoryQualityMetadata } from "@/lib/directory-profile-metadata";
 
 export const directoryCategories = [
   { slug: "veterinari", label: "Veterinári", singular: "Veterinárne pracovisko", icon: "🩺", description: "Ambulancie, kliniky, pohotovosti a špecializovaná starostlivosť." },
@@ -154,6 +155,7 @@ export type DirectoryClubSearchResult = {
 
 export type ManagedDirectoryProfile = PublicDirectoryProfile & {
   status: DirectoryProfileStatus;
+  qualityMetadata: DirectoryQualityMetadata;
   internalEmail: string | null;
   imageKey: string | null;
   createdAt: string;

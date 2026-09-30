@@ -18,7 +18,14 @@ import {
 import { editableDirectoryProfileData, specializedChangeRequestFields } from "@/lib/directory-change-request";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
-import { mergeDirectoryPublicContactData } from "@/lib/directory-profile-metadata";
+import {
+  isDirectoryInternalMetadataKey,
+  mergeDirectoryPublicContactData,
+  mergeDirectoryQualityMetadata,
+  readDirectoryPublicContacts,
+  readDirectoryQualityMetadata,
+  type DirectoryQualityResolutionInput,
+} from "@/lib/directory-profile-metadata";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import {
@@ -59,6 +66,7 @@ export type ManagedDirectoryProfileInput = {
   internalEmail?: string | null;
   imageUrl?: string | null;
   imageKey?: string | null;
+  qualityResolutions?: DirectoryQualityResolutionInput;
   verified?: boolean;
   featured?: boolean;
   seo?: EditableSeo;
@@ -313,11 +321,14 @@ function safePublicList(value: string) {
   return safeList(value).filter((item) => !/^(?:stav overenia|(?:čiastočne\s+)?overené(?:\s+psipediou)?|neoverené|overenie údajov|zdroj(?: overenia)?|dátum (?:kontroly|overenia)|import[_ ]?key|source_data_json)\s*:?/i.test(item));
 }
 
-function safeImportData(value: string) {
+function safeImportData(value: string, includeInternal = false) {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    return Object.fromEntries(Object.entries(parsed).filter(([, item]) => item === null || typeof item === "string" || typeof item === "number"));
+    return Object.fromEntries(Object.entries(parsed).filter(([key, item]) => (
+      (includeInternal || !isDirectoryInternalMetadataKey(key))
+      && (item === null || typeof item === "string" || typeof item === "number")
+    )));
   } catch {
     return null;
   }
@@ -460,8 +471,11 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
 function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
 
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
+  const importData = safeImportData(row.source_data_json, true);
   return {
     ...rowToPublicProfile(row),
+    importData,
+    qualityMetadata: readDirectoryQualityMetadata(importData),
     city: row.city,
     district: row.district,
     region: row.region,
@@ -699,13 +713,25 @@ export function normalizeManagedDirectoryProfileInput(
   const publicEmail = payload.publicEmail === undefined ? undefined : normalizeEmail(payload.publicEmail) ?? "";
   const facebookUrl = payload.facebookUrl === undefined ? undefined : normalizeUrl(payload.facebookUrl) ?? "";
   const instagramUrl = payload.instagramUrl === undefined ? undefined : normalizeUrl(payload.instagramUrl) ?? "";
-  const sourceData = mergeDirectoryPublicContactData(currentImportData, {
+  const contactSourceData = mergeDirectoryPublicContactData(currentImportData, {
     publicPhone,
     publicEmail,
     websiteUrl: payload.websiteUrl === undefined ? undefined : websiteUrl,
     facebookUrl,
     instagramUrl,
   });
+  const publicContacts = readDirectoryPublicContacts(contactSourceData, websiteUrl ?? "");
+  const sourceData = mergeDirectoryQualityMetadata(
+    contactSourceData,
+    payload.qualityResolutions,
+    {
+      phone: Boolean(publicContacts.phone),
+      email: Boolean(publicContacts.email),
+      website: Boolean(publicContacts.website),
+      image: Boolean(imageUrl),
+      address: online || serviceAddress.state === "COMPLETE",
+    },
+  );
   return {
     slug,
     name,
