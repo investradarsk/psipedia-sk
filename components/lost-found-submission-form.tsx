@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { PartnerTurnstile } from "@/components/partner-turnstile";
-import { LOST_FOUND_TURNSTILE_ACTION } from "@/lib/lost-found-public-submission";
+import { LOST_FOUND_TURNSTILE_ACTION } from "@/lib/lost-found-public-constants";
 import styles from "./lost-found-submission-form.module.css";
 
 type ApiResponse = {
   success?: boolean;
   message?: string;
   error?: string;
+  code?: string;
   field?: string | null;
 };
 
@@ -26,12 +27,33 @@ const regions = [
 
 export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const resultRef = useRef<HTMLElement>(null);
   const [type, setType] = useState<"LOST" | "FOUND">("LOST");
+  const [clientReady, setClientReady] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileAttempt, setTurnstileAttempt] = useState(0);
   const [sending, setSending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [result, setResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const onToken = useCallback((token: string) => setTurnstileToken(token), []);
+
+  useEffect(() => {
+    setClientReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!result) return;
+    const frame = requestAnimationFrame(() => {
+      resultRef.current?.focus({ preventScroll: true });
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [result]);
+
+  function resetTurnstile() {
+    setTurnstileToken("");
+    setTurnstileAttempt((attempt) => attempt + 1);
+  }
 
   function focusField(name: string | null | undefined) {
     if (!name) return;
@@ -41,7 +63,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (sending) return;
+    if (!clientReady || sending) return;
     const form = formRef.current;
     if (!form?.checkValidity()) {
       form?.reportValidity();
@@ -65,7 +87,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
       if (!response.ok) {
         setFieldError(data.field ?? null);
         setResult({ type: "error", text: data.error || "Hlásenie sa nepodarilo odoslať." });
-        queueMicrotask(() => focusField(data.field));
+        resetTurnstile();
         return;
       }
       setResult({
@@ -74,6 +96,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
       });
     } catch {
       setResult({ type: "error", text: "Hlásenie sa momentálne nepodarilo odoslať. Skúste to znova." });
+      resetTurnstile();
     } finally {
       setSending(false);
     }
@@ -81,7 +104,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
 
   if (result?.type === "success") {
     return (
-      <section className={[styles.confirmation, styles.shell].join(" ")} aria-live="polite">
+      <section ref={resultRef} tabIndex={-1} className={[styles.confirmation, styles.shell].join(" ")} aria-live="polite">
         <span className="eyebrow">Pomoc psom</span>
         <h1>Hlásenie sme prijali</h1>
         <p>{result.text}</p>
@@ -94,14 +117,28 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
   }
 
   return (
-    <form ref={formRef} className={[styles.form, styles.shell].join(" ")} onSubmit={submit} encType="multipart/form-data">
+    <form
+      ref={formRef}
+      className={[styles.form, styles.shell].join(" ")}
+      method="post"
+      action="/api/lost-found/submissions"
+      onSubmit={submit}
+      encType="multipart/form-data"
+      aria-busy={sending}
+    >
       <header className={styles.header}>
         <span className="eyebrow">Pomoc psom</span>
         <h1>Nahlásiť strateného alebo nájdeného psa</h1>
         <p>Hlásenie pred zverejnením skontrolujeme. Telefón a e-mail sa verejne nezobrazia.</p>
       </header>
 
-      {result?.type === "error" ? <p className={styles.error} role="alert">{result.text}</p> : null}
+      {result?.type === "error" ? <p ref={resultRef as React.RefObject<HTMLParagraphElement>} tabIndex={-1} className={styles.error} role="alert">{result.text}</p> : null}
+
+      <noscript>
+        <p className={styles.error} role="alert">
+          Na bezpečné odoslanie hlásenia je potrebný JavaScript. Údaje neboli odoslané. Zapnite JavaScript a stránku obnovte.
+        </p>
+      </noscript>
 
       <fieldset className={styles.card}>
         <legend>1. Čo sa stalo</legend>
@@ -203,12 +240,12 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
       </div>
 
       <div id="lost-found-turnstile" className={styles.turnstile} tabIndex={-1} aria-invalid={fieldError === "turnstileToken" || undefined}>
-        <PartnerTurnstile siteKey={siteKey} action={LOST_FOUND_TURNSTILE_ACTION} onToken={onToken} />
+        <PartnerTurnstile key={turnstileAttempt} siteKey={siteKey} action={LOST_FOUND_TURNSTILE_ACTION} onToken={onToken} />
       </div>
 
       <div className={styles.actions}>
         <Link className={styles.secondary} href="/pomoc-psom/stratene-a-najdene">Zrušiť</Link>
-        <button className="button button--dark" type="submit" disabled={sending}>{sending ? "Odosielam…" : "Odoslať hlásenie"}</button>
+        <button className="button button--dark" type="submit" disabled={!clientReady || sending}>{sending ? "Odosielam…" : clientReady ? "Odoslať hlásenie" : "Pripravujem formulár…"}</button>
       </div>
     </form>
   );
