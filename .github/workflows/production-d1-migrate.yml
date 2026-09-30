@@ -51,6 +51,7 @@ on:
           - 0101_eshop_profile_presentation.sql
           - 0102_eshop_notion_sync.sql
           - 0103_admin_entity_reviews.sql
+          - 0104_article_topics.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -122,6 +123,7 @@ jobs:
             0101_eshop_profile_presentation.sql) expected_confirmation="APPLY-0101-psipedia-sk-db" ;;
             0102_eshop_notion_sync.sql) expected_confirmation="APPLY-0102-psipedia-sk-db" ;;
             0103_admin_entity_reviews.sql) expected_confirmation="APPLY-0103-psipedia-sk-db" ;;
+            0104_article_topics.sql) expected_confirmation="APPLY-0104-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
