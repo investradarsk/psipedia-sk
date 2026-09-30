@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { verifyDirectoryNumberlessAddressSelection } from "../lib/directory-address-provider.ts";
 import { evaluateNumberlessGooglePlaceCandidates } from "../lib/google-place-matching.ts";
 
 const routeSource = readFileSync(new URL("../app/api/admin/geo/[targetType]/[id]/route.ts", import.meta.url), "utf8");
@@ -55,6 +56,54 @@ test("MAP-ADDRESS-NUMBERLESS-1 blocks equally strong competing Google Places", (
   ]);
   assert.equal(result.decision, "REVIEW");
   assert.match(result.reason, /Viac Google kandidátov/);
+});
+
+test("numberless canonical save revalidates the selected Geoapify street but never invents a house number", async () => {
+  const calls = [];
+  const provider = {
+    autocomplete: async (request) => {
+      calls.push(request.query);
+      return [{
+        latitude: 49.081,
+        longitude: 19.612,
+        country: "Slovakia",
+        countryCode: "SK",
+        region: "Žilinský kraj",
+        district: "Liptovský Mikuláš",
+        city: "Liptovský Mikuláš",
+        street: "Nábrežie",
+        housenumber: "",
+        postcode: "03101",
+        formatted: "Nábrežie, 031 01 Liptovský Mikuláš, Slovensko",
+        addressLine1: "Nábrežie",
+        addressLine2: "031 01 Liptovský Mikuláš, Slovensko",
+        resultType: "street",
+        confidence: 0.99,
+        cityConfidence: 0.99,
+        streetConfidence: 0.99,
+        buildingConfidence: null,
+        matchType: "full_match",
+        provider: "geoapify",
+        provenance: "Geoapify Geocoding API",
+        sourceLicense: "OpenStreetMap contributors",
+        providerResultId: "geoapify-nabrezie",
+      }];
+    },
+  };
+  const verified = await verifyDirectoryNumberlessAddressSelection({
+    region: "Žilinský kraj",
+    district: "Liptovský Mikuláš",
+    city: "Liptovský Mikuláš",
+    postalCode: "03101",
+    providerResultId: "geoapify-nabrezie",
+    street: "Nábrežie",
+    provider,
+  });
+  assert.deepEqual(calls, ["Nábrežie"]);
+  assert.equal(verified.street, "Nábrežie");
+  assert.equal(verified.postalCode, "031 01");
+  assert.equal(verified.houseNumber, "");
+  assert.equal(verified.addressFormat, "STREET");
 });
 
 test("numberless admin address UX never requires a fake house number", () => {
