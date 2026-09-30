@@ -36,6 +36,7 @@ export type DirectoryServiceAddressEvaluation = {
     | "ADDRESS_FORMAT_MISSING"
     | "STREET_MISSING"
     | "HOUSE_NUMBER_MISSING"
+    | "NUMBERLESS_PLACE"
     | "STREET_NOT_ALLOWED"
     | "LEGACY_UNCONFIRMED"
     | "ONLINE_ONLY"
@@ -122,7 +123,9 @@ export function formatDirectoryServiceAddress(input: Pick<
   const postalCode = normalizeSlovakPostalCode(input.postalCode);
   const street = clean(input.street);
   const houseNumber = clean(input.houseNumber);
-  if (!city || !postalCode || !houseNumber || !input.addressFormat) return null;
+  if (!city || !postalCode || !input.addressFormat) return null;
+  if (input.addressFormat === "STREET" && !street) return null;
+  if (input.addressFormat === "MUNICIPALITY_NUMBER" && !houseNumber) return null;
 
   const firstLine = input.addressFormat === "STREET"
     ? [street, houseNumber].filter(Boolean).join(" ")
@@ -181,16 +184,16 @@ export function evaluateDirectoryServiceAddress(input: DirectoryServiceAddress):
     return { state: "INCOMPLETE", reason: "ADDRESS_FORMAT_MISSING", normalizedPostalCode: normalizeSlovakPostalCode(postalCode), formattedAddress: null };
   }
 
-  if (!houseNumber) {
-    return { state: "INCOMPLETE", reason: "HOUSE_NUMBER_MISSING", normalizedPostalCode: normalizeSlovakPostalCode(postalCode), formattedAddress: null };
-  }
-
   if (addressFormat === "STREET" && !street) {
     return { state: "INCOMPLETE", reason: "STREET_MISSING", normalizedPostalCode: normalizeSlovakPostalCode(postalCode), formattedAddress: null };
   }
 
   if (addressFormat === "MUNICIPALITY_NUMBER" && street) {
     return { state: "NEEDS_REVIEW", reason: "STREET_NOT_ALLOWED", normalizedPostalCode: normalizeSlovakPostalCode(postalCode), formattedAddress: null };
+  }
+
+  if (addressFormat === "MUNICIPALITY_NUMBER" && !houseNumber) {
+    return { state: "INCOMPLETE", reason: "HOUSE_NUMBER_MISSING", normalizedPostalCode: normalizeSlovakPostalCode(postalCode), formattedAddress: null };
   }
 
   const normalizedPostalCode = normalizeSlovakPostalCode(postalCode);
@@ -201,12 +204,34 @@ export function evaluateDirectoryServiceAddress(input: DirectoryServiceAddress):
     houseNumber,
     addressFormat,
   });
+  if (!formattedAddress) {
+    return { state: "INCOMPLETE", reason: "HOUSE_NUMBER_MISSING", normalizedPostalCode, formattedAddress: null };
+  }
+  if (addressFormat === "STREET" && !houseNumber) {
+    return { state: "COMPLETE", reason: "NUMBERLESS_PLACE", normalizedPostalCode, formattedAddress };
+  }
   return { state: "COMPLETE", reason: "COMPLETE", normalizedPostalCode, formattedAddress };
+}
+
+export function directoryCanonicalPublicAddress(input: DirectoryServiceAddress) {
+  const evaluation = evaluateDirectoryServiceAddress(input);
+  return evaluation.state === "COMPLETE" ? evaluation.formattedAddress : null;
+}
+
+export function directoryNumberlessPlaceCandidate(input: DirectoryServiceAddress) {
+  const evaluation = evaluateDirectoryServiceAddress(input);
+  return evaluation.state === "COMPLETE" && evaluation.reason === "NUMBERLESS_PLACE"
+    ? {
+        publicVisibility: "EXACT_PUBLIC" as const,
+        publicPrecision: "EXACT" as const,
+        formattedAddress: evaluation.formattedAddress!,
+      }
+    : null;
 }
 
 export function directoryExactGeoCandidate(input: DirectoryServiceAddress) {
   const evaluation = evaluateDirectoryServiceAddress(input);
-  return evaluation.state === "COMPLETE"
+  return evaluation.state === "COMPLETE" && evaluation.reason === "COMPLETE"
     ? {
         publicVisibility: "EXACT_PUBLIC" as const,
         publicPrecision: "EXACT" as const,
