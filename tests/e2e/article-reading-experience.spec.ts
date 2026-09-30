@@ -447,33 +447,19 @@ test("ARTICLE-PUBLIC legacy author fallback and malicious embed fail closed", as
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
 });
 
-test("ARTICLE-PUBLIC Novinky exposes complete archive and category filters", async ({ page }) => {
+test("ARTICLE-PUBLIC canonical news landing redirects and topic URLs stay available", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/novinky");
-
-  const archive = page.getByRole("list", { name: "Všetky novinky" });
-  await expect(archive.getByText("E2E výskum psov 2026")).toBeVisible();
-  const articleRows = archive.locator("[data-article-list-item]");
-  expect(await articleRows.count()).toBeGreaterThan(0);
-  const firstArticleRow = articleRows.first();
-  await expect(firstArticleRow.locator("[data-article-title]")).toBeVisible();
-  await expect(firstArticleRow.locator("[data-article-topic]")).toBeVisible();
-  await expect(firstArticleRow.locator("[data-article-date]")).toBeVisible();
-  await expect(firstArticleRow.locator("p")).toHaveCount(0);
-  const thumbnailRows = archive.locator("[data-article-list-item]:has([data-article-image])");
-  expect(await thumbnailRows.count(), "Novinky with canonical images should render compact thumbnails").toBeGreaterThan(0);
-  const firstThumbnail = thumbnailRows.first().locator("[data-article-image] img");
-  await expect(firstThumbnail).toBeVisible();
-  await expect(firstThumbnail).toHaveAttribute("alt", /Ilustračná fotografia k článku:/);
-  await expect(firstArticleRow).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať novinku|Čítať článok|Prečítať|Zistiť viac/i);
-  await expect(archive.getByText("E2E zaujímavosť zo sveta psov")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(/\/clanky$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
+  await expect(page.locator("[data-article-card]").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
-  await page.getByRole("link", { name: "Veda a zdravie", exact: true }).click();
+  await page.goto("/novinky/veda-a-zdravie");
   await expect(page).toHaveURL(/\/novinky\/veda-a-zdravie$/);
   await expect(page.getByRole("list", { name: "Novinky: Veda a zdravie" }).getByText("E2E výskum psov 2026")).toBeVisible();
   await expect(page.getByText("E2E zaujímavosť zo sveta psov")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("href", "/clanky");
   await expectNoSeriousAccessibilityViolations(page);
 });
 
