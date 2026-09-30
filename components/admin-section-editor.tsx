@@ -45,12 +45,18 @@ type SettingsTarget = { sectionSlug: string; subIndex: number } | null;
 export function AdminSectionEditor({
   initialSections,
   articleCounts,
+  initialOpenSlug,
 }: {
   initialSections: ManagedPortalSection[];
   articleCounts: ManagedPortalSectionArticleCountResult;
+  initialOpenSlug?: string;
 }) {
   const [sections, setSections] = useState(initialSections);
-  const [open, setOpen] = useState<string | null>(initialSections[0]?.slug ?? null);
+  const [open, setOpen] = useState<string | null>(
+    initialSections.some((section) => section.slug === initialOpenSlug)
+      ? initialOpenSlug ?? null
+      : initialSections[0]?.slug ?? null,
+  );
   const [query, setQuery] = useState("");
   const [settingsTarget, setSettingsTarget] = useState<SettingsTarget>(null);
   const [saving, setSaving] = useState(false);
