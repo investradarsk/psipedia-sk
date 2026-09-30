@@ -20,13 +20,6 @@
   display: block;
 }
 
-.hero h1 {
-  margin: 7px 0 13px;
-  font-size: clamp(2.45rem, 5.5vw, 4.5rem);
-  line-height: .95;
-  letter-spacing: -.045em;
-}
-
 .hero p,
 .sectionHeading p,
 .emptyState p,
