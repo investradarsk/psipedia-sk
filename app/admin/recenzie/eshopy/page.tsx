@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { ESHOP_RATING_FIELDS, listManagedEshops } from "@/lib/eshop-ratings";
+import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
+import { listManagedEshops } from "@/lib/eshop-ratings";
 import styles from "./eshops-admin.module.css";
 
 export const dynamic = "force-dynamic";
