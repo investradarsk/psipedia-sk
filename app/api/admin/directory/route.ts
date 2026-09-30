@@ -1,6 +1,6 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { createManagedDirectoryProfile, isDirectoryProfileConflict, listManagedDirectoryProfileSummaries, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
-import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection } from "@/lib/directory-address-provider";
+import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
 import {
   applyVerifiedDirectoryAddressGeo,
   requireDirectoryAddressProviderSchema,
@@ -32,37 +32,57 @@ export async function POST(request: Request) {
   const user = await getAdminApiUser();
   if (!user) return unauthorizedAdminResponse();
   try {
-    const body = await request.json() as ManagedDirectoryProfileInput;
+    const rawBody = await request.json() as ManagedDirectoryProfileInput & { numberlessLocalityConfirmed?: unknown };
+    const { numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed, ...body } = rawBody;
+    const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const physicalLocality = Boolean(body.region?.trim() || body.district?.trim() || body.city?.trim());
-    let payload = body;
+    let payload: ManagedDirectoryProfileInput = body;
     let verified = null;
     if (physicalLocality) {
-      if (!body.addressProviderResultId?.trim()) {
-        throw new Error("Vyber ulicu z Geoapify návrhov.");
-      }
-      if (body.houseNumber?.trim()) {
-        await requireDirectoryAddressProviderSchema();
-        verified = await verifyDirectoryAddressSelection({
-          region: body.region ?? "",
-          district: body.district ?? "",
-          city: body.city ?? "",
-          providerResultId: body.addressProviderResultId,
-          street: body.street ?? "",
-          houseNumber: body.houseNumber,
-        });
-        payload = withVerifiedDirectoryAddress(body, verified);
-      } else {
-        const numberless = await verifyDirectoryNumberlessAddressSelection({
+      if (numberlessLocalityConfirmed) {
+        if (body.houseNumber?.trim()) {
+          throw new Error("Zadanú lokalitu možno použiť iba bez čísla domu.");
+        }
+        if (body.addressFormat !== "STREET") {
+          throw new Error("Zadanú lokalitu možno použiť iba ako ulicu / lokalitu.");
+        }
+        const numberless = verifyDirectoryNumberlessLocality({
           region: body.region ?? "",
           district: body.district ?? "",
           city: body.city ?? "",
           postalCode: body.postalCode ?? "",
-          providerResultId: body.addressProviderResultId,
           street: body.street ?? "",
         });
         payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
+      } else {
+        if (!body.addressProviderResultId?.trim()) {
+          throw new Error("Vyber ulicu z Geoapify návrhov alebo explicitne použi zadanú lokalitu.");
+        }
+        if (body.houseNumber?.trim()) {
+          await requireDirectoryAddressProviderSchema();
+          verified = await verifyDirectoryAddressSelection({
+            region: body.region ?? "",
+            district: body.district ?? "",
+            city: body.city ?? "",
+            providerResultId: body.addressProviderResultId,
+            street: body.street ?? "",
+            houseNumber: body.houseNumber,
+          });
+          payload = withVerifiedDirectoryAddress(body, verified);
+        } else {
+          const numberless = await verifyDirectoryNumberlessAddressSelection({
+            region: body.region ?? "",
+            district: body.district ?? "",
+            city: body.city ?? "",
+            postalCode: body.postalCode ?? "",
+            providerResultId: body.addressProviderResultId,
+            street: body.street ?? "",
+          });
+          payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
+        }
       }
     } else {
+      if (numberlessLocalityConfirmed) throw new Error("Najprv vyber platný kraj, okres a obec / mesto.");
       payload = { ...body, postalCode: "", street: "", houseNumber: "", addressFormat: "", confirmServiceAddress: false };
     }
     const profile = await createManagedDirectoryProfile(payload, user.email);

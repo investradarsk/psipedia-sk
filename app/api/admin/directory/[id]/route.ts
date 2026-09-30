@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
-import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection } from "@/lib/directory-address-provider";
+import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -40,11 +40,30 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getManagedDirectoryProfileById(id);
     if (!before) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    const body = await request.json() as ManagedDirectoryProfileInput;
+    const rawBody = await request.json() as ManagedDirectoryProfileInput & { numberlessLocalityConfirmed?: unknown };
+    const { numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed, ...body } = rawBody;
+    const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const changed = directoryPhysicalAddressChanged(before, body);
     let verified = null;
-    let payload = body;
-    if (body.addressProviderResultId?.trim()) {
+    let payload: ManagedDirectoryProfileInput = body;
+    if (numberlessLocalityConfirmed) {
+      const houseNumber = (body.houseNumber ?? before.houseNumber).trim();
+      const addressFormat = body.addressFormat ?? before.addressFormat;
+      if (houseNumber) {
+        throw new Error("Zadanú lokalitu možno použiť iba bez čísla domu.");
+      }
+      if (addressFormat !== "STREET") {
+        throw new Error("Zadanú lokalitu možno použiť iba ako ulicu / lokalitu.");
+      }
+      const numberless = verifyDirectoryNumberlessLocality({
+        region: body.region ?? before.region,
+        district: body.district ?? before.district,
+        city: body.city ?? before.city,
+        postalCode: body.postalCode ?? before.postalCode,
+        street: body.street ?? before.street,
+      });
+      payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
+    } else if (body.addressProviderResultId?.trim()) {
       const houseNumber = (body.houseNumber ?? before.houseNumber).trim();
       if (houseNumber) {
         await requireDirectoryAddressProviderSchema();
@@ -74,7 +93,7 @@ export async function PUT(request: Request, { params }: Props) {
         && !body.district?.trim()
         && !body.city?.trim();
       if (!clearingForOnlineOnly) {
-        throw new Error("Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov.");
+        throw new Error("Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov alebo explicitným použitím zadanej lokality.");
       }
       payload = {
         ...body,
