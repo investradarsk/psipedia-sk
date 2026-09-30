@@ -200,6 +200,12 @@ test("repository configuration contract is production-safe and secret-free", asy
   assert.ok(result.secretEnvNames.includes("GEOAPIFY_API_KEY"));
 });
 
+test("production LOST/FOUND submission flag is deployment-persistent", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+  const wrangler = JSON.parse(source);
+  assert.equal(wrangler.vars?.LOST_FOUND_SUBMISSIONS_ENABLED, "true");
+});
+
 test("local Cloudflare tooling target is explicit and tied to the resolved toolchain", async () => {
   const result = await auditConfigurationContract();
   assert.equal(result.compatibilityDate, "2026-08-23");

@@ -146,8 +146,8 @@ export async function auditConfigurationContract(root = defaultRoot) {
   );
   assert.equal(
     wrangler.vars?.LOST_FOUND_SUBMISSIONS_ENABLED,
-    undefined,
-    "LOST_FOUND_SUBMISSIONS_ENABLED stays dashboard-managed and must be preserved by --keep-vars",
+    "true",
+    "production LOST/FOUND submissions must stay enabled in canonical wrangler config",
   );
   assert.equal(wrangler.vars?.NOTION_ARTICLE_SYNC_ENABLED, "true", "production Notion article sync must stay enabled in wrangler.jsonc");
   assert.equal(
