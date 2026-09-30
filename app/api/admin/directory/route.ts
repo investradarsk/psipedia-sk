@@ -1,7 +1,12 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { createManagedDirectoryProfile, isDirectoryProfileConflict, listManagedDirectoryProfileSummaries, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
-import { verifyDirectoryAddressSelection } from "@/lib/directory-address-provider";
-import { applyVerifiedDirectoryAddressGeo, requireDirectoryAddressProviderSchema, withVerifiedDirectoryAddress } from "@/lib/directory-address-save";
+import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection } from "@/lib/directory-address-provider";
+import {
+  applyVerifiedDirectoryAddressGeo,
+  requireDirectoryAddressProviderSchema,
+  withVerifiedDirectoryAddress,
+  withVerifiedDirectoryNumberlessAddress,
+} from "@/lib/directory-address-save";
 
 export const dynamic = "force-dynamic";
 
@@ -32,19 +37,31 @@ export async function POST(request: Request) {
     let payload = body;
     let verified = null;
     if (physicalLocality) {
-      await requireDirectoryAddressProviderSchema();
       if (!body.addressProviderResultId?.trim()) {
         throw new Error("Vyber ulicu z Geoapify návrhov.");
       }
-      verified = await verifyDirectoryAddressSelection({
-        region: body.region ?? "",
-        district: body.district ?? "",
-        city: body.city ?? "",
-        providerResultId: body.addressProviderResultId,
-        street: body.street ?? "",
-        houseNumber: body.houseNumber ?? "",
-      });
-      payload = withVerifiedDirectoryAddress(body, verified);
+      if (body.houseNumber?.trim()) {
+        await requireDirectoryAddressProviderSchema();
+        verified = await verifyDirectoryAddressSelection({
+          region: body.region ?? "",
+          district: body.district ?? "",
+          city: body.city ?? "",
+          providerResultId: body.addressProviderResultId,
+          street: body.street ?? "",
+          houseNumber: body.houseNumber,
+        });
+        payload = withVerifiedDirectoryAddress(body, verified);
+      } else {
+        const numberless = await verifyDirectoryNumberlessAddressSelection({
+          region: body.region ?? "",
+          district: body.district ?? "",
+          city: body.city ?? "",
+          postalCode: body.postalCode ?? "",
+          providerResultId: body.addressProviderResultId,
+          street: body.street ?? "",
+        });
+        payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
+      }
     } else {
       payload = { ...body, postalCode: "", street: "", houseNumber: "", addressFormat: "", confirmServiceAddress: false };
     }
