@@ -174,6 +174,33 @@
 }
 .emptyState p { margin: 7px 0 0; }
 
+
+.eshopGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+.eshopCard {
+  display: grid;
+  gap: 15px;
+  padding: 22px;
+  border: 1px solid rgba(23,53,43,.11);
+  border-radius: 18px;
+  color: inherit;
+  background: white;
+  text-decoration: none;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.eshopCard:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(40,53,43,.08); }
+.eshopCardTop { display: flex; gap: 18px; align-items: flex-start; justify-content: space-between; }
+.eshopCardTop > div > span { color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.eshopCardTop h3 { margin: 4px 0 0; font-size: 1.15rem; }
+.eshopCardTop strong { flex: none; color: #7d5c12; font-size: 1.1rem; }
+.eshopCardTop small { flex: none; color: var(--muted); font-weight: 750; }
+.eshopCard > p { margin: 0; color: var(--muted); font-size: .79rem; line-height: 1.55; }
+.eshopMiniRatings { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; margin: 0; }
+.eshopMiniRatings div { padding: 9px 10px; border-radius: 9px; background: #f4f7f2; }
+.eshopMiniRatings dt { color: var(--muted); font-size: .63rem; }
+.eshopMiniRatings dd { margin: 3px 0 0; color: var(--forest); font-size: .85rem; font-weight: 850; }
+.eshopCard footer { display: flex; gap: 12px; align-items: center; justify-content: space-between; color: var(--muted); font-size: .68rem; }
+.eshopCard footer b { display: inline-flex; gap: 5px; align-items: center; color: var(--forest); font-size: .72rem; }
+
 .eshopBox {
   display: grid;
   grid-template-columns: minmax(0,1.2fr) minmax(260px,.8fr);
@@ -203,7 +230,8 @@
   .eshopBox { grid-template-columns: 1fr; }
   .articleGrid { grid-template-columns: 1fr; }
   .reviewGrid,
-  .categoryGrid { grid-template-columns: 1fr; }
+  .categoryGrid,
+  .eshopGrid { grid-template-columns: 1fr; }
   .serviceLinks,
   .methodGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .trustGrid { grid-template-columns: 1fr; gap: 13px; }
@@ -222,4 +250,6 @@
   .serviceLinks,
   .methodGrid { grid-template-columns: 1fr; }
   .userReviewCard footer a { width: 100%; margin-left: 0; }
+  .eshopMiniRatings { grid-template-columns: 1fr; }
+  .eshopCard footer { align-items: flex-start; flex-direction: column; }
 }
