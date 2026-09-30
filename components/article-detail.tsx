@@ -142,7 +142,7 @@ export function ArticleDetail({
   };
   const shareLabel = section === "novinky" ? "Zdieľať novinku" : section === "recenzie" ? "Zdieľať recenziu" : "Zdieľať článok";
   const favoriteHint = "Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr.";
-  const sidebarLabel = magazine.sidebarMode === "latest" ? "Najnovšie články" : "Články";
+  const sidebarLabel = magazine.sidebarMode === "related" ? "Súvisiace články" : "Najnovšie články";
 
   return (
     <main id="obsah" className={styles.modernArticle}>

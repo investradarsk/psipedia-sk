@@ -299,10 +299,11 @@ for (const articleCase of cases) {
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
     if (articleCase.hasImage) {
       expect(metrics.imageHeight).not.toBeNull();
-      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(300);
-      expect(metrics.imageHeight!).toBeLessThanOrEqual(411);
+      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(400);
+      expect(metrics.imageHeight!).toBeLessThanOrEqual(431);
       expect(metrics.imageRatio).not.toBeNull();
-      expect(metrics.imageRatio!).toBeGreaterThan(1.8);
+      expect(metrics.imageRatio!).toBeGreaterThan(1.74);
+      expect(metrics.imageRatio!).toBeLessThan(1.81);
     } else {
       expect(metrics.imageHeight).toBeNull();
       expect(metrics.imageRatio).toBeNull();

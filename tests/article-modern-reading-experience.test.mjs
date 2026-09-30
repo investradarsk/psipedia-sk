@@ -83,13 +83,15 @@ test("ARTICLE-2 canonical article routes share one magazine data contract", () =
   assert.match(detail, /magazine:\s*ArticleMagazineData/);
 });
 
-test("article popularity mode is truthful: GA4 exists, but the application sidebar is latest rather than fake most-read", () => {
+test("article sidebar prefers existing topic-related candidates and truthfully falls back to latest", () => {
   assert.match(cookieConsent, /MEASUREMENT_ID = "G-Z6KV64S2CK"/);
   assert.match(cookieConsent, /gtag\?\.\("event", "page_view"/);
   assert.match(cookieConsent, /savedChoice === "analytics"/);
-  assert.match(magazine, /ARTICLE_SIDEBAR_MODE = "latest"/);
-  assert.match(magazine, /getPublishedArticleSummaries\(\{ limit: 40 \}\)/);
-  assert.match(detail, /sidebarLabel = magazine\.sidebarMode === "latest" \? "Najnovšie články"/);
+  assert.match(magazine, /type ArticleSidebarMode = "related" \| "latest"/);
+  assert.match(magazine, /topicCandidates\.filter\(\(candidate\) => sameArticleTopic\(article, candidate\)\)/);
+  assert.match(magazine, /relatedSidebarItems\.length > 0 \? "related" : "latest"/);
+  assert.match(magazine, /selectLatestSidebar\(article, latestCandidates, midRelated, endRelated, 5\)/);
+  assert.match(detail, /sidebarLabel = magazine\.sidebarMode === "related" \? "Súvisiace články" : "Najnovšie články"/);
   assert.doesNotMatch(detail, /Najčítanejšie/i);
   assert.doesNotMatch(magazine, /Najčítanejšie/i);
   assert.doesNotMatch(articleStore, /\bview_count\b|\bpage_views\b|\bpopularity_score\b/i);
@@ -149,8 +151,9 @@ test("article header follows compact editorial hierarchy and keeps save/share wi
   assert.ok(kicker < title && title < excerpt && excerpt < meta && meta < favorite && favorite < compactShare && compactShare < figure);
   assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
   assert.match(styles, /\.title h1[\s\S]*max-width:\s*32ch/);
-  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 7\.2/);
-  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*max-height:\s*410px/);
+  assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*760px/);
+  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
+  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*max-height:\s*430px/);
 });
 
 test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {

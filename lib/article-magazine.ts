@@ -3,15 +3,16 @@ import { articleHref, articlePortalSection } from "@/lib/portal";
 import { getPublishedArticle, getPublishedArticleSummaries, getRelatedPublishedArticles } from "@/lib/article-store";
 import {
   firstManualRelatedPath,
+  sameArticleTopic,
   selectAutomaticMidRelated,
   selectEndRelated,
   selectLatestSidebar,
 } from "@/lib/article-magazine-selection";
 
-export const ARTICLE_SIDEBAR_MODE = "latest" as const;
+export type ArticleSidebarMode = "related" | "latest";
 
 export type ArticleMagazineData = {
-  sidebarMode: typeof ARTICLE_SIDEBAR_MODE;
+  sidebarMode: ArticleSidebarMode;
   sidebarItems: Article[];
   midRelated: Article | null;
   endRelated: Article[];
@@ -43,10 +44,20 @@ export async function getArticleMagazineData(article: Article): Promise<ArticleM
   const automaticRelated = manualRelated ? null : selectAutomaticMidRelated(article, topicCandidates);
   const midRelated = manualRelated ?? automaticRelated;
   const endRelated = selectEndRelated(article, endCandidates, midRelated, 3);
-  const sidebarItems = selectLatestSidebar(article, latestCandidates, midRelated, endRelated, 5);
+  const relatedSidebarItems = selectLatestSidebar(
+    article,
+    topicCandidates.filter((candidate) => sameArticleTopic(article, candidate)),
+    midRelated,
+    endRelated,
+    5,
+  );
+  const sidebarMode: ArticleSidebarMode = relatedSidebarItems.length > 0 ? "related" : "latest";
+  const sidebarItems = relatedSidebarItems.length > 0
+    ? relatedSidebarItems
+    : selectLatestSidebar(article, latestCandidates, midRelated, endRelated, 5);
 
   return {
-    sidebarMode: ARTICLE_SIDEBAR_MODE,
+    sidebarMode,
     sidebarItems,
     midRelated,
     endRelated,
