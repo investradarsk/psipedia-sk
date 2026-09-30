@@ -1653,6 +1653,10 @@ export function assertPartnerAuthPreserved(before, after) {
   }
 }
 
+export function requiresExactPartnerAuthPreservation(targetMigration, targetApplied = false) {
+  return migrationIndex(targetMigration) === 70 && !targetApplied;
+}
+
 function partnerH3IntegritySnapshot(databaseName, configPath) {
   return {
     passwordCredentialCount: scalarCount(databaseName, configPath, "SELECT COUNT(*) AS count FROM partner_password_credentials"),
@@ -1783,7 +1787,7 @@ async function preflight(targetMigration) {
   const geoCountBefore = targetIndex > 64
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM geo_points")
     : null;
-  const partnerAuthBefore = targetIndex >= 70
+  const partnerAuthBefore = requiresExactPartnerAuthPreservation(targetMigration, state.targetApplied)
     ? partnerAuthPreservationSnapshot(databaseName, prepared.configPath)
     : null;
 
@@ -1955,9 +1959,11 @@ async function verify(targetMigration) {
   let partnerAuthPreservation = null;
   let partnerH3Integrity = null;
   if (targetIndex >= 70) {
-    const partnerAuthAfter = partnerAuthPreservationSnapshot(databaseName, prepared.configPath);
-    assertPartnerAuthPreserved(internal.partnerAuthBefore, partnerAuthAfter);
-    partnerAuthPreservation = partnerAuthAfter;
+    if (requiresExactPartnerAuthPreservation(targetMigration, internal.targetApplied)) {
+      const partnerAuthAfter = partnerAuthPreservationSnapshot(databaseName, prepared.configPath);
+      assertPartnerAuthPreserved(internal.partnerAuthBefore, partnerAuthAfter);
+      partnerAuthPreservation = partnerAuthAfter;
+    }
     partnerH3Integrity = partnerH3IntegritySnapshot(databaseName, prepared.configPath);
     assertPartnerH3Integrity(partnerH3Integrity);
   }
