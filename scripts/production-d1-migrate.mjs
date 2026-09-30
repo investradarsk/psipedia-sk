@@ -95,6 +95,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0100_eshop_ratings.sql",
   "0101_eshop_profile_presentation.sql",
   "0102_eshop_notion_sync.sql",
+  "0103_admin_entity_reviews.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -223,6 +224,10 @@ export const ESHOP_RATING_INDEXES = Object.freeze([
 export const ESHOP_NOTION_SYNC_INDEXES = Object.freeze([
   "eshop_notion_sync_last_synced_idx",
   "eshop_notion_sync_psipedia_updated_idx",
+]);
+
+export const ADMIN_ENTITY_REVIEW_INDEXES = Object.freeze([
+  "admin_entity_reviews_reviewed_at_idx",
 ]);
 
 export const AUTOMATION_ADDRESS_REVIEW_TABLES = Object.freeze([
@@ -961,7 +966,24 @@ export function targetSchemaObjects(schema, targetMigration) {
         || ESHOP_NOTION_SYNC_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0103_admin_entity_reviews.sql") {
+    return {
+      partial: names.has("admin_entity_reviews")
+        || ADMIN_ENTITY_REVIEW_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
+}
+
+function assertAdminEntityReviewSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("admin_entity_reviews")?.type === "table", "Missing admin entity review table");
+  for (const index of ADMIN_ENTITY_REVIEW_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing admin entity review index: ${index}`);
+  }
+  const tableSql = String(names.get("admin_entity_reviews")?.sql ?? "");
+  invariant(tableSql.includes("PRIMARY KEY (entity_type, entity_id)"), "admin entity review identity constraint is missing");
+  invariant(tableSql.includes("CHECK (entity_id > 0)"), "admin entity review positive ID constraint is missing");
 }
 
 function assertAutomationProductModelSchema(schema) {
@@ -1555,6 +1577,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 100) assertEshopRatingSchema(schema);
   if (migrationIndex(targetMigration) >= 101) assertEshopProfilePresentationSchema(schema);
   if (migrationIndex(targetMigration) >= 102) assertEshopNotionSyncSchema(schema);
+  if (migrationIndex(targetMigration) >= 103) assertAdminEntityReviewSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1763,6 +1786,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     }
     if (targetIndex > 100) assertEshopRatingSchema(schema);
     if (targetIndex > 101) assertEshopProfilePresentationSchema(schema);
+    if (targetIndex > 102) assertEshopNotionSyncSchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }

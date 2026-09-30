@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -39,8 +40,9 @@ function url(filters: HelpAdminFilters) {
   return `/admin/pomoc${query ? `?${query}` : ""}`;
 }
 
-export function AdminHelpDashboard({ data, filters }: { data: DashboardData; filters: HelpAdminFilters }) {
+export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: DashboardData; filters: HelpAdminFilters; reviewedIds?: number[] }) {
   const router = useRouter();
+  const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -196,7 +198,7 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
           <label className={styles.rowCheckTarget}><span className="sr-only">Označiť {item.title}</span><input className={styles.rowCheck} aria-label={`Označiť ${item.title}`} type="checkbox" checked={selected.has(item.id)} disabled={bulkBusy} onChange={() => toggle(item.id)} /></label>
           <div className="admin-help-thumb">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
           <div className="admin-article-main"><div className="admin-article-tags"><span className={`admin-status admin-status--${item.status}`}>{item.status === "published" ? "Publikované" : "Koncept"}</span><span>{item.category === "utulky" ? "Útulok" : category?.label ?? item.category}</span>{item.verified && <span>Overené</span>}{item.urgent && !item.resolved && <span>Urgentné</span>}{item.resolved && <span>Vybavené</span>}</div><h2><Link href={`/admin/pomoc/${item.id}`}>{item.title}</Link></h2><p>{[item.organization, item.city, item.dogName ? `Pes: ${item.dogName}` : ""].filter(Boolean).join(" · ")}</p></div>
-          <div className="admin-row-actions">{item.status === "published" && <Link href={helpCaseHref(item)} target="_blank">Pozrieť na webe ↗</Link>}<Link className="admin-row-edit" href={`/admin/pomoc/${item.id}`}>Upraviť</Link><button type="button" disabled={deletingId === item.id || bulkBusy} onClick={() => void removeItem(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</button></div>
+          <div className="admin-row-actions"><AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />{item.status === "published" && <Link href={helpCaseHref(item)} target="_blank" rel="noreferrer">Pozrieť na webe ↗</Link>}<Link className="admin-row-edit" href={`/admin/pomoc/${item.id}`}>Upraviť</Link><button type="button" disabled={deletingId === item.id || bulkBusy} onClick={() => void removeItem(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</button></div>
         </article>;
       })}</div> : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
       <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov">{page > 1 ? <Link href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}</nav>

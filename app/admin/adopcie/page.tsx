@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminAdoptionDashboard } from "@/components/admin-adoption-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { listReviewedAdminEntityIds } from "@/lib/admin-entity-review-store";
 import { adoptionRegions, adoptionStatuses, type AdoptionStatus } from "@/lib/adoption";
 import {
   adoptionAdminSorts,
@@ -35,6 +36,7 @@ export default async function AdoptionAdminPage({ searchParams }: { searchParams
   };
 
   const result = await listAdoptionAdminDashboard(filters);
+  const reviewedIds = await listReviewedAdminEntityIds("ADOPTION", result.items.map((item) => item.id));
 
   return <AdminShell
     user={user}
@@ -43,6 +45,6 @@ export default async function AdoptionAdminPage({ searchParams }: { searchParams
     description="Read-only prehľad adopčných profilov, lifecycle stavov a potreby opätovného overenia."
     actions={<Link className="admin-primary-action" href="/admin/adopcie/novy">+ Pridať psa</Link>}
   >
-    <AdminAdoptionDashboard result={result} filters={filters} />
+    <AdminAdoptionDashboard result={result} filters={filters} reviewedIds={reviewedIds} />
   </AdminShell>;
 }

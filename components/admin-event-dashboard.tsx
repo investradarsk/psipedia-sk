@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -46,7 +47,8 @@ function matchesBulkValue(event: AdminEventSummary, field: BulkEventField, value
   return event.cancelled === value;
 }
 
-export function AdminEventDashboard({ initialEvents }: { initialEvents: AdminEventSummary[] }) {
+export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initialEvents: AdminEventSummary[]; reviewedIds?: number[] }) {
+  const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const [events, setEvents] = useState(initialEvents);
   const [filters, setFilters] = useState(defaultEventFilters);
@@ -337,7 +339,8 @@ export function AdminEventDashboard({ initialEvents }: { initialEvents: AdminEve
                   <p className={styles.secondaryMeta}>{[event.venue, event.organizer].filter(Boolean).join(" · ")}</p>
                 </div>
                 <div className={`admin-row-actions ${styles.actions}`}>
-                  {event.status === "published" && <Link href={eventHref(event)} target="_blank">Pozrieť ↗</Link>}
+                  <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={reviewed.has(event.id)} compact />
+                  {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
                   <AdminActionButton variant="neutral" disabled={!hydrated || busy} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
                   <Link className="admin-row-edit" href={`/admin/podujatia/${event.id}`}>Upraviť</Link>
                   <AdminActionButton variant="destructive" disabled={!hydrated || busy} onClick={() => setDeleteTarget(event)}>Odstrániť</AdminActionButton>
