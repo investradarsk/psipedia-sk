@@ -58,6 +58,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     || data.issue !== "all"
     || data.profileStatus !== "all"
     || data.priority !== "all"
+    || data.solution !== "all"
     || Boolean(data.query)
     || Boolean(data.region)
     || Boolean(data.district);
@@ -89,6 +90,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
       query.delete("issue");
       query.delete("status");
       query.delete("priority");
+      query.delete("solution");
       query.delete("region");
       query.delete("district");
     } else {
@@ -258,6 +260,14 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                 <span>Typ problému</span>
                 <select name="issue" defaultValue={data.issue}>
                   {data.issueOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="admin-select-filter">
+                <span>Nájdené riešenie</span>
+                <select name="solution" defaultValue={data.solution}>
+                  {data.solutionOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
