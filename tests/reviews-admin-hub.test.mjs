@@ -17,12 +17,17 @@ test("reviews admin hub centralizes existing canonical workflows", () => {
   assert.match(hub, /href="\/admin\/sekcie\?sekcia=recenzie"/);
 });
 
-test("reviews admin hub exposes e-shops as a future phase instead of fake CRUD", () => {
+test("reviews admin hub exposes active e-shop ratings management", () => {
   const hub = read("components/admin-reviews-hub.tsx");
+  const page = read("app/admin/recenzie/page.tsx");
   assert.match(hub, /E-shopy/);
-  assert.match(hub, /Ďalšia fáza/);
-  assert.match(hub, /samostatné profily a ich hodnotiaci model ešte nie sú implementované/);
-  assert.match(hub, /Žiadne falošné profily ani hviezdičky/);
+  assert.match(hub, /href="\/admin\/recenzie\/eshopy"/);
+  assert.match(hub, /Doručenie/);
+  assert.match(hub, /Komunikácia/);
+  assert.match(hub, /Sortiment/);
+  assert.match(hub, /Ceny/);
+  assert.match(hub, /Celková skúsenosť/);
+  assert.match(page, /countManagedEshops/);
 });
 
 test("reviews admin hub is discoverable from admin navigation and dashboard", () => {
