@@ -2,6 +2,14 @@
   min-width: 0;
 }
 
+.headerShell {
+  padding-top: 22px;
+}
+
+.header {
+  margin-top: 4px;
+}
+
 .foundation :global(.browser-toolbar) {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(220px, .6fr);
@@ -118,4 +126,8 @@
   .foundation :global(.fci-group-heading) {
     gap: 12px;
   }
+}
+
+@media (max-width: 600px) {
+  .headerShell { padding-top: 14px; }
 }

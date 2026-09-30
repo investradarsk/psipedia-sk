@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
 import { ArrowIcon } from "@/components/icons";
+import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicFoundation,
@@ -50,9 +51,13 @@ export default async function BreedsPage({ searchParams }: { searchParams: Promi
       {schema && <StructuredData value={schema} />}
       <main id="obsah">
         <PublicFoundation className={styles.foundation}>
-          <div className="shell">
+          <div className={`shell ${styles.headerShell}`}>
+            <Breadcrumbs>
+              <Link href="/">Domov</Link><span>/</span><span>Plemená</span>
+            </Breadcrumbs>
             <PublicSectionHeader
-              variant="data"
+              className={styles.header}
+              variant="compact"
               eyebrow={portalSection?.eyebrow ?? "Atlas plemien"}
               title={portalSection?.label ?? "Plemená"}
               intro="Nájdite plemeno podľa názvu, pôvodu, FCI skupiny alebo sekcie."

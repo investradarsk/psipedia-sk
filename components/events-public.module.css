@@ -962,3 +962,9 @@
     font-size: clamp(2.1rem, 10vw, 3.15rem);
   }
 }
+
+.activeChip,
+.activeTimeChip {
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}

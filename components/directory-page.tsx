@@ -187,28 +187,14 @@ export function DirectoryPage({
           ) : (
             <>
               <div className={styles.hero} data-directory-landing-hero>
-                <div className={styles.heroCopy}>
-                  <span className={styles.heroEyebrow}>Služby pre psov</span>
-                  <h1>Služby pre psov na jednom mieste</h1>
-                  <p>Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality.</p>
-                  {totalPublished !== null && (
-                    <div className={styles.heroMeta}>
-                      <strong>{totalPublished.toLocaleString("sk-SK")}</strong>
-                      <span>publikovaných profilov v adresári</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className={styles.heroMedia}>
-                  <img
-                    src="/images/hero-labrador.webp"
-                    alt="Labrador ako sprievodný vizuál adresára služieb pre psov"
-                    loading="eager"
-                    fetchPriority="high"
-                    decoding="async"
-                  />
-                  <span className={styles.heroMediaAccent} aria-hidden="true" />
-                </div>
+                <PublicSectionHeader
+                  className={styles.rootHeader}
+                  variant="compact"
+                  eyebrow="Adresár služieb"
+                  title="Služby pre psov"
+                  intro="Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."
+                  meta={totalPublished !== null ? `${totalPublished.toLocaleString("sk-SK")} publikovaných profilov v adresári` : undefined}
+                />
 
                 <form className={`directory-main-search ${styles.mainSearch}`} action="/adresar" method="get" role="search" aria-label="Vyhľadať službu pre psa">
                   <label>
