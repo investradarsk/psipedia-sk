@@ -1,0 +1,130 @@
+name: CATEGORY-VISUAL-1 preview validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/plemena/**"
+      - "components/directory-page.tsx"
+      - "components/directory-public.module.css"
+      - "components/editorial-section*"
+      - "components/events-page.tsx"
+      - "components/events-public.module.css"
+      - "components/help-overview.tsx"
+      - "components/help-public.module.css"
+      - "components/news-hub*"
+      - "components/reviews-hub*"
+      - "components/public-visual-system/**"
+      - "components/portal-section-tabs*"
+      - "tests/category-visual.test.mjs"
+      - "tests/e2e/category-visual.spec.ts"
+      - ".github/workflows/category-visual-ci.yml"
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: category-visual-1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-contracts:
+    if: github.head_ref == 'codex/category-visual-1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: CATEGORY-VISUAL source regressions
+        run: node --experimental-strip-types --test tests/category-visual.test.mjs
+      - name: Build branch
+        run: npm run build
+
+  preview-visual:
+    if: github.head_ref == 'codex/category-visual-1'
+    needs: source-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Resolve exact Cloudflare preview for PR head
+        id: preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${PR_HEAD_SHA}/check-runs"
+          preview_url=""
+          for attempt in $(seq 1 90); do
+            payload="$(curl --silent --show-error --fail \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${api}")"
+            state="$(printf '%s' "${payload}" | node -e '
+              let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
+                const runs=JSON.parse(x).check_runs||[];
+                const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
+                process.stdout.write(run ? String(run.status)+"|"+String(run.conclusion||"") : "missing|");
+              });
+            ')"
+            if [ "${state}" = "completed|failure" ]; then
+              echo "::error::Cloudflare Workers Build failed for ${PR_HEAD_SHA}."
+              exit 1
+            fi
+            if [ "${state}" = "completed|success" ]; then
+              preview_url="$(printf '%s' "${payload}" | node -e '
+                let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
+                  const runs=JSON.parse(x).check_runs||[];
+                  const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
+                  const summary=run?.output?.summary||"";
+                  const match=summary.match(/Preview URL:\s*(https:\/\/[^\s]+)/);
+                  process.stdout.write(match?.[1]||"");
+                });
+              ')"
+              if [ -n "${preview_url}" ]; then break; fi
+            fi
+            sleep 5
+          done
+          test -n "${preview_url}"
+          echo "url=${preview_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Desktop, tablet and mobile preview audit + before/after screenshots
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+          CATEGORY_VISUAL_PRODUCTION_URL: https://psipedia.sk
+          CATEGORY_VISUAL_ARTIFACT_DIR: .e2e-artifacts/category-visual
+        run: npx playwright test tests/e2e/category-visual.spec.ts --project=desktop-chromium --workers=1 --retries=0
+
+      - name: Upload CATEGORY-VISUAL screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: category-visual-1-before-after-${{ github.run_attempt }}
+          path: .e2e-artifacts/category-visual/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: category-visual-1-playwright-failure-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14

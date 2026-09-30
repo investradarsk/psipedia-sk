@@ -28,7 +28,6 @@ export function EventsPage({
   const isMainListing = initialType === "Všetky";
   const title = isMainListing ? section?.label ?? copy.title : copy.title;
   const description = isMainListing ? section?.description ?? copy.description : copy.description;
-  const intro = isMainListing ? section?.intro : undefined;
   const today = bratislavaDateKey();
   const activeCount = events.filter((event) => !event.cancelled && eventDateStatus(event, today) !== "past").length;
 
@@ -44,12 +43,7 @@ export function EventsPage({
             variant="data"
             eyebrow="Kalendár a databáza"
             title={title}
-            intro={
-              <>
-                <span className={styles.headerDescription}>{description}</span>
-                {intro ? <span className={styles.headerIntro}>{intro}</span> : null}
-              </>
-            }
+            intro={<span className={styles.headerDescription}>{description}</span>}
             meta={activeCount > 0 ? (
               <span className={styles.headerMeta} aria-label={activeCount + " aktívnych podujatí"}>
                 <strong>{activeCount}</strong> aktívnych termínov

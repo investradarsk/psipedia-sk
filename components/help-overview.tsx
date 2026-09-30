@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon, PawMark } from "@/components/icons";
+import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicFoundation,
@@ -131,13 +132,13 @@ export function HelpOverview({
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
         <section className={[styles.shell, styles.headerWrap].join(" ")}>
-          <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
-            <Link href="/">Domov</Link><span aria-hidden="true">/</span><span aria-current="page">Pomoc psom</span>
-          </nav>
+          <Breadcrumbs label="Drobečková navigácia">
+            <Link href="/">Domov</Link><span>/</span><span>Pomoc psom</span>
+          </Breadcrumbs>
           <PublicSectionHeader
             className={styles.heroHeader}
             variant="compact"
-            eyebrow="Pomoc psom · tam, kde ju treba"
+            eyebrow="Praktická pomoc"
             title="Pomoc psom"
             intro="Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Hlavný prehľad ukazuje len výber aktuálnych možností; celý zoznam nájdete v každej kategórii."
             meta={
