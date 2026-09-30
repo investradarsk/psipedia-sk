@@ -221,7 +221,6 @@ type DirectoryProfileSummaryRow = {
   district: string;
   region: string;
   image_url: string | null;
-  source_data_json: string;
   verified: number;
   featured: number;
   updated_at: string;
@@ -502,8 +501,7 @@ function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile 
   };
 }
 
-function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDirectoryProfileSummary {
-  const reviewMetadata = readDirectoryProfileReviewMetadata(safeImportData(row.source_data_json, true));
+function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow, reviewedAt = ""): ManagedDirectoryProfileSummary {
   return {
     id: row.id,
     slug: row.slug,
@@ -515,8 +513,8 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDir
     district: row.district,
     region: normalizeDirectoryRegion(row.region) ?? "Online",
     imageUrl: row.image_url,
-    reviewed: reviewMetadata.reviewed,
-    reviewedAt: reviewMetadata.reviewedAt,
+    reviewed: Boolean(reviewedAt),
+    reviewedAt,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
@@ -1029,7 +1027,7 @@ export async function listManagedDirectoryProfileSummaries(options: {
   const category = options.category && isDirectoryCategory(options.category) ? options.category : null;
   const where = category ? "WHERE category = ?" : "";
   const listStatement = database.prepare(`
-    SELECT id, slug, name, category, status, services_json, city, district, region, image_url, source_data_json, verified, featured, updated_at
+    SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at
     FROM directory_profiles
     ${where}
     ORDER BY updated_at DESC, id DESC
@@ -1046,6 +1044,17 @@ export async function listManagedDirectoryProfileSummaries(options: {
   `).bind(...(category ? [category] : []));
   const [listResult, countResult] = await database.batch([listStatement, countStatement]);
   const rows = (listResult.results ?? []) as unknown as DirectoryProfileSummaryRow[];
+  const reviewedAtById = new Map<number, string>();
+  if (rows.length) {
+    const placeholders = rows.map(() => "?").join(",");
+    const reviewRows = await database.prepare(`
+      SELECT id,
+        COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
+      FROM directory_profiles
+      WHERE id IN (${placeholders})
+    `).bind(...rows.map((row) => row.id)).all<{ id: number; reviewed_at: string }>();
+    for (const row of reviewRows.results) reviewedAtById.set(row.id, row.reviewed_at?.trim() ?? "");
+  }
   const rawCounts = (countResult.results?.[0] ?? null) as unknown as DirectoryProfileCountRow | null;
   const counts = {
     total: Number(rawCounts?.total ?? 0),
@@ -1053,7 +1062,7 @@ export async function listManagedDirectoryProfileSummaries(options: {
     draft: Number(rawCounts?.draft ?? 0),
   };
   return {
-    profiles: rows.map(rowToManagedProfileSummary),
+    profiles: rows.map((row) => rowToManagedProfileSummary(row, reviewedAtById.get(row.id) ?? "")),
     counts,
     pagination: {
       page,
