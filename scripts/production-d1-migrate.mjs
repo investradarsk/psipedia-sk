@@ -94,6 +94,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0099_media_source_quality.sql",
   "0100_eshop_ratings.sql",
   "0101_eshop_profile_presentation.sql",
+  "0102_eshop_notion_sync.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -217,6 +218,11 @@ export const ESHOP_RATING_INDEXES = Object.freeze([
   "managed_eshops_public_idx",
   "eshop_ratings_eshop_updated_idx",
   "eshop_ratings_author_updated_idx",
+]);
+
+export const ESHOP_NOTION_SYNC_INDEXES = Object.freeze([
+  "eshop_notion_sync_last_synced_idx",
+  "eshop_notion_sync_psipedia_updated_idx",
 ]);
 
 export const AUTOMATION_ADDRESS_REVIEW_TABLES = Object.freeze([
@@ -949,6 +955,12 @@ export function targetSchemaObjects(schema, targetMigration) {
       partial: ["logo_url", "logo_key", "focus_tags_json"].some((column) => columns.has(column)),
     };
   }
+  if (targetMigration === "0102_eshop_notion_sync.sql") {
+    return {
+      partial: names.has("eshop_notion_sync")
+        || ESHOP_NOTION_SYNC_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1063,6 +1075,17 @@ function assertEshopProfilePresentationSchema(schema) {
   for (const column of ["logo_url", "logo_key", "focus_tags_json"]) {
     invariant(columns.has(column), `Missing e-shop profile presentation column: managed_eshops.${column}`);
   }
+}
+
+function assertEshopNotionSyncSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("eshop_notion_sync")?.type === "table", "Missing eshop_notion_sync table");
+  for (const index of ESHOP_NOTION_SYNC_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing e-shop Notion sync index: ${index}`);
+  }
+  const tableSql = String(names.get("eshop_notion_sync")?.sql ?? "");
+  invariant(tableSql.includes("UNIQUE") && tableSql.includes("eshop_id"), "eshop_notion_sync one-to-one mapping is missing");
+  invariant(tableSql.includes("REFERENCES managed_eshops"), "eshop_notion_sync e-shop foreign key is missing");
 }
 
 function assertPartnerClaimsSchema(schema) {
@@ -1531,6 +1554,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 99) assertMediaSourceQualitySchema(schema);
   if (migrationIndex(targetMigration) >= 100) assertEshopRatingSchema(schema);
   if (migrationIndex(targetMigration) >= 101) assertEshopProfilePresentationSchema(schema);
+  if (migrationIndex(targetMigration) >= 102) assertEshopNotionSyncSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1738,6 +1762,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
       assertAutomationEntityResolutionPrerequisites(schema);
     }
     if (targetIndex > 100) assertEshopRatingSchema(schema);
+    if (targetIndex > 101) assertEshopProfilePresentationSchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }
