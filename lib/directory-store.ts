@@ -20,8 +20,10 @@ import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import {
   isDirectoryInternalMetadataKey,
+  mergeDirectoryProfileReviewMetadata,
   mergeDirectoryPublicContactData,
   mergeDirectoryQualityMetadata,
+  readDirectoryProfileReviewMetadata,
   readDirectoryPublicContacts,
   readDirectoryQualityMetadata,
   type DirectoryQualityResolutionInput,
@@ -85,6 +87,8 @@ export type ManagedDirectoryProfileSummary = Pick<
   | "district"
   | "region"
   | "imageUrl"
+  | "reviewed"
+  | "reviewedAt"
   | "verified"
   | "featured"
   | "updatedAt"
@@ -217,6 +221,7 @@ type DirectoryProfileSummaryRow = {
   district: string;
   region: string;
   image_url: string | null;
+  source_data_json: string;
   verified: number;
   featured: number;
   updated_at: string;
@@ -473,10 +478,14 @@ function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JS
 
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
   const importData = safeImportData(row.source_data_json, true);
+  const reviewMetadata = readDirectoryProfileReviewMetadata(importData);
   return {
     ...rowToPublicProfile(row),
     importData,
     qualityMetadata: readDirectoryQualityMetadata(importData),
+    reviewed: reviewMetadata.reviewed,
+    reviewedAt: reviewMetadata.reviewedAt,
+    reviewedBy: reviewMetadata.reviewedBy,
     city: row.city,
     district: row.district,
     region: row.region,
@@ -494,6 +503,7 @@ function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile 
 }
 
 function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDirectoryProfileSummary {
+  const reviewMetadata = readDirectoryProfileReviewMetadata(safeImportData(row.source_data_json, true));
   return {
     id: row.id,
     slug: row.slug,
@@ -505,6 +515,8 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow): ManagedDir
     district: row.district,
     region: normalizeDirectoryRegion(row.region) ?? "Online",
     imageUrl: row.image_url,
+    reviewed: reviewMetadata.reviewed,
+    reviewedAt: reviewMetadata.reviewedAt,
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
@@ -1017,7 +1029,7 @@ export async function listManagedDirectoryProfileSummaries(options: {
   const category = options.category && isDirectoryCategory(options.category) ? options.category : null;
   const where = category ? "WHERE category = ?" : "";
   const listStatement = database.prepare(`
-    SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at
+    SELECT id, slug, name, category, status, services_json, city, district, region, image_url, source_data_json, verified, featured, updated_at
     FROM directory_profiles
     ${where}
     ORDER BY updated_at DESC, id DESC
@@ -1156,6 +1168,27 @@ export async function updateManagedDirectoryProfile(
     targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
   }, database);
   return rowToManagedProfile(row);
+}
+
+export async function setManagedDirectoryProfileReviewed(
+  id: number,
+  reviewed: boolean,
+  editorEmail: string,
+  now = new Date(),
+  databaseInput?: D1Database,
+) {
+  const database = databaseInput ?? requireD1Binding();
+  await ensureDirectoryStore(database);
+  const row = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
+    .bind(id)
+    .first<DirectoryProfileRow>();
+  if (!row) return null;
+  const importData = safeImportData(row.source_data_json, true);
+  const sourceData = mergeDirectoryProfileReviewMetadata(importData, reviewed, editorEmail, now.toISOString());
+  const updated = await database.prepare(
+    "UPDATE directory_profiles SET source_data_json = ? WHERE id = ? RETURNING *",
+  ).bind(JSON.stringify(sourceData), id).first<DirectoryProfileRow>();
+  return updated ? rowToManagedProfile(updated) : null;
 }
 
 export async function archiveManagedDirectoryProfile(
