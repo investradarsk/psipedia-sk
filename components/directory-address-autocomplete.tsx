@@ -20,8 +20,10 @@ export function DirectoryAddressAutocomplete({
   city,
   selectedProviderResultId,
   selectedStreet,
+  selectedLocalityConfirmed,
   disabled = false,
   onSelect,
+  onUseLocality,
   onClearSelection,
 }: {
   region: string;
@@ -29,8 +31,10 @@ export function DirectoryAddressAutocomplete({
   city: string;
   selectedProviderResultId: string;
   selectedStreet: string;
+  selectedLocalityConfirmed: boolean;
   disabled?: boolean;
   onSelect: (suggestion: Suggestion) => void;
+  onUseLocality: (locality: string) => void;
   onClearSelection: () => void;
 }) {
   const [query, setQuery] = useState(selectedStreet);
@@ -41,7 +45,8 @@ export function DirectoryAddressAutocomplete({
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const localityReady = Boolean(region && district && city);
-  const canSearch = searchActivated && !selectedProviderResultId && !disabled && localityReady && query.trim().length >= 3;
+  const canSearch = searchActivated && !selectedProviderResultId && !selectedLocalityConfirmed && !disabled && localityReady && query.trim().length >= 3;
+  const canUseLocality = canSearch && query.trim().length >= 3;
 
   useEffect(() => {
     if (!canSearch) {
@@ -90,6 +95,17 @@ export function DirectoryAddressAutocomplete({
     onSelect(item);
   }
 
+  function useTypedLocality() {
+    const locality = query.trim().replace(/\s+/g, " ");
+    if (locality.length < 3) return;
+    setQuery(locality);
+    setSuggestions([]);
+    setEmpty(false);
+    setError("");
+    setSearchActivated(false);
+    onUseLocality(locality);
+  }
+
   const visibleSuggestions = canSearch ? suggestions : [];
   const visibleLoading = canSearch && loading;
   const visibleEmpty = canSearch && empty;
@@ -97,7 +113,7 @@ export function DirectoryAddressAutocomplete({
 
   return (
     <div className="admin-field" data-directory-address-autocomplete>
-      <label htmlFor="directory-address-autocomplete">Ulica</label>
+      <label htmlFor="directory-address-autocomplete">Ulica / lokalita</label>
       <div className="partner-location-combobox">
         <input
           id="directory-address-autocomplete"
@@ -105,14 +121,14 @@ export function DirectoryAddressAutocomplete({
           role="combobox"
           autoComplete="off"
           aria-autocomplete="list"
-          aria-expanded={visibleSuggestions.length > 0}
+          aria-expanded={visibleSuggestions.length > 0 || canUseLocality}
           aria-controls="directory-address-suggestions"
           value={query}
           disabled={disabled || !localityReady}
           placeholder={localityReady ? "Začni písať názov ulice, napr. hvi" : "Najprv vyber obec / mesto"}
           onChange={(event) => {
             setSearchActivated(true);
-            if (selectedProviderResultId) onClearSelection();
+            if (selectedProviderResultId || selectedLocalityConfirmed) onClearSelection();
             setQuery(event.target.value);
           }}
         />
@@ -134,13 +150,26 @@ export function DirectoryAddressAutocomplete({
             ))}
           </ul>
         ) : null}
+        {canUseLocality ? (
+          <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.35rem" }}>
+            <small>Nenašiel si správnu ulicu?</small>
+            <button type="button" className="admin-button-secondary" onClick={useTypedLocality}>
+              Použiť „{query.trim()}“ ako lokalitu
+            </button>
+          </div>
+        ) : null}
       </div>
-      <small>Napíš aspoň 3 znaky názvu ulice a vyber ju zo zoznamu. Číslo domu doplň iba vtedy, ak ho miesto verejne používa.</small>
+      <small>Vyber ulicu zo zoznamu. Ak ide o areál, cvičisko, nábrežie, park alebo iné miesto bez presnej Geoapify ulice, môžeš vedome použiť zadaný text ako lokalitu.</small>
       <span aria-live="polite">
         {visibleLoading ? "Vyhľadávam ulice…" : ""}
         {!visibleLoading && visibleEmpty ? "V tejto lokalite sa nenašla zodpovedajúca ulica." : ""}
         {visibleError ? visibleError : ""}
         {selectedProviderResultId ? "Ulica je vybraná. Doplň číslo domu alebo nechaj pole prázdne pri mieste bez čísla." : ""}
+        {selectedLocalityConfirmed ? (
+          <>
+            ✓ Použitá lokalita: {query}. Táto lokalita nebola vybraná zo zoznamu ulíc. Presné miesto musí následne potvrdiť Google Maps.
+          </>
+        ) : null}
       </span>
     </div>
   );
