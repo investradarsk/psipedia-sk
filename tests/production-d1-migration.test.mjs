@@ -601,6 +601,7 @@ test("PARTNER-H3 exact auth snapshot is limited to the first 0070 rollout", () =
   assert.equal(requiresExactPartnerAuthPreservation("0071_admin_universal_notifications.sql", false), false);
   assert.equal(requiresExactPartnerAuthPreservation("0100_eshop_ratings.sql", false), false);
   assert.equal(requiresExactPartnerAuthPreservation("0100_eshop_ratings.sql", true), false);
+  assert.equal(requiresExactPartnerAuthPreservation("0101_eshop_profile_presentation.sql", false), false);
 });
 
 test("post-0070 production verification keeps auth integrity checks without freezing live sessions", async () => {
