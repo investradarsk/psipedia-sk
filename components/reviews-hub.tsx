@@ -3,6 +3,7 @@ import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
+import { ESHOP_RATING_FIELDS, type PublicEshop } from "@/lib/eshop-ratings";
 import type { Article } from "@/lib/content";
 import type { PortalSection } from "@/lib/portal";
 import { articlePortalSection, portalSubpageHref } from "@/lib/portal";
@@ -85,11 +86,13 @@ export function ReviewsHub({
   section,
   articles,
   profileReviews,
+  eshops,
   view = "all",
 }: {
   section: PortalSection;
   articles: Article[];
   profileReviews: PublicProfileReviewFeedItem[];
+  eshops: PublicEshop[];
   view?: ReviewsHubView;
 }) {
   const reviewArticles = articles.filter((article) => articlePortalSection(article) === "recenzie");
@@ -240,18 +243,38 @@ export function ReviewsHub({
       {showEshops ? (
         <section className={styles.sectionAlt}>
           <PageContainer>
-            <div className={styles.eshopBox}>
-              <div>
-                <span className={styles.eyebrow}>E-shopy</span>
-                <h2>Profily e-shopov pripravujeme ako samostatný typ hodnotenia</h2>
-                <p>Nechceme miešať e-shopy medzi bežné služby ani vytvárať falošné profily. Po spustení budú môcť používatelia hodnotiť doručenie, komunikáciu, sortiment a celkovú skúsenosť.</p>
-              </div>
-              <div className={styles.eshopRules}>
-                <span>Samostatné skóre Psipedia</span>
-                <span>Externé hodnotenia oddelene</span>
-                <span>Žiadne platené hviezdičky</span>
-              </div>
+            <div className={styles.sectionHeading}>
+              <div><span className={styles.eyebrow}>E-shopy</span><h2>Hodnotenia nákupnej skúsenosti</h2></div>
+              <p>Používateľ ohodnotí päť oblastí od 1 do 5. Na odoslanie stačí overený e-mail; externé hviezdičky sa do skóre Psipedia nemiešajú.</p>
             </div>
+            {eshops.length ? (
+              <div className={styles.eshopGrid}>
+                {eshops.map((shop) => (
+                  <Link className={styles.eshopCard} href={`/recenzie/eshopy/${shop.slug}`} key={shop.id}>
+                    <div className={styles.eshopCardTop}>
+                      <div><span>E-shop</span><h3>{shop.name}</h3></div>
+                      {shop.averages ? (
+                        <strong aria-label={`Celkové hodnotenie ${shop.averages.overall} z 5`}>{shop.averages.overall.toLocaleString("sk-SK", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ★</strong>
+                      ) : <small>Bez hodnotení</small>}
+                    </div>
+                    <p>{shop.description}</p>
+                    {shop.averages ? (
+                      <dl className={styles.eshopMiniRatings}>
+                        {ESHOP_RATING_FIELDS.slice(0, 4).map((field) => (
+                          <div key={field.key}><dt>{field.label}</dt><dd>{shop.averages?.[field.key].toLocaleString("sk-SK", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</dd></div>
+                        ))}
+                      </dl>
+                    ) : null}
+                    <footer><span>{shop.ratingCount} {shop.ratingCount === 1 ? "hodnotenie" : "hodnotení"}</span><b>Detail a hodnotenie <ArrowIcon size={17} /></b></footer>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>
+                <strong>Profily e-shopov sa momentálne nepodarilo načítať.</strong>
+                <p>Skúste to prosím neskôr.</p>
+              </div>
+            )}
           </PageContainer>
         </section>
       ) : null}
