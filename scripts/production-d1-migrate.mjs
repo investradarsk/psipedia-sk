@@ -92,6 +92,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0097_automation_operations_metrics.sql",
   "0098_directory_notion_bidirectional_sync.sql",
   "0099_media_source_quality.sql",
+  "0100_eshop_ratings.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -204,6 +205,17 @@ export const MEDIA_SOURCE_QUALITY_INDEXES = Object.freeze([
   "media_source_monitors_due_idx",
   "media_source_monitors_status_idx",
   "media_source_monitors_entity_idx",
+]);
+
+export const ESHOP_RATING_TABLES = Object.freeze([
+  "managed_eshops",
+  "eshop_ratings",
+]);
+
+export const ESHOP_RATING_INDEXES = Object.freeze([
+  "managed_eshops_public_idx",
+  "eshop_ratings_eshop_updated_idx",
+  "eshop_ratings_author_updated_idx",
 ]);
 
 export const AUTOMATION_ADDRESS_REVIEW_TABLES = Object.freeze([
@@ -922,6 +934,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || MEDIA_SOURCE_QUALITY_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0100_eshop_ratings.sql") {
+    return {
+      partial: ESHOP_RATING_TABLES.some((table) => names.has(table))
+        || ESHOP_RATING_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1013,6 +1031,22 @@ function assertMediaSourceQualitySchema(schema) {
   invariant(tableSql.includes("MANAGED_EVENT"), "media_source_monitors entity constraint is missing MANAGED_EVENT");
   invariant(tableSql.includes("CANDIDATE") && tableSql.includes("CHANGED") && tableSql.includes("MISSING"), "media_source_monitors status constraint is incomplete");
   invariant(tableSql.includes("UNIQUE(entity_type, entity_id)") || tableSql.includes("UNIQUE (entity_type, entity_id)"), "media_source_monitors entity uniqueness is missing");
+}
+
+function assertEshopRatingSchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const table of ESHOP_RATING_TABLES) {
+    invariant(names.get(table)?.type === "table", `Missing e-shop rating table: ${table}`);
+  }
+  for (const index of ESHOP_RATING_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing e-shop rating index: ${index}`);
+  }
+  const shopSql = String(names.get("managed_eshops")?.sql ?? "");
+  const ratingSql = String(names.get("eshop_ratings")?.sql ?? "");
+  invariant(shopSql.includes("'draft','published','archived'"), "managed_eshops status constraint is incomplete");
+  invariant(ratingSql.includes("BETWEEN 1 AND 5"), "eshop_ratings bounds constraint is missing");
+  invariant(ratingSql.includes("UNIQUE(eshop_id, author_id)") || ratingSql.includes("UNIQUE (eshop_id, author_id)"), "eshop_ratings reviewer uniqueness is missing");
+  invariant(ratingSql.includes("REFERENCES review_authors"), "eshop_ratings reviewer foreign key is missing");
 }
 
 function assertPartnerClaimsSchema(schema) {
@@ -1479,6 +1513,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 97) assertAutomationOperationsSchema(schema);
   if (migrationIndex(targetMigration) >= 98) assertDirectoryNotionSyncSchema(schema);
   if (migrationIndex(targetMigration) >= 99) assertMediaSourceQualitySchema(schema);
+  if (migrationIndex(targetMigration) >= 100) assertEshopRatingSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
