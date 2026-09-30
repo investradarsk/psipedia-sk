@@ -9,6 +9,7 @@ const barrel = readFileSync("components/public-visual-system/index.ts", "utf8");
 const breedDetail = readFileSync("app/plemena/[slug]/page.tsx", "utf8");
 const searchPage = readFileSync("app/hladat/page.tsx", "utf8");
 const articleCard = readFileSync("components/article-card.tsx", "utf8");
+const articleListItem = readFileSync("components/article-list-item.tsx", "utf8");
 const editorialSection = readFileSync("components/editorial-section.tsx", "utf8");
 const newsHub = readFileSync("components/news-hub.tsx", "utf8");
 const siteHeader = readFileSync("components/site-header.tsx", "utf8");
@@ -117,6 +118,7 @@ test("article list contract keeps text minimal while allowing an optional thumbn
   assert.doesNotMatch(contract, /excerpt|readTime|actionLabel/);
   assert.match(styles, /\.articleListItemWithImage\s*\{[^}]*grid-template-columns:\s*132px minmax\(0, 1fr\)/s);
   assert.match(styles, /\.articleListMedia img\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
+  assert.match(articleListItem, /image=\{article\.image \? \{ src: article\.image, alt: imageAlt \} : undefined\}/);
 });
 
 test("BRAND-1 keeps semantic palette aliases and HEADER-NAV-2 preserves the public navigation contract", () => {
