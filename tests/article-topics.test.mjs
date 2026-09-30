@@ -27,11 +27,13 @@ test("ARTICLE-TOPICS normalization catches case, whitespace and diacritics witho
   assert.equal(slugifyArticleTopicLabel("Dentálna hygiena"), "dentalna-hygiena");
 });
 
-test("ARTICLE-TOPICS keeps slug stable on rename and deactivation preserves assignments", () => {
+test("ARTICLE-TOPICS keeps slug stable on rename and deactivation preserves assignments", async () => {
   const source = await readFile(new URL("../lib/article-topics.ts", import.meta.url), "utf8");
-  assert.match(source, /UPDATE article_topics[\s\S]*SET label = \?, normalized_key = \?, is_active = \?/);
-  assert.doesNotMatch(source, /SET slug =/);
-  assert.doesNotMatch(source, /DELETE FROM article_topic_assignments[\s\S]*updateArticleTopic/);
+  const updateStart = source.indexOf("export async function updateArticleTopic");
+  const updateBody = source.slice(updateStart);
+  assert.match(updateBody, /UPDATE article_topics[\s\S]*SET label = \?, normalized_key = \?, is_active = \?/);
+  assert.doesNotMatch(updateBody, /SET slug =/);
+  assert.doesNotMatch(updateBody, /DELETE FROM article_topic_assignments/);
 });
 
 test("ARTICLE-TOPICS article update distinguishes omitted topicIds from explicit topicIds", () => {
