@@ -41,6 +41,7 @@ export function ArticleCard({
   const topicLabel = topicLabelOverride ?? (newsCategory ? newsCategory.shortLabel : article.category);
   const sectionLabel = portalSectionLabel(section);
   const metaLabel = section === "novinky" ? `${sectionLabel} · ${topicLabel}` : topicLabel;
+  const resolvedActionLabel = actionLabel ?? (section === "novinky" ? "Čítať novinku" : "Čítať článok");
   const date = article.date?.trim();
   const dateIso = article.dateIso?.trim();
   const excerpt = article.excerpt?.trim();
@@ -68,7 +69,7 @@ export function ArticleCard({
       <Link
         href={href}
         className="article-card-media"
-        aria-label={actionLabel ? `${actionLabel}: ${article.title}` : article.title}
+        aria-label={`${resolvedActionLabel}: ${article.title}`}
       >
         {article.image ? (
           <img
