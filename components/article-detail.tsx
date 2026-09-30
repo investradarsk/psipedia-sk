@@ -4,7 +4,6 @@ import { ArticleBlocks } from "@/components/article-blocks";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { FavoriteButton } from "@/components/favorite-button";
-import { PawMark } from "@/components/icons";
 import { Breadcrumbs, MediaFrame } from "@/components/page-system";
 import { PublicContentList } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
@@ -65,6 +64,10 @@ export function ArticleDetail({
   const imageCreditHref = safeExternalImageCreditUrl(article.imageCreditUrl);
   const showImageMeta = Boolean(article.image && (article.imageCaption || article.imageCredit || imageCreditHref));
   const authorName = authorProfile?.displayName || article.author;
+  const authorRole = authorProfile?.role?.trim();
+  const showAuthorRole = Boolean(
+    authorRole && !authorName.toLocaleLowerCase("sk").includes(authorRole.toLocaleLowerCase("sk")),
+  );
   const blocks = article.blocks?.length
     ? article.blocks
     : legacyArticleBlocks(article.sections, article.sources);
@@ -74,9 +77,8 @@ export function ArticleDetail({
   const takeawayDocument = article.takeawayRichText ?? legacyRichTextToDocument(article.takeaway);
   const showTakeaway = editorialRichTextPlainText(takeawayDocument).length > 0;
   const headings = articleBlockHeadings(blocks);
-  const h2Count = headings.filter((heading) => heading.level === 2).length;
-  const readMinutes = Number.parseInt(String(article.readTime).match(/\d+/)?.[0] ?? "0", 10);
-  const showTableOfContents = readMinutes >= 8 && h2Count >= 5;
+  const tocHeadings = headings.filter((heading) => heading.level === 2);
+  const showTableOfContents = tocHeadings.length >= 3;
   const showUpdated = article.showUpdated ?? article.updatedDateIso !== article.dateIso;
   const wordCount = [editorialRichTextPlainText(introDocument), editorialRichTextPlainText(takeawayDocument), articleBlockPlainText(blocks)]
     .join(" ")
@@ -140,7 +142,7 @@ export function ArticleDetail({
   };
   const shareLabel = section === "novinky" ? "Zdieľať novinku" : section === "recenzie" ? "Zdieľať recenziu" : "Zdieľať článok";
   const favoriteHint = "Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr.";
-  const sidebarLabel = magazine.sidebarMode === "latest" ? "Najnovšie články" : "Články";
+  const sidebarLabel = magazine.sidebarMode === "related" ? "Súvisiace články" : "Najnovšie články";
 
   return (
     <main id="obsah" className={styles.modernArticle}>
@@ -162,7 +164,7 @@ export function ArticleDetail({
                   {authorProfile?.avatarUrl ? <img src={authorProfile.avatarUrl} alt="" loading="lazy" decoding="async" /> : null}
                   <span>
                     <strong>{authorName}</strong>
-                    {authorProfile?.role ? <small>{authorProfile.role}</small> : null}
+                    {showAuthorRole ? <small>{authorRole}</small> : null}
                   </span>
                 </div>
                 <div className={styles.articleMeta}>
@@ -178,28 +180,26 @@ export function ArticleDetail({
               </div>
             </div>
           </div>
-          <figure className={styles.heroFigure}>
-            <MediaFrame className={styles.heroMedia} variant="article">
-              {article.image ? (
+          {article.image ? (
+            <figure className={styles.heroFigure}>
+              <MediaFrame className={styles.heroMedia} variant="article">
                 <img className="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
-              ) : (
-                <div className={`article-hero-placeholder article-hero-placeholder--${article.accent}`}><PawMark size={72} /></div>
-              )}
-            </MediaFrame>
-            {showImageMeta ? (
-              <figcaption className={styles.heroImageMeta}>
-                {article.imageCaption ? <span>{article.imageCaption}</span> : null}
-                {article.imageCaption && (article.imageCredit || imageCreditHref) ? <span aria-hidden="true"> · </span> : null}
-                {article.imageCredit || imageCreditHref ? (
-                  <span>
-                    Foto: {imageCreditHref ? (
-                      <a href={imageCreditHref} target="_blank" rel="noopener noreferrer">{article.imageCredit || "Zdroj fotografie"}</a>
-                    ) : article.imageCredit}
-                  </span>
-                ) : null}
-              </figcaption>
-            ) : null}
-          </figure>
+              </MediaFrame>
+              {showImageMeta ? (
+                <figcaption className={styles.heroImageMeta}>
+                  {article.imageCaption ? <span>{article.imageCaption}</span> : null}
+                  {article.imageCaption && (article.imageCredit || imageCreditHref) ? <span aria-hidden="true"> · </span> : null}
+                  {article.imageCredit || imageCreditHref ? (
+                    <span>
+                      Foto: {imageCreditHref ? (
+                        <a href={imageCreditHref} target="_blank" rel="noopener noreferrer">{article.imageCredit || "Zdroj fotografie"}</a>
+                      ) : article.imageCredit}
+                    </span>
+                  ) : null}
+                </figcaption>
+              ) : null}
+            </figure>
+          ) : null}
         </div>
       </header>
 
@@ -213,8 +213,8 @@ export function ArticleDetail({
                 <summary>Obsah článku</summary>
                 <nav aria-label="Obsah článku">
                   <ol>
-                    {headings.map((heading) => (
-                      <li className={heading.level === 3 ? styles.tocSubitem : undefined} key={heading.blockId}>
+                    {tocHeadings.map((heading) => (
+                      <li key={heading.blockId}>
                         <a href={`#${heading.id}`}>{heading.text}</a>
                       </li>
                     ))}
