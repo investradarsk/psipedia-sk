@@ -15190,6 +15190,19 @@ a.breed-fci-path-node:focus-visible {
   font-size: .88rem;
 }
 
+.admin-quality-contact-suggestion > div:first-child > strong.is-long-value {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-height: 1.45;
+}
+
+.admin-quality-contact-suggestion.is-manual {
+  border-color: #e4d9b8;
+  background: #fffdf6;
+}
+
 .admin-quality-contact-suggestion small {
   color: #667a70;
   font-size: .66rem;
@@ -15209,8 +15222,12 @@ a.breed-fci-path-node:focus-visible {
   gap: 7px;
 }
 
-.admin-quality-contact-actions > button {
+.admin-quality-contact-actions > button,
+.admin-quality-contact-actions > a {
+  display: inline-flex;
   min-height: 36px;
+  align-items: center;
+  justify-content: center;
   padding: 0 10px;
   border: 1px solid #c7d4cc;
   border-radius: 8px;
@@ -15219,10 +15236,12 @@ a.breed-fci-path-node:focus-visible {
   font: inherit;
   font-size: .7rem;
   font-weight: 820;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.admin-quality-contact-actions > button.is-primary {
+.admin-quality-contact-actions > button.is-primary,
+.admin-quality-contact-actions > a.is-primary {
   border-color: #1f684b;
   color: #fff;
   background: #1f684b;
@@ -15243,7 +15262,8 @@ a.breed-fci-path-node:focus-visible {
     grid-template-columns: 1fr 1fr;
   }
 
-  .admin-quality-contact-actions > button {
+  .admin-quality-contact-actions > button,
+  .admin-quality-contact-actions > a {
     width: 100%;
   }
 }
