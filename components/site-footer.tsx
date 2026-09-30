@@ -25,7 +25,7 @@ export function SiteFooter() {
           </div>
           <div>
             <strong>Portál</strong>
-            <Link href="/clanky">Novinky zo sveta psov</Link>
+            <Link href="/clanky">Novinky</Link>
             <Link href="/podujatia">Podujatia</Link>
             <Link href="/adresar">Služby pre psov</Link>
             <Link href="/pomoc-psom">Pomoc psom</Link>
