@@ -1,6 +1,7 @@
 import { createD1RateLimitStore, deriveRateLimitKey, enforceRateLimit } from "@/lib/rate-limit";
 import { assertPartnerMutationOrigin, PartnerSecurityError } from "@/lib/partner-security";
-import { LOST_FOUND_TURNSTILE_ACTION, PublicLostFoundSubmissionError } from "@/lib/lost-found-public-submission";
+import { LOST_FOUND_TURNSTILE_ACTION } from "@/lib/lost-found-public-constants";
+import { PublicLostFoundSubmissionError } from "@/lib/lost-found-public-submission";
 import { createD1TurnstileReplayStore, verifyTurnstile } from "@/lib/turnstile";
 
 function clientIdentifier(request: Request) {
