@@ -38,6 +38,7 @@ test("MAP-ADDRESS-NUMBERLESS-1 accepts a strong AgiPaws Google Place match witho
   assert.equal(result.candidate?.cityMatch, true);
   assert.equal(result.candidate?.postalCodeMatch, true);
   assert.equal(result.candidate?.streetMatch, true);
+  assert.equal(result.candidate?.geographicConsistency, true);
 });
 
 test("MAP-ADDRESS-NUMBERLESS-1 rejects a street result that is not the concrete business", () => {
@@ -47,6 +48,17 @@ test("MAP-ADDRESS-NUMBERLESS-1 rejects a street result that is not the concrete 
     displayName: "Nábrežie",
   }]);
   assert.equal(result.decision, "NO_MATCH");
+});
+
+test("MAP-ADDRESS-NUMBERLESS-1 rejects a geographically inconsistent candidate even when text matches", () => {
+  const result = evaluateNumberlessGooglePlaceCandidates(agiPawsTarget, [{
+    ...agiPawsPlace,
+    id: "places/agi-paws-outside-sk",
+    latitude: 50.1,
+    longitude: 19.6,
+  }]);
+  assert.equal(result.decision, "NO_MATCH");
+  assert.equal(result.candidate?.geographicConsistency, false);
 });
 
 test("MAP-ADDRESS-NUMBERLESS-1 blocks equally strong competing Google Places", () => {
