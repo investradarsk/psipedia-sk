@@ -66,11 +66,10 @@ jobs:
 
       - name: Configure isolated local runtime keys
         run: |
-          cat > .dev.vars <<'EOF'
-          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
-          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
-          TURNSTILE_SITE_KEY=1x00000000000000000000AA
-          EOF
+          encryption_key="$(printf '%s' '0123456789abcdef0123456789abcdef' | base64 -w0 | tr -d '=')"
+          hash_key="$(printf '%s' 'fedcba9876543210fedcba9876543210' | base64 -w0 | tr -d '=')"
+          printf 'PII_ENCRYPTION_KEY=%s\nPII_HASH_KEY=%s\nTURNSTILE_SITE_KEY=%s\n' \
+            "$encryption_key" "$hash_key" "1x00000000000000000000AA" > .dev.vars
 
       - name: Apply schema to isolated local D1 only
         run: |
