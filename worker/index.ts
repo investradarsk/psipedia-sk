@@ -18,6 +18,10 @@ import {
   runNotionDirectoryBootstrapSweep,
   runNotionDirectorySyncSweep,
 } from "../lib/notion-directory-sync";
+import {
+  runNotionEshopBootstrapSweep,
+  runNotionEshopSyncSweep,
+} from "../lib/notion-eshop-sync";
 import { runMediaSourceMonitorSweep } from "../lib/media-source-monitor";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
@@ -47,11 +51,13 @@ interface Env {
   NOTION_BREED_SYNC_ENABLED?: string;
   NOTION_EVENT_SYNC_ENABLED?: string;
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
+  NOTION_ESHOP_SYNC_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
   NOTION_DIRECTORY_DATA_SOURCE_ID?: string;
+  NOTION_ESHOPS_DATA_SOURCE_ID?: string;
   TAVILY_API_KEY?: string;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   IMAGES: {
@@ -239,7 +245,7 @@ const worker = {
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
     if (!isFullHourlyScheduledSweep(controller)) {
-      const [adminPush, dataAutomation, sourceDiscovery, notionDirectoryBackfill] = await Promise.all([
+      const [adminPush, dataAutomation, sourceDiscovery, notionDirectoryBackfill, notionEshopBackfill] = await Promise.all([
         runScheduledAdminPush(env),
         runDataAutomationSweep({
           database: env.DB,
@@ -272,14 +278,23 @@ const worker = {
           }));
           return { enabled: true, schemaReady: false, selected: 0, bootstrapped: 0, failed: 1, hasMore: true };
         }),
+        runNotionEshopBootstrapSweep({ database: env.DB, bindings: env }).catch((error) => {
+          console.error(JSON.stringify({
+            event: "notion_eshop_backfill_sweep",
+            result: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          }));
+          return { enabled: true, schemaReady: false, selected: 0, bootstrapped: 0, failed: 1, hasMore: true };
+        }),
       ]);
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
       console.info(JSON.stringify({ event: "data_automation_sweep", cadence: "five_minute_due_check", ...dataAutomation }));
       console.info(JSON.stringify({ event: "data_automation_discovery_sweep", cadence: "five_minute_due_check", ...sourceDiscovery }));
       console.info(JSON.stringify({ event: "notion_directory_backfill_sweep", cadence: "five_minute", ...notionDirectoryBackfill }));
+      console.info(JSON.stringify({ event: "notion_eshop_backfill_sweep", cadence: "five_minute", ...notionEshopBackfill }));
       return;
     }
-    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, notionDirectory, mediaSourceQuality, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
+    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, notionDirectory, notionEshops, mediaSourceQuality, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
@@ -308,6 +323,14 @@ const worker = {
           error: error instanceof Error ? error.message : String(error),
         }));
         return { enabled: true, schemaReady: false, notionScanned: 0, bootstrapped: 0, pulledFromNotion: 0, pushedToNotion: 0, unchanged: 0, failed: 1 };
+      }),
+      runNotionEshopSyncSweep({ database: env.DB, bindings: env }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "notion_eshop_sync_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return { enabled: true, schemaReady: false, notionScanned: 0, bootstrapped: 0, createdFromNotion: 0, pulledFromNotion: 0, pushedToNotion: 0, unchanged: 0, failed: 1 };
       }),
       runMediaSourceMonitorSweep({ database: env.DB, bindings: env }).catch((error) => {
         console.error(JSON.stringify({
@@ -376,6 +399,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
     console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
+    console.info(JSON.stringify({ event: "notion_eshop_sync_sweep", ...notionEshops }));
     console.info(JSON.stringify({ event: "media_source_quality_sweep", ...mediaSourceQuality }));
     console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
     console.info(JSON.stringify({ event: "data_automation_discovery_sweep", ...sourceDiscovery }));
