@@ -22,6 +22,7 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
     label: "Obsah",
     items: [
       { label: "Články", href: "/admin/clanky", matches: ["/admin/novy"] },
+      { label: "Recenzie a testy", href: "/admin/recenzie" },
       { label: "Šteniatka", href: "/admin/steniatka" },
       { label: "Plemená", href: "/admin/plemena" },
       { label: "Sekcie", href: "/admin/sekcie" },
