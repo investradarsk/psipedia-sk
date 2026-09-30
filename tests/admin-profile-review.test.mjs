@@ -19,12 +19,13 @@ test("profile review is private admin metadata and does not need a schema migrat
   assert.match(store, /UPDATE directory_profiles SET source_data_json = \? WHERE id = \? RETURNING \*/);
 });
 
-test("managed profile reads and admin lists expose reviewed state", () => {
+test("managed profile reads and admin lists expose reviewed state without bloating the light list query", () => {
   assert.match(store, /reviewed: reviewMetadata\.reviewed/);
   assert.match(store, /reviewedAt: reviewMetadata\.reviewedAt/);
-  assert.match(adminQuery, /image_url, source_data_json, verified/);
-  assert.match(adminStore, /readDirectoryProfileReviewMetadata/);
-  assert.match(adminStore, /reviewed: reviewMetadata\.reviewed/);
+  assert.doesNotMatch(adminQuery, /source_data_json/);
+  assert.match(adminStore, /json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\)/);
+  assert.match(adminStore, /reviewed: Boolean\(reviewedAt\)/);
+  assert.match(store, /json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\)/);
 });
 
 test("review checkbox can be changed from both list and detail", () => {
