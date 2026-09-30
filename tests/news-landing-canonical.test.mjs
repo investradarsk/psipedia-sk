@@ -13,11 +13,12 @@ test("NEWS-LANDING-1 keeps /clanky as the single public news landing", () => {
   const footer = read("components/site-footer.tsx");
 
   assert.match(landing, /title: "Novinky zo sveta psov"/);
-  assert.match(landing, /<h1>Novinky zo sveta psov<\/h1>/);
+  assert.match(landing, /<NewsHub articles=\{articles\} section=\{section\} landingPath="\/clanky" \/>/);
   assert.match(legacy, /permanentRedirect\("\/clanky"\)/);
-  assert.match(navigation, /id: "novinky", label: "Novinky zo sveta psov", href: "\/clanky"/);
+  assert.match(navigation, /id: "novinky", label: "Novinky", href: "\/clanky"/);
   assert.match(navigationStore, /item\.href === "\/novinky"/);
   assert.match(navigationStore, /href: "\/clanky"/);
+  assert.doesNotMatch(navigationStore, /Novinky zo sveta psov/);
   assert.match(header, /item\.id === "novinky" && slug === "clanky" \? "novinky" : slug/);
   assert.match(footer, /href="\/clanky">Novinky zo sveta psov<\/Link>/);
   assert.doesNotMatch(footer, /href="\/novinky">Novinky/);
