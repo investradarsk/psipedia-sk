@@ -4,7 +4,7 @@ import styles from "./admin-reviews-hub.module.css";
 type Metric = number | null;
 
 function metric(value: Metric, suffix: string) {
-  return value === null ? "—" : \`\${value} \${suffix}\`;
+  return value === null ? "—" : `${value} ${suffix}`;
 }
 
 export function AdminReviewsHub({
@@ -33,7 +33,7 @@ export function AdminReviewsHub({
           <article>
             <span>Redakčné testy</span>
             <strong>{metric(articleCounts.total, "spolu")}</strong>
-            <small>{articleCounts.published === null ? "Počet publikovaných nedostupný" : \`\${articleCounts.published} publikovaných\`}</small>
+            <small>{articleCounts.published === null ? "Počet publikovaných nedostupný" : `${articleCounts.published} publikovaných`}</small>
           </article>
           <article>
             <span>Na moderáciu</span>
@@ -116,7 +116,7 @@ export function AdminReviewsHub({
             </div>
           </article>
 
-          <article className={\`\${styles.card} \${styles.cardMuted}\`}>
+          <article className={`${styles.card} ${styles.cardMuted}`}>
             <div className={styles.cardTop}>
               <span className={styles.icon} aria-hidden="true">🛒</span>
               <span className={styles.status} data-tone="planned">Ďalšia fáza</span>
