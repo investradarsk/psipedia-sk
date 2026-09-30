@@ -1,3 +1,4 @@
+import { LOST_FOUND_TURNSTILE_ACTION } from "@/lib/lost-found-public-constants";
 import { normalizeEmail, normalizePhone } from "@/lib/pii-crypto";
 import { normalizePlainText } from "@/lib/submission-security";
 import {
@@ -13,7 +14,7 @@ import {
 
 export const LOST_FOUND_PUBLIC_SOURCE = "Používateľské hlásenie";
 export const LOST_FOUND_PUBLIC_CONTACT_NOTE = "Kontakt sprostredkuje administrácia Psipedia.sk.";
-export const LOST_FOUND_TURNSTILE_ACTION = "lost_found_public_submit";
+export { LOST_FOUND_TURNSTILE_ACTION };
 
 const SLOVAK_REGIONS = new Set([
   "Bratislavský kraj",
