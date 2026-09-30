@@ -43,6 +43,8 @@ test("0100 creates e-shop profiles, bounded ratings and five initial published s
 
   sqlite.prepare("INSERT INTO review_authors (id,email_ciphertext,email_hash,status,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?)")
     .run("author-1","cipher","hash","ACTIVE","2026-09-30T08:00:00.000Z","2026-09-30T08:00:00.000Z","2026-09-30T08:00:00.000Z");
+  sqlite.prepare("INSERT INTO review_authors (id,email_ciphertext,email_hash,status,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?)")
+    .run("author-2","cipher-2","hash-2","ACTIVE","2026-09-30T08:00:00.000Z","2026-09-30T08:00:00.000Z","2026-09-30T08:00:00.000Z");
 
   const shopId = sqlite.prepare("SELECT id FROM managed_eshops WHERE slug='super-zoo'").get().id;
   const insert = sqlite.prepare("INSERT INTO eshop_ratings VALUES (?,?,?,?,?,?,?,?,?,?)");
@@ -53,7 +55,7 @@ test("0100 creates e-shop profiles, bounded ratings and five initial published s
     /UNIQUE constraint failed/,
   );
   assert.throws(
-    () => insert.run("rating-3",shopId,"author-1",6,4,4,4,4,"2026-09-30T08:12:00.000Z","2026-09-30T08:12:00.000Z"),
+    () => insert.run("rating-3",shopId,"author-2",6,4,4,4,4,"2026-09-30T08:12:00.000Z","2026-09-30T08:12:00.000Z"),
     /CHECK constraint failed/,
   );
   sqlite.close();
