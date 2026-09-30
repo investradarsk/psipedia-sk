@@ -13,6 +13,10 @@ const blocks = readFileSync("components/article-blocks.tsx", "utf8");
 const styles = readFileSync("components/article-detail.module.css", "utf8");
 const shareComponent = readFileSync("components/share-button.tsx", "utf8");
 const shareStyles = readFileSync("components/share-button.module.css", "utf8");
+const feedbackComponent = readFileSync("components/article-feedback.tsx", "utf8");
+const siteHeader = readFileSync("components/site-header.tsx", "utf8");
+const siteHeaderStyles = readFileSync("components/site-header.module.css", "utf8");
+const backToTopStyles = readFileSync("components/back-to-top.module.css", "utf8");
 const magazine = readFileSync("lib/article-magazine.ts", "utf8");
 const selection = readFileSync("lib/article-magazine-selection.ts", "utf8");
 const articleStore = readFileSync("lib/article-store.ts", "utf8");
@@ -128,27 +132,24 @@ test("automatic related placement is deterministic, topic-scoped and duplicate-s
   assert.match(selection, /endRelated\.map\(\(item\) => item\.slug\)/);
 });
 
-test("mid-article related card uses a structurally safe 30-50 percent block boundary", () => {
-  assert.match(detail, /contentBlocks\.length >= 2 \? magazine\.midRelated : null/);
-  assert.match(detail, /Math\.round\(contentBlocks\.length \* 0\.4\)/);
-  assert.match(detail, /contentBeforeRelated/);
-  assert.match(detail, /contentAfterRelated/);
-  assert.match(detail, /SÚVISIACI ČLÁNOK/);
-  assert.match(detail, /className=\{styles\.midRelatedImage\}/);
-  assert.match(styles, /\.midRelatedLabel[\s\S]*color:\s*var\(--brand-accent-strong/);
+test("automatic related candidates are no longer injected into the article body", () => {
+  assert.doesNotMatch(detail, /structurallySafeMidRelated|relatedSplitIndex|contentBeforeRelated|contentAfterRelated/);
+  assert.doesNotMatch(detail, /SÚVISIACI ČLÁNOK|className=\{styles\.midRelated\}/);
+  assert.match(detail, /const contentBlocks = blocks\.filter\(\(block\) => block\.type !== "source"\)/);
+  assert.match(detail, /<ArticleBlocks blocks=\{contentBlocks\} \/>/);
+  assert.match(detail, /!magazine\.manualRelatedResolved && magazine\.midRelated/);
+  assert.match(blocks, /block\.type === "related"/);
 });
-
-test("editor-authored related blocks are removed from arbitrary body flow and sources stay at the article end", () => {
-  assert.match(detail, /block\.type !== "source" && block\.type !== "related"/);
+test("editor-authored related blocks stay in body flow while sources remain at the article end", () => {
+  assert.match(detail, /block\.type !== "source"\)/);
+  assert.doesNotMatch(detail, /block\.type !== "source" && block\.type !== "related"/);
   assert.match(detail, /const sourceBlocks = blocks\.filter\(\(block\) => block\.type === "source"\)/);
-  const before = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBeforeRelated} />", "first article block segment is missing");
-  const mid = indexOfOrFail(detail, "className={styles.midRelated}", "mid related card is missing");
-  const after = indexOfOrFail(detail, "<ArticleBlocks blocks={contentAfterRelated} />", "second article block segment is missing");
+  const body = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBlocks} />", "article body blocks are missing");
   const sources = indexOfOrFail(detail, "{sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}", "sources are missing");
-  assert.ok(before < mid && mid < after && after < sources);
+  assert.ok(body < sources);
+  assert.match(blocks, /article-block-related/);
 });
-
-test("article header follows compact editorial hierarchy and keeps save/share with metadata", () => {
+test("article header follows compact editorial hierarchy and aligns with the reading grid", () => {
   const kicker = indexOfOrFail(detail, "className={styles.kicker}", "category kicker is missing");
   const title = indexOfOrFail(detail, "<h1>{article.title}</h1>", "headline is missing");
   const excerpt = indexOfOrFail(detail, "<p>{article.excerpt}</p>", "perex is missing");
@@ -159,11 +160,12 @@ test("article header follows compact editorial hierarchy and keeps save/share wi
   assert.ok(kicker < title && title < excerpt && excerpt < meta && meta < favorite && favorite < compactShare && compactShare < figure);
   assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
   assert.match(styles, /\.title h1[\s\S]*max-width:\s*32ch/);
-  assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*760px/);
+  assert.match(styles, /--article-layout-gap:\s*clamp\(42px,\s*5vw,\s*72px\)/);
+  assert.match(styles, /\.heroGrid[\s\S]*max-width:\s*calc\(var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\)/);
+  assert.match(styles, /\.title[\s\S]*max-width:\s*var\(--article-reading-width\)/);
+  assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*680px/);
   assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
-  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*max-height:\s*430px/);
 });
-
 test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {
   assert.match(styles, /--article-reading-width:\s*760px/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*300px\)/);
@@ -173,34 +175,55 @@ test("desktop magazine layout keeps a readable 70/30 composition and truthful st
   assert.match(detail, /<time dateTime=\{item\.dateIso\}>\{item\.date\}<\/time>/);
 });
 
-test("mobile article composition stacks the sidebar, preserves 44px controls and prevents deliberate horizontal expansion", () => {
-  assert.match(styles, /@media \(max-width: 1120px\)[\s\S]*\.magazineLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
+test("mobile article composition hides sidebar and keeps compact readable controls", () => {
   assert.match(styles, /@media \(max-width: 767px\)/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.sidebar\s*\{\s*display:\s*none/);
   assert.match(styles, /\.favoriteAction :global\(\.favorite-button\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/);
-  assert.match(shareStyles, /min-height:\s*var\(--ps-control-min-height,\s*44px\)/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*font-size:\s*0\.9375rem[\s\S]*line-height:\s*1\.72/);
+  assert.match(styles, /font-size:\s*clamp\(1\.65rem,\s*6\.8vw,\s*1\.95rem\)/);
+  assert.match(styles, /article-block-sources\)[^{]*\{[^}]*font-size:\s*0\.9rem/s);
+  assert.match(shareStyles, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(shareStyles, /min-height:\s*40px/);
   assert.match(styles, /\.article-block-table-wrap\)[^{]*\{[^}]*overflow-x:\s*auto/s);
   assert.match(styles, /\.article-block-image--wide\)[^{]*\{[^}]*max-width:\s*calc\(100vw - 16px\)/s);
   assert.doesNotMatch(styles, /width:\s*calc\(100vw \+/);
 });
-
 test("article without hero image skips hero media instead of reserving a large placeholder", () => {
   assert.match(detail, /\{article\.image \? \(\s*<figure className=\{styles\.heroFigure\}>/s);
   assert.doesNotMatch(detail, /article-hero-placeholder/);
   assert.doesNotMatch(detail, /PawMark/);
 });
 
-test("article with no safe related candidate renders no mid card or recommendation section", () => {
+test("article with no safe related candidate renders no automatic mid card", () => {
   assert.match(selection, /return candidates\.find\(\(candidate\) => sameArticleTopic\(article, candidate\)\) \?\? null/);
-  assert.match(detail, /\{structurallySafeMidRelated \? \(/);
+  assert.doesNotMatch(detail, /aria-label="Súvisiaci článok"/);
   assert.match(detail, /\{relatedItems\.length > 0 \? \(/);
 });
-
 test("end recommendations use three unique items and the requested editorial heading", () => {
   assert.match(selection, /slice\(0, Math\.max\(0, limit\)\)/);
   assert.match(magazine, /selectEndRelated\(article, endCandidates, midRelated, 3\)/);
   assert.match(detail, /items\.findIndex\(\(candidate\) => candidate\.slug === item\.slug\) === index/);
   assert.match(detail, /<h2>Ďalšie články k téme<\/h2>/);
   assert.match(detail, /<PublicContentList label="Ďalšie články k téme"/);
+});
+
+test("ARTICLE-READING-UX-2 preserves tracker, compact feedback, sticky-header and back-to-top contracts", () => {
+  assert.match(detail, /import \{ ArticleReadTracker \}/);
+  assert.match(detail, /<ArticleReadTracker articleSlug=\{article\.slug\} \/>/);
+  assert.doesNotMatch(feedbackComponent, /🐾|👍|👎/);
+  assert.match(feedbackComponent, />Áno<\/button>/);
+  assert.match(feedbackComponent, />Nie<\/button>/);
+  assert.match(styles, /\.article-feedback\)[^{]*\{[\s\S]*border-left:\s*2px solid var\(--brand-accent\)/);
+  assert.match(shareStyles, /var\(--brand-accent-strong/);
+
+  const mobileUtility = indexOfOrFail(siteHeader, "data-mobile-name-day", "mobile name-day strip is missing");
+  const stickyHeader = indexOfOrFail(siteHeader, '<header className="site-header" ref={headerRef}>', "sticky header is missing");
+  assert.ok(mobileUtility < stickyHeader, "mobile utility strip must scroll away before the sticky header");
+  assert.match(siteHeaderStyles, /@media \(max-width: 620px\)[\s\S]*\.masthead\s*\{[\s\S]*min-height:\s*60px/);
+
+  assert.match(backToTopStyles, /@media \(max-width: 760px\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/);
+  assert.match(backToTopStyles, /env\(safe-area-inset-right\)/);
+  assert.match(backToTopStyles, /env\(safe-area-inset-bottom\)/);
 });
 
 test("save and share remain available in header and at article end", () => {
