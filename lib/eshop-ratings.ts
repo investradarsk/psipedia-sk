@@ -83,7 +83,7 @@ const PUBLIC_SELECT = `
 export async function listPublishedEshops(database?: D1Database): Promise<PublicEshop[]> {
   const db = getEshopDatabase(database);
   const { results } = await db.prepare(PUBLIC_SELECT + `
-    WHERE shop.status=\'published\' AND shop.published_at IS NOT NULL
+    WHERE shop.status='published' AND shop.published_at IS NOT NULL
     GROUP BY shop.id
     ORDER BY CASE WHEN COUNT(rating.id)>0 THEN 0 ELSE 1 END, AVG(rating.overall_rating) DESC, shop.name COLLATE NOCASE ASC
   `).all<EshopRow>();
@@ -93,7 +93,7 @@ export async function listPublishedEshops(database?: D1Database): Promise<Public
 export async function getPublishedEshopBySlug(slugValue: unknown, database?: D1Database): Promise<PublicEshop | null> {
   const slug = safeSlug(slugValue); const db = getEshopDatabase(database);
   const row = await db.prepare(PUBLIC_SELECT + `
-    WHERE shop.slug=?1 AND shop.status=\'published\' AND shop.published_at IS NOT NULL
+    WHERE shop.slug=?1 AND shop.status='published' AND shop.published_at IS NOT NULL
     GROUP BY shop.id LIMIT 1
   `).bind(slug).first<EshopRow>();
   return row ? mapPublic(row) : null;
@@ -113,7 +113,7 @@ export async function upsertVerifiedEshopRating(input: {
   eshopId: number; authorId: string; ratings: EshopRatingInput; database?: D1Database; now?: Date;
 }) {
   const db = getEshopDatabase(input.database);
-  const shop = await db.prepare("SELECT id FROM managed_eshops WHERE id=?1 AND status=\'published\' AND published_at IS NOT NULL LIMIT 1")
+  const shop = await db.prepare("SELECT id FROM managed_eshops WHERE id=?1 AND status='published' AND published_at IS NOT NULL LIMIT 1")
     .bind(input.eshopId).first<{ id: number }>();
   if (!shop) throw new EshopRatingError("E-shop sa nenašiel alebo nie je verejný.", 404, "ESHOP_NOT_FOUND");
   const now = (input.now ?? new Date()).toISOString(); const id = crypto.randomUUID();
@@ -142,7 +142,7 @@ export async function listManagedEshops(database?: D1Database): Promise<ManagedE
 
 export async function countManagedEshops(database?: D1Database) {
   const db = getEshopDatabase(database);
-  const row = await db.prepare("SELECT COUNT(*) AS total,SUM(CASE WHEN status=\'published\' THEN 1 ELSE 0 END) AS published FROM managed_eshops")
+  const row = await db.prepare("SELECT COUNT(*) AS total,SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) AS published FROM managed_eshops")
     .first<{ total: number; published: number }>();
   return { total: Math.max(0, Number(row?.total ?? 0)), published: Math.max(0, Number(row?.published ?? 0)) };
 }
