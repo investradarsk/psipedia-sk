@@ -1,36 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { GoogleMapRenderer, type MapRendererCommand, type MapRendererStatus } from "@/components/map/google-map-renderer";
+import type { MapItem } from "@/lib/map-contract";
+import { MAP_DEFAULT_BBOX, type MapViewport } from "@/lib/map-public-ui";
 import type { GeoPointRecord } from "@/lib/geo-store";
 import type { GeoSourceLocation, GeoTargetType } from "@/lib/geo";
 
-type GeoDiagnostic = {
-  query: string;
-  requestMode: "structured" | "freeform";
-  structuredAddress: {
-    housenumber: string;
-    street: string;
-    postcode?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-  } | null;
-  resultCount: number;
-  accepted: boolean;
-  errorCode: string | null;
-  thresholds: { exactConfidence: number; cityConfidence: number; ambiguityDelta: number };
-  candidates: Array<{
-    resultType: string;
-    confidence: number | null;
-    cityConfidence: number | null;
-    streetConfidence: number | null;
-    buildingConfidence: number | null;
-    matchType: string | null;
-    countryCode: string;
-    region: string;
-    district: string;
-    city: string;
-  }>;
+type GooglePreview = {
+  status: "CONFIRMED" | "NOT_CONFIRMED" | "UNAVAILABLE";
+  formattedAddress: string | null;
+  placeId: string | null;
+  reason: string;
+};
+
+type LocationPreview = {
+  latitude: number;
+  longitude: number;
+  providerResultId: string | null;
+  sourceFingerprint: string;
+  canonicalAddress: string;
+  google: GooglePreview;
 };
 
 type Snapshot = {
@@ -38,15 +29,98 @@ type Snapshot = {
   source: GeoSourceLocation;
   schemaReady: boolean;
   provider: { name: string; configured: boolean };
+  googlePlacesConfigured: boolean;
   productionBackfillEnabled: boolean;
   publicMapEnabled: boolean;
+  configured: boolean;
+  apiKey: string;
+  mapId: string;
 };
 
-const visibilityLabels = {
-  EXACT_PUBLIC: "Presná verejná poloha",
-  APPROXIMATE_PUBLIC: "Približná verejná poloha",
-  HIDDEN: "Nezobrazovať na mape",
-} as const;
+function slovakStatus(point: GeoPointRecord | null) {
+  if (!point) return "Poloha ešte nie je potvrdená";
+  if (point.publicVisibility === "HIDDEN") return "Neverejná poloha";
+  if (point.geocodeStatus === "RESOLVED") return "Poloha potvrdená";
+  if (point.geocodeStatus === "PENDING") return "Poloha sa spracúva";
+  if (point.geocodeStatus === "NEEDS_REVIEW") return "Polohu treba skontrolovať";
+  if (point.geocodeStatus === "FAILED") return "Polohu sa nepodarilo nájsť";
+  if (point.geocodeStatus === "STALE") return "Adresa sa zmenila, polohu treba overiť znova";
+  return "Poloha ešte nie je potvrdená";
+}
+
+function AdminLocationMap({
+  snapshot,
+  latitude,
+  longitude,
+  label,
+  displayLocation,
+}: {
+  snapshot: Snapshot;
+  latitude: number;
+  longitude: number;
+  label: string;
+  displayLocation?: string;
+}) {
+  const [rendererStatus, setRendererStatus] = useState<MapRendererStatus>("loading");
+  const [viewport, setViewport] = useState<MapViewport>({
+    bbox: MAP_DEFAULT_BBOX,
+    zoom: 16,
+    center: { lat: latitude, lng: longitude },
+  });
+
+  const item = useMemo<MapItem>(() => ({
+    id: "admin-location-preview",
+    entityType: "service",
+    entityId: snapshot.source.targetId,
+    name: label || "Poloha profilu",
+    category: "services",
+    href: "#",
+    latitude,
+    longitude,
+    precision: "EXACT",
+    displayLocation,
+    city: snapshot.source.city,
+    district: snapshot.source.district,
+    region: snapshot.source.region,
+  }), [displayLocation, label, latitude, longitude, snapshot.source]);
+
+  const command = useMemo<MapRendererCommand>(() => ({
+    key: Math.round((latitude * 100000) + (longitude * 100000)),
+    type: "item",
+    id: item.id,
+    latitude,
+    longitude,
+    zoom: 17,
+  }), [item.id, latitude, longitude]);
+
+  if (!snapshot.configured) {
+    return <p className="admin-help">Google mapa nie je v tomto prostredí nakonfigurovaná. Polohu môžeš napriek tomu potvrdiť.</p>;
+  }
+
+  return (
+    <div style={{ width: "100%", minHeight: 320, overflow: "hidden", borderRadius: 18 }}>
+      <GoogleMapRenderer
+        apiKey={snapshot.apiKey}
+        mapId={snapshot.mapId}
+        testMode={false}
+        rendererEnabled
+        consentGranted
+        items={[item]}
+        clusters={[]}
+        selectedItemId={item.id}
+        viewport={viewport}
+        mapType="roadmap"
+        command={command}
+        onViewportChange={setViewport}
+        onSelectItem={() => undefined}
+        onClusterClick={() => undefined}
+        onStatusChange={setRendererStatus}
+        ariaLabel="Kontrola polohy profilu na Google mape"
+      />
+      {rendererStatus === "load-error" ? <p className="admin-help">Google mapu sa nepodarilo načítať. Výsledok vyhľadania zostáva zachovaný.</p> : null}
+    </div>
+  );
+}
 
 export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
   targetType: GeoTargetType;
@@ -54,181 +128,266 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
   sensitive?: boolean;
 }) {
   const endpoint = `/api/admin/geo/${targetType}/${targetId}`;
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [preview, setPreview] = useState<LocationPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [visibility, setVisibility] = useState("");
-  const [precision, setPrecision] = useState("MUNICIPALITY");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
-  const [reason, setReason] = useState("");
-  const [diagnostic, setDiagnostic] = useState<GeoDiagnostic | null>(null);
+  const [publicLocation, setPublicLocation] = useState(!sensitive);
 
   async function reload() {
     setLoading(true);
+    setError("");
     try {
       const response = await fetch(endpoint, { cache: "no-store" });
       const body = await response.json() as Snapshot & { error?: string };
-      if (!response.ok) throw new Error(body.error || "Geo stav sa nepodarilo načítať.");
+      if (!response.ok) throw new Error(body.error || "Poloha sa nepodarila načítať.");
       setSnapshot(body);
-      setVisibility(body.point?.publicVisibility ?? "");
-      setPrecision(body.point?.publicPrecision ?? "MUNICIPALITY");
-      setLatitude(body.point?.latitude === null || body.point?.latitude === undefined ? "" : String(body.point.latitude));
-      setLongitude(body.point?.longitude === null || body.point?.longitude === undefined ? "" : String(body.point.longitude));
+      setPublicLocation(body.point?.publicVisibility ? body.point.publicVisibility !== "HIDDEN" : !sensitive);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Geo stav sa nepodarilo načítať.");
+      setError(caught instanceof Error ? caught.message : "Poloha sa nepodarila načítať.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setPortalTarget(document.getElementById("directory-location"));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     async function loadInitial() {
+      setLoading(true);
       try {
         const response = await fetch(endpoint, { cache: "no-store" });
         const body = await response.json() as Snapshot & { error?: string };
-        if (!response.ok) throw new Error(body.error || "Geo stav sa nepodarilo načítať.");
+        if (!response.ok) throw new Error(body.error || "Poloha sa nepodarila načítať.");
         if (cancelled) return;
         setSnapshot(body);
-        setVisibility(body.point?.publicVisibility ?? "");
-        setPrecision(body.point?.publicPrecision ?? "MUNICIPALITY");
-        setLatitude(body.point?.latitude === null || body.point?.latitude === undefined ? "" : String(body.point.latitude));
-        setLongitude(body.point?.longitude === null || body.point?.longitude === undefined ? "" : String(body.point.longitude));
+        setPublicLocation(body.point?.publicVisibility ? body.point.publicVisibility !== "HIDDEN" : !sensitive);
       } catch (caught) {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : "Geo stav sa nepodarilo načítať.");
+        if (!cancelled) setError(caught instanceof Error ? caught.message : "Poloha sa nepodarila načítať.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     void loadInitial();
     return () => { cancelled = true; };
-  }, [endpoint]);
+  }, [endpoint, sensitive]);
 
-  async function mutate(payload: Record<string, unknown>, success: string) {
-    setBusy(true); setError(""); setMessage("");
+  async function findLocation() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setPreview(null);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ action: "preview" }),
+      });
+      const body = await response.json() as { preview?: LocationPreview; error?: string };
+      if (!response.ok || !body.preview) throw new Error(body.error || "Poloha sa nepodarila nájsť.");
+      setPreview(body.preview);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Poloha sa nepodarila nájsť.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmPreview() {
+    if (!preview) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "confirm-preview",
+          publicLocation: true,
+          sourceFingerprint: preview.sourceFingerprint,
+          providerResultId: preview.providerResultId,
+        }),
       });
       const body = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(body.error || "Geo operácia zlyhala.");
-      setMessage(success);
+      if (!response.ok) throw new Error(body.error || "Poloha sa nepodarila potvrdiť.");
+      setMessage("Poloha potvrdená.");
       await reload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Geo operácia zlyhala.");
+      setError(caught instanceof Error ? caught.message : "Poloha sa nepodarila potvrdiť.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function diagnose() {
-    setBusy(true); setError(""); setMessage(""); setDiagnostic(null);
+  async function savePrivate() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setPreview(null);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "diagnose" }),
+        body: JSON.stringify({ action: "confirm-preview", publicLocation: false }),
       });
-      const body = await response.json() as { diagnostic?: GeoDiagnostic; error?: string };
-      if (!response.ok || !body.diagnostic) throw new Error(body.error || "Geo diagnostika zlyhala.");
-      setDiagnostic(body.diagnostic);
-      setMessage("Geoapify diagnostika bola vykonaná bez zápisu do geo_points.");
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error || "Neverejná poloha sa nepodarila uložiť.");
+      setMessage("Poloha je neverejná.");
+      await reload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Geo diagnostika zlyhala.");
+      setError(caught instanceof Error ? caught.message : "Neverejná poloha sa nepodarila uložiť.");
     } finally {
       setBusy(false);
     }
   }
 
-  if (loading) return <section className="admin-form-card" id="geo"><h2>Poloha na mape</h2><p className="admin-help">Načítavam geo stav…</p></section>;
-  if (!snapshot) return <section className="admin-form-card" id="geo"><h2>Poloha na mape</h2><p className="admin-message admin-message--error">{error || "Geo stav nie je dostupný."}</p></section>;
+  if (!portalTarget) return null;
 
-  const point = snapshot.point;
-  const source = snapshot.source;
-  const sourceSummary = [source.address, source.city, source.district, source.region].filter(Boolean).join(" · ");
-  const exactEscalation = visibility === "EXACT_PUBLIC" && point?.publicVisibility !== "EXACT_PUBLIC";
+  const panel = (
+    <div data-admin-geo-location style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--admin-border, #d7d7cf)" }}>
+      <div className="admin-card-heading">
+        <div>
+          <span>MAPA</span>
+          <div>
+            <h3>Poloha na mape</h3>
+            <p>Nájdi polohu podľa uloženej adresy, skontroluj ju na mape a potvrď.</p>
+          </div>
+        </div>
+      </div>
 
-  return <section className="admin-form-card" id="geo" data-admin-geo-location>
-    <div className="admin-card-heading"><div><span>GEO</span><div><h2>Poloha na mape</h2><p>Source údaje a verejný marker sú oddelené. Verejná mapa ešte nie je zapnutá.</p></div></div></div>
+      {loading ? <p className="admin-help">Načítavam polohu…</p> : null}
+      {!loading && snapshot ? (
+        <>
+          <div className="admin-field">
+            <label htmlFor={`geo-public-${targetType}-${targetId}`}>Verejná poloha</label>
+            <select
+              id={`geo-public-${targetType}-${targetId}`}
+              value={publicLocation ? "yes" : "no"}
+              disabled={busy}
+              onChange={(event) => {
+                const next = event.target.value === "yes";
+                setPublicLocation(next);
+                setPreview(null);
+                setMessage("");
+                setError("");
+              }}
+            >
+              <option value="yes">Áno</option>
+              <option value="no">Nie</option>
+            </select>
+            {sensitive ? <small>Pri tomto type profilu je bezpečný predvolený stav neverejný. Verejnú polohu zapni iba pri verejne navštevovanom mieste.</small> : <small>Bežné služby majú predvolene verejnú polohu.</small>}
+          </div>
 
-    {sensitive && <p className="admin-message admin-message--error"><strong>Citlivý typ lokality.</strong> Presná ulica nesmie byť zverejnená iba preto, že je uložená v canonical dátach.</p>}
-    {!snapshot.schemaReady && <p className="admin-message admin-message--error"><strong>Geo schéma ešte nie je nasadená.</strong> Migrácia 0064 musí byť aplikovaná cez autorizovaný D1 migration proces. Canonical profil funguje ďalej bez geo operácií.</p>}
-    {snapshot.schemaReady && !snapshot.provider.configured && <p className="admin-help"><strong>Geoapify nie je nakonfigurovaný.</strong> Manuálna klasifikácia funguje; provider retry je bezpečne disabled.</p>}
+          {!snapshot.schemaReady ? (
+            <>
+              <p className="admin-message admin-message--error">Mapová poloha v tomto prostredí nie je dostupná.</p>
+              <details>
+                <summary>Technické informácie</summary>
+                <p className="admin-help">Canonical profil funguje ďalej bez geo operácií.</p>
+              </details>
+            </>
+          ) : !publicLocation ? (
+            <div className="admin-editor-actions">
+              <button type="button" disabled={busy} onClick={() => void savePrivate()}>
+                {busy ? "Ukladám…" : "Uložiť ako neverejnú polohu"}
+              </button>
+            </div>
+          ) : (
+            <>
+              {snapshot.point?.geocodeStatus === "STALE" ? (
+                <p className="admin-message admin-message--error">
+                  <strong>Adresa sa zmenila.</strong> Poloha na mape potrebuje nové overenie.
+                </p>
+              ) : null}
 
-    <div className="admin-field-grid">
-      <div className="admin-field"><label>Source lokalita</label><p className="admin-help">{sourceSummary || "Bez použiteľnej lokality"}</p></div>
-      <div className="admin-field"><label>Target</label><p className="admin-help">{targetType} #{targetId}</p></div>
-      <div className="admin-field"><label>Stav</label><p className="admin-help">{point?.geocodeStatus ?? "Neinicializované"}</p></div>
-      <div className="admin-field"><label>Metóda</label><p className="admin-help">{point?.resolutionMethod ?? "—"}{point?.manualOverride ? " · manual override" : ""}</p></div>
-      <div className="admin-field"><label>Provider / provenance</label><p className="admin-help">{point?.provider ?? "—"}{point?.provenance ? ` · ${point.provenance}` : ""}</p></div>
-      <div className="admin-field"><label>Posledné geocoding</label><p className="admin-help">{point?.lastGeocodedAt ? new Date(point.lastGeocodedAt).toLocaleString("sk-SK") : "—"}</p></div>
+              {snapshot.point?.geocodeStatus === "RESOLVED" && !preview ? (
+                <>
+                  <p className="admin-message" role="status"><strong>✅ Poloha potvrdená</strong></p>
+                  {snapshot.point.latitude !== null && snapshot.point.longitude !== null ? (
+                    <AdminLocationMap
+                      snapshot={snapshot}
+                      latitude={snapshot.point.latitude}
+                      longitude={snapshot.point.longitude}
+                      label={snapshot.source.label}
+                      displayLocation={[snapshot.source.street && snapshot.source.houseNumber ? `${snapshot.source.street} ${snapshot.source.houseNumber}` : "", snapshot.source.city].filter(Boolean).join(", ")}
+                    />
+                  ) : null}
+                  <div className="admin-editor-actions">
+                    <button type="button" disabled={busy || !snapshot.provider.configured} onClick={() => void findLocation()}>
+                      {busy ? "Hľadám…" : "Overiť znova"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="admin-editor-actions">
+                  <button type="button" disabled={busy || !snapshot.provider.configured} onClick={() => void findLocation()}>
+                    {busy ? "Hľadám…" : snapshot.point?.geocodeStatus === "STALE" ? "Nájsť polohu znova" : "Nájsť polohu podľa adresy"}
+                  </button>
+                </div>
+              )}
+
+              {!snapshot.provider.configured ? <p className="admin-help">Vyhľadanie polohy momentálne nie je dostupné.</p> : null}
+
+              {preview ? (
+                <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
+                  {preview.google.status === "CONFIRMED" ? (
+                    <div className="admin-message">
+                      <strong>✅ Nájdená adresa v Google Maps</strong>
+                      <p className="admin-help">{preview.google.formattedAddress}</p>
+                    </div>
+                  ) : (
+                    <div className="admin-message">
+                      <strong>⚠️ Nájdená iba poloha</strong>
+                      <p className="admin-help">Google Maps nepotvrdil konkrétnu adresu alebo miesto, ale poloha bola nájdená.</p>
+                    </div>
+                  )}
+
+                  <AdminLocationMap
+                    snapshot={snapshot}
+                    latitude={preview.latitude}
+                    longitude={preview.longitude}
+                    label={snapshot.source.label}
+                    displayLocation={preview.google.formattedAddress ?? preview.canonicalAddress.replace(/\n/g, ", ")}
+                  />
+
+                  <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
+                    <button type="button" disabled={busy} onClick={() => void confirmPreview()}>
+                      {busy ? "Potvrdzujem…" : "Potvrdiť polohu"}
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => void findLocation()}>Hľadať znova</button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+
+          <details style={{ marginTop: "1rem" }}>
+            <summary>Technické informácie</summary>
+            <div className="admin-field-grid" style={{ marginTop: ".75rem" }}>
+              <div className="admin-field"><label>Stav</label><p className="admin-help">{slovakStatus(snapshot.point)}</p></div>
+              <div className="admin-field"><label>Zdroj polohy</label><p className="admin-help">{snapshot.point?.resolutionMethod === "MANUAL" ? "Ručne potvrdená poloha" : snapshot.point?.resolutionMethod ? "Automaticky nájdená poloha" : "—"}</p></div>
+              <div className="admin-field"><label>Geoapify</label><p className="admin-help">{snapshot.provider.configured ? "Dostupné" : "Nedostupné"}</p></div>
+              <div className="admin-field"><label>Google Maps overenie</label><p className="admin-help">{snapshot.googlePlacesConfigured ? "Dostupné" : "Nedostupné"}</p></div>
+              <div className="admin-field"><label>Verejná mapa</label><p className="admin-help">{snapshot.publicMapEnabled ? "Zapnutá" : "Vypnutá"}</p></div>
+            </div>
+          </details>
+        </>
+      ) : null}
+
+      {message ? <p className="admin-message" role="status">{message}</p> : null}
+      {error ? <p className="admin-message admin-message--error" role="alert">{error}</p> : null}
     </div>
+  );
 
-    {!snapshot.schemaReady ? null : !point ? <div className="admin-editor-actions">
-      <button type="button" disabled={busy} onClick={() => mutate({ action: "initialize" }, "Geo záznam bol inicializovaný.")}>Vytvoriť geo záznam</button>
-    </div> : <>
-      <div className="admin-field-grid">
-        <div className="admin-field">
-          <label htmlFor={`geo-visibility-${targetType}-${targetId}`}>Verejná visibility</label>
-          <select id={`geo-visibility-${targetType}-${targetId}`} value={visibility} onChange={(event) => setVisibility(event.target.value)}>
-            <option value="">Nevyhodnotené</option>
-            {Object.entries(visibilityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </div>
-        <div className="admin-field">
-          <label htmlFor={`geo-precision-${targetType}-${targetId}`}>Precision</label>
-          <select id={`geo-precision-${targetType}-${targetId}`} value={precision} disabled={visibility === "HIDDEN"} onChange={(event) => setPrecision(event.target.value)}>
-            <option value="EXACT">EXACT</option><option value="NEIGHBORHOOD">NEIGHBORHOOD</option>
-            <option value="MUNICIPALITY">MUNICIPALITY</option><option value="SERVICE_AREA">SERVICE_AREA</option>
-            <option value="APPROXIMATE">APPROXIMATE</option>
-          </select>
-        </div>
-      </div>
-      <div className="admin-editor-actions">
-        <button type="button" disabled={busy || !visibility} onClick={() => {
-          if (exactEscalation && !window.confirm("Potvrďte, že ide o verejne navštevovanú prevádzku/miesto. Presná poloha môže zverejniť ulicu.")) return;
-          void mutate({ action: "classify", visibility, precision, reason: exactEscalation ? "ADMIN_EXACT_PUBLIC_CONFIRMATION" : "ADMIN_CLASSIFICATION" }, "Privacy klasifikácia bola uložená.");
-        }}>Uložiť klasifikáciu</button>
-        <button type="button" disabled={busy || !snapshot.provider.configured || !point.publicVisibility || point.publicVisibility === "HIDDEN" || point.manualOverride} onClick={() => mutate({ action: "retry" }, "Geocoding pokus bol spracovaný.")}>Skúsiť geocoding</button>
-        <button type="button" disabled={busy || !snapshot.provider.configured || !point.publicVisibility || point.publicVisibility === "HIDDEN"} onClick={() => void diagnose()}>Diagnostika Geoapify (bez zápisu)</button>
-      </div>
-
-      {diagnostic && <div className="admin-message">
-        <strong>Geoapify diagnostika</strong>
-        <p className="admin-help">Request: {diagnostic.requestMode}{diagnostic.structuredAddress ? ` · ${JSON.stringify(diagnostic.structuredAddress)}` : ""}</p>
-        <p className="admin-help">Fallback query: {diagnostic.query}</p>
-        <p className="admin-help">Decision: {diagnostic.accepted ? "ACCEPTED" : diagnostic.errorCode || "REJECTED"} · výsledkov {diagnostic.resultCount}</p>
-        <p className="admin-help">Thresholds: exact {diagnostic.thresholds.exactConfidence} · city {diagnostic.thresholds.cityConfidence} · ambiguity Δ {diagnostic.thresholds.ambiguityDelta}</p>
-        <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(diagnostic.candidates, null, 2)}</pre>
-      </div>}
-
-      <hr />
-      <h3>Manuálny marker</h3>
-      <p className="admin-help">Automatický geocoder nikdy neprepíše manual marker. Po zmene source lokality zostane bod zachovaný a stav prejde na STALE.</p>
-      <div className="admin-field-grid">
-        <div className="admin-field"><label htmlFor={`geo-lat-${targetType}-${targetId}`}>Latitude</label><input id={`geo-lat-${targetType}-${targetId}`} inputMode="decimal" value={latitude} onChange={(event) => setLatitude(event.target.value)} /></div>
-        <div className="admin-field"><label htmlFor={`geo-lng-${targetType}-${targetId}`}>Longitude</label><input id={`geo-lng-${targetType}-${targetId}`} inputMode="decimal" value={longitude} onChange={(event) => setLongitude(event.target.value)} /></div>
-        <div className="admin-field"><label htmlFor={`geo-reason-${targetType}-${targetId}`}>Dôvod manuálnej zmeny</label><input id={`geo-reason-${targetType}-${targetId}`} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Prečo je tento bod správny?" /></div>
-      </div>
-      <div className="admin-editor-actions">
-        <button type="button" disabled={busy || !latitude || !longitude || !reason || visibility === "HIDDEN" || !visibility} onClick={() => mutate({
-          action: "manual", latitude: Number(latitude), longitude: Number(longitude),
-          visibility, precision, reason,
-        }, "Manual marker bol uložený.")}>Uložiť manual marker</button>
-        {point.manualOverride && <button type="button" disabled={busy} onClick={() => {
-          if (!window.confirm("Resetovať manual override? Súradnice sa odstránia a automatika ich môže znovu vyriešiť.")) return;
-          void mutate({ action: "reset-manual" }, "Manual override bol resetovaný.");
-        }}>Reset manual override</button>}
-      </div>
-    </>}
-
-    {point?.lastErrorCode && <p className="admin-help">Posledný problém: <strong>{point.lastErrorCode}</strong>{point.retryAfterAt ? ` · retry po ${new Date(point.retryAfterAt).toLocaleString("sk-SK")}` : ""}</p>}
-    {message && <p className="admin-message" role="status">{message}</p>}
-    {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
-  </section>;
+  return createPortal(panel, portalTarget);
 }

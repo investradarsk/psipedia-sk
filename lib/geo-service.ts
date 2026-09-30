@@ -175,6 +175,40 @@ export function summarizeGeoDiagnosticResults(results: NormalizedGeocoderResult[
   }));
 }
 
+
+export async function previewGeoSource(input: {
+  source: GeoSourceLocation;
+  visibility?: "EXACT_PUBLIC" | "APPROXIMATE_PUBLIC";
+  precision?: GeoPublicPrecision;
+  provider?: GeocoderProvider;
+  config?: GeoAcceptanceConfig;
+}) {
+  const visibility = input.visibility ?? "EXACT_PUBLIC";
+  const precision = input.precision ?? "EXACT";
+  const query = buildGeoQuery(input.source, visibility, precision);
+  if (!query) throw new Error("Zadaná adresa nie je kompletná alebo potvrdená.");
+
+  const provider = input.provider ?? new GeoapifyGeocoder();
+  const request = geocodeRequest(input.source, query, precision);
+  const results = visibility === "EXACT_PUBLIC"
+    ? await provider.geocodeExact(request)
+    : await provider.geocodeApproximate(request);
+  const decision = chooseGeocoderResult({
+    results,
+    sourceCity: input.source.city,
+    precision,
+    config: input.config,
+  });
+
+  return {
+    query,
+    requestMode: request.structuredAddress ? "structured" as const : "freeform" as const,
+    resultCount: results.length,
+    result: decision.result,
+    errorCode: decision.errorCode,
+  };
+}
+
 export async function diagnoseGeoTarget(input: {
   targetType: GeoTargetType;
   targetId: number;

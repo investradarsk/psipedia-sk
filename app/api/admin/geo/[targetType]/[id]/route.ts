@@ -1,14 +1,21 @@
+import { env } from "cloudflare:workers";
+import { googleMapsRendererConfigured, publicMapLaunchEnabled } from "@/config/runtime-env";
 import { geoapifyApiKey } from "@/lib/geoapify-geocoder";
 import {
+  geoFingerprintInput,
   isGeoPublicPrecision,
   isGeoPublicVisibility,
   isGeoTargetType,
+  sourceGeoFingerprint,
   type GeoPublicPrecision,
+  type GeoSourceLocation,
   type GeoTargetType,
 } from "@/lib/geo";
+import { directoryExactGeoCandidate } from "@/lib/directory-service-address";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { diagnoseGeoTarget, resolveGeoTarget } from "@/lib/geo-service";
+import { diagnoseGeoTarget, previewGeoSource, resolveGeoTarget } from "@/lib/geo-service";
 import {
+  applyGeocoderResolution,
   getGeoPointForTarget,
   getGeoSourceLocation,
   isGeoSchemaAvailable,
@@ -18,9 +25,17 @@ import {
   setManualGeoCoordinates,
   writeGeoModerationEvent,
 } from "@/lib/geo-store";
+import { evaluateGooglePlaceCandidates } from "@/lib/google-place-matching";
+import { googlePlacesApiKey, searchGooglePlacesText } from "@/lib/google-places-provider";
+import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ targetType: string; id: string }> };
+type MapBindings = {
+  PUBLIC_MAP_ENABLED?: string;
+  GOOGLE_MAPS_BROWSER_API_KEY?: string;
+  GOOGLE_MAPS_MAP_ID?: string;
+};
 
 async function parsedTarget(params: Props["params"]): Promise<{ targetType: GeoTargetType; id: number } | null> {
   const raw = await params;
@@ -34,6 +49,87 @@ function sameOriginJson(request: Request) {
   return Boolean(origin)
     && origin === new URL(request.url).origin
     && (request.headers.get("content-type")?.toLowerCase().includes("application/json") ?? false);
+}
+
+function mapRuntime() {
+  const bindings = env as unknown as MapBindings;
+  const runtime = {
+    PUBLIC_MAP_ENABLED: bindings.PUBLIC_MAP_ENABLED ?? process.env.PUBLIC_MAP_ENABLED,
+    GOOGLE_MAPS_BROWSER_API_KEY: bindings.GOOGLE_MAPS_BROWSER_API_KEY ?? process.env.GOOGLE_MAPS_BROWSER_API_KEY,
+    GOOGLE_MAPS_MAP_ID: bindings.GOOGLE_MAPS_MAP_ID ?? process.env.GOOGLE_MAPS_MAP_ID,
+  };
+  return {
+    publicMapEnabled: publicMapLaunchEnabled(runtime),
+    configured: googleMapsRendererConfigured(runtime),
+    apiKey: runtime.GOOGLE_MAPS_BROWSER_API_KEY ?? "",
+    mapId: runtime.GOOGLE_MAPS_MAP_ID ?? "",
+  };
+}
+
+function exactAddress(source: GeoSourceLocation) {
+  if (source.targetType !== "DIRECTORY_PROFILE") return null;
+  return directoryExactGeoCandidate({
+    region: source.region ?? "",
+    district: source.district ?? "",
+    city: source.city ?? "",
+    postalCode: source.postalCode ?? "",
+    street: source.street ?? "",
+    houseNumber: source.houseNumber ?? "",
+    addressFormat: source.addressFormat ?? "",
+    serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
+    online: source.online,
+  });
+}
+
+async function googleMapsAddressPreview(source: GeoSourceLocation, latitude: number, longitude: number) {
+  const canonical = exactAddress(source);
+  const key = googlePlacesApiKey();
+  if (!canonical || !key) {
+    return {
+      status: key ? "NOT_CONFIRMED" as const : "UNAVAILABLE" as const,
+      formattedAddress: null,
+      placeId: null,
+      reason: key ? "Canonical adresa nie je vhodná na Google overenie." : "Google Places serverový kľúč nie je dostupný.",
+    };
+  }
+
+  try {
+    const query = [source.label, canonical.formattedAddress.replace(/\n/g, ", "), "Slovensko"]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(" ");
+    const candidates = await searchGooglePlacesText({ query, apiKey: key });
+    const match = evaluateGooglePlaceCandidates({
+      targetId: source.targetId,
+      name: source.label,
+      city: source.city ?? "",
+      postalCode: source.postalCode ?? "",
+      canonicalAddress: canonical.formattedAddress,
+      latitude,
+      longitude,
+    }, candidates);
+    if (match.decision === "MATCH" && match.candidate) {
+      return {
+        status: "CONFIRMED" as const,
+        formattedAddress: match.candidate.formattedAddress,
+        placeId: match.candidate.id,
+        reason: match.reason,
+      };
+    }
+    return {
+      status: "NOT_CONFIRMED" as const,
+      formattedAddress: null,
+      placeId: null,
+      reason: match.reason,
+    };
+  } catch (error) {
+    return {
+      status: "UNAVAILABLE" as const,
+      formattedAddress: null,
+      placeId: null,
+      reason: error instanceof Error ? error.message : "Google Maps overenie zlyhalo.",
+    };
+  }
 }
 
 export async function GET(_request: Request, { params }: Props) {
@@ -50,8 +146,9 @@ export async function GET(_request: Request, { params }: Props) {
     source,
     schemaReady,
     provider: { name: "geoapify", configured: Boolean(geoapifyApiKey()) },
+    googlePlacesConfigured: Boolean(googlePlacesApiKey()),
     productionBackfillEnabled: false,
-    publicMapEnabled: false,
+    ...mapRuntime(),
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
@@ -70,7 +167,98 @@ export async function POST(request: Request, { params }: Props) {
   if (!(await isGeoSchemaAvailable())) {
     return Response.json({ error: "Geo migrácia 0064 ešte nie je aplikovaná v tejto D1 databáze." }, { status: 503 });
   }
+
   try {
+    if (action === "preview") {
+      if (target.targetType !== "DIRECTORY_PROFILE") {
+        return Response.json({ error: "Jednoduché overenie podľa adresy je dostupné iba pre profil adresára." }, { status: 400 });
+      }
+      const source = await getGeoSourceLocation(target.targetType, target.id);
+      if (!source) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      const canonical = exactAddress(source);
+      if (!canonical) {
+        return Response.json({ error: "Najprv ulož kompletnú a overenú adresu profilu." }, { status: 409 });
+      }
+      const preview = await previewGeoSource({ source, visibility: "EXACT_PUBLIC", precision: "EXACT" });
+      if (!preview.result || preview.errorCode) {
+        return Response.json({ error: "Poloha sa podľa zadanej adresy nedá spoľahlivo určiť." }, { status: 409 });
+      }
+      const sourceFingerprint = await sourceGeoFingerprint(geoFingerprintInput(source, "EXACT_PUBLIC", "EXACT"));
+      const google = await googleMapsAddressPreview(source, preview.result.latitude, preview.result.longitude);
+      return Response.json({
+        preview: {
+          latitude: preview.result.latitude,
+          longitude: preview.result.longitude,
+          providerResultId: preview.result.providerResultId,
+          sourceFingerprint,
+          canonicalAddress: canonical.formattedAddress,
+          google,
+        },
+      });
+    }
+
+    if (action === "confirm-preview") {
+      if (target.targetType !== "DIRECTORY_PROFILE") {
+        return Response.json({ error: "Potvrdenie adresy je dostupné iba pre profil adresára." }, { status: 400 });
+      }
+      const publicLocation = body.publicLocation !== false;
+      let point = await getGeoPointForTarget(target.targetType, target.id);
+      if (!point) {
+        point = (await initializeGeoPointForTarget(target.targetType, target.id, user.email)).point;
+      }
+
+      if (!publicLocation) {
+        point = await setGeoVisibility({
+          targetType: target.targetType,
+          targetId: target.id,
+          visibility: "HIDDEN",
+          precision: null,
+          actorRef: user.email,
+          reason: "ADMIN_SIMPLE_LOCATION_PRIVATE",
+        });
+        return Response.json({ point, google: null });
+      }
+
+      const source = await getGeoSourceLocation(target.targetType, target.id);
+      if (!source) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      const canonical = exactAddress(source);
+      if (!canonical) return Response.json({ error: "Najprv ulož kompletnú a overenú adresu profilu." }, { status: 409 });
+      const currentFingerprint = await sourceGeoFingerprint(geoFingerprintInput(source, "EXACT_PUBLIC", "EXACT"));
+      const expectedFingerprint = typeof body.sourceFingerprint === "string" ? body.sourceFingerprint : "";
+      if (!expectedFingerprint || expectedFingerprint !== currentFingerprint) {
+        return Response.json({ error: "Adresa sa od vyhľadania zmenila. Nájdite polohu znova." }, { status: 409 });
+      }
+
+      if (point.publicVisibility !== "EXACT_PUBLIC" || point.publicPrecision !== "EXACT") {
+        point = await setGeoVisibility({
+          targetType: target.targetType,
+          targetId: target.id,
+          visibility: "EXACT_PUBLIC",
+          precision: "EXACT",
+          actorRef: user.email,
+          reason: "ADMIN_SIMPLE_LOCATION_CONFIRMATION",
+        });
+      }
+
+      const preview = await previewGeoSource({ source, visibility: "EXACT_PUBLIC", precision: "EXACT" });
+      if (!preview.result || preview.errorCode) {
+        return Response.json({ error: "Poloha sa už nedá spoľahlivo potvrdiť. Nájdite ju znova." }, { status: 409 });
+      }
+      const expectedProviderResultId = typeof body.providerResultId === "string" ? body.providerResultId : "";
+      if (expectedProviderResultId && preview.result.providerResultId && expectedProviderResultId !== preview.result.providerResultId) {
+        return Response.json({ error: "Výsledok vyhľadania sa zmenil. Nájdite polohu znova." }, { status: 409 });
+      }
+
+      point = await applyGeocoderResolution({
+        targetType: target.targetType,
+        targetId: target.id,
+        result: preview.result,
+        method: "GEOCODER",
+      });
+      const google = await autoAssignGooglePlaceForDirectoryProfile({ targetId: target.id });
+      return Response.json({ point, google });
+    }
+
     if (action === "initialize") {
       const result = await initializeGeoPointForTarget(target.targetType, target.id, user.email);
       return Response.json(result);
