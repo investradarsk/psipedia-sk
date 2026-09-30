@@ -640,6 +640,7 @@ function schemaState(databaseName, configPath) {
   const partnerAuthIdentityColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_auth_identities')");
   const moderationSubmissionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('moderation_submissions')");
   const geoPointColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('geo_points')");
+  const managedEshopColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('managed_eshops')");
   const automationDiscoveryRootColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_roots')");
   const automationDiscoveryRunColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_runs')");
   const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
