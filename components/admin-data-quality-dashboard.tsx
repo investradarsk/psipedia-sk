@@ -371,7 +371,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
 
                 {data.media.length ? (
                   <div className="admin-quality-media-list">
-                    {data.media.map(({ monitor, label, href }) => {
+                    {data.media.map(({ monitor, label, href, category }) => {
                       const hasCandidate = Boolean(monitor.candidateImageKey);
                       const hasCurrent = Boolean(monitor.activeImageKey);
                       return (
