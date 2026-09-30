@@ -52,6 +52,7 @@ export type GoogleNumberlessPlaceCandidateDiagnostic = GooglePlaceCandidate & {
   postalCodeMatch: boolean;
   addressMatch: boolean;
   streetMatch: boolean;
+  geographicConsistency: boolean;
   score: number;
 };
 
@@ -141,13 +142,19 @@ function numberlessDiagnostics(
   const cityMatch = Boolean(city) && formatted.includes(city);
   const postalCodeMatch = Boolean(postal) && compact(candidate.formattedAddress).includes(postal);
   const streetMatch = Boolean(street) && formatted.includes(street);
+  const geographicConsistency = Number.isFinite(candidate.latitude)
+    && Number.isFinite(candidate.longitude)
+    && candidate.latitude >= 47.7
+    && candidate.latitude <= 49.7
+    && candidate.longitude >= 16.8
+    && candidate.longitude <= 22.6;
   const addressMatch = addressHits >= 0.65;
   const score = (nameScore * 0.55)
     + (cityMatch ? 0.15 : 0)
     + (postalCodeMatch ? 0.15 : 0)
     + (addressMatch ? 0.10 : 0)
     + (streetMatch ? 0.05 : 0);
-  return { ...candidate, nameScore, cityMatch, postalCodeMatch, addressMatch, streetMatch, score };
+  return { ...candidate, nameScore, cityMatch, postalCodeMatch, addressMatch, streetMatch, geographicConsistency, score };
 }
 
 export function evaluateNumberlessGooglePlaceCandidates(
@@ -168,6 +175,7 @@ export function evaluateNumberlessGooglePlaceCandidates(
     && best.postalCodeMatch
     && best.addressMatch
     && best.streetMatch
+    && best.geographicConsistency
     && !ambiguous
   ) {
     return {
@@ -178,10 +186,10 @@ export function evaluateNumberlessGooglePlaceCandidates(
     };
   }
 
-  if (best.nameScore < 0.55 || !best.cityMatch || !best.postalCodeMatch || !best.streetMatch) {
+  if (best.nameScore < 0.55 || !best.cityMatch || !best.postalCodeMatch || !best.streetMatch || !best.geographicConsistency) {
     return {
       decision: "NO_MATCH",
-      reason: "Google kandidát nepotvrdzuje názov a canonical lokalitu konkrétneho miesta.",
+      reason: "Google kandidát nepotvrdzuje názov, canonical lokalitu alebo geografickú konzistenciu konkrétneho miesta.",
       candidate: best,
       candidates: ranked,
     };
