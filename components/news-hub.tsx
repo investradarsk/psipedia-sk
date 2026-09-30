@@ -19,10 +19,12 @@ export function NewsHub({
   articles,
   section,
   activeCategory,
+  landingPath = "/novinky",
 }: {
   articles: Article[];
   section: PortalSection;
   activeCategory?: NewsCategorySlug;
+  landingPath?: "/novinky" | "/clanky";
 }) {
   const category = activeCategory ? getNewsCategory(activeCategory) : null;
   const guidance = category ? getNewsCategoryGuidance(category.slug) : null;
@@ -30,7 +32,7 @@ export function NewsHub({
   const newsArticles = category
     ? allNews.filter((article) => article.newsCategory === category.slug)
     : allNews;
-  const archivePath = category ? `/novinky/${category.slug}` : "/novinky";
+  const archivePath = category ? `/novinky/${category.slug}` : landingPath;
   const title = category ? category.label : `${section.label} zo sveta psov`;
   const intro = category
     ? category.description
@@ -60,7 +62,7 @@ export function NewsHub({
         <div className={`${styles.headerShell} shell`}>
           <Breadcrumbs label="Navigácia v novinkách">
             <Link href="/">Domov</Link><span>/</span>
-            {category ? <><Link href="/novinky">Novinky</Link><span>/</span><span>{category.label}</span></> : <span>Novinky</span>}
+            {category ? <><Link href={landingPath}>Novinky</Link><span>/</span><span>{category.label}</span></> : <span>Novinky</span>}
           </Breadcrumbs>
           <PublicSectionHeader
             variant="compact"
@@ -78,7 +80,7 @@ export function NewsHub({
               <h2 id="news-archive-title">{category ? `Archív: ${category.label}` : "Všetky publikované novinky"}</h2>
             </div>
             <nav className={styles.filters} aria-label="Filtrovať novinky podľa kategórie">
-              <Link href="/novinky" aria-current={!category ? "page" : undefined}>Všetky</Link>
+              <Link href={landingPath} aria-current={!category ? "page" : undefined}>Všetky</Link>
               {newsCategories.map((item) => (
                 <Link
                   href={`/novinky/${item.slug}`}
@@ -111,7 +113,7 @@ export function NewsHub({
             <div className={styles.empty}>
               <strong>{category ? "Prvú správu pripravujeme" : "Prvé správy pripravujeme"}</strong>
               <p>{category ? "Táto téma má vlastnú stálu adresu. Keď pribudne novinka, zobrazí sa tu spolu so zdrojom a dátumom aktualizácie." : "Archív dopĺňame o publikované novinky so zdrojmi a dátumom aktualizácie."}</p>
-              <PublicActionLink href="/novinky" variant="secondary">Zobraziť všetky</PublicActionLink>
+              <PublicActionLink href={landingPath} variant="secondary">Zobraziť všetky</PublicActionLink>
             </div>
           )}
         </section>

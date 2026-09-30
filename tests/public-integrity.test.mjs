@@ -49,7 +49,7 @@ test("legacy malformed article slugs have permanent redirect aliases and cleanup
   }
 });
 
-test("public route contracts cover help, legacy shelters, lost/found hub and Magazín", async () => {
+test("public route contracts cover help, legacy shelters, lost/found hub and canonical news landing", async () => {
   const help = await fs.readFile(new URL("../components/help-browser.tsx", import.meta.url), "utf8");
   const shelters = await fs.readFile(new URL("../app/adresar/utulky-a-zachrana/page.tsx", import.meta.url), "utf8");
   const lostFound = await fs.readFile(new URL("../app/pomoc-psom/stratene-a-najdene/page.tsx", import.meta.url), "utf8");
@@ -58,7 +58,8 @@ test("public route contracts cover help, legacy shelters, lost/found hub and Mag
   assert.match(shelters, /permanentRedirect\("\/pomoc-psom\/utulky"\)/);
   assert.match(lostFound, /\/pomoc-psom\/stratene-psy/);
   assert.match(lostFound, /\/pomoc-psom\/najdene-psy/);
-  assert.match(magazine, /Magazín pre život so psom/);
+  assert.match(magazine, /title: "Novinky zo sveta psov"/);
+  assert.match(magazine, /<h1>Novinky zo sveta psov<\/h1>/);
 });
 
 test("article slug generator no longer hard-cuts the final word", async () => {

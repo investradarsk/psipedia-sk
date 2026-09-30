@@ -3,6 +3,7 @@ import type { ArticleSeo } from "./content.ts";
 import { SITE_URL } from "./seo.ts";
 
 export const SITEMAP_REDIRECT_SOURCES = new Set([
+  "/novinky",
   "/adresar/psie-skoly",
   "/adresar/veterinari/veterinarna-poliklinka-althea",
   "/aktivity/-vycvik-a-aktivity-trening",

@@ -274,8 +274,11 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
         ...(section.slug === "pomoc-psom" ? [...helpCases.map((item) => item.updatedAt), ...lostFoundReports.map((item) => item.updatedAt), ...adoptions.map((item) => item.updatedAt)] : []),
         ...(section.slug === "plemena" ? breeds.map((breed) => breed.updatedAt) : []),
       ]);
+      const sectionPath = `/${section.slug}`;
       return [
-        sitemapEntry(`/${section.slug}`, { lastModified: relevantModified, changeFrequency: section.slug === "novinky" ? "daily" : "weekly", priority: section.slug === "novinky" ? 0.9 : 0.7 }),
+        ...(SITEMAP_REDIRECT_SOURCES.has(sectionPath)
+          ? []
+          : [sitemapEntry(sectionPath, { lastModified: relevantModified, changeFrequency: section.slug === "novinky" ? "daily" : "weekly", priority: section.slug === "novinky" ? 0.9 : 0.7 })]),
         ...section.subpages.filter((subpage) => {
           if (subpage.visible === false || SITEMAP_REDIRECT_SOURCES.has(portalSubpageHref(section, subpage))) return false;
           if (section.slug !== "recenzie") return true;

@@ -1,12 +1,11 @@
 import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { StructuredData } from "@/components/structured-data";
 import { EventsPage as EventsListingPage } from "@/components/events-page";
 import { PortalHub } from "@/components/portal-hub";
 import { ReviewsHub, normalizeReviewsHubView } from "@/components/reviews-hub";
-import { NewsHub } from "@/components/news-hub";
-import { getAllPublishedArticleSummaries, getPublishedArticleSummaries } from "@/lib/article-store";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { listPublishedEshops } from "@/lib/eshop-ratings";
 import { eventHref, eventTimeFilterFromParam } from "@/lib/events";
@@ -46,7 +45,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { section: slug } = await params;
   const section = await getManagedPortalSection(slug);
   if (!section?.visible) return {};
-  const description = slug === "novinky" ? NOVINKY_DESCRIPTION : slug === "recenzie" ? REVIEWS_DESCRIPTION : section.description;
+  if (slug === "novinky") {
+    return buildPageMetadata({
+      title: "Novinky zo sveta psov",
+      description: NOVINKY_DESCRIPTION,
+      path: "/clanky",
+    });
+  }
+  const description = slug === "recenzie" ? REVIEWS_DESCRIPTION : section.description;
   return buildPageMetadata({
     title: section.label,
     description,
@@ -56,10 +62,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PortalSectionPage({ params, searchParams }: Props) {
   const { section: slug } = await params;
+  if (slug === "novinky") permanentRedirect("/clanky");
   const [section, allSections, articles, events] = await Promise.all([
     getManagedPortalSection(slug),
     listManagedPortalSections(),
-    slug === "podujatia" ? Promise.resolve([]) : slug === "novinky" ? getAllPublishedArticleSummaries({ portalSection: "novinky" }) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
+    slug === "podujatia" ? Promise.resolve([]) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
     slug === "podujatia" ? getPublishedEvents() : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();
@@ -97,7 +104,6 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     const raw = await searchParams;
     return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(raw.typ))} />;
   }
-  if (slug === "novinky") return <NewsHub articles={articles} section={section} />;
   if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }
