@@ -46,14 +46,13 @@ export function ArticleFeedback({ articlePath, articleTitle }: { articlePath: st
   return (
     <section className="article-feedback" aria-labelledby="article-feedback-title">
       <div className="article-feedback-heading">
-        <span aria-hidden="true">🐾</span>
         <div><h2 id="article-feedback-title">Bol pre vás článok užitočný?</h2><p>Jedným kliknutím nám pomôžete zlepšovať obsah.</p></div>
       </div>
       {!submitted && (
         <>
           <div className="article-feedback-actions">
-            <button type="button" disabled={sending} onClick={() => { setChoice("yes"); void send(true); }}>👍 Áno</button>
-            <button type="button" className={choice === "no" ? "is-active" : ""} disabled={sending} onClick={() => setChoice("no")}>👎 Nie</button>
+            <button type="button" disabled={sending} onClick={() => { setChoice("yes"); void send(true); }}>Áno</button>
+            <button type="button" className={choice === "no" ? "is-active" : ""} disabled={sending} onClick={() => setChoice("no")}>Nie</button>
           </div>
           {choice === "no" && (
             <form className="article-feedback-form" onSubmit={submitNo}>
