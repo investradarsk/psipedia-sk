@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { DataQualityDashboard } from "@/lib/data-quality-store";
 
 function mediaStatusLabel(status: string) {
@@ -49,15 +49,13 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   const [selectedMedia, setSelectedMedia] = useState<Set<number>>(new Set());
   const activeSection = searchParams.get("section") === "media" ? "media" : "profiles";
 
-  useEffect(() => {
-    setSelectedMedia(new Set());
-  }, [searchParams]);
-
   const reviewableMediaIds = data.media
     .filter(({ monitor }) => Boolean(monitor.candidateImageKey))
     .map(({ monitor }) => monitor.id);
+  const visibleReviewableIds = new Set(reviewableMediaIds);
+  const visibleSelectedMedia = new Set([...selectedMedia].filter((id) => visibleReviewableIds.has(id)));
   const allReviewableSelected = reviewableMediaIds.length > 0
-    && reviewableMediaIds.every((id) => selectedMedia.has(id));
+    && reviewableMediaIds.every((id) => visibleSelectedMedia.has(id));
 
   function pageHref(key: "page" | "mediaPage", value: number) {
     const query = new URLSearchParams(searchParams.toString());
@@ -96,7 +94,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     }
   }
 
-  async function bulkMediaAction(action: "accept" | "reject", ids = [...selectedMedia]) {
+  async function bulkMediaAction(action: "accept" | "reject", ids = [...visibleSelectedMedia]) {
     if (!ids.length) return;
     setBusy(`bulk-${action}`);
     setMessage("");
@@ -351,17 +349,17 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                       />{" "}
                       Označiť všetky obrázky na tejto strane
                     </label>
-                    <span>Označené {selectedMedia.size}</span>
+                    <span>Označené {visibleSelectedMedia.size}</span>
                     <button
                       type="button"
-                      disabled={!selectedMedia.size || busy !== null}
+                      disabled={!visibleSelectedMedia.size || busy !== null}
                       onClick={() => void bulkMediaAction("accept")}
                     >
                       {busy === "bulk-accept" ? "Schvaľujem…" : "Schváliť označené"}
                     </button>
                     <button
                       type="button"
-                      disabled={!selectedMedia.size || busy !== null}
+                      disabled={!visibleSelectedMedia.size || busy !== null}
                       onClick={() => void bulkMediaAction("reject")}
                     >
                       {busy === "bulk-reject" ? "Zamietam…" : "Zamietnuť a hľadať iný"}
@@ -401,7 +399,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                               <label>
                                 <input
                                   type="checkbox"
-                                  checked={selectedMedia.has(monitor.id)}
+                                  checked={visibleSelectedMedia.has(monitor.id)}
                                   onChange={(event) => {
                                     setSelectedMedia((current) => {
                                       const next = new Set(current);
