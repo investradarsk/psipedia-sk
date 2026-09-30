@@ -6,21 +6,21 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 
 test("NEWS-LANDING-1 keeps /clanky as the single public news landing", () => {
   const landing = read("app/clanky/page.tsx");
-  const legacy = read("app/novinky/page.tsx");
+  const sectionRoot = read("app/[section]/page.tsx");
   const navigation = read("lib/navigation.ts");
   const navigationStore = read("lib/navigation-store.ts");
   const header = read("components/site-header.tsx");
   const footer = read("components/site-footer.tsx");
 
   assert.match(landing, /title: "Novinky zo sveta psov"/);
-  assert.match(landing, /<NewsHub articles=\{articles\} section=\{section\} landingPath="\/clanky" \/>/);
-  assert.match(legacy, /permanentRedirect\("\/clanky"\)/);
+  assert.match(landing, /<h1>Novinky zo sveta psov<\/h1>/);
+  assert.match(sectionRoot, /if \(slug === "novinky"\) permanentRedirect\("\/clanky"\)/);
   assert.match(navigation, /id: "novinky", label: "Novinky", href: "\/clanky"/);
   assert.match(navigationStore, /item\.href === "\/novinky"/);
   assert.match(navigationStore, /href: "\/clanky"/);
   assert.doesNotMatch(navigationStore, /Novinky zo sveta psov/);
   assert.match(header, /item\.id === "novinky" && slug === "clanky" \? "novinky" : slug/);
-  assert.match(footer, /href="\/clanky">Novinky zo sveta psov<\/Link>/);
+  assert.match(footer, /href="\/clanky">Novinky<\/Link>/);
   assert.doesNotMatch(footer, /href="\/novinky">Novinky/);
 });
 
