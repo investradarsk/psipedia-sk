@@ -2,6 +2,7 @@
 
 import { ChangeEvent, Fragment, useEffect, useState } from "react";
 import { ArticleBlocks } from "@/components/article-blocks";
+import { ArticlePromo } from "@/components/article-promo";
 import { AdminRichTextEditor } from "@/components/admin-rich-text-editor";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import {
@@ -15,6 +16,13 @@ import type { ManagedArticleSummary } from "@/lib/article-store";
 import { articleHref } from "@/lib/portal";
 import { editorialRichTextPlainText, legacyRichTextToDocument, normalizeEditorialRichText, type EditorialRichTextDocument } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
+import {
+  articlePromoKeys,
+  articlePromoRegistry,
+  isArticlePromoKey,
+  normalizeArticlePromoVariant,
+  resolveArticlePromo,
+} from "@/lib/article-promo";
 
 type Props = {
   blocks: ArticleBlock[];
@@ -38,6 +46,7 @@ function blockIcon(type: ArticleBlock["type"]) {
   if (type === "embed") return "▶";
   if (type === "source") return "↗";
   if (type === "related") return "→";
+  if (type === "psipedia-promo") return "P";
   if (type === "cta") return "CTA";
   if (type === "bullet-list") return "•";
   if (type === "numbered-list") return "1.";
@@ -294,6 +303,46 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
             {block.type === "source" && <div className="admin-field-grid"><div className="admin-field"><label>Názov organizácie alebo článku</label><input value={block.label} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, label: event.target.value } : item)} placeholder="Napríklad AVMA alebo názov štúdie" /></div><div className="admin-field"><label>URL zdroja</label><input type="url" value={block.url} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, url: event.target.value } : item)} placeholder="https://…" /></div><div className="admin-field"><label>Dátum prístupu <small>nepovinný</small></label><input type="date" value={block.accessedAt ?? ""} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, accessedAt: event.target.value || undefined } : item)} /></div><div className="admin-field"><label>Poznámka <small>nepovinná</small></label><input value={block.note ?? ""} onChange={(event) => update(block.id, (item) => item.type === "source" ? { ...item, note: event.target.value } : item)} /></div></div>}
 
             {block.type === "related" && <div className="admin-field-grid"><div className="admin-field admin-field--full"><label>Vybrať existujúci článok</label><select value={articles.find((item) => articleHref(item) === block.href)?.id ?? ""} onChange={(event) => { const selected = articles.find((item) => item.id === Number(event.target.value)); if (selected) update(block.id, (item) => item.type === "related" ? { ...item, title: selected.title, href: articleHref(selected), description: selected.excerpt } : item); }}><option value="">Vyber článok…</option>{articles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></div><div className="admin-field"><label>Názov</label><input value={block.title} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, title: event.target.value } : item)} /></div><div className="admin-field"><label>Odkaz</label><input value={block.href} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, href: event.target.value } : item)} placeholder="/sekcia/adresa" /></div></div>}
+            {block.type === "psipedia-promo" && (() => {
+              const target = articlePromoRegistry[block.promoKey];
+              const preview = resolveArticlePromo(block.promoKey, block.variant, block.id);
+              const previewCta = preview.copy.ctaLabel ?? preview.target.ctaLabel;
+              return <div className="admin-cta-editor">
+                <div className="admin-field-grid">
+                  <div className="admin-field">
+                    <label>Promo cieľ</label>
+                    <select
+                      value={block.promoKey}
+                      onChange={(event) => {
+                        const promoKey = event.target.value;
+                        if (isArticlePromoKey(promoKey)) update(block.id, (item) => item.type === "psipedia-promo" ? { ...item, promoKey } : item);
+                      }}
+                    >
+                      {articlePromoKeys.map((promoKey) => <option key={promoKey} value={promoKey}>{articlePromoRegistry[promoKey].label}</option>)}
+                    </select>
+                    <small>Cieľová interná sekcia: <code>{target.href}</code></small>
+                  </div>
+                  <div className="admin-field">
+                    <label>Variant</label>
+                    <select
+                      value={block.variant}
+                      onChange={(event) => update(block.id, (item) => item.type === "psipedia-promo" ? { ...item, variant: normalizeArticlePromoVariant(event.target.value) } : item)}
+                    >
+                      <option value="auto">Automaticky</option>
+                      <option value="v1">Variant 1</option>
+                      <option value="v2">Variant 2</option>
+                      <option value="v3">Variant 3</option>
+                    </select>
+                    <small>Automatický variant je stabilný počas UTC dňa.</small>
+                  </div>
+                </div>
+                <div className="admin-field admin-field--full">
+                  <label>Náhľad</label>
+                  <ArticlePromo promoKey={block.promoKey} variant={block.variant} seed={block.id} compact />
+                  <small>Výsledné CTA: <strong>{previewCta}</strong></small>
+                </div>
+              </div>;
+            })()}
             {block.type === "cta" && <div className="admin-cta-editor">
               <div className="admin-field-grid">
                 <div className="admin-field admin-field--full"><label>Krátky text alebo popis</label><textarea rows={3} value={block.text} onChange={(event) => update(block.id, (item) => item.type === "cta" ? { ...item, text: event.target.value } : item)} placeholder="Prečo by mal čitateľ na ponuku kliknúť?" /></div>
