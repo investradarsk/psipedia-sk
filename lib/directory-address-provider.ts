@@ -345,6 +345,50 @@ export async function verifyDirectoryAddressSelection(input: {
   });
 }
 
+export type VerifiedDirectoryNumberlessAddress = {
+  region: string;
+  district: string;
+  city: string;
+  postalCode: string;
+  street: string;
+  houseNumber: "";
+  addressFormat: "STREET";
+};
+
+export async function verifyDirectoryNumberlessAddressSelection(input: {
+  region: string;
+  district: string;
+  city: string;
+  postalCode: string;
+  providerResultId: string;
+  street: string;
+  provider?: GeoapifyGeocoder;
+  signal?: AbortSignal;
+}): Promise<VerifiedDirectoryNumberlessAddress> {
+  const locality = requireLocality(input.region, input.district, input.city);
+  const providerResultId = input.providerResultId.trim();
+  if (!providerResultId) throw new Error("Vyber ulicu z Geoapify návrhov.");
+
+  const postalCode = normalizeSlovakPostalCode(input.postalCode);
+  if (!SK_POSTCODE.test(postalCode)) throw new Error("Doplň platné PSČ pre miesto bez čísla domu.");
+
+  const street = await revalidateDirectoryStreet({
+    ...locality,
+    street: input.street,
+    providerResultId,
+    provider: input.provider,
+    signal: input.signal,
+  });
+
+  return {
+    ...locality,
+    postalCode,
+    street,
+    houseNumber: "",
+    addressFormat: "STREET",
+  };
+}
+
 export type DirectoryAddressReviewReason = "MULTIPLE_EXACT_CANDIDATES";
 
 export type DirectoryAddressReviewCandidate = {

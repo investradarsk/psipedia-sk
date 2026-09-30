@@ -135,12 +135,12 @@ export function DirectoryAddressAutocomplete({
           </ul>
         ) : null}
       </div>
-      <small>Napíš aspoň 3 znaky názvu ulice a vyber ju zo zoznamu. Číslo domu zadáš samostatne.</small>
+      <small>Napíš aspoň 3 znaky názvu ulice a vyber ju zo zoznamu. Číslo domu doplň iba vtedy, ak ho miesto verejne používa.</small>
       <span aria-live="polite">
         {visibleLoading ? "Vyhľadávam ulice…" : ""}
         {!visibleLoading && visibleEmpty ? "V tejto lokalite sa nenašla zodpovedajúca ulica." : ""}
         {visibleError ? visibleError : ""}
-        {selectedProviderResultId ? "Ulica je vybraná. Doplň číslo domu." : ""}
+        {selectedProviderResultId ? "Ulica je vybraná. Doplň číslo domu alebo nechaj pole prázdne pri mieste bez čísla." : ""}
       </span>
     </div>
   );

@@ -1,5 +1,5 @@
 import type { ManagedDirectoryProfileInput } from "@/lib/directory-store";
-import type { VerifiedDirectoryAddress } from "@/lib/directory-address-provider";
+import type { VerifiedDirectoryAddress, VerifiedDirectoryNumberlessAddress } from "@/lib/directory-address-provider";
 import {
   applyGeocoderResolution,
   getGeoPointForTarget,
@@ -28,6 +28,23 @@ export function withVerifiedDirectoryAddress(
     street: verified.street,
     houseNumber: verified.houseNumber,
     addressFormat: verified.addressFormat,
+    confirmServiceAddress: true,
+  };
+}
+
+export function withVerifiedDirectoryNumberlessAddress(
+  payload: ManagedDirectoryProfileInput,
+  verified: VerifiedDirectoryNumberlessAddress,
+): ManagedDirectoryProfileInput {
+  return {
+    ...payload,
+    region: verified.region,
+    district: verified.district,
+    city: verified.city,
+    postalCode: verified.postalCode,
+    street: verified.street,
+    houseNumber: "",
+    addressFormat: "STREET",
     confirmServiceAddress: true,
   };
 }

@@ -788,6 +788,48 @@ export async function applyGeocoderResolution(input: {
   return getGeoPointForTarget(input.targetType, input.targetId, db);
 }
 
+export async function applyGooglePlaceResolution(input: {
+  targetType: GeoTargetType;
+  targetId: number;
+  place: {
+    id: string;
+    latitude: number;
+    longitude: number;
+  };
+}, database?: GeoD1Database) {
+  const db = requireGeoD1(database);
+  const current = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (!current) throw new Error("Geo point neexistuje.");
+  if (current.manualOverride) throw new Error("Google Place nesmie prepísať manual override.");
+  if (current.publicVisibility !== "EXACT_PUBLIC" || current.publicPrecision !== "EXACT") {
+    throw new Error("Google Place exact resolution vyžaduje EXACT_PUBLIC / EXACT klasifikáciu.");
+  }
+  if (!input.place.id.trim() || input.place.id.length > 255) throw new Error("Google Place ID nie je platné.");
+  const latitude = safeCoordinate(input.place.latitude, true);
+  const longitude = safeCoordinate(input.place.longitude, false);
+  const now = new Date().toISOString();
+  const providerResultIdSchema = await isGeoProviderResultIdSchemaAvailable(db);
+  const statement = providerResultIdSchema
+    ? db.prepare(`
+        UPDATE geo_points SET latitude=?, longitude=?, resolution_method='GEOCODER',
+          provider='google_places', provenance='Google Places API (New)', source_license=NULL,
+          provider_result_id=?, google_place_id=?, google_place_source_fingerprint=source_fingerprint,
+          google_place_matched_at=?, resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
+          last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
+          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
+      `).bind(latitude, longitude, input.place.id.trim(), input.place.id.trim(), now, now, now, current.id)
+    : db.prepare(`
+        UPDATE geo_points SET latitude=?, longitude=?, resolution_method='GEOCODER',
+          provider='google_places', provenance='Google Places API (New)', source_license=NULL,
+          google_place_id=?, google_place_source_fingerprint=source_fingerprint,
+          google_place_matched_at=?, resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
+          last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
+          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
+      `).bind(latitude, longitude, input.place.id.trim(), now, now, now, current.id);
+  await statement.run();
+  return getGeoPointForTarget(input.targetType, input.targetId, db);
+}
+
 export async function recordGeocoderFailure(input: {
   targetType: GeoTargetType;
   targetId: number;

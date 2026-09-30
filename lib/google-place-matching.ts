@@ -37,6 +37,32 @@ export type GooglePlaceMatchResult = {
   candidates: GooglePlaceCandidateDiagnostic[];
 };
 
+export type GoogleNumberlessPlaceMatchTarget = {
+  targetId: number;
+  name: string;
+  city: string;
+  postalCode: string;
+  street: string;
+  canonicalAddress: string;
+};
+
+export type GoogleNumberlessPlaceCandidateDiagnostic = GooglePlaceCandidate & {
+  nameScore: number;
+  cityMatch: boolean;
+  postalCodeMatch: boolean;
+  addressMatch: boolean;
+  streetMatch: boolean;
+  geographicConsistency: boolean;
+  score: number;
+};
+
+export type GoogleNumberlessPlaceMatchResult = {
+  decision: GooglePlaceDecision;
+  reason: string;
+  candidate: GoogleNumberlessPlaceCandidateDiagnostic | null;
+  candidates: GoogleNumberlessPlaceCandidateDiagnostic[];
+};
+
 function clean(value: string | null | undefined) {
   return (value ?? "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("sk-SK")
     .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
@@ -96,6 +122,87 @@ function diagnostics(target: GooglePlaceMatchTarget, candidate: GooglePlaceCandi
   const score = (nameScore * 0.45) + (cityMatch ? 0.15 : 0) + (postalCodeMatch ? 0.12 : 0)
     + (addressMatch ? 0.13 : 0) + (distanceScore * 0.15);
   return { ...candidate, distanceMeters, nameScore, cityMatch, postalCodeMatch, addressMatch, score };
+}
+
+
+
+function numberlessDiagnostics(
+  target: GoogleNumberlessPlaceMatchTarget,
+  candidate: GooglePlaceCandidate,
+): GoogleNumberlessPlaceCandidateDiagnostic {
+  const formatted = clean(candidate.formattedAddress);
+  const city = clean(target.city);
+  const postal = compact(target.postalCode);
+  const street = clean(target.street);
+  const canonicalParts = clean(target.canonicalAddress).split(" ").filter((part) => part.length > 2);
+  const addressHits = canonicalParts.length
+    ? canonicalParts.filter((part) => formatted.includes(part)).length / canonicalParts.length
+    : 0;
+  const nameScore = googlePlaceNameScore(target.name, candidate.displayName);
+  const cityMatch = Boolean(city) && formatted.includes(city);
+  const postalCodeMatch = Boolean(postal) && compact(candidate.formattedAddress).includes(postal);
+  const streetMatch = Boolean(street) && formatted.includes(street);
+  const geographicConsistency = Number.isFinite(candidate.latitude)
+    && Number.isFinite(candidate.longitude)
+    && candidate.latitude >= 47.7
+    && candidate.latitude <= 49.7
+    && candidate.longitude >= 16.8
+    && candidate.longitude <= 22.6;
+  const addressMatch = addressHits >= 0.65;
+  const score = (nameScore * 0.55)
+    + (cityMatch ? 0.15 : 0)
+    + (postalCodeMatch ? 0.15 : 0)
+    + (addressMatch ? 0.10 : 0)
+    + (streetMatch ? 0.05 : 0);
+  return { ...candidate, nameScore, cityMatch, postalCodeMatch, addressMatch, streetMatch, geographicConsistency, score };
+}
+
+export function evaluateNumberlessGooglePlaceCandidates(
+  target: GoogleNumberlessPlaceMatchTarget,
+  candidates: GooglePlaceCandidate[],
+): GoogleNumberlessPlaceMatchResult {
+  if (!candidates.length) {
+    return { decision: "NO_MATCH", reason: "Google nevrátil žiadne konkrétne miesto.", candidate: null, candidates: [] };
+  }
+  const ranked = candidates.map((candidate) => numberlessDiagnostics(target, candidate)).sort((a, b) => b.score - a.score);
+  const best = ranked[0];
+  const second = ranked[1];
+  const ambiguous = Boolean(second && second.score >= 0.72 && (best.score - second.score) < 0.08);
+
+  if (
+    best.nameScore >= 0.78
+    && best.cityMatch
+    && best.postalCodeMatch
+    && best.addressMatch
+    && best.streetMatch
+    && best.geographicConsistency
+    && !ambiguous
+  ) {
+    return {
+      decision: "MATCH",
+      reason: "Silná zhoda názvu, ulice/lokality, PSČ a mesta bez konkurenčného kandidáta.",
+      candidate: best,
+      candidates: ranked,
+    };
+  }
+
+  if (best.nameScore < 0.55 || !best.cityMatch || !best.postalCodeMatch || !best.streetMatch || !best.geographicConsistency) {
+    return {
+      decision: "NO_MATCH",
+      reason: "Google kandidát nepotvrdzuje názov, canonical lokalitu alebo geografickú konzistenciu konkrétneho miesta.",
+      candidate: best,
+      candidates: ranked,
+    };
+  }
+
+  return {
+    decision: "REVIEW",
+    reason: ambiguous
+      ? "Viac Google kandidátov má podobne silnú zhodu."
+      : "Google kandidát nie je dosť jednoznačný pre presný verejný marker.",
+    candidate: best,
+    candidates: ranked,
+  };
 }
 
 export function evaluateGooglePlaceCandidates(

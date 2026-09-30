@@ -1,4 +1,10 @@
-import { directoryExactGeoCandidate, evaluateDirectoryServiceAddress, type DirectoryAddressFormat, type DirectoryServiceAddressConfirmation } from "@/lib/directory-service-address";
+import {
+  directoryCanonicalPublicAddress,
+  directoryExactGeoCandidate,
+  evaluateDirectoryServiceAddress,
+  type DirectoryAddressFormat,
+  type DirectoryServiceAddressConfirmation,
+} from "@/lib/directory-service-address";
 
 export const geoTargetTypes = ["DIRECTORY_PROFILE", "ORGANIZATION_LOCATION", "MANAGED_EVENT"] as const;
 export type GeoTargetType = (typeof geoTargetTypes)[number];
@@ -181,6 +187,15 @@ export function classifyGeoSource(source: GeoSourceLocation): GeoClassification 
         explanation: "Potvrdená kompletná adresa prevádzky je exact-only mapový kandidát.",
       };
     }
+    if (evaluation.reason === "NUMBERLESS_PLACE") {
+      return {
+        proposedVisibility: "EXACT_PUBLIC",
+        proposedPrecision: "EXACT",
+        requiresReview: false,
+        reasonCode: null,
+        explanation: "Verejné miesto bez čísla domu je exact kandidát, ale súradnice smie potvrdiť iba konkrétny Google Place.",
+      };
+    }
     if (evaluation.reason === "ONLINE_ONLY") {
       return { proposedVisibility: "HIDDEN", proposedPrecision: null, requiresReview: false, reasonCode: "ONLINE_ONLY", explanation: "Online-only profil nemá fyzický marker." };
     }
@@ -290,7 +305,7 @@ export function geoFingerprintInput(
     postalCode: source.postalCode,
     sourceAddress: includeStreet
       ? (source.targetType === "DIRECTORY_PROFILE"
-          ? directoryExactGeoCandidate({
+          ? directoryCanonicalPublicAddress({
               region: source.region ?? "",
               district: source.district ?? "",
               city: source.city ?? "",
@@ -300,7 +315,7 @@ export function geoFingerprintInput(
               addressFormat: source.addressFormat ?? "",
               serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
               online: source.online,
-            })?.formattedAddress ?? null
+            }) ?? null
           : (source.address || source.venue))
       : null,
   };

@@ -6,7 +6,9 @@ import {
   applyDirectoryStreetSelection,
   directoryAddressTextSemanticallyEqual,
   directoryCanonicalAddressSemanticallyEqual,
+  directoryCanonicalPublicAddress,
   directoryExactGeoCandidate,
+  directoryNumberlessPlaceCandidate,
   evaluateDirectoryServiceAddress,
   formatDirectoryServiceAddress,
 } from "../lib/directory-service-address.ts";
@@ -184,10 +186,20 @@ test("missing postal code is INCOMPLETE", () => {
   assert.equal(result.reason, "POSTAL_CODE_MISSING");
 });
 
-test("missing house number is INCOMPLETE", () => {
-  const result = evaluateDirectoryServiceAddress({ ...streetAddress, houseNumber: "" });
-  assert.equal(result.state, "INCOMPLETE");
-  assert.equal(result.reason, "HOUSE_NUMBER_MISSING");
+test("STREET without house number is a complete canonical numberless place but not a classical exact address", () => {
+  const input = { ...streetAddress, houseNumber: "" };
+  const result = evaluateDirectoryServiceAddress(input);
+  assert.equal(result.state, "COMPLETE");
+  assert.equal(result.reason, "NUMBERLESS_PLACE");
+  assert.equal(result.formattedAddress, "Hviezdoslavova\n953 01 Zlaté Moravce");
+  assert.equal(formatDirectoryServiceAddress(input), result.formattedAddress);
+  assert.equal(directoryCanonicalPublicAddress(input), result.formattedAddress);
+  assert.deepEqual(directoryNumberlessPlaceCandidate(input), {
+    publicVisibility: "EXACT_PUBLIC",
+    publicPrecision: "EXACT",
+    formattedAddress: result.formattedAddress,
+  });
+  assert.equal(directoryExactGeoCandidate(input), null);
 });
 
 test("missing street for STREET is INCOMPLETE", () => {
@@ -260,6 +272,30 @@ test("directory exact geo candidate exists only for COMPLETE canonical service a
   assert.equal(classification.proposedVisibility, "EXACT_PUBLIC");
   assert.equal(classification.proposedPrecision, "EXACT");
   assert.equal(classification.requiresReview, false);
+});
+
+test("numberless directory address declares exact intent but cannot build the classical Geoapify exact query", () => {
+  const source = {
+    targetType: "DIRECTORY_PROFILE",
+    targetId: 3,
+    label: "AgiPaws",
+    category: "salony-a-sluzby",
+    region: "Žilinský kraj",
+    district: "Liptovský Mikuláš",
+    city: "Liptovský Mikuláš",
+    postalCode: "031 01",
+    street: "Nábrežie",
+    houseNumber: "",
+    addressFormat: "STREET",
+    serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
+    countryCode: "SK",
+    online: false,
+  };
+  const classification = classifyGeoSource(source);
+  assert.equal(classification.proposedVisibility, "EXACT_PUBLIC");
+  assert.equal(classification.proposedPrecision, "EXACT");
+  assert.equal(classification.requiresReview, false);
+  assert.equal(buildGeoQuery(source, "EXACT_PUBLIC", "EXACT"), null);
 });
 
 test("directory has no municipality fallback", () => {
