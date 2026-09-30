@@ -221,6 +221,7 @@ export function AdminWorkspaceDashboard({
           </div>
           <div className={styles.quickLinks}>
             <Link href="/admin/clanky">Články</Link>
+            <Link href="/admin/recenzie">Recenzie a testy</Link>
             <Link href="/admin/plemena">Plemená</Link>
             <Link href="/admin/adresar">Adresár</Link>
             <Link href="/admin/organizacie">Organizácie</Link>
