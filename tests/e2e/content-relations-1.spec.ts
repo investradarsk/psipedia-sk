@@ -34,8 +34,8 @@ test("explicit article, breed and directory relations use canonical links and hi
   await expect(page.getByRole("heading", { level: 1, name: "CONTENT-RELATIONS E2E článok" })).toBeVisible();
   const articleSection = page.locator('[data-explicit-content-relation="article-breed"]');
   await expect(articleSection.getByRole("heading", { name: "Plemená prepojené s týmto článkom" })).toBeVisible();
-  const articleBreedLink = articleSection.getByRole("link", { name: /Biely švajčiarsky ovčiak/i }).first();
-  await expect(articleBreedLink).toHaveAttribute("href", "/plemena/biely-svajciarsky-ovciak");
+  const articleBreedLink = articleSection.getByRole("link", { name: /CONTENT-RELATIONS E2E plemeno/i }).first();
+  await expect(articleBreedLink).toHaveAttribute("href", "/plemena/content-relations-e2e-plemeno");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
     "https://psipedia.sk/clanky/content-relations-e2e-clanok",
@@ -48,7 +48,7 @@ test("explicit article, breed and directory relations use canonical links and hi
   expect(emptyArticleResponse?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Plemená prepojené s týmto článkom" })).toHaveCount(0);
 
-  const breedResponse = await page.goto("/plemena/biely-svajciarsky-ovciak", { waitUntil: "domcontentloaded" });
+  const breedResponse = await page.goto("/plemena/content-relations-e2e-plemeno", { waitUntil: "domcontentloaded" });
   expect(breedResponse?.status()).toBe(200);
   const breedMain = page.locator("main#obsah");
   await expect(breedMain.getByRole("heading", { name: "Články o tomto plemene" })).toBeVisible();
@@ -67,7 +67,7 @@ test("explicit article, breed and directory relations use canonical links and hi
   await expect(breedMain.getByText("CONTENT-RELATIONS noncanonical klub", { exact: false })).toHaveCount(0);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
-    "https://psipedia.sk/plemena/biely-svajciarsky-ovciak",
+    "https://psipedia.sk/plemena/content-relations-e2e-plemeno",
   );
   await expectNoHorizontalOverflow(page);
   await page.screenshot({
@@ -82,8 +82,8 @@ test("explicit article, breed and directory relations use canonical links and hi
   expect(directoryResponse?.status()).toBe(200);
   const directoryMain = page.locator("main#obsah");
   await expect(directoryMain.getByRole("heading", { name: "Plemená prepojené s týmto profilom" })).toBeVisible();
-  const directoryBreedLink = directoryMain.getByRole("link", { name: /Biely švajčiarsky ovčiak/i }).first();
-  await expect(directoryBreedLink).toHaveAttribute("href", "/plemena/biely-svajciarsky-ovciak");
+  const directoryBreedLink = directoryMain.getByRole("link", { name: /CONTENT-RELATIONS E2E plemeno/i }).first();
+  await expect(directoryBreedLink).toHaveAttribute("href", "/plemena/content-relations-e2e-plemeno");
   await directoryBreedLink.focus();
   await expect(directoryBreedLink).toBeFocused();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
