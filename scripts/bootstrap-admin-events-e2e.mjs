@@ -10,14 +10,21 @@ const db = new DatabaseSync(resolve(directory, files[0]));
 // Materialize existing empty schema only in the isolated test DB. No migration
 // data repairs are executed; the shared layout also needs navigation/settings.
 const migrations = readdirSync('drizzle').filter(name => name.endsWith('.sql')).sort();
-const migrationSql = migrations.map(name => readFileSync('drizzle/' + name, 'utf8')).join('\n');
+const schemaStatements = migrations.flatMap(name =>
+  readFileSync('drizzle/' + name, 'utf8')
+    .split(';')
+    .map(statement => statement.replace(/^\s*(?:(?:--[^\r\n]*)(?:\r?\n|$)\s*)+/, '').trim())
+    .filter(Boolean)
+);
 
-for (const match of migrationSql.matchAll(/CREATE TABLE\s+[\s\S]*?;/gi)) {
-  const sql = match[0].trim().replace(/^CREATE TABLE(?! IF NOT EXISTS)/i, 'CREATE TABLE IF NOT EXISTS');
+for (const statement of schemaStatements) {
+  if (!/^CREATE TABLE\b/i.test(statement)) continue;
+  const sql = statement.replace(/^CREATE TABLE(?! IF NOT EXISTS)/i, 'CREATE TABLE IF NOT EXISTS') + ';';
   db.exec(sql);
 }
-for (const match of migrationSql.matchAll(/ALTER TABLE\s+[\s\S]*?\sADD\s+[\s\S]*?;/gi)) {
-  const sql = match[0].trim();
+for (const statement of schemaStatements) {
+  if (!/^ALTER TABLE\b[\s\S]*\bADD\b/i.test(statement)) continue;
+  const sql = statement + ';';
   try { db.exec(sql); } catch (error) { if (!String(error).includes('duplicate column name')) throw error; }
 }
 if (!db.prepare('PRAGMA table_info(managed_events)').all().some(column => column.name === 'seo_json')) db.exec("ALTER TABLE managed_events ADD COLUMN seo_json TEXT NOT NULL DEFAULT '{}'");
