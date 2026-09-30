@@ -109,6 +109,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0098_directory_notion_bidirectional_sync.sql",
     "0099_media_source_quality.sql",
     "0100_eshop_ratings.sql",
+    "0101_eshop_profile_presentation.sql",
   ]);
 });
 
@@ -251,6 +252,21 @@ test("ESHOP-REVIEWS-1 0100 detects partial e-shop rating schema drift", () => {
   assert.deepEqual(targetSchemaObjects({ objects: [] }, "0100_eshop_ratings.sql"), { partial: false });
 });
 
+test("REVIEWS-ESHOP-PROFILES-1 0101 detects partial presentation schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [], managedEshopColumns: [{ name: "logo_url" }] }, "0101_eshop_profile_presentation.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [], managedEshopColumns: [{ name: "focus_tags_json" }] }, "0101_eshop_profile_presentation.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [], managedEshopColumns: [] }, "0101_eshop_profile_presentation.sql"),
+    { partial: false },
+  );
+});
+
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
@@ -310,7 +326,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0101_future_migration.sql",
+    "0102_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -360,6 +376,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0098_directory_notion_bidirectional_sync.sql",
     "0099_media_source_quality.sql",
     "0100_eshop_ratings.sql",
+    "0101_eshop_profile_presentation.sql",
   ]);
 });
 
@@ -367,7 +384,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0101_future_migration.sql",
+    "0102_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -403,7 +420,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0098_directory_notion_bidirectional_sync.sql",
     "0099_media_source_quality.sql",
     "0100_eshop_ratings.sql",
-    "0101_future_migration.sql",
+    "0101_eshop_profile_presentation.sql",
+    "0102_future_migration.sql",
   ]);
 });
 
