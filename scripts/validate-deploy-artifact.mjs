@@ -88,9 +88,9 @@ export async function validatePreparedDeployArtifact({
   }
 
   const expectedD1Binding = resources.d1?.binding;
-  const expectedR2Binding = resources.r2?.binding;
-  if (!expectedD1Binding || !expectedR2Binding) {
-    throw new Error("Canonical Cloudflare resource config must declare D1 and R2 bindings");
+  const expectedR2Bindings = [resources.r2?.binding, resources.submission_r2?.binding].filter(Boolean);
+  if (!expectedD1Binding || expectedR2Bindings.length !== 2) {
+    throw new Error("Canonical Cloudflare resource config must declare D1, public R2 and private submission R2 bindings");
   }
 
   const d1Bindings = Array.isArray(wrangler.d1_databases)
@@ -103,8 +103,10 @@ export async function validatePreparedDeployArtifact({
   if (!d1Bindings.includes(expectedD1Binding)) {
     throw new Error(`Generated Wrangler config is missing canonical D1 binding ${expectedD1Binding}`);
   }
-  if (!r2Bindings.includes(expectedR2Binding)) {
-    throw new Error(`Generated Wrangler config is missing canonical R2 binding ${expectedR2Binding}`);
+  for (const expectedR2Binding of expectedR2Bindings) {
+    if (!r2Bindings.includes(expectedR2Binding)) {
+      throw new Error(`Generated Wrangler config is missing canonical R2 binding ${expectedR2Binding}`);
+    }
   }
 
   const identity = await fingerprintDirectory(distDirectory);
