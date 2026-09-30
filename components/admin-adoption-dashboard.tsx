@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { adoptionRegions, adoptionStatusLabels, adoptionStatuses } from "@/lib/adoption";
 import {
   adoptionAdminSorts,
@@ -37,7 +38,8 @@ const sortLabels: Record<AdoptionAdminSort, string> = {
   "name-asc": "Meno A–Z",
 };
 
-export function AdminAdoptionDashboard({ result, filters }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters }) {
+export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] }) {
+  const reviewed = new Set(reviewedIds);
   const stats = [
     { key: "all", label: "Všetky", count: result.counts.total, href: adminHref(filters, { status: "", freshness: "all", page: 1 }), active: !filters.status && (filters.freshness ?? "all") === "all" },
     ...adoptionStatuses.map((status) => ({ key: status, label: adoptionStatusLabels[status], count: result.counts[status], href: adminHref(filters, { status, freshness: "all", page: 1 }), active: filters.status === status && (filters.freshness ?? "all") === "all" })),
@@ -57,7 +59,7 @@ export function AdminAdoptionDashboard({ result, filters }: { result: AdoptionAd
       <button type="submit">Filtrovať</button>
     </form>
     <div className={styles.tableWrap} role="region" aria-label="Zoznam adopcií" tabIndex={0}><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
-      {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><div className={styles.rowTitle}><strong>{item.name}</strong><small>#{item.id} · /{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></td></tr>})}
+      {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><div className={styles.rowTitle}><strong>{item.name}</strong><small>#{item.id} · /{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /><Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></div></td></tr>})}
       {!result.items.length&&<tr><td colSpan={7}>Žiadne adopcie pre zvolené filtre.</td></tr>}
     </tbody></table></div>
     {result.pagination.totalPages>1&&<nav className={styles.pagination} aria-label="Stránkovanie adopcií">{result.pagination.page>1&&<Link href={adminHref(filters,{page:result.pagination.page-1})}>←</Link>}{Array.from({length:Math.min(result.pagination.totalPages,7)},(_,index)=>{const start=Math.max(1,Math.min(result.pagination.page-3,result.pagination.totalPages-6));const page=start+index;if(page>result.pagination.totalPages)return null;return page===result.pagination.page?<span key={page}>{page}</span>:<Link key={page} href={adminHref(filters,{page})}>{page}</Link>})}{result.pagination.page<result.pagination.totalPages&&<Link href={adminHref(filters,{page:result.pagination.page+1})}>→</Link>}</nav>}

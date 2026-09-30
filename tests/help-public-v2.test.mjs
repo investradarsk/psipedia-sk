@@ -105,7 +105,7 @@ test("Help Admin owns only generic Help and routes dedicated domains to their ca
   assert.match(adminQuery, /HELP_ADMIN_CREATE_CATEGORIES = \["docasna-opatera", "zbierky", "dobrovolnictvo"\]/);
   assert.match(adminHelpHub, /adopcia: "\/admin\/adopcie"/);
   assert.match(adminHelpHub, /"stratene-a-najdene": "\/admin\/stratene-najdene"/);
-  assert.match(adminHelpHub, /utulky: "\/admin\/pomoc\?category=utulky"/);
+  assert.match(adminHelpHub, /utulky: "\/admin\/organizacie\?type=SHELTER"/);
   assert.match(adminDashboard, /href="\/admin\/pomoc-psom"/);
   assert.match(adminEditor, /HELP_ADMIN_CREATE_CATEGORIES/);
   assert.doesNotMatch(adminEditor, /helpCategories\.filter/);

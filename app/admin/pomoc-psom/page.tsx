@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const hrefByCategory: Record<(typeof helpCategories)[number]["slug"], string> = {
   adopcia: "/admin/adopcie",
-  utulky: "/admin/pomoc?category=utulky",
+  utulky: "/admin/organizacie?type=SHELTER",
   "docasna-opatera": "/admin/pomoc?category=docasna-opatera",
   zbierky: "/admin/pomoc?category=zbierky",
   "stratene-a-najdene": "/admin/stratene-najdene",

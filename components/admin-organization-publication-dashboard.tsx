@@ -13,6 +13,7 @@ import {
   AdminModalDialog,
 } from "@/components/admin-interaction-system";
 import { AdminPagination } from "@/components/admin-pagination";
+import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { SearchIcon } from "@/components/icons";
 import { organizationAdminHref, type OrganizationAdminFilters } from "@/lib/help-organization-admin-query";
 import type { OrganizationAdminPage, OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
@@ -49,11 +50,13 @@ function actionQuestion(item: OrganizationPublicationAdminItem, action: Organiza
   return "Obnoviť organizáciu „" + item.name + "“ do konceptu? Obnovenie ju automaticky nepublikuje.";
 }
 
-export function AdminOrganizationPublicationDashboard({ data, filters }: {
+export function AdminOrganizationPublicationDashboard({ data, filters, reviewedIds = [] }: {
   data: OrganizationAdminPage;
   filters: OrganizationAdminFilters;
+  reviewedIds?: number[];
 }) {
   const router = useRouter();
+  const reviewed = new Set(reviewedIds);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkAction, setBulkAction] = useState<OrganizationPublicationAction | null>(null);
@@ -231,7 +234,8 @@ export function AdminOrganizationPublicationDashboard({ data, filters }: {
               {!item.preflight.ready && <p className={styles.preflight}><strong>Publication BLOCKED:</strong> {item.preflight.blockers.map((blocker) => blocker.message).join(" ")}</p>}
             </div>
             <div className={styles.actions}>
-              {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank">Pozrieť ↗</Link>}
+              <AdminReviewCheckbox entityType="ORGANIZATION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+              {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
               <Link className="admin-row-edit" href={"/admin/organizacie/" + item.id}>Spravovať</Link>
               <Link href={`/admin/organizacie/${item.id}#fundraising`}>Fundraising</Link>
               {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!item.preflight.ready || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "publish")}>Publikovať</AdminActionButton>}

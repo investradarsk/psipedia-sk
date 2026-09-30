@@ -111,6 +111,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0100_eshop_ratings.sql",
     "0101_eshop_profile_presentation.sql",
     "0102_eshop_notion_sync.sql",
+    "0103_admin_entity_reviews.sql",
   ]);
 });
 
@@ -283,6 +284,21 @@ test("ESHOP-NOTION-1 0102 detects partial e-shop Notion sync schema drift", () =
   );
 });
 
+test("ADMIN-REVIEW-ALL-1 0103 detects partial admin review schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [{ name: "admin_entity_reviews", type: "table", sql: "" }] }, "0103_admin_entity_reviews.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [{ name: "admin_entity_reviews_reviewed_at_idx", type: "index", sql: "" }] }, "0103_admin_entity_reviews.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0103_admin_entity_reviews.sql"),
+    { partial: false },
+  );
+});
+
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
@@ -342,7 +358,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0103_future_migration.sql",
+    "0104_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -394,6 +410,7 @@ test("PARTNER-H1 production rollout scopes exactly through 0069 and excludes lat
     "0100_eshop_ratings.sql",
     "0101_eshop_profile_presentation.sql",
     "0102_eshop_notion_sync.sql",
+    "0103_admin_entity_reviews.sql",
   ]);
 });
 
@@ -401,7 +418,7 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0103_future_migration.sql",
+    "0104_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
@@ -439,7 +456,8 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
     "0100_eshop_ratings.sql",
     "0101_eshop_profile_presentation.sql",
     "0102_eshop_notion_sync.sql",
-    "0103_future_migration.sql",
+    "0103_admin_entity_reviews.sql",
+    "0104_future_migration.sql",
   ]);
 });
 
@@ -621,6 +639,7 @@ test("PARTNER-H3 exact auth snapshot is limited to the first 0070 rollout", () =
   assert.equal(requiresExactPartnerAuthPreservation("0100_eshop_ratings.sql", true), false);
   assert.equal(requiresExactPartnerAuthPreservation("0101_eshop_profile_presentation.sql", false), false);
   assert.equal(requiresExactPartnerAuthPreservation("0102_eshop_notion_sync.sql", false), false);
+  assert.equal(requiresExactPartnerAuthPreservation("0103_admin_entity_reviews.sql", false), false);
 });
 
 test("post-0070 production verification keeps auth integrity checks without freezing live sessions", async () => {
