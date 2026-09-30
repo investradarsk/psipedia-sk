@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminOrganizationPublicationDashboard } from "@/components/admin-organization-publication-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
+import { listReviewedAdminEntityIds } from "@/lib/admin-entity-review-store";
 import { parseOrganizationAdminFilters } from "@/lib/help-organization-admin-query";
 import { getOrganizationAdminPage } from "@/lib/help-organization-admin-store";
 import styles from "@/components/admin-organization-publication.module.css";
@@ -17,6 +18,7 @@ export default async function OrganizationPublicationAdminPage({ searchParams }:
     get: (key) => typeof params[key] === "string" ? params[key] as string : null,
   });
   const data = await getOrganizationAdminPage(filters);
+  const reviewedIds = await listReviewedAdminEntityIds("ORGANIZATION", data.items.map((item) => item.id));
 
   return <AdminShell
     user={user}
@@ -25,6 +27,6 @@ export default async function OrganizationPublicationAdminPage({ searchParams }:
     description="Canonical organization management: vyhľadávanie, filtre, editácia, lokality, fundraising a jasný publication lifecycle."
     actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/organizacie/novy">+ Nová organizácia</Link>}
   >
-    <AdminOrganizationPublicationDashboard data={data} filters={filters} />
+    <AdminOrganizationPublicationDashboard data={data} filters={filters} reviewedIds={reviewedIds} />
   </AdminShell>;
 }
