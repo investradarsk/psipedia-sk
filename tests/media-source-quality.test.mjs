@@ -69,7 +69,7 @@ test("admin quality workspace separates profile cleanup from focused image appro
   assert.match(adminPage, /Kvalita údajov/);
   assert.match(adminComponent, /admin-quality-tabs/);
   assert.match(adminComponent, /sectionHref\("media"\)/);
-  assert.match(adminComponent, /Skontrolovať zdroje/);
+  assert.match(adminComponent, /Skontrolovať teraz/);
   assert.match(adminComponent, /Schváliť obrázok/);
   assert.match(adminComponent, /Chýbajúce údaje v profiloch/);
   assert.match(adminComponent, /Obrázky na kontrolu/);
