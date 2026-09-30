@@ -81,7 +81,7 @@ test("e-shop Notion sync is scheduled and manually available in admin", () => {
   assert.match(worker, /runNotionEshopSyncSweep/);
   assert.match(worker, /notion_eshop_backfill_sweep/);
   assert.match(worker, /notion_eshop_sync_sweep/);
-  assert.match(route, /getAdminApiUser/);
+  assert.match(route, /requireAdminMutation/);
   assert.match(route, /runNotionEshopSyncSweep/);
   assert.match(page, /AdminEshopNotionSyncButton/);
   assert.match(wrangler, /"NOTION_ESHOP_SYNC_ENABLED": "true"/);
