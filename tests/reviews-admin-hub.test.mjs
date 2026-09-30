@@ -39,6 +39,7 @@ test("review category action deep-links and opens the recenzie section editor", 
   assert.match(page, /initialOpenSlug=\{initialOpenSlug\}/);
   assert.match(editor, /initialOpenSlug\?: string/);
   assert.match(editor, /section\.slug === initialOpenSlug/);
+  assert.match(editor, /useState\(initialOpenSlug \?\? ""\)/);
 });
 
 test("reviews admin hub requires no database migration or duplicate review store", () => {
