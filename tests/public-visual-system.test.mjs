@@ -212,6 +212,8 @@ test("global public article surfaces use shared featured, grid and compact prese
   assert.match(articleCard, /data-article-variant=\{resolvedVariant\}/);
   assert.match(homeEditorial, /variant="featured"/);
   assert.match(homeEditorial, /variant="compact"/);
+  assert.match(homeStyles, /\.homeV2 :global\(\.home-latest-item > \[data-article-list-item\]\)\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/s);
+  assert.match(homeStyles, /\.homeV2 :global\(\.home-latest-item > \[data-article-list-item\]:has\(\[data-article-image\]\)\)\s*\{[^}]*grid-template-columns:\s*112px minmax\(0, 1fr\)/s);
   assert.match(newsHub, /<ArticleListItem/);
   assert.match(editorialSection, /<ArticleListItem/);
   assert.match(breedDetail, /<PublicContentList label="Súvisiace články k plemenu">/);

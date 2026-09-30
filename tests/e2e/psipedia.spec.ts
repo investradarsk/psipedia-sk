@@ -288,10 +288,13 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     const heights = await ordinaryArticles.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
     expect(heights.every((height) => height < 220), `Homepage secondary article rows are oversized: ${JSON.stringify(heights)}`).toBe(true);
   }
-  const leadArticleMeta = page.locator(".article-card--large .article-card-meta");
-  await expect(leadArticleMeta).toHaveCount(sharedHomepageArticleLayouts.length);
-  for (let index = 0; index < sharedHomepageArticleLayouts.length; index += 1) {
-    await expect(leadArticleMeta.nth(index)).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
+  for (const item of sharedHomepageArticleLayouts) {
+    const layout = page.locator(item.root).locator(`[data-home-article-layout="${item.id}"]`);
+    const leadArticleMeta = layout.locator(
+      '[data-home-article-lead] [data-article-card][data-article-variant="featured"] .article-card-meta',
+    );
+    await expect(leadArticleMeta, `Homepage section ${item.id} should expose featured article metadata`).toHaveCount(1);
+    await expect(leadArticleMeta).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
   }
   const breedSection = page.locator(".home-breed-day-section");
   await expect(breedSection).toBeVisible();
