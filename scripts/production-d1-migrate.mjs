@@ -93,6 +93,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0098_directory_notion_bidirectional_sync.sql",
   "0099_media_source_quality.sql",
   "0100_eshop_ratings.sql",
+  "0101_eshop_profile_presentation.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -661,6 +662,7 @@ function schemaState(databaseName, configPath) {
     partnerAuthIdentityColumns,
     moderationSubmissionColumns,
     geoPointColumns,
+    managedEshopColumns,
     automationDiscoveryRootColumns,
     automationDiscoveryRunColumns,
     automationSourceColumns,
@@ -940,6 +942,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || ESHOP_RATING_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0101_eshop_profile_presentation.sql") {
+    const columns = new Set((schema.managedEshopColumns ?? []).map((column) => String(column.name)));
+    return {
+      partial: ["logo_url", "logo_key", "focus_tags_json"].some((column) => columns.has(column)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1047,6 +1055,13 @@ function assertEshopRatingSchema(schema) {
   invariant(ratingSql.includes("BETWEEN 1 AND 5"), "eshop_ratings bounds constraint is missing");
   invariant(ratingSql.includes("UNIQUE(eshop_id, author_id)") || ratingSql.includes("UNIQUE (eshop_id, author_id)"), "eshop_ratings reviewer uniqueness is missing");
   invariant(ratingSql.includes("REFERENCES review_authors"), "eshop_ratings reviewer foreign key is missing");
+}
+
+function assertEshopProfilePresentationSchema(schema) {
+  const columns = new Set((schema.managedEshopColumns ?? []).map((column) => String(column.name)));
+  for (const column of ["logo_url", "logo_key", "focus_tags_json"]) {
+    invariant(columns.has(column), `Missing e-shop profile presentation column: managed_eshops.${column}`);
+  }
 }
 
 function assertPartnerClaimsSchema(schema) {
@@ -1514,6 +1529,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 98) assertDirectoryNotionSyncSchema(schema);
   if (migrationIndex(targetMigration) >= 99) assertMediaSourceQualitySchema(schema);
   if (migrationIndex(targetMigration) >= 100) assertEshopRatingSchema(schema);
+  if (migrationIndex(targetMigration) >= 101) assertEshopProfilePresentationSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1720,6 +1736,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
       assertPartnerMediaSchema(schema);
       assertAutomationEntityResolutionPrerequisites(schema);
     }
+    if (targetIndex > 100) assertEshopRatingSchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }
