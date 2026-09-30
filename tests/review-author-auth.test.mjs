@@ -231,6 +231,7 @@ test("review auth return path allows canonical profiles and the review form whil
   assert.equal(normalizeReviewAuthorReturnTo("/adresar/veterinari/moja-klinika#recenzie"), "/adresar/veterinari/moja-klinika#recenzie");
   assert.equal(normalizeReviewAuthorReturnTo("/organizacie/utulok?reviewsPage=2#recenzie"), "/organizacie/utulok?reviewsPage=2#recenzie");
   assert.equal(normalizeReviewAuthorReturnTo("/recenzia/napisat?resourceId=opaque.directory.1"), "/recenzia/napisat?resourceId=opaque.directory.1");
+  assert.equal(normalizeReviewAuthorReturnTo("/recenzie/eshopy/super-zoo/hodnotit"), "/recenzie/eshopy/super-zoo/hodnotit");
   for (const bad of [
     "https://evil.example/",
     "//evil.example/path",
@@ -239,6 +240,7 @@ test("review auth return path allows canonical profiles and the review form whil
     "/api/review-author/auth/logout",
     "/partner",
     "/recenzie",
+    "/recenzie/eshopy/super-zoo/hodnotit?next=/admin",
     "/adresar/veterinari",
     "/organizacie/a/b",
     "/recenzia/napisat?resourceId=ok&next=https%3A%2F%2Fevil.example",
