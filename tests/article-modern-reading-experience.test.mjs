@@ -148,12 +148,13 @@ test("article header follows compact editorial hierarchy and keeps save/share wi
   const figure = indexOfOrFail(detail, "className={styles.heroFigure}", "hero figure is missing");
   assert.ok(kicker < title && title < excerpt && excerpt < meta && meta < favorite && favorite < compactShare && compactShare < figure);
   assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
-  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 8\.8/);
-  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*max-height:\s*500px/);
+  assert.match(styles, /\.title h1[\s\S]*max-width:\s*32ch/);
+  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 7\.2/);
+  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*max-height:\s*410px/);
 });
 
 test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {
-  assert.match(styles, /--article-reading-width:\s*720px/);
+  assert.match(styles, /--article-reading-width:\s*760px/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*300px\)/);
   assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*96px/);
   assert.match(detail, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
@@ -171,10 +172,10 @@ test("mobile article composition stacks the sidebar, preserves 44px controls and
   assert.doesNotMatch(styles, /width:\s*calc\(100vw \+/);
 });
 
-test("article without hero image keeps a deliberate placeholder instead of collapsing the composition", () => {
-  assert.match(detail, /article\.image \? \(/);
-  assert.match(detail, /article-hero-placeholder--\$\{article\.accent\}/);
-  assert.match(detail, /<PawMark size=\{72\} \/>/);
+test("article without hero image skips hero media instead of reserving a large placeholder", () => {
+  assert.match(detail, /\{article\.image \? \(\s*<figure className=\{styles\.heroFigure\}>/s);
+  assert.doesNotMatch(detail, /article-hero-placeholder/);
+  assert.doesNotMatch(detail, /PawMark/);
 });
 
 test("article with no safe related candidate renders no mid card or recommendation section", () => {
@@ -202,14 +203,18 @@ test("save and share remain available in header and at article end", () => {
   assert.match(shareComponent, /navigator\.clipboard\.writeText/);
 });
 
-test("TOC remains deterministic, collapsed, keyboard focusable and bound to heading anchors", () => {
+test("TOC remains deterministic, H2-only, collapsed, keyboard focusable and bound to heading anchors", () => {
   assert.match(detail, /articleBlockHeadings\(blocks\)/);
-  assert.match(detail, /const showTableOfContents = readMinutes >= 8 && h2Count >= 5/);
+  assert.match(detail, /const tocHeadings = headings\.filter\(\(heading\) => heading\.level === 2\)/);
+  assert.match(detail, /const showTableOfContents = tocHeadings\.length >= 3/);
+  assert.match(detail, /tocHeadings\.map/);
+  assert.doesNotMatch(detail, /readMinutes|article\.readTime/);
   assert.match(detail, /<details className=\{styles\.toc\}>/);
   assert.doesNotMatch(detail, /<details[^>]*\sopen(?:=|\s|>)/);
   assert.match(detail, /<nav aria-label="Obsah článku">/);
   assert.match(blocks, /const headingIds = new Map\(articleBlockHeadings\(blocks\)/);
   assert.match(blocks, /<h2 id=\{headingIds\.get\(block\.id\)\}/);
+  assert.match(styles, /scroll-margin-top:\s*calc\(var\(--psipedia-sticky-header-height,/);
   assert.match(styles, /\.toc summary:focus-visible/);
 });
 
@@ -237,10 +242,11 @@ test("hero image accessibility metadata remains separate from visible caption an
 });
 
 
-test("canonical author presentation keeps a safe legacy fallback", () => {
+test("canonical author presentation keeps a safe legacy fallback without redundant role copy", () => {
   assert.match(detail, /authorProfile\?\.displayName \|\| article\.author/);
   assert.match(detail, /authorProfile\?\.avatarUrl/);
-  assert.match(detail, /authorProfile\?\.role/);
+  assert.match(detail, /const authorRole = authorProfile\?\.role\?\.trim\(\)/);
+  assert.match(detail, /authorName\.toLocaleLowerCase\("sk"\)\.includes\(authorRole\.toLocaleLowerCase\("sk"\)\)/);
   assert.match(articleStore, /export async function getPublishedArticleAuthorProfile/);
   assert.match(articleStore, /getEditorialAuthorProfile\(database, authorProfileId, true\)/);
 });

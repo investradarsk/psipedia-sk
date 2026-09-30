@@ -14,7 +14,7 @@ const cases = [
     id: "stimulus-control",
     path: "/aktivity/stimulus-control-u-psa",
     title: "Stimulus control: kedy pes povel naozaj ovláda",
-    toc: false,
+    toc: true,
     updated: false,
     hasImage: true,
   },
@@ -22,7 +22,7 @@ const cases = [
     id: "granule",
     path: "/starostlivost/ako-vybrat-granule-bez-marketingovych-mytov",
     title: "Ako vybrať granule bez marketingových mýtov",
-    toc: false,
+    toc: true,
     updated: true,
     hasImage: true,
   },
@@ -34,6 +34,12 @@ const cases = [
     updated: false,
     hasImage: false,
   },
+] as const;
+
+const productionReferenceCases = [
+  { id: "zubna-hygiena", path: "/starostlivost/ako-cistit-psovi-zuby" },
+  { id: "nosework", path: "/aktivity/nosework" },
+  { id: "prvy-den-steniatka", path: "/steniatka/prvy-den-so-steniatkom-doma" },
 ] as const;
 
 async function expectNoSeriousAccessibilityViolations(page: Page) {
@@ -67,6 +73,20 @@ async function captureProductionBaseline(page: Page, path: string, output: strin
   }
 }
 
+async function expectAnchorClearsStickyHeader(page: Page, href: string) {
+  const id = decodeURIComponent(href.replace(/^#/, ""));
+  const target = page.locator(`#${id}`);
+  await target.waitFor({ state: "visible" });
+  const metrics = await target.evaluate((node) => {
+    const header = document.querySelector<HTMLElement>(".site-header");
+    return {
+      top: node.getBoundingClientRect().top,
+      headerHeight: header?.getBoundingClientRect().height ?? 0,
+    };
+  });
+  expect(metrics.top).toBeGreaterThanOrEqual(metrics.headerHeight + 8);
+}
+
 async function expectSemanticArticleHeadings(page: Page) {
   const levels = await page.locator(".article-prose h2, .article-prose h3").evaluateAll((headings) =>
     headings.map((heading) => Number(heading.tagName.slice(1))),
@@ -85,6 +105,24 @@ test.beforeEach(async ({ page, baseURL }) => {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
+test("ARTICLE-VISUAL-1 captures requested production references on desktop and mobile", async ({ page }) => {
+  test.skip(process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1", "Production capture is CI-only.");
+  for (const reference of productionReferenceCases) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await captureProductionBaseline(
+      page,
+      reference.path,
+      `.e2e-artifacts/article-ux-1/${reference.id}-before-production-desktop-1440x900.png`,
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureProductionBaseline(
+      page,
+      reference.path,
+      `.e2e-artifacts/article-ux-1/${reference.id}-before-production-mobile-390x844.png`,
+    );
+  }
+});
+
 for (const articleCase of cases) {
   test(`${articleCase.id} mobile 390x844 article composition`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -97,7 +135,11 @@ for (const articleCase of cases) {
     await page.goto(articleCase.path);
     await expect(page.getByRole("heading", { level: 1, name: articleCase.title })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Navigácia v článku" })).toBeVisible();
-    await expect(page.locator(articleCase.hasImage ? ".article-hero-image" : ".article-hero-placeholder")).toBeVisible();
+    if (articleCase.hasImage) {
+      await expect(page.locator(".article-hero-image")).toBeVisible();
+    } else {
+      await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
+    }
     await expect(page.locator(".article-intro")).toBeVisible();
     await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
     await expect(page.locator(".article-aside")).toHaveCount(0);
@@ -119,22 +161,24 @@ for (const articleCase of cases) {
     const metrics = await page.evaluate(() => {
       const h1 = document.querySelector<HTMLElement>("h1")!;
       const excerpt = document.querySelector<HTMLElement>("main#obsah header h1 + p")!;
-      const image = document.querySelector<HTMLElement>(".article-hero-image, .article-hero-placeholder")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image");
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const intro = document.querySelector<HTMLElement>(".article-intro")!;
       const takeaway = document.querySelector<HTMLElement>(".takeaway-box")!;
-      const imageRect = image.getBoundingClientRect();
+      const header = document.querySelector<HTMLElement>("main#obsah > header")!;
+      const imageRect = image?.getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         h1Size: Number.parseFloat(getComputedStyle(h1).fontSize),
         excerptClipping: excerpt.scrollHeight - excerpt.clientHeight,
-        imageRatio: imageRect.width / imageRect.height,
+        imageRatio: imageRect ? imageRect.width / imageRect.height : null,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
         proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
         introTop: intro.getBoundingClientRect().top,
         introBottom: intro.getBoundingClientRect().bottom,
         takeawayTop: takeaway.getBoundingClientRect().top,
+        noImageGap: prose.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
       };
     });
 
@@ -153,13 +197,19 @@ for (const articleCase of cases) {
     expect(metrics.h1Size).toBeGreaterThanOrEqual(28.5);
     expect(metrics.h1Size).toBeLessThanOrEqual(33);
     expect(metrics.excerptClipping, "The mobile perex must be fully visible").toBeLessThanOrEqual(1);
-    expect(metrics.imageRatio).toBeGreaterThan(1.74);
-    expect(metrics.imageRatio).toBeLessThan(1.81);
+    if (articleCase.hasImage) {
+      expect(metrics.imageRatio).not.toBeNull();
+      expect(metrics.imageRatio!).toBeGreaterThan(1.74);
+      expect(metrics.imageRatio!).toBeLessThan(1.81);
+    } else {
+      expect(metrics.imageRatio).toBeNull();
+      expect(metrics.noImageGap).toBeLessThanOrEqual(32);
+    }
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.62);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.69);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.8);
+    expect(metrics.proseSize).toBeLessThanOrEqual(17.2);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.64);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.72);
     expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
 
     if (articleCase.id === "bikejoring") {
@@ -178,10 +228,23 @@ for (const articleCase of cases) {
       await expect(summary).toBeFocused();
       await summary.press("Enter");
       await expect(toc).toHaveAttribute("open", "");
-      await expect(toc.locator("a[href^='#']").first()).toBeVisible();
+      const firstAnchor = toc.locator("a[href^='#']").first();
+      await expect(firstAnchor).toBeVisible();
+      const href = await firstAnchor.getAttribute("href");
+      expect(href).toBeTruthy();
+      if (articleCase.id === "bikejoring") {
+        await expect(toc).not.toContainText("Smer a zastavenie");
+      }
+      await firstAnchor.click();
+      await expectAnchorClearsStickyHeader(page, href!);
+      await page.goto(`${articleCase.path}${href}`);
+      await expectAnchorClearsStickyHeader(page, href!);
+      await expect(toc).not.toHaveAttribute("open");
     } else {
       await expect(toc).toHaveCount(0);
     }
+
+    await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
 
     if (articleCase.updated) {
       await expect(page.getByText(/Aktualizované/)).toBeVisible();
@@ -202,7 +265,11 @@ for (const articleCase of cases) {
     await page.goto(articleCase.path);
     const h1 = page.getByRole("heading", { level: 1, name: articleCase.title });
     await expect(h1).toBeVisible();
-    await expect(page.locator(articleCase.hasImage ? ".article-hero-image" : ".article-hero-placeholder")).toBeVisible();
+    if (articleCase.hasImage) {
+      await expect(page.locator(".article-hero-image")).toBeVisible();
+    } else {
+      await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
+    }
     await expect(page.locator(".article-prose")).toBeVisible();
     await expect(page.locator(".article-aside")).toHaveCount(0);
     await expect(page.getByText("Najčítanejšie", { exact: true })).toHaveCount(0);
@@ -212,32 +279,41 @@ for (const articleCase of cases) {
 
     const metrics = await page.evaluate(() => {
       const heading = document.querySelector<HTMLElement>("h1")!;
-      const image = document.querySelector<HTMLElement>(".article-hero-image, .article-hero-placeholder")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image");
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
-      const imageRect = image.getBoundingClientRect();
+      const header = document.querySelector<HTMLElement>("main#obsah > header")!;
+      const imageRect = image?.getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         h1Size: Number.parseFloat(getComputedStyle(heading).fontSize),
-        imageHeight: imageRect.height,
-        imageRatio: imageRect.width / imageRect.height,
+        imageHeight: imageRect?.height ?? null,
+        imageRatio: imageRect ? imageRect.width / imageRect.height : null,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
         proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
+        noImageGap: prose.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
       };
     });
 
     expect(metrics.overflow).toBeLessThanOrEqual(1);
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
-    expect(metrics.imageHeight).toBeGreaterThanOrEqual(450);
-    expect(metrics.imageHeight).toBeLessThanOrEqual(500);
-    expect(metrics.imageRatio).toBeGreaterThan(1.78);
-    expect(metrics.imageRatio).toBeLessThan(1.85);
-    expect(metrics.proseWidth).toBeGreaterThanOrEqual(700);
-    expect(metrics.proseWidth).toBeLessThanOrEqual(721);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.65);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.71);
+    if (articleCase.hasImage) {
+      expect(metrics.imageHeight).not.toBeNull();
+      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(300);
+      expect(metrics.imageHeight!).toBeLessThanOrEqual(411);
+      expect(metrics.imageRatio).not.toBeNull();
+      expect(metrics.imageRatio!).toBeGreaterThan(1.8);
+    } else {
+      expect(metrics.imageHeight).toBeNull();
+      expect(metrics.imageRatio).toBeNull();
+      expect(metrics.noImageGap).toBeLessThanOrEqual(40);
+    }
+    expect(metrics.proseWidth).toBeGreaterThanOrEqual(739);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(761);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(17.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.64);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.72);
 
     const [desktopProseBox, desktopSidebarBox] = await Promise.all([
       page.locator(".article-prose").boundingBox(),
@@ -249,6 +325,20 @@ for (const articleCase of cases) {
 
     const toc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
     await expect(toc).toHaveCount(articleCase.toc ? 1 : 0);
+    if (articleCase.toc) {
+      await expect(toc).not.toHaveAttribute("open");
+      const firstAnchor = toc.locator("a[href^='#']").first();
+      await toc.locator("summary").click();
+      await expect(toc).toHaveAttribute("open", "");
+      const href = await firstAnchor.getAttribute("href");
+      expect(href).toBeTruthy();
+      await firstAnchor.click();
+      await expectAnchorClearsStickyHeader(page, href!);
+      await page.goto(`${articleCase.path}${href}`);
+      await expectAnchorClearsStickyHeader(page, href!);
+      await expect(toc).not.toHaveAttribute("open");
+    }
+    await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
     await expectSemanticArticleHeadings(page);
 
     const sources = page.locator(".article-block-sources");
@@ -296,8 +386,7 @@ test("ARTICLE-2 manual, automatic and fallback recommendations are published-onl
   await expect(page.getByText("E2E nepublikovaný related kandidát", { exact: true })).toHaveCount(0);
 
   await page.goto("/starostlivost/e2e-clanok-bez-obrazka");
-  await expect(page.locator(".article-hero-image")).toHaveCount(0);
-  await expect(page.locator(".article-hero-placeholder")).toBeVisible();
+  await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
   await expect(page.locator('aside[aria-label="Súvisiaci článok"]')).toHaveCount(0);
   await expect(page.getByRole("complementary", { name: "Najnovšie články" }).locator("li")).toHaveCount(5);
 });
