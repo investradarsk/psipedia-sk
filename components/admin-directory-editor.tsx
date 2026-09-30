@@ -434,9 +434,8 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                     id="directory-house-number"
                     value={houseNumber}
                     onChange={(event) => {
-                      const value = event.target.value;
-                      setHouseNumber(value);
-                      if (value.trim()) setPostalCode("");
+                      setHouseNumber(event.target.value);
+                      if (event.target.value.trim()) setPostalCode("");
                     }}
                     placeholder="Napríklad 1892/74 alebo 74"
                   />
