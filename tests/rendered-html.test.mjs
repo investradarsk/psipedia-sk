@@ -650,14 +650,14 @@ test("renders the news portal and stable topic URLs without published news", asy
   const bindings = { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } };
   const context = { waitUntil() {}, passThroughOnException() {} };
 
-  const news = await worker.fetch(new Request("http://localhost/novinky", { headers: { accept: "text/html" } }), bindings, context);
-  assert.equal(news.status, 200);
-  const newsHtml = await news.text();
-  assert.match(newsHtml, />Novinky<\/a>/);
-  assert.match(newsHtml, /Záchrana a hrdinovia/);
-  assert.match(newsHtml, /Veda a zdravie/);
-  assert.match(newsHtml, /Pracovné a záchranárske psy/);
-  assert.match(newsHtml, /Najprv overiť, potom zdieľať/);
+  const news = await worker.fetch(new Request("http://localhost/novinky", { headers: { accept: "text/html" }, redirect: "manual" }), bindings, context);
+  assert.equal(news.status, 308);
+  assert.equal(new URL(news.headers.get("location"), "http://localhost").pathname, "/clanky");
+
+  const landing = await worker.fetch(new Request("http://localhost/clanky", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(landing.status, 200);
+  const landingHtml = await landing.text();
+  assert.match(landingHtml, /Novinky zo sveta psov/);
 
   const science = await worker.fetch(new Request("http://localhost/novinky/veda-a-zdravie", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(science.status, 200);
@@ -673,11 +673,9 @@ test("renders the community news-tip workflow on its own stable URL", async () =
   const bindings = { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } };
   const context = { waitUntil() {}, passThroughOnException() {} };
 
-  const news = await worker.fetch(new Request("http://localhost/novinky", { headers: { accept: "text/html" } }), bindings, context);
-  assert.equal(news.status, 200);
-  const newsHtml = await news.text();
-  assert.match(newsHtml, /Pošli tip/);
-  assert.match(newsHtml, /Komunita vidí viac/);
+  const news = await worker.fetch(new Request("http://localhost/novinky", { headers: { accept: "text/html" }, redirect: "manual" }), bindings, context);
+  assert.equal(news.status, 308);
+  assert.equal(new URL(news.headers.get("location"), "http://localhost").pathname, "/clanky");
 
   const tipPage = await worker.fetch(new Request("http://localhost/novinky/poslat-tip", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(tipPage.status, 200);
