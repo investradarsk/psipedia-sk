@@ -6,11 +6,17 @@ import { useState } from "react";
 import type { DataQualityDashboard } from "@/lib/data-quality-store";
 
 function mediaStatusLabel(status: string) {
-  if (status === "CHANGED") return "Obrázok sa na zdroji zmenil";
-  if (status === "CANDIDATE") return "Nájdený nový obrázok";
-  if (status === "MISSING") return "Zdroj obrázka chýba";
-  if (status === "ERROR") return "Kontrola zdroja zlyhala";
+  if (status === "CHANGED") return "Obrázok sa zmenil";
+  if (status === "CANDIDATE") return "Nový obrázok";
+  if (status === "MISSING") return "Zdroj chýba";
+  if (status === "ERROR") return "Kontrola zlyhala";
   return status;
+}
+
+function mediaStatusTone(status: string) {
+  if (status === "CHANGED" || status === "CANDIDATE") return "is-review";
+  if (status === "MISSING" || status === "ERROR") return "is-error";
+  return "";
 }
 
 function checkedAt(value: string | null) {
@@ -18,7 +24,13 @@ function checkedAt(value: string | null) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? "Neznámy čas kontroly"
-    : new Intl.DateTimeFormat("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
+    : new Intl.DateTimeFormat("sk-SK", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(date);
 }
 
 function count(value: number | null) {
@@ -34,11 +46,25 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const activeSection = searchParams.get("section") === "media" ? "media" : "profiles";
 
   function pageHref(key: "page" | "mediaPage", value: number) {
     const query = new URLSearchParams(searchParams.toString());
     if (value <= 1) query.delete(key);
     else query.set(key, String(value));
+    const suffix = query.toString();
+    return suffix ? `/admin/kvalita?${suffix}` : "/admin/kvalita";
+  }
+
+  function sectionHref(section: "profiles" | "media") {
+    const query = new URLSearchParams(searchParams.toString());
+    if (section === "media") {
+      query.set("section", "media");
+      query.delete("page");
+    } else {
+      query.delete("section");
+      query.delete("mediaPage");
+    }
     const suffix = query.toString();
     return suffix ? `/admin/kvalita?${suffix}` : "/admin/kvalita";
   }
@@ -66,7 +92,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
       const response = await fetch(`/api/admin/data-quality/media/${id}/accept`, { method: "POST" });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error || "Obrázok sa nepodarilo potvrdiť.");
-      setMessage("Nový obrázok bol uložený na Psipedii a prepojený s profilom/podujatím.");
+      setMessage("Obrázok bol schválený, uložený na Psipedii a prepojený s profilom alebo podujatím.");
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Obrázok sa nepodarilo potvrdiť.");
@@ -96,158 +122,256 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
       <section className="admin-stats" aria-label="Kvalita údajov">
         <div><span>Profily s problémom</span><strong>{count(data.summary.profilesWithIssues)}</strong></div>
         <div><span>Bez obrázka</span><strong>{count(data.summary.missingImage)}</strong></div>
-        <div><span>Zmena obrázka</span><strong>{count(data.summary.changedMedia)}</strong></div>
-        <div><span>Nefunkčný zdroj</span><strong>{count(data.summary.missingMediaSource)}</strong></div>
+        <div><span>Na kontrolu obrázka</span><strong>{count(data.summary.changedMedia)}</strong></div>
+        <div><span>Chyba zdroja</span><strong>{count(data.summary.missingMediaSource)}</strong></div>
       </section>
 
-      <section className="admin-panel">
-        <div className="admin-heading-actions" style={{ justifyContent: "space-between", width: "100%" }}>
-          <div>
-            <h2>Automatická kontrola obrázkov</h2>
-            <p className="admin-help-results">
-              Zdroj sa kontroluje najviac raz za 24 hodín. Verejný obrázok zostáva uložený v R2, kým nový kandidát nepotvrdíš.
-            </p>
+      <nav className="admin-quality-tabs" aria-label="Typ kontroly kvality">
+        <Link
+          href={sectionHref("profiles")}
+          className={activeSection === "profiles" ? "is-active" : ""}
+          aria-current={activeSection === "profiles" ? "page" : undefined}
+        >
+          <span>Profily</span>
+          <strong>{count(data.summary.profilesWithIssues)}</strong>
+          <small>chýbajúce alebo nepotvrdené údaje</small>
+        </Link>
+        <Link
+          href={sectionHref("media")}
+          className={activeSection === "media" ? "is-active" : ""}
+          aria-current={activeSection === "media" ? "page" : undefined}
+        >
+          <span>Obrázky</span>
+          <strong>{count(data.summary.changedMedia)}</strong>
+          <small>na schválenie · {count(data.summary.mediaIssues)} problémov spolu</small>
+        </Link>
+      </nav>
+
+      {activeSection === "profiles" ? (
+        <section className="admin-panel admin-quality-panel">
+          <div className="admin-quality-section-heading">
+            <div>
+              <h2>Chýbajúce údaje v profiloch</h2>
+              <p>
+                Zobrazené sú iba položky, ktoré ešte treba riešiť. Legitímne chýbajúci údaj môžeš uzavrieť priamo v profile.
+              </p>
+            </div>
           </div>
-          <button className="admin-primary-action" type="button" disabled={busy === "run" || mediaUnavailable || !data.monitorReady} onClick={runMediaCheck}>
-            {busy === "run" ? "Kontrolujem…" : "Skontrolovať teraz"}
-          </button>
-        </div>
-        {message && <p className="admin-flash" role="status">{message}</p>}
-        {mediaUnavailable && (
-          <p className="admin-message admin-message--error">
-            Monitoring obrázkov momentálne nie je dostupný. Skús obnoviť údaje.
-            {reference(data.sections.media.errorRef)}
-          </p>
-        )}
-      </section>
 
-      <section className="admin-panel">
-        <h2>Chýbajúce údaje v profiloch</h2>
-        <p className="admin-help-results">
-          Zoznam obsahuje iba údaje, ktoré ešte treba riešiť. Ak profil údaj nemá, nezverejňuje ho, nevzťahuje sa naň alebo ho po kontrole nemožno dohľadať, označ tento stav priamo v profile. Po 12 mesiacoch sa takto uzavretý údaj automaticky znovu zaradí na kontrolu.
-        </p>
-        {profilesUnavailable ? (
-          <p className="admin-message admin-message--error">
-            Profilové údaje sa momentálne nepodarilo načítať. Skús obnoviť údaje.
-            {reference(data.sections.profiles.errorRef)}
-          </p>
-        ) : (
-          <>
-            <p className="admin-help-results">
-              Spolu profilov {count(data.summary.totalProfiles)} · S problémom {count(data.summary.profilesWithIssues)} ·
-              Popis {count(data.summary.missingDescription)} · Telefón {count(data.summary.missingPhone)} ·
-              E-mail {count(data.summary.missingEmail)} · Web {count(data.summary.missingWebsite)} ·
-              Adresa {count(data.summary.incompleteAddress)}
+          {profilesUnavailable ? (
+            <p className="admin-message admin-message--error">
+              Profilové údaje sa momentálne nepodarilo načítať. Skús obnoviť údaje.
+              {reference(data.sections.profiles.errorRef)}
             </p>
-            <p className="admin-help-results">
-              Zobrazené problémy {data.profilePagination.from}–{data.profilePagination.to} z {data.profilePagination.totalItems}.
-            </p>
-            {data.profiles.length ? (
-              <div className="admin-article-list">
-                {data.profiles.map((profile) => (
-                  <article className="admin-article-row" key={profile.id}>
-                    <div className="admin-article-main">
-                      <div className="admin-article-tags">
-                        <span>{profile.category || "Bez kategórie"}</span>
-                        <span>{profile.status === "published" ? "Publikované" : "Koncept"}</span>
+          ) : (
+            <>
+              <div className="admin-quality-summary-line">
+                <span>Spolu {count(data.summary.totalProfiles)}</span>
+                <span>S problémom {count(data.summary.profilesWithIssues)}</span>
+                <span>Popis {count(data.summary.missingDescription)}</span>
+                <span>Telefón {count(data.summary.missingPhone)}</span>
+                <span>E-mail {count(data.summary.missingEmail)}</span>
+                <span>Web {count(data.summary.missingWebsite)}</span>
+                <span>Adresa {count(data.summary.incompleteAddress)}</span>
+              </div>
+              <p className="admin-help-results">
+                Zobrazené problémy {data.profilePagination.from}–{data.profilePagination.to} z {data.profilePagination.totalItems}.
+              </p>
+
+              {data.profiles.length ? (
+                <div className="admin-quality-profile-list">
+                  {data.profiles.map((profile) => (
+                    <article className="admin-quality-profile-row" key={profile.id}>
+                      <div className="admin-article-main">
+                        <div className="admin-article-tags">
+                          <span>{profile.category || "Bez kategórie"}</span>
+                          <span>{profile.status === "published" ? "Publikované" : "Koncept"}</span>
+                        </div>
+                        <h2><Link href={profile.href}>{profile.name}</Link></h2>
+                        <div className="admin-quality-issue-chips">
+                          {profile.issues.map((issue) => <span key={issue.key}>{issue.label}</span>)}
+                        </div>
                       </div>
-                      <h2><Link href={profile.href}>{profile.name}</Link></h2>
-                      <p>{profile.issues.map((issue) => issue.label).join(" · ")}</p>
-                    </div>
-                    <div className="admin-row-actions">
-                      <Link className="admin-row-edit" href={profile.href}>Doplniť údaje</Link>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="admin-empty">
-                <span>✓</span>
-                <h2>Profily sú kompletné</h2>
-                <p>Kontrola nenašla chýbajúce údaje podľa aktuálnych pravidiel.</p>
-              </div>
-            )}
-            {data.profilePagination.totalPages > 1 && (
-              <nav className="admin-heading-actions" aria-label="Stránkovanie problémov profilov">
-                {data.profilePagination.page > 1 && (
-                  <Link href={pageHref("page", data.profilePagination.page - 1)}>← Predchádzajúca</Link>
-                )}
-                <span>Strana {data.profilePagination.page} z {data.profilePagination.totalPages}</span>
-                {data.profilePagination.page < data.profilePagination.totalPages && (
-                  <Link href={pageHref("page", data.profilePagination.page + 1)}>Ďalšia →</Link>
-                )}
-              </nav>
-            )}
-          </>
-        )}
-      </section>
+                      <div className="admin-row-actions">
+                        <Link className="admin-row-edit" href={profile.href}>Doplniť údaje</Link>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="admin-empty">
+                  <span>✓</span>
+                  <h2>Profily sú kompletné</h2>
+                  <p>Kontrola nenašla chýbajúce údaje podľa aktuálnych pravidiel.</p>
+                </div>
+              )}
 
-      <section className="admin-panel">
-        <h2>Zmeny a chyby obrázkov</h2>
-        {mediaUnavailable ? (
-          <p className="admin-message admin-message--error">
-            Zoznam problémov obrázkov nie je dostupný.
-            {reference(data.sections.media.errorRef)}
-          </p>
-        ) : (
-          <>
-            <p className="admin-help-results">
-              Aktívne položky: <strong>{count(data.summary.mediaIssues)}</strong> · Zobrazené {data.mediaPagination.from}–{data.mediaPagination.to}.
-            </p>
-            {lookupsUnavailable && data.media.length > 0 && (
+              {data.profilePagination.totalPages > 1 && (
+                <nav className="admin-quality-pagination" aria-label="Stránkovanie problémov profilov">
+                  {data.profilePagination.page > 1 ? (
+                    <Link href={pageHref("page", data.profilePagination.page - 1)}>← Predchádzajúca</Link>
+                  ) : <span />}
+                  <strong>Strana {data.profilePagination.page} z {data.profilePagination.totalPages}</strong>
+                  {data.profilePagination.page < data.profilePagination.totalPages ? (
+                    <Link href={pageHref("page", data.profilePagination.page + 1)}>Ďalšia →</Link>
+                  ) : <span />}
+                </nav>
+              )}
+            </>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="admin-panel admin-quality-panel">
+            <div className="admin-quality-section-heading admin-quality-section-heading--actions">
+              <div>
+                <h2>Obrázky na kontrolu</h2>
+                <p>
+                  Najprv schváľ nové alebo zmenené obrázky. Chyby zdroja zostanú v zozname bez rozbitia rozloženia.
+                </p>
+              </div>
+              <button
+                className="admin-primary-action"
+                type="button"
+                disabled={busy === "run" || mediaUnavailable || !data.monitorReady}
+                onClick={runMediaCheck}
+              >
+                {busy === "run" ? "Kontrolujem…" : "Skontrolovať zdroje"}
+              </button>
+            </div>
+
+            {message && <p className="admin-flash" role="status">{message}</p>}
+            {mediaUnavailable && (
               <p className="admin-message admin-message--error">
-                Názvy niektorých súvisiacich profilov alebo podujatí sa nepodarilo načítať; zobrazené sú bezpečné ID.
-                {reference(data.sections.lookups.errorRef)}
+                Monitoring obrázkov momentálne nie je dostupný. Skús obnoviť údaje.
+                {reference(data.sections.media.errorRef)}
               </p>
             )}
-            {data.media.length ? (
-              <div className="admin-article-list">
-                {data.media.map(({ monitor, label, href }) => (
-                  <article className="admin-article-row" key={monitor.id}>
-                    {monitor.candidateImageKey ? (
-                      <div className="admin-directory-thumb" style={{ overflow: "hidden" }}>
-                        <img src={`/media/${monitor.candidateImageKey}`} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                      </div>
-                    ) : null}
-                    <div className="admin-article-main">
-                      <div className="admin-article-tags">
-                        <span>{monitor.entityType === "MANAGED_EVENT" ? "Podujatie" : "Profil"}</span>
-                        <span>{mediaStatusLabel(monitor.status)}</span>
-                      </div>
-                      <h2><Link href={href}>{label}</Link></h2>
-                      <p>Zdrojový obrázok vyžaduje kontrolu.</p>
-                      <p className="admin-help-results">Posledná kontrola: {checkedAt(monitor.lastCheckedAt)}</p>
-                      {monitor.sourceImageUrl && <p className="admin-help-results">Zdroj: <a href={monitor.sourceImageUrl} target="_blank" rel="noreferrer">{monitor.sourceImageUrl}</a></p>}
-                      {monitor.candidateImageUrl && monitor.candidateImageUrl !== monitor.sourceImageUrl && <p className="admin-help-results">Nový kandidát: <a href={monitor.candidateImageUrl} target="_blank" rel="noreferrer">{monitor.candidateImageUrl}</a></p>}
-                    </div>
-                    <div className="admin-row-actions">
-                      <Link className="admin-row-edit" href={href}>Otvoriť</Link>
-                      {monitor.candidateImageKey && (
-                        <button type="button" disabled={busy === `accept-${monitor.id}`} onClick={() => acceptCandidate(monitor.id)}>
-                          {busy === `accept-${monitor.id}` ? "Ukladám…" : "Použiť nový obrázok"}
-                        </button>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
+          </section>
+
+          <section className="admin-panel admin-quality-panel">
+            {mediaUnavailable ? (
+              <p className="admin-message admin-message--error">
+                Zoznam problémov obrázkov nie je dostupný.
+                {reference(data.sections.media.errorRef)}
+              </p>
             ) : (
-              <div className="admin-empty"><span>✓</span><h2>Bez problémov</h2><p>Žiadny sledovaný obrázok momentálne nevyžaduje zásah.</p></div>
-            )}
-            {data.mediaPagination.totalPages > 1 && (
-              <nav className="admin-heading-actions" aria-label="Stránkovanie problémov obrázkov">
-                {data.mediaPagination.page > 1 && (
-                  <Link href={pageHref("mediaPage", data.mediaPagination.page - 1)}>← Predchádzajúca</Link>
+              <>
+                <div className="admin-quality-summary-line">
+                  <span>Na schválenie {count(data.summary.changedMedia)}</span>
+                  <span>Chyby zdroja {count(data.summary.missingMediaSource)}</span>
+                  <span>Spolu {count(data.summary.mediaIssues)}</span>
+                </div>
+                <p className="admin-help-results">
+                  Zobrazené {data.mediaPagination.from}–{data.mediaPagination.to} z {data.mediaPagination.totalItems}.
+                </p>
+
+                {lookupsUnavailable && data.media.length > 0 && (
+                  <p className="admin-message admin-message--error">
+                    Názvy niektorých profilov alebo podujatí sa nepodarilo načítať; zobrazené sú bezpečné ID.
+                    {reference(data.sections.lookups.errorRef)}
+                  </p>
                 )}
-                <span>Strana {data.mediaPagination.page} z {data.mediaPagination.totalPages}</span>
-                {data.mediaPagination.page < data.mediaPagination.totalPages && (
-                  <Link href={pageHref("mediaPage", data.mediaPagination.page + 1)}>Ďalšia →</Link>
+
+                {data.media.length ? (
+                  <div className="admin-quality-media-list">
+                    {data.media.map(({ monitor, label, href }) => {
+                      const hasCandidate = Boolean(monitor.candidateImageKey);
+                      const hasCurrent = Boolean(monitor.activeImageKey);
+                      return (
+                        <article
+                          className={`admin-quality-media-card ${hasCandidate ? "has-candidate" : "is-source-issue"}`}
+                          key={monitor.id}
+                        >
+                          <div className="admin-quality-media-preview" aria-label={hasCandidate ? "Porovnanie obrázkov" : "Stav obrázka"}>
+                            {hasCurrent && hasCandidate ? (
+                              <figure>
+                                <span>Aktuálny</span>
+                                <img src={`/media/${monitor.activeImageKey}`} alt="" />
+                              </figure>
+                            ) : null}
+                            {hasCandidate ? (
+                              <figure>
+                                <span>{hasCurrent ? "Nový" : "Nájdený"}</span>
+                                <img src={`/media/${monitor.candidateImageKey}`} alt="" />
+                              </figure>
+                            ) : (
+                              <div className="admin-quality-media-placeholder" aria-hidden="true">!</div>
+                            )}
+                          </div>
+
+                          <div className="admin-quality-media-content">
+                            <div className="admin-article-tags">
+                              <span>{monitor.entityType === "MANAGED_EVENT" ? "Podujatie" : "Profil"}</span>
+                              <span className={`admin-quality-status ${mediaStatusTone(monitor.status)}`}>
+                                {mediaStatusLabel(monitor.status)}
+                              </span>
+                            </div>
+                            <h2><Link href={href}>{label}</Link></h2>
+                            <p className="admin-help-results">
+                              Posledná kontrola: {checkedAt(monitor.lastCheckedAt)}
+                            </p>
+
+                            {(monitor.sourceImageUrl || monitor.candidateImageUrl) && (
+                              <details className="admin-quality-source-details">
+                                <summary>Zdroj a technické údaje</summary>
+                                {monitor.sourceImageUrl && (
+                                  <p>
+                                    <strong>Zdroj:</strong>{" "}
+                                    <a href={monitor.sourceImageUrl} target="_blank" rel="noreferrer">{monitor.sourceImageUrl}</a>
+                                  </p>
+                                )}
+                                {monitor.candidateImageUrl && monitor.candidateImageUrl !== monitor.sourceImageUrl && (
+                                  <p>
+                                    <strong>Nový kandidát:</strong>{" "}
+                                    <a href={monitor.candidateImageUrl} target="_blank" rel="noreferrer">{monitor.candidateImageUrl}</a>
+                                  </p>
+                                )}
+                              </details>
+                            )}
+                          </div>
+
+                          <div className="admin-quality-media-actions">
+                            {hasCandidate && (
+                              <button
+                                className="is-primary"
+                                type="button"
+                                disabled={busy === `accept-${monitor.id}`}
+                                onClick={() => acceptCandidate(monitor.id)}
+                              >
+                                {busy === `accept-${monitor.id}` ? "Ukladám…" : "Schváliť obrázok"}
+                              </button>
+                            )}
+                            <Link href={href}>Otvoriť {monitor.entityType === "MANAGED_EVENT" ? "podujatie" : "profil"}</Link>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="admin-empty">
+                    <span>✓</span>
+                    <h2>Bez problémov</h2>
+                    <p>Žiadny sledovaný obrázok momentálne nevyžaduje zásah.</p>
+                  </div>
                 )}
-              </nav>
+
+                {data.mediaPagination.totalPages > 1 && (
+                  <nav className="admin-quality-pagination" aria-label="Stránkovanie problémov obrázkov">
+                    {data.mediaPagination.page > 1 ? (
+                      <Link href={pageHref("mediaPage", data.mediaPagination.page - 1)}>← Predchádzajúca</Link>
+                    ) : <span />}
+                    <strong>Strana {data.mediaPagination.page} z {data.mediaPagination.totalPages}</strong>
+                    {data.mediaPagination.page < data.mediaPagination.totalPages ? (
+                      <Link href={pageHref("mediaPage", data.mediaPagination.page + 1)}>Ďalšia →</Link>
+                    ) : <span />}
+                  </nav>
+                )}
+              </>
             )}
-          </>
-        )}
-      </section>
+          </section>
+        </>
+      )}
     </>
   );
 }
