@@ -108,7 +108,9 @@ test("free-text canonical save does not resolve exact geo automatically", () => 
     assert.match(source, /let verified = null/);
     assert.match(source, /if \(verified\) \{[\s\S]*applyVerifiedDirectoryAddressGeo/);
     const freeTextStart = source.indexOf("if (numberlessLocalityConfirmed)");
-    const providerStart = source.indexOf("else if (body.addressProviderResultId?.trim())", freeTextStart);
+    const updateProviderStart = source.indexOf("else if (body.addressProviderResultId?.trim())", freeTextStart);
+    const createProviderStart = source.indexOf("} else {\n        if (!body.addressProviderResultId?.trim())", freeTextStart);
+    const providerStart = updateProviderStart >= 0 ? updateProviderStart : createProviderStart;
     assert.ok(freeTextStart >= 0 && providerStart > freeTextStart);
     const freeTextBlock = source.slice(freeTextStart, providerStart);
     assert.match(freeTextBlock, /verifyDirectoryNumberlessLocality/);
