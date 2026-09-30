@@ -5,8 +5,14 @@ import { getManagedPortalSectionArticleCounts, listManagedPortalSections } from 
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSectionsPage() {
+export default async function AdminSectionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sekcia?: string | string[] }>;
+}) {
   const user = await requireAdminPageUser("/admin/sekcie");
+  const { sekcia } = await searchParams;
+  const initialOpenSlug = Array.isArray(sekcia) ? sekcia[0] : sekcia;
   const [sections, articleCounts] = await Promise.all([
     listManagedPortalSections(),
     getManagedPortalSectionArticleCounts(),
@@ -19,7 +25,7 @@ export default async function AdminSectionsPage() {
       title="Sekcie a podsekcie"
       description="Spravuj verejné názvy, úvody, poradie, viditeľnosť a podsekcie bez zásahu do kódu."
     >
-      <AdminSectionEditor initialSections={sections} articleCounts={articleCounts} />
+      <AdminSectionEditor initialSections={sections} articleCounts={articleCounts} initialOpenSlug={initialOpenSlug} />
     </AdminShell>
   );
 }
