@@ -78,7 +78,7 @@ test("admin editor sends the confirmation only after the explicit locality actio
   assert.match(editorSource, /setHouseNumber\(""\)/);
   assert.match(editorSource, /setAddressFormat\("STREET"\)/);
   assert.match(editorSource, /numberlessLocalityConfirmed: numberlessLocalityConfirmed \|\| undefined/);
-  assert.match(editorSource, /if \(value\.trim\(\)\) \{[\s\S]*setNumberlessLocalityConfirmed\(false\)/);
+  assert.match(editorSource, /if \(event\.target\.value\.trim\(\)\) \{[\s\S]*setNumberlessLocalityConfirmed\(false\)/);
 });
 
 test("create and update routes accept free-text only with an explicit true request flag", () => {
@@ -107,9 +107,14 @@ test("free-text canonical save does not resolve exact geo automatically", () => 
   for (const source of [createRouteSource, updateRouteSource]) {
     assert.match(source, /let verified = null/);
     assert.match(source, /if \(verified\) \{[\s\S]*applyVerifiedDirectoryAddressGeo/);
+    const freeTextStart = source.indexOf("if (numberlessLocalityConfirmed)");
+    const providerStart = source.indexOf("else if (body.addressProviderResultId?.trim())", freeTextStart);
+    assert.ok(freeTextStart >= 0 && providerStart > freeTextStart);
+    const freeTextBlock = source.slice(freeTextStart, providerStart);
+    assert.match(freeTextBlock, /verifyDirectoryNumberlessLocality/);
+    assert.match(freeTextBlock, /withVerifiedDirectoryNumberlessAddress/);
+    assert.doesNotMatch(freeTextBlock, /applyVerifiedDirectoryAddressGeo|verified\s*=/);
   }
-  assert.doesNotMatch(createRouteSource, /verifyDirectoryNumberlessLocality[\s\S]{0,600}verified\s*=/);
-  assert.doesNotMatch(updateRouteSource, /verifyDirectoryNumberlessLocality[\s\S]{0,600}verified\s*=/);
 });
 
 test("AgiPaws free-text locality is still accepted only through a strong concrete Google Place match", () => {
