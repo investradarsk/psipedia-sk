@@ -15,6 +15,7 @@ import {
   readDirectoryQualityMetadata,
   type DirectoryQualityField,
 } from "@/lib/directory-profile-metadata";
+import { directoryCategories } from "@/lib/directory";
 import {
   listMediaSourceIssues,
   mediaSourceMonitorSchemaReady,
@@ -63,6 +64,14 @@ export const DATA_QUALITY_D1_MAX_BOUND_PARAMS = 100;
 export const DATA_QUALITY_LOOKUP_CHUNK_SIZE = 90;
 export const DATA_QUALITY_PROFILE_PAGE_SIZE = 50;
 export const DATA_QUALITY_MEDIA_PAGE_SIZE = 50;
+
+export const dataQualityCategoryOptions = [
+  { value: "all", label: "Všetky kategórie" },
+  ...directoryCategories.map((category) => ({ value: category.slug, label: category.label })),
+  { value: "podujatia", label: "Podujatia" },
+] as const;
+
+export type DataQualityCategory = (typeof dataQualityCategoryOptions)[number]["value"];
 
 const VALID_SOURCE_DATA_SQL =
   "CASE WHEN json_valid(COALESCE(source_data_json, '')) THEN source_data_json ELSE '{}' END";
@@ -143,6 +152,7 @@ export type MediaQualityItem = {
   monitor: MediaSourceMonitor;
   label: string;
   href: string;
+  category: string;
 };
 
 export type DataQualityPagination = {
@@ -184,6 +194,8 @@ export type DataQualityDashboard = {
   profilePagination: DataQualityPagination;
   mediaPagination: DataQualityPagination;
   availability: AdminAutomationReliabilitySummary;
+  category: DataQualityCategory;
+  categoryOptions: typeof dataQualityCategoryOptions;
   sections: {
     profiles: AvailabilitySection;
     media: AvailabilitySection;
@@ -267,8 +279,26 @@ function directoryIssues(row: DirectoryQualityRow) {
   return issues;
 }
 
-async function loadProfileQualityPage(requestedPage: number): Promise<ProfileReadData> {
+async function loadProfileQualityPage(requestedPage: number, category: DataQualityCategory): Promise<ProfileReadData> {
   const db = database();
+  const categoryClause = category !== "all" && category !== "podujatia" ? " AND category=?" : "";
+  const categoryBindings = categoryClause ? [category] : [];
+  if (category === "podujatia") {
+    return {
+      summary: {
+        totalProfiles: 0,
+        profilesWithIssues: 0,
+        missingDescription: 0,
+        missingPhone: 0,
+        missingEmail: 0,
+        missingWebsite: 0,
+        missingImage: 0,
+        incompleteAddress: 0,
+      },
+      profiles: [],
+      pagination: emptyPagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE),
+    };
+  }
   const summaryRow = await db.prepare(`
     SELECT
       COUNT(*) AS total_profiles,
@@ -280,8 +310,8 @@ async function loadProfileQualityPage(requestedPage: number): Promise<ProfileRea
       SUM(CASE WHEN ${MISSING_IMAGE_SQL} THEN 1 ELSE 0 END) AS missing_image,
       SUM(CASE WHEN ${INCOMPLETE_ADDRESS_SQL} THEN 1 ELSE 0 END) AS incomplete_address
     FROM directory_profiles
-    WHERE status <> 'archived'
-  `).first<ProfileSummaryRow>();
+    WHERE status <> 'archived'${categoryClause}
+  `).bind(...categoryBindings).first<ProfileSummaryRow>();
 
   const summary = {
     totalProfiles: Number(summaryRow?.total_profiles ?? 0),
@@ -299,11 +329,11 @@ async function loadProfileQualityPage(requestedPage: number): Promise<ProfileRea
     SELECT id, slug, name, category, status, description, website_url, image_url, image_key,
            online, city, service_address_confirmation, source_data_json
     FROM directory_profiles
-    WHERE status <> 'archived'
+    WHERE status <> 'archived'${categoryClause}
       AND ${PROFILE_ISSUE_SQL}
     ORDER BY name COLLATE NOCASE ASC, id ASC
     LIMIT ? OFFSET ?
-  `).bind(paging.pageSize, offset).all<DirectoryQualityRow>();
+  `).bind(...categoryBindings, paging.pageSize, offset).all<DirectoryQualityRow>();
 
   const profiles = (result.results ?? []).map((row) => ({
     id: Number(row.id),
@@ -319,7 +349,16 @@ async function loadProfileQualityPage(requestedPage: number): Promise<ProfileRea
   return { summary, profiles, pagination: paging };
 }
 
-async function loadMediaQualityPage(requestedPage: number): Promise<MediaReadData> {
+function mediaCategorySql(category: DataQualityCategory) {
+  if (category === "all") return { clause: "", bindings: [] as string[] };
+  if (category === "podujatia") return { clause: " AND entity_type='MANAGED_EVENT'", bindings: [] as string[] };
+  return {
+    clause: " AND entity_type='DIRECTORY_PROFILE' AND entity_id IN (SELECT id FROM directory_profiles WHERE category=?)",
+    bindings: [category],
+  };
+}
+
+async function loadMediaQualityPage(requestedPage: number, category: DataQualityCategory): Promise<MediaReadData> {
   const db = database();
   if (!await mediaSourceMonitorSchemaReady(db)) {
     const error = new Error("Voliteľný monitoring obrázkov nie je v tejto schéme dostupný.");
@@ -327,14 +366,15 @@ async function loadMediaQualityPage(requestedPage: number): Promise<MediaReadDat
     throw error;
   }
 
+  const mediaCategory = mediaCategorySql(category);
   const summaryRow = await db.prepare(`
     SELECT
       COUNT(*) AS media_issues,
       SUM(CASE WHEN status IN ('CHANGED','CANDIDATE') THEN 1 ELSE 0 END) AS changed_media,
       SUM(CASE WHEN status IN ('MISSING','ERROR') THEN 1 ELSE 0 END) AS missing_media_source
     FROM media_source_monitors
-    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')
-  `).first<MediaSummaryRow>();
+    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${mediaCategory.clause}
+  `).bind(...mediaCategory.bindings).first<MediaSummaryRow>();
   const summary = {
     mediaIssues: Number(summaryRow?.media_issues ?? 0),
     changedMedia: Number(summaryRow?.changed_media ?? 0),
@@ -342,7 +382,7 @@ async function loadMediaQualityPage(requestedPage: number): Promise<MediaReadDat
   };
   const paging = pagination(requestedPage, DATA_QUALITY_MEDIA_PAGE_SIZE, summary.mediaIssues);
   const offset = (paging.page - 1) * paging.pageSize;
-  const monitors = await listMediaSourceIssues(db, paging.pageSize, offset);
+  const monitors = await listMediaSourceIssues(db, paging.pageSize, offset, category);
   return { summary, monitors, pagination: paging, monitorReady: true };
 }
 
@@ -396,6 +436,7 @@ function fallbackMediaItems(monitors: readonly MediaSourceMonitor[]): MediaQuali
     href: monitor.entityType === "DIRECTORY_PROFILE"
       ? `/admin/adresar/${monitor.entityId}`
       : `/admin/podujatia/${monitor.entityId}`,
+    category: monitor.entityType === "MANAGED_EVENT" ? "podujatia" : "",
   }));
 }
 
@@ -417,6 +458,7 @@ export async function resolveDataQualityMediaItems(
         monitor,
         label: profile?.name ?? `Profil #${monitor.entityId}`,
         href: `/admin/adresar/${monitor.entityId}`,
+        category: profile?.category ?? "",
       };
     }
     const event = eventNameMap.get(monitor.entityId);
@@ -424,6 +466,7 @@ export async function resolveDataQualityMediaItems(
       monitor,
       label: event?.title ?? `Podujatie #${monitor.entityId}`,
       href: `/admin/podujatia/${monitor.entityId}`,
+      category: "podujatia",
     };
   });
 }
@@ -448,13 +491,17 @@ const unavailableMediaSummary: NullableMediaSummary = {
 export async function loadDataQualityDashboard(input: {
   profilePage?: number;
   mediaPage?: number;
+  category?: string;
 } = {}): Promise<DataQualityDashboard> {
   const requestedProfilePage = safePage(input.profilePage);
   const requestedMediaPage = safePage(input.mediaPage);
+  const category = dataQualityCategoryOptions.some((option) => option.value === input.category)
+    ? input.category as DataQualityCategory
+    : "all";
 
   const profileRead = await readAdminAutomationData({
     key: "data-quality:profiles",
-    load: () => loadProfileQualityPage(requestedProfilePage),
+    load: () => loadProfileQualityPage(requestedProfilePage, category),
     fallback: {
       summary: {
         totalProfiles: 0,
@@ -474,7 +521,7 @@ export async function loadDataQualityDashboard(input: {
 
   const mediaRead = await readAdminAutomationData({
     key: "data-quality:media",
-    load: () => loadMediaQualityPage(requestedMediaPage),
+    load: () => loadMediaQualityPage(requestedMediaPage, category),
     fallback: {
       summary: { mediaIssues: 0, changedMedia: 0, missingMediaSource: 0 },
       monitors: [],
@@ -510,6 +557,8 @@ export async function loadDataQualityDashboard(input: {
     monitorReady: mediaRead.data.monitorReady,
     profilePagination: profileRead.data.pagination,
     mediaPagination: mediaRead.data.pagination,
+    category,
+    categoryOptions: dataQualityCategoryOptions,
     availability,
     sections: {
       profiles: { status: profileRead.status, errorRef: profileRead.errorRef },

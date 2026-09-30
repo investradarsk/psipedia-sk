@@ -46,7 +46,16 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [selectedMedia, setSelectedMedia] = useState<Set<number>>(new Set());
   const activeSection = searchParams.get("section") === "media" ? "media" : "profiles";
+
+  const reviewableMediaIds = data.media
+    .filter(({ monitor }) => Boolean(monitor.candidateImageKey))
+    .map(({ monitor }) => monitor.id);
+  const visibleReviewableIds = new Set(reviewableMediaIds);
+  const visibleSelectedMedia = new Set([...selectedMedia].filter((id) => visibleReviewableIds.has(id)));
+  const allReviewableSelected = reviewableMediaIds.length > 0
+    && reviewableMediaIds.every((id) => visibleSelectedMedia.has(id));
 
   function pageHref(key: "page" | "mediaPage", value: number) {
     const query = new URLSearchParams(searchParams.toString());
@@ -80,6 +89,36 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Kontrola sa nepodarila.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function bulkMediaAction(action: "accept" | "reject", ids = [...visibleSelectedMedia]) {
+    if (!ids.length) return;
+    setBusy(`bulk-${action}`);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/data-quality/media/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, ids }),
+      });
+      const result = await response.json() as {
+        error?: string;
+        requested?: number;
+        updated?: number;
+        failed?: Array<{ id: number; error: string }>;
+      };
+      if (!response.ok && !result.updated) throw new Error(result.error || "Hromadná akcia sa nepodarila.");
+      const failed = result.failed?.length ?? 0;
+      setMessage(action === "accept"
+        ? `Schválené obrázky: ${result.updated ?? 0} z ${result.requested ?? ids.length}.${failed ? ` Zlyhalo: ${failed}.` : ""}`
+        : `Zamietnuté obrázky: ${result.updated ?? 0} z ${result.requested ?? ids.length}. Pre zamietnuté položky sa hneď hľadá ďalší vhodný kandidát.${failed ? ` Zlyhalo: ${failed}.` : ""}`);
+      setSelectedMedia(new Set());
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Hromadná akcia sa nepodarila.");
     } finally {
       setBusy(null);
     }
@@ -124,6 +163,26 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
         <div><span>Bez obrázka</span><strong>{count(data.summary.missingImage)}</strong></div>
         <div><span>Na kontrolu obrázka</span><strong>{count(data.summary.changedMedia)}</strong></div>
         <div><span>Chyba zdroja</span><strong>{count(data.summary.missingMediaSource)}</strong></div>
+      </section>
+
+      <section className="admin-panel">
+        <form className="admin-toolbar" action="/admin/kvalita" method="get">
+          {activeSection === "media" ? <input type="hidden" name="section" value="media" /> : null}
+          <label className="admin-select-filter">
+            <span>Kategória</span>
+            <select name="category" defaultValue={data.category}>
+              {data.categoryOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <button type="submit">Filtrovať</button>
+          {data.category !== "all" ? (
+            <Link href={activeSection === "media" ? "/admin/kvalita?section=media" : "/admin/kvalita"}>
+              Vyčistiť filter
+            </Link>
+          ) : null}
+        </form>
       </section>
 
       <div className="admin-quality-tabs-wrap">
@@ -278,9 +337,39 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                   </p>
                 )}
 
+                {reviewableMediaIds.length ? (
+                  <div className="admin-quality-summary-line" data-admin-quality-bulk>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={allReviewableSelected}
+                        onChange={(event) => {
+                          setSelectedMedia(event.target.checked ? new Set(reviewableMediaIds) : new Set());
+                        }}
+                      />{" "}
+                      Označiť všetky obrázky na tejto strane
+                    </label>
+                    <span>Označené {visibleSelectedMedia.size}</span>
+                    <button
+                      type="button"
+                      disabled={!visibleSelectedMedia.size || busy !== null}
+                      onClick={() => void bulkMediaAction("accept")}
+                    >
+                      {busy === "bulk-accept" ? "Schvaľujem…" : "Schváliť označené"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!visibleSelectedMedia.size || busy !== null}
+                      onClick={() => void bulkMediaAction("reject")}
+                    >
+                      {busy === "bulk-reject" ? "Zamietam…" : "Zamietnuť a hľadať iný"}
+                    </button>
+                  </div>
+                ) : null}
+
                 {data.media.length ? (
                   <div className="admin-quality-media-list">
-                    {data.media.map(({ monitor, label, href }) => {
+                    {data.media.map(({ monitor, label, href, category }) => {
                       const hasCandidate = Boolean(monitor.candidateImageKey);
                       const hasCurrent = Boolean(monitor.activeImageKey);
                       return (
@@ -306,8 +395,25 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                           </div>
 
                           <div className="admin-quality-media-content">
+                            {hasCandidate ? (
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={visibleSelectedMedia.has(monitor.id)}
+                                  onChange={(event) => {
+                                    setSelectedMedia((current) => {
+                                      const next = new Set(current);
+                                      if (event.target.checked) next.add(monitor.id);
+                                      else next.delete(monitor.id);
+                                      return next;
+                                    });
+                                  }}
+                                />{" "}
+                                Označiť obrázok
+                              </label>
+                            ) : null}
                             <div className="admin-article-tags">
-                              <span>{monitor.entityType === "MANAGED_EVENT" ? "Podujatie" : "Profil"}</span>
+                              <span>{data.categoryOptions.find((option) => option.value === category)?.label || (monitor.entityType === "MANAGED_EVENT" ? "Podujatia" : "Profil")}</span>
                               <span className={`admin-quality-status ${mediaStatusTone(monitor.status)}`}>
                                 {mediaStatusLabel(monitor.status)}
                               </span>
@@ -338,14 +444,23 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
 
                           <div className="admin-quality-media-actions">
                             {hasCandidate && (
-                              <button
-                                className="is-primary"
-                                type="button"
-                                disabled={busy === `accept-${monitor.id}`}
-                                onClick={() => acceptCandidate(monitor.id)}
-                              >
-                                {busy === `accept-${monitor.id}` ? "Ukladám…" : "Schváliť obrázok"}
-                              </button>
+                              <>
+                                <button
+                                  className="is-primary"
+                                  type="button"
+                                  disabled={busy !== null}
+                                  onClick={() => acceptCandidate(monitor.id)}
+                                >
+                                  {busy === `accept-${monitor.id}` ? "Ukladám…" : "Schváliť obrázok"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busy !== null}
+                                  onClick={() => void bulkMediaAction("reject", [monitor.id])}
+                                >
+                                  Zamietnuť · hľadať iný
+                                </button>
+                              </>
                             )}
                             <Link href={href}>Otvoriť {monitor.entityType === "MANAGED_EVENT" ? "podujatie" : "profil"}</Link>
                           </div>
