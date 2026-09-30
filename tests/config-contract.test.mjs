@@ -193,6 +193,7 @@ test("repository configuration contract is production-safe and secret-free", asy
   assert.match(result.cloudflareAccountId, /^[a-f0-9]{32}$/);
   assert.equal(result.d1Binding, "DB");
   assert.equal(result.r2Binding, "BUCKET");
+  assert.equal(result.submissionR2Binding, "SUBMISSION_UPLOADS");
   assert.ok(result.secretEnvNames.includes("PII_ENCRYPTION_KEY"));
   assert.ok(result.secretEnvNames.includes("PII_HASH_KEY"));
   assert.ok(result.secretEnvNames.includes("NOTION_API_TOKEN"));
