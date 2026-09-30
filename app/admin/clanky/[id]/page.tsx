@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedArticleById } from "@/lib/article-store";
 import { listManagedBreedSummaries } from "@/lib/breed-store";
+import { listArticleTopics } from "@/lib/article-topics";
 import { listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,12 @@ export default async function EditArticlePage({ params }: Props) {
   const numericId = Number.parseInt(id, 10);
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
   const user = await requireAdminPageUser(`/admin/clanky/${id}`);
-  const [article, breedOptions, managedSections] = await Promise.all([getManagedArticleById(numericId), listManagedBreedSummaries(500), listManagedPortalSections()]);
+  const [article, breedOptions, managedSections, topicOptions] = await Promise.all([
+    getManagedArticleById(numericId),
+    listManagedBreedSummaries(500),
+    listManagedPortalSections(),
+    listArticleTopics({ includeInactive: true }),
+  ]);
   if (!article) notFound();
   const isNews = article.portalSection === "novinky";
 
@@ -26,7 +32,7 @@ export default async function EditArticlePage({ params }: Props) {
       title={`Upraviť ${isNews ? "novinku" : "článok"}`}
       description="Zmeny ulož ako koncept alebo ich rovno publikuj na verejnom webe."
     >
-      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} />
+      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} />
     </AdminShell>
   );
 }

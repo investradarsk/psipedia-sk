@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
+import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
 import { AdminActionButton, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
 import { ArticleBlocks } from "@/components/article-blocks";
@@ -20,6 +21,7 @@ import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/ne
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import type { ArticleQaIssue } from "@/lib/article-content-qa";
+import type { ArticleTopic } from "@/lib/article-topics";
 
 function slugify(value: string, maxLength = 90) {
   return value
@@ -51,12 +53,14 @@ export function AdminArticleEditor({
   defaultPortalSubpage,
   breedOptions = [],
   managedSections = defaultPortalSections,
+  topicOptions = [],
 }: {
   article?: ManagedArticle;
   defaultPortalSection?: ArticlePortalSection;
   defaultPortalSubpage?: string;
   breedOptions?: ManagedBreedSummary[];
   managedSections?: Array<PortalSection & { visible?: boolean }>;
+  topicOptions?: ArticleTopic[];
 }) {
   const initialPortalSection = article?.portalSection ?? defaultPortalSection;
   const builtInSectionOptions = articlePortalSectionOptions.filter(
@@ -128,6 +132,7 @@ export function AdminArticleEditor({
   const dirtyRef = useRef(false);
   const allowNavigationRef = useRef(false);
   const [relatedBreedIds,setRelatedBreedIds]=useState(article?.relatedBreedIds??[]);
+  const [topicIds, setTopicIds] = useState(article?.topics.map((topic) => topic.id) ?? []);
 
   function setEditorDirty(value: boolean) {
     dirtyRef.current = value;
@@ -230,6 +235,7 @@ export function AdminArticleEditor({
       ogImageUrl: ogImageUrl || null,
       ogImageKey: ogImageKey || null,
       relatedBreedIds,
+      topicIds,
     };
 
     try {
@@ -367,12 +373,17 @@ export function AdminArticleEditor({
             </div>
             {portalSection !== "novinky" && (
               <div className="admin-field">
-                <label htmlFor="article-category">Téma</label>
+                <label htmlFor="article-category">Kategória článku</label>
                 <select id="article-category" value={category} onChange={(event) => setCategory(event.target.value as ManagedArticle["category"])}>
                   <option>Výcvik</option><option>Zdravie</option><option>Výživa</option><option>Život so psom</option>
                 </select>
               </div>
             )}
+            <AdminArticleTopicPicker
+              topics={topicOptions}
+              value={topicIds}
+              onChange={(ids) => { setTopicIds(ids); setEditorDirty(true); }}
+            />
             {portalSection !== "novinky" && portalSection !== "clanky" && currentAreas.length > 0 && (
               <div className="admin-field">
                 <label htmlFor="article-portal-area">Oblasť {managedSections.find((section) => section.slug === portalSection)?.label ?? "sekcie"}</label>

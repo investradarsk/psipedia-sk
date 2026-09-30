@@ -32,6 +32,7 @@ export type ArticleAdminListFilters = {
   portalSection: ArticleAdminPortalSection;
   sort: ArticleAdminSort;
   direction: ArticleAdminDirection;
+  topicId?: number | null;
   page: number;
   pageSize: number;
 };
@@ -41,6 +42,7 @@ export function parseArticleAdminListFilters(params: { get(name: string): string
   const section = params.get("section") ?? "all";
   const sort = params.get("sort") ?? "updated";
   const direction = params.get("direction") ?? "desc";
+  const topicIdRaw = Number.parseInt(params.get("topic") ?? "", 10);
   return {
     query: (params.get("query") ?? params.get("q") ?? "").trim().slice(0, 120),
     status: (articleAdminStatuses as readonly string[]).includes(status) ? status as ArticleAdminStatus : "all",
@@ -49,6 +51,7 @@ export function parseArticleAdminListFilters(params: { get(name: string): string
       : "all",
     sort: (articleAdminSorts as readonly string[]).includes(sort) ? sort as ArticleAdminSort : "updated",
     direction: (articleAdminDirections as readonly string[]).includes(direction) ? direction as ArticleAdminDirection : "desc",
+    topicId: Number.isSafeInteger(topicIdRaw) && topicIdRaw > 0 ? topicIdRaw : null,
     page: boundedAdminPage(params.get("page")),
     pageSize: boundedAdminPageSize(params.get("pageSize")),
   };
@@ -66,6 +69,7 @@ export function articleAdminListHref(
   if (next.portalSection !== "all") params.set("section", next.portalSection);
   if (next.sort !== "updated") params.set("sort", next.sort);
   if (next.direction !== "desc") params.set("direction", next.direction);
+  if (next.topicId) params.set("topic", String(next.topicId));
   if (next.pageSize !== 50) params.set("pageSize", String(next.pageSize));
   if (next.page > 1) params.set("page", String(next.page));
   const query = params.toString();
@@ -85,6 +89,10 @@ export function buildArticleAdminListQuery(
   if (filters.status !== "all") {
     clauses.push("status = ?");
     bindings.push(filters.status);
+  }
+  if (filters.topicId) {
+    clauses.push("EXISTS (SELECT 1 FROM article_topic_assignments ata WHERE ata.article_id = managed_articles.id AND ata.topic_id = ?)");
+    bindings.push(filters.topicId);
   }
   const needle = adminContainsNeedle(filters.query);
   if (needle) {

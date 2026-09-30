@@ -30,6 +30,13 @@ import {
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 import { buildArticleAdminListQuery, type ArticleAdminDirection, type ArticleAdminSort, type ArticleAdminStatus } from "@/lib/article-admin-query";
 import type { AdminListAvailability } from "@/lib/admin-list-query";
+import {
+  getArticleTopicsByArticleId,
+  replaceArticleTopicStatements,
+  replaceArticleTopicStatementsBySlug,
+  validateArticleTopicIds,
+  type ArticleTopic,
+} from "@/lib/article-topics";
 
 export type ArticleStatus = "draft" | "scheduled" | "published";
 
@@ -48,6 +55,7 @@ export type ManagedArticle = Article & {
   createdBy: string;
   updatedBy: string;
   relatedBreedIds: number[];
+  topics: ArticleTopic[];
   authorProfileId: number | null;
   introRichText: EditorialRichTextDocument;
   takeawayRichText: EditorialRichTextDocument;
@@ -125,6 +133,7 @@ export type ManagedArticleInput = {
   ogImageUrl?: string | null;
   ogImageKey?: string | null;
   relatedBreedIds?: number[];
+  topicIds?: number[];
 };
 
 type ArticleRow = {
@@ -287,7 +296,7 @@ function formatSlovakDate(value: string) {
   return `${date.getUTCDate()}. ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
-function rowToManagedArticle(row: ArticleRow,relatedBreedIds:number[]=[]): ManagedArticle {
+function rowToManagedArticle(row: ArticleRow, relatedBreedIds: number[] = [], topics: ArticleTopic[] = []): ManagedArticle {
   const createdAt = typeof row.created_at === "string" && row.created_at
     ? row.created_at
     : new Date(0).toISOString();
@@ -344,6 +353,7 @@ function rowToManagedArticle(row: ArticleRow,relatedBreedIds:number[]=[]): Manag
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     relatedBreedIds,
+    topics,
     seo: {
       title: row.seo_title || undefined,
       description: row.meta_description || undefined,
@@ -842,6 +852,7 @@ export async function listManagedArticleSummaries(options: {
   status?: ArticleAdminStatus;
   sort?: ArticleAdminSort;
   direction?: ArticleAdminDirection;
+  topicId?: number | null;
 } = {}): Promise<ManagedArticleSummaryPage> {
   const database = requireD1Binding();
   await ensureArticleStore(database);
@@ -851,6 +862,7 @@ export async function listManagedArticleSummaries(options: {
     portalSection: options.portalSection ?? "all",
     sort: options.sort ?? "updated",
     direction: options.direction ?? "desc",
+    topicId: options.topicId ?? null,
     page: options.page ?? 1,
     pageSize: options.pageSize ?? 50,
   } as const;
@@ -904,13 +916,15 @@ export async function listManagedArticleSummaries(options: {
 export async function getManagedArticleById(id: number) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
-  const [articleResult,relationsResult] = await database.batch([
+  const [articleResult, relationsResult] = await database.batch([
     database.prepare("SELECT * FROM managed_articles WHERE id = ? LIMIT 1").bind(id),
     database.prepare("SELECT breed_id AS id FROM breed_article_relations WHERE article_id=? ORDER BY breed_id").bind(id),
   ]);
-  const row=(articleResult.results?.[0]??null) as unknown as ArticleRow|null;
-  const relatedBreedIds=(relationsResult.results as Array<{id:number}>).map((item)=>item.id);
-  return row ? rowToManagedArticle(row,relatedBreedIds) : null;
+  const row = (articleResult.results?.[0] ?? null) as unknown as ArticleRow | null;
+  if (!row) return null;
+  const relatedBreedIds = (relationsResult.results as Array<{ id: number }>).map((item) => item.id);
+  const topics = await getArticleTopicsByArticleId(database, id);
+  return rowToManagedArticle(row, relatedBreedIds, topics);
 }
 
 async function syncArticleBreeds(database:D1Database,articleId:number,breedIds:number[],editorEmail:string){const now=new Date().toISOString();const statements=[database.prepare("DELETE FROM breed_article_relations WHERE article_id=?").bind(articleId)];for(const breedId of breedIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_article_relations (breed_id,article_id,created_at,created_by) SELECT id,?,?,? FROM managed_breeds WHERE id=?").bind(articleId,now,editorEmail,breedId));await database.batch(statements);}
@@ -919,69 +933,73 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
   const database = requireD1Binding();
   await ensureArticleStore(database);
   const input = await normalizeInput(payload, database);
+  const topicIds = await validateArticleTopicIds(database, payload.topicIds ?? []);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? input.publishedAt ?? now : input.status === "scheduled" ? input.publishedAt : null;
 
-  const result = await database
-    .prepare(`
-      INSERT INTO managed_articles (
-        slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, author_profile_id,
-        intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json, image_url, image_key,
-        image_alt, image_caption, image_credit, image_credit_url,
-        reading_minutes, created_at, updated_at, published_at, created_by, updated_by,
-        content_updated_at, show_updated_label, seo_title, meta_description, canonical_url, noindex,
-        focus_keyword, og_title, og_description, og_image_url, og_image_key
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      RETURNING *
-    `)
-    .bind(
-      input.slug,
-      input.title,
-      input.excerpt,
-      input.category,
-      input.portalSection,
-      input.portalSubpage,
-      input.newsCategory,
-      input.status,
-      input.accent,
-      input.author,
-      input.authorProfileId,
-      input.intro,
-      JSON.stringify(input.introRichText),
-      input.takeaway,
-      JSON.stringify(input.takeawayRichText),
-      JSON.stringify(input.sections),
-      JSON.stringify(input.sources),
-      JSON.stringify(input.blocks),
-      input.imageUrl,
-      input.imageKey,
-      input.imageAlt,
-      input.imageCaption,
-      input.imageCredit,
-      input.imageCreditUrl,
-      input.readingMinutes,
-      now,
-      now,
-      publishedAt,
-      editorEmail,
-      editorEmail,
-      input.contentUpdatedAt,
-      input.showUpdated ? 1 : 0,
-      input.seoTitle,
-      input.metaDescription,
-      input.canonicalUrl,
-      input.noindex ? 1 : 0,
-      input.focusKeyword,
-      input.ogTitle,
-      input.ogDescription,
-      input.ogImageUrl,
-      input.ogImageKey,
-    )
-    .first<ArticleRow>();
+  const articleStatement = database.prepare(`
+    INSERT INTO managed_articles (
+      slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, author_profile_id,
+      intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json, image_url, image_key,
+      image_alt, image_caption, image_credit, image_credit_url,
+      reading_minutes, created_at, updated_at, published_at, created_by, updated_by,
+      content_updated_at, show_updated_label, seo_title, meta_description, canonical_url, noindex,
+      focus_keyword, og_title, og_description, og_image_url, og_image_key
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    RETURNING *
+  `).bind(
+    input.slug,
+    input.title,
+    input.excerpt,
+    input.category,
+    input.portalSection,
+    input.portalSubpage,
+    input.newsCategory,
+    input.status,
+    input.accent,
+    input.author,
+    input.authorProfileId,
+    input.intro,
+    JSON.stringify(input.introRichText),
+    input.takeaway,
+    JSON.stringify(input.takeawayRichText),
+    JSON.stringify(input.sections),
+    JSON.stringify(input.sources),
+    JSON.stringify(input.blocks),
+    input.imageUrl,
+    input.imageKey,
+    input.imageAlt,
+    input.imageCaption,
+    input.imageCredit,
+    input.imageCreditUrl,
+    input.readingMinutes,
+    now,
+    now,
+    publishedAt,
+    editorEmail,
+    editorEmail,
+    input.contentUpdatedAt,
+    input.showUpdated ? 1 : 0,
+    input.seoTitle,
+    input.metaDescription,
+    input.canonicalUrl,
+    input.noindex ? 1 : 0,
+    input.focusKeyword,
+    input.ogTitle,
+    input.ogDescription,
+    input.ogImageUrl,
+    input.ogImageKey,
+  );
 
+  const [articleResult] = await database.batch([
+    articleStatement,
+    ...replaceArticleTopicStatementsBySlug(database, input.slug, topicIds, now),
+  ]);
+  const result = (articleResult.results?.[0] ?? null) as unknown as ArticleRow | null;
   if (!result) throw new Error("Článok sa nepodarilo vytvoriť.");
-  await syncArticleBreeds(database,result.id,input.relatedBreedIds,editorEmail);
-  return rowToManagedArticle(result,input.relatedBreedIds);
+  await syncArticleBreeds(database, result.id, input.relatedBreedIds, editorEmail);
+  const topics = await getArticleTopicsByArticleId(database, result.id);
+  return rowToManagedArticle(result, input.relatedBreedIds, topics);
 }
 
 export async function updateManagedArticle(
@@ -996,6 +1014,7 @@ export async function updateManagedArticle(
   if (!existing) return null;
 
   const input = await normalizeInput(payload, database, existing.authorProfileId);
+  const topicIds = payload.topicIds === undefined ? undefined : await validateArticleTopicIds(database, payload.topicIds);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published"
     ? input.publishedAt ?? existing.publishedAt ?? now
@@ -1006,65 +1025,67 @@ export async function updateManagedArticle(
   const imageCaption = payload.imageCaption === undefined ? existing.imageCaption ?? null : input.imageCaption;
   const imageCredit = payload.imageCredit === undefined ? existing.imageCredit ?? null : input.imageCredit;
   const imageCreditUrl = payload.imageCreditUrl === undefined ? existing.imageCreditUrl ?? null : input.imageCreditUrl;
-  const result = await database
-    .prepare(`
-      UPDATE managed_articles SET
-        slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
-        author = ?, author_profile_id = ?, intro = ?, intro_rich_text_json = ?, takeaway = ?, takeaway_rich_text_json = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
-        image_url = ?, image_key = ?, image_alt = ?, image_caption = ?, image_credit = ?, image_credit_url = ?, reading_minutes = ?, updated_at = ?,
-        published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
-        seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
-        og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
-      WHERE id = ?
-      RETURNING *
-    `)
-    .bind(
-      input.slug,
-      input.title,
-      input.excerpt,
-      input.category,
-      input.portalSection,
-      input.portalSubpage,
-      input.newsCategory,
-      input.status,
-      input.accent,
-      input.author,
-      input.authorProfileId,
-      input.intro,
-      JSON.stringify(input.introRichText),
-      input.takeaway,
-      JSON.stringify(input.takeawayRichText),
-      JSON.stringify(input.sections),
-      JSON.stringify(input.sources),
-      JSON.stringify(input.blocks),
-      input.imageUrl,
-      input.imageKey,
-      imageAlt,
-      imageCaption,
-      imageCredit,
-      imageCreditUrl,
-      input.readingMinutes,
-      now,
-      publishedAt,
-      editorEmail,
-      input.contentUpdatedAt,
-      input.showUpdated ? 1 : 0,
-      input.seoTitle,
-      input.metaDescription,
-      input.canonicalUrl,
-      input.noindex ? 1 : 0,
-      input.focusKeyword,
-      input.ogTitle,
-      input.ogDescription,
-      input.ogImageUrl,
-      input.ogImageKey,
-      id,
-    )
-    .first<ArticleRow>();
+  const articleStatement = database.prepare(`
+    UPDATE managed_articles SET
+      slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
+      author = ?, author_profile_id = ?, intro = ?, intro_rich_text_json = ?, takeaway = ?, takeaway_rich_text_json = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
+      image_url = ?, image_key = ?, image_alt = ?, image_caption = ?, image_credit = ?, image_credit_url = ?, reading_minutes = ?, updated_at = ?,
+      published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
+      seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
+      og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
+    WHERE id = ?
+    RETURNING *
+  `).bind(
+    input.slug,
+    input.title,
+    input.excerpt,
+    input.category,
+    input.portalSection,
+    input.portalSubpage,
+    input.newsCategory,
+    input.status,
+    input.accent,
+    input.author,
+    input.authorProfileId,
+    input.intro,
+    JSON.stringify(input.introRichText),
+    input.takeaway,
+    JSON.stringify(input.takeawayRichText),
+    JSON.stringify(input.sections),
+    JSON.stringify(input.sources),
+    JSON.stringify(input.blocks),
+    input.imageUrl,
+    input.imageKey,
+    imageAlt,
+    imageCaption,
+    imageCredit,
+    imageCreditUrl,
+    input.readingMinutes,
+    now,
+    publishedAt,
+    editorEmail,
+    input.contentUpdatedAt,
+    input.showUpdated ? 1 : 0,
+    input.seoTitle,
+    input.metaDescription,
+    input.canonicalUrl,
+    input.noindex ? 1 : 0,
+    input.focusKeyword,
+    input.ogTitle,
+    input.ogDescription,
+    input.ogImageUrl,
+    input.ogImageKey,
+    id,
+  );
 
-  if(!result)return null;
-  await syncArticleBreeds(database,id,input.relatedBreedIds,editorEmail);
-  return rowToManagedArticle(result,input.relatedBreedIds);
+  const statements = [articleStatement];
+  if (topicIds !== undefined) statements.push(...replaceArticleTopicStatements(database, id, topicIds, now));
+  const [articleResult] = await database.batch(statements);
+  const result = (articleResult.results?.[0] ?? null) as unknown as ArticleRow | null;
+  if (!result) return null;
+  await syncArticleBreeds(database, id, input.relatedBreedIds, editorEmail);
+  const topics = topicIds === undefined ? existing.topics : await getArticleTopicsByArticleId(database, id);
+  return rowToManagedArticle(result, input.relatedBreedIds, topics);
 }
 
 export type ArticleContentQaAuditFinding = ArticleQaIssue & {

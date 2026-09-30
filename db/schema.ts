@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const editorialAuthorProfiles = sqliteTable(
   "editorial_author_profiles",
@@ -75,6 +75,40 @@ export const managedArticles = sqliteTable(
     index("managed_articles_portal_subpage_idx").on(table.portalSection, table.portalSubpage, table.status, table.publishedAt),
     index("managed_articles_admin_updated_idx").on(table.updatedAt, table.id),
     index("managed_articles_author_profile_idx").on(table.authorProfileId, table.status),
+  ],
+);
+
+export const articleTopics = sqliteTable(
+  "article_topics",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    slug: text("slug").notNull(),
+    label: text("label").notNull(),
+    normalizedKey: text("normalized_key").notNull(),
+    isActive: integer("is_active").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+  },
+  (table) => [
+    uniqueIndex("article_topics_slug_unique").on(table.slug),
+    uniqueIndex("article_topics_normalized_key_unique").on(table.normalizedKey),
+    index("article_topics_active_label_idx").on(table.isActive, table.label),
+  ],
+);
+
+export const articleTopicAssignments = sqliteTable(
+  "article_topic_assignments",
+  {
+    articleId: integer("article_id").notNull().references(() => managedArticles.id, { onDelete: "cascade" }),
+    topicId: integer("topic_id").notNull().references(() => articleTopics.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.articleId, table.topicId] }),
+    index("article_topic_assignments_article_idx").on(table.articleId),
+    index("article_topic_assignments_topic_idx").on(table.topicId),
   ],
 );
 

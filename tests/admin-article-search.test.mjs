@@ -23,6 +23,7 @@ test("article admin params are bounded and invalid values fail closed", () => {
     section: "invalid",
     sort: "sql",
     direction: "sideways",
+    topic: "17",
     page: "-4",
     pageSize: "9999",
   }));
@@ -31,6 +32,7 @@ test("article admin params are bounded and invalid values fail closed", () => {
   assert.equal(parsed.portalSection, "all");
   assert.equal(parsed.sort, "updated");
   assert.equal(parsed.direction, "desc");
+  assert.equal(parsed.topicId, 17);
   assert.equal(parsed.page, 1);
   assert.equal(parsed.pageSize, 100);
   assert.equal(boundedAdminPage("2"), 2);
@@ -46,13 +48,16 @@ test("article search is accent-insensitive and escapes wildcard control characte
     portalSection: "all",
     sort: "title",
     direction: "asc",
+    topicId: 17,
     page: 2,
     pageSize: 50,
   }, "clanky");
   assert.match(query.where, /portal_section = \?/);
   assert.match(query.where, /status = \?/);
+  assert.match(query.where, /article_topic_assignments/);
+  assert.match(query.where, /ata\.topic_id = \?/);
   assert.match(query.where, /LIKE \? ESCAPE/);
-  assert.deepEqual(query.bindings.slice(0, 2), ["clanky", "published"]);
+  assert.deepEqual(query.bindings.slice(0, 3), ["clanky", "published", 17]);
   assert.equal(query.bindings.at(-1), "%zuby%");
   assert.equal(query.orderBy, "title COLLATE NOCASE ASC, id ASC");
   assert.equal(query.offset, 50);
@@ -65,10 +70,11 @@ test("article admin URL persists filter and pagination state", () => {
     portalSection: "clanky",
     sort: "title",
     direction: "asc",
+    topicId: 17,
     page: 2,
     pageSize: 50,
   });
-  assert.equal(href, "/admin?query=zuby+psa&status=draft&section=clanky&sort=title&direction=asc&page=2");
+  assert.equal(href, "/admin?query=zuby+psa&status=draft&section=clanky&sort=title&direction=asc&topic=17&page=2");
 });
 
 test("article search query contract stays server-side and deterministic", () => {

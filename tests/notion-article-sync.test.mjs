@@ -134,6 +134,13 @@ test("Notion publication writeback is best-effort and does not block the admin p
 });
 
 
+test("ARTICLE-TOPICS manual assignments survive Notion article updates", () => {
+  assert.doesNotMatch(syncSource, /topicIds\s*:/);
+  assert.match(articleStoreSource, /payload\.topicIds === undefined \? undefined/);
+  assert.match(articleStoreSource, /if \(topicIds !== undefined\) statements\.push/);
+  assert.match(articleStoreSource, /topicIds === undefined \? existing\.topics/);
+});
+
 test("Notion main image URL is downloaded safely and persisted to R2", () => {
   assert.match(syncSource, /Hlavný obrázok URL/);
   assert.match(syncSource, /Zdroj obrázka/);
