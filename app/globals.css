@@ -15045,6 +15045,89 @@ a.breed-fci-path-node:focus-visible {
 
 
 
+/* DATA-QUALITY-4: dense but usable quality workspace filters */
+.admin-quality-filter-toolbar {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.admin-quality-filter-toolbar .admin-search {
+  min-width: 240px;
+  flex: 1 1 320px;
+}
+
+.admin-quality-filter-toolbar .admin-select-filter {
+  min-width: 155px;
+  max-width: 230px;
+  flex: 1 1 170px;
+}
+
+.admin-quality-filter-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-quality-filter-actions > button,
+.admin-quality-filter-actions > a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 13px;
+  border: 1px solid #c7d4cc;
+  border-radius: 10px;
+  color: #174b38;
+  background: #fff;
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 820;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.admin-quality-filter-actions > button {
+  border-color: #245d47;
+  color: #fff;
+  background: #245d47;
+}
+
+.admin-quality-filter-actions > button:hover {
+  background: #174f39;
+}
+
+.admin-quality-filter-actions > a:hover {
+  border-color: #90aa9c;
+  background: #f1f6f2;
+}
+
+@media (max-width: 640px) {
+  .admin-quality-filter-toolbar {
+    align-items: stretch;
+  }
+
+  .admin-quality-filter-toolbar .admin-search,
+  .admin-quality-filter-toolbar .admin-select-filter {
+    width: 100%;
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .admin-quality-filter-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-quality-filter-actions > button,
+  .admin-quality-filter-actions > a {
+    width: 100%;
+  }
+}
+
 /* ADMIN-QUALITY-UX-1: focused profile/media review workspace */
 .admin-quality-tabs-wrap {
   display: grid;
