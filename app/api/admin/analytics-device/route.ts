@@ -1,21 +1,15 @@
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { INTERNAL_TRAFFIC_COOKIE_NAME, hasInternalTrafficCookie } from "@/lib/internal-traffic";
 
 export const dynamic = "force-dynamic";
 
-const COOKIE_NAME = "psipedia_internal";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-
-function hasAnalyticsExclusion(cookieHeader: string | null) {
-  return (cookieHeader ?? "")
-    .split(";")
-    .some((cookie) => cookie.trim() === `${COOKIE_NAME}=1`);
-}
 
 function analyticsCookie(enabled: boolean, request: Request) {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return enabled
-    ? `${COOKIE_NAME}=1; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; SameSite=Lax${secure}`
-    : `${COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
+    ? `${INTERNAL_TRAFFIC_COOKIE_NAME}=1; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; SameSite=Lax${secure}`
+    : `${INTERNAL_TRAFFIC_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
 }
 
 export async function GET(request: Request) {
@@ -23,7 +17,7 @@ export async function GET(request: Request) {
   if (!user) return unauthorizedAdminResponse();
 
   return Response.json(
-    { excluded: hasAnalyticsExclusion(request.headers.get("cookie")) },
+    { excluded: hasInternalTrafficCookie(request.headers.get("cookie")) },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }

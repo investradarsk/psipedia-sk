@@ -113,6 +113,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0102_eshop_notion_sync.sql",
     "0103_admin_entity_reviews.sql",
     "0104_article_topics.sql",
+    "0105_article_popularity.sql",
   ]);
 });
 
@@ -311,6 +312,21 @@ test("ARTICLE-TOPICS-1 0104 detects partial article topic schema drift", () => {
   );
   assert.deepEqual(
     targetSchemaObjects({ objects: [] }, "0104_article_topics.sql"),
+    { partial: false },
+  );
+});
+
+test("ARTICLE-POPULARITY-1 0105 detects partial popularity schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [{ name: "article_read_hourly", type: "table", sql: "" }] }, "0105_article_popularity.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [{ name: "article_read_hourly_bucket_idx", type: "index", sql: "" }] }, "0105_article_popularity.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0105_article_popularity.sql"),
     { partial: false },
   );
 });
