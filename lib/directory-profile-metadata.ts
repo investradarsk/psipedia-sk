@@ -22,6 +22,48 @@ export type DirectoryQualityMetadata = Partial<Record<DirectoryQualityField, Dir
 export type DirectoryQualityResolutionInput = Partial<Record<DirectoryQualityField, DirectoryQualityResolutionStatus | "">>;
 
 const qualityKeyPrefix = "_psipedia_quality_";
+const profileReviewKeyPrefix = "_psipedia_profile_review_";
+const profileReviewedAtKey = `${profileReviewKeyPrefix}reviewed_at`;
+const profileReviewedByKey = `${profileReviewKeyPrefix}reviewed_by`;
+
+export type DirectoryProfileReviewMetadata = {
+  reviewed: boolean;
+  reviewedAt: string;
+  reviewedBy: string;
+};
+
+export function readDirectoryProfileReviewMetadata(
+  data: DirectoryImportData | null | undefined,
+): DirectoryProfileReviewMetadata {
+  const reviewedAt = typeof data?.[profileReviewedAtKey] === "string"
+    ? String(data[profileReviewedAtKey]).trim()
+    : "";
+  const reviewedBy = typeof data?.[profileReviewedByKey] === "string"
+    ? String(data[profileReviewedByKey]).trim()
+    : "";
+  return {
+    reviewed: Boolean(reviewedAt),
+    reviewedAt,
+    reviewedBy,
+  };
+}
+
+export function mergeDirectoryProfileReviewMetadata(
+  current: DirectoryImportData | null | undefined,
+  reviewed: boolean,
+  reviewedBy: string,
+  nowIso = new Date().toISOString(),
+) {
+  const next: DirectoryImportData = { ...(current ?? {}) };
+  if (reviewed) {
+    next[profileReviewedAtKey] = nowIso;
+    next[profileReviewedByKey] = reviewedBy.trim();
+  } else {
+    delete next[profileReviewedAtKey];
+    delete next[profileReviewedByKey];
+  }
+  return next;
+}
 
 export function directoryQualityStatusSourceKey(field: DirectoryQualityField) {
   return `${qualityKeyPrefix}${field}_status`;
@@ -32,7 +74,7 @@ export function directoryQualityCheckedAtSourceKey(field: DirectoryQualityField)
 }
 
 export function isDirectoryInternalMetadataKey(key: string) {
-  return key.startsWith(qualityKeyPrefix);
+  return key.startsWith(qualityKeyPrefix) || key.startsWith(profileReviewKeyPrefix);
 }
 
 function isResolutionStatus(value: unknown): value is DirectoryQualityResolutionStatus {
