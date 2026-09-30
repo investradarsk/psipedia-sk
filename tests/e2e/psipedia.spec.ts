@@ -276,9 +276,13 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     for (let index = 0; index < await imagedSecondary.count(); index += 1) {
       const image = imagedSecondary.nth(index).locator("[data-article-image] img");
       await expect(image, "Homepage secondary thumbnail should be visible when the selected article has an image").toBeVisible();
-      expect(
-        await image.evaluate((element) => (element as HTMLImageElement).naturalWidth),
-        "Homepage secondary thumbnail failed to load",
+      await image.scrollIntoViewIfNeeded();
+      await expect.poll(
+        async () => image.evaluate((element) => {
+          const img = element as HTMLImageElement;
+          return img.complete ? img.naturalWidth : 0;
+        }),
+        { message: "Homepage secondary thumbnail failed to load after entering the viewport" },
       ).toBeGreaterThan(0);
     }
     const heights = await ordinaryArticles.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
