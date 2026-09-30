@@ -15737,3 +15737,204 @@ a.breed-fci-path-node:focus-visible {
     text-align: center;
   }
 }
+
+
+/* ARTICLE-CARDS-1: shared editorial cards and responsive article grids */
+.article-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 24px);
+  align-items: stretch;
+}
+
+.article-card {
+  min-width: 0;
+  height: 100%;
+  grid-template-rows: auto 1fr;
+  border-color: rgba(23, 75, 56, 0.13);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: 0 6px 18px rgba(23, 53, 43, 0.045);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.article-card:hover {
+  border-color: rgba(23, 75, 56, 0.27);
+  box-shadow: 0 12px 28px rgba(23, 53, 43, 0.09);
+  transform: translateY(-2px);
+}
+
+.article-card:focus-within {
+  border-color: rgba(23, 75, 56, 0.34);
+}
+
+.article-card-media {
+  min-width: 0;
+  aspect-ratio: 3 / 2;
+  background: var(--sage-light);
+}
+
+.article-card--featured .article-card-media {
+  aspect-ratio: 16 / 9;
+}
+
+.article-card-media img,
+.article-card .article-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.article-card-media img {
+  object-fit: cover;
+}
+
+.article-card .article-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--forest);
+  background: var(--sage-light);
+}
+
+.article-card-media:focus-visible,
+.article-card-title > a:focus-visible,
+.article-card-topic:focus-visible {
+  outline: 3px solid rgba(23, 75, 56, 0.28);
+  outline-offset: 3px;
+}
+
+.article-card-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 18px;
+}
+
+.article-card--featured .article-card-body {
+  padding: clamp(20px, 2.4vw, 26px);
+}
+
+.article-card-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 5px 10px;
+}
+
+.article-card-topic {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--forest);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.065em;
+  line-height: 1.35;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.article-card-topic:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.article-card-meta > time,
+.article-card-meta > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.article-card-title,
+.article-card h2.article-card-title,
+.article-card h3.article-card-title,
+.article-card h4.article-card-title {
+  margin: 11px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.22rem, 1.8vw, 1.48rem);
+  font-weight: 500;
+  letter-spacing: -0.018em;
+  line-height: 1.22;
+}
+
+.article-card--featured .article-card-title,
+.article-card--featured h2.article-card-title,
+.article-card--featured h3.article-card-title,
+.article-card--featured h4.article-card-title {
+  font-size: clamp(1.65rem, 2.6vw, 2.35rem);
+  line-height: 1.16;
+}
+
+.article-card-title > a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.article-card-title > a:hover {
+  text-decoration: underline;
+  text-decoration-color: rgba(23, 53, 43, 0.28);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.article-card-body > .article-card-excerpt {
+  flex: 1;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+}
+
+.article-card--featured .article-card-excerpt {
+  max-width: 70ch;
+  font-size: 0.9rem;
+}
+
+.article-card-footer {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+@media (max-width: 980px) {
+  .article-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .article-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .article-card {
+    border-radius: 16px;
+  }
+
+  .article-card-body,
+  .article-card--featured .article-card-body {
+    padding: 17px;
+  }
+
+  .article-card-title,
+  .article-card h2.article-card-title,
+  .article-card h3.article-card-title,
+  .article-card h4.article-card-title {
+    font-size: clamp(1.2rem, 5.6vw, 1.42rem);
+  }
+
+  .article-card--featured .article-card-title,
+  .article-card--featured h2.article-card-title,
+  .article-card--featured h3.article-card-title,
+  .article-card--featured h4.article-card-title {
+    font-size: clamp(1.45rem, 7vw, 1.85rem);
+  }
+}

@@ -166,7 +166,7 @@ export function PublicArticleListItem({
   href: string;
   title: ReactNode;
   topic: ReactNode;
-  date: ReactNode;
+  date?: ReactNode;
   dateTime?: string;
   image?: { src: string; alt: string };
   className?: string;
@@ -183,8 +183,8 @@ export function PublicArticleListItem({
         <strong className={styles.articleListTitle} data-article-title>{title}</strong>
         <span className={styles.articleListMeta}>
           <span className={styles.articleListTopic} data-article-topic>{topic}</span>
-          <span aria-hidden="true">·</span>
-          {dateTime ? <time dateTime={dateTime} data-article-date>{date}</time> : <span data-article-date>{date}</span>}
+          {date ? <span aria-hidden="true">·</span> : null}
+          {date ? (dateTime ? <time dateTime={dateTime} data-article-date>{date}</time> : <span data-article-date>{date}</span>) : null}
         </span>
       </span>
     </Link>

@@ -21,14 +21,18 @@ export function ArticleListItem({
   className?: string;
   listItem?: boolean;
 }) {
+  const date = article.date?.trim() || undefined;
+  const dateTime = date && article.dateIso?.trim() ? article.dateIso.trim() : undefined;
+  const imageAlt = article.imageAlt?.trim() || `Ilustračná fotografia k článku: ${article.title}`;
+
   return (
     <PublicArticleListItem
       href={articleHref(article)}
       title={article.title}
       topic={topicLabel ?? articleTopicLabel(article)}
-      date={article.date}
-      dateTime={article.dateIso}
-      image={article.image ? { src: article.image, alt: `Ilustračná fotografia k článku: ${article.title}` } : undefined}
+      date={date}
+      dateTime={dateTime}
+      image={article.image ? { src: article.image, alt: imageAlt } : undefined}
       className={className}
       listItem={listItem}
     />

@@ -52,7 +52,7 @@ export default async function TopicPage({ params }: Props) {
       </header>
       <section className="page-body shell">
         <p className="result-count">{formatSlovakCount(filtered.length, { one: "článok", few: "články", many: "článkov" })}</p>
-        <div className="article-grid">{filtered.map((article) => <ArticleCard article={article} key={article.slug} />)}</div>
+        <div className="article-grid">{filtered.map((article) => <ArticleCard article={article} headingLevel={2} key={article.slug} />)}</div>
       </section>
     </main>
   );

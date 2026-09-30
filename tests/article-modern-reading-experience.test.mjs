@@ -21,6 +21,14 @@ const cookieConsent = readFileSync("components/cookie-consent.tsx", "utf8");
 const legacyRoute = readFileSync("app/clanky/[slug]/page.tsx", "utf8");
 const canonicalRoute = readFileSync("app/[section]/[slug]/page.tsx", "utf8");
 const articleSeo = readFileSync("lib/article-seo.ts", "utf8");
+const articleCard = readFileSync("components/article-card.tsx", "utf8");
+const articleListItem = readFileSync("components/article-list-item.tsx", "utf8");
+const publicVisual = readFileSync("components/public-visual-system/public-visual-system.tsx", "utf8");
+const publicVisualStyles = readFileSync("components/public-visual-system/public-visual-system.module.css", "utf8");
+const globalStyles = readFileSync("app/globals.css", "utf8");
+const homeEditorial = readFileSync("components/home-editorial.tsx", "utf8");
+const searchPage = readFileSync("app/hladat/page.tsx", "utf8");
+const searchStyles = readFileSync("app/hladat/search.module.css", "utf8");
 
 function indexOfOrFail(source, value, message) {
   const index = source.indexOf(value);
@@ -260,4 +268,47 @@ test("Novinky still uses the complete published reader and existing taxonomy", (
   assert.match(newsHub, /newsCategories\.map/);
   assert.match(newsHub, /newsArticles\.map/);
   assert.match(newsHub, /<PublicContentList/);
+});
+
+
+test("ARTICLE-CARDS-1 exposes purposeful featured, grid and compact variants without invented metadata", () => {
+  assert.match(articleCard, /export type ArticleCardVariant = "featured" \| "grid" \| "compact"/);
+  assert.match(articleCard, /variant \?\? \(large \? "featured" : "grid"\)/);
+  assert.match(articleCard, /resolvedVariant === "compact"/);
+  assert.match(articleCard, /const date = article\.date\?\.trim\(\)/);
+  assert.match(articleCard, /\{date \? \(dateIso \? <time dateTime=\{dateIso\}>\{date\}<\/time> : <span>\{date\}<\/span>\) : null\}/);
+  assert.match(articleCard, /\{excerpt \? <p className="article-card-excerpt">\{excerpt\}<\/p> : null\}/);
+  assert.match(articleListItem, /const date = article\.date\?\.trim\(\) \|\| undefined/);
+  assert.match(publicVisual, /date\?: ReactNode/);
+  assert.match(publicVisual, /date \? <span aria-hidden="true">·<\/span> : null/);
+  for (const source of [articleCard, articleListItem, homeEditorial]) {
+    assert.doesNotMatch(source, /readTime|čas čítania|min čítania/i);
+    assert.doesNotMatch(source, /\bOverené\b|\bPreverené\b/);
+  }
+});
+
+test("ARTICLE-CARDS-1 reserves media geometry and keeps long titles unclamped", () => {
+  const start = globalStyles.indexOf("/* ARTICLE-CARDS-1: shared editorial cards and responsive article grids */");
+  assert.ok(start >= 0, "ARTICLE-CARDS-1 global style contract is missing");
+  const cardStyles = globalStyles.slice(start);
+  assert.match(cardStyles, /\.article-card-media\s*\{[\s\S]*?aspect-ratio:\s*3 \/ 2/);
+  assert.match(cardStyles, /\.article-card--featured \.article-card-media\s*\{[\s\S]*?aspect-ratio:\s*16 \/ 9/);
+  assert.match(cardStyles, /\.article-card-media img[\s\S]*?object-fit:\s*cover/);
+  assert.match(cardStyles, /overflow-wrap:\s*anywhere/);
+  assert.doesNotMatch(cardStyles, /\.article-card-title[\s\S]{0,500}-webkit-line-clamp/);
+  assert.match(articleCard, /loading=\{imagePriority \? "eager" : "lazy"\}/);
+  assert.match(articleCard, /fetchPriority=\{imagePriority \? "high" : "auto"\}/);
+  assert.match(publicVisualStyles, /\.articleListMedia img\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
+});
+
+test("ARTICLE-CARDS-1 reuses shared article presentation on homepage and only adapts article rows inside unified search", () => {
+  assert.match(homeEditorial, /<ArticleCard article=\{lead\} variant="featured" headingLevel=\{3\} \/>/);
+  assert.match(homeEditorial, /<ArticleCard article=\{article\} variant="compact" listItem=\{false\} \/>/);
+  assert.doesNotMatch(homeEditorial, /home-latest-lead-link|home-latest-thumb|home-latest-copy/);
+  assert.match(searchPage, /result\.items\.map\(\(item\) =>/);
+  assert.match(searchPage, /item\.kind === "article" \? styles\.articleResult/);
+  assert.match(searchPage, /\{item\.publishedAt \? \(/);
+  assert.doesNotMatch(searchPage, /<PublicArticleListItem/);
+  assert.match(searchStyles, /\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*128px minmax\(0, 1fr\)/);
+  assert.match(searchStyles, /@media \(max-width: 620px\)[\s\S]*?\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*88px minmax\(0, 1fr\)/);
 });
