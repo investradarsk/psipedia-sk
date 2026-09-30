@@ -301,7 +301,7 @@ test("ORG-1 composition uses organization.id and includes only ACTIVE/RESERVED",
   const result = await getPublicOrganizationCompositionBySlug("canonical-org", database);
   assert.deepEqual(result?.adoptions.map((item) => item.id), [2, 1]);
   const adoptionQuery = database.queries.find((query) => query.sql.includes("FROM adoption_dogs d"));
-  assert.deepEqual(adoptionQuery?.bindings, [7, "ACTIVE", "RESERVED"]);
+  assert.deepEqual(adoptionQuery?.bindings, [7, "ACTIVE", "RESERVED", 6]);
   assert.match(adoptionQuery?.sql ?? "", /d\.organization_id = \?/);
   assert.doesNotMatch(adoptionQuery?.sql ?? "", /organization_name\s*=|organization_slug\s*=/);
 });
