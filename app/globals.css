@@ -15128,6 +15128,126 @@ a.breed-fci-path-node:focus-visible {
   }
 }
 
+/* DATA-QUALITY-5: inline canonical contact suggestions */
+.admin-quality-contact-suggestions {
+  display: grid;
+  gap: 8px;
+  margin-top: 11px;
+  padding: 10px;
+  border: 1px solid #d9e6dd;
+  border-radius: 12px;
+  background: #f7fbf8;
+}
+
+.admin-quality-contact-suggestions-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #315b49;
+  font-size: .7rem;
+}
+
+.admin-quality-contact-suggestions-heading > span {
+  display: inline-flex;
+  min-width: 25px;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e3f0e7;
+  font-weight: 850;
+}
+
+.admin-quality-contact-suggestion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 11px;
+  border: 1px solid #e2ebe5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admin-quality-contact-suggestion > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-quality-contact-suggestion > div:first-child > span {
+  color: #65776e;
+  font-size: .66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.admin-quality-contact-suggestion > div:first-child > strong {
+  overflow-wrap: anywhere;
+  color: #17352b;
+  font-size: .88rem;
+}
+
+.admin-quality-contact-suggestion small {
+  color: #667a70;
+  font-size: .66rem;
+  line-height: 1.45;
+}
+
+.admin-quality-contact-suggestion small a {
+  color: #245d47;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-quality-contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.admin-quality-contact-actions > button {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid #c7d4cc;
+  border-radius: 8px;
+  color: #174b38;
+  background: #fff;
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 820;
+  cursor: pointer;
+}
+
+.admin-quality-contact-actions > button.is-primary {
+  border-color: #1f684b;
+  color: #fff;
+  background: #1f684b;
+}
+
+.admin-quality-contact-actions > button:disabled {
+  opacity: .5;
+  cursor: progress;
+}
+
+@media (max-width: 640px) {
+  .admin-quality-contact-suggestion {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-quality-contact-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-quality-contact-actions > button {
+    width: 100%;
+  }
+}
+
 /* ADMIN-QUALITY-UX-1: focused profile/media review workspace */
 .admin-quality-tabs-wrap {
   display: grid;
